@@ -63,6 +63,12 @@ function clampValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeBonusLabel(bonus) {
+  if (bonus === "W2") return "M2";
+  if (bonus === "W3") return "M3";
+  return bonus;
+}
+
 const BONUS_CLASSES = {
   L2: "bg-[rgba(163,196,243,0.85)] border-[rgba(99,147,230,0.9)] border-2", // bleu clair plus vif
   L3: "bg-[rgba(51,93,227,0.8)] border-[rgba(30,64,175,0.95)] text-white border-2", // bleu profond
@@ -4928,10 +4934,11 @@ function handleTouchEnd() {
               >
                 {board.map((cell, i) => {
                   const { letter, bonus } = cell;
+                  const displayBonus = normalizeBonusLabel(bonus);
                   const isUsed = usedSet.has(i);
                   const letterPts = tileScore(cell);
-                  const bonusClass = bonus
-                    ? BONUS_CLASSES[bonus]
+                  const bonusClass = displayBonus
+                    ? BONUS_CLASSES[displayBonus]
                     : "bg-orange-200 border-orange-500 border-2";
                   const highlightClass = isUsed ? "tile-used" : "";
 
@@ -4968,17 +4975,17 @@ function handleTouchEnd() {
                       {letterPts > 0 ? (
                         <span className="tile-points">{letterPts}</span>
                       ) : null}
-                      {bonus && (
+                      {displayBonus && (
                         <span
                           className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
-                            bonus === "M3"
+                            displayBonus === "M3"
                               ? "bg-red-600 text-white"
-                              : bonus === "M2"
+                              : displayBonus === "M2"
                               ? "bg-blue-700 text-white"
                               : "bg-amber-600 text-white"
                           }`}
                         >
-                          {bonus}
+                          {displayBonus}
                         </span>
                       )}
                     </button>
@@ -5606,10 +5613,11 @@ function handleTouchEnd() {
 
               {board.map((cell, i) => {
                 const { letter, bonus } = cell;
+                const displayBonus = normalizeBonusLabel(bonus);
                 const isUsed = usedSet.has(i);
                 const letterPts = tileScore(cell);
-                const bonusClass = bonus
-                  ? BONUS_CLASSES[bonus]
+                const bonusClass = displayBonus
+                  ? BONUS_CLASSES[displayBonus]
                   : "bg-orange-200 border-orange-500 border-2";
                 const highlightClass = isUsed ? "tile-used" : "";
 
@@ -5643,17 +5651,17 @@ function handleTouchEnd() {
     {letter}
   </span>
   {letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
-  {bonus && (
+  {displayBonus && (
     <span
       className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
-        bonus === "M3"
+        displayBonus === "M3"
           ? "bg-red-600 text-white"
-          : bonus === "M2"
+          : displayBonus === "M2"
           ? "bg-blue-700 text-white"
           : "bg-amber-600 text-white"
       }`}
     >
-      {bonus}
+      {displayBonus}
     </span>
   )}
 </button>
