@@ -1,23 +1,41 @@
 @echo off
-set VM_USER=freebox
-set VM_IP=192.168.1.84
-set REMOTE_PATH=/home/freebox/gobble
+setlocal EnableDelayedExpansion
 
-echo === BUILD FRONT (VITE) ===
-call npm run build
+cd /d "%~dp0"
 
-echo === NETTOYAGE DOSSIER DISTANT ===
-ssh %VM_USER%@%VM_IP% "rm -rf %REMOTE_PATH% && mkdir -p %REMOTE_PATH%"
+echo === 1) GOBBLE: commit + push ===
 
-echo === ENVOI DES FICHIERS ===
-scp -r server %VM_USER%@%VM_IP%:~/gobble/
-scp start.sh %VM_USER%@%VM_IP%:~/gobble/
+git add -A
 
-echo === INSTALL DEPENDANCES SERVEUR ===
-ssh %VM_USER%@%VM_IP% "cd %REMOTE_PATH%/server && npm install --production"
+REM Si rien n'a change, on skip le commit
+git diff --cached --quiet
+if !errorlevel! == 0 (
+  echo Rien a commit.
+) else (
+  set "MSG=%*"
+  if "!MSG!"=="" set "MSG=update"
+  git commit -m "!MSG!"
+  if !errorlevel! neq 0 (
+    echo ERREUR: git commit a echoue
+    pause
+    exit /b 1
+  )
+)
 
-echo === REDÉMARRAGE SERVEUR ===
-ssh %VM_USER%@%VM_IP% "cd %REMOTE_PATH% && ./start.sh"
+git push
+if !errorlevel! neq 0 (
+  echo ERREUR: git push a echoue
+  pause
+  exit /b 1
+)
 
-echo === DEPLOIEMENT TERMINE ===
+echo === 2) VM: pull + build + restart ===
+ssh freebox@192.168.1.84 "cd ~/gobble_git && git pull --ff-only && bash scripts/vm_update.sh"
+if !errorlevel! neq 0 (
+  echo ERREUR: update VM a echoue
+  pause
+  exit /b 1
+)
+
+echo === OK: local push + VM updated ===
 pause
