@@ -69,6 +69,7 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
       kind: "word",
       display: w.display || "",
       pts: w.pts,
+      label: w.label || null,
     };
   });
 

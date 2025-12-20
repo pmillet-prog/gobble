@@ -2420,6 +2420,28 @@ function playTileStepSound(step) {
     });
   }
 
+  function removeLastLetterFromKeyboard() {
+    setStatusMessage("");
+    setCurrentTiles((prev) => {
+      if (!prev.length) return prev;
+      const next = prev.slice(0, -1);
+      currentTilesRef.current = next;
+      if (!next.length) {
+        setHighlightPath([]);
+        return next;
+      }
+      const raw = normalizeWord(next.join(""));
+      if (!raw) {
+        setHighlightPath([]);
+        return next;
+      }
+      const path = findBestPathForWord(board, raw);
+      if (path) setHighlightPath(path);
+      else setHighlightPath([]);
+      return next;
+    });
+  }
+
   /**
    * Gestion clavier globale : Tab pour switch game/chat,
    * lettres pour le jeu uniquement quand activeArea === "game".
@@ -2490,7 +2512,7 @@ function playTileStepSound(step) {
       if (k === "backspace") {
         e.preventDefault();
         setLastInputMode("keyboard");
-        clearSelection();
+        removeLastLetterFromKeyboard();
       }
     }
 
@@ -2609,6 +2631,18 @@ function playTileStepSound(step) {
       }
 
       const lastIndex = prevPath[prevPath.length - 1];
+      const prevIndex = prevPath[prevPath.length - 2];
+
+      if (prevPath.length >= 2 && index === prevIndex) {
+        const nextPath = prevPath.slice(0, -1);
+        setCurrentTiles((prevLetters) => {
+          const newLetters = prevLetters.slice(0, -1);
+          currentTilesRef.current = newLetters;
+          tileStepRef.current = Math.max(0, newLetters.length - 1);
+          return newLetters;
+        });
+        return nextPath;
+      }
 
       const neigh = neighbors(lastIndex, gridSize);
       if (!neigh.includes(index)) return prevPath;
@@ -2783,12 +2817,12 @@ function handleTouchEnd() {
         setLastWords((prev) => {
           const displayStr = display || raw.toUpperCase();
           const now = Date.now();
-          const feedLabel = isTargetRoundNow ? "GOBBLE" : null;
+          const feedLabel = isTargetRoundNow ? "gobble" : null;
           const next = [
             { id: now, ts: now, display: displayStr, pts, label: feedLabel, bonuses: wordBonuses },
             ...prev,
           ];
-          return next.slice(0, 8);
+          return next.slice(0, 24);
         });
 
         const wordLen = normalizeWord(display || raw || "").length || 3;
@@ -2852,14 +2886,17 @@ function handleTouchEnd() {
     pushWordHistory(raw);
 
     const wordBonuses = summarizeBonuses(path, board);
+    const isTargetRoundNow =
+      specialRound?.type === "target_long" || specialRound?.type === "target_score";
     setLastWords((prev) => {
       const displayStr = display || raw.toUpperCase();
       const now = Date.now();
+      const feedLabel = isTargetRoundNow ? "gobble" : null;
       const next = [
-        { id: now, ts: now, display: displayStr, pts, bonuses: wordBonuses },
+        { id: now, ts: now, display: displayStr, pts, label: feedLabel, bonuses: wordBonuses },
         ...prev,
       ];
-      return next.slice(0, 8);
+      return next.slice(0, 24);
     });
 
     const wordLen = normalizeWord(display || raw || "").length || 3;
@@ -3555,6 +3592,8 @@ function handleTouchEnd() {
     tileSizePx * gridSize + tileGapPx * (gridSize - 1) + GRID_PADDING_PX;
   const fontScale = gridSize >= 5 ? 0.68 : 1; // 5x5 plus petit sans toucher 4x4
   const tileFontPx = Math.max(14, Math.min(32, tileSizePx * 0.48 * fontScale));
+  const previewBarMinHeight = 56;
+  const previewTileStyle = {};
   const countdownLabel = (() => {
     if (phase === "playing") {
       const sec = Math.max(0, tick || 0);
@@ -3803,7 +3842,9 @@ function handleTouchEnd() {
           ))}
         </div>
 
-        <div className="relative z-10 max-w-3xl mx-auto px-4 py-8 flex flex-col gap-4">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 min-w-0 flex flex-col gap-4">
           <div className="text-center">
             <div className="text-sm font-semibold tracking-widest opacity-80">FIN DU MINI-TOURNOI</div>
             <div className="mt-1 text-3xl sm:text-4xl font-black tracking-tight">
@@ -3887,6 +3928,104 @@ function handleTouchEnd() {
             </div>
           </div>
         </div>
+        <div className="hidden lg:flex w-full lg:w-[320px] xl:w-[360px] flex-col">
+          <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
+            <h2 className="font-bold mb-2 text-center">Chat</h2>
+            <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
+              {visibleMessages.map((msg, idx) => {
+                const count = visibleMessages.length;
+                const rankFromBottom = count - 1 - idx;
+                let opacity = 1;
+
+                if (rankFromBottom >= FULL_VISIBLE_LINES_FROM_BOTTOM) {
+                  const extra =
+                    rankFromBottom - (FULL_VISIBLE_LINES_FROM_BOTTOM - 1);
+                  const maxExtra =
+                    MAX_CHAT_LINES - FULL_VISIBLE_LINES_FROM_BOTTOM;
+                  const t = Math.min(extra / maxExtra, 1);
+                  opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
+                }
+
+                const author = (msg.author || msg.nick || "Anonyme").trim();
+                const isYou = author === nickname.trim();
+                const isSystem = ["systeme", "system", "systÇùme"].includes(
+                  author.toLowerCase()
+                );
+                const isLast = msg.id === lastMessageId;
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`w-full transition-opacity duration-300 ${
+                      isLast ? "slide-fade-in" : ""
+                    }`}
+                    style={{ opacity }}
+                  >
+                    {isSystem ? (
+                      <div className="w-full px-1 py-0.5 text-[0.65rem] italic text-orange-700">
+                        {msg.text}
+                      </div>
+                    ) : (
+                      <div
+                        className={[
+                          "w-full px-1 py-0.5 text-[0.7rem]",
+                          isYou ? "bg-blue-50" : "bg-white",
+                        ].join(" ")}
+                      >
+                        <span className="font-semibold mr-1 text-black">
+                          {author} :
+                        </span>
+                        <span className="text-black">{msg.text}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              {QUICK_REPLIES.map((txt, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => submitChat(null, txt)}
+                  className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200"
+                >
+                  {txt}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={submitChat} className="mt-3 flex gap-2">
+              <input
+                ref={chatInputRef}
+                type="text"
+                className="flex-1 border rounded px-2 py-1 text-xs"
+                placeholder="Ç¸crire un message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    cycleChatHistory(-1);
+                  } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    cycleChatHistory(1);
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
+                disabled={!chatInput.trim()}
+              >
+                Envoyer
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
       </div>
     );
   }
@@ -4360,19 +4499,21 @@ function handleTouchEnd() {
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setMobileChatUnreadCount(0);
-              setIsChatOpenMobile(true);
-            }}
-            className="fixed bottom-4 right-4 z-30 px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative"
-          >
-            Chat
-            {mobileChatUnreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-            )}
-          </button>
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileChatUnreadCount(0);
+                setIsChatOpenMobile(true);
+              }}
+              className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
+            >
+              Chat
+              {mobileChatUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
+              )}
+            </button>
+          </div>
 
           {isChatOpenMobile && (
             <div
@@ -4869,19 +5010,21 @@ function handleTouchEnd() {
         </div>
 
         {/* Bouton de chat flottant + volet de chat */}
-        <button
-          type="button"
-          onClick={() => {
-            setMobileChatUnreadCount(0);
-            setIsChatOpenMobile(true);
-          }}
-          className="fixed bottom-4 right-4 z-30 px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative"
-        >
-          Chat
-          {mobileChatUnreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-          )}
-        </button>
+        <div className="fixed bottom-4 right-4 z-30">
+          <button
+            type="button"
+            onClick={() => {
+              setMobileChatUnreadCount(0);
+              setIsChatOpenMobile(true);
+            }}
+            className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
+          >
+            Chat
+            {mobileChatUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </button>
+        </div>
 
         {isChatOpenMobile && (
           <div
@@ -5536,7 +5679,7 @@ function handleTouchEnd() {
             )}
             <div
               className={`w-full text-center font-bold text-lg flex items-center justify-center ${shake ? "shake" : ""}`}
-              style={{ minHeight: "56px" }}
+              style={{ minHeight: `${previewBarMinHeight}px` }}
             >
                   {phase !== "playing" ? (
     <span className="text-gray-800 dark:text-white">
@@ -5564,7 +5707,7 @@ function handleTouchEnd() {
           <div
             key={idx}
             className="preview-tile"
-            style={{ transform: `rotate(${angle}deg)` }}
+            style={{ ...previewTileStyle, transform: `rotate(${angle}deg)` }}
           >
             {ch}
           </div>
