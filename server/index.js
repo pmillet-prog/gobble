@@ -1,11 +1,12 @@
 ﻿// server/index.js
+import path from "path";
+import { fileURLToPath } from "url";
+
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { readFileSync, appendFileSync, mkdirSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 
 import {
   generateGrid,
@@ -14,7 +15,8 @@ import {
   normalizeWord,
 } from "../shared/gameLogic.js";
 import { createBotManager } from "./bots/botManager.js";
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 
@@ -78,8 +80,7 @@ const ROOM_CONFIGS = {
   },
 };
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
 
 const LOG_DIR = path.join(__dirname, "logs");
 const CONNECTIONS_LOG_PATH = path.join(LOG_DIR, "connections.log");
