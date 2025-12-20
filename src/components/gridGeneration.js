@@ -13,10 +13,11 @@ export function generateGrid(gridSize) {
     .map(() => ({ letter: randomLetter(), bonus: null }));
 
   const shuffled = [...Array(T).keys()].sort(() => 0.5 - Math.random());
-  const bonuses = ["L2", "L3", "W2", "W3"];
+  const bonuses = ["L2", "L3", "M2", "M3"];
   bonuses.forEach((bonus, i) => {
     base[shuffled[i]].bonus = bonus;
   });
 
   return base;
 }
+

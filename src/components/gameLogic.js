@@ -131,10 +131,10 @@ export function computeScore(word, path, board) {
 
     if (bonus === "L2") base += letterValue * 2;
     else if (bonus === "L3") base += letterValue * 3;
-    else if (bonus === "W2") {
+    else if (bonus === "M2") {
       base += letterValue;
       wordMultiplier *= 2;
-    } else if (bonus === "W3") {
+    } else if (bonus === "M3") {
       base += letterValue;
       wordMultiplier *= 3;
     } else base += letterValue;
@@ -155,7 +155,7 @@ export function computeScore(word, path, board) {
 }
 
 export function summarizeBonuses(path, board) {
-  const counts = { L2: 0, L3: 0, W2: 0, W3: 0 };
+  const counts = { L2: 0, L3: 0, M2: 0, M3: 0 };
   for (const idx of path) {
     const bonus = board[idx]?.bonus;
     if (bonus && counts[bonus] !== undefined) counts[bonus]++;
@@ -218,3 +218,4 @@ export function solveAll(board, dictionary) {
   }
   return found;
 }
+

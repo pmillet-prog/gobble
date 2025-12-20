@@ -82,7 +82,7 @@ export function neighbors(i, size = SIZE, total = null) {
 
 // Reproduit la logique de startGame() dans ton App.jsx :
 // - 25 tuiles { letter, bonus }
-// - 4 bonus placés aléatoirement : L2, L3, W2, W3
+// - 4 bonus placés aléatoirement : L2, L3, M2, M3
 export function generateGrid(size = SIZE) {
   const T = size * size;
 
@@ -91,7 +91,7 @@ export function generateGrid(size = SIZE) {
     .map(() => ({ letter: randomLetter(), bonus: null }));
 
   const shuffled = [...Array(T).keys()].sort(() => 0.5 - Math.random());
-  const bonuses = ["L2", "L3", "W2", "W3"];
+  const bonuses = ["L2", "L3", "M2", "M3"];
   bonuses.forEach((bonus, i) => {
     base[shuffled[i]].bonus = bonus;
   });
@@ -121,10 +121,10 @@ export function computeScore(wordNorm, path, board) {
 
     if (bonus === "L2") base += letterValue * 2;
     else if (bonus === "L3") base += letterValue * 3;
-    else if (bonus === "W2") {
+    else if (bonus === "M2") {
       base += letterValue;
       wordMultiplier *= 2;
-    } else if (bonus === "W3") {
+    } else if (bonus === "M3") {
       base += letterValue;
       wordMultiplier *= 3;
     } else {
@@ -143,7 +143,7 @@ export function computeScore(wordNorm, path, board) {
 }
 
 export function summarizeBonuses(path, board) {
-  const counts = { L2: 0, L3: 0, W2: 0, W3: 0 };
+  const counts = { L2: 0, L3: 0, M2: 0, M3: 0 };
   for (const idx of path) {
     const bonus = board[idx]?.bonus;
     if (bonus && counts[bonus] !== undefined) counts[bonus]++;
@@ -255,3 +255,4 @@ export function scoreWordOnGrid(rawWord, board) {
   const pts = computeScore(norm, path, board);
   return { norm, path, pts };
 }
+

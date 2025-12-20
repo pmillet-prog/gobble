@@ -14,13 +14,15 @@ cd server
 npm ci
 
 echo "=== Restart back (4000) ==="
-pkill -f "gobble_git/server/index.js" 2>/dev/null || true
+fuser -k 4000/tcp 2>/dev/null || true
 nohup npm start > "$HOME/server.log" 2>&1 &
 
+
 echo "=== Restart front (3000) ==="
-pkill -f "serve -s dist -l 3000" 2>/dev/null || true
+fuser -k 3000/tcp 2>/dev/null || true
 cd ..
 nohup npx serve -s dist -l 3000 > "$HOME/front.log" 2>&1 &
+
 
 echo "=== Ports ==="
 ss -lntp | egrep '(:3000|:4000)\b' || true

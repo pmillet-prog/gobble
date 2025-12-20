@@ -66,8 +66,8 @@ function clampValue(value, min, max) {
 const BONUS_CLASSES = {
   L2: "bg-[rgba(163,196,243,0.85)] border-[rgba(99,147,230,0.9)] border-2", // bleu clair plus vif
   L3: "bg-[rgba(51,93,227,0.8)] border-[rgba(30,64,175,0.95)] text-white border-2", // bleu profond
-  W2: "bg-[rgba(255,191,180,0.9)] border-[rgba(248,113,113,0.95)] border-2", // corail vif
-  W3: "bg-[rgba(239,68,68,0.85)] border-[rgba(185,28,28,0.95)] text-white border-2", // rouge intense
+  M2: "bg-[rgba(255,191,180,0.9)] border-[rgba(248,113,113,0.95)] border-2", // corail vif
+  M3: "bg-[rgba(239,68,68,0.85)] border-[rgba(185,28,28,0.95)] text-white border-2", // rouge intense
 };
 
 
@@ -336,13 +336,13 @@ body.theme-dark .tile-btn[data-bonus="L3"] {
   color: #f8fafc !important;
 }
 
-body.theme-dark .tile-btn[data-bonus="W2"] {
+body.theme-dark .tile-btn[data-bonus="M2"] {
   background-color: rgba(255, 183, 197, 0.34) !important;
   border-color: rgba(255, 183, 197, 0.94) !important;
   color: #fff5f7 !important;
 }
 
-body.theme-dark .tile-btn[data-bonus="W3"] {
+body.theme-dark .tile-btn[data-bonus="M3"] {
   background-color: rgba(239, 68, 68, 0.30) !important;
   border-color: rgba(239, 68, 68, 0.95) !important;
   color: #fef2f2 !important;
@@ -2634,6 +2634,18 @@ function playTileStepSound(step) {
       const prevIndex = prevPath[prevPath.length - 2];
 
       if (prevPath.length >= 2 && index === prevIndex) {
+        // Safe zone: only allow backtrack when pointer is close to the previous tile center.
+        const el = tileRefs.current[index];
+        if (el && e) {
+          const rect = el.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = (e.clientX ?? cx) - cx;
+          const dy = (e.clientY ?? cy) - cy;
+          const dist = Math.hypot(dx, dy);
+          const safeRadius = Math.min(rect.width, rect.height) * 0.38;
+          if (dist > safeRadius) return prevPath;
+        }
         const nextPath = prevPath.slice(0, -1);
         setCurrentTiles((prevLetters) => {
           const newLetters = prevLetters.slice(0, -1);
@@ -3000,13 +3012,13 @@ function handleTouchEnd() {
 
   const currentBonuses = summarizeBonuses(highlightPath, board);
   const wordMultiplier =
-    Math.pow(2, currentBonuses.W2 || 0) * Math.pow(3, currentBonuses.W3 || 0);
+    Math.pow(2, currentBonuses.M2 || 0) * Math.pow(3, currentBonuses.M3 || 0);
   const showBonuses =
     highlightPath.length > 0 &&
     (currentBonuses.L2 ||
       currentBonuses.L3 ||
-      currentBonuses.W2 ||
-      currentBonuses.W3);
+      currentBonuses.M2 ||
+      currentBonuses.M3);
   const chipCompact = currentTiles.length > 10;
   const foundDotStyle = {
     width: "0.4rem",
@@ -4786,7 +4798,7 @@ function handleTouchEnd() {
               <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
               <li>Entrée valide le mot, Backspace efface.</li>
               <li>Tab alterne entre saisie et chat (focus automatique).</li>
-              <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (W2/W3) + bonus de longueur.</li>
+              <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
             </ul>
           </div>
         )}
@@ -4959,9 +4971,9 @@ function handleTouchEnd() {
                       {bonus && (
                         <span
                           className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
-                            bonus === "W3"
+                            bonus === "M3"
                               ? "bg-red-600 text-white"
-                              : bonus === "W2"
+                              : bonus === "M2"
                               ? "bg-blue-700 text-white"
                               : "bg-amber-600 text-white"
                           }`}
@@ -5321,7 +5333,7 @@ function handleTouchEnd() {
             <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
             <li>Entrée valide le mot, Backspace efface.</li>
             <li>Tab alterne entre saisie et chat (focus automatique).</li>
-            <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (W2/W3) + bonus de longueur.</li>
+            <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
           </ul>
         </div>
       )}
@@ -5634,9 +5646,9 @@ function handleTouchEnd() {
   {bonus && (
     <span
       className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
-        bonus === "W3"
+        bonus === "M3"
           ? "bg-red-600 text-white"
-          : bonus === "W2"
+          : bonus === "M2"
           ? "bg-blue-700 text-white"
           : "bg-amber-600 text-white"
       }`}
@@ -6020,6 +6032,7 @@ function handleTouchEnd() {
     </div>
   );
 }
+
 
 
 
