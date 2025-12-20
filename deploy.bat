@@ -30,7 +30,8 @@ if !errorlevel! neq 0 (
 )
 
 echo === 2) VM: pull + build + restart ===
-ssh freebox@192.168.1.84 "cd ~/gobble_git && git pull --ff-only && bash scripts/vm_update.sh"
+ssh freebox@192.168.1.84 "cd ~/gobble_git && git fetch origin && git reset --hard origin/main && git clean -fd && bash scripts/vm_update.sh"
+
 if !errorlevel! neq 0 (
   echo ERREUR: update VM a echoue
   pause
