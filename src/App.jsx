@@ -81,6 +81,7 @@ const BONUS_CLASSES = {
 const slideStyles = `
 html {
   color-scheme: light;
+  -webkit-text-size-adjust: 100%;
 }
 html.dark {
   color-scheme: dark;
@@ -88,6 +89,11 @@ html.dark {
 body {
   background-color: #ffffff;
   color: #0f172a;
+}
+
+.ios-input {
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 @keyframes slideFadeIn {
@@ -608,6 +614,7 @@ export default function App() {
   const [tournamentRanking, setTournamentRanking] = useState([]); // [{ nick, score }]
   const [tournamentRoundPoints, setTournamentRoundPoints] = useState({}); // nick -> points earned this round
   const [tournamentSummary, setTournamentSummary] = useState(null); // finale: { winnerNick, records, ranking }
+  const [tournamentSummaryAt, setTournamentSummaryAt] = useState(null);
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
   const [specialHint, setSpecialHint] = useState(null); // { kind, pattern, length }
@@ -1605,6 +1612,7 @@ function playTileStepSound(step) {
       setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
       setBreakKind(null);
       setTournamentSummary(null);
+      setTournamentSummaryAt(null);
       setTournament(tournamentPayload || null);
       setSpecialHint(null);
       setSpecialSolvedOverlay(null);
@@ -1628,6 +1636,7 @@ function playTileStepSound(step) {
       results = [],
       tournament: tournamentPayload = null,
       tournamentSummary: summary = null,
+      tournamentSummaryAt: summaryAt = null,
     }) {
       botTimersRef.current.forEach((id) => clearTimeout(id));
       botTimersRef.current.clear();
@@ -1660,11 +1669,8 @@ function playTileStepSound(step) {
           : []
       );
       setTournamentSummary(summary || null);
-      if (tournamentPayload?.breakKind === "tournament_end") {
-        setResultsRankingMode("total");
-      } else {
-        setResultsRankingMode("round");
-      }
+      setTournamentSummaryAt(summaryAt || null);
+      setResultsRankingMode("round");
 
       if (Array.isArray(results)) {
         const selfScore = results.find((r) => r.nick === nickname.trim())?.score;
@@ -1681,14 +1687,23 @@ function playTileStepSound(step) {
       tournament: tournamentPayload = null,
       nextSpecial = null,
       tournamentSummary: summary = null,
+      tournamentSummaryAt: summaryAt = null,
     }) {
       if (incomingRoomId && currentRoomId && incomingRoomId !== currentRoomId) return;
       syncServerTime();
       setNextStartAt(nextTs || null);
       setBreakKind(bk);
+      if (bk) {
+        setPhase("results");
+        setServerStatus("break");
+        setServerEndsAt(null);
+        setServerRoundDurationMs(null);
+        setRoundId(null);
+      }
       if (tournamentPayload) setTournament(tournamentPayload);
       setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
       if (summary) setTournamentSummary(summary);
+      setTournamentSummaryAt(summaryAt || null);
     }
 
     function onPlayersUpdate(list = []) {
@@ -3739,13 +3754,13 @@ function handleTouchEnd() {
             <label className="text-sm font-semibold">
               Pseudo
               <input
-              type="text"
-              className="mt-1 w-full px-3 py-2 rounded-lg bg-white text-slate-900 outline-none border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/60"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              disabled={isConnecting}
-              maxLength={25}
-            />
+                type="text"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white text-slate-900 outline-none border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/60 ios-input"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                disabled={isConnecting}
+                maxLength={25}
+              />
             </label>
             {loginError && (
               <div className="text-red-300 text-xs">{loginError}</div>
@@ -3804,6 +3819,7 @@ function handleTouchEnd() {
   const showTournamentFinale =
     phase === "results" &&
     breakKind === "tournament_end" &&
+    (!tournamentSummaryAt || getNowServerMs() >= tournamentSummaryAt || !roundId) &&
     tournamentSummary &&
     Array.isArray(tournamentSummary.ranking) &&
     tournamentSummary.ranking.length > 0;
@@ -4018,7 +4034,7 @@ function handleTouchEnd() {
               <input
                 ref={chatInputRef}
                 type="text"
-                className="flex-1 border rounded px-2 py-1 text-xs"
+                className="flex-1 border rounded px-2 py-1 text-xs ios-input"
                 placeholder="Ç¸crire un message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -4042,8 +4058,101 @@ function handleTouchEnd() {
             </form>
           </div>
         </div>
-      </div>
-    </div>
+          </div>
+        </div>
+        <div className="fixed bottom-4 right-4 z-30">
+          <button
+            type="button"
+            onClick={() => {
+              setMobileChatUnreadCount(0);
+              setIsChatOpenMobile(true);
+            }}
+            className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
+          >
+            Chat
+            {mobileChatUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </button>
+        </div>
+        {isChatOpenMobile && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
+            <div
+              className={`w-full max-h-[70vh] rounded-t-2xl border-t ${
+                darkMode
+                  ? "bg-slate-900 text-slate-100 border-slate-700"
+                  : "bg-white text-slate-900 border-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-slate-700">
+                <div className="font-semibold text-sm">Chat</div>
+                <button
+                  type="button"
+                  onClick={() => setIsChatOpenMobile(false)}
+                  className="text-[11px] px-2 py-1 rounded-full border border-slate-300 dark:border-slate-600"
+                >
+                  Fermer
+                </button>
+              </div>
+              <div className="flex flex-col h-[50vh] px-3 py-2 gap-2">
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
+                  {visibleMessages.length === 0 ? (
+                    <div className="text-[11px] text-slate-400 text-center mt-4">
+                      Aucun message pour l'instant.
+                    </div>
+                  ) : (
+                    [...visibleMessages].reverse().map((msg) => {
+                      const author = (msg.author || msg.nick || "Anonyme").trim();
+                      const isYou = author === selfNick;
+                      const isSystem = ["systeme", "system", "systËme"].includes(
+                        author.toLowerCase()
+                      );
+                      return (
+                        <div
+                          key={msg.id}
+                          className={
+                            isSystem
+                              ? "px-2 py-0.5 text-[0.65rem] italic text-orange-700 dark:text-amber-300 self-start"
+                              : `px-2 py-1 rounded-lg ${
+                                  isYou
+                                    ? "bg-blue-600 text-white self-end"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 self-start"
+                                }`
+                          }
+                        >
+                          {isSystem ? (
+                            <span>{msg.text}</span>
+                          ) : (
+                            <>
+                              <span className="font-semibold mr-1">{author}:</span>
+                              <span>{msg.text}</span>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <form onSubmit={submitChat} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    className="flex-1 border rounded px-2 py-1 text-xs ios-input"
+                    placeholder="écrire un message..."
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
+                    disabled={!chatInput.trim()}
+                  >
+                    Envoyer
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -4608,7 +4717,7 @@ function handleTouchEnd() {
                       ref={chatInputRef}
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      className="flex-1 border rounded px-2 py-1 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
+                      className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
                       placeholder="écrire un message..."
                     />
                     <button
@@ -5118,7 +5227,7 @@ function handleTouchEnd() {
                   <input
                     ref={chatInputRef}
                     type="text"
-                    className="flex-1 border rounded px-2 py-1 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
+                    className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
                     placeholder="écrire un message..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -5988,7 +6097,7 @@ function handleTouchEnd() {
             <input
               ref={chatInputRef}
               type="text"
-              className="flex-1 border rounded px-2 py-1 text-xs"
+              className="flex-1 border rounded px-2 py-1 text-xs ios-input"
               placeholder="écrire un message..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}

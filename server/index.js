@@ -42,10 +42,10 @@ const NICK_MAX_LEN = 25;
 const RESERVATION_MS = 3 * 60 * 1000; // pseudo réservé apres déco
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 5;
-const MIN_WORDS_BY_SIZE = { 4: 50, 5 : 100 }; 
+const MIN_WORDS_BY_SIZE = { 4: 120, 5 : 100 }; 
 const MAX_QUALITY_ATTEMPTS = 50;
 const SPECIAL_ROUND_EVERY = 5;
-const SPEED_MIN_WORDS = { 4: 200, 5: 400 };
+const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
 const MONSTROUS_MIN_TOTAL_SCORE = { 4: 2000, 5: 4000 };
 const MONSTROUS_MIN_LONG_WORD_LEN = 10;
@@ -54,7 +54,9 @@ const SPECIAL_QUALITY_ATTEMPTS = 220;
 
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
-const TOURNAMENT_FINAL_BREAK_MS = 45 * 1000;
+const TOURNAMENT_RESULTS_BREAK_MS = 20 * 1000;
+const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
+const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
@@ -1382,10 +1384,12 @@ function endRoundForRoom(room) {
   let breakMs = room.config.breakMs;
   let breakKind = "between_rounds";
   let tournamentSummary = null;
+  let tournamentSummaryAt = null;
 
   if (t && tournamentRound === (t.totalRounds || TOURNAMENT_TOTAL_ROUNDS)) {
-    breakMs = TOURNAMENT_FINAL_BREAK_MS;
+    breakMs = TOURNAMENT_END_TOTAL_BREAK_MS;
     breakKind = "tournament_end";
+    tournamentSummaryAt = Date.now() + TOURNAMENT_RESULTS_BREAK_MS;
 
     const winnerNick = totalRanking[0]?.nick || null;
     tournamentSummary = {
@@ -1420,6 +1424,7 @@ function endRoundForRoom(room) {
     },
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
+    tournamentSummaryAt,
   });
   room.breakState = {
     nextStartAt,
@@ -1432,6 +1437,7 @@ function endRoundForRoom(room) {
     },
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
+    tournamentSummaryAt,
   };
 
   io.to(room.id).emit("roundEnded", {
@@ -1457,6 +1463,7 @@ function endRoundForRoom(room) {
     },
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
+    tournamentSummaryAt,
   });
 
   const nextRoundNumber = (room.roundCounter || 0) + 1;
@@ -1614,6 +1621,7 @@ io.on("connection", (socket) => {
         tournament: room.breakState.tournament,
         nextSpecial: room.breakState.nextSpecial || null,
         tournamentSummary: room.breakState.tournamentSummary || null,
+        tournamentSummaryAt: room.breakState.tournamentSummaryAt || null,
       });
     }
   });
@@ -1682,6 +1690,7 @@ botManager = createBotManager({
   ensurePlayerInRound,
   submitWordForNick,
   emitPlayers,
+  emitMedals,
   broadcastProvisionalRanking,
 });
 
@@ -1691,7 +1700,3 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 rooms.forEach((room) => startRoundForRoom(room));
-
-
-
-

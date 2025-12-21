@@ -138,6 +138,26 @@ export default function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) 
     });
   };
 
+  const renderAnnouncementText = (text = "", nick) => {
+    if (!text) return null;
+    const emphasisSplitRe =
+      /(record de mot|mot le plus long|mot en or|meilleur mot|record de score)/gi;
+    const emphasisTestRe =
+      /^(record de mot|mot le plus long|mot en or|meilleur mot|record de score)$/i;
+    const chunks = text.split(emphasisSplitRe);
+    return chunks.map((chunk, idx) => {
+      if (!chunk) return null;
+      if (emphasisTestRe.test(chunk)) {
+        return (
+          <em key={`em-${idx}`} className="text-blue-600">
+            {chunk}
+          </em>
+        );
+      }
+      return <span key={`rt-${idx}`}>{renderRichText(chunk, nick)}</span>;
+    });
+  };
+
   return (
     <div
       className={`flex flex-col gap-2 ${color}`}
@@ -173,7 +193,7 @@ export default function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) 
           }
           return (
             <div key={key} className="text-[11px] leading-tight italic">
-              {renderRichText(item.text, item.nick)}
+              {renderAnnouncementText(item.text, item.nick)}
             </div>
           );
         })}

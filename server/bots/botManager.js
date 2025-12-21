@@ -1,11 +1,14 @@
 import { solveGrid } from "../../shared/gameLogic.js";
 
 export const MAX_WORDS_PER_BOT_PER_ROUND = 220;
+const BOT_ROTATION_MINUTES = 20;
 
 // Modifiez librement ces listes : noms fixes, niveaux varies, fenetres de pause.
 export const BOT_ROSTER_4X4 = [
   { nick: "Proutosaurus Rex", skill: 0.82, maxWordsPerRound: 92, minWordsPerRound: 35, pointBias: 0.85, pace: 0.9, sleep: { startHour: 2, durationHours: 2 } },
+  { nick: "ProtoPanache", skill: 0.9, maxWordsPerRound: 96, minWordsPerRound: 38, pointBias: 0.88, pace: 1.05, sleep: { startHour: 4, durationHours: 3 } },
   { nick: "Crux", skill: 0.74, maxWordsPerRound: 82, minWordsPerRound: 30, pointBias: 0.78, pace: 1.05 },
+  { nick: "QuasarMots", skill: 0.88, maxWordsPerRound: 90, minWordsPerRound: 36, pointBias: 0.84, pace: 1.02, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Celie", skill: 0.66, maxWordsPerRound: 74, minWordsPerRound: 28, pointBias: 0.7, pace: 1.0, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Sylvie50", skill: 0.6, maxWordsPerRound: 71, minWordsPerRound: 25, pointBias: 0.65, pace: 0.95 },
   { nick: "Alcapouet", skill: 0.55, maxWordsPerRound: 69, minWordsPerRound: 22, pointBias: 0.55, pace: 1.1 },
@@ -56,11 +59,15 @@ export const BOT_ROSTER_4X4 = [
   { nick: "Torto", skill: 0.12, maxWordsPerRound: 18, minWordsPerRound: 5, pointBias: 0.18, pace: 0.7 },
   { nick: "LazyLlama", skill: 0.1, maxWordsPerRound: 16, minWordsPerRound: 4, pointBias: 0.16, pace: 0.68 },
   { nick: "Marmotte", skill: 0.08, maxWordsPerRound: 14, minWordsPerRound: 4, pointBias: 0.14, pace: 0.65 },
+  { nick: "TataPousse", skill: 0.07, maxWordsPerRound: 12, minWordsPerRound: 3, pointBias: 0.12, pace: 0.62 },
+  { nick: "Tremblote", skill: 0.06, maxWordsPerRound: 11, minWordsPerRound: 3, pointBias: 0.1, pace: 0.6 },
 ];
 
 export const BOT_ROSTER_5X5 = [
   { nick: "connard32", skill: 0.86, maxWordsPerRound: 91, minWordsPerRound: 42, pointBias: 0.88, pace: 0.95, sleep: { startHour: 3, durationHours: 2 } },
+  { nick: "OrgaMots", skill: 0.9, maxWordsPerRound: 98, minWordsPerRound: 46, pointBias: 0.9, pace: 1.05, sleep: { startHour: 4, durationHours: 3 } },
   { nick: "Nebula", skill: 0.78, maxWordsPerRound: 90, minWordsPerRound: 34, pointBias: 0.82, pace: 1.05 },
+  { nick: "Harmonix", skill: 0.84, maxWordsPerRound: 92, minWordsPerRound: 38, pointBias: 0.86, pace: 1.02, sleep: { startHour: 2, durationHours: 3 } },
   { nick: "Valyr", skill: 0.7, maxWordsPerRound: 88, minWordsPerRound: 30, pointBias: 0.76, pace: 1.0 },
   { nick: "Opale", skill: 0.62, maxWordsPerRound: 85, minWordsPerRound: 28, pointBias: 0.7, pace: 0.92 },
   { nick: "Zébulon48", skill: 0.56, maxWordsPerRound: 74, minWordsPerRound: 24, pointBias: 0.6, pace: 1.12 },
@@ -81,6 +88,8 @@ export const BOT_ROSTER_5X5 = [
   { nick: "Mollasson", skill: 0.14, maxWordsPerRound: 22, minWordsPerRound: 6, pointBias: 0.2, pace: 0.7 },
   { nick: "Slowpoke", skill: 0.12, maxWordsPerRound: 20, minWordsPerRound: 5, pointBias: 0.18, pace: 0.68 },
   { nick: "Gaufrette", skill: 0.1, maxWordsPerRound: 18, minWordsPerRound: 4, pointBias: 0.16, pace: 0.66 },
+  { nick: "Patapouf", skill: 0.08, maxWordsPerRound: 16, minWordsPerRound: 4, pointBias: 0.14, pace: 0.64 },
+  { nick: "Tranquillou", skill: 0.06, maxWordsPerRound: 14, minWordsPerRound: 3, pointBias: 0.12, pace: 0.62 },
 ];
 
 const BOT_ROSTERS_BY_SIZE = {
@@ -88,7 +97,7 @@ const BOT_ROSTERS_BY_SIZE = {
   4: BOT_ROSTER_4X4,
 };
 
-const ELITE_BOT_NICKS = new Set(["Proutosaurus Rex", "connard32"]);
+const ELITE_BOT_NICKS = new Set(["Proutosaurus Rex", "connard32", "ProtoPanache", "OrgaMots", "Harmonix", "QuasarMots"]);
 const BOT_NERF = {
   skill: 0.6,
   maxWords: 0.55,
@@ -159,6 +168,25 @@ function getParisHour(date) {
   return getHourInTimeZone(date, "Europe/Paris");
 }
 
+function getMinuteInTimeZone(date, timeZone) {
+  try {
+    const dtf = new Intl.DateTimeFormat("en-GB", {
+      minute: "numeric",
+      timeZone: timeZone || "Europe/Paris",
+    });
+    const minute = Number(dtf.format(date));
+    if (Number.isFinite(minute)) return minute;
+  } catch (_) {}
+  return date.getMinutes();
+}
+
+function getParisTimeSlotKey(date, slotMinutes = BOT_ROTATION_MINUTES) {
+  const hour = getParisHour(date);
+  const minute = getMinuteInTimeZone(date, "Europe/Paris");
+  const slot = Math.floor(Math.max(0, minute) / slotMinutes);
+  return `${getParisDateKey(date)}-${hour}-s${slot}`;
+}
+
 function getParisDateKey(date) {
   try {
     return new Intl.DateTimeFormat("en-CA", {
@@ -197,7 +225,10 @@ function desiredTotalPlayersForRoom(room, date = new Date()) {
   else if (hour < 14) base = weekend ? 18 : 17;
   else if (hour < 18) base = weekend ? 16 : 14;
   else if (hour < 23) base = weekend ? 22 : 24;
+  else if (hour < 24) base = weekend ? 16 : 14;
   else base = 10;
+  if (hour === 23) base = weekend ? 18 : 16;
+  if (hour === 0) base = weekend ? 20 : 18;
 
   const size = room?.config?.gridSize;
   const popularity = size === 5 ? 0.75 : 1;
@@ -219,6 +250,16 @@ export function isBotSleeping(bot, date = new Date()) {
     return hour >= start && hour < end;
   }
   return hour >= start || hour < end;
+}
+
+function shouldBotRestNow(bot, date = new Date()) {
+  const slotKey = getParisTimeSlotKey(date, BOT_ROTATION_MINUTES);
+  const seeded = mulberry32(hashString(`${bot?.nick || "bot"}-${slotKey}-rest`));
+  const base = 0.06;
+  const skill = clamp01(bot?.skill ?? 0.4);
+  const eliteBoost = ELITE_BOT_NICKS.has(bot?.nick) ? 0.08 : 0;
+  const chance = Math.min(0.28, base + skill * 0.08 + eliteBoost);
+  return seeded() < chance;
 }
 
 function rosterForRoom(room) {
@@ -339,6 +380,7 @@ class BotManager {
     ensurePlayerInRound,
     submitWordForNick,
     emitPlayers,
+    emitMedals,
     broadcastProvisionalRanking,
   }) {
     this.rooms = rooms;
@@ -346,6 +388,7 @@ class BotManager {
     this.ensurePlayerInRound = ensurePlayerInRound;
     this.submitWordForNick = submitWordForNick;
     this.emitPlayers = emitPlayers;
+    this.emitMedals = emitMedals;
     this.broadcastProvisionalRanking = broadcastProvisionalRanking;
     this.roundTimers = new Map();
     this.roomBotSelection = new Map();
@@ -372,10 +415,10 @@ class BotManager {
     if (isRunning) return;
 
     // Roulement discret: on change un peu la prÈsence d'une heure ‡ l'autre.
-    const hourKey = `${getParisDateKey(now)}-${getParisHour(now)}`;
+    const slotKey = getParisTimeSlotKey(now, BOT_ROTATION_MINUTES);
     const prevHourKey = this.roomBotHourKey.get(room.id);
-    if (prevHourKey !== hourKey) {
-      this.roomBotHourKey.set(room.id, hourKey);
+    if (prevHourKey !== slotKey) {
+      this.roomBotHourKey.set(room.id, slotKey);
       const botsToRemove = Array.from(room.players.values()).filter(
         (player) => player?.token?.startsWith("bot-") && allowedKeys.has(player.token)
       );
@@ -385,7 +428,9 @@ class BotManager {
       this.roomBotSelection.delete(room.id);
     }
 
-    const awakeBots = roster.filter((bot) => !isBotSleeping(bot, now));
+    const awakeBots = roster.filter(
+      (bot) => !isBotSleeping(bot, now) && !shouldBotRestNow(bot, now)
+    );
     const awakeKeys = new Set(awakeBots.map((bot) => this.botKey(bot)));
 
     const humanCount = Array.from(room.players.values()).filter(
@@ -477,7 +522,9 @@ class BotManager {
     room.longestPossibleRecord?.players?.delete(bot.nick);
     room.bestPossibleScoreRecord?.players?.delete(bot.nick);
 
+    room.medalExpiry.set(bot.nick, Date.now() - 1);
     this.emitPlayers(room);
+    this.emitMedals?.(room);
     this.broadcastProvisionalRanking(room);
   }
 
