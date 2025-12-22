@@ -107,6 +107,9 @@ const BOT_NERF = {
   desired: 0.55,
 };
 
+const BOT_STREAK_LIMIT = 4;
+const BOT_REST_MIN_MS = 35 * 60 * 1000;
+const BOT_REST_MAX_MS = 70 * 60 * 1000;
 
 function clamp01(value, fallback = 0.5) {
   const safe = Number.isFinite(value) ? value : fallback;
@@ -267,6 +270,10 @@ function rosterForRoom(room) {
   return BOT_ROSTERS_BY_SIZE[size] || BOT_ROSTER_4X4;
 }
 
+function botStreakKey(roomId, nick) {
+  return `${roomId || "room"}::${nick || "bot"}`;
+}
+
 function tuneBotProfile(bot) {
   if (!bot || ELITE_BOT_NICKS.has(bot.nick)) {
     return { ...bot, difficultyScale: 1 };
@@ -393,6 +400,8 @@ class BotManager {
     this.roundTimers = new Map();
     this.roomBotSelection = new Map();
     this.roomBotHourKey = new Map();
+    this.botRoundStreak = new Map();
+    this.botRestUntil = new Map();
     this.presenceInterval = setInterval(() => this.refreshPresence(), 5 * 60 * 1000);
     this.warnedNoDictionary = false;
 
@@ -428,9 +437,13 @@ class BotManager {
       this.roomBotSelection.delete(room.id);
     }
 
-    const awakeBots = roster.filter(
-      (bot) => !isBotSleeping(bot, now) && !shouldBotRestNow(bot, now)
-    );
+    const awakeBots = roster.filter((bot) => {
+      if (isBotSleeping(bot, now)) return false;
+      if (shouldBotRestNow(bot, now)) return false;
+      const restUntil = this.botRestUntil.get(botStreakKey(room.id, bot.nick)) || 0;
+      if (restUntil && Date.now() < restUntil) return false;
+      return true;
+    });
     const awakeKeys = new Set(awakeBots.map((bot) => this.botKey(bot)));
 
     const humanCount = Array.from(room.players.values()).filter(
@@ -522,6 +535,9 @@ class BotManager {
     room.longestPossibleRecord?.players?.delete(bot.nick);
     room.bestPossibleScoreRecord?.players?.delete(bot.nick);
 
+    const streakKey = botStreakKey(room.id, bot.nick);
+    this.botRoundStreak.delete(streakKey);
+
     room.medalExpiry.set(bot.nick, Date.now() - 1);
     this.emitPlayers(room);
     this.emitMedals?.(room);
@@ -588,6 +604,21 @@ class BotManager {
 
   onRoundEnd(room) {
     this.clearTimers(room.id);
+    const now = Date.now();
+    for (const player of room.players.values()) {
+      if (!player?.token?.startsWith("bot-")) continue;
+      const key = botStreakKey(room.id, player.nick);
+      const streak = (this.botRoundStreak.get(key) || 0) + 1;
+      if (streak >= BOT_STREAK_LIMIT) {
+        const restMs =
+          BOT_REST_MIN_MS + Math.floor(Math.random() * (BOT_REST_MAX_MS - BOT_REST_MIN_MS));
+        this.botRestUntil.set(key, now + restMs);
+        this.botRoundStreak.set(key, 0);
+        this.removeBotFromRoom(room, { nick: player.nick });
+      } else {
+        this.botRoundStreak.set(key, streak);
+      }
+    }
   }
 
   scheduleBotWords(room, bot, words, timeBudget) {

@@ -7,7 +7,7 @@
 export const SIZE = 5;
 
 export const LETTER_BAG =
-  "EEEEEEEEAAAAAAAAAIIIIIIOOOOONNNNNNRRRRRRTTTTTLLLLSSSSSSSUUUUUDDDDGGBBCCMMFPPHVWYKJXQZ";
+  "EEEEEEEAAAAAAAIIIIIIOOOOONNNNNNRRRRRRTTTTTLLLLSSSSSSSUUUUDDDDGGBBCCMMFPPHVWYKJXQZ";
 
 export const SCRABBLE_FR = {
   a: 1,
@@ -110,14 +110,33 @@ export function tileScore(tile) {
   return SCRABBLE_FR[tile.letter.toLowerCase()] || 0;
 }
 
-export function computeScore(wordNorm, path, board) {
+function normalizeLetterKey(letter) {
+  if (!letter) return "";
+  if (letter === "Qu") return "qu";
+  return String(letter).toLowerCase();
+}
+
+export function computeScore(wordNorm, path, board, special = null) {
   let base = 0;
   let wordMultiplier = 1;
+  const bonusKey =
+    special && special.bonusLetter ? normalizeLetterKey(special.bonusLetter) : null;
+  const bonusValue =
+    special && Number.isFinite(special.bonusLetterScore) ? special.bonusLetterScore : null;
+  const disableBonuses = !!special?.disableBonuses;
 
   for (const idx of path) {
     const tile = board[idx];
     const bonus = tile.bonus;
-    const letterValue = tileScore(tile);
+    const letterValue =
+      bonusKey && bonusValue != null && normalizeLetterKey(tile.letter) === bonusKey
+        ? bonusValue
+        : tileScore(tile);
+
+    if (disableBonuses) {
+      base += letterValue;
+      continue;
+    }
 
     if (bonus === "L2") base += letterValue * 2;
     else if (bonus === "L3") base += letterValue * 3;
@@ -156,7 +175,7 @@ export function summarizeBonuses(path, board) {
 // -----------------
 
 // Chemin “optimisé score” pour un mot donné (wordNorm déjà normalisé)
-export function findBestPathForWord(board, wordNorm) {
+export function findBestPathForWord(board, wordNorm, special = null) {
   const labels = board.map((cell) =>
     cell.letter === "Qu" ? "qu" : cell.letter.toLowerCase()
   );
@@ -175,7 +194,7 @@ export function findBestPathForWord(board, wordNorm) {
     const nextPath = [...path, idx];
 
     if (nextPos === wordNorm.length) {
-      const score = computeScore(wordNorm, nextPath, board);
+      const score = computeScore(wordNorm, nextPath, board, special);
       if (score > bestScore) {
         bestScore = score;
         bestPath = nextPath;
@@ -222,7 +241,7 @@ export function filterDictionary(dictionary, board) {
 }
 
 // Solveur complet : renvoie une Map(wordNorm -> { path, pts })
-export function solveGrid(board, dictionary) {
+export function solveGrid(board, dictionary, special = null) {
   if (!dictionary) {
     return new Map();
   }
@@ -232,9 +251,9 @@ export function solveGrid(board, dictionary) {
 
   for (const word of filtered) {
     if (word.length < 3 || word.length > 25) continue;
-    const path = findBestPathForWord(board, word);
+    const path = findBestPathForWord(board, word, special);
     if (path) {
-      const pts = computeScore(word, path, board);
+      const pts = computeScore(word, path, board, special);
       found.set(word, { path, pts });
     }
   }
@@ -245,14 +264,14 @@ export function solveGrid(board, dictionary) {
 // Fonction pratique pour valider / scorer UN mot côté serveur
 // - retourne null si le mot n’est pas sur la grille
 // - sinon { norm, path, pts }
-export function scoreWordOnGrid(rawWord, board) {
+export function scoreWordOnGrid(rawWord, board, special = null) {
   const norm = normalizeWord(rawWord);
   if (!norm || norm.length < 3) return null;
 
-  const path = findBestPathForWord(board, norm);
+  const path = findBestPathForWord(board, norm, special);
   if (!path) return null;
 
-  const pts = computeScore(norm, path, board);
+  const pts = computeScore(norm, path, board, special);
   return { norm, path, pts };
 }
 

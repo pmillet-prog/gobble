@@ -120,14 +120,33 @@ export function tileScore(tile) {
   return SCRABBLE_FR[tile.letter.toLowerCase()] || 0;
 }
 
-export function computeScore(word, path, board) {
+function normalizeLetterKey(letter) {
+  if (!letter) return "";
+  if (letter === "Qu") return "qu";
+  return String(letter).toLowerCase();
+}
+
+export function computeScore(word, path, board, special = null) {
   let base = 0;
   let wordMultiplier = 1;
+  const bonusKey =
+    special && special.bonusLetter ? normalizeLetterKey(special.bonusLetter) : null;
+  const bonusValue =
+    special && Number.isFinite(special.bonusLetterScore) ? special.bonusLetterScore : null;
+  const disableBonuses = !!special?.disableBonuses;
 
   for (const idx of path) {
     const tile = board[idx];
     const bonus = tile.bonus;
-    const letterValue = tileScore(tile);
+    const letterValue =
+      bonusKey && bonusValue != null && normalizeLetterKey(tile.letter) === bonusKey
+        ? bonusValue
+        : tileScore(tile);
+
+    if (disableBonuses) {
+      base += letterValue;
+      continue;
+    }
 
     if (bonus === "L2") base += letterValue * 2;
     else if (bonus === "L3") base += letterValue * 3;
@@ -166,7 +185,7 @@ export function summarizeBonuses(path, board) {
 /**
  * Pathfinder optimisé : cherche le chemin qui maximise le score.
  */
-export function findBestPathForWord(board, targetNorm) {
+export function findBestPathForWord(board, targetNorm, special = null) {
   const labels = board.map((cell) =>
     cell.letter === "Qu" ? "qu" : cell.letter.toLowerCase()
   );
@@ -185,7 +204,7 @@ export function findBestPathForWord(board, targetNorm) {
     const nextPath = [...path, idx];
 
     if (nextPos === targetNorm.length) {
-      const score = computeScore(targetNorm, nextPath, board);
+      const score = computeScore(targetNorm, nextPath, board, special);
       if (score > bestScore) {
         bestScore = score;
         bestPath = nextPath;
@@ -207,11 +226,11 @@ export function findBestPathForWord(board, targetNorm) {
   return bestPath;
 }
 
-export function solveAll(board, dictionary) {
+export function solveAll(board, dictionary, special = null) {
   const found = new Map();
   for (const word of dictionary) {
     if (word.length < 3 || word.length > 25) continue;
-    const path = findBestPathForWord(board, word);
+    const path = findBestPathForWord(board, word, special);
     if (path) {
       found.set(word, path);
     }

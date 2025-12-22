@@ -1,4 +1,4 @@
-﻿// server/index.js
+// server/index.js
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -64,6 +64,10 @@ const TARGET_LONG_MIN_LEN = 8;
 const TARGET_SCORE_MIN_PTS = 100;
 const TARGET_HINT_FIRST_MS = 15 * 1000;
 const TARGET_HINT_STEP_MS = 15 * 1000;
+
+const BONUS_LETTER_SCORE = 20;
+const BONUS_LETTER_MIN_WORDS = 30;
+const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
 
 const ROOM_CONFIGS = {
   "room-4x4": {
@@ -284,6 +288,21 @@ function buildTargetScoreTournamentPlan(tournamentRound, roomConfig) {
   };
 }
 
+function buildBonusLetterTournamentPlan(tournamentRound, roomConfig) {
+  const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
+  return {
+    ...base,
+    isSpecial: true,
+    type: "bonus_letter",
+    label: "Lettre en or",
+    description: `Une lettre vaut ${BONUS_LETTER_SCORE} pts`,
+    bonusLetterScore: BONUS_LETTER_SCORE,
+    bonusLetterMinWords: BONUS_LETTER_MIN_WORDS,
+    disableBonuses: true,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+  };
+}
+
 function buildTournamentSpecials(roomConfig) {
   const specials = new Map();
   const factories = [
@@ -291,6 +310,7 @@ function buildTournamentSpecials(roomConfig) {
     (round) => buildMonstrousTournamentPlan(round, roomConfig),
     (round) => buildTargetLongTournamentPlan(round, roomConfig),
     (round) => buildTargetScoreTournamentPlan(round, roomConfig),
+    (round) => buildBonusLetterTournamentPlan(round, roomConfig),
   ];
   for (const round of TOURNAMENT_SPECIAL_ROUNDS) {
     const pick = factories[Math.floor(Math.random() * factories.length)];
@@ -321,6 +341,9 @@ function resetTournament(room) {
 }
 
 function getTournamentRoundPlan(room, tournamentRound) {
+  if (FORCE_BONUS_LETTER_ALL_ROUNDS) {
+    return buildBonusLetterTournamentPlan(tournamentRound, room.config);
+  }
   const total = room?.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
   // La manche finale n'est jamais une manche spéciale.
   if (tournamentRound === total) {
@@ -495,9 +518,9 @@ function getFullRanking(room) {
   return ranking;
 }
 
-function computeBestPossible(grid) {
+function computeBestPossible(grid, special = null) {
   if (!dictionary) return { maxLen: 0, maxPts: 0 };
-  const solved = solveGrid(grid, dictionary);
+  const solved = solveGrid(grid, dictionary, special);
   let maxLen = 0;
   let maxPts = 0;
   for (const [word, data] of solved.entries()) {
@@ -507,6 +530,29 @@ function computeBestPossible(grid) {
     if (pts > maxPts) maxPts = pts;
   }
   return { maxLen, maxPts };
+}
+
+function getSpecialScoreConfigFromPlan(plan) {
+  if (plan?.type === "bonus_letter" && plan?.bonusLetter) {
+    return {
+      bonusLetter: plan.bonusLetter,
+      bonusLetterScore: plan.bonusLetterScore || BONUS_LETTER_SCORE,
+      disableBonuses: true,
+    };
+  }
+  return null;
+}
+
+function getSpecialScoreConfig(round) {
+  const plan = round?.special;
+  if (plan?.type === "bonus_letter" && plan?.bonusLetter) {
+    return {
+      bonusLetter: plan.bonusLetter,
+      bonusLetterScore: plan.bonusLetterScore || BONUS_LETTER_SCORE,
+      disableBonuses: true,
+    };
+  }
+  return null;
 }
 
 function computeWordScoreForRound(round, norm, path, defaultPts) {
@@ -556,7 +602,7 @@ function submitWordForNick(room, { roundId, word, nick }) {
     }
   }
 
-  const scored = scoreWordOnGrid(normInput, room.currentRound.grid);
+  const scored = scoreWordOnGrid(normInput, room.currentRound.grid, getSpecialScoreConfig(room.currentRound));
   if (!scored) {
     return { ok: false, error: "invalid_word" };
   }
@@ -686,7 +732,7 @@ function submitWordForNick(room, { roundId, word, nick }) {
       !room.bestScoreRecord.players.has(resolvedNick)
     ) {
       room.bestScoreRecord.players.add(resolvedNick);
-      // égalisation seulement si on n'a pas atteint le superlatif possible
+      // Égalisation seulement si on n'a pas atteint le superlatif possible
       if (!isMaxPossiblePts) {
         pushAnnouncement(room, {
           type: "big_word",
@@ -801,6 +847,40 @@ function analyzeGridQuality(grid, minWords = 0, opts = {}) {
   };
 }
 
+function normalizeLetterKey(letter) {
+  if (!letter) return "";
+  if (letter === "Qu") return "qu";
+  return String(letter).toLowerCase();
+}
+
+function pickBonusLetter(grid, solved, minWords) {
+  if (!grid || !solved || solved.size === 0) return null;
+  const entries = [];
+  const seen = new Set();
+  for (const cell of grid) {
+    const key = normalizeLetterKey(cell.letter);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ key, letter: cell.letter });
+  }
+  if (entries.length === 0) return null;
+  for (let i = entries.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [entries[i], entries[j]] = [entries[j], entries[i]];
+  }
+  for (const entry of entries) {
+    let count = 0;
+    for (const word of solved.keys()) {
+      if (word.includes(entry.key)) {
+        count += 1;
+        if (count >= minWords) break;
+      }
+    }
+    if (count >= minWords) return entry.letter;
+  }
+  return null;
+}
+
 function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   const roundNumber = targetRoundNumber || (room.roundCounter || 0) + 1;
   const roundPlan = plan || getRoundPlan(roundNumber, room.config);
@@ -858,7 +938,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let grid = generateGrid(size);
-    if (roundPlan?.type === "speed" || roundPlan?.type === "target_long") {
+    if (roundPlan?.type === "speed" || roundPlan?.type === "target_long" || roundPlan?.type === "bonus_letter") {
       // Manche rapidité et "mot le plus long" : pas de tuiles bonus
       grid = grid.map((cell) => ({ ...cell, bonus: null }));
     }
@@ -879,15 +959,25 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         quality.possibleScore >= minTotal &&
         quality.maxLen >= minLen &&
         quality.longWords >= minLongWords;
-    } else if (roundPlan?.type === "target_long" || roundPlan?.type === "target_score") {
+    } else if (roundPlan?.type === "target_long" || roundPlan?.type === "target_score" || roundPlan?.type === "bonus_letter") {
       ok = ok && !!dictionary;
     }
     quality.ok = ok;
 
     let targetWord = null;
     let targetLength = null;
-    if (dictionary && (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")) {
-      const solved = solveGrid(grid, dictionary);
+    let bonusLetter = null;
+    let solved = null;
+    if (
+      dictionary &&
+      (roundPlan?.type === "target_long" ||
+        roundPlan?.type === "target_score" ||
+        roundPlan?.type === "bonus_letter")
+    ) {
+      solved = solveGrid(grid, dictionary);
+    }
+
+    if (solved && (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")) {
       const target = pickTargetFromSolved(solved, roundPlan.type);
       if (target?.word) {
         targetWord = target.word;
@@ -896,7 +986,22 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
       quality.ok = quality.ok && !!targetWord;
     }
 
-    const candidate = { grid, quality, plan: roundPlan, roundNumber, targetWord, targetLength };
+    if (solved && roundPlan?.type === "bonus_letter") {
+      const minLetterWords = roundPlan?.bonusLetterMinWords || BONUS_LETTER_MIN_WORDS;
+      bonusLetter = pickBonusLetter(grid, solved, minLetterWords);
+      quality.ok = quality.ok && !!bonusLetter;
+    }
+
+    const planForRound = bonusLetter
+      ? {
+          ...roundPlan,
+          bonusLetter,
+          bonusLetterScore: roundPlan?.bonusLetterScore || BONUS_LETTER_SCORE,
+          disableBonuses: true,
+        }
+      : roundPlan;
+
+    const candidate = { grid, quality, plan: planForRound, roundNumber, targetWord, targetLength };
 
     const currentScore =
       (quality?.words || 0) + (quality?.possibleScore || 0) / 500 + (quality?.longWords || 0);
@@ -915,7 +1020,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
     }
   }
 
-  room.nextPreparedGrid = { ...bestCandidate, plan: roundPlan, roundNumber };
+  room.nextPreparedGrid = { ...bestCandidate, plan: bestCandidate?.plan || roundPlan, roundNumber };
 
   const wordsInfo =
     dictionary && minWords
@@ -1700,3 +1805,29 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 rooms.forEach((room) => startRoundForRoom(room));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

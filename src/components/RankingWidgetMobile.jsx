@@ -323,6 +323,7 @@ export default function RankingWidgetMobile({
   showWheel = true,
   showBadge = false,
   flatStyle = false,
+  showRoundAward = false,
   highlightedPlayers = [],
   renderNickSuffix = null,
   renderAfterRank = null,
@@ -509,6 +510,14 @@ export default function RankingWidgetMobile({
         if (!entry?.rightLabel && typeof entry.score === "number" && gobbles != null) {
           scoreLabelInner = `${scoreLabelBase} · G:${gobbles}`;
         }
+        const roundPoints =
+          showRoundAward && typeof entry?.roundPoints === "number"
+            ? entry.roundPoints
+            : null;
+        const roundGobbles =
+          showRoundAward && typeof entry?.roundGobbles === "number"
+            ? entry.roundGobbles
+            : 0;
 
         const rowColor = isSelf
           ? darkMode
@@ -556,6 +565,16 @@ export default function RankingWidgetMobile({
               </span>
             </div>
             <span className="tabular-nums text-[11px] opacity-80 font-bold">
+              {roundGobbles > 0 ? (
+                <span className="mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
+                  {`G${roundGobbles > 1 ? `x${roundGobbles}` : ""}`}
+                </span>
+              ) : null}
+              {roundPoints != null && roundPoints > 0 ? (
+                <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
+                  +{roundPoints}
+                </span>
+              ) : null}
               {scoreLabelInner}
             </span>
           </div>
@@ -798,6 +817,14 @@ export default function RankingWidgetMobile({
               const wordsCount =
                 typeof labelEntry?.wordsCount === "number" ? labelEntry.wordsCount : null;
               const scoreLabel = buildRightLabel(labelEntry, scoreValue, wordsCount);
+              const roundPoints =
+                showRoundAward && typeof labelEntry?.roundPoints === "number"
+                  ? labelEntry.roundPoints
+                  : null;
+              const roundGobbles =
+                showRoundAward && typeof labelEntry?.roundGobbles === "number"
+                  ? labelEntry.roundGobbles
+                  : 0;
 
               const lineColor = isSelfLine
                 ? selfTextColor
@@ -854,7 +881,23 @@ export default function RankingWidgetMobile({
                     <span
                       className={"ml-2 tabular-nums " + cfg.scoreClass}
                     >
-                      {row.type === "empty" ? "" : scoreLabel}
+                      {row.type === "empty" ? (
+                        ""
+                      ) : (
+                        <>
+                          {roundGobbles > 0 ? (
+                            <span className="mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
+                              {`G${roundGobbles > 1 ? `x${roundGobbles}` : ""}`}
+                            </span>
+                          ) : null}
+                          {roundPoints != null && roundPoints > 0 ? (
+                            <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
+                              +{roundPoints}
+                            </span>
+                          ) : null}
+                          {scoreLabel}
+                        </>
+                      )}
                     </span>
                   </div>
                 </React.Fragment>

@@ -25,9 +25,10 @@ const ROOM_OPTIONS = {
 const DEFAULT_DURATION = 120;
 const COUNTDOWN = 0;
 const TOURNAMENT_TOTAL_ROUNDS = 5;
+const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
-// Hauteur cible du bloc principal : clamp sur la fenêtre pour ?viter les colonnes infinies en zoom/d?zoom
+// Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
 const MAIN_GRID_HEIGHT = "clamp(520px, 82vh, 880px)";
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
@@ -37,7 +38,7 @@ const COLUMN_HEIGHT_STYLE = {
 const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
-const GRID_PADDING_PX = 32; // p-4 (16px de chaque c?t?)
+const GRID_PADDING_PX = 32; // p-4 (16px de chaque côté)
 const BASE_TILE_PX = 56;
 const BASE_GAP_PX = 8; // gap-2 de référence
 const BASE_GAP_RATIO = BASE_GAP_PX / BASE_TILE_PX; // ~0.14 pour conserver les proportions
@@ -69,6 +70,12 @@ function normalizeBonusLabel(bonus) {
   return bonus;
 }
 
+function normalizeLetterKey(letter) {
+  if (!letter) return "";
+  if (letter === "Qu") return "qu";
+  return String(letter).toLowerCase();
+}
+
 const BONUS_CLASSES = {
   L2: "bg-[rgba(163,196,243,0.85)] border-[rgba(99,147,230,0.9)] border-2", // bleu clair plus vif
   L3: "bg-[rgba(51,93,227,0.8)] border-[rgba(30,64,175,0.95)] text-white border-2", // bleu profond
@@ -86,6 +93,9 @@ html {
 html.dark {
   color-scheme: dark;
 }
+:root {
+  --kb: 0px;
+}
 body {
   background-color: #ffffff;
   color: #0f172a;
@@ -94,6 +104,10 @@ body {
 .ios-input {
   font-size: 16px;
   line-height: 1.2;
+}
+
+.chat-safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb));
 }
 
 @keyframes slideFadeIn {
@@ -466,6 +480,35 @@ body.theme-dark .preview-tile {
   background: #e5e7eb;
   color: #111827;
 }
+.bonus-letter-tile {
+  background:
+    linear-gradient(145deg, #ffe9a8 0%, #f7c969 28%, #e09a2f 62%, #b8741b 100%);
+  border: 2px solid #b8741b;
+  color: #2a1600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -2px 4px rgba(120, 53, 15, 0.5),
+    -1px 0 0 rgba(120, 53, 15, 0.45),
+    0 2px 0 rgba(120, 53, 15, 0.55),
+    0 6px 12px rgba(120, 53, 15, 0.55);
+}
+body.theme-dark .bonus-letter-tile {
+  background:
+    linear-gradient(145deg, #ffe7a1 0%, #f4c55d 26%, #e0932a 62%, #b46a16 100%);
+  border-color: #b8741b;
+  color: #1a0f00;
+}
+.bonus-letter-tile::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
   .board-tile {
   position: relative;
   box-shadow:
@@ -501,8 +544,8 @@ const FULL_VISIBLE_LINES_FROM_BOTTOM = 9;
 const MIN_CHAT_OPACITY = 0.03;
 const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
-const QUICK_REPLIES = ["GG !", "Bien joue", "On continue ?", "Belle grille !"];
-const SHOW_ALL_LABELS = { found: "Trouves", all: "Tous les mots" };
+const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
+const SHOW_ALL_LABELS = { found: "Trouvés", all: "Tous les mots" };
 function generateClientId() {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -615,6 +658,7 @@ export default function App() {
   const [tournamentRoundPoints, setTournamentRoundPoints] = useState({}); // nick -> points earned this round
   const [tournamentSummary, setTournamentSummary] = useState(null); // finale: { winnerNick, records, ranking }
   const [tournamentSummaryAt, setTournamentSummaryAt] = useState(null);
+  const [targetSummary, setTargetSummary] = useState(null); // { word, foundOrder }
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
   const [specialHint, setSpecialHint] = useState(null); // { kind, pattern, length }
@@ -665,11 +709,34 @@ export default function App() {
   const bestWordAnnounceRef = useRef(-1);
   const lastTickSoundRef = useRef(0);
   const tickToneToggleRef = useRef(false);
+  const lastCountdownTickRef = useRef(0);
+  const countdownTickToggleRef = useRef(false);
+  const tournamentCelebrationPlayedRef = useRef(false);
   const [liveBots, setLiveBots] = useState([]);
+
+  const specialScoreConfig = React.useMemo(() => {
+    if (specialRound?.type === "bonus_letter" && specialRound?.bonusLetter) {
+      return {
+        bonusLetter: specialRound.bonusLetter,
+        bonusLetterScore: specialRound.bonusLetterScore ?? 20,
+        disableBonuses: true,
+      };
+    }
+    return null;
+  }, [specialRound]);
+  const bonusLetterKey =
+    specialRound?.type === "bonus_letter" ? normalizeLetterKey(specialRound.bonusLetter) : null;
+  const bonusLetterScore =
+    specialRound?.type === "bonus_letter" ? (specialRound.bonusLetterScore ?? 20) : null;
 
   // drag souris
   const draggingRef = useRef(false);
   const playColumnRef = useRef(null);
+  const countdownRef = useRef(null);
+  const previewRef = useRef(null);
+  const [playColumnHeight, setPlayColumnHeight] = useState(null);
+  const [countdownHeight, setCountdownHeight] = useState(0);
+  const [previewHeight, setPreviewHeight] = useState(0);
 
   // Débloque le contexte audio au premier geste utilisateur (mobile/desktop)
   useEffect(() => {
@@ -694,20 +761,56 @@ export default function App() {
 
     // init immédiat (on enlève un petit padding interne pour coller au contenu)
     const initialWidth = el.getBoundingClientRect().width;
+    const initialHeight = el.getBoundingClientRect().height;
     if (initialWidth) {
       const clamped = clampGridWidth(initialWidth);
       if (clamped) setGridWidth(clamped);
     }
+    if (initialHeight) setPlayColumnHeight(initialHeight);
 
     const observer = new ResizeObserver((entries) => {
       const target = entries[0]?.target;
       if (!target) return;
-      const w = target.getBoundingClientRect().width; // border-box width (incl. padding)
-      if (!w) return;
-      const clamped = clampGridWidth(w);
-      if (clamped) setGridWidth(clamped);
+      const rect = target.getBoundingClientRect();
+      const w = rect.width; // border-box width (incl. padding)
+      const h = rect.height;
+      if (w) {
+        const clamped = clampGridWidth(w);
+        if (clamped) setGridWidth(clamped);
+      }
+      if (h) setPlayColumnHeight(h);
     });
 
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = countdownRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const initialHeight = el.getBoundingClientRect().height;
+    if (initialHeight) setCountdownHeight(initialHeight);
+    const observer = new ResizeObserver((entries) => {
+      const target = entries[0]?.target;
+      if (!target) return;
+      const h = target.getBoundingClientRect().height;
+      if (h) setCountdownHeight(h);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const initialHeight = el.getBoundingClientRect().height;
+    if (initialHeight) setPreviewHeight(initialHeight);
+    const observer = new ResizeObserver((entries) => {
+      const target = entries[0]?.target;
+      if (!target) return;
+      const h = target.getBoundingClientRect().height;
+      if (h) setPreviewHeight(h);
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -1099,6 +1202,81 @@ function playTileStepSound(step) {
     ctx.resume().then(start).catch(start);
   }
 
+  // "Tic tac" avant le début de manche (compte à rebours)
+  function playCountdownTickSound() {
+    if (isMuted) return;
+    const nowTs = Date.now();
+    if (nowTs - lastCountdownTickRef.current < 850) return;
+    lastCountdownTickRef.current = nowTs;
+    countdownTickToggleRef.current = !countdownTickToggleRef.current;
+    const baseFreq = 520;
+    const freq = countdownTickToggleRef.current ? baseFreq * 1.08 : baseFreq * 0.92;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.1, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      try {
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } catch (_) {}
+    };
+    ctx.resume().then(start).catch(start);
+  }
+
+  // Celebration fin de mini-tournoi
+  function playTournamentCelebrationSound() {
+    if (isMuted) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0, now);
+      master.gain.linearRampToValueAtTime(0.3, now + 0.02);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+      master.connect(ctx.destination);
+
+      const chord = [0, 4, 7, 12];
+      const base = 440;
+      chord.forEach((semi, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t0 = now + idx * 0.04;
+        osc.type = idx % 2 === 0 ? "sine" : "triangle";
+        osc.frequency.setValueAtTime(base * Math.pow(2, semi / 12), t0);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(0.6, t0 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
+        osc.connect(gain);
+        gain.connect(master);
+        try {
+          osc.start(t0);
+          osc.stop(t0 + 1.05);
+        } catch (_) {}
+      });
+    };
+    ctx.resume().then(start).catch(start);
+  }
+
   function playRoundStartSound() {
   if (isMuted) return;
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1430,6 +1608,18 @@ function playTileStepSound(step) {
   }, [tick, phase]);
 
   useEffect(() => {
+    if (
+      typeof breakCountdown === "number" &&
+      breakCountdown > 0 &&
+      breakCountdown <= 10 &&
+      phase !== "playing" &&
+      breakKind !== "tournament_end"
+    ) {
+      playCountdownTickSound();
+    }
+  }, [breakCountdown, phase, breakKind]);
+
+  useEffect(() => {
     if (phase !== "playing") {
       setAnalysis(null);
       setHighlightPlayers([]);
@@ -1497,7 +1687,7 @@ function playTileStepSound(step) {
     secretTapRef.current = { count: newCount, lastTs: now };
   }
 
-  function getTileIndexFromPoint(x, y) {
+  function getTileIndexFromPoint(x, y, useTolerance = true) {
     for (let i = 0; i < tileRefs.current.length; i++) {
       const el = tileRefs.current[i];
       if (!el) continue;
@@ -1505,6 +1695,7 @@ function playTileStepSound(step) {
       // Hitbox tactile : toute la tuile (rapide), + tolérance légère dans l'inter-tuile.
       const minDim = Math.min(rect.width, rect.height);
       if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return i;
+      if (!useTolerance) continue;
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       const dx = x - cx;
@@ -1586,6 +1777,56 @@ function playTileStepSound(step) {
   }, [phase]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const updateKb = () => {
+      const keyboard = window.innerHeight - vv.height - vv.offsetTop;
+      const value = Math.max(0, Math.round(keyboard));
+      document.documentElement.style.setProperty("--kb", `${value}px`);
+    };
+
+    vv.addEventListener("resize", updateKb);
+    vv.addEventListener("scroll", updateKb);
+    updateKb();
+    return () => {
+      vv.removeEventListener("resize", updateKb);
+      vv.removeEventListener("scroll", updateKb);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const requestState = () => {
+      if (!isLoggedIn) return;
+      syncServerTime(() => {
+        if (phase !== "playing" && socket?.connected) {
+          socket.emit("state:request");
+        }
+      });
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        requestState();
+      }
+    };
+
+    const onFocus = () => {
+      requestState();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [isLoggedIn, phase]);
+
+  useEffect(() => {
     function onRoundStarted({
       roomId: incomingRoomId,
       roundId: incomingRoundId,
@@ -1613,6 +1854,7 @@ function playTileStepSound(step) {
       setBreakKind(null);
       setTournamentSummary(null);
       setTournamentSummaryAt(null);
+      setTargetSummary(null);
       setTournament(tournamentPayload || null);
       setSpecialHint(null);
       setSpecialSolvedOverlay(null);
@@ -1637,6 +1879,7 @@ function playTileStepSound(step) {
       tournament: tournamentPayload = null,
       tournamentSummary: summary = null,
       tournamentSummaryAt: summaryAt = null,
+      targetSummary: targetSummaryPayload = null,
     }) {
       botTimersRef.current.forEach((id) => clearTimeout(id));
       botTimersRef.current.clear();
@@ -1670,6 +1913,7 @@ function playTileStepSound(step) {
       );
       setTournamentSummary(summary || null);
       setTournamentSummaryAt(summaryAt || null);
+      setTargetSummary(targetSummaryPayload || null);
       setResultsRankingMode("round");
 
       if (Array.isArray(results)) {
@@ -1688,6 +1932,7 @@ function playTileStepSound(step) {
       nextSpecial = null,
       tournamentSummary: summary = null,
       tournamentSummaryAt: summaryAt = null,
+      targetSummary: targetSummaryPayload = null,
     }) {
       if (incomingRoomId && currentRoomId && incomingRoomId !== currentRoomId) return;
       syncServerTime();
@@ -1704,6 +1949,7 @@ function playTileStepSound(step) {
       setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
       if (summary) setTournamentSummary(summary);
       setTournamentSummaryAt(summaryAt || null);
+      setTargetSummary(targetSummaryPayload || null);
     }
 
     function onPlayersUpdate(list = []) {
@@ -1785,6 +2031,7 @@ function playTileStepSound(step) {
       setTournamentRanking([]);
       setTournamentRoundPoints({});
       setTournamentSummary(null);
+      setTargetSummary(null);
       setBreakKind(null);
       setSpecialHint(null);
       setSpecialSolvedOverlay(null);
@@ -1865,12 +2112,12 @@ function playTileStepSound(step) {
     const finalizeRound = () => {
       if (dictionary) {
         const filtered = filterDictionary(dictionary, board);
-        const solved = solveAll(board, filtered);
+        const solved = solveAll(board, filtered, specialScoreConfig);
         solutionsRef.current = solved;
 
         const all = [...solved.entries()].map(([word, path]) => ({
           word,
-          pts: computeScore(word, path, board),
+          pts: computeScore(word, path, board, specialScoreConfig),
           path,
         }));
 
@@ -1940,7 +2187,7 @@ function playTileStepSound(step) {
     return () => {
       if (id) clearInterval(id);
     };
-  }, [phase, serverEndsAt, serverRoundDurationMs, board, dictionary, currentRoomId, roomId]);
+  }, [phase, serverEndsAt, serverRoundDurationMs, board, dictionary, currentRoomId, roomId, specialScoreConfig]);
 
   useEffect(() => {
     if (phase !== "results") return;
@@ -1948,7 +2195,7 @@ function playTileStepSound(step) {
     if (allWords.length > 0) return;
 
     setAllWords(buildAllWordsLocal());
-  }, [phase, board, dictionary, allWords.length]);
+  }, [phase, board, dictionary, allWords.length, specialScoreConfig]);
 
   // Bots désactivés
   useEffect(() => {
@@ -2221,12 +2468,12 @@ function playTileStepSound(step) {
     if (!dictionary) return [];
     if (!sourceBoard || sourceBoard.length === 0) return [];
     const filtered = filterDictionary(dictionary, sourceBoard);
-    const solved = solveAll(sourceBoard, filtered);
+    const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
     solutionsRef.current = solved;
 
     const all = [...solved.entries()].map(([word, path]) => ({
       word,
-      pts: computeScore(word, path, sourceBoard),
+      pts: computeScore(word, path, sourceBoard, specialScoreConfig),
       path,
     }));
 
@@ -2287,6 +2534,7 @@ function playTileStepSound(step) {
     setSpecialRound(null);
     setUpcomingSpecial(null);
     setRoundStats(null);
+    setTargetSummary(null);
     setScore(0);
     setLastWords([]);
     setStatusMessage("");
@@ -2366,7 +2614,7 @@ function playTileStepSound(step) {
 
   function loadWordFromHistory(wordNorm) {
     if (!wordNorm || phase !== "playing") return;
-    const path = findBestPathForWord(board, wordNorm);
+    const path = findBestPathForWord(board, wordNorm, specialScoreConfig);
     if (!path || path.length === 0) return;
     const letters = path.map((idx) => board[idx].letter);
     setCurrentTiles(letters);
@@ -2433,7 +2681,7 @@ function playTileStepSound(step) {
       const raw = normalizeWord(next.join(""));
       if (!raw) return prev;
 
-      const path = findBestPathForWord(board, raw);
+      const path = findBestPathForWord(board, raw, specialScoreConfig);
       if (path) setHighlightPath(path);
       else setHighlightPath([]);
 
@@ -2456,7 +2704,7 @@ function playTileStepSound(step) {
         setHighlightPath([]);
         return next;
       }
-      const path = findBestPathForWord(board, raw);
+      const path = findBestPathForWord(board, raw, specialScoreConfig);
       if (path) setHighlightPath(path);
       else setHighlightPath([]);
       return next;
@@ -2656,16 +2904,18 @@ function playTileStepSound(step) {
 
       if (prevPath.length >= 2 && index === prevIndex) {
         // Safe zone: only allow backtrack when pointer is close to the previous tile center.
-        const el = tileRefs.current[index];
-        if (el && e) {
-          const rect = el.getBoundingClientRect();
-          const cx = rect.left + rect.width / 2;
-          const cy = rect.top + rect.height / 2;
-          const dx = (e.clientX ?? cx) - cx;
-          const dy = (e.clientY ?? cy) - cy;
-          const dist = Math.hypot(dx, dy);
-          const safeRadius = Math.min(rect.width, rect.height) * 0.38;
-          if (dist > safeRadius) return prevPath;
+        if (lastInputMode === "touch" || lastInputMode === "mouse") {
+          const el = tileRefs.current[index];
+          if (el && e) {
+            const rect = el.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const dx = (e.clientX ?? cx) - cx;
+            const dy = (e.clientY ?? cy) - cy;
+            const dist = Math.hypot(dx, dy);
+            const safeRadius = Math.min(rect.width, rect.height) * 0.38;
+            if (dist > safeRadius) return prevPath;
+          }
         }
         const nextPath = prevPath.slice(0, -1);
         setCurrentTiles((prevLetters) => {
@@ -2765,11 +3015,19 @@ function handleTouchMove(e) {
   if (!e.touches || e.touches.length === 0) return;
 
   const touch = e.touches[0];
-  const idx = getTileIndexFromPoint(touch.clientX, touch.clientY);
+  const idx = getTileIndexFromPoint(touch.clientX, touch.clientY, true);
   if (idx == null) return;
 
   // on ne passe plus l???event souris, on laisse juste la logique de chemin faire son job
   handleMouseEnter(idx, touch);
+}
+
+function handleMouseMove(e) {
+  if (!draggingRef.current) return;
+  if (!e || typeof e.clientX !== "number" || typeof e.clientY !== "number") return;
+  const idx = getTileIndexFromPoint(e.clientX, e.clientY, false);
+  if (idx == null) return;
+  handleMouseEnter(idx, e);
 }
 
 function handleTouchEnd() {
@@ -2814,7 +3072,7 @@ function handleTouchEnd() {
       path = highlightPath;
       if (!path || path.length === 0) return error("Mot absent de la grille");
     } else {
-      path = findBestPathForWord(board, raw);
+      path = findBestPathForWord(board, raw, specialScoreConfig);
       if (!path) return error("Mot absent de la grille");
       setHighlightPath(path);
     }
@@ -2888,7 +3146,7 @@ function handleTouchEnd() {
    }
  }
  if (isTargetRoundNow) {
-   showToast("Trouve !");
+   showToast("Trouvé !");
  } else {
    showToast(`+${pts} pts`);
  }
@@ -2900,7 +3158,7 @@ function handleTouchEnd() {
           return updated;
         });
 
-        setStatusMessage(isTargetRoundNow ? "Trouve !" : `+${pts} pts`);
+        setStatusMessage(isTargetRoundNow ? "Trouvé !" : `+${pts} pts`);
         clearSelection();
       });
 
@@ -2912,7 +3170,7 @@ function handleTouchEnd() {
     }
 
     // Mode solo local : on garde le scoring existant
-    const pts = computeScore(raw, path, board);
+    const pts = computeScore(raw, path, board, specialScoreConfig);
 
     setScore((s) => s + pts);
     acceptedScoresRef.current.set(raw, pts);
@@ -2974,7 +3232,7 @@ function handleTouchEnd() {
   function analyzeWord(word) {
     if (!word) return;
     const path =
-      solutionsRef.current.get(word) || findBestPathForWord(board, word);
+      solutionsRef.current.get(word) || findBestPathForWord(board, word, specialScoreConfig);
     if (!path || path.length === 0) {
       setAnalysis(null);
       setHighlightPath([]);
@@ -2982,7 +3240,7 @@ function handleTouchEnd() {
       return;
     }
     const bonuses = summarizeBonuses(path, board);
-    const pts = computeScore(word, path, board);
+    const pts = computeScore(word, path, board, specialScoreConfig);
     const matchedPlayers = finalResults
       .filter((res) => Array.isArray(res.words) && res.words.some((w) => normalizeWord(w) === normalizeWord(word)))
       .map((res) => res.nick);
@@ -3035,6 +3293,7 @@ function handleTouchEnd() {
   const wordMultiplier =
     Math.pow(2, currentBonuses.M2 || 0) * Math.pow(3, currentBonuses.M3 || 0);
   const showBonuses =
+    !bonusLetterKey &&
     highlightPath.length > 0 &&
     (currentBonuses.L2 ||
       currentBonuses.L3 ||
@@ -3084,6 +3343,7 @@ function handleTouchEnd() {
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MOT EN OR";
+      if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
       return String(upcomingSpecial.label || "MANCHE SPECIALE").toUpperCase();
     })();
 
@@ -3193,6 +3453,109 @@ function handleTouchEnd() {
               <div className="flex justify-start">
                 <span className={`${resultPillClass} break-all`}>{endStats.mostWords.nick}</span>
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  const renderTargetSummaryCard = (className = "", withBg = true) => {
+    if (!isTargetRound || !targetSummary) return null;
+    const themeClasses = darkMode
+      ? `${withBg ? "bg-slate-900/90" : "bg-transparent"} border-slate-500 text-gray-100`
+      : `${withBg ? "bg-white/90" : "bg-transparent"} border-gray-300 text-gray-900`;
+
+    const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
+    const inResults = serverStatus === "break" || phase === "results";
+    const showOverlay = inResults && bc !== null && bc > 0 && bc <= 10;
+
+    const specialTypeLabel = (() => {
+      if (!upcomingSpecial?.isSpecial) return null;
+      if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
+      if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
+      if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
+      if (upcomingSpecial.type === "target_score") return "MOT EN OR";
+      if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
+      return String(upcomingSpecial.label || "MANCHE SPECIALE").toUpperCase();
+    })();
+
+    const nextRoundLabel = (() => {
+      if (breakKind === "tournament_end") return "Nouveau tournoi";
+      if (tournament?.nextRound && tournament?.totalRounds) {
+        if (tournament.nextRound === tournament.totalRounds) return "Manche finale";
+        return `Manche ${tournament.nextRound}`;
+      }
+      return null;
+    })();
+
+    const upcomingSpecialName = (() => {
+      if (!upcomingSpecial?.isSpecial) return null;
+      if (typeof upcomingSpecial.label === "string" && upcomingSpecial.label.trim()) {
+        return upcomingSpecial.label.trim();
+      }
+      return specialTypeLabel;
+    })();
+
+    const word =
+      typeof targetSummary.word === "string" ? targetSummary.word.toUpperCase() : "";
+    const foundOrder = Array.isArray(targetSummary.foundOrder)
+      ? targetSummary.foundOrder.filter(Boolean)
+      : [];
+
+    return (
+      <div
+        className={`border rounded-xl shadow-xl p-4 text-sm leading-snug space-y-4 relative overflow-hidden ${themeClasses} ${className}`}
+      >
+        {showOverlay && (
+          <div
+            className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm ${
+              darkMode ? "bg-black/60 text-white" : "bg-white/75 text-slate-900"
+            }`}
+          >
+            <div className="space-y-2">
+              {nextRoundLabel && (
+                <div className="text-xl sm:text-2xl font-black tracking-tight">
+                  {nextRoundLabel}
+                </div>
+              )}
+              {upcomingSpecial?.isSpecial && (
+                <div className="space-y-1">
+                  <div className="text-xs font-extrabold tracking-widest text-orange-600 dark:text-orange-300">
+                    MANCHE SPECIALE
+                  </div>
+                  {upcomingSpecialName && (
+                    <div className="text-sm font-bold opacity-90">
+                      {upcomingSpecialName}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="text-6xl sm:text-7xl font-black leading-none tabular-nums">
+                {bc}s
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="text-center text-xs font-semibold tracking-widest text-slate-500">
+          LE MOT ETAIT
+        </div>
+        <div className="text-center text-2xl sm:text-3xl font-black tracking-tight break-all">
+          {word || "?"}
+        </div>
+        <div className="space-y-2">
+          <div className={`${resultLabelClass} text-xs font-semibold`}>Trouve par</div>
+          {foundOrder.length === 0 ? (
+            <div className={`${resultLabelClass} text-xs`}>Personne ne l'a trouve.</div>
+          ) : (
+            <div className="space-y-1">
+              {foundOrder.map((nick, idx) => (
+                <div key={`${nick}-${idx}`} className="flex items-center gap-2">
+                  <span className={`${resultLabelClass} text-xs font-semibold`}>
+                    {idx + 1}.
+                  </span>
+                  <span className={`${resultPillClass} break-all`}>{nick}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -3342,7 +3705,9 @@ function handleTouchEnd() {
   const rankingList =
     phase === "playing" ? buildRankingWindow(rankingSource, selfNick) : rankingSource;
   const isTargetRound =
-    specialRound?.type === "target_long" || specialRound?.type === "target_score";
+    specialRound?.type === "target_long" ||
+    specialRound?.type === "target_score" ||
+    (phase === "results" && !!targetSummary);
   const formatTargetTime = (ms) => {
     if (!Number.isFinite(ms)) return "PAS TROUVÉ";
     const seconds = Math.max(0, ms) / 1000;
@@ -3351,17 +3716,26 @@ function handleTouchEnd() {
   const finalRanking = finalResults.length
     ? [...finalResults]
         .map((entry) => {
+          const roundAward = tournamentRoundPoints?.[entry.nick];
+          const roundPoints =
+            typeof roundAward?.points === "number" ? roundAward.points : null;
+          const roundGobbles =
+            typeof roundAward?.gobbles === "number" ? roundAward.gobbles : 0;
           if (isTargetRound) {
             const timeMs = Number.isFinite(entry.targetFoundMs) ? entry.targetFoundMs : null;
             return {
               ...entry,
               wordsCount: null,
+              roundPoints,
+              roundGobbles,
               rightLabel: Number.isFinite(timeMs) ? formatTargetTime(timeMs) : "PAS TROUVÉ",
             };
           }
           return {
             ...entry,
             wordsCount: Array.isArray(entry.words) ? entry.words.length : null,
+            roundPoints,
+            roundGobbles,
           };
         })
         .sort((a, b) => {
@@ -3404,9 +3778,9 @@ function handleTouchEnd() {
 
       for (const raw of words) {
         const norm = normalizeWord(raw);
-        const path = findBestPathForWord(board, norm);
+        const path = findBestPathForWord(board, norm, specialScoreConfig);
         if (!path) continue;
-        const pts = computeScore(norm, path, board);
+        const pts = computeScore(norm, path, board, specialScoreConfig);
         if (!bestWord || pts > bestWord.pts) {
           bestWord = { nick: entry.nick, word: raw, pts };
         }
@@ -3562,8 +3936,9 @@ function handleTouchEnd() {
       return;
     }
 
-    const path = solutionsRef.current.get(word) || findBestPathForWord(board, word);
-    const pts = path ? computeScore(word, path, board) : 0;
+    const path =
+      solutionsRef.current.get(word) || findBestPathForWord(board, word, specialScoreConfig);
+    const pts = path ? computeScore(word, path, board, specialScoreConfig) : 0;
 
     bot.score += pts;
     bot.words = [...bot.words, word];
@@ -3578,7 +3953,7 @@ function handleTouchEnd() {
 
   // Surbrillance par border-4 interne (plus de ring)
   const gameBlockClasses =
-    "p-4 bg-white rounded-xl space-y-3 w-full max-w-md " +
+    "p-4 bg-white rounded-xl space-y-3 w-full max-w-md flex-shrink-0 " +
     (activeArea === "game"
       ? "border-4 border-black"
       : "border border-gray-300");
@@ -3594,6 +3969,8 @@ function handleTouchEnd() {
   const availableRooms =
     isMobileLayout && !bigGridUnlocked ? ["room-4x4"] : baseRooms;
 
+  const previewBarMinHeight = 56;
+  const previewTileStyle = {};
   const lightPanelStyle = darkMode ? {} : { backgroundColor: "#ffffff" };
   const lightGridSurfaceStyle = {};
   const clampGridWidth = (raw) => {
@@ -3601,15 +3978,40 @@ function handleTouchEnd() {
     const adjusted = raw - 24; // laisse un peu d'air avec les bordures/paddings
     return Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, adjusted));
   };
+  const clampGridSide = (raw) => {
+    if (!raw || Number.isNaN(raw)) return null;
+    return Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, raw));
+  };
   const measuredWidth = clampGridWidth(gridWidth);
   const fallbackWidth = clampGridWidth(
     playColumnRef.current?.getBoundingClientRect?.().width ||
       (gridSize === 5 ? 640 : 560)
   );
-  const effectiveGridWidth =
+  const playColumnGapPx = isMobileLayout ? 0 : 24;
+  const playColumnPaddingPx = isMobileLayout ? 0 : 16;
+  const effectiveCountdownHeight = isMobileLayout ? 0 : countdownHeight;
+  const effectivePreviewHeight = isMobileLayout
+    ? 0
+    : Math.max(previewHeight, previewBarMinHeight);
+  const availableGridHeight =
+    !isMobileLayout && playColumnHeight
+      ? Math.max(
+          MIN_GRID_WIDTH,
+          playColumnHeight -
+            effectiveCountdownHeight -
+            effectivePreviewHeight -
+            playColumnPaddingPx -
+            playColumnGapPx * 2
+        )
+      : null;
+  const maxGridSideByHeight = clampGridSide(availableGridHeight);
+  const widthCandidate =
     measuredWidth ??
     fallbackWidth ??
     (gridSize === 5 ? Math.min(MAX_GRID_WIDTH, 420) : Math.min(MAX_GRID_WIDTH, 360));
+  const effectiveGridWidth = maxGridSideByHeight
+    ? Math.min(widthCandidate, maxGridSideByHeight)
+    : widthCandidate;
   const gapRatio = Math.max(0.08, Math.min(0.18, BASE_GAP_RATIO * (4 / gridSize))); // 4x4 inchangé, 5x5 resserré
   const innerGridWidth = Math.max(
     0,
@@ -3625,8 +4027,6 @@ function handleTouchEnd() {
     tileSizePx * gridSize + tileGapPx * (gridSize - 1) + GRID_PADDING_PX;
   const fontScale = gridSize >= 5 ? 0.68 : 1; // 5x5 plus petit sans toucher 4x4
   const tileFontPx = Math.max(14, Math.min(32, tileSizePx * 0.48 * fontScale));
-  const previewBarMinHeight = 56;
-  const previewTileStyle = {};
   const countdownLabel = (() => {
     if (phase === "playing") {
       const sec = Math.max(0, tick || 0);
@@ -3673,6 +4073,8 @@ function handleTouchEnd() {
           ? "MOT LE PLUS LONG"
           : upcomingSpecial.type === "target_score"
           ? "MOT EN OR"
+          : upcomingSpecial.type === "bonus_letter"
+          ? "LETTRE EN OR"
           : null;
       lines.push(typeLabel ? `MANCHE SPECIALE : ${typeLabel}` : "MANCHE SPECIALE");
     }
@@ -3682,7 +4084,25 @@ function handleTouchEnd() {
     return lines.length ? lines : [countdownLabel];
   })();
 
-        if (!isLoggedIn) {
+  const showTournamentFinale =
+    phase === "results" &&
+    breakKind === "tournament_end" &&
+    (!tournamentSummaryAt || getNowServerMs() >= tournamentSummaryAt || !roundId) &&
+    tournamentSummary &&
+    Array.isArray(tournamentSummary.ranking) &&
+    tournamentSummary.ranking.length > 0;
+
+  useEffect(() => {
+    if (showTournamentFinale && !tournamentCelebrationPlayedRef.current) {
+      playTournamentCelebrationSound();
+      tournamentCelebrationPlayedRef.current = true;
+    }
+    if (!showTournamentFinale) {
+      tournamentCelebrationPlayedRef.current = false;
+    }
+  }, [showTournamentFinale]);
+
+  if (!isLoggedIn) {
     return (
       <div
         className={`min-h-screen flex items-center justify-center px-4 ${
@@ -3815,14 +4235,6 @@ function handleTouchEnd() {
       </div>
     );
   }
-
-  const showTournamentFinale =
-    phase === "results" &&
-    breakKind === "tournament_end" &&
-    (!tournamentSummaryAt || getNowServerMs() >= tournamentSummaryAt || !roundId) &&
-    tournamentSummary &&
-    Array.isArray(tournamentSummary.ranking) &&
-    tournamentSummary.ranking.length > 0;
 
   if (!confettiPiecesRef.current) {
     const colors = ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"];
@@ -4076,7 +4488,7 @@ function handleTouchEnd() {
           </button>
         </div>
         {isChatOpenMobile && (
-          <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
+          <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom">
             <div
               className={`w-full max-h-[70vh] rounded-t-2xl border-t ${
                 darkMode
@@ -4610,6 +5022,7 @@ function handleTouchEnd() {
                         animateRank={false}
                         showWheel={false}
                         flatStyle={true}
+                        showRoundAward={resultsRankingMode === "round"}
                         renderNickSuffix={renderMedals}
                         renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
                       />
@@ -4619,9 +5032,11 @@ function handleTouchEnd() {
               </div>
             </div>
 
-            {endStats && (
+            {(isTargetRound ? targetSummary : endStats) && (
               <div className="mt-2">
-                {renderEndStatsCard("w-full")}
+                {isTargetRound
+                  ? renderTargetSummaryCard("w-full")
+                  : renderEndStatsCard("w-full")}
               </div>
             )}
           </div>
@@ -4644,7 +5059,7 @@ function handleTouchEnd() {
 
           {isChatOpenMobile && (
             <div
-              className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+              className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom"
               style={chatOverlayStyle}
             >
               <div
@@ -5039,24 +5454,31 @@ function handleTouchEnd() {
                   ...lightGridSurfaceStyle,
                 }}
                 onMouseUp={handleMouseUp}
+                onMouseMove={handleMouseMove}
                 onTouchMove={handleTouchMove}
               >
                 {board.map((cell, i) => {
                   const { letter, bonus } = cell;
                   const displayBonus = normalizeBonusLabel(bonus);
                   const isUsed = usedSet.has(i);
-                  const letterPts = tileScore(cell);
-                  const bonusClass = displayBonus
+                  const isBonusLetterTile =
+                    bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
+                  const letterPts = isBonusLetterTile
+                    ? bonusLetterScore ?? 20
+                    : tileScore(cell);
+                  const bonusClass = isBonusLetterTile
+                    ? "bonus-letter-tile"
+                    : displayBonus
                     ? BONUS_CLASSES[displayBonus]
                     : "bg-orange-200 border-orange-500 border-2";
                   const highlightClass = isUsed ? "tile-used" : "";
+                  const showBonusBadge = displayBonus && !bonusLetterKey;
 
                   return (
                     <button
                       key={i}
                       ref={(el) => (tileRefs.current[i] = el)}
                       onMouseDown={() => handleMouseDown(i)}
-                      onMouseEnter={(e) => handleMouseEnter(i, e)}
                       onTouchStart={(e) => handleTouchStart(e, i)}
                       onTouchMove={handleTouchMove}
                       onTouchEnd={handleTouchEnd}
@@ -5084,7 +5506,7 @@ function handleTouchEnd() {
                       {letterPts > 0 ? (
                         <span className="tile-points">{letterPts}</span>
                       ) : null}
-                      {displayBonus && (
+                      {showBonusBadge && (
                         <span
                           className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
                             displayBonus === "M3"
@@ -5156,7 +5578,7 @@ function handleTouchEnd() {
 
         {isChatOpenMobile && (
           <div
-            className="fixed inset-0 z-40 flex items-end justify-center bg-black/50"
+            className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom"
             style={chatOverlayStyle}
           >
             <div
@@ -5593,6 +6015,7 @@ function handleTouchEnd() {
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}
           highlightedPlayers={highlightPlayers}
+          showRoundAward={resultsRankingMode === "round"}
           renderNickSuffix={renderMedals}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
         />
@@ -5635,6 +6058,7 @@ function handleTouchEnd() {
           {!isMobileLayout && (
             <div className="w-full flex justify-center">
               <div
+                ref={countdownRef}
                 className={`text-center font-bold text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}
                 style={
                   computedGridWidth
@@ -5663,13 +6087,15 @@ function handleTouchEnd() {
             }
           >
 
-            {phase === "results" && endStats && !isMobileLayout && (
+            {phase === "results" && !isMobileLayout && (isTargetRound ? targetSummary : endStats) && (
               <div
                 className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${
                   darkMode ? "bg-[#0b1020]/85" : "bg-white/80"
                 }`}
               >
-                {renderEndStatsCard("w-full max-w-sm bg-transparent", false)}
+                {isTargetRound
+                  ? renderTargetSummaryCard("w-full max-w-sm bg-transparent", false)
+                  : renderEndStatsCard("w-full max-w-sm bg-transparent", false)}
               </div>
             )}
             {phase === "playing" && specialSolvedOverlay && (
@@ -5715,7 +6141,8 @@ function handleTouchEnd() {
                 ...lightGridSurfaceStyle,
               }}
               onMouseUp={handleMouseUp}
-                         onTouchMove={handleTouchMove}
+              onMouseMove={handleMouseMove}
+              onTouchMove={handleTouchMove}
             >
 
 
@@ -5724,18 +6151,24 @@ function handleTouchEnd() {
                 const { letter, bonus } = cell;
                 const displayBonus = normalizeBonusLabel(bonus);
                 const isUsed = usedSet.has(i);
-                const letterPts = tileScore(cell);
-                const bonusClass = displayBonus
+                const isBonusLetterTile =
+                  bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
+                const letterPts = isBonusLetterTile
+                  ? bonusLetterScore ?? 20
+                  : tileScore(cell);
+                const bonusClass = isBonusLetterTile
+                  ? "bonus-letter-tile"
+                  : displayBonus
                   ? BONUS_CLASSES[displayBonus]
                   : "bg-orange-200 border-orange-500 border-2";
                 const highlightClass = isUsed ? "tile-used" : "";
+                const showBonusBadge = displayBonus && !bonusLetterKey;
 
                 return (
                   <button
   key={i}
   ref={(el) => (tileRefs.current[i] = el)}
   onMouseDown={() => handleMouseDown(i)}
-  onMouseEnter={(e) => handleMouseEnter(i, e)}
   onTouchStart={(e) => handleTouchStart(e, i)}
   onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
@@ -5760,7 +6193,7 @@ function handleTouchEnd() {
     {letter}
   </span>
   {letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
-  {displayBonus && (
+  {showBonusBadge && (
     <span
       className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
         displayBonus === "M3"
@@ -5782,6 +6215,7 @@ function handleTouchEnd() {
 
           <div
             className={`${gameBlockClasses} relative overflow-hidden`}
+            ref={previewRef}
             style={
               computedGridWidth
                 ? {
@@ -5807,7 +6241,7 @@ function handleTouchEnd() {
               </div>
             )}
             <div
-              className={`w-full text-center font-bold text-lg flex items-center justify-center ${shake ? "shake" : ""}`}
+              className={`w-full text-center font-bold text-lg leading-none flex items-center justify-center ${shake ? "shake" : ""}`}
               style={{ minHeight: `${previewBarMinHeight}px` }}
             >
                   {phase !== "playing" ? (
@@ -5869,6 +6303,8 @@ function handleTouchEnd() {
                   ? `mots fixes  ${specialRound.fixedWordScore} pts`
                  : specialRound.type === "monstrous"
                   ? "grille monstrueuse en vue"
+                  : specialRound.type === "bonus_letter"
+                  ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                   : "objectif : 1 seul mot"}
               </div>
             )}
@@ -6149,8 +6585,3 @@ function handleTouchEnd() {
     </div>
   );
 }
-
-
-
-
-
