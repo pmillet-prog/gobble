@@ -1,7 +1,7 @@
 import { solveGrid } from "../../shared/gameLogic.js";
 
 export const MAX_WORDS_PER_BOT_PER_ROUND = 220;
-const BOT_ROTATION_MINUTES = 20;
+const BOT_ROTATION_MINUTES = 60;
 
 // Modifiez librement ces listes : noms fixes, niveaux varies, fenetres de pause.
 export const BOT_ROSTER_4X4 = [
@@ -107,9 +107,11 @@ const BOT_NERF = {
   desired: 0.55,
 };
 
-const BOT_STREAK_LIMIT = 4;
+const BOT_STREAK_LIMIT = 999;
 const BOT_REST_MIN_MS = 35 * 60 * 1000;
 const BOT_REST_MAX_MS = 70 * 60 * 1000;
+const BOT_SESSION_MIN_MS = 60 * 60 * 1000;
+const BOT_SESSION_MAX_MS = 3 * 60 * 60 * 1000;
 
 function clamp01(value, fallback = 0.5) {
   const safe = Number.isFinite(value) ? value : fallback;
@@ -274,6 +276,10 @@ function botStreakKey(roomId, nick) {
   return `${roomId || "room"}::${nick || "bot"}`;
 }
 
+function botSessionKey(roomId, nick) {
+  return `${roomId || "room"}::${nick || "bot"}`;
+}
+
 function tuneBotProfile(bot) {
   if (!bot || ELITE_BOT_NICKS.has(bot.nick)) {
     return { ...bot, difficultyScale: 1 };
@@ -402,6 +408,7 @@ class BotManager {
     this.roomBotHourKey = new Map();
     this.botRoundStreak = new Map();
     this.botRestUntil = new Map();
+    this.botSessionUntil = new Map();
     this.presenceInterval = setInterval(() => this.refreshPresence(), 5 * 60 * 1000);
     this.warnedNoDictionary = false;
 
@@ -418,6 +425,21 @@ class BotManager {
     const now = new Date();
     const roster = rosterForRoom(room);
     const allowedKeys = new Set(roster.map((bot) => this.botKey(bot)));
+    const nowMs = Date.now();
+
+    for (const bot of roster) {
+      const key = this.botKey(bot);
+      if (!room.players.has(key)) continue;
+      const sessionKey = botSessionKey(room.id, bot.nick);
+      const sessionUntil = this.botSessionUntil.get(sessionKey) || 0;
+      if (sessionUntil && nowMs >= sessionUntil) {
+        const restMs =
+          BOT_REST_MIN_MS + Math.floor(Math.random() * (BOT_REST_MAX_MS - BOT_REST_MIN_MS));
+        this.botRestUntil.set(botStreakKey(room.id, bot.nick), nowMs + restMs);
+        this.botSessionUntil.delete(sessionKey);
+        this.removeBotFromRoom(room, bot);
+      }
+    }
 
     // Pendant une manche, on garde les bots stables (pas de pop-in/out en plein jeu).
     const isRunning = room?.currentRound?.status === "running";
@@ -428,12 +450,6 @@ class BotManager {
     const prevHourKey = this.roomBotHourKey.get(room.id);
     if (prevHourKey !== slotKey) {
       this.roomBotHourKey.set(room.id, slotKey);
-      const botsToRemove = Array.from(room.players.values()).filter(
-        (player) => player?.token?.startsWith("bot-") && allowedKeys.has(player.token)
-      );
-      for (const player of botsToRemove) {
-        if (player?.nick) this.removeBotFromRoom(room, { nick: player.nick });
-      }
       this.roomBotSelection.delete(room.id);
     }
 
@@ -512,6 +528,12 @@ class BotManager {
   addBotToRoom(room, bot) {
     const key = this.botKey(bot);
     room.players.set(key, { nick: bot.nick, token: key });
+    const sessionKey = botSessionKey(room.id, bot.nick);
+    if (!this.botSessionUntil.has(sessionKey)) {
+      const sessionMs =
+        BOT_SESSION_MIN_MS + Math.floor(Math.random() * (BOT_SESSION_MAX_MS - BOT_SESSION_MIN_MS));
+      this.botSessionUntil.set(sessionKey, Date.now() + sessionMs);
+    }
     if (room.currentRound) {
       this.ensurePlayerInRound(room, bot.nick);
     }
@@ -537,6 +559,7 @@ class BotManager {
 
     const streakKey = botStreakKey(room.id, bot.nick);
     this.botRoundStreak.delete(streakKey);
+    this.botSessionUntil.delete(botSessionKey(room.id, bot.nick));
 
     room.medalExpiry.set(bot.nick, Date.now() - 1);
     this.emitPlayers(room);

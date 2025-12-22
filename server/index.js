@@ -889,6 +889,10 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
     1,
     roundPlan?.qualityAttempts || room.config?.qualityAttempts || MAX_QUALITY_ATTEMPTS
   );
+  const needsBonusLetter = roundPlan?.type === "bonus_letter";
+  const maxAttemptsTotal = needsBonusLetter
+    ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
+    : maxAttempts;
   const size = room.config.gridSize;
   const effectiveMinWords = dictionary ? minWords : 0;
   const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
@@ -899,6 +903,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
 
   const startedAt = Date.now();
   let bestCandidate = null;
+  let fallbackCandidate = null;
 
   const pickTargetFromSolved = (solved, type) => {
     if (!solved || solved.size === 0) return null;
@@ -936,7 +941,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
     return null;
   };
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 1; attempt <= maxAttemptsTotal; attempt++) {
     let grid = generateGrid(size);
     if (roundPlan?.type === "speed" || roundPlan?.type === "target_long" || roundPlan?.type === "bonus_letter") {
       // Manche rapidité et "mot le plus long" : pas de tuiles bonus
@@ -1002,6 +1007,10 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
       : roundPlan;
 
     const candidate = { grid, quality, plan: planForRound, roundNumber, targetWord, targetLength };
+    fallbackCandidate = candidate;
+    if (needsBonusLetter && !planForRound?.bonusLetter) {
+      continue;
+    }
 
     const currentScore =
       (quality?.words || 0) + (quality?.possibleScore || 0) / 500 + (quality?.longWords || 0);
@@ -1018,6 +1027,11 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
       bestCandidate = candidate;
       break;
     }
+  }
+
+  if (!bestCandidate && fallbackCandidate) {
+    console.warn(`[${room.id}] Grille speciale bonus_letter sans lettre valide apres ${maxAttemptsTotal} essais.`);
+    bestCandidate = fallbackCandidate;
   }
 
   room.nextPreparedGrid = { ...bestCandidate, plan: bestCandidate?.plan || roundPlan, roundNumber };
@@ -1316,6 +1330,7 @@ function endRoundForRoom(room) {
   const specialType = room.currentRound?.special?.type;
   const isTargetRound = specialType === "target_long" || specialType === "target_score";
   let targetPointsMultiplier = 1;
+  let targetSummary = null;
 
   for (const player of room.players.values()) {
     if (!roundSubs.has(player.nick)) {
@@ -1421,6 +1436,11 @@ function endRoundForRoom(room) {
         if (d !== 0) return d;
         return (a.nick || "").localeCompare(b.nick || "");
       });
+    const foundOrder = foundList.map((entry) => entry.nick).filter(Boolean);
+    targetSummary = {
+      word: room.currentRound.targetWord || "",
+      foundOrder,
+    };
     const foundMeta = new Map();
     foundList.forEach((entry, idx) => {
       const points = (TOURNAMENT_POINTS[idx] ?? 0) * targetPointsMultiplier;
@@ -1530,6 +1550,7 @@ function endRoundForRoom(room) {
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
     tournamentSummaryAt,
+    targetSummary,
   });
   room.breakState = {
     nextStartAt,
@@ -1543,6 +1564,7 @@ function endRoundForRoom(room) {
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
     tournamentSummaryAt,
+    targetSummary,
   };
 
   io.to(room.id).emit("roundEnded", {
@@ -1569,6 +1591,7 @@ function endRoundForRoom(room) {
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
     tournamentSummaryAt,
+    targetSummary,
   });
 
   const nextRoundNumber = (room.roundCounter || 0) + 1;
@@ -1727,6 +1750,7 @@ io.on("connection", (socket) => {
         nextSpecial: room.breakState.nextSpecial || null,
         tournamentSummary: room.breakState.tournamentSummary || null,
         tournamentSummaryAt: room.breakState.tournamentSummaryAt || null,
+        targetSummary: room.breakState.targetSummary || null,
       });
     }
   });

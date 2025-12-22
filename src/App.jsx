@@ -442,6 +442,16 @@ body.theme-dark textarea::placeholder {
   text-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
   will-change: transform, opacity;
 }
+.praise-gold {
+  background:
+    linear-gradient(145deg, #ffe9a8 0%, #f7c969 28%, #e09a2f 62%, #b8741b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 8px 14px rgba(120, 53, 15, 0.45))
+    drop-shadow(0 2px 4px rgba(255, 214, 112, 0.45));
+}
   .preview-tile {
   position: relative;
   width: 32px;
@@ -2695,6 +2705,11 @@ function playTileStepSound(step) {
       if (!prev.length) return prev;
       const next = prev.slice(0, -1);
       currentTilesRef.current = next;
+      if (next.length > 0) {
+        const step = Math.max(0, next.length - 1);
+        tileStepRef.current = step;
+        playTileStepSound(step);
+      }
       if (!next.length) {
         setHighlightPath([]);
         return next;
@@ -2921,7 +2936,11 @@ function playTileStepSound(step) {
         setCurrentTiles((prevLetters) => {
           const newLetters = prevLetters.slice(0, -1);
           currentTilesRef.current = newLetters;
-          tileStepRef.current = Math.max(0, newLetters.length - 1);
+          const step = Math.max(0, newLetters.length - 1);
+          tileStepRef.current = step;
+          if (newLetters.length > 0) {
+            playTileStepSound(step);
+          }
           return newLetters;
         });
         return nextPath;
@@ -5022,7 +5041,7 @@ function handleTouchEnd() {
                         animateRank={false}
                         showWheel={false}
                         flatStyle={true}
-                        showRoundAward={resultsRankingMode === "round"}
+                        showRoundAward={true}
                         renderNickSuffix={renderMedals}
                         renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
                       />
@@ -5696,11 +5715,7 @@ function handleTouchEnd() {
               "praise-pop font-extrabold tracking-tight",
               praiseFlash.kind === "gobble"
                 ? "text-amber-300 drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)] text-5xl"
-                : praiseFlash.kind === "gold"
-                ? "text-amber-200 drop-shadow-[0_18px_28px_rgba(0,0,0,0.3)] text-4xl"
-                : praiseFlash.kind === "purple"
-                ? "text-fuchsia-200 drop-shadow-[0_18px_28px_rgba(0,0,0,0.3)] text-4xl"
-                : "text-sky-200 drop-shadow-[0_18px_28px_rgba(0,0,0,0.3)] text-4xl",
+                : "praise-gold text-4xl",
             ].join(" ")}
           >
             {praiseFlash.text}
@@ -6015,7 +6030,7 @@ function handleTouchEnd() {
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}
           highlightedPlayers={highlightPlayers}
-          showRoundAward={resultsRankingMode === "round"}
+          showRoundAward={true}
           renderNickSuffix={renderMedals}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
         />
@@ -6565,11 +6580,7 @@ function handleTouchEnd() {
             "praise-pop font-extrabold tracking-tight",
             praiseFlash.kind === "gobble"
               ? "text-amber-300 drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)] text-6xl"
-              : praiseFlash.kind === "gold"
-              ? "text-amber-200 drop-shadow-[0_18px_28px_rgba(0,0,0,0.3)] text-5xl"
-              : praiseFlash.kind === "purple"
-              ? "text-fuchsia-200 drop-shadow-[0_18px_28px_rgba(0,0,0,0.3)] text-5xl"
-              : "text-sky-200 drop-shadow-[0_18px_28px_rgba(0,0,0,0.3)] text-5xl",
+              : "praise-gold text-5xl",
           ].join(" ")}
         >
           {praiseFlash.text}
