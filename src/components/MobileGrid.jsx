@@ -48,7 +48,7 @@ export default function MobileGrid({
           width: "100%",
           maxWidth: mobileGridSide
             ? `${mobileGridSide}px`
-            : `${MOBILE_LAYOUT_MAX_WIDTH}px`,
+            : "100%",
           maxHeight: mobileGridSide ? `${mobileGridSide}px` : undefined,
           aspectRatio: "1 / 1",
           ...lightGridSurfaceStyle,

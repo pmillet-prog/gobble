@@ -4,6 +4,10 @@ import React, { useEffect, useState, useRef } from "react";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
+import MobileChatWidget from "./components/MobileChatWidget.jsx";
+import MobileGrid from "./components/MobileGrid.jsx";
+import MobileHeader from "./components/MobileHeader.jsx";
+import MobileWordPreview from "./components/MobileWordPreview.jsx";
 import {
   computeScore,
   filterDictionary,
@@ -983,24 +987,44 @@ export default function App() {
       const availableWidth = Math.max(
         0,
         Math.min(viewportWidth - 24, MOBILE_LAYOUT_MAX_WIDTH)
-      ); // px-3 (12px) de chaque c?t?
+      ); // px-3 (12px) de chaque c?t?) + limite max mobile
 
       const baseFontSize =
         parseFloat(
           window.getComputedStyle(document.documentElement).fontSize || "16"
         ) || 16;
-      const rankingTarget = clampValue(
-        Math.round(baseFontSize * 1.6 * 5 + 32),
-        140,
+      const minRanking = 120;
+      const minPreview = 48;
+      let rankingTarget = clampValue(
+        Math.round(Math.max(baseFontSize * 7, bodyHeight * 0.26)),
+        minRanking,
         200
       );
-      const previewTarget = 52;
-      const liveFeedMin = 80;
+      let previewTarget = clampValue(
+        Math.round(Math.max(baseFontSize * 2.6, bodyHeight * 0.08)),
+        minPreview,
+        68
+      );
+      let requiredBelowGrid = rankingTarget + previewTarget;
+      let maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
 
-      const requiredBelowGrid = rankingTarget + previewTarget + liveFeedMin;
-      const maxGridFromHeight = Math.max(140, blocksBudget - requiredBelowGrid);
-      let gridSide = Math.min(availableWidth, maxGridFromHeight);
-      gridSide = Math.max(140, gridSide);
+      if (maxGridFromHeight < availableWidth) {
+        let needed = Math.max(0, availableWidth - maxGridFromHeight);
+        if (needed > 0) {
+          const previewShrink = Math.min(needed, previewTarget - minPreview);
+          previewTarget -= previewShrink;
+          needed -= previewShrink;
+        }
+        if (needed > 0) {
+          const rankingShrink = Math.min(needed, rankingTarget - minRanking);
+          rankingTarget -= rankingShrink;
+          needed -= rankingShrink;
+        }
+        requiredBelowGrid = rankingTarget + previewTarget;
+        maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
+      }
+
+      const gridSide = Math.max(100, Math.min(availableWidth, maxGridFromHeight));
 
       const remaining = Math.max(0, blocksBudget - gridSide);
 
@@ -1009,8 +1033,8 @@ export default function App() {
           viewportWidth,
           viewportHeight,
           gridSide,
-          rankingHeight: 0,
-          wordPreviewHeight: 0,
+          rankingHeight: rankingTarget,
+          wordPreviewHeight: previewTarget,
           liveFeedHeight: 0,
           bodyHeight,
         });
@@ -1026,7 +1050,7 @@ export default function App() {
         0,
         remaining - rankingHeight - wordPreviewHeight
       );
-      const liveFeedHeight = Math.min(liveFeedMin, liveFeedAvailable);
+      const liveFeedHeight = liveFeedAvailable;
 
       setMobileLayoutSizing({
         viewportWidth,
@@ -4640,7 +4664,7 @@ function handleTouchEnd() {
         Math.max(200, Math.min(fallbackViewportWidth - 24, MOBILE_LAYOUT_MAX_WIDTH))
     );
     const previewFallback = 52;
-    const liveFeedFallback = 80;
+    const liveFeedFallback = 0;
     const mobilePreviewHeight = Math.round(
       mobileLayoutSizing.wordPreviewHeight || previewFallback
     );
@@ -4648,7 +4672,7 @@ function handleTouchEnd() {
       mobileLayoutSizing.liveFeedHeight || liveFeedFallback
     );
     const previewBlockHeight = Math.max(52, mobilePreviewHeight);
-    const liveFeedMinHeight = Math.max(80, mobileLiveFeedHeight);
+    const liveFeedMinHeight = Math.max(0, mobileLiveFeedHeight);
     const previewWordLen = liveWord ? liveWord.length : 0;
     const previewGapPx = previewWordLen >= 10 ? 2 : 4;
     const previewContentWidth = Math.max(0, fallbackViewportWidth - 44); // px-3 + px-2.5
@@ -4758,124 +4782,23 @@ function handleTouchEnd() {
         >
           <style>{slideStyles}</style>
 
-          <div
-            ref={mobileHeaderRef}
-            className="px-3 pt-2 pb-1 border-b border-slate-200/70 dark:border-slate-700/70"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex flex-col">
-                <div className="text-lg font-extrabold tracking-tight leading-none">GOBBLE</div>
-                <div className="text-[0.7rem] text-slate-500 dark:text-slate-400 leading-tight">
-                  {tournament?.round && tournament?.totalRounds ? (
-                    <>
-                      Manche {tournament.round}/{tournament.totalRounds}
-                    </>
-                  ) : (
-                    <>
-                      {activeRoom?.label || "Salon"} {gridSize}x{gridSize}
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right leading-tight text-xs font-bold">
-                  {countdownLines.map((line, idx) => (
-                    <span
-                      key={`${line}-${idx}`}
-                      className={`block ${
-                        /^\d+$/.test(line)
-                          ? "text-xl font-black leading-none"
-                          : String(line).startsWith("MANCHE SPECIALE")
-                          ? "text-[0.65rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-                          : ""
-                      }`}
-                    >
-                      {line}
-                    </span>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setIsMuted((v) => !v)}
-                  className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                >
-                  {isMuted ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M11 5L6 9H3v6h3l5 4z" />
-                      <line x1="14" y1="9" x2="20" y2="15" />
-                      <line x1="20" y1="9" x2="14" y2="15" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M11 5L6 9H3v6h3l5 4z" />
-                      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                    </svg>
-                  )}
-                  <span className="sr-only">{isMuted ? "Son coupé" : "Son actif"}</span>
-                </button>
-                <button
-                  onClick={() => setDarkMode((v) => !v)}
-                  className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                >
-                  {darkMode ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <circle cx="12" cy="12" r="4" />
-                      <path d="M12 2v2" />
-                      <path d="M12 20v2" />
-                      <path d="m4.93 4.93 1.41 1.41" />
-                      <path d="m17.66 17.66 1.41 1.41" />
-                      <path d="M2 12h2" />
-                      <path d="M20 12h2" />
-                      <path d="m6.34 17.66-1.41 1.41" />
-                      <path d="m19.07 4.93-1.41 1.41" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                    </svg>
-                  )}
-                  <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  className="px-2 py-1 rounded-lg border text-[11px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    {isFullscreen ? (
-                      <>
-                        <path d="M9 9H5V5" />
-                        <path d="M3 10L10 3" />
-                        <path d="M15 15h4v4" />
-                        <path d="m14 21 7-7" />
-                      </>
-                    ) : (
-                      <>
-                        <path d="M9 3H5a2 2 0 0 0-2 2v4" />
-                        <path d="M3 3l6 6" />
-                        <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
-                        <path d="m21 21-6-6" />
-                      </>
-                    )}
-                  </svg>
-                  <span className="sr-only">
-                    {isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <MobileHeader
+            activeRoom={activeRoom}
+            countdownLines={countdownLines}
+            darkMode={darkMode}
+            gridSize={gridSize}
+            headerRef={mobileHeaderRef}
+            isFullscreen={isFullscreen}
+            isMuted={isMuted}
+            isTargetRound={isTargetRound}
+            phase={phase}
+            roomLabelSeparator=" - "
+            setDarkMode={setDarkMode}
+            setIsMuted={setIsMuted}
+            showHelpButton={false}
+            tournament={tournament}
+            toggleFullscreen={toggleFullscreen}
+          />
 
           <div
             className="flex-1 flex flex-col gap-2 px-3 pt-2 pb-3 overflow-hidden box-border"
@@ -5218,151 +5141,32 @@ function handleTouchEnd() {
         <style>{slideStyles}</style>
 
         {/* En-tête compact : titre, salon, score et boutons rapides */}
-        <div
-          ref={mobileHeaderRef}
-          className="px-3 pt-2 pb-1 border-b border-slate-200/70 dark:border-slate-700/70"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col">
-              <div className="text-lg font-extrabold tracking-tight leading-none">GOBBLE</div>
-              <div className="text-[0.7rem] text-slate-500 dark:text-slate-400 leading-tight">
-                {tournament?.round && tournament?.totalRounds ? (
-                  <>
-                    {tournament.round === tournament.totalRounds ? (
-                      <>Manche finale</>
-                    ) : (
-                      <>
-                        Manche {tournament.round}/{tournament.totalRounds}
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {activeRoom?.label || "Salon"} · {gridSize}x{gridSize}
-                  </>
-                )}
-              </div>
-              {phase === "playing" && roundStats && !isTargetRound && (
-                <div className="text-[0.65rem] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                  {roundStats.words ?? "?"} mots ·{" "}
-                  {formatNumber(roundStats.totalPts ?? roundStats.maxPts ?? 0) || "?"} pts
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-right leading-tight text-xs font-bold">
-                {countdownLines.map((line, idx) => (
-                  <span
-                    key={`${line}-${idx}`}
-                    className={`block ${
-                      /^\d+$/.test(line)
-                        ? "text-xl font-black leading-none"
-                        : String(line).startsWith("MANCHE SPECIALE")
-                        ? "text-[0.65rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-                        : ""
-                    }`}
-                  >
-                    {line}
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setIsMuted((v) => !v)}
-                  className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                >
-                  {isMuted ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M11 5L6 9H3v6h3l5 4z" />
-                      <line x1="14" y1="9" x2="20" y2="15" />
-                      <line x1="20" y1="9" x2="14" y2="15" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M11 5L6 9H3v6h3l5 4z" />
-                      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                    </svg>
-                  )}
-                  <span className="sr-only">{isMuted ? "Son coupé" : "Son actif"}</span>
-                </button>
-
-                <button
-                  onClick={() => setDarkMode((v) => !v)}
-                  className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                >
-                  {darkMode ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <circle cx="12" cy="12" r="4" />
-                      <path d="M12 2v2" />
-                      <path d="M12 20v2" />
-                      <path d="m4.93 4.93 1.41 1.41" />
-                      <path d="m17.66 17.66 1.41 1.41" />
-                      <path d="M2 12h2" />
-                      <path d="M20 12h2" />
-                      <path d="m6.34 17.66-1.41 1.41" />
-                      <path d="m19.07 4.93-1.41 1.41" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                    </svg>
-                  )}
-                  <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
-                </button>
-
-                  <button
-  onClick={toggleFullscreen}
-  className="px-2 py-1 rounded-lg border text-[11px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-  type="button"
->
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    {isFullscreen ? (
-      <>
-        <path d="M9 9H5V5" />
-        <path d="M3 10L10 3" />
-        <path d="M15 15h4v4" />
-        <path d="m14 21 7-7" />
-      </>
-    ) : (
-      <>
-        <path d="M9 3H5a2 2 0 0 0-2 2v4" />
-        <path d="M3 3l6 6" />
-        <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
-        <path d="m21 21-6-6" />
-      </>
-    )}
-  </svg>
-  <span className="sr-only">
-    {isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
-  </span>
-</button>
-
-
-                <button
-                  onClick={() => setShowHelp((v) => !v)}
-                  className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                >
-                  ?
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <MobileHeader
+          activeRoom={activeRoom}
+          countdownLines={countdownLines}
+          darkMode={darkMode}
+          gridSize={gridSize}
+          headerRef={mobileHeaderRef}
+          isFullscreen={isFullscreen}
+          isMuted={isMuted}
+          isTargetRound={isTargetRound}
+          phase={phase}
+          roomLabelSeparator=" - "
+          roundStatsText={
+            phase === "playing" && roundStats && !isTargetRound
+              ? `${roundStats.words ?? "?"} mots - ${
+                  formatNumber(roundStats.totalPts ?? roundStats.maxPts ?? 0) || "?"
+                } pts`
+              : null
+          }
+          setDarkMode={setDarkMode}
+          setIsMuted={setIsMuted}
+          setShowHelp={setShowHelp}
+          showHelpButton={true}
+          showRoundStats={true}
+          tournament={tournament}
+          toggleFullscreen={toggleFullscreen}
+        />
         {showHelp && (
           <div ref={mobileHelpRef} className="mx-3 mt-2 mb-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-[11px] text-gray-700 dark:text-slate-200">
             <div className="font-bold mb-1 text-xs">Aide rapide</div>
@@ -5420,179 +5224,55 @@ function handleTouchEnd() {
             </div>
           )}
 
-          <div
-            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 py-1.5 shadow-sm flex-none box-border"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: `${previewBlockHeight}px`,
-              height: `${previewBlockHeight}px`,
-            }}
-          >
-            <div
-              className={`w-full text-center font-bold text-base flex items-center justify-center ${shake ? "shake" : ""}`}
-            >
-              {phase !== "playing" ? (
-                <span className="text-slate-700 dark:text-white">
-                  {countdownLines.map((line, idx) => (
-                    <span
-                      key={`${line}-${idx}`}
-                      className={`block ${
-                        /^\d+$/.test(line)
-                          ? "text-2xl font-black leading-none"
-                          : String(line).startsWith("MANCHE SPECIALE")
-                          ? "text-[0.7rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-                          : ""
-                      }`}
-                    >
-                      {line}
-                    </span>
-                  ))}
-                </span>
-              ) : liveWord ? (
-                <div className="flex justify-center items-center" style={{ gap: `${previewGapPx}px` }}>
-                  {liveWord.split("").map((ch, idx) => {
-                    const angle = ((idx * 17 + liveWord.length * 13) % 11) - 5;
-                    return (
-                      <div
-                        key={idx}
-                        className="preview-tile"
-                        style={{ ...previewTileBaseStyle, transform: `rotate(${angle}deg)` }}
-                      >
-                        {ch}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <span className="text-slate-700 dark:text-slate-200">
-                  {(currentDisplay || "Prêt à jouer").toUpperCase()}
-                </span>
-              )}
-            </div>
-          </div>
-
+                    <MobileWordPreview
+            countdownLines={countdownLines}
+            currentDisplay={currentDisplay}
+            darkMode={darkMode}
+            liveWord={liveWord}
+            phase={phase}
+            previewBlockHeight={previewBlockHeight}
+            previewGapPx={previewGapPx}
+            previewTileBaseStyle={previewTileBaseStyle}
+            shake={shake}
+          />
           <div className="flex-1 min-h-0 flex flex-col gap-2">
+            <MobileGrid
+              board={board}
+              BONUS_CLASSES={BONUS_CLASSES}
+              bonusLetterKey={bonusLetterKey}
+              bonusLetterScore={bonusLetterScore}
+              darkMode={darkMode}
+              gridRef={gridRef}
+              gridShake={gridShake}
+              gridSize={gridSize}
+              handleMouseDown={handleMouseDown}
+              handleMouseMove={handleMouseMove}
+              handleMouseUp={handleMouseUp}
+              handleTouchEnd={handleTouchEnd}
+              handleTouchMove={handleTouchMove}
+              handleTouchStart={handleTouchStart}
+              isMobileLayout={isMobileLayout}
+              lightGridSurfaceStyle={lightGridSurfaceStyle}
+              MOBILE_LAYOUT_MAX_WIDTH={MOBILE_LAYOUT_MAX_WIDTH}
+              mobileGapPx={mobileGapPx}
+              mobileGridSide={mobileGridSide}
+              mobileTileFontPx={mobileTileFontPx}
+              normalizeBonusLabel={normalizeBonusLabel}
+              normalizeLetterKey={normalizeLetterKey}
+              phase={phase}
+              specialSolvedOverlay={specialSolvedOverlay}
+              tileRefs={tileRefs}
+              tileScore={tileScore}
+              tick={tick}
+              usedSet={usedSet}
+            />
             <div
-              className="flex justify-center items-center flex-shrink-0 w-full"
-              style={{ minHeight: `${mobileGridSide}px`, paddingInline: "12px" }}
+              className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
+              style={{
+                minHeight: `${liveFeedMinHeight}px`,
+                flexBasis: `${liveFeedMinHeight}px`,
+              }}
             >
-              <div
-                 ref={gridRef}
-                 className={
-                  "grid relative bg-white border rounded-xl shadow-sm w-full p-3 box-border" +
-                  (gridShake ? " shake" : "")
-                }
-                style={{
-                  gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                  gap: mobileGapPx,
-                  touchAction: "none",
-                  width: "100%",
-                  maxWidth: mobileGridSide
-                    ? `${mobileGridSide}px`
-                    : `${MOBILE_LAYOUT_MAX_WIDTH}px`,
-                  maxHeight: mobileGridSide ? `${mobileGridSide}px` : undefined,
-                  aspectRatio: "1 / 1",
-                  ...lightGridSurfaceStyle,
-                }}
-                onMouseUp={handleMouseUp}
-                onMouseMove={handleMouseMove}
-                onTouchMove={handleTouchMove}
-              >
-                {board.map((cell, i) => {
-                  const { letter, bonus } = cell;
-                  const displayBonus = normalizeBonusLabel(bonus);
-                  const isUsed = usedSet.has(i);
-                  const isBonusLetterTile =
-                    bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
-                  const letterPts = isBonusLetterTile
-                    ? bonusLetterScore ?? 20
-                    : tileScore(cell);
-                  const bonusClass = isBonusLetterTile
-                    ? "bonus-letter-tile"
-                    : displayBonus
-                    ? BONUS_CLASSES[displayBonus]
-                    : "bg-orange-200 border-orange-500 border-2";
-                  const highlightClass = isUsed ? "tile-used" : "";
-                  const showBonusBadge = displayBonus && !bonusLetterKey;
-
-                  return (
-                    <button
-                      key={i}
-                      ref={(el) => (tileRefs.current[i] = el)}
-                      onMouseDown={() => handleMouseDown(i)}
-                      onTouchStart={(e) => handleTouchStart(e, i)}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={handleTouchEnd}
-                      onTouchCancel={handleTouchEnd}
-                      type="button"
-                      className={[
-                        "relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
-                        isMobileLayout
-                          ? "w-full"
-                          : "w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] text-xl",
-                        bonusClass,
-                        highlightClass,
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      style={
-                        isMobileLayout
-                          ? { aspectRatio: "1 / 1", fontSize: `${mobileTileFontPx}px` }
-                          : undefined
-                      }
-                    >
-                      <span className="tile-letter">
-                        {letter}
-                      </span>
-                      {letterPts > 0 ? (
-                        <span className="tile-points">{letterPts}</span>
-                      ) : null}
-                      {showBonusBadge && (
-                        <span
-                          className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
-                            displayBonus === "M3"
-                              ? "bg-red-600 text-white"
-                              : displayBonus === "M2"
-                              ? "bg-blue-700 text-white"
-                              : "bg-amber-600 text-white"
-                          }`}
-                        >
-                          {displayBonus}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-                {phase === "playing" && specialSolvedOverlay && (
-                  <div
-                    className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${
-                      darkMode ? "bg-[#0b1020]/80" : "bg-white/75"
-                    }`}
-                  >
-                    <div className="text-center px-4 py-6">
-                      <div className="text-2xl font-black tracking-tight">
-                        Bravo, vous avez trouvé !
-                      </div>
-                      {typeof tick === "number" && (
-                        <div className="mt-3 text-4xl font-black tabular-nums">
-                          Temps restant : {Math.max(0, tick)}s
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div
-            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
-            style={{
-              minHeight: `${liveFeedMinHeight}px`,
-              flexBasis: `${liveFeedMinHeight}px`,
-            }}
-          >
               <LiveFeed
                 items={mobileAnnouncements}
                 darkMode={darkMode}
@@ -5601,137 +5281,23 @@ function handleTouchEnd() {
             </div>
           </div>
         </div>
-
         {/* Bouton de chat flottant + volet de chat */}
-        <div className="fixed bottom-4 right-4 z-30">
-          <button
-            type="button"
-            onClick={() => {
-              setMobileChatUnreadCount(0);
-              setIsChatOpenMobile(true);
-            }}
-            className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
-          >
-            Chat
-            {mobileChatUnreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-            )}
-          </button>
-        </div>
-
-        {isChatOpenMobile && (
-          <div
-            className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom"
-            style={chatOverlayStyle}
-          >
-            <div
-              className={`w-full rounded-t-2xl border-t flex flex-col ${
-                darkMode
-                  ? "bg-slate-900 text-slate-100 border-slate-700"
-                  : "bg-white text-slate-900 border-slate-200"
-              }`}
-              style={chatSheetStyle}
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                <div className="font-extrabold text-base">Chat</div>
-                <button
-                  type="button"
-                  onClick={() => setIsChatOpenMobile(false)}
-                  className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
-                    darkMode
-                      ? "bg-slate-800 border-slate-600 text-slate-100"
-                      : "bg-slate-50 border-slate-200 text-slate-900"
-                  }`}
-                >
-                  Fermer
-                </button>
-              </div>
-              <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
-                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
-                  {visibleMessages.length === 0 ? (
-                    <div className="text-[11px] text-slate-400 text-center mt-4">
-                      Aucun message pour l'instant.
-                    </div>
-                  ) : (
-                    [...visibleMessages].reverse().map((msg) => {
-                      const author = (msg.author || msg.nick || "Anonyme").trim();
-                      const isYou = author === selfNick;
-                      const isSystem = ["systeme", "system", "système"].includes(
-                        author.toLowerCase()
-                      );
-                      return (
-                        <div
-                          key={msg.id}
-                          className={
-                            isSystem
-                              ? "px-2 py-0.5 text-[0.65rem] italic text-orange-700 dark:text-amber-300 self-start"
-                              : `px-2 py-1 rounded-lg ${
-                                  isYou
-                                    ? "bg-blue-600 text-white self-end"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 self-start"
-                                }`
-                          }
-                        >
-                          {isSystem ? (
-                            <span>{msg.text}</span>
-                          ) : (
-                            <>
-                              <span className="font-semibold mr-1">{author}:</span>
-                              <span>{msg.text}</span>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <form
-                  onSubmit={submitChat}
-                  className="flex gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700"
-                >
-                  <input
-                    ref={chatInputRef}
-                    type="text"
-                    className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
-                    placeholder="écrire un message..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        cycleChatHistory(-1);
-                      } else if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        cycleChatHistory(1);
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
-                    disabled={!chatInput.trim()}
-                    onPointerDown={(e) => {
-                      if (!chatInput.trim()) return;
-                      e.preventDefault();
-                      submitChat();
-                      if (chatInputRef.current) {
-                        try {
-                          chatInputRef.current.focus({ preventScroll: true });
-                        } catch (_) {
-                          chatInputRef.current.focus();
-                        }
-                      }
-                    }}
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    Envoyer
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
+        <MobileChatWidget
+          chatInput={chatInput}
+          chatInputRef={chatInputRef}
+          chatOverlayStyle={chatOverlayStyle}
+          chatSheetStyle={chatSheetStyle}
+          cycleChatHistory={cycleChatHistory}
+          darkMode={darkMode}
+          isChatOpenMobile={isChatOpenMobile}
+          mobileChatUnreadCount={mobileChatUnreadCount}
+          selfNick={selfNick}
+          setChatInput={setChatInput}
+          setIsChatOpenMobile={setIsChatOpenMobile}
+          setMobileChatUnreadCount={setMobileChatUnreadCount}
+          submitChat={submitChat}
+          visibleMessages={visibleMessages}
+        />
         {phase === "playing" && praiseFlash && (
           <div
             key={praiseFlash.id}
