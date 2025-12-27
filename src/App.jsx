@@ -38,6 +38,7 @@ const COLUMN_HEIGHT_STYLE = {
 const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
+const MOBILE_LAYOUT_MAX_WIDTH = 520;
 const GRID_PADDING_PX = 32; // p-4 (16px de chaque côté)
 const BASE_TILE_PX = 56;
 const BASE_GAP_PX = 8; // gap-2 de référence
@@ -53,7 +54,7 @@ function getGridSizeForRoom(roomKey) {
 
 function getDefaultRoomId() {
   if (typeof window !== "undefined") {
-    const isMobile = window.matchMedia("(max-width: 640px)").matches;
+    const isMobile = window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`).matches;
     return isMobile ? "room-4x4" : "room-4x4";
   }
   return "room-4x4";
@@ -104,6 +105,21 @@ body {
 .ios-input {
   font-size: 16px;
   line-height: 1.2;
+}
+
+@media (max-width: 520px) {
+  body {
+    overscroll-behavior: none;
+  }
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 .chat-safe-bottom {
@@ -647,7 +663,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.matchMedia("(max-width: 640px)").matches;
+    return window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`).matches;
   });
   const [mobileLayoutSizing, setMobileLayoutSizing] = useState({
     viewportWidth: 0,
@@ -857,12 +873,20 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 640px)");
+    const mq = window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`);
     const update = () => setIsMobileLayout(mq.matches);
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileLayout) return;
+    if (typeof screen === "undefined") return;
+    const orientation = screen.orientation;
+    if (!orientation || typeof orientation.lock !== "function") return;
+    orientation.lock("portrait").catch(() => {});
+  }, [isMobileLayout]);
 
   useEffect(() => {
     isChatOpenMobileRef.current = isChatOpenMobile;
@@ -956,7 +980,10 @@ export default function App() {
         bodyHeight - verticalPadding - layoutGaps
       );
       const blocksBudget = availableHeight > 0 ? availableHeight : bodyHeight;
-      const availableWidth = Math.max(0, viewportWidth - 24); // px-3 (12px) de chaque c?t?
+      const availableWidth = Math.max(
+        0,
+        Math.min(viewportWidth - 24, MOBILE_LAYOUT_MAX_WIDTH)
+      ); // px-3 (12px) de chaque c?t?
 
       const baseFontSize =
         parseFloat(
@@ -4610,7 +4637,7 @@ function handleTouchEnd() {
       (typeof window !== "undefined" ? window.innerHeight * 0.6 : 520);
     const mobileGridSide = Math.round(
       mobileLayoutSizing.gridSide ||
-        Math.max(200, Math.min(fallbackViewportWidth - 24, fallbackViewportWidth))
+        Math.max(200, Math.min(fallbackViewportWidth - 24, MOBILE_LAYOUT_MAX_WIDTH))
     );
     const previewFallback = 52;
     const liveFeedFallback = 80;
@@ -4646,15 +4673,7 @@ function handleTouchEnd() {
       height: `${previewTileHeight}px`,
       fontSize: `${previewTileFontPx}px`,
     };
-    const mobileGapPx = Math.max(
-      6,
-      Math.min(
-        14,
-        Math.round(
-          (mobileGridSide / Math.max(gridSize, 1)) * BASE_GAP_RATIO
-        )
-      )
-    );
+    const mobileGapPx = "clamp(6px, 2.4vw, 14px)";
     const mobileTileFontPx = Math.max(
       18,
       Math.min(
@@ -4666,8 +4685,8 @@ function handleTouchEnd() {
       mobileLayoutSizing.bodyHeight > 0
         ? { height: `${Math.round(mobileLayoutSizing.bodyHeight)}px`, minHeight: 0 }
         : {
-            minHeight: 0,
-              height: "calc(100vh - 96px)", // fallback compatible si dvh indisponible
+            minHeight: "calc(100vh - 96px)",
+            height: "calc(100dvh - 96px)",
           };
 
     const mobileViewportHeightCandidates =
@@ -4691,12 +4710,16 @@ function handleTouchEnd() {
             height: `${Math.round(mobileViewportHeight)}px`,
             maxHeight: `${Math.round(mobileViewportHeight)}px`,
             overflow: "hidden",
+            overscrollBehavior: "none",
+            paddingBottom: "env(safe-area-inset-bottom)",
           }
         : {
             minHeight: "100vh",
-            height: "100vh",
-            maxHeight: "100vh",
+            height: "100dvh",
+            maxHeight: "100dvh",
             overflow: "hidden",
+            overscrollBehavior: "none",
+            paddingBottom: "env(safe-area-inset-bottom)",
           };
 
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
@@ -5452,8 +5475,8 @@ function handleTouchEnd() {
 
           <div className="flex-1 min-h-0 flex flex-col gap-2">
             <div
-              className="flex justify-center items-center flex-shrink-0"
-              style={{ minHeight: `${mobileGridSide}px` }}
+              className="flex justify-center items-center flex-shrink-0 w-full"
+              style={{ minHeight: `${mobileGridSide}px`, paddingInline: "12px" }}
             >
               <div
                  ref={gridRef}
@@ -5463,12 +5486,13 @@ function handleTouchEnd() {
                 }
                 style={{
                   gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                  gap: `${mobileGapPx}px`,
+                  gap: mobileGapPx,
                   touchAction: "none",
-                  width: `${mobileGridSide}px`,
-                  height: `${mobileGridSide}px`,
-                  maxWidth: "100%",
-                  maxHeight: `${mobileGridSide}px`,
+                  width: "100%",
+                  maxWidth: mobileGridSide
+                    ? `${mobileGridSide}px`
+                    : `${MOBILE_LAYOUT_MAX_WIDTH}px`,
+                  maxHeight: mobileGridSide ? `${mobileGridSide}px` : undefined,
                   aspectRatio: "1 / 1",
                   ...lightGridSurfaceStyle,
                 }}

@@ -3,6 +3,7 @@
   "short_name": "GOBBLE",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0b172a",
   "theme_color": "#0ea5e9",
   "icons": [
