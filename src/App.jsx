@@ -1431,16 +1431,6 @@ function playTileStepSound(step) {
   ctx.resume().then(start).catch(start);
 }
 
-
-  // Synchronise l'état muet avec l'élément audio (certaines plateformes le gardent en mémoire)
-  useEffect(() => {
-    const audio = document.getElementById("error-sound");
-    if (audio) {
-      audio.muted = isMuted;
-      if (!isMuted) audio.volume = 1;
-    }
-  }, [isMuted]);
-
   useEffect(() => {
     const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", handler);
@@ -2855,16 +2845,7 @@ function playTileStepSound(step) {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeArea, phase, board, dictionary]);
 
-  function playErrorSound() {
-    if (isMuted) return;
-    const audio = document.getElementById("error-sound");
-    if (audio) {
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
-    }
-  }
-
-  function playDuplicateErrorTone() {
+  function playDefeatTone(freqs = [280, 220]) {
     if (isMuted) return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
@@ -2873,12 +2854,11 @@ function playTileStepSound(step) {
     }
     const ctx = audioCtxRef.current;
     const now = ctx.currentTime + 0.01;
-    const freqs = [170, 120]; // deux bips graves, le second plus bas
     freqs.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       const t0 = now + idx * 0.1;
-      osc.type = "sine";
+      osc.type = "triangle";
       osc.frequency.setValueAtTime(freq, t0);
       gain.gain.setValueAtTime(0, t0);
       gain.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
@@ -2890,6 +2870,14 @@ function playTileStepSound(step) {
         osc.stop(t0 + 0.16);
       } catch (_) {}
     });
+  }
+
+  function playErrorSound() {
+    playDefeatTone([290, 230]);
+  }
+
+  function playDuplicateErrorTone() {
+    playDefeatTone([320, 260]);
   }
 
     // =============== VIBRATIONS (optionnelles, mobile) ===============
@@ -3149,7 +3137,7 @@ function handleTouchEnd() {
 
     // Mode en ligne : on délègue la validation / le score au serveur
     if (roundId && socket.connected && isLoggedIn) {
-      socket.emit("submitWord", { roundId, word: raw }, (res) => {
+      socket.emit("submitWord", { roundId, word: raw, path }, (res) => {
         if (!res || !res.ok) {
           if (res?.error === "invalid_word") {
             return error("Mot refusé par le serveur");
@@ -3385,7 +3373,9 @@ function handleTouchEnd() {
     userPts: acceptedScoresRef.current.get(word),
     bestPts: allWordsMap.get(word)?.pts,
   }));
-  foundList.sort((a, b) => (b.userPts || 0) - (a.userPts || 0));
+  const scoreForSort = (entry) =>
+    typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
+  foundList.sort((a, b) => scoreForSort(b) - scoreForSort(a));
   const baseList = allWords.length > 0 ? allWords : foundList;
   const displayList = baseList.map((entry) => ({
     word: entry.word,
@@ -4927,7 +4917,13 @@ function handleTouchEnd() {
                                     <span className="text-gray-500">({bestPts} pts)</span>
                                   )}
                                   {showOpt && (
-                                    <span className="text-[0.65rem] text-orange-700">opt: {bestPts} pts</span>
+                                    <span
+                                      className={`text-[0.65rem] ${
+                                        darkMode ? "text-red-300" : "text-red-600"
+                                      }`}
+                                    >
+                                      (opt: {bestPts} pts)
+                                    </span>
                                   )}
                                 </span>
                               </li>
@@ -5312,12 +5308,6 @@ function handleTouchEnd() {
           </div>
         )}
 
-        <audio id="error-sound" preload="auto" muted={isMuted}>
-          <source
-            src="https://www.myinstants.com/media/sounds/icq-uh-oh.mp3"
-            type="audio/mpeg"
-          />
-        </audio>
       </div>
     );
   }
@@ -6040,8 +6030,12 @@ function handleTouchEnd() {
                               <span className="text-gray-500">({bestPts} pts)</span>
                             )}
                             {showOpt && (
-                              <span className="text-[0.65rem] text-orange-700">
-                                opt: {bestPts} pts
+                              <span
+                                className={`text-[0.65rem] ${
+                                  darkMode ? "text-red-300" : "text-red-600"
+                                }`}
+                              >
+                                (opt: {bestPts} pts)
                               </span>
                             )}
                           </span>
@@ -6177,12 +6171,7 @@ function handleTouchEnd() {
         </div>
       )}
 
-      <audio id="error-sound" preload="auto" muted={isMuted}>
-        <source
-          src="https://www.myinstants.com/media/sounds/icq-uh-oh.mp3"
-          type="audio/mpeg"
-        />
-      </audio>
     </div>
   );
 }
+

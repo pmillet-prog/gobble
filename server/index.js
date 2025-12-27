@@ -11,6 +11,7 @@ import { readFileSync, appendFileSync, mkdirSync } from "fs";
 import {
   generateGrid,
   scoreWordOnGrid,
+  scoreWordOnGridWithPath,
   solveGrid,
   normalizeWord,
 } from "../shared/gameLogic.js";
@@ -566,7 +567,7 @@ function computeWordScoreForRound(round, norm, path, defaultPts) {
   return defaultPts;
 }
 
-function submitWordForNick(room, { roundId, word, nick }) {
+function submitWordForNick(room, { roundId, word, path, nick }) {
   if (!room) return { ok: false, error: "invalid_room" };
   if (!room.currentRound || room.currentRound.id !== roundId) {
     return { ok: false, error: "round_invalid" };
@@ -602,7 +603,18 @@ function submitWordForNick(room, { roundId, word, nick }) {
     }
   }
 
-  const scored = scoreWordOnGrid(normInput, room.currentRound.grid, getSpecialScoreConfig(room.currentRound));
+  const safePath =
+    Array.isArray(path) && path.length > 0 && path.every((idx) => Number.isInteger(idx))
+      ? path
+      : null;
+  const scored = safePath
+    ? scoreWordOnGridWithPath(
+        normInput,
+        room.currentRound.grid,
+        safePath,
+        getSpecialScoreConfig(room.currentRound)
+      )
+    : scoreWordOnGrid(normInput, room.currentRound.grid, getSpecialScoreConfig(room.currentRound));
   if (!scored) {
     return { ok: false, error: "invalid_word" };
   }
@@ -1784,12 +1796,13 @@ io.on("connection", (socket) => {
     cb?.({ ok: true });
   });
 
-  socket.on("submitWord", ({ roundId, word }, cb) => {
+  socket.on("submitWord", ({ roundId, word, path }, cb) => {
     const room = getRoom(socket.roomId);
     const player = room?.players.get(socket.id);
     const result = submitWordForNick(room, {
       roundId,
       word,
+      path,
       nick: player?.nick,
     });
     cb?.(result);

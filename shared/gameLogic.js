@@ -216,6 +216,34 @@ export function findBestPathForWord(board, wordNorm, special = null) {
   return bestPath;
 }
 
+export function pathMatchesWord(board, wordNorm, path) {
+  if (!Array.isArray(path) || path.length === 0) return false;
+  const total = board.length;
+  const size = Math.sqrt(total);
+  if (!Number.isFinite(size) || size <= 0) return false;
+
+  const used = new Set();
+  let pos = 0;
+  for (let i = 0; i < path.length; i++) {
+    const idx = path[i];
+    if (!Number.isInteger(idx) || idx < 0 || idx >= total) return false;
+    if (used.has(idx)) return false;
+    if (i > 0) {
+      const prev = path[i - 1];
+      const nbs = neighbors(prev, size, total);
+      if (!nbs.includes(idx)) return false;
+    }
+    const tile = board[idx];
+    if (!tile) return false;
+    const label = tile.letter === "Qu" ? "qu" : String(tile.letter || "").toLowerCase();
+    if (!label || !wordNorm.startsWith(label, pos)) return false;
+    pos += label.length;
+    if (pos > wordNorm.length) return false;
+    used.add(idx);
+  }
+
+  return pos === wordNorm.length;
+}
 // Filtre un dico (Set de mots normalisés) en ne gardant
 // que les mots compatibles avec les lettres présentes sur la grille.
 export function filterDictionary(dictionary, board) {
@@ -274,4 +302,13 @@ export function scoreWordOnGrid(rawWord, board, special = null) {
   const pts = computeScore(norm, path, board, special);
   return { norm, path, pts };
 }
+
+export function scoreWordOnGridWithPath(rawWord, board, path, special = null) {
+  const norm = normalizeWord(rawWord);
+  if (!norm || norm.length < 3) return null;
+  if (!pathMatchesWord(board, norm, path)) return null;
+  const pts = computeScore(norm, path, board, special);
+  return { norm, path, pts };
+}
+
 
