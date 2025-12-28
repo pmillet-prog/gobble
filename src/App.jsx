@@ -2161,21 +2161,6 @@ function playTileStepSound(step) {
     let id = null;
 
     const finalizeRound = () => {
-      if (dictionary) {
-        const filtered = filterDictionary(dictionary, board);
-        const solved = solveAll(board, filtered, specialScoreConfig);
-        solutionsRef.current = solved;
-
-        const all = [...solved.entries()].map(([word, path]) => ({
-          word,
-          pts: computeScore(word, path, board, specialScoreConfig),
-          path,
-        }));
-
-        all.sort((a, b) => b.pts - a.pts);
-        setAllWords(all);
-      }
-
       setServerStatus("break");
       setPhase("results");
     };
@@ -2244,9 +2229,14 @@ function playTileStepSound(step) {
     if (phase !== "results") return;
     if (!dictionary) return;
     if (allWords.length > 0) return;
+    if (specialRound?.type === "monstrous" && !showAllWords) return;
 
-    setAllWords(buildAllWordsLocal());
-  }, [phase, board, dictionary, allWords.length, specialScoreConfig]);
+    scheduleAllWordsCompute(board, {
+      updateBestRefs: true,
+      jobKey: `results-${roundId || Date.now()}`,
+      delayMs: 0,
+    });
+  }, [phase, board, dictionary, allWords.length, specialScoreConfig, specialRound, showAllWords, roundId]);
 
   // Bots désactivés
   useEffect(() => {
@@ -2485,7 +2475,10 @@ function playTileStepSound(step) {
     job.key = null;
   }
 
-  function scheduleAllWordsCompute(sourceBoard, { updateBestRefs = true, jobKey } = {}) {
+  function scheduleAllWordsCompute(
+    sourceBoard,
+    { updateBestRefs = true, jobKey, delayMs } = {}
+  ) {
     cancelAllWordsCompute();
     if (!dictionary || dictionary.size === 0) return;
     if (!sourceBoard || sourceBoard.length === 0) return;
@@ -2510,8 +2503,12 @@ function playTileStepSound(step) {
       }
     };
 
+    const kickoffDelay =
+      typeof delayMs === "number" && Number.isFinite(delayMs)
+        ? Math.max(0, Math.round(delayMs))
+        : 4500;
     // Laisse le temps au joueur de saisir les premiers mots sans jank.
-    allWordsComputeRef.current.kickoff = setTimeout(kickoff, 4500);
+    allWordsComputeRef.current.kickoff = setTimeout(kickoff, kickoffDelay);
   }
 
   function buildAllWordsLocal(sourceBoard = board, opts = {}) {
@@ -2543,6 +2540,7 @@ function playTileStepSound(step) {
   useEffect(() => {
     if (phase !== "playing") return;
     if (specialRound?.type === "speed") return;
+    if (specialRound?.type === "monstrous") return;
     if (!dictionary || dictionary.size === 0) return;
     if (!board || board.length === 0) return;
     if (accepted.length === 0) return;
@@ -3366,12 +3364,26 @@ function handleTouchEnd() {
     flexShrink: 0,
   };
   const highlightPlayersSet = new Set(highlightPlayers);
+  const bestPtsByFoundWord = React.useMemo(() => {
+    const map = new Map();
+    if (allWords.length > 0) return map;
+    if (!accepted || accepted.length === 0) return map;
+    for (const word of accepted) {
+      const norm = normalizeWord(word);
+      const path = findBestPathForWord(board, norm, specialScoreConfig);
+      if (path) {
+        map.set(word, computeScore(norm, path, board, specialScoreConfig));
+      }
+    }
+    return map;
+  }, [allWords.length, accepted, board, specialScoreConfig]);
+
   const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
   const foundList = acceptedRef.current.map((word) => ({
     word,
     isFound: true,
     userPts: acceptedScoresRef.current.get(word),
-    bestPts: allWordsMap.get(word)?.pts,
+    bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
   }));
   const scoreForSort = (entry) =>
     typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
@@ -3379,9 +3391,9 @@ function handleTouchEnd() {
   const baseList = allWords.length > 0 ? allWords : foundList;
   const displayList = baseList.map((entry) => ({
     word: entry.word,
-    isFound: acceptedRef.current.includes(entry.word),
+    isFound: entry.isFound ?? acceptedRef.current.includes(entry.word),
     userPts: acceptedScoresRef.current.get(entry.word),
-    bestPts: entry.pts,
+    bestPts: typeof entry.pts === "number" ? entry.pts : entry.bestPts,
   }));
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
   const resultPillClass = darkMode

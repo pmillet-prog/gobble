@@ -20,6 +20,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
+app.set("trust proxy", true);
+
+app.use((req, res, next) => {
+  const host = String(req.headers.host || "").toLowerCase();
+  const isGobbleHost = host === "gobble.fr" || host === "www.gobble.fr";
+  const isLocal =
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("::1");
+  if (!isGobbleHost || isLocal) return next();
+
+  const needsHttps = !req.secure;
+  const needsNonWww = host.startsWith("www.");
+  if (!needsHttps && !needsNonWww) return next();
+
+  const target = `https://gobble.fr${req.originalUrl || "/"}`;
+  return res.redirect(301, target);
+});
 
 // ===== SERVE FRONT VITE (dist) =====
 app.use(express.static(path.join(__dirname, "../dist")));
