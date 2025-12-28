@@ -619,9 +619,9 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     return { ok: false, error: "invalid_word" };
   }
 
-  const { norm, pts, path } = scored;
+  const { norm, pts, path: scoredPath } = scored;
   const len = norm.length;
-  const wordPts = computeWordScoreForRound(room.currentRound, norm, path, pts);
+  const wordPts = computeWordScoreForRound(room.currentRound, norm, scoredPath, pts);
 
   const roundSubs = room.submissions.get(roundId);
   if (!roundSubs) {
