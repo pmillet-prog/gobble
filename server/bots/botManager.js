@@ -11,7 +11,7 @@ export const BOT_ROSTER_4X4 = [
   { nick: "QuasarMots", skill: 0.88, maxWordsPerRound: 90, minWordsPerRound: 36, pointBias: 0.84, pace: 1.02, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Celie", skill: 0.66, maxWordsPerRound: 74, minWordsPerRound: 28, pointBias: 0.7, pace: 1.0, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Sylvie50", skill: 0.6, maxWordsPerRound: 71, minWordsPerRound: 25, pointBias: 0.65, pace: 0.95 },
-  { nick: "Alcapouet", skill: 0.55, maxWordsPerRound: 69, minWordsPerRound: 22, pointBias: 0.55, pace: 1.1 },
+  { nick: "Alcapouet", skill: 0.75, maxWordsPerRound: 69, minWordsPerRound: 22, pointBias: 0.55, pace: 1.1 },
   { nick: "Fanny", skill: 0.5, maxWordsPerRound: 65, minWordsPerRound: 20, pointBias: 0.5, pace: 0.85, sleep: { startHour: 1, durationHours: 2 } },
   { nick: "(cacharel)", skill: 0.45, maxWordsPerRound: 62, minWordsPerRound: 18, pointBias: 0.45, pace: 0.9 },
   { nick: "--SuperNapo--", skill: 0.4, maxWordsPerRound: 58, minWordsPerRound: 16, pointBias: 0.4, pace: 1.15 },
@@ -409,6 +409,7 @@ class BotManager {
     this.botRoundStreak = new Map();
     this.botRestUntil = new Map();
     this.botSessionUntil = new Map();
+    this.presenceTimers = new Map();
     this.presenceInterval = setInterval(() => this.refreshPresence(), 5 * 60 * 1000);
     this.warnedNoDictionary = false;
 
@@ -500,7 +501,9 @@ class BotManager {
         const key = ordered.pop();
         selection.delete(key);
         const player = room.players.get(key);
-        if (player?.nick) this.removeBotFromRoom(room, { nick: player.nick });
+        if (player?.nick) {
+          this.schedulePresenceChange(room, { nick: player.nick }, "remove", 800, 6000);
+        }
       }
     } else if (selection.size < desiredBots) {
       const seeded = mulberry32(hashString(`up-${room.id}-${getParisHour(now)}`));
@@ -511,7 +514,9 @@ class BotManager {
       while (selection.size < desiredBots && candidates.length) {
         const { bot, key } = candidates.pop();
         selection.add(key);
-        if (!room.players.has(key)) this.addBotToRoom(room, bot);
+        if (!room.players.has(key)) {
+          this.schedulePresenceChange(room, bot, "add", 800, 6000);
+        }
       }
     }
 
@@ -539,6 +544,30 @@ class BotManager {
     }
     this.emitPlayers(room);
     this.broadcastProvisionalRanking(room);
+  }
+
+  schedulePresenceChange(room, bot, action, minDelayMs, maxDelayMs) {
+    if (!room || !bot || !bot.nick) return;
+    if (room?.currentRound?.status === "running") return;
+    const key = `${room.id || "room"}:${action}:${bot.nick}`;
+    if (this.presenceTimers.has(key)) return;
+
+    const min = Number.isFinite(minDelayMs) ? minDelayMs : 800;
+    const max = Number.isFinite(maxDelayMs) ? maxDelayMs : 6000;
+    const delay = Math.max(0, Math.floor(min + Math.random() * Math.max(0, max - min)));
+
+    const timer = setTimeout(() => {
+      this.presenceTimers.delete(key);
+      if (room?.currentRound?.status === "running") return;
+      if (action === "add") {
+        const botKey = this.botKey(bot);
+        if (!room.players.has(botKey)) this.addBotToRoom(room, bot);
+      } else if (action === "remove") {
+        if (room.players.has(this.botKey(bot))) this.removeBotFromRoom(room, bot);
+      }
+    }, delay);
+
+    this.presenceTimers.set(key, timer);
   }
 
   removeBotFromRoom(room, bot) {
@@ -637,7 +666,7 @@ class BotManager {
           BOT_REST_MIN_MS + Math.floor(Math.random() * (BOT_REST_MAX_MS - BOT_REST_MIN_MS));
         this.botRestUntil.set(key, now + restMs);
         this.botRoundStreak.set(key, 0);
-        this.removeBotFromRoom(room, { nick: player.nick });
+        this.schedulePresenceChange(room, { nick: player.nick }, "remove", 1200, 9000);
       } else {
         this.botRoundStreak.set(key, streak);
       }

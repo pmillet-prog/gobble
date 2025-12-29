@@ -1161,16 +1161,20 @@ function startRoundForRoom(room) {
   resetRoomRecords(room);
   room.roundCounter = roundNumber;
   room.tournament.currentRound = tournamentRound;
-  room.bestPossibleStats =
+  let bestPossibleStats =
     quality && dictionary
       ? {
           maxLen: quality.maxLen || 0,
           maxPts: planUsed?.fixedWordScore || quality.maxPts || 0,
         }
       : computeBestPossible(grid);
-  if (planUsed?.fixedWordScore) {
-    room.bestPossibleStats.maxPts = planUsed.fixedWordScore;
+  if (planUsed?.type === "bonus_letter") {
+    bestPossibleStats = computeBestPossible(grid, getSpecialScoreConfigFromPlan(planUsed));
   }
+  if (planUsed?.fixedWordScore) {
+    bestPossibleStats.maxPts = planUsed.fixedWordScore;
+  }
+  room.bestPossibleStats = bestPossibleStats;
 
   const nextTournamentRound =
     tournamentRound >= (room.tournament.totalRounds || TOURNAMENT_TOTAL_ROUNDS)
@@ -1199,7 +1203,10 @@ function startRoundForRoom(room) {
       ? {
           words: quality.words ?? 0,
           maxLen: quality.maxLen ?? 0,
-          maxPts: planUsed?.fixedWordScore || quality.maxPts || 0,
+          maxPts:
+            planUsed?.type === "bonus_letter"
+              ? room.bestPossibleStats.maxPts || 0
+              : planUsed?.fixedWordScore || quality.maxPts || 0,
           totalPts: quality.totalPts ?? 0,
           possibleScore: quality.possibleScore ?? quality.totalPts ?? 0,
           longWords: quality.longWords ?? 0,

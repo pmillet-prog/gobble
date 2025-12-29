@@ -2230,13 +2230,24 @@ function playTileStepSound(step) {
     if (!dictionary) return;
     if (allWords.length > 0) return;
     if (specialRound?.type === "monstrous" && !showAllWords) return;
+    if (upcomingSpecial?.type === "monstrous" && !showAllWords) return;
 
     scheduleAllWordsCompute(board, {
       updateBestRefs: true,
       jobKey: `results-${roundId || Date.now()}`,
       delayMs: 0,
     });
-  }, [phase, board, dictionary, allWords.length, specialScoreConfig, specialRound, showAllWords, roundId]);
+  }, [
+    phase,
+    board,
+    dictionary,
+    allWords.length,
+    specialScoreConfig,
+    specialRound,
+    upcomingSpecial,
+    showAllWords,
+    roundId,
+  ]);
 
   // Bots désactivés
   useEffect(() => {
@@ -2987,6 +2998,20 @@ function playTileStepSound(step) {
       if (!neigh.includes(index)) return prevPath;
       if (prevPath.includes(index)) return prevPath;
 
+      {
+        const el = tileRefs.current[index];
+        if (el && e) {
+          const rect = el.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = (e.clientX ?? cx) - cx;
+          const dy = (e.clientY ?? cy) - cy;
+          const dist = Math.hypot(dx, dy);
+          const safeRadius = Math.min(rect.width, rect.height) * 0.8; // si plus petit, moins permissif
+          if (dist > safeRadius) return prevPath;
+        }
+      }
+
       const lastRow = Math.floor(lastIndex / gridSize);
       const lastCol = lastIndex % gridSize;
       const row = Math.floor(index / gridSize);
@@ -3012,9 +3037,9 @@ function playTileStepSound(step) {
           const ny = dy / halfH;
 
           // Zone "anti-corner" : on ignore UNIQUEMENT le coin du voisin orthogonal
-          // du cÙtÈ d'o? l'on arrive (pour faciliter les diagonales sans rendre
-          // les cases trop difficiles ‡ sÈlectionner au doigt).
-          const CORNER_THRESHOLD = 0.78;
+          // du côté d'où l'on arrive (pour faciliter les diagonales sans rendre
+          // les cases trop difficiles ‡ sélectionner au doigt).
+          const CORNER_THRESHOLD = 0.4; //si plus petit, moins permissif
           const inRejectedCorner =
             (dc === 1 && nx < -CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
             (dc === -1 && nx > CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
@@ -6186,4 +6211,3 @@ function handleTouchEnd() {
     </div>
   );
 }
-
