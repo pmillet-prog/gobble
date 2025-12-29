@@ -1554,6 +1554,11 @@ function endRoundForRoom(room) {
     tournamentSummaryAt = Date.now() + TOURNAMENT_RESULTS_BREAK_MS;
 
     const winnerNick = totalRanking[0]?.nick || null;
+    const medalWinners = [
+      totalRanking[0]?.nick || null,
+      totalRanking[1]?.nick || null,
+      totalRanking[2]?.nick || null,
+    ].filter(Boolean);
     tournamentSummary = {
       id: t.id,
       winnerNick,
@@ -1561,10 +1566,14 @@ function endRoundForRoom(room) {
       records: t.records,
     };
 
-    addMedal(room, totalRanking[0]?.nick, "gold");
-    addMedal(room, totalRanking[1]?.nick, "silver");
-    addMedal(room, totalRanking[2]?.nick, "bronze");
-    emitMedals(room);
+    const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
+    setTimeout(() => {
+      if (room.breakState?.breakKind !== "tournament_end") return;
+      if (medalWinners[0]) addMedal(room, medalWinners[0], "gold");
+      if (medalWinners[1]) addMedal(room, medalWinners[1], "silver");
+      if (medalWinners[2]) addMedal(room, medalWinners[2], "bronze");
+      emitMedals(room);
+    }, medalDelay);
 
     resetTournament(room);
   }
