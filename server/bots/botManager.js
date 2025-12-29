@@ -548,7 +548,6 @@ class BotManager {
 
   schedulePresenceChange(room, bot, action, minDelayMs, maxDelayMs) {
     if (!room || !bot || !bot.nick) return;
-    if (room?.currentRound?.status === "running") return;
     const key = `${room.id || "room"}:${action}:${bot.nick}`;
     if (this.presenceTimers.has(key)) return;
 
@@ -558,7 +557,15 @@ class BotManager {
 
     const timer = setTimeout(() => {
       this.presenceTimers.delete(key);
-      if (room?.currentRound?.status === "running") return;
+      if (room?.currentRound?.status === "running") {
+        const retryDelay = 1500 + Math.random() * 2500;
+        const retry = setTimeout(() => {
+          this.presenceTimers.delete(key);
+          this.schedulePresenceChange(room, bot, action, minDelayMs, maxDelayMs);
+        }, retryDelay);
+        this.presenceTimers.set(key, retry);
+        return;
+      }
       if (action === "add") {
         const botKey = this.botKey(bot);
         if (!room.players.has(botKey)) this.addBotToRoom(room, bot);
