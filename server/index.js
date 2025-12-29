@@ -1569,10 +1569,21 @@ function endRoundForRoom(room) {
     resetTournament(room);
   }
 
-  const nextStartAt = Date.now() + breakMs;
+  const nextRoundNumber = (room.roundCounter || 0) + 1;
   const nextTournamentRoundForBreak = breakKind === "tournament_end" ? 1 : tournamentRound + 1;
   const nextPlanForBreak =
     breakKind === "tournament_end" ? null : getTournamentRoundPlan(room, nextTournamentRoundForBreak);
+  const nextPlan = getTournamentRoundPlan(room, nextTournamentRoundForBreak);
+
+  if (nextPlan?.type === "monstrous") {
+    const alreadyPrepared =
+      room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
+    if (!alreadyPrepared) {
+      prepareNextGrid(room, nextPlan, nextRoundNumber);
+    }
+  }
+
+  const nextStartAt = Date.now() + breakMs;
   const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
   io.to(room.id).emit("breakStarted", {
     roomId: room.id,
@@ -1631,12 +1642,6 @@ function endRoundForRoom(room) {
     targetSummary,
   });
 
-  const nextRoundNumber = (room.roundCounter || 0) + 1;
-  const nextTournamentRound =
-    breakKind === "tournament_end"
-      ? 1
-      : Math.min(TOURNAMENT_TOTAL_ROUNDS, tournamentRound + 1);
-  const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
   setTimeout(() => {
     const alreadyPrepared =
       room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;

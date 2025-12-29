@@ -483,6 +483,19 @@ class BotManager {
           .map(([token]) => token)
       );
     }
+    if (selection.size === 0 && desiredBots > 0) {
+      const seeded = mulberry32(hashString(`boot-${room.id}-${getParisHour(now)}`));
+      const candidates = awakeBots
+        .map((bot) => ({ bot, key: this.botKey(bot) }))
+        .filter(({ key }) => !selection.has(key));
+      candidates.sort(() => seeded() - 0.5);
+      const bootstrapCount = Math.min(desiredBots, 3, candidates.length);
+      for (let i = 0; i < bootstrapCount; i++) {
+        const { bot, key } = candidates[i];
+        selection.add(key);
+        if (!room.players.has(key)) this.addBotToRoom(room, bot);
+      }
+    }
 
     // Supprime les bots qui ne devraient plus Ítre lý (hors roster ou endormis)
     for (const key of Array.from(selection)) {
@@ -765,3 +778,4 @@ class BotManager {
 export function createBotManager(deps) {
   return new BotManager(deps);
 }
+
