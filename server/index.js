@@ -78,6 +78,7 @@ const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+const MONSTROUS_POST_PREP_MIN_BREAK_MS = 5 * 1000;
 
 const TARGET_LONG_MIN_LEN = 8;
 const TARGET_SCORE_MIN_PTS = 100;
@@ -1583,17 +1584,48 @@ function endRoundForRoom(room) {
   const nextPlanForBreak =
     breakKind === "tournament_end" ? null : getTournamentRoundPlan(room, nextTournamentRoundForBreak);
   const nextPlan = getTournamentRoundPlan(room, nextTournamentRoundForBreak);
+  const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
+  io.to(room.id).emit("roundEnded", {
+    roomId: room.id,
+    roundId: room.currentRound.id,
+    results,
+    tournament: {
+      id: tournamentId,
+      round: tournamentRound,
+      totalRounds: t?.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
+      nextRound: nextTournamentRoundForBreak,
+      roundAwarded: Object.fromEntries(roundAwarded.entries()),
+      totals: t
+        ? Object.fromEntries(
+            Array.from(t.totals.entries()).map(([nick, data]) => [
+              nick,
+              { points: data?.points || 0, gobbles: data?.gobbles || 0 },
+            ])
+          )
+        : {},
+      ranking: totalRanking,
+      breakKind,
+    },
+    nextSpecial: nextSpecialForBreak,
+    tournamentSummary,
+    tournamentSummaryAt,
+    targetSummary,
+  });
 
   if (nextPlan?.type === "monstrous") {
     const alreadyPrepared =
       room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
     if (!alreadyPrepared) {
+      const prepStartedAt = Date.now();
       prepareNextGrid(room, nextPlan, nextRoundNumber);
+      const prepMs = Date.now() - prepStartedAt;
+      if (prepMs > 0) {
+        breakMs = Math.max(MONSTROUS_POST_PREP_MIN_BREAK_MS, breakMs - prepMs);
+      }
     }
   }
 
   const nextStartAt = Date.now() + breakMs;
-  const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
   io.to(room.id).emit("breakStarted", {
     roomId: room.id,
     nextStartAt,
@@ -1623,33 +1655,6 @@ function endRoundForRoom(room) {
     tournamentSummaryAt,
     targetSummary,
   };
-
-  io.to(room.id).emit("roundEnded", {
-    roomId: room.id,
-    roundId: room.currentRound.id,
-    results,
-    tournament: {
-      id: tournamentId,
-      round: tournamentRound,
-      totalRounds: t?.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
-      nextRound: nextTournamentRoundForBreak,
-      roundAwarded: Object.fromEntries(roundAwarded.entries()),
-      totals: t
-        ? Object.fromEntries(
-            Array.from(t.totals.entries()).map(([nick, data]) => [
-              nick,
-              { points: data?.points || 0, gobbles: data?.gobbles || 0 },
-            ])
-          )
-        : {},
-      ranking: totalRanking,
-      breakKind,
-    },
-    nextSpecial: nextSpecialForBreak,
-    tournamentSummary,
-    tournamentSummaryAt,
-    targetSummary,
-  });
 
   setTimeout(() => {
     const alreadyPrepared =

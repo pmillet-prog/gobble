@@ -131,6 +131,16 @@ function normalizeLetterKey(letter) {
   return String(letter).toLowerCase();
 }
 
+function isSystemAuthor(rawAuthor) {
+  if (!rawAuthor) return false;
+  const simplified = String(rawAuthor)
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return simplified === "system" || simplified === "systeme";
+}
+
 const BONUS_CLASSES = {
   L2: "bg-[rgba(163,196,243,0.85)] border-[rgba(99,147,230,0.9)] border-2", // bleu clair plus vif
   L3: "bg-[rgba(51,93,227,0.8)] border-[rgba(30,64,175,0.95)] text-white border-2", // bleu profond
@@ -4634,9 +4644,7 @@ function handleTouchEnd() {
 
                 const author = (msg.author || msg.nick || "Anonyme").trim();
                 const isYou = author === nickname.trim();
-                const isSystem = ["systeme", "system", "systÇùme"].includes(
-                  author.toLowerCase()
-                );
+                const isSystem = isSystemAuthor(author);
                 const isLast = msg.id === lastMessageId;
 
                 return (
@@ -4757,9 +4765,7 @@ function handleTouchEnd() {
                     [...visibleMessages].reverse().map((msg) => {
                       const author = (msg.author || msg.nick || "Anonyme").trim();
                       const isYou = author === selfNick;
-                      const isSystem = ["systeme", "system", "systËme"].includes(
-                        author.toLowerCase()
-                      );
+                      const isSystem = isSystemAuthor(author);
                       return (
                         <div
                           key={msg.id}
@@ -5433,9 +5439,7 @@ function handleTouchEnd() {
                     [...visibleMessages].reverse().map((msg) => {
                       const author = (msg.author || msg.nick || "Anonyme").trim();
                       const isYou = author === selfNick;
-                      const isSystem = ["systeme", "system", "système"].includes(
-                        author.toLowerCase()
-                      );
+                      const isSystem = isSystemAuthor(author);
                       return (
                         <div
                           key={msg.id}
@@ -6459,9 +6463,7 @@ function handleTouchEnd() {
 
               const author = (msg.author || msg.nick || "Anonyme").trim();
               const isYou = author === nickname.trim();
-              const isSystem = ["systeme", "system", "système"].includes(
-                author.toLowerCase()
-              );
+              const isSystem = isSystemAuthor(author);
               const isLast = msg.id === lastMessageId;
 
               return (
