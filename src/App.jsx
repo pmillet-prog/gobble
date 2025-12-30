@@ -43,6 +43,9 @@ const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
 const MOBILE_LAYOUT_MAX_WIDTH = 520;
+const TOUCH_LAYOUT_MAX_MIN_DIM = 820;
+const MOBILE_GRID_MAX_WIDTH = 720;
+const ULTRA_COMPACT_MAX_MIN_DIM = 760;
 const GRID_PADDING_PX = 32; // p-4 (16px de chaque côté)
 const BASE_TILE_PX = 56;
 const BASE_GAP_PX = 8; // gap-2 de référence
@@ -56,9 +59,56 @@ function getGridSizeForRoom(roomKey) {
   return ROOM_OPTIONS[roomKey]?.gridSize || 4;
 }
 
+function getViewportSize() {
+  if (typeof window === "undefined") return { width: 0, height: 0 };
+  const vv = window.visualViewport;
+  const width = Math.round(vv?.width || window.innerWidth || 0);
+  const height = Math.round(vv?.height || window.innerHeight || 0);
+  return { width, height };
+}
+
+function hasCoarsePointer() {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return (
+    window.matchMedia("(pointer: coarse)").matches ||
+    window.matchMedia("(hover: none)").matches
+  );
+}
+
+function computeIsMobileLayout() {
+  if (typeof window === "undefined") return false;
+  const { width, height } = getViewportSize();
+  const minDim = Math.min(width, height);
+  const isNarrow = width <= MOBILE_LAYOUT_MAX_WIDTH;
+  const isTouch =
+    hasCoarsePointer() ||
+    "ontouchstart" in window ||
+    (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+  const isTouchCompact = isTouch && minDim <= TOUCH_LAYOUT_MAX_MIN_DIM;
+  return isNarrow || isTouchCompact;
+}
+
+function computeIsUltraCompact() {
+  if (typeof window === "undefined") return false;
+  const { width, height } = getViewportSize();
+  const minDim = Math.min(width, height);
+  const maxDim = Math.max(width, height);
+  const aspect = minDim > 0 ? maxDim / minDim : 0;
+  const isTouch =
+    hasCoarsePointer() ||
+    "ontouchstart" in window ||
+    (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+  return (
+    isTouch &&
+    minDim <= ULTRA_COMPACT_MAX_MIN_DIM &&
+    aspect > 0 &&
+    aspect <= 1.35
+  );
+}
+
 function getDefaultRoomId() {
   if (typeof window !== "undefined") {
-    const isMobile = window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`).matches;
+    const isMobile = computeIsMobileLayout();
     return isMobile ? "room-4x4" : "room-4x4";
   }
   return "room-4x4";
@@ -455,6 +505,7 @@ body.theme-dark textarea::placeholder {
   position: fixed;
   left: 50%;
   top: 44%;
+  z-index: 80;
   transform: translate(-50%, -50%);
   animation: praisePop 0.75s ease-out forwards;
   pointer-events: none;
@@ -569,8 +620,11 @@ body.theme-dark .board-tile::after {
 
 `;
 
-const MAX_CHAT_LINES = 18;
-const FULL_VISIBLE_LINES_FROM_BOTTOM = 9;
+const DEFAULT_CHAT_VISIBLE_LINES = 18;
+const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
+const CHAT_BUFFER_MAX = 200;
+const CHAT_MIN_VISIBLE_LINES = 8;
+const CHAT_MAX_VISIBLE_LINES = 40;
 const MIN_CHAT_OPACITY = 0.03;
 const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
@@ -667,7 +721,11 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`).matches;
+    return computeIsMobileLayout();
+  });
+  const [isUltraCompact, setIsUltraCompact] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return computeIsUltraCompact();
   });
   const [mobileLayoutSizing, setMobileLayoutSizing] = useState({
     viewportWidth: 0,
@@ -712,11 +770,18 @@ export default function App() {
   // Chat
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [chatVisibleLimit, setChatVisibleLimit] = useState(
+    DEFAULT_CHAT_VISIBLE_LINES
+  );
+  const [chatFullVisibleLines, setChatFullVisibleLines] = useState(
+    DEFAULT_CHAT_FULL_VISIBLE_LINES
+  );
 
   const currentTilesRef = useRef([]);
   const acceptedRef = useRef([]);
   const acceptedScoresRef = useRef(new Map());
   const chatInputRef = useRef(null);
+  const chatDesktopListRef = useRef(null);
   const isChatOpenMobileRef = useRef(false);
   const wordHistoryRef = useRef([]);
   const wordHistoryIndexRef = useRef(-1);
@@ -877,11 +942,28 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`);
-    const update = () => setIsMobileLayout(mq.matches);
+    let rafId = null;
+    const update = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        setIsMobileLayout(computeIsMobileLayout());
+        setIsUltraCompact(computeIsUltraCompact());
+      });
+    };
     update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
   }, []);
 
   useEffect(() => {
@@ -923,6 +1005,69 @@ export default function App() {
       window.clearTimeout(t);
     };
   }, [isChatOpenMobile, isMobileLayout]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isMobileLayout) return;
+    const el = chatDesktopListRef.current;
+    if (!el) return;
+    let rafId = null;
+    const measure = () => {
+      const styles = window.getComputedStyle(el);
+      const paddingTop = parseFloat(styles.paddingTop || "0") || 0;
+      const paddingBottom = parseFloat(styles.paddingBottom || "0") || 0;
+      const containerHeight = Math.max(0, el.clientHeight - paddingTop - paddingBottom);
+      const rows = Array.from(el.querySelectorAll("[data-chat-row]"));
+      const sampleRows = rows.slice(-Math.min(rows.length, 6));
+      let rowHeight = 0;
+      let rowMargin = 0;
+      if (sampleRows.length > 0) {
+        rowHeight =
+          sampleRows.reduce((sum, row) => sum + row.getBoundingClientRect().height, 0) /
+          sampleRows.length;
+        const rowStyles = window.getComputedStyle(sampleRows[sampleRows.length - 1]);
+        rowMargin = parseFloat(rowStyles.marginTop || "0") || 0;
+      }
+      const block = rowHeight + rowMargin;
+      const nextVisible =
+        block > 0
+          ? clampValue(
+              Math.floor((containerHeight + rowMargin) / block),
+              CHAT_MIN_VISIBLE_LINES,
+              CHAT_MAX_VISIBLE_LINES
+            )
+          : DEFAULT_CHAT_VISIBLE_LINES;
+      const nextFull = Math.max(
+        3,
+        Math.min(nextVisible - 2, Math.round(nextVisible * 0.55))
+      );
+      setChatVisibleLimit(nextVisible);
+      setChatFullVisibleLines(nextFull);
+    };
+    const schedule = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        measure();
+      });
+    };
+    schedule();
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("resize", schedule);
+      observer?.disconnect();
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, [isMobileLayout, chatMessages.length]);
+
+  useEffect(() => {
+    if (!isMobileLayout) return;
+    setChatVisibleLimit(DEFAULT_CHAT_VISIBLE_LINES);
+    setChatFullVisibleLines(DEFAULT_CHAT_FULL_VISIBLE_LINES);
+  }, [isMobileLayout]);
 
  useEffect(() => {
   if (!isMobileLayout) return;
@@ -986,7 +1131,7 @@ export default function App() {
       const blocksBudget = availableHeight > 0 ? availableHeight : bodyHeight;
       const availableWidth = Math.max(
         0,
-        Math.min(viewportWidth - 24, MOBILE_LAYOUT_MAX_WIDTH)
+        Math.min(viewportWidth - 24, MOBILE_GRID_MAX_WIDTH)
       ); // px-3 (12px) de chaque c?t?) + limite max mobile
 
       const baseFontSize =
@@ -2024,7 +2169,7 @@ function playTileStepSound(step) {
       ];
       if (sysMessages.length) {
         setChatMessages((prevMsgs) =>
-          [...prevMsgs, ...sysMessages].slice(-MAX_CHAT_LINES)
+          [...prevMsgs, ...sysMessages].slice(-CHAT_BUFFER_MAX)
         );
       }
       prevPlayersRef.current = current;
@@ -2038,12 +2183,12 @@ function playTileStepSound(step) {
 
     function onChatHistory(history = []) {
       if (!Array.isArray(history)) return;
-      setChatMessages(history.slice(-MAX_CHAT_LINES));
+      setChatMessages(history.slice(-CHAT_BUFFER_MAX));
     }
 
     function onChatNew(msg) {
       if (!msg || typeof msg !== "object") return;
-      setChatMessages((prev) => [...prev, msg].slice(-MAX_CHAT_LINES));
+      setChatMessages((prev) => [...prev, msg].slice(-CHAT_BUFFER_MAX));
 
       const author = (msg.author || msg.nick || "").trim();
       const me = nickname.trim();
@@ -3660,8 +3805,8 @@ function handleTouchEnd() {
     );
   };
 
-  // messages visibles dans le chat (max 18), ancrés en bas
-  const visibleMessages = chatMessages.slice(-MAX_CHAT_LINES);
+  // messages visibles dans le chat (dynamique), ancrés en bas
+  const visibleMessages = chatMessages.slice(-chatVisibleLimit);
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
 
@@ -4480,14 +4625,12 @@ function handleTouchEnd() {
                 const rankFromBottom = count - 1 - idx;
                 let opacity = 1;
 
-                if (rankFromBottom >= FULL_VISIBLE_LINES_FROM_BOTTOM) {
-                  const extra =
-                    rankFromBottom - (FULL_VISIBLE_LINES_FROM_BOTTOM - 1);
-                  const maxExtra =
-                    MAX_CHAT_LINES - FULL_VISIBLE_LINES_FROM_BOTTOM;
-                  const t = Math.min(extra / maxExtra, 1);
-                  opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
-                }
+              if (rankFromBottom >= chatFullVisibleLines) {
+                const extra = rankFromBottom - (chatFullVisibleLines - 1);
+                const maxExtra = chatVisibleLimit - chatFullVisibleLines;
+                const t = maxExtra > 0 ? Math.min(extra / maxExtra, 1) : 1;
+                opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
+              }
 
                 const author = (msg.author || msg.nick || "Anonyme").trim();
                 const isYou = author === nickname.trim();
@@ -4497,11 +4640,12 @@ function handleTouchEnd() {
                 const isLast = msg.id === lastMessageId;
 
                 return (
-                  <div
-                    key={msg.id}
-                    className={`w-full transition-opacity duration-300 ${
-                      isLast ? "slide-fade-in" : ""
-                    }`}
+                <div
+                  key={msg.id}
+                  data-chat-row
+                  className={`w-full transition-opacity duration-300 ${
+                    isLast ? "slide-fade-in" : ""
+                  }`}
                     style={{ opacity }}
                   >
                     {isSystem ? (
@@ -4544,7 +4688,7 @@ function handleTouchEnd() {
                 ref={chatInputRef}
                 type="text"
                 className="flex-1 border rounded px-2 py-1 text-xs ios-input"
-                placeholder="Ç¸crire un message..."
+                placeholder="écrire un message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -4672,6 +4816,203 @@ function handleTouchEnd() {
 
   // === Mise en page mobile dédiée pendant la manche ===
   // ??cran unique : classement + prévisualisation du mot + grille en bas + bouton de chat
+  if (isMobileLayout && isUltraCompact && phase === "playing") {
+    const compactRankingList = rankingSource;
+    const compactTotal =
+      compactRankingList.length || (Array.isArray(players) ? players.length : 0) || null;
+    const compactRank =
+      compactRankingList.find((entry) => entry.nick === selfNick)?.rank ?? livePosition;
+    const compactScore = typeof score === "number" ? score : null;
+    const { width: viewportWidth, height: viewportHeight } = getViewportSize();
+    const minViewportDim = Math.max(0, Math.min(viewportWidth, viewportHeight));
+    const gridMaxFromViewport = Math.max(
+      200,
+      Math.min(minViewportDim - 8, MOBILE_GRID_MAX_WIDTH)
+    );
+    const mobileGridSide = Math.round(gridMaxFromViewport);
+    const mobileGapPx = "clamp(4px, 1.8vw, 10px)";
+    const mobileTileFontPx = Math.max(
+      18,
+      Math.min(
+        32,
+        Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.42)
+      )
+    );
+    const mobileViewportHeightCandidates =
+      typeof window !== "undefined"
+        ? [
+            mobileLayoutSizing.viewportHeight,
+            window.visualViewport?.height,
+            window.innerHeight,
+            typeof document !== "undefined"
+              ? document.documentElement?.clientHeight
+              : null,
+          ].filter((v) => Number.isFinite(v) && v > 0)
+        : [];
+    const mobileViewportHeight = mobileViewportHeightCandidates.length
+      ? Math.min(...mobileViewportHeightCandidates)
+      : 0;
+    const mobileViewportContainerStyle =
+      mobileViewportHeight > 0
+        ? {
+            minHeight: `${Math.round(mobileViewportHeight)}px`,
+            height: `${Math.round(mobileViewportHeight)}px`,
+            maxHeight: `${Math.round(mobileViewportHeight)}px`,
+            overflow: "hidden",
+            overscrollBehavior: "none",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }
+        : {
+            minHeight: "100vh",
+            height: "100dvh",
+            maxHeight: "100dvh",
+            overflow: "hidden",
+            overscrollBehavior: "none",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          };
+
+    const compactCountdownValue =
+      countdownLines.find((line) => /^\d+$/.test(line)) ||
+      (countdownLines
+        .map((line) => String(line).match(/\d+/))
+        .find((m) => m)?.[0] ??
+        "");
+
+    return (
+      <div
+        className={`flex flex-col ${
+          darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
+        }`}
+        style={mobileViewportContainerStyle}
+      >
+        <style>{slideStyles}</style>
+        <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
+          <span className="truncate">
+            {compactRank ? `#${compactRank}` : "#?"}
+            {compactTotal ? `/${compactTotal}` : ""}
+            {compactScore !== null ? ` · ${compactScore}` : ""}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsMuted((v) => !v)}
+              className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+              type="button"
+            >
+              {isMuted ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 5L6 9H3v6h3l5 4z" />
+                  <line x1="14" y1="9" x2="20" y2="15" />
+                  <line x1="20" y1="9" x2="14" y2="15" />
+                </svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 5L6 9H3v6h3l5 4z" />
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                  <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                </svg>
+              )}
+              <span className="sr-only">{isMuted ? "Son coupé" : "Son actif"}</span>
+            </button>
+            <button
+              onClick={() => setDarkMode((v) => !v)}
+              className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+              type="button"
+            >
+              {darkMode ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                </svg>
+              )}
+              <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+              type="button"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {isFullscreen ? (
+                  <>
+                    <path d="M9 9H5V5" />
+                    <path d="M3 10L10 3" />
+                    <path d="M15 15h4v4" />
+                    <path d="m14 21 7-7" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M9 3H5a2 2 0 0 0-2 2v4" />
+                    <path d="M3 3l6 6" />
+                    <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+                    <path d="m21 21-6-6" />
+                  </>
+                )}
+              </svg>
+              <span className="sr-only">
+                {isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+              </span>
+            </button>
+          </div>
+          <span className="tabular-nums">
+            {compactCountdownValue ? `${compactCountdownValue}s` : ""}
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-center px-2 pb-3">
+          <MobileGrid
+            board={board}
+            BONUS_CLASSES={BONUS_CLASSES}
+            bonusLetterKey={bonusLetterKey}
+            bonusLetterScore={bonusLetterScore}
+            darkMode={darkMode}
+            gridRef={gridRef}
+            gridShake={gridShake}
+            gridSize={gridSize}
+            handleMouseDown={handleMouseDown}
+            handleMouseMove={handleMouseMove}
+            handleMouseUp={handleMouseUp}
+            handleTouchEnd={handleTouchEnd}
+            handleTouchMove={handleTouchMove}
+            handleTouchStart={handleTouchStart}
+            isMobileLayout={isMobileLayout}
+            lightGridSurfaceStyle={lightGridSurfaceStyle}
+            MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
+            mobileGapPx={mobileGapPx}
+            mobileGridSide={mobileGridSide}
+            mobileTileFontPx={mobileTileFontPx}
+            normalizeBonusLabel={normalizeBonusLabel}
+            normalizeLetterKey={normalizeLetterKey}
+            phase={phase}
+            specialSolvedOverlay={specialSolvedOverlay}
+            tileRefs={tileRefs}
+            tileScore={tileScore}
+            tick={tick}
+            usedSet={usedSet}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (isMobileLayout && (phase === "playing" || phase === "results")) {
     const isResults = phase === "results";
     const fullRanking = isResults
@@ -4688,7 +5029,7 @@ function handleTouchEnd() {
       (typeof window !== "undefined" ? window.innerHeight * 0.6 : 520);
     const mobileGridSide = Math.round(
       mobileLayoutSizing.gridSide ||
-        Math.max(200, Math.min(fallbackViewportWidth - 24, MOBILE_LAYOUT_MAX_WIDTH))
+        Math.max(200, Math.min(fallbackViewportWidth - 24, MOBILE_GRID_MAX_WIDTH))
     );
     const previewFallback = 52;
     const liveFeedFallback = 0;
@@ -5286,7 +5627,7 @@ function handleTouchEnd() {
               handleTouchStart={handleTouchStart}
               isMobileLayout={isMobileLayout}
               lightGridSurfaceStyle={lightGridSurfaceStyle}
-              MOBILE_LAYOUT_MAX_WIDTH={MOBILE_LAYOUT_MAX_WIDTH}
+              MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
               mobileGapPx={mobileGapPx}
               mobileGridSide={mobileGridSide}
               mobileTileFontPx={mobileTileFontPx}
@@ -6099,19 +6440,20 @@ function handleTouchEnd() {
         >
                    <h2 className="font-bold mb-2 text-center">Chat</h2>
 
-          <div className="chat-messages flex-1 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
+          <div
+            ref={chatDesktopListRef}
+            className="chat-messages flex-1 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden"
+          >
             {visibleMessages.map((msg, idx) => {
               // idx = 0 (en haut) -> plus ancien, idx = dernier -> plus r?cent
               const count = visibleMessages.length;
               const rankFromBottom = count - 1 - idx; // 0 = tout en bas (le plus r?cent)
               let opacity = 1;
 
-              if (rankFromBottom >= FULL_VISIBLE_LINES_FROM_BOTTOM) {
-                const extra =
-                  rankFromBottom - (FULL_VISIBLE_LINES_FROM_BOTTOM - 1);
-                const maxExtra =
-                  MAX_CHAT_LINES - FULL_VISIBLE_LINES_FROM_BOTTOM;
-                const t = Math.min(extra / maxExtra, 1);
+              if (rankFromBottom >= chatFullVisibleLines) {
+                const extra = rankFromBottom - (chatFullVisibleLines - 1);
+                const maxExtra = chatVisibleLimit - chatFullVisibleLines;
+                const t = maxExtra > 0 ? Math.min(extra / maxExtra, 1) : 1;
                 opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
               }
 
@@ -6125,6 +6467,7 @@ function handleTouchEnd() {
               return (
                 <div
                   key={msg.id}
+                  data-chat-row
                   className={`w-full transition-opacity duration-300 ${
                     isLast ? "slide-fade-in" : ""
                   }`}
