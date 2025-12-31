@@ -22,6 +22,138 @@ const app = express();
 app.use(cors());
 app.set("trust proxy", true);
 
+const DEFINE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const WIKI_USER_AGENT = "Gobble/1.0 (https://gobble.fr; contact: contact@gobble.fr)";
+const defineCache = new Map();
+
+function sanitizeDefineWord(raw) {
+  const rawWord = String(raw || "").trim();
+  if (!rawWord) return { word: null, error: "missing_word" };
+  if (rawWord.length > 40) return { word: null, error: "bad_word" };
+  if (!/^[\p{L}'-]+$/u.test(rawWord)) return { word: null, error: "bad_word" };
+  return { word: rawWord, error: null };
+}
+
+function buildDefineCandidates(rawWord) {
+  const candidates = [];
+  const push = (value) => {
+    const v = String(value || "").trim();
+    if (!v) return;
+    if (!candidates.includes(v)) candidates.push(v);
+  };
+  push(rawWord);
+  push(rawWord.toLowerCase());
+  const deaccent = rawWord
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  push(deaccent);
+  return candidates;
+}
+
+function getCachedDefinition(wordKey) {
+  const entry = defineCache.get(wordKey);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    defineCache.delete(wordKey);
+    return null;
+  }
+  return entry.payload;
+}
+
+function setCachedDefinition(wordKey, payload) {
+  defineCache.set(wordKey, {
+    expiresAt: Date.now() + DEFINE_CACHE_TTL_MS,
+    payload,
+  });
+}
+
+function clipDefinition(rawText, maxLen = 600) {
+  const text = String(rawText || "").trim();
+  if (!text) return "";
+  if (text.length <= maxLen) return text;
+  let cut = text.slice(0, maxLen);
+  const lastSentence = Math.max(
+    cut.lastIndexOf(". "),
+    cut.lastIndexOf("! "),
+    cut.lastIndexOf("? ")
+  );
+  if (lastSentence > 80) {
+    cut = cut.slice(0, lastSentence + 1);
+  } else {
+    cut = cut.replace(/\s+\S*$/, "");
+  }
+  return `${cut.trimEnd()}...`;
+}
+
+async function fetchOpensearchTitle(baseUrl, term) {
+  const url = `${baseUrl}/w/api.php?action=opensearch&search=${encodeURIComponent(
+    term
+  )}&limit=1&namespace=0&format=json`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const titles = Array.isArray(data?.[1]) ? data[1] : [];
+  const first = titles[0];
+  return typeof first === "string" && first.trim() ? first.trim() : null;
+}
+
+async function fetchSummary(baseUrl, title) {
+  const url = `${baseUrl}/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const extract = String(data?.extract || "").trim();
+  if (!extract) return null;
+  const urlOut =
+    data?.content_urls?.desktop?.page ||
+    data?.content_urls?.mobile?.page ||
+    `${baseUrl}/wiki/${encodeURIComponent(title)}`;
+  return { title, extract: clipDefinition(extract), url: urlOut };
+}
+
+function extractDictionaryApiDefinition(payload) {
+  if (!Array.isArray(payload)) return null;
+  for (const entry of payload) {
+    const meanings = Array.isArray(entry?.meanings) ? entry.meanings : [];
+    for (const meaning of meanings) {
+      const defs = Array.isArray(meaning?.definitions) ? meaning.definitions : [];
+      for (const def of defs) {
+        const text = String(def?.definition || "").trim();
+        if (text) return clipDefinition(text);
+      }
+    }
+  }
+  return null;
+}
+
+async function fetchDictionaryApi(word) {
+  const url = `https://api.dictionaryapi.dev/api/v2/entries/fr/${encodeURIComponent(
+    word
+  )}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const definition = extractDictionaryApiDefinition(data);
+  if (!definition) return null;
+  return definition;
+}
+
 app.use((req, res, next) => {
   const host = String(req.headers.host || "").toLowerCase();
   const isGobbleHost = host === "gobble.fr" || host === "www.gobble.fr";
@@ -37,6 +169,94 @@ app.use((req, res, next) => {
 
   const target = `https://gobble.fr${req.originalUrl || "/"}`;
   return res.redirect(301, target);
+});
+
+app.get("/api/define", async (req, res) => {
+  const rawWord = req.query?.word ?? req.query?.term;
+  const { word, error } = sanitizeDefineWord(rawWord);
+  if (!word) {
+    return res.json({
+      ok: false,
+      word: String(rawWord || "").trim(),
+      error: error || "bad_word",
+    });
+  }
+
+  const cacheKey = word.toLowerCase();
+  const cached = getCachedDefinition(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
+  let payload = null;
+  try {
+    const candidates = buildDefineCandidates(word);
+    for (const candidate of candidates) {
+      const title = await fetchOpensearchTitle(
+        "https://fr.wiktionary.org",
+        candidate
+      );
+      if (!title) continue;
+      const summary = await fetchSummary("https://fr.wiktionary.org", title);
+      if (!summary) continue;
+      payload = {
+        ok: true,
+        word,
+        title: summary.title || title,
+        definition: summary.extract,
+        extract: summary.extract,
+        source: "wiktionary",
+        url: summary.url,
+      };
+      break;
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const title = await fetchOpensearchTitle(
+          "https://fr.wikipedia.org",
+          candidate
+        );
+        if (!title) continue;
+        const summary = await fetchSummary("https://fr.wikipedia.org", title);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || title,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      const fallbackDefinition = await fetchDictionaryApi(
+        candidates[candidates.length - 1] || word.toLowerCase()
+      );
+      if (fallbackDefinition) {
+        payload = {
+          ok: true,
+          word,
+          title: word,
+          definition: fallbackDefinition,
+          extract: fallbackDefinition,
+          source: "dictionaryapi.dev",
+        };
+      }
+    }
+  } catch (_) {
+    payload = null;
+  }
+
+  if (!payload) {
+    payload = { ok: false, word, error: "not_found" };
+  }
+  setCachedDefinition(cacheKey, payload);
+  return res.json(payload);
 });
 
 // ===== SERVE FRONT VITE (dist) =====
@@ -88,6 +308,20 @@ const TARGET_HINT_STEP_MS = 15 * 1000;
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
+// Dev-only: force alternance "mot en or" / "mot le plus long" pour tests.
+// Active via env GOBBLE_FORCE_TARGET_SPECIALS=1/true/on ou NODE_ENV=development.
+const FORCE_TARGET_SPECIALS_LOCAL = (() => {
+  const raw = String(process.env.GOBBLE_FORCE_TARGET_SPECIALS || "")
+    .trim()
+    .toLowerCase();
+  const force =
+    raw === "1" || raw === "true" || raw === "on" || raw === "yes";
+  return force || process.env.NODE_ENV === "development";
+})();
+
+if (FORCE_TARGET_SPECIALS_LOCAL) {
+  console.log("[dev] Forçage des manches spéciales activé (target_long/target_score).");
+}
 
 const ROOM_CONFIGS = {
   "room-4x4": {
@@ -203,6 +437,13 @@ function getRoundPlan(roundNumber, roomConfig) {
     description: null,
     minWords: roomConfig?.minWords || 0,
   };
+
+  if (FORCE_TARGET_SPECIALS_LOCAL) {
+    const useLong = roundNumber % 2 === 0;
+    return useLong
+      ? buildTargetLongTournamentPlan(roundNumber, roomConfig)
+      : buildTargetScoreTournamentPlan(roundNumber, roomConfig);
+  }
 
   if (roundNumber > 0 && roundNumber % SPECIAL_ROUND_EVERY === 0) {
     const specialIndex = Math.floor(roundNumber / SPECIAL_ROUND_EVERY) - 1;
@@ -361,6 +602,12 @@ function resetTournament(room) {
 }
 
 function getTournamentRoundPlan(room, tournamentRound) {
+  if (FORCE_TARGET_SPECIALS_LOCAL) {
+    const useLong = tournamentRound % 2 === 0;
+    return useLong
+      ? buildTargetLongTournamentPlan(tournamentRound, room.config)
+      : buildTargetScoreTournamentPlan(tournamentRound, room.config);
+  }
   if (FORCE_BONUS_LETTER_ALL_ROUNDS) {
     return buildBonusLetterTournamentPlan(tournamentRound, room.config);
   }

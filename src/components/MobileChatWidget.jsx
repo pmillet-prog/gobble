@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 
 export default function MobileChatWidget({
   chatInput,
@@ -9,21 +9,28 @@ export default function MobileChatWidget({
   darkMode,
   isChatOpenMobile,
   mobileChatUnreadCount,
+  mutedCount,
+  mutedNicks,
+  normalizedSelfNick,
+  onMuteNick,
+  onToggleMutedList,
+  onOpenChat,
+  onUnmuteNick,
+  showMutedList,
   selfNick,
   setChatInput,
   setIsChatOpenMobile,
-  setMobileChatUnreadCount,
   submitChat,
   visibleMessages,
 }) {
+  const normalizeChatNick = (raw) => String(raw || "").trim().toLowerCase();
   return (
     <>
       <div className="fixed bottom-4 right-4 z-30">
         <button
           type="button"
           onClick={() => {
-            setMobileChatUnreadCount(0);
-            setIsChatOpenMobile(true);
+            onOpenChat();
           }}
           className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
         >
@@ -49,19 +56,60 @@ export default function MobileChatWidget({
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
               <div className="font-extrabold text-base">Chat</div>
-              <button
-                type="button"
-                onClick={() => setIsChatOpenMobile(false)}
-                className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
-                  darkMode
-                    ? "bg-slate-800 border-slate-600 text-slate-100"
-                    : "bg-slate-50 border-slate-200 text-slate-900"
-                }`}
-              >
-                Fermer
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={`text-[11px] font-semibold ${
+                    darkMode ? "text-amber-300" : "text-blue-600"
+                  }`}
+                  onClick={onToggleMutedList}
+                >
+                  Joueurs bloqués ({mutedCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsChatOpenMobile(false)}
+                  className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
+                    darkMode
+                      ? "bg-slate-800 border-slate-600 text-slate-100"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
             <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
+              {showMutedList && (
+                <div
+                  className={`rounded-lg border px-2 py-2 text-[11px] ${
+                    darkMode
+                      ? "bg-slate-900/70 border-slate-600 text-slate-100"
+                      : "bg-gray-50 border-gray-200 text-gray-700"
+                  }`}
+                >
+                  {mutedNicks.length === 0 ? (
+                    <div className="text-center">Aucun joueur bloqué.</div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {mutedNicks.map((nick) => (
+                        <div key={nick} className="inline-flex items-center gap-2">
+                          <span className="font-semibold">{nick}</span>
+                          <button
+                            type="button"
+                            className={`text-[11px] font-semibold ${
+                              darkMode ? "text-amber-300" : "text-blue-600"
+                            }`}
+                            onClick={() => onUnmuteNick(nick)}
+                          >
+                            Réactiver
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
                 {visibleMessages.length === 0 ? (
                   <div className="text-[11px] text-slate-400 text-center mt-4">
@@ -74,6 +122,12 @@ export default function MobileChatWidget({
                     const isSystem = ["systeme", "system", "système"].includes(
                       author.toLowerCase()
                     );
+
+                    const canMute =
+
+                      !isSystem &&
+
+                      normalizeChatNick(author) !== normalizedSelfNick;
                     return (
                       <div
                         key={msg.id}
@@ -90,10 +144,19 @@ export default function MobileChatWidget({
                         {isSystem ? (
                           <span>{msg.text}</span>
                         ) : (
-                          <>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold mr-1">{author}:</span>
+                            {canMute && (
+                              <button
+                                type="button"
+                                className="text-[10px] font-semibold text-amber-300"
+                                onClick={() => onMuteNick(author)}
+                              >
+                                Bloquer
+                              </button>
+                            )}
                             <span>{msg.text}</span>
-                          </>
+                          </div>
                         )}
                       </div>
                     );
@@ -149,3 +212,9 @@ export default function MobileChatWidget({
     </>
   );
 }
+
+
+
+
+
+

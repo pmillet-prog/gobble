@@ -1,6 +1,7 @@
-// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
+﻿// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
 // 
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
@@ -30,6 +31,7 @@ const DEFAULT_DURATION = 120;
 const COUNTDOWN = 0;
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+const FINAL_ROUND_RESULTS_SECONDS = 30;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
@@ -748,6 +750,8 @@ export default function App() {
   });
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
+  const [isChatSafetyOpen, setIsChatSafetyOpen] = useState(false);
+  const chatSafetyConfirmRef = useRef(null);
   const [roomStats, setRoomStats] = useState({});
   const [medals, setMedals] = useState({});
   const [tournament, setTournament] = useState(null); // { id, round, totalRounds, ... }
@@ -756,6 +760,7 @@ export default function App() {
   const [tournamentRoundPoints, setTournamentRoundPoints] = useState({}); // nick -> points earned this round
   const [tournamentSummary, setTournamentSummary] = useState(null); // finale: { winnerNick, records, ranking }
   const [tournamentSummaryAt, setTournamentSummaryAt] = useState(null);
+  const [tournamentFinaleHoldUntil, setTournamentFinaleHoldUntil] = useState(null);
   const [targetSummary, setTargetSummary] = useState(null); // { word, foundOrder }
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
@@ -780,6 +785,30 @@ export default function App() {
   // Chat
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [mutedNicks, setMutedNicks] = useState(() => {
+    try {
+      const raw = localStorage.getItem("chatMutedNicks");
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((nick) => typeof nick === "string" && nick.trim())
+        .map((nick) => nick.trim().toLowerCase());
+    } catch (_) {
+      return [];
+    }
+  });
+  const [showMutedList, setShowMutedList] = useState(false);
+  const [definitionModal, setDefinitionModal] = useState({
+    open: false,
+    loading: false,
+    ok: false,
+    word: "",
+    title: "",
+    definition: "",
+    source: "",
+    url: "",
+  });
+  const [definitionBlink, setDefinitionBlink] = useState(false);
   const [chatVisibleLimit, setChatVisibleLimit] = useState(
     DEFAULT_CHAT_VISIBLE_LINES
   );
@@ -803,6 +832,8 @@ export default function App() {
   const praiseTimerRef = useRef(null);
   const praiseLastRef = useRef(0);
   const confettiPiecesRef = useRef(null);
+  const definitionRequestIdRef = useRef(0);
+  const definitionBlinkTimerRef = useRef(null);
   const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
@@ -1015,6 +1046,43 @@ export default function App() {
       window.clearTimeout(t);
     };
   }, [isChatOpenMobile, isMobileLayout]);
+
+  useEffect(() => {
+    if (!isChatSafetyOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsChatSafetyOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const raf = window.requestAnimationFrame(() => {
+      chatSafetyConfirmRef.current?.focus();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.cancelAnimationFrame(raf);
+    };
+  }, [isChatSafetyOpen]);
+
+  useEffect(() => {
+    if (!definitionModal.open) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeDefinition();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [definitionModal.open]);
+
+  useEffect(() => {
+    if (!definitionModal.open) return;
+    if (phase === "playing" || phase === "countdown") {
+      closeDefinition();
+    }
+  }, [definitionModal.open, phase, roundId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2060,6 +2128,7 @@ function playTileStepSound(step) {
       setBreakKind(null);
       setTournamentSummary(null);
       setTournamentSummaryAt(null);
+      setTournamentFinaleHoldUntil(null);
       setTargetSummary(null);
       setTournament(tournamentPayload || null);
       setSpecialHint(null);
@@ -2105,6 +2174,13 @@ function playTileStepSound(step) {
       setRoundId(endedId || null);
       setTournament(tournamentPayload || tournament || null);
       setBreakKind(tournamentPayload?.breakKind || null);
+      if (tournamentPayload?.breakKind === "tournament_end") {
+        setTournamentFinaleHoldUntil(
+          getNowServerMs() + FINAL_ROUND_RESULTS_SECONDS * 1000
+        );
+      } else {
+        setTournamentFinaleHoldUntil(null);
+      }
       setTournamentRoundPoints(tournamentPayload?.roundAwarded || {});
       setTournamentTotals(tournamentPayload?.totals || {});
       setTournamentRanking(
@@ -2144,6 +2220,9 @@ function playTileStepSound(step) {
       syncServerTime();
       setNextStartAt(nextTs || null);
       setBreakKind(bk);
+      if (bk !== "tournament_end") {
+        setTournamentFinaleHoldUntil(null);
+      }
       if (bk) {
         setPhase("results");
         setServerStatus("break");
@@ -2239,6 +2318,7 @@ function playTileStepSound(step) {
       setTournamentSummary(null);
       setTargetSummary(null);
       setBreakKind(null);
+      setTournamentFinaleHoldUntil(null);
       setSpecialHint(null);
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
@@ -2883,6 +2963,118 @@ function playTileStepSound(step) {
     }
   }
 
+  function normalizeChatNick(raw) {
+    return String(raw || "").trim().toLowerCase();
+  }
+
+  function updateMutedNicks(updater) {
+    setMutedNicks((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      try {
+        localStorage.setItem("chatMutedNicks", JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+  }
+
+  function muteNick(nick) {
+    const key = normalizeChatNick(nick);
+    if (!key || isSystemAuthor(key)) return;
+    updateMutedNicks((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  }
+
+  function unmuteNick(nick) {
+    const key = normalizeChatNick(nick);
+    if (!key) return;
+    updateMutedNicks((prev) => prev.filter((entry) => entry !== key));
+  }
+
+  function getChatSafetyAck() {
+    try {
+      return localStorage.getItem("chatSafetyAck") === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function openChatPanel() {
+    setMobileChatUnreadCount(0);
+    setIsChatOpenMobile(true);
+  }
+
+  function requestOpenChat() {
+    if (getChatSafetyAck()) {
+      openChatPanel();
+      return;
+    }
+    setIsChatSafetyOpen(true);
+  }
+
+  function confirmChatSafety() {
+    try {
+      localStorage.setItem("chatSafetyAck", "1");
+    } catch (_) {}
+    setIsChatSafetyOpen(false);
+    openChatPanel();
+  }
+
+  function cancelChatSafety() {
+    setIsChatSafetyOpen(false);
+  }
+
+  function openDefinition(term) {
+    const clean = String(term || "").trim();
+    if (!clean) return;
+    const requestId = ++definitionRequestIdRef.current;
+    if (definitionBlinkTimerRef.current) {
+      clearTimeout(definitionBlinkTimerRef.current);
+      definitionBlinkTimerRef.current = null;
+    }
+    setDefinitionBlink(true);
+    definitionBlinkTimerRef.current = setTimeout(() => {
+      setDefinitionBlink(false);
+      definitionBlinkTimerRef.current = null;
+    }, 550);
+    setDefinitionModal({
+      open: true,
+      loading: true,
+      word: clean,
+      title: "",
+      definition: "",
+      source: "",
+      url: "",
+      ok: false,
+    });
+
+    fetch(`/api/define?word=${encodeURIComponent(clean)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (requestId !== definitionRequestIdRef.current) return;
+        if (!data) {
+          setDefinitionModal((prev) => ({ ...prev, loading: false, ok: false }));
+          return;
+        }
+        setDefinitionModal({
+          open: true,
+          loading: false,
+          word: data.word || clean,
+          title: data.title || "",
+          definition: data.definition || "",
+          source: data.source || "",
+          url: data.url || "",
+          ok: !!data.ok,
+        });
+      })
+      .catch(() => {
+        if (requestId !== definitionRequestIdRef.current) return;
+        setDefinitionModal((prev) => ({ ...prev, loading: false, ok: false }));
+      });
+  }
+
+  function closeDefinition() {
+    setDefinitionModal((prev) => ({ ...prev, open: false }));
+  }
+
   /**
    * Ajout de lettres via le clavier, avec pathfinder optimisé.
    */
@@ -3270,14 +3462,6 @@ function handleTouchEnd() {
   if (!draggingRef.current) return;
   draggingRef.current = false;
   submit();
-
-  // surtout pas de preventDefault ici, ça peut foutre le bazar sur mobile
-  function handleMouseUp() {
-  if (!draggingRef.current) return;
-  draggingRef.current = false;
-  submit();
-}
-
 }
 
 
@@ -3622,7 +3806,7 @@ function handleTouchEnd() {
       >
         {showOverlay && (
           <div
-            className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm ${
+            className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm pointer-events-none ${
               darkMode ? "bg-black/60 text-white" : "bg-white/75 text-slate-900"
             }`}
           >
@@ -3748,8 +3932,8 @@ function handleTouchEnd() {
       return specialTypeLabel;
     })();
 
-    const word =
-      typeof targetSummary.word === "string" ? targetSummary.word.toUpperCase() : "";
+    const rawWord = typeof targetSummary.word === "string" ? targetSummary.word : "";
+    const word = rawWord ? rawWord.toUpperCase() : "";
     const foundOrder = Array.isArray(targetSummary.foundOrder)
       ? targetSummary.foundOrder.filter(Boolean)
       : [];
@@ -3791,8 +3975,39 @@ function handleTouchEnd() {
         <div className="text-center text-xs font-semibold tracking-widest text-slate-500">
           LE MOT ETAIT
         </div>
-        <div className="text-center text-2xl sm:text-3xl font-black tracking-tight break-all">
-          {word || "?"}
+        <div className="text-center text-2xl sm:text-3xl font-black tracking-tight break-all flex items-center justify-center gap-2">
+          <span>{word || "?"}</span>
+          {rawWord && (
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
+                darkMode
+                  ? "bg-slate-800 border-slate-600 text-slate-100"
+                  : "bg-white border-gray-300 text-gray-700"
+              } ${definitionBlink ? "animate-pulse" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                openDefinition(rawWord);
+              }}
+              aria-label="Voir la définition"
+              title="Voir la définition"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="16.65" y1="16.65" x2="21" y2="21" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="space-y-2">
           <div className={`${resultLabelClass} text-xs font-semibold`}>Trouve par</div>
@@ -3816,11 +4031,22 @@ function handleTouchEnd() {
   };
 
   // messages visibles dans le chat (dynamique), ancrés en bas
-  const visibleMessages = chatMessages.slice(-chatVisibleLimit);
+  const mutedNickSet = React.useMemo(() => new Set(mutedNicks), [mutedNicks]);
+  const filteredChatMessages = React.useMemo(() => {
+    if (!mutedNickSet.size) return chatMessages;
+    return chatMessages.filter((msg) => {
+      const author = (msg.author || msg.nick || "").trim();
+      const key = normalizeChatNick(author);
+      return !key || !mutedNickSet.has(key);
+    });
+  }, [chatMessages, mutedNickSet]);
+  const visibleMessages = filteredChatMessages.slice(-chatVisibleLimit);
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
 
   const selfNick = nickname.trim();
+  const normalizedSelfNick = normalizeChatNick(selfNick);
+  const mutedCount = mutedNicks.length;
   const botRankingEntries = [];
 
   function buildRanking() {
@@ -4045,8 +4271,22 @@ function handleTouchEnd() {
     return { winner, bestWord, longestWord, mostWords };
   }, [finalResults, board]);
 
-  function renderMedals(nick) {
-    const m = medals?.[nick];
+  const tournamentFinaleMedals = React.useMemo(() => {
+    if (!tournamentSummary || !Array.isArray(tournamentSummary.ranking)) return null;
+    const ranking = tournamentSummary.ranking;
+    if (!ranking.length) return null;
+    const medalOrder = ["gold", "silver", "bronze"];
+    const map = {};
+    medalOrder.forEach((medal, index) => {
+      const entry = ranking[index];
+      if (!entry?.nick) return;
+      map[entry.nick] = { [medal]: 1 };
+    });
+    return map;
+  }, [tournamentSummary]);
+
+  function renderMedals(nick, fallbackMedals) {
+    const m = medals?.[nick] || fallbackMedals?.[nick];
     if (!m) return null;
     const toSuperscript = (n) => `x${n}`;
 
@@ -4098,6 +4338,40 @@ function handleTouchEnd() {
         {up ? "\u25B2" : "\u25BC"}
         {Math.abs(delta)}
       </span>
+    );
+  }
+
+  function renderMutedListPanel(className = "") {
+    if (!showMutedList) return null;
+    return (
+      <div
+        className={`mt-2 rounded-lg border px-2 py-2 text-[11px] ${
+          darkMode
+            ? "bg-slate-900/70 border-slate-600 text-slate-100"
+            : "bg-gray-50 border-gray-200 text-gray-700"
+        } ${className}`}
+      >
+        {mutedCount === 0 ? (
+          <div className="text-center">Aucun joueur bloqué.</div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {mutedNicks.map((nick) => (
+              <div key={nick} className="inline-flex items-center gap-2">
+                <span className="font-semibold">{nick}</span>
+                <button
+                  type="button"
+                  className={`text-[11px] font-semibold ${
+                    darkMode ? "text-amber-300" : "text-blue-600"
+                  }`}
+                  onClick={() => unmuteNick(nick)}
+                >
+                  Réactiver
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -4336,10 +4610,18 @@ function handleTouchEnd() {
     return lines.length ? lines : [countdownLabel];
   })();
 
+  const tournamentFinaleGateAt = (() => {
+    const times = [];
+    if (tournamentSummaryAt) times.push(tournamentSummaryAt);
+    if (tournamentFinaleHoldUntil) times.push(tournamentFinaleHoldUntil);
+    if (!times.length) return null;
+    return Math.max(...times);
+  })();
+
   const showTournamentFinale =
     phase === "results" &&
     breakKind === "tournament_end" &&
-    (!tournamentSummaryAt || getNowServerMs() >= tournamentSummaryAt || !roundId) &&
+    (!tournamentFinaleGateAt || getNowServerMs() >= tournamentFinaleGateAt) &&
     tournamentSummary &&
     Array.isArray(tournamentSummary.ranking) &&
     tournamentSummary.ranking.length > 0;
@@ -4353,6 +4635,151 @@ function handleTouchEnd() {
       tournamentCelebrationPlayedRef.current = false;
     }
   }, [showTournamentFinale]);
+
+  useEffect(() => {
+    if (showTournamentFinale && definitionModal.open) {
+      closeDefinition();
+    }
+  }, [showTournamentFinale, definitionModal.open]);
+
+  const chatSafetyModal = isChatSafetyOpen ? (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onClick={cancelChatSafety}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
+          darkMode
+            ? "bg-slate-900 text-slate-100 border-slate-600"
+            : "bg-white text-slate-900 border-slate-200"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-sm font-semibold">
+          Chat public. Ne partagez pas d'informations personnelles (téléphone,
+          email, adresse).
+        </div>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            className={`px-3 py-2 text-xs font-semibold rounded-lg border ${
+              darkMode
+                ? "bg-slate-800 border-slate-600 text-slate-100"
+                : "bg-gray-50 border-gray-200 text-slate-900"
+            }`}
+            onClick={cancelChatSafety}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            ref={chatSafetyConfirmRef}
+            className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white"
+            onClick={confirmChatSafety}
+          >
+            J'ai compris
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const definitionModalView =
+    definitionModal.open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
+            style={{ zIndex: 2147483647 }}
+            onClick={closeDefinition}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
+                darkMode
+                  ? "bg-slate-900 text-slate-100 border-slate-600"
+                  : "bg-white text-slate-900 border-slate-200"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-sm font-extrabold">Définition</div>
+              <div className="mt-2 text-sm font-semibold">
+                {definitionModal.title &&
+                definitionModal.title !== definitionModal.word
+                  ? `${definitionModal.word} → ${definitionModal.title}`
+                  : definitionModal.word}
+              </div>
+              <div className="mt-3 text-sm">
+                {definitionModal.loading ? (
+                  <span>Chargement...</span>
+                ) : definitionModal.ok && definitionModal.definition ? (
+                  <span>{definitionModal.definition}</span>
+                ) : (
+                  <span>Définition non disponible</span>
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs">
+                {definitionModal.ok &&
+                (definitionModal.url || definitionModal.source) ? (
+                  definitionModal.url ? (
+                    <a
+                      href={definitionModal.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={darkMode ? "text-amber-300" : "text-blue-600"}
+                    >
+                      Source :{" "}
+                      {definitionModal.source === "wiktionary"
+                        ? "Wiktionary"
+                        : definitionModal.source === "wikipedia"
+                        ? "Wikipedia"
+                        : definitionModal.source === "dictionaryapi.dev"
+                        ? "Dictionary API"
+                        : "Source"}
+                    </a>
+                  ) : (
+                    <span className={darkMode ? "text-amber-300" : "text-blue-600"}>
+                      Source :{" "}
+                      {definitionModal.source === "wiktionary"
+                        ? "Wiktionary"
+                        : definitionModal.source === "wikipedia"
+                        ? "Wikipedia"
+                        : definitionModal.source === "dictionaryapi.dev"
+                        ? "Dictionary API"
+                        : "Source"}
+                    </span>
+                  )
+                ) : (
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(
+                      definitionModal.word || ""
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={darkMode ? "text-amber-300" : "text-blue-600"}
+                  >
+                    Rechercher sur Google
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className={`px-2 py-1 rounded border text-[11px] ${
+                    darkMode
+                      ? "bg-slate-800 border-slate-600 text-slate-100"
+                      : "bg-gray-50 border-gray-200 text-slate-900"
+                  }`}
+                  onClick={closeDefinition}
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   if (!isLoggedIn) {
     return (
@@ -4483,7 +4910,9 @@ function handleTouchEnd() {
               {isConnecting ? "Connexion..." : "Entrer dans la partie"}
             </button>
           </form>
-        </div>
+        {chatSafetyModal}
+        {definitionModalView}
+      </div>
       </div>
     );
   }
@@ -4571,7 +5000,7 @@ function handleTouchEnd() {
                 animateRank={false}
                 showWheel={false}
                 flatStyle={true}
-                renderNickSuffix={renderMedals}
+                renderNickSuffix={(nick) => renderMedals(nick, tournamentFinaleMedals)}
                 renderAfterRank={renderRankDelta}
               />
             </div>
@@ -4628,7 +5057,19 @@ function handleTouchEnd() {
         </div>
         <div className="hidden lg:flex w-full lg:w-[320px] xl:w-[360px] flex-col">
           <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
-            <h2 className="font-bold mb-2 text-center">Chat</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-bold text-center">Chat</h2>
+              <button
+                type="button"
+                className={`text-[11px] font-semibold ${
+                  darkMode ? "text-amber-300" : "text-blue-600"
+                }`}
+                onClick={() => setShowMutedList((prev) => !prev)}
+              >
+                Joueurs bloqués ({mutedCount})
+              </button>
+            </div>
+            {renderMutedListPanel()}
             <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
               {visibleMessages.map((msg, idx) => {
                 const count = visibleMessages.length;
@@ -4646,6 +5087,8 @@ function handleTouchEnd() {
                 const isYou = author === nickname.trim();
                 const isSystem = isSystemAuthor(author);
                 const isLast = msg.id === lastMessageId;
+                const canMute =
+                  !isSystem && normalizeChatNick(author) !== normalizedSelfNick;
 
                 return (
                 <div
@@ -4725,8 +5168,7 @@ function handleTouchEnd() {
           <button
             type="button"
             onClick={() => {
-              setMobileChatUnreadCount(0);
-              setIsChatOpenMobile(true);
+              requestOpenChat();
             }}
             className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
           >
@@ -4747,15 +5189,27 @@ function handleTouchEnd() {
             >
               <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-slate-700">
                 <div className="font-semibold text-sm">Chat</div>
-                <button
-                  type="button"
-                  onClick={() => setIsChatOpenMobile(false)}
-                  className="text-[11px] px-2 py-1 rounded-full border border-slate-300 dark:border-slate-600"
-                >
-                  Fermer
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={`text-[11px] font-semibold ${
+                      darkMode ? "text-amber-300" : "text-blue-600"
+                    }`}
+                    onClick={() => setShowMutedList((prev) => !prev)}
+                  >
+                    Joueurs bloqués ({mutedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsChatOpenMobile(false)}
+                    className="text-[11px] px-2 py-1 rounded-full border border-slate-300 dark:border-slate-600"
+                  >
+                    Fermer
+                  </button>
+                </div>
               </div>
               <div className="flex flex-col h-[50vh] px-3 py-2 gap-2">
+                {renderMutedListPanel("mb-2")}
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
                   {visibleMessages.length === 0 ? (
                     <div className="text-[11px] text-slate-400 text-center mt-4">
@@ -4766,6 +5220,9 @@ function handleTouchEnd() {
                       const author = (msg.author || msg.nick || "Anonyme").trim();
                       const isYou = author === selfNick;
                       const isSystem = isSystemAuthor(author);
+                      const canMute =
+                        !isSystem &&
+                        normalizeChatNick(author) !== normalizedSelfNick;
                       return (
                         <div
                           key={msg.id}
@@ -4779,14 +5236,23 @@ function handleTouchEnd() {
                                 }`
                           }
                         >
-                          {isSystem ? (
+                        {isSystem ? (
+                          <span>{msg.text}</span>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold mr-1">{author}:</span>
+                            {canMute && (
+                              <button
+                                type="button"
+                                className="text-[10px] font-semibold text-amber-300"
+                                onClick={() => muteNick(author)}
+                              >
+                                Bloquer
+                              </button>
+                            )}
                             <span>{msg.text}</span>
-                          ) : (
-                            <>
-                              <span className="font-semibold mr-1">{author}:</span>
-                              <span>{msg.text}</span>
-                            </>
-                          )}
+                          </div>
+                        )}
                         </div>
                       );
                     })
@@ -4812,6 +5278,8 @@ function handleTouchEnd() {
             </div>
           </div>
         )}
+        {chatSafetyModal}
+        {definitionModalView}
       </div>
     );
   }
@@ -4822,7 +5290,8 @@ function handleTouchEnd() {
 
   // === Mise en page mobile dédiée pendant la manche ===
   // ??cran unique : classement + prévisualisation du mot + grille en bas + bouton de chat
-  if (isMobileLayout && isUltraCompact && phase === "playing") {
+  const useUltraCompactLayout = isUltraCompact && !isChatOpenMobile;
+  if (isMobileLayout && useUltraCompactLayout && phase === "playing") {
     const compactRankingList = rankingSource;
     const compactTotal =
       compactRankingList.length || (Array.isArray(players) ? players.length : 0) || null;
@@ -5390,8 +5859,7 @@ function handleTouchEnd() {
             <button
               type="button"
               onClick={() => {
-                setMobileChatUnreadCount(0);
-                setIsChatOpenMobile(true);
+                requestOpenChat();
               }}
               className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
             >
@@ -5417,19 +5885,31 @@ function handleTouchEnd() {
               >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                   <div className="font-extrabold text-base">Chat</div>
-                  <button
-                    type="button"
-                    onClick={() => setIsChatOpenMobile(false)}
-                    className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
-                      darkMode
-                        ? "bg-slate-800 border-slate-600 text-slate-100"
-                        : "bg-slate-50 border-slate-200 text-slate-900"
-                    }`}
-                  >
-                    Fermer
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className={`text-[11px] font-semibold ${
+                        darkMode ? "text-amber-300" : "text-blue-600"
+                      }`}
+                      onClick={() => setShowMutedList((prev) => !prev)}
+                    >
+                      Joueurs bloqués ({mutedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsChatOpenMobile(false)}
+                      className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
+                        darkMode
+                          ? "bg-slate-800 border-slate-600 text-slate-100"
+                          : "bg-slate-50 border-slate-200 text-slate-900"
+                      }`}
+                    >
+                      Fermer
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
+                  {renderMutedListPanel("mb-2")}
                   <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
                   {visibleMessages.length === 0 ? (
                     <div className="text-[11px] text-slate-400 text-center mt-4">
@@ -5440,6 +5920,9 @@ function handleTouchEnd() {
                       const author = (msg.author || msg.nick || "Anonyme").trim();
                       const isYou = author === selfNick;
                       const isSystem = isSystemAuthor(author);
+                      const canMute =
+                        !isSystem &&
+                        normalizeChatNick(author) !== normalizedSelfNick;
                       return (
                         <div
                           key={msg.id}
@@ -5456,10 +5939,19 @@ function handleTouchEnd() {
                           {isSystem ? (
                             <span>{msg.text}</span>
                           ) : (
-                            <>
-                              <span className="font-semibold mr-1">{author}:</span>
-                              <span>{msg.text}</span>
-                            </>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold mr-1">{author}:</span>
+                            {canMute && (
+                              <button
+                                type="button"
+                                className="text-[10px] font-semibold text-amber-300"
+                                onClick={() => muteNick(author)}
+                              >
+                                Bloquer
+                              </button>
+                            )}
+                            <span>{msg.text}</span>
+                          </div>
                           )}
                         </div>
                       );
@@ -5503,6 +5995,8 @@ function handleTouchEnd() {
               </div>
             </div>
           )}
+          {chatSafetyModal}
+          {definitionModalView}
         </div>
       );
     }
@@ -5669,13 +6163,22 @@ function handleTouchEnd() {
           darkMode={darkMode}
           isChatOpenMobile={isChatOpenMobile}
           mobileChatUnreadCount={mobileChatUnreadCount}
+          mutedCount={mutedCount}
+          mutedNicks={mutedNicks}
+          normalizedSelfNick={normalizedSelfNick}
+          onMuteNick={muteNick}
+          onToggleMutedList={() => setShowMutedList((prev) => !prev)}
+          onUnmuteNick={unmuteNick}
+          onOpenChat={requestOpenChat}
+          showMutedList={showMutedList}
           selfNick={selfNick}
           setChatInput={setChatInput}
           setIsChatOpenMobile={setIsChatOpenMobile}
-          setMobileChatUnreadCount={setMobileChatUnreadCount}
           submitChat={submitChat}
           visibleMessages={visibleMessages}
         />
+        {chatSafetyModal}
+        {definitionModalView}
         {phase === "playing" && praiseFlash && (
           <div
             key={praiseFlash.id}
@@ -6442,7 +6945,19 @@ function handleTouchEnd() {
             }
           }}
         >
-                   <h2 className="font-bold mb-2 text-center">Chat</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-bold text-center">Chat</h2>
+            <button
+              type="button"
+              className={`text-[11px] font-semibold ${
+                darkMode ? "text-amber-300" : "text-blue-600"
+              }`}
+              onClick={() => setShowMutedList((prev) => !prev)}
+            >
+              Joueurs bloqués ({mutedCount})
+            </button>
+          </div>
+          {renderMutedListPanel()}
 
           <div
             ref={chatDesktopListRef}
@@ -6465,6 +6980,8 @@ function handleTouchEnd() {
               const isYou = author === nickname.trim();
               const isSystem = isSystemAuthor(author);
               const isLast = msg.id === lastMessageId;
+              const canMute =
+                !isSystem && normalizeChatNick(author) !== normalizedSelfNick;
 
               return (
                 <div
@@ -6486,10 +7003,21 @@ function handleTouchEnd() {
                         isYou ? "bg-blue-50" : "bg-white",
                       ].join(" ")}
                     >
-                      <span className="font-semibold mr-1 text-black">
-                        {author} :
-                      </span>
-                      <span className="text-black">{msg.text}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold mr-1 text-black">
+                          {author} :
+                        </span>
+                        {canMute && (
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-amber-600"
+                            onClick={() => muteNick(author)}
+                          >
+                            Bloquer
+                          </button>
+                        )}
+                        <span className="text-black">{msg.text}</span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -6552,7 +7080,14 @@ function handleTouchEnd() {
           {praiseFlash.text}
         </div>
       )}
+      {chatSafetyModal}
+      {definitionModalView}
 
     </div>
   );
 }
+
+
+
+
+
