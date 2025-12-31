@@ -803,6 +803,16 @@ export default function App() {
     loading: false,
     ok: false,
     word: "",
+    lemma: "",
+    lemmaGuess: false,
+    participleBase: "",
+    participleLabel: "",
+    participleGuess: false,
+    inflectionBase: "",
+    inflectionLabel: "",
+    inflectionGuess: false,
+    matchedTitle: "",
+    phraseGuess: false,
     title: "",
     definition: "",
     source: "",
@@ -3039,6 +3049,16 @@ function playTileStepSound(step) {
       open: true,
       loading: true,
       word: clean,
+      lemma: "",
+      lemmaGuess: false,
+      participleBase: "",
+      participleLabel: "",
+      participleGuess: false,
+      inflectionBase: "",
+      inflectionLabel: "",
+      inflectionGuess: false,
+      matchedTitle: "",
+      phraseGuess: false,
       title: "",
       definition: "",
       source: "",
@@ -3058,6 +3078,16 @@ function playTileStepSound(step) {
           open: true,
           loading: false,
           word: data.word || clean,
+          lemma: data.lemma || "",
+          lemmaGuess: !!data.lemmaGuess,
+          participleBase: data.participleBase || "",
+          participleLabel: data.participleLabel || "",
+          participleGuess: !!data.participleGuess,
+          inflectionBase: data.inflectionBase || "",
+          inflectionLabel: data.inflectionLabel || "",
+          inflectionGuess: !!data.inflectionGuess,
+          matchedTitle: data.matchedTitle || "",
+          phraseGuess: !!data.phraseGuess,
           title: data.title || "",
           definition: data.definition || "",
           source: data.source || "",
@@ -4711,6 +4741,26 @@ function handleTouchEnd() {
                   ? `${definitionModal.word} → ${definitionModal.title}`
                   : definitionModal.word}
               </div>
+              {(definitionModal.phraseGuess && definitionModal.matchedTitle) ||
+              (definitionModal.lemmaGuess && definitionModal.lemma) ||
+              (definitionModal.participleGuess &&
+                definitionModal.participleLabel &&
+                definitionModal.participleBase) ||
+              (definitionModal.inflectionGuess &&
+                definitionModal.inflectionLabel &&
+                definitionModal.inflectionBase) ? (
+                <div className="mt-1 text-[11px] font-semibold opacity-80">
+                  {definitionModal.phraseGuess && definitionModal.matchedTitle
+                    ? `Définition trouvée pour ${definitionModal.matchedTitle} (lié à '${definitionModal.word}')`
+                    : definitionModal.lemmaGuess && definitionModal.lemma
+                    ? `Forme conjuguée probable — définition de ${definitionModal.lemma}`
+                    : definitionModal.participleGuess &&
+                      definitionModal.participleLabel &&
+                      definitionModal.participleBase
+                    ? `${definitionModal.participleLabel} ${definitionModal.participleBase}`
+                    : `${definitionModal.inflectionLabel} ${definitionModal.inflectionBase}`}
+                </div>
+              ) : null}
               <div className="mt-3 text-sm">
                 {definitionModal.loading ? (
                   <span>Chargement...</span>

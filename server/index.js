@@ -23,6 +23,7 @@ app.use(cors());
 app.set("trust proxy", true);
 
 const DEFINE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFINE_NEGATIVE_TTL_MS = 10 * 60 * 1000;
 const WIKI_USER_AGENT = "Gobble/1.0 (https://gobble.fr; contact: contact@gobble.fr)";
 const defineCache = new Map();
 
@@ -41,12 +42,17 @@ function buildDefineCandidates(rawWord) {
     if (!v) return;
     if (!candidates.includes(v)) candidates.push(v);
   };
-  push(rawWord);
-  push(rawWord.toLowerCase());
+  const lower = rawWord.toLowerCase();
+  const capitalized = rawWord
+    ? rawWord[0].toUpperCase() + rawWord.slice(1).toLowerCase()
+    : rawWord;
   const deaccent = rawWord
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+  push(rawWord);
+  push(lower);
+  push(capitalized);
   push(deaccent);
   return candidates;
 }
@@ -61,9 +67,9 @@ function getCachedDefinition(wordKey) {
   return entry.payload;
 }
 
-function setCachedDefinition(wordKey, payload) {
+function setCachedDefinition(wordKey, payload, ttlMs = DEFINE_CACHE_TTL_MS) {
   defineCache.set(wordKey, {
-    expiresAt: Date.now() + DEFINE_CACHE_TTL_MS,
+    expiresAt: Date.now() + ttlMs,
     payload,
   });
 }
@@ -86,10 +92,10 @@ function clipDefinition(rawText, maxLen = 600) {
   return `${cut.trimEnd()}...`;
 }
 
-async function fetchOpensearchTitle(baseUrl, term) {
+async function fetchOpensearchTitles(baseUrl, term, limit = 5) {
   const url = `${baseUrl}/w/api.php?action=opensearch&search=${encodeURIComponent(
     term
-  )}&limit=1&namespace=0&format=json`;
+  )}&limit=${limit}&namespace=0&format=json`;
   const res = await fetch(url, {
     headers: {
       "User-Agent": WIKI_USER_AGENT,
@@ -99,8 +105,9 @@ async function fetchOpensearchTitle(baseUrl, term) {
   if (!res.ok) return null;
   const data = await res.json();
   const titles = Array.isArray(data?.[1]) ? data[1] : [];
-  const first = titles[0];
-  return typeof first === "string" && first.trim() ? first.trim() : null;
+  return titles
+    .filter((t) => typeof t === "string" && t.trim())
+    .map((t) => t.trim());
 }
 
 async function fetchSummary(baseUrl, title) {
@@ -120,6 +127,222 @@ async function fetchSummary(baseUrl, title) {
     data?.content_urls?.mobile?.page ||
     `${baseUrl}/wiki/${encodeURIComponent(title)}`;
   return { title, extract: clipDefinition(extract), url: urlOut };
+}
+
+function normalizeLookup(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z]/g, "");
+}
+
+function guessLemmasFR(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized || normalized.length < 6) return [];
+  const candidates = new Set();
+  const add = (value) => {
+    if (!value || value.length < 6) return;
+    if (value === normalized) return;
+    if (candidates.size >= 12) return;
+    candidates.add(value);
+  };
+  const fixSpelling = (value) => {
+    if (value.endsWith("geer")) return value.slice(0, -4) + "ger";
+    if (value.endsWith("ceer")) return value.slice(0, -4) + "cer";
+    return value;
+  };
+  const addWithEndings = (stem, endings) => {
+    for (const end of endings) {
+      const next = fixSpelling(`${stem}${end}`);
+      add(next);
+      if (candidates.size >= 12) return;
+    }
+  };
+  const rules = [
+    {
+      suffixes: [
+        "erions",
+        "eriez",
+        "erais",
+        "erait",
+        "erons",
+        "eront",
+        "erez",
+        "erai",
+        "era",
+      ],
+      endings: ["er"],
+    },
+    { suffixes: ["assent", "assiez", "asses", "asse", "at", "ates", "ions", "iez"], endings: ["er"] },
+    { suffixes: ["ites"], endings: ["ir"] },
+    { suffixes: ["aient", "ait"], endings: ["er", "ir", "re"] },
+  ];
+  for (const rule of rules) {
+    for (const suffix of rule.suffixes) {
+      if (!normalized.endsWith(suffix)) continue;
+      const stem = normalized.slice(0, -suffix.length);
+      if (!stem) continue;
+      addWithEndings(stem, rule.endings);
+      if (candidates.size >= 12) break;
+    }
+    if (candidates.size >= 12) break;
+  }
+  const participleRules = ["ees", "es", "e", "ent"];
+  for (const suffix of participleRules) {
+    if (normalized.endsWith(suffix)) {
+      const stem = normalized.slice(0, -suffix.length);
+      if (stem) addWithEndings(stem, ["er"]);
+    }
+    if (candidates.size >= 12) break;
+  }
+  return Array.from(candidates);
+}
+
+function guessInflectionsFR(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized || normalized.length < 4) return [];
+  const candidates = [];
+  const seen = new Set();
+  const add = (base, label) => {
+    if (!base || base.length < 4) return;
+    if (base === normalized) return;
+    const key = `${label}|${base}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ base, label });
+  };
+
+  if (normalized.endsWith("ies") && normalized.length > 4) {
+    add(normalized.slice(0, -3) + "ie", "Pluriel probable de :");
+  }
+  if (normalized.endsWith("eaux") && normalized.length > 5) {
+    add(normalized.slice(0, -4) + "eau", "Pluriel probable de :");
+  }
+  if (normalized.endsWith("aux") && normalized.length > 4) {
+    add(normalized.slice(0, -3) + "al", "Pluriel probable de :");
+  }
+  if (normalized.endsWith("s") && normalized.length > 3) {
+    add(normalized.slice(0, -1), "Pluriel probable de :");
+  }
+  if (normalized.endsWith("x") && normalized.length > 3) {
+    add(normalized.slice(0, -1), "Pluriel probable de :");
+  }
+
+  if (normalized.endsWith("es") && normalized.length > 3) {
+    add(normalized.slice(0, -2), "Féminin pluriel probable de :");
+  }
+  if (normalized.endsWith("e") && normalized.length > 3) {
+    add(normalized.slice(0, -1), "Féminin probable de :");
+  }
+
+  return candidates.slice(0, 12);
+}
+
+function guessParticiplesFR(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized || normalized.length < 4) return [];
+  const candidates = [];
+  const seen = new Set();
+  const add = (base, label) => {
+    if (!base || base.length < 4) return;
+    if (base === normalized) return;
+    const key = `${label}|${base}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ base, label });
+  };
+  const fixSpelling = (value) => {
+    if (value.endsWith("geer")) return value.slice(0, -4) + "ger";
+    if (value.endsWith("ceer")) return value.slice(0, -4) + "cer";
+    return value;
+  };
+  const addWithEndings = (stem, endings, label) => {
+    for (const end of endings) {
+      add(fixSpelling(`${stem}${end}`), label);
+      if (candidates.length >= 12) return;
+    }
+  };
+
+  if (normalized.endsWith("ant") && normalized.length > 4) {
+    const stem = normalized.slice(0, -3);
+    addWithEndings(stem, ["er", "ir", "re"], "Participe present probable de :");
+  }
+
+  const pastEr = ["ees", "ee", "es", "e"];
+  const pastIr = ["ies", "ie", "is", "it", "its", "i"];
+  const pastRe = ["ues", "ue", "us", "u"];
+  for (const suffix of pastEr) {
+    if (!normalized.endsWith(suffix) || normalized.length <= suffix.length + 2) continue;
+    const stem = normalized.slice(0, -suffix.length);
+    addWithEndings(stem, ["er"], "Participe passe probable de :");
+  }
+  for (const suffix of pastIr) {
+    if (!normalized.endsWith(suffix) || normalized.length <= suffix.length + 2) continue;
+    const stem = normalized.slice(0, -suffix.length);
+    addWithEndings(stem, ["ir"], "Participe passe probable de :");
+  }
+  for (const suffix of pastRe) {
+    if (!normalized.endsWith(suffix) || normalized.length <= suffix.length + 2) continue;
+    const stem = normalized.slice(0, -suffix.length);
+    addWithEndings(stem, ["re"], "Participe passe probable de :");
+  }
+
+  return candidates.slice(0, 12);
+}
+
+function isChemicalAdjective(word) {
+  const normalized = normalizeLookup(word);
+  return normalized.endsWith("oique") || normalized.endsWith("ique");
+}
+
+function buildAcidPhrases(word, inflections) {
+  const phrases = [];
+  const seen = new Set();
+  const add = (base) => {
+    const clean = String(base || "").trim();
+    if (!clean) return;
+    const phrase = `acide ${clean}`;
+    const key = phrase.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    phrases.push({ phrase, base: clean });
+  };
+  add(word);
+  const pluralBase = Array.isArray(inflections)
+    ? inflections.find((inf) => String(inf.label || "").startsWith("Pluriel"))
+        ?.base
+    : null;
+  if (pluralBase) add(pluralBase);
+  return phrases.slice(0, 3);
+}
+
+function scoreTitle(title, rawWord) {
+  const normTitle = normalizeLookup(title);
+  const normWord = normalizeLookup(rawWord);
+  if (!normTitle || !normWord) return 0;
+  if (normTitle === normWord) return 100;
+  if (title.toLowerCase() === rawWord.toLowerCase()) return 90;
+  if (normTitle.startsWith(normWord)) {
+    const tail = normTitle.slice(normWord.length);
+    const hasParen = title.includes("(") && title.includes(")");
+    if (hasParen || tail.length <= 3) return 70;
+  }
+  return 0;
+}
+
+function pickBestTitle(titles, rawWord) {
+  if (!Array.isArray(titles) || titles.length === 0) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const title of titles) {
+    const score = scoreTitle(title, rawWord);
+    if (score > bestScore) {
+      bestScore = score;
+      best = title;
+    }
+  }
+  return bestScore >= 70 ? best : null;
 }
 
 function extractDictionaryApiDefinition(payload) {
@@ -183,26 +406,25 @@ app.get("/api/define", async (req, res) => {
   }
 
   const cacheKey = word.toLowerCase();
-  const cached = getCachedDefinition(cacheKey);
-  if (cached) {
-    return res.json(cached);
+  const skipCache = String(req.query?.nocache || "") === "1";
+  if (!skipCache) {
+    const cached = getCachedDefinition(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
   }
 
   let payload = null;
+  const suggestions = [];
   try {
     const candidates = buildDefineCandidates(word);
     for (const candidate of candidates) {
-      const title = await fetchOpensearchTitle(
-        "https://fr.wiktionary.org",
-        candidate
-      );
-      if (!title) continue;
-      const summary = await fetchSummary("https://fr.wiktionary.org", title);
+      const summary = await fetchSummary("https://fr.wiktionary.org", candidate);
       if (!summary) continue;
       payload = {
         ok: true,
         word,
-        title: summary.title || title,
+        title: summary.title || candidate,
         definition: summary.extract,
         extract: summary.extract,
         source: "wiktionary",
@@ -213,17 +435,398 @@ app.get("/api/define", async (req, res) => {
 
     if (!payload) {
       for (const candidate of candidates) {
-        const title = await fetchOpensearchTitle(
-          "https://fr.wikipedia.org",
-          candidate
-        );
-        if (!title) continue;
-        const summary = await fetchSummary("https://fr.wikipedia.org", title);
+        const summary = await fetchSummary("https://fr.wikipedia.org", candidate);
         if (!summary) continue;
         payload = {
           ok: true,
           word,
-          title: summary.title || title,
+          title: summary.title || candidate,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          candidate,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        const picked = pickBestTitle(titles, candidate);
+        for (const title of titles) {
+          const url = `https://fr.wiktionary.org/wiki/${encodeURIComponent(title)}`;
+          suggestions.push({ title, url, source: "wiktionary" });
+        }
+        if (!picked) continue;
+        const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || picked,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wiktionary",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          candidate,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        const picked = pickBestTitle(titles, candidate);
+        for (const title of titles) {
+          const url = `https://fr.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+          suggestions.push({ title, url, source: "wikipedia" });
+        }
+        if (!picked) continue;
+        const summary = await fetchSummary("https://fr.wikipedia.org", picked);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || picked,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      const lemmaCandidates = guessLemmasFR(word);
+      for (const lemma of lemmaCandidates) {
+        const direct = await fetchSummary("https://fr.wiktionary.org", lemma);
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            lemma,
+            lemmaGuess: true,
+            title: direct.title || lemma,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wiktionary",
+            url: direct.url,
+          };
+          console.log(`define lemma guess: ${word} -> ${lemma}`);
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          lemma,
+          5
+        );
+        const picked = titles ? pickBestTitle(titles, lemma) : null;
+        if (picked) {
+          const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              lemma,
+              lemmaGuess: true,
+              title: summary.title || picked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wiktionary",
+              url: summary.url,
+            };
+            console.log(`define lemma guess: ${word} -> ${lemma}`);
+            break;
+          }
+        }
+        const wikiDirect = await fetchSummary("https://fr.wikipedia.org", lemma);
+        if (wikiDirect) {
+          payload = {
+            ok: true,
+            word,
+            lemma,
+            lemmaGuess: true,
+            title: wikiDirect.title || lemma,
+            definition: wikiDirect.extract,
+            extract: wikiDirect.extract,
+            source: "wikipedia",
+            url: wikiDirect.url,
+          };
+          console.log(`define lemma guess: ${word} -> ${lemma}`);
+          break;
+        }
+        const wikiTitles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          lemma,
+          5
+        );
+        const wikiPicked = wikiTitles ? pickBestTitle(wikiTitles, lemma) : null;
+        if (wikiPicked) {
+          const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              lemma,
+              lemmaGuess: true,
+              title: summary.title || wikiPicked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wikipedia",
+              url: summary.url,
+            };
+            console.log(`define lemma guess: ${word} -> ${lemma}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!payload) {
+      const inflections = guessInflectionsFR(word);
+      for (const inflection of inflections) {
+        const direct = await fetchSummary(
+          "https://fr.wiktionary.org",
+          inflection.base
+        );
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            inflectionBase: inflection.base,
+            inflectionLabel: inflection.label,
+            inflectionGuess: true,
+            title: direct.title || inflection.base,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wiktionary",
+            url: direct.url,
+          };
+          console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          inflection.base,
+          5
+        );
+        const picked = titles ? pickBestTitle(titles, inflection.base) : null;
+        if (picked) {
+          const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              inflectionBase: inflection.base,
+              inflectionLabel: inflection.label,
+              inflectionGuess: true,
+              title: summary.title || picked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wiktionary",
+              url: summary.url,
+            };
+            console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+            break;
+          }
+        }
+        const wikiDirect = await fetchSummary(
+          "https://fr.wikipedia.org",
+          inflection.base
+        );
+        if (wikiDirect) {
+          payload = {
+            ok: true,
+            word,
+            inflectionBase: inflection.base,
+            inflectionLabel: inflection.label,
+            inflectionGuess: true,
+            title: wikiDirect.title || inflection.base,
+            definition: wikiDirect.extract,
+            extract: wikiDirect.extract,
+            source: "wikipedia",
+            url: wikiDirect.url,
+          };
+          console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+          break;
+        }
+        const wikiTitles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          inflection.base,
+          5
+        );
+        const wikiPicked = wikiTitles ? pickBestTitle(wikiTitles, inflection.base) : null;
+        if (wikiPicked) {
+          const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              inflectionBase: inflection.base,
+              inflectionLabel: inflection.label,
+              inflectionGuess: true,
+              title: summary.title || wikiPicked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wikipedia",
+              url: summary.url,
+            };
+            console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!payload) {
+      const participles = guessParticiplesFR(word);
+      for (const participle of participles) {
+        const direct = await fetchSummary(
+          "https://fr.wiktionary.org",
+          participle.base
+        );
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            participleBase: participle.base,
+            participleLabel: participle.label,
+            participleGuess: true,
+            title: direct.title || participle.base,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wiktionary",
+            url: direct.url,
+          };
+          console.log(`define participle guess: ${word} -> ${participle.base}`);
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          participle.base,
+          5
+        );
+        const picked = titles ? pickBestTitle(titles, participle.base) : null;
+        if (picked) {
+          const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              participleBase: participle.base,
+              participleLabel: participle.label,
+              participleGuess: true,
+              title: summary.title || picked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wiktionary",
+              url: summary.url,
+            };
+            console.log(`define participle guess: ${word} -> ${participle.base}`);
+            break;
+          }
+        }
+        const wikiDirect = await fetchSummary(
+          "https://fr.wikipedia.org",
+          participle.base
+        );
+        if (wikiDirect) {
+          payload = {
+            ok: true,
+            word,
+            participleBase: participle.base,
+            participleLabel: participle.label,
+            participleGuess: true,
+            title: wikiDirect.title || participle.base,
+            definition: wikiDirect.extract,
+            extract: wikiDirect.extract,
+            source: "wikipedia",
+            url: wikiDirect.url,
+          };
+          console.log(`define participle guess: ${word} -> ${participle.base}`);
+          break;
+        }
+        const wikiTitles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          participle.base,
+          5
+        );
+        const wikiPicked = wikiTitles ? pickBestTitle(wikiTitles, participle.base) : null;
+        if (wikiPicked) {
+          const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              participleBase: participle.base,
+              participleLabel: participle.label,
+              participleGuess: true,
+              title: summary.title || wikiPicked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wikipedia",
+              url: summary.url,
+            };
+            console.log(`define participle guess: ${word} -> ${participle.base}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!payload && isChemicalAdjective(word)) {
+      const inflections = guessInflectionsFR(word);
+      const phrases = buildAcidPhrases(word, inflections);
+      for (const entry of phrases) {
+        const direct = await fetchSummary(
+          "https://fr.wikipedia.org",
+          entry.phrase
+        );
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            matchedTitle: direct.title || entry.phrase,
+            phraseGuess: true,
+            title: direct.title || entry.phrase,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wikipedia",
+            url: direct.url,
+          };
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          entry.phrase,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        const targetNorm = normalizeLookup(entry.phrase);
+        const strict = titles.find(
+          (t) => normalizeLookup(t) === targetNorm
+        );
+        if (!strict) continue;
+        const summary = await fetchSummary("https://fr.wikipedia.org", strict);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          matchedTitle: summary.title || strict,
+          phraseGuess: true,
+          title: summary.title || strict,
           definition: summary.extract,
           extract: summary.extract,
           source: "wikipedia",
@@ -253,9 +856,17 @@ app.get("/api/define", async (req, res) => {
   }
 
   if (!payload) {
-    payload = { ok: false, word, error: "not_found" };
+    payload = {
+      ok: false,
+      word,
+      error: "not_found",
+      suggestions: suggestions.length ? suggestions.slice(0, 8) : undefined,
+    };
   }
-  setCachedDefinition(cacheKey, payload);
+  if (!skipCache) {
+    const ttl = payload?.ok ? DEFINE_CACHE_TTL_MS : DEFINE_NEGATIVE_TTL_MS;
+    setCachedDefinition(cacheKey, payload, ttl);
+  }
   return res.json(payload);
 });
 
