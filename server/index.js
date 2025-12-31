@@ -129,6 +129,54 @@ async function fetchSummary(baseUrl, title) {
   return { title, extract: clipDefinition(extract), url: urlOut };
 }
 
+function extractWiktionaryDefinition(wikitext) {
+  if (!wikitext) return "";
+  const lines = String(wikitext).split(/\r?\n/);
+  let inFrench = false;
+  for (const line of lines) {
+    if (/^==\s*\{\{langue\|fr\}\}\s*==/i.test(line)) {
+      inFrench = true;
+      continue;
+    }
+    if (inFrench && /^==[^=]/.test(line)) break;
+    if (!inFrench) continue;
+    const match = line.match(/^#(?![#*:])\s*(.+)/);
+    if (!match) continue;
+    let text = match[1];
+    text = text.replace(/\{\{[^}]+\}\}/g, "");
+    text = text.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2");
+    text = text.replace(/\[\[([^\]]+)\]\]/g, "$1");
+    text = text.replace(/'''+/g, "").replace(/''/g, "");
+    text = text.replace(/\s+/g, " ").trim();
+    if (text) return clipDefinition(text, 450);
+  }
+  return "";
+}
+
+async function fetchWiktionaryDefinition(title) {
+  const summary = await fetchSummary("https://fr.wiktionary.org", title);
+  if (summary && summary.extract) return summary;
+  const url = `https://fr.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(
+    title
+  )}&prop=wikitext&format=json`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const wikitext = data?.parse?.wikitext?.["*"];
+  const extract = extractWiktionaryDefinition(wikitext);
+  if (!extract) return null;
+  return {
+    title: data?.parse?.title || title,
+    extract,
+    url: `https://fr.wiktionary.org/wiki/${encodeURIComponent(title)}`,
+  };
+}
+
 function normalizeLookup(value) {
   return String(value || "")
     .toLowerCase()
@@ -345,6 +393,19 @@ function pickBestTitle(titles, rawWord) {
   return bestScore >= 70 ? best : null;
 }
 
+function collectSuggestions(titles, rawWord, baseUrl, source, suggestions) {
+  if (!Array.isArray(titles)) return;
+  for (const title of titles) {
+    if (scoreTitle(title, rawWord) < 70) continue;
+    const key = `${source}|${title}`;
+    if (suggestions.some((s) => `${s.source}|${s.title}` === key)) continue;
+    suggestions.push({
+      title,
+      url: `${baseUrl}/wiki/${encodeURIComponent(title)}`,
+      source,
+    });
+  }
+}
 function extractDictionaryApiDefinition(payload) {
   if (!Array.isArray(payload)) return null;
   for (const entry of payload) {
@@ -419,7 +480,7 @@ app.get("/api/define", async (req, res) => {
   try {
     const candidates = buildDefineCandidates(word);
     for (const candidate of candidates) {
-      const summary = await fetchSummary("https://fr.wiktionary.org", candidate);
+      const summary = await fetchWiktionaryDefinition(candidate);
       if (!summary) continue;
       payload = {
         ok: true,
@@ -451,67 +512,9 @@ app.get("/api/define", async (req, res) => {
     }
 
     if (!payload) {
-      for (const candidate of candidates) {
-        const titles = await fetchOpensearchTitles(
-          "https://fr.wiktionary.org",
-          candidate,
-          5
-        );
-        if (!titles || titles.length === 0) continue;
-        const picked = pickBestTitle(titles, candidate);
-        for (const title of titles) {
-          const url = `https://fr.wiktionary.org/wiki/${encodeURIComponent(title)}`;
-          suggestions.push({ title, url, source: "wiktionary" });
-        }
-        if (!picked) continue;
-        const summary = await fetchSummary("https://fr.wiktionary.org", picked);
-        if (!summary) continue;
-        payload = {
-          ok: true,
-          word,
-          title: summary.title || picked,
-          definition: summary.extract,
-          extract: summary.extract,
-          source: "wiktionary",
-          url: summary.url,
-        };
-        break;
-      }
-    }
-
-    if (!payload) {
-      for (const candidate of candidates) {
-        const titles = await fetchOpensearchTitles(
-          "https://fr.wikipedia.org",
-          candidate,
-          5
-        );
-        if (!titles || titles.length === 0) continue;
-        const picked = pickBestTitle(titles, candidate);
-        for (const title of titles) {
-          const url = `https://fr.wikipedia.org/wiki/${encodeURIComponent(title)}`;
-          suggestions.push({ title, url, source: "wikipedia" });
-        }
-        if (!picked) continue;
-        const summary = await fetchSummary("https://fr.wikipedia.org", picked);
-        if (!summary) continue;
-        payload = {
-          ok: true,
-          word,
-          title: summary.title || picked,
-          definition: summary.extract,
-          extract: summary.extract,
-          source: "wikipedia",
-          url: summary.url,
-        };
-        break;
-      }
-    }
-
-    if (!payload) {
       const lemmaCandidates = guessLemmasFR(word);
       for (const lemma of lemmaCandidates) {
-        const direct = await fetchSummary("https://fr.wiktionary.org", lemma);
+        const direct = await fetchWiktionaryDefinition(lemma);
         if (direct) {
           payload = {
             ok: true,
@@ -534,7 +537,7 @@ app.get("/api/define", async (req, res) => {
         );
         const picked = titles ? pickBestTitle(titles, lemma) : null;
         if (picked) {
-          const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+          const summary = await fetchWiktionaryDefinition(picked);
           if (summary) {
             payload = {
               ok: true,
@@ -597,10 +600,7 @@ app.get("/api/define", async (req, res) => {
     if (!payload) {
       const inflections = guessInflectionsFR(word);
       for (const inflection of inflections) {
-        const direct = await fetchSummary(
-          "https://fr.wiktionary.org",
-          inflection.base
-        );
+        const direct = await fetchWiktionaryDefinition(inflection.base);
         if (direct) {
           payload = {
             ok: true,
@@ -624,7 +624,7 @@ app.get("/api/define", async (req, res) => {
         );
         const picked = titles ? pickBestTitle(titles, inflection.base) : null;
         if (picked) {
-          const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+          const summary = await fetchWiktionaryDefinition(picked);
           if (summary) {
             payload = {
               ok: true,
@@ -693,10 +693,7 @@ app.get("/api/define", async (req, res) => {
     if (!payload) {
       const participles = guessParticiplesFR(word);
       for (const participle of participles) {
-        const direct = await fetchSummary(
-          "https://fr.wiktionary.org",
-          participle.base
-        );
+        const direct = await fetchWiktionaryDefinition(participle.base);
         if (direct) {
           payload = {
             ok: true,
@@ -720,7 +717,7 @@ app.get("/api/define", async (req, res) => {
         );
         const picked = titles ? pickBestTitle(titles, participle.base) : null;
         if (picked) {
-          const summary = await fetchSummary("https://fr.wiktionary.org", picked);
+          const summary = await fetchWiktionaryDefinition(picked);
           if (summary) {
             payload = {
               ok: true,
@@ -783,6 +780,70 @@ app.get("/api/define", async (req, res) => {
             break;
           }
         }
+      }
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          candidate,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        collectSuggestions(
+          titles,
+          candidate,
+          "https://fr.wiktionary.org",
+          "wiktionary",
+          suggestions
+        );
+        const picked = pickBestTitle(titles, candidate);
+        if (!picked) continue;
+        const summary = await fetchWiktionaryDefinition(picked);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || picked,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wiktionary",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          candidate,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        collectSuggestions(
+          titles,
+          candidate,
+          "https://fr.wikipedia.org",
+          "wikipedia",
+          suggestions
+        );
+        const picked = pickBestTitle(titles, candidate);
+        if (!picked) continue;
+        const summary = await fetchSummary("https://fr.wikipedia.org", picked);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || picked,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
       }
     }
 
