@@ -3876,6 +3876,37 @@ function handleTouchEnd() {
                   <span className="font-bold break-all text-sm sm:text-base">
                     {endStats.bestWord.word}
                   </span>
+                  {endStats.bestWord.word && (
+                    <button
+                      type="button"
+                      className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
+                        darkMode
+                          ? "bg-slate-800 border-slate-600 text-slate-100"
+                          : "bg-white border-gray-300 text-gray-700"
+                      } ${definitionBlink ? "animate-pulse" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDefinition(endStats.bestWord.word);
+                      }}
+                      aria-label="Voir la définition"
+                      title="Voir la définition"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="11" cy="11" r="7" />
+                        <line x1="16.65" y1="16.65" x2="21" y2="21" />
+                      </svg>
+                    </button>
+                  )}
                   <span className={`${resultLabelClass} text-xs whitespace-nowrap`}>
                     ({endStats.bestWord.pts} pts)
                   </span>
@@ -3896,6 +3927,37 @@ function handleTouchEnd() {
                   <span className="font-bold break-all text-sm sm:text-base">
                     {endStats.longestWord.word}
                   </span>
+                  {endStats.longestWord.word && (
+                    <button
+                      type="button"
+                      className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
+                        darkMode
+                          ? "bg-slate-800 border-slate-600 text-slate-100"
+                          : "bg-white border-gray-300 text-gray-700"
+                      } ${definitionBlink ? "animate-pulse" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDefinition(endStats.longestWord.word);
+                      }}
+                      aria-label="Voir la définition"
+                      title="Voir la définition"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="11" cy="11" r="7" />
+                        <line x1="16.65" y1="16.65" x2="21" y2="21" />
+                      </svg>
+                    </button>
+                  )}
                   <span className={`${resultLabelClass} text-xs whitespace-nowrap`}>
                     ({endStats.longestWord.len} lettres)
                   </span>
@@ -5080,7 +5142,37 @@ function handleTouchEnd() {
                   {records?.bestWord?.nick ? (
                     <>
                       <strong>{records.bestWord.nick}</strong> :{" "}
-                      <strong>{records.bestWord.word}</strong> ({records.bestWord.pts} pts) · manche{" "}
+                      <strong>{records.bestWord.word}</strong>
+                      {records.bestWord.word && (
+                        <button
+                          type="button"
+                          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 align-middle ${darkMode
+                              ? "bg-slate-800 border-slate-600 text-slate-100"
+                              : "bg-white border-gray-300 text-gray-700"} ${definitionBlink ? "animate-pulse" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDefinition(records.bestWord.word);
+                          }}
+                          aria-label="Voir la définition"
+                          title="Voir la définition"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="16.65" y1="16.65" x2="21" y2="21" />
+                          </svg>
+                        </button>
+                      )}{" "}
+                      ({records.bestWord.pts} pts) · manche{" "}
                       {records.bestWord.round}
                     </>
                   ) : (
@@ -5094,7 +5186,37 @@ function handleTouchEnd() {
                   {records?.longestWord?.nick ? (
                     <>
                       <strong>{records.longestWord.nick}</strong> :{" "}
-                      <strong>{records.longestWord.word}</strong> ({records.longestWord.len}) · manche{" "}
+                      <strong>{records.longestWord.word}</strong>
+                      {records.longestWord.word && (
+                        <button
+                          type="button"
+                          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 align-middle ${darkMode
+                              ? "bg-slate-800 border-slate-600 text-slate-100"
+                              : "bg-white border-gray-300 text-gray-700"} ${definitionBlink ? "animate-pulse" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDefinition(records.longestWord.word);
+                          }}
+                          aria-label="Voir la définition"
+                          title="Voir la définition"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="16.65" y1="16.65" x2="21" y2="21" />
+                          </svg>
+                        </button>
+                      )}{" "}
+                      ({records.longestWord.len}) · manche{" "}
                       {records.longestWord.round}
                     </>
                   ) : (
