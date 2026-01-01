@@ -20,10 +20,20 @@ export default function MobileHeader({
   tournament,
   toggleFullscreen,
 }) {
+  const fullscreenStyle = isFullscreen
+    ? {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 60,
+      }
+    : null;
   return (
     <div
       ref={headerRef}
       className="px-3 pt-2 pb-1 border-b border-slate-200/70 dark:border-slate-700/70"
+      style={fullscreenStyle || undefined}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">

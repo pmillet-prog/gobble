@@ -681,7 +681,7 @@ export default function App() {
   const tileRefs = useRef([]);
   const [lastInputMode, setLastInputMode] = useState("keyboard");
   const audioCtxRef = useRef(null);
-  const gobbleVoiceRef = useRef({ audio: null, last: 0 });
+  const gobbleVoiceRef = useRef({ audio: null, buffer: null, loading: false, last: 0 });
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
   const gridRef = useRef(null);
@@ -696,6 +696,7 @@ export default function App() {
   const listItemRefs = useRef(new Map());
   const mobileHeaderRef = useRef(null);
   const mobileHelpRef = useRef(null);
+  const safeAreaProbeRef = useRef(null);
   const prevPositionsRef = useRef(new Map());
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [praiseFlash, setPraiseFlash] = useState(null);
@@ -731,6 +732,7 @@ export default function App() {
   const [installMessage, setInstallMessage] = useState("");
   const [installSupport, setInstallSupport] = useState("unknown"); // unknown | available | unavailable | installed | maybe
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mobileHeaderOffsetPx, setMobileHeaderOffsetPx] = useState(0);
   const [isMobileLayout, setIsMobileLayout] = useState(() => {
     if (typeof window === "undefined") return false;
     return computeIsMobileLayout();
@@ -746,6 +748,7 @@ export default function App() {
     rankingHeight: 0,
     wordPreviewHeight: 0,
     liveFeedHeight: 0,
+    liveFeedMinHeight: 0,
     bodyHeight: 0,
   });
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
@@ -884,6 +887,58 @@ export default function App() {
   const [countdownHeight, setCountdownHeight] = useState(0);
   const [previewHeight, setPreviewHeight] = useState(0);
 
+  function ensureGobbleBuffer(ctx) {
+    if (!ctx || gobbleVoiceRef.current.buffer || gobbleVoiceRef.current.loading) {
+      return;
+    }
+    gobbleVoiceRef.current.loading = true;
+    fetch("/gobble.mp3")
+      .then((res) => res.arrayBuffer())
+      .then((buf) => {
+        const onSuccess = (decoded) => {
+          gobbleVoiceRef.current.buffer = decoded;
+          gobbleVoiceRef.current.loading = false;
+        };
+        const onError = () => {
+          gobbleVoiceRef.current.loading = false;
+        };
+        try {
+          const decodeResult = ctx.decodeAudioData(buf, onSuccess, onError);
+          if (decodeResult && typeof decodeResult.then === "function") {
+            decodeResult.then(onSuccess).catch(onError);
+          }
+        } catch (_) {
+          onError();
+        }
+      })
+      .catch(() => {
+        gobbleVoiceRef.current.loading = false;
+      });
+  }
+
+  function primeGobbleAudio() {
+    if (gobbleVoiceRef.current.audio) return;
+    const audio = new Audio("/gobble.mp3");
+    audio.preload = "auto";
+    gobbleVoiceRef.current.audio = audio;
+
+    const previousVolume = audio.volume;
+    audio.volume = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = previousVolume;
+        })
+        .catch(() => {
+          audio.volume = previousVolume;
+        });
+    } else {
+      audio.volume = previousVolume;
+    }
+  }
   // Débloque le contexte audio au premier geste utilisateur (mobile/desktop)
   useEffect(() => {
     function unlockAudio() {
@@ -895,6 +950,8 @@ export default function App() {
       if (audioCtxRef.current.state === "suspended") {
         audioCtxRef.current.resume().catch(() => {});
       }
+      primeGobbleAudio();
+      ensureGobbleBuffer(audioCtxRef.current);
       window.removeEventListener("pointerdown", unlockAudio);
     }
     window.addEventListener("pointerdown", unlockAudio);
@@ -1192,7 +1249,28 @@ export default function App() {
       const viewportWidth = viewportWidthCandidates.length
         ? Math.min(...viewportWidthCandidates)
         : 0;
-      const headerHeight = mobileHeaderRef.current?.offsetHeight || 0;
+      if (!safeAreaProbeRef.current && typeof document !== "undefined") {
+        const probe = document.createElement("div");
+        probe.style.position = "absolute";
+        probe.style.left = "0";
+        probe.style.top = "0";
+        probe.style.height = "0";
+        probe.style.paddingBottom = "env(safe-area-inset-bottom)";
+        probe.style.visibility = "hidden";
+        probe.style.pointerEvents = "none";
+        document.body.appendChild(probe);
+        safeAreaProbeRef.current = probe;
+      }
+
+      const headerRect = mobileHeaderRef.current?.getBoundingClientRect();
+      const headerOffsetPx =
+        headerRect && Number.isFinite(headerRect.bottom)
+          ? Math.round(headerRect.bottom)
+          : mobileHeaderRef.current?.offsetHeight || 0;
+      setMobileHeaderOffsetPx((prev) =>
+        prev === headerOffsetPx ? prev : headerOffsetPx
+      );
+      const headerHeightForBody = headerOffsetPx;
       const helpEl = mobileHelpRef.current;
       const helpHeight = helpEl?.offsetHeight || 0;
       const helpMargins = helpEl
@@ -1204,14 +1282,25 @@ export default function App() {
           })()
         : 0;
       const extraTopHeight = helpHeight + helpMargins;
+      const safeBottomPx = 5;
+      const safeAreaBottomPx =
+        isFullscreen && safeAreaProbeRef.current && typeof window !== "undefined"
+          ? parseFloat(
+              window.getComputedStyle(safeAreaProbeRef.current).paddingBottom || "0"
+            ) || 0
+          : 0;
       const bodyHeight = Math.max(
         0,
-        viewportHeight - headerHeight - extraTopHeight
+        viewportHeight -
+          headerHeightForBody -
+          extraTopHeight -
+          safeBottomPx -
+          safeAreaBottomPx
       );
 
-      // marges/gaps principaux (px-3, pb-3 + espacements entre blocs)
-      const verticalPadding = 8 + 12;
-      const layoutGaps = 24 + 8; // gap-3 entre blocs (2 x 12px) + gap-2 entre grille/flux (8px)
+      // marges/gaps principaux (px-3, pb-2 + espacements entre blocs)
+      const verticalPadding = 4 + 8;
+      const layoutGaps = 8 + 4; // gap-1 entre blocs (2 x 4px) + gap-1 entre grille/flux (4px)
       const availableHeight = Math.max(
         0,
         bodyHeight - verticalPadding - layoutGaps
@@ -1226,19 +1315,30 @@ export default function App() {
         parseFloat(
           window.getComputedStyle(document.documentElement).fontSize || "16"
         ) || 16;
+      const liveFeedRowPx = Math.max(12, Math.round(baseFontSize * 1.05));
+      const liveFeedHeaderPx = Math.max(12, Math.round(baseFontSize * 1.05));
+      const liveFeedGapPx = 4;
+      const liveFeedPaddingPx = 16;
+      const liveFeedMinHeight =
+        liveFeedPaddingPx +
+        liveFeedHeaderPx +
+        liveFeedGapPx +
+        liveFeedRowPx * 3 +
+        liveFeedGapPx * 2;
       const minRanking = 120;
-      const minPreview = 48;
+      const maxRanking = 150;
+      const minPreview = 36;
       let rankingTarget = clampValue(
         Math.round(Math.max(baseFontSize * 7, bodyHeight * 0.26)),
         minRanking,
-        200
+        maxRanking
       );
       let previewTarget = clampValue(
         Math.round(Math.max(baseFontSize * 2.6, bodyHeight * 0.08)),
         minPreview,
         68
       );
-      let requiredBelowGrid = rankingTarget + previewTarget;
+      let requiredBelowGrid = rankingTarget + previewTarget + liveFeedMinHeight;
       let maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
 
       if (maxGridFromHeight < availableWidth) {
@@ -1257,7 +1357,7 @@ export default function App() {
         maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
       }
 
-      const gridSide = Math.max(100, Math.min(availableWidth, maxGridFromHeight));
+      const gridSide = Math.max(100, availableWidth);
 
       const remaining = Math.max(0, blocksBudget - gridSide);
 
@@ -1269,21 +1369,39 @@ export default function App() {
           rankingHeight: rankingTarget,
           wordPreviewHeight: previewTarget,
           liveFeedHeight: 0,
+          liveFeedMinHeight,
           bodyHeight,
         });
         return;
       }
 
-      const rankingHeight = Math.min(rankingTarget, remaining);
-      const wordPreviewHeight = Math.min(
-        previewTarget,
-        Math.max(0, remaining - rankingHeight)
-      );
-      const liveFeedAvailable = Math.max(
+      const reservedLiveFeed = Math.min(remaining, liveFeedMinHeight);
+      const remainingAfterFeed = Math.max(0, remaining - reservedLiveFeed);
+      let rankingHeight = 0;
+      let wordPreviewHeight = 0;
+      if (remainingAfterFeed > 0) {
+        const previewBias = 1.25;
+        const totalTarget = rankingTarget + previewTarget;
+        if (remainingAfterFeed >= totalTarget) {
+          rankingHeight = rankingTarget;
+          wordPreviewHeight = previewTarget;
+        } else {
+          const weightedTotal = rankingTarget + previewTarget * previewBias;
+          const previewShare =
+            (previewTarget * previewBias) / Math.max(1, weightedTotal);
+          const previewRaw = remainingAfterFeed * previewShare;
+          wordPreviewHeight = Math.max(
+            0,
+            Math.min(previewTarget, Math.floor(previewRaw))
+          );
+          rankingHeight = Math.max(0, remainingAfterFeed - wordPreviewHeight);
+        }
+      }
+      const leftover = Math.max(
         0,
-        remaining - rankingHeight - wordPreviewHeight
+        remaining - reservedLiveFeed - rankingHeight - wordPreviewHeight
       );
-      const liveFeedHeight = liveFeedAvailable;
+      const liveFeedHeight = reservedLiveFeed + leftover;
 
       setMobileLayoutSizing({
         viewportWidth,
@@ -1292,6 +1410,7 @@ export default function App() {
         rankingHeight: rankingHeight || 0,
         wordPreviewHeight: wordPreviewHeight || 0,
         liveFeedHeight: liveFeedHeight || 0,
+        liveFeedMinHeight,
         bodyHeight,
       });
     };
@@ -1320,8 +1439,35 @@ export default function App() {
       document.removeEventListener("fullscreenchange", scheduleComputeMobileLayout);
       vv?.removeEventListener("resize", scheduleComputeMobileLayout);
       vv?.removeEventListener("scroll", scheduleComputeMobileLayout);
+      if (safeAreaProbeRef.current && safeAreaProbeRef.current.parentNode) {
+        safeAreaProbeRef.current.parentNode.removeChild(safeAreaProbeRef.current);
+        safeAreaProbeRef.current = null;
+      }
     };
-  }, [isMobileLayout, phase, gridSize, showHelp]);
+  }, [isMobileLayout, phase, gridSize, showHelp, isFullscreen]);
+
+  useEffect(() => {
+    if (!isMobileLayout) return;
+    if (typeof ResizeObserver === "undefined") return;
+    const headerEl = mobileHeaderRef.current;
+    if (!headerEl) return;
+
+    const updateHeight = () => {
+      const rect = headerEl.getBoundingClientRect();
+      const nextOffset =
+        rect && Number.isFinite(rect.bottom)
+          ? Math.round(rect.bottom)
+          : Math.round(headerEl.offsetHeight || 0);
+      setMobileHeaderOffsetPx((prev) =>
+        prev === nextOffset ? prev : nextOffset
+      );
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(headerEl);
+    return () => observer.disconnect();
+  }, [isMobileLayout, isFullscreen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1404,6 +1550,23 @@ export default function App() {
     const nowTs = Date.now();
     if (nowTs - gobbleVoiceRef.current.last < 1200) return; // throttle
     gobbleVoiceRef.current.last = nowTs;
+    const ctx = audioCtxRef.current;
+    const buffer = gobbleVoiceRef.current.buffer;
+    if (ctx && ctx.state === "running" && buffer) {
+      try {
+        const source = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        source.buffer = buffer;
+        gain.gain.value = 1;
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        source.start();
+        return;
+      } catch (_) {}
+    }
+    if (ctx && ctx.state === "running" && !buffer) {
+      ensureGobbleBuffer(ctx);
+    }
 
     if (!gobbleVoiceRef.current.audio) {
       const audio = new Audio("/gobble.mp3"); // fichier en minuscules dans /public
@@ -1805,6 +1968,34 @@ function playTileStepSound(step) {
       });
     };
 
+    ctx.resume().then(start).catch(start);
+  }
+
+  function playSpecialFoundSound() {
+    if (isMuted) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime + 0.01;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(520, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      try {
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } catch (_) {}
+    };
     ctx.resume().then(start).catch(start);
   }
 
@@ -2357,17 +2548,24 @@ function playTileStepSound(step) {
       if (!payload || typeof payload !== "object") return;
       if (roundId && payload.roundId && payload.roundId !== roundId) return;
       const me = nickname.trim();
-      if (!me || (payload.nick || "") !== me) return;
-      setFoundTargetThisRound(true);
-      setSpecialSolvedOverlay({
-        nick: payload.nick || "",
-        word: "",
-        kind: payload.kind || null,
-      });
-      try {
-        playGobbleVoice();
-        triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
-      } catch (_) {}
+      const solvedNick = payload.nick || "";
+      const isSelf = me && solvedNick === me;
+      if (isSelf) {
+        setFoundTargetThisRound(true);
+        setSpecialSolvedOverlay({
+          nick: solvedNick,
+          word: "",
+          kind: payload.kind || null,
+        });
+        try {
+          playGobbleVoice();
+          triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
+        } catch (_) {}
+        return;
+      }
+      if (payload.kind === "target_long" || payload.kind === "target_score") {
+        playSpecialFoundSound();
+      }
     }
 
     socket.on("roundStarted", onRoundStarted);
@@ -3089,7 +3287,7 @@ function playTileStepSound(step) {
           matchedTitle: data.matchedTitle || "",
           phraseGuess: !!data.phraseGuess,
           title: data.title || "",
-          definition: data.definition || "",
+          definition: data.definition || data.extract || "",
           source: data.source || "",
           url: data.url || "",
           ok: !!data.ok,
@@ -4717,6 +4915,7 @@ function handleTouchEnd() {
     tournamentSummary &&
     Array.isArray(tournamentSummary.ranking) &&
     tournamentSummary.ranking.length > 0;
+  const prevShowTournamentFinaleRef = useRef(showTournamentFinale);
 
   useEffect(() => {
     if (showTournamentFinale && !tournamentCelebrationPlayedRef.current) {
@@ -4729,9 +4928,10 @@ function handleTouchEnd() {
   }, [showTournamentFinale]);
 
   useEffect(() => {
-    if (showTournamentFinale && definitionModal.open) {
+    if (showTournamentFinale && !prevShowTournamentFinaleRef.current && definitionModal.open) {
       closeDefinition();
     }
+    prevShowTournamentFinaleRef.current = showTournamentFinale;
   }, [showTournamentFinale, definitionModal.open]);
 
   const chatSafetyModal = isChatSafetyOpen ? (
@@ -4777,6 +4977,14 @@ function handleTouchEnd() {
       </div>
     </div>
   ) : null;
+
+  const definitionPreview = definitionModal.definition
+    ? (() => {
+        const text = String(definitionModal.definition).trim();
+        if (text.length <= 140) return text;
+        return `${text.slice(0, 140).trim()}...`;
+      })()
+    : "";
 
   const definitionModalView =
     definitionModal.open && typeof document !== "undefined"
@@ -4903,13 +5111,13 @@ function handleTouchEnd() {
         }`}
       >
       <div
-        className={`w-full max-w-2xl rounded-2xl shadow-2xl p-8 space-y-6 ${
+        className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-3 ${
           darkMode
             ? "bg-slate-900/70 border border-white/10"
             : "bg-white/90 border border-slate-200"
         }`}
       >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
   <div
     className="flex items-baseline gap-2 text-3xl font-black tracking-tight cursor-pointer select-none"
@@ -4935,30 +5143,9 @@ function handleTouchEnd() {
             </div>
           </div>
 
-          <div className={`grid md:grid-cols-3 gap-4 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
-            <div className={`p-3 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
-              <div className="font-semibold">Pseudo unique</div>
-              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                Pas de compte, juste un pseudo non utilisé par un autre joueur.
-              </div>
-            </div>
-            <div className={`p-3 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
-              <div className="font-semibold">Chat en direct</div>
-              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                Messages partagés dès que tu es connecté.
-              </div>
-            </div>
-            <div className={`p-3 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
-              <div className="font-semibold">Classement live</div>
-              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                Ta position se met à jour, les scores détaillés arrivent en fin de manche.
-              </div>
-            </div>
-          </div>
-
           <form
             onSubmit={handleLogin}
-            className={`rounded-xl p-5 flex flex-col gap-3 border ${
+            className={`rounded-xl p-4 flex flex-col gap-2 border ${
               darkMode ? "bg-slate-800/70 border-white/10" : "bg-white border-slate-200"
             }`}
           >
@@ -5022,8 +5209,29 @@ function handleTouchEnd() {
               {isConnecting ? "Connexion..." : "Entrer dans la partie"}
             </button>
           </form>
-        {chatSafetyModal}
-        {definitionModalView}
+
+          <div className={`grid md:grid-cols-3 gap-2 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
+            <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
+              <div className="font-semibold">Pseudo unique</div>
+              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                Pas de compte, juste un pseudo non utilisé par un autre joueur.
+              </div>
+            </div>
+            <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
+              <div className="font-semibold">Chat en direct</div>
+              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                Messages partagés dès que tu es connecté.
+              </div>
+            </div>
+            <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
+              <div className="font-semibold">Classement live</div>
+              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                Ta position se met à jour, les scores détaillés arrivent en fin de manche.
+              </div>
+            </div>
+          </div>
+          {chatSafetyModal}
+          {definitionModalView}
       </div>
       </div>
     );
@@ -5450,8 +5658,8 @@ function handleTouchEnd() {
             </div>
           </div>
         )}
-        {chatSafetyModal}
-        {definitionModalView}
+          {chatSafetyModal}
+          {definitionModalView}
       </div>
     );
   }
@@ -5507,6 +5715,7 @@ function handleTouchEnd() {
             maxHeight: `${Math.round(mobileViewportHeight)}px`,
             overflow: "hidden",
             overscrollBehavior: "none",
+            paddingTop: "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",
           }
         : {
@@ -5515,6 +5724,7 @@ function handleTouchEnd() {
             maxHeight: "100dvh",
             overflow: "hidden",
             overscrollBehavior: "none",
+            paddingTop: "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",
           };
 
@@ -5686,7 +5896,7 @@ function handleTouchEnd() {
     const mobileLiveFeedHeight = Math.round(
       mobileLayoutSizing.liveFeedHeight || liveFeedFallback
     );
-    const previewBlockHeight = Math.max(52, mobilePreviewHeight);
+    const previewBlockHeight = Math.max(0, mobilePreviewHeight);
     const liveFeedMinHeight = Math.max(0, mobileLiveFeedHeight);
     const previewWordLen = liveWord ? liveWord.length : 0;
     const previewGapPx = previewWordLen >= 10 ? 2 : 4;
@@ -5712,6 +5922,16 @@ function handleTouchEnd() {
       height: `${previewTileHeight}px`,
       fontSize: `${previewTileFontPx}px`,
     };
+    const specialBlockHeight = Math.round(mobileLayoutSizing.rankingHeight || 0);
+    const specialBaseHeight = 120;
+    const specialScale =
+      specialBlockHeight > 0
+        ? Math.min(1, specialBlockHeight / specialBaseHeight)
+        : 1;
+    const specialTitleFont = Math.max(9, Math.round(11 * specialScale));
+    const specialWordFont = Math.max(16, Math.round(24 * specialScale));
+    const specialMetaFont = Math.max(9, Math.round(11 * specialScale));
+    const specialPadY = Math.max(6, Math.round(8 * specialScale));
     const mobileGapPx = "clamp(6px, 2.4vw, 14px)";
     const mobileTileFontPx = Math.max(
       18,
@@ -5727,6 +5947,7 @@ function handleTouchEnd() {
             minHeight: "calc(100vh - 96px)",
             height: "calc(100dvh - 96px)",
           };
+    const mobileBodyPaddingTop = undefined;
 
     const mobileViewportHeightCandidates =
       typeof window !== "undefined"
@@ -5750,6 +5971,11 @@ function handleTouchEnd() {
             maxHeight: `${Math.round(mobileViewportHeight)}px`,
             overflow: "hidden",
             overscrollBehavior: "none",
+            paddingTop: isFullscreen
+              ? mobileHeaderOffsetPx > 0
+                ? `${Math.round(mobileHeaderOffsetPx)}px`
+                : undefined
+              : "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",
           }
         : {
@@ -5758,6 +5984,11 @@ function handleTouchEnd() {
             maxHeight: "100dvh",
             overflow: "hidden",
             overscrollBehavior: "none",
+            paddingTop: isFullscreen
+              ? mobileHeaderOffsetPx > 0
+                ? `${Math.round(mobileHeaderOffsetPx)}px`
+                : undefined
+              : "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",
           };
 
@@ -5814,10 +6045,12 @@ function handleTouchEnd() {
             tournament={tournament}
             toggleFullscreen={toggleFullscreen}
           />
-
           <div
-            className="flex-1 flex flex-col gap-2 px-3 pt-2 pb-3 overflow-hidden box-border"
-            style={mobileBodyHeightStyle}
+            className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
+            style={{
+              ...mobileBodyHeightStyle,
+              paddingTop: mobileBodyPaddingTop,
+            }}
           >
             <div
             className={`relative rounded-xl px-3 py-2 flex flex-col gap-2 overflow-hidden flex-1 min-h-0 ${
@@ -6225,38 +6458,80 @@ function handleTouchEnd() {
 
         {/* Contenu principal mobile : classement + apercu mot + grille */}
         <div
-          className="flex-1 flex flex-col gap-3 px-3 pt-2 pb-3 overflow-hidden box-border"
-          style={mobileBodyHeightStyle}
+          className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
+          style={{
+            ...mobileBodyHeightStyle,
+            paddingTop: mobileBodyPaddingTop,
+          }}
         >
           {phase === "playing" && isTargetRound ? (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border">
-              <div className="text-[11px] font-extrabold tracking-widest text-slate-600 dark:text-slate-300">
+            <div
+              className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
+              style={
+                specialBlockHeight > 0
+                  ? {
+                      height: `${specialBlockHeight}px`,
+                      maxHeight: `${specialBlockHeight}px`,
+                      minHeight: 0,
+                      paddingTop: `${specialPadY}px`,
+                      paddingBottom: `${specialPadY}px`,
+                    }
+                  : { paddingTop: `${specialPadY}px`, paddingBottom: `${specialPadY}px` }
+              }
+            >
+              <div
+                className="font-extrabold tracking-widest text-slate-600 dark:text-slate-300"
+                style={{ fontSize: `${specialTitleFont}px` }}
+              >
                 {specialRound?.type === "target_long"
                   ? "TROUVE LE PLUS LONG MOT"
                   : specialRound?.type === "target_score"
                   ? "TROUVE LE MOT EN OR"
                   : "MANCHE SPECIALE"}
               </div>
-              <div className="mt-2 text-center font-black tracking-widest text-2xl tabular-nums">
+              <div
+                className="mt-2 text-center font-black tracking-widest tabular-nums"
+                style={{ fontSize: `${specialWordFont}px` }}
+              >
                 {specialHint?.pattern ? (
                   specialHint.pattern
                 ) : (
-                  <span className="text-[13px] tracking-normal opacity-80">
+                  <span
+                    className="tracking-normal opacity-80"
+                    style={{ fontSize: `${Math.max(11, Math.round(13 * specialScale))}px` }}
+                  >
                     MOT MYSTÈRE
                   </span>
                 )}
               </div>
               {specialHint?.pattern && specialHint?.length ? (
-                <div className="mt-1 text-[11px] font-semibold opacity-70 text-center">
+                <div
+                  className="mt-1 font-semibold opacity-70 text-center"
+                  style={{ fontSize: `${specialMetaFont}px` }}
+                >
                   {specialHint.length} lettres
                 </div>
               ) : null}
-              <div className="mt-1 text-[11px] font-semibold opacity-80 text-center">
+              <div
+                className="mt-1 font-semibold opacity-80 text-center"
+                style={{ fontSize: `${specialMetaFont}px` }}
+              >
                 {specialHint?.pattern ? "Indice mis a jour..." : "Indice dans 15 secondes..."}
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border">
+            <div
+              className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
+              style={
+                mobileLayoutSizing.rankingHeight > 0
+                  ? {
+                      height: `${Math.round(mobileLayoutSizing.rankingHeight)}px`,
+                      maxHeight: `${Math.round(mobileLayoutSizing.rankingHeight)}px`,
+                      minHeight: 0,
+                    }
+                  : undefined
+              }
+            >
               <RankingWidgetMobile
                 fullRanking={fullRanking}
                 selfNick={selfNick}
@@ -6264,6 +6539,8 @@ function handleTouchEnd() {
                 expanded={false}
                 flatStyle={true}
                 highlightedPlayers={highlightPlayers}
+                fitHeight={true}
+                className="h-full"
               />
             </div>
           )}
@@ -6279,7 +6556,7 @@ function handleTouchEnd() {
             previewTileBaseStyle={previewTileBaseStyle}
             shake={shake}
           />
-          <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <div className="flex-1 min-h-0 flex flex-col gap-1">
             <MobileGrid
               board={board}
               BONUS_CLASSES={BONUS_CLASSES}
@@ -6349,8 +6626,8 @@ function handleTouchEnd() {
           submitChat={submitChat}
           visibleMessages={visibleMessages}
         />
-        {chatSafetyModal}
-        {definitionModalView}
+          {chatSafetyModal}
+          {definitionModalView}
         {phase === "playing" && praiseFlash && (
           <div
             key={praiseFlash.id}
@@ -7252,8 +7529,8 @@ function handleTouchEnd() {
           {praiseFlash.text}
         </div>
       )}
-      {chatSafetyModal}
-      {definitionModalView}
+          {chatSafetyModal}
+          {definitionModalView}
 
     </div>
   );

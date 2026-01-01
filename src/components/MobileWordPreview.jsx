@@ -11,6 +11,21 @@ export default function MobileWordPreview({
   previewTileBaseStyle,
   shake,
 }) {
+  const previewHeight = Number.isFinite(previewBlockHeight)
+    ? previewBlockHeight
+    : 52;
+  const baseFontPx = Math.min(
+    16,
+    Math.max(11, Math.round(previewHeight * 0.35))
+  );
+  const bigFontPx = Math.min(
+    24,
+    Math.max(16, Math.round(previewHeight * 0.58))
+  );
+  const smallFontPx = Math.min(
+    12,
+    Math.max(9, Math.round(previewHeight * 0.26))
+  );
   return (
     <div
       className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 py-1.5 shadow-sm flex-none box-border"
@@ -23,9 +38,10 @@ export default function MobileWordPreview({
       }}
     >
       <div
-        className={`w-full text-center font-bold text-base flex items-center justify-center ${
+        className={`w-full text-center font-bold flex items-center justify-center ${
           shake ? "shake" : ""
         }`}
+        style={{ fontSize: `${baseFontPx}px`, lineHeight: 1.1 }}
       >
         {phase !== "playing" ? (
           <span className="text-slate-700 dark:text-white">
@@ -34,11 +50,18 @@ export default function MobileWordPreview({
                 key={`${line}-${idx}`}
                 className={`block ${
                   /^\d+$/.test(line)
-                    ? "text-2xl font-black leading-none"
+                    ? "font-black leading-none"
                     : String(line).startsWith("MANCHE SPECIALE")
-                    ? "text-[0.7rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
+                    ? "font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
                     : ""
                 }`}
+                style={
+                  /^\d+$/.test(line)
+                    ? { fontSize: `${bigFontPx}px` }
+                    : String(line).startsWith("MANCHE SPECIALE")
+                    ? { fontSize: `${smallFontPx}px` }
+                    : undefined
+                }
               >
                 {line}
               </span>

@@ -1,5 +1,10 @@
 import React from "react";
 
+function clampValue(value, min, max) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(Math.max(value, min), max);
+}
+
 function buildRightLabel(entry, scoreValue, wordsCount) {
   if (entry && typeof entry.rightLabel === "string") {
     return entry.rightLabel;
@@ -319,6 +324,7 @@ export default function RankingWidgetMobile({
   selfNick,
   darkMode,
   expanded,
+  fitHeight = true,
   animateRank = true,
   showWheel = true,
   showBadge = false,
@@ -327,6 +333,7 @@ export default function RankingWidgetMobile({
   highlightedPlayers = [],
   renderNickSuffix = null,
   renderAfterRank = null,
+  className = "",
 }) {
   const me = (selfNick || "").trim();
   const safeRanking = Array.isArray(fullRanking) ? fullRanking : [];
@@ -335,7 +342,13 @@ export default function RankingWidgetMobile({
   const [displayRanking, setDisplayRanking] = React.useState(safeRanking);
   const rankAnimRef = React.useRef({ id: null, pending: null, running: false });
   const pendingRankingRef = React.useRef(null);
+  const containerRef = React.useRef(null);
+  const [rowPx, setRowPx] = React.useState(null);
+  const [rowsCount, setRowsCount] = React.useState(5);
   const WHEEL_ROWS = 5;
+  const BASE_ROW_PX = 26;
+  const BASE_RING_SIZE = 40;
+  const BASE_RING_FONT = 18;
   const wheelRowEm = expanded ? 1.4 : 1.6;
   const wheelHeight = `calc(${wheelRowEm}em * ${WHEEL_ROWS})`;
   const wheelHeightStyle = {
@@ -344,6 +357,41 @@ export default function RankingWidgetMobile({
     maxHeight: wheelHeight,
     flex: "0 0 auto",
   };
+  const gapPx = 4;
+
+  React.useEffect(() => {
+    if (!fitHeight || expanded) {
+      setRowPx(null);
+      return;
+    }
+    const node = containerRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+
+    const minRowPx = 10;
+    const compute = () => {
+      const height = node.clientHeight || 0;
+      if (!height) return;
+      const baseHeight = BASE_ROW_PX * 5 + gapPx * 4;
+      if (height >= baseHeight) {
+        setRowsCount(5);
+        setRowPx(BASE_ROW_PX);
+        return;
+      }
+      let nextRows = 5;
+      if (height < minRowPx * 5 + gapPx * 4) {
+        nextRows = 3;
+      }
+      const totalGaps = gapPx * (nextRows - 1);
+      const next = Math.floor((height - totalGaps) / nextRows);
+      setRowsCount(nextRows);
+      setRowPx(clampValue(next, minRowPx, BASE_ROW_PX));
+    };
+
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [fitHeight, expanded]);
 
   // Met à jour le rang cible quand le classement bouge
   React.useEffect(() => {
@@ -454,7 +502,7 @@ export default function RankingWidgetMobile({
 
   const waitingTextColor = darkMode ? "text-slate-400" : "text-slate-500";
   const normalTextColor = darkMode ? "text-slate-200" : "text-slate-700";
-  const selfTextColor = normalTextColor;
+  const selfTextColor = darkMode ? "text-white" : normalTextColor;
 
   // Anneau : noir en clair, blanc en sombre
   const ringBorderColor = darkMode ? "border-white" : "border-black";
@@ -486,7 +534,8 @@ export default function RankingWidgetMobile({
     containerBase +
     " " +
     containerTheme +
-    " flex flex-col h-full";
+    " flex flex-col h-full" +
+    (className ? ` ${className}` : "");
   const highlightSet = new Set(highlightedPlayers || []);
 
   const flatList = (
@@ -605,6 +654,8 @@ export default function RankingWidgetMobile({
 
   const OFFSETS = expanded
     ? safeRanking.map((_, idx) => idx - (youIdx >= 0 ? youIdx : 0))
+    : rowsCount === 3
+    ? [-1, 0, 1]
     : [-2, -1, 0, 1, 2];
 
   function getSlotConfig(offset) {
@@ -614,6 +665,21 @@ export default function RankingWidgetMobile({
         scoreClass: "text-[11px]",
         rankClass: "text-[11px]",
         opacity: 1,
+      };
+    }
+    if (rowPx) {
+      const ratio = rowPx / BASE_ROW_PX;
+      const base =
+        offset === 0
+          ? { pseudo: 19, score: 14, rank: 14, opacity: 1 }
+          : offset === -1 || offset === 1
+          ? { pseudo: 15, score: 11, rank: 11, opacity: 0.8 }
+          : { pseudo: 11, score: 9, rank: 9, opacity: 0.3 };
+      return {
+        pseudoFontPx: Math.max(6, Math.round(base.pseudo * ratio)),
+        scoreFontPx: Math.max(6, Math.round(base.score * ratio)),
+        rankFontPx: Math.max(6, Math.round(base.rank * ratio)),
+        opacity: base.opacity,
       };
     }
     if (offset === 0) {
@@ -698,12 +764,38 @@ export default function RankingWidgetMobile({
   });
 
   const rollContainerClass = "relative overflow-hidden flex-none";
-  const rollContainerStyle = wheelHeightStyle;
+  const effectiveRowPx = rowPx && !expanded ? rowPx : null;
+  const rowsHeightPx = effectiveRowPx
+    ? effectiveRowPx * rowsCount + gapPx * (rowsCount - 1)
+    : null;
+  const rollContainerStyle = rowsHeightPx
+    ? { height: `${rowsHeightPx}px`, minHeight: `${rowsHeightPx}px` }
+    : wheelHeightStyle;
+  const rowStyle = effectiveRowPx ? { height: `${effectiveRowPx}px` } : null;
+  const centerRingSize = effectiveRowPx
+    ? clampValue(Math.round(BASE_RING_SIZE * (effectiveRowPx / BASE_ROW_PX)), 16, BASE_RING_SIZE)
+    : BASE_RING_SIZE;
+  const centerRingFontPx = effectiveRowPx
+    ? clampValue(
+        Math.round(BASE_RING_FONT * (effectiveRowPx / BASE_ROW_PX)),
+        10,
+        Math.max(10, Math.floor(centerRingSize * 0.6))
+      )
+    : BASE_RING_FONT;
+  const centerBarHeight = effectiveRowPx ? `${effectiveRowPx}px` : "26px";
+  const centerBarLeft = `${Math.round(centerRingSize + 8)}px`;
 
   return (
     <div
       className={containerClass}
-      style={expanded ? { minHeight: "220px" } : { flex: "0 0 auto" }}
+      ref={containerRef}
+      style={
+        expanded
+          ? { minHeight: "220px" }
+          : fitHeight
+          ? { height: "100%", minHeight: 0 }
+          : { flex: "0 0 auto" }
+      }
     >
       {/* Wheel compacte en haut */}
       {showBadge && (
@@ -723,7 +815,11 @@ export default function RankingWidgetMobile({
         <div className={rollContainerClass} style={rollContainerStyle}>
           <div
             className="absolute inset-0 grid grid-cols-[auto,1fr] items-center gap-y-1 gap-x-3"
-            style={{ gridTemplateRows: `repeat(${rows.length}, minmax(0,1fr))` }}
+            style={{
+              gridTemplateRows: effectiveRowPx
+                ? `repeat(${rows.length}, ${effectiveRowPx}px)`
+                : `repeat(${rows.length}, minmax(0,1fr))`,
+            }}
           >
             {rows.map((row, index) => {
               const cfg = getSlotConfig(row.offset);
@@ -745,7 +841,7 @@ export default function RankingWidgetMobile({
                 leftContent = (
                   <div
                     className="flex items-center justify-center"
-                    style={{ opacity: cfg.opacity }}
+                    style={{ opacity: cfg.opacity, ...(rowStyle || {}) }}
                   >
                     <div
                       className={
@@ -754,11 +850,16 @@ export default function RankingWidgetMobile({
                         " " +
                         ringBg
                       }
+                      style={{
+                        width: `${centerRingSize}px`,
+                        height: `${centerRingSize}px`,
+                      }}
                     >
                       <span
                         className={
-                          "text-[18px] font-extrabold " + ringTextColor
+                          "font-extrabold " + ringTextColor
                         }
+                        style={{ fontSize: `${centerRingFontPx}px` }}
                       >
                         {centerLabel}
                       </span>
@@ -769,11 +870,14 @@ export default function RankingWidgetMobile({
                 leftContent = (
                   <div
                     className="flex items-center justify-center"
-                    style={{ opacity: 0 }}
+                    style={{ opacity: 0, ...(rowStyle || {}) }}
                   >
                     <span
                       className={
-                        "tabular-nums opacity-0 " + cfg.rankClass
+                        "tabular-nums opacity-0 " + (cfg.rankClass || "")
+                      }
+                      style={
+                        cfg.rankFontPx ? { fontSize: `${cfg.rankFontPx}px` } : undefined
                       }
                     >
                       0
@@ -785,11 +889,14 @@ export default function RankingWidgetMobile({
                 leftContent = (
                   <div
                     className="flex items-center justify-center transition-all duration-150"
-                    style={{ opacity: cfg.opacity }}
+                    style={{ opacity: cfg.opacity, ...(rowStyle || {}) }}
                   >
                     <span
                       className={
-                        "tabular-nums " + rankColor + " " + cfg.rankClass
+                        "tabular-nums " + rankColor + " " + (cfg.rankClass || "")
+                      }
+                      style={
+                        cfg.rankFontPx ? { fontSize: `${cfg.rankFontPx}px` } : undefined
                       }
                     >
                       {row.rank}
@@ -845,7 +952,7 @@ export default function RankingWidgetMobile({
 
               const rightClasses =
                 "flex items-baseline justify-between w-full transition-all duration-200 " +
-                cfg.pseudoClass +
+                (cfg.pseudoClass || "") +
                 " " +
                 lineColor +
                 (isSelfLine ? " font-bold" : "") +
@@ -853,6 +960,9 @@ export default function RankingWidgetMobile({
 
               const rightStyle = {
                 opacity: row.type === "empty" ? 0 : cfg.opacity,
+                fontSize: cfg.pseudoFontPx ? `${cfg.pseudoFontPx}px` : undefined,
+                ...(rowStyle || {}),
+                lineHeight: effectiveRowPx ? `${effectiveRowPx}px` : undefined,
               };
 
               return (
@@ -879,7 +989,10 @@ export default function RankingWidgetMobile({
                       ) : null}
                     </span>
                     <span
-                      className={"ml-2 tabular-nums " + cfg.scoreClass}
+                      className={"ml-2 tabular-nums " + (cfg.scoreClass || "")}
+                      style={
+                        cfg.scoreFontPx ? { fontSize: `${cfg.scoreFontPx}px` } : undefined
+                      }
                     >
                       {row.type === "empty" ? (
                         ""
@@ -923,12 +1036,12 @@ export default function RankingWidgetMobile({
           {/* barre centrale, qui commence à droite du cercle */}
           <div
             className={
-              "pointer-events-none absolute top-1/2 -translate-y-1/2 h-[26px] border-y " +
+              "pointer-events-none absolute top-1/2 -translate-y-1/2 border-y " +
               centerBarBorderColor +
               " " +
-              centerBarBgColor +
-              " left-12 right-0"
+              centerBarBgColor
             }
+            style={{ height: centerBarHeight, left: centerBarLeft, right: 0 }}
           />
         </div>
       )}

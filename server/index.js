@@ -92,6 +92,86 @@ function clipDefinition(rawText, maxLen = 600) {
   return `${cut.trimEnd()}...`;
 }
 
+function normalizeForFormOf(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z'\-\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractVerbBaseFromFormOf(normalized) {
+  const verbMatch = normalized.match(/\bdu verbe ([a-z'-]+)/);
+  if (verbMatch) return verbMatch[1];
+  const tailMatch = normalized.match(/\bde ([a-z'-]+)$/);
+  if (tailMatch) return tailMatch[1];
+  return null;
+}
+
+function extractFormOfHint(extract) {
+  const normalized = normalizeForFormOf(extract);
+  if (!normalized) return null;
+  const patterns = [
+    {
+      re: /^feminin pluriel de ([a-z'-]+)/,
+      label: "Féminin pluriel probable de :",
+      kind: "inflection",
+    },
+    { re: /^feminin de ([a-z'-]+)/, label: "Féminin probable de :", kind: "inflection" },
+    { re: /^masculin de ([a-z'-]+)/, label: "Masculin probable de :", kind: "inflection" },
+    { re: /^pluriel de ([a-z'-]+)/, label: "Pluriel probable de :", kind: "inflection" },
+    {
+      re: /^participe passe de ([a-z'-]+)/,
+      label: "Participe passé probable de :",
+      kind: "participle",
+    },
+    {
+      re: /^participe present de ([a-z'-]+)/,
+      label: "Participe présent probable de :",
+      kind: "participle",
+    },
+    {
+      re: /^forme conjuguee de ([a-z'-]+)/,
+      label: "Forme conjuguée probable de :",
+      kind: "lemma",
+    },
+    {
+      re: /^conjugaison de ([a-z'-]+)/,
+      label: "Forme conjuguée probable de :",
+      kind: "lemma",
+    },
+    {
+      re: /^forme du verbe ([a-z'-]+)/,
+      label: "Forme conjuguée probable de :",
+      kind: "lemma",
+    },
+    { re: /^forme de ([a-z'-]+)/, label: "Forme probable de :", kind: "lemma" },
+  ];
+  const lemmaLabel =
+    patterns.find((pattern) => pattern.kind === "lemma")?.label ||
+    "Forme conjuguee probable de :";
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern.re);
+    if (!match) continue;
+    const base = match[1];
+    if (!base || base.length < 3) continue;
+    return { base, label: pattern.label, kind: pattern.kind };
+  }
+  const verbBase = extractVerbBaseFromFormOf(normalized);
+  if (verbBase && verbBase.length >= 3) {
+    return { base: verbBase, label: lemmaLabel, kind: "lemma" };
+  }
+  if (/^(premiere|deuxieme|troisieme) personne/.test(normalized)) {
+    const base = extractVerbBaseFromFormOf(normalized);
+    if (base && base.length >= 3) {
+      return { base, label: lemmaLabel, kind: "lemma" };
+    }
+  }
+  return null;
+}
+
 async function fetchOpensearchTitles(baseUrl, term, limit = 5) {
   const url = `${baseUrl}/w/api.php?action=opensearch&search=${encodeURIComponent(
     term
@@ -177,6 +257,51 @@ async function fetchWiktionaryDefinition(title) {
   };
 }
 
+async function lookupDefinitionForWord(term, options = {}) {
+  const strict = Boolean(options.strict);
+  const direct = await fetchWiktionaryDefinition(term);
+  if (direct) {
+    return { ...direct, source: "wiktionary" };
+  }
+  const titles = await fetchOpensearchTitles(
+    "https://fr.wiktionary.org",
+    term,
+    5
+  );
+  const picked = titles
+    ? strict
+      ? pickStrictTitle(titles, term)
+      : pickBestTitle(titles, term)
+    : null;
+  if (picked) {
+    const summary = await fetchWiktionaryDefinition(picked);
+    if (summary) {
+      return { ...summary, source: "wiktionary" };
+    }
+  }
+  const wikiDirect = await fetchSummary("https://fr.wikipedia.org", term);
+  if (wikiDirect) {
+    return { ...wikiDirect, source: "wikipedia" };
+  }
+  const wikiTitles = await fetchOpensearchTitles(
+    "https://fr.wikipedia.org",
+    term,
+    5
+  );
+  const wikiPicked = wikiTitles
+    ? strict
+      ? pickStrictTitle(wikiTitles, term)
+      : pickBestTitle(wikiTitles, term)
+    : null;
+  if (wikiPicked) {
+    const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+    if (summary) {
+      return { ...summary, source: "wikipedia" };
+    }
+  }
+  return null;
+}
+
 function normalizeLookup(value) {
   return String(value || "")
     .toLowerCase()
@@ -222,6 +347,33 @@ function guessLemmasFR(rawWord) {
       ],
       endings: ["er"],
     },
+    {
+      suffixes: [
+        "irions",
+        "iriez",
+        "irais",
+        "irait",
+        "irons",
+        "iront",
+        "irez",
+        "irai",
+        "ira",
+      ],
+      endings: ["ir"],
+    },
+    {
+      suffixes: [
+        "issent",
+        "isses",
+        "isse",
+        "issions",
+        "issiez",
+        "issais",
+        "issait",
+        "issaient",
+      ],
+      endings: ["ir"],
+    },
     { suffixes: ["assent", "assiez", "asses", "asse", "at", "ates", "ions", "iez"], endings: ["er"] },
     { suffixes: ["ites"], endings: ["ir"] },
     { suffixes: ["aient", "ait"], endings: ["er", "ir", "re"] },
@@ -247,9 +399,51 @@ function guessLemmasFR(rawWord) {
   return Array.from(candidates);
 }
 
+function looksLikeVerbForm(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized) return false;
+  const suffixes = [
+    "erais",
+    "erait",
+    "erions",
+    "eriez",
+    "erons",
+    "eront",
+    "erez",
+    "erai",
+    "era",
+    "assent",
+    "assiez",
+    "asses",
+    "asse",
+    "ates",
+    "at",
+    "irais",
+    "irait",
+    "irions",
+    "iriez",
+    "irons",
+    "iront",
+    "irez",
+    "irai",
+    "ira",
+    "issent",
+    "isses",
+    "isse",
+    "issions",
+    "issiez",
+    "issais",
+    "issait",
+    "issaient",
+    "issant",
+  ];
+  return suffixes.some((suffix) => normalized.endsWith(suffix));
+}
+
 function guessInflectionsFR(rawWord) {
   const normalized = normalizeLookup(rawWord);
   if (!normalized || normalized.length < 4) return [];
+  if (looksLikeVerbForm(rawWord)) return [];
   const candidates = [];
   const seen = new Set();
   const add = (base, label) => {
@@ -393,6 +587,16 @@ function pickBestTitle(titles, rawWord) {
   return bestScore >= 70 ? best : null;
 }
 
+function pickStrictTitle(titles, rawWord) {
+  if (!Array.isArray(titles) || titles.length === 0) return null;
+  const normWord = normalizeLookup(rawWord);
+  if (!normWord) return null;
+  for (const title of titles) {
+    if (normalizeLookup(title) === normWord) return title;
+  }
+  return null;
+}
+
 function collectSuggestions(titles, rawWord, baseUrl, source, suggestions) {
   if (!Array.isArray(titles)) return;
   for (const title of titles) {
@@ -476,12 +680,22 @@ app.get("/api/define", async (req, res) => {
   }
 
   let payload = null;
+  let formOfHint = null;
+  let formOfSummary = null;
   const suggestions = [];
   try {
     const candidates = buildDefineCandidates(word);
     for (const candidate of candidates) {
       const summary = await fetchWiktionaryDefinition(candidate);
       if (!summary) continue;
+      const hint = extractFormOfHint(summary.extract);
+      if (hint) {
+        if (!formOfHint) {
+          formOfHint = hint;
+          formOfSummary = { ...summary, source: "wiktionary" };
+        }
+        continue;
+      }
       payload = {
         ok: true,
         word,
@@ -498,6 +712,14 @@ app.get("/api/define", async (req, res) => {
       for (const candidate of candidates) {
         const summary = await fetchSummary("https://fr.wikipedia.org", candidate);
         if (!summary) continue;
+        const hint = extractFormOfHint(summary.extract);
+        if (hint) {
+          if (!formOfHint) {
+            formOfHint = hint;
+            formOfSummary = { ...summary, source: "wikipedia" };
+          }
+          continue;
+        }
         payload = {
           ok: true,
           word,
@@ -508,6 +730,35 @@ app.get("/api/define", async (req, res) => {
           url: summary.url,
         };
         break;
+      }
+    }
+
+    if (!payload && formOfHint && formOfHint.base) {
+      const baseDefinition = await lookupDefinitionForWord(formOfHint.base, {
+        strict: true,
+      });
+      if (baseDefinition) {
+        payload = {
+          ok: true,
+          word,
+          title: baseDefinition.title || formOfHint.base,
+          definition: baseDefinition.extract,
+          extract: baseDefinition.extract,
+          source: baseDefinition.source,
+          url: baseDefinition.url,
+        };
+        if (formOfHint.kind === "inflection") {
+          payload.inflectionBase = formOfHint.base;
+          payload.inflectionLabel = formOfHint.label;
+          payload.inflectionGuess = true;
+        } else if (formOfHint.kind === "participle") {
+          payload.participleBase = formOfHint.base;
+          payload.participleLabel = formOfHint.label;
+          payload.participleGuess = true;
+        } else {
+          payload.lemma = formOfHint.base;
+          payload.lemmaGuess = true;
+        }
       }
     }
 
@@ -535,7 +786,7 @@ app.get("/api/define", async (req, res) => {
           lemma,
           5
         );
-        const picked = titles ? pickBestTitle(titles, lemma) : null;
+        const picked = titles ? pickStrictTitle(titles, lemma) : null;
         if (picked) {
           const summary = await fetchWiktionaryDefinition(picked);
           if (summary) {
@@ -575,7 +826,7 @@ app.get("/api/define", async (req, res) => {
           lemma,
           5
         );
-        const wikiPicked = wikiTitles ? pickBestTitle(wikiTitles, lemma) : null;
+        const wikiPicked = wikiTitles ? pickStrictTitle(wikiTitles, lemma) : null;
         if (wikiPicked) {
           const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
           if (summary) {
@@ -622,7 +873,7 @@ app.get("/api/define", async (req, res) => {
           inflection.base,
           5
         );
-        const picked = titles ? pickBestTitle(titles, inflection.base) : null;
+        const picked = titles ? pickStrictTitle(titles, inflection.base) : null;
         if (picked) {
           const summary = await fetchWiktionaryDefinition(picked);
           if (summary) {
@@ -667,7 +918,7 @@ app.get("/api/define", async (req, res) => {
           inflection.base,
           5
         );
-        const wikiPicked = wikiTitles ? pickBestTitle(wikiTitles, inflection.base) : null;
+        const wikiPicked = wikiTitles ? pickStrictTitle(wikiTitles, inflection.base) : null;
         if (wikiPicked) {
           const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
           if (summary) {
@@ -715,7 +966,7 @@ app.get("/api/define", async (req, res) => {
           participle.base,
           5
         );
-        const picked = titles ? pickBestTitle(titles, participle.base) : null;
+        const picked = titles ? pickStrictTitle(titles, participle.base) : null;
         if (picked) {
           const summary = await fetchWiktionaryDefinition(picked);
           if (summary) {
@@ -760,7 +1011,7 @@ app.get("/api/define", async (req, res) => {
           participle.base,
           5
         );
-        const wikiPicked = wikiTitles ? pickBestTitle(wikiTitles, participle.base) : null;
+        const wikiPicked = wikiTitles ? pickStrictTitle(wikiTitles, participle.base) : null;
         if (wikiPicked) {
           const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
           if (summary) {
@@ -780,6 +1031,30 @@ app.get("/api/define", async (req, res) => {
             break;
           }
         }
+      }
+    }
+
+    if (!payload && formOfSummary) {
+      payload = {
+        ok: true,
+        word,
+        title: formOfSummary.title || word,
+        definition: formOfSummary.extract,
+        extract: formOfSummary.extract,
+        source: formOfSummary.source,
+        url: formOfSummary.url,
+      };
+      if (formOfHint?.kind === "inflection") {
+        payload.inflectionBase = formOfHint.base;
+        payload.inflectionLabel = formOfHint.label;
+        payload.inflectionGuess = true;
+      } else if (formOfHint?.kind === "participle") {
+        payload.participleBase = formOfHint.base;
+        payload.participleLabel = formOfHint.label;
+        payload.participleGuess = true;
+      } else if (formOfHint?.base) {
+        payload.lemma = formOfHint.base;
+        payload.lemmaGuess = true;
       }
     }
 

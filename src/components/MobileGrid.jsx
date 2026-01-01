@@ -33,7 +33,7 @@ export default function MobileGrid({
   return (
     <div
       className="flex justify-center items-center flex-shrink-0 w-full"
-      style={{ minHeight: `${mobileGridSide}px`, paddingInline: "12px" }}
+      style={{ minHeight: `${mobileGridSide}px` }}
     >
       <div
         ref={gridRef}
