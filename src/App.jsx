@@ -754,9 +754,20 @@ export default function App() {
   const [chatViewportHeight, setChatViewportHeight] = useState(0);
   const [chatKeyboardInsetPx, setChatKeyboardInsetPx] = useState(0);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
+  const [isChatClosing, setIsChatClosing] = useState(false);
+  const chatCloseTimerRef = useRef(null);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
   const [isChatSafetyOpen, setIsChatSafetyOpen] = useState(false);
   const chatSafetyConfirmRef = useRef(null);
+  const chatInputType = React.useMemo(() => {
+    if (typeof navigator === "undefined") return "text";
+    const ua = navigator.userAgent || "";
+    const isAndroidChrome =
+      /Android/i.test(ua) &&
+      /Chrome/i.test(ua) &&
+      !/EdgA|OPR|SamsungBrowser/i.test(ua);
+    return isAndroidChrome ? "search" : "text";
+  }, []);
   const [roomStats, setRoomStats] = useState({});
   const [medals, setMedals] = useState({});
   const [tournament, setTournament] = useState(null); // { id, round, totalRounds, ... }
@@ -3239,8 +3250,31 @@ function playTileStepSound(step) {
   }
 
   function openChatPanel() {
+    if (chatCloseTimerRef.current) {
+      clearTimeout(chatCloseTimerRef.current);
+      chatCloseTimerRef.current = null;
+    }
+    setIsChatClosing(false);
     setMobileChatUnreadCount(0);
     setIsChatOpenMobile(true);
+  }
+
+  function closeChatPanel() {
+    if (!isChatOpenMobile) return;
+    if (chatCloseTimerRef.current) {
+      clearTimeout(chatCloseTimerRef.current);
+    }
+    setIsChatClosing(true);
+    if (chatInputRef.current) {
+      try {
+        chatInputRef.current.blur();
+      } catch (_) {}
+    }
+    chatCloseTimerRef.current = window.setTimeout(() => {
+      setIsChatOpenMobile(false);
+      setIsChatClosing(false);
+      chatCloseTimerRef.current = null;
+    }, 180);
   }
 
   function requestOpenChat() {
@@ -3958,6 +3992,23 @@ function handleTouchEnd() {
 
     pushChatHistory(text);
     if (!forcedText) setChatInput("");
+  }
+
+  function handleChatInputKeyDown(e) {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      cycleChatHistory(-1);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      cycleChatHistory(1);
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitChat(null);
+    }
   }
 
   const usedSet = phase === "playing" ? new Set(highlightPath) : new Set();
@@ -5551,38 +5602,38 @@ function handleTouchEnd() {
               ))}
             </div>
 
-            <form onSubmit={submitChat} autoComplete="off" className="mt-3 flex gap-2">
+            <div className="mt-3 flex gap-2">
               <input
                 ref={chatInputRef}
-                type="text"
-                name="chat-message"
+                type={chatInputType}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                inputMode="text"
-                className="flex-1 border rounded px-2 py-1 text-xs ios-input"
+              inputMode="text"
+              enterKeyHint="send"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-autofill="off"
+              aria-autocomplete="none"
+              aria-label="Message du chat"
+              className="flex-1 border rounded px-2 py-1 text-xs ios-input"
                 placeholder="écrire un message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowUp") {
-                    e.preventDefault();
-                    cycleChatHistory(-1);
-                  } else if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    cycleChatHistory(1);
-                  }
-                }}
+                onKeyDown={handleChatInputKeyDown}
               />
               <button
-                type="submit"
+                type="button"
                 className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
                 disabled={!chatInput.trim()}
+                onClick={() => submitChat(null)}
               >
                 Envoyer
               </button>
-            </form>
+            </div>
           </div>
         </div>
           </div>
@@ -5601,8 +5652,12 @@ function handleTouchEnd() {
             )}
           </button>
         </div>
-        {isChatOpenMobile && (
-          <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom">
+        {(isChatOpenMobile || isChatClosing) && (
+          <div
+            className={`fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom transition-opacity duration-150 ${
+              isChatClosing ? "opacity-0" : "opacity-100"
+            }`}
+          >
             <div
               className={`w-full max-h-[70vh] rounded-t-2xl border-t ${
                 darkMode
@@ -5624,7 +5679,7 @@ function handleTouchEnd() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIsChatOpenMobile(false)}
+                    onClick={() => closeChatPanel()}
                     className="text-[11px] px-2 py-1 rounded-full border border-slate-300 dark:border-slate-600"
                   >
                     Fermer
@@ -5681,28 +5736,37 @@ function handleTouchEnd() {
                     })
                   )}
                 </div>
-                <form onSubmit={submitChat} autoComplete="off" className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <input
-                    type="text"
-                    name="chat-message"
+                    type={chatInputType}
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
                     spellCheck={false}
                     inputMode="text"
+                    enterKeyHint="send"
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-autofill="off"
+                    aria-autocomplete="none"
+                    aria-label="Message du chat"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={handleChatInputKeyDown}
                     className="flex-1 border rounded px-2 py-1 text-xs ios-input"
                     placeholder="écrire un message..."
                   />
                   <button
-                    type="submit"
+                    type="button"
                     className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
                     disabled={!chatInput.trim()}
+                    onClick={() => submitChat(null)}
                   >
                     Envoyer
                   </button>
-                </form>
+                </div>
               </div>
             </div>
           </div>
@@ -6327,9 +6391,11 @@ function handleTouchEnd() {
             </button>
           </div>
 
-          {isChatOpenMobile && (
+          {(isChatOpenMobile || isChatClosing) && (
             <div
-              className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom"
+              className={`fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom transition-opacity duration-150 ${
+                isChatClosing ? "opacity-0" : "opacity-100"
+              }`}
               style={chatOverlayStyle}
             >
               <div
@@ -6354,7 +6420,7 @@ function handleTouchEnd() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsChatOpenMobile(false)}
+                      onClick={() => closeChatPanel()}
                       className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
                         darkMode
                           ? "bg-slate-800 border-slate-600 text-slate-100"
@@ -6415,15 +6481,26 @@ function handleTouchEnd() {
                     })
                   )}
                   </div>
-                  <form
-                    onSubmit={submitChat}
-                    className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0"
-                  >
+                  <div className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0">
                     <input
-                      type="text"
+                      type={chatInputType}
                       ref={chatInputRef}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      inputMode="text"
+                      enterKeyHint="send"
+                      data-form-type="other"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-bwignore="true"
+                      data-autofill="off"
+                      aria-autocomplete="none"
+                      aria-label="Message du chat"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={handleChatInputKeyDown}
                       className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
                       placeholder="écrire un message..."
                     />
@@ -6447,7 +6524,7 @@ function handleTouchEnd() {
                     >
                       Envoyer
                     </button>
-                  </form>
+                  </div>
                 </div>
               </div>
             </div>
@@ -6655,14 +6732,16 @@ function handleTouchEnd() {
           </div>
         </div>
         {/* Bouton de chat flottant + volet de chat */}
-        <MobileChatWidget
-          chatInput={chatInput}
-          chatInputRef={chatInputRef}
-          chatOverlayStyle={chatOverlayStyle}
+          <MobileChatWidget
+            chatInput={chatInput}
+            chatInputRef={chatInputRef}
+            chatInputType={chatInputType}
+            chatOverlayStyle={chatOverlayStyle}
           chatSheetStyle={chatSheetStyle}
           cycleChatHistory={cycleChatHistory}
           darkMode={darkMode}
           isChatOpenMobile={isChatOpenMobile}
+          isChatClosing={isChatClosing}
           mobileChatUnreadCount={mobileChatUnreadCount}
           mutedCount={mutedCount}
           mutedNicks={mutedNicks}
@@ -6674,7 +6753,7 @@ function handleTouchEnd() {
           showMutedList={showMutedList}
           selfNick={selfNick}
           setChatInput={setChatInput}
-          setIsChatOpenMobile={setIsChatOpenMobile}
+          setIsChatOpenMobile={closeChatPanel}
           submitChat={submitChat}
           visibleMessages={visibleMessages}
         />
@@ -7539,38 +7618,38 @@ function handleTouchEnd() {
             ))}
           </div>
 
-          <form onSubmit={submitChat} autoComplete="off" className="mt-3 flex gap-2">
+          <div className="mt-3 flex gap-2">
             <input
               ref={chatInputRef}
-              type="text"
-              name="chat-message"
+              type={chatInputType}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
               inputMode="text"
+              enterKeyHint="send"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-autofill="off"
+              aria-autocomplete="none"
+              aria-label="Message du chat"
               className="flex-1 border rounded px-2 py-1 text-xs ios-input"
               placeholder="écrire un message..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  cycleChatHistory(-1);
-                } else if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  cycleChatHistory(1);
-                }
-              }}
+              onKeyDown={handleChatInputKeyDown}
             />
             <button
-              type="submit"
+              type="button"
               className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
               disabled={!chatInput.trim()}
+              onClick={() => submitChat(null)}
             >
               Envoyer
             </button>
-          </form>
+          </div>
         </div>
       </div>
 

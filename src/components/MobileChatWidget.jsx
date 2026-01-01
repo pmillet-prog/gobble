@@ -3,11 +3,13 @@
 export default function MobileChatWidget({
   chatInput,
   chatInputRef,
+  chatInputType,
   chatOverlayStyle,
   chatSheetStyle,
   cycleChatHistory,
   darkMode,
   isChatOpenMobile,
+  isChatClosing,
   mobileChatUnreadCount,
   mutedCount,
   mutedNicks,
@@ -24,6 +26,23 @@ export default function MobileChatWidget({
   visibleMessages,
 }) {
   const normalizeChatNick = (raw) => String(raw || "").trim().toLowerCase();
+  const isChatVisible = isChatOpenMobile || isChatClosing;
+  const handleChatInputKeyDown = (e) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      cycleChatHistory(-1);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      cycleChatHistory(1);
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitChat(null);
+    }
+  };
   return (
     <>
       <div className="fixed bottom-4 right-4 z-30">
@@ -41,9 +60,11 @@ export default function MobileChatWidget({
         </button>
       </div>
 
-      {isChatOpenMobile && (
+      {isChatVisible && (
         <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom"
+          className={`fixed inset-0 z-40 flex items-end justify-center bg-black/50 chat-safe-bottom transition-opacity duration-150 ${
+            isChatClosing ? "opacity-0" : "opacity-100"
+          }`}
           style={chatOverlayStyle}
         >
           <div
@@ -163,31 +184,26 @@ export default function MobileChatWidget({
                   })
                 )}
               </div>
-              <form
-                onSubmit={submitChat}
-                autoComplete="off"
-                className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0"
-              >
+              <div className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0">
                 <input
-                  type="text"
-                  name="chat-message"
+                  type={chatInputType}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
                   inputMode="text"
+                  enterKeyHint="send"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-autofill="off"
+                  aria-autocomplete="none"
+                  aria-label="Message du chat"
                   ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      cycleChatHistory(-1);
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      cycleChatHistory(1);
-                    }
-                  }}
+                  onKeyDown={handleChatInputKeyDown}
                   className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
                   placeholder="Écrire un message..."
                 />
@@ -211,7 +227,7 @@ export default function MobileChatWidget({
                 >
                   Envoyer
                 </button>
-              </form>
+              </div>
             </div>
           </div>
         </div>
