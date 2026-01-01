@@ -102,6 +102,34 @@ function normalizeForFormOf(value) {
     .trim();
 }
 
+function hasDiacritics(value) {
+  return /[\u0300-\u036f]/.test(String(value || "").normalize("NFD"));
+}
+
+async function fetchAccentCandidates(word) {
+  const raw = String(word || "").trim();
+  if (!raw || hasDiacritics(raw)) return [];
+  const titles = await fetchOpensearchTitles(
+    "https://fr.wiktionary.org",
+    raw,
+    5
+  );
+  if (!titles || titles.length === 0) return [];
+  const normWord = normalizeLookup(raw);
+  const matches = titles.filter((title) => normalizeLookup(title) === normWord);
+  if (!matches.length) return [];
+  matches.sort((a, b) => {
+    const aAccent = hasDiacritics(a) ? 1 : 0;
+    const bAccent = hasDiacritics(b) ? 1 : 0;
+    if (aAccent !== bAccent) return bAccent - aAccent;
+    const aDiff = Math.abs(a.length - raw.length);
+    const bDiff = Math.abs(b.length - raw.length);
+    if (aDiff !== bDiff) return aDiff - bDiff;
+    return 0;
+  });
+  return matches;
+}
+
 function extractVerbBaseFromFormOf(normalized) {
   const verbMatch = normalized.match(/\bdu verbe ([a-z'-]+)/);
   if (verbMatch) return verbMatch[1];
@@ -128,6 +156,11 @@ function extractFormOfHint(extract) {
     {
       re: /\bfeminin pluriel de ([a-z'-]+)/,
       label: "FÃ©minin pluriel probable de :",
+      kind: "inflection",
+    },
+    {
+      re: /\bfeminin singulier de ([a-z'-]+)/,
+      label: "Féminin singulier probable de :",
       kind: "inflection",
     },
     { re: /\bfeminin de ([a-z'-]+)/, label: "FÃ©minin probable de :", kind: "inflection" },
@@ -711,7 +744,14 @@ app.get("/api/define", async (req, res) => {
   let formOfSummary = null;
   const suggestions = [];
   try {
-    const candidates = buildDefineCandidates(word);
+    const baseCandidates = buildDefineCandidates(word);
+    const accentCandidates = await fetchAccentCandidates(word);
+    const candidates = accentCandidates.length
+      ? [
+          ...accentCandidates,
+          ...baseCandidates.filter((candidate) => !accentCandidates.includes(candidate)),
+        ]
+      : baseCandidates;
     for (const candidate of candidates) {
       const summary = await fetchWiktionaryDefinition(candidate);
       if (!summary) continue;

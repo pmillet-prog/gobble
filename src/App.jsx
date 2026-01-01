@@ -751,6 +751,8 @@ export default function App() {
     liveFeedMinHeight: 0,
     bodyHeight: 0,
   });
+  const [chatViewportHeight, setChatViewportHeight] = useState(0);
+  const [chatKeyboardInsetPx, setChatKeyboardInsetPx] = useState(0);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
   const [isChatSafetyOpen, setIsChatSafetyOpen] = useState(false);
@@ -1053,8 +1055,10 @@ export default function App() {
     let rafId = null;
     const update = () => {
       if (rafId !== null) return;
+      if (isChatOpenMobileRef.current) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = null;
+        if (isChatOpenMobileRef.current) return;
         setIsMobileLayout(computeIsMobileLayout());
         setIsUltraCompact(computeIsUltraCompact());
       });
@@ -1113,6 +1117,34 @@ export default function App() {
       window.clearTimeout(t);
     };
   }, [isChatOpenMobile, isMobileLayout]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isChatOpenMobile) {
+      setChatViewportHeight(0);
+      setChatKeyboardInsetPx(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    const baseHeight = Math.round(window.innerHeight || vv?.height || 0);
+    setChatViewportHeight((prev) => (prev > 0 ? prev : baseHeight));
+    const updateInset = () => {
+      const nextInset =
+        vv && Number.isFinite(vv.height) && Number.isFinite(vv.offsetTop)
+          ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+          : 0;
+      setChatKeyboardInsetPx((prev) => (prev === nextInset ? prev : nextInset));
+    };
+    updateInset();
+    vv?.addEventListener("resize", updateInset);
+    vv?.addEventListener("scroll", updateInset);
+    window.addEventListener("resize", updateInset);
+    return () => {
+      vv?.removeEventListener("resize", updateInset);
+      vv?.removeEventListener("scroll", updateInset);
+      window.removeEventListener("resize", updateInset);
+    };
+  }, [isChatOpenMobile]);
 
   useEffect(() => {
     if (!isChatSafetyOpen) return;
@@ -1231,6 +1263,7 @@ export default function App() {
     let timeoutId = null;
 
     const computeMobileLayoutNow = () => {
+      if (isChatOpenMobileRef.current) return;
       const vv = window.visualViewport;
       const viewportHeightCandidates = [
         vv?.height,
@@ -5518,10 +5551,16 @@ function handleTouchEnd() {
               ))}
             </div>
 
-            <form onSubmit={submitChat} className="mt-3 flex gap-2">
+            <form onSubmit={submitChat} autoComplete="off" className="mt-3 flex gap-2">
               <input
                 ref={chatInputRef}
                 type="text"
+                name="chat-message"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                inputMode="text"
                 className="flex-1 border rounded px-2 py-1 text-xs ios-input"
                 placeholder="écrire un message..."
                 value={chatInput}
@@ -5642,9 +5681,15 @@ function handleTouchEnd() {
                     })
                   )}
                 </div>
-                <form onSubmit={submitChat} className="flex items-center gap-2">
+                <form onSubmit={submitChat} autoComplete="off" className="flex items-center gap-2">
                   <input
                     type="text"
+                    name="chat-message"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    inputMode="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     className="flex-1 border rounded px-2 py-1 text-xs ios-input"
@@ -5674,7 +5719,7 @@ function handleTouchEnd() {
 
   // === Mise en page mobile dédiée pendant la manche ===
   // ??cran unique : classement + prévisualisation du mot + grille en bas + bouton de chat
-  const useUltraCompactLayout = isUltraCompact && !isChatOpenMobile;
+  const useUltraCompactLayout = isUltraCompact;
   if (isMobileLayout && useUltraCompactLayout && phase === "playing") {
     const compactRankingList = rankingSource;
     const compactTotal =
@@ -5711,6 +5756,7 @@ function handleTouchEnd() {
     const mobileViewportHeight = mobileViewportHeightCandidates.length
       ? Math.min(...mobileViewportHeightCandidates)
       : 0;
+    const chatViewportHeightEffective = chatViewportHeight || mobileViewportHeight;
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {
@@ -5967,6 +6013,7 @@ function handleTouchEnd() {
     const mobileViewportHeight = mobileViewportHeightCandidates.length
       ? Math.min(...mobileViewportHeightCandidates)
       : 0;
+    const chatViewportHeightEffective = chatViewportHeight || mobileViewportHeight;
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {
@@ -5996,24 +6043,25 @@ function handleTouchEnd() {
             paddingBottom: "env(safe-area-inset-bottom)",
           };
 
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    const chatBottomInsetPx =
-      typeof window !== "undefined" &&
-      vv &&
-      Number.isFinite(vv.height) &&
-      Number.isFinite(vv.offsetTop)
-        ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
-        : 0;
-    const chatOverlayStyle = chatBottomInsetPx
-      ? { paddingBottom: `${chatBottomInsetPx}px` }
-      : undefined;
-    const chatSheetHeightPx =
-      mobileViewportHeight > 0
-        ? clampValue(
-            Math.round(mobileViewportHeight * 0.9),
-            260,
-            Math.round(mobileViewportHeight)
+    const chatTopInsetPx = Math.max(0, Math.round(mobileHeaderOffsetPx || 0));
+    const chatBottomInsetPx = chatKeyboardInsetPx;
+    const chatOverlayStyle =
+      chatTopInsetPx || chatBottomInsetPx
+        ? {
+            paddingTop: chatTopInsetPx ? `${chatTopInsetPx}px` : undefined,
+            paddingBottom: chatBottomInsetPx ? `${chatBottomInsetPx}px` : undefined,
+          }
+        : undefined;
+    const chatSheetMaxHeightPx =
+      chatViewportHeightEffective > 0
+        ? Math.max(
+            0,
+            Math.round(chatViewportHeightEffective - chatTopInsetPx - chatBottomInsetPx)
           )
+        : 0;
+    const chatSheetHeightPx =
+      chatSheetMaxHeightPx > 0
+        ? clampValue(Math.round(chatViewportHeightEffective * 0.9), 260, chatSheetMaxHeightPx)
         : 0;
     const chatSheetStyle = chatSheetHeightPx
       ? {
@@ -7491,10 +7539,16 @@ function handleTouchEnd() {
             ))}
           </div>
 
-          <form onSubmit={submitChat} className="mt-3 flex gap-2">
+          <form onSubmit={submitChat} autoComplete="off" className="mt-3 flex gap-2">
             <input
               ref={chatInputRef}
               type="text"
+              name="chat-message"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              inputMode="text"
               className="flex-1 border rounded px-2 py-1 text-xs ios-input"
               placeholder="écrire un message..."
               value={chatInput}

@@ -165,10 +165,17 @@ export default function MobileChatWidget({
               </div>
               <form
                 onSubmit={submitChat}
+                autoComplete="off"
                 className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0"
               >
                 <input
                   type="text"
+                  name="chat-message"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  inputMode="text"
                   ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
