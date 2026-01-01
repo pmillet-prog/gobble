@@ -1,4 +1,4 @@
-// server/index.js
+﻿// server/index.js
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -110,44 +110,65 @@ function extractVerbBaseFromFormOf(normalized) {
   return null;
 }
 
+
+function extractBaseFromRawForm(extract) {
+  const raw = String(extract || "").trim();
+  if (!raw) return null;
+  const verbMatch = raw.match(/\bverbe\s+([\p{L}'-]+)/iu);
+  if (verbMatch) return verbMatch[1];
+  const deMatch = raw.match(/\bde\s+([\p{L}'-]+)[\s.]*$/iu);
+  if (deMatch) return deMatch[1];
+  return null;
+}
 function extractFormOfHint(extract) {
   const normalized = normalizeForFormOf(extract);
   if (!normalized) return null;
+  const rawBase = extractBaseFromRawForm(extract);
   const patterns = [
     {
-      re: /^feminin pluriel de ([a-z'-]+)/,
-      label: "Féminin pluriel probable de :",
+      re: /\bfeminin pluriel de ([a-z'-]+)/,
+      label: "FÃ©minin pluriel probable de :",
       kind: "inflection",
     },
-    { re: /^feminin de ([a-z'-]+)/, label: "Féminin probable de :", kind: "inflection" },
-    { re: /^masculin de ([a-z'-]+)/, label: "Masculin probable de :", kind: "inflection" },
-    { re: /^pluriel de ([a-z'-]+)/, label: "Pluriel probable de :", kind: "inflection" },
+    { re: /\bfeminin de ([a-z'-]+)/, label: "FÃ©minin probable de :", kind: "inflection" },
     {
-      re: /^participe passe de ([a-z'-]+)/,
-      label: "Participe passé probable de :",
+      re: /\bmasculin pluriel de ([a-z'-]+)/,
+      label: "Masculin pluriel probable de :",
+      kind: "inflection",
+    },
+    {
+      re: /\bmasculin singulier de ([a-z'-]+)/,
+      label: "Masculin singulier probable de :",
+      kind: "inflection",
+    },
+    { re: /\bmasculin de ([a-z'-]+)/, label: "Masculin probable de :", kind: "inflection" },
+    { re: /\bpluriel de ([a-z'-]+)/, label: "Pluriel probable de :", kind: "inflection" },
+    {
+      re: /\bparticipe passe de ([a-z'-]+)/,
+      label: "Participe passÃ© probable de :",
       kind: "participle",
     },
     {
-      re: /^participe present de ([a-z'-]+)/,
-      label: "Participe présent probable de :",
+      re: /\bparticipe present de ([a-z'-]+)/,
+      label: "Participe prÃ©sent probable de :",
       kind: "participle",
     },
     {
-      re: /^forme conjuguee de ([a-z'-]+)/,
-      label: "Forme conjuguée probable de :",
+      re: /\bforme conjuguee de ([a-z'-]+)/,
+      label: "Forme conjuguÃ©e probable de :",
       kind: "lemma",
     },
     {
-      re: /^conjugaison de ([a-z'-]+)/,
-      label: "Forme conjuguée probable de :",
+      re: /\bconjugaison de ([a-z'-]+)/,
+      label: "Forme conjuguÃ©e probable de :",
       kind: "lemma",
     },
     {
-      re: /^forme du verbe ([a-z'-]+)/,
-      label: "Forme conjuguée probable de :",
+      re: /\bforme du verbe ([a-z'-]+)/,
+      label: "Forme conjuguÃ©e probable de :",
       kind: "lemma",
     },
-    { re: /^forme de ([a-z'-]+)/, label: "Forme probable de :", kind: "lemma" },
+    { re: /\bforme de ([a-z'-]+)/, label: "Forme probable de :", kind: "lemma" },
   ];
   const lemmaLabel =
     patterns.find((pattern) => pattern.kind === "lemma")?.label ||
@@ -155,18 +176,18 @@ function extractFormOfHint(extract) {
   for (const pattern of patterns) {
     const match = normalized.match(pattern.re);
     if (!match) continue;
-    const base = match[1];
+    const base = rawBase || match[1];
     if (!base || base.length < 3) continue;
     return { base, label: pattern.label, kind: pattern.kind };
   }
   const verbBase = extractVerbBaseFromFormOf(normalized);
   if (verbBase && verbBase.length >= 3) {
-    return { base: verbBase, label: lemmaLabel, kind: "lemma" };
+    return { base: rawBase || verbBase, label: lemmaLabel, kind: "lemma" };
   }
   if (/^(premiere|deuxieme|troisieme) personne/.test(normalized)) {
     const base = extractVerbBaseFromFormOf(normalized);
     if (base && base.length >= 3) {
-      return { base, label: lemmaLabel, kind: "lemma" };
+      return { base: rawBase || base, label: lemmaLabel, kind: "lemma" };
     }
   }
   return null;
@@ -472,10 +493,10 @@ function guessInflectionsFR(rawWord) {
   }
 
   if (normalized.endsWith("es") && normalized.length > 3) {
-    add(normalized.slice(0, -2), "Féminin pluriel probable de :");
+    add(normalized.slice(0, -2), "FÃ©minin pluriel probable de :");
   }
   if (normalized.endsWith("e") && normalized.length > 3) {
-    add(normalized.slice(0, -1), "Féminin probable de :");
+    add(normalized.slice(0, -1), "FÃ©minin probable de :");
   }
 
   return candidates.slice(0, 12);
@@ -675,7 +696,13 @@ app.get("/api/define", async (req, res) => {
   if (!skipCache) {
     const cached = getCachedDefinition(cacheKey);
     if (cached) {
-      return res.json(cached);
+      const hasInflection =
+        cached.inflectionBase || cached.participleBase || cached.lemma;
+      const looksFormOf =
+        typeof cached.extract === "string" && !!extractFormOfHint(cached.extract);
+      if (!(looksFormOf && !hasInflection)) {
+        return res.json(cached);
+      }
     }
   }
 
@@ -1187,6 +1214,49 @@ app.get("/api/define", async (req, res) => {
         };
       }
     }
+
+    if (
+      payload &&
+      payload.ok &&
+      typeof payload.extract === "string" &&
+      !payload.inflectionBase &&
+      !payload.participleBase &&
+      !payload.lemma
+    ) {
+      const hint = extractFormOfHint(payload.extract);
+      if (hint && hint.base) {
+        const baseDefinition = await lookupDefinitionForWord(hint.base, {
+          strict: true,
+        });
+        const baseHint =
+          baseDefinition && typeof baseDefinition.extract === "string"
+            ? extractFormOfHint(baseDefinition.extract)
+            : null;
+        if (baseDefinition && !baseHint) {
+          payload = {
+            ok: true,
+            word,
+            title: baseDefinition.title || hint.base,
+            definition: baseDefinition.extract,
+            extract: baseDefinition.extract,
+            source: baseDefinition.source,
+            url: baseDefinition.url,
+          };
+        }
+        if (hint.kind === "inflection") {
+          payload.inflectionBase = hint.base;
+          payload.inflectionLabel = hint.label;
+          payload.inflectionGuess = true;
+        } else if (hint.kind === "participle") {
+          payload.participleBase = hint.base;
+          payload.participleLabel = hint.label;
+          payload.participleGuess = true;
+        } else {
+          payload.lemma = hint.base;
+          payload.lemmaGuess = true;
+        }
+      }
+    }
   } catch (_) {
     payload = null;
   }
@@ -1225,7 +1295,7 @@ const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_BREAK_DURATION_MS = 30 * 1000; // 30 secondes
 const MAX_CHAT_HISTORY = 50;
 const NICK_MAX_LEN = 25;
-const RESERVATION_MS = 3 * 60 * 1000; // pseudo réservé apres déco
+const RESERVATION_MS = 3 * 60 * 1000; // pseudo rÃ©servÃ© apres dÃ©co
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 5;
 const MIN_WORDS_BY_SIZE = { 4: 120, 5 : 100 }; 
@@ -1267,7 +1337,7 @@ const FORCE_TARGET_SPECIALS_LOCAL = (() => {
 })();
 
 if (FORCE_TARGET_SPECIALS_LOCAL) {
-  console.log("[dev] Forçage des manches spéciales activé (target_long/target_score).");
+  console.log("[dev] ForÃ§age des manches spÃ©ciales activÃ© (target_long/target_score).");
 }
 
 const ROOM_CONFIGS = {
@@ -1364,7 +1434,7 @@ try {
       .map((w) => normalizeWord(w.trim()))
       .filter(Boolean)
   );
-  console.log(`Dictionnaire chargé (${dictionary.size} entrées)`);
+  console.log(`Dictionnaire chargÃ© (${dictionary.size} entrÃ©es)`);
 } catch (err) {
   console.warn(
     "Impossible de charger le dictionnaire pour le solveur serveur:",
@@ -1400,7 +1470,7 @@ function getRoundPlan(roundNumber, roomConfig) {
         ...base,
         isSpecial: true,
         type: "speed",
-        label: "Manche rapidité",
+        label: "Manche rapiditÃ©",
         description: "Tous les mots valent 11 pts, on vise la rafale",
         minWords: SPEED_MIN_WORDS[size] || SPEED_MIN_WORDS[4],
         fixedWordScore: SPEED_WORD_SCORE,
@@ -1412,7 +1482,7 @@ function getRoundPlan(roundNumber, roomConfig) {
       isSpecial: true,
       type: "monstrous",
       label: "Grille monstrueuse",
-      description: "Grille chargée en mots très longs et gros score potentiel",
+      description: "Grille chargÃ©e en mots trÃ¨s longs et gros score potentiel",
       minWords: roomConfig?.minWords || 0,
       minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
       minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
@@ -1447,7 +1517,7 @@ function buildSpeedTournamentPlan(tournamentRound, roomConfig) {
     ...base,
     isSpecial: true,
     type: "speed",
-    label: "Manche rapidité",
+    label: "Manche rapiditÃ©",
     description: `Tous les mots valent ${SPEED_WORD_SCORE} pts, on vise la rafale`,
     minWords: SPEED_MIN_WORDS[size] || SPEED_MIN_WORDS[4],
     fixedWordScore: SPEED_WORD_SCORE,
@@ -1463,7 +1533,7 @@ function buildMonstrousTournamentPlan(tournamentRound, roomConfig) {
     isSpecial: true,
     type: "monstrous",
     label: "Grille monstrueuse",
-    description: "Grille chargée en mots très longs et gros score potentiel",
+    description: "Grille chargÃ©e en mots trÃ¨s longs et gros score potentiel",
     minWords: roomConfig?.minWords || 0,
     minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
     minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
@@ -1559,7 +1629,7 @@ function getTournamentRoundPlan(room, tournamentRound) {
     return buildBonusLetterTournamentPlan(tournamentRound, room.config);
   }
   const total = room?.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
-  // La manche finale n'est jamais une manche spéciale.
+  // La manche finale n'est jamais une manche spÃ©ciale.
   if (tournamentRound === total) {
     return buildBaseTournamentPlan(tournamentRound, room.config);
   }
@@ -1572,12 +1642,12 @@ function buildSpecialWarning(plan) {
   if (!plan?.isSpecial) return null;
   const label = plan.label || "manche speciale";
   if (plan.type === "speed") {
-    return `ATTENTION, MANCHE SPECIALE À SUIVRE : ${label} (mots fixes à ${SPEED_WORD_SCORE} pts)`;
+    return `ATTENTION, MANCHE SPECIALE Ã€ SUIVRE : ${label} (mots fixes Ã  ${SPEED_WORD_SCORE} pts)`;
   }
   if (plan.type === "monstrous") {
-    return `ATTENTION, MANCHE SPECIALE À SUIVRE : ${label} (grosse grille à mots longs)`;
+    return `ATTENTION, MANCHE SPECIALE Ã€ SUIVRE : ${label} (grosse grille Ã  mots longs)`;
   }
-  return `ATTENTION, MANCHE SPECIALE À SUIVRE : ${label}`;
+  return `ATTENTION, MANCHE SPECIALE Ã€ SUIVRE : ${label}`;
 }
 
 function createRoomState(roomId, config) {
@@ -1873,7 +1943,13 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     if (!room.currentRound) return;
     if (!resolvedNick) return;
     const specialType = room.currentRound?.special?.type;
-    if (specialType === "target_long" || specialType === "target_score") return;
+    if (
+      specialType === "target_long" ||
+      specialType === "target_score" ||
+      specialType === "bonus_letter"
+    ) {
+      return;
+    }
     if (!room.currentRound.gobbles) room.currentRound.gobbles = new Map();
     if (!room.currentRound.gobbleFlags) room.currentRound.gobbleFlags = new Map();
 
@@ -1892,6 +1968,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   }
 
   const isSpeedRound = room.currentRound?.special?.type === "speed";
+  const isBonusLetterRound = room.currentRound?.special?.type === "bonus_letter";
   const maxLenPossible = room.bestPossibleStats.maxLen || 0;
   const maxPtsPossible = room.bestPossibleStats.maxPts || 0;
   const isMaxPossibleLen = maxLenPossible > 0 && len === maxLenPossible;
@@ -1927,7 +2004,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     return { ok: true, score: data.score, wordScore: wordPts };
   }
 
-  if (!isSpeedRound && isMaxPossiblePts) {
+  if (!isSpeedRound && !isBonusLetterRound && isMaxPossiblePts) {
     if (!room.bestPossibleScoreRecord.players.has(resolvedNick)) {
       room.bestPossibleScoreRecord.players.add(resolvedNick);
       room.bestPossibleScoreRecord.pts = maxPtsPossible;
@@ -1957,7 +2034,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       !room.bestScoreRecord.players.has(resolvedNick)
     ) {
       room.bestScoreRecord.players.add(resolvedNick);
-      // Égalisation seulement si on n'a pas atteint le superlatif possible
+      // Ã‰galisation seulement si on n'a pas atteint le superlatif possible
       if (!isMaxPossiblePts) {
         pushAnnouncement(room, {
           type: "big_word",
@@ -1970,7 +2047,12 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     }
   }
 
-  if (!isSpeedRound && isMaxPossibleLen && !room.longestPossibleRecord.players.has(resolvedNick)) {
+  if (
+    !isSpeedRound &&
+    !isBonusLetterRound &&
+    isMaxPossibleLen &&
+    !room.longestPossibleRecord.players.has(resolvedNick)
+  ) {
     room.longestPossibleRecord.players.add(resolvedNick);
     awardGobble("len");
     pushAnnouncement(room, {
@@ -2169,7 +2251,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   for (let attempt = 1; attempt <= maxAttemptsTotal; attempt++) {
     let grid = generateGrid(size);
     if (roundPlan?.type === "speed" || roundPlan?.type === "target_long" || roundPlan?.type === "bonus_letter") {
-      // Manche rapidité et "mot le plus long" : pas de tuiles bonus
+      // Manche rapiditÃ© et "mot le plus long" : pas de tuiles bonus
       grid = grid.map((cell) => ({ ...cell, bonus: null }));
     }
     const quality = analyzeGridQuality(grid, effectiveMinWords, qualityOpts);
@@ -2449,7 +2531,7 @@ function startRoundForRoom(room) {
     pushAnnouncement(room, { type: "special_start", text: specialText });
   }
 
-  // Système d'indices pour les manches "cible"
+  // SystÃ¨me d'indices pour les manches "cible"
   if (
     planUsed?.isSpecial &&
     (planUsed.type === "target_long" || planUsed.type === "target_score") &&
@@ -2480,7 +2562,7 @@ function startRoundForRoom(room) {
 
     room.currentRound.timers.push(setTimeout(emitHint, TARGET_HINT_FIRST_MS));
 
-    // À partir de 40s : révèle 1 lettre toutes les 20s
+    // Ã€ partir de 40s : rÃ©vÃ¨le 1 lettre toutes les 20s
     for (
       let tMs = TARGET_HINT_FIRST_MS + TARGET_HINT_STEP_MS;
       tMs < roundDurationMs;
@@ -2580,7 +2662,7 @@ function endRoundForRoom(room) {
 
   results.sort((a, b) => b.score - a.score);
 
-  console.log(`[${room.id}] Manche terminée`, room.currentRound.id, "Résultats:", results);
+  console.log(`[${room.id}] Manche terminÃ©e`, room.currentRound.id, "RÃ©sultats:", results);
 
   // --- Mini-tournoi : attribution points & finale ---
   const tournamentRound = room.currentRound.tournamentRound || 1;
@@ -2861,7 +2943,7 @@ function endRoundForRoom(room) {
 }
 
 io.on("connection", (socket) => {
-  console.log("Client connecté", socket.id);
+  console.log("Client connectÃ©", socket.id);
   emitRoomsStats();
 
   socket.on("timeSync", (_payload, cb) => {
@@ -2901,7 +2983,7 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Réservation de pseudo désactivée (trop gênant sur mobile lors des retours d'appli)
+    // RÃ©servation de pseudo dÃ©sactivÃ©e (trop gÃªnant sur mobile lors des retours d'appli)
     cleanupExpiredMedals(room);
     room.medalExpiry.delete(trimmed);
 
@@ -3055,7 +3137,7 @@ io.on("connection", (socket) => {
     if (player?.nick) {
       room.medalExpiry.set(player.nick, now + MEDALS_TTL_AFTER_DISCONNECT_MS);
     }
-    console.log("Client déconnecté", socket.id, player?.nick, "from", room.id);
+    console.log("Client dÃ©connectÃ©", socket.id, player?.nick, "from", room.id);
     emitPlayers(room);
     emitMedals(room);
     broadcastProvisionalRanking(room);

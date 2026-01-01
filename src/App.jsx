@@ -3771,10 +3771,12 @@ function handleTouchEnd() {
    playScoreSound(pts);
  }
   const isSpeedRound = specialRound?.type === "speed";
+  const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const isGobbleNow =
    !isSpeedRound &&
+   !isBonusLetterRound &&
    ((maxPossiblePts > 0 && pts === maxPossiblePts) ||
      (maxPossibleLen > 0 && wordLen === maxPossibleLen));
 
@@ -3843,12 +3845,14 @@ function handleTouchEnd() {
  playScoreSound(pts);
  maybeAnnounceBestWord(nickname.trim() || "Moi", display || raw, pts);
  const isSpeedRound = specialRound?.type === "speed";
+ const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const isGobbleNow =
-   !isSpeedRound &&
-   ((maxPossiblePts > 0 && pts === maxPossiblePts) ||
-     (maxPossibleLen > 0 && wordLen === maxPossibleLen));
+  !isSpeedRound &&
+  !isBonusLetterRound &&
+  ((maxPossiblePts > 0 && pts === maxPossiblePts) ||
+    (maxPossibleLen > 0 && wordLen === maxPossibleLen));
 
  if (isGobbleNow) {
    playGobbleVoice();
