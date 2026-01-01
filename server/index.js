@@ -1682,12 +1682,12 @@ function buildSpecialWarning(plan) {
   if (!plan?.isSpecial) return null;
   const label = plan.label || "manche speciale";
   if (plan.type === "speed") {
-    return `ATTENTION, MANCHE SPECIALE Ã€ SUIVRE : ${label} (mots fixes Ã  ${SPEED_WORD_SCORE} pts)`;
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (mots fixes à ${SPEED_WORD_SCORE} pts)`;
   }
   if (plan.type === "monstrous") {
-    return `ATTENTION, MANCHE SPECIALE Ã€ SUIVRE : ${label} (grosse grille Ã  mots longs)`;
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (grosse grille à mots longs)`;
   }
-  return `ATTENTION, MANCHE SPECIALE Ã€ SUIVRE : ${label}`;
+  return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label}`;
 }
 
 function createRoomState(roomId, config) {
@@ -2029,7 +2029,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       pushAnnouncement(room, {
         type: "special_target_found",
         nick: resolvedNick,
-        text: `${resolvedNick} a trouve !`,
+        text: `${resolvedNick} a trouvé !`,
       });
       io.to(room.id).emit("specialSolved", {
         roomId: room.id,
@@ -2056,7 +2056,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
         nick: resolvedNick,
         pts: wordPts,
         word: norm,
-        text: `${resolvedNick} a trouve le meilleur mot possible (${wordPts} pts)`,
+        text: `${resolvedNick} a trouvé le meilleur mot possible (${wordPts} pts)`,
       });
     }
   } else if (!isSpeedRound && wordPts >= MIN_BIG_WORD) {
@@ -2074,7 +2074,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       !room.bestScoreRecord.players.has(resolvedNick)
     ) {
       room.bestScoreRecord.players.add(resolvedNick);
-      // Ã‰galisation seulement si on n'a pas atteint le superlatif possible
+      // égalisation seulement si on n'a pas atteint le superlatif possible
       if (!isMaxPossiblePts) {
         pushAnnouncement(room, {
           type: "big_word",
