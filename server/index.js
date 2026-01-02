@@ -1986,7 +1986,9 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     if (
       specialType === "target_long" ||
       specialType === "target_score" ||
-      specialType === "bonus_letter"
+      specialType === "bonus_letter" ||
+      specialType === "speed" ||
+      specialType === "monstrous"
     ) {
       return;
     }
@@ -2192,6 +2194,128 @@ function analyzeGridQuality(grid, minWords = 0, opts = {}) {
     totalPts,
     longWords,
   };
+}
+
+async function prefetchDefinitionForWord(rawWord) {
+  const { word } = sanitizeDefineWord(rawWord);
+  if (!word) return;
+  const cacheKey = word.toLowerCase();
+  if (getCachedDefinition(cacheKey)) return;
+  try {
+    const summary = await lookupDefinitionForWord(word);
+    if (!summary || !summary.extract) return;
+    setCachedDefinition(
+      cacheKey,
+      {
+        ok: true,
+        word,
+        title: summary.title || word,
+        definition: summary.extract,
+        extract: summary.extract,
+        source: summary.source,
+        url: summary.url,
+      },
+      DEFINE_CACHE_TTL_MS
+    );
+  } catch (_) {}
+}
+
+function computeRoundWordLeaders(room, results) {
+  if (!room?.currentRound || !Array.isArray(results)) return null;
+  const board = room.currentRound.grid;
+  if (!board || board.length === 0) return null;
+  const scoreConfig = getSpecialScoreConfig(room.currentRound);
+
+  let bestPts = -Infinity;
+  let bestWord = null;
+  const bestScoreNicks = new Set();
+  let maxLen = 0;
+  let longestWord = null;
+  const longestWordNicks = new Set();
+
+  for (const entry of results) {
+    const words = Array.isArray(entry.words) ? entry.words : [];
+    for (const raw of words) {
+      const scored = scoreWordOnGrid(raw, board, scoreConfig);
+      if (!scored) continue;
+      const pts = computeWordScoreForRound(
+        room.currentRound,
+        scored.norm,
+        scored.path,
+        scored.pts
+      );
+      if (pts > bestPts) {
+        bestPts = pts;
+        bestWord = { word: raw, pts, nick: entry.nick };
+        bestScoreNicks.clear();
+        if (entry.nick) bestScoreNicks.add(entry.nick);
+      } else if (pts === bestPts && entry.nick) {
+        bestScoreNicks.add(entry.nick);
+      }
+
+      const len = scored.norm.length;
+      if (len > maxLen) {
+        maxLen = len;
+        longestWord = { word: raw, len, nick: entry.nick };
+        longestWordNicks.clear();
+        if (entry.nick) longestWordNicks.add(entry.nick);
+      } else if (len === maxLen && entry.nick) {
+        longestWordNicks.add(entry.nick);
+      }
+    }
+  }
+
+  if (bestPts === -Infinity && maxLen === 0) return null;
+  return { bestWord, longestWord, bestScoreNicks, longestWordNicks };
+}
+
+function assignSpecialGobblesFromResults(room, results) {
+  const specialType = room?.currentRound?.special?.type;
+  if (specialType !== "speed" && specialType !== "monstrous") return;
+  const leaders = computeRoundWordLeaders(room, results);
+  if (!leaders) return;
+
+  const gobbles = new Map();
+  const addGobble = (nick) => {
+    if (!nick) return;
+    const current = gobbles.get(nick) || 0;
+    if (current >= 2) return;
+    gobbles.set(nick, current + 1);
+  };
+
+  if (specialType === "monstrous") {
+    leaders.bestScoreNicks.forEach((nick) => addGobble(nick));
+  }
+  leaders.longestWordNicks.forEach((nick) => addGobble(nick));
+
+  room.currentRound.gobbles = gobbles;
+}
+
+function queueDefinitionPrefetch(room, results, targetSummary) {
+  if (!room?.currentRound) return;
+  const specialType = room.currentRound.special?.type;
+  const isTargetRound = specialType === "target_long" || specialType === "target_score";
+  const words = new Set();
+
+  if (isTargetRound) {
+    const target = targetSummary?.word || room.currentRound.targetWord;
+    if (target) words.add(target);
+  } else {
+    const leaders = computeRoundWordLeaders(room, results);
+    if (leaders?.longestWord?.word) words.add(leaders.longestWord.word);
+    if (specialType !== "speed" && leaders?.bestWord?.word) {
+      words.add(leaders.bestWord.word);
+    }
+  }
+
+  if (!words.size) return;
+  setTimeout(() => {
+    (async () => {
+      for (const word of words) {
+        await prefetchDefinitionForWord(word);
+      }
+    })().catch(() => {});
+  }, 0);
 }
 
 function normalizeLetterKey(letter) {
@@ -2701,6 +2825,7 @@ function endRoundForRoom(room) {
   }
 
   results.sort((a, b) => b.score - a.score);
+  assignSpecialGobblesFromResults(room, results);
 
   console.log(`[${room.id}] Manche terminée`, room.currentRound.id, "Résultats:", results);
 
@@ -2834,6 +2959,8 @@ function endRoundForRoom(room) {
     results.push(...targetResults);
   }
 
+  queueDefinitionPrefetch(room, results, targetSummary);
+
   let totalRanking = [];
   if (t && tournamentId && t.id === tournamentId) {
     totalRanking = Array.from(t.totals.entries())
@@ -2928,7 +3055,7 @@ function endRoundForRoom(room) {
     targetSummary,
   });
 
-  if (nextPlan?.type === "monstrous") {
+  if (nextPlan?.type === "monstrous" || nextPlan?.type === "speed") {
     const alreadyPrepared =
       room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
     if (!alreadyPrepared) {

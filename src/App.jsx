@@ -3841,11 +3841,11 @@ function handleTouchEnd() {
   const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
+ const allowScoreGobble = !isSpeedRound && !isBonusLetterRound;
+ const allowLenGobble = !isBonusLetterRound;
  const isGobbleNow =
-   !isSpeedRound &&
-   !isBonusLetterRound &&
-   ((maxPossiblePts > 0 && pts === maxPossiblePts) ||
-     (maxPossibleLen > 0 && wordLen === maxPossibleLen));
+   (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
+   (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
 
  if (!isTargetRoundNow) {
    if (isGobbleNow) {
@@ -3915,11 +3915,11 @@ function handleTouchEnd() {
  const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
+ const allowScoreGobble = !isSpeedRound && !isBonusLetterRound;
+ const allowLenGobble = !isBonusLetterRound;
  const isGobbleNow =
-  !isSpeedRound &&
-  !isBonusLetterRound &&
-  ((maxPossiblePts > 0 && pts === maxPossiblePts) ||
-    (maxPossibleLen > 0 && wordLen === maxPossibleLen));
+  (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
+  (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
 
  if (isGobbleNow) {
    playGobbleVoice();
@@ -4152,7 +4152,7 @@ function handleTouchEnd() {
         )}
         <div className="text-center text-lg font-bold">Bilan</div>
         <div className="space-y-4">
-          {endStats.bestWord && (
+          {!isSpeedRound && endStats.bestWord && (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-3">
                 <span className={`${resultLabelClass} text-xs sm:text-sm font-semibold`}>
@@ -4564,6 +4564,7 @@ function handleTouchEnd() {
     specialRound?.type === "target_long" ||
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
+  const isSpeedRound = specialRound?.type === "speed";
   const formatTargetTime = (ms) => {
     if (!Number.isFinite(ms)) return "PAS TROUVÉ";
     const seconds = Math.max(0, ms) / 1000;
