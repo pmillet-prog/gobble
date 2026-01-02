@@ -815,7 +815,9 @@ app.get("/api/define", async (req, res) => {
         cached.inflectionBase || cached.participleBase || cached.lemma;
       const looksFormOf =
         typeof cached.extract === "string" && !!extractFormOfHint(cached.extract);
-      if (!(looksFormOf && !hasInflection)) {
+      const needsFormLabel =
+        looksFormOf && cached.lemma && !cached.lemmaLabel;
+      if (!(looksFormOf && !hasInflection) && !needsFormLabel) {
         return res.json(cached);
       }
     }
@@ -908,6 +910,7 @@ app.get("/api/define", async (req, res) => {
           payload.participleGuess = true;
         } else {
           payload.lemma = formOfHint.base;
+          payload.lemmaLabel = formOfHint.label;
           payload.lemmaGuess = true;
         }
       }
@@ -1377,6 +1380,7 @@ app.get("/api/define", async (req, res) => {
           payload.participleGuess = true;
         } else {
           payload.lemma = hint.base;
+          payload.lemmaLabel = hint.label;
           payload.lemmaGuess = true;
         }
       }

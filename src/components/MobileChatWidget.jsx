@@ -6,6 +6,7 @@ export default function MobileChatWidget({
   chatInputType,
   chatInputDisabled,
   chatInputPlaceholder,
+  onChatInputFocus,
   chatOverlayStyle,
   chatSheetStyle,
   cycleChatHistory,
@@ -228,6 +229,7 @@ export default function MobileChatWidget({
                   aria-autocomplete="none"
                   aria-label="Message du chat"
                   disabled={chatInputDisabled}
+                  onFocus={onChatInputFocus}
                   ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}

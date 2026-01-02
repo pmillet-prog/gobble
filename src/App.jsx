@@ -860,6 +860,7 @@ export default function App() {
     ok: false,
     word: "",
     lemma: "",
+    lemmaLabel: "",
     lemmaGuess: false,
     participleBase: "",
     participleLabel: "",
@@ -3470,6 +3471,7 @@ function playTileStepSound(step) {
       loading: true,
       word: clean,
       lemma: "",
+      lemmaLabel: "",
       lemmaGuess: false,
       participleBase: "",
       participleLabel: "",
@@ -3499,6 +3501,7 @@ function playTileStepSound(step) {
           loading: false,
           word: data.displayWord || data.word || clean,
           lemma: data.lemma || "",
+          lemmaLabel: data.lemmaLabel || "",
           lemmaGuess: !!data.lemmaGuess,
           participleBase: data.participleBase || "",
           participleLabel: data.participleLabel || "",
@@ -4155,6 +4158,12 @@ function handleTouchEnd() {
 
     pushChatHistory(text);
     if (!forcedText) setChatInput("");
+  }
+
+  function handleChatInputFocus() {
+    if (!chatRulesAccepted) {
+      setIsChatRulesOpen(true);
+    }
   }
 
   function handleChatInputKeyDown(e) {
@@ -5479,7 +5488,9 @@ function handleTouchEnd() {
                   {definitionModal.phraseGuess && definitionModal.matchedTitle
                     ? `Définition trouvée pour ${definitionModal.matchedTitle} (lié à '${definitionModal.word}')`
                     : definitionModal.lemmaGuess && definitionModal.lemma
-                    ? `Forme conjuguée probable — définition de ${definitionModal.lemma}`
+                    ? definitionModal.lemmaLabel
+                      ? `${definitionModal.lemmaLabel} ${definitionModal.lemma}`
+                      : `Forme conjuguée probable — définition de ${definitionModal.lemma}`
                     : definitionModal.participleGuess &&
                       definitionModal.participleLabel &&
                       definitionModal.participleBase
@@ -6027,6 +6038,7 @@ function handleTouchEnd() {
               data-autofill="off"
               aria-autocomplete="none"
               aria-label="Message du chat"
+              onFocus={handleChatInputFocus}
                 disabled={chatInputDisabled}
               className="flex-1 border rounded px-2 py-1 text-xs ios-input"
                 placeholder={chatInputPlaceholder}
@@ -6182,6 +6194,7 @@ function handleTouchEnd() {
                     data-autofill="off"
                     aria-autocomplete="none"
                     aria-label="Message du chat"
+                    onFocus={handleChatInputFocus}
                 disabled={chatInputDisabled}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -6949,6 +6962,7 @@ function handleTouchEnd() {
                       data-autofill="off"
                       aria-autocomplete="none"
                       aria-label="Message du chat"
+                      onFocus={handleChatInputFocus}
                 disabled={chatInputDisabled}
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
@@ -7189,6 +7203,7 @@ function handleTouchEnd() {
             chatInputType={chatInputType}
             chatInputDisabled={chatInputDisabled}
             chatInputPlaceholder={chatInputPlaceholder}
+            onChatInputFocus={handleChatInputFocus}
             chatOverlayStyle={chatOverlayStyle}
           chatSheetStyle={chatSheetStyle}
           cycleChatHistory={cycleChatHistory}
@@ -8136,6 +8151,7 @@ function handleTouchEnd() {
               data-autofill="off"
               aria-autocomplete="none"
               aria-label="Message du chat"
+              onFocus={handleChatInputFocus}
                 disabled={chatInputDisabled}
               className="flex-1 border rounded px-2 py-1 text-xs ios-input"
               placeholder={chatInputPlaceholder}
