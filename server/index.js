@@ -107,6 +107,21 @@ function hasDiacritics(value) {
   return /[\u0300-\u036f]/.test(String(value || "").normalize("NFD"));
 }
 
+function pickDisplayWord(rawWord, accentCandidates) {
+  const raw = String(rawWord || "").trim();
+  if (!raw) return null;
+  if (!Array.isArray(accentCandidates) || accentCandidates.length === 0) return null;
+  const normRaw = normalizeLookup(raw);
+  const match = accentCandidates.find(
+    (candidate) =>
+      candidate &&
+      candidate !== raw &&
+      normalizeLookup(candidate) === normRaw &&
+      hasDiacritics(candidate)
+  );
+  return match || null;
+}
+
 async function fetchAccentCandidates(word) {
   const raw = String(word || "").trim();
   if (!raw || hasDiacritics(raw)) return [];
@@ -149,10 +164,75 @@ function extractBaseFromRawForm(extract) {
   if (deMatch) return deMatch[1];
   return null;
 }
+
+function extractParticipleHint(normalized, rawBase) {
+  if (!normalized) return null;
+  const base = rawBase || extractVerbBaseFromFormOf(normalized);
+  if (!base || base.length < 3) return null;
+  const match = normalized.match(
+    /\bparticipe (passe|present)(?: (masculin|feminin))?(?: (singulier|pluriel))?/
+  );
+  if (!match) return null;
+  const tense = match[1];
+  const gender = match[2] || "";
+  const number = match[3] || "";
+  let label = `Participe ${tense}`;
+  if (gender) label = `${label} ${gender}`;
+  if (number) label = `${label} ${number}`;
+  label = `${label} de :`;
+  return { base, label, kind: "participle" };
+}
+
+function extractConjugationHint(normalized, rawBase) {
+  if (!normalized) return null;
+  const personMatch = normalized.match(
+    /^(premiere|deuxieme|troisieme) personne du (singulier|pluriel)\b/
+  );
+  if (!personMatch) return null;
+  const base = rawBase || extractVerbBaseFromFormOf(normalized);
+  if (!base || base.length < 3) return null;
+  let detail = normalized.slice(personMatch[0].length).trim();
+  if (detail) {
+    const baseToken = normalizeForFormOf(base).split(" ")[0];
+    if (baseToken) {
+      const suffix = ` de ${baseToken}`;
+      if (detail.endsWith(suffix)) {
+        detail = detail.slice(0, -suffix.length).trim();
+      } else {
+        const lastDe = detail.lastIndexOf(" de ");
+        if (lastDe >= 0) {
+          detail = detail.slice(0, lastDe).trim();
+        }
+      }
+    } else {
+      const lastDe = detail.lastIndexOf(" de ");
+      if (lastDe >= 0) {
+        detail = detail.slice(0, lastDe).trim();
+      }
+    }
+    detail = detail.replace(/\s+/g, " ").trim();
+    if (detail === "de" || detail === "du" || detail === "des") {
+      detail = "";
+    }
+  }
+  const personLabel =
+    personMatch[1].charAt(0).toUpperCase() + personMatch[1].slice(1);
+  let label = `${personLabel} personne du ${personMatch[2]}`;
+  if (detail) {
+    label = `${label} ${detail}`;
+  }
+  label = `${label} de :`;
+  return { base, label, kind: "lemma" };
+}
+
 function extractFormOfHint(extract) {
   const normalized = normalizeForFormOf(extract);
   if (!normalized) return null;
   const rawBase = extractBaseFromRawForm(extract);
+  const participleHint = extractParticipleHint(normalized, rawBase);
+  if (participleHint) return participleHint;
+  const conjugationHint = extractConjugationHint(normalized, rawBase);
+  if (conjugationHint) return conjugationHint;
   const patterns = [
     {
       re: /\bfeminin pluriel de ([a-z'-]+)/,
@@ -715,6 +795,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/define", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
   const rawWord = req.query?.word ?? req.query?.term;
   const { word, error } = sanitizeDefineWord(rawWord);
   if (!word) {
@@ -743,10 +824,12 @@ app.get("/api/define", async (req, res) => {
   let payload = null;
   let formOfHint = null;
   let formOfSummary = null;
+  let displayWord = null;
   const suggestions = [];
   try {
     const baseCandidates = buildDefineCandidates(word);
     const accentCandidates = await fetchAccentCandidates(word);
+    displayWord = pickDisplayWord(word, accentCandidates);
     const candidates = accentCandidates.length
       ? [
           ...accentCandidates,
@@ -1309,6 +1392,14 @@ app.get("/api/define", async (req, res) => {
       error: "not_found",
       suggestions: suggestions.length ? suggestions.slice(0, 8) : undefined,
     };
+  }
+  const surfaceWord =
+    displayWord ||
+    (formOfSummary?.title && formOfSummary.title !== word
+      ? formOfSummary.title
+      : null);
+  if (payload && surfaceWord) {
+    payload.displayWord = surfaceWord;
   }
   if (!skipCache) {
     const ttl = payload?.ok ? DEFINE_CACHE_TTL_MS : DEFINE_NEGATIVE_TTL_MS;

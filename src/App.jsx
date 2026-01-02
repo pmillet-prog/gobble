@@ -570,7 +570,8 @@ body.theme-dark textarea::placeholder {
 
 
 body.theme-dark .preview-tile {
-  background: #e5e7eb;
+  background: #fed7aa;
+  border-color: #f97316;
   color: #111827;
 }
 .bonus-letter-tile {
@@ -3496,7 +3497,7 @@ function playTileStepSound(step) {
         setDefinitionModal({
           open: true,
           loading: false,
-          word: data.word || clean,
+          word: data.displayWord || data.word || clean,
           lemma: data.lemma || "",
           lemmaGuess: !!data.lemmaGuess,
           participleBase: data.participleBase || "",
@@ -5463,7 +5464,7 @@ function handleTouchEnd() {
               <div className="mt-2 text-sm font-semibold">
                 {definitionModal.title &&
                 definitionModal.title !== definitionModal.word
-                  ? `${definitionModal.word} ? ${definitionModal.title}`
+                  ? `${definitionModal.word} \u2192 ${definitionModal.title}`
                   : definitionModal.word}
               </div>
               {(definitionModal.phraseGuess && definitionModal.matchedTitle) ||
