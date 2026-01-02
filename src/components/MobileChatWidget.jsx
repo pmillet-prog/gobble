@@ -4,6 +4,8 @@ export default function MobileChatWidget({
   chatInput,
   chatInputRef,
   chatInputType,
+  chatInputDisabled,
+  chatInputPlaceholder,
   chatOverlayStyle,
   chatSheetStyle,
   cycleChatHistory,
@@ -11,21 +13,30 @@ export default function MobileChatWidget({
   isChatOpenMobile,
   isChatClosing,
   mobileChatUnreadCount,
-  mutedCount,
-  mutedNicks,
-  normalizedSelfNick,
-  onMuteNick,
-  onToggleMutedList,
+  blockedCount,
+  blockedEntries,
+  onToggleBlockedList,
+  onUnblockInstallId,
   onOpenChat,
-  onUnmuteNick,
-  showMutedList,
+  onOpenRules,
+  onOpenUserMenu,
+  showBlockedList,
   selfNick,
+  selfInstallId,
   setChatInput,
   setIsChatOpenMobile,
   submitChat,
   visibleMessages,
 }) {
-  const normalizeChatNick = (raw) => String(raw || "").trim().toLowerCase();
+  const isSystemAuthor = (rawAuthor) => {
+    if (!rawAuthor) return false;
+    const simplified = String(rawAuthor || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    return simplified === "system" || simplified === "systeme";
+  };
   const isChatVisible = isChatOpenMobile || isChatClosing;
   const handleChatInputKeyDown = (e) => {
     if (e.key === "ArrowUp") {
@@ -81,11 +92,20 @@ export default function MobileChatWidget({
                 <button
                   type="button"
                   className={`text-[11px] font-semibold ${
+                    darkMode ? "text-slate-300" : "text-slate-600"
+                  }`}
+                  onClick={onOpenRules}
+                >
+                  Règles
+                </button>
+                <button
+                  type="button"
+                  className={`text-[11px] font-semibold ${
                     darkMode ? "text-amber-300" : "text-blue-600"
                   }`}
-                  onClick={onToggleMutedList}
+                  onClick={onToggleBlockedList}
                 >
-                  Joueurs bloqués ({mutedCount})
+                  Joueurs bloqués ({blockedCount})
                 </button>
                 <button
                   type="button"
@@ -101,7 +121,7 @@ export default function MobileChatWidget({
               </div>
             </div>
             <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
-              {showMutedList && (
+              {showBlockedList && (
                 <div
                   className={`rounded-lg border px-2 py-2 text-[11px] ${
                     darkMode
@@ -109,19 +129,19 @@ export default function MobileChatWidget({
                       : "bg-gray-50 border-gray-200 text-gray-700"
                   }`}
                 >
-                  {mutedNicks.length === 0 ? (
+                  {blockedEntries.length === 0 ? (
                     <div className="text-center">Aucun joueur bloqué.</div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {mutedNicks.map((nick) => (
-                        <div key={nick} className="inline-flex items-center gap-2">
-                          <span className="font-semibold">{nick}</span>
+                      {blockedEntries.map((entry) => (
+                        <div key={entry.id} className="inline-flex items-center gap-2">
+                          <span className="font-semibold">{entry.label}</span>
                           <button
                             type="button"
                             className={`text-[11px] font-semibold ${
                               darkMode ? "text-amber-300" : "text-blue-600"
                             }`}
-                            onClick={() => onUnmuteNick(nick)}
+                            onClick={() => onUnblockInstallId(entry.id)}
                           >
                             Réactiver
                           </button>
@@ -138,17 +158,17 @@ export default function MobileChatWidget({
                   </div>
                 ) : (
                   [...visibleMessages].reverse().map((msg) => {
-                    const author = (msg.author || msg.nick || "Anonyme").trim();
-                    const isYou = author === selfNick;
-                    const isSystem = ["systeme", "system", "système"].includes(
-                      author.toLowerCase()
-                    );
-
-                    const canMute =
-
+                    const author = (msg.nick || msg.author || "Anonyme").trim();
+                    const authorInstallId =
+                      typeof msg.installId === "string" ? msg.installId : "";
+                    const isYou = authorInstallId
+                      ? authorInstallId === selfInstallId
+                      : author === selfNick;
+                    const isSystem = isSystemAuthor(author);
+                    const canOpenMenu =
                       !isSystem &&
-
-                      normalizeChatNick(author) !== normalizedSelfNick;
+                      authorInstallId &&
+                      authorInstallId !== selfInstallId;
                     return (
                       <div
                         key={msg.id}
@@ -166,15 +186,22 @@ export default function MobileChatWidget({
                           <span>{msg.text}</span>
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold mr-1">{author}:</span>
-                            {canMute && (
+                            {canOpenMenu ? (
                               <button
                                 type="button"
-                                className="text-[10px] font-semibold text-amber-300"
-                                onClick={() => onMuteNick(author)}
+                                className="font-semibold mr-1 hover:underline"
+                                onClick={(e) =>
+                                  onOpenUserMenu(e, {
+                                    nick: author,
+                                    installId: authorInstallId,
+                                    messageId: msg.id,
+                                  })
+                                }
                               >
-                                Bloquer
+                                {author}:
                               </button>
+                            ) : (
+                              <span className="font-semibold mr-1">{author}:</span>
                             )}
                             <span>{msg.text}</span>
                           </div>
@@ -200,19 +227,20 @@ export default function MobileChatWidget({
                   data-autofill="off"
                   aria-autocomplete="none"
                   aria-label="Message du chat"
+                  disabled={chatInputDisabled}
                   ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={handleChatInputKeyDown}
                   className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
-                  placeholder="Écrire un message..."
+                  placeholder={chatInputPlaceholder}
                 />
                 <button
                   type="button"
                   className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
-                  disabled={!chatInput.trim()}
+                  disabled={!chatInput.trim() || chatInputDisabled}
                   onPointerDown={(e) => {
-                    if (!chatInput.trim()) return;
+                    if (!chatInput.trim() || chatInputDisabled) return;
                     e.preventDefault();
                     submitChat();
                     if (chatInputRef.current) {
@@ -235,6 +263,11 @@ export default function MobileChatWidget({
     </>
   );
 }
+
+
+
+
+
 
 
 

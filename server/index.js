@@ -7,6 +7,7 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { readFileSync, appendFileSync, mkdirSync } from "fs";
+import { randomUUID } from "crypto";
 
 import {
   generateGrid,
@@ -1401,6 +1402,71 @@ const ROOM_CONFIGS = {
 
 const LOG_DIR = path.join(__dirname, "logs");
 const CONNECTIONS_LOG_PATH = path.join(LOG_DIR, "connections.log");
+const REPORTS_LOG_PATH = path.join(LOG_DIR, "reports.jsonl");
+const REPORT_WINDOW_MS = 10 * 60 * 1000;
+const REPORT_MUTE_THRESHOLD = 3;
+const REPORT_REASON_MAX_LEN = 160;
+const MUTE_DURATION_MS = 10 * 60 * 1000;
+const INSTALL_ID_MAX_LEN = 128;
+const reportEntries = [];
+const reportsByInstallId = new Map();
+const mutedInstallIds = new Map();
+
+function normalizeInstallId(raw) {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > INSTALL_ID_MAX_LEN) return "";
+  return trimmed;
+}
+
+function sanitizeReportReason(raw) {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (trimmed.length <= REPORT_REASON_MAX_LEN) return trimmed;
+  return trimmed.slice(0, REPORT_REASON_MAX_LEN);
+}
+
+function isInstallIdMuted(installId) {
+  const key = normalizeInstallId(installId);
+  if (!key) return false;
+  const expiresAt = mutedInstallIds.get(key);
+  if (!expiresAt) return false;
+  if (expiresAt <= Date.now()) {
+    mutedInstallIds.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function registerReportForInstallId(installId, now) {
+  const key = normalizeInstallId(installId);
+  if (!key) return 0;
+  const prev = reportsByInstallId.get(key) || [];
+  const recent = prev.filter((ts) => now - ts <= REPORT_WINDOW_MS);
+  recent.push(now);
+  reportsByInstallId.set(key, recent);
+  return recent.length;
+}
+
+function muteInstallId(installId, now) {
+  const key = normalizeInstallId(installId);
+  if (!key) return null;
+  const nextExpiry = now + MUTE_DURATION_MS;
+  const existing = mutedInstallIds.get(key) || 0;
+  const expiresAt = Math.max(existing, nextExpiry);
+  mutedInstallIds.set(key, expiresAt);
+  return expiresAt;
+}
+
+function appendReportLog(entry) {
+  try {
+    mkdirSync(LOG_DIR, { recursive: true });
+  } catch (_) {}
+  try {
+    appendFileSync(REPORTS_LOG_PATH, `${JSON.stringify(entry)}\n`, "utf8");
+  } catch (_) {}
+}
 
 function normalizeIp(raw) {
   const ip = String(raw || "").trim();
@@ -1694,7 +1760,7 @@ function createRoomState(roomId, config) {
   return {
     id: roomId,
     config,
-    players: new Map(), // socket.id -> { nick, token }
+    players: new Map(), // socket.id -> { nick, token, installId }
     currentRound: null, // { id, grid, endsAt, status, timers }
     submissions: new Map(), // roundId -> Map(nick -> { words:Set, score:number })
     chatMessages: [],
@@ -1741,7 +1807,11 @@ function findPlayerByNick(room, nick) {
 function emitPlayers(room) {
   io.to(room.id).emit(
     "playersUpdate",
-    Array.from(room.players.values()).map((p) => ({ nick: p.nick, roomId: room.id }))
+    Array.from(room.players.values()).map((p) => ({
+      nick: p.nick,
+      roomId: room.id,
+      installId: p.installId || null,
+    }))
   );
 }
 
@@ -1819,6 +1889,7 @@ function pushChatMessage(room, message) {
   while (room.chatMessages.length > MAX_CHAT_HISTORY) {
     room.chatMessages.shift();
   }
+  io.to(room.id).emit("chatMessage", message);
   io.to(room.id).emit("chat:new", message);
 }
 
@@ -3120,6 +3191,9 @@ io.on("connection", (socket) => {
   socket.on("login", (payload, cb) => {
     const nick = typeof payload === "string" ? payload : payload?.nick;
     const token = typeof payload === "object" ? payload?.clientId : null;
+    const installId = normalizeInstallId(
+      typeof payload === "object" ? payload?.installId || payload?.clientId : null
+    );
     const requestedRoomId =
       typeof payload === "object" && payload?.roomId
         ? payload.roomId
@@ -3134,6 +3208,11 @@ io.on("connection", (socket) => {
     const trimmed = (nick || "").trim();
     if (!trimmed) {
       cb?.({ ok: false, error: "empty_nick" });
+      return;
+    }
+
+    if (!installId) {
+      cb?.({ ok: false, error: "invalid_install_id" });
       return;
     }
 
@@ -3154,7 +3233,10 @@ io.on("connection", (socket) => {
     cleanupExpiredMedals(room);
     room.medalExpiry.delete(trimmed);
 
-    room.players.set(socket.id, { nick: trimmed, token: token || null });
+    room.players.set(socket.id, { nick: trimmed, token: token || null, installId });
+    socket.data.installId = installId;
+    socket.data.nick = trimmed;
+    socket.data.roomId = room.id;
     socket.roomId = room.id;
     socket.join(room.id);
     console.log("Login:", socket.id, trimmed, "->", room.id);
@@ -3274,13 +3356,84 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
+    const installId = normalizeInstallId(player.installId || socket.data?.installId);
+    if (!installId) {
+      cb?.({ ok: false, error: "invalid_install_id" });
+      return;
+    }
+    if (isInstallIdMuted(installId)) {
+      cb?.({ ok: false, error: "muted" });
+      return;
+    }
     const message = {
-      id: Date.now() + Math.random(),
-      author: player.nick,
+      id: randomUUID(),
+      t: Date.now(),
+      roomId: room.id,
+      nick: player.nick,
+      installId,
       text: trimmed,
     };
     pushChatMessage(room, message);
     cb?.({ ok: true });
+  });
+
+  socket.on("reportMessage", (payload, cb) => {
+    const room = getRoom(socket.roomId);
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const reporterInstallId = normalizeInstallId(socket.data?.installId);
+    if (!reporterInstallId) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    if (!payload || typeof payload !== "object") {
+      cb?.({ ok: false, error: "invalid_payload" });
+      return;
+    }
+    const reportedInstallId = normalizeInstallId(payload.reportedInstallId);
+    if (!reportedInstallId) {
+      cb?.({ ok: false, error: "invalid_reported_id" });
+      return;
+    }
+    const messageId =
+      typeof payload.messageId === "string" && payload.messageId.trim()
+        ? payload.messageId.trim()
+        : null;
+    const reason = sanitizeReportReason(payload.reason);
+    if (!reason) {
+      cb?.({ ok: false, error: "invalid_reason" });
+      return;
+    }
+
+    const now = Date.now();
+    const reportedMessage =
+      messageId && Array.isArray(room.chatMessages)
+        ? room.chatMessages.find((msg) => msg?.id === messageId)
+        : null;
+    const snippet = reportedMessage?.text
+      ? String(reportedMessage.text).slice(0, 200)
+      : null;
+    const entry = {
+      ts: now,
+      iso: new Date(now).toISOString(),
+      roomId: room.id,
+      reporterInstallId,
+      reportedInstallId,
+      messageId,
+      reason,
+      snippet,
+    };
+    reportEntries.push(entry);
+    appendReportLog(entry);
+
+    const count = registerReportForInstallId(reportedInstallId, now);
+    let mutedUntil = null;
+    if (count >= REPORT_MUTE_THRESHOLD) {
+      mutedUntil = muteInstallId(reportedInstallId, now);
+    }
+    cb?.({ ok: true, mutedUntil });
   });
 
   socket.on("submitWord", ({ roundId, word, path }, cb) => {

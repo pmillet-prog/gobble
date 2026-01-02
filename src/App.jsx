@@ -642,13 +642,39 @@ const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const SHOW_ALL_LABELS = { found: "Trouvés", all: "Tous les mots" };
-function generateClientId() {
+const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
+const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
+const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
+const REPORT_REASONS = [
+  "Spam",
+  "Harcèlement",
+  "Contenu inapproprié",
+  "Infos perso",
+  "Autre",
+];
+function generateInstallId() {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       return crypto.randomUUID();
     }
   } catch (_) {}
-  return `cid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  return `iid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+function getOrCreateInstallId() {
+  try {
+    const existing = localStorage.getItem(INSTALL_ID_STORAGE_KEY);
+    if (existing && existing.trim()) return existing.trim();
+    const legacy = localStorage.getItem("boggle_client_id");
+    if (legacy && legacy.trim()) {
+      localStorage.setItem(INSTALL_ID_STORAGE_KEY, legacy.trim());
+      return legacy.trim();
+    }
+    const fresh = generateInstallId();
+    localStorage.setItem(INSTALL_ID_STORAGE_KEY, fresh);
+    return fresh;
+  } catch (_) {
+    return generateInstallId();
+  }
 }
 
 const formatNumber = (value) =>
@@ -757,8 +783,15 @@ export default function App() {
   const [isChatClosing, setIsChatClosing] = useState(false);
   const chatCloseTimerRef = useRef(null);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
-  const [isChatSafetyOpen, setIsChatSafetyOpen] = useState(false);
-  const chatSafetyConfirmRef = useRef(null);
+  const [chatRulesAccepted, setChatRulesAccepted] = useState(() => {
+    try {
+      return localStorage.getItem(CHAT_RULES_STORAGE_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  });
+  const [isChatRulesOpen, setIsChatRulesOpen] = useState(false);
+  const chatRulesConfirmRef = useRef(null);
   const chatInputType = React.useMemo(() => {
     if (typeof navigator === "undefined") return "text";
     const ua = navigator.userAgent || "";
@@ -783,17 +816,7 @@ export default function App() {
   const [specialHint, setSpecialHint] = useState(null); // { kind, pattern, length }
   const [specialSolvedOverlay, setSpecialSolvedOverlay] = useState(null); // { nick, word, kind }
   const [foundTargetThisRound, setFoundTargetThisRound] = useState(false);
-  const [clientId, setClientId] = useState(() => {
-    try {
-      const existing = localStorage.getItem("boggle_client_id");
-      if (existing) return existing;
-      const fresh = generateClientId();
-      localStorage.setItem("boggle_client_id", fresh);
-      return fresh;
-    } catch (_) {
-      return generateClientId();
-    }
-  });
+  const [installId] = useState(() => getOrCreateInstallId());
 
   // Zone active pour le clavier : "game" ou "chat"
   const [activeArea, setActiveArea] = useState("game");
@@ -801,19 +824,35 @@ export default function App() {
   // Chat
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
-  const [mutedNicks, setMutedNicks] = useState(() => {
+  const [blockedInstallIds, setBlockedInstallIds] = useState(() => {
     try {
-      const raw = localStorage.getItem("chatMutedNicks");
+      const raw = localStorage.getItem(BLOCKED_INSTALL_IDS_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(parsed)) return [];
       return parsed
-        .filter((nick) => typeof nick === "string" && nick.trim())
-        .map((nick) => nick.trim().toLowerCase());
+        .filter((id) => typeof id === "string" && id.trim())
+        .map((id) => id.trim());
     } catch (_) {
       return [];
     }
   });
-  const [showMutedList, setShowMutedList] = useState(false);
+  const [showBlockedList, setShowBlockedList] = useState(false);
+  const [userMenu, setUserMenu] = useState({
+    open: false,
+    left: 0,
+    top: 0,
+    nick: "",
+    installId: null,
+    messageId: null,
+  });
+  const [reportDialog, setReportDialog] = useState({
+    open: false,
+    reportedInstallId: null,
+    reportedNick: "",
+    messageId: null,
+    reason: "",
+    details: "",
+  });
   const [definitionModal, setDefinitionModal] = useState({
     open: false,
     loading: false,
@@ -1158,22 +1197,36 @@ export default function App() {
   }, [isChatOpenMobile]);
 
   useEffect(() => {
-    if (!isChatSafetyOpen) return;
+    if (!isChatRulesOpen) return;
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        setIsChatSafetyOpen(false);
+        setIsChatRulesOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     const raf = window.requestAnimationFrame(() => {
-      chatSafetyConfirmRef.current?.focus();
+      chatRulesConfirmRef.current?.focus();
     });
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.cancelAnimationFrame(raf);
     };
-  }, [isChatSafetyOpen]);
+  }, [isChatRulesOpen]);
+
+  useEffect(() => {
+    if (!userMenu.open) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeUserMenu();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [userMenu.open]);
 
   useEffect(() => {
     if (!definitionModal.open) return;
@@ -2524,6 +2577,9 @@ function playTileStepSound(step) {
       if (!msg || typeof msg !== "object") return;
       setChatMessages((prev) => [...prev, msg].slice(-CHAT_BUFFER_MAX));
 
+      const authorInstallId =
+        typeof msg.installId === "string" ? msg.installId : "";
+      if (authorInstallId && authorInstallId === installId) return;
       const author = (msg.author || msg.nick || "").trim();
       const me = nickname.trim();
       if (author && me && author === me) return;
@@ -2567,11 +2623,6 @@ function playTileStepSound(step) {
       setSpecialHint(null);
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
-      const fresh = generateClientId();
-      setClientId(fresh);
-      try {
-        localStorage.setItem("boggle_client_id", fresh);
-      } catch (_) {}
     }
 
     function onMedalsUpdate(payload) {
@@ -2618,7 +2669,7 @@ function playTileStepSound(step) {
     socket.on("playersUpdate", onPlayersUpdate);
     socket.on("rankingUpdate", onRankingUpdate);
     socket.on("chat:history", onChatHistory);
-    socket.on("chat:new", onChatNew);
+    socket.on("chatMessage", onChatNew);
     socket.on("announcement", onAnnouncement);
     socket.on("medalsUpdate", onMedalsUpdate);
     socket.on("specialHint", onSpecialHint);
@@ -2633,7 +2684,7 @@ function playTileStepSound(step) {
       socket.off("playersUpdate", onPlayersUpdate);
       socket.off("rankingUpdate", onRankingUpdate);
       socket.off("chat:history", onChatHistory);
-      socket.off("chat:new", onChatNew);
+      socket.off("chatMessage", onChatNew);
       socket.off("announcement", onAnnouncement);
       socket.off("medalsUpdate", onMedalsUpdate);
       socket.off("specialHint", onSpecialHint);
@@ -2806,7 +2857,7 @@ function playTileStepSound(step) {
     setConnectionError("");
 
     const attemptLogin = () => {
-      socket.emit("login", { nick, clientId, roomId }, (res) => {
+      socket.emit("login", { nick, roomId, installId }, (res) => {
         if (!res?.ok) {
           if (res?.error === "pseudo_taken") {
             setLoginError("Pseudo deja utilise");
@@ -2814,6 +2865,8 @@ function playTileStepSound(step) {
             setLoginError("25 caracteres max");
           } else if (res?.error === "invalid_room") {
             setLoginError("Salle indisponible");
+          } else if (res?.error === "invalid_install_id") {
+            setLoginError("Identifiant appareil invalide");
           } else {
             setLoginError("Connexion refusee");
           }
@@ -3215,38 +3268,42 @@ function playTileStepSound(step) {
     }
   }
 
-  function normalizeChatNick(raw) {
-    return String(raw || "").trim().toLowerCase();
+  function normalizeInstallId(raw) {
+    if (typeof raw !== "string") return "";
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.length > 160) return "";
+    return trimmed;
   }
 
-  function updateMutedNicks(updater) {
-    setMutedNicks((prev) => {
+  function updateBlockedInstallIds(updater) {
+    setBlockedInstallIds((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
+      const sanitized = Array.isArray(next)
+        ? Array.from(new Set(next.map(normalizeInstallId).filter(Boolean)))
+        : [];
       try {
-        localStorage.setItem("chatMutedNicks", JSON.stringify(next));
+        localStorage.setItem(
+          BLOCKED_INSTALL_IDS_STORAGE_KEY,
+          JSON.stringify(sanitized)
+        );
       } catch (_) {}
-      return next;
+      return sanitized;
     });
   }
 
-  function muteNick(nick) {
-    const key = normalizeChatNick(nick);
-    if (!key || isSystemAuthor(key)) return;
-    updateMutedNicks((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  function blockInstallId(targetInstallId, nick = "") {
+    const key = normalizeInstallId(targetInstallId);
+    if (!key || key === installId) return;
+    updateBlockedInstallIds((prev) =>
+      prev.includes(key) ? prev : [...prev, key]
+    );
+    showToast(nick ? `${nick} bloqué` : "Joueur bloqué");
   }
 
-  function unmuteNick(nick) {
-    const key = normalizeChatNick(nick);
+  function unblockInstallId(targetInstallId) {
+    const key = normalizeInstallId(targetInstallId);
     if (!key) return;
-    updateMutedNicks((prev) => prev.filter((entry) => entry !== key));
-  }
-
-  function getChatSafetyAck() {
-    try {
-      return localStorage.getItem("chatSafetyAck") === "1";
-    } catch (_) {
-      return false;
-    }
+    updateBlockedInstallIds((prev) => prev.filter((entry) => entry !== key));
   }
 
   function openChatPanel() {
@@ -3278,23 +3335,120 @@ function playTileStepSound(step) {
   }
 
   function requestOpenChat() {
-    if (getChatSafetyAck()) {
-      openChatPanel();
+    openChatPanel();
+    if (!chatRulesAccepted) {
+      setIsChatRulesOpen(true);
+    }
+  }
+
+  function confirmChatRules() {
+    try {
+      localStorage.setItem(CHAT_RULES_STORAGE_KEY, "1");
+    } catch (_) {}
+    setChatRulesAccepted(true);
+    setIsChatRulesOpen(false);
+  }
+
+  function cancelChatRules() {
+    setIsChatRulesOpen(false);
+  }
+
+  function closeUserMenu() {
+    setUserMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
+  }
+
+  function openUserMenu(e, { nick, installId: targetInstallId, messageId = null }) {
+    const key = normalizeInstallId(targetInstallId);
+    if (!key || key === installId) return;
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    const viewportWidth = window.innerWidth || 360;
+    const viewportHeight = window.innerHeight || 640;
+    const menuWidth = 180;
+    const menuHeight = 120;
+    const padding = 8;
+    const baseLeft = rect?.left ?? padding;
+    const baseTop = rect?.bottom ?? padding;
+    let left = Math.min(
+      Math.max(padding, Math.round(baseLeft)),
+      Math.max(padding, viewportWidth - menuWidth - padding)
+    );
+    let top = Math.round(baseTop + 6);
+    if (top + menuHeight > viewportHeight - padding) {
+      const fallbackTop = rect?.top ?? top;
+      top = Math.max(padding, Math.round(fallbackTop - menuHeight - 6));
+    }
+    setUserMenu({
+      open: true,
+      left,
+      top,
+      nick: nick || "Joueur",
+      installId: key,
+      messageId: messageId || null,
+    });
+  }
+
+  function openReportDialog({ installId: targetInstallId, nick, messageId }) {
+    const key = normalizeInstallId(targetInstallId);
+    if (!key || key === installId) return;
+    setReportDialog({
+      open: true,
+      reportedInstallId: key,
+      reportedNick: nick || "",
+      messageId: messageId || null,
+      reason: "",
+      details: "",
+    });
+  }
+
+  function closeReportDialog() {
+    setReportDialog((prev) =>
+      prev.open
+        ? {
+            open: false,
+            reportedInstallId: null,
+            reportedNick: "",
+            messageId: null,
+            reason: "",
+            details: "",
+          }
+        : prev
+    );
+  }
+
+  function submitReport() {
+    const targetId = normalizeInstallId(reportDialog.reportedInstallId);
+    if (!targetId) return;
+    const baseReason = String(reportDialog.reason || "").trim();
+    const detail = String(reportDialog.details || "").trim();
+    let reason = baseReason;
+    if (baseReason === "Autre" && detail) {
+      reason = `Autre: ${detail}`;
+    }
+    reason = reason.trim().slice(0, 160);
+    if (!reason) return;
+    if (!socket.connected) {
+      showToast("Signalement non envoyé");
+      closeReportDialog();
       return;
     }
-    setIsChatSafetyOpen(true);
-  }
-
-  function confirmChatSafety() {
-    try {
-      localStorage.setItem("chatSafetyAck", "1");
-    } catch (_) {}
-    setIsChatSafetyOpen(false);
-    openChatPanel();
-  }
-
-  function cancelChatSafety() {
-    setIsChatSafetyOpen(false);
+    socket.emit(
+      "reportMessage",
+      {
+        messageId: reportDialog.messageId || null,
+        reportedInstallId: targetId,
+        reason,
+      },
+      (res) => {
+        if (res?.ok) {
+          showToast("Signalement envoyé");
+        } else {
+          showToast("Signalement refusé");
+        }
+      }
+    );
+    closeReportDialog();
   }
 
   function openDefinition(term) {
@@ -3973,6 +4127,10 @@ function handleTouchEnd() {
     if (e) e.preventDefault();
     const text = (forcedText ?? chatInput).trim();
     if (!text) return;
+    if (!chatRulesAccepted) {
+      setIsChatRulesOpen(true);
+      return;
+    }
     const now = Date.now();
     if (now - chatLastSentRef.current < CHAT_MIN_DELAY) return;
     chatLastSentRef.current = now;
@@ -3984,7 +4142,11 @@ function handleTouchEnd() {
 
     socket.emit("chat:send", text, (res) => {
       if (!res?.ok) {
-        setConnectionError("Message non envoyé");
+        if (res?.error === "muted") {
+          showToast("Chat temporairement bloqué");
+        } else {
+          setConnectionError("Message non envoyé");
+        }
       } else {
         setConnectionError("");
       }
@@ -4409,22 +4571,52 @@ function handleTouchEnd() {
   };
 
   // messages visibles dans le chat (dynamique), ancrés en bas
-  const mutedNickSet = React.useMemo(() => new Set(mutedNicks), [mutedNicks]);
+  const blockedInstallIdSet = React.useMemo(
+    () => new Set(blockedInstallIds),
+    [blockedInstallIds]
+  );
   const filteredChatMessages = React.useMemo(() => {
-    if (!mutedNickSet.size) return chatMessages;
+    if (!blockedInstallIdSet.size) return chatMessages;
     return chatMessages.filter((msg) => {
-      const author = (msg.author || msg.nick || "").trim();
-      const key = normalizeChatNick(author);
-      return !key || !mutedNickSet.has(key);
+      const authorInstallId = typeof msg.installId === "string" ? msg.installId : "";
+      return !authorInstallId || !blockedInstallIdSet.has(authorInstallId);
     });
-  }, [chatMessages, mutedNickSet]);
+  }, [chatMessages, blockedInstallIdSet]);
   const visibleMessages = filteredChatMessages.slice(-chatVisibleLimit);
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
 
   const selfNick = nickname.trim();
-  const normalizedSelfNick = normalizeChatNick(selfNick);
-  const mutedCount = mutedNicks.length;
+  const blockedCount = blockedInstallIds.length;
+  const chatInputDisabled = !chatRulesAccepted;
+  const chatInputPlaceholder = chatRulesAccepted
+    ? "Écrire un message..."
+    : "Accepte les règles pour discuter";
+  const blockedEntries = React.useMemo(() => {
+    if (!blockedInstallIds.length) return [];
+    const labelMap = new Map();
+    players.forEach((player) => {
+      if (player?.installId && player?.nick) {
+        labelMap.set(player.installId, player.nick);
+      }
+    });
+    chatMessages.forEach((msg) => {
+      const id = typeof msg.installId === "string" ? msg.installId : "";
+      const nick = (msg.nick || msg.author || "").trim();
+      if (id && nick) labelMap.set(id, nick);
+    });
+    return blockedInstallIds.map((id) => ({
+      id,
+      label: labelMap.get(id) || `Joueur ${id.slice(0, 6)}`,
+    }));
+  }, [blockedInstallIds, players, chatMessages]);
+  const visiblePlayerList = React.useMemo(() => {
+    if (!blockedInstallIdSet.size) return players;
+    return players.filter((player) => {
+      if (!player?.installId) return true;
+      return !blockedInstallIdSet.has(player.installId);
+    });
+  }, [players, blockedInstallIdSet]);
   const botRankingEntries = [];
 
   function buildRanking() {
@@ -4720,8 +4912,8 @@ function handleTouchEnd() {
     );
   }
 
-  function renderMutedListPanel(className = "") {
-    if (!showMutedList) return null;
+  function renderBlockedListPanel(className = "") {
+    if (!showBlockedList) return null;
     return (
       <div
         className={`mt-2 rounded-lg border px-2 py-2 text-[11px] ${
@@ -4730,19 +4922,19 @@ function handleTouchEnd() {
             : "bg-gray-50 border-gray-200 text-gray-700"
         } ${className}`}
       >
-        {mutedCount === 0 ? (
+        {blockedCount === 0 ? (
           <div className="text-center">Aucun joueur bloqué.</div>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {mutedNicks.map((nick) => (
-              <div key={nick} className="inline-flex items-center gap-2">
-                <span className="font-semibold">{nick}</span>
+            {blockedEntries.map((entry) => (
+              <div key={entry.id} className="inline-flex items-center gap-2">
+                <span className="font-semibold">{entry.label}</span>
                 <button
                   type="button"
                   className={`text-[11px] font-semibold ${
                     darkMode ? "text-amber-300" : "text-blue-600"
                   }`}
-                  onClick={() => unmuteNick(nick)}
+                  onClick={() => unblockInstallId(entry.id)}
                 >
                   Réactiver
                 </button>
@@ -5023,10 +5215,10 @@ function handleTouchEnd() {
     prevShowTournamentFinaleRef.current = showTournamentFinale;
   }, [showTournamentFinale, definitionModal.open]);
 
-  const chatSafetyModal = isChatSafetyOpen ? (
+  const chatRulesModal = isChatRulesOpen ? (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-      onClick={cancelChatSafety}
+      onClick={cancelChatRules}
     >
       <div
         role="dialog"
@@ -5038,10 +5230,14 @@ function handleTouchEnd() {
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-sm font-semibold">
-          Chat public. Ne partagez pas d'informations personnelles (téléphone,
-          email, adresse).
-        </div>
+        <div className="text-sm font-extrabold">Règles du chat</div>
+        <ul className="mt-3 text-[13px] space-y-1">
+          <li>Respectez les autres joueurs.</li>
+          <li>Pas d'insultes ni harcèlement.</li>
+          <li>Pas de spam ni pub.</li>
+          <li>Pas d'infos personnelles (téléphone, email, adresse, paiement).</li>
+          <li>Utilisez "Signaler" en cas d'abus.</li>
+        </ul>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             type="button"
@@ -5050,17 +5246,187 @@ function handleTouchEnd() {
                 ? "bg-slate-800 border-slate-600 text-slate-100"
                 : "bg-gray-50 border-gray-200 text-slate-900"
             }`}
-            onClick={cancelChatSafety}
+            onClick={cancelChatRules}
+          >
+            Fermer
+          </button>
+          <button
+            type="button"
+            ref={chatRulesConfirmRef}
+            className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white"
+            onClick={confirmChatRules}
+          >
+            J'accepte
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const userMenuView = userMenu.open ? (
+    <div className="fixed inset-0 z-[9998]" onClick={closeUserMenu}>
+      <div
+        className={`fixed min-w-[170px] rounded-lg border px-2 py-2 text-xs shadow-lg ${
+          darkMode
+            ? "bg-slate-900 text-slate-100 border-slate-700"
+            : "bg-white text-slate-900 border-slate-200"
+        }`}
+        style={{ left: `${userMenu.left}px`, top: `${userMenu.top}px` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-1 pb-1 text-[11px] font-semibold opacity-70">
+          {userMenu.nick}
+        </div>
+        <button
+          type="button"
+          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+            darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
+          }`}
+          onClick={() => {
+            blockInstallId(userMenu.installId, userMenu.nick);
+            closeUserMenu();
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <line x1="5" y1="19" x2="19" y2="5" />
+          </svg>
+          Bloquer
+        </button>
+        <button
+          type="button"
+          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+            darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
+          }`}
+          onClick={() => {
+            openReportDialog({
+              installId: userMenu.installId,
+              nick: userMenu.nick,
+              messageId: userMenu.messageId,
+            });
+            closeUserMenu();
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 5v16" />
+            <path d="M4 5h12l-2 4 2 4H4" />
+          </svg>
+          Signaler
+        </button>
+        <button
+          type="button"
+          className={`w-full mt-1 px-2 py-1 rounded-md text-[11px] font-semibold ${
+            darkMode
+              ? "text-slate-300 hover:text-slate-100"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+          onClick={closeUserMenu}
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  const reportModal = reportDialog.open ? (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
+      onClick={closeReportDialog}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
+          darkMode
+            ? "bg-slate-900 text-slate-100 border-slate-600"
+            : "bg-white text-slate-900 border-slate-200"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-sm font-extrabold">Signaler</div>
+        <div className="mt-1 text-[11px] opacity-70">
+          {reportDialog.reportedNick || "Joueur"}
+        </div>
+        <div className="mt-3 grid gap-2">
+          {REPORT_REASONS.map((reason) => {
+            const selected = reportDialog.reason === reason;
+            return (
+              <button
+                key={reason}
+                type="button"
+                className={`px-3 py-2 rounded-lg border text-xs font-semibold text-left transition ${
+                  selected
+                    ? darkMode
+                      ? "bg-blue-600 border-blue-500 text-white"
+                      : "bg-blue-600 border-blue-500 text-white"
+                    : darkMode
+                    ? "bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                onClick={() =>
+                  setReportDialog((prev) => ({ ...prev, reason }))
+                }
+              >
+                {reason}
+              </button>
+            );
+          })}
+        </div>
+        {reportDialog.reason === "Autre" && (
+          <input
+            type="text"
+            maxLength={120}
+            value={reportDialog.details}
+            onChange={(e) =>
+              setReportDialog((prev) => ({ ...prev, details: e.target.value }))
+            }
+            className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs ${
+              darkMode
+                ? "bg-slate-800 border-slate-700 text-slate-100"
+                : "bg-white border-slate-200 text-slate-800"
+            }`}
+            placeholder="Précisez en quelques mots"
+          />
+        )}
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            className={`px-3 py-2 text-xs font-semibold rounded-lg border ${
+              darkMode
+                ? "bg-slate-800 border-slate-600 text-slate-100"
+                : "bg-gray-50 border-gray-200 text-slate-900"
+            }`}
+            onClick={closeReportDialog}
           >
             Annuler
           </button>
           <button
             type="button"
-            ref={chatSafetyConfirmRef}
-            className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white"
-            onClick={confirmChatSafety}
+            className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white disabled:opacity-50"
+            disabled={!reportDialog.reason}
+            onClick={submitReport}
           >
-            J'ai compris
+            Envoyer
           </button>
         </div>
       </div>
@@ -5097,7 +5463,7 @@ function handleTouchEnd() {
               <div className="mt-2 text-sm font-semibold">
                 {definitionModal.title &&
                 definitionModal.title !== definitionModal.word
-                  ? `${definitionModal.word} → ${definitionModal.title}`
+                  ? `${definitionModal.word} ? ${definitionModal.title}`
                   : definitionModal.word}
               </div>
               {(definitionModal.phraseGuess && definitionModal.matchedTitle) ||
@@ -5189,6 +5555,15 @@ function handleTouchEnd() {
           document.body
         )
       : null;
+
+  const chatOverlays = (
+    <>
+      {userMenuView}
+      {reportModal}
+      {chatRulesModal}
+      {definitionModalView}
+    </>
+  );
 
   if (!isLoggedIn) {
     return (
@@ -5319,8 +5694,7 @@ function handleTouchEnd() {
               </div>
             </div>
           </div>
-          {chatSafetyModal}
-          {definitionModalView}
+          {chatOverlays}
       </div>
       </div>
     );
@@ -5528,17 +5902,28 @@ function handleTouchEnd() {
           <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-bold text-center">Chat</h2>
-              <button
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className={`text-[11px] font-semibold ${
+                    darkMode ? "text-slate-300" : "text-slate-600"
+                  }`}
+                  onClick={() => setIsChatRulesOpen(true)}
+                >
+                  Règles
+                </button>
+                <button
                 type="button"
                 className={`text-[11px] font-semibold ${
                   darkMode ? "text-amber-300" : "text-blue-600"
                 }`}
-                onClick={() => setShowMutedList((prev) => !prev)}
+                onClick={() => setShowBlockedList((prev) => !prev)}
               >
-                Joueurs bloqués ({mutedCount})
+                Joueurs bloqués ({blockedCount})
               </button>
+              </div>
             </div>
-            {renderMutedListPanel()}
+            {renderBlockedListPanel()}
             <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
               {visibleMessages.map((msg, idx) => {
                 const count = visibleMessages.length;
@@ -5552,12 +5937,16 @@ function handleTouchEnd() {
                 opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
               }
 
-                const author = (msg.author || msg.nick || "Anonyme").trim();
-                const isYou = author === nickname.trim();
+                const author = (msg.nick || msg.author || "Anonyme").trim();
+                const authorInstallId =
+                  typeof msg.installId === "string" ? msg.installId : "";
+                const isYou = authorInstallId
+                  ? authorInstallId === installId
+                  : author === selfNick;
                 const isSystem = isSystemAuthor(author);
                 const isLast = msg.id === lastMessageId;
-                const canMute =
-                  !isSystem && normalizeChatNick(author) !== normalizedSelfNick;
+                const canOpenMenu =
+                  !isSystem && authorInstallId && authorInstallId !== installId;
 
                 return (
                 <div
@@ -5579,9 +5968,25 @@ function handleTouchEnd() {
                           isYou ? "bg-blue-50" : "bg-white",
                         ].join(" ")}
                       >
-                        <span className="font-semibold mr-1 text-black">
-                          {author} :
-                        </span>
+                        {canOpenMenu ? (
+                          <button
+                            type="button"
+                            className="font-semibold mr-1 text-black hover:underline"
+                            onClick={(e) =>
+                              openUserMenu(e, {
+                                nick: author,
+                                installId: authorInstallId,
+                                messageId: msg.id,
+                              })
+                            }
+                          >
+                            {author} :
+                          </button>
+                        ) : (
+                          <span className="font-semibold mr-1 text-black">
+                            {author} :
+                          </span>
+                        )}
                         <span className="text-black">{msg.text}</span>
                       </div>
                     )}
@@ -5596,7 +6001,8 @@ function handleTouchEnd() {
                   key={idx}
                   type="button"
                   onClick={() => submitChat(null, txt)}
-                  className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200"
+                  disabled={chatInputDisabled}
+                  className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {txt}
                 </button>
@@ -5620,8 +6026,9 @@ function handleTouchEnd() {
               data-autofill="off"
               aria-autocomplete="none"
               aria-label="Message du chat"
+                disabled={chatInputDisabled}
               className="flex-1 border rounded px-2 py-1 text-xs ios-input"
-                placeholder="écrire un message..."
+                placeholder={chatInputPlaceholder}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={handleChatInputKeyDown}
@@ -5629,7 +6036,7 @@ function handleTouchEnd() {
               <button
                 type="button"
                 className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
-                disabled={!chatInput.trim()}
+                disabled={!chatInput.trim() || chatInputDisabled}
                 onClick={() => submitChat(null)}
               >
                 Envoyer
@@ -5672,11 +6079,20 @@ function handleTouchEnd() {
                   <button
                     type="button"
                     className={`text-[11px] font-semibold ${
+                      darkMode ? "text-slate-300" : "text-slate-600"
+                    }`}
+                    onClick={() => setIsChatRulesOpen(true)}
+                  >
+                    Règles
+                  </button>
+                  <button
+                    type="button"
+                    className={`text-[11px] font-semibold ${
                       darkMode ? "text-amber-300" : "text-blue-600"
                     }`}
-                    onClick={() => setShowMutedList((prev) => !prev)}
+                    onClick={() => setShowBlockedList((prev) => !prev)}
                   >
-                    Joueurs bloqués ({mutedCount})
+                    Joueurs bloqués ({blockedCount})
                   </button>
                   <button
                     type="button"
@@ -5688,7 +6104,7 @@ function handleTouchEnd() {
                 </div>
               </div>
               <div className="flex flex-col h-[50vh] px-3 py-2 gap-2">
-                {renderMutedListPanel("mb-2")}
+                {renderBlockedListPanel("mb-2")}
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
                   {visibleMessages.length === 0 ? (
                     <div className="text-[11px] text-slate-400 text-center mt-4">
@@ -5696,12 +6112,17 @@ function handleTouchEnd() {
                     </div>
                   ) : (
                     [...visibleMessages].reverse().map((msg) => {
-                      const author = (msg.author || msg.nick || "Anonyme").trim();
-                      const isYou = author === selfNick;
+                      const author = (msg.nick || msg.author || "Anonyme").trim();
+                      const authorInstallId =
+                        typeof msg.installId === "string" ? msg.installId : "";
+                      const isYou = authorInstallId
+                        ? authorInstallId === installId
+                        : author === selfNick;
                       const isSystem = isSystemAuthor(author);
-                      const canMute =
+                      const canOpenMenu =
                         !isSystem &&
-                        normalizeChatNick(author) !== normalizedSelfNick;
+                        authorInstallId &&
+                        authorInstallId !== installId;
                       return (
                         <div
                           key={msg.id}
@@ -5718,19 +6139,26 @@ function handleTouchEnd() {
                         {isSystem ? (
                           <span>{msg.text}</span>
                         ) : (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold mr-1">{author}:</span>
-                            {canMute && (
-                              <button
-                                type="button"
-                                className="text-[10px] font-semibold text-amber-300"
-                                onClick={() => muteNick(author)}
-                              >
-                                Bloquer
-                              </button>
-                            )}
-                            <span>{msg.text}</span>
-                          </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {canOpenMenu ? (
+                                <button
+                                  type="button"
+                                  className="font-semibold mr-1 hover:underline"
+                                  onClick={(e) =>
+                                    openUserMenu(e, {
+                                      nick: author,
+                                      installId: authorInstallId,
+                                      messageId: msg.id,
+                                    })
+                                  }
+                                >
+                                  {author}:
+                                </button>
+                              ) : (
+                                <span className="font-semibold mr-1">{author}:</span>
+                              )}
+                              <span>{msg.text}</span>
+                            </div>
                         )}
                         </div>
                       );
@@ -5753,16 +6181,17 @@ function handleTouchEnd() {
                     data-autofill="off"
                     aria-autocomplete="none"
                     aria-label="Message du chat"
+                disabled={chatInputDisabled}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={handleChatInputKeyDown}
                     className="flex-1 border rounded px-2 py-1 text-xs ios-input"
-                    placeholder="écrire un message..."
+                    placeholder={chatInputPlaceholder}
                   />
                   <button
                     type="button"
                     className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
-                    disabled={!chatInput.trim()}
+                    disabled={!chatInput.trim() || chatInputDisabled}
                     onClick={() => submitChat(null)}
                   >
                     Envoyer
@@ -5772,8 +6201,7 @@ function handleTouchEnd() {
             </div>
           </div>
         )}
-          {chatSafetyModal}
-          {definitionModalView}
+          {chatOverlays}
       </div>
     );
   }
@@ -6413,11 +6841,20 @@ function handleTouchEnd() {
                     <button
                       type="button"
                       className={`text-[11px] font-semibold ${
+                        darkMode ? "text-slate-300" : "text-slate-600"
+                      }`}
+                      onClick={() => setIsChatRulesOpen(true)}
+                    >
+                      Règles
+                    </button>
+                    <button
+                      type="button"
+                      className={`text-[11px] font-semibold ${
                         darkMode ? "text-amber-300" : "text-blue-600"
                       }`}
-                      onClick={() => setShowMutedList((prev) => !prev)}
+                      onClick={() => setShowBlockedList((prev) => !prev)}
                     >
-                      Joueurs bloqués ({mutedCount})
+                      Joueurs bloqués ({blockedCount})
                     </button>
                     <button
                       type="button"
@@ -6433,7 +6870,7 @@ function handleTouchEnd() {
                   </div>
                 </div>
                 <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
-                  {renderMutedListPanel("mb-2")}
+                  {renderBlockedListPanel("mb-2")}
                   <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
                   {visibleMessages.length === 0 ? (
                     <div className="text-[11px] text-slate-400 text-center mt-4">
@@ -6441,12 +6878,17 @@ function handleTouchEnd() {
                     </div>
                   ) : (
                     [...visibleMessages].reverse().map((msg) => {
-                      const author = (msg.author || msg.nick || "Anonyme").trim();
-                      const isYou = author === selfNick;
+                      const author = (msg.nick || msg.author || "Anonyme").trim();
+                      const authorInstallId =
+                        typeof msg.installId === "string" ? msg.installId : "";
+                      const isYou = authorInstallId
+                        ? authorInstallId === installId
+                        : author === selfNick;
                       const isSystem = isSystemAuthor(author);
-                      const canMute =
+                      const canOpenMenu =
                         !isSystem &&
-                        normalizeChatNick(author) !== normalizedSelfNick;
+                        authorInstallId &&
+                        authorInstallId !== installId;
                       return (
                         <div
                           key={msg.id}
@@ -6464,15 +6906,22 @@ function handleTouchEnd() {
                             <span>{msg.text}</span>
                           ) : (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold mr-1">{author}:</span>
-                            {canMute && (
+                            {canOpenMenu ? (
                               <button
                                 type="button"
-                                className="text-[10px] font-semibold text-amber-300"
-                                onClick={() => muteNick(author)}
+                                className="font-semibold mr-1 hover:underline"
+                                onClick={(e) =>
+                                  openUserMenu(e, {
+                                    nick: author,
+                                    installId: authorInstallId,
+                                    messageId: msg.id,
+                                  })
+                                }
                               >
-                                Bloquer
+                                {author}:
                               </button>
+                            ) : (
+                              <span className="font-semibold mr-1">{author}:</span>
                             )}
                             <span>{msg.text}</span>
                           </div>
@@ -6499,18 +6948,19 @@ function handleTouchEnd() {
                       data-autofill="off"
                       aria-autocomplete="none"
                       aria-label="Message du chat"
+                disabled={chatInputDisabled}
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={handleChatInputKeyDown}
                       className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
-                      placeholder="écrire un message..."
+                      placeholder={chatInputPlaceholder}
                     />
                     <button
                       type="button"
                       className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
-                      disabled={!chatInput.trim()}
+                      disabled={!chatInput.trim() || chatInputDisabled}
                       onPointerDown={(e) => {
-                        if (!chatInput.trim()) return;
+                        if (!chatInput.trim() || chatInputDisabled) return;
                         e.preventDefault();
                         submitChat();
                         if (chatInputRef.current) {
@@ -6530,8 +6980,7 @@ function handleTouchEnd() {
               </div>
             </div>
           )}
-          {chatSafetyModal}
-          {definitionModalView}
+          {chatOverlays}
         </div>
       );
     }
@@ -6737,6 +7186,8 @@ function handleTouchEnd() {
             chatInput={chatInput}
             chatInputRef={chatInputRef}
             chatInputType={chatInputType}
+            chatInputDisabled={chatInputDisabled}
+            chatInputPlaceholder={chatInputPlaceholder}
             chatOverlayStyle={chatOverlayStyle}
           chatSheetStyle={chatSheetStyle}
           cycleChatHistory={cycleChatHistory}
@@ -6744,22 +7195,22 @@ function handleTouchEnd() {
           isChatOpenMobile={isChatOpenMobile}
           isChatClosing={isChatClosing}
           mobileChatUnreadCount={mobileChatUnreadCount}
-          mutedCount={mutedCount}
-          mutedNicks={mutedNicks}
-          normalizedSelfNick={normalizedSelfNick}
-          onMuteNick={muteNick}
-          onToggleMutedList={() => setShowMutedList((prev) => !prev)}
-          onUnmuteNick={unmuteNick}
+          blockedCount={blockedCount}
+          blockedEntries={blockedEntries}
+          onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
+          onUnblockInstallId={unblockInstallId}
           onOpenChat={requestOpenChat}
-          showMutedList={showMutedList}
+          onOpenRules={() => setIsChatRulesOpen(true)}
+          onOpenUserMenu={openUserMenu}
+          showBlockedList={showBlockedList}
           selfNick={selfNick}
+          selfInstallId={installId}
           setChatInput={setChatInput}
           setIsChatOpenMobile={closeChatPanel}
           submitChat={submitChat}
           visibleMessages={visibleMessages}
         />
-          {chatSafetyModal}
-          {definitionModalView}
+          {chatOverlays}
         {phase === "playing" && praiseFlash && (
           <div
             key={praiseFlash.id}
@@ -7089,18 +7540,43 @@ function handleTouchEnd() {
             <div className="flex flex-col gap-2 flex-1 min-h-0">
               <div className="text-sm font-semibold">Joueurs connectés</div>
               <div className="flex flex-wrap gap-2 flex-1 min-h-0 overflow-auto content-start items-start">
-                {(players.length ? players : [{ nick: "En attente..." }]).map((p) => (
-                  <span
-                    key={p.nick}
-                    className={`px-3 py-1 rounded-full text-xs border ${p.nick === selfNick
+                {(visiblePlayerList.length
+                  ? visiblePlayerList
+                  : [{ nick: "En attente..." }]).map((p) => {
+                  const canOpenMenu =
+                    p?.installId && p.installId !== installId && p.nick;
+                  const pillClass = `px-3 py-1 rounded-full text-xs border ${
+                    p.nick === selfNick
                       ? "bg-blue-50 border-blue-200 text-blue-800"
-                      : "bg-gray-50 border-gray-200 text-gray-700"}
-                    }`}
-                  >
-                    {p.nick}
-                    {renderMedals(p.nick)}
-                  </span>
-                ))}
+                      : "bg-gray-50 border-gray-200 text-gray-700"
+                  }`;
+                  const content = (
+                    <>
+                      {p.nick}
+                      {p.nick ? renderMedals(p.nick) : null}
+                    </>
+                  );
+                  return canOpenMenu ? (
+                    <button
+                      key={p.nick}
+                      type="button"
+                      className={`${pillClass} hover:underline`}
+                      onClick={(e) =>
+                        openUserMenu(e, {
+                          nick: p.nick,
+                          installId: p.installId,
+                          messageId: null,
+                        })
+                      }
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <span key={p.nick} className={pillClass}>
+                      {content}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -7528,17 +8004,28 @@ function handleTouchEnd() {
         >
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-bold text-center">Chat</h2>
-            <button
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className={`text-[11px] font-semibold ${
+                  darkMode ? "text-slate-300" : "text-slate-600"
+                }`}
+                onClick={() => setIsChatRulesOpen(true)}
+              >
+                Règles
+              </button>
+              <button
               type="button"
               className={`text-[11px] font-semibold ${
                 darkMode ? "text-amber-300" : "text-blue-600"
               }`}
-              onClick={() => setShowMutedList((prev) => !prev)}
+              onClick={() => setShowBlockedList((prev) => !prev)}
             >
-              Joueurs bloqués ({mutedCount})
+              Joueurs bloqués ({blockedCount})
             </button>
+            </div>
           </div>
-          {renderMutedListPanel()}
+          {renderBlockedListPanel()}
 
           <div
             ref={chatDesktopListRef}
@@ -7557,12 +8044,16 @@ function handleTouchEnd() {
                 opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
               }
 
-              const author = (msg.author || msg.nick || "Anonyme").trim();
-              const isYou = author === nickname.trim();
+              const author = (msg.nick || msg.author || "Anonyme").trim();
+              const authorInstallId =
+                typeof msg.installId === "string" ? msg.installId : "";
+              const isYou = authorInstallId
+                ? authorInstallId === installId
+                : author === selfNick;
               const isSystem = isSystemAuthor(author);
               const isLast = msg.id === lastMessageId;
-              const canMute =
-                !isSystem && normalizeChatNick(author) !== normalizedSelfNick;
+              const canOpenMenu =
+                !isSystem && authorInstallId && authorInstallId !== installId;
 
               return (
                 <div
@@ -7585,17 +8076,24 @@ function handleTouchEnd() {
                       ].join(" ")}
                     >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold mr-1 text-black">
-                          {author} :
-                        </span>
-                        {canMute && (
+                        {canOpenMenu ? (
                           <button
                             type="button"
-                            className="text-[10px] font-semibold text-amber-600"
-                            onClick={() => muteNick(author)}
+                            className="font-semibold mr-1 text-black hover:underline"
+                            onClick={(e) =>
+                              openUserMenu(e, {
+                                nick: author,
+                                installId: authorInstallId,
+                                messageId: msg.id,
+                              })
+                            }
                           >
-                            Bloquer
+                            {author} :
                           </button>
+                        ) : (
+                          <span className="font-semibold mr-1 text-black">
+                            {author} :
+                          </span>
                         )}
                         <span className="text-black">{msg.text}</span>
                       </div>
@@ -7612,7 +8110,8 @@ function handleTouchEnd() {
                 key={idx}
                 type="button"
                 onClick={() => submitChat(null, txt)}
-                className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200"
+                disabled={chatInputDisabled}
+                className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {txt}
               </button>
@@ -7636,8 +8135,9 @@ function handleTouchEnd() {
               data-autofill="off"
               aria-autocomplete="none"
               aria-label="Message du chat"
+                disabled={chatInputDisabled}
               className="flex-1 border rounded px-2 py-1 text-xs ios-input"
-              placeholder="écrire un message..."
+              placeholder={chatInputPlaceholder}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleChatInputKeyDown}
@@ -7645,7 +8145,7 @@ function handleTouchEnd() {
             <button
               type="button"
               className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
-              disabled={!chatInput.trim()}
+              disabled={!chatInput.trim() || chatInputDisabled}
               onClick={() => submitChat(null)}
             >
               Envoyer
@@ -7667,12 +8167,28 @@ function handleTouchEnd() {
           {praiseFlash.text}
         </div>
       )}
-          {chatSafetyModal}
-          {definitionModalView}
+          {chatOverlays}
 
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
