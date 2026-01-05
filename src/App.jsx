@@ -15,6 +15,7 @@ import {
   findBestPathForWord,
   neighbors,
   normalizeWord,
+  solveAll,
   summarizeBonuses,
   tileScore,
 } from "./components/gameLogic";
@@ -857,7 +858,9 @@ export default function App() {
   const [shakeGrid, setShakeGrid] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [lastWords, setLastWords] = useState([]);
+  const [showAllWords, setShowAllWords] = useState(false);
   const [sortMode, setSortMode] = useState("score");
+  const [allWords, setAllWords] = useState([]);
   const [toast, setToast] = useState(null);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
@@ -1064,6 +1067,7 @@ export default function App() {
   const chatHistoryRef = useRef([]);
   const chatHistoryIndexRef = useRef(-1);
   const solutionsRef = useRef(new Map());
+  const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
   const chatLastSentRef = useRef(0);
   const lastKeyboardInsetRef = useRef(0);
   const toastTimerRef = useRef(null);
@@ -3245,6 +3249,51 @@ function playTileStepSound(step) {
     };
   }, [phase, serverEndsAt, serverRoundDurationMs, board, dictionary, currentRoomId, roomId, specialScoreConfig]);
 
+  useEffect(() => {
+    if (phase !== "results") return;
+    if (!dictionary) return;
+    if (specialRound?.type === "target_long") return;
+    if (specialRound?.type === "target_score") return;
+    if (allWords.length > 0) return;
+    if (specialRound?.type === "monstrous" && !showAllWords) return;
+    if (upcomingSpecial?.type === "monstrous" && !showAllWords) return;
+
+    scheduleAllWordsCompute(board, {
+      updateBestRefs: true,
+      jobKey: `results-${roundId || Date.now()}`,
+      delayMs: 0,
+    });
+  }, [
+    phase,
+    board,
+    dictionary,
+    allWords.length,
+    specialScoreConfig,
+    specialRound,
+    upcomingSpecial,
+    showAllWords,
+    roundId,
+  ]);
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    if (specialRound?.type === "speed") return;
+    if (specialRound?.type === "monstrous") return;
+    if (specialRound?.type === "target_long") return;
+    if (specialRound?.type === "target_score") return;
+    if (!dictionary || dictionary.size === 0) return;
+    if (!board || board.length === 0) return;
+    if (accepted.length === 0) return;
+    if (allWords.length) return;
+    if (allWordsComputeRef.current.key) return;
+
+    const onlineRound = Boolean(roundId);
+    scheduleAllWordsCompute(board, {
+      updateBestRefs: !onlineRound,
+      jobKey: onlineRound ? `round-${roundId}` : `local-${Date.now()}`,
+    });
+  }, [phase, dictionary, board, roundId, specialRound, allWords.length, accepted.length]);
+
   // Attribue des médailles locales à la fin d'une manche
   // Médailles : gérées côté serveur (événement "medalsUpdate")
 
@@ -3393,6 +3442,8 @@ function playTileStepSound(step) {
     setAccepted([]);
     acceptedScoresRef.current = new Map();
     acceptedRef.current = [];
+    setAllWords([]);
+    setShowAllWords(false);
     setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
     if (false && specialInfo?.isSpecial) {
       setAnnouncements((prev) => [
@@ -3444,6 +3495,86 @@ function playTileStepSound(step) {
     setServerStatus("running");
     setConnectionError("");
     setPhase("playing");
+  }
+
+  function cancelAllWordsCompute() {
+    const job = allWordsComputeRef.current;
+    if (job.kickoff) {
+      clearTimeout(job.kickoff);
+      job.kickoff = null;
+    }
+    if (job.timer) {
+      clearTimeout(job.timer);
+      job.timer = null;
+    }
+    if (job.idle && typeof window !== "undefined" && window.cancelIdleCallback) {
+      try {
+        window.cancelIdleCallback(job.idle);
+      } catch (_) {}
+      job.idle = null;
+    }
+    job.key = null;
+  }
+
+  function buildAllWordsLocal(sourceBoard = board, opts = {}) {
+    const updateBestRefs = opts.updateBestRefs !== false;
+    if (!dictionary) return [];
+    if (!sourceBoard || sourceBoard.length === 0) return [];
+    const filtered = filterDictionary(dictionary, sourceBoard);
+    const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
+    solutionsRef.current = solved;
+
+    const all = [...solved.entries()].map(([word, path]) => ({
+      word,
+      pts: computeScore(word, path, sourceBoard, specialScoreConfig),
+      path,
+    }));
+
+    all.sort((a, b) => b.pts - a.pts);
+    const maxPts = all.length ? all[0].pts : 0;
+    const maxLen = all.length
+      ? Math.max(...all.map(({ word }) => normalizeWord(word).length))
+      : 0;
+    if (updateBestRefs) {
+      bestGridMaxRef.current = maxPts;
+      bestGridMaxLenRef.current = maxLen;
+    }
+    return all;
+  }
+
+  function scheduleAllWordsCompute(
+    sourceBoard,
+    { updateBestRefs = true, jobKey, delayMs } = {}
+  ) {
+    cancelAllWordsCompute();
+    if (!dictionary || dictionary.size === 0) return;
+    if (!sourceBoard || sourceBoard.length === 0) return;
+
+    const key = jobKey || `solve-${Date.now()}-${Math.random()}`;
+    allWordsComputeRef.current.key = key;
+
+    const run = () => {
+      if (allWordsComputeRef.current.key !== key) return;
+      const all = buildAllWordsLocal(sourceBoard, { updateBestRefs });
+      if (allWordsComputeRef.current.key !== key) return;
+      setAllWords(all);
+    };
+
+    const kickoff = () => {
+      if (typeof window !== "undefined" && window.requestIdleCallback) {
+        allWordsComputeRef.current.idle = window.requestIdleCallback(run, {
+          timeout: 15000,
+        });
+      } else {
+        allWordsComputeRef.current.timer = setTimeout(run, 600);
+      }
+    };
+
+    const kickoffDelay =
+      typeof delayMs === "number" && Number.isFinite(delayMs)
+        ? Math.max(0, Math.round(delayMs))
+        : 4500;
+    allWordsComputeRef.current.kickoff = setTimeout(kickoff, kickoffDelay);
   }
 
   function attemptSilentReconnect() {
@@ -3505,6 +3636,8 @@ function playTileStepSound(step) {
     setAccepted([]);
     acceptedScoresRef.current = new Map();
     acceptedRef.current = [];
+    setAllWords([]);
+    setShowAllWords(false);
     setSpecialRound(null);
     setUpcomingSpecial(null);
     setRoundStats(null);
@@ -3522,6 +3655,18 @@ function playTileStepSound(step) {
     setBreakCountdown(null);
     setTick(ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION);
     setPhase("playing");
+  }
+
+  function captureListPositions(list) {
+    const map = new Map();
+    list.forEach((entry) => {
+      const el = listItemRefs.current.get(entry.word);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        map.set(entry.word, rect);
+      }
+    });
+    prevPositionsRef.current = map;
   }
 
   function clearSelection() {
@@ -4373,6 +4518,7 @@ function handleTouchEnd() {
    playScoreSound(pts);
  }
  const isSpeedRound = specialRound?.type === "speed";
+ const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const allowScoreGobble = !isSpeedRound;
@@ -4380,7 +4526,7 @@ function handleTouchEnd() {
  const isGobbleNow =
    (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
    (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
- const allowLocalGobble = !(roundId && socket.connected && isLoggedIn);
+ const allowLocalGobble = !isBonusLetterRound;
 
   if (!isTargetRoundNow) {
    if (allowLocalGobble && isGobbleNow) {
@@ -4453,6 +4599,7 @@ function handleTouchEnd() {
  playScoreSound(pts);
  maybeAnnounceBestWord(nickname.trim() || "Moi", display || raw, pts);
  const isSpeedRound = specialRound?.type === "speed";
+ const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const allowScoreGobble = !isSpeedRound;
@@ -4460,8 +4607,9 @@ function handleTouchEnd() {
  const isGobbleNow =
   (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
   (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
+ const allowLocalGobble = !isBonusLetterRound;
 
- if (isGobbleNow) {
+ if (allowLocalGobble && isGobbleNow) {
   playGobbleVoice();
   triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
   triggerConfettiBurst("gobble");
@@ -4664,20 +4812,22 @@ function handleTouchEnd() {
     return map;
   }, [accepted, board, specialScoreConfig]);
 
+  const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
   const foundList = acceptedRef.current.map((word) => ({
     word,
     isFound: true,
     userPts: acceptedScoresRef.current.get(word),
-    bestPts: bestPtsByFoundWord.get(word),
+    bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
   }));
   const scoreForSort = (entry) =>
     typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
   foundList.sort((a, b) => scoreForSort(b) - scoreForSort(a));
-  const displayList = foundList.map((entry) => ({
+  const baseList = allWords.length > 0 ? allWords : foundList;
+  const displayList = baseList.map((entry) => ({
     word: entry.word,
-    isFound: true,
+    isFound: entry.isFound ?? acceptedRef.current.includes(entry.word),
     userPts: acceptedScoresRef.current.get(entry.word),
-    bestPts: entry.bestPts,
+    bestPts: typeof entry.pts === "number" ? entry.pts : entry.bestPts,
   }));
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
   const resultPillClass = darkMode
@@ -6962,6 +7112,48 @@ function handleTouchEnd() {
               <div className="flex-1 min-h-0 overflow-hidden transition-all duration-300">
                 {resultsTab === "mots" && !isTargetRound ? (
                   <div className="flex flex-col gap-2 h-full">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="text-slate-500 dark:text-slate-300">
+                        {showAllWords
+                          ? `Tous (${allWords.length})`
+                          : `Trouvés (${acceptedRef.current.length})`}
+                      </div>
+                      <div className="inline-flex rounded-full border border-gray-300 dark:border-slate-600 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            captureListPositions(displayList);
+                            setShowAllWords(false);
+                          }}
+                          className={`px-3 py-1 transition ${
+                            !showAllWords
+                              ? "bg-blue-600 text-white"
+                              : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300"
+                          }`}
+                        >
+                          Trouvés
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            captureListPositions(displayList);
+                            setShowAllWords(true);
+                          }}
+                          className={`px-3 py-1 transition ${
+                            showAllWords
+                              ? "bg-blue-600 text-white"
+                              : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300"
+                          }`}
+                        >
+                          Tous
+                        </button>
+                      </div>
+                    </div>
+                    {showAllWords && allWords.length === 0 ? (
+                      <div className="text-xs text-slate-500 dark:text-slate-300">
+                        Aucun mot (solveur non lancé)
+                      </div>
+                    ) : null}
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}>
                       {displayList.length === 0 ? (
                         <div className="flex items-center justify-center h-full text-xs text-slate-400">
@@ -6976,6 +7168,7 @@ function handleTouchEnd() {
                             const userPts = entry.userPts;
                             const showOpt =
                               isFound && typeof bestPts === "number" && typeof userPts === "number" && bestPts !== userPts;
+                            const visible = showAllWords || isFound;
                             return (
                               <li
                                 key={entry.word}
@@ -6993,17 +7186,18 @@ function handleTouchEnd() {
                                 }`}
                                 style={{
                                   transitionDuration: "220ms",
-                                  opacity: 1,
-                                  transform: "translateY(0)",
-                                  maxHeight: "48px",
+                                  opacity: visible ? 1 : 0,
+                                  transform: visible ? "translateY(0)" : "translateY(-8px)",
+                                  maxHeight: visible ? "48px" : "0px",
                                   paddingTop: "2px",
                                   paddingBottom: "2px",
                                   overflow: "hidden",
-                                  pointerEvents: "auto",
-                                  position: "relative",
+                                  pointerEvents: visible ? "auto" : "none",
+                                  position: visible ? "relative" : "absolute",
                                   top: 0,
                                   left: 0,
                                   width: "100%",
+                                  color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
                                 }}
                               >
                                 <span className="flex items-center gap-2">
