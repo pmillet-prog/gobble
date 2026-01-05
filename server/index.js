@@ -1517,6 +1517,7 @@ const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_F
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const MONSTROUS_POST_PREP_MIN_BREAK_MS = 5 * 1000;
+const DISCONNECT_GRACE_MS = 30 * 1000;
 
 const TARGET_LONG_MIN_LEN = 8;
 const TARGET_SCORE_MIN_PTS = 100;
@@ -1940,6 +1941,7 @@ function createRoomState(roomId, config) {
     roundCounter: 0,
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
+    pendingDisconnects: new Map(), // socket.id -> { timer, installId, nick }
   };
 }
 
@@ -2017,6 +2019,13 @@ function addMedal(room, nick, type) {
   } else {
     room.medalExpiry.delete(key);
   }
+}
+
+function clearPendingDisconnect(room, socketId) {
+  if (!room?.pendingDisconnects || !socketId) return;
+  const entry = room.pendingDisconnects.get(socketId);
+  if (entry?.timer) clearTimeout(entry.timer);
+  room.pendingDisconnects.delete(socketId);
 }
 
 function emitRoomsStats() {
@@ -3573,6 +3582,7 @@ io.on("connection", (socket) => {
     }
 
     if (resumeSocketId) {
+      clearPendingDisconnect(room, resumeSocketId);
       room.players.delete(resumeSocketId);
       const oldSocket = io.sockets.sockets.get(resumeSocketId);
       if (oldSocket) {
@@ -3807,17 +3817,30 @@ io.on("connection", (socket) => {
     const room = getRoom(socket.roomId);
     if (!room) return;
     const player = room.players.get(socket.id);
-    room.players.delete(socket.id);
     const now = Date.now();
     const medalKey = getMedalKeyForPlayer(player);
     if (medalKey && !medalKey.startsWith("install:")) {
       room.medalExpiry.set(medalKey, now + MEDALS_TTL_AFTER_DISCONNECT_MS);
     }
-    console.log("Client déconnecté", socket.id, player?.nick, "from", room.id);
-    emitPlayers(room);
-    emitMedals(room);
-    broadcastProvisionalRanking(room);
-    emitRoomsStats();
+    if (!player) return;
+    clearPendingDisconnect(room, socket.id);
+    const timer = setTimeout(() => {
+      clearPendingDisconnect(room, socket.id);
+      const current = room.players.get(socket.id);
+      if (current) {
+        room.players.delete(socket.id);
+        console.log("Client déconnecté", socket.id, current?.nick, "from", room.id);
+        emitPlayers(room);
+        emitMedals(room);
+        broadcastProvisionalRanking(room);
+        emitRoomsStats();
+      }
+    }, DISCONNECT_GRACE_MS);
+    room.pendingDisconnects.set(socket.id, {
+      timer,
+      installId: player.installId || null,
+      nick: player.nick || "",
+    });
   });
 });
 

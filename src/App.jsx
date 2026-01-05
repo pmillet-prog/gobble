@@ -797,6 +797,7 @@ const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 1000;
 const TARGET_HINT_FIRST_MS = 15 * 1000;
 const TARGET_HINT_STEP_MS = 15 * 1000;
+const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
@@ -1075,6 +1076,9 @@ export default function App() {
   const chatScrollLockRef = useRef(0);
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
+  const disconnectGraceTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(false);
+  const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
   const bestGridMaxRef = useRef(0);
@@ -2504,7 +2508,12 @@ function playTileStepSound(step) {
       source: "",
       url: "",
     });
-    fetch(`/api/define?word=${encodeURIComponent(clean)}`)
+    const forceFreshDefinition =
+      specialRound?.type === "target_long" || specialRound?.type === "target_score";
+    const definitionUrl = forceFreshDefinition
+      ? `/api/define?word=${encodeURIComponent(clean)}&nocache=1`
+      : `/api/define?word=${encodeURIComponent(clean)}`;
+    fetch(definitionUrl)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (requestId !== targetDefinitionRequestRef.current) return;
@@ -3046,28 +3055,45 @@ function playTileStepSound(step) {
     }
 
     function onDisconnect() {
-      setIsLoggedIn(false);
-      setRoundId(null);
-      setServerEndsAt(null);
-      setServerStatus("waiting");
-      setProvisionalRanking([]);
-      setFinalResults([]);
-      setConnectionError("Deconnecte du serveur, reessaie.");
-      setPlayers([]);
-      setMedals({});
-      setTournament(null);
-      setTournamentTotals({});
-      setTournamentRanking([]);
-      setTournamentRoundPoints({});
-      setTournamentSummary(null);
-      setTargetSummary(null);
-      setBreakKind(null);
-      setTournamentFinaleHoldUntil(null);
-      setSpecialHint(null);
-      setSpecialSolvedOverlay(null);
-      setFoundTargetThisRound(false);
-      setFoundTargetWord("");
-      setConfettiBurst(null);
+      if (disconnectGraceTimerRef.current) {
+        clearTimeout(disconnectGraceTimerRef.current);
+      }
+      const hardReset = () => {
+        setIsLoggedIn(false);
+        setRoundId(null);
+        setServerEndsAt(null);
+        setServerStatus("waiting");
+        setProvisionalRanking([]);
+        setFinalResults([]);
+        setConnectionError("Deconnecte du serveur, reessaie.");
+        setPlayers([]);
+        setMedals({});
+        setTournament(null);
+        setTournamentTotals({});
+        setTournamentRanking([]);
+        setTournamentRoundPoints({});
+        setTournamentSummary(null);
+        setTargetSummary(null);
+        setBreakKind(null);
+        setTournamentFinaleHoldUntil(null);
+        setSpecialHint(null);
+        setSpecialSolvedOverlay(null);
+        setFoundTargetThisRound(false);
+        setFoundTargetWord("");
+        setConfettiBurst(null);
+      };
+      if (!isLoggedIn) {
+        hardReset();
+        return;
+      }
+      setConnectionError("Reconnexion...");
+      attemptSilentReconnect();
+      disconnectGraceTimerRef.current = setTimeout(() => {
+        disconnectGraceTimerRef.current = null;
+        if (!socket.connected) {
+          hardReset();
+        }
+      }, DISCONNECT_GRACE_MS);
     }
 
     function onMedalsUpdate(payload) {
@@ -3148,7 +3174,7 @@ function playTileStepSound(step) {
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
     };
-  }, [roundId, nickname, currentRoomId, roomId]);
+  }, [roundId, nickname, currentRoomId, roomId, isLoggedIn]);
 
 
   useEffect(() => {
@@ -3274,6 +3300,7 @@ function playTileStepSound(step) {
     setIsConnecting(true);
     setLoginError("");
     setConnectionError("");
+    lastLoginPayloadRef.current = { nick, roomId };
 
     const attemptLogin = () => {
       socket.emit("login", { nick, roomId, installId }, (res) => {
@@ -3294,6 +3321,7 @@ function playTileStepSound(step) {
         }
 
         const joinedRoom = res?.roomId || roomId;
+        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
         setCurrentRoomId(joinedRoom);
         setRoomId(joinedRoom);
         const nextSize = getGridSizeForRoom(joinedRoom);
@@ -3416,6 +3444,43 @@ function playTileStepSound(step) {
     setServerStatus("running");
     setConnectionError("");
     setPhase("playing");
+  }
+
+  function attemptSilentReconnect() {
+    if (reconnectAttemptRef.current) return;
+    const payload = lastLoginPayloadRef.current || {};
+    const nick = (payload.nick || nickname || "").trim();
+    if (!nick) return;
+    const roomToUse = payload.roomId || roomId;
+    reconnectAttemptRef.current = true;
+    setConnectionError("Reconnexion...");
+    const finish = () => {
+      reconnectAttemptRef.current = false;
+    };
+    const doLogin = () => {
+      socket.emit("login", { nick, roomId: roomToUse, installId }, (res) => {
+        finish();
+        if (!res?.ok) return;
+        const joinedRoom = res?.roomId || roomToUse;
+        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
+        setCurrentRoomId(joinedRoom);
+        setRoomId(joinedRoom);
+        setIsLoggedIn(true);
+        setIsConnecting(false);
+        setLoginError("");
+        setConnectionError("");
+        if (disconnectGraceTimerRef.current) {
+          clearTimeout(disconnectGraceTimerRef.current);
+          disconnectGraceTimerRef.current = null;
+        }
+      });
+    };
+    if (socket.connected) {
+      doLogin();
+    } else {
+      socket.once("connect", doLogin);
+      socket.connect();
+    }
   }
 
 
