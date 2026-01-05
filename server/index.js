@@ -27,6 +27,10 @@ const DEFINE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFINE_NEGATIVE_TTL_MS = 10 * 60 * 1000;
 const WIKI_USER_AGENT = "Gobble/1.0 (https://gobble.fr; contact: contact@gobble.fr)";
 const defineCache = new Map();
+const SOLVE_CACHE_MAX = 160;
+const solveCache = new Map();
+const ANNOUNCEMENT_BATCH_MS = 220;
+const ANNOUNCEMENT_BATCH_MAX = 12;
 
 function sanitizeDefineWord(raw) {
   const rawWord = String(raw || "").trim();
@@ -75,11 +79,48 @@ function setCachedDefinition(wordKey, payload, ttlMs = DEFINE_CACHE_TTL_MS) {
   });
 }
 
+function buildSolveCacheKey(grid, special) {
+  if (!Array.isArray(grid) || grid.length === 0) return "";
+  const cells = [];
+  for (const cell of grid) {
+    const letter = cell?.letter ? String(cell.letter) : "";
+    const bonus = cell?.bonus ? String(cell.bonus) : "";
+    cells.push(bonus ? `${letter}:${bonus}` : letter);
+  }
+  if (!special) return cells.join("|");
+  const bonusLetter = special?.bonusLetter ? normalizeLetterKey(special.bonusLetter) : "";
+  const bonusLetterScore =
+    Number.isFinite(special?.bonusLetterScore) ? special.bonusLetterScore : "";
+  const disableBonuses = special?.disableBonuses ? 1 : 0;
+  return `${cells.join("|")}|${bonusLetter}|${bonusLetterScore}|${disableBonuses}`;
+}
+
+function solveGridCached(grid, dictionary, special = null) {
+  if (!dictionary) return new Map();
+  const key = buildSolveCacheKey(grid, special);
+  if (!key) return solveGrid(grid, dictionary, special);
+  const hit = solveCache.get(key);
+  if (hit) {
+    solveCache.delete(key);
+    solveCache.set(key, hit);
+    return hit;
+  }
+  const solved = solveGrid(grid, dictionary, special);
+  solveCache.set(key, solved);
+  if (solveCache.size > SOLVE_CACHE_MAX) {
+    const oldest = solveCache.keys().next().value;
+    if (oldest) solveCache.delete(oldest);
+  }
+  return solved;
+}
+
 function clipDefinition(rawText, maxLen = 600) {
   const text = String(rawText || "").trim();
   if (!text) return "";
-  if (text.length <= maxLen) return text;
-  let cut = text.slice(0, maxLen);
+  const sanitized = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  if (!sanitized) return "";
+  if (sanitized.length <= maxLen) return sanitized;
+  let cut = sanitized.slice(0, maxLen);
   const lastSentence = Math.max(
     cut.lastIndexOf(". "),
     cut.lastIndexOf("! "),
@@ -234,6 +275,26 @@ function extractFormOfHint(extract) {
   const conjugationHint = extractConjugationHint(normalized, rawBase);
   if (conjugationHint) return conjugationHint;
   const patterns = [
+    {
+      re: /\bmauvaise orthographe de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\bvariante orthographique de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\bgraphie alternative de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\borthographe de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
     {
       re: /\bfeminin pluriel de ([a-z'-]+)/,
       label: "Féminin pluriel probable de :",
@@ -908,6 +969,8 @@ app.get("/api/define", async (req, res) => {
           payload.participleBase = formOfHint.base;
           payload.participleLabel = formOfHint.label;
           payload.participleGuess = true;
+        } else if (formOfHint.kind === "orthography") {
+          // On affiche la définition de la forme correcte sans label.
         } else {
           payload.lemma = formOfHint.base;
           payload.lemmaLabel = formOfHint.label;
@@ -1378,6 +1441,8 @@ app.get("/api/define", async (req, res) => {
           payload.participleBase = hint.base;
           payload.participleLabel = hint.label;
           payload.participleGuess = true;
+        } else if (hint.kind === "orthography") {
+          // On affiche la définition de la forme correcte sans label.
         } else {
           payload.lemma = hint.base;
           payload.lemmaLabel = hint.label;
@@ -1461,7 +1526,7 @@ const TARGET_HINT_STEP_MS = 15 * 1000;
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
-// Dev-only: force alternance "mot en or" / "mot le plus long" pour tests.
+// Dev-only: force alternance "meilleur mot" / "mot le plus long" pour tests.
 // Active via env GOBBLE_FORCE_TARGET_SPECIALS=1/true/on ou NODE_ENV=development.
 const FORCE_TARGET_SPECIALS_LOCAL = (() => {
   const raw = String(process.env.GOBBLE_FORCE_TARGET_SPECIALS || "")
@@ -1761,8 +1826,8 @@ function buildTargetScoreTournamentPlan(tournamentRound, roomConfig) {
     ...base,
     isSpecial: true,
     type: "target_score",
-    label: "Mot en or",
-    description: `Trouve le mot en or (celui qui rapporte le plus de points, indice apres ${TARGET_HINT_FIRST_MS / 1000}s)`,
+    label: "Meilleur mot",
+    description: `Trouve le meilleur mot (celui qui rapporte le plus de points, indice apres ${TARGET_HINT_FIRST_MS / 1000}s)`,
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
 }
@@ -1861,8 +1926,8 @@ function createRoomState(roomId, config) {
     chatMessages: [],
     tournament: createTournamentState(config),
     lastTournamentSummary: null,
-    medals: new Map(), // nick -> { gold, silver, bronze }
-    medalExpiry: new Map(), // nick -> expiresAt
+    medals: new Map(), // medalKey -> { gold, silver, bronze }
+    medalExpiry: new Map(), // medalKey -> expiresAt
     bestScoreRecord: { pts: 0, players: new Set() },
     bestLengthRecord: { len: 0, players: new Set() },
     longestPossibleRecord: { len: 0, players: new Set() },
@@ -1912,31 +1977,46 @@ function emitPlayers(room) {
 
 function cleanupExpiredMedals(room) {
   const now = Date.now();
-  for (const [nick, expiresAt] of room.medalExpiry.entries()) {
+  for (const [key, expiresAt] of room.medalExpiry.entries()) {
     if (expiresAt > now) continue;
-    room.medalExpiry.delete(nick);
-    room.medals.delete(nick);
+    room.medalExpiry.delete(key);
+    room.medals.delete(key);
   }
 }
 
 function emitMedals(room) {
   cleanupExpiredMedals(room);
   const payload = {};
-  for (const [nick, counts] of room.medals.entries()) {
-    payload[nick] = counts;
+  for (const p of room.players.values()) {
+    const key = getMedalKeyForPlayer(p);
+    if (!key) continue;
+    const counts = room.medals.get(key);
+    if (!counts) continue;
+    payload[p.nick] = counts;
+  }
+  for (const [key, counts] of room.medals.entries()) {
+    if (!key.startsWith("nick:")) continue;
+    const nick = key.slice("nick:".length);
+    if (!payload[nick]) payload[nick] = counts;
   }
   io.to(room.id).emit("medalsUpdate", payload);
 }
 
 function addMedal(room, nick, type) {
   if (!room || !nick) return;
-  const current = room.medals.get(nick) || { gold: 0, silver: 0, bronze: 0 };
-  room.medals.set(nick, {
+  const key = getMedalKeyForNickLookup(room, nick);
+  if (!key) return;
+  const current = room.medals.get(key) || { gold: 0, silver: 0, bronze: 0 };
+  room.medals.set(key, {
     gold: Math.min(9999, current.gold + (type === "gold" ? 1 : 0)),
     silver: Math.min(9999, current.silver + (type === "silver" ? 1 : 0)),
     bronze: Math.min(9999, current.bronze + (type === "bronze" ? 1 : 0)),
   });
-  room.medalExpiry.delete(nick);
+  if (key.startsWith("install:")) {
+    room.medalExpiry.set(key, getNextMidnightTs());
+  } else {
+    room.medalExpiry.delete(key);
+  }
 }
 
 function emitRoomsStats() {
@@ -1988,13 +2068,41 @@ function pushChatMessage(room, message) {
   io.to(room.id).emit("chat:new", message);
 }
 
+function flushAnnouncements(room) {
+  if (!room?.announcementQueue || room.announcementQueue.length === 0) {
+    room.announcementTimer = null;
+    return;
+  }
+  const batch = room.announcementQueue.splice(0, room.announcementQueue.length);
+  room.announcementTimer = null;
+  if (batch.length === 1) {
+    io.to(room.id).emit("announcement", batch[0]);
+    return;
+  }
+  io.to(room.id).emit("announcements", batch);
+}
+
 function pushAnnouncement(room, payload) {
-  io.to(room.id).emit("announcement", {
+  if (!room) return;
+  const entry = {
     id: Date.now() + Math.random(),
     ts: Date.now(),
     roomId: room.id,
     ...payload,
-  });
+  };
+  if (!room.announcementQueue) room.announcementQueue = [];
+  room.announcementQueue.push(entry);
+  if (room.announcementQueue.length >= ANNOUNCEMENT_BATCH_MAX) {
+    if (room.announcementTimer) {
+      clearTimeout(room.announcementTimer);
+      room.announcementTimer = null;
+    }
+    flushAnnouncements(room);
+    return;
+  }
+  if (!room.announcementTimer) {
+    room.announcementTimer = setTimeout(() => flushAnnouncements(room), ANNOUNCEMENT_BATCH_MS);
+  }
 }
 
 function getFullRanking(room) {
@@ -2010,7 +2118,7 @@ function getFullRanking(room) {
 
 function computeBestPossible(grid, special = null) {
   if (!dictionary) return { maxLen: 0, maxPts: 0 };
-  const solved = solveGrid(grid, dictionary, special);
+  const solved = solveGridCached(grid, dictionary, special);
   let maxLen = 0;
   let maxPts = 0;
   for (const [word, data] of solved.entries()) {
@@ -2054,6 +2162,52 @@ function computeWordScoreForRound(round, norm, path, defaultPts) {
     return 0;
   }
   return defaultPts;
+}
+
+function buildTargetWordCellMap(word, path, grid) {
+  const map = [];
+  if (!word || !Array.isArray(path) || !Array.isArray(grid)) return map;
+  let pos = 0;
+  for (const idx of path) {
+    if (pos >= word.length) break;
+    const cell = grid[idx];
+    if (!cell) continue;
+    const label =
+      cell.letter === "Qu"
+        ? "qu"
+        : String(cell.letter || "").toLowerCase();
+    if (!label) continue;
+    const len = label.length;
+    for (let i = 0; i < len && pos + i < word.length; i++) {
+      map[pos + i] = idx;
+    }
+    pos += len;
+  }
+  return map;
+}
+
+function resolveTargetHintCells(room, revealed) {
+  if (!room?.currentRound) return [];
+  if (!Array.isArray(revealed) || revealed.length === 0) return [];
+  const { targetWord, targetPath, grid } = room.currentRound;
+  if (!targetWord || !Array.isArray(targetPath) || !Array.isArray(grid)) return [];
+  if (
+    !Array.isArray(room.currentRound.targetWordCellMap) ||
+    room.currentRound.targetWordCellMap.length !== targetWord.length
+  ) {
+    room.currentRound.targetWordCellMap = buildTargetWordCellMap(
+      targetWord,
+      targetPath,
+      grid
+    );
+  }
+  const map = room.currentRound.targetWordCellMap || [];
+  const cells = [];
+  for (const idx of revealed) {
+    const cellIndex = map[idx];
+    if (Number.isInteger(cellIndex)) cells.push(cellIndex);
+  }
+  return cells;
 }
 
 function submitWordForNick(room, { roundId, word, path, nick }) {
@@ -2152,7 +2306,6 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     if (
       specialType === "target_long" ||
       specialType === "target_score" ||
-      specialType === "bonus_letter" ||
       specialType === "speed" ||
       specialType === "monstrous"
     ) {
@@ -2212,7 +2365,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     return { ok: true, score: data.score, wordScore: wordPts };
   }
 
-  if (!isSpeedRound && !isBonusLetterRound && isMaxPossiblePts) {
+  if (!isSpeedRound && isMaxPossiblePts) {
     if (!room.bestPossibleScoreRecord.players.has(resolvedNick)) {
       room.bestPossibleScoreRecord.players.add(resolvedNick);
       room.bestPossibleScoreRecord.pts = maxPtsPossible;
@@ -2257,7 +2410,6 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
 
   if (
     !isSpeedRound &&
-    !isBonusLetterRound &&
     isMaxPossibleLen &&
     !room.longestPossibleRecord.players.has(resolvedNick)
   ) {
@@ -2334,7 +2486,7 @@ function analyzeGridQuality(grid, minWords = 0, opts = {}) {
     };
   }
 
-  const solved = solveGrid(grid, dictionary);
+  const solved = solveGridCached(grid, dictionary);
   let maxLen = 0;
   let maxPts = 0;
   let totalPts = 0;
@@ -2362,6 +2514,36 @@ function analyzeGridQuality(grid, minWords = 0, opts = {}) {
   };
 }
 
+function getNextMidnightTs(now = Date.now()) {
+  const d = new Date(now);
+  d.setHours(24, 0, 0, 0);
+  return d.getTime();
+}
+
+function getMedalKeyForInstallId(installId) {
+  const key = normalizeInstallId(installId);
+  return key ? `install:${key}` : null;
+}
+
+function getMedalKeyForNick(nick) {
+  const clean = typeof nick === "string" ? nick.trim() : "";
+  return clean ? `nick:${clean}` : null;
+}
+
+function getMedalKeyForPlayer(player) {
+  return getMedalKeyForInstallId(player?.installId) || getMedalKeyForNick(player?.nick);
+}
+
+function getMedalKeyForNickLookup(room, nick) {
+  if (!room || !nick) return null;
+  for (const p of room.players.values()) {
+    if (p.nick === nick) {
+      return getMedalKeyForInstallId(p.installId) || getMedalKeyForNick(p.nick);
+    }
+  }
+  return getMedalKeyForNick(nick);
+}
+
 async function prefetchDefinitionForWord(rawWord) {
   const { word } = sanitizeDefineWord(rawWord);
   if (!word) return;
@@ -2370,16 +2552,34 @@ async function prefetchDefinitionForWord(rawWord) {
   try {
     const summary = await lookupDefinitionForWord(word);
     if (!summary || !summary.extract) return;
+    let definition = summary.extract;
+    let title = summary.title || word;
+    let source = summary.source;
+    let url = summary.url;
+    const hint = extractFormOfHint(definition);
+    if (hint?.base) {
+      const base = await lookupDefinitionForWord(hint.base, { strict: true });
+      const baseHint =
+        base && typeof base.extract === "string"
+          ? extractFormOfHint(base.extract)
+          : null;
+      if (base && base.extract && !baseHint) {
+        definition = base.extract;
+        title = base.title || hint.base;
+        source = base.source;
+        url = base.url;
+      }
+    }
     setCachedDefinition(
       cacheKey,
       {
         ok: true,
         word,
-        title: summary.title || word,
-        definition: summary.extract,
-        extract: summary.extract,
-        source: summary.source,
-        url: summary.url,
+        title,
+        definition,
+        extract: definition,
+        source,
+        url,
       },
       DEFINE_CACHE_TTL_MS
     );
@@ -2556,7 +2756,9 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         if (w.length === maxLen) maxWords.push(w);
         if (maxWords.length > 1) return null;
       }
-      return { word: maxWords[0], length: maxLen };
+      const word = maxWords[0];
+      const path = solved.get(word)?.path || null;
+      return { word, length: maxLen, path };
     }
 
     if (type === "target_score") {
@@ -2572,7 +2774,9 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         if (pts === maxPts) maxWords.push(w);
         if (maxWords.length > 1) return null;
       }
-      return { word: maxWords[0], pts: maxPts };
+      const word = maxWords[0];
+      const path = solved.get(word)?.path || null;
+      return { word, pts: maxPts, path };
     }
 
     return null;
@@ -2608,6 +2812,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
 
     let targetWord = null;
     let targetLength = null;
+    let targetPath = null;
     let bonusLetter = null;
     let solved = null;
     if (
@@ -2616,7 +2821,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         roundPlan?.type === "target_score" ||
         roundPlan?.type === "bonus_letter")
     ) {
-      solved = solveGrid(grid, dictionary);
+      solved = solveGridCached(grid, dictionary);
     }
 
     if (solved && (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")) {
@@ -2624,8 +2829,17 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
       if (target?.word) {
         targetWord = target.word;
         targetLength = target.length || target.word.length;
+        targetPath = Array.isArray(target.path) ? target.path : null;
       }
       quality.ok = quality.ok && !!targetWord;
+    }
+    if (
+      targetWord &&
+      (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")
+    ) {
+      setTimeout(() => {
+        prefetchDefinitionForWord(targetWord).catch(() => {});
+      }, 0);
     }
 
     if (solved && roundPlan?.type === "bonus_letter") {
@@ -2643,7 +2857,15 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         }
       : roundPlan;
 
-    const candidate = { grid, quality, plan: planForRound, roundNumber, targetWord, targetLength };
+    const candidate = {
+      grid,
+      quality,
+      plan: planForRound,
+      roundNumber,
+      targetWord,
+      targetLength,
+      targetPath,
+    };
     fallbackCandidate = candidate;
     if (needsBonusLetter && !planForRound?.bonusLetter) {
       continue;
@@ -2753,6 +2975,8 @@ function startRoundForRoom(room) {
     tournamentRound,
     targetWord: prepared?.targetWord || null,
     targetLength: prepared?.targetLength || null,
+    targetPath: prepared?.targetPath || null,
+    targetWordCellMap: null,
     targetRevealed: new Set(),
     targetSolvedBy: null,
     gobbles: new Map(),
@@ -2805,6 +3029,7 @@ function startRoundForRoom(room) {
     gridSize: room.config.gridSize,
     durationMs: room.currentRound.durationMs,
     endsAt: room.currentRound.endsAt,
+    targetLength: room.currentRound.targetLength || null,
     special: planUsed?.isSpecial ? planUsed : null,
     gridQuality: quality
       ? {
@@ -2877,16 +3102,23 @@ function startRoundForRoom(room) {
       if (!room.currentRound || room.currentRound.id !== roundId) return;
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
+      if (revealed.size === 0 && word) {
+        const idx = Math.floor(Math.random() * word.length);
+        revealed.add(idx);
+        room.currentRound.targetRevealed = revealed;
+      }
       const chars = word.split("");
       const pattern = chars
         .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
+      const revealCells = resolveTargetHintCells(room, Array.from(revealed));
       io.to(room.id).emit("specialHint", {
         roomId: room.id,
         roundId,
         kind: planUsed.type,
         length: chars.length,
         pattern,
+        revealCells,
       });
     };
 
@@ -3086,6 +3318,17 @@ function endRoundForRoom(room) {
       word: room.currentRound.targetWord || "",
       foundOrder,
     };
+    if (targetSummary.word) {
+      const cached = getCachedDefinition(targetSummary.word.toLowerCase());
+      const cachedDef = cached?.definition || cached?.extract || "";
+      if (cachedDef) {
+        targetSummary.definition = cachedDef;
+        targetSummary.definitionSource = cached?.source || "";
+        targetSummary.definitionUrl = cached?.url || "";
+        targetSummary.definitionTitle =
+          cached?.title || cached?.word || targetSummary.word;
+      }
+    }
     const foundMeta = new Map();
     foundList.forEach((entry, idx) => {
       const points = (TOURNAMENT_POINTS[idx] ?? 0) * targetPointsMultiplier;
@@ -3317,16 +3560,31 @@ io.on("connection", (socket) => {
     }
 
     const now = Date.now();
-    for (const p of room.players.values()) {
-      if (p.nick === trimmed) {
-        cb?.({ ok: false, error: "pseudo_taken" });
-        return;
+    let resumeSocketId = null;
+    for (const [socketId, p] of room.players.entries()) {
+      if (p.nick !== trimmed) continue;
+      const sameInstall = normalizeInstallId(p.installId) === installId;
+      if (sameInstall) {
+        resumeSocketId = socketId;
+        break;
+      }
+      cb?.({ ok: false, error: "pseudo_taken" });
+      return;
+    }
+
+    if (resumeSocketId) {
+      room.players.delete(resumeSocketId);
+      const oldSocket = io.sockets.sockets.get(resumeSocketId);
+      if (oldSocket) {
+        try {
+          oldSocket.leave(room.id);
+        } catch (_) {}
+        oldSocket.disconnect(true);
       }
     }
 
     // Réservation de pseudo désactivée (trop gênant sur mobile lors des retours d'appli)
     cleanupExpiredMedals(room);
-    room.medalExpiry.delete(trimmed);
 
     room.players.set(socket.id, { nick: trimmed, token: token || null, installId });
     socket.data.installId = installId;
@@ -3365,6 +3623,7 @@ io.on("connection", (socket) => {
         gridSize: room.config.gridSize,
         durationMs: room.currentRound.durationMs,
         endsAt: room.currentRound.endsAt,
+        targetLength: room.currentRound.targetLength || null,
         special: room.currentRound.special?.isSpecial ? room.currentRound.special : null,
         gridQuality: currentQuality
           ? {
@@ -3401,20 +3660,21 @@ io.on("connection", (socket) => {
           (room.currentRound.durationMs || room.config.durationMs || 0);
         const elapsed = Date.now() - startedAt;
         if (elapsed >= TARGET_HINT_FIRST_MS) {
-          const word = room.currentRound.targetWord || "";
-          const revealed = room.currentRound.targetRevealed || new Set();
-          const chars = word.split("");
-          const pattern = chars
-            .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
-            .join(" ");
-          socket.emit("specialHint", {
-            roomId: room.id,
-            roundId: room.currentRound.id,
-            kind: specialType,
-            length: chars.length,
-            pattern,
-          });
-        }
+      const word = room.currentRound.targetWord || "";
+      const revealed = room.currentRound.targetRevealed || new Set();
+      const chars = word.split("");
+      const pattern = chars
+        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
+        .join(" ");
+      socket.emit("specialHint", {
+        roomId: room.id,
+        roundId: room.currentRound.id,
+        kind: specialType,
+        length: chars.length,
+        pattern,
+        revealCells: resolveTargetHintCells(room, Array.from(revealed)),
+      });
+    }
       }
       broadcastProvisionalRanking(room);
     } else if (room.breakState && typeof room.breakState.nextStartAt === "number") {
@@ -3549,8 +3809,9 @@ io.on("connection", (socket) => {
     const player = room.players.get(socket.id);
     room.players.delete(socket.id);
     const now = Date.now();
-    if (player?.nick) {
-      room.medalExpiry.set(player.nick, now + MEDALS_TTL_AFTER_DISCONNECT_MS);
+    const medalKey = getMedalKeyForPlayer(player);
+    if (medalKey && !medalKey.startsWith("install:")) {
+      room.medalExpiry.set(medalKey, now + MEDALS_TTL_AFTER_DISCONNECT_MS);
     }
     console.log("Client déconnecté", socket.id, player?.nick, "from", room.id);
     emitPlayers(room);

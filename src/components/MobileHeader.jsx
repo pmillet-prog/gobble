@@ -6,7 +6,6 @@ export default function MobileHeader({
   darkMode,
   gridSize,
   headerRef,
-  isFullscreen,
   isMuted,
   isTargetRound,
   phase,
@@ -18,22 +17,17 @@ export default function MobileHeader({
   setShowHelp,
   showHelpButton = false,
   tournament,
-  toggleFullscreen,
 }) {
-  const fullscreenStyle = isFullscreen
-    ? {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 60,
-      }
-    : null;
+  const headerStyle = {
+    position: "sticky",
+    top: "env(safe-area-inset-top)",
+    zIndex: 30,
+  };
   return (
     <div
       ref={headerRef}
       className="px-3 pt-2 pb-1 border-b border-slate-200/70 dark:border-slate-700/70"
-      style={fullscreenStyle || undefined}
+      style={headerStyle}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
@@ -123,41 +117,6 @@ export default function MobileHeader({
               )}
               <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
             </button>
-            <button
-              onClick={toggleFullscreen}
-              className="px-2 py-1 rounded-lg border text-[11px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-              type="button"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                {isFullscreen ? (
-                  <>
-                    <path d="M9 9H5V5" />
-                    <path d="M3 10L10 3" />
-                    <path d="M15 15h4v4" />
-                    <path d="m14 21 7-7" />
-                  </>
-                ) : (
-                  <>
-                    <path d="M9 3H5a2 2 0 0 0-2 2v4" />
-                    <path d="M3 3l6 6" />
-                    <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
-                    <path d="m21 21-6-6" />
-                  </>
-                )}
-              </svg>
-              <span className="sr-only">
-                {isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
-              </span>
-            </button>
             {showHelpButton && (
               <button
                 onClick={() => setShowHelp((v) => !v)}
@@ -173,3 +132,4 @@ export default function MobileHeader({
     </div>
   );
 }
+

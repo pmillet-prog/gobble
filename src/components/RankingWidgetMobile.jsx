@@ -319,7 +319,7 @@ export function NamesWindowMobile({ fullRanking, displayRank, selfNick }) {
   );
 }
 
-export default function RankingWidgetMobile({
+function RankingWidgetMobile({
   fullRanking,
   selfNick,
   darkMode,
@@ -1050,4 +1050,6 @@ export default function RankingWidgetMobile({
     </div>
   );
 }
+
+export default React.memo(RankingWidgetMobile);
 

@@ -1,5 +1,38 @@
 import { solveGrid } from "../../shared/gameLogic.js";
 
+const SOLVE_CACHE_MAX = 120;
+const solveCache = new Map();
+
+function buildSolveCacheKey(grid) {
+  if (!Array.isArray(grid) || grid.length === 0) return "";
+  const cells = [];
+  for (const cell of grid) {
+    const letter = cell?.letter ? String(cell.letter) : "";
+    const bonus = cell?.bonus ? String(cell.bonus) : "";
+    cells.push(bonus ? `${letter}:${bonus}` : letter);
+  }
+  return cells.join("|");
+}
+
+function solveGridCached(grid, dictionary) {
+  if (!dictionary) return new Map();
+  const key = buildSolveCacheKey(grid);
+  if (!key) return solveGrid(grid, dictionary);
+  const hit = solveCache.get(key);
+  if (hit) {
+    solveCache.delete(key);
+    solveCache.set(key, hit);
+    return hit;
+  }
+  const solved = solveGrid(grid, dictionary);
+  solveCache.set(key, solved);
+  if (solveCache.size > SOLVE_CACHE_MAX) {
+    const oldest = solveCache.keys().next().value;
+    if (oldest) solveCache.delete(oldest);
+  }
+  return solved;
+}
+
 export const MAX_WORDS_PER_BOT_PER_ROUND = 220;
 const BOT_ROTATION_MINUTES = 60;
 
@@ -636,7 +669,7 @@ class BotManager {
     const round = room.currentRound;
     if (!round) return;
 
-    const solutions = solveGrid(round.grid, this.dictionary);
+    const solutions = solveGridCached(round.grid, this.dictionary);
     const now = Date.now();
     const timeBudget = Math.max(1500, round.endsAt - now - 500);
     const totalTargetSubmissions = room?.config?.gridSize === 5 ? 1050 : 900;

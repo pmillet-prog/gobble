@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function MobileGrid({
+function MobileGrid({
   board,
   BONUS_CLASSES,
   bonusLetterKey,
@@ -9,12 +9,15 @@ export default function MobileGrid({
   gridRef,
   gridShake,
   gridSize,
+  gridRotationTurns,
   handleMouseDown,
   handleMouseMove,
   handleMouseUp,
   handleTouchEnd,
   handleTouchMove,
   handleTouchStart,
+  hintCellSet,
+  hintOutlineCellSet,
   isMobileLayout,
   lightGridSurfaceStyle,
   MOBILE_LAYOUT_MAX_WIDTH,
@@ -30,6 +33,27 @@ export default function MobileGrid({
   tick,
   usedSet,
 }) {
+  const normalizeRotationTurns = (turns) => {
+    if (!Number.isFinite(turns)) return 0;
+    const mod = turns % 4;
+    return mod < 0 ? mod + 4 : mod;
+  };
+  const rotateIndexByTurns = (index, size, turns) => {
+    if (!Number.isInteger(index) || !Number.isInteger(size) || size <= 0) {
+      return index;
+    }
+    const t = normalizeRotationTurns(turns);
+    if (t === 0) return index;
+    const row = Math.floor(index / size);
+    const col = index % size;
+    if (t === 1) return col * size + (size - 1 - row);
+    if (t === 2) return (size - 1 - row) * size + (size - 1 - col);
+    return (size - 1 - col) * size + row;
+  };
+  const mapDisplayToBoardIndex = (displayIndex) => {
+    const t = normalizeRotationTurns(gridRotationTurns);
+    return rotateIndexByTurns(displayIndex, gridSize, (4 - t) % 4);
+  };
   return (
     <div
       className="flex justify-center items-center flex-shrink-0 w-full"
@@ -57,10 +81,14 @@ export default function MobileGrid({
         onMouseMove={handleMouseMove}
         onTouchMove={handleTouchMove}
       >
-        {board.map((cell, i) => {
+        {board.map((_, displayIndex) => {
+          const boardIndex = mapDisplayToBoardIndex(displayIndex);
+          const cell = board[boardIndex] || { letter: "?", bonus: null };
           const { letter, bonus } = cell;
           const displayBonus = normalizeBonusLabel(bonus);
-          const isUsed = usedSet.has(i);
+          const isUsed = usedSet.has(boardIndex);
+          const isHint = hintCellSet?.has?.(boardIndex);
+          const isHintOutline = hintOutlineCellSet?.has?.(boardIndex);
           const isBonusLetterTile =
             bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
           const letterPts = isBonusLetterTile
@@ -72,14 +100,16 @@ export default function MobileGrid({
             ? BONUS_CLASSES[displayBonus]
             : "bg-orange-200 border-orange-500 border-2";
           const highlightClass = isUsed ? "tile-used" : "";
+          const hintClass = isHint ? "tile-hint" : "";
+          const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
           const showBonusBadge = displayBonus && !bonusLetterKey;
 
           return (
             <button
-              key={i}
-              ref={(el) => (tileRefs.current[i] = el)}
-              onMouseDown={() => handleMouseDown(i)}
-              onTouchStart={(e) => handleTouchStart(e, i)}
+              key={displayIndex}
+              ref={(el) => (tileRefs.current[boardIndex] = el)}
+              onMouseDown={() => handleMouseDown(boardIndex)}
+              onTouchStart={(e) => handleTouchStart(e, boardIndex)}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onTouchCancel={handleTouchEnd}
@@ -91,13 +121,19 @@ export default function MobileGrid({
                   : "w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] text-xl",
                 bonusClass,
                 highlightClass,
+                hintClass,
+                hintOutlineClass,
               ]
                 .filter(Boolean)
                 .join(" ")}
               style={
                 isMobileLayout
-                  ? { aspectRatio: "1 / 1", fontSize: `${mobileTileFontPx}px` }
-                  : undefined
+                  ? {
+                      aspectRatio: "1 / 1",
+                      fontSize: `${mobileTileFontPx}px`,
+                      willChange: "transform",
+                    }
+                  : { willChange: "transform" }
               }
             >
               <span className="tile-letter">{letter}</span>
@@ -140,3 +176,5 @@ export default function MobileGrid({
     </div>
   );
 }
+
+export default React.memo(MobileGrid);

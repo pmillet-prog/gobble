@@ -82,7 +82,7 @@ const FALLBACK_VISIBLE = 18; // limite de secours pour éviter l'inflation du DO
 const ROW_ESTIMATE = 17; // hauteur approx. d'une ligne (text-[11px] + leading-tight)
 const GAP_ESTIMATE = 4; // gap-1 en Tailwind
 
-export default function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
+function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
   const color = darkMode ? "text-slate-200" : "text-slate-800";
   const listRef = useRef(null);
   const [maxVisible, setMaxVisible] = useState(FALLBACK_VISIBLE);
@@ -201,3 +201,5 @@ export default function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) 
     </div>
   );
 }
+
+export default React.memo(LiveFeed);

@@ -42,15 +42,13 @@ function MobileChatWidget({
     return simplified === "system" || simplified === "systeme";
   };
   const isChatVisible = isChatOpenMobile || isChatClosing;
-  const animMs = Number.isFinite(chatAnimationMs) ? chatAnimationMs : 200;
+  const animMs = Number.isFinite(chatAnimationMs) ? chatAnimationMs : 750;
   const overlayAnimationStyle = {
     animation: isChatClosing
       ? `chatOverlayOut ${animMs}ms ease forwards`
       : `chatOverlayIn ${animMs}ms ease`,
   };
-  const sheetWrapStyle = {};
-  const sheetStyle = {
-    ...(chatSheetStyle || {}),
+  const sheetAnimationStyle = {
     animation: isChatClosing
       ? `chatSheetOut ${animMs}ms ease forwards`
       : `chatSheetIn ${animMs}ms ease`,
@@ -90,7 +88,7 @@ function MobileChatWidget({
 
       {isChatVisible && (
         <div
-          className={`fixed left-0 right-0 top-0 z-40 flex items-end justify-center bg-black/40 ${
+          className={`fixed inset-0 z-40 flex items-end justify-center bg-black/50 ${
             hasKeyboardInset ? "" : "chat-safe-bottom"
           }`}
           style={{
@@ -99,15 +97,14 @@ function MobileChatWidget({
             ...overlayAnimationStyle,
           }}
         >
-          <div className="w-full" style={sheetWrapStyle}>
-            <div
-              className={`w-full rounded-t-2xl border-t flex flex-col ${
-                darkMode
-                  ? "bg-slate-900/90 text-slate-100 border-slate-700"
-                  : "bg-white/90 text-slate-900 border-slate-200"
-              }`}
-              style={sheetStyle}
-            >
+          <div
+            className={`w-full rounded-t-2xl border-t flex flex-col ${
+              darkMode
+                ? "bg-slate-900/95 text-slate-100 border-slate-700"
+                : "bg-white/95 text-slate-900 border-slate-200"
+            }`}
+            style={{ ...(chatSheetStyle || {}), ...sheetAnimationStyle }}
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
               <div className="font-extrabold text-base">Chat</div>
               <div className="flex items-center gap-2">
@@ -177,9 +174,9 @@ function MobileChatWidget({
                   )}
                 </div>
               )}
-              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-sm">
+              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-xs">
                 {visibleMessages.length === 0 ? (
-                  <div className="text-sm text-slate-400 text-center mt-4">
+                  <div className="text-[11px] text-slate-400 text-center mt-4">
                     Aucun message pour l'instant.
                   </div>
                 ) : (
@@ -200,7 +197,7 @@ function MobileChatWidget({
                         key={msg.id}
                         className={
                           isSystem
-                            ? "px-2 py-0.5 text-sm italic text-orange-700 dark:text-amber-300 self-start"
+                            ? "px-2 py-0.5 text-[0.65rem] italic text-orange-700 dark:text-amber-300 self-start"
                             : `px-2 py-1 rounded-lg ${
                                 isYou
                                   ? "bg-blue-600 text-white self-end"
@@ -260,12 +257,12 @@ function MobileChatWidget({
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={handleChatInputKeyDown}
-                  className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
+                  className="flex-1 border rounded px-2 py-1 text-xs ios-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
                   placeholder={chatInputPlaceholder}
                 />
                 <button
                   type="button"
-                  className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                  className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
                   disabled={!chatInput.trim() || chatInputDisabled}
                   onPointerDown={(e) => {
                     if (!chatInput.trim() || chatInputDisabled) return;
@@ -286,7 +283,6 @@ function MobileChatWidget({
               </div>
             </div>
           </div>
-          </div>
         </div>
       )}
     </>
@@ -294,3 +290,14 @@ function MobileChatWidget({
 }
 
 export default React.memo(MobileChatWidget);
+
+
+
+
+
+
+
+
+
+
+

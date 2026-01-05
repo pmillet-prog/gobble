@@ -15,6 +15,7 @@ import {
   findBestPathForWord,
   neighbors,
   normalizeWord,
+  solveAll,
   summarizeBonuses,
   tileScore,
 } from "./components/gameLogic";
@@ -23,6 +24,7 @@ import { generateGrid } from "./components/gridGeneration";
 
 const ROOM_OPTIONS = {
   "room-4x4": { label: "Grille 4x4", gridSize: 4, duration: 120, breakSeconds: 45 },
+  "room-5x5": { label: "Grille 5x5", gridSize: 5, duration: 120, breakSeconds: 45 },
 };
 
 const DEFAULT_DURATION = 120;
@@ -34,8 +36,7 @@ const FINAL_ROUND_RESULTS_SECONDS = 30;
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
 const MAIN_GRID_HEIGHT = "clamp(520px, 82vh, 880px)";
-const KEYBOARD_INSET_THRESHOLD_PX = 80;
-const CHAT_SHEET_HEIGHT_RATIO = 0.8;
+const FULLSCREEN_HEADER_TOP_OFFSET_PX = 20;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
@@ -53,7 +54,6 @@ const BASE_TILE_PX = 56;
 const BASE_GAP_PX = 8; // gap-2 de référence
 const BASE_GAP_RATIO = BASE_GAP_PX / BASE_TILE_PX; // ~0.14 pour conserver les proportions
 const MIN_TILE_SIZE = 40; // garde une lisibilité minimale
-const GRID_ROTATE_ANIM_MS = 820;
 const DARK_ROW_TEXT = "#e5e7eb";
 const DARK_DIVIDER_COLOR = "#1f2937";
 const DARK_WORD_INACTIVE = "#e2e8f0";
@@ -64,16 +64,9 @@ function getGridSizeForRoom(roomKey) {
 
 function getViewportSize() {
   if (typeof window === "undefined") return { width: 0, height: 0 };
-  const width = Math.round(
-    window.innerWidth ||
-      (typeof document !== "undefined" ? document.documentElement?.clientWidth : 0) ||
-      0
-  );
-  const height = Math.round(
-    window.innerHeight ||
-      (typeof document !== "undefined" ? document.documentElement?.clientHeight : 0) ||
-      0
-  );
+  const vv = window.visualViewport;
+  const width = Math.round(vv?.width || window.innerWidth || 0);
+  const height = Math.round(vv?.height || window.innerHeight || 0);
   return { width, height };
 }
 
@@ -129,30 +122,6 @@ function clampValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function normalizeRotationTurns(turns) {
-  if (!Number.isFinite(turns)) return 0;
-  const mod = turns % 4;
-  return mod < 0 ? mod + 4 : mod;
-}
-
-function rotateIndexByTurns(index, size, turns) {
-  if (!Number.isInteger(index) || !Number.isInteger(size) || size <= 0) {
-    return index;
-  }
-  const t = normalizeRotationTurns(turns);
-  if (t === 0) return index;
-  const row = Math.floor(index / size);
-  const col = index % size;
-  if (t === 1) return col * size + (size - 1 - row);
-  if (t === 2) return (size - 1 - row) * size + (size - 1 - col);
-  return (size - 1 - col) * size + row;
-}
-
-function mapDisplayToBoardIndex(displayIndex, size, turns) {
-  const t = normalizeRotationTurns(turns);
-  return rotateIndexByTurns(displayIndex, size, (4 - t) % 4);
-}
-
 function normalizeBonusLabel(bonus) {
   if (bonus === "W2") return "M2";
   if (bonus === "W3") return "M3";
@@ -175,11 +144,6 @@ function buildCompletedTargetPattern(pattern, word) {
     return parts.map((part, idx) => (part === "_" ? letters[idx] : part)).join(" ");
   }
   return letters.join(" ");
-}
-
-function buildTargetBlankPattern(length) {
-  if (!Number.isFinite(length) || length <= 0) return "";
-  return Array.from({ length }).map(() => "_").join(" ");
 }
 
 function isSystemAuthor(rawAuthor) {
@@ -218,10 +182,6 @@ body {
   font-size: 16px;
   line-height: 1.2;
 }
-.chat-input {
-  font-size: 18px;
-  line-height: 1.35;
-}
 
 @media (max-width: 520px) {
   body {
@@ -257,13 +217,13 @@ body {
 }
 
 @keyframes chatSheetIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 @keyframes chatSheetOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
 }
 
 @keyframes chatOverlayIn {
@@ -595,15 +555,23 @@ body.theme-dark textarea::placeholder {
   pointer-events: none;
 }
 
-@keyframes praiseDrift {
-  0% { transform: translate(-50%, -50%) scale(0.02); opacity: 1; }
-  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 0; }
+@keyframes praisePop {
+  0% { transform: translate(-50%, -50%) scale(0.78); opacity: 0; }
+  18% { transform: translate(-50%, -58%) scale(1.06); opacity: 1; }
+  70% { transform: translate(-50%, -76%) scale(1.18); opacity: 0.92; }
+  100% { transform: translate(-50%, -92%) scale(1.28); opacity: 0; }
 }
 
 @keyframes gobbleShine {
-  0% { background-position: 0% 50%; filter: drop-shadow(0 6px 14px rgba(120, 53, 15, 0.32)); }
-  50% { background-position: 100% 50%; filter: drop-shadow(0 8px 18px rgba(245, 158, 11, 0.38)); }
-  100% { background-position: 0% 50%; filter: drop-shadow(0 6px 14px rgba(120, 53, 15, 0.32)); }
+  0% { background-position: 0% 50%; filter: drop-shadow(0 8px 18px rgba(120, 53, 15, 0.45)); }
+  50% { background-position: 100% 50%; filter: drop-shadow(0 10px 22px rgba(245, 158, 11, 0.5)); }
+  100% { background-position: 0% 50%; filter: drop-shadow(0 8px 18px rgba(120, 53, 15, 0.45)); }
+}
+
+@keyframes sparkleTwinkle {
+  0% { transform: scale(0.6) rotate(0deg); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: scale(1.2) rotate(35deg); opacity: 0; }
 }
 
 .praise-pop {
@@ -612,74 +580,66 @@ body.theme-dark textarea::placeholder {
   top: 44%;
   z-index: 80;
   transform: translate(-50%, -50%);
-  animation: praiseDrift var(--praise-duration, 1500ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+  animation: praisePop 0.75s ease-out forwards;
   pointer-events: none;
-  opacity: 1;
-  white-space: nowrap;
-  line-height: 1;
   letter-spacing: -0.02em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  text-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
   will-change: transform, opacity;
   isolation: isolate;
-  font-family:
-    "Fredoka",
-    "Baloo 2",
-    "Nunito",
-    "Arial Rounded MT Bold",
-    "Comic Sans MS",
-    "Segoe UI",
-    sans-serif;
 }
 .praise-outline {
   text-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.1),
-    1px 0 0 rgba(0, 0, 0, 0.08),
-    -1px 0 0 rgba(0, 0, 0, 0.08),
-    0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 2px 6px rgba(0, 0, 0, 0.14);
-}
-.praise-bronze {
-  background:
-    linear-gradient(140deg, #ffe1c6 0%, #ffb058 35%, #ff7e1a 70%, #d45505 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter:
-    drop-shadow(0 2px 6px rgba(210, 102, 25, 0.35))
-    drop-shadow(0 1px 2px rgba(255, 204, 160, 0.45));
-}
-.praise-silver {
-  background:
-    linear-gradient(135deg, #ffffff 0%, #e7f0ff 30%, #b9c7dc 58%, #f6fbff 78%, #8ea0b8 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter:
-    drop-shadow(0 2px 6px rgba(118, 132, 150, 0.35))
-    drop-shadow(0 1px 2px rgba(233, 243, 255, 0.7));
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    1px 0 0 rgba(0, 0, 0, 0.55),
+    -1px 0 0 rgba(0, 0, 0, 0.55),
+    0 -1px 0 rgba(0, 0, 0, 0.55),
+    2px 2px 8px rgba(0, 0, 0, 0.35);
 }
 .praise-gold {
   background:
-    linear-gradient(135deg, #fff2a8 0%, #ffd84a 30%, #ffb300 58%, #ffef9a 78%, #d78200 100%);
+    linear-gradient(145deg, #ffe9a8 0%, #f7c969 28%, #e09a2f 62%, #b8741b 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   filter:
-    drop-shadow(0 3px 8px rgba(176, 98, 13, 0.35))
-    drop-shadow(0 1px 3px rgba(255, 230, 140, 0.7));
+    drop-shadow(0 8px 14px rgba(120, 53, 15, 0.45))
+    drop-shadow(0 2px 4px rgba(255, 214, 112, 0.45));
 }
 .praise-gobble {
   position: relative;
   background:
-    linear-gradient(120deg, #fff7b0 0%, #ffd166 30%, #f59e0b 60%, #ffe27a 100%);
+    linear-gradient(120deg, #fff2b2 0%, #ffd166 30%, #f59e0b 60%, #fff6cc 100%);
   background-size: 220% 220%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   animation: gobbleShine 1.15s ease-in-out infinite;
   text-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.18),
-    0 3px 8px rgba(0, 0, 0, 0.18);
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 10px 26px rgba(0, 0, 0, 0.4);
+}
+.praise-gobble::before,
+.praise-gobble::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 214, 112, 0.2));
+  box-shadow: 0 0 10px rgba(255, 214, 112, 0.85);
+  opacity: 0;
+  animation: sparkleTwinkle 0.9s ease-in-out infinite;
+  pointer-events: none;
+}
+.praise-gobble::before {
+  top: -18px;
+  right: -14px;
+  animation-delay: 0.05s;
+}
+.praise-gobble::after {
+  bottom: -14px;
+  left: -10px;
+  animation-delay: 0.25s;
 }
   .preview-tile {
   position: relative;
@@ -794,10 +754,9 @@ const CHAT_MAX_VISIBLE_LINES = 40;
 const MIN_CHAT_OPACITY = 0.03;
 const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
-const CHAT_DRAWER_ANIM_MS = 1000;
-const TARGET_HINT_FIRST_MS = 15 * 1000;
-const TARGET_HINT_STEP_MS = 15 * 1000;
+const CHAT_DRAWER_ANIM_MS = 750;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
+const SHOW_ALL_LABELS = { found: "Trouvés", all: "Tous les mots" };
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
@@ -842,7 +801,6 @@ export default function App() {
   const [roomId, setRoomId] = useState(initialRoomId);
   const [currentRoomId, setCurrentRoomId] = useState(null);
   const [gridSize, setGridSize] = useState(initialGridSize);
-  const [gridRotationTurns, setGridRotationTurns] = useState(0);
   const [phase, setPhase] = useState("lobby");
   const [tick, setTick] = useState(0);
   const [board, setBoard] = useState(
@@ -856,19 +814,19 @@ export default function App() {
   const [shakeGrid, setShakeGrid] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [lastWords, setLastWords] = useState([]);
+  const [showAllWords, setShowAllWords] = useState(false);
   const [sortMode, setSortMode] = useState("score");
   const [toast, setToast] = useState(null);
+  const [allWords, setAllWords] = useState([]);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
-  const gridRotateAnimRef = useRef(null);
-  const gridRotateTimerRef = useRef(null);
-  const [isGridRotating, setIsGridRotating] = useState(false);
   const [lastInputMode, setLastInputMode] = useState("keyboard");
   const audioCtxRef = useRef(null);
   const gobbleVoiceRef = useRef({ audio: null, buffer: null, loading: false, last: 0 });
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
   const gridRef = useRef(null);
+  const secretTapRef = useRef({ count: 0, lastTs: 0 });
   const canVibrateRef = useRef(false);
   const [gridWidth, setGridWidth] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -881,12 +839,12 @@ export default function App() {
   const mobileRankingRef = useRef(null);
   const mobileHelpRef = useRef(null);
   const safeAreaProbeRef = useRef(null);
-  const safeAreaTopProbeRef = useRef(null);
   const prevPositionsRef = useRef(new Map());
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [praiseFlash, setPraiseFlash] = useState(null);
   const [confettiBurst, setConfettiBurst] = useState(null); // { id, kind }
   const [gridShake, setGridShake] = useState(false);
+  const [bigGridUnlocked, setBigGridUnlocked] = useState(false);
   const [mobileResultsTab, setMobileResultsTab] = useState("classement");
   const [nickname, setNickname] = useState(() => {
     try {
@@ -916,7 +874,7 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installMessage, setInstallMessage] = useState("");
   const [installSupport, setInstallSupport] = useState("unknown"); // unknown | available | unavailable | installed | maybe
-  const [isFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [mobileHeaderOffsetPx, setMobileHeaderOffsetPx] = useState(0);
   const [isMobileLayout, setIsMobileLayout] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -937,7 +895,6 @@ export default function App() {
     bodyHeight: 0,
   });
   const [chatViewportHeight, setChatViewportHeight] = useState(0);
-  const chatBaselineHeightRef = useRef(0);
   const [chatKeyboardInsetPx, setChatKeyboardInsetPx] = useState(0);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
   const [isChatClosing, setIsChatClosing] = useState(false);
@@ -961,6 +918,7 @@ export default function App() {
       !/EdgA|OPR|SamsungBrowser/i.test(ua);
     return isAndroidChrome ? "search" : "text";
   }, []);
+  const [roomStats, setRoomStats] = useState({});
   const [medals, setMedals] = useState({});
   const [tournament, setTournament] = useState(null); // { id, round, totalRounds, ... }
   const [tournamentTotals, setTournamentTotals] = useState({}); // nick -> points
@@ -1055,7 +1013,6 @@ export default function App() {
   const acceptedScoresRef = useRef(new Map());
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
-  const gameViewportFreezeHeightRef = useRef(0);
   const chatDesktopListRef = useRef(null);
   const isChatOpenMobileRef = useRef(false);
   const wordHistoryRef = useRef([]);
@@ -1064,7 +1021,6 @@ export default function App() {
   const chatHistoryIndexRef = useRef(-1);
   const solutionsRef = useRef(new Map());
   const chatLastSentRef = useRef(0);
-  const lastKeyboardInsetRef = useRef(0);
   const toastTimerRef = useRef(null);
   const praiseTimerRef = useRef(null);
   const praiseLastRef = useRef(0);
@@ -1075,8 +1031,12 @@ export default function App() {
   const chatScrollLockRef = useRef(0);
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
+  const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
+  const testBotsRef = useRef(false);
+  const liveBotsRef = useRef(new Map());
+  const botTimersRef = useRef(new Map());
   const bestGridMaxRef = useRef(0);
   const bestGridMaxLenRef = useRef(0);
   const bestWordAnnounceRef = useRef(-1);
@@ -1085,6 +1045,7 @@ export default function App() {
   const lastCountdownTickRef = useRef(0);
   const countdownTickToggleRef = useRef(false);
   const tournamentCelebrationPlayedRef = useRef(false);
+  const [liveBots, setLiveBots] = useState([]);
 
   const specialScoreConfig = React.useMemo(() => {
     if (specialRound?.type === "bonus_letter" && specialRound?.bonusLetter) {
@@ -1330,7 +1291,7 @@ export default function App() {
       }
     };
 
-    const delay = isMobileLayout ? 0 : Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
+    const delay = Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
     const t = window.setTimeout(focusChatInput, delay);
 
     return () => {
@@ -1340,22 +1301,18 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     if (!isChatOpenMobile) {
       setChatViewportHeight(0);
       setChatKeyboardInsetPx(0);
       return;
     }
-
     const vv = window.visualViewport;
-
     const baseHeight =
       chatBodyLockHeightRef.current ||
       Math.round(window.innerHeight || vv?.height || 0);
     setChatViewportHeight((prev) =>
       prev > 0 ? Math.max(prev, baseHeight) : baseHeight
     );
-
     const updateInset = () => {
       const nextHeight =
         chatBodyLockHeightRef.current ||
@@ -1376,24 +1333,16 @@ export default function App() {
               )
             )
           : 0;
-      if (nextInset > 0) {
-        lastKeyboardInsetRef.current = nextInset;
-      }
       setChatKeyboardInsetPx((prev) => (prev === nextInset ? prev : nextInset));
     };
-
     updateInset();
     vv?.addEventListener("resize", updateInset);
     vv?.addEventListener("scroll", updateInset);
     window.addEventListener("resize", updateInset);
-    window.addEventListener("focusin", updateInset, true);
-    window.addEventListener("focusout", updateInset, true);
     return () => {
       vv?.removeEventListener("resize", updateInset);
       vv?.removeEventListener("scroll", updateInset);
       window.removeEventListener("resize", updateInset);
-      window.removeEventListener("focusin", updateInset, true);
-      window.removeEventListener("focusout", updateInset, true);
     };
   }, [isChatOpenMobile]);
 
@@ -1509,39 +1458,14 @@ export default function App() {
     setChatFullVisibleLines(DEFAULT_CHAT_FULL_VISIBLE_LINES);
   }, [isMobileLayout]);
 
-  // Safe-area top probe: avoids hardcoded fullscreen offsets.
-  const measureSafeAreaTopPx = React.useCallback(() => {
-    if (typeof window === "undefined") return 0;
-    const probe = safeAreaTopProbeRef.current;
-    if (!probe) return 0;
-    const paddingTop = window.getComputedStyle(probe).paddingTop || "0";
-    const value = parseFloat(paddingTop);
-    return Number.isFinite(value) ? value : 0;
-  }, []);
+ useEffect(() => {
+  if (!isMobileLayout) return;
 
-  const getSafeTopPx = React.useCallback(
-    (forceFullscreen = false) => {
-      const shouldUse = forceFullscreen || isFullscreen;
-      if (!shouldUse) return 0;
-      const measured = measureSafeAreaTopPx();
-      if (measured > 0) return Math.round(measured);
-      if (typeof window === "undefined") return 0;
-      // Fallback when env(safe-area-inset-top) reports 0 in fullscreen.
-      return Math.round(Math.min(48, Math.max(0, window.innerHeight * 0.03)));
-    },
-    [isFullscreen, measureSafeAreaTopPx]
-  );
-
-  const getHeaderOffsetPx = React.useCallback(() => {
-    const headerEl = mobileHeaderRef.current;
-    if (!headerEl) return 0;
-    const rect = headerEl.getBoundingClientRect?.();
-    const rectBottom =
-      rect && Number.isFinite(rect.bottom) ? Math.round(rect.bottom) : 0;
-    if (rectBottom > 0) return rectBottom;
-    const height = Math.round(headerEl.offsetHeight || 0);
-    return height + getSafeTopPx();
-  }, [getSafeTopPx]);
+  // Tant que le mode 5x5 n'est PAS débloqué, on force le 4x4
+  if (!bigGridUnlocked && roomId !== "room-4x4") {
+    setRoomId("room-4x4");
+  }
+}, [isMobileLayout, roomId, bigGridUnlocked]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1552,7 +1476,9 @@ export default function App() {
 
     const computeMobileLayoutNow = () => {
       if (isChatOpenMobileRef.current) return;
+      const vv = window.visualViewport;
       const viewportHeightCandidates = [
+        vv?.height,
         window.innerHeight,
         document.documentElement?.clientHeight,
       ].filter((v) => Number.isFinite(v) && v > 0);
@@ -1561,6 +1487,7 @@ export default function App() {
         : 0;
 
       const viewportWidthCandidates = [
+        vv?.width,
         window.innerWidth,
         document.documentElement?.clientWidth,
       ].filter((v) => Number.isFinite(v) && v > 0);
@@ -1579,25 +1506,14 @@ export default function App() {
         document.body.appendChild(probe);
         safeAreaProbeRef.current = probe;
       }
-      if (!safeAreaTopProbeRef.current && typeof document !== "undefined") {
-        const probe = document.createElement("div");
-        probe.style.position = "absolute";
-        probe.style.left = "0";
-        probe.style.top = "0";
-        probe.style.height = "0";
-        probe.style.paddingTop = "env(safe-area-inset-top)";
-        probe.style.visibility = "hidden";
-        probe.style.pointerEvents = "none";
-        document.body.appendChild(probe);
-        safeAreaTopProbeRef.current = probe;
-      }
 
-      const headerOffsetPx = getHeaderOffsetPx();
-      if (headerOffsetPx > 0) {
-        setMobileHeaderOffsetPx((prev) =>
-          prev === headerOffsetPx ? prev : headerOffsetPx
-        );
-      }
+      const headerHeightPx = Math.round(mobileHeaderRef.current?.offsetHeight || 0);
+      const headerOffsetPx =
+        headerHeightPx +
+        (isFullscreen ? FULLSCREEN_HEADER_TOP_OFFSET_PX : 0);
+      setMobileHeaderOffsetPx((prev) =>
+        prev === headerOffsetPx ? prev : headerOffsetPx
+      );
       const headerHeightForBody = headerOffsetPx;
       const helpEl = mobileHelpRef.current;
       const helpHeight = helpEl?.offsetHeight || 0;
@@ -1754,33 +1670,36 @@ export default function App() {
     scheduleComputeMobileLayout();
     window.addEventListener("resize", scheduleComputeMobileLayout);
     window.addEventListener("scroll", scheduleComputeMobileLayout, { passive: true });
+    document.addEventListener("fullscreenchange", scheduleComputeMobileLayout);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", scheduleComputeMobileLayout);
+    vv?.addEventListener("scroll", scheduleComputeMobileLayout);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("resize", scheduleComputeMobileLayout);
       window.removeEventListener("scroll", scheduleComputeMobileLayout);
+      document.removeEventListener("fullscreenchange", scheduleComputeMobileLayout);
+      vv?.removeEventListener("resize", scheduleComputeMobileLayout);
+      vv?.removeEventListener("scroll", scheduleComputeMobileLayout);
       if (safeAreaProbeRef.current && safeAreaProbeRef.current.parentNode) {
         safeAreaProbeRef.current.parentNode.removeChild(safeAreaProbeRef.current);
         safeAreaProbeRef.current = null;
       }
-      if (safeAreaTopProbeRef.current && safeAreaTopProbeRef.current.parentNode) {
-        safeAreaTopProbeRef.current.parentNode.removeChild(safeAreaTopProbeRef.current);
-        safeAreaTopProbeRef.current = null;
-      }
     };
-  }, [isMobileLayout, phase, gridSize, showHelp, isFullscreen, getHeaderOffsetPx]);
+  }, [isMobileLayout, phase, gridSize, showHelp, isFullscreen]);
 
   useEffect(() => {
     if (!isMobileLayout) return;
-    if (typeof window === "undefined") return;
     if (typeof ResizeObserver === "undefined") return;
     const headerEl = mobileHeaderRef.current;
     if (!headerEl) return;
 
     const updateHeight = () => {
-      const nextOffset = getHeaderOffsetPx();
-      if (!nextOffset) return;
+      const nextOffset =
+        Math.round(headerEl.offsetHeight || 0) +
+        (isFullscreen ? FULLSCREEN_HEADER_TOP_OFFSET_PX : 0);
       setMobileHeaderOffsetPx((prev) =>
         prev === nextOffset ? prev : nextOffset
       );
@@ -1789,24 +1708,18 @@ export default function App() {
     updateHeight();
     const observer = new ResizeObserver(updateHeight);
     observer.observe(headerEl);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", updateHeight);
-    vv?.addEventListener("scroll", updateHeight);
-    return () => {
-      observer.disconnect();
-      vv?.removeEventListener("resize", updateHeight);
-      vv?.removeEventListener("scroll", updateHeight);
-    };
-  }, [isMobileLayout, isFullscreen, getHeaderOffsetPx]);
+    return () => observer.disconnect();
+  }, [isMobileLayout, isFullscreen]);
 
   useLayoutEffect(() => {
     if (!isMobileLayout) return;
     const headerEl = mobileHeaderRef.current;
     if (!headerEl) return;
-    const nextOffset = getHeaderOffsetPx();
-    if (!nextOffset) return;
+    const nextOffset =
+      Math.round(headerEl.offsetHeight || 0) +
+      (isFullscreen ? FULLSCREEN_HEADER_TOP_OFFSET_PX : 0);
     setMobileHeaderOffsetPx((prev) => (prev === nextOffset ? prev : nextOffset));
-  }, [isMobileLayout, isFullscreen, getHeaderOffsetPx]);
+  }, [isMobileLayout, isFullscreen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1818,78 +1731,58 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
-    const shouldLock =
-      (isMobileLayout && (phase === "playing" || phase === "results")) ||
-      isChatOpenMobile ||
-      isChatClosing;
-    if (!shouldLock) return;
+      const shouldLock =
+        (isMobileLayout && (phase === "playing" || phase === "results")) ||
+        isChatOpenMobile ||
+        isChatClosing;
+      if (!shouldLock) return;
 
-    const previousOverflow = document.body.style.overflow;
-    const previousHeight = document.body.style.height;
-    const previousPosition = document.body.style.position;
-    const previousTop = document.body.style.top;
-    const previousWidth = document.body.style.width;
-    const previousLeft = document.body.style.left;
-    const previousRight = document.body.style.right;
-    const previousTouchAction = document.body.style.touchAction;
-    const previousOverscroll = document.body.style.overscrollBehavior;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousHtmlHeight = document.documentElement.style.height;
-    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
-    const previousHtmlPosition = document.documentElement.style.position;
-    const previousHtmlWidth = document.documentElement.style.width;
-    const previousHtmlLeft = document.documentElement.style.left;
-    const previousHtmlRight = document.documentElement.style.right;
-
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
-    document.documentElement.style.overscrollBehavior = "none";
-    document.documentElement.style.position = "fixed";
-    document.documentElement.style.width = "100%";
-    document.documentElement.style.left = "0";
-    document.documentElement.style.right = "0";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.touchAction = "none";
-
-    if (!chatScrollLockRef.current) {
-      chatScrollLockRef.current =
-        typeof window !== "undefined" ? window.scrollY || 0 : 0;
-    }
-    document.body.style.top = `-${chatScrollLockRef.current}px`;
-    window.scrollTo(0, 0);
-
-    const applyLockedHeight = () => {
-      const frozen =
-        (isChatOpenMobileRef.current || isChatClosing) &&
-        gameViewportFreezeHeightRef.current > 0
-          ? gameViewportFreezeHeightRef.current
-          : 0;
-
-      // Quand le chat est ouvert, on fige le fond (layout viewport) et on laisse
-      // uniquement le tiroir chat s'adapter au clavier via visualViewport.
-      const candidates = frozen
-        ? [frozen]
-        : [window.innerHeight, document.documentElement?.clientHeight];
-
-      const filtered = candidates.filter((v) => Number.isFinite(v) && v > 0);
-      const h = filtered.length ? Math.min(...filtered) : 0;
-      if (h > 0) {
-        const px = `${Math.round(h)}px`;
-        document.body.style.height = px;
-        document.documentElement.style.height = px;
-      }
-      if (typeof window !== "undefined") {
+      const previousOverflow = document.body.style.overflow;
+      const previousHeight = document.body.style.height;
+      const previousPosition = document.body.style.position;
+      const previousTop = document.body.style.top;
+      const previousWidth = document.body.style.width;
+      const previousOverscroll = document.body.style.overscrollBehavior;
+      const previousHtmlOverflow = document.documentElement.style.overflow;
+      const previousHtmlHeight = document.documentElement.style.height;
+      const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
+      document.documentElement.style.overscrollBehavior = "none";
+      if (isChatOpenMobile || isChatClosing) {
+        chatScrollLockRef.current =
+          typeof window !== "undefined" ? window.scrollY || 0 : 0;
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${chatScrollLockRef.current}px`;
+        document.body.style.width = "100%";
+        document.body.style.left = "0";
+        document.body.style.right = "0";
         window.scrollTo(0, 0);
       }
-    };
+
+      const applyLockedHeight = () => {
+        const vv = window.visualViewport;
+        const useVisualViewport = !(isChatOpenMobile || isChatClosing);
+        const lockedChatHeight = chatBodyLockHeightRef.current || null;
+        const candidates = useVisualViewport
+          ? [vv?.height, window.innerHeight, document.documentElement?.clientHeight]
+          : lockedChatHeight
+          ? [lockedChatHeight]
+          : [window.innerHeight, document.documentElement?.clientHeight];
+        const filtered = candidates.filter((v) => Number.isFinite(v) && v > 0);
+        const h = filtered.length ? Math.min(...filtered) : 0;
+        if (h > 0) {
+          const px = `${Math.round(h)}px`;
+          document.body.style.height = px;
+          document.documentElement.style.height = px;
+        }
+      };
 
     applyLockedHeight();
     window.addEventListener("resize", applyLockedHeight);
     window.addEventListener("scroll", applyLockedHeight, { passive: true });
+    document.addEventListener("fullscreenchange", applyLockedHeight);
     const vv = window.visualViewport;
     vv?.addEventListener("resize", applyLockedHeight);
     vv?.addEventListener("scroll", applyLockedHeight);
@@ -1897,30 +1790,26 @@ export default function App() {
     return () => {
       window.removeEventListener("resize", applyLockedHeight);
       window.removeEventListener("scroll", applyLockedHeight);
+      document.removeEventListener("fullscreenchange", applyLockedHeight);
       vv?.removeEventListener("resize", applyLockedHeight);
       vv?.removeEventListener("scroll", applyLockedHeight);
-      document.body.style.overflow = previousOverflow;
-      document.body.style.height = previousHeight;
-      document.body.style.position = previousPosition;
-      document.body.style.top = previousTop;
-      document.body.style.width = previousWidth;
-      document.body.style.left = previousLeft;
-      document.body.style.right = previousRight;
-      document.body.style.touchAction = previousTouchAction;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.documentElement.style.height = previousHtmlHeight;
-      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
-      document.documentElement.style.position = previousHtmlPosition;
-      document.documentElement.style.width = previousHtmlWidth;
-      document.documentElement.style.left = previousHtmlLeft;
-      document.documentElement.style.right = previousHtmlRight;
-      document.body.style.overscrollBehavior = previousOverscroll;
-      if (chatScrollLockRef.current) {
-        window.scrollTo(0, chatScrollLockRef.current);
-        chatScrollLockRef.current = 0;
-      }
-    };
-  }, [isMobileLayout, phase, isChatOpenMobile, isChatClosing]);
+        document.body.style.overflow = previousOverflow;
+        document.body.style.height = previousHeight;
+        document.body.style.position = previousPosition;
+        document.body.style.top = previousTop;
+        document.body.style.width = previousWidth;
+        document.body.style.left = "";
+        document.body.style.right = "";
+        document.documentElement.style.overflow = previousHtmlOverflow;
+        document.documentElement.style.height = previousHtmlHeight;
+        document.body.style.overscrollBehavior = previousOverscroll;
+        document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+        if (chatScrollLockRef.current) {
+          window.scrollTo(0, chatScrollLockRef.current);
+          chatScrollLockRef.current = 0;
+        }
+      };
+    }, [isMobileLayout, phase, isChatOpenMobile, isChatClosing]);
 
   useEffect(() => {
     if (phase !== "lobby") return;
@@ -2230,6 +2119,41 @@ function playTileStepSound(step) {
   ctx.resume().then(start).catch(start);
 }
 
+  useEffect(() => {
+    const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  async function toggleFullscreen() {
+    if (typeof document === "undefined") return;
+    try {
+      if (!document.fullscreenElement) {
+        const headerHeight = Math.round(mobileHeaderRef.current?.offsetHeight || 0);
+        const nextOffset = headerHeight + FULLSCREEN_HEADER_TOP_OFFSET_PX;
+        if (nextOffset > 0) {
+          setMobileHeaderOffsetPx((prev) =>
+            prev === nextOffset ? prev : nextOffset
+          );
+        }
+        setIsFullscreen(true);
+        await document.documentElement.requestFullscreen();
+      } else {
+        const headerHeight = Math.round(mobileHeaderRef.current?.offsetHeight || 0);
+        if (headerHeight > 0) {
+          setMobileHeaderOffsetPx((prev) =>
+            prev === headerHeight ? prev : headerHeight
+          );
+        }
+        setIsFullscreen(false);
+        await document.exitFullscreen();
+      }
+    } catch (_) {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      // ignore
+    }
+  }
+
   // Palette de sons par paliers de score (plus mélodique)
   const SCORE_SFX_BANDS = [
     { min: 0, intervals: [0], gain: 0.13, dur: 0.38 },
@@ -2392,6 +2316,32 @@ function playTileStepSound(step) {
     }
   }
 
+  useEffect(() => {
+    const onRoomsStats = (payload = []) => {
+      if (!Array.isArray(payload)) return;
+      const map = {};
+      payload.forEach((entry) => {
+        if (!entry?.roomId) return;
+        map[entry.roomId] = {
+          label: entry.label,
+          players: entry.players || 0,
+        };
+      });
+      setRoomStats(map);
+    };
+
+    socket.on("roomsStats", onRoomsStats);
+    if (!socket.connected) {
+      try {
+        socket.connect();
+      } catch (_) {}
+    }
+
+    return () => {
+      socket.off("roomsStats", onRoomsStats);
+    };
+  }, []);
+
   function triggerBigScoreFlash(pts) {
     setBigScoreFlash({ pts, id: Date.now() });
     setTimeout(() => setBigScoreFlash(null), 950);
@@ -2414,22 +2364,11 @@ function playTileStepSound(step) {
 
   function triggerPraiseFlash(text, { kind = "blue", shakeGrid = false } = {}) {
     const now = Date.now();
-    if (now - praiseLastRef.current < 420) return;
+    if (now - praiseLastRef.current < 650) return;
     praiseLastRef.current = now;
-    if (kind === "gobble") {
-      triggerConfettiBurst("gobble");
-    }
-    const angle = Math.random() * Math.PI * 2;
-    const minDist = isMobileLayout ? 90 : 140;
-    const maxDist = isMobileLayout ? 160 : 240;
-    const dist = minDist + Math.random() * (maxDist - minDist);
-    const dx = Math.round(Math.cos(angle) * dist);
-    const dy = Math.round(Math.sin(angle) * dist);
-  const scale = Number(((1.0 + Math.random() * 0.5) * 1.6).toFixed(2));
-  const durationMs = Math.round(2200 + Math.random() * 500);
-    setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
+    setPraiseFlash({ id: now + Math.random(), text, kind });
     if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
-    praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
+    praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), 820);
     if (shakeGrid) triggerGridShake();
   }
 
@@ -2456,44 +2395,14 @@ function playTileStepSound(step) {
   useEffect(() => {
     const isTargetRoundNow =
       specialRound?.type === "target_long" || specialRound?.type === "target_score";
-    const keepTargetDefinition =
-      phase === "results" && typeof targetSummary?.word === "string" && targetSummary.word.trim();
-    if ((!isTargetRoundNow || !targetSummary?.word) && !keepTargetDefinition) {
-      targetDefinitionRequestRef.current += 1;
-      setTargetDefinition({
-        word: "",
-        loading: false,
-        ok: false,
-        definition: "",
-        source: "",
-        url: "",
-      });
+    if (!isTargetRoundNow || !targetSummary?.word) {
+      setTargetDefinition((prev) =>
+        prev.word ? { word: "", loading: false, ok: false, definition: "", source: "", url: "" } : prev
+      );
       return;
     }
     const clean = String(targetSummary.word || "").trim();
     if (!clean) return;
-    const cachedDefinition =
-      typeof targetSummary?.definition === "string"
-        ? targetSummary.definition.trim()
-        : "";
-    if (cachedDefinition) {
-      if (
-        targetDefinition.word === clean &&
-        targetDefinition.ok &&
-        targetDefinition.definition === cachedDefinition
-      ) {
-        return;
-      }
-      setTargetDefinition({
-        word: targetSummary.definitionTitle || clean,
-        loading: false,
-        ok: true,
-        definition: cachedDefinition,
-        source: targetSummary.definitionSource || "",
-        url: targetSummary.definitionUrl || "",
-      });
-      return;
-    }
     if (targetDefinition.word === clean && targetDefinition.ok) return;
     const requestId = ++targetDefinitionRequestRef.current;
     setTargetDefinition({
@@ -2525,7 +2434,7 @@ function playTileStepSound(step) {
         if (requestId !== targetDefinitionRequestRef.current) return;
         setTargetDefinition((prev) => ({ ...prev, loading: false, ok: false }));
       });
-  }, [specialRound?.type, targetSummary, targetDefinition.word, targetDefinition.ok, phase]);
+  }, [specialRound?.type, targetSummary, targetDefinition.word, targetDefinition.ok]);
 
   useEffect(() => {
     if (!foundTargetThisRound) return;
@@ -2568,84 +2477,6 @@ function playTileStepSound(step) {
     }
   }, [phase]);
 
-  useEffect(() => {
-    return () => {
-      if (gridRotateTimerRef.current) {
-        clearTimeout(gridRotateTimerRef.current);
-        gridRotateTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    const pending = gridRotateAnimRef.current;
-    if (!pending) return;
-    gridRotateAnimRef.current = null;
-    if (!pending.prevRects || pending.prevRects.size === 0) return;
-
-    const durationMs = GRID_ROTATE_ANIM_MS;
-    const easing = "cubic-bezier(0.2, 0.8, 0.2, 1)";
-    const spinDeg = Number.isFinite(pending.spin) ? pending.spin : 0;
-    const letterSpin = spinDeg >= 0 ? 360 : -360;
-
-    pending.prevRects.forEach((prev, index) => {
-      const el = tileRefs.current[index];
-      if (!el) return;
-      const next = el.getBoundingClientRect();
-      const dx = prev.left - next.left;
-      const dy = prev.top - next.top;
-      if (!dx && !dy) return;
-
-      const orbitFrames = [
-        { transform: `translate(${dx}px, ${dy}px) rotate(${spinDeg}deg)` },
-        { transform: "translate(0px, 0px) rotate(0deg)" },
-      ];
-
-      if (typeof el.animate === "function") {
-        el.animate(orbitFrames, {
-          duration: durationMs,
-          easing,
-          fill: "both",
-        });
-      } else {
-        el.style.transition = `transform ${durationMs}ms ${easing}`;
-        el.style.transform = orbitFrames[0].transform;
-        requestAnimationFrame(() => {
-          el.style.transform = orbitFrames[1].transform;
-        });
-        setTimeout(() => {
-          el.style.transition = "";
-          el.style.transform = "";
-        }, durationMs);
-      }
-
-      const letterEl = el.querySelector(".tile-letter");
-      if (!letterEl) return;
-      const letterFrames = [
-        { transform: "rotate(0deg)" },
-        { transform: `rotate(${letterSpin}deg)` },
-      ];
-      const letterDuration = Math.round(durationMs * 0.85);
-      if (typeof letterEl.animate === "function") {
-        letterEl.animate(letterFrames, {
-          duration: letterDuration,
-          easing,
-          fill: "both",
-        });
-      } else {
-        letterEl.style.transition = `transform ${letterDuration}ms ${easing}`;
-        letterEl.style.transform = letterFrames[0].transform;
-        requestAnimationFrame(() => {
-          letterEl.style.transform = letterFrames[1].transform;
-        });
-        setTimeout(() => {
-          letterEl.style.transition = "";
-          letterEl.style.transform = "";
-        }, letterDuration);
-      }
-    });
-  }, [gridRotationTurns]);
-
   function maybeAnnounceBestWord(nick, word, pts) {
     if (typeof pts !== "number") return;
     const maxPossiblePts = bestGridMaxRef.current || 0;
@@ -2676,6 +2507,35 @@ function playTileStepSound(step) {
     setToast({ id: Date.now(), message });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 1300);
+  }
+
+    function handleSecretTitleTap() {
+    const now = Date.now();
+    const { count, lastTs } = secretTapRef.current;
+
+    // Si plus d'1,2s se sont écoulées, on repart de zéro
+    if (now - lastTs > 1200) {
+      secretTapRef.current = { count: 1, lastTs: now };
+      return;
+    }
+
+    const newCount = count + 1;
+    if (newCount >= 3) {
+      // Triple tap : on bascule le mode 5x5 même sur mobile
+      secretTapRef.current = { count: 0, lastTs: now };
+      setBigGridUnlocked((prev) => {
+        const next = !prev;
+        try {
+          showToast(
+            next ? "Mode 5x5 débloqué sur mobile" : "Retour au mode standard"
+          );
+        } catch (_) {}
+        return next;
+      });
+      return;
+    }
+
+    secretTapRef.current = { count: newCount, lastTs: now };
   }
 
   function getTileIndexFromPoint(x, y, useTolerance = true) {
@@ -2810,7 +2670,6 @@ function playTileStepSound(step) {
       roundNumber = null,
       nextSpecial = null,
       tournament: tournamentPayload = null,
-      targetLength = null,
     }) {
       if (!grid || !Array.isArray(grid)) return;
       syncServerTime();
@@ -2829,20 +2688,7 @@ function playTileStepSound(step) {
       setTournamentFinaleHoldUntil(null);
       setTargetSummary(null);
       setTournament(tournamentPayload || null);
-      if (
-        (special?.type === "target_long" || special?.type === "target_score") &&
-        typeof targetLength === "number" &&
-        targetLength > 0
-      ) {
-        setSpecialHint({
-          kind: special.type,
-          pattern: "",
-          length: targetLength,
-          cells: [],
-        });
-      } else {
-        setSpecialHint(null);
-      }
+      setSpecialHint(null);
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
@@ -2869,6 +2715,10 @@ function playTileStepSound(step) {
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
     }) {
+      botTimersRef.current.forEach((id) => clearTimeout(id));
+      botTimersRef.current.clear();
+      setLiveBots([]);
+
       if (endedRoomId) {
         setCurrentRoomId(endedRoomId);
         setRoomId(endedRoomId);
@@ -3004,34 +2854,16 @@ function playTileStepSound(step) {
       setAnnouncements((prev) => [...prev, ...entries].slice(-40));
     }
 
-    function maybeTriggerGobbleFromAnnouncement(entry) {
-      if (!entry) return;
-      if (
-        entry.type !== "best_possible_score" &&
-        entry.type !== "longest_possible"
-      ) {
-        return;
-      }
-      const self = nickname.trim();
-      const author = (entry.nick || "").trim();
-      if (!self || !author || self !== author) return;
-      triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
-      triggerConfettiBurst("gobble");
-    }
-
     function onAnnouncement(data) {
       if (!data) return;
       maybePlayAnnouncementSound(data);
-      maybeTriggerGobbleFromAnnouncement(data);
       appendAnnouncements([data]);
     }
 
     function onAnnouncements(batch) {
       if (!Array.isArray(batch) || batch.length === 0) return;
       batch.forEach((entry) => {
-        if (!entry) return;
-        maybePlayAnnouncementSound(entry);
-        maybeTriggerGobbleFromAnnouncement(entry);
+        if (entry) maybePlayAnnouncementSound(entry);
       });
       appendAnnouncements(batch);
     }
@@ -3079,17 +2911,15 @@ function playTileStepSound(step) {
       if (roundId && payload.roundId && payload.roundId !== roundId) return;
       const hintKind = payload.kind || null;
       const allowCells = hintKind === "target_long" || hintKind === "target_score";
-      const hintLength =
-        typeof payload.length === "number" ? payload.length : null;
-      setSpecialHint((prev) => ({
+      setSpecialHint({
         kind: hintKind,
         pattern: payload.pattern || "",
-        length: hintLength ?? prev?.length ?? null,
+        length: payload.length || null,
         cells:
           allowCells && Array.isArray(payload.revealCells)
             ? payload.revealCells.filter((idx) => Number.isInteger(idx))
             : [],
-      }));
+      });
     }
 
     function onSpecialSolved(payload) {
@@ -3218,6 +3048,43 @@ function playTileStepSound(step) {
       if (id) clearInterval(id);
     };
   }, [phase, serverEndsAt, serverRoundDurationMs, board, dictionary, currentRoomId, roomId, specialScoreConfig]);
+
+  useEffect(() => {
+    if (phase !== "results") return;
+    if (!dictionary) return;
+    if (allWords.length > 0) return;
+    if (specialRound?.type === "monstrous" && !showAllWords) return;
+    if (upcomingSpecial?.type === "monstrous" && !showAllWords) return;
+
+    scheduleAllWordsCompute(board, {
+      updateBestRefs: true,
+      jobKey: `results-${roundId || Date.now()}`,
+      delayMs: 0,
+    });
+  }, [
+    phase,
+    board,
+    dictionary,
+    allWords.length,
+    specialScoreConfig,
+    specialRound,
+    upcomingSpecial,
+    showAllWords,
+    roundId,
+  ]);
+
+  // Bots désactivés
+  useEffect(() => {
+    botTimersRef.current.forEach((id) => clearTimeout(id));
+    botTimersRef.current.clear();
+    liveBotsRef.current.clear();
+    setLiveBots([]);
+  }, [phase, roundId, allWords, dictionary]);
+
+  // Bots désactivés : on ne complète plus les résultats localement
+  useEffect(() => {
+    /* no-op */
+  }, [phase, allWords, roundId, nickname]);
 
   // Attribue des médailles locales à la fin d'une manche
   // Médailles : gérées côté serveur (événement "medalsUpdate")
@@ -3359,6 +3226,7 @@ function playTileStepSound(step) {
       clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
     }
+    testBotsRef.current = false;
     solutionsRef.current = new Map();
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
@@ -3396,9 +3264,15 @@ function playTileStepSound(step) {
     setScore(0);
     setLastWords([]);
     setStatusMessage("");
+    cancelAllWordsCompute();
+    setAllWords([]);
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
     setProvisionalRanking([]);
+    liveBotsRef.current.clear();
+    botTimersRef.current.forEach((id) => clearTimeout(id));
+    botTimersRef.current.clear();
+    setLiveBots([]);
     const maxDuration =
       Number.isFinite(durationMs)
         ? Math.max(1, Math.round(durationMs / 1000))
@@ -3416,8 +3290,110 @@ function playTileStepSound(step) {
     setServerStatus("running");
     setConnectionError("");
     setPhase("playing");
+    // plus de bots auto
   }
 
+  function cancelAllWordsCompute() {
+    const job = allWordsComputeRef.current;
+    if (job.kickoff) {
+      clearTimeout(job.kickoff);
+      job.kickoff = null;
+    }
+    if (job.timer) {
+      clearTimeout(job.timer);
+      job.timer = null;
+    }
+    if (job.idle && typeof window !== "undefined" && window.cancelIdleCallback) {
+      try {
+        window.cancelIdleCallback(job.idle);
+      } catch (_) {}
+      job.idle = null;
+    }
+    job.key = null;
+  }
+
+  function scheduleAllWordsCompute(
+    sourceBoard,
+    { updateBestRefs = true, jobKey, delayMs } = {}
+  ) {
+    cancelAllWordsCompute();
+    if (!dictionary || dictionary.size === 0) return;
+    if (!sourceBoard || sourceBoard.length === 0) return;
+
+    const key = jobKey || `solve-${Date.now()}-${Math.random()}`;
+    allWordsComputeRef.current.key = key;
+
+    const run = () => {
+      if (allWordsComputeRef.current.key !== key) return;
+      const all = buildAllWordsLocal(sourceBoard, { updateBestRefs });
+      if (allWordsComputeRef.current.key !== key) return;
+      setAllWords(all);
+    };
+
+    const kickoff = () => {
+      if (typeof window !== "undefined" && window.requestIdleCallback) {
+        allWordsComputeRef.current.idle = window.requestIdleCallback(run, {
+          timeout: 15000,
+        });
+      } else {
+        allWordsComputeRef.current.timer = setTimeout(run, 600);
+      }
+    };
+
+    const kickoffDelay =
+      typeof delayMs === "number" && Number.isFinite(delayMs)
+        ? Math.max(0, Math.round(delayMs))
+        : 4500;
+    // Laisse le temps au joueur de saisir les premiers mots sans jank.
+    allWordsComputeRef.current.kickoff = setTimeout(kickoff, kickoffDelay);
+  }
+
+  function buildAllWordsLocal(sourceBoard = board, opts = {}) {
+    const updateBestRefs = opts.updateBestRefs !== false;
+    if (!dictionary) return [];
+    if (!sourceBoard || sourceBoard.length === 0) return [];
+    const filtered = filterDictionary(dictionary, sourceBoard);
+    const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
+    solutionsRef.current = solved;
+
+    const all = [...solved.entries()].map(([word, path]) => ({
+      word,
+      pts: computeScore(word, path, sourceBoard, specialScoreConfig),
+      path,
+    }));
+
+    all.sort((a, b) => b.pts - a.pts);
+    const maxPts = all.length ? all[0].pts : 0;
+    const maxLen = all.length
+      ? Math.max(...all.map(({ word }) => normalizeWord(word).length))
+      : 0;
+    if (updateBestRefs) {
+      bestGridMaxRef.current = maxPts;
+      bestGridMaxLenRef.current = maxLen;
+    }
+    return all;
+  }
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    if (specialRound?.type === "speed") return;
+    if (specialRound?.type === "monstrous") return;
+    if (!dictionary || dictionary.size === 0) return;
+    if (!board || board.length === 0) return;
+    if (accepted.length === 0) return;
+    if (allWords.length) return;
+    if (allWordsComputeRef.current.key) return;
+
+    const onlineRound = Boolean(roundId);
+    scheduleAllWordsCompute(board, {
+      updateBestRefs: !onlineRound,
+      jobKey: onlineRound ? `round-${roundId}` : `local-${Date.now()}`,
+    });
+  }, [phase, dictionary, board, roundId, specialRound, allWords.length, accepted.length]);
+
+  function startBotsIfReady() {
+    // bots désactivés
+  }
 
   function startGame() {
     const base = generateGrid(gridSize);
@@ -3434,6 +3410,7 @@ function playTileStepSound(step) {
       clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
     }
+    testBotsRef.current = false;
     solutionsRef.current = new Map();
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
@@ -3447,6 +3424,8 @@ function playTileStepSound(step) {
     setScore(0);
     setLastWords([]);
     setStatusMessage("");
+    cancelAllWordsCompute();
+    setAllWords([]);
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
     setProvisionalRanking([]);
@@ -3455,36 +3434,59 @@ function playTileStepSound(step) {
     setServerStatus("running");
     setNextStartAt(null);
     setBreakCountdown(null);
+    liveBotsRef.current.clear();
+    botTimersRef.current.forEach((id) => clearTimeout(id));
+    botTimersRef.current.clear();
+    setLiveBots([]);
     setTick(ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION);
     setPhase("playing");
+    // bots désactivés
+  }
+
+  function goBackToLobby() {
+    try {
+      socket.disconnect();
+    } catch (_) {}
+    setIsLoggedIn(false);
+    setPhase("lobby");
+    setRoundId(null);
+    setServerEndsAt(null);
+    setServerStatus("waiting");
+    setPlayers([]);
+    setProvisionalRanking([]);
+    setFinalResults([]);
+    setAnnouncements([]);
+    setNextStartAt(null);
+    setBreakCountdown(null);
+    setUpcomingSpecial(null);
+    setConnectionError("");
+    setStatusMessage("");
+    setAccepted([]);
+    acceptedRef.current = [];
+    acceptedScoresRef.current = new Map();
+    setCurrentTiles([]);
+    currentTilesRef.current = [];
+    setHighlightPath([]);
+    const fillSize = gridSize || getGridSizeForRoom(roomId);
+    setBoard(Array(fillSize * fillSize).fill({ letter: "?", bonus: null }));
+  }
+
+  function captureListPositions(list) {
+    const map = new Map();
+    list.forEach((entry) => {
+      const el = listItemRefs.current.get(entry.word);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        map.set(entry.word, rect);
+      }
+    });
+    prevPositionsRef.current = map;
   }
 
   function clearSelection() {
     setCurrentTiles([]);
     currentTilesRef.current = [];
     setHighlightPath([]);
-  }
-
-  function rotateGridClockwise() {
-    if (isGridRotating) return;
-    if (draggingRef.current) {
-      draggingRef.current = false;
-      clearSelection();
-    }
-    const prevRects = new Map();
-    for (let i = 0; i < board.length; i++) {
-      const el = tileRefs.current[i];
-      if (!el) continue;
-      prevRects.set(i, el.getBoundingClientRect());
-    }
-    gridRotateAnimRef.current = { prevRects, spin: 90 };
-    setIsGridRotating(true);
-    if (gridRotateTimerRef.current) clearTimeout(gridRotateTimerRef.current);
-    gridRotateTimerRef.current = setTimeout(() => {
-      setIsGridRotating(false);
-      gridRotateTimerRef.current = null;
-    }, GRID_ROTATE_ANIM_MS);
-    setGridRotationTurns((prev) => normalizeRotationTurns(prev + 1));
   }
 
   function pushWordHistory(wordNorm) {
@@ -3590,17 +3592,6 @@ function playTileStepSound(step) {
     updateBlockedInstallIds((prev) => prev.filter((entry) => entry !== key));
   }
 
-  function captureChatViewportBaseline() {
-    if (typeof window === "undefined") return;
-    const baseHeight = Math.round(
-      window.innerHeight || document.documentElement?.clientHeight || 0
-    );
-    if (baseHeight > 0) {
-      chatBodyLockHeightRef.current = baseHeight;
-      setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
-    }
-  }
-
   function openChatPanel() {
     if (chatCloseTimerRef.current) {
       clearTimeout(chatCloseTimerRef.current);
@@ -3608,18 +3599,15 @@ function playTileStepSound(step) {
     }
     setIsChatClosing(false);
     setMobileChatUnreadCount(0);
-    captureChatViewportBaseline();
-
-    // Figer la hauteur du jeu (layout viewport) pour que le fond ne "réponde" pas au clavier.
     if (typeof window !== "undefined") {
-      const candidates = [
-        window.innerHeight,
-        typeof document !== "undefined" ? document.documentElement?.clientHeight : null,
-      ].filter((v) => Number.isFinite(v) && v > 0);
-      const h = candidates.length ? Math.max(...candidates) : 0;
-      if (h > 0) gameViewportFreezeHeightRef.current = Math.round(h);
+      chatBodyLockHeightRef.current =
+        Math.round(window.innerHeight || document.documentElement?.clientHeight || 0) || 0;
+      if (chatBodyLockHeightRef.current > 0) {
+        setChatViewportHeight((prev) =>
+          prev > 0 ? Math.max(prev, chatBodyLockHeightRef.current) : chatBodyLockHeightRef.current
+        );
+      }
     }
-
     setIsChatOpenMobile(true);
   }
 
@@ -3635,7 +3623,6 @@ function playTileStepSound(step) {
       } catch (_) {}
     }
     chatBodyLockHeightRef.current = 0;
-    gameViewportFreezeHeightRef.current = 0;
     chatCloseTimerRef.current = window.setTimeout(() => {
       setIsChatOpenMobile(false);
       setIsChatClosing(false);
@@ -4307,7 +4294,8 @@ function handleTouchEnd() {
    maybeAnnounceBestWord(nickname.trim() || "Moi", display || raw, pts);
    playScoreSound(pts);
  }
- const isSpeedRound = specialRound?.type === "speed";
+  const isSpeedRound = specialRound?.type === "speed";
+  const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const allowScoreGobble = !isSpeedRound;
@@ -4315,10 +4303,9 @@ function handleTouchEnd() {
  const isGobbleNow =
    (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
    (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
- const allowLocalGobble = !(roundId && socket.connected && isLoggedIn);
 
-  if (!isTargetRoundNow) {
-   if (allowLocalGobble && isGobbleNow) {
+ if (!isTargetRoundNow) {
+   if (isGobbleNow) {
      playGobbleVoice();
      triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
      triggerConfettiBurst("gobble");
@@ -4388,6 +4375,7 @@ function handleTouchEnd() {
  playScoreSound(pts);
  maybeAnnounceBestWord(nickname.trim() || "Moi", display || raw, pts);
  const isSpeedRound = specialRound?.type === "speed";
+ const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const allowScoreGobble = !isSpeedRound;
@@ -4397,9 +4385,9 @@ function handleTouchEnd() {
   (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
 
  if (isGobbleNow) {
-  playGobbleVoice();
-  triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
-  triggerConfettiBurst("gobble");
+   playGobbleVoice();
+   triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
+   triggerConfettiBurst("gobble");
  } else if (pts >= 50) {
    triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
  } else if (pts >= 35) {
@@ -4518,38 +4506,9 @@ function handleTouchEnd() {
     foundTargetThisRound && typeof foundTargetWord === "string"
       ? foundTargetWord.trim()
       : "";
-  const shouldDefinitionBlink = definitionBlink && phase === "playing";
   const specialHintDisplay = solvedTargetWord
     ? buildCompletedTargetPattern(specialHint?.pattern || "", solvedTargetWord)
-    : specialHint?.pattern || buildTargetBlankPattern(specialHint?.length);
-  const isTargetHintRound =
-    specialRound?.type === "target_long" || specialRound?.type === "target_score";
-  const nextHintSeconds =
-    isTargetHintRound &&
-    phase === "playing" &&
-    Number.isFinite(serverEndsAt) &&
-    Number.isFinite(serverRoundDurationMs) &&
-    specialHint?.length &&
-    !solvedTargetWord
-      ? (() => {
-          const startAt = serverEndsAt - serverRoundDurationMs;
-          if (!Number.isFinite(startAt)) return null;
-          const now = getNowServerMs();
-          const elapsed = Math.max(0, now - startAt);
-          let nextAt = startAt + TARGET_HINT_FIRST_MS;
-          if (elapsed >= TARGET_HINT_FIRST_MS) {
-            const steps =
-              Math.floor((elapsed - TARGET_HINT_FIRST_MS) / TARGET_HINT_STEP_MS) + 1;
-            nextAt = startAt + TARGET_HINT_FIRST_MS + steps * TARGET_HINT_STEP_MS;
-          }
-          const remainingMs = nextAt - now;
-          return Math.max(0, Math.ceil(remainingMs / 1000));
-        })()
-      : null;
-  const nextHintLabel =
-    nextHintSeconds !== null
-      ? `Nouvel indice dans : ${nextHintSeconds}s.`
-      : "Nouvel indice dans : -- s.";
+    : specialHint?.pattern || "";
   const showSolvedTargetLoupe = Boolean(solvedTargetWord);
   const currentDisplay =
     currentTiles.length > 0
@@ -4563,9 +4522,6 @@ function handleTouchEnd() {
     currentTiles.length > 0
       ? currentTiles.join("")
       : currentTilesRef.current.join("");
-  const previewScale = liveWord
-    ? clampValue(11 / Math.max(1, liveWord.length), 0.6, 1)
-    : 1;
 
   const currentBonuses = summarizeBonuses(highlightPath, board);
   const wordMultiplier =
@@ -4588,6 +4544,7 @@ function handleTouchEnd() {
   const highlightPlayersSet = new Set(highlightPlayers);
   const bestPtsByFoundWord = React.useMemo(() => {
     const map = new Map();
+    if (allWords.length > 0) return map;
     if (!accepted || accepted.length === 0) return map;
     for (const word of accepted) {
       const norm = normalizeWord(word);
@@ -4597,22 +4554,24 @@ function handleTouchEnd() {
       }
     }
     return map;
-  }, [accepted, board, specialScoreConfig]);
+  }, [allWords.length, accepted, board, specialScoreConfig]);
 
+  const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
   const foundList = acceptedRef.current.map((word) => ({
     word,
     isFound: true,
     userPts: acceptedScoresRef.current.get(word),
-    bestPts: bestPtsByFoundWord.get(word),
+    bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
   }));
   const scoreForSort = (entry) =>
     typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
   foundList.sort((a, b) => scoreForSort(b) - scoreForSort(a));
-  const displayList = foundList.map((entry) => ({
+  const baseList = allWords.length > 0 ? allWords : foundList;
+  const displayList = baseList.map((entry) => ({
     word: entry.word,
-    isFound: true,
+    isFound: entry.isFound ?? acceptedRef.current.includes(entry.word),
     userPts: acceptedScoresRef.current.get(entry.word),
-    bestPts: entry.bestPts,
+    bestPts: typeof entry.pts === "number" ? entry.pts : entry.bestPts,
   }));
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
   const resultPillClass = darkMode
@@ -4636,7 +4595,7 @@ function handleTouchEnd() {
       if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
-      if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
+      if (upcomingSpecial.type === "target_score") return "MOT EN OR";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
       return String(upcomingSpecial.label || "MANCHE SPECIALE").toUpperCase();
     })();
@@ -4712,7 +4671,7 @@ function handleTouchEnd() {
                         darkMode
                           ? "bg-slate-800 border-slate-600 text-slate-100"
                           : "bg-white border-gray-300 text-gray-700"
-                      } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
+                      } ${definitionBlink ? "animate-pulse" : ""}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         openDefinition(endStats.bestWord.word);
@@ -4763,7 +4722,7 @@ function handleTouchEnd() {
                         darkMode
                           ? "bg-slate-800 border-slate-600 text-slate-100"
                           : "bg-white border-gray-300 text-gray-700"
-                      } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
+                      } ${definitionBlink ? "animate-pulse" : ""}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         openDefinition(endStats.longestWord.word);
@@ -4831,7 +4790,7 @@ function handleTouchEnd() {
       if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
-      if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
+      if (upcomingSpecial.type === "target_score") return "MOT EN OR";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
       return String(upcomingSpecial.label || "MANCHE SPECIALE").toUpperCase();
     })();
@@ -4854,8 +4813,7 @@ function handleTouchEnd() {
     })();
 
     const rawWord = typeof targetSummary.word === "string" ? targetSummary.word : "";
-    const cleanWord = rawWord.trim();
-    const word = cleanWord ? cleanWord.toUpperCase() : "";
+    const word = rawWord ? rawWord.toUpperCase() : "";
 
     return (
       <div
@@ -4895,40 +4853,7 @@ function handleTouchEnd() {
           LE MOT ETAIT
         </div>
         <div className="text-center text-2xl sm:text-3xl font-black tracking-tight break-all">
-          <span className="inline-flex items-center justify-center gap-2">
-            <span>{word || "?"}</span>
-            {cleanWord ? (
-              <button
-                type="button"
-                className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
-                  darkMode
-                    ? "bg-slate-800 border-slate-600 text-slate-100"
-                    : "bg-white border-gray-300 text-gray-700"
-                } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openDefinition(cleanWord);
-                }}
-                aria-label="Voir la définition"
-                title="Voir la définition"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="16.65" y1="16.65" x2="21" y2="21" />
-                </svg>
-              </button>
-            ) : null}
-          </span>
+          <span>{word || "?"}</span>
         </div>
         <div className="text-center text-xs sm:text-sm text-slate-500 dark:text-slate-300 leading-snug">
           {targetDefinition.loading ? (
@@ -5102,11 +5027,12 @@ function handleTouchEnd() {
       });
       prevPositionsRef.current = new Map();
     });
-  }, [displayList.length]);
+  }, [showAllWords, displayList.length]);
 
   useEffect(() => {
     if (phase === "results") {
       setMobileResultsTab("classement");
+      setShowAllWords(false);
     }
   }, [phase]);
   function buildRankingWindow(list, you, maxTop = 5, context = 2, maxItems = 12) {
@@ -5214,34 +5140,10 @@ function handleTouchEnd() {
     return { winner, bestWord, longestWord, mostWords };
   }, [finalResults, board]);
 
-  const tournamentFinaleSummary = React.useMemo(() => {
-    if (
-      tournamentSummary &&
-      Array.isArray(tournamentSummary.ranking) &&
-      tournamentSummary.ranking.length > 0
-    ) {
-      return tournamentSummary;
-    }
-    if (Array.isArray(tournamentRanking) && tournamentRanking.length > 0) {
-      const ranking = [...tournamentRanking]
-        .sort((a, b) => (b.score ?? b.points ?? 0) - (a.score ?? a.points ?? 0))
-        .map((entry) => ({
-          nick: entry.nick,
-          points: typeof entry.score === "number" ? entry.score : entry.points || 0,
-          gobbles: entry.gobbles ?? null,
-        }));
-      return {
-        winnerNick: ranking[0]?.nick || null,
-        ranking,
-        records: {},
-      };
-    }
-    return null;
-  }, [tournamentSummary, tournamentRanking]);
-
   const tournamentFinaleMedals = React.useMemo(() => {
-    const ranking = tournamentFinaleSummary?.ranking;
-    if (!Array.isArray(ranking) || !ranking.length) return null;
+    if (!tournamentSummary || !Array.isArray(tournamentSummary.ranking)) return null;
+    const ranking = tournamentSummary.ranking;
+    if (!ranking.length) return null;
     const medalOrder = ["gold", "silver", "bronze"];
     const map = {};
     medalOrder.forEach((medal, index) => {
@@ -5250,7 +5152,7 @@ function handleTouchEnd() {
       map[entry.nick] = { [medal]: 1 };
     });
     return map;
-  }, [tournamentFinaleSummary]);
+  }, [tournamentSummary]);
 
   function renderMedals(nick, fallbackMedals) {
     const m = medals?.[nick] || fallbackMedals?.[nick];
@@ -5342,6 +5244,107 @@ function handleTouchEnd() {
     );
   }
 
+  function randomBotNick() {
+    const prefixes = ["Nova", "Echo", "Pixel", "Turbo", "Jolt", "Rift", "Zen", "Pogo", "Lynx", "Orion"];
+    const suffixes = ["Fox", "Panda", "Raven", "Otter", "Mantis", "Cobra", "Llama", "Koala", "Tigre", "Hawk"];
+    const number = Math.floor(Math.random() * 90) + 10;
+    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const s = suffixes[Math.floor(Math.random() * suffixes.length)];
+    return `${p}${s}${number}`;
+  }
+
+  function sampleWords(entries, count) {
+    const pool = [...entries];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, count);
+  }
+
+  function buildTestBots(all) {
+    const total = all.length;
+    if (total === 0) return [];
+    const BOT_COUNT = 10;
+    const bots = [];
+    for (let i = 0; i < BOT_COUNT; i++) {
+      const level = 0.05 + Math.random() * 0.35; // 5% à 40% du dico
+      const target = Math.min(total, Math.max(5, Math.round(total * level)));
+      const picks = sampleWords(all, target);
+      const score = picks.reduce((sum, entry) => sum + (entry.pts || 0), 0);
+      const paceFast = 3000 + Math.random() * 4000; // 3-7s
+      const paceSlow = 8000 + Math.random() * 7000; // 8-15s
+      const pace = level > 0.25 ? paceFast : paceSlow;
+      bots.push({
+        nick: randomBotNick(),
+        score,
+        words: picks.map((p) => p.word),
+        level,
+        pace,
+      });
+    }
+    return bots;
+  }
+
+  function resetLiveBots() {
+    liveBotsRef.current.clear();
+    botTimersRef.current.forEach((id) => clearTimeout(id));
+    botTimersRef.current.clear();
+    setLiveBots([]);
+  }
+
+  function initLiveBots(all) {
+    const bots = buildTestBots(all).map((b) => ({
+      ...b,
+      score: 0,
+      words: [],
+      remaining: [...b.words],
+    }));
+    const map = new Map();
+    bots.forEach((b) => map.set(b.nick, b));
+    liveBotsRef.current = map;
+    setLiveBots(bots);
+  }
+
+  function scheduleBotTurn(nick) {
+    const bot = liveBotsRef.current.get(nick);
+    if (!bot || bot.remaining.length === 0) return;
+    const delay = bot.pace * (0.7 + Math.random() * 0.6); // +/-30%
+    const id = setTimeout(() => {
+      playBotWord(nick);
+    }, delay);
+    botTimersRef.current.set(nick, id);
+  }
+
+  function playBotWord(nick) {
+    if (phase !== "playing") return;
+    const bot = liveBotsRef.current.get(nick);
+    if (!bot) return;
+    if (bot.remaining.length === 0) return;
+
+    const word = bot.remaining.shift();
+    if (!word) return;
+
+    // évite de rejouer les mots de l'humain pour rendre le classement plus lisible
+    if (acceptedRef.current.includes(word)) {
+      scheduleBotTurn(nick);
+      return;
+    }
+
+    const path =
+      solutionsRef.current.get(word) || findBestPathForWord(board, word, specialScoreConfig);
+    const pts = path ? computeScore(word, path, board, specialScoreConfig) : 0;
+
+    bot.score += pts;
+    bot.words = [...bot.words, word];
+    liveBotsRef.current.set(nick, bot);
+    setLiveBots(Array.from(liveBotsRef.current.values()));
+    maybeAnnounceBestWord(nick, word, pts);
+
+    if (bot.remaining.length > 0 && phase === "playing") {
+      scheduleBotTurn(nick);
+    }
+  }
 
   // Surbrillance par border-4 interne (plus de ring)
   const gameBlockClasses =
@@ -5351,73 +5354,16 @@ function handleTouchEnd() {
       : "border border-gray-300");
 
   const chatBlockClasses =
-    "bg-white/90 dark:bg-slate-900/80 rounded-xl p-4 w-full max-w-sm flex flex-col h-full " +
+    "bg-white rounded-xl p-4 w-full max-w-sm flex flex-col h-full " +
     (activeArea === "chat"
       ? "border-4 border-black"
       : "border border-gray-300");
   const activeRoomId = currentRoomId || roomId;
   const activeRoom = ROOM_OPTIONS[activeRoomId] || ROOM_OPTIONS["room-4x4"];
-  const visualViewport =
-    typeof window !== "undefined" ? window.visualViewport : null;
-  const visualViewportHeight =
-    visualViewport && Number.isFinite(visualViewport.height)
-      ? Math.round(visualViewport.height)
-      : 0;
-  const visualViewportOffsetTop =
-    visualViewport && Number.isFinite(visualViewport.offsetTop)
-      ? Math.max(0, Math.round(visualViewport.offsetTop))
-      : 0;
-  const chatTopInsetPx = isFullscreen ? mobileHeaderOffsetPx : 0;
-  const useVisualViewportForChat = visualViewportHeight > 0;
-  const keyboardInsetReservePx =
-    useVisualViewportForChat && isChatOpenMobile && chatKeyboardInsetPx === 0
-      ? lastKeyboardInsetRef.current
-      : 0;
-  const visualViewportHeightForChat = useVisualViewportForChat
-    ? Math.max(0, visualViewportHeight - keyboardInsetReservePx)
-    : 0;
-  const safeTopPx = getSafeTopPx();
+  const baseRooms = Object.keys(ROOM_OPTIONS);
+  const availableRooms =
+    isMobileLayout && !bigGridUnlocked ? ["room-4x4"] : baseRooms;
 
-  // Surface affichable : hauteur - clavier.
-  const chatFallbackBaseHeight = Math.round(
-    chatBodyLockHeightRef.current ||
-      chatViewportHeight ||
-      window.innerHeight ||
-      document.documentElement?.clientHeight ||
-      visualViewportHeight ||
-      0
-  );
-  const keyboardOpenByVv =
-    useVisualViewportForChat &&
-    chatFallbackBaseHeight > 0 &&
-    Math.abs(chatFallbackBaseHeight - visualViewportHeight) >
-      KEYBOARD_INSET_THRESHOLD_PX;
-  const visualViewportTopEffective = useVisualViewportForChat
-    ? isFullscreen && keyboardOpenByVv
-      ? Math.max(visualViewportOffsetTop, safeTopPx)
-      : visualViewportOffsetTop
-    : 0;
-  const chatViewportTopInsetPx = useVisualViewportForChat
-    ? Math.max(0, chatTopInsetPx - visualViewportTopEffective)
-    : chatTopInsetPx;
-
-  const chatAvailableHeightForViewport = useVisualViewportForChat
-    ? Math.max(0, visualViewportHeightForChat - chatViewportTopInsetPx)
-    : Math.max(0, Math.round(chatFallbackBaseHeight - chatTopInsetPx));
-  const chatViewportTop = useVisualViewportForChat
-    ? Math.max(0, visualViewportTopEffective + chatViewportTopInsetPx)
-    : Math.max(0, chatTopInsetPx);
-
-  const chatViewportStyle =
-    chatAvailableHeightForViewport > 0
-      ? {
-          top: `${chatViewportTop}px`,
-          height: `${chatAvailableHeightForViewport}px`,
-          bottom: "auto",
-        }
-      : chatTopInsetPx
-      ? { top: `${Math.max(0, chatTopInsetPx)}px` }
-      : undefined;
   const previewBarMinHeight = 56;
   const previewTileStyle = {};
   const lightPanelStyle = darkMode ? {} : { backgroundColor: "#ffffff" };
@@ -5434,7 +5380,7 @@ function handleTouchEnd() {
   const measuredWidth = clampGridWidth(gridWidth);
   const fallbackWidth = clampGridWidth(
     playColumnRef.current?.getBoundingClientRect?.().width ||
-      560
+      (gridSize === 5 ? 640 : 560)
   );
   const playColumnGapPx = isMobileLayout ? 0 : 24;
   const playColumnPaddingPx = isMobileLayout ? 0 : 16;
@@ -5457,11 +5403,11 @@ function handleTouchEnd() {
   const widthCandidate =
     measuredWidth ??
     fallbackWidth ??
-    Math.min(MAX_GRID_WIDTH, 360);
+    (gridSize === 5 ? Math.min(MAX_GRID_WIDTH, 420) : Math.min(MAX_GRID_WIDTH, 360));
   const effectiveGridWidth = maxGridSideByHeight
     ? Math.min(widthCandidate, maxGridSideByHeight)
     : widthCandidate;
-  const gapRatio = Math.max(0.08, Math.min(0.18, BASE_GAP_RATIO));
+  const gapRatio = Math.max(0.08, Math.min(0.18, BASE_GAP_RATIO * (4 / gridSize))); // 4x4 inchangé, 5x5 resserré
   const innerGridWidth = Math.max(
     0,
     (effectiveGridWidth || 0) - GRID_PADDING_PX
@@ -5474,7 +5420,7 @@ function handleTouchEnd() {
   const tileGapPx = clampValue(tileSizePx * gapRatio, 4, 10);
   const computedGridWidth =
     tileSizePx * gridSize + tileGapPx * (gridSize - 1) + GRID_PADDING_PX;
-  const fontScale = 1;
+  const fontScale = gridSize >= 5 ? 0.68 : 1; // 5x5 plus petit sans toucher 4x4
   const tileFontPx = Math.max(14, Math.min(32, tileSizePx * 0.48 * fontScale));
   const countdownLabel = (() => {
     if (phase === "playing") {
@@ -5512,9 +5458,9 @@ function handleTouchEnd() {
     phase === "results" &&
     breakKind === "tournament_end" &&
     (!tournamentFinaleGateAt || getNowServerMs() >= tournamentFinaleGateAt) &&
-    tournamentFinaleSummary &&
-    Array.isArray(tournamentFinaleSummary.ranking) &&
-    tournamentFinaleSummary.ranking.length > 0;
+    tournamentSummary &&
+    Array.isArray(tournamentSummary.ranking) &&
+    tournamentSummary.ranking.length > 0;
   const prevShowTournamentFinaleRef = useRef(showTournamentFinale);
 
   useEffect(() => {
@@ -5764,7 +5710,7 @@ function handleTouchEnd() {
     definitionModal.open && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 px-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
             style={{ zIndex: 2147483647 }}
             onClick={closeDefinition}
           >
@@ -5773,8 +5719,8 @@ function handleTouchEnd() {
               aria-modal="true"
               className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
                 darkMode
-                  ? "bg-slate-900/80 text-slate-100 border-slate-600"
-                  : "bg-white/80 text-slate-900 border-slate-200"
+                  ? "bg-slate-900/95 text-slate-100 border-slate-600"
+                  : "bg-white/95 text-slate-900 border-slate-200"
               }`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -5904,7 +5850,10 @@ function handleTouchEnd() {
       >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-  <div className="flex items-baseline gap-2 text-3xl font-black tracking-tight select-none">
+  <div
+    className="flex items-baseline gap-2 text-3xl font-black tracking-tight cursor-pointer select-none"
+    onClick={handleSecretTitleTap}
+  >
     <span>GOBBLE</span>
     <span className="text-[11px] font-extrabold tracking-widest px-2 py-0.5 rounded-full border border-amber-300 bg-amber-100 text-amber-900">
       BETA
@@ -5945,6 +5894,44 @@ function handleTouchEnd() {
             {loginError && (
               <div className="text-red-300 text-xs">{loginError}</div>
             )}
+            <div className="flex flex-col gap-2">
+              <div className="text-sm font-semibold">Choix du salon</div>
+              <div className="flex flex-wrap gap-2">
+                {availableRooms.map((rid) => {
+                  const opt = ROOM_OPTIONS[rid];
+                  const selected = roomId === rid;
+                  const count = roomStats[rid]?.players ?? 0;
+                  return (
+                    <button
+                      key={rid}
+                      type="button"
+                      onClick={() => setRoomId(rid)}
+                      disabled={isConnecting}
+                      className={`px-3 py-2 rounded-lg border text-left flex-1 min-w-[140px] transition ${
+                        selected
+                          ? "bg-blue-600 text-white border-blue-500"
+                          : darkMode
+                          ? "bg-white/10 border-white/20 text-slate-100 hover:bg-white/20"
+                          : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100"
+                      }`}
+                    >
+                      <div className="font-semibold leading-tight">
+                        {opt?.label || rid}
+                      </div>
+                      <div className={`mt-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${darkMode ? "bg-white/15 border-white/20" : "bg-white border-slate-200"}`}>
+                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+                        <span>{count} joueur{count > 1 ? "s" : ""}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {isMobileLayout && (
+                <div className={`text-[11px] ${darkMode ? "text-slate-300" : "text-slate-500"}`}>
+                  Option 5x5 dispo sur desktop
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               className="mt-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition disabled:opacity-60"
@@ -6032,16 +6019,8 @@ function handleTouchEnd() {
           top: `${Math.round(praiseRect.top + praiseRect.height * 0.45)}px`,
         }
       : undefined;
-  const gobbleSizeClass = isMobileLayout ? "text-7xl" : "text-8xl";
-  const praiseSizeClass = isMobileLayout ? "text-5xl" : "text-6xl";
-  const praiseVariantClass =
-    praiseFlash?.kind === "gobble"
-      ? `praise-gobble ${gobbleSizeClass}`
-      : praiseFlash?.kind === "gold"
-      ? `praise-gold ${praiseSizeClass}`
-      : praiseFlash?.kind === "purple"
-      ? `praise-silver ${praiseSizeClass}`
-      : `praise-bronze ${praiseSizeClass}`;
+  const gobbleSizeClass = isMobileLayout ? "text-5xl" : "text-6xl";
+  const praiseSizeClass = isMobileLayout ? "text-4xl" : "text-5xl";
   const praiseOverlay =
     phase === "playing" && praiseFlash && typeof document !== "undefined"
       ? createPortal(
@@ -6049,18 +6028,11 @@ function handleTouchEnd() {
             key={praiseFlash.id}
             className={[
               "praise-pop praise-outline font-extrabold tracking-tight",
-              praiseVariantClass,
+              praiseFlash.kind === "gobble"
+                ? `praise-gobble ${gobbleSizeClass}`
+                : `praise-gold ${praiseSizeClass}`,
             ].join(" ")}
-            style={{
-              ...praisePositionStyle,
-              ["--praise-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
-              ["--praise-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
-              ["--praise-scale"]: praiseFlash.scale || 1.6,
-              ["--praise-duration"]: `${Math.max(
-                1200,
-                Math.min(2000, praiseFlash.durationMs || 1500)
-              )}ms`,
-            }}
+            style={praisePositionStyle}
           >
             {praiseFlash.text}
           </div>,
@@ -6069,32 +6041,28 @@ function handleTouchEnd() {
       : null;
 
   if (showTournamentFinale) {
-    const finaleRanking = tournamentFinaleSummary.ranking.map((e) => ({
+    const finaleRanking = tournamentSummary.ranking.map((e) => ({
       nick: e.nick,
-      score: typeof e.points === "number" ? e.points : e.score || 0,
+      score: e.points,
     }));
-    const records = tournamentFinaleSummary.records || {};
-    const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
+    const records = tournamentSummary.records || {};
+    const winnerNick = tournamentSummary.winnerNick || "Joueur";
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
-    const finaleBaselineHeight =
-      chatBodyLockHeightRef.current ||
+    const finaleViewportHeight =
       chatViewportHeight ||
       (typeof window !== "undefined" ? window.innerHeight : 0);
-    const finaleVisibleHeight = useVisualViewportForChat
-      ? Math.max(0, visualViewportHeightForChat - chatViewportTopInsetPx)
-      : Math.max(0, Math.round(finaleBaselineHeight - chatTopInsetPx));
-    const finaleSheetHeight =
-      finaleVisibleHeight > 0
-        ? clampValue(
-            Math.round(finaleVisibleHeight * CHAT_SHEET_HEIGHT_RATIO),
-            260,
-            finaleVisibleHeight
-          )
+    const finaleBottomInsetPx = chatKeyboardInsetPx;
+    const finaleSheetMaxHeight =
+      finaleViewportHeight > 0
+        ? Math.max(0, Math.round(finaleViewportHeight - finaleBottomInsetPx))
         : 0;
-    const finaleChatOverlayStyle =
-      !useVisualViewportForChat && chatKeyboardInsetPx > 0
-        ? { paddingBottom: `${Math.round(chatKeyboardInsetPx)}px` }
-        : undefined;
+    const finaleSheetHeight =
+      finaleSheetMaxHeight > 0
+        ? clampValue(Math.round(finaleViewportHeight * 0.9), 260, finaleSheetMaxHeight)
+        : 0;
+    const finaleChatOverlayStyle = finaleBottomInsetPx
+      ? { paddingBottom: `${finaleBottomInsetPx}px` }
+      : undefined;
     const finaleChatSheetStyle = finaleSheetHeight
       ? { height: `${finaleSheetHeight}px`, maxHeight: `${finaleSheetHeight}px` }
       : undefined;
@@ -6184,7 +6152,7 @@ function handleTouchEnd() {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold">Meilleur mot</span>
+                <span className="font-semibold">Mot en or</span>
                 <span className="tabular-nums">
                   {records?.bestWord?.nick ? (
                     <>
@@ -6195,7 +6163,7 @@ function handleTouchEnd() {
                           type="button"
                           className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 align-middle ${darkMode
                               ? "bg-slate-800 border-slate-600 text-slate-100"
-                              : "bg-white border-gray-300 text-gray-700"} ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
+                              : "bg-white border-gray-300 text-gray-700"} ${definitionBlink ? "animate-pulse" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             openDefinition(records.bestWord.word);
@@ -6239,7 +6207,7 @@ function handleTouchEnd() {
                           type="button"
                           className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 align-middle ${darkMode
                               ? "bg-slate-800 border-slate-600 text-slate-100"
-                              : "bg-white border-gray-300 text-gray-700"} ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
+                              : "bg-white border-gray-300 text-gray-700"} ${definitionBlink ? "animate-pulse" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             openDefinition(records.longestWord.word);
@@ -6334,13 +6302,13 @@ function handleTouchEnd() {
                     style={{ opacity }}
                   >
                     {isSystem ? (
-                      <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
+                      <div className="w-full px-1 py-0.5 text-[0.65rem] italic text-orange-700">
                         {msg.text}
                       </div>
                     ) : (
                       <div
                         className={[
-                          "w-full px-1 py-0.5 text-sm",
+                          "w-full px-1 py-0.5 text-[0.7rem]",
                           isYou ? "bg-blue-50" : "bg-white",
                         ].join(" ")}
                       >
@@ -6378,7 +6346,7 @@ function handleTouchEnd() {
                   type="button"
                   onClick={() => submitChat(null, txt)}
                   disabled={chatInputDisabled}
-                  className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {txt}
                 </button>
@@ -6405,7 +6373,7 @@ function handleTouchEnd() {
               onFocus={handleChatInputFocus}
               readOnly={chatInputDisabled}
               aria-disabled={chatInputDisabled}
-              className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
+              className="flex-1 border rounded px-2 py-1 text-xs ios-input"
                 placeholder={chatInputPlaceholder}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -6413,7 +6381,7 @@ function handleTouchEnd() {
               />
               <button
                 type="button"
-                className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
                 disabled={!chatInput.trim() || chatInputDisabled}
                 onClick={() => submitChat(null)}
               >
@@ -6433,12 +6401,10 @@ function handleTouchEnd() {
             chatInputPlaceholder={chatInputPlaceholder}
             onChatInputFocus={handleChatInputFocus}
             chatOverlayStyle={finaleChatOverlayStyle}
-            chatViewportStyle={chatViewportStyle}
             chatSheetStyle={finaleChatSheetStyle}
             chatAnimationMs={CHAT_DRAWER_ANIM_MS}
             cycleChatHistory={cycleChatHistory}
             darkMode={darkMode}
-            hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
             isChatOpenMobile={isChatOpenMobile}
             isChatClosing={isChatClosing}
             mobileChatUnreadCount={mobileChatUnreadCount}
@@ -6499,10 +6465,8 @@ function handleTouchEnd() {
         ? (useVisualViewport
             ? [
                 mobileLayoutSizing.viewportHeight,
-                ((isChatOpenMobile || isChatClosing) &&
-                gameViewportFreezeHeightRef.current > 0
-                  ? gameViewportFreezeHeightRef.current
-                  : window.innerHeight),
+                window.visualViewport?.height,
+                window.innerHeight,
                 typeof document !== "undefined"
                   ? document.documentElement?.clientHeight
                   : null,
@@ -6510,10 +6474,7 @@ function handleTouchEnd() {
             : lockedChatHeight
             ? [lockedChatHeight]
             : [
-                ((isChatOpenMobile || isChatClosing) &&
-                gameViewportFreezeHeightRef.current > 0
-                  ? gameViewportFreezeHeightRef.current
-                  : window.innerHeight),
+                window.innerHeight,
                 typeof document !== "undefined"
                   ? document.documentElement?.clientHeight
                   : null,
@@ -6523,16 +6484,10 @@ function handleTouchEnd() {
     const mobileViewportHeight = mobileViewportHeightCandidates.length
       ? Math.min(...mobileViewportHeightCandidates)
       : 0;
-    const chatViewportHeightEffective =
-      chatBodyLockHeightRef.current || chatViewportHeight || mobileViewportHeight;
+    const chatViewportHeightEffective = chatViewportHeight || mobileViewportHeight;
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            width: "100%",
             minHeight: `${Math.round(mobileViewportHeight)}px`,
             height: `${Math.round(mobileViewportHeight)}px`,
             maxHeight: `${Math.round(mobileViewportHeight)}px`,
@@ -6542,11 +6497,6 @@ function handleTouchEnd() {
             paddingBottom: "env(safe-area-inset-bottom)",
           }
         : {
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            width: "100%",
             minHeight: "100vh",
             height: "100dvh",
             maxHeight: "100dvh",
@@ -6621,6 +6571,41 @@ function handleTouchEnd() {
                 </svg>
               )}
               <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+              type="button"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {isFullscreen ? (
+                  <>
+                    <path d="M9 9H5V5" />
+                    <path d="M3 10L10 3" />
+                    <path d="M15 15h4v4" />
+                    <path d="m14 21 7-7" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M9 3H5a2 2 0 0 0-2 2v4" />
+                    <path d="M3 3l6 6" />
+                    <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+                    <path d="m21 21-6-6" />
+                  </>
+                )}
+              </svg>
+              <span className="sr-only">
+                {isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+              </span>
             </button>
           </div>
           <span className="tabular-nums">
@@ -6751,6 +6736,7 @@ function handleTouchEnd() {
         ? (useVisualViewport
             ? [
                 mobileLayoutSizing.viewportHeight,
+                window.visualViewport?.height,
                 window.innerHeight,
                 typeof document !== "undefined"
                   ? document.documentElement?.clientHeight
@@ -6769,19 +6755,13 @@ function handleTouchEnd() {
     const mobileViewportHeight = mobileViewportHeightCandidates.length
       ? Math.min(...mobileViewportHeightCandidates)
       : 0;
-    const chatViewportHeightEffective =
-      chatBodyLockHeightRef.current || chatViewportHeight || mobileViewportHeight;
+    const chatViewportHeightEffective = chatViewportHeight || mobileViewportHeight;
     const fullscreenTopPadding = isFullscreen
       ? `${Math.round(mobileHeaderOffsetPx || 0)}px`
       : "env(safe-area-inset-top)";
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            width: "100%",
             minHeight: `${Math.round(mobileViewportHeight)}px`,
             height: `${Math.round(mobileViewportHeight)}px`,
             maxHeight: `${Math.round(mobileViewportHeight)}px`,
@@ -6791,11 +6771,6 @@ function handleTouchEnd() {
             paddingBottom: "env(safe-area-inset-bottom)",
           }
         : {
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            width: "100%",
             minHeight: "100vh",
             height: "100dvh",
             maxHeight: "100dvh",
@@ -6805,20 +6780,42 @@ function handleTouchEnd() {
             paddingBottom: "env(safe-area-inset-bottom)",
           };
 
-    const chatAvailableHeight = useVisualViewportForChat
-      ? Math.max(0, visualViewportHeightForChat - chatViewportTopInsetPx)
-      : Math.max(0, Math.round(chatViewportHeightEffective - chatTopInsetPx));
+    const rankingTopNow = mobileRankingRef.current?.getBoundingClientRect?.()?.top;
+    const rankingTopPx = Number.isFinite(rankingTopNow)
+      ? Math.round(rankingTopNow)
+      : 0;
+    const headerBottomNow = mobileHeaderRef.current?.getBoundingClientRect?.()
+      ?.bottom;
+    const headerOffsetNow = Number.isFinite(headerBottomNow)
+      ? Math.round(headerBottomNow)
+      : Math.round(mobileHeaderOffsetPx || 0);
+    const chatTopPaddingPx = phase === "playing" ? 6 : 0;
+    const chatTopAnchorPx = headerOffsetNow;
+    const chatBottomInsetPx = chatKeyboardInsetPx;
+    const chatTopInsetRaw = Math.max(0, chatTopAnchorPx + chatTopPaddingPx);
+    const minChatSheetHeight = 260;
+    const maxTopInset =
+      chatViewportHeightEffective > 0
+        ? Math.max(0, chatViewportHeightEffective - chatBottomInsetPx - minChatSheetHeight)
+        : chatTopInsetRaw;
+    const chatTopInsetPx = Math.min(chatTopInsetRaw, maxTopInset);
     const chatOverlayStyle =
-      !useVisualViewportForChat && chatKeyboardInsetPx > 0
-        ? { paddingBottom: `${Math.round(chatKeyboardInsetPx)}px` }
+      chatTopInsetPx || chatBottomInsetPx
+        ? {
+            paddingTop: chatTopInsetPx ? `${chatTopInsetPx}px` : undefined,
+            paddingBottom: chatBottomInsetPx ? `${chatBottomInsetPx}px` : undefined,
+          }
         : undefined;
-    const chatSheetHeightPx =
-      chatAvailableHeight > 0
-        ? clampValue(
-            Math.round(chatAvailableHeight * CHAT_SHEET_HEIGHT_RATIO),
-            260,
-            chatAvailableHeight
+    const chatSheetMaxHeightPx =
+      chatViewportHeightEffective > 0
+        ? Math.max(
+            0,
+            Math.round(chatViewportHeightEffective - chatTopInsetPx - chatBottomInsetPx)
           )
+        : 0;
+    const chatSheetHeightPx =
+      chatSheetMaxHeightPx > 0
+        ? clampValue(Math.round(chatViewportHeightEffective * 0.9), 260, chatSheetMaxHeightPx)
         : 0;
     const chatSheetStyle = chatSheetHeightPx
       ? {
@@ -6855,6 +6852,8 @@ function handleTouchEnd() {
             darkMode={darkMode}
             gridSize={gridSize}
             headerRef={mobileHeaderRef}
+            fullscreenTopOffsetPx={FULLSCREEN_HEADER_TOP_OFFSET_PX}
+            isFullscreen={isFullscreen}
             isMuted={isMuted}
             isTargetRound={isTargetRound}
             phase={phase}
@@ -6863,6 +6862,7 @@ function handleTouchEnd() {
             setIsMuted={setIsMuted}
             showHelpButton={false}
             tournament={tournament}
+            toggleFullscreen={toggleFullscreen}
           />
           <div
             className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
@@ -6897,6 +6897,32 @@ function handleTouchEnd() {
               <div className="flex-1 min-h-0 overflow-hidden transition-all duration-300">
                 {resultsTab === "mots" && !isTargetRound ? (
                   <div className="flex flex-col gap-2 h-full">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
+                        <button
+                          onClick={() => {
+                            captureListPositions(displayList);
+                            setShowAllWords(false);
+                          }}
+                          className={`px-3 py-1 transition ${
+                            !showAllWords ? "bg-blue-600 text-white" : "bg-white text-gray-600"
+                          }`}
+                        >
+                          Trouvés
+                        </button>
+                        <button
+                          onClick={() => {
+                            captureListPositions(displayList);
+                            setShowAllWords(true);
+                          }}
+                          className={`px-3 py-1 transition ${
+                            showAllWords ? "bg-blue-600 text-white" : "bg-white text-gray-600"
+                          }`}
+                        >
+                          Tous
+                        </button>
+                      </div>
+                    </div>
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}>
                       {displayList.length === 0 ? (
                         <div className="flex items-center justify-center h-full text-xs text-slate-400">
@@ -6911,6 +6937,7 @@ function handleTouchEnd() {
                             const userPts = entry.userPts;
                             const showOpt =
                               isFound && typeof bestPts === "number" && typeof userPts === "number" && bestPts !== userPts;
+                            const visible = showAllWords || isFound;
                             return (
                               <li
                                 key={entry.word}
@@ -6928,17 +6955,18 @@ function handleTouchEnd() {
                                 }`}
                                 style={{
                                   transitionDuration: "220ms",
-                                  opacity: 1,
-                                  transform: "translateY(0)",
-                                  maxHeight: "48px",
+                                  opacity: visible ? 1 : 0,
+                                  transform: visible ? "translateY(0)" : "translateY(-8px)",
+                                  maxHeight: visible ? "48px" : "0px",
                                   paddingTop: "2px",
                                   paddingBottom: "2px",
                                   overflow: "hidden",
-                                  pointerEvents: "auto",
-                                  position: "relative",
+                                  pointerEvents: visible ? "auto" : "none",
+                                  position: visible ? "relative" : "absolute",
                                   top: 0,
                                   left: 0,
                                   width: "100%",
+                                  color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
                                 }}
                               >
                                 <span className="flex items-center gap-2">
@@ -7052,12 +7080,10 @@ function handleTouchEnd() {
             chatInputPlaceholder={chatInputPlaceholder}
             onChatInputFocus={handleChatInputFocus}
             chatOverlayStyle={chatOverlayStyle}
-            chatViewportStyle={chatViewportStyle}
             chatSheetStyle={chatSheetStyle}
             chatAnimationMs={CHAT_DRAWER_ANIM_MS}
             cycleChatHistory={cycleChatHistory}
             darkMode={darkMode}
-            hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
             isChatOpenMobile={isChatOpenMobile}
             isChatClosing={isChatClosing}
             mobileChatUnreadCount={mobileChatUnreadCount}
@@ -7099,6 +7125,8 @@ function handleTouchEnd() {
             darkMode={darkMode}
             gridSize={gridSize}
             headerRef={mobileHeaderRef}
+            fullscreenTopOffsetPx={FULLSCREEN_HEADER_TOP_OFFSET_PX}
+            isFullscreen={isFullscreen}
             isMuted={isMuted}
             isTargetRound={isTargetRound}
           phase={phase}
@@ -7116,6 +7144,7 @@ function handleTouchEnd() {
           showHelpButton={true}
           showRoundStats={true}
           tournament={tournament}
+          toggleFullscreen={toggleFullscreen}
         />
         {showHelp && (
           <div ref={mobileHelpRef} className="mx-3 mt-2 mb-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-[11px] text-gray-700 dark:text-slate-200">
@@ -7160,7 +7189,7 @@ function handleTouchEnd() {
                 {specialRound?.type === "target_long"
                   ? "TROUVE LE PLUS LONG MOT"
                   : specialRound?.type === "target_score"
-                  ? "TROUVE LE MEILLEUR MOT"
+                  ? "TROUVE LE MOT EN OR"
                   : "MANCHE SPECIALE"}
               </div>
               <div
@@ -7177,7 +7206,7 @@ function handleTouchEnd() {
                           darkMode
                             ? "bg-slate-800 border-slate-600 text-slate-100"
                             : "bg-white border-gray-300 text-gray-700"
-                        } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
+                        } ${definitionBlink ? "animate-pulse" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           openDefinition(solvedTargetWord);
@@ -7211,7 +7240,7 @@ function handleTouchEnd() {
                   </span>
                 )}
               </div>
-              {specialHint?.length ? (
+              {specialHint?.pattern && specialHint?.length ? (
                 <div
                   className="mt-1 font-semibold opacity-70 text-center"
                   style={{ fontSize: `${specialMetaFont}px` }}
@@ -7223,7 +7252,7 @@ function handleTouchEnd() {
                 className="mt-1 font-semibold opacity-80 text-center"
                 style={{ fontSize: `${specialMetaFont}px` }}
               >
-                {nextHintLabel}
+                {specialHint?.pattern ? "Indice mis a jour..." : "Indice dans 15 secondes..."}
               </div>
             </div>
           ) : (
@@ -7253,12 +7282,11 @@ function handleTouchEnd() {
             </div>
           )}
 
-          <MobileWordPreview
+                    <MobileWordPreview
             countdownLines={countdownLines}
             currentDisplay={currentDisplay}
             darkMode={darkMode}
             liveWord={liveWord}
-            onRotateGrid={rotateGridClockwise}
             phase={phase}
             previewBlockHeight={previewBlockHeight}
             previewGapPx={previewGapPx}
@@ -7275,7 +7303,6 @@ function handleTouchEnd() {
               gridRef={gridRef}
               gridShake={gridShake}
               gridSize={gridSize}
-              gridRotationTurns={gridRotationTurns}
               handleMouseDown={handleMouseDown}
               handleMouseMove={handleMouseMove}
               handleMouseUp={handleMouseUp}
@@ -7323,16 +7350,14 @@ function handleTouchEnd() {
             chatInputPlaceholder={chatInputPlaceholder}
             onChatInputFocus={handleChatInputFocus}
             chatOverlayStyle={chatOverlayStyle}
-            chatViewportStyle={chatViewportStyle}
             chatSheetStyle={chatSheetStyle}
             chatAnimationMs={CHAT_DRAWER_ANIM_MS}
             cycleChatHistory={cycleChatHistory}
             darkMode={darkMode}
-            hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
             isChatOpenMobile={isChatOpenMobile}
             isChatClosing={isChatClosing}
-            mobileChatUnreadCount={mobileChatUnreadCount}
-            blockedCount={blockedCount}
+          mobileChatUnreadCount={mobileChatUnreadCount}
+          blockedCount={blockedCount}
           blockedEntries={blockedEntries}
           onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
           onUnblockInstallId={unblockInstallId}
@@ -7409,6 +7434,14 @@ function handleTouchEnd() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {isLoggedIn && (
+              <button
+                onClick={goBackToLobby}
+                className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-white hover:bg-gray-100 flex items-center justify-center"
+              >
+                Changer de salon
+              </button>
+            )}
             <button
               onClick={() => setIsMuted((v) => !v)}
               className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
@@ -7450,6 +7483,29 @@ function handleTouchEnd() {
                 </svg>
               )}
               <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center justify-center"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {isFullscreen ? (
+                  <>
+                    <path d="M9 9H5V5" />
+                    <path d="M3 10L10 3" />
+                    <path d="M15 15h4v4" />
+                    <path d="m14 21 7-7" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M9 3H5a2 2 0 0 0-2 2v4" />
+                    <path d="M3 3l6 6" />
+                    <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+                    <path d="m21 21-6-6" />
+                  </>
+                )}
+              </svg>
+              <span className="sr-only">{isFullscreen ? "Quitter plein écran" : "Plein écran"}</span>
             </button>
             <button
               onClick={() => setShowHelp((v) => !v)}
@@ -7533,7 +7589,7 @@ function handleTouchEnd() {
             {specialRound?.type === "target_long"
               ? "TROUVE LE PLUS LONG MOT"
               : specialRound?.type === "target_score"
-              ? "TROUVE LE MEILLEUR MOT"
+              ? "TROUVE LE MOT EN OR"
               : "MANCHE SPECIALE"}
           </div>
           <div className="mt-3 text-center font-black tracking-widest text-xl sm:text-2xl tabular-nums">
@@ -7547,7 +7603,7 @@ function handleTouchEnd() {
                       darkMode
                         ? "bg-slate-800 border-slate-600 text-slate-100"
                         : "bg-white border-gray-300 text-gray-700"
-                    } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
+                    } ${definitionBlink ? "animate-pulse" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       openDefinition(solvedTargetWord);
@@ -7578,13 +7634,13 @@ function handleTouchEnd() {
               </span>
             )}
           </div>
-          {specialHint?.length ? (
+          {specialHint?.pattern && specialHint?.length ? (
             <div className="mt-1 text-[11px] font-semibold opacity-70 text-center">
               {specialHint.length} lettres
             </div>
           ) : null}
           <div className="mt-2 text-[11px] font-semibold opacity-80 text-center">
-            {nextHintLabel}
+            {specialHint?.pattern ? "Indice mis a jour..." : "Indice dans 15 secondes..."}
           </div>
         </div>
       )}
@@ -7812,20 +7868,14 @@ function handleTouchEnd() {
 
 
 
-              {board.map((_, displayIndex) => {
-                const boardIndex = mapDisplayToBoardIndex(
-                  displayIndex,
-                  gridSize,
-                  gridRotationTurns
-                );
-                const cell = board[boardIndex] || { letter: "?", bonus: null };
+              {board.map((cell, i) => {
                 const { letter, bonus } = cell;
                 const displayBonus = normalizeBonusLabel(bonus);
-                const isUsed = usedSet.has(boardIndex);
+                const isUsed = usedSet.has(i);
                 const isBonusLetterTile =
                   bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
-                const isHint = hintCellSet.has(boardIndex);
-                const isHintOutline = hintOutlineCellSet.has(boardIndex);
+                const isHint = hintCellSet.has(i);
+                const isHintOutline = hintOutlineCellSet.has(i);
                 const letterPts = isBonusLetterTile
                   ? bonusLetterScore ?? 20
                   : tileScore(cell);
@@ -7841,10 +7891,10 @@ function handleTouchEnd() {
 
                 return (
                   <button
-  key={displayIndex}
-  ref={(el) => (tileRefs.current[boardIndex] = el)}
-  onMouseDown={() => handleMouseDown(boardIndex)}
-  onTouchStart={(e) => handleTouchStart(e, boardIndex)}
+  key={i}
+  ref={(el) => (tileRefs.current[i] = el)}
+  onMouseDown={() => handleMouseDown(i)}
+  onTouchStart={(e) => handleTouchStart(e, i)}
   onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
   onTouchCancel={handleTouchEnd}
@@ -7863,7 +7913,6 @@ function handleTouchEnd() {
     // sur ce layout mobile, chaque tuile prend 100% de sa cellule de grille
     width: "100%",
     aspectRatio: "1 / 1",
-    willChange: "transform",
     fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
   }}
 >
@@ -7919,15 +7968,9 @@ function handleTouchEnd() {
               </div>
             )}
             <div
-              className="w-full flex items-center"
+              className={`w-full text-center font-bold text-lg leading-none flex items-center justify-center ${shake ? "shake" : ""}`}
               style={{ minHeight: `${previewBarMinHeight}px` }}
             >
-              <div className="w-9 shrink-0" />
-              <div
-                className={`flex-1 min-w-0 overflow-hidden text-center font-bold text-lg leading-none flex items-center justify-center ${
-                  shake ? "shake" : ""
-                }`}
-              >
                   {phase !== "playing" ? (
     <span className="text-gray-800 dark:text-white">
       {countdownLines.map((line, idx) => (
@@ -7946,10 +7989,7 @@ function handleTouchEnd() {
       ))}
     </span>
   ) : liveWord ? (
-    <div
-      className="flex justify-center items-center gap-1 max-w-full overflow-hidden"
-      style={{ transform: `scale(${previewScale})`, transformOrigin: "center" }}
-    >
+    <div className="flex justify-center items-center gap-1">
       {liveWord.split("").map((ch, idx) => {
         // rotation déterministe légère, entre -5° et +5°
         const angle = ((idx * 17 + liveWord.length * 13) % 11) - 5;
@@ -7969,32 +8009,8 @@ function handleTouchEnd() {
       {(currentDisplay || "Prêt à jouer").toUpperCase()}
     </span>
   )}
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  rotateGridClockwise();
-                }}
-                className="w-9 h-9 shrink-0 rounded-lg border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:bg-white flex items-center justify-center dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800/80"
-                title="Rotation 90 deg"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ transform: "translate(-1px, 1px)" }}
-                >
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1 2.13-9.36L23 10" />
-                </svg>
-                <span className="sr-only">Rotation 90 deg</span>
-              </button>
+
+
             </div>
           </div>
         </div>
@@ -8045,14 +8061,46 @@ function handleTouchEnd() {
                   <div>
                     <h2 className="text-lg font-bold">Mots</h2>
                   <div className="text-xs text-gray-500">
-                    Trouvés ({acceptedRef.current.length})
+                    {showAllWords
+                      ? `Tous (${allWords.length})`
+                      : `Trouvés (${acceptedRef.current.length})`}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
+                    <button
+                      onClick={() => {
+                        captureListPositions(displayList);
+                        setShowAllWords(false);
+                      }}
+                      className={`px-3 py-1 transition ${
+                        !showAllWords
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-600"
+                      }`}
+                    >
+                      Trouvés
+                    </button>
+                    <button
+                      onClick={() => {
+                        captureListPositions(displayList);
+                        setShowAllWords(true);
+                      }}
+                      className={`px-3 py-1 transition ${
+                        showAllWords
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-600"
+                      }`}
+                    >
+                      Tous
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {displayList.length === 0 ? (
+              {showAllWords && allWords.length === 0 ? (
                 <div className="text-sm text-gray-500 shrink-0">
-                  Aucun mot trouvé.
+                  Aucun mot (solveur non lanc?)
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pr-2" style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}>
@@ -8063,6 +8111,7 @@ function handleTouchEnd() {
                       const bestPts = entry.bestPts;
                       const userPts = entry.userPts;
                       const showOpt = isFound && typeof bestPts === "number" && typeof userPts === "number" && bestPts !== userPts;
+                      const visible = showAllWords || isFound;
                       return (
                         <li
                           key={entry.word}
@@ -8082,17 +8131,18 @@ function handleTouchEnd() {
                           }`}
                           style={{
                             transitionDuration: "220ms",
-                            opacity: 1,
-                            transform: "translateY(0)",
-                            maxHeight: "48px",
+                            opacity: visible ? 1 : 0,
+                            transform: visible ? "translateY(0)" : "translateY(-8px)",
+                            maxHeight: visible ? "48px" : "0px",
                             paddingTop: "2px",
                             paddingBottom: "2px",
                             overflow: "hidden",
-                            pointerEvents: "auto",
-                            position: "relative",
+                            pointerEvents: visible ? "auto" : "none",
+                            position: visible ? "relative" : "absolute",
                             top: 0,
                             left: 0,
                             width: "100%",
+                            color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
                           }}
                         >
                           <span className="flex items-center gap-2">
@@ -8173,7 +8223,7 @@ function handleTouchEnd() {
 
           <div
             ref={chatDesktopListRef}
-            className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col justify-end overflow-hidden"
+            className="chat-messages flex-1 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden"
           >
             {visibleMessages.map((msg, idx) => {
               // idx = 0 (en haut) -> plus ancien, idx = dernier -> plus r?cent
@@ -8209,13 +8259,13 @@ function handleTouchEnd() {
                   style={{ opacity }}
                 >
                   {isSystem ? (
-                    <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
+                    <div className="w-full px-1 py-0.5 text-[0.65rem] italic text-orange-700">
                       {msg.text}
                     </div>
                   ) : (
                     <div
                       className={[
-                        "w-full px-1 py-0.5 text-sm",
+                        "w-full px-1 py-0.5 text-[0.7rem]",
                         isYou ? "bg-blue-50" : "bg-white",
                       ].join(" ")}
                     >
@@ -8255,17 +8305,17 @@ function handleTouchEnd() {
                 type="button"
                 onClick={() => submitChat(null, txt)}
                 disabled={chatInputDisabled}
-              className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {txt}
-            </button>
-          ))}
-        </div>
+                className="px-2 py-1 text-[0.7rem] rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {txt}
+              </button>
+            ))}
+          </div>
 
-        <div className="mt-3 flex gap-2">
-          <input
-            ref={chatInputRef}
-            type={chatInputType}
+          <div className="mt-3 flex gap-2">
+            <input
+              ref={chatInputRef}
+              type={chatInputType}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -8279,28 +8329,53 @@ function handleTouchEnd() {
               data-autofill="off"
               aria-autocomplete="none"
               aria-label="Message du chat"
-            onFocus={handleChatInputFocus}
-            readOnly={chatInputDisabled}
-            aria-disabled={chatInputDisabled}
-            className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
-            placeholder={chatInputPlaceholder}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={handleChatInputKeyDown}
-          />
-          <button
-            type="button"
-            className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={!chatInput.trim() || chatInputDisabled}
-            onClick={() => submitChat(null)}
-          >
-            Envoyer
-          </button>
+              onFocus={handleChatInputFocus}
+              readOnly={chatInputDisabled}
+              aria-disabled={chatInputDisabled}
+              className="flex-1 border rounded px-2 py-1 text-xs ios-input"
+              placeholder={chatInputPlaceholder}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={handleChatInputKeyDown}
+            />
+            <button
+              type="button"
+              className="px-3 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
+              disabled={!chatInput.trim() || chatInputDisabled}
+              onClick={() => submitChat(null)}
+            >
+              Envoyer
+            </button>
           </div>
         </div>
       </div>
+
       {praiseOverlay}
-      {chatOverlays}
+          {chatOverlays}
+
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
