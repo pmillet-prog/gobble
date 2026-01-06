@@ -1992,75 +1992,6 @@ function emitPlayers(room) {
   );
 }
 
-function emitRoundSnapshot(room, socket) {
-  if (!room?.currentRound || room.currentRound.status !== "running") return;
-  const currentQuality = room.currentRound.quality;
-
-  const totalRounds = room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
-  const currentTournamentRound = room.currentRound.tournamentRound || 1;
-  const nextTournamentRound =
-    currentTournamentRound >= totalRounds ? 1 : currentTournamentRound + 1;
-  const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
-
-  socket.emit("roundStarted", {
-    roomId: room.id,
-    roundId: room.currentRound.id,
-    grid: room.currentRound.grid,
-    gridSize: room.config.gridSize,
-    durationMs: room.currentRound.durationMs,
-    endsAt: room.currentRound.endsAt,
-    targetLength: room.currentRound.targetLength || null,
-    special: room.currentRound.special?.isSpecial ? room.currentRound.special : null,
-    gridQuality: currentQuality
-      ? {
-          words: currentQuality.words ?? 0,
-          maxLen: currentQuality.maxLen ?? 0,
-          maxPts:
-            room.currentRound.special?.fixedWordScore ||
-            currentQuality.maxPts ||
-            0,
-          totalPts: currentQuality.totalPts ?? 0,
-          possibleScore: currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
-          longWords: currentQuality.longWords ?? 0,
-        }
-      : null,
-    roundNumber: room.currentRound.roundNumber,
-    tournament: {
-      id: room.tournament?.id || null,
-      round: currentTournamentRound,
-      totalRounds,
-      isFinalRound: currentTournamentRound === totalRounds,
-      nextRound: nextTournamentRound,
-      nextStartsNewTournament: currentTournamentRound === totalRounds,
-    },
-    nextSpecial: nextPlan?.isSpecial ? nextPlan : null,
-  });
-
-  const specialType = room.currentRound?.special?.type;
-  const isTargetRound = specialType === "target_long" || specialType === "target_score";
-  if (isTargetRound && typeof room.currentRound.targetWord === "string" && room.currentRound.targetWord) {
-    const startedAt =
-      (room.currentRound.endsAt || Date.now()) -
-      (room.currentRound.durationMs || room.config.durationMs || 0);
-    const elapsed = Date.now() - startedAt;
-    if (elapsed >= TARGET_HINT_FIRST_MS) {
-      const word = room.currentRound.targetWord || "";
-      const revealed = room.currentRound.targetRevealed || new Set();
-      const chars = word.split("");
-      const pattern = chars
-        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
-        .join(" ");
-      socket.emit("specialHint", {
-        roomId: room.id,
-        roundId: room.currentRound.id,
-        kind: specialType,
-        length: chars.length,
-        pattern,
-        revealCells: resolveTargetHintCells(room, Array.from(revealed)),
-      });
-    }
-  }
-}
 
 function cleanupExpiredMedals(room) {
   const now = Date.now();
@@ -2091,6 +2022,7 @@ function emitMedals(room) {
 
 function addMedal(room, nick, type) {
   if (!room || !nick) return;
+  if (isBotNick(room, nick)) return;
   const key = getMedalKeyForNickLookup(room, nick);
   if (!key) return;
   const current = room.medals.get(key) || { gold: 0, silver: 0, bronze: 0 };
@@ -3622,25 +3554,6 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, serverNow: Date.now() });
   });
 
-  socket.on("state:request", () => {
-    const roomId = socket.data?.roomId;
-    const nick = socket.data?.nick;
-    if (!roomId) return;
-    const room = getRoom(roomId);
-    if (!room) return;
-    emitPlayers(room);
-    emitMedals(room);
-    if (room.currentRound && room.currentRound.status === "running") {
-      if (nick) ensurePlayerInRound(room, nick);
-      emitRoundSnapshot(room, socket);
-      broadcastProvisionalRanking(room);
-      return;
-    }
-    if (room.breakState) {
-      socket.emit("breakStarted", room.breakState);
-    }
-  });
-
   socket.on("login", (payload, cb) => {
     const nick = typeof payload === "string" ? payload : payload?.nick;
     const token = typeof payload === "object" ? payload?.clientId : null;
@@ -3925,7 +3838,12 @@ io.on("connection", (socket) => {
     const player = room.players.get(socket.id);
     const now = Date.now();
     const medalKey = getMedalKeyForPlayer(player);
-    if (medalKey && !medalKey.startsWith("install:")) {
+    const isBot = isBotToken(player?.token);
+    if (medalKey && isBot) {
+      room.medals.delete(medalKey);
+      room.medalExpiry.delete(medalKey);
+    }
+    if (medalKey && !medalKey.startsWith("install:") && !isBot) {
       room.medalExpiry.set(medalKey, now + MEDALS_TTL_AFTER_DISCONNECT_MS);
     }
     if (!player) return;

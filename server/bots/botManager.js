@@ -643,7 +643,8 @@ class BotManager {
     this.botRoundStreak.delete(streakKey);
     this.botSessionUntil.delete(botSessionKey(room.id, bot.nick));
 
-    room.medalExpiry.set(bot.nick, Date.now() - 1);
+    room.medalExpiry.set(`nick:${bot.nick}`, Date.now() - 1);
+    room.medals.delete(`nick:${bot.nick}`);
     this.emitPlayers(room);
     this.emitMedals?.(room);
     this.broadcastProvisionalRanking(room);

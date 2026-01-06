@@ -909,7 +909,6 @@ export default function App() {
   const [finalResults, setFinalResults] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState("");
-  const [showResumeOverlay, setShowResumeOverlay] = useState(false);
   const [serverStatus, setServerStatus] = useState("waiting");
   const serverTimeOffsetRef = useRef(0); // ms: serverNow - clientNow
   const [announcements, setAnnouncements] = useState([]);
@@ -1083,7 +1082,6 @@ export default function App() {
   const definitionBlinkTimerRef = useRef(null);
   const disconnectGraceTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(false);
-  const resumeOverlayRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
@@ -2783,43 +2781,16 @@ function playTileStepSound(step) {
   }, [phase]);
 
   useEffect(() => {
-    resumeOverlayRef.current = showResumeOverlay;
-  }, [showResumeOverlay]);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setShowResumeOverlay(false);
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
 
-    const requestState = () => {
-      if (!isLoggedIn) return;
-      syncServerTime(() => {
-        if (socket?.connected) {
-          socket.emit("state:request");
-        }
-      });
-    };
-
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        if (isLoggedIn) {
-          setShowResumeOverlay(true);
-        }
-        return;
-      }
-      if (document.visibilityState === "visible" && !resumeOverlayRef.current) {
-        requestState();
+      if (document.visibilityState === "visible") {
+        syncServerTime();
       }
     };
 
     const onFocus = () => {
-      if (!resumeOverlayRef.current) {
-        requestState();
-      }
+      syncServerTime();
     };
 
     document.addEventListener("visibilitychange", onVisibility);
@@ -2828,7 +2799,7 @@ function playTileStepSound(step) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
     };
-  }, [isLoggedIn]);
+  }, []);
 
   useEffect(() => {
     function onRoundStarted({
@@ -3652,22 +3623,6 @@ function playTileStepSound(step) {
     }
   }
 
-  function handleResumeGame() {
-    setShowResumeOverlay(false);
-    if (!socket.connected) {
-      socket.connect();
-    }
-    if (isLoggedIn) {
-      attemptSilentReconnect();
-    }
-    syncServerTime(() => {
-      if (socket?.connected) {
-        socket.emit("state:request");
-      }
-    });
-  }
-
-
   function startGame() {
     const base = generateGrid(gridSize);
 
@@ -4377,7 +4332,7 @@ function playTileStepSound(step) {
           const dx = (e.clientX ?? cx) - cx;
           const dy = (e.clientY ?? cy) - cy;
           const dist = Math.hypot(dx, dy);
-          const safeRadius = Math.min(rect.width, rect.height) * 0.8; // si plus petit, moins permissif
+          const safeRadius = Math.min(rect.width, rect.height) * 0.7; // si plus petit, moins permissif
           if (dist > safeRadius) return prevPath;
         }
       }
@@ -4409,7 +4364,7 @@ function playTileStepSound(step) {
           // Zone "anti-corner" : on ignore UNIQUEMENT le coin du voisin orthogonal
           // du côté d'où l'on arrive (pour faciliter les diagonales sans rendre
           // les cases trop difficiles ‡ sélectionner au doigt).
-          const CORNER_THRESHOLD = 0.4; //si plus petit, moins permissif
+          const CORNER_THRESHOLD = 0.3; //si plus petit, moins permissif
           const inRejectedCorner =
             (dc === 1 && nx < -CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
             (dc === -1 && nx > CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
@@ -6218,30 +6173,6 @@ function handleTouchEnd() {
     </>
   );
 
-  const pauseOverlay = showResumeOverlay ? (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4">
-      <div
-        className={`w-full max-w-sm rounded-xl border p-4 text-center shadow-xl ${
-          darkMode
-            ? "bg-slate-900 border-slate-700 text-slate-100"
-            : "bg-white border-gray-200 text-slate-900"
-        }`}
-      >
-        <div className="text-lg font-extrabold">Jeu en pause</div>
-        <div className="text-sm opacity-80 mt-1">
-          Reviens quand tu es pret pour reprendre.
-        </div>
-        <button
-          type="button"
-          onClick={handleResumeGame}
-          className="mt-3 px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-400 transition"
-        >
-          Revenir
-        </button>
-      </div>
-    </div>
-  ) : null;
-
   if (!isLoggedIn) {
     return (
       <div
@@ -7870,7 +7801,6 @@ function handleTouchEnd() {
           {connectionError}
         </div>
       )}
-      {pauseOverlay}
 
       {showHelp && (
         <div className="mb-4 bg-white border rounded-xl p-3 text-sm text-gray-700">
