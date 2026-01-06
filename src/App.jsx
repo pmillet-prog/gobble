@@ -909,6 +909,7 @@ export default function App() {
   const [finalResults, setFinalResults] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState("");
+  const [showResumeOverlay, setShowResumeOverlay] = useState(false);
   const [serverStatus, setServerStatus] = useState("waiting");
   const serverTimeOffsetRef = useRef(0); // ms: serverNow - clientNow
   const [announcements, setAnnouncements] = useState([]);
@@ -1082,6 +1083,7 @@ export default function App() {
   const definitionBlinkTimerRef = useRef(null);
   const disconnectGraceTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(false);
+  const resumeOverlayRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
@@ -2781,25 +2783,43 @@ function playTileStepSound(step) {
   }, [phase]);
 
   useEffect(() => {
+    resumeOverlayRef.current = showResumeOverlay;
+  }, [showResumeOverlay]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setShowResumeOverlay(false);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
     if (typeof document === "undefined") return;
 
     const requestState = () => {
       if (!isLoggedIn) return;
       syncServerTime(() => {
-        if (phase !== "playing" && socket?.connected) {
+        if (socket?.connected) {
           socket.emit("state:request");
         }
       });
     };
 
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "hidden") {
+        if (isLoggedIn) {
+          setShowResumeOverlay(true);
+        }
+        return;
+      }
+      if (document.visibilityState === "visible" && !resumeOverlayRef.current) {
         requestState();
       }
     };
 
     const onFocus = () => {
-      requestState();
+      if (!resumeOverlayRef.current) {
+        requestState();
+      }
     };
 
     document.addEventListener("visibilitychange", onVisibility);
@@ -2808,7 +2828,7 @@ function playTileStepSound(step) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
     };
-  }, [isLoggedIn, phase]);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     function onRoundStarted({
@@ -2912,6 +2932,7 @@ function playTileStepSound(step) {
               score: e.points,
               gobbles: e.gobbles ?? null,
               delta: e.delta ?? 0,
+              isBot: !!e.isBot,
             }))
           : []
       );
@@ -3350,9 +3371,26 @@ function playTileStepSound(step) {
     setLoginError("");
     setConnectionError("");
     lastLoginPayloadRef.current = { nick, roomId };
+    if (disconnectGraceTimerRef.current) {
+      clearTimeout(disconnectGraceTimerRef.current);
+      disconnectGraceTimerRef.current = null;
+    }
+    reconnectAttemptRef.current = false;
 
     const attemptLogin = () => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        if (loginTimeout) clearTimeout(loginTimeout);
+      };
+      const loginTimeout = setTimeout(() => {
+        finish();
+        setLoginError("Connexion timeout");
+        setIsConnecting(false);
+      }, 6000);
       socket.emit("login", { nick, roomId, installId }, (res) => {
+        finish();
         if (!res?.ok) {
           if (res?.error === "pseudo_taken") {
             setLoginError("Pseudo deja utilise");
@@ -3612,6 +3650,21 @@ function playTileStepSound(step) {
       socket.once("connect", doLogin);
       socket.connect();
     }
+  }
+
+  function handleResumeGame() {
+    setShowResumeOverlay(false);
+    if (!socket.connected) {
+      socket.connect();
+    }
+    if (isLoggedIn) {
+      attemptSilentReconnect();
+    }
+    syncServerTime(() => {
+      if (socket?.connected) {
+        socket.emit("state:request");
+      }
+    });
   }
 
 
@@ -4825,7 +4878,7 @@ function handleTouchEnd() {
   const baseList = allWords.length > 0 ? allWords : foundList;
   const displayList = baseList.map((entry) => ({
     word: entry.word,
-    isFound: entry.isFound ?? acceptedRef.current.includes(entry.word),
+    isFound: acceptedRef.current.includes(entry.word),
     userPts: acceptedScoresRef.current.get(entry.word),
     bestPts: typeof entry.pts === "number" ? entry.pts : entry.bestPts,
   }));
@@ -5276,48 +5329,64 @@ function handleTouchEnd() {
   // Animation FLIP pour la liste de mots
   useEffect(() => {
     const prev = prevPositionsRef.current;
-    if (!prev || prev.size === 0) return;
+    const hasPrev = prev && prev.size > 0;
+
     requestAnimationFrame(() => {
+      const next = new Map();
+
       displayList.forEach((entry, idx) => {
         const el = listItemRefs.current.get(entry.word);
         if (!el) return;
+
         const rect = el.getBoundingClientRect();
-        const prevRect = prev.get(entry.word);
-        if (prevRect) {
-          const dx = prevRect.left - rect.left;
-          const dy = prevRect.top - rect.top;
-          if (dx !== 0 || dy !== 0) {
+        next.set(entry.word, rect);
+
+        // Si on a des positions précédentes, on anime les déplacements (FLIP)
+        if (hasPrev) {
+          const prevRect = prev.get(entry.word);
+
+          if (prevRect) {
+            const dx = prevRect.left - rect.left;
+            const dy = prevRect.top - rect.top;
+
+            if (dx !== 0 || dy !== 0) {
+              el.style.transition = "none";
+              el.style.transform = `translate(${dx}px, ${dy}px)`;
+              requestAnimationFrame(() => {
+                el.style.transition = "transform 220ms ease, opacity 200ms ease";
+                el.style.transform = "";
+              });
+              setTimeout(() => {
+                el.style.transition = "";
+                el.style.transform = "";
+              }, 260);
+            }
+          } else {
+            // Nouvel élément : petite anim d'apparition
             el.style.transition = "none";
-            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            el.style.transform = "translateY(-8px) scale(0.96)";
+            el.style.opacity = "0";
             requestAnimationFrame(() => {
               el.style.transition = "transform 220ms ease, opacity 200ms ease";
               el.style.transform = "";
+              el.style.opacity = "";
             });
             setTimeout(() => {
               el.style.transition = "";
               el.style.transform = "";
             }, 260);
           }
-        } else {
-          el.style.transition = "none";
-          el.style.transform = "translateY(-8px) scale(0.96)";
-          el.style.opacity = "0";
-          requestAnimationFrame(() => {
-            el.style.transition = "transform 220ms ease, opacity 200ms ease";
-            el.style.transform = "";
-            el.style.opacity = "";
-          });
-          setTimeout(() => {
-            el.style.transition = "";
-            el.style.transform = "";
-          }, 260);
+
+          const delay = Math.min(idx * 8, 120);
+          el.style.transitionDelay = `${delay}ms`;
         }
-        const delay = Math.min(idx * 8, 120);
-        el.style.transitionDelay = `${delay}ms`;
       });
-      prevPositionsRef.current = new Map();
+
+      // On conserve les positions courantes pour la prochaine transition
+      prevPositionsRef.current = next;
     });
-  }, [displayList.length]);
+  }, [showAllWords, displayList.length, accepted.length]);
+
 
   useEffect(() => {
     if (phase === "results") {
@@ -5444,6 +5513,7 @@ function handleTouchEnd() {
           nick: entry.nick,
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
           gobbles: entry.gobbles ?? null,
+          isBot: !!entry.isBot,
         }));
       return {
         winnerNick: ranking[0]?.nick || null,
@@ -5467,7 +5537,24 @@ function handleTouchEnd() {
     return map;
   }, [tournamentFinaleSummary]);
 
-  function renderMedals(nick, fallbackMedals) {
+  const botNickSet = React.useMemo(() => {
+    const set = new Set();
+    players.forEach((p) => {
+      if (p?.isBot && p?.nick) set.add(p.nick);
+    });
+    finalResults.forEach((entry) => {
+      if (entry?.isBot && entry?.nick) set.add(entry.nick);
+    });
+    (tournamentRanking || []).forEach((entry) => {
+      if (entry?.isBot && entry?.nick) set.add(entry.nick);
+    });
+    (tournamentFinaleSummary?.ranking || []).forEach((entry) => {
+      if (entry?.isBot && entry?.nick) set.add(entry.nick);
+    });
+    return set;
+  }, [players, finalResults, tournamentRanking, tournamentFinaleSummary]);
+
+  function renderMedalsInline(nick, fallbackMedals) {
     const m = medals?.[nick] || fallbackMedals?.[nick];
     if (!m) return null;
     const toSuperscript = (n) => `x${n}`;
@@ -5502,8 +5589,38 @@ function handleTouchEnd() {
       );
 
     return parts.length ? (
-      <span className="inline-flex items-center gap-0.5 ml-1">{parts}</span>
+      <span className="inline-flex items-center gap-0.5">{parts}</span>
     ) : null;
+  }
+
+  function renderMedals(nick, fallbackMedals) {
+    const medalsInline = renderMedalsInline(nick, fallbackMedals);
+    return medalsInline ? (
+      <span className="inline-flex items-center gap-0.5 ml-1">{medalsInline}</span>
+    ) : null;
+  }
+
+  function renderHumanDot(nick) {
+    if (!nick) return null;
+    if (botNickSet.has(nick)) return null;
+    return (
+      <span
+        className="inline-block w-2 h-2 rounded-full bg-orange-400"
+        aria-hidden="true"
+      />
+    );
+  }
+
+  function renderNickSuffix(nick, fallbackMedals) {
+    const dot = renderHumanDot(nick);
+    const medalsInline = renderMedalsInline(nick, fallbackMedals);
+    if (!dot && !medalsInline) return null;
+    return (
+      <span className="inline-flex items-center gap-1 ml-1">
+        {dot}
+        {medalsInline}
+      </span>
+    );
   }
 
   function renderRankDelta(entry) {
@@ -6101,6 +6218,30 @@ function handleTouchEnd() {
     </>
   );
 
+  const pauseOverlay = showResumeOverlay ? (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4">
+      <div
+        className={`w-full max-w-sm rounded-xl border p-4 text-center shadow-xl ${
+          darkMode
+            ? "bg-slate-900 border-slate-700 text-slate-100"
+            : "bg-white border-gray-200 text-slate-900"
+        }`}
+      >
+        <div className="text-lg font-extrabold">Jeu en pause</div>
+        <div className="text-sm opacity-80 mt-1">
+          Reviens quand tu es pret pour reprendre.
+        </div>
+        <button
+          type="button"
+          onClick={handleResumeGame}
+          className="mt-3 px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-400 transition"
+        >
+          Revenir
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   if (!isLoggedIn) {
     return (
       <div
@@ -6374,7 +6515,7 @@ function handleTouchEnd() {
                 animateRank={false}
                 showWheel={false}
                 flatStyle={true}
-                renderNickSuffix={(nick) => renderMedals(nick, tournamentFinaleMedals)}
+                renderNickSuffix={(nick) => renderNickSuffix(nick, tournamentFinaleMedals)}
                 renderAfterRank={renderRankDelta}
               />
             </div>
@@ -7285,7 +7426,7 @@ function handleTouchEnd() {
                         showWheel={false}
                         flatStyle={true}
                         showRoundAward={true}
-                        renderNickSuffix={renderMedals}
+                        renderNickSuffix={renderNickSuffix}
                         renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
                       />
                     </div>
@@ -7729,6 +7870,7 @@ function handleTouchEnd() {
           {connectionError}
         </div>
       )}
+      {pauseOverlay}
 
       {showHelp && (
         <div className="mb-4 bg-white border rounded-xl p-3 text-sm text-gray-700">
@@ -7858,7 +8000,7 @@ function handleTouchEnd() {
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}
           highlightedPlayers={highlightPlayers}
-          renderNickSuffix={renderMedals}
+          renderNickSuffix={renderNickSuffix}
         />
       )}
     </div>
@@ -7915,7 +8057,7 @@ function handleTouchEnd() {
           flatStyle={isMobileLayout}
           highlightedPlayers={highlightPlayers}
           showRoundAward={true}
-          renderNickSuffix={renderMedals}
+          renderNickSuffix={renderNickSuffix}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
         />
       </div>
@@ -8303,15 +8445,56 @@ function handleTouchEnd() {
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <div>
                     <h2 className="text-lg font-bold">Mots</h2>
-                  <div className="text-xs text-gray-500">
-                    Trouvés ({acceptedRef.current.length})
+                    <div className="text-xs text-gray-500">
+                      {showAllWords ? `Tous (${allWords.length})` : `Trouvés (${acceptedRef.current.length})`}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className={`inline-flex rounded-full overflow-hidden ${darkMode ? "border border-slate-700" : "border border-gray-300"}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          captureListPositions(displayList);
+                          setShowAllWords(false);
+                        }}
+                        className={`px-3 py-1 transition ${
+                          !showAllWords
+                            ? darkMode
+                              ? "bg-blue-700 text-white"
+                              : "bg-blue-600 text-white"
+                            : darkMode
+                              ? "bg-slate-900 text-gray-300"
+                              : "bg-white text-gray-600"
+                        }`}
+                      >
+                        Trouvés
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          captureListPositions(displayList);
+                          setShowAllWords(true);
+                        }}
+                        className={`px-3 py-1 transition ${
+                          showAllWords
+                            ? darkMode
+                              ? "bg-blue-700 text-white"
+                              : "bg-blue-600 text-white"
+                            : darkMode
+                              ? "bg-slate-900 text-gray-300"
+                              : "bg-white text-gray-600"
+                        }`}
+                      >
+                        Tous
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
               {displayList.length === 0 ? (
                 <div className="text-sm text-gray-500 shrink-0">
-                  Aucun mot trouvé.
+                  {showAllWords && allWords.length === 0 ? "Aucun mot (solveur non lancé)" : "Aucun mot trouvé."}
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pr-2" style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}>
@@ -8322,6 +8505,7 @@ function handleTouchEnd() {
                       const bestPts = entry.bestPts;
                       const userPts = entry.userPts;
                       const showOpt = isFound && typeof bestPts === "number" && typeof userPts === "number" && bestPts !== userPts;
+                      const visible = showAllWords || isFound;
                       return (
                         <li
                           key={entry.word}
@@ -8341,17 +8525,18 @@ function handleTouchEnd() {
                           }`}
                           style={{
                             transitionDuration: "220ms",
-                            opacity: 1,
-                            transform: "translateY(0)",
-                            maxHeight: "48px",
+                            opacity: visible ? 1 : 0,
+                            transform: visible ? "translateY(0)" : "translateY(-8px)",
+                            maxHeight: visible ? "48px" : "0px",
                             paddingTop: "2px",
                             paddingBottom: "2px",
                             overflow: "hidden",
-                            pointerEvents: "auto",
-                            position: "relative",
+                            pointerEvents: visible ? "auto" : "none",
+                            position: visible ? "relative" : "absolute",
                             top: 0,
                             left: 0,
                             width: "100%",
+                            color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
                           }}
                         >
                           <span className="flex items-center gap-2">

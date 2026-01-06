@@ -1493,7 +1493,7 @@ const io = new Server(server, {
 });
 
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
-const DEFAULT_BREAK_DURATION_MS = 30 * 1000; // 30 secondes
+const DEFAULT_BREAK_DURATION_MS = 30 * 1000; // 45 secondes
 const MAX_CHAT_HISTORY = 50;
 const NICK_MAX_LEN = 25;
 const RESERVATION_MS = 3 * 60 * 1000; // pseudo réservé après déco
@@ -1517,7 +1517,7 @@ const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_F
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const MONSTROUS_POST_PREP_MIN_BREAK_MS = 5 * 1000;
-const DISCONNECT_GRACE_MS = 30 * 1000;
+const DISCONNECT_GRACE_MS = 120 * 1000;
 
 const TARGET_LONG_MIN_LEN = 8;
 const TARGET_SCORE_MIN_PTS = 100;
@@ -1966,6 +1966,20 @@ function findPlayerByNick(room, nick) {
   return null;
 }
 
+function isBotToken(token) {
+  return typeof token === "string" && token.startsWith("bot-");
+}
+
+function isBotNick(room, nick) {
+  if (!room || !nick) return false;
+  for (const player of room.players.values()) {
+    if (player?.nick === nick) {
+      return isBotToken(player?.token);
+    }
+  }
+  return false;
+}
+
 function emitPlayers(room) {
   io.to(room.id).emit(
     "playersUpdate",
@@ -1973,8 +1987,79 @@ function emitPlayers(room) {
       nick: p.nick,
       roomId: room.id,
       installId: p.installId || null,
+      isBot: isBotToken(p?.token),
     }))
   );
+}
+
+function emitRoundSnapshot(room, socket) {
+  if (!room?.currentRound || room.currentRound.status !== "running") return;
+  const currentQuality = room.currentRound.quality;
+
+  const totalRounds = room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
+  const currentTournamentRound = room.currentRound.tournamentRound || 1;
+  const nextTournamentRound =
+    currentTournamentRound >= totalRounds ? 1 : currentTournamentRound + 1;
+  const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
+
+  socket.emit("roundStarted", {
+    roomId: room.id,
+    roundId: room.currentRound.id,
+    grid: room.currentRound.grid,
+    gridSize: room.config.gridSize,
+    durationMs: room.currentRound.durationMs,
+    endsAt: room.currentRound.endsAt,
+    targetLength: room.currentRound.targetLength || null,
+    special: room.currentRound.special?.isSpecial ? room.currentRound.special : null,
+    gridQuality: currentQuality
+      ? {
+          words: currentQuality.words ?? 0,
+          maxLen: currentQuality.maxLen ?? 0,
+          maxPts:
+            room.currentRound.special?.fixedWordScore ||
+            currentQuality.maxPts ||
+            0,
+          totalPts: currentQuality.totalPts ?? 0,
+          possibleScore: currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
+          longWords: currentQuality.longWords ?? 0,
+        }
+      : null,
+    roundNumber: room.currentRound.roundNumber,
+    tournament: {
+      id: room.tournament?.id || null,
+      round: currentTournamentRound,
+      totalRounds,
+      isFinalRound: currentTournamentRound === totalRounds,
+      nextRound: nextTournamentRound,
+      nextStartsNewTournament: currentTournamentRound === totalRounds,
+    },
+    nextSpecial: nextPlan?.isSpecial ? nextPlan : null,
+  });
+
+  const specialType = room.currentRound?.special?.type;
+  const isTargetRound = specialType === "target_long" || specialType === "target_score";
+  if (isTargetRound && typeof room.currentRound.targetWord === "string" && room.currentRound.targetWord) {
+    const startedAt =
+      (room.currentRound.endsAt || Date.now()) -
+      (room.currentRound.durationMs || room.config.durationMs || 0);
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= TARGET_HINT_FIRST_MS) {
+      const word = room.currentRound.targetWord || "";
+      const revealed = room.currentRound.targetRevealed || new Set();
+      const chars = word.split("");
+      const pattern = chars
+        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
+        .join(" ");
+      socket.emit("specialHint", {
+        roomId: room.id,
+        roundId: room.currentRound.id,
+        kind: specialType,
+        length: chars.length,
+        pattern,
+        revealCells: resolveTargetHintCells(room, Array.from(revealed)),
+      });
+    }
+  }
 }
 
 function cleanupExpiredMedals(room) {
@@ -3228,6 +3313,7 @@ function endRoundForRoom(room) {
       nick,
       score: data.score,
       words: Array.from(data.words),
+      isBot: isBotNick(room, nick),
     });
   }
 
@@ -3357,6 +3443,7 @@ function endRoundForRoom(room) {
         words: meta ? [room.currentRound.targetWord || ""] : [],
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
+        isBot: isBotToken(player?.token),
       });
     }
 
@@ -3386,7 +3473,7 @@ function endRoundForRoom(room) {
         const basePoints = data?.points || 0;
         const gobbles = data?.gobbles || 0;
         const points = basePoints + gobbles;
-        return { nick, points, basePoints, gobbles };
+        return { nick, points, basePoints, gobbles, isBot: isBotNick(room, nick) };
       })
       .sort((a, b) => {
         const diff = (b.points || 0) - (a.points || 0);
@@ -3533,6 +3620,25 @@ io.on("connection", (socket) => {
 
   socket.on("timeSync", (_payload, cb) => {
     cb?.({ ok: true, serverNow: Date.now() });
+  });
+
+  socket.on("state:request", () => {
+    const roomId = socket.data?.roomId;
+    const nick = socket.data?.nick;
+    if (!roomId) return;
+    const room = getRoom(roomId);
+    if (!room) return;
+    emitPlayers(room);
+    emitMedals(room);
+    if (room.currentRound && room.currentRound.status === "running") {
+      if (nick) ensurePlayerInRound(room, nick);
+      emitRoundSnapshot(room, socket);
+      broadcastProvisionalRanking(room);
+      return;
+    }
+    if (room.breakState) {
+      socket.emit("breakStarted", room.breakState);
+    }
   });
 
   socket.on("login", (payload, cb) => {
