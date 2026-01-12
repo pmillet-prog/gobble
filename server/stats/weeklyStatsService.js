@@ -13,6 +13,7 @@ const DEFAULT_STATE = {
   weekStartTs: 0,
   medals: new Map(),
   mostWordsInGame: new Map(),
+  totalScore: new Map(),
   bestWord: new Map(),
   longestWord: new Map(),
   bestRoundScore: new Map(),
@@ -54,6 +55,7 @@ async function saveToDisk() {
     weekStartTs: state.weekStartTs,
     medals: serializeMap(state.medals),
     mostWordsInGame: serializeMap(state.mostWordsInGame),
+    totalScore: serializeMap(state.totalScore),
     bestWord: serializeMap(state.bestWord),
     longestWord: serializeMap(state.longestWord),
     bestRoundScore: serializeMap(state.bestRoundScore),
@@ -82,6 +84,7 @@ async function loadFromDisk() {
       weekStartTs: fileWeek || getWeekStartTs(),
       medals: reviveMap(parsed.medals),
       mostWordsInGame: reviveMap(parsed.mostWordsInGame),
+      totalScore: reviveMap(parsed.totalScore),
       bestWord: reviveMap(parsed.bestWord),
       longestWord: reviveMap(parsed.longestWord),
       bestRoundScore: reviveMap(parsed.bestRoundScore),
@@ -97,75 +100,7 @@ async function loadFromDisk() {
 
 function seedSamples() {
   const now = Date.now();
-  const samples = [
-    {
-      kind: "medals",
-      playerKey: "nick:ProtoPanache",
-      nick: "ProtoPanache",
-      value: { gold: 3, silver: 1, bronze: 0, total: 4, achievedAt: now - 6 * 60 * 60 * 1000 },
-    },
-    {
-      kind: "bestWord",
-      playerKey: "nick:Crux",
-      nick: "Crux",
-      value: { word: "EXACTION", pts: 142, achievedAt: now - 5 * 60 * 60 * 1000 },
-    },
-    {
-      kind: "longestWord",
-      playerKey: "nick:QuasarMots",
-      nick: "QuasarMots",
-      value: { word: "HYPERBOLIQUES", len: 13, achievedAt: now - 4 * 60 * 60 * 1000 },
-    },
-    {
-      kind: "bestRoundScore",
-      playerKey: "nick:Proutosaurus Rex",
-      nick: "Proutosaurus Rex",
-      value: {
-        pts: 2100,
-        roundId: "room-4x4#sample",
-        achievedAt: now - 3 * 60 * 60 * 1000,
-      },
-    },
-    {
-      kind: "mostWordsInGame",
-      playerKey: "nick:ProtoPanache",
-      nick: "ProtoPanache",
-      value: { wordsCount: 120, roundId: "room-5x5#sample", achievedAt: now - 2 * 60 * 60 * 1000 },
-    },
-    {
-      kind: "bestTimeTargetLong",
-      playerKey: "nick:Crux",
-      nick: "Crux",
-      value: { ms: 5200, word: "GALAXIE", achievedAt: now - 90 * 60 * 1000 },
-    },
-    {
-      kind: "bestTimeTargetScore",
-      playerKey: "nick:QuasarMots",
-      nick: "QuasarMots",
-      value: { ms: 4300, word: "QUASAR", achievedAt: now - 60 * 60 * 1000 },
-    },
-    {
-      kind: "mostGobbles",
-      playerKey: "nick:ProtoPanache",
-      nick: "ProtoPanache",
-      value: { gobbles: 6, achievedAt: now - 30 * 60 * 1000 },
-    },
-    {
-      kind: "bestWord",
-      playerKey: "nick:BOT-Vega",
-      nick: "BOT-Vega",
-      value: { word: "GALVANOSCOPE", pts: 118, achievedAt: now - 4 * 60 * 60 * 1000 },
-    },
-    {
-      kind: "longestWord",
-      playerKey: "nick:BOT-Nexus",
-      nick: "BOT-Nexus",
-      value: { word: "MICROTECHNIQUE", len: 15, achievedAt: now - 5 * 60 * 60 * 1000 },
-    },
-  ];
-  for (const sample of samples) {
-    state[sample.kind].set(sample.playerKey, { nick: sample.nick, playerKey: sample.playerKey, ...sample.value });
-  }
+  void now;
 }
 
 function resetState() {
@@ -173,6 +108,7 @@ function resetState() {
     ...DEFAULT_STATE,
     medals: new Map(),
     mostWordsInGame: new Map(),
+    totalScore: new Map(),
     bestWord: new Map(),
     longestWord: new Map(),
     bestRoundScore: new Map(),
@@ -261,10 +197,32 @@ export function recordBestRoundScore(playerKey, nick, pts, roundId, achievedAt =
 
 export function recordMostWordsInGame(playerKey, nick, wordsCount, roundId, achievedAt = Date.now()) {
   ensureCurrentWeek();
-  if (!playerKey || !nick || !Number.isFinite(wordsCount)) return;
+  if (!playerKey || !nick || !Number.isFinite(wordsCount) || wordsCount <= 0) return;
   const current = state.mostWordsInGame.get(playerKey) || null;
   if (!shouldReplace(current, "wordsCount", wordsCount, achievedAt, false)) return;
   state.mostWordsInGame.set(playerKey, { nick, playerKey, wordsCount, roundId, achievedAt });
+  scheduleSave();
+}
+
+export function recordTotalScore(playerKey, nick, scoreToAdd, achievedAt = Date.now()) {
+  ensureCurrentWeek();
+  if (!playerKey || !nick || !Number.isFinite(scoreToAdd)) return;
+  const current = state.totalScore.get(playerKey) || {
+    nick,
+    playerKey,
+    totalScore: 0,
+    roundsPlayed: 0,
+    achievedAt,
+  };
+  const nextTotal = (current.totalScore || 0) + scoreToAdd;
+  const nextRounds = (current.roundsPlayed || 0) + 1;
+  const result = {
+    ...current,
+    totalScore: nextTotal,
+    roundsPlayed: nextRounds,
+    achievedAt: achievedAt,
+  };
+  state.totalScore.set(playerKey, result);
   scheduleSave();
 }
 
@@ -315,6 +273,9 @@ export function getWeeklyStats(topN = TOP_N) {
   ensureCurrentWeek();
   const weekStartTs = state.weekStartTs;
   const nextResetTs = getNextResetTs(weekStartTs);
+  const mostWords = Array.from(state.mostWordsInGame.values()).filter(
+    (entry) => Number(entry?.wordsCount) > 0
+  );
   return {
     weekStartTs,
     weekStartISO: new Date(weekStartTs).toISOString(),
@@ -323,10 +284,8 @@ export function getWeeklyStats(topN = TOP_N) {
     topN,
     boards: {
       medals: sortEntries(Array.from(state.medals.values()), "total", false).slice(0, topN),
-      mostWordsInGame: sortEntries(Array.from(state.mostWordsInGame.values()), "wordsCount", false).slice(
-        0,
-        topN
-      ),
+      mostWordsInGame: sortEntries(mostWords, "wordsCount", false).slice(0, topN),
+      totalScore: sortEntries(Array.from(state.totalScore.values()), "totalScore", false).slice(0, topN),
       bestWord: sortEntries(Array.from(state.bestWord.values()), "pts", false).slice(0, topN),
       longestWord: sortEntries(Array.from(state.longestWord.values()), "len", false).slice(0, topN),
       bestRoundScore: sortEntries(Array.from(state.bestRoundScore.values()), "pts", false).slice(0, topN),

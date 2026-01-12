@@ -22,9 +22,9 @@
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "wordsCount": 3,
-      "roundId": "room-4x4#1768172302852",
-      "achievedAt": 1768172422852
+      "wordsCount": 19,
+      "roundId": "room-4x4#1768224945298",
+      "achievedAt": 1768225065298
     },
     "install:cid-1767297485869-305184": {
       "nick": "Testggg",
@@ -55,6 +55,36 @@
       "achievedAt": 1768174957095
     }
   },
+  "totalScore": {
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "totalScore": 2770,
+      "roundsPlayed": 16,
+      "achievedAt": 1768225390386
+    },
+    "nick:Testggg": {
+      "nick": "Testggg",
+      "playerKey": "nick:Testggg",
+      "totalScore": 0,
+      "roundsPlayed": 3,
+      "achievedAt": 1768225065298
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "totalScore": 1485,
+      "roundsPlayed": 18,
+      "achievedAt": 1768225390386
+    },
+    "nick:Tigre": {
+      "nick": "Tigre",
+      "playerKey": "nick:Tigre",
+      "totalScore": 0,
+      "roundsPlayed": 1,
+      "achievedAt": 1768223710900
+    }
+  },
   "bestWord": {
     "nick:Crux": {
       "nick": "Crux",
@@ -63,19 +93,12 @@
       "pts": 142,
       "achievedAt": 1768154419479
     },
-    "nick:BOT-Vega": {
-      "nick": "BOT-Vega",
-      "playerKey": "nick:BOT-Vega",
-      "word": "GALVANOSCOPE",
-      "pts": 118,
-      "achievedAt": 1768158019479
-    },
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "word": "plis",
-      "pts": 6,
-      "achievedAt": 1768172420901
+      "word": "refait",
+      "pts": 126,
+      "achievedAt": 1768224971414
     },
     "install:cid-1767297485869-305184": {
       "nick": "Testggg",
@@ -100,19 +123,12 @@
       "len": 13,
       "achievedAt": 1768158019479
     },
-    "nick:BOT-Nexus": {
-      "nick": "BOT-Nexus",
-      "playerKey": "nick:BOT-Nexus",
-      "word": "MICROTECHNIQUE",
-      "len": 15,
-      "achievedAt": 1768154419479
-    },
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "word": "plis",
-      "len": 4,
-      "achievedAt": 1768172420901
+      "word": "depurerai",
+      "len": 9,
+      "achievedAt": 1768224871061
     },
     "install:cid-1767297485869-305184": {
       "nick": "Testggg",
@@ -140,9 +156,9 @@
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "pts": 17,
-      "roundId": "room-4x4#1768172302852",
-      "achievedAt": 1768172422548
+      "pts": 985,
+      "roundId": "room-4x4#1768224945298",
+      "achievedAt": 1768225010551
     },
     "install:cid-1767297485869-305184": {
       "nick": "Testggg",
@@ -180,6 +196,20 @@
       "ms": 5200,
       "word": "GALAXIE",
       "achievedAt": 1768167019479
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "ms": 59851,
+      "word": "pantalons",
+      "achievedAt": 1768222070069
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "ms": 45829,
+      "word": "depurerai",
+      "achievedAt": 1768224871061
     }
   },
   "bestTimeTargetScore": {
@@ -208,8 +238,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Testggg",
       "playerKey": "install:cid-1767297485869-305184",
-      "gobbles": 3,
-      "achievedAt": 1768174807045
+      "gobbles": 4,
+      "achievedAt": 1768222995596
     }
   }
 }

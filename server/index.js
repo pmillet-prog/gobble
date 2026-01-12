@@ -16,7 +16,7 @@ import {
   solveGrid,
   normalizeWord,
 } from "../shared/gameLogic.js";
-import { createBotManager } from "./bots/botManager.js";
+import { createBotManager, BOT_ROSTER_4X4, BOT_ROSTER_5X5 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
 import { getMetrics } from "./observability/metrics.js";
 import {
@@ -35,6 +35,7 @@ import {
   recordMedal,
   recordMostGobbles,
   recordMostWordsInGame,
+  recordTotalScore,
 } from "./stats/weeklyStatsService.js";
 
 const computePool = createComputePool();
@@ -43,6 +44,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 app.set("trust proxy", true);
+
+const BOT_NICK_SET = new Set(
+  [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
+    .map((bot) => bot?.nick)
+    .filter(Boolean)
+);
 
 const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
@@ -138,7 +145,24 @@ app.get("/api/stats/weekly", (req, res) => {
     Number.isFinite(rawTop) && rawTop > 0 ? Math.min(200, Math.max(1, Math.round(rawTop))) : undefined;
   try {
     const payload = getWeeklyStats(topN);
-    return res.json(payload);
+    const filterBots = (entries) =>
+      Array.isArray(entries)
+        ? entries.filter((entry) => !BOT_NICK_SET.has(entry?.nick))
+        : [];
+    const boards = payload?.boards || {};
+    const filteredBoards = {
+      ...boards,
+      medals: filterBots(boards.medals),
+      mostWordsInGame: filterBots(boards.mostWordsInGame),
+      totalScore: filterBots(boards.totalScore),
+      bestWord: filterBots(boards.bestWord),
+      longestWord: filterBots(boards.longestWord),
+      bestRoundScore: filterBots(boards.bestRoundScore),
+      bestTimeTargetLong: filterBots(boards.bestTimeTargetLong),
+      bestTimeTargetScore: filterBots(boards.bestTimeTargetScore),
+      mostGobbles: filterBots(boards.mostGobbles),
+    };
+    return res.json({ ...payload, boards: filteredBoards });
   } catch (_) {
     const weekStartTs = getWeekStartTs();
     const nextResetTs = weekStartTs + 7 * 24 * 60 * 60 * 1000;
@@ -695,6 +719,7 @@ function isBotToken(token) {
 
 function isBotNick(room, nick) {
   if (!room || !nick) return false;
+  if (BOT_NICK_SET.has(nick)) return true;
   for (const player of room.players.values()) {
     if (player?.nick === nick) {
       return isBotToken(player?.token);
@@ -1828,6 +1853,8 @@ function endRoundForRoom(room) {
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
   const endedAt = room.currentRound.endsAt || Date.now();
   const roundGobbles = room.currentRound.gobbles || new Map();
+  const targetFoundAt = room.currentRound.targetFoundAt || new Map();
+  const targetScoreForWeekly = 500;
   for (const entry of results) {
     if (entry.isBot) continue;
     const playerKey = getMedalKeyForNickLookup(room, entry.nick);
@@ -1835,6 +1862,12 @@ function endRoundForRoom(room) {
     const wordsCount = Array.isArray(entry.words) ? entry.words.length : 0;
     recordMostWordsInGame(playerKey, entry.nick, wordsCount, roundId, endedAt);
     recordBestRoundScore(playerKey, entry.nick, entry.score, roundId, endedAt);
+    const weeklyScoreToAdd = isTargetRound
+      ? targetFoundAt.has(entry.nick)
+        ? targetScoreForWeekly
+        : 0
+      : entry.score;
+    recordTotalScore(playerKey, entry.nick, weeklyScoreToAdd, endedAt);
     const gobblesEarned = roundGobbles.get(entry.nick) || 0;
     if (gobblesEarned > 0) {
       recordMostGobbles(playerKey, entry.nick, gobblesEarned, endedAt);

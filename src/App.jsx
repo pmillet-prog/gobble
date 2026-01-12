@@ -1,6 +1,7 @@
 ﻿// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
 // 
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
+import confetti from "canvas-confetti";
 import { createPortal } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
@@ -465,20 +466,6 @@ body {
   40%, 60% { transform: translateX(6px); }
 }
 
-@keyframes confettiFall {
-  0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
-  10% { opacity: 1; }
-  100% { transform: translateY(110vh) rotate(720deg); opacity: 1; }
-}
-
-.confetti-piece {
-  position: absolute;
-  top: -10vh;
-  border-radius: 2px;
-  opacity: 0.95;
-  animation: confettiFall var(--confetti-duration, 3.4s) linear infinite;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.12));
-}
 
 .tile-btn {
   transition: transform 0.15s ease, box-shadow 0.18s ease;
@@ -1062,7 +1049,6 @@ export default function App() {
   const prevPositionsRef = useRef(new Map());
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [praiseFlash, setPraiseFlash] = useState(null);
-  const [confettiBurst, setConfettiBurst] = useState(null); // { id, kind }
   const [gridShake, setGridShake] = useState(false);
   const [mobileResultsPage, setMobileResultsPage] = useState(0);
   const resultsTouchRef = useRef({ startX: null, startY: null });
@@ -1204,13 +1190,31 @@ export default function App() {
   const [installId] = useState(() => getOrCreateInstallId());
   const sessionRef = useRef(null);
   const resumeLockRef = useRef(false);
+  const resumeLockAtRef = useRef(0);
   const isLoggedInRef = useRef(false);
+  const nicknameRef = useRef(nickname);
+  const currentRoomIdRef = useRef(currentRoomId);
+  const roundIdRef = useRef(roundId);
+  const tournamentRef = useRef(tournament);
+  const startGameFromServerRef = useRef(null);
   const pingInFlightRef = useRef(false);
   const watchdogTimerRef = useRef(null);
 
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn;
   }, [isLoggedIn]);
+  useEffect(() => {
+    nicknameRef.current = nickname;
+  }, [nickname]);
+  useEffect(() => {
+    currentRoomIdRef.current = currentRoomId;
+  }, [currentRoomId]);
+  useEffect(() => {
+    roundIdRef.current = roundId;
+  }, [roundId]);
+  useEffect(() => {
+    tournamentRef.current = tournament;
+  }, [tournament]);
 
   // Zone active pour le clavier : "game" ou "chat"
   const [activeArea, setActiveArea] = useState("game");
@@ -1295,8 +1299,6 @@ export default function App() {
   const toastTimerRef = useRef(null);
   const praiseTimerRef = useRef(null);
   const praiseLastRef = useRef(0);
-  const confettiPiecesRef = useRef(null);
-  const confettiBurstTimerRef = useRef(null);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
   const chatScrollLockRef = useRef(0);
@@ -2701,17 +2703,96 @@ function playTileStepSound(step) {
   }
 
   function triggerConfettiBurst(kind = "target") {
-    const durationMs = kind === "gobble" ? 1200 : 2600;
-    if (confettiBurstTimerRef.current) {
-      clearTimeout(confettiBurstTimerRef.current);
-      confettiBurstTimerRef.current = null;
+    if (typeof window === "undefined") return;
+
+    const rect = gridRef.current?.getBoundingClientRect?.();
+    const origin = rect
+      ? {
+          x: (rect.left + rect.width / 2) / window.innerWidth,
+          y: (rect.top + rect.height * 0.42) / window.innerHeight,
+        }
+      : { x: 0.5, y: 0.4 };
+
+    const base = {
+      origin,
+      zIndex: 12000,
+      disableForReducedMotion: true,
+    };
+
+    const fire = (particleRatio, opts) => {
+      confetti({
+        ...base,
+        ...opts,
+        particleCount: Math.floor(140 * particleRatio),
+      });
+    };
+
+    if (kind === "gobble") {
+      fire(0.35, {
+        spread: 65,
+        startVelocity: 52,
+        scalar: 1.05,
+        shapes: ["star"],
+        colors: ["#fbbf24", "#f59e0b", "#fde68a"],
+        ticks: 120,
+      });
+      fire(0.25, {
+        spread: 95,
+        startVelocity: 38,
+        scalar: 0.9,
+        shapes: ["circle"],
+        colors: ["#ffffff", "#fef3c7"],
+        ticks: 140,
+      });
+      return;
     }
-    const id = Date.now() + Math.random();
-    setConfettiBurst({ id, kind });
-    confettiBurstTimerRef.current = setTimeout(() => {
-      setConfettiBurst(null);
-      confettiBurstTimerRef.current = null;
-    }, durationMs);
+
+    if (kind === "target") {
+      fire(0.55, {
+        spread: 105,
+        startVelocity: 42,
+        scalar: 1.0,
+        shapes: ["square", "circle"],
+        colors: ["#22c55e", "#3b82f6", "#a855f7", "#eab308", "#ef4444"],
+        ticks: 200,
+      });
+      fire(0.15, {
+        spread: 160,
+        startVelocity: 18,
+        scalar: 0.85,
+        shapes: ["circle"],
+        colors: ["#ffffff"],
+        ticks: 220,
+      });
+      return;
+    }
+
+    const end = Date.now() + 2400;
+    (function frame() {
+      confetti({
+        ...base,
+        particleCount: 4,
+        angle: 60,
+        spread: 55,
+        startVelocity: 58,
+        scalar: 1.0,
+        origin: { x: 0.05, y: 0.9 },
+        colors: ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"],
+        ticks: 260,
+      });
+      confetti({
+        ...base,
+        particleCount: 4,
+        angle: 120,
+        spread: 55,
+        startVelocity: 58,
+        scalar: 1.0,
+        origin: { x: 0.95, y: 0.9 },
+        colors: ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"],
+        ticks: 260,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
   }
 
   useEffect(() => {
@@ -3109,8 +3190,7 @@ function playTileStepSound(step) {
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
-      setConfettiBurst(null);
-      startGameFromServer(
+      startGameFromServerRef.current?.(
         grid,
         incomingRoundId,
         durationMs,
@@ -3144,7 +3224,7 @@ function playTileStepSound(step) {
       setServerEndsAt(null);
       setServerRoundDurationMs(null);
       setRoundId(endedId || null);
-      setTournament(tournamentPayload || tournament || null);
+      setTournament(tournamentPayload || tournamentRef.current || null);
       setBreakKind(tournamentPayload?.breakKind || null);
       if (tournamentPayload?.breakKind === "tournament_end") {
         setTournamentFinaleHoldUntil(
@@ -3172,7 +3252,7 @@ function playTileStepSound(step) {
       setResultsRankingMode("round");
 
       if (Array.isArray(results)) {
-        const selfScore = results.find((r) => r.nick === nickname.trim())?.score;
+        const selfScore = results.find((r) => r.nick === nicknameRef.current.trim())?.score;
         if (typeof selfScore === "number") {
           setScore(selfScore);
         }
@@ -3189,7 +3269,8 @@ function playTileStepSound(step) {
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
     }) {
-      if (incomingRoomId && currentRoomId && incomingRoomId !== currentRoomId) return;
+      const activeRoomId = currentRoomIdRef.current;
+      if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
       syncServerTime();
       setNextStartAt(nextTs || null);
       setBreakKind(bk);
@@ -3238,8 +3319,10 @@ function playTileStepSound(step) {
     }
 
     function onRankingUpdate({ roomId: incomingRoomId, roundId: rid, ranking = [] } = {}) {
-      if (incomingRoomId && currentRoomId && incomingRoomId !== currentRoomId) return;
-      if (roundId && rid && rid !== roundId) return;
+      const activeRoomId = currentRoomIdRef.current;
+      const activeRoundId = roundIdRef.current;
+      if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
+      if (activeRoundId && rid && rid !== activeRoundId) return;
       setProvisionalRanking(ranking);
     }
 
@@ -3256,7 +3339,7 @@ function playTileStepSound(step) {
         typeof msg.installId === "string" ? msg.installId : "";
       if (authorInstallId && authorInstallId === installId) return;
       const author = (msg.author || msg.nick || "").trim();
-      const me = nickname.trim();
+      const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
       if (!isChatOpenMobileRef.current) {
         setMobileChatUnreadCount((prev) => prev + 1);
@@ -3276,7 +3359,7 @@ function playTileStepSound(step) {
       ) {
         return;
       }
-      const self = nickname.trim();
+      const self = nicknameRef.current.trim();
       const author = (entry.nick || "").trim();
       if (!self || !author || self !== author) return;
       triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
@@ -3302,11 +3385,17 @@ function playTileStepSound(step) {
 
     function onConnectError() {
       setIsConnecting(false);
-      setIsLoggedIn(false);
-      setLoginError("Connexion au serveur impossible");
+      const hasSession = hasSavedSession() || autoResumeEnabledRef.current;
+      if (!hasSession && !isLoggedInRef.current) {
+        setIsLoggedIn(false);
+        setLoginError("Connexion au serveur impossible");
+      }
       setConnectionError("Connexion au serveur impossible");
       setPlayers([]);
       setProvisionalRanking([]);
+      resumeLockRef.current = false;
+      resumeLockAtRef.current = 0;
+      reconnectAttemptRef.current = false;
     }
 
     function onDisconnect() {
@@ -3335,9 +3424,11 @@ function playTileStepSound(step) {
         setSpecialSolvedOverlay(null);
         setFoundTargetThisRound(false);
         setFoundTargetWord("");
-        setConfettiBurst(null);
+        resumeLockRef.current = false;
+        resumeLockAtRef.current = 0;
+        reconnectAttemptRef.current = false;
       };
-      if (!isLoggedIn) {
+      if (!isLoggedInRef.current) {
         hardReset();
         return;
       }
@@ -3357,7 +3448,8 @@ function playTileStepSound(step) {
 
     function onSpecialHint(payload) {
       if (!payload || typeof payload !== "object") return;
-      if (roundId && payload.roundId && payload.roundId !== roundId) return;
+      const activeRoundId = roundIdRef.current;
+      if (activeRoundId && payload.roundId && payload.roundId !== activeRoundId) return;
       const hintKind = payload.kind || null;
       const allowCells = hintKind === "target_long" || hintKind === "target_score";
       const hintLength =
@@ -3375,8 +3467,9 @@ function playTileStepSound(step) {
 
     function onSpecialSolved(payload) {
       if (!payload || typeof payload !== "object") return;
-      if (roundId && payload.roundId && payload.roundId !== roundId) return;
-      const me = nickname.trim();
+      const activeRoundId = roundIdRef.current;
+      if (activeRoundId && payload.roundId && payload.roundId !== activeRoundId) return;
+      const me = nicknameRef.current.trim();
       const solvedNick = payload.nick || "";
       const isSelf = me && solvedNick === me;
       if (isSelf) {
@@ -3429,7 +3522,7 @@ function playTileStepSound(step) {
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
     };
-  }, [roundId, nickname, currentRoomId, roomId, isLoggedIn]);
+  }, []);
 
 
   useEffect(() => {
@@ -3862,6 +3955,15 @@ function playTileStepSound(step) {
     }
   }
 
+  function getISOWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
+  }
+
   function closePlayersOverlay() {
     setIsPlayersOverlayOpen(false);
   }
@@ -4128,13 +4230,43 @@ function playTileStepSound(step) {
     const roomToUse = session?.roomId || roomId;
     const install = session?.installId || installId;
     if (!nick || !roomToUse || !install) return;
-    if (resumeLockRef.current) return;
+    const force = reason === "resume_button";
+    const now = Date.now();
+    if (resumeLockRef.current) {
+      const elapsed = now - (resumeLockAtRef.current || 0);
+      if (!force && elapsed < 9000) return;
+      resumeLockRef.current = false;
+      resumeLockAtRef.current = 0;
+    }
     resumeLockRef.current = true;
+    resumeLockAtRef.current = now;
+    setLoginError("");
     setConnectionError("Reconnexion...");
 
-    const finish = () => {
-      resumeLockRef.current = false;
+    let settled = false;
+    const cleanup = () => {
+      socket.off("connect", doLogin);
+      socket.off("connect_error", onResumeError);
     };
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resumeLockRef.current = false;
+      resumeLockAtRef.current = 0;
+      cleanup();
+      if (resumeTimeout) {
+        clearTimeout(resumeTimeout);
+        resumeTimeout = null;
+      }
+    };
+    const onResumeError = () => {
+      setConnectionError("Connexion au serveur impossible");
+      finish();
+    };
+    let resumeTimeout = setTimeout(() => {
+      setConnectionError("Connexion au serveur impossible");
+      finish();
+    }, 8000);
 
     const doLogin = () => {
       socket.emit("login", { nick, roomId: roomToUse, installId: install }, (res) => {
@@ -4166,6 +4298,7 @@ function playTileStepSound(step) {
       doLogin();
     } else {
       socket.once("connect", doLogin);
+      socket.once("connect_error", onResumeError);
       socket.connect();
     }
   }
@@ -4535,6 +4668,10 @@ function playTileStepSound(step) {
     setConnectionError("");
     setPhase("playing");
   }
+
+  useEffect(() => {
+    startGameFromServerRef.current = startGameFromServer;
+  });
 
   function cancelAllWordsCompute() {
     const job = allWordsComputeRef.current;
@@ -7176,8 +7313,6 @@ function handleTouchEnd() {
       detailParts.push(`Arg ${formatNumber(entry.silver) ?? 0}`);
       detailParts.push(`Br ${formatNumber(entry.bronze) ?? 0}`);
     }
-    if (boardKey === "mostWordsInGame" && entry.roundId) detailParts.push(`Manche ${entry.roundId}`);
-    if (boardKey === "bestRoundScore" && entry.roundId) detailParts.push(`Manche ${entry.roundId}`);
     if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
       detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
     }
@@ -7257,10 +7392,9 @@ function handleTouchEnd() {
   const activeWeeklyEntries = activeWeeklyBoard
     ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
     : [];
-  const weeklyWeekStart =
-    weeklyStats?.weekStartISO || (weeklyStats?.weekStartTs ? formatWeeklyDate(weeklyStats.weekStartTs) : "");
-  const weeklyNextReset =
-    weeklyStats?.nextResetISO || (weeklyStats?.nextResetTs ? formatWeeklyDate(weeklyStats.nextResetTs) : "");
+  const weeklyWeekNumber = weeklyStats?.weekStartTs
+    ? getISOWeekNumber(new Date(weeklyStats.weekStartTs))
+    : getISOWeekNumber(new Date());
   const weeklyOffsetPercent =
     weeklyDragOffset && weeklySlideWidthRef.current
       ? (weeklyDragOffset / weeklySlideWidthRef.current) * 100
@@ -7311,8 +7445,8 @@ function handleTouchEnd() {
                     </div>
                     <div className="text-lg font-extrabold">{activeWeeklyBoard?.label}</div>
                     <div className="text-xs opacity-70">
-                      {weeklyWeekStart ? `Semaine depuis ${weeklyWeekStart}` : "Semaine en cours"}
-                      {weeklyNextReset ? ` · Reset ${weeklyNextReset}` : ""}
+                      {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                      {" · Reset : lundi a minuit"}
                     </div>
                   </div>
                   <div className="text-[11px] opacity-70">Slide gauche/droite pour changer de catégorie</div>
@@ -7452,11 +7586,11 @@ function handleTouchEnd() {
             >
               <button
                 type="button"
-                className="absolute top-3 right-3 rounded-full h-10 w-16 flex items-center justify-center text-base font-bold bg-black/40 text-white hover:bg-black/50"
+                className="absolute top-3 right-3 z-20 rounded-full h-10 w-16 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
                 onClick={closePlayersOverlay}
                 aria-label="Fermer la liste des joueurs"
               >
-                X
+                <span className="pointer-events-none">X</span>
               </button>
               <div className="p-4 pb-2">
                 <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
@@ -7786,48 +7920,6 @@ function handleTouchEnd() {
     );
   }
 
-  if (!confettiPiecesRef.current) {
-    const colors = ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"];
-    confettiPiecesRef.current = Array.from({ length: 70 }, (_, i) => {
-      const left = Math.random() * 100;
-      const delay = Math.random() * 1.2;
-      const duration = 2.8 + Math.random() * 2.2;
-      const sizeW = 6 + Math.random() * 6;
-      const sizeH = 10 + Math.random() * 10;
-      const rot = Math.floor(Math.random() * 360);
-      const color = colors[i % colors.length];
-      return { id: i, left, delay, duration, sizeW, sizeH, rot, color };
-    });
-  }
-  const confettiPieces = confettiPiecesRef.current;
-  const confettiBurstOverlay =
-    confettiBurst && typeof document !== "undefined"
-      ? createPortal(
-          <div className="pointer-events-none fixed inset-0 z-[9990] overflow-hidden">
-            {confettiPieces
-              .slice(0, confettiBurst.kind === "gobble" ? 36 : confettiPieces.length)
-              .map((p) => {
-                const speed = confettiBurst.kind === "gobble" ? 0.55 : 1;
-                return (
-                  <span
-                    key={`${confettiBurst.id}-${p.id}`}
-                    className="confetti-piece"
-                    style={{
-                      left: `${p.left}%`,
-                      backgroundColor: p.color,
-                      width: `${p.sizeW}px`,
-                      height: `${p.sizeH}px`,
-                      transform: `rotate(${p.rot}deg)`,
-                      animationDelay: `${p.delay}s`,
-                      ["--confetti-duration"]: `${(p.duration * speed).toFixed(2)}s`,
-                    }}
-                  />
-                );
-              })}
-          </div>,
-          document.body
-        )
-      : null;
   const praiseRect = !isMobileLayout
     ? gridRef.current?.getBoundingClientRect?.()
     : null;
@@ -7914,25 +8006,6 @@ function handleTouchEnd() {
         }`}
       >
         <style>{slideStyles}</style>
-        {confettiBurstOverlay}
-
-        <div className="pointer-events-none absolute inset-0">
-          {confettiPieces.map((p) => (
-            <span
-              key={p.id}
-              className="confetti-piece"
-              style={{
-                left: `${p.left}%`,
-                backgroundColor: p.color,
-                width: `${p.sizeW}px`,
-                height: `${p.sizeH}px`,
-                transform: `rotate(${p.rot}deg)`,
-                animationDelay: `${p.delay}s`,
-                ["--confetti-duration"]: `${p.duration}s`,
-              }}
-            />
-          ))}
-        </div>
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -8704,8 +8777,6 @@ function handleTouchEnd() {
           style={mobileViewportContainerStyle}
         >
           <style>{slideStyles}</style>
-          {confettiBurstOverlay}
-
           <MobileHeader
             activeRoom={activeRoom}
             countdownLines={countdownLines}
@@ -8824,7 +8895,8 @@ function handleTouchEnd() {
                                 isFound &&
                                 typeof bestPts === "number" &&
                                 typeof userPts === "number" &&
-                                bestPts !== userPts;
+                                bestPts !== userPts &&
+                                !isSpeedRound;
                               const visible = showAllWords || isFound;
                               return (
                                 <li
@@ -9271,8 +9343,6 @@ function handleTouchEnd() {
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
       <style>{slideStyles}</style>
-      {confettiBurstOverlay}
-
       <div className="topbar mb-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 bg-white border rounded-xl px-3 py-2 shadow-sm">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
