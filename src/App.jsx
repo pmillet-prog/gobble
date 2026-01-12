@@ -9040,19 +9040,6 @@ function handleTouchEnd() {
                   : { paddingTop: `${specialPadY}px`, paddingBottom: `${specialPadY}px` }
               }
             >
-              {phase === "playing" ? (
-                <button
-                  type="button"
-                  className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
-                    darkMode
-                      ? "bg-slate-900/70 text-white border border-white/10"
-                      : "bg-white/80 text-slate-900 border border-slate-200"
-                  }`}
-                  onClick={() => openPlayersOverlaySnapshot(fullRanking)}
-                >
-                  Liste des joueurs
-                </button>
-              ) : null}
               <div
                 className="font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300"
                 style={{ fontSize: `${specialTitleFont}px` }}
@@ -9125,6 +9112,19 @@ function handleTouchEnd() {
               >
                 {nextHintLabel}
               </div>
+              {phase === "playing" ? (
+                <button
+                  type="button"
+                  className={`absolute bottom-2 right-2 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
+                    darkMode
+                      ? "bg-slate-900/70 text-white border border-white/10"
+                      : "bg-white/80 text-slate-900 border border-slate-200"
+                  }`}
+                  onClick={() => openPlayersOverlaySnapshot(fullRanking)}
+                >
+                  Liste des joueurs
+                </button>
+              ) : null}
             </div>
           ) : (
             <div
