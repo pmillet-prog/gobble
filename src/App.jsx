@@ -1,4 +1,4 @@
-// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
+﻿// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
 // 
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
@@ -200,6 +200,81 @@ const BONUS_CLASSES = {
   M3: "bg-[rgba(239,68,68,0.85)] border-[rgba(185,28,28,0.95)] text-white border-2", // rouge intense
 };
 
+const WEEKLY_BOARDS = [
+  { key: "medals", label: "Medailles", subtitle: "Total hebdo" },
+  { key: "mostWordsInGame", label: "Mots par manche", subtitle: "Volume max" },
+  { key: "totalScore", label: "Score total", subtitle: "Somme hebdo (cibles = 500 pts)" },
+  { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus eleve" },
+  { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
+  { key: "bestRoundScore", label: "Score de manche", subtitle: "Total record" },
+  { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
+  { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
+  { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
+];
+
+const WEEKLY_SWIPE_THRESHOLD = 42;
+const RESULTS_SWIPE_THRESHOLD = 52;
+const RESULTS_SLIDE_OUT_MS = 250;
+const RESULTS_SLIDE_IN_MS = 250;
+
+function SwapFadeText({ value, className = "" }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const [phase, setPhase] = useState("idle");
+  const latestValueRef = useRef(value);
+  const displayValueRef = useRef(value);
+  const firstRenderRef = useRef(true);
+  const outTimerRef = useRef(null);
+  const inTimerRef = useRef(null);
+
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    displayValueRef.current = displayValue;
+  }, [displayValue]);
+
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      setDisplayValue(value);
+      return undefined;
+    }
+    if (value === displayValueRef.current) return undefined;
+    if (outTimerRef.current) {
+      clearTimeout(outTimerRef.current);
+      outTimerRef.current = null;
+    }
+    if (inTimerRef.current) {
+      clearTimeout(inTimerRef.current);
+      inTimerRef.current = null;
+    }
+    setPhase("out");
+    outTimerRef.current = setTimeout(() => {
+      setDisplayValue(latestValueRef.current);
+      setPhase("in");
+      inTimerRef.current = setTimeout(() => {
+        setPhase("idle");
+      }, RESULTS_SLIDE_IN_MS);
+    }, RESULTS_SLIDE_OUT_MS);
+    return () => {
+      if (outTimerRef.current) {
+        clearTimeout(outTimerRef.current);
+        outTimerRef.current = null;
+      }
+      if (inTimerRef.current) {
+        clearTimeout(inTimerRef.current);
+        inTimerRef.current = null;
+      }
+    };
+  }, [value]);
+
+  const phaseClass =
+    phase === "out" ? "results-fade-out" : phase === "in" ? "results-fade-in" : "";
+
+  return <span className={`${className} ${phaseClass}`}>{displayValue}</span>;
+}
+
 
 // Petite CSS pour le slide d'apparition
 const slideStyles = `
@@ -284,6 +359,103 @@ body {
   100% {
     box-shadow: 0 0 0 18px rgba(37, 99, 235, 0);
   }
+}
+
+@keyframes weeklyArrowBlink {
+  0% {
+    opacity: 0.1;
+    transform: scale(0.85);
+  }
+  45% {
+    opacity: 0.95;
+    transform: scale(1.5);
+  }
+  75% {
+    opacity: 0.25;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+}
+
+@keyframes weeklyArrowBump {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.5);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.weekly-arrow-hint {
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.weekly-arrow-visible {
+  opacity: 0.55;
+}
+
+.weekly-arrow-blink {
+  animation: weeklyArrowBlink 1.5s ease-in-out 2;
+}
+
+.weekly-arrow-bump {
+  animation: weeklyArrowBump 0.45s ease-out;
+}
+
+@keyframes resultsFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes resultsFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes resultsSwapFade {
+  0% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.results-fade-out {
+  animation: resultsFadeOut 0.25s ease-in both;
+}
+
+.results-fade-in {
+  animation: resultsFadeIn 0.25s ease-out both;
+}
+
+.results-fade-layer {
+  will-change: opacity;
+}
+
+.results-swap-fade {
+  animation: resultsSwapFade 0.5s ease both;
 }
 
 @keyframes shake {
@@ -803,6 +975,7 @@ const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
+const SESSION_STORAGE_KEY = "gobble_session_v1";
 const REPORT_REASONS = [
   "Spam",
   "Harcèlement",
@@ -891,7 +1064,22 @@ export default function App() {
   const [praiseFlash, setPraiseFlash] = useState(null);
   const [confettiBurst, setConfettiBurst] = useState(null); // { id, kind }
   const [gridShake, setGridShake] = useState(false);
-  const [mobileResultsTab, setMobileResultsTab] = useState("classement");
+  const [mobileResultsPage, setMobileResultsPage] = useState(0);
+  const resultsTouchRef = useRef({ startX: null, startY: null });
+  const resultsSlideWidthRef = useRef(0);
+  const resultsDraggingRef = useRef(false);
+  const [resultsSlidePhase, setResultsSlidePhase] = useState("idle");
+  const resultsSlideOutTimerRef = useRef(null);
+  const resultsSlideInTimerRef = useRef(null);
+  const [resultsArrowVisible, setResultsArrowVisible] = useState(true);
+  const [resultsArrowBlink, setResultsArrowBlink] = useState(false);
+  const [resultsArrowBump, setResultsArrowBump] = useState(false);
+  const resultsArrowTimerRef = useRef(null);
+  const resultsArrowBlinkTimerRef = useRef(null);
+  const resultsArrowBumpTimerRef = useRef(null);
+  const [resultsMetaPulse, setResultsMetaPulse] = useState(false);
+  const resultsMetaPulseStartTimerRef = useRef(null);
+  const resultsMetaPulseEndTimerRef = useRef(null);
   const [nickname, setNickname] = useState(() => {
     try {
       return localStorage.getItem("boggle_nick") || "";
@@ -909,6 +1097,31 @@ export default function App() {
   const [finalResults, setFinalResults] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState("");
+  const [isWeeklyOpen, setIsWeeklyOpen] = useState(false);
+  const [weeklyStats, setWeeklyStats] = useState(null);
+  const [weeklyStatsLoading, setWeeklyStatsLoading] = useState(false);
+  const [weeklyStatsError, setWeeklyStatsError] = useState("");
+  const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
+  const weeklyTouchRef = useRef({ startX: null });
+  const weeklyFetchRef = useRef({ last: 0 });
+  const weeklySlideWidthRef = useRef(0);
+  const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
+  const [weeklyDragging, setWeeklyDragging] = useState(false);
+  const [weeklyArrowVisible, setWeeklyArrowVisible] = useState(false);
+  const [weeklyArrowBlink, setWeeklyArrowBlink] = useState(false);
+  const [weeklyArrowBump, setWeeklyArrowBump] = useState(false);
+  const weeklyArrowTimerRef = useRef(null);
+  const weeklyArrowBlinkTimerRef = useRef(null);
+  const weeklyArrowBumpTimerRef = useRef(null);
+  const weeklyArrowSeenRef = useRef(false);
+  const [roomsStats, setRoomsStats] = useState([]);
+  const [lobbyPlayersList, setLobbyPlayersList] = useState([]);
+  const [lobbyPlayersLoading, setLobbyPlayersLoading] = useState(false);
+  const [isPlayersOverlayOpen, setIsPlayersOverlayOpen] = useState(false);
+  const [playersOverlayMode, setPlayersOverlayMode] = useState("snapshot");
+  const [playersOverlaySnapshot, setPlayersOverlaySnapshot] = useState([]);
+  const [canResumeSession, setCanResumeSession] = useState(false);
+  const autoResumeEnabledRef = useRef(false);
   const [serverStatus, setServerStatus] = useState("waiting");
   const serverTimeOffsetRef = useRef(0); // ms: serverNow - clientNow
   const [announcements, setAnnouncements] = useState([]);
@@ -989,6 +1202,15 @@ export default function App() {
     url: "",
   });
   const [installId] = useState(() => getOrCreateInstallId());
+  const sessionRef = useRef(null);
+  const resumeLockRef = useRef(false);
+  const isLoggedInRef = useRef(false);
+  const pingInFlightRef = useRef(false);
+  const watchdogTimerRef = useRef(null);
+
+  useEffect(() => {
+    isLoggedInRef.current = isLoggedIn;
+  }, [isLoggedIn]);
 
   // Zone active pour le clavier : "game" ou "chat"
   const [activeArea, setActiveArea] = useState("game");
@@ -1092,6 +1314,7 @@ export default function App() {
   const tickToneToggleRef = useRef(false);
   const lastCountdownTickRef = useRef(0);
   const countdownTickToggleRef = useRef(false);
+  const lastSwipeSoundRef = useRef(0);
   const tournamentCelebrationPlayedRef = useRef(false);
 
   const specialScoreConfig = React.useMemo(() => {
@@ -1451,8 +1674,8 @@ export default function App() {
 
   useEffect(() => {
     if (!definitionModal.open) return;
-    if (phase === "lobby") closeDefinition();
-  }, [definitionModal.open, phase, roundId]);
+    if (phase === "lobby" && !isWeeklyOpen) closeDefinition();
+  }, [definitionModal.open, phase, roundId, isWeeklyOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2100,6 +2323,42 @@ function playTileStepSound(step) {
       try {
         osc.start(now);
         osc.stop(now + 0.2);
+      } catch (_) {}
+    };
+    ctx.resume().then(start).catch(start);
+  }
+
+  function playSwipeSound() {
+    if (isMuted) return;
+    const nowTs = Date.now();
+    if (nowTs - lastSwipeSoundRef.current < 90) return;
+    lastSwipeSoundRef.current = nowTs;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1200, now);
+      filter.Q.setValueAtTime(0.7, now);
+      osc.type = "square";
+      osc.frequency.setValueAtTime(320, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.16, now + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      try {
+        osc.start(now);
+        osc.stop(now + 0.06);
       } catch (_) {}
     };
     ctx.resume().then(start).catch(start);
@@ -3310,6 +3569,712 @@ function playTileStepSound(step) {
     });
   }
 
+  function loadSessionFromStorage() {
+    try {
+      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.nick || !parsed?.roomId || !parsed?.installId) return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function persistSession(session) {
+    if (!session?.nick || !session?.roomId) return;
+    const payload = {
+      nick: String(session.nick || "").trim(),
+      roomId: session.roomId,
+      installId: session.installId || installId,
+      lastLoginAt: Date.now(),
+    };
+    sessionRef.current = payload;
+    setCanResumeSession(true);
+    autoResumeEnabledRef.current = true;
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function hasSavedSession() {
+    const s = sessionRef.current;
+    return Boolean(s?.nick && s?.roomId && s?.installId);
+  }
+
+  function pingServer(reason = "ping") {
+    if (!socket.connected) {
+      return Promise.reject(new Error("disconnected"));
+    }
+    if (pingInFlightRef.current) return pingInFlightRef.current;
+    const promise = new Promise((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        reject(new Error("timeout"));
+      }, 1500);
+      const t0 = Date.now();
+      socket.emit("timeSync", null, (res) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (res?.ok && typeof res.serverNow === "number") {
+          const t1 = Date.now();
+          const rtt = Math.max(0, t1 - t0);
+          const offset = res.serverNow + rtt / 2 - t1;
+          serverTimeOffsetRef.current = offset;
+          resolve(res);
+        } else {
+          reject(new Error("bad_response"));
+        }
+      });
+    }).finally(() => {
+      pingInFlightRef.current = null;
+    });
+    pingInFlightRef.current = promise;
+    return promise;
+  }
+
+  function formatWeeklyDate(ts) {
+    if (!ts) return "";
+    try {
+      return new Date(ts).toLocaleString("fr-FR", {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function formatMsShort(ms) {
+    if (!Number.isFinite(ms)) return "";
+    const seconds = ms / 1000;
+    if (seconds < 10) return `${seconds.toFixed(2)}s`;
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    const whole = Math.floor(seconds);
+    const mins = Math.floor(whole / 60);
+    const secs = whole % 60;
+    return `${mins}m${secs.toString().padStart(2, "0")}s`;
+  }
+
+  function getWeeklyValue(boardKey, entry) {
+    if (!entry) return null;
+    switch (boardKey) {
+      case "medals":
+        return Number(entry.total) || 0;
+      case "mostWordsInGame":
+        return Number(entry.wordsCount) || 0;
+      case "totalScore":
+        return Number(entry.totalScore) || 0;
+      case "bestWord":
+        return Number(entry.pts) || 0;
+      case "longestWord":
+        return Number(entry.len) || 0;
+      case "bestRoundScore":
+        return Number(entry.pts) || 0;
+      case "bestTimeTargetLong":
+      case "bestTimeTargetScore":
+        return Number.isFinite(entry.ms) ? Number(entry.ms) : null;
+      case "mostGobbles":
+        return Number(entry.gobbles) || 0;
+      default:
+        return null;
+    }
+  }
+
+  function dedupeWeeklyEntries(boardKey, entries, limit = 50) {
+    if (!Array.isArray(entries)) return [];
+    const byPlayer = new Map();
+    for (const entry of entries) {
+      const key =
+        entry?.playerKey ||
+        (entry?.nick ? String(entry.nick).trim().toLowerCase() : null);
+      if (!key) continue;
+      const current = byPlayer.get(key);
+      const value = getWeeklyValue(boardKey, entry);
+      const timeBoard =
+        boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
+      const achieved = Number.isFinite(entry?.achievedAt) ? entry.achievedAt : Infinity;
+      const pick = () => byPlayer.set(key, entry);
+      if (!current) {
+        pick();
+        continue;
+      }
+      const currentValue = getWeeklyValue(boardKey, current);
+      const currentAchieved = Number.isFinite(current?.achievedAt)
+        ? current.achievedAt
+        : Infinity;
+      if (timeBoard) {
+        if (value == null) continue;
+        if (currentValue == null || value < currentValue) {
+          pick();
+        } else if (value === currentValue && achieved < currentAchieved) {
+          pick();
+        }
+      } else {
+        if (value == null) continue;
+        if (currentValue == null || value > currentValue) {
+          pick();
+        } else if (value === currentValue && achieved < currentAchieved) {
+          pick();
+        }
+      }
+    }
+
+    const deduped = Array.from(byPlayer.values());
+    const timeBoard =
+      boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
+    deduped.sort((a, b) => {
+      const va = getWeeklyValue(boardKey, a);
+      const vb = getWeeklyValue(boardKey, b);
+      if (timeBoard) {
+        const vaOk = Number.isFinite(va);
+        const vbOk = Number.isFinite(vb);
+        if (vaOk && vbOk && va !== vb) return va - vb;
+        if (vaOk !== vbOk) return vaOk ? -1 : 1;
+      } else {
+        const vaNum = Number.isFinite(va) ? va : -Infinity;
+        const vbNum = Number.isFinite(vb) ? vb : -Infinity;
+        if (vaNum !== vbNum) return vbNum - vaNum;
+      }
+      const ta = Number.isFinite(a?.achievedAt) ? a.achievedAt : Infinity;
+      const tb = Number.isFinite(b?.achievedAt) ? b.achievedAt : Infinity;
+      if (ta !== tb) return ta - tb;
+      const na = (a?.nick || "").toLowerCase();
+      const nb = (b?.nick || "").toLowerCase();
+      return na.localeCompare(nb);
+    });
+    return deduped.slice(0, limit);
+  }
+
+  function fetchWeeklyStats(force = false) {
+    const now = Date.now();
+    if (!force && weeklyStatsLoading) return;
+    if (!force && weeklyFetchRef.current.last && now - weeklyFetchRef.current.last < 4000) {
+      return;
+    }
+    weeklyFetchRef.current.last = now;
+    setWeeklyStatsLoading(true);
+    setWeeklyStatsError("");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6500);
+    fetch("/api/stats/weekly", {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        if (!res.ok) throw new Error(`http_${res.status || "error"}`);
+        try {
+          return text ? JSON.parse(text) : null;
+        } catch (_) {
+          throw new Error("bad_json");
+        }
+      })
+      .then((data) => {
+        setWeeklyStats(data || null);
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") {
+          setWeeklyStatsError("timeout");
+        } else if (err.message === "bad_json") {
+          setWeeklyStatsError("format");
+        } else {
+          setWeeklyStatsError("erreur");
+        }
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setWeeklyStatsLoading(false);
+      });
+  }
+
+  function openWeeklyStatsOverlay() {
+    setWeeklyActiveIndex((idx) => (idx >= 0 && idx < WEEKLY_BOARDS.length ? idx : 0));
+    setIsWeeklyOpen(true);
+    fetchWeeklyStats(true);
+  }
+
+  function closeWeeklyStatsOverlay() {
+    setIsWeeklyOpen(false);
+  }
+
+  function buildPlayersSnapshot(list) {
+    const safe = Array.isArray(list) ? list : [];
+    const seen = new Set();
+    const snapshot = [];
+    safe.forEach((entry, idx) => {
+      const nick = entry?.nick ? String(entry.nick) : "";
+      if (!nick || seen.has(nick)) return;
+      seen.add(nick);
+      snapshot.push({
+        nick,
+        rank: Number.isFinite(entry?.rank) ? entry.rank : idx + 1,
+        score: typeof entry?.score === "number" ? entry.score : null,
+      });
+    });
+    snapshot.sort((a, b) => {
+      const ra = Number.isFinite(a.rank) ? a.rank : Infinity;
+      const rb = Number.isFinite(b.rank) ? b.rank : Infinity;
+      return ra - rb;
+    });
+    return snapshot;
+  }
+
+  function openPlayersOverlaySnapshot(list) {
+    setPlayersOverlaySnapshot(buildPlayersSnapshot(list));
+    setPlayersOverlayMode("snapshot");
+    setIsPlayersOverlayOpen(true);
+  }
+
+  function fetchLobbyPlayers() {
+    const lobbyRoomId = roomId || getDefaultRoomId();
+    setLobbyPlayersLoading(true);
+    fetch(`/api/players?roomId=${encodeURIComponent(lobbyRoomId)}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data?.players) ? data.players : [];
+        setLobbyPlayersList(list);
+      })
+      .catch(() => {
+        setLobbyPlayersList([]);
+      })
+      .finally(() => {
+        setLobbyPlayersLoading(false);
+      });
+  }
+
+  function openPlayersOverlayAlpha() {
+    setPlayersOverlaySnapshot([]);
+    setPlayersOverlayMode("alpha");
+    setIsPlayersOverlayOpen(true);
+    if (!isLoggedIn) {
+      fetchLobbyPlayers();
+    }
+  }
+
+  function closePlayersOverlay() {
+    setIsPlayersOverlayOpen(false);
+  }
+
+  function shiftWeeklyBoard(delta) {
+    const total = WEEKLY_BOARDS.length;
+    if (!Number.isInteger(delta) || total <= 1) return;
+    setWeeklyActiveIndex((prev) => {
+      const next = (prev + delta + total) % total;
+      return next;
+    });
+    playSwipeSound();
+  }
+
+  function triggerWeeklyArrowHint({ blink = false, showForMs = 1600 } = {}) {
+    if (weeklyArrowTimerRef.current) {
+      clearTimeout(weeklyArrowTimerRef.current);
+      weeklyArrowTimerRef.current = null;
+    }
+    if (weeklyArrowBlinkTimerRef.current) {
+      clearTimeout(weeklyArrowBlinkTimerRef.current);
+      weeklyArrowBlinkTimerRef.current = null;
+    }
+    if (weeklyArrowBumpTimerRef.current) {
+      clearTimeout(weeklyArrowBumpTimerRef.current);
+      weeklyArrowBumpTimerRef.current = null;
+    }
+    if (isMobileLayout) {
+      setWeeklyArrowVisible(true);
+    }
+    setWeeklyArrowBump(false);
+    setTimeout(() => setWeeklyArrowBump(true), 20);
+    weeklyArrowBumpTimerRef.current = setTimeout(() => {
+      setWeeklyArrowBump(false);
+    }, 520);
+    if (blink) {
+      setWeeklyArrowBlink(true);
+      weeklyArrowBlinkTimerRef.current = setTimeout(() => {
+        setWeeklyArrowBlink(false);
+      }, 1800);
+    }
+    if (isMobileLayout) {
+      weeklyArrowTimerRef.current = setTimeout(() => {
+        setWeeklyArrowVisible(false);
+        setWeeklyArrowBlink(false);
+        setWeeklyArrowBump(false);
+      }, showForMs);
+    }
+  }
+
+  function handleWeeklyTouchStart(e) {
+    const x = e?.touches?.[0]?.clientX ?? null;
+    weeklyTouchRef.current.startX = x;
+    weeklySlideWidthRef.current =
+      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
+    triggerWeeklyArrowHint();
+    setWeeklyDragOffset(0);
+    setWeeklyDragging(false);
+  }
+
+  function handleWeeklyTouchMove(e) {
+    const start = weeklyTouchRef.current.startX;
+    if (start == null) return;
+    const current = e?.touches?.[0]?.clientX ?? null;
+    if (current == null) return;
+    const delta = current - start;
+    if (!weeklyDragging && Math.abs(delta) > 6) {
+      triggerWeeklyArrowHint();
+    }
+    setWeeklyDragOffset(delta);
+    setWeeklyDragging(true);
+  }
+
+  function handleWeeklyTouchEnd(e) {
+    const start = weeklyTouchRef.current.startX;
+    weeklyTouchRef.current.startX = null;
+    const width = weeklySlideWidthRef.current || window.innerWidth || 1;
+    const endX = e?.changedTouches?.[0]?.clientX ?? null;
+    setWeeklyDragging(false);
+    if (start == null || endX == null) {
+      setWeeklyDragOffset(0);
+      return;
+    }
+    const delta = endX - start;
+    const threshold = Math.max(WEEKLY_SWIPE_THRESHOLD, width * 0.1);
+    if (Math.abs(delta) >= threshold) {
+      shiftWeeklyBoard(delta < 0 ? 1 : -1);
+    }
+    setWeeklyDragOffset(0);
+  }
+
+  function getResultsPages() {
+    return isTargetRound ? ["round", "total"] : ["round", "total", "found", "all"];
+  }
+
+  function setResultsPageInstant(nextPage) {
+    clearResultsSlideTimers();
+    setResultsSlidePhase("idle");
+    resultsDraggingRef.current = false;
+    setMobileResultsPage(nextPage);
+  }
+
+  function clearResultsSlideTimers() {
+    if (resultsSlideOutTimerRef.current) {
+      clearTimeout(resultsSlideOutTimerRef.current);
+      resultsSlideOutTimerRef.current = null;
+    }
+    if (resultsSlideInTimerRef.current) {
+      clearTimeout(resultsSlideInTimerRef.current);
+      resultsSlideInTimerRef.current = null;
+    }
+  }
+
+  function startResultsSlide(nextPage) {
+    clearResultsSlideTimers();
+    setResultsSlidePhase("out");
+    resultsDraggingRef.current = false;
+    resultsSlideOutTimerRef.current = setTimeout(() => {
+      setMobileResultsPage(nextPage);
+      setResultsSlidePhase("in");
+      resultsSlideInTimerRef.current = setTimeout(() => {
+        setResultsSlidePhase("idle");
+      }, RESULTS_SLIDE_IN_MS);
+    }, RESULTS_SLIDE_OUT_MS);
+  }
+
+  function shiftResultsPage(delta) {
+    if (!Number.isInteger(delta)) return;
+    const pages = getResultsPages();
+    const totalPages = pages.length;
+    if (totalPages <= 1) return;
+    const current = clampValue(mobileResultsPage, 0, totalPages - 1);
+    const next = clampValue(current + delta, 0, totalPages - 1);
+    if (next === current) return;
+    const currentKey = pages[current];
+    const nextKey = pages[next];
+    const isWordsJump =
+      (currentKey === "found" || currentKey === "all") &&
+      (nextKey === "found" || nextKey === "all");
+    const isRankingJump =
+      (currentKey === "round" || currentKey === "total") &&
+      (nextKey === "round" || nextKey === "total");
+    if (isWordsJump) {
+      setResultsPageInstant(next);
+    } else if (isRankingJump) {
+      triggerResultsMetaPulse({ immediate: true });
+      setResultsPageInstant(next);
+    } else {
+      startResultsSlide(next);
+    }
+    triggerResultsArrowHint();
+    playSwipeSound();
+  }
+
+  function triggerResultsArrowHint({ blink = false, showForMs = 2200 } = {}) {
+    if (resultsArrowTimerRef.current) {
+      clearTimeout(resultsArrowTimerRef.current);
+      resultsArrowTimerRef.current = null;
+    }
+    if (resultsArrowBlinkTimerRef.current) {
+      clearTimeout(resultsArrowBlinkTimerRef.current);
+      resultsArrowBlinkTimerRef.current = null;
+    }
+    if (resultsArrowBumpTimerRef.current) {
+      clearTimeout(resultsArrowBumpTimerRef.current);
+      resultsArrowBumpTimerRef.current = null;
+    }
+    setResultsArrowVisible(true);
+    setResultsArrowBump(false);
+    setTimeout(() => setResultsArrowBump(true), 20);
+    resultsArrowBumpTimerRef.current = setTimeout(() => {
+      setResultsArrowBump(false);
+    }, 520);
+    if (blink) {
+      setResultsArrowBlink(true);
+      resultsArrowBlinkTimerRef.current = setTimeout(() => {
+        setResultsArrowBlink(false);
+      }, 1800);
+    }
+    if (showForMs > 0) {
+      resultsArrowTimerRef.current = setTimeout(() => {
+        setResultsArrowBlink(false);
+        setResultsArrowBump(false);
+      }, showForMs);
+    }
+  }
+
+  function triggerResultsMetaPulse({ immediate = false } = {}) {
+    if (resultsMetaPulseStartTimerRef.current) {
+      clearTimeout(resultsMetaPulseStartTimerRef.current);
+      resultsMetaPulseStartTimerRef.current = null;
+    }
+    if (resultsMetaPulseEndTimerRef.current) {
+      clearTimeout(resultsMetaPulseEndTimerRef.current);
+      resultsMetaPulseEndTimerRef.current = null;
+    }
+    if (immediate) {
+      setResultsMetaPulse(true);
+    } else {
+      setResultsMetaPulse(false);
+      resultsMetaPulseStartTimerRef.current = setTimeout(() => {
+        setResultsMetaPulse(true);
+      }, 20);
+    }
+    resultsMetaPulseEndTimerRef.current = setTimeout(() => {
+      setResultsMetaPulse(false);
+    }, 520);
+  }
+
+  function handleResultsTouchStart(e) {
+    const touch = e?.touches?.[0];
+    if (!touch) return;
+    clearResultsSlideTimers();
+    setResultsSlidePhase("idle");
+    resultsTouchRef.current.startX = touch.clientX;
+    resultsTouchRef.current.startY = touch.clientY;
+    resultsSlideWidthRef.current =
+      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
+    resultsDraggingRef.current = false;
+    triggerResultsArrowHint();
+  }
+
+  function handleResultsTouchMove(e) {
+    const startX = resultsTouchRef.current.startX;
+    const startY = resultsTouchRef.current.startY;
+    if (startX == null || startY == null) return;
+    const touch = e?.touches?.[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    if (!resultsDraggingRef.current) {
+      if (Math.abs(deltaX) < 8) return;
+      if (Math.abs(deltaX) < Math.abs(deltaY)) {
+        resultsTouchRef.current.startX = null;
+        resultsTouchRef.current.startY = null;
+        resultsDraggingRef.current = false;
+        return;
+      }
+      resultsDraggingRef.current = true;
+    }
+  }
+
+  function handleResultsTouchEnd(e) {
+    const startX = resultsTouchRef.current.startX;
+    const startY = resultsTouchRef.current.startY;
+    resultsTouchRef.current.startX = null;
+    resultsTouchRef.current.startY = null;
+    const width = resultsSlideWidthRef.current || window.innerWidth || 1;
+    const touch = e?.changedTouches?.[0];
+    resultsDraggingRef.current = false;
+    if (startX == null || startY == null || !touch) return;
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
+    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+      shiftResultsPage(deltaX < 0 ? 1 : -1);
+    }
+  }
+
+  function resumeLoginFromSession(reason = "resume") {
+    if (!hasSavedSession()) return;
+    const session = sessionRef.current;
+    const nick = session?.nick?.trim();
+    const roomToUse = session?.roomId || roomId;
+    const install = session?.installId || installId;
+    if (!nick || !roomToUse || !install) return;
+    if (resumeLockRef.current) return;
+    resumeLockRef.current = true;
+    setConnectionError("Reconnexion...");
+
+    const finish = () => {
+      resumeLockRef.current = false;
+    };
+
+    const doLogin = () => {
+      socket.emit("login", { nick, roomId: roomToUse, installId: install }, (res) => {
+        finish();
+        if (!res?.ok) {
+          if (res?.error === "pseudo_taken") {
+            setIsLoggedIn(false);
+          }
+          setIsConnecting(false);
+          return;
+        }
+        const joinedRoom = res?.roomId || roomToUse;
+        persistSession({ nick, roomId: joinedRoom, installId: install });
+        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
+        setCurrentRoomId(joinedRoom);
+        setRoomId(joinedRoom);
+        const nextSize = getGridSizeForRoom(joinedRoom);
+        setGridSize(nextSize);
+        setBoard(Array(nextSize * nextSize).fill({ letter: "?", bonus: null }));
+        autoResumeEnabledRef.current = true;
+        setIsLoggedIn(true);
+        setIsConnecting(false);
+        setLoginError("");
+        setConnectionError("");
+      });
+    };
+
+    if (socket.connected) {
+      doLogin();
+    } else {
+      socket.once("connect", doLogin);
+      socket.connect();
+    }
+  }
+
+  function runHealthCheck(reason = "watchdog") {
+    if (!socket.connected) return;
+    pingServer(reason)
+      .then(() => {
+        console.debug(`[watchdog] pong (${reason})`);
+      })
+      .catch(() => {
+        console.warn(`[watchdog] reconnect (${reason})`);
+        socket.disconnect();
+        socket.connect();
+        resumeLoginFromSession("watchdog");
+      });
+  }
+
+  useEffect(() => {
+    const stored = loadSessionFromStorage();
+    if (stored?.nick && stored?.roomId) {
+      sessionRef.current = stored;
+      if (!nickname) {
+        setNickname(stored.nick);
+      }
+      setCanResumeSession(true);
+    }
+    const onConnect = () => {
+      if (!autoResumeEnabledRef.current) return;
+      if (!hasSavedSession()) return;
+      resumeLoginFromSession("socket_connect");
+    };
+    socket.on("connect", onConnect);
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, []);
+
+  useEffect(() => {
+    fetchWeeklyStats(true);
+    const onConnect = () => fetchWeeklyStats(true);
+    socket.on("connect", onConnect);
+    return () => socket.off("connect", onConnect);
+  }, []);
+
+  useEffect(() => {
+    const onRoomsStats = (payload) => {
+      setRoomsStats(Array.isArray(payload) ? payload : []);
+    };
+    socket.on("roomsStats", onRoomsStats);
+    return () => socket.off("roomsStats", onRoomsStats);
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    fetchLobbyPlayers();
+    const onConnect = () => fetchLobbyPlayers();
+    socket.on("connect", onConnect);
+    return () => socket.off("connect", onConnect);
+  }, [isLoggedIn, roomId]);
+
+  useEffect(() => {
+    if (!isWeeklyOpen) {
+      if (weeklyArrowTimerRef.current) {
+        clearTimeout(weeklyArrowTimerRef.current);
+        weeklyArrowTimerRef.current = null;
+      }
+      if (weeklyArrowBlinkTimerRef.current) {
+        clearTimeout(weeklyArrowBlinkTimerRef.current);
+        weeklyArrowBlinkTimerRef.current = null;
+      }
+      if (weeklyArrowBumpTimerRef.current) {
+        clearTimeout(weeklyArrowBumpTimerRef.current);
+        weeklyArrowBumpTimerRef.current = null;
+      }
+      setWeeklyArrowVisible(false);
+      setWeeklyArrowBlink(false);
+      setWeeklyArrowBump(false);
+      return;
+    }
+    const firstOpen = !weeklyArrowSeenRef.current;
+    if (firstOpen) {
+      weeklyArrowSeenRef.current = true;
+    }
+    triggerWeeklyArrowHint({ blink: firstOpen, showForMs: firstOpen ? 2600 : 1600 });
+  }, [isWeeklyOpen]);
+
+  useEffect(() => {
+    if (!isWeeklyOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        closeWeeklyStatsOverlay();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isWeeklyOpen]);
+
+  useEffect(() => {
+    if (!isPlayersOverlayOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        closePlayersOverlay();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isPlayersOverlayOpen]);
+
   // Countdown entre les manches
   useEffect(() => {
     if (!nextStartAt) {
@@ -3324,6 +4289,60 @@ function playTileStepSound(step) {
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, [nextStartAt]);
+
+  function handleForeground(reason = "foreground") {
+    if (!hasSavedSession() && !isLoggedInRef.current) {
+      return;
+    }
+    if (!socket.connected) {
+      if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
+      socket.connect();
+      return;
+    }
+    if (!isLoggedInRef.current) {
+      if (!autoResumeEnabledRef.current) return;
+      resumeLoginFromSession(reason);
+      return;
+    }
+    runHealthCheck(reason);
+  }
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        handleForeground("visibility");
+      }
+    };
+    const onFocus = () => handleForeground("focus");
+    const onOnline = () => handleForeground("online");
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (watchdogTimerRef.current) {
+      clearInterval(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
+    if (phase === "playing") {
+      watchdogTimerRef.current = setInterval(
+        () => runHealthCheck("watchdog_playing"),
+        12000
+      );
+    }
+    return () => {
+      if (watchdogTimerRef.current) {
+        clearInterval(watchdogTimerRef.current);
+        watchdogTimerRef.current = null;
+      }
+    };
+  }, [phase]);
 
 
   function handleLogin(e) {
@@ -3363,10 +4382,10 @@ function playTileStepSound(step) {
       socket.emit("login", { nick, roomId, installId }, (res) => {
         finish();
         if (!res?.ok) {
-          if (res?.error === "pseudo_taken") {
-            setLoginError("Pseudo deja utilise");
-          } else if (res?.error === "nick_too_long") {
-            setLoginError("25 caracteres max");
+        if (res?.error === "pseudo_taken") {
+          setLoginError("Pseudo deja utilise");
+        } else if (res?.error === "nick_too_long") {
+          setLoginError("25 caracteres max");
           } else if (res?.error === "invalid_room") {
             setLoginError("Salle indisponible");
           } else if (res?.error === "invalid_install_id") {
@@ -3380,6 +4399,8 @@ function playTileStepSound(step) {
 
         const joinedRoom = res?.roomId || roomId;
         lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
+        persistSession({ nick, roomId: joinedRoom, installId });
+        autoResumeEnabledRef.current = true;
         setCurrentRoomId(joinedRoom);
         setRoomId(joinedRoom);
         const nextSize = getGridSizeForRoom(joinedRoom);
@@ -3412,6 +4433,15 @@ function playTileStepSound(step) {
       });
       socket.connect();
     }
+  }
+
+  function handleLoginOrResume(e) {
+    if (e) e.preventDefault();
+    if (canResumeNow) {
+      resumeLoginFromSession("resume_button");
+      return;
+    }
+    handleLogin();
   }
 
   function startGameFromServer(
@@ -3588,39 +4618,15 @@ function playTileStepSound(step) {
 
   function attemptSilentReconnect() {
     if (reconnectAttemptRef.current) return;
-    const payload = lastLoginPayloadRef.current || {};
-    const nick = (payload.nick || nickname || "").trim();
+    const session = sessionRef.current;
+    const nick = session?.nick || nickname;
     if (!nick) return;
-    const roomToUse = payload.roomId || roomId;
     reconnectAttemptRef.current = true;
     setConnectionError("Reconnexion...");
-    const finish = () => {
+    resumeLoginFromSession("disconnect");
+    setTimeout(() => {
       reconnectAttemptRef.current = false;
-    };
-    const doLogin = () => {
-      socket.emit("login", { nick, roomId: roomToUse, installId }, (res) => {
-        finish();
-        if (!res?.ok) return;
-        const joinedRoom = res?.roomId || roomToUse;
-        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
-        setCurrentRoomId(joinedRoom);
-        setRoomId(joinedRoom);
-        setIsLoggedIn(true);
-        setIsConnecting(false);
-        setLoginError("");
-        setConnectionError("");
-        if (disconnectGraceTimerRef.current) {
-          clearTimeout(disconnectGraceTimerRef.current);
-          disconnectGraceTimerRef.current = null;
-        }
-      });
-    };
-    if (socket.connected) {
-      doLogin();
-    } else {
-      socket.once("connect", doLogin);
-      socket.connect();
-    }
+    }, 1500);
   }
 
   function startGame() {
@@ -5213,6 +6219,34 @@ function handleTouchEnd() {
       return !blockedInstallIdSet.has(player.installId);
     });
   }, [players, blockedInstallIdSet]);
+  const playersAlphaList = React.useMemo(() => {
+    const safe = Array.isArray(visiblePlayerList) ? visiblePlayerList : [];
+    const seen = new Set();
+    const entries = [];
+    safe.forEach((player) => {
+      const nick = player?.nick ? String(player.nick).trim() : "";
+      if (!nick || seen.has(nick)) return;
+      seen.add(nick);
+      entries.push({ nick });
+    });
+    entries.sort((a, b) => a.nick.localeCompare(b.nick));
+    return entries;
+  }, [visiblePlayerList]);
+  const playersCountForLobby = React.useMemo(() => {
+    const safeRooms = Array.isArray(roomsStats) ? roomsStats : [];
+    const lobbyRoomId = roomId || getDefaultRoomId();
+    const roomEntry = safeRooms.find((entry) => entry?.roomId === lobbyRoomId);
+    if (Number.isFinite(roomEntry?.players)) return roomEntry.players;
+    if (lobbyPlayersList.length) return lobbyPlayersList.length;
+    const safe = Array.isArray(players) ? players : [];
+    const seen = new Set();
+    safe.forEach((player) => {
+      const nick = player?.nick ? String(player.nick).trim() : "";
+      if (!nick) return;
+      seen.add(nick);
+    });
+    return seen.size;
+  }, [roomsStats, roomId, lobbyPlayersList, players]);
   const botRankingEntries = [];
 
   function buildRanking() {
@@ -5345,8 +6379,40 @@ function handleTouchEnd() {
 
   useEffect(() => {
     if (phase === "results") {
-      setMobileResultsTab("classement");
+      setMobileResultsPage(0);
     }
+  }, [phase]);
+  useEffect(() => {
+    if (!isMobileLayout || phase !== "results") return;
+    triggerResultsArrowHint({ blink: true, showForMs: 2400 });
+  }, [isMobileLayout, phase]);
+  useEffect(() => {
+    return () => {
+      clearResultsSlideTimers();
+      if (resultsMetaPulseStartTimerRef.current) {
+        clearTimeout(resultsMetaPulseStartTimerRef.current);
+        resultsMetaPulseStartTimerRef.current = null;
+      }
+      if (resultsMetaPulseEndTimerRef.current) {
+        clearTimeout(resultsMetaPulseEndTimerRef.current);
+        resultsMetaPulseEndTimerRef.current = null;
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if (phase === "results") return;
+    clearResultsSlideTimers();
+    if (resultsMetaPulseStartTimerRef.current) {
+      clearTimeout(resultsMetaPulseStartTimerRef.current);
+      resultsMetaPulseStartTimerRef.current = null;
+    }
+    if (resultsMetaPulseEndTimerRef.current) {
+      clearTimeout(resultsMetaPulseEndTimerRef.current);
+      resultsMetaPulseEndTimerRef.current = null;
+    }
+    setResultsSlidePhase("idle");
+    resultsDraggingRef.current = false;
+    setResultsMetaPulse(false);
   }, [phase]);
   function buildRankingWindow(list, you, maxTop = 5, context = 2, maxItems = 12) {
     if (list.length <= maxItems) return list;
@@ -5368,6 +6434,27 @@ function handleTouchEnd() {
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
   const isSpeedRound = specialRound?.type === "speed";
+  useEffect(() => {
+    if (!isMobileLayout || phase !== "results") return;
+    const pages = isTargetRound ? ["round", "total"] : ["round", "total", "found", "all"];
+    setMobileResultsPage((prev) => clampValue(prev, 0, pages.length - 1));
+  }, [isMobileLayout, phase, isTargetRound]);
+
+  useEffect(() => {
+    if (!isMobileLayout || phase !== "results") return;
+    const pages = isTargetRound ? ["round", "total"] : ["round", "total", "found", "all"];
+    const pageKey = pages[clampValue(mobileResultsPage, 0, pages.length - 1)];
+    if (pageKey === "round") setResultsRankingMode("round");
+    if (pageKey === "total") setResultsRankingMode("total");
+    if (pageKey === "found" && showAllWords) {
+      captureListPositions(displayList);
+      setShowAllWords(false);
+    }
+    if (pageKey === "all" && !showAllWords) {
+      captureListPositions(displayList);
+      setShowAllWords(true);
+    }
+  }, [isMobileLayout, phase, isTargetRound, mobileResultsPage, showAllWords, displayList]);
   const formatTargetTime = (ms) => {
     if (!Number.isFinite(ms)) return "PAS TROUVÉ";
     const seconds = Math.max(0, ms) / 1000;
@@ -5509,6 +6596,24 @@ function handleTouchEnd() {
     return set;
   }, [players, finalResults, tournamentRanking, tournamentFinaleSummary]);
 
+  const humanNickSet = React.useMemo(() => {
+    const set = new Set();
+    players.forEach((p) => {
+      if (p?.isBot === false && p?.nick) set.add(p.nick);
+    });
+    finalResults.forEach((entry) => {
+      if (entry?.isBot === false && entry?.nick) set.add(entry.nick);
+    });
+    (tournamentRanking || []).forEach((entry) => {
+      if (entry?.isBot === false && entry?.nick) set.add(entry.nick);
+    });
+    (tournamentFinaleSummary?.ranking || []).forEach((entry) => {
+      if (entry?.isBot === false && entry?.nick) set.add(entry.nick);
+    });
+    if (selfNick) set.add(selfNick);
+    return set;
+  }, [players, finalResults, tournamentRanking, tournamentFinaleSummary, selfNick]);
+
   function renderMedalsInline(nick, fallbackMedals) {
     const m = medals?.[nick] || fallbackMedals?.[nick];
     if (!m) return null;
@@ -5558,6 +6663,7 @@ function handleTouchEnd() {
   function renderHumanDot(nick) {
     if (!nick) return null;
     if (botNickSet.has(nick)) return null;
+    if (!humanNickSet.has(nick)) return null;
     return (
       <span
         className="inline-block w-2 h-2 rounded-full bg-orange-400"
@@ -6039,6 +7145,387 @@ function handleTouchEnd() {
     </div>
   ) : null;
 
+  function renderWeeklyRow(boardKey, entry, idx) {
+    if (!entry) return null;
+    const rank = idx + 1;
+    const achieved = entry.achievedAt ? formatWeeklyDate(entry.achievedAt) : null;
+    const baseNick = entry.nick || "Joueur";
+
+    const valueParts = [];
+    if (boardKey === "medals") {
+      valueParts.push(`${formatNumber(entry.total) ?? 0} médailles`);
+    } else if (boardKey === "mostWordsInGame") {
+      valueParts.push(`${formatNumber(entry.wordsCount) ?? 0} mots`);
+    } else if (boardKey === "totalScore") {
+      valueParts.push(`${formatNumber(entry.totalScore) ?? 0} pts`);
+    } else if (boardKey === "bestWord") {
+      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
+    } else if (boardKey === "longestWord") {
+      valueParts.push(`${formatNumber(entry.len) ?? 0} lettres`);
+    } else if (boardKey === "bestRoundScore") {
+      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
+    } else if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
+      valueParts.push(formatMsShort(entry.ms) || "");
+    } else if (boardKey === "mostGobbles") {
+      valueParts.push(`${formatNumber(entry.gobbles) ?? 0} gobbles`);
+    }
+
+    const detailParts = [];
+    if (boardKey === "medals") {
+      detailParts.push(`Or ${formatNumber(entry.gold) ?? 0}`);
+      detailParts.push(`Arg ${formatNumber(entry.silver) ?? 0}`);
+      detailParts.push(`Br ${formatNumber(entry.bronze) ?? 0}`);
+    }
+    if (boardKey === "mostWordsInGame" && entry.roundId) detailParts.push(`Manche ${entry.roundId}`);
+    if (boardKey === "bestRoundScore" && entry.roundId) detailParts.push(`Manche ${entry.roundId}`);
+    if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
+      detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
+    }
+    const hasWord =
+      (boardKey === "bestWord" ||
+        boardKey === "longestWord" ||
+        boardKey === "bestTimeTargetLong" ||
+        boardKey === "bestTimeTargetScore") &&
+      entry.word;
+    if (hasWord) {
+      detailParts.push(entry.word);
+    }
+    const wordButton =
+      hasWord && entry.word ? (
+        <button
+          type="button"
+          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-[11px] ${
+            darkMode
+              ? "bg-slate-800 border-slate-600 text-slate-100"
+              : "bg-white border-gray-300 text-gray-700"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            openDefinition(entry.word);
+          }}
+          aria-label="Voir la definition"
+          title="Voir la definition"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="16.65" y1="16.65" x2="21" y2="21" />
+          </svg>
+        </button>
+      ) : null;
+
+    return (
+      <div
+        key={`${boardKey}-${entry.playerKey || entry.word || entry.roundId || idx}`}
+        className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-7 text-center text-sm font-bold text-amber-500">{rank}</span>
+          <div className="min-w-0">
+            <div className="font-semibold truncate">{baseNick}</div>
+            {achieved ? <div className="text-[11px] opacity-60 truncate">{achieved}</div> : null}
+            {detailParts.length > 0 ? (
+              <div className="text-[11px] opacity-60 truncate flex items-center gap-1">
+                <span className="truncate">{detailParts.join(" · ")}</span>
+                {wordButton}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="text-right text-sm font-bold tabular-nums whitespace-nowrap">
+          {valueParts.join(" ")}
+        </div>
+      </div>
+    );
+  }
+
+  const weeklyBoardsMeta = WEEKLY_BOARDS;
+  const safeWeeklyIndex =
+    weeklyActiveIndex >= 0 && weeklyActiveIndex < weeklyBoardsMeta.length ? weeklyActiveIndex : 0;
+  const activeWeeklyBoard = weeklyBoardsMeta[safeWeeklyIndex] || weeklyBoardsMeta[0];
+  const weeklyBoardData = weeklyStats?.boards || {};
+  const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
+  const activeWeeklyEntries = activeWeeklyBoard
+    ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
+    : [];
+  const weeklyWeekStart =
+    weeklyStats?.weekStartISO || (weeklyStats?.weekStartTs ? formatWeeklyDate(weeklyStats.weekStartTs) : "");
+  const weeklyNextReset =
+    weeklyStats?.nextResetISO || (weeklyStats?.nextResetTs ? formatWeeklyDate(weeklyStats.nextResetTs) : "");
+  const weeklyOffsetPercent =
+    weeklyDragOffset && weeklySlideWidthRef.current
+      ? (weeklyDragOffset / weeklySlideWidthRef.current) * 100
+      : 0;
+  const showWeeklyArrows = !isMobileLayout || weeklyArrowVisible;
+  const weeklyArrowWrapperClass = `weekly-arrow-hint ${
+    showWeeklyArrows ? "weekly-arrow-visible" : ""
+  }`;
+  const weeklyArrowAnimClass = `${weeklyArrowBlink ? "weekly-arrow-blink" : ""} ${
+    weeklyArrowBump ? "weekly-arrow-bump" : ""
+  }`;
+  const weeklyArrowSize = {
+    width: "clamp(20px, 4vw, 34px)",
+    height: "clamp(20px, 4vw, 34px)",
+  };
+
+  const weeklyStatsOverlay =
+    isWeeklyOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[12000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 py-6"
+            onClick={closeWeeklyStatsOverlay}
+          >
+            <div
+              className={`relative w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden ${
+                darkMode
+                  ? "bg-slate-900/90 border-white/10 text-white"
+                  : "bg-white/95 border-slate-200 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={handleWeeklyTouchStart}
+              onTouchMove={handleWeeklyTouchMove}
+              onTouchEnd={handleWeeklyTouchEnd}
+            >
+              <button
+                type="button"
+                className="absolute top-3 right-3 rounded-full p-2 text-sm font-semibold bg-black/20 text-white hover:bg-black/30"
+                onClick={closeWeeklyStatsOverlay}
+                aria-label="Fermer les stats hebdo"
+              >
+                X
+              </button>
+              <div className="p-4 pb-2">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+                      Stats hebdo
+                    </div>
+                    <div className="text-lg font-extrabold">{activeWeeklyBoard?.label}</div>
+                    <div className="text-xs opacity-70">
+                      {weeklyWeekStart ? `Semaine depuis ${weeklyWeekStart}` : "Semaine en cours"}
+                      {weeklyNextReset ? ` · Reset ${weeklyNextReset}` : ""}
+                    </div>
+                  </div>
+                  <div className="text-[11px] opacity-70">Slide gauche/droite pour changer de catégorie</div>
+                </div>
+              </div>
+                <div className="relative px-4 pb-4">
+                  {!isMobileLayout ? (
+                    <button
+                      type="button"
+                      className={`group absolute left-0 top-1/2 -translate-y-1/2 ml-1 text-white/80 hover:text-white transition-transform hover:scale-110 active:scale-95 ${weeklyArrowWrapperClass}`}
+                      onClick={() => shiftWeeklyBoard(-1)}
+                      aria-label="Precedent"
+                    >
+                      <span className={`block ${weeklyArrowAnimClass}`}>
+                        <span
+                          className="block border-t-[3px] border-l-[3px] border-current rotate-[-45deg]"
+                          style={weeklyArrowSize}
+                        />
+                      </span>
+                    </button>
+                  ) : (
+                    <div
+                      className={`pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 ml-1 text-white/80 ${weeklyArrowWrapperClass}`}
+                      aria-hidden="true"
+                    >
+                      <span className={`block ${weeklyArrowAnimClass}`}>
+                        <span
+                          className="block border-t-[3px] border-l-[3px] border-current rotate-[-45deg]"
+                          style={weeklyArrowSize}
+                        />
+                      </span>
+                    </div>
+                  )}
+                <div className="overflow-hidden rounded-2xl border-0 bg-transparent">
+                  <div
+                    className="flex w-full"
+                    style={{
+                      transform: `translateX(calc(${safeWeeklyIndex * -100}% + ${weeklyOffsetPercent}%))`,
+                      transition: weeklyDragging ? "none" : "transform 0.25s ease-out",
+                    }}
+                  >
+                    {weeklyBoardsMeta.map((board, idx) => {
+                      const entries = dedupeWeeklyEntries(board.key, weeklyBoardData[board.key], weeklyLimit);
+                      return (
+                        <div
+                          key={board.key}
+                          className="w-full shrink-0 px-2"
+                          style={{ minHeight: "60vh" }}
+                        >
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <div className="text-sm font-semibold opacity-80">
+                                {board.subtitle || ""}
+                              </div>
+                              {weeklyStatsLoading && idx === safeWeeklyIndex ? (
+                                <div className="text-xs opacity-70">Mise a jour...</div>
+                              ) : null}
+                              {weeklyStatsError && idx === safeWeeklyIndex ? (
+                                <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
+                              ) : null}
+                            </div>
+                            {entries.length > 0 ? (
+                              <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                                {entries.map((entry, entryIdx) =>
+                                  renderWeeklyRow(board.key, entry, entryIdx)
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-sm opacity-70 py-8 text-center">
+                                {weeklyStatsLoading && idx === safeWeeklyIndex
+                                  ? "Chargement..."
+                                  : weeklyStatsError && idx === safeWeeklyIndex
+                                  ? "Impossible de recuperer les stats"
+                                  : "Pas encore de stats cette semaine."}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                  {!isMobileLayout ? (
+                    <button
+                      type="button"
+                      className={`group absolute right-0 top-1/2 -translate-y-1/2 mr-1 text-white/80 hover:text-white transition-transform hover:scale-110 active:scale-95 ${weeklyArrowWrapperClass}`}
+                      onClick={() => shiftWeeklyBoard(1)}
+                      aria-label="Suivant"
+                    >
+                      <span className={`block ${weeklyArrowAnimClass}`}>
+                        <span
+                          className="block border-t-[3px] border-r-[3px] border-current rotate-[45deg]"
+                          style={weeklyArrowSize}
+                        />
+                      </span>
+                    </button>
+                  ) : (
+                    <div
+                      className={`pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 mr-1 text-white/80 ${weeklyArrowWrapperClass}`}
+                      aria-hidden="true"
+                    >
+                      <span className={`block ${weeklyArrowAnimClass}`}>
+                        <span
+                          className="block border-t-[3px] border-r-[3px] border-current rotate-[45deg]"
+                          style={weeklyArrowSize}
+                        />
+                      </span>
+                    </div>
+                  )}
+                </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
+  const playersOverlayEntries =
+    playersOverlayMode === "snapshot"
+      ? playersOverlaySnapshot
+      : isLoggedIn
+      ? playersAlphaList
+      : lobbyPlayersList;
+  const playersOverlay =
+    isPlayersOverlayOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[12050] bg-black/60 backdrop-blur-sm flex items-center justify-center px-3 py-6"
+            onClick={closePlayersOverlay}
+          >
+            <div
+              className={`relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden ${
+                darkMode
+                  ? "bg-slate-900/80 border-white/10 text-white"
+                  : "bg-white/80 border-slate-200/80 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="absolute top-3 right-3 rounded-full h-10 w-16 flex items-center justify-center text-base font-bold bg-black/40 text-white hover:bg-black/50"
+                onClick={closePlayersOverlay}
+                aria-label="Fermer la liste des joueurs"
+              >
+                X
+              </button>
+              <div className="p-4 pb-2">
+                <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+                  {playersOverlayMode === "snapshot" ? "Classement en cours" : "Joueurs en jeu"}
+                </div>
+                <div className="text-lg font-extrabold">
+                  Liste des joueurs{playersOverlayEntries.length ? ` (${playersOverlayEntries.length})` : ""}
+                </div>
+                <div className="text-xs opacity-70">
+                  {playersOverlayMode === "snapshot"
+                    ? "Photo du classement en cours (figee)"
+                    : "Liste alphabetique (sans score)"}
+                </div>
+              </div>
+              <div className="px-4 pb-4">
+                {playersOverlayEntries.length ? (
+                  <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                    {playersOverlayEntries.map((entry, idx) => {
+                      const nick = entry?.nick ? String(entry.nick) : "";
+                      const rank = playersOverlayMode === "snapshot"
+                        ? Number.isFinite(entry?.rank)
+                          ? entry.rank
+                          : idx + 1
+                        : null;
+                      const score =
+                        playersOverlayMode === "snapshot" && typeof entry?.score === "number"
+                          ? entry.score
+                          : null;
+                      return (
+                        <div
+                          key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
+                          className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {playersOverlayMode === "snapshot" ? (
+                              <span className="w-6 text-center text-xs font-bold text-amber-500">
+                                {rank}
+                              </span>
+                            ) : null}
+                            <div className="min-w-0 flex items-center gap-2">
+                              <span className="font-semibold truncate">{nick || "Joueur"}</span>
+                              {renderHumanDot(nick)}
+                            </div>
+                          </div>
+                          {playersOverlayMode === "snapshot" ? (
+                            <div className="text-right text-xs font-bold tabular-nums whitespace-nowrap">
+                              {score != null ? `${score} pts` : "-"}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm opacity-70 py-8 text-center">
+                    {!isLoggedIn &&
+                    playersOverlayMode === "alpha" &&
+                    lobbyPlayersLoading
+                      ? "Chargement..."
+                      : "Aucun joueur pour le moment."}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   const definitionPreview = definitionModal.definition
     ? (() => {
         const text = String(definitionModal.definition).trim();
@@ -6046,6 +7533,23 @@ function handleTouchEnd() {
         return `${text.slice(0, 140).trim()}...`;
       })()
     : "";
+  const definitionHint =
+    definitionModal.phraseGuess && definitionModal.matchedTitle
+      ? `D\u00e9finition trouv\u00e9e pour ${definitionModal.matchedTitle} (li\u00e9 \u00e0 '${definitionModal.word}')`
+      : definitionModal.lemmaGuess && definitionModal.lemma
+      ? definitionModal.lemmaLabel
+        ? `${definitionModal.lemmaLabel} ${definitionModal.lemma}`
+        : `Forme conjugu\u00e9e probable - d\u00e9finition de ${definitionModal.lemma}`
+      : definitionModal.participleGuess &&
+        definitionModal.participleLabel &&
+        definitionModal.participleBase
+      ? `${definitionModal.participleLabel} ${definitionModal.participleBase}`
+      : definitionModal.inflectionGuess &&
+        definitionModal.inflectionLabel &&
+        definitionModal.inflectionBase
+      ? `${definitionModal.inflectionLabel} ${definitionModal.inflectionBase}`
+      : "";
+  const isLemmaHint = !!(definitionModal.lemmaGuess && definitionModal.lemma);
 
   const definitionModalView =
     definitionModal.open && typeof document !== "undefined"
@@ -6072,26 +7576,13 @@ function handleTouchEnd() {
                   ? `${definitionModal.word} \u2192 ${definitionModal.title}`
                   : definitionModal.word}
               </div>
-              {(definitionModal.phraseGuess && definitionModal.matchedTitle) ||
-              (definitionModal.lemmaGuess && definitionModal.lemma) ||
-              (definitionModal.participleGuess &&
-                definitionModal.participleLabel &&
-                definitionModal.participleBase) ||
-              (definitionModal.inflectionGuess &&
-                definitionModal.inflectionLabel &&
-                definitionModal.inflectionBase) ? (
-                <div className="mt-1 text-[11px] font-semibold opacity-80">
-                  {definitionModal.phraseGuess && definitionModal.matchedTitle
-                    ? `Définition trouvée pour ${definitionModal.matchedTitle} (lié à '${definitionModal.word}')`
-                    : definitionModal.lemmaGuess && definitionModal.lemma
-                    ? definitionModal.lemmaLabel
-                      ? `${definitionModal.lemmaLabel} ${definitionModal.lemma}`
-                      : `Forme conjuguée probable — définition de ${definitionModal.lemma}`
-                    : definitionModal.participleGuess &&
-                      definitionModal.participleLabel &&
-                      definitionModal.participleBase
-                    ? `${definitionModal.participleLabel} ${definitionModal.participleBase}`
-                    : `${definitionModal.inflectionLabel} ${definitionModal.inflectionBase}`}
+              {definitionHint ? (
+                <div
+                  className={`mt-1 opacity-80 ${
+                    isLemmaHint ? "text-[10px] italic" : "text-[11px] font-semibold"
+                  }`}
+                >
+                  {definitionHint}
                 </div>
               ) : null}
               <div className="mt-3 text-sm">
@@ -6166,29 +7657,36 @@ function handleTouchEnd() {
 
   const chatOverlays = (
     <>
+      {weeklyStatsOverlay}
+      {playersOverlay}
       {userMenuView}
       {reportModal}
       {chatRulesModal}
       {definitionModalView}
     </>
   );
+  const savedSessionNick = sessionRef.current?.nick?.trim() || "";
+  const canResumeNow = !!(canResumeSession && savedSessionNick && savedSessionNick === nickname.trim());
 
   if (!isLoggedIn) {
     return (
-      <div
-        className={`min-h-screen flex items-center justify-center px-4 ${
-          darkMode
-            ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
-            : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
-        }`}
-      >
-      <div
-        className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-3 ${
-          darkMode
-            ? "bg-slate-900/70 border border-white/10"
-            : "bg-white/90 border border-slate-200"
-        }`}
-      >
+      <>
+        {weeklyStatsOverlay}
+        {playersOverlay}
+        <div
+          className={`min-h-screen flex items-center justify-center px-4 ${
+            darkMode
+              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
+              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
+          }`}
+        >
+        <div
+          className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-3 ${
+            darkMode
+              ? "bg-slate-900/70 border border-white/10"
+              : "bg-white/90 border border-slate-200"
+          }`}
+        >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
   <div className="flex items-baseline gap-2 text-3xl font-black tracking-tight select-none">
@@ -6213,7 +7711,7 @@ function handleTouchEnd() {
           </div>
 
           <form
-            onSubmit={handleLogin}
+            onSubmit={handleLoginOrResume}
             className={`rounded-xl p-4 flex flex-col gap-2 border ${
               darkMode ? "bg-slate-800/70 border-white/10" : "bg-white border-slate-200"
             }`}
@@ -6237,7 +7735,27 @@ function handleTouchEnd() {
               className="mt-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition disabled:opacity-60"
               disabled={isConnecting}
             >
-              {isConnecting ? "Connexion..." : "Entrer dans la partie"}
+              {isConnecting
+                ? "Connexion..."
+                : canResumeNow
+                ? "Reprendre ma session"
+                : "Entrer dans la partie"}
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-500 hover:bg-blue-400 text-white shadow-sm"
+              onClick={openWeeklyStatsOverlay}
+              disabled={isConnecting}
+            >
+              Stats hebdo
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-500/80 hover:bg-blue-500 text-white shadow-sm"
+              onClick={openPlayersOverlayAlpha}
+              disabled={isConnecting}
+            >
+              Joueurs en jeu ({playersCountForLobby})
             </button>
           </form>
 
@@ -6262,8 +7780,9 @@ function handleTouchEnd() {
             </div>
           </div>
           {chatOverlays}
-      </div>
-      </div>
+        </div>
+        </div>
+      </>
     );
   }
 
@@ -6432,7 +7951,7 @@ function handleTouchEnd() {
 
           <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl">
             <div className="flex items-baseline justify-between gap-2 mb-2">
-              <div className="font-extrabold">Classement général</div>
+              <div className="font-extrabold">Classement general</div>
               <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
                 Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
               </div>
@@ -6453,8 +7972,17 @@ function handleTouchEnd() {
           </div>
 
           <div className="bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 rounded-xl p-3">
-            <div className="text-xs font-extrabold tracking-widest text-slate-600 dark:text-slate-300">
-              STATS DU TOURNOI
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-extrabold tracking-widest text-slate-600 dark:text-slate-300">
+                STATS DU TOURNOI
+              </div>
+              <button
+                type="button"
+                className="px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-500 transition"
+                onClick={openWeeklyStatsOverlay}
+              >
+                Stats hebdo
+              </button>
             </div>
             <div className="mt-2 grid gap-2 text-xs leading-tight">
               <div className="flex items-center justify-between gap-3">
@@ -6462,7 +7990,7 @@ function handleTouchEnd() {
                 <span className="tabular-nums">
                   {records?.mostWords?.nick ? (
                     <>
-                      <strong>{records.mostWords.nick}</strong> ({records.mostWords.count}) · manche{" "}
+                      <strong>{records.mostWords.nick}</strong> ({records.mostWords.count}) - manche{" "}
                       {records.mostWords.round}
                     </>
                   ) : (
@@ -6487,8 +8015,8 @@ function handleTouchEnd() {
                             e.stopPropagation();
                             openDefinition(records.bestWord.word);
                           }}
-                          aria-label="Voir la définition"
-                          title="Voir la définition"
+                          aria-label="Voir la definition"
+                          title="Voir la definition"
                         >
                           <svg
                             width="14"
@@ -6506,7 +8034,7 @@ function handleTouchEnd() {
                           </svg>
                         </button>
                       )}{" "}
-                      ({records.bestWord.pts} pts) · manche{" "}
+                      ({records.bestWord.pts} pts) - manche{" "}
                       {records.bestWord.round}
                     </>
                   ) : (
@@ -6531,8 +8059,8 @@ function handleTouchEnd() {
                             e.stopPropagation();
                             openDefinition(records.longestWord.word);
                           }}
-                          aria-label="Voir la définition"
-                          title="Voir la définition"
+                          aria-label="Voir la definition"
+                          title="Voir la definition"
                         >
                           <svg
                             width="14"
@@ -6550,7 +8078,7 @@ function handleTouchEnd() {
                           </svg>
                         </button>
                       )}{" "}
-                      ({records.longestWord.len}) · manche{" "}
+                      ({records.longestWord.len}) - manche{" "}
                       {records.longestWord.round}
                     </>
                   ) : (
@@ -7114,8 +8642,50 @@ function handleTouchEnd() {
         }
       : undefined;
     if (isResults) {
-      const resultsTab =
-        isTargetRound && mobileResultsTab === "mots" ? "classement" : mobileResultsTab;
+      const resultsPages = isTargetRound
+        ? ["round", "total"]
+        : ["round", "total", "found", "all"];
+      const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
+      const resultsPageKey = resultsPages[safeResultsPage];
+      const resultsRankingModeForMobile = resultsPageKey === "total" ? "total" : "round";
+      const resultsRankingList =
+        resultsRankingModeForMobile === "total"
+          ? tournamentRanking || []
+          : finalRanking || [];
+      const showResultsWords =
+        resultsPageKey === "found" || resultsPageKey === "all";
+      const showResultsLeftArrow = safeResultsPage > 0;
+      const showResultsRightArrow = safeResultsPage < resultsPages.length - 1;
+      const resultsArrowWrapperClass = `weekly-arrow-hint ${
+        resultsArrowVisible ? "weekly-arrow-visible" : ""
+      }`;
+      const resultsArrowAnimClass = `${resultsArrowBlink ? "weekly-arrow-blink" : ""} ${
+        resultsArrowBump ? "weekly-arrow-bump" : ""
+      }`;
+      const resultsFadeClass =
+        resultsSlidePhase === "out"
+          ? "results-fade-out"
+          : resultsSlidePhase === "in"
+          ? "results-fade-in"
+          : "";
+      const resultsArrowSize = {
+        width: "clamp(20px, 4vw, 34px)",
+        height: "clamp(20px, 4vw, 34px)",
+      };
+      const resultsHeaderLabel = showResultsWords ? "Mots" : "Classement";
+      const resultsHeaderSuffix = showResultsWords
+        ? ""
+        : resultsPageKey === "round"
+        ? "manche"
+        : "g\u00e9n\u00e9ral";
+      const resultsWordsTitle =
+        resultsPageKey === "found"
+          ? `Mots trouv\u00e9s (${acceptedRef.current.length})`
+          : `Tous les mots (${allWords.length})`;
+      const wordsEmpty =
+        resultsPageKey === "all"
+          ? allWords.length === 0
+          : acceptedRef.current.length === 0;
       const isTargetResults = isTargetRound;
       const resultsCardClassName = `relative rounded-xl px-3 py-2 flex flex-col gap-2 overflow-hidden ${
         isTargetResults ? "flex-none" : "flex-1 min-h-0"
@@ -7158,211 +8728,197 @@ function handleTouchEnd() {
               paddingTop: mobileBodyPaddingTop,
             }}
           >
-            <div className={resultsCardClassName} style={resultsCardStyle}>
-              <div className="text-xs">
-              <div className="flex w-full border-b border-slate-200 dark:border-slate-700">
-                  {(isTargetRound ? ["classement"] : ["classement", "mots"]).map((tab) => {
-                    const active = resultsTab === tab;
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setMobileResultsTab(tab)}
-                        className={`flex-1 py-2 text-center font-semibold transition ${
-                          active
-                            ? "text-blue-600 border-b-2 border-blue-600"
-                            : "text-slate-600 dark:text-slate-300 border-b-2 border-transparent hover:text-blue-600"
-                        }`}
-                      >
-                        {tab === "classement" ? "Classement" : "Mots"}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-hidden transition-all duration-300">
-                {resultsTab === "mots" && !isTargetRound ? (
-                  <div className="flex flex-col gap-2 h-full">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="text-slate-500 dark:text-slate-300">
-                        {showAllWords
-                          ? `Tous (${allWords.length})`
-                          : `Trouvés (${acceptedRef.current.length})`}
-                      </div>
-                      <div className="inline-flex rounded-full border border-gray-300 dark:border-slate-600 overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            captureListPositions(displayList);
-                            setShowAllWords(false);
-                          }}
-                          className={`px-3 py-1 transition ${
-                            !showAllWords
-                              ? "bg-blue-600 text-white"
-                              : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300"
-                          }`}
-                        >
-                          Trouvés
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            captureListPositions(displayList);
-                            setShowAllWords(true);
-                          }}
-                          className={`px-3 py-1 transition ${
-                            showAllWords
-                              ? "bg-blue-600 text-white"
-                              : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300"
-                          }`}
-                        >
-                          Tous
-                        </button>
-                      </div>
-                    </div>
-                    {showAllWords && allWords.length === 0 ? (
-                      <div className="text-xs text-slate-500 dark:text-slate-300">
-                        Aucun mot (solveur non lancé)
-                      </div>
-                    ) : null}
-                    <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}>
-                      {displayList.length === 0 ? (
-                        <div className="flex items-center justify-center h-full text-xs text-slate-400">
-                          Aucun mot trouvé.
-                        </div>
-                      ) : (
-                        <ul className="relative flex flex-col text-sm">
-                          {displayList.map((entry) => {
-                            const selected = analysis?.word === entry.word;
-                            const isFound = entry.isFound;
-                            const bestPts = entry.bestPts;
-                            const userPts = entry.userPts;
-                            const showOpt =
-                              isFound && typeof bestPts === "number" && typeof userPts === "number" && bestPts !== userPts;
-                            const visible = showAllWords || isFound;
-                            return (
-                              <li
-                                key={entry.word}
-                                onMouseEnter={() => analyzeWord(entry.word)}
-                                onMouseLeave={() => {
-                                  setAnalysis(null);
-                                  setHighlightPlayers([]);
-                                }}
-                                ref={(el) => {
-                                  if (el) listItemRefs.current.set(entry.word, el);
-                                  else listItemRefs.current.delete(entry.word);
-                                }}
-                                className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
-                                  selected ? "bg-blue-50 text-blue-800" : "hover:bg-gray-100"
-                                }`}
-                                style={{
-                                  transitionDuration: "220ms",
-                                  opacity: visible ? 1 : 0,
-                                  transform: visible ? "translateY(0)" : "translateY(-8px)",
-                                  maxHeight: visible ? "48px" : "0px",
-                                  paddingTop: "2px",
-                                  paddingBottom: "2px",
-                                  overflow: "hidden",
-                                  pointerEvents: visible ? "auto" : "none",
-                                  position: visible ? "relative" : "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  width: "100%",
-                                  color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
-                                }}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {isFound ? (
-                                    <span style={foundDotStyle} aria-hidden="true" />
-                                  ) : (
-                                    <span style={{ ...foundDotStyle, opacity: 0 }} aria-hidden="true" />
-                                  )}
-                                  <span className={isFound ? "font-semibold" : "text-gray-600"}>
-                                    {entry.word}
-                                  </span>
-                                </span>
-                                <span className="text-xs text-gray-600 flex items-center gap-2">
-                                  {typeof userPts === "number" && isFound && (
-                                    <span className="font-semibold">+{userPts} pts</span>
-                                  )}
-                                  {!isFound && typeof bestPts === "number" && (
-                                    <span className="text-gray-500">({bestPts} pts)</span>
-                                  )}
-                                  {showOpt && (
-                                    <span
-                                      className={`text-[0.65rem] ${
-                                        darkMode ? "text-red-300" : "text-red-600"
-                                      }`}
-                                    >
-                                      (opt: {bestPts} pts)
-                                    </span>
-                                  )}
-                                </span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2 h-full">
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => setResultsRankingMode("round")}
-                          className={`px-3 py-1 transition ${
-                            resultsRankingMode === "round"
-                              ? "bg-blue-600 text-white"
-                              : "bg-white text-gray-600"
-                          }`}
-                        >
-                          Manche
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setResultsRankingMode("total")}
-                          className={`px-3 py-1 transition ${
-                            resultsRankingMode === "total"
-                              ? "bg-blue-600 text-white"
-                              : "bg-white text-gray-600"
-                          }`}
-                        >
-                          Total
-                        </button>
-                      </div>
-                      {resultsRankingMode === "total" &&
-                        tournament?.round &&
-                        tournament?.totalRounds && (
-                          <span className="text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                            {tournament.round === tournament.totalRounds ? (
-                              <>Manche finale</>
-                            ) : (
-                              <>
-                                Manche {tournament.round}/{tournament.totalRounds}
-                              </>
-                            )}
-                          </span>
-                        )}
-                    </div>
-                    <div className="flex-1 min-h-0 overflow-hidden">
-                      <RankingWidgetMobile
-                        fullRanking={fullRanking}
-                        selfNick={selfNick}
-                        darkMode={darkMode}
-                        expanded={true}
-                        animateRank={false}
-                        showWheel={false}
-                        flatStyle={true}
-                        showRoundAward={true}
-                        renderNickSuffix={renderNickSuffix}
-                        renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
+            <div
+              className={resultsCardClassName}
+              style={resultsCardStyle}
+              onTouchStart={handleResultsTouchStart}
+              onTouchMove={handleResultsTouchMove}
+              onTouchEnd={handleResultsTouchEnd}
+              onTouchCancel={handleResultsTouchEnd}
+            >
+              <div className="relative flex-1 min-h-0 overflow-hidden">
+                {showResultsLeftArrow ? (
+                  <button
+                    type="button"
+                    className={`group absolute left-0 top-1/2 -translate-y-1/2 ml-1 text-slate-600/70 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 ${resultsArrowWrapperClass}`}
+                    onClick={() => shiftResultsPage(-1)}
+                    aria-label="Precedent"
+                  >
+                    <span className={`block ${resultsArrowAnimClass}`}>
+                      <span
+                        className="block border-t-[3px] border-l-[3px] border-current rotate-[-45deg]"
+                        style={resultsArrowSize}
                       />
+                    </span>
+                  </button>
+                ) : null}
+                {showResultsRightArrow ? (
+                  <button
+                    type="button"
+                    className={`group absolute right-0 top-1/2 -translate-y-1/2 mr-1 text-slate-600/70 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 ${resultsArrowWrapperClass}`}
+                    onClick={() => shiftResultsPage(1)}
+                    aria-label="Suivant"
+                  >
+                    <span className={`block ${resultsArrowAnimClass}`}>
+                      <span
+                        className="block border-t-[3px] border-r-[3px] border-current rotate-[45deg]"
+                        style={resultsArrowSize}
+                      />
+                    </span>
+                  </button>
+                ) : null}
+                <div className={`flex flex-col gap-2 h-full results-fade-layer ${resultsFadeClass}`}>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="font-semibold">
+                      {resultsHeaderLabel}
+                      {!showResultsWords ? (
+                        <SwapFadeText value={resultsHeaderSuffix} className="ml-1" />
+                      ) : null}
                     </div>
+                    {!showResultsWords &&
+                      tournament?.round &&
+                      tournament?.totalRounds && (
+                        <span className="text-slate-500 dark:text-slate-300 whitespace-nowrap">
+                          {tournament.round === tournament.totalRounds ? (
+                            <>Manche finale</>
+                          ) : (
+                            <>
+                              Manche {tournament.round}/{tournament.totalRounds}
+                            </>
+                          )}
+                        </span>
+                      )}
+                    {showResultsWords ? (
+                      <SwapFadeText
+                        value={resultsWordsTitle}
+                        className="text-slate-500 dark:text-slate-300 whitespace-nowrap"
+                      />
+                    ) : null}
                   </div>
-                )}
+
+                  {showResultsWords && !isTargetRound ? (
+                    <div className="flex flex-col gap-2 flex-1 min-h-0">
+                      {wordsEmpty ? (
+                        <div className="text-xs text-slate-500 dark:text-slate-300">
+                          {resultsPageKey === "all"
+                            ? "Aucun mot (solveur non lanc\u00e9)"
+                            : "Aucun mot trouv\u00e9."}
+                        </div>
+                      ) : null}
+                      <div
+                        className="flex-1 min-h-0 overflow-y-auto pr-1"
+                        style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}
+                      >
+                        {displayList.length === 0 ? (
+                          <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                            Aucun mot trouv\u00e9.
+                          </div>
+                        ) : (
+                          <ul className="relative flex flex-col text-sm">
+                            {displayList.map((entry) => {
+                              const selected = analysis?.word === entry.word;
+                              const isFound = entry.isFound;
+                              const bestPts = entry.bestPts;
+                              const userPts = entry.userPts;
+                              const showOpt =
+                                isFound &&
+                                typeof bestPts === "number" &&
+                                typeof userPts === "number" &&
+                                bestPts !== userPts;
+                              const visible = showAllWords || isFound;
+                              return (
+                                <li
+                                  key={entry.word}
+                                  onMouseEnter={() => analyzeWord(entry.word)}
+                                  onMouseLeave={() => {
+                                    setAnalysis(null);
+                                    setHighlightPlayers([]);
+                                  }}
+                                  ref={(el) => {
+                                    if (el) listItemRefs.current.set(entry.word, el);
+                                    else listItemRefs.current.delete(entry.word);
+                                  }}
+                                  className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
+                                    selected ? "bg-blue-50 text-blue-800" : "hover:bg-gray-100"
+                                  }`}
+                                  style={{
+                                    transitionDuration: "220ms",
+                                    opacity: visible ? 1 : 0,
+                                    transform: visible ? "translateY(0)" : "translateY(-8px)",
+                                    maxHeight: visible ? "48px" : "0px",
+                                    paddingTop: "2px",
+                                    paddingBottom: "2px",
+                                    overflow: "hidden",
+                                    pointerEvents: visible ? "auto" : "none",
+                                    position: visible ? "relative" : "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "100%",
+                                    color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
+                                  }}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {isFound ? (
+                                      <span style={foundDotStyle} aria-hidden="true" />
+                                    ) : (
+                                      <span
+                                        style={{ ...foundDotStyle, opacity: 0 }}
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    <span
+                                      className={isFound ? "font-semibold" : "text-gray-600"}
+                                    >
+                                      {entry.word}
+                                    </span>
+                                  </span>
+                                  <span className="text-xs text-gray-600 flex items-center gap-2">
+                                    {typeof userPts === "number" && isFound && (
+                                      <span className="font-semibold">+{userPts} pts</span>
+                                    )}
+                                    {!isFound && typeof bestPts === "number" && (
+                                      <span className="text-gray-500">({bestPts} pts)</span>
+                                    )}
+                                    {showOpt && (
+                                      <span
+                                        className={`text-[0.65rem] ${
+                                          darkMode ? "text-red-300" : "text-red-600"
+                                        }`}
+                                      >
+                                        (opt: {bestPts} pts)
+                                      </span>
+                                    )}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 flex-1 min-h-0">
+                      <div className="flex-1 min-h-0 overflow-hidden">
+                        <RankingWidgetMobile
+                          fullRanking={resultsRankingList}
+                          selfNick={selfNick}
+                          darkMode={darkMode}
+                          expanded={true}
+                          animateRank={false}
+                          animateReorder={resultsMetaPulse}
+                          metaPulse={resultsMetaPulse}
+                          showWheel={false}
+                          flatStyle={true}
+                          showRoundAward={true}
+                          renderNickSuffix={renderNickSuffix}
+                          renderAfterRank={
+                            resultsRankingModeForMobile === "total" ? renderRankDelta : null
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -7471,7 +9027,7 @@ function handleTouchEnd() {
           {phase === "playing" && isTargetRound ? (
             <div
               ref={mobileRankingRef}
-              className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
+              className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
               style={
                 specialBlockHeight > 0
                   ? {
@@ -7484,6 +9040,19 @@ function handleTouchEnd() {
                   : { paddingTop: `${specialPadY}px`, paddingBottom: `${specialPadY}px` }
               }
             >
+              {phase === "playing" ? (
+                <button
+                  type="button"
+                  className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
+                    darkMode
+                      ? "bg-slate-900/70 text-white border border-white/10"
+                      : "bg-white/80 text-slate-900 border border-slate-200"
+                  }`}
+                  onClick={() => openPlayersOverlaySnapshot(fullRanking)}
+                >
+                  Liste des joueurs
+                </button>
+              ) : null}
               <div
                 className="font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300"
                 style={{ fontSize: `${specialTitleFont}px` }}
@@ -7560,7 +9129,7 @@ function handleTouchEnd() {
           ) : (
             <div
               ref={mobileRankingRef}
-              className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
+              className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
               style={
                 mobileLayoutSizing.rankingHeight > 0
                   ? {
@@ -7571,6 +9140,19 @@ function handleTouchEnd() {
                   : undefined
               }
             >
+              {phase === "playing" ? (
+                <button
+                  type="button"
+                  className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
+                    darkMode
+                      ? "bg-slate-900/70 text-white border border-white/10"
+                      : "bg-white/80 text-slate-900 border border-slate-200"
+                  }`}
+                  onClick={() => openPlayersOverlaySnapshot(fullRanking)}
+                >
+                  Liste des joueurs
+                </button>
+              ) : null}
               <RankingWidgetMobile
                 fullRanking={fullRanking}
                 selfNick={selfNick}
@@ -7946,7 +9528,10 @@ function handleTouchEnd() {
         <div className="inline-flex rounded-full border border-gray-300 overflow-hidden text-xs">
           <button
             type="button"
-            onClick={() => setResultsRankingMode("round")}
+            onClick={() => {
+              setResultsRankingMode("round");
+              triggerResultsMetaPulse();
+            }}
             className={`px-3 py-1 transition ${
               resultsRankingMode === "round" ? "bg-blue-600 text-white" : "bg-white text-gray-600"
             }`}
@@ -7955,7 +9540,10 @@ function handleTouchEnd() {
           </button>
           <button
             type="button"
-            onClick={() => setResultsRankingMode("total")}
+            onClick={() => {
+              setResultsRankingMode("total");
+              triggerResultsMetaPulse();
+            }}
             className={`px-3 py-1 transition ${
               resultsRankingMode === "total" ? "bg-blue-600 text-white" : "bg-white text-gray-600"
             }`}
@@ -7982,6 +9570,8 @@ function handleTouchEnd() {
           darkMode={darkMode}
           expanded={true}
           animateRank={false}
+          animateReorder={resultsMetaPulse}
+          metaPulse={resultsMetaPulse}
           showWheel={false}
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}

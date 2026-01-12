@@ -71,6 +71,8 @@ function MobileChatWidget({
       submitChat(null);
     }
   };
+  const unreadBadge =
+    mobileChatUnreadCount > 0 ? (mobileChatUnreadCount >= 10 ? "9+" : String(mobileChatUnreadCount)) : "";
   return (
     <>
       <div className="fixed bottom-4 right-4 z-30">
@@ -84,6 +86,11 @@ function MobileChatWidget({
           Chat
           {mobileChatUnreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
+          )}
+          {mobileChatUnreadCount > 0 && (
+            <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-[10px] font-extrabold text-white flex items-center justify-center shadow">
+              {unreadBadge}
+            </span>
           )}
         </button>
       </div>

@@ -6,7 +6,7 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
-import { readFileSync } from "fs";
+import { readFileSync, appendFileSync, mkdirSync } from "fs";
 import { randomUUID } from "crypto";
 
 import {
@@ -17,34 +17,17 @@ import {
   normalizeWord,
 } from "../shared/gameLogic.js";
 import { createBotManager } from "./bots/botManager.js";
-import { createComputePool } from "./compute/computePool.js";
-import { getMetrics } from "./observability/metrics.js";
-import {
-  getDefinition,
-  clearDefinitionCache,
-  peekDefinitionCache,
-} from "./definitions/definitionService.js";
-import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
-import {
-  getWeekStartTs,
-  getWeeklyStats,
-  recordBestRoundScore,
-  recordBestTargetTime,
-  recordBestWord,
-  recordLongestWord,
-  recordMedal,
-  recordMostGobbles,
-  recordMostWordsInGame,
-} from "./stats/weeklyStatsService.js";
-
-const computePool = createComputePool();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 app.set("trust proxy", true);
 
-const SOLVE_CACHE_MAX = 8;
+const DEFINE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFINE_NEGATIVE_TTL_MS = 10 * 60 * 1000;
+const WIKI_USER_AGENT = "Gobble/1.0 (https://gobble.fr; contact: contact@gobble.fr)";
+const defineCache = new Map();
+const SOLVE_CACHE_MAX = 160;
 const solveCache = new Map();
 const ANNOUNCEMENT_BATCH_MS = 220;
 const ANNOUNCEMENT_BATCH_MAX = 12;
@@ -55,6 +38,45 @@ function sanitizeDefineWord(raw) {
   if (rawWord.length > 40) return { word: null, error: "bad_word" };
   if (!/^[\p{L}'-]+$/u.test(rawWord)) return { word: null, error: "bad_word" };
   return { word: rawWord, error: null };
+}
+
+function buildDefineCandidates(rawWord) {
+  const candidates = [];
+  const push = (value) => {
+    const v = String(value || "").trim();
+    if (!v) return;
+    if (!candidates.includes(v)) candidates.push(v);
+  };
+  const lower = rawWord.toLowerCase();
+  const capitalized = rawWord
+    ? rawWord[0].toUpperCase() + rawWord.slice(1).toLowerCase()
+    : rawWord;
+  const deaccent = rawWord
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  push(rawWord);
+  push(lower);
+  push(capitalized);
+  push(deaccent);
+  return candidates;
+}
+
+function getCachedDefinition(wordKey) {
+  const entry = defineCache.get(wordKey);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    defineCache.delete(wordKey);
+    return null;
+  }
+  return entry.payload;
+}
+
+function setCachedDefinition(wordKey, payload, ttlMs = DEFINE_CACHE_TTL_MS) {
+  defineCache.set(wordKey, {
+    expiresAt: Date.now() + ttlMs,
+    payload,
+  });
 }
 
 function buildSolveCacheKey(grid, special) {
@@ -92,6 +114,730 @@ function solveGridCached(grid, dictionary, special = null) {
   return solved;
 }
 
+function clipDefinition(rawText, maxLen = 600) {
+  const text = String(rawText || "").trim();
+  if (!text) return "";
+  const sanitized = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  if (!sanitized) return "";
+  if (sanitized.length <= maxLen) return sanitized;
+  let cut = sanitized.slice(0, maxLen);
+  const lastSentence = Math.max(
+    cut.lastIndexOf(". "),
+    cut.lastIndexOf("! "),
+    cut.lastIndexOf("? ")
+  );
+  if (lastSentence > 80) {
+    cut = cut.slice(0, lastSentence + 1);
+  } else {
+    cut = cut.replace(/\s+\S*$/, "");
+  }
+  return `${cut.trimEnd()}...`;
+}
+
+function normalizeForFormOf(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z'\-\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasDiacritics(value) {
+  return /[\u0300-\u036f]/.test(String(value || "").normalize("NFD"));
+}
+
+function pickDisplayWord(rawWord, accentCandidates) {
+  const raw = String(rawWord || "").trim();
+  if (!raw) return null;
+  if (!Array.isArray(accentCandidates) || accentCandidates.length === 0) return null;
+  const normRaw = normalizeLookup(raw);
+  const match = accentCandidates.find(
+    (candidate) =>
+      candidate &&
+      candidate !== raw &&
+      normalizeLookup(candidate) === normRaw &&
+      hasDiacritics(candidate)
+  );
+  return match || null;
+}
+
+async function fetchAccentCandidates(word) {
+  const raw = String(word || "").trim();
+  if (!raw || hasDiacritics(raw)) return [];
+  const titles = await fetchOpensearchTitles(
+    "https://fr.wiktionary.org",
+    raw,
+    5
+  );
+  if (!titles || titles.length === 0) return [];
+  const normWord = normalizeLookup(raw);
+  const matches = titles.filter((title) => normalizeLookup(title) === normWord);
+  if (!matches.length) return [];
+  matches.sort((a, b) => {
+    const aAccent = hasDiacritics(a) ? 1 : 0;
+    const bAccent = hasDiacritics(b) ? 1 : 0;
+    if (aAccent !== bAccent) return bAccent - aAccent;
+    const aDiff = Math.abs(a.length - raw.length);
+    const bDiff = Math.abs(b.length - raw.length);
+    if (aDiff !== bDiff) return aDiff - bDiff;
+    return 0;
+  });
+  return matches;
+}
+
+function extractVerbBaseFromFormOf(normalized) {
+  const verbMatch = normalized.match(/\bdu verbe ([a-z'-]+)/);
+  if (verbMatch) return verbMatch[1];
+  const tailMatch = normalized.match(/\bde ([a-z'-]+)$/);
+  if (tailMatch) return tailMatch[1];
+  return null;
+}
+
+
+function extractBaseFromRawForm(extract) {
+  const raw = String(extract || "").trim();
+  if (!raw) return null;
+  const verbMatch = raw.match(/\bverbe\s+([\p{L}'-]+)/iu);
+  if (verbMatch) return verbMatch[1];
+  const deMatch = raw.match(/\bde\s+([\p{L}'-]+)[\s.]*$/iu);
+  if (deMatch) return deMatch[1];
+  return null;
+}
+
+function extractParticipleHint(normalized, rawBase) {
+  if (!normalized) return null;
+  const base = rawBase || extractVerbBaseFromFormOf(normalized);
+  if (!base || base.length < 3) return null;
+  const match = normalized.match(
+    /\bparticipe (passe|present)(?: (masculin|feminin))?(?: (singulier|pluriel))?/
+  );
+  if (!match) return null;
+  const tense = match[1];
+  const gender = match[2] || "";
+  const number = match[3] || "";
+  let label = `Participe ${tense}`;
+  if (gender) label = `${label} ${gender}`;
+  if (number) label = `${label} ${number}`;
+  label = `${label} de :`;
+  return { base, label, kind: "participle" };
+}
+
+function extractConjugationHint(normalized, rawBase) {
+  if (!normalized) return null;
+  const personMatch = normalized.match(
+    /^(premiere|deuxieme|troisieme) personne du (singulier|pluriel)\b/
+  );
+  if (!personMatch) return null;
+  const base = rawBase || extractVerbBaseFromFormOf(normalized);
+  if (!base || base.length < 3) return null;
+  let detail = normalized.slice(personMatch[0].length).trim();
+  if (detail) {
+    const baseToken = normalizeForFormOf(base).split(" ")[0];
+    if (baseToken) {
+      const suffix = ` de ${baseToken}`;
+      if (detail.endsWith(suffix)) {
+        detail = detail.slice(0, -suffix.length).trim();
+      } else {
+        const lastDe = detail.lastIndexOf(" de ");
+        if (lastDe >= 0) {
+          detail = detail.slice(0, lastDe).trim();
+        }
+      }
+    } else {
+      const lastDe = detail.lastIndexOf(" de ");
+      if (lastDe >= 0) {
+        detail = detail.slice(0, lastDe).trim();
+      }
+    }
+    detail = detail.replace(/\s+/g, " ").trim();
+    if (detail === "de" || detail === "du" || detail === "des") {
+      detail = "";
+    }
+  }
+  const personLabel =
+    personMatch[1].charAt(0).toUpperCase() + personMatch[1].slice(1);
+  let label = `${personLabel} personne du ${personMatch[2]}`;
+  if (detail) {
+    label = `${label} ${detail}`;
+  }
+  label = `${label} de :`;
+  return { base, label, kind: "lemma" };
+}
+
+function extractFormOfHint(extract) {
+  const normalized = normalizeForFormOf(extract);
+  if (!normalized) return null;
+  const rawBase = extractBaseFromRawForm(extract);
+  const participleHint = extractParticipleHint(normalized, rawBase);
+  if (participleHint) return participleHint;
+  const conjugationHint = extractConjugationHint(normalized, rawBase);
+  if (conjugationHint) return conjugationHint;
+  const patterns = [
+    {
+      re: /\bmauvaise orthographe de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\bvariante orthographique de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\bgraphie alternative de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\borthographe de ([a-z'-]+)/,
+      label: "",
+      kind: "orthography",
+    },
+    {
+      re: /\bfeminin pluriel de ([a-z'-]+)/,
+      label: "Féminin pluriel probable de :",
+      kind: "inflection",
+    },
+    {
+      re: /\bfeminin singulier de ([a-z'-]+)/,
+      label: "Féminin singulier probable de :",
+      kind: "inflection",
+    },
+    { re: /\bfeminin de ([a-z'-]+)/, label: "Féminin probable de :", kind: "inflection" },
+    {
+      re: /\bmasculin pluriel de ([a-z'-]+)/,
+      label: "Masculin pluriel probable de :",
+      kind: "inflection",
+    },
+    {
+      re: /\bmasculin singulier de ([a-z'-]+)/,
+      label: "Masculin singulier probable de :",
+      kind: "inflection",
+    },
+    { re: /\bmasculin de ([a-z'-]+)/, label: "Masculin probable de :", kind: "inflection" },
+    { re: /\bpluriel de ([a-z'-]+)/, label: "Pluriel probable de :", kind: "inflection" },
+    {
+      re: /\bparticipe passe de ([a-z'-]+)/,
+      label: "Participe passé probable de :",
+      kind: "participle",
+    },
+    {
+      re: /\bparticipe present de ([a-z'-]+)/,
+      label: "Participe présent probable de :",
+      kind: "participle",
+    },
+    {
+      re: /\bforme conjuguee de ([a-z'-]+)/,
+      label: "Forme conjuguée probable de :",
+      kind: "lemma",
+    },
+    {
+      re: /\bconjugaison de ([a-z'-]+)/,
+      label: "Forme conjuguée probable de :",
+      kind: "lemma",
+    },
+    {
+      re: /\bforme du verbe ([a-z'-]+)/,
+      label: "Forme conjuguée probable de :",
+      kind: "lemma",
+    },
+    { re: /\bforme de ([a-z'-]+)/, label: "Forme probable de :", kind: "lemma" },
+  ];
+  const lemmaLabel =
+    patterns.find((pattern) => pattern.kind === "lemma")?.label ||
+    "Forme conjuguee probable de :";
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern.re);
+    if (!match) continue;
+    const base = rawBase || match[1];
+    if (!base || base.length < 3) continue;
+    return { base, label: pattern.label, kind: pattern.kind };
+  }
+  const verbBase = extractVerbBaseFromFormOf(normalized);
+  if (verbBase && verbBase.length >= 3) {
+    return { base: rawBase || verbBase, label: lemmaLabel, kind: "lemma" };
+  }
+  if (/^(premiere|deuxieme|troisieme) personne/.test(normalized)) {
+    const base = extractVerbBaseFromFormOf(normalized);
+    if (base && base.length >= 3) {
+      return { base: rawBase || base, label: lemmaLabel, kind: "lemma" };
+    }
+  }
+  return null;
+}
+
+async function fetchOpensearchTitles(baseUrl, term, limit = 5) {
+  const url = `${baseUrl}/w/api.php?action=opensearch&search=${encodeURIComponent(
+    term
+  )}&limit=${limit}&namespace=0&format=json`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const titles = Array.isArray(data?.[1]) ? data[1] : [];
+  return titles
+    .filter((t) => typeof t === "string" && t.trim())
+    .map((t) => t.trim());
+}
+
+async function fetchSummary(baseUrl, title) {
+  const url = `${baseUrl}/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const extract = String(data?.extract || "").trim();
+  if (!extract) return null;
+  const urlOut =
+    data?.content_urls?.desktop?.page ||
+    data?.content_urls?.mobile?.page ||
+    `${baseUrl}/wiki/${encodeURIComponent(title)}`;
+  return { title, extract: clipDefinition(extract), url: urlOut };
+}
+
+function extractWiktionaryDefinition(wikitext) {
+  if (!wikitext) return "";
+  const lines = String(wikitext).split(/\r?\n/);
+  let inFrench = false;
+  for (const line of lines) {
+    if (/^==\s*\{\{langue\|fr\}\}\s*==/i.test(line)) {
+      inFrench = true;
+      continue;
+    }
+    if (inFrench && /^==[^=]/.test(line)) break;
+    if (!inFrench) continue;
+    const match = line.match(/^#(?![#*:])\s*(.+)/);
+    if (!match) continue;
+    let text = match[1];
+    text = text.replace(/\{\{[^}]+\}\}/g, "");
+    text = text.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2");
+    text = text.replace(/\[\[([^\]]+)\]\]/g, "$1");
+    text = text.replace(/'''+/g, "").replace(/''/g, "");
+    text = text.replace(/\s+/g, " ").trim();
+    if (text) return clipDefinition(text, 450);
+  }
+  return "";
+}
+
+async function fetchWiktionaryDefinition(title) {
+  const summary = await fetchSummary("https://fr.wiktionary.org", title);
+  if (summary && summary.extract) return summary;
+  const url = `https://fr.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(
+    title
+  )}&prop=wikitext&format=json`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const wikitext = data?.parse?.wikitext?.["*"];
+  const extract = extractWiktionaryDefinition(wikitext);
+  if (!extract) return null;
+  return {
+    title: data?.parse?.title || title,
+    extract,
+    url: `https://fr.wiktionary.org/wiki/${encodeURIComponent(title)}`,
+  };
+}
+
+async function lookupDefinitionForWord(term, options = {}) {
+  const strict = Boolean(options.strict);
+  const direct = await fetchWiktionaryDefinition(term);
+  if (direct) {
+    return { ...direct, source: "wiktionary" };
+  }
+  const titles = await fetchOpensearchTitles(
+    "https://fr.wiktionary.org",
+    term,
+    5
+  );
+  const picked = titles
+    ? strict
+      ? pickStrictTitle(titles, term)
+      : pickBestTitle(titles, term)
+    : null;
+  if (picked) {
+    const summary = await fetchWiktionaryDefinition(picked);
+    if (summary) {
+      return { ...summary, source: "wiktionary" };
+    }
+  }
+  const wikiDirect = await fetchSummary("https://fr.wikipedia.org", term);
+  if (wikiDirect) {
+    return { ...wikiDirect, source: "wikipedia" };
+  }
+  const wikiTitles = await fetchOpensearchTitles(
+    "https://fr.wikipedia.org",
+    term,
+    5
+  );
+  const wikiPicked = wikiTitles
+    ? strict
+      ? pickStrictTitle(wikiTitles, term)
+      : pickBestTitle(wikiTitles, term)
+    : null;
+  if (wikiPicked) {
+    const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+    if (summary) {
+      return { ...summary, source: "wikipedia" };
+    }
+  }
+  return null;
+}
+
+function normalizeLookup(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z]/g, "");
+}
+
+function guessLemmasFR(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized || normalized.length < 6) return [];
+  const candidates = new Set();
+  const add = (value) => {
+    if (!value || value.length < 6) return;
+    if (value === normalized) return;
+    if (candidates.size >= 12) return;
+    candidates.add(value);
+  };
+  const fixSpelling = (value) => {
+    if (value.endsWith("geer")) return value.slice(0, -4) + "ger";
+    if (value.endsWith("ceer")) return value.slice(0, -4) + "cer";
+    return value;
+  };
+  const addWithEndings = (stem, endings) => {
+    for (const end of endings) {
+      const next = fixSpelling(`${stem}${end}`);
+      add(next);
+      if (candidates.size >= 12) return;
+    }
+  };
+  const rules = [
+    {
+      suffixes: [
+        "erions",
+        "eriez",
+        "erais",
+        "erait",
+        "erons",
+        "eront",
+        "erez",
+        "erai",
+        "era",
+      ],
+      endings: ["er"],
+    },
+    {
+      suffixes: [
+        "irions",
+        "iriez",
+        "irais",
+        "irait",
+        "irons",
+        "iront",
+        "irez",
+        "irai",
+        "ira",
+      ],
+      endings: ["ir"],
+    },
+    {
+      suffixes: [
+        "issent",
+        "isses",
+        "isse",
+        "issions",
+        "issiez",
+        "issais",
+        "issait",
+        "issaient",
+      ],
+      endings: ["ir"],
+    },
+    { suffixes: ["assent", "assiez", "asses", "asse", "at", "ates", "ions", "iez"], endings: ["er"] },
+    { suffixes: ["ites"], endings: ["ir"] },
+    { suffixes: ["aient", "ait"], endings: ["er", "ir", "re"] },
+  ];
+  for (const rule of rules) {
+    for (const suffix of rule.suffixes) {
+      if (!normalized.endsWith(suffix)) continue;
+      const stem = normalized.slice(0, -suffix.length);
+      if (!stem) continue;
+      addWithEndings(stem, rule.endings);
+      if (candidates.size >= 12) break;
+    }
+    if (candidates.size >= 12) break;
+  }
+  const participleRules = ["ees", "es", "e", "ent"];
+  for (const suffix of participleRules) {
+    if (normalized.endsWith(suffix)) {
+      const stem = normalized.slice(0, -suffix.length);
+      if (stem) addWithEndings(stem, ["er"]);
+    }
+    if (candidates.size >= 12) break;
+  }
+  return Array.from(candidates);
+}
+
+function looksLikeVerbForm(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized) return false;
+  const suffixes = [
+    "erais",
+    "erait",
+    "erions",
+    "eriez",
+    "erons",
+    "eront",
+    "erez",
+    "erai",
+    "era",
+    "assent",
+    "assiez",
+    "asses",
+    "asse",
+    "ates",
+    "at",
+    "irais",
+    "irait",
+    "irions",
+    "iriez",
+    "irons",
+    "iront",
+    "irez",
+    "irai",
+    "ira",
+    "issent",
+    "isses",
+    "isse",
+    "issions",
+    "issiez",
+    "issais",
+    "issait",
+    "issaient",
+    "issant",
+  ];
+  return suffixes.some((suffix) => normalized.endsWith(suffix));
+}
+
+function guessInflectionsFR(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized || normalized.length < 4) return [];
+  if (looksLikeVerbForm(rawWord)) return [];
+  const candidates = [];
+  const seen = new Set();
+  const add = (base, label) => {
+    if (!base || base.length < 4) return;
+    if (base === normalized) return;
+    const key = `${label}|${base}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ base, label });
+  };
+
+  if (normalized.endsWith("ies") && normalized.length > 4) {
+    add(normalized.slice(0, -3) + "ie", "Pluriel probable de :");
+  }
+  if (normalized.endsWith("eaux") && normalized.length > 5) {
+    add(normalized.slice(0, -4) + "eau", "Pluriel probable de :");
+  }
+  if (normalized.endsWith("aux") && normalized.length > 4) {
+    add(normalized.slice(0, -3) + "al", "Pluriel probable de :");
+  }
+  if (normalized.endsWith("s") && normalized.length > 3) {
+    add(normalized.slice(0, -1), "Pluriel probable de :");
+  }
+  if (normalized.endsWith("x") && normalized.length > 3) {
+    add(normalized.slice(0, -1), "Pluriel probable de :");
+  }
+
+  if (normalized.endsWith("es") && normalized.length > 3) {
+    add(normalized.slice(0, -2), "Féminin pluriel probable de :");
+  }
+  if (normalized.endsWith("e") && normalized.length > 3) {
+    add(normalized.slice(0, -1), "Féminin probable de :");
+  }
+
+  return candidates.slice(0, 12);
+}
+
+function guessParticiplesFR(rawWord) {
+  const normalized = normalizeLookup(rawWord);
+  if (!normalized || normalized.length < 4) return [];
+  const candidates = [];
+  const seen = new Set();
+  const add = (base, label) => {
+    if (!base || base.length < 4) return;
+    if (base === normalized) return;
+    const key = `${label}|${base}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ base, label });
+  };
+  const fixSpelling = (value) => {
+    if (value.endsWith("geer")) return value.slice(0, -4) + "ger";
+    if (value.endsWith("ceer")) return value.slice(0, -4) + "cer";
+    return value;
+  };
+  const addWithEndings = (stem, endings, label) => {
+    for (const end of endings) {
+      add(fixSpelling(`${stem}${end}`), label);
+      if (candidates.length >= 12) return;
+    }
+  };
+
+  if (normalized.endsWith("ant") && normalized.length > 4) {
+    const stem = normalized.slice(0, -3);
+    addWithEndings(stem, ["er", "ir", "re"], "Participe present probable de :");
+  }
+
+  const pastEr = ["ees", "ee", "es", "e"];
+  const pastIr = ["ies", "ie", "is", "it", "its", "i"];
+  const pastRe = ["ues", "ue", "us", "u"];
+  for (const suffix of pastEr) {
+    if (!normalized.endsWith(suffix) || normalized.length <= suffix.length + 2) continue;
+    const stem = normalized.slice(0, -suffix.length);
+    addWithEndings(stem, ["er"], "Participe passe probable de :");
+  }
+  for (const suffix of pastIr) {
+    if (!normalized.endsWith(suffix) || normalized.length <= suffix.length + 2) continue;
+    const stem = normalized.slice(0, -suffix.length);
+    addWithEndings(stem, ["ir"], "Participe passe probable de :");
+  }
+  for (const suffix of pastRe) {
+    if (!normalized.endsWith(suffix) || normalized.length <= suffix.length + 2) continue;
+    const stem = normalized.slice(0, -suffix.length);
+    addWithEndings(stem, ["re"], "Participe passe probable de :");
+  }
+
+  return candidates.slice(0, 12);
+}
+
+function isChemicalAdjective(word) {
+  const normalized = normalizeLookup(word);
+  return normalized.endsWith("oique") || normalized.endsWith("ique");
+}
+
+function buildAcidPhrases(word, inflections) {
+  const phrases = [];
+  const seen = new Set();
+  const add = (base) => {
+    const clean = String(base || "").trim();
+    if (!clean) return;
+    const phrase = `acide ${clean}`;
+    const key = phrase.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    phrases.push({ phrase, base: clean });
+  };
+  add(word);
+  const pluralBase = Array.isArray(inflections)
+    ? inflections.find((inf) => String(inf.label || "").startsWith("Pluriel"))
+        ?.base
+    : null;
+  if (pluralBase) add(pluralBase);
+  return phrases.slice(0, 3);
+}
+
+function scoreTitle(title, rawWord) {
+  const normTitle = normalizeLookup(title);
+  const normWord = normalizeLookup(rawWord);
+  if (!normTitle || !normWord) return 0;
+  if (normTitle === normWord) return 100;
+  if (title.toLowerCase() === rawWord.toLowerCase()) return 90;
+  if (normTitle.startsWith(normWord)) {
+    const tail = normTitle.slice(normWord.length);
+    const hasParen = title.includes("(") && title.includes(")");
+    if (hasParen || tail.length <= 3) return 70;
+  }
+  return 0;
+}
+
+function pickBestTitle(titles, rawWord) {
+  if (!Array.isArray(titles) || titles.length === 0) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const title of titles) {
+    const score = scoreTitle(title, rawWord);
+    if (score > bestScore) {
+      bestScore = score;
+      best = title;
+    }
+  }
+  return bestScore >= 70 ? best : null;
+}
+
+function pickStrictTitle(titles, rawWord) {
+  if (!Array.isArray(titles) || titles.length === 0) return null;
+  const normWord = normalizeLookup(rawWord);
+  if (!normWord) return null;
+  for (const title of titles) {
+    if (normalizeLookup(title) === normWord) return title;
+  }
+  return null;
+}
+
+function collectSuggestions(titles, rawWord, baseUrl, source, suggestions) {
+  if (!Array.isArray(titles)) return;
+  for (const title of titles) {
+    if (scoreTitle(title, rawWord) < 70) continue;
+    const key = `${source}|${title}`;
+    if (suggestions.some((s) => `${s.source}|${s.title}` === key)) continue;
+    suggestions.push({
+      title,
+      url: `${baseUrl}/wiki/${encodeURIComponent(title)}`,
+      source,
+    });
+  }
+}
+function extractDictionaryApiDefinition(payload) {
+  if (!Array.isArray(payload)) return null;
+  for (const entry of payload) {
+    const meanings = Array.isArray(entry?.meanings) ? entry.meanings : [];
+    for (const meaning of meanings) {
+      const defs = Array.isArray(meaning?.definitions) ? meaning.definitions : [];
+      for (const def of defs) {
+        const text = String(def?.definition || "").trim();
+        if (text) return clipDefinition(text);
+      }
+    }
+  }
+  return null;
+}
+
+async function fetchDictionaryApi(word) {
+  const url = `https://api.dictionaryapi.dev/api/v2/entries/fr/${encodeURIComponent(
+    word
+  )}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": WIKI_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const definition = extractDictionaryApiDefinition(data);
+  if (!definition) return null;
+  return definition;
+}
+
 app.use((req, res, next) => {
   const host = String(req.headers.host || "").toLowerCase();
   const isGobbleHost = host === "gobble.fr" || host === "www.gobble.fr";
@@ -111,7 +857,6 @@ app.use((req, res, next) => {
 
 app.get("/api/define", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
-  res.set("Cache-Control", "public, max-age=300");
   const rawWord = req.query?.word ?? req.query?.term;
   const { word, error } = sanitizeDefineWord(rawWord);
   if (!word) {
@@ -122,74 +867,614 @@ app.get("/api/define", async (req, res) => {
     });
   }
 
+  const cacheKey = word.toLowerCase();
   const skipCache = String(req.query?.nocache || "") === "1";
-  if (skipCache) {
-    clearDefinitionCache(word);
+  if (!skipCache) {
+    const cached = getCachedDefinition(cacheKey);
+    if (cached) {
+      const hasInflection =
+        cached.inflectionBase || cached.participleBase || cached.lemma;
+      const looksFormOf =
+        typeof cached.extract === "string" && !!extractFormOfHint(cached.extract);
+      const needsFormLabel =
+        looksFormOf && cached.lemma && !cached.lemmaLabel;
+      if (!(looksFormOf && !hasInflection) && !needsFormLabel) {
+        return res.json(cached);
+      }
+    }
   }
-  const payload = await getDefinition(word, { timeoutMs: 2500, skipCache });
-  return res.json(payload);
-});
 
-app.get("/api/stats/weekly", (req, res) => {
-  res.set("Content-Type", "application/json; charset=utf-8");
-  res.set("Cache-Control", "public, max-age=60");
-  const rawTop = Number(req.query?.topN);
-  const topN =
-    Number.isFinite(rawTop) && rawTop > 0 ? Math.min(200, Math.max(1, Math.round(rawTop))) : undefined;
+  let payload = null;
+  let formOfHint = null;
+  let formOfSummary = null;
+  let displayWord = null;
+  const suggestions = [];
   try {
-    const payload = getWeeklyStats(topN);
-    return res.json(payload);
+    const baseCandidates = buildDefineCandidates(word);
+    const accentCandidates = await fetchAccentCandidates(word);
+    displayWord = pickDisplayWord(word, accentCandidates);
+    const candidates = accentCandidates.length
+      ? [
+          ...accentCandidates,
+          ...baseCandidates.filter((candidate) => !accentCandidates.includes(candidate)),
+        ]
+      : baseCandidates;
+    for (const candidate of candidates) {
+      const summary = await fetchWiktionaryDefinition(candidate);
+      if (!summary) continue;
+      const hint = extractFormOfHint(summary.extract);
+      if (hint) {
+        if (!formOfHint) {
+          formOfHint = hint;
+          formOfSummary = { ...summary, source: "wiktionary" };
+        }
+        continue;
+      }
+      payload = {
+        ok: true,
+        word,
+        title: summary.title || candidate,
+        definition: summary.extract,
+        extract: summary.extract,
+        source: "wiktionary",
+        url: summary.url,
+      };
+      break;
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const summary = await fetchSummary("https://fr.wikipedia.org", candidate);
+        if (!summary) continue;
+        const hint = extractFormOfHint(summary.extract);
+        if (hint) {
+          if (!formOfHint) {
+            formOfHint = hint;
+            formOfSummary = { ...summary, source: "wikipedia" };
+          }
+          continue;
+        }
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || candidate,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload && formOfHint && formOfHint.base) {
+      const baseDefinition = await lookupDefinitionForWord(formOfHint.base, {
+        strict: true,
+      });
+      if (baseDefinition) {
+        payload = {
+          ok: true,
+          word,
+          title: baseDefinition.title || formOfHint.base,
+          definition: baseDefinition.extract,
+          extract: baseDefinition.extract,
+          source: baseDefinition.source,
+          url: baseDefinition.url,
+        };
+        if (formOfHint.kind === "inflection") {
+          payload.inflectionBase = formOfHint.base;
+          payload.inflectionLabel = formOfHint.label;
+          payload.inflectionGuess = true;
+        } else if (formOfHint.kind === "participle") {
+          payload.participleBase = formOfHint.base;
+          payload.participleLabel = formOfHint.label;
+          payload.participleGuess = true;
+        } else if (formOfHint.kind === "orthography") {
+          // On affiche la définition de la forme correcte sans label.
+        } else {
+          payload.lemma = formOfHint.base;
+          payload.lemmaLabel = formOfHint.label;
+          payload.lemmaGuess = true;
+        }
+      }
+    }
+
+    if (!payload) {
+      const lemmaCandidates = guessLemmasFR(word);
+      for (const lemma of lemmaCandidates) {
+        const direct = await fetchWiktionaryDefinition(lemma);
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            lemma,
+            lemmaGuess: true,
+            title: direct.title || lemma,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wiktionary",
+            url: direct.url,
+          };
+          console.log(`define lemma guess: ${word} -> ${lemma}`);
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          lemma,
+          5
+        );
+        const picked = titles ? pickStrictTitle(titles, lemma) : null;
+        if (picked) {
+          const summary = await fetchWiktionaryDefinition(picked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              lemma,
+              lemmaGuess: true,
+              title: summary.title || picked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wiktionary",
+              url: summary.url,
+            };
+            console.log(`define lemma guess: ${word} -> ${lemma}`);
+            break;
+          }
+        }
+        const wikiDirect = await fetchSummary("https://fr.wikipedia.org", lemma);
+        if (wikiDirect) {
+          payload = {
+            ok: true,
+            word,
+            lemma,
+            lemmaGuess: true,
+            title: wikiDirect.title || lemma,
+            definition: wikiDirect.extract,
+            extract: wikiDirect.extract,
+            source: "wikipedia",
+            url: wikiDirect.url,
+          };
+          console.log(`define lemma guess: ${word} -> ${lemma}`);
+          break;
+        }
+        const wikiTitles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          lemma,
+          5
+        );
+        const wikiPicked = wikiTitles ? pickStrictTitle(wikiTitles, lemma) : null;
+        if (wikiPicked) {
+          const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              lemma,
+              lemmaGuess: true,
+              title: summary.title || wikiPicked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wikipedia",
+              url: summary.url,
+            };
+            console.log(`define lemma guess: ${word} -> ${lemma}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!payload) {
+      const inflections = guessInflectionsFR(word);
+      for (const inflection of inflections) {
+        const direct = await fetchWiktionaryDefinition(inflection.base);
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            inflectionBase: inflection.base,
+            inflectionLabel: inflection.label,
+            inflectionGuess: true,
+            title: direct.title || inflection.base,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wiktionary",
+            url: direct.url,
+          };
+          console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          inflection.base,
+          5
+        );
+        const picked = titles ? pickStrictTitle(titles, inflection.base) : null;
+        if (picked) {
+          const summary = await fetchWiktionaryDefinition(picked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              inflectionBase: inflection.base,
+              inflectionLabel: inflection.label,
+              inflectionGuess: true,
+              title: summary.title || picked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wiktionary",
+              url: summary.url,
+            };
+            console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+            break;
+          }
+        }
+        const wikiDirect = await fetchSummary(
+          "https://fr.wikipedia.org",
+          inflection.base
+        );
+        if (wikiDirect) {
+          payload = {
+            ok: true,
+            word,
+            inflectionBase: inflection.base,
+            inflectionLabel: inflection.label,
+            inflectionGuess: true,
+            title: wikiDirect.title || inflection.base,
+            definition: wikiDirect.extract,
+            extract: wikiDirect.extract,
+            source: "wikipedia",
+            url: wikiDirect.url,
+          };
+          console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+          break;
+        }
+        const wikiTitles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          inflection.base,
+          5
+        );
+        const wikiPicked = wikiTitles ? pickStrictTitle(wikiTitles, inflection.base) : null;
+        if (wikiPicked) {
+          const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              inflectionBase: inflection.base,
+              inflectionLabel: inflection.label,
+              inflectionGuess: true,
+              title: summary.title || wikiPicked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wikipedia",
+              url: summary.url,
+            };
+            console.log(`define inflection guess: ${word} -> ${inflection.base}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!payload) {
+      const participles = guessParticiplesFR(word);
+      for (const participle of participles) {
+        const direct = await fetchWiktionaryDefinition(participle.base);
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            participleBase: participle.base,
+            participleLabel: participle.label,
+            participleGuess: true,
+            title: direct.title || participle.base,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wiktionary",
+            url: direct.url,
+          };
+          console.log(`define participle guess: ${word} -> ${participle.base}`);
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          participle.base,
+          5
+        );
+        const picked = titles ? pickStrictTitle(titles, participle.base) : null;
+        if (picked) {
+          const summary = await fetchWiktionaryDefinition(picked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              participleBase: participle.base,
+              participleLabel: participle.label,
+              participleGuess: true,
+              title: summary.title || picked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wiktionary",
+              url: summary.url,
+            };
+            console.log(`define participle guess: ${word} -> ${participle.base}`);
+            break;
+          }
+        }
+        const wikiDirect = await fetchSummary(
+          "https://fr.wikipedia.org",
+          participle.base
+        );
+        if (wikiDirect) {
+          payload = {
+            ok: true,
+            word,
+            participleBase: participle.base,
+            participleLabel: participle.label,
+            participleGuess: true,
+            title: wikiDirect.title || participle.base,
+            definition: wikiDirect.extract,
+            extract: wikiDirect.extract,
+            source: "wikipedia",
+            url: wikiDirect.url,
+          };
+          console.log(`define participle guess: ${word} -> ${participle.base}`);
+          break;
+        }
+        const wikiTitles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          participle.base,
+          5
+        );
+        const wikiPicked = wikiTitles ? pickStrictTitle(wikiTitles, participle.base) : null;
+        if (wikiPicked) {
+          const summary = await fetchSummary("https://fr.wikipedia.org", wikiPicked);
+          if (summary) {
+            payload = {
+              ok: true,
+              word,
+              participleBase: participle.base,
+              participleLabel: participle.label,
+              participleGuess: true,
+              title: summary.title || wikiPicked,
+              definition: summary.extract,
+              extract: summary.extract,
+              source: "wikipedia",
+              url: summary.url,
+            };
+            console.log(`define participle guess: ${word} -> ${participle.base}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!payload && formOfSummary) {
+      payload = {
+        ok: true,
+        word,
+        title: formOfSummary.title || word,
+        definition: formOfSummary.extract,
+        extract: formOfSummary.extract,
+        source: formOfSummary.source,
+        url: formOfSummary.url,
+      };
+      if (formOfHint?.kind === "inflection") {
+        payload.inflectionBase = formOfHint.base;
+        payload.inflectionLabel = formOfHint.label;
+        payload.inflectionGuess = true;
+      } else if (formOfHint?.kind === "participle") {
+        payload.participleBase = formOfHint.base;
+        payload.participleLabel = formOfHint.label;
+        payload.participleGuess = true;
+      } else if (formOfHint?.base) {
+        payload.lemma = formOfHint.base;
+        payload.lemmaGuess = true;
+      }
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wiktionary.org",
+          candidate,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        collectSuggestions(
+          titles,
+          candidate,
+          "https://fr.wiktionary.org",
+          "wiktionary",
+          suggestions
+        );
+        const picked = pickBestTitle(titles, candidate);
+        if (!picked) continue;
+        const summary = await fetchWiktionaryDefinition(picked);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || picked,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wiktionary",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      for (const candidate of candidates) {
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          candidate,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        collectSuggestions(
+          titles,
+          candidate,
+          "https://fr.wikipedia.org",
+          "wikipedia",
+          suggestions
+        );
+        const picked = pickBestTitle(titles, candidate);
+        if (!picked) continue;
+        const summary = await fetchSummary("https://fr.wikipedia.org", picked);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          title: summary.title || picked,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload && isChemicalAdjective(word)) {
+      const inflections = guessInflectionsFR(word);
+      const phrases = buildAcidPhrases(word, inflections);
+      for (const entry of phrases) {
+        const direct = await fetchSummary(
+          "https://fr.wikipedia.org",
+          entry.phrase
+        );
+        if (direct) {
+          payload = {
+            ok: true,
+            word,
+            matchedTitle: direct.title || entry.phrase,
+            phraseGuess: true,
+            title: direct.title || entry.phrase,
+            definition: direct.extract,
+            extract: direct.extract,
+            source: "wikipedia",
+            url: direct.url,
+          };
+          break;
+        }
+        const titles = await fetchOpensearchTitles(
+          "https://fr.wikipedia.org",
+          entry.phrase,
+          5
+        );
+        if (!titles || titles.length === 0) continue;
+        const targetNorm = normalizeLookup(entry.phrase);
+        const strict = titles.find(
+          (t) => normalizeLookup(t) === targetNorm
+        );
+        if (!strict) continue;
+        const summary = await fetchSummary("https://fr.wikipedia.org", strict);
+        if (!summary) continue;
+        payload = {
+          ok: true,
+          word,
+          matchedTitle: summary.title || strict,
+          phraseGuess: true,
+          title: summary.title || strict,
+          definition: summary.extract,
+          extract: summary.extract,
+          source: "wikipedia",
+          url: summary.url,
+        };
+        break;
+      }
+    }
+
+    if (!payload) {
+      const fallbackDefinition = await fetchDictionaryApi(
+        candidates[candidates.length - 1] || word.toLowerCase()
+      );
+      if (fallbackDefinition) {
+        payload = {
+          ok: true,
+          word,
+          title: word,
+          definition: fallbackDefinition,
+          extract: fallbackDefinition,
+          source: "dictionaryapi.dev",
+        };
+      }
+    }
+
+    if (
+      payload &&
+      payload.ok &&
+      typeof payload.extract === "string" &&
+      !payload.inflectionBase &&
+      !payload.participleBase &&
+      !payload.lemma
+    ) {
+      const hint = extractFormOfHint(payload.extract);
+      if (hint && hint.base) {
+        const baseDefinition = await lookupDefinitionForWord(hint.base, {
+          strict: true,
+        });
+        const baseHint =
+          baseDefinition && typeof baseDefinition.extract === "string"
+            ? extractFormOfHint(baseDefinition.extract)
+            : null;
+        if (baseDefinition && !baseHint) {
+          payload = {
+            ok: true,
+            word,
+            title: baseDefinition.title || hint.base,
+            definition: baseDefinition.extract,
+            extract: baseDefinition.extract,
+            source: baseDefinition.source,
+            url: baseDefinition.url,
+          };
+        }
+        if (hint.kind === "inflection") {
+          payload.inflectionBase = hint.base;
+          payload.inflectionLabel = hint.label;
+          payload.inflectionGuess = true;
+        } else if (hint.kind === "participle") {
+          payload.participleBase = hint.base;
+          payload.participleLabel = hint.label;
+          payload.participleGuess = true;
+        } else if (hint.kind === "orthography") {
+          // On affiche la définition de la forme correcte sans label.
+        } else {
+          payload.lemma = hint.base;
+          payload.lemmaLabel = hint.label;
+          payload.lemmaGuess = true;
+        }
+      }
+    }
   } catch (_) {
-    const weekStartTs = getWeekStartTs();
-    const nextResetTs = weekStartTs + 7 * 24 * 60 * 60 * 1000;
-    return res.json({
-      weekStartTs,
-      weekStartISO: new Date(weekStartTs).toISOString(),
-      nextResetTs,
-      nextResetISO: new Date(nextResetTs).toISOString(),
-      topN: topN ?? 50,
-      boards: {},
-    });
+    payload = null;
   }
-});
 
-app.get("/api/players", (req, res) => {
-  res.set("Content-Type", "application/json; charset=utf-8");
-  res.set("Cache-Control", "public, max-age=2");
-  const requestedRoomId =
-    typeof req.query?.roomId === "string" && req.query.roomId
-      ? req.query.roomId
-      : "room-4x4";
-  const room = getRoom(requestedRoomId);
-  if (!room) {
-    return res.json({ ok: false, error: "invalid_room", roomId: requestedRoomId });
+  if (!payload) {
+    payload = {
+      ok: false,
+      word,
+      error: "not_found",
+      suggestions: suggestions.length ? suggestions.slice(0, 8) : undefined,
+    };
   }
-  const players = Array.from(room.players.values())
-    .map((p) => ({
-      nick: p?.nick || "",
-      isBot: isBotToken(p?.token),
-    }))
-    .filter((p) => p.nick)
-    .sort((a, b) => a.nick.localeCompare(b.nick));
-  return res.json({
-    ok: true,
-    roomId: requestedRoomId,
-    count: players.length,
-    players,
-  });
-});
-
-app.get("/health", (req, res) => {
-  const metrics = getMetrics({
-    roomsCount: rooms?.size ?? null,
-    socketsCount: io?.sockets?.sockets?.size ?? null,
-  });
-  res.set("Content-Type", "application/json; charset=utf-8");
-  res.json({
-    ok: true,
-    now: new Date().toISOString(),
-    metrics,
-  });
+  const surfaceWord =
+    displayWord ||
+    (formOfSummary?.title && formOfSummary.title !== word
+      ? formOfSummary.title
+      : null);
+  if (payload && surfaceWord) {
+    payload.displayWord = surfaceWord;
+  }
+  if (!skipCache) {
+    const ttl = payload?.ok ? DEFINE_CACHE_TTL_MS : DEFINE_NEGATIVE_TTL_MS;
+    setCachedDefinition(cacheKey, payload, ttl);
+  }
+  return res.json(payload);
 });
 
 // ===== SERVE FRONT VITE (dist) =====
@@ -205,20 +1490,7 @@ const io = new Server(server, {
   cors: {
     origin: "*",
   },
-  pingTimeout: 60000,
 });
-
-const lagMonitor = setInterval(() => {
-  const metrics = getMetrics({
-    roomsCount: rooms?.size ?? null,
-    socketsCount: io?.sockets?.sockets?.size ?? null,
-  });
-  const p99 = metrics?.eventLoopDelay?.p99;
-  if (Number.isFinite(p99) && p99 > 200) {
-    console.warn(`[health] high event loop delay p99=${p99.toFixed(1)}ms`);
-  }
-}, 5000);
-lagMonitor.unref?.();
 
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_BREAK_DURATION_MS = 30 * 1000; // 45 secondes
@@ -300,8 +1572,6 @@ const INSTALL_ID_MAX_LEN = 128;
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
-const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
-const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
 
 function normalizeInstallId(raw) {
   if (typeof raw !== "string") return "";
@@ -352,7 +1622,10 @@ function muteInstallId(installId, now) {
 
 function appendReportLog(entry) {
   try {
-    reportLogger.logLine(`${JSON.stringify(entry)}\n`);
+    mkdirSync(LOG_DIR, { recursive: true });
+  } catch (_) {}
+  try {
+    appendFileSync(REPORTS_LOG_PATH, `${JSON.stringify(entry)}\n`, "utf8");
   } catch (_) {}
 }
 
@@ -405,12 +1678,16 @@ function appendConnectionLog({ nick, roomId, ip, userAgent }) {
   if (!safeNick || !safeIp) return;
   if (IGNORED_IPS.has(safeIp)) return;
 
+  try {
+    mkdirSync(LOG_DIR, { recursive: true });
+  } catch (_) {}
+
   const safeUa = String(userAgent || "").replace(/\r|\n/g, " ").trim();
   const ts = Date.now();
   const iso = new Date(ts).toISOString();
   const line = `${iso}\t${ts}\t${safeIp}\t${safeRoom}\t${safeNick}\t${safeUa}\n`;
   try {
-    connectionLogger.logLine(line);
+    appendFileSync(CONNECTIONS_LOG_PATH, line, "utf8");
   } catch (_) {}
 }
 
@@ -754,7 +2031,6 @@ function addMedal(room, nick, type) {
     silver: Math.min(9999, current.silver + (type === "silver" ? 1 : 0)),
     bronze: Math.min(9999, current.bronze + (type === "bronze" ? 1 : 0)),
   });
-  recordMedal(key, nick, type, Date.now());
   if (key.startsWith("install:")) {
     room.medalExpiry.set(key, getNextMidnightTs());
   } else {
@@ -1000,15 +2276,17 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
     Array.isArray(path) && path.length > 0 && path.every((idx) => Number.isInteger(idx))
       ? path
       : null;
-  if (!safePath) return { ok: false, error: "missing_path" };
-
-  const scored = scoreWordOnGridWithPath(
-    normInput,
-    room.currentRound.grid,
-    safePath,
-    getSpecialScoreConfig(room.currentRound)
-  );
-  if (!scored) return { ok: false, error: "invalid_word" };
+  const scored = safePath
+    ? scoreWordOnGridWithPath(
+        normInput,
+        room.currentRound.grid,
+        safePath,
+        getSpecialScoreConfig(room.currentRound)
+      )
+    : scoreWordOnGrid(normInput, room.currentRound.grid, getSpecialScoreConfig(room.currentRound));
+  if (!scored) {
+    return { ok: false, error: "invalid_word" };
+  }
 
   const { norm, pts, path: scoredPath } = scored;
   const len = norm.length;
@@ -1031,16 +2309,6 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
 
   data.words.add(norm);
   data.score += wordPts;
-
-  const playerObj = playerEntry?.player || null;
-  const playerKey = getMedalKeyForPlayer(playerObj) || getMedalKeyForNick(resolvedNick);
-  const isBotPlayer = isBotToken(playerObj?.token);
-  if (!isBotPlayer && playerKey) {
-    const achievedAt = Date.now();
-    recordBestWord(playerKey, resolvedNick, norm, wordPts, achievedAt);
-    recordLongestWord(playerKey, resolvedNick, norm, len, achievedAt);
-    recordBestRoundScore(playerKey, resolvedNick, data.score, `${room.id}#${roundId}`, achievedAt);
-  }
 
   // Records du mini-tournoi
   const t = room.tournament;
@@ -1116,21 +2384,6 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
         nick: resolvedNick,
         kind: specialType,
       });
-      if (!isBotPlayer && playerKey) {
-        const startedAt =
-          (room.currentRound.endsAt || Date.now()) -
-          (room.currentRound.durationMs || room.config.durationMs || 0);
-        const foundAt = room.currentRound.targetFoundAt.get(resolvedNick);
-        const elapsed = Math.max(0, (foundAt || Date.now()) - startedAt);
-        recordBestTargetTime(
-          specialType,
-          playerKey,
-          resolvedNick,
-          elapsed,
-          targetWord,
-          foundAt || Date.now()
-        );
-      }
     }
   }
 
@@ -1317,18 +2570,46 @@ function getMedalKeyForNickLookup(room, nick) {
   return getMedalKeyForNick(nick);
 }
 
-function prefetchDefinitionForWord(rawWord) {
+async function prefetchDefinitionForWord(rawWord) {
   const { word } = sanitizeDefineWord(rawWord);
   if (!word) return;
-  if (peekDefinitionCache(word)) return;
-  const run = () => {
-    getDefinition(word, { timeoutMs: 1200, skipCache: false }).catch(() => {});
-  };
-  if (typeof setImmediate === "function") {
-    setImmediate(run);
-  } else {
-    setTimeout(run, 0);
-  }
+  const cacheKey = word.toLowerCase();
+  if (getCachedDefinition(cacheKey)) return;
+  try {
+    const summary = await lookupDefinitionForWord(word);
+    if (!summary || !summary.extract) return;
+    let definition = summary.extract;
+    let title = summary.title || word;
+    let source = summary.source;
+    let url = summary.url;
+    const hint = extractFormOfHint(definition);
+    if (hint?.base) {
+      const base = await lookupDefinitionForWord(hint.base, { strict: true });
+      const baseHint =
+        base && typeof base.extract === "string"
+          ? extractFormOfHint(base.extract)
+          : null;
+      if (base && base.extract && !baseHint) {
+        definition = base.extract;
+        title = base.title || hint.base;
+        source = base.source;
+        url = base.url;
+      }
+    }
+    setCachedDefinition(
+      cacheKey,
+      {
+        ok: true,
+        word,
+        title,
+        definition,
+        extract: definition,
+        source,
+        url,
+      },
+      DEFINE_CACHE_TTL_MS
+    );
+  } catch (_) {}
 }
 
 function computeRoundWordLeaders(room, results) {
@@ -1421,21 +2702,12 @@ function queueDefinitionPrefetch(room, results, targetSummary) {
 
   if (!words.size) return;
   setTimeout(() => {
-    for (const word of words) {
-      prefetchDefinitionForWord(word);
-    }
+    (async () => {
+      for (const word of words) {
+        await prefetchDefinitionForWord(word);
+      }
+    })().catch(() => {});
   }, 0);
-}
-
-function pruneRoomState(room) {
-  if (!room) return;
-  if (room.submissions instanceof Map) {
-    while (room.submissions.size > 2) {
-      const oldest = room.submissions.keys().next().value;
-      if (oldest === undefined) break;
-      room.submissions.delete(oldest);
-    }
-  }
 }
 
 function normalizeLetterKey(letter) {
@@ -1472,40 +2744,196 @@ function pickBonusLetter(grid, solved, minWords) {
   return null;
 }
 
-async function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
+function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   const roundNumber = targetRoundNumber || (room.roundCounter || 0) + 1;
   const roundPlan = plan || getRoundPlan(roundNumber, room.config);
+  const minWords = roundPlan?.minWords ?? room.config?.minWords ?? 0;
+  const maxAttempts = Math.max(
+    1,
+    roundPlan?.qualityAttempts || room.config?.qualityAttempts || MAX_QUALITY_ATTEMPTS
+  );
+  const needsBonusLetter = roundPlan?.type === "bonus_letter";
+  const maxAttemptsTotal = needsBonusLetter
+    ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
+    : maxAttempts;
+  const size = room.config.gridSize;
+  const effectiveMinWords = dictionary ? minWords : 0;
+  const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
 
-  try {
-    const result = await computePool.prepareNextGrid({
-      roomConfig: room.config,
-      roundPlan,
-      roundNumber,
-    });
-    const prepared = result || null;
-    room.nextPreparedGrid = prepared
-      ? { ...prepared, plan: prepared.plan || roundPlan, roundNumber }
-      : null;
+  if (minWords > 0 && !dictionary) {
+    console.warn(`[${room.id}] Impossible de valider un minimum de mots (dico manquant)`);
+  }
 
+  const startedAt = Date.now();
+  let bestCandidate = null;
+  let fallbackCandidate = null;
+
+  const pickTargetFromSolved = (solved, type) => {
+    if (!solved || solved.size === 0) return null;
+
+    if (type === "target_long") {
+      let maxLen = 0;
+      for (const w of solved.keys()) {
+        if (w.length > maxLen) maxLen = w.length;
+      }
+      if (maxLen < TARGET_LONG_MIN_LEN) return null;
+      const maxWords = [];
+      for (const w of solved.keys()) {
+        if (w.length === maxLen) maxWords.push(w);
+        if (maxWords.length > 1) return null;
+      }
+      const word = maxWords[0];
+      const path = solved.get(word)?.path || null;
+      return { word, length: maxLen, path };
+    }
+
+    if (type === "target_score") {
+      let maxPts = 0;
+      for (const data of solved.values()) {
+        const pts = data?.pts || 0;
+        if (pts > maxPts) maxPts = pts;
+      }
+      if (maxPts < TARGET_SCORE_MIN_PTS) return null;
+      const maxWords = [];
+      for (const [w, data] of solved.entries()) {
+        const pts = data?.pts || 0;
+        if (pts === maxPts) maxWords.push(w);
+        if (maxWords.length > 1) return null;
+      }
+      const word = maxWords[0];
+      const path = solved.get(word)?.path || null;
+      return { word, pts: maxPts, path };
+    }
+
+    return null;
+  };
+
+  for (let attempt = 1; attempt <= maxAttemptsTotal; attempt++) {
+    let grid = generateGrid(size);
+    if (roundPlan?.type === "speed" || roundPlan?.type === "target_long" || roundPlan?.type === "bonus_letter") {
+      // Manche rapidité et "mot le plus long" : pas de tuiles bonus
+      grid = grid.map((cell) => ({ ...cell, bonus: null }));
+    }
+    const quality = analyzeGridQuality(grid, effectiveMinWords, qualityOpts);
+    quality.possibleScore = roundPlan?.fixedWordScore
+      ? (quality.words || 0) * roundPlan.fixedWordScore
+      : quality.totalPts;
+
+    const minLongWords = roundPlan?.minLongWordCount || 0;
+    let ok = quality.ok;
+    if (roundPlan?.type === "speed") {
+      ok = ok && quality.words >= (roundPlan.minWords || 0);
+    } else if (roundPlan?.type === "monstrous") {
+      const minTotal = roundPlan?.minTotalScore || 0;
+      const minLen = roundPlan?.minLongWordLen || 0;
+      ok =
+        ok &&
+        quality.possibleScore >= minTotal &&
+        quality.maxLen >= minLen &&
+        quality.longWords >= minLongWords;
+    } else if (roundPlan?.type === "target_long" || roundPlan?.type === "target_score" || roundPlan?.type === "bonus_letter") {
+      ok = ok && !!dictionary;
+    }
+    quality.ok = ok;
+
+    let targetWord = null;
+    let targetLength = null;
+    let targetPath = null;
+    let bonusLetter = null;
+    let solved = null;
     if (
-      prepared?.targetWord &&
-      (roundPlan.type === "target_long" || roundPlan.type === "target_score")
+      dictionary &&
+      (roundPlan?.type === "target_long" ||
+        roundPlan?.type === "target_score" ||
+        roundPlan?.type === "bonus_letter")
+    ) {
+      solved = solveGridCached(grid, dictionary);
+    }
+
+    if (solved && (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")) {
+      const target = pickTargetFromSolved(solved, roundPlan.type);
+      if (target?.word) {
+        targetWord = target.word;
+        targetLength = target.length || target.word.length;
+        targetPath = Array.isArray(target.path) ? target.path : null;
+      }
+      quality.ok = quality.ok && !!targetWord;
+    }
+    if (
+      targetWord &&
+      (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")
     ) {
       setTimeout(() => {
-        prefetchDefinitionForWord(prepared.targetWord);
+        prefetchDefinitionForWord(targetWord).catch(() => {});
       }, 0);
     }
 
-    return room.nextPreparedGrid;
-  } catch (err) {
-    console.warn(
-      '[' + (room?.id || "room") + '] Failed to prepare grid in worker:',
-      err?.message || err
-    );
-    return null;
-  }
-}
+    if (solved && roundPlan?.type === "bonus_letter") {
+      const minLetterWords = roundPlan?.bonusLetterMinWords || BONUS_LETTER_MIN_WORDS;
+      bonusLetter = pickBonusLetter(grid, solved, minLetterWords);
+      quality.ok = quality.ok && !!bonusLetter;
+    }
 
+    const planForRound = bonusLetter
+      ? {
+          ...roundPlan,
+          bonusLetter,
+          bonusLetterScore: roundPlan?.bonusLetterScore || BONUS_LETTER_SCORE,
+          disableBonuses: true,
+        }
+      : roundPlan;
+
+    const candidate = {
+      grid,
+      quality,
+      plan: planForRound,
+      roundNumber,
+      targetWord,
+      targetLength,
+      targetPath,
+    };
+    fallbackCandidate = candidate;
+    if (needsBonusLetter && !planForRound?.bonusLetter) {
+      continue;
+    }
+
+    const currentScore =
+      (quality?.words || 0) + (quality?.possibleScore || 0) / 500 + (quality?.longWords || 0);
+    const bestScore =
+      (bestCandidate?.quality?.words || 0) +
+      (bestCandidate?.quality?.possibleScore || 0) / 500 +
+      (bestCandidate?.quality?.longWords || 0);
+
+    if (!bestCandidate || currentScore > bestScore) {
+      bestCandidate = candidate;
+    }
+
+    if (quality.ok) {
+      bestCandidate = candidate;
+      break;
+    }
+  }
+
+  if (!bestCandidate && fallbackCandidate) {
+    console.warn(`[${room.id}] Grille speciale bonus_letter sans lettre valide apres ${maxAttemptsTotal} essais.`);
+    bestCandidate = fallbackCandidate;
+  }
+
+  room.nextPreparedGrid = { ...bestCandidate, plan: bestCandidate?.plan || roundPlan, roundNumber };
+
+  const wordsInfo =
+    dictionary && minWords
+      ? `${bestCandidate?.quality?.words ?? 0}/${minWords} mots`
+      : bestCandidate?.quality?.words ?? "n/a";
+  const planLabel = roundPlan?.label || "manche";
+  console.log(
+    `[${room.id}] Grille prechargee ${roundPlan?.isSpecial ? "(speciale)" : ""} ${planLabel} #${
+      roundNumber
+    } (${wordsInfo}) en ${Date.now() - startedAt}ms`
+  );
+
+  return bestCandidate;
+}
 
 function resetRoomRecords(room) {
   room.bestScoreRecord = { pts: 0, players: new Set() };
@@ -1518,7 +2946,7 @@ function resetRoomRecords(room) {
   room.endSoonTimeout = null;
 }
 
-async function startRoundForRoom(room) {
+function startRoundForRoom(room) {
   if (!room) return;
   room.breakState = null;
 
@@ -1541,7 +2969,7 @@ async function startRoundForRoom(room) {
 
   const tournamentPlan = getTournamentRoundPlan(room, tournamentRound);
   const cached = room.nextPreparedGrid?.roundNumber === roundNumber ? room.nextPreparedGrid : null;
-  const prepared = cached || (await prepareNextGrid(room, tournamentPlan, roundNumber));
+  const prepared = cached || prepareNextGrid(room, tournamentPlan, roundNumber);
   if (room.nextPreparedGrid?.roundNumber === roundNumber) {
     room.nextPreparedGrid = null;
   }
@@ -1586,7 +3014,6 @@ async function startRoundForRoom(room) {
     roundSubs.set(p.nick, { words: new Set(), score: 0 });
   }
   room.submissions.set(roundId, roundSubs);
-  pruneRoomState(room);
 
   resetRoomRecords(room);
   room.roundCounter = roundNumber;
@@ -1825,22 +3252,6 @@ function endRoundForRoom(room) {
   results.sort((a, b) => b.score - a.score);
   assignSpecialGobblesFromResults(room, results);
 
-  const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
-  const endedAt = room.currentRound.endsAt || Date.now();
-  const roundGobbles = room.currentRound.gobbles || new Map();
-  for (const entry of results) {
-    if (entry.isBot) continue;
-    const playerKey = getMedalKeyForNickLookup(room, entry.nick);
-    if (!playerKey) continue;
-    const wordsCount = Array.isArray(entry.words) ? entry.words.length : 0;
-    recordMostWordsInGame(playerKey, entry.nick, wordsCount, roundId, endedAt);
-    recordBestRoundScore(playerKey, entry.nick, entry.score, roundId, endedAt);
-    const gobblesEarned = roundGobbles.get(entry.nick) || 0;
-    if (gobblesEarned > 0) {
-      recordMostGobbles(playerKey, entry.nick, gobblesEarned, endedAt);
-    }
-  }
-
   console.log(`[${room.id}] Manche terminée`, room.currentRound.id, "Résultats:", results);
 
   // --- Mini-tournoi : attribution points & finale ---
@@ -1856,6 +3267,8 @@ function endRoundForRoom(room) {
     for (const entry of results) {
       if (!t.totals.has(entry.nick)) t.totals.set(entry.nick, { points: 0, gobbles: 0 });
     }
+
+    const roundGobbles = room.currentRound.gobbles || new Map();
 
     if (isTargetRound) {
       const foundAt = room.currentRound.targetFoundAt || new Map();
@@ -1933,7 +3346,7 @@ function endRoundForRoom(room) {
       foundOrder,
     };
     if (targetSummary.word) {
-      const cached = peekDefinitionCache(targetSummary.word);
+      const cached = getCachedDefinition(targetSummary.word.toLowerCase());
       const cachedDef = cached?.definition || cached?.extract || "";
       if (cachedDef) {
         targetSummary.definition = cachedDef;
@@ -2083,7 +3496,12 @@ function endRoundForRoom(room) {
     const alreadyPrepared =
       room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
     if (!alreadyPrepared) {
-      prepareNextGrid(room, nextPlan, nextRoundNumber).catch(() => {});
+      const prepStartedAt = Date.now();
+      prepareNextGrid(room, nextPlan, nextRoundNumber);
+      const prepMs = Date.now() - prepStartedAt;
+      if (prepMs > 0) {
+        breakMs = Math.max(MONSTROUS_POST_PREP_MIN_BREAK_MS, breakMs - prepMs);
+      }
     }
   }
 
@@ -2122,13 +3540,10 @@ function endRoundForRoom(room) {
     const alreadyPrepared =
       room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
     if (!alreadyPrepared) {
-      prepareNextGrid(room, nextPlan, nextRoundNumber).catch(() => {});
+      prepareNextGrid(room, nextPlan, nextRoundNumber);
     }
   }, 0);
-  setTimeout(() => {
-    startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
-  }, breakMs);
-  pruneRoomState(room);
+  setTimeout(() => startRoundForRoom(room), breakMs);
 }
 
 io.on("connection", (socket) => {
@@ -2408,10 +3823,6 @@ io.on("connection", (socket) => {
   socket.on("submitWord", ({ roundId, word, path }, cb) => {
     const room = getRoom(socket.roomId);
     const player = room?.players.get(socket.id);
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
     const result = submitWordForNick(room, {
       roundId,
       word,
@@ -2473,7 +3884,30 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on *:${PORT}`);
 });
 
-rooms.forEach((room) =>
-  startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e))
-);
+rooms.forEach((room) => startRoundForRoom(room));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

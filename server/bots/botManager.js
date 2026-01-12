@@ -1,6 +1,6 @@
 import { solveGrid } from "../../shared/gameLogic.js";
 
-const SOLVE_CACHE_MAX = 120;
+const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
 
 function buildSolveCacheKey(grid) {
@@ -125,6 +125,8 @@ export const BOT_ROSTER_5X5 = [
   { nick: "Tranquillou", skill: 0.06, maxWordsPerRound: 14, minWordsPerRound: 3, pointBias: 0.12, pace: 0.62 },
 ];
 
+export const BOT_ROSTER = BOT_ROSTER_4X4;
+
 const BOT_ROSTERS_BY_SIZE = {
   5: BOT_ROSTER_5X5,
   4: BOT_ROSTER_4X4,
@@ -197,7 +199,7 @@ function getBotSleepConfig(bot) {
     ? clampInt(cfg.startHour, 0, 23)
     : seed % 5; // 0..4
   const durationHours = Number.isFinite(cfg?.durationHours)
-    ? Math.max(8, Math.round(cfg.durationHours))
+    ? Math.max(1, Math.round(cfg.durationHours))
     : 8 + (seed % 3); // 8..10
   return { startHour, durationHours };
 }
@@ -445,6 +447,7 @@ class BotManager {
     this.presenceTimers = new Map();
     this.presenceInterval = setInterval(() => this.refreshPresence(), 5 * 60 * 1000);
     this.warnedNoDictionary = false;
+    this.roomSolutions = new Map();
 
     this.refreshPresence();
   }
@@ -671,6 +674,7 @@ class BotManager {
     if (!round) return;
 
     const solutions = solveGridCached(round.grid, this.dictionary);
+    this.roomSolutions.set(room.id, solutions);
     const now = Date.now();
     const timeBudget = Math.max(1500, round.endsAt - now - 500);
     const totalTargetSubmissions = room?.config?.gridSize === 5 ? 1050 : 900;
@@ -710,6 +714,7 @@ class BotManager {
 
   onRoundEnd(room) {
     this.clearTimers(room.id);
+    this.roomSolutions.delete(room.id);
     const now = Date.now();
     for (const player of room.players.values()) {
       if (!player?.token?.startsWith("bot-")) continue;
@@ -777,10 +782,15 @@ class BotManager {
     const round = room.currentRound;
     if (!round || Date.now() >= round.endsAt) return;
 
+    const solutions = this.roomSolutions.get(room.id);
+    const path = solutions?.get(word)?.path;
+    if (!Array.isArray(path) || path.length === 0) return;
+
     this.ensurePlayerInRound(room, bot.nick);
     const res = this.submitWordForNick(room, {
       roundId: round.id,
       word,
+      path,
       nick: bot.nick,
     });
 
@@ -795,6 +805,7 @@ class BotManager {
       timers.forEach((t) => clearTimeout(t));
     }
     this.roundTimers.set(roomId, []);
+    this.roomSolutions.delete(roomId);
   }
 
   registerTimer(roomId, timer) {
@@ -812,4 +823,3 @@ class BotManager {
 export function createBotManager(deps) {
   return new BotManager(deps);
 }
-

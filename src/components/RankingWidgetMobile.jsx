@@ -15,6 +15,75 @@ function buildRightLabel(entry, scoreValue, wordsCount) {
   return "-";
 }
 
+const SWAP_FADE_OUT_MS = 250;
+const SWAP_FADE_IN_MS = 250;
+
+function SwapFadeInline({ value, className = "", trigger = 0 }) {
+  const [displayValue, setDisplayValue] = React.useState(value);
+  const [phase, setPhase] = React.useState("idle");
+  const latestValueRef = React.useRef(value);
+  const phaseRef = React.useRef("idle");
+  const triggerRef = React.useRef(trigger);
+  const firstRenderRef = React.useRef(true);
+  const outTimerRef = React.useRef(null);
+  const inTimerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    latestValueRef.current = value;
+    const triggerChanged = trigger !== triggerRef.current;
+    const triggerActive = triggerChanged && !!trigger;
+    if (phaseRef.current === "idle" && !triggerActive) {
+      setDisplayValue(value);
+    }
+  }, [value]);
+
+  React.useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  React.useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      triggerRef.current = trigger;
+      return undefined;
+    }
+    const triggerChanged = trigger !== triggerRef.current;
+    triggerRef.current = trigger;
+    if (!triggerChanged || !trigger) return undefined;
+    if (outTimerRef.current) {
+      clearTimeout(outTimerRef.current);
+      outTimerRef.current = null;
+    }
+    if (inTimerRef.current) {
+      clearTimeout(inTimerRef.current);
+      inTimerRef.current = null;
+    }
+    setPhase("out");
+    outTimerRef.current = setTimeout(() => {
+      setDisplayValue(latestValueRef.current);
+      setPhase("in");
+      inTimerRef.current = setTimeout(() => {
+        setPhase("idle");
+      }, SWAP_FADE_IN_MS);
+    }, SWAP_FADE_OUT_MS);
+    return () => {
+      if (outTimerRef.current) {
+        clearTimeout(outTimerRef.current);
+        outTimerRef.current = null;
+      }
+      if (inTimerRef.current) {
+        clearTimeout(inTimerRef.current);
+        inTimerRef.current = null;
+      }
+    };
+  }, [trigger]);
+
+  const phaseClass =
+    phase === "out" ? "results-fade-out" : phase === "in" ? "results-fade-in" : "";
+
+  return <span className={`${className} ${phaseClass}`}>{displayValue}</span>;
+}
+
 export function RankWheel({ fullRanking, displayRank, selfNick, expanded = false }) {
   const ROWS = 5;
   const rowEm = 1.6;
@@ -326,6 +395,7 @@ function RankingWidgetMobile({
   expanded,
   fitHeight = true,
   animateRank = true,
+  animateReorder = false,
   showWheel = true,
   showBadge = false,
   flatStyle = false,
@@ -333,6 +403,7 @@ function RankingWidgetMobile({
   highlightedPlayers = [],
   renderNickSuffix = null,
   renderAfterRank = null,
+  metaPulse = false,
   className = "",
 }) {
   const me = (selfNick || "").trim();
@@ -343,6 +414,9 @@ function RankingWidgetMobile({
   const rankAnimRef = React.useRef({ id: null, pending: null, running: false });
   const pendingRankingRef = React.useRef(null);
   const containerRef = React.useRef(null);
+  const rowRefs = React.useRef(new Map());
+  const prevRowPositionsRef = React.useRef(new Map());
+  const reorderTimersRef = React.useRef(new Map());
   const [rowPx, setRowPx] = React.useState(null);
   const [rowsCount, setRowsCount] = React.useState(5);
   const WHEEL_ROWS = 5;
@@ -392,6 +466,59 @@ function RankingWidgetMobile({
     ro.observe(node);
     return () => ro.disconnect();
   }, [fitHeight, expanded]);
+
+  React.useLayoutEffect(() => {
+    if (!flatStyle) {
+      prevRowPositionsRef.current = new Map();
+      return undefined;
+    }
+
+    const nodes = rowRefs.current;
+    const nextPositions = new Map();
+    nodes.forEach((node, key) => {
+      if (!node) return;
+      nextPositions.set(key, node.getBoundingClientRect());
+    });
+
+    const prevPositions = prevRowPositionsRef.current;
+    if (animateReorder && prevPositions && prevPositions.size > 0) {
+      reorderTimersRef.current.forEach((id) => clearTimeout(id));
+      reorderTimersRef.current.clear();
+
+      nodes.forEach((node, key) => {
+        if (!node) return;
+        const prevRect = prevPositions.get(key);
+        const nextRect = nextPositions.get(key);
+        if (!prevRect || !nextRect) return;
+        const dx = prevRect.left - nextRect.left;
+        const dy = prevRect.top - nextRect.top;
+        if (dx === 0 && dy === 0) return;
+        node.style.transition = "none";
+        node.style.transform = `translate(${dx}px, ${dy}px)`;
+        node.style.willChange = "transform";
+        const raf =
+          typeof window !== "undefined" && window.requestAnimationFrame
+            ? window.requestAnimationFrame
+            : (cb) => setTimeout(cb, 0);
+        raf(() => {
+          node.style.transition = "transform 500ms cubic-bezier(0.22, 1, 0.36, 1)";
+          node.style.transform = "";
+          const timeoutId = setTimeout(() => {
+            node.style.transition = "";
+            node.style.willChange = "";
+          }, 520);
+          reorderTimersRef.current.set(key, timeoutId);
+        });
+      });
+    }
+
+    prevRowPositionsRef.current = nextPositions;
+    return () => {
+      reorderTimersRef.current.forEach((id) => clearTimeout(id));
+      reorderTimersRef.current.clear();
+    };
+  }, [safeRanking, animateReorder, flatStyle]);
+
 
   // Met à jour le rang cible quand le classement bouge
   React.useEffect(() => {
@@ -548,6 +675,7 @@ function RankingWidgetMobile({
       }
     >
       {safeRanking.map((entry, index) => {
+        const rowKey = String(entry?.playerKey || entry?.nick || `row-${index}`);
         const isSelf = selfNick && entry.nick === selfNick;
         const isHighlighted = entry.nick && highlightSet.has(entry.nick);
         const rank = index + 1;
@@ -567,6 +695,21 @@ function RankingWidgetMobile({
           showRoundAward && typeof entry?.roundGobbles === "number"
             ? entry.roundGobbles
             : 0;
+        const scoreContent = (
+          <>
+            {roundGobbles > 0 ? (
+              <span className="mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
+                {`G${roundGobbles > 1 ? `x${roundGobbles}` : ""}`}
+              </span>
+            ) : null}
+            {roundPoints != null && roundPoints > 0 ? (
+              <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
+                +{roundPoints}
+              </span>
+            ) : null}
+            {scoreLabelInner}
+          </>
+        );
 
         const rowColor = isSelf
           ? darkMode
@@ -589,7 +732,11 @@ function RankingWidgetMobile({
 
         return (
           <div
-            key={entry.nick + "-" + index}
+            key={rowKey}
+            ref={(el) => {
+              if (el) rowRefs.current.set(rowKey, el);
+              else rowRefs.current.delete(rowKey);
+            }}
             className={
               "flex items-baseline justify-between px-2 py-[3px] border-b last:border-b-0 rounded " +
               extendedDivider +
@@ -613,19 +760,11 @@ function RankingWidgetMobile({
                 ) : null}
               </span>
             </div>
-            <span className="tabular-nums text-[11px] opacity-80 font-bold">
-              {roundGobbles > 0 ? (
-                <span className="mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
-                  {`G${roundGobbles > 1 ? `x${roundGobbles}` : ""}`}
-                </span>
-              ) : null}
-              {roundPoints != null && roundPoints > 0 ? (
-                <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
-                  +{roundPoints}
-                </span>
-              ) : null}
-              {scoreLabelInner}
-            </span>
+            <SwapFadeInline
+              value={scoreContent}
+              trigger={metaPulse}
+              className="tabular-nums text-[11px] opacity-80 font-bold"
+            />
           </div>
         );
       })}
@@ -1052,4 +1191,3 @@ function RankingWidgetMobile({
 }
 
 export default React.memo(RankingWidgetMobile);
-

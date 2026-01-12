@@ -25,10 +25,10 @@ const WS_URL =
 
 const socket = io(WS_URL, {
   autoConnect: false, // on se connecte après le login
-  transports: ["websocket"],
+  transports: ["websocket", "polling"],
   reconnectionDelay: 500,
-  reconnectionDelayMax: 1500,
-  timeout: 2500,
+  reconnectionDelayMax: 4000,
+  timeout: 8000,
 });
 
 export default socket;

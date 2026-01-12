@@ -1,0 +1,215 @@
+{
+  "weekStartTs": 1768172400000,
+  "medals": {
+    "nick:ProtoPanache": {
+      "nick": "ProtoPanache",
+      "playerKey": "nick:ProtoPanache",
+      "gold": 3,
+      "silver": 1,
+      "bronze": 0,
+      "total": 4,
+      "achievedAt": 1768150819479
+    }
+  },
+  "mostWordsInGame": {
+    "nick:ProtoPanache": {
+      "nick": "ProtoPanache",
+      "playerKey": "nick:ProtoPanache",
+      "wordsCount": 120,
+      "roundId": "room-5x5#sample",
+      "achievedAt": 1768165219479
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "wordsCount": 3,
+      "roundId": "room-4x4#1768172302852",
+      "achievedAt": 1768172422852
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "wordsCount": 52,
+      "roundId": "room-4x4#1768172572932",
+      "achievedAt": 1768172692932
+    },
+    "nick:Jun": {
+      "nick": "Jun",
+      "playerKey": "nick:Jun",
+      "wordsCount": 4,
+      "roundId": "room-5x5#1768173288591",
+      "achievedAt": 1768173408591
+    },
+    "nick:Testggg": {
+      "nick": "Testggg",
+      "playerKey": "nick:Testggg",
+      "wordsCount": 0,
+      "roundId": "room-4x4#1768174243459",
+      "achievedAt": 1768174363459
+    },
+    "nick:Tigre": {
+      "nick": "Tigre",
+      "playerKey": "nick:Tigre",
+      "wordsCount": 0,
+      "roundId": "room-4x4#1768174837095",
+      "achievedAt": 1768174957095
+    }
+  },
+  "bestWord": {
+    "nick:Crux": {
+      "nick": "Crux",
+      "playerKey": "nick:Crux",
+      "word": "EXACTION",
+      "pts": 142,
+      "achievedAt": 1768154419479
+    },
+    "nick:BOT-Vega": {
+      "nick": "BOT-Vega",
+      "playerKey": "nick:BOT-Vega",
+      "word": "GALVANOSCOPE",
+      "pts": 118,
+      "achievedAt": 1768158019479
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "word": "plis",
+      "pts": 6,
+      "achievedAt": 1768172420901
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "word": "rationnent",
+      "pts": 156,
+      "achievedAt": 1768173219901
+    },
+    "nick:Jun": {
+      "nick": "Jun",
+      "playerKey": "nick:Jun",
+      "word": "sapide",
+      "pts": 11,
+      "achievedAt": 1768173387757
+    }
+  },
+  "longestWord": {
+    "nick:QuasarMots": {
+      "nick": "QuasarMots",
+      "playerKey": "nick:QuasarMots",
+      "word": "HYPERBOLIQUES",
+      "len": 13,
+      "achievedAt": 1768158019479
+    },
+    "nick:BOT-Nexus": {
+      "nick": "BOT-Nexus",
+      "playerKey": "nick:BOT-Nexus",
+      "word": "MICROTECHNIQUE",
+      "len": 15,
+      "achievedAt": 1768154419479
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "word": "plis",
+      "len": 4,
+      "achievedAt": 1768172420901
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "word": "rationnent",
+      "len": 10,
+      "achievedAt": 1768173219901
+    },
+    "nick:Jun": {
+      "nick": "Jun",
+      "playerKey": "nick:Jun",
+      "word": "sapide",
+      "len": 6,
+      "achievedAt": 1768173387757
+    }
+  },
+  "bestRoundScore": {
+    "nick:Proutosaurus Rex": {
+      "nick": "Proutosaurus Rex",
+      "playerKey": "nick:Proutosaurus Rex",
+      "pts": 2100,
+      "roundId": "room-4x4#sample",
+      "achievedAt": 1768161619479
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "pts": 17,
+      "roundId": "room-4x4#1768172302852",
+      "achievedAt": 1768172422548
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "pts": 1483,
+      "roundId": "room-4x4#1768175257355",
+      "achievedAt": 1768175324337
+    },
+    "nick:Jun": {
+      "nick": "Jun",
+      "playerKey": "nick:Jun",
+      "pts": 44,
+      "roundId": "room-5x5#1768173288591",
+      "achievedAt": 1768173405580
+    },
+    "nick:Testggg": {
+      "nick": "Testggg",
+      "playerKey": "nick:Testggg",
+      "pts": 0,
+      "roundId": "room-4x4#1768174243459",
+      "achievedAt": 1768174363459
+    },
+    "nick:Tigre": {
+      "nick": "Tigre",
+      "playerKey": "nick:Tigre",
+      "pts": 0,
+      "roundId": "room-4x4#1768174837095",
+      "achievedAt": 1768174957095
+    }
+  },
+  "bestTimeTargetLong": {
+    "nick:Crux": {
+      "nick": "Crux",
+      "playerKey": "nick:Crux",
+      "ms": 5200,
+      "word": "GALAXIE",
+      "achievedAt": 1768167019479
+    }
+  },
+  "bestTimeTargetScore": {
+    "nick:QuasarMots": {
+      "nick": "QuasarMots",
+      "playerKey": "nick:QuasarMots",
+      "ms": 4300,
+      "word": "QUASAR",
+      "achievedAt": 1768168819479
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "ms": 62135,
+      "word": "alaskien",
+      "achievedAt": 1768172515031
+    }
+  },
+  "mostGobbles": {
+    "nick:ProtoPanache": {
+      "nick": "ProtoPanache",
+      "playerKey": "nick:ProtoPanache",
+      "gobbles": 6,
+      "achievedAt": 1768170619479
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Testggg",
+      "playerKey": "install:cid-1767297485869-305184",
+      "gobbles": 3,
+      "achievedAt": 1768174807045
+    }
+  }
+}
