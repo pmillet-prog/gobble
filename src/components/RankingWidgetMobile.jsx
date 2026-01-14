@@ -477,6 +477,10 @@ function RankingWidgetMobile({
     const nextPositions = new Map();
     nodes.forEach((node, key) => {
       if (!node) return;
+      // Neutralise any leftover transforms so measurements stay stable.
+      node.style.transition = "";
+      node.style.transform = "";
+      node.style.willChange = "";
       nextPositions.set(key, node.getBoundingClientRect());
     });
 

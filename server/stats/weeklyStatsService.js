@@ -5,8 +5,13 @@ import { promises as fs } from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.join(__dirname, "../data");
+const LEGACY_DATA_DIR = path.join(__dirname, "../data");
+const DEFAULT_DATA_DIR = path.join(__dirname, "../data-runtime");
+const DATA_DIR = process.env.GOBBLE_DATA_DIR
+  ? path.resolve(process.env.GOBBLE_DATA_DIR)
+  : DEFAULT_DATA_DIR;
 const DATA_PATH = path.join(DATA_DIR, "weekly-stats.json");
+const LEGACY_DATA_PATH = path.join(LEGACY_DATA_DIR, "weekly-stats.json");
 const TOP_N = 50;
 
 const DEFAULT_STATE = {
@@ -76,9 +81,18 @@ function scheduleSave() {
 }
 
 async function loadFromDisk() {
+  let parsed = null;
   try {
     const raw = await fs.readFile(DATA_PATH, "utf8");
-    const parsed = JSON.parse(raw);
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    try {
+      const legacyRaw = await fs.readFile(LEGACY_DATA_PATH, "utf8");
+      parsed = JSON.parse(legacyRaw);
+      if (parsed) scheduleSave();
+    } catch (_) {}
+  }
+  if (parsed) {
     const fileWeek = Number(parsed.weekStartTs) || 0;
     state = {
       weekStartTs: fileWeek || getWeekStartTs(),
@@ -92,7 +106,7 @@ async function loadFromDisk() {
       bestTimeTargetScore: reviveMap(parsed.bestTimeTargetScore),
       mostGobbles: reviveMap(parsed.mostGobbles),
     };
-  } catch (_) {
+  } else {
     resetState();
   }
   ensureCurrentWeek();

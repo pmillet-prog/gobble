@@ -1,5 +1,5 @@
-// shared/gameLogic.js
-// Logique pure du Boggle : génération de grille, voisinage, scoring, solveur.
+﻿// shared/gameLogic.js
+// Logique pure du Boggle : gÃ©nÃ©ration de grille, voisinage, scoring, solveur.
 
 // -----------------
 // Constantes
@@ -45,8 +45,8 @@ export function normalizeWord(str) {
   return str
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/œ/g, "oe")   // au cas où tu corriges le dico plus tard
-    .replace(/æ/g, "ae")
+    .replace(/\u0153/gi, "oe") // au cas ou tu corriges le dico plus tard
+    .replace(/\u00e6/gi, "ae")
     .replace(/['\" -]/g, "")
     .toLowerCase();
 }
@@ -56,9 +56,9 @@ export function randomLetter() {
   return letter === "Q" ? "Qu" : letter;
 }
 
-// retourne les indices voisins (8-neighborhood) d’une case i dans la grille 1D
+// retourne les indices voisins (8-neighborhood) dâ€™une case i dans la grille 1D
 export function neighbors(i, size = SIZE, total = null) {
-  // si size n'est pas fourni, on tente de le déduire du total de cases
+  // si size n'est pas fourni, on tente de le dÃ©duire du total de cases
   const n = size || (total ? Math.sqrt(total) : SIZE);
   const r = Math.floor(i / n);
   const c = i % n;
@@ -77,12 +77,12 @@ export function neighbors(i, size = SIZE, total = null) {
 }
 
 // -----------------
-// Génération de la grille
+// GÃ©nÃ©ration de la grille
 // -----------------
 
 // Reproduit la logique de startGame() dans ton App.jsx :
 // - 25 tuiles { letter, bonus }
-// - 4 bonus placés aléatoirement : L2, L3, M2, M3
+// - 4 bonus placÃ©s alÃ©atoirement : L2, L3, M2, M3
 export function generateGrid(size = SIZE) {
   const T = size * size;
 
@@ -174,7 +174,7 @@ export function summarizeBonuses(path, board) {
 // Pathfinder / solveur
 // -----------------
 
-// Chemin “optimisé score” pour un mot donné (wordNorm déjà normalisé)
+// Chemin â€œoptimisÃ© scoreâ€ pour un mot donnÃ© (wordNorm dÃ©jÃ  normalisÃ©)
 export function findBestPathForWord(board, wordNorm, special = null) {
   const labels = board.map((cell) =>
     cell.letter === "Qu" ? "qu" : cell.letter.toLowerCase()
@@ -244,8 +244,8 @@ export function pathMatchesWord(board, wordNorm, path) {
 
   return pos === wordNorm.length;
 }
-// Filtre un dico (Set de mots normalisés) en ne gardant
-// que les mots compatibles avec les lettres présentes sur la grille.
+// Filtre un dico (Set de mots normalisÃ©s) en ne gardant
+// que les mots compatibles avec les lettres prÃ©sentes sur la grille.
 export function filterDictionary(dictionary, board) {
   const boardLetters = new Set(
     board.map((cell) =>
@@ -289,8 +289,8 @@ export function solveGrid(board, dictionary, special = null) {
   return found;
 }
 
-// Fonction pratique pour valider / scorer UN mot côté serveur
-// - retourne null si le mot n’est pas sur la grille
+// Fonction pratique pour valider / scorer UN mot cÃ´tÃ© serveur
+// - retourne null si le mot nâ€™est pas sur la grille
 // - sinon { norm, path, pts }
 export function scoreWordOnGrid(rawWord, board, special = null) {
   const norm = normalizeWord(rawWord);

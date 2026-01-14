@@ -1,4 +1,6 @@
-import React from "react";
+﻿import React from "react";
+
+const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 
 export default function MobileWordPreview({
   countdownLines,
@@ -10,6 +12,7 @@ export default function MobileWordPreview({
   previewBlockHeight,
   previewGapPx,
   previewTileBaseStyle,
+  previewStats,
   shake,
 }) {
   const previewHeight = Number.isFinite(previewBlockHeight)
@@ -31,6 +34,7 @@ export default function MobileWordPreview({
     ? Math.min(1, Math.max(0.6, 11 / Math.max(1, liveWord.length)))
     : 1;
   const canRotate = typeof onRotateGrid === "function";
+  const showStats = Boolean(previewStats?.show);
   return (
     <div
       className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 py-1.5 shadow-sm flex-none box-border"
@@ -95,9 +99,21 @@ export default function MobileWordPreview({
               );
             })}
           </div>
+        ) : currentDisplay ? (
+          <span className="text-slate-700 dark:text-slate-200">
+            {currentDisplay.toUpperCase()}
+          </span>
+        ) : showStats ? (
+          <div
+            className="text-slate-700 dark:text-slate-200 font-semibold"
+            style={{ fontSize: `${smallFontPx}px`, lineHeight: 1.1 }}
+          >
+            <div>{`mots : ${previewStats.wordsFoundLabel} / ${previewStats.totalWordsLabel}`}</div>
+            <div>{`score : ${previewStats.scoreLabel} / ${previewStats.totalScoreLabel}`}</div>
+          </div>
         ) : (
           <span className="text-slate-700 dark:text-slate-200">
-            {(currentDisplay || "Prêt à jouer").toUpperCase()}
+            {READY_LABEL}
           </span>
         )}
       </div>

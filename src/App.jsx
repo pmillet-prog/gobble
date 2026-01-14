@@ -32,6 +32,7 @@ const COUNTDOWN = 0;
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const FINAL_ROUND_RESULTS_SECONDS = 30;
+const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
@@ -1017,6 +1018,9 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [shakeGrid, setShakeGrid] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+  const statusHoldRef = useRef({ text: "", until: 0 });
+  const statusHoldTimerRef = useRef(null);
+  const [, setStatusHoldTick] = useState(0);
   const [lastWords, setLastWords] = useState([]);
   const [showAllWords, setShowAllWords] = useState(false);
   const [sortMode, setSortMode] = useState("score");
@@ -1103,6 +1107,7 @@ export default function App() {
   const [roomsStats, setRoomsStats] = useState([]);
   const [lobbyPlayersList, setLobbyPlayersList] = useState([]);
   const [lobbyPlayersLoading, setLobbyPlayersLoading] = useState(false);
+  const [lobbyRoomStatus, setLobbyRoomStatus] = useState(null);
   const [isPlayersOverlayOpen, setIsPlayersOverlayOpen] = useState(false);
   const [playersOverlayMode, setPlayersOverlayMode] = useState("snapshot");
   const [playersOverlaySnapshot, setPlayersOverlaySnapshot] = useState([]);
@@ -1271,6 +1276,11 @@ export default function App() {
     definition: "",
     source: "",
     url: "",
+  });
+  const [wordInfoModal, setWordInfoModal] = useState({
+    open: false,
+    word: "",
+    foundBy: [],
   });
   const [definitionBlink, setDefinitionBlink] = useState(false);
   const [chatVisibleLimit, setChatVisibleLimit] = useState(
@@ -3755,6 +3765,15 @@ function playTileStepSound(step) {
     return `${mins}m${secs.toString().padStart(2, "0")}s`;
   }
 
+  function formatSecondsShort(totalSeconds) {
+    if (!Number.isFinite(totalSeconds)) return "";
+    const rounded = Math.max(0, Math.round(totalSeconds));
+    const mins = Math.floor(rounded / 60);
+    const secs = rounded % 60;
+    if (mins <= 0) return `${secs}s`;
+    return `${mins}m${secs.toString().padStart(2, "0")}s`;
+  }
+
   function getWeeklyValue(boardKey, entry) {
     if (!entry) return null;
     switch (boardKey) {
@@ -3937,9 +3956,11 @@ function playTileStepSound(step) {
       .then((data) => {
         const list = Array.isArray(data?.players) ? data.players : [];
         setLobbyPlayersList(list);
+        setLobbyRoomStatus(data?.status && typeof data.status === "object" ? data.status : null);
       })
       .catch(() => {
         setLobbyPlayersList([]);
+        setLobbyRoomStatus(null);
       })
       .finally(() => {
         setLobbyPlayersLoading(false);
@@ -4116,6 +4137,12 @@ function playTileStepSound(step) {
     }
     triggerResultsArrowHint();
     playSwipeSound();
+  }
+
+  function handleResultsArrowActivate(delta, event, { isTouch = false } = {}) {
+    if (event?.stopPropagation) event.stopPropagation();
+    if (isTouch && event?.preventDefault) event.preventDefault();
+    shiftResultsPage(delta);
   }
 
   function triggerResultsArrowHint({ blink = false, showForMs = 2200 } = {}) {
@@ -4301,6 +4328,12 @@ function playTileStepSound(step) {
       socket.once("connect_error", onResumeError);
       socket.connect();
     }
+  }
+
+  function setResultsRankingModeWithPulse(nextMode) {
+    if (resultsRankingMode === nextMode) return;
+    triggerResultsMetaPulse({ immediate: true });
+    setResultsRankingMode(nextMode);
   }
 
   function runHealthCheck(reason = "watchdog") {
@@ -4646,7 +4679,7 @@ function playTileStepSound(step) {
     bestGridMaxLenRef.current = stats?.maxLen ?? 0;
     setScore(0);
     setLastWords([]);
-    setStatusMessage("");
+    clearStatusMessage({ force: true });
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
     setProvisionalRanking([]);
@@ -4795,7 +4828,7 @@ function playTileStepSound(step) {
     setTargetSummary(null);
     setScore(0);
     setLastWords([]);
-    setStatusMessage("");
+    clearStatusMessage({ force: true });
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
     setProvisionalRanking([]);
@@ -4865,7 +4898,7 @@ function playTileStepSound(step) {
     setCurrentTiles(letters);
     currentTilesRef.current = letters;
     setHighlightPath(path);
-    setStatusMessage("");
+    clearStatusMessage();
     setActiveArea("game");
   }
 
@@ -5200,7 +5233,7 @@ function playTileStepSound(step) {
    * Ajout de lettres via le clavier, avec pathfinder optimisé.
    */
   function addLetterFromKeyboard(label) {
-    setStatusMessage("");
+    clearStatusMessage();
 
     setCurrentTiles((prev) => {
       const next = [...prev, label];
@@ -5218,7 +5251,7 @@ function playTileStepSound(step) {
   }
 
   function removeLastLetterFromKeyboard() {
-    setStatusMessage("");
+    clearStatusMessage();
     setCurrentTiles((prev) => {
       if (!prev.length) return prev;
       const next = prev.slice(0, -1);
@@ -5378,8 +5411,34 @@ function playTileStepSound(step) {
     } catch (_) {}
   }
 
+  function setStatusMessageWithHold(msg, holdMs = 1000) {
+    const text = typeof msg === "string" ? msg : "";
+    setStatusMessage(text);
+    if (!text) return;
+    const until = Date.now() + holdMs;
+    statusHoldRef.current = { text, until };
+    if (statusHoldTimerRef.current) {
+      clearTimeout(statusHoldTimerRef.current);
+    }
+    statusHoldTimerRef.current = setTimeout(() => {
+      statusHoldTimerRef.current = null;
+      setStatusHoldTick((tick) => tick + 1);
+    }, holdMs);
+  }
+
+  function clearStatusMessage({ force = false } = {}) {
+    setStatusMessage("");
+    if (!force) return;
+    statusHoldRef.current = { text: "", until: 0 };
+    if (statusHoldTimerRef.current) {
+      clearTimeout(statusHoldTimerRef.current);
+      statusHoldTimerRef.current = null;
+    }
+    setStatusHoldTick((tick) => tick + 1);
+  }
+
     function error(msg) {
-    setStatusMessage(msg);
+    setStatusMessageWithHold(msg);
     setShake(false);
     // restart the animation even if the state was already true
     requestAnimationFrame(() => setShake(true));
@@ -5405,7 +5464,7 @@ function playTileStepSound(step) {
     setActiveArea("game");
     draggingRef.current = true;
     setLastInputMode(mode);
-    setStatusMessage("");
+    clearStatusMessage();
 
     const letter = board[index].letter;
       tileStepRef.current = 0;                 // <-- reset
@@ -5475,7 +5534,7 @@ function playTileStepSound(step) {
           const dx = (e.clientX ?? cx) - cx;
           const dy = (e.clientY ?? cy) - cy;
           const dist = Math.hypot(dx, dy);
-          const safeRadius = Math.min(rect.width, rect.height) * 0.7; // si plus petit, moins permissif
+          const safeRadius = Math.min(rect.width, rect.height) * 0.5; // si plus petit, moins permissif
           if (dist > safeRadius) return prevPath;
         }
       }
@@ -5507,7 +5566,7 @@ function playTileStepSound(step) {
           // Zone "anti-corner" : on ignore UNIQUEMENT le coin du voisin orthogonal
           // du côté d'où l'on arrive (pour faciliter les diagonales sans rendre
           // les cases trop difficiles ‡ sélectionner au doigt).
-          const CORNER_THRESHOLD = 0.3; //si plus petit, moins permissif
+          const CORNER_THRESHOLD = 0.5; //si plus petit, moins permissif
           const inRejectedCorner =
             (dc === 1 && nx < -CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
             (dc === -1 && nx > CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
@@ -5551,7 +5610,7 @@ return [...prevPath, index];
   setActiveArea("game");
   draggingRef.current = true;
   setLastInputMode("touch");
-  setStatusMessage("");
+  clearStatusMessage();
 
   const letter = board[index].letter;
   setCurrentTiles([letter]);
@@ -5708,7 +5767,7 @@ function handleTouchEnd() {
           return updated;
         });
 
-        setStatusMessage(isTargetRoundNow ? "Trouvé !" : `+${pts} pts`);
+        setStatusMessageWithHold(isTargetRoundNow ? "Trouvé !" : `+${pts} pts`);
         clearSelection();
       });
 
@@ -5783,7 +5842,7 @@ function handleTouchEnd() {
       return updated;
     });
 
-    setStatusMessage(`+${pts} pts`);
+    setStatusMessageWithHold(`+${pts} pts`);
     clearSelection();
   }
 
@@ -5806,6 +5865,36 @@ function handleTouchEnd() {
     setAnalysis({ word, pts, bonuses });
     setHighlightPath([]); // ne pas afficher le chemin en fin de partie
     setHighlightPlayers(matchedPlayers);
+  }
+
+  function getWordFinders(word) {
+    if (!word || !Array.isArray(finalResults)) return [];
+    const norm = normalizeWord(word);
+    if (!norm) return [];
+    const found = [];
+    const seen = new Set();
+    finalResults.forEach((res) => {
+      const nick = res?.nick ? String(res.nick).trim() : "";
+      if (!nick || seen.has(nick)) return;
+      const words = Array.isArray(res.words) ? res.words : [];
+      const hit = words.some((w) => normalizeWord(w) === norm);
+      if (hit) {
+        seen.add(nick);
+        found.push(nick);
+      }
+    });
+    return found;
+  }
+
+  function openWordInfoModal(word) {
+    const clean = String(word || "").trim();
+    if (!clean) return;
+    const foundBy = getWordFinders(clean);
+    setWordInfoModal({ open: true, word: clean, foundBy });
+  }
+
+  function closeWordInfoModal() {
+    setWordInfoModal((prev) => (prev?.open ? { ...prev, open: false } : prev));
   }
 
   // Chat
@@ -5915,12 +6004,10 @@ function handleTouchEnd() {
       ? `Nouvel indice dans : ${nextHintSeconds}s.`
       : "Nouvel indice dans : -- s.";
   const showSolvedTargetLoupe = Boolean(solvedTargetWord);
-  const currentDisplay =
-    currentTiles.length > 0
-      ? currentTiles.join("")
-      : typeof statusMessage === "string"
-      ? statusMessage
-      : "";
+  const statusHold = statusHoldRef.current;
+  const statusHoldText =
+    statusHold?.text && Date.now() < statusHold.until ? statusHold.text : "";
+  const currentDisplay = statusHoldText;
         // Mot en cours d'écriture : on prend l'état, et si jamais
   // il est vide on tombe sur la ref (utile pour certains cas tactile)
   const liveWord =
@@ -5930,6 +6017,33 @@ function handleTouchEnd() {
   const previewScale = liveWord
     ? clampValue(11 / Math.max(1, liveWord.length), 0.6, 1)
     : 1;
+  const previewTotals = React.useMemo(() => {
+    if (isTargetHintRound) {
+      return { totalWords: null, totalScore: null };
+    }
+    const totalWords = Number.isFinite(roundStats?.words)
+      ? roundStats.words
+      : allWords.length > 0
+      ? allWords.length
+      : null;
+    let totalScore = null;
+    if (Number.isFinite(roundStats?.totalPts)) {
+      totalScore = roundStats.totalPts;
+    } else if (allWords.length > 0) {
+      totalScore = allWords.reduce((sum, entry) => sum + (entry?.pts || 0), 0);
+    }
+    return { totalWords, totalScore };
+  }, [roundStats, allWords, isTargetHintRound]);
+  const wordsFoundLabel = formatNumber(accepted.length) ?? "0";
+  const scoreLabel = formatNumber(score) ?? "0";
+  const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
+    ? formatNumber(previewTotals.totalWords)
+    : "?";
+  const totalScoreLabel = Number.isFinite(previewTotals.totalScore)
+    ? formatNumber(previewTotals.totalScore)
+    : "?";
+  const showPreviewStatus = Boolean(statusHoldText) && !liveWord;
+  const showPreviewStats = !liveWord && !statusHoldText && !isTargetHintRound;
 
   const currentBonuses = summarizeBonuses(highlightPath, board);
   const wordMultiplier =
@@ -7050,6 +7164,7 @@ function handleTouchEnd() {
   useEffect(() => {
     if (showTournamentFinale && !tournamentCelebrationPlayedRef.current) {
       playTournamentCelebrationSound();
+      triggerConfettiBurst("tournament");
       tournamentCelebrationPlayedRef.current = true;
     }
     if (!showTournamentFinale) {
@@ -7569,6 +7684,86 @@ function handleTouchEnd() {
       : isLoggedIn
       ? playersAlphaList
       : lobbyPlayersList;
+  const activeRoomKey = currentRoomId || roomId;
+  const roomMeta = ROOM_OPTIONS[activeRoomKey] || {};
+  const lobbyStatusNow = lobbyRoomStatus?.serverNow || Date.now();
+  const lobbyRoundRemainingSeconds =
+    lobbyRoomStatus?.roundEndsAt && Number.isFinite(lobbyRoomStatus.roundEndsAt)
+      ? Math.max(0, Math.round((lobbyRoomStatus.roundEndsAt - lobbyStatusNow) / 1000))
+      : null;
+  const lobbyBreakRemainingSeconds =
+    lobbyRoomStatus?.breakEndsAt && Number.isFinite(lobbyRoomStatus.breakEndsAt)
+      ? Math.max(0, Math.round((lobbyRoomStatus.breakEndsAt - lobbyStatusNow) / 1000))
+      : null;
+  const overlayBreakKind = isLoggedIn ? breakKind : lobbyRoomStatus?.breakKind || null;
+  const overlayPhase = isLoggedIn
+    ? phase
+    : lobbyRoomStatus?.isRoundRunning
+    ? "playing"
+    : "break";
+  const overlayTick = isLoggedIn ? tick : lobbyRoundRemainingSeconds;
+  const overlayBreakCountdown = isLoggedIn ? breakCountdown : lobbyBreakRemainingSeconds;
+  const roundDurationSeconds = Number.isFinite(serverRoundDurationMs)
+    ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
+    : Number.isFinite(lobbyRoomStatus?.roundDurationMs)
+    ? Math.max(1, Math.round(lobbyRoomStatus.roundDurationMs / 1000))
+    : roomMeta.duration ?? DEFAULT_DURATION;
+  const roundBreakSeconds = Number.isFinite(lobbyRoomStatus?.breakDurationMs)
+    ? Math.max(0, Math.round(lobbyRoomStatus.breakDurationMs / 1000))
+    : roomMeta.breakSeconds ?? 45;
+  const tournamentTotalRounds = Number.isFinite(tournament?.totalRounds)
+    ? tournament.totalRounds
+    : Number.isFinite(lobbyRoomStatus?.tournamentTotalRounds)
+    ? lobbyRoomStatus.tournamentTotalRounds
+    : TOURNAMENT_TOTAL_ROUNDS;
+  const tournamentRoundValue =
+    typeof tournament?.round === "number" && tournament.round > 0
+      ? tournament.round
+      : typeof lobbyRoomStatus?.tournamentRound === "number" &&
+        lobbyRoomStatus.tournamentRound > 0
+      ? lobbyRoomStatus.tournamentRound
+      : typeof tournament?.nextRound === "number" && tournament.nextRound > 0
+      ? tournament.nextRound
+      : null;
+  const currentRoundForEta =
+    typeof tournament?.round === "number"
+      ? tournament.round
+      : typeof lobbyRoomStatus?.tournamentRound === "number"
+      ? lobbyRoomStatus.tournamentRound
+      : tournamentRoundValue || 0;
+  const tournamentEtaSeconds = (() => {
+    if (!tournamentRoundValue || !tournamentTotalRounds) return null;
+    if (overlayBreakKind === "tournament_end") {
+      return Number.isFinite(overlayBreakCountdown)
+        ? Math.max(0, Math.round(overlayBreakCountdown))
+        : null;
+    }
+    if (overlayPhase === "playing") {
+      if (!Number.isFinite(overlayTick)) return null;
+      const roundsAfter = Math.max(0, tournamentTotalRounds - Math.max(0, currentRoundForEta));
+      return (
+        Math.max(0, Math.round(overlayTick)) +
+        roundBreakSeconds +
+        roundsAfter * (roundDurationSeconds + roundBreakSeconds)
+      );
+    }
+    if (overlayPhase === "results" || overlayPhase === "break") {
+      if (!Number.isFinite(overlayBreakCountdown)) return null;
+      const roundsLeft = Math.max(0, tournamentTotalRounds - Math.max(0, currentRoundForEta));
+      return (
+        Math.max(0, Math.round(overlayBreakCountdown)) +
+        roundsLeft * (roundDurationSeconds + roundBreakSeconds)
+      );
+    }
+    return null;
+  })();
+  const tournamentInfoLine =
+    tournamentRoundValue && tournamentTotalRounds
+      ? `Manche ${tournamentRoundValue}/${tournamentTotalRounds}`
+      : null;
+  const tournamentEtaLine = Number.isFinite(tournamentEtaSeconds)
+    ? `Nouveau mini-tournoi dans ~${formatSecondsShort(tournamentEtaSeconds)}`
+    : null;
   const playersOverlay =
     isPlayersOverlayOpen && typeof document !== "undefined"
       ? createPortal(
@@ -7604,6 +7799,12 @@ function handleTouchEnd() {
                     ? "Photo du classement en cours (figee)"
                     : "Liste alphabetique (sans score)"}
                 </div>
+                {tournamentInfoLine || tournamentEtaLine ? (
+                  <div className="mt-2 text-[11px] font-semibold opacity-80">
+                    {tournamentInfoLine ? <div>{tournamentInfoLine}</div> : null}
+                    {tournamentEtaLine ? <div>{tournamentEtaLine}</div> : null}
+                  </div>
+                ) : null}
               </div>
               <div className="px-4 pb-4">
                 {playersOverlayEntries.length ? (
@@ -7789,6 +7990,93 @@ function handleTouchEnd() {
         )
       : null;
 
+  const wordInfoModalView =
+    wordInfoModal.open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[12040] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4 py-6"
+            onClick={closeWordInfoModal}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${
+                darkMode
+                  ? "bg-slate-900/85 border-white/10 text-white"
+                  : "bg-white/85 border-slate-200/80 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="absolute top-3 right-3 z-20 rounded-full h-9 w-12 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
+                onClick={closeWordInfoModal}
+                aria-label="Fermer"
+              >
+                <span className="pointer-events-none">X</span>
+              </button>
+              <div className="p-4 pb-2">
+                <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+                  Mot
+                </div>
+                <div className="text-xl font-extrabold flex items-center gap-2">
+                  <span>{wordInfoModal.word}</span>
+                  <button
+                    type="button"
+                    className={`inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-[11px] ${
+                      darkMode
+                        ? "bg-slate-800 border-slate-600 text-slate-100"
+                        : "bg-white border-gray-300 text-gray-700"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDefinition(wordInfoModal.word);
+                    }}
+                    aria-label="Voir la definition"
+                    title="Voir la definition"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="11" cy="11" r="7" />
+                      <line x1="16.65" y1="16.65" x2="21" y2="21" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-2 text-xs opacity-70">Trouvé par :</div>
+              </div>
+              <div className="px-4 pb-4">
+                {wordInfoModal.foundBy && wordInfoModal.foundBy.length ? (
+                  <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                    {wordInfoModal.foundBy.map((nick) => (
+                      <div
+                        key={nick}
+                        className="flex items-center gap-2 text-sm font-semibold"
+                      >
+                        <span>{nick}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm opacity-70 py-4 text-center">
+                    Aucun joueur pour ce mot.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   const chatOverlays = (
     <>
       {weeklyStatsOverlay}
@@ -7797,6 +8085,7 @@ function handleTouchEnd() {
       {reportModal}
       {chatRulesModal}
       {definitionModalView}
+      {wordInfoModalView}
     </>
   );
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -8811,8 +9100,9 @@ function handleTouchEnd() {
                 {showResultsLeftArrow ? (
                   <button
                     type="button"
-                    className={`group absolute left-0 top-1/2 -translate-y-1/2 ml-1 text-slate-600/70 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 ${resultsArrowWrapperClass}`}
-                    onClick={() => shiftResultsPage(-1)}
+                    className={`group absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
+                    onClick={(e) => handleResultsArrowActivate(-1, e)}
+                    onTouchStart={(e) => handleResultsArrowActivate(-1, e, { isTouch: true })}
                     aria-label="Precedent"
                   >
                     <span className={`block ${resultsArrowAnimClass}`}>
@@ -8826,8 +9116,9 @@ function handleTouchEnd() {
                 {showResultsRightArrow ? (
                   <button
                     type="button"
-                    className={`group absolute right-0 top-1/2 -translate-y-1/2 mr-1 text-slate-600/70 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 ${resultsArrowWrapperClass}`}
-                    onClick={() => shiftResultsPage(1)}
+                    className={`group absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
+                    onClick={(e) => handleResultsArrowActivate(1, e)}
+                    onTouchStart={(e) => handleResultsArrowActivate(1, e, { isTouch: true })}
                     aria-label="Suivant"
                   >
                     <span className={`block ${resultsArrowAnimClass}`}>
@@ -8906,6 +9197,7 @@ function handleTouchEnd() {
                                     setAnalysis(null);
                                     setHighlightPlayers([]);
                                   }}
+                                  onClick={() => openWordInfoModal(entry.word)}
                                   ref={(el) => {
                                     if (el) listItemRefs.current.set(entry.word, el);
                                     else listItemRefs.current.delete(entry.word);
@@ -9077,14 +9369,43 @@ function handleTouchEnd() {
           tournament={tournament}
         />
         {showHelp && (
-          <div ref={mobileHelpRef} className="mx-3 mt-2 mb-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-[11px] text-gray-700 dark:text-slate-200">
-            <div className="font-bold mb-1 text-xs">Aide rapide</div>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
-              <li>Entrée valide le mot, Backspace efface.</li>
-              <li>Tab alterne entre saisie et chat (focus automatique).</li>
-              <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
-            </ul>
+          <div
+            className="fixed inset-0 z-[9996] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
+            onClick={() => setShowHelp(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
+                darkMode
+                  ? "bg-slate-900/90 text-slate-100 border-slate-700"
+                  : "bg-white/90 text-slate-900 border-slate-200"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
+                Aide rapide
+              </div>
+              <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
+              <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
+                <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
+                <li>Entree valide le mot, Backspace efface.</li>
+              </ul>
+              <div className="mt-3 text-[12px] font-semibold">Bareme</div>
+              <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                <li>Score = somme des lettres + bonus de longueur.</li>
+                <li>Bonus L2/L3 multiplient la lettre.</li>
+                <li>Bonus M2/M3 multiplient le mot.</li>
+              </ul>
+              <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
+              <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                <li>Lettre bonus : une lettre rapporte plus de points.</li>
+                <li>Rapidite : tous les mots valent 11 points.</li>
+                <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
+                <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
+              </ul>
+            </div>
           </div>
         )}
 
@@ -9248,6 +9569,13 @@ function handleTouchEnd() {
             previewBlockHeight={previewBlockHeight}
             previewGapPx={previewGapPx}
             previewTileBaseStyle={previewTileBaseStyle}
+            previewStats={{
+              show: showPreviewStats,
+              wordsFoundLabel,
+              totalWordsLabel,
+              scoreLabel,
+              totalScoreLabel,
+            }}
             shake={shake}
           />
           <div className="flex-1 min-h-0 flex flex-col gap-1">
@@ -9599,8 +9927,7 @@ function handleTouchEnd() {
           <button
             type="button"
             onClick={() => {
-              setResultsRankingMode("round");
-              triggerResultsMetaPulse();
+              setResultsRankingModeWithPulse("round");
             }}
             className={`px-3 py-1 transition ${
               resultsRankingMode === "round" ? "bg-blue-600 text-white" : "bg-white text-gray-600"
@@ -9611,8 +9938,7 @@ function handleTouchEnd() {
           <button
             type="button"
             onClick={() => {
-              setResultsRankingMode("total");
-              triggerResultsMetaPulse();
+              setResultsRankingModeWithPulse("total");
             }}
             className={`px-3 py-1 transition ${
               resultsRankingMode === "total" ? "bg-blue-600 text-white" : "bg-white text-gray-600"
@@ -9955,10 +10281,17 @@ function handleTouchEnd() {
         );
       })}
     </div>
-  ) : (
-    <span className="text-gray-700">
-      {(currentDisplay || "Prêt à jouer").toUpperCase()}
+  ) : showPreviewStatus ? (
+    <span className="text-gray-700 dark:text-slate-200">
+      {currentDisplay.toUpperCase()}
     </span>
+  ) : showPreviewStats ? (
+    <div className="text-gray-700 dark:text-slate-200 text-sm leading-tight font-semibold">
+      <div>{`mots : ${wordsFoundLabel} / ${totalWordsLabel}`}</div>
+      <div>{`score : ${scoreLabel} / ${totalScoreLabel}`}</div>
+    </div>
+  ) : (
+    <span className="text-gray-700 dark:text-slate-200">{READY_LABEL}</span>
   )}
               </div>
               <button
@@ -10338,3 +10671,4 @@ function handleTouchEnd() {
     </div>
   );
 }
+

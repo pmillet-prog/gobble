@@ -37,6 +37,10 @@ import {
   recordMostWordsInGame,
   recordTotalScore,
 } from "./stats/weeklyStatsService.js";
+import {
+  getDailyMedalsForRoom,
+  persistDailyMedalsForRoom,
+} from "./stats/dailyMedalsService.js";
 
 const computePool = createComputePool();
 const __filename = fileURLToPath(import.meta.url);
@@ -195,11 +199,27 @@ app.get("/api/players", (req, res) => {
     }))
     .filter((p) => p.nick)
     .sort((a, b) => a.nick.localeCompare(b.nick));
+  const now = Date.now();
+  const currentRound = room.currentRound || null;
+  const breakState = room.breakState || null;
+  const status = {
+    serverNow: now,
+    roundNumber: currentRound?.roundNumber ?? null,
+    roundEndsAt: currentRound?.endsAt ?? null,
+    roundDurationMs: currentRound?.durationMs ?? room.config?.durationMs ?? DEFAULT_ROUND_DURATION_MS,
+    tournamentRound: currentRound?.tournamentRound ?? room.tournament?.currentRound ?? null,
+    tournamentTotalRounds: room.tournament?.totalRounds ?? TOURNAMENT_TOTAL_ROUNDS,
+    breakKind: breakState?.breakKind ?? null,
+    breakEndsAt: breakState?.nextStartAt ?? null,
+    breakDurationMs: room.config?.breakMs ?? DEFAULT_BREAK_DURATION_MS,
+    isRoundRunning: currentRound?.status === "running",
+  };
   return res.json({
     ok: true,
     roomId: requestedRoomId,
     count: players.length,
     players,
+    status,
   });
 });
 
@@ -245,14 +265,12 @@ const lagMonitor = setInterval(() => {
 lagMonitor.unref?.();
 
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
-const DEFAULT_BREAK_DURATION_MS = 30 * 1000; // 45 secondes
+const DEFAULT_BREAK_DURATION_MS = 45 * 1000; // 45 secondes
 const MAX_CHAT_HISTORY = 50;
 const NICK_MAX_LEN = 25;
-const RESERVATION_MS = 3 * 60 * 1000; // pseudo réservé après déco
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 5;
 const MIN_WORDS_BY_SIZE = { 4: 120, 5 : 100 }; 
-const MAX_QUALITY_ATTEMPTS = 50;
 const SPECIAL_ROUND_EVERY = 5;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
@@ -268,11 +286,9 @@ const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-const MONSTROUS_POST_PREP_MIN_BREAK_MS = 5 * 1000;
 const DISCONNECT_GRACE_MS = 120 * 1000;
 
-const TARGET_LONG_MIN_LEN = 8;
-const TARGET_SCORE_MIN_PTS = 100;
+
 const TARGET_HINT_FIRST_MS = 15 * 1000;
 const TARGET_HINT_STEP_MS = 15 * 1000;
 
@@ -698,6 +714,7 @@ const rooms = new Map(
     createRoomState(roomId, config),
   ])
 );
+rooms.forEach((room) => hydrateDailyMedals(room));
 let botManager = null;
 
 function getRoom(roomId) {
@@ -740,13 +757,29 @@ function emitPlayers(room) {
   );
 }
 
+function persistRoomMedals(room) {
+  if (!room || !room.id) return;
+  persistDailyMedalsForRoom(room.id, room.medals, room.medalExpiry);
+}
+
+function hydrateDailyMedals(room) {
+  const snapshot = getDailyMedalsForRoom(room?.id);
+  if (!snapshot) return;
+  room.medals = snapshot.medals;
+  room.medalExpiry = snapshot.expiry;
+}
 
 function cleanupExpiredMedals(room) {
   const now = Date.now();
+  let changed = false;
   for (const [key, expiresAt] of room.medalExpiry.entries()) {
     if (expiresAt > now) continue;
     room.medalExpiry.delete(key);
     room.medals.delete(key);
+    changed = true;
+  }
+  if (changed) {
+    persistRoomMedals(room);
   }
 }
 
@@ -766,6 +799,7 @@ function emitMedals(room) {
     if (!payload[nick]) payload[nick] = counts;
   }
   io.to(room.id).emit("medalsUpdate", payload);
+  persistRoomMedals(room);
 }
 
 function addMedal(room, nick, type) {
@@ -785,6 +819,7 @@ function addMedal(room, nick, type) {
   } else {
     room.medalExpiry.delete(key);
   }
+  persistRoomMedals(room);
 }
 
 function clearPendingDisconnect(room, socketId) {
@@ -1060,7 +1095,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   const playerObj = playerEntry?.player || null;
   const playerKey = getMedalKeyForPlayer(playerObj) || getMedalKeyForNick(resolvedNick);
   const isBotPlayer = isBotToken(playerObj?.token);
-  if (!isBotPlayer && playerKey) {
+  if (!isBotPlayer && playerKey && !isTargetRound) {
     const achievedAt = Date.now();
     recordBestWord(playerKey, resolvedNick, norm, wordPts, achievedAt);
     recordLongestWord(playerKey, resolvedNick, norm, len, achievedAt);
@@ -2464,9 +2499,11 @@ io.on("connection", (socket) => {
     if (medalKey && isBot) {
       room.medals.delete(medalKey);
       room.medalExpiry.delete(medalKey);
+      persistRoomMedals(room);
     }
     if (medalKey && !medalKey.startsWith("install:") && !isBot) {
       room.medalExpiry.set(medalKey, now + MEDALS_TTL_AFTER_DISCONNECT_MS);
+      persistRoomMedals(room);
     }
     if (!player) return;
     clearPendingDisconnect(room, socket.id);
