@@ -4258,6 +4258,13 @@ function playTileStepSound(step) {
     const install = session?.installId || installId;
     if (!nick || !roomToUse || !install) return;
     const force = reason === "resume_button";
+    const shouldForceReconnect =
+      !isLoggedInRef.current &&
+      (force ||
+        reason === "visibility" ||
+        reason === "focus" ||
+        reason === "online" ||
+        reason === "foreground");
     const now = Date.now();
     if (resumeLockRef.current) {
       const elapsed = now - (resumeLockAtRef.current || 0);
@@ -4321,12 +4328,19 @@ function playTileStepSound(step) {
       });
     };
 
-    if (socket.connected) {
-      doLogin();
-    } else {
+    const connectAndLogin = () => {
       socket.once("connect", doLogin);
       socket.once("connect_error", onResumeError);
       socket.connect();
+    };
+
+    if (socket.connected && !shouldForceReconnect) {
+      doLogin();
+    } else {
+      if (socket.connected) {
+        socket.disconnect();
+      }
+      connectAndLogin();
     }
   }
 
@@ -9100,7 +9114,7 @@ function handleTouchEnd() {
                 {showResultsLeftArrow ? (
                   <button
                     type="button"
-                    className={`group absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
+                    className={`group absolute left-2 bottom-2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
                     onClick={(e) => handleResultsArrowActivate(-1, e)}
                     onTouchStart={(e) => handleResultsArrowActivate(-1, e, { isTouch: true })}
                     aria-label="Precedent"
@@ -9116,7 +9130,7 @@ function handleTouchEnd() {
                 {showResultsRightArrow ? (
                   <button
                     type="button"
-                    className={`group absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
+                    className={`group absolute right-2 bottom-2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
                     onClick={(e) => handleResultsArrowActivate(1, e)}
                     onTouchStart={(e) => handleResultsArrowActivate(1, e, { isTouch: true })}
                     aria-label="Suivant"
@@ -9197,12 +9211,11 @@ function handleTouchEnd() {
                                     setAnalysis(null);
                                     setHighlightPlayers([]);
                                   }}
-                                  onClick={() => openWordInfoModal(entry.word)}
                                   ref={(el) => {
                                     if (el) listItemRefs.current.set(entry.word, el);
                                     else listItemRefs.current.delete(entry.word);
                                   }}
-                                  className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
+                                  className={`rounded px-1 flex items-center justify-between gap-2 transition ${
                                     selected ? "bg-blue-50 text-blue-800" : "hover:bg-gray-100"
                                   }`}
                                   style={{
@@ -9221,7 +9234,11 @@ function handleTouchEnd() {
                                     color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
                                   }}
                                 >
-                                  <span className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    className="flex items-center gap-2 text-left w-1/2 min-w-0"
+                                    onClick={() => openWordInfoModal(entry.word)}
+                                  >
                                     {isFound ? (
                                       <span style={foundDotStyle} aria-hidden="true" />
                                     ) : (
@@ -9235,7 +9252,7 @@ function handleTouchEnd() {
                                     >
                                       {entry.word}
                                     </span>
-                                  </span>
+                                  </button>
                                   <span className="text-xs text-gray-600 flex items-center gap-2">
                                     {typeof userPts === "number" && isFound && (
                                       <span className="font-semibold">+{userPts} pts</span>
