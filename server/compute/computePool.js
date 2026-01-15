@@ -73,5 +73,8 @@ export function createComputePool() {
     prepareNextGrid(payload) {
       return callWorker("prepareNextGrid", payload);
     },
+    analyzeGrid(payload) {
+      return callWorker("analyzeGrid", payload);
+    },
   };
 }

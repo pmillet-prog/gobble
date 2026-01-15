@@ -258,6 +258,21 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
   return bestCandidate;
 }
 
+function analyzeGridJob({ grid, roundPlan, roomConfig, scoreConfig }) {
+  if (!Array.isArray(grid) || grid.length === 0) {
+    return { quality: null };
+  }
+  const minWords = roundPlan?.minWords ?? roomConfig?.minWords ?? 0;
+  const effectiveMinWords = dictionary ? minWords : 0;
+  const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
+  const solved = dictionary ? solveGrid(grid, dictionary, scoreConfig || null) : null;
+  const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
+  quality.possibleScore = roundPlan?.fixedWordScore
+    ? (quality.words || 0) * roundPlan.fixedWordScore
+    : quality.totalPts;
+  return { quality };
+}
+
 function respond(message) {
   if (!parentPort) return;
   parentPort.postMessage(message);
@@ -271,6 +286,11 @@ if (parentPort) {
     try {
       if (type === "prepareNextGrid") {
         const result = prepareNextGridJob(payload || {});
+        respond({ id, ok: true, result });
+        return;
+      }
+      if (type === "analyzeGrid") {
+        const result = analyzeGridJob(payload || {});
         respond({ id, ok: true, result });
         return;
       }

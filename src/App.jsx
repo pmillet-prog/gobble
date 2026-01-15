@@ -1061,12 +1061,6 @@ export default function App() {
   const [resultsSlidePhase, setResultsSlidePhase] = useState("idle");
   const resultsSlideOutTimerRef = useRef(null);
   const resultsSlideInTimerRef = useRef(null);
-  const [resultsArrowVisible, setResultsArrowVisible] = useState(true);
-  const [resultsArrowBlink, setResultsArrowBlink] = useState(false);
-  const [resultsArrowBump, setResultsArrowBump] = useState(false);
-  const resultsArrowTimerRef = useRef(null);
-  const resultsArrowBlinkTimerRef = useRef(null);
-  const resultsArrowBumpTimerRef = useRef(null);
   const [resultsMetaPulse, setResultsMetaPulse] = useState(false);
   const resultsMetaPulseStartTimerRef = useRef(null);
   const resultsMetaPulseEndTimerRef = useRef(null);
@@ -4111,13 +4105,12 @@ function playTileStepSound(step) {
     }, RESULTS_SLIDE_OUT_MS);
   }
 
-  function shiftResultsPage(delta) {
-    if (!Number.isInteger(delta)) return;
+  function goToResultsPage(nextIndex) {
     const pages = getResultsPages();
     const totalPages = pages.length;
     if (totalPages <= 1) return;
     const current = clampValue(mobileResultsPage, 0, totalPages - 1);
-    const next = clampValue(current + delta, 0, totalPages - 1);
+    const next = clampValue(nextIndex, 0, totalPages - 1);
     if (next === current) return;
     const currentKey = pages[current];
     const nextKey = pages[next];
@@ -4135,47 +4128,12 @@ function playTileStepSound(step) {
     } else {
       startResultsSlide(next);
     }
-    triggerResultsArrowHint();
     playSwipeSound();
   }
 
-  function handleResultsArrowActivate(delta, event, { isTouch = false } = {}) {
-    if (event?.stopPropagation) event.stopPropagation();
-    if (isTouch && event?.preventDefault) event.preventDefault();
-    shiftResultsPage(delta);
-  }
-
-  function triggerResultsArrowHint({ blink = false, showForMs = 2200 } = {}) {
-    if (resultsArrowTimerRef.current) {
-      clearTimeout(resultsArrowTimerRef.current);
-      resultsArrowTimerRef.current = null;
-    }
-    if (resultsArrowBlinkTimerRef.current) {
-      clearTimeout(resultsArrowBlinkTimerRef.current);
-      resultsArrowBlinkTimerRef.current = null;
-    }
-    if (resultsArrowBumpTimerRef.current) {
-      clearTimeout(resultsArrowBumpTimerRef.current);
-      resultsArrowBumpTimerRef.current = null;
-    }
-    setResultsArrowVisible(true);
-    setResultsArrowBump(false);
-    setTimeout(() => setResultsArrowBump(true), 20);
-    resultsArrowBumpTimerRef.current = setTimeout(() => {
-      setResultsArrowBump(false);
-    }, 520);
-    if (blink) {
-      setResultsArrowBlink(true);
-      resultsArrowBlinkTimerRef.current = setTimeout(() => {
-        setResultsArrowBlink(false);
-      }, 1800);
-    }
-    if (showForMs > 0) {
-      resultsArrowTimerRef.current = setTimeout(() => {
-        setResultsArrowBlink(false);
-        setResultsArrowBump(false);
-      }, showForMs);
-    }
+  function shiftResultsPage(delta) {
+    if (!Number.isInteger(delta)) return;
+    goToResultsPage(mobileResultsPage + delta);
   }
 
   function triggerResultsMetaPulse({ immediate = false } = {}) {
@@ -4210,7 +4168,6 @@ function playTileStepSound(step) {
     resultsSlideWidthRef.current =
       (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
     resultsDraggingRef.current = false;
-    triggerResultsArrowHint();
   }
 
   function handleResultsTouchMove(e) {
@@ -6648,10 +6605,6 @@ function handleTouchEnd() {
     }
   }, [phase]);
   useEffect(() => {
-    if (!isMobileLayout || phase !== "results") return;
-    triggerResultsArrowHint({ blink: true, showForMs: 2400 });
-  }, [isMobileLayout, phase]);
-  useEffect(() => {
     return () => {
       clearResultsSlideTimers();
       if (resultsMetaPulseStartTimerRef.current) {
@@ -9030,24 +8983,12 @@ function handleTouchEnd() {
           : finalRanking || [];
       const showResultsWords =
         resultsPageKey === "found" || resultsPageKey === "all";
-      const showResultsLeftArrow = safeResultsPage > 0;
-      const showResultsRightArrow = safeResultsPage < resultsPages.length - 1;
-      const resultsArrowWrapperClass = `weekly-arrow-hint ${
-        resultsArrowVisible ? "weekly-arrow-visible" : ""
-      }`;
-      const resultsArrowAnimClass = `${resultsArrowBlink ? "weekly-arrow-blink" : ""} ${
-        resultsArrowBump ? "weekly-arrow-bump" : ""
-      }`;
       const resultsFadeClass =
         resultsSlidePhase === "out"
           ? "results-fade-out"
           : resultsSlidePhase === "in"
           ? "results-fade-in"
           : "";
-      const resultsArrowSize = {
-        width: "clamp(20px, 4vw, 34px)",
-        height: "clamp(20px, 4vw, 34px)",
-      };
       const resultsHeaderLabel = showResultsWords ? "Mots" : "Classement";
       const resultsHeaderSuffix = showResultsWords
         ? ""
@@ -9069,9 +9010,43 @@ function handleTouchEnd() {
       const resultsCardStyle = isTargetResults
         ? { height: "46vh", minHeight: "38vh", maxHeight: "52vh" }
         : { minHeight: "320px" };
+      const showResultsDots = resultsPages.length > 1;
       const summaryWrapperClass = isTargetResults
-        ? "-mt-1 flex-none"
+        ? showResultsDots
+          ? "flex-none"
+          : "-mt-1 flex-none"
+        : showResultsDots
+        ? "mt-1"
         : "mt-2";
+      const resultsDots = showResultsDots ? (
+        <div className="flex items-center justify-center gap-1.5 py-1">
+          {resultsPages.map((page, idx) => {
+            const isActive = idx === safeResultsPage;
+            const dotColor = isActive
+              ? darkMode
+                ? "bg-slate-100"
+                : "bg-slate-900"
+              : darkMode
+              ? "bg-white/30"
+              : "bg-slate-300";
+            return (
+              <button
+                key={page}
+                type="button"
+                className={`h-2.5 w-2.5 rounded-full transition ${dotColor} ${
+                  isActive ? "scale-110" : ""
+                }`}
+                aria-label={`Page ${idx + 1}`}
+                aria-current={isActive ? "true" : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToResultsPage(idx);
+                }}
+              />
+            );
+          })}
+        </div>
+      ) : null;
       return (
         <div
           className={`flex flex-col ${
@@ -9111,38 +9086,6 @@ function handleTouchEnd() {
               onTouchCancel={handleResultsTouchEnd}
             >
               <div className="relative flex-1 min-h-0 overflow-hidden">
-                {showResultsLeftArrow ? (
-                  <button
-                    type="button"
-                    className={`group absolute left-2 bottom-2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
-                    onClick={(e) => handleResultsArrowActivate(-1, e)}
-                    onTouchStart={(e) => handleResultsArrowActivate(-1, e, { isTouch: true })}
-                    aria-label="Precedent"
-                  >
-                    <span className={`block ${resultsArrowAnimClass}`}>
-                      <span
-                        className="block border-t-[3px] border-l-[3px] border-current rotate-[-45deg]"
-                        style={resultsArrowSize}
-                      />
-                    </span>
-                  </button>
-                ) : null}
-                {showResultsRightArrow ? (
-                  <button
-                    type="button"
-                    className={`group absolute right-2 bottom-2 z-20 w-10 h-10 rounded-full bg-white/75 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 shadow-sm backdrop-blur text-slate-700/80 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-transform hover:scale-110 active:scale-95 pointer-events-auto ${resultsArrowWrapperClass}`}
-                    onClick={(e) => handleResultsArrowActivate(1, e)}
-                    onTouchStart={(e) => handleResultsArrowActivate(1, e, { isTouch: true })}
-                    aria-label="Suivant"
-                  >
-                    <span className={`block ${resultsArrowAnimClass}`}>
-                      <span
-                        className="block border-t-[3px] border-r-[3px] border-current rotate-[45deg]"
-                        style={resultsArrowSize}
-                      />
-                    </span>
-                  </button>
-                ) : null}
                 <div className={`flex flex-col gap-2 h-full results-fade-layer ${resultsFadeClass}`}>
                   <div className="flex items-center justify-between gap-2 text-xs">
                     <div className="font-semibold">
@@ -9303,6 +9246,7 @@ function handleTouchEnd() {
               </div>
             </div>
 
+            {resultsDots}
             {(isTargetRound ? targetSummary : endStats) && (
               <div className={summaryWrapperClass}>
                 {isTargetRound

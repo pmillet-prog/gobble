@@ -22,6 +22,8 @@ function SwapFadeInline({ value, className = "", trigger = 0 }) {
   const [displayValue, setDisplayValue] = React.useState(value);
   const [phase, setPhase] = React.useState("idle");
   const latestValueRef = React.useRef(value);
+  const previousValueRef = React.useRef(value);
+  const displayValueRef = React.useRef(value);
   const phaseRef = React.useRef("idle");
   const triggerRef = React.useRef(trigger);
   const firstRenderRef = React.useRef(true);
@@ -29,6 +31,7 @@ function SwapFadeInline({ value, className = "", trigger = 0 }) {
   const inTimerRef = React.useRef(null);
 
   React.useEffect(() => {
+    previousValueRef.current = latestValueRef.current;
     latestValueRef.current = value;
     const triggerChanged = trigger !== triggerRef.current;
     const triggerActive = triggerChanged && !!trigger;
@@ -36,6 +39,10 @@ function SwapFadeInline({ value, className = "", trigger = 0 }) {
       setDisplayValue(value);
     }
   }, [value]);
+
+  React.useEffect(() => {
+    displayValueRef.current = displayValue;
+  }, [displayValue]);
 
   React.useEffect(() => {
     phaseRef.current = phase;
@@ -57,6 +64,12 @@ function SwapFadeInline({ value, className = "", trigger = 0 }) {
     if (inTimerRef.current) {
       clearTimeout(inTimerRef.current);
       inTimerRef.current = null;
+    }
+    if (
+      previousValueRef.current !== latestValueRef.current &&
+      displayValueRef.current === latestValueRef.current
+    ) {
+      setDisplayValue(previousValueRef.current);
     }
     setPhase("out");
     outTimerRef.current = setTimeout(() => {

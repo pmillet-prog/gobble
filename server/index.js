@@ -700,6 +700,7 @@ function createRoomState(roomId, config) {
     closeFightAnnounced: false,
     finalFightScheduled: null,
     endSoonTimeout: null,
+    lastRoundQuality: null,
     nextPreparedGrid: null,
     roundCounter: 0,
     specialWarningIssuedFor: null,
@@ -1391,11 +1392,11 @@ function prefetchDefinitionForWord(rawWord) {
   }
 }
 
-function computeRoundWordLeaders(room, results) {
-  if (!room?.currentRound || !Array.isArray(results)) return null;
-  const board = room.currentRound.grid;
+function computeRoundWordLeaders(round, results) {
+  if (!round || !Array.isArray(results)) return null;
+  const board = round.grid;
   if (!board || board.length === 0) return null;
-  const scoreConfig = getSpecialScoreConfig(room.currentRound);
+  const scoreConfig = getSpecialScoreConfig(round);
 
   let bestPts = -Infinity;
   let bestWord = null;
@@ -1409,12 +1410,7 @@ function computeRoundWordLeaders(room, results) {
     for (const raw of words) {
       const scored = scoreWordOnGrid(raw, board, scoreConfig);
       if (!scored) continue;
-      const pts = computeWordScoreForRound(
-        room.currentRound,
-        scored.norm,
-        scored.path,
-        scored.pts
-      );
+      const pts = computeWordScoreForRound(round, scored.norm, scored.path, scored.pts);
       if (pts > bestPts) {
         bestPts = pts;
         bestWord = { word: raw, pts, nick: entry.nick };
@@ -1443,7 +1439,7 @@ function computeRoundWordLeaders(room, results) {
 function assignSpecialGobblesFromResults(room, results) {
   const specialType = room?.currentRound?.special?.type;
   if (specialType !== "speed" && specialType !== "monstrous") return;
-  const leaders = computeRoundWordLeaders(room, results);
+  const leaders = computeRoundWordLeaders(room.currentRound, results);
   if (!leaders) return;
 
   const gobbles = new Map();
@@ -1462,17 +1458,18 @@ function assignSpecialGobblesFromResults(room, results) {
   room.currentRound.gobbles = gobbles;
 }
 
-function queueDefinitionPrefetch(room, results, targetSummary) {
-  if (!room?.currentRound) return;
-  const specialType = room.currentRound.special?.type;
+function queueDefinitionPrefetch(room, results, targetSummary, roundOverride = null) {
+  const round = roundOverride || room?.currentRound;
+  if (!round) return;
+  const specialType = round.special?.type;
   const isTargetRound = specialType === "target_long" || specialType === "target_score";
   const words = new Set();
 
   if (isTargetRound) {
-    const target = targetSummary?.word || room.currentRound.targetWord;
+    const target = targetSummary?.word || round.targetWord;
     if (target) words.add(target);
   } else {
-    const leaders = computeRoundWordLeaders(room, results);
+    const leaders = computeRoundWordLeaders(round, results);
     if (leaders?.longestWord?.word) words.add(leaders.longestWord.word);
     if (specialType !== "speed" && leaders?.bestWord?.word) {
       words.add(leaders.bestWord.word);
@@ -1484,6 +1481,88 @@ function queueDefinitionPrefetch(room, results, targetSummary) {
     for (const word of words) {
       prefetchDefinitionForWord(word);
     }
+  }, 0);
+}
+
+function planNeedsPreparedGrid(plan) {
+  return (
+    plan?.type === "target_long" ||
+    plan?.type === "target_score" ||
+    plan?.type === "bonus_letter"
+  );
+}
+
+function shouldPrecomputePlan(plan) {
+  return !!plan;
+}
+
+async function runBreakPrecomputeSequence(
+  room,
+  endedRoundSnapshot,
+  results,
+  targetSummary,
+  nextPlan,
+  nextRoundNumber
+) {
+  if (!room || !endedRoundSnapshot) return;
+  const { grid, special } = endedRoundSnapshot;
+  if (Array.isArray(grid) && grid.length > 0) {
+    try {
+      const scoreConfig = getSpecialScoreConfigFromPlan(special);
+      const analysis = await computePool.analyzeGrid({
+        grid,
+        roundPlan: special,
+        roomConfig: room.config,
+        scoreConfig,
+      });
+      room.lastRoundQuality = analysis?.quality || null;
+    } catch (err) {
+      console.warn(
+        `[${room.id}] Failed to analyze finished round:`,
+        err?.message || err
+      );
+    }
+  }
+
+  queueDefinitionPrefetch(room, results, targetSummary, endedRoundSnapshot);
+
+  if (
+    shouldPrecomputePlan(nextPlan) &&
+    !(room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber)
+  ) {
+    try {
+      await prepareNextGrid(room, nextPlan, nextRoundNumber);
+    } catch (err) {
+      console.warn(
+        `[${room.id}] Failed to prepare next grid during break:`,
+        err?.message || err
+      );
+    }
+  }
+}
+
+function scheduleBreakPrecompute(
+  room,
+  endedRoundSnapshot,
+  results,
+  targetSummary,
+  nextPlan,
+  nextRoundNumber
+) {
+  setTimeout(() => {
+    runBreakPrecomputeSequence(
+      room,
+      endedRoundSnapshot,
+      results,
+      targetSummary,
+      nextPlan,
+      nextRoundNumber
+    ).catch((err) => {
+      console.warn(
+        `[${room?.id || "room"}] Break precompute sequence failed:`,
+        err?.message || err
+      );
+    });
   }, 0);
 }
 
@@ -1601,13 +1680,22 @@ async function startRoundForRoom(room) {
 
   const tournamentPlan = getTournamentRoundPlan(room, tournamentRound);
   const cached = room.nextPreparedGrid?.roundNumber === roundNumber ? room.nextPreparedGrid : null;
-  const prepared = cached || (await prepareNextGrid(room, tournamentPlan, roundNumber));
   if (room.nextPreparedGrid?.roundNumber === roundNumber) {
     room.nextPreparedGrid = null;
   }
-  const grid = prepared?.grid || generateGrid(room.config.gridSize);
-  const quality = prepared?.quality;
-  const planUsed = prepared?.plan || tournamentPlan;
+  let prepared = cached;
+  let planUsed = prepared?.plan || tournamentPlan;
+  if (!prepared && planNeedsPreparedGrid(planUsed)) {
+    console.warn(
+      `[${room.id}] Prepared grid missing for ${planUsed.type}; falling back to base plan.`
+    );
+    planUsed = buildBaseTournamentPlan(tournamentRound, room.config);
+  }
+  let grid = prepared?.grid || generateGrid(room.config.gridSize);
+  if (!prepared && planUsed?.type === "speed") {
+    grid = grid.map((cell) => ({ ...cell, bonus: null }));
+  }
+  const quality = prepared?.quality || null;
   const now = Date.now();
   const roundId = now;
   const roundDurationMs =
@@ -1657,10 +1745,7 @@ async function startRoundForRoom(room) {
           maxLen: quality.maxLen || 0,
           maxPts: planUsed?.fixedWordScore || quality.maxPts || 0,
         }
-      : computeBestPossible(grid);
-  if (planUsed?.type === "bonus_letter") {
-    bestPossibleStats = computeBestPossible(grid, getSpecialScoreConfigFromPlan(planUsed));
-  }
+      : { maxLen: 0, maxPts: 0 };
   if (planUsed?.fixedWordScore) {
     bestPossibleStats.maxPts = planUsed.fixedWordScore;
   }
@@ -2051,7 +2136,13 @@ function endRoundForRoom(room) {
     results.push(...targetResults);
   }
 
-  queueDefinitionPrefetch(room, results, targetSummary);
+  const endedRoundSnapshot = room.currentRound
+    ? {
+        grid: room.currentRound.grid,
+        special: room.currentRound.special,
+        targetWord: room.currentRound.targetWord || null,
+      }
+    : null;
 
   let totalRanking = [];
   if (t && tournamentId && t.id === tournamentId) {
@@ -2147,14 +2238,6 @@ function endRoundForRoom(room) {
     targetSummary,
   });
 
-  if (nextPlan?.type === "monstrous" || nextPlan?.type === "speed") {
-    const alreadyPrepared =
-      room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
-    if (!alreadyPrepared) {
-      prepareNextGrid(room, nextPlan, nextRoundNumber).catch(() => {});
-    }
-  }
-
   const nextStartAt = Date.now() + breakMs;
   io.to(room.id).emit("breakStarted", {
     roomId: room.id,
@@ -2186,13 +2269,14 @@ function endRoundForRoom(room) {
     targetSummary,
   };
 
-  setTimeout(() => {
-    const alreadyPrepared =
-      room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber;
-    if (!alreadyPrepared) {
-      prepareNextGrid(room, nextPlan, nextRoundNumber).catch(() => {});
-    }
-  }, 0);
+  scheduleBreakPrecompute(
+    room,
+    endedRoundSnapshot,
+    results,
+    targetSummary,
+    nextPlan,
+    nextRoundNumber
+  );
   setTimeout(() => {
     startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
   }, breakMs);
@@ -2546,4 +2630,3 @@ server.listen(PORT, "0.0.0.0", () => {
 rooms.forEach((room) =>
   startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e))
 );
-
