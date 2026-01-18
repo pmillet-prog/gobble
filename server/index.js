@@ -292,6 +292,7 @@ lagMonitor.unref?.();
 
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_BREAK_DURATION_MS = 45 * 1000; // 45 secondes
+const TARGET_BREAK_DURATION_MS = 30 * 1000; // 30 secondes pour manches cibles
 const MAX_CHAT_HISTORY = 50;
 const NICK_MAX_LEN = 25;
 const MIN_BIG_WORD = 50;
@@ -2259,6 +2260,10 @@ async function endRoundForRoom(room) {
   let breakKind = "between_rounds";
   let tournamentSummary = null;
   let tournamentSummaryAt = null;
+
+  if (isTargetRound) {
+    breakMs = Math.min(breakMs, TARGET_BREAK_DURATION_MS);
+  }
 
   if (t && tournamentRound === (t.totalRounds || TOURNAMENT_TOTAL_ROUNDS)) {
     breakMs = TOURNAMENT_END_TOTAL_BREAK_MS;

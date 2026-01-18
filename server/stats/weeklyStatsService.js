@@ -5,8 +5,8 @@ import { promises as fs } from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const LEGACY_DATA_DIR = path.join(__dirname, "../data");
-const DEFAULT_DATA_DIR = path.join(__dirname, "../data-runtime");
+const LEGACY_DATA_DIR = path.join(__dirname, "../data-runtime");
+const DEFAULT_DATA_DIR = path.join(__dirname, "../data");
 const DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : DEFAULT_DATA_DIR;
@@ -82,19 +82,38 @@ function scheduleSave() {
   saveTimer.unref?.();
 }
 
-async function loadFromDisk() {
-  let parsed = null;
+async function readStatsFile(filePath) {
   try {
-    const raw = await fs.readFile(DATA_PATH, "utf8");
-    parsed = JSON.parse(raw);
+    const raw = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    const stat = await fs.stat(filePath);
+    return { parsed, mtimeMs: stat.mtimeMs || 0 };
   } catch (_) {
-    try {
-      const legacyRaw = await fs.readFile(LEGACY_DATA_PATH, "utf8");
-      parsed = JSON.parse(legacyRaw);
-      if (parsed) scheduleSave();
-    } catch (_) {}
+    return null;
   }
-  if (parsed) {
+}
+
+async function loadFromDisk() {
+  const candidates = [];
+  const primary = await readStatsFile(DATA_PATH);
+  if (primary?.parsed) candidates.push({ ...primary, path: DATA_PATH });
+  const legacy = await readStatsFile(LEGACY_DATA_PATH);
+  if (legacy?.parsed) candidates.push({ ...legacy, path: LEGACY_DATA_PATH });
+
+  let selected = null;
+  if (candidates.length === 1) {
+    selected = candidates[0];
+  } else if (candidates.length > 1) {
+    selected = candidates.reduce((best, cur) => {
+      const bestWeek = Number(best.parsed?.weekStartTs) || 0;
+      const curWeek = Number(cur.parsed?.weekStartTs) || 0;
+      if (curWeek !== bestWeek) return curWeek > bestWeek ? cur : best;
+      return (cur.mtimeMs || 0) > (best.mtimeMs || 0) ? cur : best;
+    });
+  }
+
+  if (selected?.parsed) {
+    const parsed = selected.parsed;
     const fileWeek = Number(parsed.weekStartTs) || 0;
     state = {
       weekStartTs: fileWeek || getWeekStartTs(),
@@ -109,6 +128,7 @@ async function loadFromDisk() {
       vocab: reviveMap(parsed.vocab),
       mostGobbles: reviveMap(parsed.mostGobbles),
     };
+    if (selected.path !== DATA_PATH) scheduleSave();
   } else {
     resetState();
   }
