@@ -37,6 +37,7 @@ import {
   recordMostGobbles,
   recordMostWordsInGame,
   recordTotalScore,
+  recordVocabCount,
 } from "./stats/weeklyStatsService.js";
 import {
   initVocabularyService,
@@ -188,6 +189,7 @@ app.get("/api/stats/weekly", (req, res) => {
       bestRoundScore: filterBots(boards.bestRoundScore),
       bestTimeTargetLong: filterBots(boards.bestTimeTargetLong),
       bestTimeTargetScore: filterBots(boards.bestTimeTargetScore),
+      vocab: filterBots(boards.vocab),
       mostGobbles: filterBots(boards.mostGobbles),
     };
     return res.json({ ...payload, boards: filteredBoards });
@@ -2029,13 +2031,25 @@ async function endRoundForRoom(room) {
     if (!installId) continue;
     const words = Array.isArray(entry.words) ? entry.words : [];
     if (!words.length) continue;
-    vocabEntries.push({ installId, words, ts: endedAt });
+    vocabEntries.push({ installId, words, ts: endedAt, nick: entry.nick });
   }
+  let vocabSummary = {};
   if (vocabEntries.length) {
     try {
-      await recordVocabularyBatch(vocabEntries);
+      vocabSummary = await recordVocabularyBatch(vocabEntries);
     } catch (err) {
       console.warn("Vocabulary batch failed", err);
+    }
+  }
+  if (vocabEntries.length && vocabSummary && typeof vocabSummary === "object") {
+    for (const entry of vocabEntries) {
+      const summary = vocabSummary[entry.installId];
+      if (!summary) continue;
+      const playerKey = getMedalKeyForNickLookup(room, entry.nick);
+      if (!playerKey) continue;
+      if (Number.isFinite(summary.total)) {
+        recordVocabCount(playerKey, entry.nick, summary.total, endedAt);
+      }
     }
   }
 

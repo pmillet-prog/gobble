@@ -24,6 +24,7 @@ const DEFAULT_STATE = {
   bestRoundScore: new Map(),
   bestTimeTargetLong: new Map(),
   bestTimeTargetScore: new Map(),
+  vocab: new Map(),
   mostGobbles: new Map(),
 };
 
@@ -66,6 +67,7 @@ async function saveToDisk() {
     bestRoundScore: serializeMap(state.bestRoundScore),
     bestTimeTargetLong: serializeMap(state.bestTimeTargetLong),
     bestTimeTargetScore: serializeMap(state.bestTimeTargetScore),
+    vocab: serializeMap(state.vocab),
     mostGobbles: serializeMap(state.mostGobbles),
   };
   try {
@@ -104,6 +106,7 @@ async function loadFromDisk() {
       bestRoundScore: reviveMap(parsed.bestRoundScore),
       bestTimeTargetLong: reviveMap(parsed.bestTimeTargetLong),
       bestTimeTargetScore: reviveMap(parsed.bestTimeTargetScore),
+      vocab: reviveMap(parsed.vocab),
       mostGobbles: reviveMap(parsed.mostGobbles),
     };
   } else {
@@ -128,6 +131,7 @@ function resetState() {
     bestRoundScore: new Map(),
     bestTimeTargetLong: new Map(),
     bestTimeTargetScore: new Map(),
+    vocab: new Map(),
     mostGobbles: new Map(),
     weekStartTs: getWeekStartTs(),
   };
@@ -136,8 +140,10 @@ function resetState() {
 }
 
 function ensureCurrentWeek() {
-  const currentWeek = getWeekStartTs();
-  if (state.weekStartTs !== currentWeek) {
+  const now = Date.now();
+  const currentWeek = getWeekStartTs(now);
+  const nextReset = state.weekStartTs ? getNextResetTs(state.weekStartTs) : 0;
+  if (state.weekStartTs !== currentWeek || (nextReset && now >= nextReset)) {
     resetState();
   }
 }
@@ -270,6 +276,25 @@ export function recordBestTargetTime(kind, playerKey, nick, ms, word, achievedAt
   scheduleSave();
 }
 
+export function recordVocabCount(playerKey, nick, vocabCount, achievedAt = Date.now()) {
+  ensureCurrentWeek();
+  if (!playerKey || !nick || !Number.isFinite(vocabCount)) return;
+  const current = state.vocab.get(playerKey) || {
+    nick,
+    playerKey,
+    vocabCount: 0,
+    achievedAt,
+  };
+  const nextCount = Math.max(current.vocabCount || 0, vocabCount);
+  const result = {
+    ...current,
+    vocabCount: nextCount,
+    achievedAt: nextCount === current.vocabCount ? current.achievedAt : achievedAt,
+  };
+  state.vocab.set(playerKey, result);
+  scheduleSave();
+}
+
 function sortEntries(arr, key, asc = false) {
   return arr.sort((a, b) => {
     const av = a?.[key] ?? 0;
@@ -313,6 +338,7 @@ export function getWeeklyStats(topN = TOP_N) {
         "ms",
         true
       ).slice(0, topN),
+      vocab: sortEntries(Array.from(state.vocab.values()), "vocabCount", false).slice(0, topN),
       mostGobbles: sortEntries(Array.from(state.mostGobbles.values()), "gobbles", false).slice(0, topN),
     },
   };

@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, "../data");
 const DB_PATH = path.join(DATA_DIR, "gobble.db");
 
-const DEFAULT_TROPHIES = 1000;
+const DEFAULT_TROPHIES = 800;
 const K_BASE = 24;
 const MAX_DELTA = 25;
 
