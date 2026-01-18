@@ -51,6 +51,7 @@ function MobileChatWidget({
   const sheetWrapStyle = {};
   const sheetStyle = {
     ...(chatSheetStyle || {}),
+    transition: "height 220ms ease, max-height 220ms ease",
     animation: isChatClosing
       ? `chatSheetOut ${animMs}ms ease forwards`
       : `chatSheetIn ${animMs}ms ease`,

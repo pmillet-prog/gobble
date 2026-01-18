@@ -14,6 +14,7 @@ import {
   scoreWordOnGrid,
   scoreWordOnGridWithPath,
   solveGrid,
+  findBestPathForWord,
   normalizeWord,
 } from "../shared/gameLogic.js";
 import { createBotManager, BOT_ROSTER_4X4, BOT_ROSTER_5X5 } from "./bots/botManager.js";
@@ -38,11 +39,29 @@ import {
   recordTotalScore,
 } from "./stats/weeklyStatsService.js";
 import {
+  initVocabularyService,
+  recordVocabularyBatch,
+  getVocabularyCount,
+} from "./stats/vocabularyService.js";
+import {
+  initTrophyService,
+  updateTrophiesForTournament,
+  getTrophyStatus,
+  getBotRatingFromStrength,
+  K_BASE as TROPHY_K_BASE,
+} from "./stats/trophyService.js";
+import {
   getDailyMedalsForRoom,
   persistDailyMedalsForRoom,
 } from "./stats/dailyMedalsService.js";
 
 const computePool = createComputePool();
+void initVocabularyService().catch((err) =>
+  console.warn("Vocabulary service init failed", err)
+);
+void initTrophyService().catch((err) =>
+  console.warn("Trophy service init failed", err)
+);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
@@ -53,6 +72,11 @@ const BOT_NICK_SET = new Set(
   [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
     .map((bot) => bot?.nick)
     .filter(Boolean)
+);
+const BOT_STRENGTH_BY_NICK = new Map(
+  [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
+    .filter((bot) => bot?.nick)
+    .map((bot) => [bot.nick, bot.skill ?? 0])
 );
 
 const SOLVE_CACHE_MAX = 8;
@@ -326,6 +350,8 @@ const ROOM_CONFIGS = {
     minWords: MIN_WORDS_BY_SIZE[5],
   },
 };
+
+const DISABLED_ROOMS = new Set(["room-5x5"]);
 
 
 
@@ -685,6 +711,7 @@ function createRoomState(roomId, config) {
     id: roomId,
     config,
     players: new Map(), // socket.id -> { nick, token, installId }
+    nickToInstallId: new Map(), // nick -> installId
     currentRound: null, // { id, grid, endsAt, status, timers }
     submissions: new Map(), // roundId -> Map(nick -> { words:Set, score:number })
     chatMessages: [],
@@ -710,10 +737,9 @@ function createRoomState(roomId, config) {
 }
 
 const rooms = new Map(
-  Object.entries(ROOM_CONFIGS).map(([roomId, config]) => [
-    roomId,
-    createRoomState(roomId, config),
-  ])
+  Object.entries(ROOM_CONFIGS)
+    .filter(([roomId]) => !DISABLED_ROOMS.has(roomId))
+    .map(([roomId, config]) => [roomId, createRoomState(roomId, config)])
 );
 rooms.forEach((room) => hydrateDailyMedals(room));
 let botManager = null;
@@ -744,6 +770,13 @@ function isBotNick(room, nick) {
     }
   }
   return false;
+}
+
+function getBotStrengthForNick(nick) {
+  if (!nick) return 0;
+  return Number.isFinite(BOT_STRENGTH_BY_NICK.get(nick))
+    ? BOT_STRENGTH_BY_NICK.get(nick)
+    : 0;
 }
 
 function emitPlayers(room) {
@@ -1378,6 +1411,22 @@ function getMedalKeyForNickLookup(room, nick) {
   return getMedalKeyForNick(nick);
 }
 
+function getInstallIdForNick(room, nick) {
+  if (!room || !nick) return null;
+  const cached = room.nickToInstallId?.get(nick);
+  if (cached) return normalizeInstallId(cached);
+  for (const p of room.players.values()) {
+    if (p.nick === nick) {
+      const normalized = normalizeInstallId(p.installId);
+      if (normalized && room.nickToInstallId) {
+        room.nickToInstallId.set(nick, normalized);
+      }
+      return normalized;
+    }
+  }
+  return null;
+}
+
 function prefetchDefinitionForWord(rawWord) {
   const { word } = sanitizeDefineWord(rawWord);
   if (!word) return;
@@ -1506,6 +1555,7 @@ async function runBreakPrecomputeSequence(
 ) {
   if (!room || !endedRoundSnapshot) return;
   const { grid, special } = endedRoundSnapshot;
+  queueDefinitionPrefetch(room, results, targetSummary, endedRoundSnapshot);
   if (Array.isArray(grid) && grid.length > 0) {
     try {
       const scoreConfig = getSpecialScoreConfigFromPlan(special);
@@ -1523,8 +1573,6 @@ async function runBreakPrecomputeSequence(
       );
     }
   }
-
-  queueDefinitionPrefetch(room, results, targetSummary, endedRoundSnapshot);
 
   if (
     shouldPrecomputePlan(nextPlan) &&
@@ -1929,10 +1977,16 @@ async function startRoundForRoom(room) {
     }
   }, Math.max(0, roundDurationMs - 20 * 1000));
 
-  room.currentRound.timers.push(setTimeout(() => endRoundForRoom(room), roundDurationMs));
+  room.currentRound.timers.push(
+    setTimeout(() => {
+      endRoundForRoom(room).catch((err) =>
+        console.warn("endRoundForRoom failed", err)
+      );
+    }, roundDurationMs)
+  );
 }
 
-function endRoundForRoom(room) {
+async function endRoundForRoom(room) {
   if (!room || !room.currentRound || room.currentRound.status !== "running") return;
   if (room.currentRound.timers) {
     room.currentRound.timers.forEach((t) => clearTimeout(t));
@@ -1967,11 +2021,28 @@ function endRoundForRoom(room) {
     });
   }
 
+  const endedAt = room.currentRound.endsAt || Date.now();
+  const vocabEntries = [];
+  for (const entry of results) {
+    if (entry.isBot) continue;
+    const installId = getInstallIdForNick(room, entry.nick);
+    if (!installId) continue;
+    const words = Array.isArray(entry.words) ? entry.words : [];
+    if (!words.length) continue;
+    vocabEntries.push({ installId, words, ts: endedAt });
+  }
+  if (vocabEntries.length) {
+    try {
+      await recordVocabularyBatch(vocabEntries);
+    } catch (err) {
+      console.warn("Vocabulary batch failed", err);
+    }
+  }
+
   results.sort((a, b) => b.score - a.score);
   assignSpecialGobblesFromResults(room, results);
 
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
-  const endedAt = room.currentRound.endsAt || Date.now();
   const roundGobbles = room.currentRound.gobbles || new Map();
   const targetFoundAt = room.currentRound.targetFoundAt || new Map();
   const targetScoreForWeekly = 500;
@@ -2193,6 +2264,48 @@ function endRoundForRoom(room) {
       records: t.records,
     };
 
+    try {
+      const now = Date.now();
+      const participants = totalRanking
+        .map((entry, idx) => {
+          const rank = Number.isFinite(entry?.pos) ? entry.pos : idx + 1;
+          const isBot = entry?.isBot || isBotNick(room, entry?.nick);
+          if (isBot) {
+            const strength = getBotStrengthForNick(entry?.nick);
+            return {
+              nick: entry?.nick || "",
+              isBot: true,
+              botId: entry?.nick || "",
+              rank,
+              rating: getBotRatingFromStrength(strength),
+            };
+          }
+          const installId = getInstallIdForNick(room, entry?.nick);
+          if (!installId) return null;
+          return {
+            nick: entry?.nick || "",
+            installId,
+            isBot: false,
+            rank,
+          };
+        })
+        .filter(Boolean);
+      const trophyUpdates = await updateTrophiesForTournament({
+        tournamentId: t.id,
+        participants,
+        now,
+        kBase: TROPHY_K_BASE,
+      });
+      if (trophyUpdates.length) {
+        io.to(room.id).emit("trophiesUpdated", {
+          tournamentId: t.id,
+          updates: trophyUpdates,
+        });
+      }
+    } catch (err) {
+      console.warn(`[${room.id}] Trophy update failed:`, err);
+    }
+
     const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
     setTimeout(() => {
       if (room.breakState?.breakKind !== "tournament_end") return;
@@ -2353,6 +2466,7 @@ io.on("connection", (socket) => {
     cleanupExpiredMedals(room);
 
     room.players.set(socket.id, { nick: trimmed, token: token || null, installId });
+    room.nickToInstallId.set(trimmed, installId);
     socket.data.installId = installId;
     socket.data.nick = trimmed;
     socket.data.roomId = room.id;
@@ -2557,6 +2671,36 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, mutedUntil });
   });
 
+  socket.on("getVocabCount", async (cb) => {
+    const installId = normalizeInstallId(socket.data?.installId);
+    if (!installId) {
+      cb?.({ count: 0 });
+      return;
+    }
+    try {
+      const count = await getVocabularyCount(installId);
+      cb?.({ count });
+    } catch (err) {
+      console.warn("getVocabCount failed", err);
+      cb?.({ count: 0 });
+    }
+  });
+
+  socket.on("getTrophyStatus", async (cb) => {
+    const installId = normalizeInstallId(socket.data?.installId);
+    if (!installId) {
+      cb?.({ ok: false, status: null });
+      return;
+    }
+    try {
+      const status = await getTrophyStatus(installId);
+      cb?.({ ok: true, status });
+    } catch (err) {
+      console.warn("getTrophyStatus failed", err);
+      cb?.({ ok: false, status: null });
+    }
+  });
+
   socket.on("submitWord", ({ roundId, word, path }, cb) => {
     const room = getRoom(socket.roomId);
     const player = room?.players.get(socket.id);
@@ -2571,6 +2715,53 @@ io.on("connection", (socket) => {
       nick: player?.nick,
     });
     cb?.(result);
+  });
+
+  socket.on("submitWordsBatch", (payload, cb) => {
+    const clientSeq = Number.isFinite(payload?.clientSeq) ? payload.clientSeq : null;
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const room = getRoom(socket.roomId);
+    const player = room?.players.get(socket.id);
+    const roundId = payload?.roundId || null;
+
+    if (!room || !player) {
+      cb?.({ ok: false, error: "not_logged_in", clientSeq, results: [] });
+      return;
+    }
+    if (!roundId || items.length === 0) {
+      cb?.({ ok: false, error: "invalid_payload", clientSeq, results: [] });
+      return;
+    }
+
+    const results = [];
+    for (const item of items) {
+      const rawWord = typeof item?.word === "string" ? item.word : "";
+      if (!rawWord) {
+        results.push({ word: "", ok: false, error: "empty_word" });
+        continue;
+      }
+      const res = submitWordForNick(room, {
+        roundId,
+        word: rawWord,
+        path: item?.path,
+        nick: player.nick,
+      });
+      const normalized = normalizeWord(rawWord) || rawWord;
+      results.push({
+        word: normalized,
+        ...res,
+        points:
+          Number.isFinite(res?.points) || Number.isFinite(res?.wordScore)
+            ? res?.points ?? res?.wordScore
+            : undefined,
+        totalScore:
+          Number.isFinite(res?.totalScore) || Number.isFinite(res?.score)
+            ? res?.totalScore ?? res?.score
+            : undefined,
+      });
+    }
+
+    cb?.({ ok: true, clientSeq, results });
   });
 
   socket.on("disconnect", () => {

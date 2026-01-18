@@ -60,6 +60,9 @@ const GRID_ROTATE_ANIM_MS = 820;
 const DARK_ROW_TEXT = "#e5e7eb";
 const DARK_DIVIDER_COLOR = "#1f2937";
 const DARK_WORD_INACTIVE = "#e2e8f0";
+const WORD_BATCH_FLUSH_MS = 40;
+const WORD_BATCH_MAX = 5;
+const WORD_BATCH_ACK_TIMEOUT_MS = 1400;
 
 function getGridSizeForRoom(roomKey) {
   return ROOM_OPTIONS[roomKey]?.gridSize || 4;
@@ -209,10 +212,18 @@ const WEEKLY_BOARDS = [
   { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus eleve" },
   { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
   { key: "bestRoundScore", label: "Score de manche", subtitle: "Total record" },
+  { key: "vocab", label: "Vocabulaire", subtitle: "Mots uniques" },
   { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
   { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
   { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
 ];
+const WEEKLY_RECORD_LABELS = {
+  bestWord: "Meilleur mot",
+  longestWord: "Mot le plus long",
+  mostWordsInGame: "Mots par manche",
+  bestTimeTargetLong: "Temps mot long",
+  bestTimeTargetScore: "Temps meilleur mot",
+};
 
 const WEEKLY_SWIPE_THRESHOLD = 42;
 const RESULTS_SWIPE_THRESHOLD = 52;
@@ -395,6 +406,43 @@ body {
   100% {
     transform: scale(1);
   }
+}
+
+@keyframes recordRainbow {
+  0% {
+    background-position: 0% 50%;
+    filter: brightness(1);
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: brightness(1.1);
+  }
+  100% {
+    background-position: 0% 50%;
+    filter: brightness(1);
+  }
+}
+
+.record-rainbow {
+  background-image: linear-gradient(
+    90deg,
+    #ff6b6b,
+    #feca57,
+    #1dd1a1,
+    #54a0ff,
+    #a55eea,
+    #ff6b6b
+  );
+  background-size: 300% 100%;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.45);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.4);
+  animation: recordRainbow 3.2s linear infinite;
+}
+
+.record-rainbow:hover {
+  filter: brightness(1.08);
 }
 
 .weekly-arrow-hint {
@@ -999,6 +1047,44 @@ function getOrCreateInstallId() {
 const formatNumber = (value) =>
   typeof value === "number" ? value.toLocaleString("fr-FR") : null;
 
+const LEAGUE_META = {
+  Bronze: {
+    label: "Bronze",
+    light: { accent: "#b9794a", bg: "#f4e8de" },
+    dark: { accent: "#c58a59", bg: "#3b2a1d" },
+  },
+  Argent: {
+    label: "Argent",
+    light: { accent: "#9aa4b2", bg: "#eef1f4" },
+    dark: { accent: "#b4beca", bg: "#1f2630" },
+  },
+  Or: {
+    label: "Or",
+    light: { accent: "#e7b43c", bg: "#fff2cf" },
+    dark: { accent: "#f0c057", bg: "#3a2a05" },
+  },
+  Cristal: {
+    label: "Cristal",
+    light: { accent: "#47a7ff", bg: "#e0f1ff" },
+    dark: { accent: "#6cb8ff", bg: "#0b2033" },
+  },
+  Master: {
+    label: "Master",
+    light: { accent: "#8c7bff", bg: "#efeaff" },
+    dark: { accent: "#a595ff", bg: "#251b3c" },
+  },
+  "L\u00e9gende": {
+    label: "L\u00e9gende",
+    light: { accent: "#ff6a8a", bg: "#ffe4ea" },
+    dark: { accent: "#ff8fa6", bg: "#3a141e" },
+  },
+};
+
+function getLeaguePalette(league, darkMode) {
+  const meta = LEAGUE_META[league] || LEAGUE_META.Bronze;
+  return darkMode ? meta.dark : meta.light;
+}
+
 export default function App() {
   const initialRoomId = getDefaultRoomId();
   const initialGridSize = getGridSizeForRoom(initialRoomId);
@@ -1015,6 +1101,7 @@ export default function App() {
   const [highlightPath, setHighlightPath] = useState([]);
   const [dictionary, setDictionary] = useState(null);
   const [accepted, setAccepted] = useState([]);
+  const [submissionTick, setSubmissionTick] = useState(0);
   const [score, setScore] = useState(0);
   const [shakeGrid, setShakeGrid] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
@@ -1064,6 +1151,8 @@ export default function App() {
   const [resultsMetaPulse, setResultsMetaPulse] = useState(false);
   const resultsMetaPulseStartTimerRef = useRef(null);
   const resultsMetaPulseEndTimerRef = useRef(null);
+  const [finalePage, setFinalePage] = useState(0);
+  const finaleScrollRef = useRef(null);
   const [nickname, setNickname] = useState(() => {
     try {
       return localStorage.getItem("boggle_nick") || "";
@@ -1086,8 +1175,8 @@ export default function App() {
   const [weeklyStatsLoading, setWeeklyStatsLoading] = useState(false);
   const [weeklyStatsError, setWeeklyStatsError] = useState("");
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
-  const weeklyTouchRef = useRef({ startX: null });
-  const weeklyFetchRef = useRef({ last: 0 });
+  const weeklyTouchRef = useRef({ startX: null, startY: null });
+  const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
   const weeklySlideWidthRef = useRef(0);
   const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
   const [weeklyDragging, setWeeklyDragging] = useState(false);
@@ -1276,6 +1365,18 @@ export default function App() {
     word: "",
     foundBy: [],
   });
+  const [recordModal, setRecordModal] = useState({
+    open: false,
+    categoryKey: "",
+    categoryLabel: "",
+    nick: "",
+    rank: null,
+    rankTotal: null,
+    word: "",
+    timeMs: null,
+    wordsCount: null,
+    records: [],
+  });
   const [definitionBlink, setDefinitionBlink] = useState(false);
   const [chatVisibleLimit, setChatVisibleLimit] = useState(
     DEFAULT_CHAT_VISIBLE_LINES
@@ -1283,14 +1384,33 @@ export default function App() {
   const [chatFullVisibleLines, setChatFullVisibleLines] = useState(
     DEFAULT_CHAT_FULL_VISIBLE_LINES
   );
+  const [vocabCount, setVocabCount] = useState(null);
+  const [vocabRoundDelta, setVocabRoundDelta] = useState(null);
+  const [vocabLoading, setVocabLoading] = useState(false);
+  const [vocabUpdatedAt, setVocabUpdatedAt] = useState(null);
+  const [trophyStatus, setTrophyStatus] = useState(null);
+  const [trophyHistory, setTrophyHistory] = useState([]);
+  const [trophyLoading, setTrophyLoading] = useState(false);
+  const [statsTab, setStatsTab] = useState("weekly");
 
   const currentTilesRef = useRef([]);
   const acceptedRef = useRef([]);
   const acceptedScoresRef = useRef(new Map());
+  const submissionStatusRef = useRef(new Map());
+  const pendingWordsRef = useRef(new Set());
+  const pendingQueueRef = useRef([]);
+  const inFlightBatchesRef = useRef(new Map());
+  const batchTimerRef = useRef(null);
+  const batchSeqRef = useRef(1);
+  const batchUnsupportedRef = useRef(false);
+  const lastRoundWindowRef = useRef({ startAt: null, endAt: null });
+  const vocabBaselineRef = useRef(null);
+  const vocabBaselineRoundRef = useRef(null);
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
   const chatDesktopListRef = useRef(null);
+  const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
   const wordHistoryRef = useRef([]);
   const wordHistoryIndexRef = useRef(-1);
@@ -1589,18 +1709,15 @@ export default function App() {
     const baseHeight =
       chatBodyLockHeightRef.current ||
       Math.round(window.innerHeight || vv?.height || 0);
-    setChatViewportHeight((prev) =>
-      prev > 0 ? Math.max(prev, baseHeight) : baseHeight
-    );
+    setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
 
     const updateInset = () => {
+      if (suppressChatResizeRef.current) return;
       const nextHeight =
         chatBodyLockHeightRef.current ||
         Math.round(window.innerHeight || vv?.height || 0);
       if (nextHeight > 0) {
-        setChatViewportHeight((prev) =>
-          prev > 0 ? Math.max(prev, nextHeight) : nextHeight
-        );
+        setChatViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
       }
       const nextInset =
         vv && Number.isFinite(vv.height)
@@ -1615,6 +1732,8 @@ export default function App() {
           : 0;
       if (nextInset > 0) {
         lastKeyboardInsetRef.current = nextInset;
+      } else {
+        lastKeyboardInsetRef.current = 0;
       }
       setChatKeyboardInsetPx((prev) => (prev === nextInset ? prev : nextInset));
     };
@@ -1633,6 +1752,21 @@ export default function App() {
       window.removeEventListener("focusout", updateInset, true);
     };
   }, [isChatOpenMobile]);
+
+  useEffect(() => {
+    if (!isMobileLayout || !isChatOpenMobile || isChatClosing) return;
+    if (activeArea !== "chat") return;
+    const t = window.setTimeout(() => {
+      const el = chatInputRef.current;
+      if (!el) return;
+      try {
+        el.focus({ preventScroll: true });
+      } catch (_) {
+        el.focus();
+      }
+    }, 40);
+    return () => window.clearTimeout(t);
+  }, [phase, isMobileLayout, isChatOpenMobile, isChatClosing, activeArea]);
 
   useEffect(() => {
     if (!isChatRulesOpen) return;
@@ -3194,6 +3328,15 @@ function playTileStepSound(step) {
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
+      setVocabRoundDelta(null);
+      const vocabRoundKey = incomingRoundId || Date.now();
+      vocabBaselineRoundRef.current = vocabRoundKey;
+      void requestVocabCount().then((count) => {
+        if (vocabBaselineRoundRef.current !== vocabRoundKey) return;
+        if (Number.isFinite(count)) {
+          vocabBaselineRef.current = count;
+        }
+      });
       startGameFromServerRef.current?.(
         grid,
         incomingRoundId,
@@ -3254,6 +3397,18 @@ function playTileStepSound(step) {
       setTournamentSummaryAt(summaryAt || null);
       setTargetSummary(targetSummaryPayload || null);
       setResultsRankingMode("round");
+      void requestVocabCount().then((count) => {
+        if (!Number.isFinite(count)) {
+          setVocabRoundDelta(null);
+          return;
+        }
+        const base = vocabBaselineRef.current;
+        if (Number.isFinite(base)) {
+          setVocabRoundDelta(Math.max(0, count - base));
+        } else {
+          setVocabRoundDelta(null);
+        }
+      });
 
       if (Array.isArray(results)) {
         const selfScore = results.find((r) => r.nick === nicknameRef.current.trim())?.score;
@@ -3495,6 +3650,39 @@ function playTileStepSound(step) {
       }
     }
 
+    function onTrophiesUpdated(payload) {
+      const updates = Array.isArray(payload?.updates) ? payload.updates : [];
+      if (!updates.length) return;
+      const selfId = installId;
+      if (!selfId) return;
+      const entry = updates.find((u) => u?.installId === selfId);
+      if (!entry) return;
+      setTrophyStatus((prev) => ({
+        ...(prev || {}),
+        trophies: entry.newTrophies,
+        league: entry.league,
+        progress: entry.progress || prev?.progress,
+        shieldCount: entry.shieldCount ?? prev?.shieldCount ?? 0,
+        shieldFloor: entry.shieldFloor ?? prev?.shieldFloor ?? 0,
+        updatedAt: entry.updatedAt || Date.now(),
+        lastDelta: entry.delta,
+        lastTournamentId: payload?.tournamentId || null,
+      }));
+      setTrophyHistory((prev) => {
+        const next = [
+          {
+            ts: entry.updatedAt || Date.now(),
+            delta: entry.delta,
+            trophies: entry.newTrophies,
+            league: entry.league,
+            tournamentId: payload?.tournamentId || null,
+          },
+          ...(prev || []),
+        ];
+        return next.slice(0, 10);
+      });
+    }
+
     socket.on("roundStarted", onRoundStarted);
     socket.on("roundEnded", onRoundEnded);
     socket.on("breakStarted", onBreakStarted);
@@ -3507,6 +3695,7 @@ function playTileStepSound(step) {
     socket.on("medalsUpdate", onMedalsUpdate);
     socket.on("specialHint", onSpecialHint);
     socket.on("specialSolved", onSpecialSolved);
+    socket.on("trophiesUpdated", onTrophiesUpdated);
     socket.on("connect_error", onConnectError);
     socket.on("disconnect", onDisconnect);
 
@@ -3523,6 +3712,7 @@ function playTileStepSound(step) {
       socket.off("medalsUpdate", onMedalsUpdate);
       socket.off("specialHint", onSpecialHint);
       socket.off("specialSolved", onSpecialSolved);
+      socket.off("trophiesUpdated", onTrophiesUpdated);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
     };
@@ -3603,8 +3793,6 @@ function playTileStepSound(step) {
     if (specialRound?.type === "target_long") return;
     if (specialRound?.type === "target_score") return;
     if (allWords.length > 0) return;
-    if (specialRound?.type === "monstrous" && !showAllWords) return;
-    if (upcomingSpecial?.type === "monstrous" && !showAllWords) return;
 
     scheduleAllWordsCompute(board, {
       updateBestRefs: true,
@@ -3783,6 +3971,8 @@ function playTileStepSound(step) {
         return Number(entry.len) || 0;
       case "bestRoundScore":
         return Number(entry.pts) || 0;
+      case "vocab":
+        return Number(entry.vocabCount) || 0;
       case "bestTimeTargetLong":
       case "bestTimeTargetScore":
         return Number.isFinite(entry.ms) ? Number(entry.ms) : null;
@@ -3803,6 +3993,9 @@ function playTileStepSound(step) {
       if (!key) continue;
       const current = byPlayer.get(key);
       const value = getWeeklyValue(boardKey, entry);
+      if (boardKey === "totalScore" && (!Number.isFinite(value) || value <= 0)) {
+        continue;
+      }
       const timeBoard =
         boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
       const achieved = Number.isFinite(entry?.achievedAt) ? entry.achievedAt : Infinity;
@@ -3858,18 +4051,28 @@ function playTileStepSound(step) {
     return deduped.slice(0, limit);
   }
 
-  function fetchWeeklyStats(force = false) {
+  function fetchWeeklyStats(force = false, topN = null) {
     const now = Date.now();
+    const requestedTopN = Number.isFinite(topN)
+      ? Math.min(200, Math.max(1, Math.round(topN)))
+      : null;
     if (!force && weeklyStatsLoading) return;
-    if (!force && weeklyFetchRef.current.last && now - weeklyFetchRef.current.last < 4000) {
+    if (
+      !force &&
+      weeklyFetchRef.current.last &&
+      now - weeklyFetchRef.current.last < 4000 &&
+      weeklyFetchRef.current.lastTopN === requestedTopN
+    ) {
       return;
     }
     weeklyFetchRef.current.last = now;
+    weeklyFetchRef.current.lastTopN = requestedTopN;
     setWeeklyStatsLoading(true);
     setWeeklyStatsError("");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6500);
-    fetch("/api/stats/weekly", {
+    const query = requestedTopN ? `?topN=${requestedTopN}` : "";
+    fetch(`/api/stats/weekly${query}`, {
       signal: controller.signal,
       cache: "no-store",
       headers: { Accept: "application/json" },
@@ -3901,15 +4104,64 @@ function playTileStepSound(step) {
       });
   }
 
+  function requestVocabCount() {
+    if (!socket.connected) return Promise.resolve(null);
+    setVocabLoading(true);
+    return new Promise((resolve) => {
+      socket.emit("getVocabCount", (res) => {
+        const count = Number.isFinite(res?.count) ? res.count : null;
+        if (Number.isFinite(count)) {
+          setVocabCount(count);
+          setVocabUpdatedAt(Date.now());
+        }
+        setVocabLoading(false);
+        resolve(count);
+      });
+    });
+  }
+
+  function requestTrophyStatus() {
+    if (!socket.connected) return Promise.resolve(null);
+    setTrophyLoading(true);
+    return new Promise((resolve) => {
+      socket.emit("getTrophyStatus", (res) => {
+        const status = res?.status || null;
+        if (status && typeof status === "object") {
+          setTrophyStatus(status);
+          if (Array.isArray(status.history)) {
+            setTrophyHistory(status.history.slice(0, 10));
+          }
+        }
+        setTrophyLoading(false);
+        resolve(status);
+      });
+    });
+  }
+
   function openWeeklyStatsOverlay() {
     setWeeklyActiveIndex((idx) => (idx >= 0 && idx < WEEKLY_BOARDS.length ? idx : 0));
     setIsWeeklyOpen(true);
+    setStatsTab("weekly");
     fetchWeeklyStats(true);
+    void requestVocabCount();
+    void requestTrophyStatus();
   }
 
   function closeWeeklyStatsOverlay() {
     setIsWeeklyOpen(false);
   }
+
+  useEffect(() => {
+    if (phase !== "results") return;
+    const playersCount = Array.isArray(players) ? players.length : 0;
+    const desiredTopN = Math.min(200, Math.max(50, playersCount));
+    const currentTopN = Number.isFinite(weeklyStats?.topN) ? weeklyStats.topN : 0;
+    if (!weeklyStats || currentTopN < desiredTopN) {
+      fetchWeeklyStats(true, desiredTopN);
+      return;
+    }
+    fetchWeeklyStats();
+  }, [phase, players.length, weeklyStats?.topN, !!weeklyStats]);
 
   function buildPlayersSnapshot(list) {
     const safe = Array.isArray(list) ? list : [];
@@ -4030,8 +4282,12 @@ function playTileStepSound(step) {
   }
 
   function handleWeeklyTouchStart(e) {
-    const x = e?.touches?.[0]?.clientX ?? null;
+    if (statsTab !== "weekly") return;
+    const touch = e?.touches?.[0];
+    const x = touch?.clientX ?? null;
+    const y = touch?.clientY ?? null;
     weeklyTouchRef.current.startX = x;
+    weeklyTouchRef.current.startY = y;
     weeklySlideWidthRef.current =
       (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
     triggerWeeklyArrowHint();
@@ -4040,29 +4296,47 @@ function playTileStepSound(step) {
   }
 
   function handleWeeklyTouchMove(e) {
-    const start = weeklyTouchRef.current.startX;
-    if (start == null) return;
-    const current = e?.touches?.[0]?.clientX ?? null;
-    if (current == null) return;
-    const delta = current - start;
-    if (!weeklyDragging && Math.abs(delta) > 6) {
+    if (statsTab !== "weekly") return;
+    const startX = weeklyTouchRef.current.startX;
+    const startY = weeklyTouchRef.current.startY;
+    if (startX == null || startY == null) return;
+    const touch = e?.touches?.[0];
+    const currentX = touch?.clientX ?? null;
+    const currentY = touch?.clientY ?? null;
+    if (currentX == null || currentY == null) return;
+    const deltaX = currentX - startX;
+    const deltaY = currentY - startY;
+    if (!weeklyDragging) {
+      if (Math.abs(deltaX) < 8) return;
+      if (Math.abs(deltaX) < Math.abs(deltaY)) {
+        weeklyTouchRef.current.startX = null;
+        weeklyTouchRef.current.startY = null;
+        setWeeklyDragging(false);
+        setWeeklyDragOffset(0);
+        return;
+      }
+      setWeeklyDragging(true);
+    }
+    if (!weeklyDragging && Math.abs(deltaX) > 6) {
       triggerWeeklyArrowHint();
     }
-    setWeeklyDragOffset(delta);
-    setWeeklyDragging(true);
+    setWeeklyDragOffset(deltaX);
   }
 
   function handleWeeklyTouchEnd(e) {
-    const start = weeklyTouchRef.current.startX;
+    if (statsTab !== "weekly") return;
+    const startX = weeklyTouchRef.current.startX;
+    const startY = weeklyTouchRef.current.startY;
     weeklyTouchRef.current.startX = null;
+    weeklyTouchRef.current.startY = null;
     const width = weeklySlideWidthRef.current || window.innerWidth || 1;
     const endX = e?.changedTouches?.[0]?.clientX ?? null;
     setWeeklyDragging(false);
-    if (start == null || endX == null) {
+    if (startX == null || startY == null || endX == null) {
       setWeeklyDragOffset(0);
       return;
     }
-    const delta = endX - start;
+    const delta = endX - startX;
     const threshold = Math.max(WEEKLY_SWIPE_THRESHOLD, width * 0.1);
     if (Math.abs(delta) >= threshold) {
       shiftWeeklyBoard(delta < 0 ? 1 : -1);
@@ -4071,7 +4345,9 @@ function playTileStepSound(step) {
   }
 
   function getResultsPages() {
-    return isTargetRound ? ["round", "total"] : ["round", "total", "found", "all"];
+    return isTargetRound
+      ? ["round", "total", "vocab"]
+      : ["round", "total", "vocab", "found", "all"];
   }
 
   function setResultsPageInstant(nextPage) {
@@ -4282,6 +4558,7 @@ function playTileStepSound(step) {
         setIsConnecting(false);
         setLoginError("");
         setConnectionError("");
+        void requestTrophyStatus();
       });
     };
 
@@ -4342,6 +4619,26 @@ function playTileStepSound(step) {
   }, []);
 
   useEffect(() => {
+    const onConnect = () => {
+      const queue = pendingQueueRef.current;
+      const queued = new Set(queue);
+      submissionStatusRef.current.forEach((meta, word) => {
+        if (meta?.status !== "pending") return;
+        if (queued.has(word)) return;
+        queued.add(word);
+        queue.push(word);
+      });
+      if (queue.length) {
+        scheduleBatchFlush({ immediate: true });
+      }
+    };
+    socket.on("connect", onConnect);
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchWeeklyStats(true);
     const onConnect = () => fetchWeeklyStats(true);
     socket.on("connect", onConnect);
@@ -4365,7 +4662,7 @@ function playTileStepSound(step) {
   }, [isLoggedIn, roomId]);
 
   useEffect(() => {
-    if (!isWeeklyOpen) {
+    if (!isWeeklyOpen || statsTab !== "weekly") {
       if (weeklyArrowTimerRef.current) {
         clearTimeout(weeklyArrowTimerRef.current);
         weeklyArrowTimerRef.current = null;
@@ -4388,7 +4685,7 @@ function playTileStepSound(step) {
       weeklyArrowSeenRef.current = true;
     }
     triggerWeeklyArrowHint({ blink: firstOpen, showForMs: firstOpen ? 2600 : 1600 });
-  }, [isWeeklyOpen]);
+  }, [isWeeklyOpen, statsTab]);
 
   useEffect(() => {
     if (!isWeeklyOpen) return;
@@ -4400,6 +4697,13 @@ function playTileStepSound(step) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isWeeklyOpen]);
+
+  useEffect(() => {
+    if (!isWeeklyOpen) return;
+    if (statsTab === "season") {
+      void requestTrophyStatus();
+    }
+  }, [isWeeklyOpen, statsTab]);
 
   useEffect(() => {
     if (!isPlayersOverlayOpen) return;
@@ -4547,6 +4851,7 @@ function playTileStepSound(step) {
         setIsConnecting(false);
         setServerStatus("waiting");
         setScore(0);
+        void requestTrophyStatus();
         try {
           localStorage.setItem("boggle_nick", nick);
         } catch (_) {}
@@ -4618,6 +4923,7 @@ function playTileStepSound(step) {
     setAccepted([]);
     acceptedScoresRef.current = new Map();
     acceptedRef.current = [];
+    resetSubmissionQueue();
     setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
@@ -4665,6 +4971,12 @@ function playTileStepSound(step) {
     setTick(Math.min(maxDuration, initialTick));
     setRoundId(newRoundId || null);
     setServerEndsAt(endsAt || null);
+    const roundEndAt = Number.isFinite(endsAt) ? endsAt : null;
+    const roundStartAt =
+      Number.isFinite(endsAt) && Number.isFinite(durationMs)
+        ? endsAt - Math.max(1, Math.round(durationMs))
+        : null;
+    lastRoundWindowRef.current = { startAt: roundStartAt, endAt: roundEndAt };
     setServerRoundDurationMs(
       Number.isFinite(durationMs) ? Math.max(1, Math.round(durationMs)) : null
     );
@@ -4791,6 +5103,7 @@ function playTileStepSound(step) {
     setAccepted([]);
     acceptedScoresRef.current = new Map();
     acceptedRef.current = [];
+    resetSubmissionQueue();
     setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(null);
@@ -4971,6 +5284,7 @@ function playTileStepSound(step) {
       clearTimeout(chatCloseTimerRef.current);
       chatCloseTimerRef.current = null;
     }
+    suppressChatResizeRef.current = false;
     setIsChatClosing(false);
     setMobileChatUnreadCount(0);
     captureChatViewportBaseline();
@@ -4993,6 +5307,7 @@ function playTileStepSound(step) {
     if (chatCloseTimerRef.current) {
       clearTimeout(chatCloseTimerRef.current);
     }
+    suppressChatResizeRef.current = true;
     setIsChatClosing(true);
     if (chatInputRef.current) {
       try {
@@ -5004,6 +5319,8 @@ function playTileStepSound(step) {
     chatCloseTimerRef.current = window.setTimeout(() => {
       setIsChatOpenMobile(false);
       setIsChatClosing(false);
+      suppressChatResizeRef.current = false;
+      lastKeyboardInsetRef.current = 0;
       chatCloseTimerRef.current = null;
     }, CHAT_DRAWER_ANIM_MS);
   }
@@ -5198,6 +5515,28 @@ function playTileStepSound(step) {
 
   function closeDefinition() {
     setDefinitionModal((prev) => ({ ...prev, open: false }));
+  }
+
+  function openRecordModal(record) {
+    const recordList = Array.isArray(record) ? record : record ? [record] : [];
+    if (!recordList.length) return;
+    const primary = recordList[0] || {};
+    setRecordModal({
+      open: true,
+      categoryKey: primary.categoryKey || "",
+      categoryLabel: primary.categoryLabel || "",
+      nick: primary.nick || "",
+      rank: primary.rank ?? null,
+      rankTotal: primary.rankTotal ?? null,
+      word: primary.word || "",
+      timeMs: Number.isFinite(primary.timeMs) ? primary.timeMs : null,
+      wordsCount: Number.isFinite(primary.wordsCount) ? primary.wordsCount : null,
+      records: recordList,
+    });
+  }
+
+  function closeRecordModal() {
+    setRecordModal((prev) => ({ ...prev, open: false }));
   }
 
   /**
@@ -5615,6 +5954,300 @@ function handleTouchEnd() {
   submit();
 }
 
+  function touchSubmissionState() {
+    setSubmissionTick((tick) => tick + 1);
+  }
+
+  function resetSubmissionQueue() {
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+    }
+    for (const entry of inFlightBatchesRef.current.values()) {
+      if (entry?.timeoutId) clearTimeout(entry.timeoutId);
+    }
+    inFlightBatchesRef.current.clear();
+    pendingQueueRef.current = [];
+    pendingWordsRef.current.clear();
+    submissionStatusRef.current.clear();
+    touchSubmissionState();
+  }
+
+  function markRejectedWord(word, reason = "") {
+    if (!word) return;
+    const meta = submissionStatusRef.current.get(word) || {};
+    submissionStatusRef.current.set(word, {
+      ...meta,
+      status: "rejected",
+      reason,
+      ts: meta.ts || Date.now(),
+    });
+    pendingWordsRef.current.delete(word);
+    touchSubmissionState();
+    const cleanupDelay = 2500;
+    setTimeout(() => {
+      const current = submissionStatusRef.current.get(word);
+      if (current?.status === "rejected") {
+        submissionStatusRef.current.delete(word);
+        touchSubmissionState();
+      }
+    }, cleanupDelay);
+  }
+
+  function applyServerWordResult(word, result) {
+    if (!word) return;
+    const meta = submissionStatusRef.current.get(word) || {};
+    const reason = result?.reason || result?.error || "";
+    const acceptedByServer = !!result?.ok || reason === "already_played";
+    if (!acceptedByServer) {
+      if (reason === "not_target") {
+        setStatusMessageWithHold("Pas le mot cible", 1400);
+      } else if (reason === "already_found") {
+        setStatusMessageWithHold("Deja trouve", 1200);
+      }
+      markRejectedWord(word, reason || "error");
+      return;
+    }
+
+    submissionStatusRef.current.delete(word);
+    pendingWordsRef.current.delete(word);
+    touchSubmissionState();
+
+    const pts =
+      Number.isFinite(result?.points)
+        ? result.points
+        : Number.isFinite(result?.wordScore)
+        ? result.wordScore
+        : meta.optimisticPts;
+    const totalScore =
+      Number.isFinite(result?.totalScore)
+        ? result.totalScore
+        : Number.isFinite(result?.score)
+        ? result.score
+        : null;
+    const safePts = Number.isFinite(pts) ? pts : 0;
+    const display = meta.display || word.toUpperCase();
+    const path =
+      Array.isArray(meta.path) && meta.path.length > 0
+        ? meta.path
+        : findBestPathForWord(board, word, specialScoreConfig);
+
+    const isTargetRoundNow =
+      specialRound?.type === "target_long" || specialRound?.type === "target_score";
+
+    const alreadyAccepted = acceptedRef.current.includes(word);
+    if (Number.isFinite(totalScore)) {
+      setScore(totalScore);
+    } else if (!alreadyAccepted && Number.isFinite(safePts)) {
+      setScore((s) => s + safePts);
+    }
+
+    if (Number.isFinite(pts)) {
+      acceptedScoresRef.current.set(word, pts);
+    }
+    pushWordHistory(word);
+
+    if (!alreadyAccepted) {
+      const wordBonuses = path ? summarizeBonuses(path, board) : null;
+      setLastWords((prev) => {
+        const now = Date.now();
+        const feedLabel = isTargetRoundNow ? "gobble" : null;
+        const next = [
+          {
+            id: now,
+            ts: now,
+            display,
+            pts: safePts,
+            label: feedLabel,
+            bonuses: wordBonuses,
+          },
+          ...prev,
+        ];
+        return next.slice(0, 24);
+      });
+
+      const wordLen = normalizeWord(display || word || "").length || 3;
+      if (isTargetRoundNow) {
+        setFoundTargetThisRound(true);
+        setFoundTargetWord(word);
+        triggerConfettiBurst("target");
+        showToast("Trouv\u00e9 !");
+      } else {
+        maybeAnnounceBestWord(nickname.trim() || "Moi", display || word, safePts);
+        playScoreSound(safePts);
+        showToast(`+${safePts} pts`);
+      }
+
+      const isSpeedRound = specialRound?.type === "speed";
+      const isBonusLetterRound = specialRound?.type === "bonus_letter";
+      const maxPossiblePts = bestGridMaxRef.current || 0;
+      const maxPossibleLen = bestGridMaxLenRef.current || 0;
+      const allowScoreGobble = !isSpeedRound;
+      const allowLenGobble = true;
+      const isGobbleNow =
+        (allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts) ||
+        (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
+      const allowLocalGobble = !isBonusLetterRound;
+
+      if (!isTargetRoundNow) {
+        if (allowLocalGobble && isGobbleNow) {
+          playGobbleVoice();
+          triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
+          triggerConfettiBurst("gobble");
+        } else if (safePts >= 50) {
+          triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
+        } else if (safePts >= 35) {
+          triggerPraiseFlash("FABULEUX !", { kind: "purple" });
+        } else if (safePts >= 20) {
+          triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
+        }
+        if (safePts >= BIG_SCORE_THRESHOLD) {
+          triggerBigScoreFlash(safePts);
+        }
+      }
+    }
+
+    setAccepted((prev) => {
+      if (prev.includes(word)) {
+        acceptedRef.current = prev;
+        return prev;
+      }
+      const updated = [...prev, word];
+      acceptedRef.current = updated;
+      return updated;
+    });
+
+    if (!alreadyAccepted) {
+      setStatusMessageWithHold(isTargetRoundNow ? "Trouv\u00e9 !" : `+${safePts} pts`);
+    }
+  }
+
+  function sendFallbackWords(words, roundIdValue) {
+    if (!Array.isArray(words) || words.length === 0) return;
+    if (!socket.connected || !isLoggedIn || !roundIdValue) return;
+    for (const word of words) {
+      if (!word) continue;
+      const meta = submissionStatusRef.current.get(word) || {};
+      const path =
+        Array.isArray(meta.path) && meta.path.length > 0
+          ? meta.path
+          : findBestPathForWord(board, word, specialScoreConfig);
+      if (!path || path.length === 0) {
+        applyServerWordResult(word, { ok: false, reason: "invalid_word" });
+        continue;
+      }
+      socket.emit("submitWord", { roundId: roundIdValue, word, path }, (res) => {
+        applyServerWordResult(word, res);
+      });
+    }
+  }
+
+  function handleBatchTimeout(clientSeq) {
+    const inFlight = inFlightBatchesRef.current.get(clientSeq);
+    if (!inFlight) return;
+    inFlightBatchesRef.current.delete(clientSeq);
+    const pending = inFlight.words.filter(
+      (word) => submissionStatusRef.current.get(word)?.status === "pending"
+    );
+    if (!pending.length) return;
+    batchUnsupportedRef.current = true;
+    sendFallbackWords(pending, roundIdRef.current);
+  }
+
+  function handleBatchAck(clientSeq, res) {
+    const inFlight = inFlightBatchesRef.current.get(clientSeq);
+    if (!inFlight) return;
+    if (inFlight.timeoutId) clearTimeout(inFlight.timeoutId);
+    inFlightBatchesRef.current.delete(clientSeq);
+    const results = Array.isArray(res?.results) ? res.results : [];
+    const byWord = new Map();
+    results.forEach((entry) => {
+      const norm = normalizeWord(entry?.word || "");
+      if (norm) byWord.set(norm, entry);
+    });
+    inFlight.words.forEach((word) => {
+      const result = byWord.get(word) || { word, ok: false, reason: "no_response" };
+      applyServerWordResult(word, result);
+    });
+  }
+
+  function flushPendingBatch() {
+    if (!socket.connected || !isLoggedIn) return;
+    const activeRoundId = roundIdRef.current;
+    if (!activeRoundId) return;
+    const queue = pendingQueueRef.current;
+    if (!Array.isArray(queue) || queue.length === 0) return;
+
+    const unique = [];
+    const seen = new Set();
+    for (const word of queue) {
+      if (!word || seen.has(word)) continue;
+      seen.add(word);
+      unique.push(word);
+    }
+    pendingQueueRef.current = [];
+    if (unique.length === 0) return;
+
+    if (batchUnsupportedRef.current) {
+      sendFallbackWords(unique, activeRoundId);
+      return;
+    }
+
+    const clientSeq = batchSeqRef.current++;
+    const timeoutId = setTimeout(
+      () => handleBatchTimeout(clientSeq),
+      WORD_BATCH_ACK_TIMEOUT_MS
+    );
+    inFlightBatchesRef.current.set(clientSeq, { words: unique, timeoutId });
+
+    const items = unique.map((word) => {
+      const meta = submissionStatusRef.current.get(word) || {};
+      const path =
+        Array.isArray(meta.path) && meta.path.length > 0
+          ? meta.path
+          : findBestPathForWord(board, word, specialScoreConfig);
+      return { word, path };
+    });
+    const payload = {
+      roundId: activeRoundId,
+      items,
+      clientSeq,
+    };
+    socket.emit("submitWordsBatch", payload, (res) => {
+      handleBatchAck(clientSeq, res);
+    });
+  }
+
+  function scheduleBatchFlush({ immediate = false } = {}) {
+    if (immediate || pendingQueueRef.current.length >= WORD_BATCH_MAX) {
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
+      flushPendingBatch();
+      return;
+    }
+    if (batchTimerRef.current) return;
+    batchTimerRef.current = setTimeout(() => {
+      batchTimerRef.current = null;
+      flushPendingBatch();
+    }, WORD_BATCH_FLUSH_MS);
+  }
+
+  function enqueuePendingWord(word, meta = {}) {
+    if (!word) return;
+    if (pendingWordsRef.current.has(word)) return;
+    pendingWordsRef.current.add(word);
+    submissionStatusRef.current.set(word, {
+      status: "pending",
+      ts: Date.now(),
+      ...meta,
+    });
+    pendingQueueRef.current.push(word);
+    touchSubmissionState();
+    scheduleBatchFlush();
+  }
+
 
 
 
@@ -5633,6 +6266,10 @@ function handleTouchEnd() {
     if (!raw || raw.length < 3) return error("Mot trop court");
     if (!dictionary || !dictionary.has(raw)) return error("Absent du dico");
     if (acceptedRef.current.includes(raw)) return error("D\u00e9j\u00e0 trouv\u00e9");
+    if (pendingWordsRef.current.has(raw)) return error("D\u00e9j\u00e0 envoy\u00e9");
+    if (submissionStatusRef.current.get(raw)?.status === "rejected") {
+      return error("D\u00e9j\u00e0 tent\u00e9");
+    }
 
     let path;
     const touchContext =
@@ -5648,100 +6285,22 @@ function handleTouchEnd() {
       setHighlightPath(path);
     }
 
-    // Mode en ligne : on délègue la validation / le score au serveur
+    // Mode en ligne : envoi optimiste + batch
     if (roundId && socket.connected && isLoggedIn) {
-      socket.emit("submitWord", { roundId, word: raw, path }, (res) => {
-        if (!res || !res.ok) {
-          if (res?.error === "invalid_word") {
-            return error("Mot refusé par le serveur");
-          }
-          if (res?.error === "already_played") {
-            return error("Mot d\u00e9j\u00e0 jou\u00e9 (serveur)");
-          }
-          if (res?.error === "not_target") {
-            return error("Ce n'est pas le bon mot");
-          }
-          if (res?.error === "already_found") {
-            return error("Déjà trouvé !");
-          }
-          return error("Erreur serveur");
-        }
+      const isTargetRoundNow =
+        specialRound?.type === "target_long" || specialRound?.type === "target_score";
+      const optimisticPts = isTargetRoundNow
+        ? 0
+        : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
+        ? specialRound.fixedWordScore
+        : computeScore(raw, path, board, specialScoreConfig);
 
-        const pts = res.wordScore;
-        const isTargetRoundNow =
-          specialRound?.type === "target_long" || specialRound?.type === "target_score";
-        if (isTargetRoundNow) {
-          setFoundTargetThisRound(true);
-          setFoundTargetWord(raw);
-          triggerConfettiBurst("target");
-        }
-
-        setScore(res.score);
-        acceptedScoresRef.current.set(raw, pts);
-        pushWordHistory(raw);
-
-        const wordBonuses = summarizeBonuses(path, board);
-        setLastWords((prev) => {
-          const displayStr = display || raw.toUpperCase();
-          const now = Date.now();
-          const feedLabel = isTargetRoundNow ? "gobble" : null;
-          const next = [
-            { id: now, ts: now, display: displayStr, pts, label: feedLabel, bonuses: wordBonuses },
-            ...prev,
-          ];
-          return next.slice(0, 24);
-        });
-
-        const wordLen = normalizeWord(display || raw || "").length || 3;
-
- if (!isTargetRoundNow) {
-   maybeAnnounceBestWord(nickname.trim() || "Moi", display || raw, pts);
-   playScoreSound(pts);
- }
- const isSpeedRound = specialRound?.type === "speed";
- const isBonusLetterRound = specialRound?.type === "bonus_letter";
- const maxPossiblePts = bestGridMaxRef.current || 0;
- const maxPossibleLen = bestGridMaxLenRef.current || 0;
- const allowScoreGobble = !isSpeedRound;
- const allowLenGobble = true;
- const isGobbleNow =
-   (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
-   (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
- const allowLocalGobble = !isBonusLetterRound;
-
-  if (!isTargetRoundNow) {
-   if (allowLocalGobble && isGobbleNow) {
-     playGobbleVoice();
-     triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
-     triggerConfettiBurst("gobble");
-   } else if (pts >= 50) {
-     triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
-   } else if (pts >= 35) {
-     triggerPraiseFlash("FABULEUX !", { kind: "purple" });
-   } else if (pts >= 20) {
-     triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
-   }
-   if (pts >= BIG_SCORE_THRESHOLD) {
-     triggerBigScoreFlash(pts);
-   }
- }
- if (isTargetRoundNow) {
-   showToast("Trouvé !");
- } else {
-   showToast(`+${pts} pts`);
- }
-
-
-        setAccepted((prev) => {
-          const updated = [...prev, raw];
-          acceptedRef.current = updated;
-          return updated;
-        });
-
-        setStatusMessageWithHold(isTargetRoundNow ? "Trouvé !" : `+${pts} pts`);
-        clearSelection();
+      enqueuePendingWord(raw, {
+        display: display || raw.toUpperCase(),
+        path,
+        optimisticPts,
       });
-
+      clearSelection();
       return;
     }
 
@@ -6005,17 +6564,6 @@ function handleTouchEnd() {
     }
     return { totalWords, totalScore };
   }, [roundStats, allWords, isTargetHintRound]);
-  const wordsFoundLabel = formatNumber(accepted.length) ?? "0";
-  const scoreLabel = formatNumber(score) ?? "0";
-  const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
-    ? formatNumber(previewTotals.totalWords)
-    : "?";
-  const totalScoreLabel = Number.isFinite(previewTotals.totalScore)
-    ? formatNumber(previewTotals.totalScore)
-    : "?";
-  const showPreviewStatus = Boolean(statusHoldText) && !liveWord;
-  const showPreviewStats = !liveWord && !statusHoldText && !isTargetHintRound;
-
   const currentBonuses = summarizeBonuses(highlightPath, board);
   const wordMultiplier =
     Math.pow(2, currentBonuses.M2 || 0) * Math.pow(3, currentBonuses.M3 || 0);
@@ -6048,13 +6596,61 @@ function handleTouchEnd() {
     return map;
   }, [accepted, board, specialScoreConfig]);
 
+  const pendingWordEntries = React.useMemo(() => {
+    const entries = [];
+    submissionStatusRef.current.forEach((meta, word) => {
+      if (!meta || meta.status === "accepted") return;
+      entries.push({
+        word,
+        status: meta.status || "pending",
+        userPts: meta.optimisticPts,
+        reason: meta.reason || "",
+        ts: meta.ts || 0,
+      });
+    });
+    entries.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return entries;
+  }, [submissionTick]);
+
+  const pendingStatusMap = React.useMemo(() => {
+    const map = new Map();
+    pendingWordEntries.forEach((entry) => {
+      map.set(entry.word, entry);
+    });
+    return map;
+  }, [pendingWordEntries]);
+
+  const pendingCount = pendingWordEntries.filter((e) => e.status === "pending").length;
+  const foundWordsCount = accepted.length + pendingCount;
+  const wordsFoundLabel = formatNumber(foundWordsCount) ?? "0";
+  const scoreLabel = formatNumber(score) ?? "0";
+  const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
+    ? formatNumber(previewTotals.totalWords)
+    : "?";
+  const totalScoreLabel = Number.isFinite(previewTotals.totalScore)
+    ? formatNumber(previewTotals.totalScore)
+    : "?";
+  const showPreviewStatus = Boolean(statusHoldText) && !liveWord;
+  const showPreviewStats = !liveWord && !statusHoldText && !isTargetHintRound;
   const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
   const foundList = acceptedRef.current.map((word) => ({
     word,
     isFound: true,
+    status: "accepted",
     userPts: acceptedScoresRef.current.get(word),
     bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
   }));
+  pendingWordEntries.forEach((entry) => {
+    if (acceptedRef.current.includes(entry.word)) return;
+    foundList.push({
+      word: entry.word,
+      isFound: entry.status !== "rejected",
+      status: entry.status,
+      userPts: entry.userPts,
+      bestPts: allWordsMap.get(entry.word)?.pts ?? bestPtsByFoundWord.get(entry.word),
+      reason: entry.reason,
+    });
+  });
   const scoreForSort = (entry) =>
     typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
   foundList.sort((a, b) => scoreForSort(b) - scoreForSort(a));
@@ -6062,7 +6658,10 @@ function handleTouchEnd() {
   const displayList = baseList.map((entry) => ({
     word: entry.word,
     isFound: acceptedRef.current.includes(entry.word),
-    userPts: acceptedScoresRef.current.get(entry.word),
+    status: pendingStatusMap.get(entry.word)?.status || entry.status || "idle",
+    reason: pendingStatusMap.get(entry.word)?.reason || entry.reason || "",
+    userPts:
+      pendingStatusMap.get(entry.word)?.userPts ?? acceptedScoresRef.current.get(entry.word),
     bestPts: typeof entry.pts === "number" ? entry.pts : entry.bestPts,
   }));
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
@@ -6307,6 +6906,16 @@ function handleTouchEnd() {
     const rawWord = typeof targetSummary.word === "string" ? targetSummary.word : "";
     const cleanWord = rawWord.trim();
     const word = cleanWord ? cleanWord.toUpperCase() : "";
+    const normWord = cleanWord ? normalizeWord(cleanWord) : "";
+    const wordLength = normWord ? normWord.length : 0;
+    const targetScore =
+      specialRound?.type === "target_score" && normWord && board && board.length
+        ? (() => {
+            const path = findBestPathForWord(board, normWord, specialScoreConfig);
+            if (!path) return null;
+            return computeScore(normWord, path, board, specialScoreConfig);
+          })()
+        : null;
 
     return (
       <div
@@ -6381,6 +6990,12 @@ function handleTouchEnd() {
             ) : null}
           </span>
         </div>
+        {wordLength ? (
+          <div className="text-center text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-300">
+            {wordLength} lettres
+            {Number.isFinite(targetScore) ? ` · ${formatNumber(targetScore)} pts` : ""}
+          </div>
+        ) : null}
         <div className="text-center text-xs sm:text-sm text-slate-500 dark:text-slate-300 leading-snug">
           {targetDefinition.loading ? (
             <span>Définition en cours...</span>
@@ -6654,13 +7269,17 @@ function handleTouchEnd() {
   const isSpeedRound = specialRound?.type === "speed";
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
-    const pages = isTargetRound ? ["round", "total"] : ["round", "total", "found", "all"];
+    const pages = isTargetRound
+      ? ["round", "total", "vocab"]
+      : ["round", "total", "vocab", "found", "all"];
     setMobileResultsPage((prev) => clampValue(prev, 0, pages.length - 1));
   }, [isMobileLayout, phase, isTargetRound]);
 
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
-    const pages = isTargetRound ? ["round", "total"] : ["round", "total", "found", "all"];
+    const pages = isTargetRound
+      ? ["round", "total", "vocab"]
+      : ["round", "total", "vocab", "found", "all"];
     const pageKey = pages[clampValue(mobileResultsPage, 0, pages.length - 1)];
     if (pageKey === "round") setResultsRankingMode("round");
     if (pageKey === "total") setResultsRankingMode("total");
@@ -6757,6 +7376,212 @@ function handleTouchEnd() {
 
     return { winner, bestWord, longestWord, mostWords };
   }, [finalResults, board]);
+
+  const weeklyRecordHighlights = React.useMemo(() => {
+    if (phase !== "results") return [];
+    if (!weeklyStats || !Array.isArray(finalResults) || finalResults.length === 0) return [];
+    const boards = weeklyStats?.boards || {};
+    if (!boards || typeof boards !== "object") return [];
+    const lastWindow = lastRoundWindowRef.current || {};
+    const roundEndAt = Number.isFinite(serverEndsAt)
+      ? serverEndsAt
+      : Number.isFinite(lastWindow.endAt)
+      ? lastWindow.endAt
+      : null;
+    const roundStartAt =
+      Number.isFinite(serverEndsAt) && Number.isFinite(serverRoundDurationMs)
+        ? serverEndsAt - serverRoundDurationMs
+        : Number.isFinite(lastWindow.startAt)
+        ? lastWindow.startAt
+        : null;
+    if (!Number.isFinite(roundStartAt) || !Number.isFinite(roundEndAt)) return [];
+    const timePadMs = 6000;
+    const withinRound = (ts) =>
+      Number.isFinite(ts) &&
+      ts >= roundStartAt - timePadMs &&
+      ts <= roundEndAt + timePadMs;
+    const findBoardEntry = (key, nick) => {
+      const list = Array.isArray(boards[key]) ? boards[key] : [];
+      return list.find((entry) => entry?.nick === nick);
+    };
+    const findBoardRank = (key, nick) => {
+      const list = Array.isArray(boards[key]) ? boards[key] : [];
+      const idx = list.findIndex((entry) => entry?.nick === nick);
+      return idx >= 0 ? idx + 1 : null;
+    };
+    const records = [];
+    const seen = new Set();
+    const pushRecord = (record) => {
+      const id = `${record.categoryKey}:${record.nick}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      records.push({ ...record, id });
+    };
+
+    if (isTargetRound) {
+      const boardKey =
+        specialRound?.type === "target_score" ? "bestTimeTargetScore" : "bestTimeTargetLong";
+      const categoryLabel = WEEKLY_RECORD_LABELS[boardKey] || "Temps cible";
+      for (const entry of finalResults) {
+        if (!entry?.nick || entry?.isBot) continue;
+        const timeMs = Number.isFinite(entry.targetFoundMs) ? entry.targetFoundMs : null;
+        if (!Number.isFinite(timeMs)) continue;
+        const weeklyEntry = findBoardEntry(boardKey, entry.nick);
+        if (
+          weeklyEntry &&
+          withinRound(weeklyEntry.achievedAt) &&
+          Math.abs((weeklyEntry.ms ?? 0) - timeMs) <= 5
+        ) {
+          pushRecord({
+            section: "target",
+            categoryKey: boardKey,
+            categoryLabel,
+            nick: entry.nick,
+            rank: findBoardRank(boardKey, entry.nick),
+            rankTotal: weeklyStats?.topN ?? null,
+            timeMs,
+            word: weeklyEntry?.word || "",
+          });
+        }
+      }
+      return records;
+    }
+
+    if (!board || board.length === 0) return [];
+    const perPlayerStats = new Map();
+    for (const entry of finalResults) {
+      if (!entry?.nick || entry?.isBot) continue;
+      const words = Array.isArray(entry.words) ? entry.words : [];
+      const stats = {
+        wordsCount: words.length,
+        bestWord: null,
+        longestWord: null,
+      };
+      for (const raw of words) {
+        const norm = normalizeWord(raw);
+        const path = findBestPathForWord(board, norm, specialScoreConfig);
+        if (!path) continue;
+        const pts = computeScore(norm, path, board, specialScoreConfig);
+        if (!stats.bestWord || pts > stats.bestWord.pts) {
+          stats.bestWord = { word: raw, norm, pts };
+        }
+        if (!stats.longestWord || norm.length > stats.longestWord.len) {
+          stats.longestWord = { word: raw, norm, len: norm.length };
+        }
+      }
+      perPlayerStats.set(entry.nick, stats);
+    }
+
+    for (const [nick, stats] of perPlayerStats.entries()) {
+      if (stats.wordsCount > 0) {
+        const weeklyEntry = findBoardEntry("mostWordsInGame", nick);
+        if (
+          weeklyEntry &&
+          withinRound(weeklyEntry.achievedAt) &&
+          Number.isFinite(weeklyEntry.wordsCount) &&
+          weeklyEntry.wordsCount === stats.wordsCount
+        ) {
+          pushRecord({
+            section: "round",
+            categoryKey: "mostWordsInGame",
+            categoryLabel: WEEKLY_RECORD_LABELS.mostWordsInGame,
+            nick,
+            rank: findBoardRank("mostWordsInGame", nick),
+            rankTotal: weeklyStats?.topN ?? null,
+            wordsCount: stats.wordsCount,
+          });
+        }
+      }
+
+      if (stats.bestWord) {
+        const weeklyEntry = findBoardEntry("bestWord", nick);
+        const normWord = String(stats.bestWord.norm || "").toLowerCase();
+        const weeklyWord = String(weeklyEntry?.word || "").toLowerCase();
+        if (
+          weeklyEntry &&
+          withinRound(weeklyEntry.achievedAt) &&
+          Number.isFinite(weeklyEntry.pts) &&
+          weeklyEntry.pts === stats.bestWord.pts &&
+          normWord &&
+          normWord === weeklyWord
+        ) {
+          pushRecord({
+            section: "round",
+            categoryKey: "bestWord",
+            categoryLabel: WEEKLY_RECORD_LABELS.bestWord,
+            nick,
+            rank: findBoardRank("bestWord", nick),
+            rankTotal: weeklyStats?.topN ?? null,
+            word: stats.bestWord.word,
+          });
+        }
+      }
+
+      if (stats.longestWord) {
+        const weeklyEntry = findBoardEntry("longestWord", nick);
+        const normWord = String(stats.longestWord.norm || "").toLowerCase();
+        const weeklyWord = String(weeklyEntry?.word || "").toLowerCase();
+        if (
+          weeklyEntry &&
+          withinRound(weeklyEntry.achievedAt) &&
+          Number.isFinite(weeklyEntry.len) &&
+          weeklyEntry.len === stats.longestWord.len &&
+          normWord &&
+          normWord === weeklyWord
+        ) {
+          pushRecord({
+            section: "round",
+            categoryKey: "longestWord",
+            categoryLabel: WEEKLY_RECORD_LABELS.longestWord,
+            nick,
+            rank: findBoardRank("longestWord", nick),
+            rankTotal: weeklyStats?.topN ?? null,
+            word: stats.longestWord.word,
+          });
+        }
+      }
+    }
+
+    return records;
+  }, [
+    phase,
+    weeklyStats,
+    finalResults,
+    board,
+    specialScoreConfig,
+    serverEndsAt,
+    serverRoundDurationMs,
+    isTargetRound,
+    specialRound,
+  ]);
+
+  const roundRecordBadges = weeklyRecordHighlights.filter(
+    (record) => record.section === "round"
+  );
+  const targetRecordBadges = weeklyRecordHighlights.filter(
+    (record) => record.section === "target"
+  );
+  const buildRecordBadgeMap = (records) => {
+    const map = new Map();
+    records.forEach((record) => {
+      const nick = record?.nick;
+      if (!nick) return;
+      const list = map.get(nick) || [];
+      list.push(record);
+      map.set(nick, list);
+    });
+    return map;
+  };
+  const roundRecordBadgesByNick = React.useMemo(
+    () => buildRecordBadgeMap(roundRecordBadges),
+    [roundRecordBadges]
+  );
+  const targetRecordBadgesByNick = React.useMemo(
+    () => buildRecordBadgeMap(targetRecordBadges),
+    [targetRecordBadges]
+  );
+  const recordBadgesByNickForRound =
+    isTargetRound ? targetRecordBadgesByNick : roundRecordBadgesByNick;
 
   const tournamentFinaleSummary = React.useMemo(() => {
     if (
@@ -6968,6 +7793,11 @@ function handleTouchEnd() {
       : "border border-gray-300");
   const activeRoomId = currentRoomId || roomId;
   const activeRoom = ROOM_OPTIONS[activeRoomId] || ROOM_OPTIONS["room-4x4"];
+  const isFinaleBanner =
+    breakKind === "tournament_end" ||
+    (tournament?.round &&
+      tournament?.totalRounds &&
+      tournament.round === tournament.totalRounds);
   const visualViewport =
     typeof window !== "undefined" ? window.visualViewport : null;
   const visualViewportHeight =
@@ -7029,6 +7859,24 @@ function handleTouchEnd() {
       : chatTopInsetPx
       ? { top: `${Math.max(0, chatTopInsetPx)}px` }
       : undefined;
+  const globalChatOverlayStyle =
+    !useVisualViewportForChat && chatKeyboardInsetPx > 0
+      ? { paddingBottom: `${Math.round(chatKeyboardInsetPx)}px` }
+      : undefined;
+  const globalChatSheetHeightPx =
+    chatAvailableHeightForViewport > 0
+      ? clampValue(
+          Math.round(chatAvailableHeightForViewport * CHAT_SHEET_HEIGHT_RATIO),
+          260,
+          chatAvailableHeightForViewport
+        )
+      : 0;
+  const globalChatSheetStyle = globalChatSheetHeightPx
+    ? {
+        height: `${globalChatSheetHeightPx}px`,
+        maxHeight: `${globalChatSheetHeightPx}px`,
+      }
+    : undefined;
   const previewBarMinHeight = 56;
   const previewTileStyle = {};
   const lightPanelStyle = darkMode ? {} : { backgroundColor: "#ffffff" };
@@ -7127,6 +7975,33 @@ function handleTouchEnd() {
     Array.isArray(tournamentFinaleSummary.ranking) &&
     tournamentFinaleSummary.ranking.length > 0;
   const prevShowTournamentFinaleRef = useRef(showTournamentFinale);
+  const trophyLeague =
+    trophyStatus?.league || trophyStatus?.progress?.league || "Bronze";
+  const trophyProgress = trophyStatus?.progress || {
+    league: trophyLeague,
+    currentFloor: 0,
+    nextFloor: null,
+    pct: 0,
+  };
+  const trophyPalette = getLeaguePalette(trophyLeague, darkMode);
+  const trophyTotalValue = Number.isFinite(trophyStatus?.trophies)
+    ? trophyStatus.trophies
+    : null;
+  const trophyDeltaValue = Number.isFinite(trophyStatus?.lastDelta)
+    ? trophyStatus.lastDelta
+    : Number.isFinite(trophyHistory?.[0]?.delta)
+    ? trophyHistory[0].delta
+    : 0;
+  const trophyDeltaLabel =
+    trophyDeltaValue > 0
+      ? `+${trophyDeltaValue}`
+      : `${trophyDeltaValue}`;
+  const trophyProgressLabel =
+    Number.isFinite(trophyTotalValue) && Number.isFinite(trophyProgress.nextFloor)
+      ? `${formatNumber(trophyTotalValue)} / ${formatNumber(trophyProgress.nextFloor)}`
+      : trophyTotalValue != null
+      ? `${formatNumber(trophyTotalValue)}`
+      : "\u2014";
 
   useEffect(() => {
     if (showTournamentFinale && !tournamentCelebrationPlayedRef.current) {
@@ -7145,6 +8020,21 @@ function handleTouchEnd() {
     }
     prevShowTournamentFinaleRef.current = showTournamentFinale;
   }, [showTournamentFinale, definitionModal.open]);
+
+  useEffect(() => {
+    if (!showTournamentFinale) return;
+    setFinalePage(0);
+    if (finaleScrollRef.current) {
+      finaleScrollRef.current.scrollTo({ left: 0, behavior: "auto" });
+    }
+  }, [showTournamentFinale]);
+
+  useEffect(() => {
+    if (!showTournamentFinale) return;
+    if (!trophyStatus) {
+      void requestTrophyStatus();
+    }
+  }, [showTournamentFinale, trophyStatus]);
 
   const chatRulesModal = isChatRulesOpen ? (
     <div
@@ -7383,6 +8273,8 @@ function handleTouchEnd() {
       valueParts.push(`${formatNumber(entry.len) ?? 0} lettres`);
     } else if (boardKey === "bestRoundScore") {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
+    } else if (boardKey === "vocab") {
+      valueParts.push(`${formatNumber(entry.vocabCount) ?? 0} mots`);
     } else if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
       valueParts.push(formatMsShort(entry.ms) || "");
     } else if (boardKey === "mostGobbles") {
@@ -7469,7 +8361,20 @@ function handleTouchEnd() {
   const safeWeeklyIndex =
     weeklyActiveIndex >= 0 && weeklyActiveIndex < weeklyBoardsMeta.length ? weeklyActiveIndex : 0;
   const activeWeeklyBoard = weeklyBoardsMeta[safeWeeklyIndex] || weeklyBoardsMeta[0];
-  const weeklyBoardData = weeklyStats?.boards || {};
+  const vocabBoardEntries = Number.isFinite(vocabCount)
+    ? [
+        {
+          nick: selfNick || "Toi",
+          vocabCount,
+          achievedAt: vocabUpdatedAt || Date.now(),
+          playerKey: installId ? `install:${installId}` : null,
+        },
+      ]
+    : [];
+  const weeklyBoardData = { ...(weeklyStats?.boards || {}) };
+  if (!Array.isArray(weeklyBoardData.vocab) || weeklyBoardData.vocab.length === 0) {
+    weeklyBoardData.vocab = vocabBoardEntries;
+  }
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
   const activeWeeklyEntries = activeWeeklyBoard
     ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
@@ -7481,17 +8386,33 @@ function handleTouchEnd() {
     weeklyDragOffset && weeklySlideWidthRef.current
       ? (weeklyDragOffset / weeklySlideWidthRef.current) * 100
       : 0;
-  const showWeeklyArrows = !isMobileLayout || weeklyArrowVisible;
-  const weeklyArrowWrapperClass = `weekly-arrow-hint ${
-    showWeeklyArrows ? "weekly-arrow-visible" : ""
-  }`;
-  const weeklyArrowAnimClass = `${weeklyArrowBlink ? "weekly-arrow-blink" : ""} ${
-    weeklyArrowBump ? "weekly-arrow-bump" : ""
-  }`;
-  const weeklyArrowSize = {
-    width: "clamp(20px, 4vw, 34px)",
-    height: "clamp(20px, 4vw, 34px)",
-  };
+  const showWeeklyDots = weeklyBoardsMeta.length > 1;
+  const weeklyDots = showWeeklyDots ? (
+    <div className="flex items-center justify-center gap-1.5 py-2">
+      {weeklyBoardsMeta.map((board, idx) => {
+        const isActive = idx === safeWeeklyIndex;
+        const dotColor = isActive
+          ? darkMode
+            ? "bg-slate-100"
+            : "bg-slate-900"
+          : darkMode
+          ? "bg-white/30"
+          : "bg-slate-300";
+        return (
+          <button
+            key={board.key}
+            type="button"
+            className={`h-2.5 w-2.5 rounded-full transition ${dotColor} ${
+              isActive ? "scale-110" : ""
+            }`}
+            aria-label={`Page ${idx + 1}`}
+            aria-current={isActive ? "true" : undefined}
+            onClick={() => setWeeklyActiveIndex(idx)}
+          />
+        );
+      })}
+    </div>
+  ) : null;
 
   const weeklyStatsOverlay =
     isWeeklyOpen && typeof document !== "undefined"
@@ -7515,7 +8436,7 @@ function handleTouchEnd() {
                 type="button"
                 className="absolute top-3 right-3 rounded-full p-2 text-sm font-semibold bg-black/20 text-white hover:bg-black/30"
                 onClick={closeWeeklyStatsOverlay}
-                aria-label="Fermer les stats hebdo"
+                aria-label="Fermer les stats"
               >
                 X
               </button>
@@ -7523,45 +8444,69 @@ function handleTouchEnd() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-                      Stats hebdo
+                      Stats
                     </div>
-                    <div className="text-lg font-extrabold">{activeWeeklyBoard?.label}</div>
-                    <div className="text-xs opacity-70">
-                      {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
-                      {" · Reset : lundi a minuit"}
+                    <div className="text-lg font-extrabold">
+                      {statsTab === "weekly" ? activeWeeklyBoard?.label : "Saison"}
+                    </div>
+                    {statsTab === "weekly" ? (
+                      <div className="text-xs opacity-70">
+                        {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                        {" - Reset : lundi a minuit"}
+                      </div>
+                    ) : (
+                      <div className="text-xs opacity-70">Trophees mensuels</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`inline-flex rounded-full overflow-hidden border ${
+                        darkMode ? "border-slate-700" : "border-slate-200"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setStatsTab("weekly")}
+                        className={`px-3 py-1 text-xs font-semibold transition ${
+                          statsTab === "weekly"
+                            ? darkMode
+                              ? "bg-blue-700 text-white"
+                              : "bg-blue-600 text-white"
+                            : darkMode
+                            ? "bg-slate-900 text-slate-300"
+                            : "bg-white text-slate-600"
+                        }`}
+                      >
+                        Hebdo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatsTab("season")}
+                        className={`px-3 py-1 text-xs font-semibold transition ${
+                          statsTab === "season"
+                            ? darkMode
+                              ? "bg-blue-700 text-white"
+                              : "bg-blue-600 text-white"
+                            : darkMode
+                            ? "bg-slate-900 text-slate-300"
+                            : "bg-white text-slate-600"
+                        }`}
+                      >
+                        Saison
+                      </button>
                     </div>
                   </div>
-                  <div className="text-[11px] opacity-70">Slide gauche/droite pour changer de catégorie</div>
                 </div>
+                {statsTab === "weekly" ? (
+                  <div className="mt-2 text-[11px] opacity-70">
+                    Slide gauche/droite pour changer de categorie
+                  </div>
+                ) : null}
               </div>
-                <div className="relative px-4 pb-4">
-                  {!isMobileLayout ? (
-                    <button
-                      type="button"
-                      className={`group absolute left-0 top-1/2 -translate-y-1/2 ml-1 text-white/80 hover:text-white transition-transform hover:scale-110 active:scale-95 ${weeklyArrowWrapperClass}`}
-                      onClick={() => shiftWeeklyBoard(-1)}
-                      aria-label="Precedent"
-                    >
-                      <span className={`block ${weeklyArrowAnimClass}`}>
-                        <span
-                          className="block border-t-[3px] border-l-[3px] border-current rotate-[-45deg]"
-                          style={weeklyArrowSize}
-                        />
-                      </span>
-                    </button>
-                  ) : (
-                    <div
-                      className={`pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 ml-1 text-white/80 ${weeklyArrowWrapperClass}`}
-                      aria-hidden="true"
-                    >
-                      <span className={`block ${weeklyArrowAnimClass}`}>
-                        <span
-                          className="block border-t-[3px] border-l-[3px] border-current rotate-[-45deg]"
-                          style={weeklyArrowSize}
-                        />
-                      </span>
-                    </div>
-                  )}
+              {statsTab === "weekly" ? weeklyDots : null}
+              {statsTab === "weekly" ? (
+
+              <div className="relative px-4 pb-4">
                 <div className="overflow-hidden rounded-2xl border-0 bg-transparent">
                   <div
                     className="flex w-full"
@@ -7611,34 +8556,118 @@ function handleTouchEnd() {
                     })}
                   </div>
                 </div>
-                  {!isMobileLayout ? (
-                    <button
-                      type="button"
-                      className={`group absolute right-0 top-1/2 -translate-y-1/2 mr-1 text-white/80 hover:text-white transition-transform hover:scale-110 active:scale-95 ${weeklyArrowWrapperClass}`}
-                      onClick={() => shiftWeeklyBoard(1)}
-                      aria-label="Suivant"
-                    >
-                      <span className={`block ${weeklyArrowAnimClass}`}>
-                        <span
-                          className="block border-t-[3px] border-r-[3px] border-current rotate-[45deg]"
-                          style={weeklyArrowSize}
-                        />
-                      </span>
-                    </button>
-                  ) : (
+              </div>
+
+              ) : (
+                <div className="relative px-4 pb-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div
-                      className={`pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 mr-1 text-white/80 ${weeklyArrowWrapperClass}`}
-                      aria-hidden="true"
+                      className={`rounded-2xl border p-4 ${
+                        darkMode
+                          ? "bg-slate-900/60 border-slate-700"
+                          : "bg-white border-slate-200"
+                      }`}
                     >
-                      <span className={`block ${weeklyArrowAnimClass}`}>
-                        <span
-                          className="block border-t-[3px] border-r-[3px] border-current rotate-[45deg]"
-                          style={weeklyArrowSize}
-                        />
-                      </span>
+                      <div className="flex items-center justify-between gap-2 mb-4">
+                        <div className="text-sm font-semibold">Trophees</div>
+                        {trophyStatus?.shieldCount > 0 ? (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-300/70 text-amber-700 dark:text-amber-300">
+                            Bouclier
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-col items-center gap-3">
+                        <div
+                          className="w-[110px] h-[110px] rounded-full flex items-center justify-center"
+                          style={{ background: trophyPalette.bg }}
+                        >
+                          <svg width="80" height="80" viewBox="0 0 64 64" fill="none">
+                            <path
+                              d="M20 10h24v6h8v6c0 10-8 18-18 18h-4v8h10v6H24v-6h10v-8h-4c-10 0-18-8-18-18v-6h8v-6z"
+                              fill={trophyPalette.accent}
+                            />
+                            <path d="M24 10h16v6H24z" fill={trophyPalette.accent} />
+                          </svg>
+                        </div>
+                        <div className="text-sm font-semibold opacity-80">
+                          Ligue : {trophyLeague}
+                        </div>
+                        <div className="text-3xl font-black tabular-nums">
+                          {trophyTotalValue != null ? formatNumber(trophyTotalValue) : "..."}
+                        </div>
+                        <div
+                          className={`text-sm font-bold ${
+                            trophyDeltaValue > 0
+                              ? "text-emerald-500"
+                              : trophyDeltaValue < 0
+                              ? "text-rose-500"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {trophyDeltaLabel}
+                        </div>
+                        <div className="w-full mt-2">
+                          <div className="flex items-center justify-between text-xs opacity-70 mb-1">
+                            <span>Progression</span>
+                            <span>{trophyProgressLabel}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/60 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${Math.round((trophyProgress.pct || 0) * 100)}%`,
+                                background: trophyPalette.accent,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                    <div
+                      className={`rounded-2xl border p-4 ${
+                        darkMode
+                          ? "bg-slate-900/60 border-slate-700"
+                          : "bg-white border-slate-200"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold mb-3">
+                        Historique recent
+                      </div>
+                      {trophyLoading ? (
+                        <div className="text-sm opacity-70">Chargement...</div>
+                      ) : trophyHistory.length === 0 ? (
+                        <div className="text-sm opacity-70">
+                          Pas encore d'historique cette saison.
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {trophyHistory.map((entry) => (
+                            <div
+                              key={`${entry.ts}-${entry.delta}`}
+                              className="flex items-center justify-between text-sm"
+                            >
+                              <span
+                                className={`font-semibold ${
+                                  entry.delta > 0
+                                    ? "text-emerald-500"
+                                    : entry.delta < 0
+                                    ? "text-rose-500"
+                                    : "text-slate-400"
+                                }`}
+                              >
+                                {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+                              </span>
+                              <span className="text-xs opacity-70">
+                                {formatNumber(entry.trophies)} - {entry.league}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              )}
             </div>
           </div>,
           document.body
@@ -8044,15 +9073,172 @@ function handleTouchEnd() {
         )
       : null;
 
+  const recordModalRecords =
+    Array.isArray(recordModal.records) && recordModal.records.length
+      ? recordModal.records
+      : recordModal.categoryKey
+      ? [recordModal]
+      : [];
+  const recordModalSubtitle =
+    recordModalRecords.length > 1
+      ? "Plusieurs categories"
+      : recordModalRecords[0]?.categoryLabel || "Record";
+  const formatRecordRankLabel = (record) => {
+    if (!record) return "Hors classement";
+    const rank = record.rank;
+    const total = record.rankTotal;
+    if (Number.isFinite(rank)) {
+      return Number.isFinite(total) ? `#${rank} / ${total}` : `#${rank}`;
+    }
+    return "Hors classement";
+  };
+  const formatRecordValueLabel = (record) => {
+    if (!record) return "";
+    if (record.categoryKey === "bestWord" || record.categoryKey === "longestWord") {
+      return record.word ? `Mot : ${record.word}` : "";
+    }
+    if (record.categoryKey === "mostWordsInGame") {
+      return Number.isFinite(record.wordsCount)
+        ? `Mots : ${record.wordsCount} par manche`
+        : "";
+    }
+    if (
+      record.categoryKey === "bestTimeTargetLong" ||
+      record.categoryKey === "bestTimeTargetScore"
+    ) {
+      return Number.isFinite(record.timeMs)
+        ? `Temps : ${formatTargetTime(record.timeMs)}`
+        : "";
+    }
+    return "";
+  };
+  const recordModalView =
+    recordModal.open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[12060] bg-black/55 backdrop-blur-sm flex items-center justify-center px-4 py-6"
+            onClick={closeRecordModal}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${
+                darkMode
+                  ? "bg-slate-900/90 border-white/10 text-white"
+                  : "bg-white/90 border-slate-200 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="absolute top-3 right-3 z-20 rounded-full h-9 w-12 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
+                onClick={closeRecordModal}
+                aria-label="Fermer"
+              >
+                <span className="pointer-events-none">X</span>
+              </button>
+              <div className="p-4 pb-5 space-y-3">
+                <div className="flex justify-center">
+                  <span className="record-rainbow px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest">
+                    Nouveau record
+                  </span>
+                </div>
+                <div className="text-center text-base font-extrabold">
+                  {recordModalSubtitle}
+                </div>
+                <div className="text-center text-xs">
+                  Joueur : <span className="font-semibold">{recordModal.nick || "?"}</span>
+                </div>
+                {recordModalRecords.length === 1 ? (
+                  <>
+                    <div className="text-center text-xs opacity-75">
+                      Classement hebdo : {formatRecordRankLabel(recordModalRecords[0])}
+                    </div>
+                    {formatRecordValueLabel(recordModalRecords[0]) ? (
+                      <div className="text-center text-sm font-semibold">
+                        {formatRecordValueLabel(recordModalRecords[0])}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    {recordModalRecords.map((record) => (
+                      <div
+                        key={record.id || `${record.categoryKey}-${record.nick}`}
+                        className={`rounded-xl border px-3 py-2 ${
+                          darkMode
+                            ? "border-white/10 bg-slate-900/40"
+                            : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <div className="text-xs font-extrabold">
+                          {record.categoryLabel || "Record"}
+                        </div>
+                        <div className="text-[10px] opacity-70">
+                          Classement hebdo : {formatRecordRankLabel(record)}
+                        </div>
+                        {formatRecordValueLabel(record) ? (
+                          <div className="text-[11px] font-semibold">
+                            {formatRecordValueLabel(record)}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
+  const mobileChatLayer =
+    isLoggedIn && isMobileLayout ? (
+      <MobileChatWidget
+        chatInput={chatInput}
+        chatInputRef={chatInputRef}
+        chatInputType={chatInputType}
+        chatInputDisabled={chatInputDisabled}
+        chatInputPlaceholder={chatInputPlaceholder}
+        onChatInputFocus={handleChatInputFocus}
+        chatOverlayStyle={globalChatOverlayStyle}
+        chatViewportStyle={chatViewportStyle}
+        chatSheetStyle={globalChatSheetStyle}
+        chatAnimationMs={CHAT_DRAWER_ANIM_MS}
+        cycleChatHistory={cycleChatHistory}
+        darkMode={darkMode}
+        hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
+        isChatOpenMobile={isChatOpenMobile}
+        isChatClosing={isChatClosing}
+        mobileChatUnreadCount={mobileChatUnreadCount}
+        blockedCount={blockedCount}
+        blockedEntries={blockedEntries}
+        onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
+        onUnblockInstallId={unblockInstallId}
+        onOpenChat={requestOpenChat}
+        onOpenRules={() => setIsChatRulesOpen(true)}
+        onOpenUserMenu={openUserMenu}
+        showBlockedList={showBlockedList}
+        selfNick={selfNick}
+        selfInstallId={installId}
+        setChatInput={setChatInput}
+        setIsChatOpenMobile={closeChatPanel}
+        submitChat={submitChat}
+        visibleMessages={visibleMessages}
+      />
+    ) : null;
   const chatOverlays = (
     <>
       {weeklyStatsOverlay}
       {playersOverlay}
+      {mobileChatLayer}
       {userMenuView}
       {reportModal}
       {chatRulesModal}
       {definitionModalView}
       {wordInfoModalView}
+      {recordModalView}
     </>
   );
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -8137,7 +9323,7 @@ function handleTouchEnd() {
               onClick={openWeeklyStatsOverlay}
               disabled={isConnecting}
             >
-              Stats hebdo
+              Stats
             </button>
             <button
               type="button"
@@ -8169,7 +9355,6 @@ function handleTouchEnd() {
               </div>
             </div>
           </div>
-          {chatOverlays}
         </div>
         </div>
       </>
@@ -8230,38 +9415,16 @@ function handleTouchEnd() {
     const records = tournamentFinaleSummary.records || {};
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
-    const finaleBaselineHeight =
-      chatBodyLockHeightRef.current ||
-      chatViewportHeight ||
-      (typeof window !== "undefined" ? window.innerHeight : 0);
-    const finaleVisibleHeight = useVisualViewportForChat
-      ? Math.max(0, visualViewportHeightForChat - chatViewportTopInsetPx)
-      : Math.max(0, Math.round(finaleBaselineHeight - chatTopInsetPx));
-    const finaleSheetHeight =
-      finaleVisibleHeight > 0
-        ? clampValue(
-            Math.round(finaleVisibleHeight * CHAT_SHEET_HEIGHT_RATIO),
-            260,
-            finaleVisibleHeight
-          )
-        : 0;
-    const finaleChatOverlayStyle =
-      !useVisualViewportForChat && chatKeyboardInsetPx > 0
-        ? { paddingBottom: `${Math.round(chatKeyboardInsetPx)}px` }
-        : undefined;
-    const finaleChatSheetStyle = finaleSheetHeight
-      ? { height: `${finaleSheetHeight}px`, maxHeight: `${finaleSheetHeight}px` }
-      : undefined;
-
     return (
-      <div
-        className={`min-h-screen relative overflow-hidden ${
-          darkMode
-            ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white"
-            : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
-        }`}
-      >
-        <style>{slideStyles}</style>
+      <>
+        <div
+          className={`min-h-screen relative overflow-hidden ${
+            darkMode
+              ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white"
+              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
+          }`}
+        >
+          <style>{slideStyles}</style>
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -8278,25 +9441,134 @@ function handleTouchEnd() {
             </div>
           </div>
 
-          <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl">
-            <div className="flex items-baseline justify-between gap-2 mb-2">
-              <div className="font-extrabold">Classement general</div>
-              <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
+          <div className="relative">
+            <div
+              ref={finaleScrollRef}
+              className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const width = el.clientWidth || 1;
+                const page = Math.round(el.scrollLeft / width);
+                if (page !== finalePage) setFinalePage(page);
+              }}
+            >
+              <div className="w-full shrink-0 snap-start">
+                <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl">
+                  <div className="flex items-baseline justify-between gap-2 mb-2">
+                    <div className="font-extrabold">Classement general</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
+                      Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
+                    </div>
+                  </div>
+                  <div className="h-[360px]">
+                    <RankingWidgetMobile
+                      fullRanking={finaleRanking}
+                      selfNick={selfNick}
+                      darkMode={darkMode}
+                      expanded={true}
+                      animateRank={false}
+                      showWheel={false}
+                      flatStyle={true}
+                      renderNickSuffix={(nick) => renderNickSuffix(nick, tournamentFinaleMedals)}
+                      renderAfterRank={renderRankDelta}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="w-full shrink-0 snap-start">
+                <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="font-extrabold">Trophées</div>
+                    {trophyStatus?.shieldCount > 0 ? (
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-300/70 text-amber-700 dark:text-amber-300">
+                        Bouclier
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <div
+                      className="w-[120px] h-[120px] rounded-full flex items-center justify-center"
+                      style={{ background: trophyPalette.bg }}
+                    >
+                      <svg
+                        width="88"
+                        height="88"
+                        viewBox="0 0 64 64"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M20 10h24v6h8v6c0 10-8 18-18 18h-4v8h10v6H24v-6h10v-8h-4c-10 0-18-8-18-18v-6h8v-6z"
+                          fill={trophyPalette.accent}
+                        />
+                        <path
+                          d="M24 10h16v6H24z"
+                          fill={trophyPalette.accent}
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-sm font-semibold opacity-80">Ligue : {trophyLeague}</div>
+                    <div className="text-3xl font-black tabular-nums">
+                      {trophyTotalValue != null ? formatNumber(trophyTotalValue) : "..."}
+                    </div>
+                    <div
+                      className={`text-sm font-bold ${
+                        trophyDeltaValue > 0
+                          ? "text-emerald-500"
+                          : trophyDeltaValue < 0
+                          ? "text-rose-500"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {trophyDeltaLabel}
+                    </div>
+                    <div className="w-full mt-2">
+                      <div className="flex items-center justify-between text-xs opacity-70 mb-1">
+                        <span>Progression</span>
+                        <span>{trophyProgressLabel}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/60 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.round((trophyProgress.pct || 0) * 100)}%`,
+                            background: trophyPalette.accent,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="h-[360px]">
-              <RankingWidgetMobile
-                fullRanking={finaleRanking}
-                selfNick={selfNick}
-                darkMode={darkMode}
-                expanded={true}
-                animateRank={false}
-                showWheel={false}
-                flatStyle={true}
-                renderNickSuffix={(nick) => renderNickSuffix(nick, tournamentFinaleMedals)}
-                renderAfterRank={renderRankDelta}
-              />
+            <div className="flex items-center justify-center gap-2 mt-1">
+              {[0, 1].map((idx) => {
+                const active = finalePage === idx;
+                return (
+                  <button
+                    key={`finale-dot-${idx}`}
+                    type="button"
+                    className={`h-2.5 w-2.5 rounded-full transition ${
+                      active
+                        ? darkMode
+                          ? "bg-white"
+                          : "bg-slate-900"
+                        : darkMode
+                        ? "bg-white/40"
+                        : "bg-slate-300"
+                    } ${active ? "scale-110" : ""}`}
+                    aria-label={`Page ${idx + 1}`}
+                    aria-current={active ? "true" : undefined}
+                    onClick={() => {
+                      const el = finaleScrollRef.current;
+                      if (!el) return;
+                      const width = el.clientWidth || 1;
+                      el.scrollTo({ left: idx * width, behavior: "smooth" });
+                      setFinalePage(idx);
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -8310,7 +9582,7 @@ function handleTouchEnd() {
                 className="px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-500 transition"
                 onClick={openWeeklyStatsOverlay}
               >
-                Stats hebdo
+                Stats
               </button>
             </div>
             <div className="mt-2 grid gap-2 text-xs leading-tight">
@@ -8568,42 +9840,10 @@ function handleTouchEnd() {
         </div>
           </div>
         </div>
-        {isMobileLayout && (
-          <MobileChatWidget
-            chatInput={chatInput}
-            chatInputRef={chatInputRef}
-            chatInputType={chatInputType}
-            chatInputDisabled={chatInputDisabled}
-            chatInputPlaceholder={chatInputPlaceholder}
-            onChatInputFocus={handleChatInputFocus}
-            chatOverlayStyle={finaleChatOverlayStyle}
-            chatViewportStyle={chatViewportStyle}
-            chatSheetStyle={finaleChatSheetStyle}
-            chatAnimationMs={CHAT_DRAWER_ANIM_MS}
-            cycleChatHistory={cycleChatHistory}
-            darkMode={darkMode}
-            hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
-            isChatOpenMobile={isChatOpenMobile}
-            isChatClosing={isChatClosing}
-            mobileChatUnreadCount={mobileChatUnreadCount}
-            blockedCount={blockedCount}
-            blockedEntries={blockedEntries}
-            onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-            onUnblockInstallId={unblockInstallId}
-            onOpenChat={requestOpenChat}
-            onOpenRules={() => setIsChatRulesOpen(true)}
-            onOpenUserMenu={openUserMenu}
-            showBlockedList={showBlockedList}
-            selfNick={selfNick}
-            selfInstallId={installId}
-            setChatInput={setChatInput}
-            setIsChatOpenMobile={closeChatPanel}
-            submitChat={submitChat}
-            visibleMessages={visibleMessages}
-          />
-        )}
+        </div>
+        {praiseOverlay}
         {chatOverlays}
-      </div>
+      </>
     );
   }
 
@@ -8708,12 +9948,13 @@ function handleTouchEnd() {
         "");
 
     return (
-      <div
-        className={`flex flex-col ${
-          darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-        }`}
-        style={mobileViewportContainerStyle}
-      >
+      <>
+        <div
+          className={`flex flex-col ${
+            darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
+          }`}
+          style={mobileViewportContainerStyle}
+        >
         <style>{slideStyles}</style>
         <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
           <span className="truncate">
@@ -8806,6 +10047,9 @@ function handleTouchEnd() {
           />
         </div>
       </div>
+      {praiseOverlay}
+      {chatOverlays}
+    </>
     );
   }
 
@@ -8972,10 +10216,11 @@ function handleTouchEnd() {
       : undefined;
     if (isResults) {
       const resultsPages = isTargetRound
-        ? ["round", "total"]
-        : ["round", "total", "found", "all"];
+        ? ["round", "total", "vocab"]
+        : ["round", "total", "vocab", "found", "all"];
       const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
       const resultsPageKey = resultsPages[safeResultsPage];
+      const showVocabPage = resultsPageKey === "vocab";
       const resultsRankingModeForMobile = resultsPageKey === "total" ? "total" : "round";
       const resultsRankingList =
         resultsRankingModeForMobile === "total"
@@ -8989,20 +10234,24 @@ function handleTouchEnd() {
           : resultsSlidePhase === "in"
           ? "results-fade-in"
           : "";
-      const resultsHeaderLabel = showResultsWords ? "Mots" : "Classement";
-      const resultsHeaderSuffix = showResultsWords
+      const resultsHeaderLabel = showResultsWords
+        ? "Mots"
+        : showVocabPage
+        ? "Vocabulaire"
+        : "Classement";
+      const resultsHeaderSuffix = showResultsWords || showVocabPage
         ? ""
         : resultsPageKey === "round"
         ? "manche"
         : "g\u00e9n\u00e9ral";
       const resultsWordsTitle =
         resultsPageKey === "found"
-          ? `Mots trouv\u00e9s (${acceptedRef.current.length})`
+          ? `Mots trouv\u00e9s (${foundWordsCount})`
           : `Tous les mots (${allWords.length})`;
       const wordsEmpty =
         resultsPageKey === "all"
           ? allWords.length === 0
-          : acceptedRef.current.length === 0;
+          : foundWordsCount === 0;
       const isTargetResults = isTargetRound;
       const resultsCardClassName = `relative rounded-xl px-3 py-2 flex flex-col gap-2 overflow-hidden ${
         isTargetResults ? "flex-none" : "flex-1 min-h-0"
@@ -9010,6 +10259,18 @@ function handleTouchEnd() {
       const resultsCardStyle = isTargetResults
         ? { height: "46vh", minHeight: "38vh", maxHeight: "52vh" }
         : { minHeight: "320px" };
+      const vocabDeltaValue = Number.isFinite(vocabRoundDelta)
+        ? Math.max(0, vocabRoundDelta)
+        : null;
+      const vocabDeltaLabel =
+        vocabDeltaValue && vocabDeltaValue > 0
+          ? `+${formatNumber(vocabDeltaValue)}`
+          : "inchang\u00e9";
+      const vocabTotalLabel = Number.isFinite(vocabCount)
+        ? `${formatNumber(vocabCount)} mots uniques`
+        : vocabLoading
+        ? "Calcul en cours..."
+        : "\u2014";
       const showResultsDots = resultsPages.length > 1;
       const summaryWrapperClass = isTargetResults
         ? showResultsDots
@@ -9048,12 +10309,13 @@ function handleTouchEnd() {
         </div>
       ) : null;
       return (
-        <div
-          className={`flex flex-col ${
-            darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-          }`}
-          style={mobileViewportContainerStyle}
-        >
+        <>
+          <div
+            className={`flex flex-col ${
+              darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
+            }`}
+            style={mobileViewportContainerStyle}
+          >
           <style>{slideStyles}</style>
           <MobileHeader
             activeRoom={activeRoom}
@@ -9061,6 +10323,7 @@ function handleTouchEnd() {
             darkMode={darkMode}
             gridSize={gridSize}
             headerRef={mobileHeaderRef}
+            isFinaleBanner={isFinaleBanner}
             isMuted={isMuted}
             isTargetRound={isTargetRound}
             phase={phase}
@@ -9090,7 +10353,7 @@ function handleTouchEnd() {
                   <div className="flex items-center justify-between gap-2 text-xs">
                     <div className="font-semibold">
                       {resultsHeaderLabel}
-                      {!showResultsWords ? (
+                      {!showResultsWords && resultsHeaderSuffix ? (
                         <SwapFadeText value={resultsHeaderSuffix} className="ml-1" />
                       ) : null}
                     </div>
@@ -9115,7 +10378,19 @@ function handleTouchEnd() {
                     ) : null}
                   </div>
 
-                  {showResultsWords && !isTargetRound ? (
+                  {showVocabPage ? (
+                    <div className="flex flex-col items-center justify-center gap-2 flex-1 min-h-0">
+                      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
+                        Vocabulaire
+                      </div>
+                      <div className="text-4xl font-black tabular-nums">
+                        {vocabDeltaLabel}
+                      </div>
+                      <div className="text-xs font-semibold opacity-75">
+                        {vocabTotalLabel}
+                      </div>
+                    </div>
+                  ) : showResultsWords && !isTargetRound ? (
                     <div className="flex flex-col gap-2 flex-1 min-h-0">
                       {wordsEmpty ? (
                         <div className="text-xs text-slate-500 dark:text-slate-300">
@@ -9136,7 +10411,10 @@ function handleTouchEnd() {
                           <ul className="relative flex flex-col text-sm">
                             {displayList.map((entry) => {
                               const selected = analysis?.word === entry.word;
-                              const isFound = entry.isFound;
+                              const status = entry.status;
+                              const isPending = status === "pending";
+                              const isRejected = status === "rejected";
+                              const isFound = entry.isFound || isPending;
                               const bestPts = entry.bestPts;
                               const userPts = entry.userPts;
                               const showOpt =
@@ -9144,8 +10422,21 @@ function handleTouchEnd() {
                                 typeof bestPts === "number" &&
                                 typeof userPts === "number" &&
                                 bestPts !== userPts &&
+                                !isPending &&
+                                !isRejected &&
                                 !isSpeedRound;
-                              const visible = showAllWords || isFound;
+                              const visible = showAllWords || isFound || isRejected;
+                              const wordClassName = isRejected
+                                ? darkMode
+                                  ? "font-semibold text-red-300 line-through"
+                                  : "font-semibold text-red-600 line-through"
+                                : isPending
+                                ? darkMode
+                                  ? "font-semibold text-slate-300 opacity-70"
+                                  : "font-semibold text-gray-500 opacity-70"
+                                : isFound
+                                ? "font-semibold"
+                                : "text-gray-600";
                               return (
                                 <li
                                   key={entry.word}
@@ -9174,7 +10465,10 @@ function handleTouchEnd() {
                                     top: 0,
                                     left: 0,
                                     width: "100%",
-                                    color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
+                                    color:
+                                      !isFound && !isPending && darkMode
+                                        ? DARK_WORD_INACTIVE
+                                        : undefined,
                                   }}
                                 >
                                   <button
@@ -9183,25 +10477,49 @@ function handleTouchEnd() {
                                     onClick={() => openWordInfoModal(entry.word)}
                                   >
                                     {isFound ? (
-                                      <span style={foundDotStyle} aria-hidden="true" />
+                                      <span
+                                        style={{
+                                          ...foundDotStyle,
+                                          opacity: isPending ? 0.4 : 1,
+                                        }}
+                                        aria-hidden="true"
+                                      />
                                     ) : (
                                       <span
                                         style={{ ...foundDotStyle, opacity: 0 }}
                                         aria-hidden="true"
                                       />
                                     )}
-                                    <span
-                                      className={isFound ? "font-semibold" : "text-gray-600"}
-                                    >
-                                      {entry.word}
-                                    </span>
+                                    <span className={wordClassName}>{entry.word}</span>
                                   </button>
-                                  <span className="text-xs text-gray-600 flex items-center gap-2">
+                                  <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                                     {typeof userPts === "number" && isFound && (
-                                      <span className="font-semibold">+{userPts} pts</span>
+                                      <span
+                                        className={`font-extrabold ${
+                                          darkMode ? "text-slate-100" : "text-slate-800"
+                                        }`}
+                                      >
+                                        +{userPts} pts
+                                      </span>
+                                    )}
+                                    {isPending && (
+                                      <span className="text-[0.65rem] text-gray-400">
+                                        envoi...
+                                      </span>
+                                    )}
+                                    {isRejected && (
+                                      <span
+                                        className={`text-[0.65rem] ${
+                                          darkMode ? "text-red-300" : "text-red-600"
+                                        }`}
+                                      >
+                                        refusé
+                                      </span>
                                     )}
                                     {!isFound && typeof bestPts === "number" && (
-                                      <span className="text-gray-500">({bestPts} pts)</span>
+                                      <span className="text-slate-500 opacity-75">
+                                        ({bestPts} pts)
+                                      </span>
                                     )}
                                     {showOpt && (
                                       <span
@@ -9230,7 +10548,6 @@ function handleTouchEnd() {
                           expanded={true}
                           animateRank={false}
                           animateReorder={resultsMetaPulse}
-                          metaPulse={resultsMetaPulse}
                           showWheel={false}
                           flatStyle={true}
                           showRoundAward={true}
@@ -9238,6 +10555,12 @@ function handleTouchEnd() {
                           renderAfterRank={
                             resultsRankingModeForMobile === "total" ? renderRankDelta : null
                           }
+                          recordBadgesByNick={
+                            resultsRankingModeForMobile === "round"
+                              ? recordBadgesByNickForRound
+                              : null
+                          }
+                          onRecordBadgeClick={openRecordModal}
                         />
                       </div>
                     </div>
@@ -9256,50 +10579,21 @@ function handleTouchEnd() {
             )}
           </div>
 
-          <MobileChatWidget
-            chatInput={chatInput}
-            chatInputRef={chatInputRef}
-            chatInputType={chatInputType}
-            chatInputDisabled={chatInputDisabled}
-            chatInputPlaceholder={chatInputPlaceholder}
-            onChatInputFocus={handleChatInputFocus}
-            chatOverlayStyle={chatOverlayStyle}
-            chatViewportStyle={chatViewportStyle}
-            chatSheetStyle={chatSheetStyle}
-            chatAnimationMs={CHAT_DRAWER_ANIM_MS}
-            cycleChatHistory={cycleChatHistory}
-            darkMode={darkMode}
-            hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
-            isChatOpenMobile={isChatOpenMobile}
-            isChatClosing={isChatClosing}
-            mobileChatUnreadCount={mobileChatUnreadCount}
-            blockedCount={blockedCount}
-            blockedEntries={blockedEntries}
-            onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-            onUnblockInstallId={unblockInstallId}
-            onOpenChat={requestOpenChat}
-            onOpenRules={() => setIsChatRulesOpen(true)}
-            onOpenUserMenu={openUserMenu}
-            showBlockedList={showBlockedList}
-            selfNick={selfNick}
-            selfInstallId={installId}
-            setChatInput={setChatInput}
-            setIsChatOpenMobile={closeChatPanel}
-            submitChat={submitChat}
-            visibleMessages={visibleMessages}
-          />
-          {chatOverlays}
         </div>
-      );
+        {praiseOverlay}
+        {chatOverlays}
+      </>
+    );
     }
 
    return (
-  <div
-    className={`flex flex-col ${
-      darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-    }`}
-    style={mobileViewportContainerStyle}
-  >
+    <>
+      <div
+        className={`flex flex-col ${
+          darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
+        }`}
+        style={mobileViewportContainerStyle}
+      >
    
 
         <style>{slideStyles}</style>
@@ -9311,6 +10605,7 @@ function handleTouchEnd() {
             darkMode={darkMode}
             gridSize={gridSize}
             headerRef={mobileHeaderRef}
+            isFinaleBanner={isFinaleBanner}
             isMuted={isMuted}
             isTargetRound={isTargetRound}
           phase={phase}
@@ -9588,50 +10883,18 @@ function handleTouchEnd() {
             </div>
           </div>
         </div>
-        {/* Bouton de chat flottant + volet de chat */}
-          <MobileChatWidget
-            chatInput={chatInput}
-            chatInputRef={chatInputRef}
-            chatInputType={chatInputType}
-            chatInputDisabled={chatInputDisabled}
-            chatInputPlaceholder={chatInputPlaceholder}
-            onChatInputFocus={handleChatInputFocus}
-            chatOverlayStyle={chatOverlayStyle}
-            chatViewportStyle={chatViewportStyle}
-            chatSheetStyle={chatSheetStyle}
-            chatAnimationMs={CHAT_DRAWER_ANIM_MS}
-            cycleChatHistory={cycleChatHistory}
-            darkMode={darkMode}
-            hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
-            isChatOpenMobile={isChatOpenMobile}
-            isChatClosing={isChatClosing}
-            mobileChatUnreadCount={mobileChatUnreadCount}
-            blockedCount={blockedCount}
-          blockedEntries={blockedEntries}
-          onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-          onUnblockInstallId={unblockInstallId}
-          onOpenChat={requestOpenChat}
-          onOpenRules={() => setIsChatRulesOpen(true)}
-          onOpenUserMenu={openUserMenu}
-          showBlockedList={showBlockedList}
-          selfNick={selfNick}
-          selfInstallId={installId}
-          setChatInput={setChatInput}
-          setIsChatOpenMobile={closeChatPanel}
-          submitChat={submitChat}
-          visibleMessages={visibleMessages}
-        />
-          {chatOverlays}
-        {praiseOverlay}
-
       </div>
-    );
+      {praiseOverlay}
+      {chatOverlays}
+    </>
+  );
   }
 
   
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
-      <style>{slideStyles}</style>
+    <>
+      <div className="p-6 max-w-[1600px] mx-auto">
+        <style>{slideStyles}</style>
       <div className="topbar mb-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 bg-white border rounded-xl px-3 py-2 shadow-sm">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -9643,7 +10906,7 @@ function handleTouchEnd() {
             <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200">
               {tournament?.round && tournament?.totalRounds ? (
                 <>
-                  {tournament.round === tournament.totalRounds ? (
+                  {isFinaleBanner ? (
                     <>Manche finale</>
                   ) : (
                     <>
@@ -9651,6 +10914,8 @@ function handleTouchEnd() {
                     </>
                   )}
                 </>
+              ) : isFinaleBanner ? (
+                <>Manche finale</>
               ) : (
                 <>
                   {activeRoom?.label || "Salon"} · {gridSize}x{gridSize}
@@ -9928,7 +11193,6 @@ function handleTouchEnd() {
           expanded={true}
           animateRank={false}
           animateReorder={resultsMetaPulse}
-          metaPulse={resultsMetaPulse}
           showWheel={false}
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}
@@ -9936,6 +11200,10 @@ function handleTouchEnd() {
           showRoundAward={true}
           renderNickSuffix={renderNickSuffix}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
+          recordBadgesByNick={
+            resultsRankingMode === "round" ? recordBadgesByNickForRound : null
+          }
+          onRecordBadgeClick={openRecordModal}
         />
       </div>
 
@@ -10330,7 +11598,7 @@ function handleTouchEnd() {
                   <div>
                     <h2 className="text-lg font-bold">Mots</h2>
                     <div className="text-xs text-gray-500">
-                      {showAllWords ? `Tous (${allWords.length})` : `Trouvés (${acceptedRef.current.length})`}
+                      {showAllWords ? `Tous (${allWords.length})` : `Trouvés (${foundWordsCount})`}
                     </div>
                   </div>
 
@@ -10385,11 +11653,31 @@ function handleTouchEnd() {
                   <ul className="relative flex flex-col text-sm">
                     {displayList.map((entry) => {
                       const selected = analysis?.word === entry.word;
-                      const isFound = entry.isFound;
+                      const status = entry.status;
+                      const isPending = status === "pending";
+                      const isRejected = status === "rejected";
+                      const isFound = entry.isFound || isPending;
                       const bestPts = entry.bestPts;
                       const userPts = entry.userPts;
-                      const showOpt = isFound && typeof bestPts === "number" && typeof userPts === "number" && bestPts !== userPts;
-                      const visible = showAllWords || isFound;
+                      const showOpt =
+                        isFound &&
+                        typeof bestPts === "number" &&
+                        typeof userPts === "number" &&
+                        bestPts !== userPts &&
+                        !isPending &&
+                        !isRejected;
+                      const visible = showAllWords || isFound || isRejected;
+                      const wordClassName = isRejected
+                        ? darkMode
+                          ? "font-semibold text-red-300 line-through"
+                          : "font-semibold text-red-600 line-through"
+                        : isPending
+                        ? darkMode
+                          ? "font-semibold text-slate-300 opacity-70"
+                          : "font-semibold text-gray-500 opacity-70"
+                        : isFound
+                        ? "font-semibold"
+                        : "text-gray-600";
                       return (
                         <li
                           key={entry.word}
@@ -10420,28 +11708,57 @@ function handleTouchEnd() {
                             top: 0,
                             left: 0,
                             width: "100%",
-                            color: !isFound && darkMode ? DARK_WORD_INACTIVE : undefined,
+                            color:
+                              !isFound && !isPending && darkMode
+                                ? DARK_WORD_INACTIVE
+                                : undefined,
                           }}
                         >
                           <span className="flex items-center gap-2">
                             {isFound ? (
-                              <span style={foundDotStyle} aria-hidden="true" />
+                              <span
+                                style={{
+                                  ...foundDotStyle,
+                                  opacity: isPending ? 0.4 : 1,
+                                }}
+                                aria-hidden="true"
+                              />
                             ) : (
                               <span
                                 style={{ ...foundDotStyle, opacity: 0 }}
                                 aria-hidden="true"
                               />
                             )}
-                            <span className={isFound ? "font-semibold" : "text-gray-600"}>
-                              {entry.word}
-                            </span>
+                            <span className={wordClassName}>{entry.word}</span>
                           </span>
-                          <span className="text-xs text-gray-600 flex items-center gap-2">
+                          <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                             {typeof userPts === "number" && isFound && (
-                              <span className="font-semibold">+{userPts} pts</span>
+                              <span
+                                className={`font-extrabold ${
+                                  darkMode ? "text-slate-100" : "text-slate-800"
+                                }`}
+                              >
+                                +{userPts} pts
+                              </span>
+                            )}
+                            {isPending && (
+                              <span className="text-[0.65rem] text-gray-400">
+                                envoi...
+                              </span>
+                            )}
+                            {isRejected && (
+                              <span
+                                className={`text-[0.65rem] ${
+                                  darkMode ? "text-red-300" : "text-red-600"
+                                }`}
+                              >
+                                refusé
+                              </span>
                             )}
                             {!isFound && typeof bestPts === "number" && (
-                              <span className="text-gray-500">({bestPts} pts)</span>
+                              <span className="text-slate-500 opacity-75">
+                                ({bestPts} pts)
+                              </span>
                             )}
                             {showOpt && (
                               <span
@@ -10627,9 +11944,10 @@ function handleTouchEnd() {
           </div>
         </div>
       </div>
+      </div>
       {praiseOverlay}
       {chatOverlays}
-    </div>
+    </>
   );
 }
 

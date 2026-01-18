@@ -15,88 +15,6 @@ function buildRightLabel(entry, scoreValue, wordsCount) {
   return "-";
 }
 
-const SWAP_FADE_OUT_MS = 250;
-const SWAP_FADE_IN_MS = 250;
-
-function SwapFadeInline({ value, className = "", trigger = 0 }) {
-  const [displayValue, setDisplayValue] = React.useState(value);
-  const [phase, setPhase] = React.useState("idle");
-  const latestValueRef = React.useRef(value);
-  const previousValueRef = React.useRef(value);
-  const displayValueRef = React.useRef(value);
-  const phaseRef = React.useRef("idle");
-  const triggerRef = React.useRef(trigger);
-  const firstRenderRef = React.useRef(true);
-  const outTimerRef = React.useRef(null);
-  const inTimerRef = React.useRef(null);
-
-  React.useEffect(() => {
-    previousValueRef.current = latestValueRef.current;
-    latestValueRef.current = value;
-    const triggerChanged = trigger !== triggerRef.current;
-    const triggerActive = triggerChanged && !!trigger;
-    if (phaseRef.current === "idle" && !triggerActive) {
-      setDisplayValue(value);
-    }
-  }, [value]);
-
-  React.useEffect(() => {
-    displayValueRef.current = displayValue;
-  }, [displayValue]);
-
-  React.useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
-
-  React.useEffect(() => {
-    if (firstRenderRef.current) {
-      firstRenderRef.current = false;
-      triggerRef.current = trigger;
-      return undefined;
-    }
-    const triggerChanged = trigger !== triggerRef.current;
-    triggerRef.current = trigger;
-    if (!triggerChanged || !trigger) return undefined;
-    if (outTimerRef.current) {
-      clearTimeout(outTimerRef.current);
-      outTimerRef.current = null;
-    }
-    if (inTimerRef.current) {
-      clearTimeout(inTimerRef.current);
-      inTimerRef.current = null;
-    }
-    if (
-      previousValueRef.current !== latestValueRef.current &&
-      displayValueRef.current === latestValueRef.current
-    ) {
-      setDisplayValue(previousValueRef.current);
-    }
-    setPhase("out");
-    outTimerRef.current = setTimeout(() => {
-      setDisplayValue(latestValueRef.current);
-      setPhase("in");
-      inTimerRef.current = setTimeout(() => {
-        setPhase("idle");
-      }, SWAP_FADE_IN_MS);
-    }, SWAP_FADE_OUT_MS);
-    return () => {
-      if (outTimerRef.current) {
-        clearTimeout(outTimerRef.current);
-        outTimerRef.current = null;
-      }
-      if (inTimerRef.current) {
-        clearTimeout(inTimerRef.current);
-        inTimerRef.current = null;
-      }
-    };
-  }, [trigger]);
-
-  const phaseClass =
-    phase === "out" ? "results-fade-out" : phase === "in" ? "results-fade-in" : "";
-
-  return <span className={`${className} ${phaseClass}`}>{displayValue}</span>;
-}
-
 export function RankWheel({ fullRanking, displayRank, selfNick, expanded = false }) {
   const ROWS = 5;
   const rowEm = 1.6;
@@ -416,7 +334,8 @@ function RankingWidgetMobile({
   highlightedPlayers = [],
   renderNickSuffix = null,
   renderAfterRank = null,
-  metaPulse = false,
+  recordBadgesByNick = null,
+  onRecordBadgeClick = null,
   className = "",
 }) {
   const me = (selfNick || "").trim();
@@ -681,6 +600,13 @@ function RankingWidgetMobile({
     " flex flex-col h-full" +
     (className ? ` ${className}` : "");
   const highlightSet = new Set(highlightedPlayers || []);
+  const getRecordBadgesForNick = (nick) => {
+    if (!recordBadgesByNick || !nick) return [];
+    if (typeof recordBadgesByNick.get === "function") {
+      return recordBadgesByNick.get(nick) || [];
+    }
+    return recordBadgesByNick[nick] || [];
+  };
 
   const flatList = (
     <div
@@ -746,6 +672,8 @@ function RankingWidgetMobile({
             ? "bg-amber-900/30"
             : "bg-amber-50"
           : "";
+        const recordBadges = getRecordBadgesForNick(entry?.nick);
+        const recordBadgeItems = Array.isArray(recordBadges) ? recordBadges : [];
 
         return (
           <div
@@ -755,7 +683,7 @@ function RankingWidgetMobile({
               else rowRefs.current.delete(rowKey);
             }}
             className={
-              "flex items-baseline justify-between px-2 py-[3px] border-b last:border-b-0 rounded " +
+              "flex items-start justify-between px-2 py-[3px] border-b last:border-b-0 rounded " +
               extendedDivider +
               " " +
               rowColor +
@@ -763,25 +691,40 @@ function RankingWidgetMobile({
               rowBg
             }
           >
-            <div className="flex items-baseline gap-2 min-w-0">
-              <span className="tabular-nums text-[11px] opacity-80 inline-flex items-baseline gap-1">
-                <span>{rank}</span>
-                {renderAfterRank ? (
-                  <span className="inline-flex">{renderAfterRank(entry, rank)}</span>
-                ) : null}
-              </span>
-              <span className="min-w-0 flex items-baseline gap-1">
-                <span className="truncate">{entry.nick}</span>
-                {renderNickSuffix ? (
-                  <span className="flex-none">{renderNickSuffix(entry.nick)}</span>
-                ) : null}
-              </span>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="tabular-nums text-[11px] opacity-80 inline-flex items-baseline gap-1">
+                  <span>{rank}</span>
+                  {renderAfterRank ? (
+                    <span className="inline-flex">{renderAfterRank(entry, rank)}</span>
+                  ) : null}
+                </span>
+                <span className="min-w-0 flex items-baseline gap-1">
+                  <span className="truncate">{entry.nick}</span>
+                  {renderNickSuffix ? (
+                    <span className="flex-none">{renderNickSuffix(entry.nick)}</span>
+                  ) : null}
+                </span>
+              </div>
+              {recordBadgeItems.length ? (
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    className="record-rainbow rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRecordBadgeClick?.(recordBadgeItems);
+                    }}
+                    aria-label={`Nouveau record ${recordBadgeItems.length} categories`}
+                  >
+                    Nouveau record
+                  </button>
+                </div>
+              ) : null}
             </div>
-            <SwapFadeInline
-              value={scoreContent}
-              trigger={metaPulse}
-              className="tabular-nums text-[11px] opacity-80 font-bold"
-            />
+            <span className="tabular-nums text-[11px] opacity-80 font-bold">
+              {scoreContent}
+            </span>
           </div>
         );
       })}

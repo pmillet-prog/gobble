@@ -8,8 +8,11 @@
     "test:bots": "node ./tests/botManager.test.js"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
     "cors": "^2.8.5",
     "express": "^4.19.0",
-    "socket.io": "^4.7.0"
+    "socket.io": "^4.7.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
   }
 }

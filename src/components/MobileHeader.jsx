@@ -6,6 +6,7 @@ export default function MobileHeader({
   darkMode,
   gridSize,
   headerRef,
+  isFinaleBanner = false,
   isMuted,
   isTargetRound,
   phase,
@@ -35,7 +36,7 @@ export default function MobileHeader({
           <div className="text-[0.7rem] text-slate-500 dark:text-slate-400 leading-tight">
             {tournament?.round && tournament?.totalRounds ? (
               <>
-                {tournament.round === tournament.totalRounds ? (
+                {isFinaleBanner || tournament.round === tournament.totalRounds ? (
                   <>Manche finale</>
                 ) : (
                   <>
@@ -43,6 +44,8 @@ export default function MobileHeader({
                   </>
                 )}
               </>
+            ) : isFinaleBanner ? (
+              <>Manche finale</>
             ) : (
               <>
                 {activeRoom?.label || "Salon"}{roomLabelSeparator}{gridSize}x{gridSize}
@@ -132,4 +135,3 @@ export default function MobileHeader({
     </div>
   );
 }
-
