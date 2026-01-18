@@ -4124,7 +4124,7 @@ function playTileStepSound(step) {
     if (!socket.connected) return Promise.resolve(null);
     setTrophyLoading(true);
     return new Promise((resolve) => {
-      socket.emit("getTrophyStatus", (res) => {
+      socket.emit("getTrophyStatus", { installId }, (res) => {
         const status = res?.status || null;
         if (status && typeof status === "object") {
           setTrophyStatus(status);
@@ -8388,7 +8388,19 @@ function handleTouchEnd() {
       : 0;
   const showWeeklyDots = weeklyBoardsMeta.length > 1;
   const weeklyDots = showWeeklyDots ? (
-    <div className="flex items-center justify-center gap-1.5 py-2">
+    <div className="flex items-center justify-center gap-2 py-2">
+      <button
+        type="button"
+        className={`hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition ${
+          darkMode
+            ? "border-slate-600 text-slate-100 hover:bg-slate-800"
+            : "border-slate-200 text-slate-700 hover:bg-slate-100"
+        }`}
+        onClick={() => shiftWeeklyBoard(-1)}
+        aria-label="Page precedente"
+      >
+        ‹
+      </button>
       {weeklyBoardsMeta.map((board, idx) => {
         const isActive = idx === safeWeeklyIndex;
         const dotColor = isActive
@@ -8411,8 +8423,79 @@ function handleTouchEnd() {
           />
         );
       })}
+      <button
+        type="button"
+        className={`hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition ${
+          darkMode
+            ? "border-slate-600 text-slate-100 hover:bg-slate-800"
+            : "border-slate-200 text-slate-700 hover:bg-slate-100"
+        }`}
+        onClick={() => shiftWeeklyBoard(1)}
+        aria-label="Page suivante"
+      >
+        ›
+      </button>
     </div>
   ) : null;
+
+  const statsHeaderTitle = (
+    <div>
+      <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+        Stats
+      </div>
+      <div className="text-lg font-extrabold">
+        {statsTab === "weekly" ? activeWeeklyBoard?.label : "Saison"}
+      </div>
+      {statsTab === "weekly" ? (
+        <div className="text-xs opacity-70">
+          {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+          {" - Reset : lundi a minuit"}
+        </div>
+      ) : (
+        <div className="text-xs opacity-70">Trophees mensuels</div>
+      )}
+    </div>
+  );
+  const statsHeaderToggle = (
+    <div className="flex items-center gap-2">
+      <div
+        className={`inline-flex rounded-full overflow-hidden border ${
+          darkMode ? "border-slate-700" : "border-slate-200"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setStatsTab("weekly")}
+          className={`px-3 py-1 text-xs font-semibold transition ${
+            statsTab === "weekly"
+              ? darkMode
+                ? "bg-blue-700 text-white"
+                : "bg-blue-600 text-white"
+              : darkMode
+              ? "bg-slate-900 text-slate-300"
+              : "bg-white text-slate-600"
+          }`}
+        >
+          Hebdo
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatsTab("season")}
+          className={`px-3 py-1 text-xs font-semibold transition ${
+            statsTab === "season"
+              ? darkMode
+                ? "bg-blue-700 text-white"
+                : "bg-blue-600 text-white"
+              : darkMode
+              ? "bg-slate-900 text-slate-300"
+              : "bg-white text-slate-600"
+          }`}
+        >
+          Saison
+        </button>
+      </div>
+    </div>
+  );
 
   const weeklyStatsOverlay =
     isWeeklyOpen && typeof document !== "undefined"
@@ -8442,60 +8525,8 @@ function handleTouchEnd() {
               </button>
               <div className="p-4 pb-2">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-                      Stats
-                    </div>
-                    <div className="text-lg font-extrabold">
-                      {statsTab === "weekly" ? activeWeeklyBoard?.label : "Saison"}
-                    </div>
-                    {statsTab === "weekly" ? (
-                      <div className="text-xs opacity-70">
-                        {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
-                        {" - Reset : lundi a minuit"}
-                      </div>
-                    ) : (
-                      <div className="text-xs opacity-70">Trophees mensuels</div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`inline-flex rounded-full overflow-hidden border ${
-                        darkMode ? "border-slate-700" : "border-slate-200"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setStatsTab("weekly")}
-                        className={`px-3 py-1 text-xs font-semibold transition ${
-                          statsTab === "weekly"
-                            ? darkMode
-                              ? "bg-blue-700 text-white"
-                              : "bg-blue-600 text-white"
-                            : darkMode
-                            ? "bg-slate-900 text-slate-300"
-                            : "bg-white text-slate-600"
-                        }`}
-                      >
-                        Hebdo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStatsTab("season")}
-                        className={`px-3 py-1 text-xs font-semibold transition ${
-                          statsTab === "season"
-                            ? darkMode
-                              ? "bg-blue-700 text-white"
-                              : "bg-blue-600 text-white"
-                            : darkMode
-                            ? "bg-slate-900 text-slate-300"
-                            : "bg-white text-slate-600"
-                        }`}
-                      >
-                        Saison
-                      </button>
-                    </div>
-                  </div>
+                  {statsTab === "weekly" ? statsHeaderToggle : statsHeaderTitle}
+                  {statsTab === "weekly" ? statsHeaderTitle : statsHeaderToggle}
                 </div>
                 {statsTab === "weekly" ? (
                   <div className="mt-2 text-[11px] opacity-70">

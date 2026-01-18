@@ -2686,8 +2686,14 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("getTrophyStatus", async (cb) => {
-    const installId = normalizeInstallId(socket.data?.installId);
+  socket.on("getTrophyStatus", async (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    const socketInstallId = normalizeInstallId(socket.data?.installId);
+    const payloadInstallId = normalizeInstallId(payload?.installId);
+    const installId = socketInstallId || payloadInstallId;
     if (!installId) {
       cb?.({ ok: false, status: null });
       return;
