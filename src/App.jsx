@@ -445,6 +445,41 @@ body {
   filter: brightness(1.08);
 }
 
+@keyframes vocabShimmer {
+  0% {
+    background-position: -200% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes vocabPulse {
+  0% {
+    filter: brightness(1);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    filter: brightness(1.2);
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.55);
+  }
+  100% {
+    filter: brightness(1);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+  }
+}
+
+.vocab-delta-fill {
+  background-image: linear-gradient(
+    90deg,
+    rgba(34, 197, 94, 0.75),
+    rgba(134, 239, 172, 0.85),
+    rgba(34, 197, 94, 0.75)
+  );
+  background-size: 200% 100%;
+  animation: vocabShimmer 2.2s linear infinite, vocabPulse 1.8s ease-in-out infinite;
+}
+
 .weekly-arrow-hint {
   opacity: 0;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -1080,9 +1115,44 @@ const LEAGUE_META = {
   },
 };
 
+const VOCAB_LEVELS = [
+  { key: "debutant", label: "Debutant", min: 0, max: 500, image: "/vocab-ranks/debutant.png", color: "#f59e0b" },
+  { key: "ecolier", label: "Ecolier", min: 500, max: 2000, image: "/vocab-ranks/ecolier.png", color: "#22c55e" },
+  { key: "collegien", label: "Collegien", min: 2000, max: 5000, image: "/vocab-ranks/collegien.png", color: "#ef4444" },
+  { key: "lyceen", label: "Lyceen", min: 5000, max: 10000, image: "/vocab-ranks/lyceen.png", color: "#f59e0b" },
+  { key: "etudiant", label: "Etudiant", min: 10000, max: 50000, image: "/vocab-ranks/etudiant.png", color: "#3b82f6" },
+  { key: "expert", label: "Expert", min: 50000, max: 300000, image: "/vocab-ranks/expert.png", color: "#facc15" },
+];
 function getLeaguePalette(league, darkMode) {
   const meta = LEAGUE_META[league] || LEAGUE_META.Bronze;
   return darkMode ? meta.dark : meta.light;
+}
+
+function getVocabLevelMeta(count) {
+  const safe = Number.isFinite(count) ? Math.max(0, count) : 0;
+  for (const level of VOCAB_LEVELS) {
+    if (safe >= level.min && safe < level.max) return level;
+  }
+  return VOCAB_LEVELS[VOCAB_LEVELS.length - 1];
+}
+
+function getVocabProgress(count) {
+  const safe = Number.isFinite(count) ? Math.max(0, count) : 0;
+  for (let i = 0; i < VOCAB_LEVELS.length; i++) {
+    const level = VOCAB_LEVELS[i];
+    const max = Number.isFinite(level.max) ? level.max : Infinity;
+    if (safe < max) {
+      const range = Number.isFinite(level.max)
+        ? Math.max(1, level.max - level.min)
+        : 1;
+      const segmentProgress = Number.isFinite(level.max)
+        ? clampValue((safe - level.min) / range, 0, 1)
+        : 1;
+      const pct = clampValue((i + segmentProgress) / VOCAB_LEVELS.length, 0, 1);
+      return { value: safe, pct };
+    }
+  }
+  return { value: safe, pct: 1 };
 }
 
 export default function App() {
@@ -1388,6 +1458,7 @@ export default function App() {
   const [vocabRoundDelta, setVocabRoundDelta] = useState(null);
   const [vocabLoading, setVocabLoading] = useState(false);
   const [vocabUpdatedAt, setVocabUpdatedAt] = useState(null);
+  const [isVocabOverlayOpen, setIsVocabOverlayOpen] = useState(false);
   const [trophyStatus, setTrophyStatus] = useState(null);
   const [trophyHistory, setTrophyHistory] = useState([]);
   const [trophyLoading, setTrophyLoading] = useState(false);
@@ -1406,6 +1477,7 @@ export default function App() {
   const lastRoundWindowRef = useRef({ startAt: null, endAt: null });
   const vocabBaselineRef = useRef(null);
   const vocabBaselineRoundRef = useRef(null);
+  const vocabOverlayRoundRef = useRef(null);
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
@@ -3060,6 +3132,50 @@ function playTileStepSound(step) {
   }, [phase]);
 
   useEffect(() => {
+    const hasCountdownOverlay =
+      (serverStatus === "break" || phase === "results") &&
+      typeof breakCountdown === "number" &&
+      breakCountdown > 0 &&
+      breakCountdown <= 10;
+
+    if (isMobileLayout || phase !== "results") {
+      if (isVocabOverlayOpen) {
+        setIsVocabOverlayOpen(false);
+      }
+      return;
+    }
+
+    if (hasCountdownOverlay) {
+      if (isVocabOverlayOpen) {
+        setIsVocabOverlayOpen(false);
+      }
+      const overlayKey = roundId || tournamentSummaryAt || null;
+      if (overlayKey) {
+        vocabOverlayRoundRef.current = overlayKey;
+      }
+      return;
+    }
+
+    if (!Number.isFinite(vocabCount)) return;
+    const overlayKey = roundId || tournamentSummaryAt || null;
+    if (overlayKey && vocabOverlayRoundRef.current === overlayKey) return;
+    if (!overlayKey && vocabOverlayRoundRef.current === "fallback") return;
+    vocabOverlayRoundRef.current = overlayKey || "fallback";
+    if (!isVocabOverlayOpen) {
+      setIsVocabOverlayOpen(true);
+    }
+  }, [
+    breakCountdown,
+    isMobileLayout,
+    isVocabOverlayOpen,
+    phase,
+    roundId,
+    serverStatus,
+    tournamentSummaryAt,
+    vocabCount,
+  ]);
+
+  useEffect(() => {
     return () => {
       if (gridRotateTimerRef.current) {
         clearTimeout(gridRotateTimerRef.current);
@@ -4121,9 +4237,7 @@ function playTileStepSound(step) {
   }
 
   function requestTrophyStatus() {
-    if (!socket.connected) return Promise.resolve(null);
-    setTrophyLoading(true);
-    return new Promise((resolve) => {
+    const emitRequest = (resolve) => {
       socket.emit("getTrophyStatus", { installId }, (res) => {
         const status = res?.status || null;
         if (status && typeof status === "object") {
@@ -4135,6 +4249,32 @@ function playTileStepSound(step) {
         setTrophyLoading(false);
         resolve(status);
       });
+    };
+
+    setTrophyLoading(true);
+    if (!socket.connected) {
+      return new Promise((resolve) => {
+        const onConnect = () => {
+          cleanup();
+          emitRequest(resolve);
+        };
+        const onError = () => {
+          cleanup();
+          setTrophyLoading(false);
+          resolve(null);
+        };
+        const cleanup = () => {
+          socket.off("connect", onConnect);
+          socket.off("connect_error", onError);
+        };
+        socket.once("connect", onConnect);
+        socket.once("connect_error", onError);
+        socket.connect();
+      });
+    }
+
+    return new Promise((resolve) => {
+      emitRequest(resolve);
     });
   }
 
@@ -6632,6 +6772,142 @@ function handleTouchEnd() {
     : "?";
   const showPreviewStatus = Boolean(statusHoldText) && !liveWord;
   const showPreviewStats = !liveWord && !statusHoldText && !isTargetHintRound;
+  const vocabDeltaValue = Number.isFinite(vocabRoundDelta) ? Math.max(0, vocabRoundDelta) : 0;
+  const vocabHasDelta = vocabDeltaValue > 0;
+  const vocabDeltaLabel = vocabHasDelta ? `+${formatNumber(vocabDeltaValue)}` : "inchangé";
+  const vocabTotalLabel = Number.isFinite(vocabCount)
+    ? `${formatNumber(vocabCount)} mots uniques`
+    : vocabLoading
+    ? "Calcul en cours..."
+    : "\u2014";
+  const vocabTotalValue = Number.isFinite(vocabCount) ? vocabCount : 0;
+  const vocabLevel = getVocabLevelMeta(vocabTotalValue);
+  const vocabProgress = getVocabProgress(vocabTotalValue);
+  const vocabPrevValue = vocabHasDelta
+    ? Math.max(0, vocabTotalValue - vocabDeltaValue)
+    : vocabTotalValue;
+  const vocabPrevLevel = getVocabLevelMeta(vocabPrevValue);
+  const vocabLevelUp =
+    vocabHasDelta && vocabPrevLevel?.key && vocabLevel?.key && vocabPrevLevel.key !== vocabLevel.key;
+  const vocabBaseValue = vocabPrevValue;
+  const vocabBaseProgress = getVocabProgress(vocabBaseValue);
+  const vocabProgressPct = clampValue(vocabProgress.pct * 100, 0, 100);
+  const vocabBasePct = clampValue(vocabBaseProgress.pct * 100, 0, 100);
+  const vocabDeltaPct = Math.max(0, vocabProgressPct - vocabBasePct);
+  const vocabCursorStyle = {
+    left: `${vocabProgressPct}%`,
+    borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
+  };
+  const vocabImageSrc = vocabLevel?.image || "";
+  const isBreakCountdownOverlayActive =
+    !isMobileLayout &&
+    (serverStatus === "break" || phase === "results") &&
+    typeof breakCountdown === "number" &&
+    breakCountdown > 0 &&
+    breakCountdown <= 10;
+  const renderVocabPanel = (panelClassName = "") => (
+    <div className={`flex flex-col items-center gap-3 ${panelClassName}`}>
+      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
+        Vocabulaire
+      </div>
+      <div className="text-4xl font-black tabular-nums">{vocabDeltaLabel}</div>
+      <div className="text-xs font-semibold opacity-75 -mt-1">{vocabTotalLabel}</div>
+      <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
+        {vocabImageSrc ? (
+          <div className="relative">
+            <img
+              src={vocabImageSrc}
+              alt={vocabLevel?.label || "Niveau vocabulaire"}
+              className="h-28 sm:h-32 w-auto select-none"
+              draggable={false}
+            />
+            {vocabLevelUp ? (
+              <div className="absolute -top-2 -right-3 rotate-6 rounded-full bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 shadow-lg animate-pulse">
+                nouveau !!
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="text-sm font-extrabold uppercase tracking-widest">
+            {vocabLevel?.label || "Niveau"}
+          </div>
+        )}
+        <div className="w-full">
+          <div className="relative w-full">
+            <div
+              className={`h-3 rounded-full overflow-hidden ${
+                darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
+              }`}
+            >
+              <div className="absolute inset-0 grid grid-cols-6">
+                {VOCAB_LEVELS.map((level, idx) => (
+                  <div
+                    key={level.key}
+                    className={`h-full ${
+                      darkMode ? "bg-slate-900/40" : "bg-white/40"
+                    } ${
+                      idx < VOCAB_LEVELS.length - 1
+                        ? "border-r border-white/20 dark:border-slate-700/60"
+                        : ""
+                    }`}
+                  />
+                ))}
+              </div>
+              <div
+                className="absolute inset-y-0 left-0"
+                style={{
+                  width: `${vocabBasePct}%`,
+                  background: darkMode
+                    ? "rgba(248, 250, 252, 0.85)"
+                    : "rgba(15, 23, 42, 0.85)",
+                }}
+              />
+              {vocabDeltaValue && vocabDeltaValue > 0 ? (
+                <div
+                  className="absolute inset-y-0 vocab-delta-fill"
+                  style={{
+                    left: `${vocabBasePct}%`,
+                    width: `${vocabDeltaPct}%`,
+                  }}
+                />
+              ) : null}
+            </div>
+            <div
+              className="absolute -top-3"
+              style={{
+                ...vocabCursorStyle,
+                transform: "translateX(-50%)",
+              }}
+            >
+              <div
+                className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
+                style={{ borderTopColor: vocabCursorStyle.borderTopColor }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-6 gap-1 mt-2 text-[9px] uppercase tracking-wide text-slate-400">
+            {VOCAB_LEVELS.map((level) => {
+              const isActive = level.key === vocabLevel?.key;
+              return (
+                <div
+                  key={`label-${level.key}`}
+                  className={`text-center ${
+                    isActive
+                      ? darkMode
+                        ? "text-slate-100 font-bold"
+                        : "text-slate-700 font-bold"
+                      : ""
+                  }`}
+                >
+                  {level.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
   const foundList = acceptedRef.current.map((word) => ({
     word,
@@ -8259,6 +8535,14 @@ function handleTouchEnd() {
     const rank = idx + 1;
     const achieved = entry.achievedAt ? formatWeeklyDate(entry.achievedAt) : null;
     const baseNick = entry.nick || "Joueur";
+    const vocabEntryKey =
+      entry.playerKey || (entry.nick ? String(entry.nick).trim().toLowerCase() : null);
+    const vocabCountForRow =
+      vocabEntryKey && weeklyVocabLookup.has(vocabEntryKey)
+        ? weeklyVocabLookup.get(vocabEntryKey)
+        : null;
+    const resolvedVocabCount = Number.isFinite(vocabCountForRow) ? vocabCountForRow : 0;
+    const vocabMetaForRow = getVocabLevelMeta(resolvedVocabCount);
 
     const valueParts = [];
     if (boardKey === "medals") {
@@ -8296,9 +8580,7 @@ function handleTouchEnd() {
         boardKey === "bestTimeTargetLong" ||
         boardKey === "bestTimeTargetScore") &&
       entry.word;
-    if (hasWord) {
-      detailParts.push(entry.word);
-    }
+    const wordLabel = hasWord ? entry.word : "";
     const wordButton =
       hasWord && entry.word ? (
         <button
@@ -8340,11 +8622,35 @@ function handleTouchEnd() {
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-7 text-center text-sm font-bold text-amber-500">{rank}</span>
           <div className="min-w-0">
-            <div className="font-semibold truncate">{baseNick}</div>
+            <div className="font-semibold truncate flex items-center gap-2">
+              {vocabMetaForRow?.image ? (
+                <img
+                  src={vocabMetaForRow.image}
+                  alt={vocabMetaForRow.label || "Niveau"}
+                  className="h-6 w-6 shrink-0"
+                  draggable={false}
+                />
+              ) : null}
+              <span className="truncate">{baseNick}</span>
+            </div>
             {achieved ? <div className="text-[11px] opacity-60 truncate">{achieved}</div> : null}
-            {detailParts.length > 0 ? (
+            {detailParts.length > 0 || hasWord ? (
               <div className="text-[11px] opacity-60 truncate flex items-center gap-1">
-                <span className="truncate">{detailParts.join(" · ")}</span>
+                {detailParts.length > 0 ? (
+                  <span className="truncate">{detailParts.join(" - ")}</span>
+                ) : null}
+                {hasWord ? (
+                  <button
+                    type="button"
+                    className="truncate font-semibold hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDefinition(wordLabel);
+                    }}
+                  >
+                    {wordLabel}
+                  </button>
+                ) : null}
                 {wordButton}
               </div>
             ) : null}
@@ -8375,6 +8681,21 @@ function handleTouchEnd() {
   if (!Array.isArray(weeklyBoardData.vocab) || weeklyBoardData.vocab.length === 0) {
     weeklyBoardData.vocab = vocabBoardEntries;
   }
+  const weeklyVocabLookup = new Map();
+  const weeklyVocabEntries = Array.isArray(weeklyBoardData.vocab)
+    ? weeklyBoardData.vocab
+    : [];
+  weeklyVocabEntries.forEach((entry) => {
+    if (!entry) return;
+    const count = Number(entry.vocabCount) || 0;
+    if (entry.playerKey) {
+      weeklyVocabLookup.set(entry.playerKey, count);
+    }
+    if (entry.nick) {
+      const nickKey = String(entry.nick).trim().toLowerCase();
+      if (nickKey) weeklyVocabLookup.set(nickKey, count);
+    }
+  });
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
   const activeWeeklyEntries = activeWeeklyBoard
     ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
@@ -9125,8 +9446,15 @@ function handleTouchEnd() {
   };
   const formatRecordValueLabel = (record) => {
     if (!record) return "";
-    if (record.categoryKey === "bestWord" || record.categoryKey === "longestWord") {
-      return record.word ? `Mot : ${record.word}` : "";
+    if (record.categoryKey === "bestWord") {
+      if (!record.word) return "";
+      const pts = Number.isFinite(record.pts) ? ` (${record.pts} pts)` : "";
+      return `Mot : ${record.word}${pts}`;
+    }
+    if (record.categoryKey === "longestWord") {
+      if (!record.word) return "";
+      const len = Number.isFinite(record.len) ? ` (${record.len} lettres)` : "";
+      return `Mot : ${record.word}${len}`;
     }
     if (record.categoryKey === "mostWordsInGame") {
       return Number.isFinite(record.wordsCount)
@@ -9280,6 +9608,7 @@ function handleTouchEnd() {
       <>
         {weeklyStatsOverlay}
         {playersOverlay}
+        {definitionModalView}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -10290,18 +10619,6 @@ function handleTouchEnd() {
       const resultsCardStyle = isTargetResults
         ? { height: "46vh", minHeight: "38vh", maxHeight: "52vh" }
         : { minHeight: "320px" };
-      const vocabDeltaValue = Number.isFinite(vocabRoundDelta)
-        ? Math.max(0, vocabRoundDelta)
-        : null;
-      const vocabDeltaLabel =
-        vocabDeltaValue && vocabDeltaValue > 0
-          ? `+${formatNumber(vocabDeltaValue)}`
-          : "inchang\u00e9";
-      const vocabTotalLabel = Number.isFinite(vocabCount)
-        ? `${formatNumber(vocabCount)} mots uniques`
-        : vocabLoading
-        ? "Calcul en cours..."
-        : "\u2014";
       const showResultsDots = resultsPages.length > 1;
       const summaryWrapperClass = isTargetResults
         ? showResultsDots
@@ -10314,7 +10631,11 @@ function handleTouchEnd() {
         <div className="flex items-center justify-center gap-1.5 py-1">
           {resultsPages.map((page, idx) => {
             const isActive = idx === safeResultsPage;
-            const dotColor = isActive
+            const isVocabDot = page === "vocab";
+            const showVocabAlert = isVocabDot && vocabLevelUp;
+            const dotColor = showVocabAlert
+              ? "bg-red-500"
+              : isActive
               ? darkMode
                 ? "bg-slate-100"
                 : "bg-slate-900"
@@ -10327,7 +10648,7 @@ function handleTouchEnd() {
                 type="button"
                 className={`h-2.5 w-2.5 rounded-full transition ${dotColor} ${
                   isActive ? "scale-110" : ""
-                }`}
+                } ${showVocabAlert ? "animate-pulse" : ""}`}
                 aria-label={`Page ${idx + 1}`}
                 aria-current={isActive ? "true" : undefined}
                 onClick={(e) => {
@@ -10410,17 +10731,7 @@ function handleTouchEnd() {
                   </div>
 
                   {showVocabPage ? (
-                    <div className="flex flex-col items-center justify-center gap-2 flex-1 min-h-0">
-                      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-                        Vocabulaire
-                      </div>
-                      <div className="text-4xl font-black tabular-nums">
-                        {vocabDeltaLabel}
-                      </div>
-                      <div className="text-xs font-semibold opacity-75">
-                        {vocabTotalLabel}
-                      </div>
-                    </div>
+                    renderVocabPanel("flex-1 min-h-0 pt-2")
                   ) : showResultsWords && !isTargetRound ? (
                     <div className="flex flex-col gap-2 flex-1 min-h-0">
                       {wordsEmpty ? (
@@ -11340,6 +11651,53 @@ function handleTouchEnd() {
                   : renderEndStatsCard("w-full max-w-sm bg-transparent", false)}
               </div>
             )}
+            {phase === "results" &&
+              !isMobileLayout &&
+              isVocabOverlayOpen &&
+              Number.isFinite(vocabCount) &&
+              !isBreakCountdownOverlayActive && (
+                <div
+                  className={`absolute inset-0 z-30 flex items-center justify-center rounded-xl backdrop-blur-sm ${
+                    darkMode ? "bg-black/55" : "bg-white/65"
+                  }`}
+                >
+                  <div
+                    className={`relative w-full max-w-lg mx-4 rounded-2xl border p-4 shadow-2xl ${
+                      darkMode
+                        ? "bg-slate-900/95 border-slate-700 text-slate-100"
+                        : "bg-white/95 border-slate-200 text-slate-900"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className={`absolute top-3 right-3 h-8 w-8 rounded-full border flex items-center justify-center ${
+                        darkMode
+                          ? "border-slate-600 text-slate-100 hover:bg-slate-800"
+                          : "border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
+                      onClick={() => setIsVocabOverlayOpen(false)}
+                      aria-label="Fermer"
+                      title="Fermer"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                    {renderVocabPanel("pt-1")}
+                  </div>
+                </div>
+              )}
             {phase === "playing" && specialSolvedOverlay && (
               <div
                 className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${

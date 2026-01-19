@@ -1,0 +1,165 @@
+{
+  "weekStartTs": 1768777200000,
+  "medals": {},
+  "mostWordsInGame": {
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "wordsCount": 56,
+      "roundId": "room-4x4#1768834588288",
+      "achievedAt": 1768834708288
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "wordsCount": 29,
+      "roundId": "room-4x4#1768831502239",
+      "achievedAt": 1768831622239
+    }
+  },
+  "totalScore": {
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "totalScore": 1455,
+      "roundsPlayed": 47,
+      "achievedAt": 1768834843381
+    },
+    "nick:Tigre": {
+      "nick": "Tigre",
+      "playerKey": "nick:Tigre",
+      "totalScore": 0,
+      "roundsPlayed": 1,
+      "achievedAt": 1768829921730
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "totalScore": 1433,
+      "roundsPlayed": 10,
+      "achievedAt": 1768832932690
+    },
+    "nick:Test": {
+      "nick": "Test",
+      "playerKey": "nick:Test",
+      "totalScore": 0,
+      "roundsPlayed": 2,
+      "achievedAt": 1768833082754
+    }
+  },
+  "bestWord": {
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "word": "seines",
+      "pts": 78,
+      "achievedAt": 1768830990170
+    },
+    "nick:Lena": {
+      "nick": "Lena",
+      "playerKey": "nick:Lena",
+      "word": "mitees",
+      "pts": 90,
+      "achievedAt": 1768833749992
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "word": "axai",
+      "pts": 66,
+      "achievedAt": 1768834632847
+    }
+  },
+  "longestWord": {
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "word": "banderez",
+      "len": 8,
+      "achievedAt": 1768831521448
+    },
+    "nick:Lena": {
+      "nick": "Lena",
+      "playerKey": "nick:Lena",
+      "word": "soumites",
+      "len": 8,
+      "achievedAt": 1768833733001
+    },
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "word": "mariames",
+      "len": 8,
+      "achievedAt": 1768834657639
+    }
+  },
+  "bestRoundScore": {
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "pts": 955,
+      "roundId": "room-4x4#1768834588288",
+      "achievedAt": 1768834705278
+    },
+    "nick:Tigre": {
+      "nick": "Tigre",
+      "playerKey": "nick:Tigre",
+      "pts": 0,
+      "roundId": "room-4x4#1768829801730",
+      "achievedAt": 1768829921730
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "pts": 581,
+      "roundId": "room-4x4#1768831502239",
+      "achievedAt": 1768831527818
+    },
+    "nick:Test": {
+      "nick": "Test",
+      "playerKey": "nick:Test",
+      "pts": 0,
+      "roundId": "room-4x4#1768831842352",
+      "achievedAt": 1768831962352
+    },
+    "nick:Lena": {
+      "nick": "Lena",
+      "playerKey": "nick:Lena",
+      "pts": 387,
+      "roundId": "room-4x4#1768833632950",
+      "achievedAt": 1768833749992
+    }
+  },
+  "bestTimeTargetLong": {
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "ms": 82936,
+      "word": "soutenez",
+      "achievedAt": 1768829764593
+    }
+  },
+  "bestTimeTargetScore": {},
+  "vocab": {
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "vocabCount": 57,
+      "achievedAt": 1768834708288
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "vocabCount": 964,
+      "achievedAt": 1768832457482
+    }
+  },
+  "mostGobbles": {
+    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "nick": "Tigre",
+      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
+      "gobbles": 1,
+      "achievedAt": 1768834708288
+    }
+  }
+}
