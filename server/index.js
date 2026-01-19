@@ -43,6 +43,7 @@ import {
   initVocabularyService,
   recordVocabularyBatch,
   getVocabularyCount,
+  getKnownVocabWords,
 } from "./stats/vocabularyService.js";
 import {
   initTrophyService,
@@ -2016,23 +2017,46 @@ async function endRoundForRoom(room) {
   }
 
   for (const [nick, data] of roundSubs.entries()) {
+    const rawWords = Array.from(data.words || []);
+    const uniqueWords = Array.from(
+      new Set(
+        rawWords
+          .map((word) => normalizeWord(word))
+          .filter((word) => typeof word === "string" && word)
+      )
+    );
     results.push({
       nick,
       score: data.score,
-      words: Array.from(data.words),
+      words: rawWords,
+      uniqueWords,
+      newVocabWords: [],
       isBot: isBotNick(room, nick),
     });
   }
 
   const endedAt = room.currentRound.endsAt || Date.now();
+  const resultsByNick = new Map(results.map((entry) => [entry.nick, entry]));
   const vocabEntries = [];
+  const vocabLookups = [];
   for (const entry of results) {
     if (entry.isBot) continue;
     const installId = getInstallIdForNick(room, entry.nick);
     if (!installId) continue;
-    const words = Array.isArray(entry.words) ? entry.words : [];
+    const words = Array.isArray(entry.uniqueWords) ? entry.uniqueWords : [];
     if (!words.length) continue;
     vocabEntries.push({ installId, words, ts: endedAt, nick: entry.nick });
+    vocabLookups.push({ installId, words, nick: entry.nick });
+  }
+  if (vocabLookups.length) {
+    for (const lookup of vocabLookups) {
+      const knownWords = await getKnownVocabWords(lookup.installId, lookup.words);
+      const newVocabWords = lookup.words.filter((word) => !knownWords.has(word));
+      const resultEntry = resultsByNick.get(lookup.nick);
+      if (resultEntry) {
+        resultEntry.newVocabWords = newVocabWords;
+      }
+    }
   }
   let vocabSummary = {};
   if (vocabEntries.length) {

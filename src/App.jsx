@@ -63,6 +63,13 @@ const DARK_WORD_INACTIVE = "#e2e8f0";
 const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 1400;
+const VOCAB_OVERLAY_FADE_MS = 1000;
+const VOCAB_OVERLAY_ZERO_DELAY_MS = 2000;
+const VOCAB_OVERLAY_SEGMENT_MS = 2000;
+const VOCAB_OVERLAY_WORDS_PER_SEGMENT = 10;
+const VOCAB_OVERLAY_ABSORB_MS = 2000;
+const VOCAB_OVERLAY_END_HOLD_MS = 3000;
+const VOCAB_OVERLAY_IMAGE_FADE_MS = 450;
 
 function getGridSizeForRoom(roomKey) {
   return ROOM_OPTIONS[roomKey]?.gridSize || 4;
@@ -469,6 +476,140 @@ body {
   }
 }
 
+@keyframes vocabOverlayIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes vocabOverlayOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes vocabBounce {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.08) translateY(-2px);
+  }
+  70% {
+    transform: scale(0.98) translateY(1px);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes vocabImageFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vocabImageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vocabWordFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes vocabWordFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vocabAbsorb {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 0 rgba(34, 197, 94, 0));
+  }
+  35% {
+    transform: translate(
+        calc(var(--vocab-absorb-x, 0px) * 0.35),
+        calc(var(--vocab-absorb-y, 0px) * 0.35)
+      )
+      scale(1.22);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.6));
+  }
+  85% {
+    transform: translate(
+        calc(var(--vocab-absorb-x, 0px) * 0.85),
+        calc(var(--vocab-absorb-y, 0px) * 0.85)
+      )
+      scale(0.7);
+    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.8));
+  }
+  99% {
+    transform: translate(
+        calc(var(--vocab-absorb-x, 0px) * 0.99),
+        calc(var(--vocab-absorb-y, 0px) * 0.99)
+      )
+      scale(0.4);
+    opacity: 1;
+    filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.95));
+  }
+  100% {
+    transform: translate(var(--vocab-absorb-x, 0px), var(--vocab-absorb-y, 0px))
+      scale(0.15);
+    opacity: 0;
+    filter: drop-shadow(0 0 20px rgba(34, 197, 94, 1));
+  }
+}
+
+@keyframes vocabBurst {
+  0%,
+  70% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+  85% {
+    transform: translate(-50%, -50%) scale(0.7);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+}
+
 .vocab-delta-fill {
   background-image: linear-gradient(
     90deg,
@@ -478,6 +619,53 @@ body {
   );
   background-size: 200% 100%;
   animation: vocabShimmer 2.2s linear infinite, vocabPulse 1.8s ease-in-out infinite;
+}
+
+.vocab-overlay-in {
+  animation: vocabOverlayIn 1s ease both;
+}
+
+.vocab-overlay-out {
+  animation: vocabOverlayOut 1s ease both;
+}
+
+.vocab-count-bounce {
+  animation: vocabBounce 0.65s ease both;
+}
+
+.vocab-image-fade-out {
+  animation: vocabImageFadeOut 0.45s ease both;
+}
+
+.vocab-image-fade-in {
+  animation: vocabImageFadeIn 0.45s ease both;
+}
+
+.vocab-count-absorb {
+  animation: vocabAbsorb 2s ease both;
+  position: relative;
+  will-change: transform, opacity, filter;
+}
+
+.vocab-count-absorb::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 197, 94, 0.75);
+  pointer-events: none;
+  animation: vocabBurst 2s ease both;
+}
+
+.vocab-word-fade-out {
+  animation: vocabWordFadeOut 0.35s ease both;
+}
+
+.vocab-word-fade-in {
+  animation: vocabWordFadeIn 0.35s ease both;
 }
 
 .weekly-arrow-hint {
@@ -1197,7 +1385,10 @@ export default function App() {
   const canVibrateRef = useRef(false);
   const [gridWidth, setGridWidth] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
   const [showHelp, setShowHelp] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [highlightPlayers, setHighlightPlayers] = useState([]);
@@ -1458,7 +1649,27 @@ export default function App() {
   const [vocabRoundDelta, setVocabRoundDelta] = useState(null);
   const [vocabLoading, setVocabLoading] = useState(false);
   const [vocabUpdatedAt, setVocabUpdatedAt] = useState(null);
+  const [vocabResultsReadyKey, setVocabResultsReadyKey] = useState(null);
   const [isVocabOverlayOpen, setIsVocabOverlayOpen] = useState(false);
+  const [vocabOverlayPhase, setVocabOverlayPhase] = useState("idle");
+  const [vocabOverlayAnimatedTotal, setVocabOverlayAnimatedTotal] = useState(0);
+  const [vocabOverlayAnimatedDelta, setVocabOverlayAnimatedDelta] = useState(0);
+  const [vocabOverlayBaseCount, setVocabOverlayBaseCount] = useState(0);
+  const [vocabOverlayTargetCount, setVocabOverlayTargetCount] = useState(0);
+  const [vocabOverlayAbsorbing, setVocabOverlayAbsorbing] = useState(false);
+  const [vocabOverlayBounce, setVocabOverlayBounce] = useState(false);
+  const [vocabOverlayRank, setVocabOverlayRank] = useState(null);
+  const [vocabOverlayRankStart, setVocabOverlayRankStart] = useState(null);
+  const [vocabOverlayRankEnd, setVocabOverlayRankEnd] = useState(null);
+  const [vocabOverlayImageLevel, setVocabOverlayImageLevel] = useState(null);
+  const [vocabOverlayImagePhase, setVocabOverlayImagePhase] = useState("idle");
+  const [vocabOverlayHasLevelUp, setVocabOverlayHasLevelUp] = useState(false);
+  const [vocabOverlayStartLevelKey, setVocabOverlayStartLevelKey] = useState(null);
+  const [vocabOverlayAbsorbVec, setVocabOverlayAbsorbVec] = useState({ x: 0, y: 0 });
+  const [vocabOverlayWords, setVocabOverlayWords] = useState([]);
+  const [vocabOverlayCurrentWord, setVocabOverlayCurrentWord] = useState("");
+  const [vocabOverlayShowRanking, setVocabOverlayShowRanking] = useState(false);
+  const [vocabOverlayWordFading, setVocabOverlayWordFading] = useState(false);
   const [trophyStatus, setTrophyStatus] = useState(null);
   const [trophyHistory, setTrophyHistory] = useState([]);
   const [trophyLoading, setTrophyLoading] = useState(false);
@@ -1478,6 +1689,13 @@ export default function App() {
   const vocabBaselineRef = useRef(null);
   const vocabBaselineRoundRef = useRef(null);
   const vocabOverlayRoundRef = useRef(null);
+  const vocabResultsPendingRef = useRef(null);
+  const vocabOverlayTimersRef = useRef([]);
+  const vocabOverlayRafRef = useRef(null);
+  const vocabOverlayLastTickRef = useRef(0);
+  const vocabOverlayDeltaRef = useRef(null);
+  const vocabOverlayCursorRef = useRef(null);
+  const vocabOverlayWordsRef = useRef([]);
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
@@ -2834,6 +3052,61 @@ function playTileStepSound(step) {
     ctx.resume().then(start).catch(start);
   }
 
+  function playVocabOverlayTone(freq, durationMs = 120, gainValue = 0.14) {
+    if (isMuted) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime + 0.01;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const durationSec = Math.max(0.05, durationMs / 1000);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(gainValue, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      try {
+        osc.start(now);
+        osc.stop(now + durationSec + 0.02);
+      } catch (_) {}
+    };
+    ctx.resume().then(start).catch(start);
+  }
+
+  function playVocabOverlayTickSound(wordIndex) {
+    if (!Number.isFinite(wordIndex) || wordIndex <= 0) return;
+    const idx = Math.floor(wordIndex);
+    const low = 220;
+    const mid = 440;
+    const high = 660;
+    let freq = high;
+    if (idx <= 10) {
+      const t = (idx - 1) / 9;
+      freq = low + (mid - low) * t;
+    } else if (idx <= 20) {
+      const t = (idx - 11) / 9;
+      freq = mid + (high - mid) * t;
+    }
+    playVocabOverlayTone(freq, 95, 0.12);
+  }
+
+  function playVocabOverlayZeroSound() {
+    playVocabOverlayTone(170, 520, 0.18);
+  }
+
+  function playVocabOverlayClingSound() {
+    playVocabOverlayTone(880, 110, 0.16);
+    setTimeout(() => playVocabOverlayTone(1320, 160, 0.14), 70);
+  }
+
   function playSpecialFoundSound() {
     if (isMuted) return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -3131,49 +3404,267 @@ function playTileStepSound(step) {
     }
   }, [phase]);
 
+  function stopVocabOverlayAnimation() {
+    clearVocabOverlayTimers();
+    setIsVocabOverlayOpen(false);
+    setVocabOverlayPhase("idle");
+    setVocabOverlayAbsorbing(false);
+    setVocabOverlayBounce(false);
+    setVocabOverlayShowRanking(false);
+    setVocabOverlayWordFading(false);
+    setVocabOverlayCurrentWord("");
+  }
+
+  function startVocabOverlayAnimation({
+    baseCount,
+    deltaCount,
+    targetCount,
+    rankStart,
+    rankEnd,
+    words,
+  }) {
+    clearVocabOverlayTimers();
+    setIsVocabOverlayOpen(true);
+    setVocabOverlayPhase("in");
+    setVocabOverlayBaseCount(baseCount);
+    setVocabOverlayTargetCount(targetCount);
+    setVocabOverlayAnimatedTotal(baseCount);
+    setVocabOverlayAnimatedDelta(0);
+    setVocabOverlayAbsorbing(false);
+    setVocabOverlayBounce(false);
+    setVocabOverlayRank(rankStart);
+    setVocabOverlayRankStart(rankStart);
+    setVocabOverlayRankEnd(rankEnd);
+    const startLevel = getVocabLevelMeta(baseCount);
+    setVocabOverlayImageLevel(startLevel);
+    setVocabOverlayStartLevelKey(startLevel?.key || null);
+    setVocabOverlayImagePhase("idle");
+    setVocabOverlayHasLevelUp(false);
+    setVocabOverlayAbsorbVec({ x: 0, y: 0 });
+    setVocabOverlayShowRanking(false);
+    setVocabOverlayWordFading(false);
+    const safeWords = Array.isArray(words) ? words : [];
+    vocabOverlayWordsRef.current = safeWords;
+    setVocabOverlayWords(safeWords);
+    setVocabOverlayCurrentWord(safeWords[0] || "");
+
+    queueVocabOverlayTimer(
+      setTimeout(() => {
+        setVocabOverlayPhase("idle");
+      }, VOCAB_OVERLAY_FADE_MS)
+    );
+
+    queueVocabOverlayTimer(
+      setTimeout(() => {
+        if (!deltaCount || deltaCount <= 0) {
+          playVocabOverlayZeroSound();
+          setVocabOverlayBounce(true);
+          queueVocabOverlayTimer(setTimeout(() => setVocabOverlayBounce(false), 700));
+          queueVocabOverlayTimer(
+            setTimeout(() => {
+              setVocabOverlayPhase("out");
+              queueVocabOverlayTimer(
+                setTimeout(() => {
+                  stopVocabOverlayAnimation();
+                }, VOCAB_OVERLAY_FADE_MS)
+              );
+            }, VOCAB_OVERLAY_END_HOLD_MS)
+          );
+          return;
+        }
+
+        const durationMs = Math.max(
+          200,
+          (deltaCount / VOCAB_OVERLAY_WORDS_PER_SEGMENT) * VOCAB_OVERLAY_SEGMENT_MS
+        );
+        const startAt = performance.now();
+        vocabOverlayLastTickRef.current = 0;
+
+        const step = (now) => {
+          const elapsed = now - startAt;
+          const t = Math.min(1, Math.max(0, elapsed / durationMs));
+          const currentDelta = Math.round(deltaCount * t);
+          const currentTotal = baseCount + currentDelta;
+          setVocabOverlayAnimatedDelta(currentDelta);
+          setVocabOverlayAnimatedTotal(currentTotal);
+
+          while (vocabOverlayLastTickRef.current < currentDelta) {
+            vocabOverlayLastTickRef.current += 1;
+            playVocabOverlayTickSound(vocabOverlayLastTickRef.current);
+            const wordList = vocabOverlayWordsRef.current;
+            if (wordList && wordList.length) {
+              const idx = Math.min(vocabOverlayLastTickRef.current - 1, wordList.length - 1);
+              const nextWord = wordList[idx] || "";
+              setVocabOverlayCurrentWord(nextWord);
+            }
+          }
+
+          if (t < 1) {
+            vocabOverlayRafRef.current = requestAnimationFrame(step);
+          } else {
+            setVocabOverlayAnimatedDelta(deltaCount);
+            setVocabOverlayAnimatedTotal(targetCount);
+            if (Number.isFinite(rankEnd)) {
+              setVocabOverlayRank(rankEnd);
+            }
+            setVocabOverlayBounce(true);
+            const absorbDelayMs = 420;
+            queueVocabOverlayTimer(
+              setTimeout(() => {
+                setVocabOverlayBounce(false);
+                const deltaEl = vocabOverlayDeltaRef.current;
+                const cursorEl = vocabOverlayCursorRef.current;
+                if (deltaEl && cursorEl) {
+                  const deltaRect = deltaEl.getBoundingClientRect();
+                  const cursorRect = cursorEl.getBoundingClientRect();
+                  const dx =
+                    cursorRect.left +
+                    cursorRect.width / 2 -
+                    (deltaRect.left + deltaRect.width / 2);
+                  const dy =
+                    cursorRect.top +
+                    cursorRect.height / 2 -
+                    (deltaRect.top + deltaRect.height / 2);
+                  setVocabOverlayAbsorbVec({
+                    x: Math.round(dx),
+                    y: Math.round(dy),
+                  });
+                }
+                setVocabOverlayWordFading(true);
+                queueVocabOverlayTimer(
+                  setTimeout(() => {
+                    setVocabOverlayShowRanking(true);
+                    setVocabOverlayWordFading(false);
+                  }, 350)
+                );
+                setVocabOverlayAbsorbing(true);
+                queueVocabOverlayTimer(
+                  setTimeout(() => {
+                    playVocabOverlayClingSound();
+                  }, VOCAB_OVERLAY_ABSORB_MS)
+                );
+                queueVocabOverlayTimer(
+                  setTimeout(() => {
+                    setVocabOverlayPhase("out");
+                    queueVocabOverlayTimer(
+                      setTimeout(() => {
+                        stopVocabOverlayAnimation();
+                      }, VOCAB_OVERLAY_FADE_MS)
+                    );
+                  }, VOCAB_OVERLAY_ABSORB_MS + VOCAB_OVERLAY_END_HOLD_MS)
+                );
+              }, absorbDelayMs)
+            );
+          }
+        };
+
+        vocabOverlayRafRef.current = requestAnimationFrame(step);
+      }, VOCAB_OVERLAY_ZERO_DELAY_MS)
+    );
+  }
+
   useEffect(() => {
-    const hasCountdownOverlay =
-      (serverStatus === "break" || phase === "results") &&
-      typeof breakCountdown === "number" &&
-      breakCountdown > 0 &&
-      breakCountdown <= 10;
-
-    if (isMobileLayout || phase !== "results") {
-      if (isVocabOverlayOpen) {
-        setIsVocabOverlayOpen(false);
-      }
+    if (phase !== "results") {
+      stopVocabOverlayAnimation();
       return;
     }
-
-    if (hasCountdownOverlay) {
-      if (isVocabOverlayOpen) {
-        setIsVocabOverlayOpen(false);
-      }
-      const overlayKey = roundId || tournamentSummaryAt || null;
-      if (overlayKey) {
-        vocabOverlayRoundRef.current = overlayKey;
-      }
-      return;
-    }
-
     if (!Number.isFinite(vocabCount)) return;
-    const overlayKey = roundId || tournamentSummaryAt || null;
-    if (overlayKey && vocabOverlayRoundRef.current === overlayKey) return;
-    if (!overlayKey && vocabOverlayRoundRef.current === "fallback") return;
-    vocabOverlayRoundRef.current = overlayKey || "fallback";
-    if (!isVocabOverlayOpen) {
-      setIsVocabOverlayOpen(true);
+    if (!vocabResultsReadyKey) return;
+    const overlayKey = roundId || tournamentSummaryAt || vocabResultsReadyKey;
+    if (vocabResultsReadyKey !== overlayKey) return;
+    if (vocabOverlayRoundRef.current === overlayKey) return;
+    vocabOverlayRoundRef.current = overlayKey;
+
+    const selfKey = (nicknameRef.current || nickname || "").trim();
+    const selfResult =
+      Array.isArray(finalResults) && selfKey
+        ? finalResults.find((entry) => entry.nick === selfKey)
+        : null;
+    const hasNewVocabWords =
+      selfResult && Object.prototype.hasOwnProperty.call(selfResult, "newVocabWords");
+    const rawWordList = hasNewVocabWords
+      ? Array.isArray(selfResult?.newVocabWords)
+        ? selfResult.newVocabWords
+        : []
+      : Array.isArray(acceptedRef.current)
+      ? acceptedRef.current
+      : Array.isArray(accepted)
+      ? accepted
+      : [];
+    const sortedWords = Array.from(new Set(rawWordList))
+      .map((word) => String(word || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+
+    let deltaCount = Number.isFinite(vocabRoundDelta)
+      ? Math.max(0, vocabRoundDelta)
+      : 0;
+    if (hasNewVocabWords) {
+      deltaCount = sortedWords.length;
+    } else if (!Number.isFinite(deltaCount) || deltaCount <= 0) {
+      deltaCount = Math.max(0, vocabCount - (vocabBaselineRef.current || 0));
     }
+    let baseCount = Number.isFinite(vocabCount) ? Math.max(0, vocabCount - deltaCount) : 0;
+    if (!Number.isFinite(baseCount)) baseCount = 0;
+    const targetCount = baseCount + deltaCount;
+    const rankStart = Number.isFinite(baseCount) ? getWeeklyVocabRankForCount(baseCount) : null;
+    const rankEnd = Number.isFinite(targetCount) ? getWeeklyVocabRankForCount(targetCount) : null;
+
+    startVocabOverlayAnimation({
+      baseCount,
+      deltaCount,
+      targetCount,
+      rankStart,
+      rankEnd,
+      words: sortedWords,
+    });
   }, [
-    breakCountdown,
-    isMobileLayout,
-    isVocabOverlayOpen,
+    accepted,
+    finalResults,
     phase,
     roundId,
-    serverStatus,
+    nickname,
     tournamentSummaryAt,
     vocabCount,
+    vocabRoundDelta,
+    vocabResultsReadyKey,
   ]);
+
+  useEffect(() => {
+    if (!isVocabOverlayOpen) return;
+    const nextLevel = getVocabLevelMeta(vocabOverlayAnimatedTotal);
+    if (!nextLevel || !vocabOverlayImageLevel) return;
+    if (nextLevel.key === vocabOverlayImageLevel.key) return;
+    if (vocabOverlayImagePhase !== "idle") return;
+    if (vocabOverlayStartLevelKey && nextLevel.key !== vocabOverlayStartLevelKey) {
+      setVocabOverlayHasLevelUp(true);
+    }
+    setVocabOverlayImagePhase("out");
+    queueVocabOverlayTimer(
+      setTimeout(() => {
+        setVocabOverlayImageLevel(nextLevel);
+        setVocabOverlayImagePhase("in");
+        triggerConfettiBurst("gobble");
+      }, VOCAB_OVERLAY_IMAGE_FADE_MS)
+    );
+    queueVocabOverlayTimer(
+      setTimeout(() => {
+        setVocabOverlayImagePhase("idle");
+      }, VOCAB_OVERLAY_IMAGE_FADE_MS * 2)
+    );
+  }, [
+    isVocabOverlayOpen,
+    vocabOverlayAnimatedTotal,
+    vocabOverlayImageLevel,
+    vocabOverlayImagePhase,
+    vocabOverlayStartLevelKey,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      clearVocabOverlayTimers();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -3445,6 +3936,8 @@ function playTileStepSound(step) {
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
       setVocabRoundDelta(null);
+      setVocabResultsReadyKey(null);
+      vocabResultsPendingRef.current = null;
       const vocabRoundKey = incomingRoundId || Date.now();
       vocabBaselineRoundRef.current = vocabRoundKey;
       void requestVocabCount().then((count) => {
@@ -3513,7 +4006,11 @@ function playTileStepSound(step) {
       setTournamentSummaryAt(summaryAt || null);
       setTargetSummary(targetSummaryPayload || null);
       setResultsRankingMode("round");
+      const vocabResultsKey = endedId || summaryAt || `results-${Date.now()}`;
+      vocabResultsPendingRef.current = vocabResultsKey;
+      setVocabResultsReadyKey(null);
       void requestVocabCount().then((count) => {
+        if (vocabResultsPendingRef.current !== vocabResultsKey) return;
         if (!Number.isFinite(count)) {
           setVocabRoundDelta(null);
           return;
@@ -3524,6 +4021,7 @@ function playTileStepSound(step) {
         } else {
           setVocabRoundDelta(null);
         }
+        setVocabResultsReadyKey(vocabResultsKey);
       });
 
       if (Array.isArray(results)) {
@@ -4165,6 +4663,46 @@ function playTileStepSound(step) {
       return na.localeCompare(nb);
     });
     return deduped.slice(0, limit);
+  }
+
+  function getWeeklyVocabRankForCount(countValue) {
+    const entries = weeklyStats?.boards?.vocab;
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+    const installKey = installId ? `install:${installId}` : null;
+    const nickKey = selfNick ? `nick:${selfNick}` : null;
+    const nickLower = selfNick ? String(selfNick).trim().toLowerCase() : null;
+    if (!installKey && !nickKey && !nickLower) return null;
+    let replaced = false;
+    const now = Date.now();
+    const withOverride = entries.map((entry) => {
+      if (!entry) return entry;
+      const entryNick = entry.nick ? String(entry.nick).trim().toLowerCase() : null;
+      const matches =
+        (installKey && entry.playerKey === installKey) ||
+        (nickKey && entry.playerKey === nickKey) ||
+        (nickLower && entryNick === nickLower);
+      if (!matches) return entry;
+      replaced = true;
+      return { ...entry, vocabCount: countValue, achievedAt: now };
+    });
+    if (!replaced) {
+      withOverride.push({
+        nick: selfNick || "Toi",
+        playerKey: installKey || nickKey,
+        vocabCount: countValue,
+        achievedAt: now,
+      });
+    }
+    const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
+    const ranked = dedupeWeeklyEntries("vocab", withOverride, Math.max(weeklyLimit, 200));
+    const idx = ranked.findIndex((entry) => {
+      if (!entry) return false;
+      if (installKey && entry.playerKey === installKey) return true;
+      if (nickKey && entry.playerKey === nickKey) return true;
+      const entryNick = entry.nick ? String(entry.nick).trim().toLowerCase() : null;
+      return !!(nickLower && entryNick && entryNick === nickLower);
+    });
+    return idx >= 0 ? idx + 1 : null;
   }
 
   function fetchWeeklyStats(force = false, topN = null) {
@@ -5887,6 +6425,20 @@ function playTileStepSound(step) {
     setStatusHoldTick((tick) => tick + 1);
   }
 
+  function queueVocabOverlayTimer(timerId) {
+    if (!timerId) return;
+    vocabOverlayTimersRef.current.push(timerId);
+  }
+
+  function clearVocabOverlayTimers() {
+    vocabOverlayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    vocabOverlayTimersRef.current = [];
+    if (vocabOverlayRafRef.current) {
+      cancelAnimationFrame(vocabOverlayRafRef.current);
+      vocabOverlayRafRef.current = null;
+    }
+  }
+
     function error(msg) {
     setStatusMessageWithHold(msg);
     setShake(false);
@@ -6799,12 +7351,6 @@ function handleTouchEnd() {
     borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
   };
   const vocabImageSrc = vocabLevel?.image || "";
-  const isBreakCountdownOverlayActive =
-    !isMobileLayout &&
-    (serverStatus === "break" || phase === "results") &&
-    typeof breakCountdown === "number" &&
-    breakCountdown > 0 &&
-    breakCountdown <= 10;
   const renderVocabPanel = (panelClassName = "") => (
     <div className={`flex flex-col items-center gap-3 ${panelClassName}`}>
       <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
@@ -6844,10 +7390,12 @@ function handleTouchEnd() {
                   <div
                     key={level.key}
                     className={`h-full ${
-                      darkMode ? "bg-slate-900/40" : "bg-white/40"
+                      darkMode ? "bg-slate-900/40" : "bg-slate-200/70"
                     } ${
                       idx < VOCAB_LEVELS.length - 1
-                        ? "border-r border-white/20 dark:border-slate-700/60"
+                        ? darkMode
+                          ? "border-r border-slate-700/60"
+                          : "border-r border-slate-300/70"
                         : ""
                     }`}
                   />
@@ -6891,6 +7439,221 @@ function handleTouchEnd() {
               return (
                 <div
                   key={`label-${level.key}`}
+                  className={`text-center ${
+                    isActive
+                      ? darkMode
+                        ? "text-slate-100 font-bold"
+                        : "text-slate-700 font-bold"
+                      : ""
+                  }`}
+                >
+                  {level.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  const vocabOverlayTotalValue = Number.isFinite(vocabOverlayAnimatedTotal)
+    ? vocabOverlayAnimatedTotal
+    : 0;
+  const vocabOverlayDeltaValue = Number.isFinite(vocabOverlayAnimatedDelta)
+    ? vocabOverlayAnimatedDelta
+    : 0;
+  const vocabOverlayDeltaLabel = `+${formatNumber(vocabOverlayDeltaValue)}`;
+  const vocabOverlayTotalLabel = `${formatNumber(vocabOverlayTotalValue)} mots uniques`;
+  const vocabOverlayProgress = getVocabProgress(vocabOverlayTotalValue);
+  const vocabOverlayBaseProgress = getVocabProgress(vocabOverlayBaseCount);
+  const vocabOverlayFinalProgress = getVocabProgress(vocabOverlayTargetCount);
+  const vocabOverlayProgressPct = clampValue(vocabOverlayProgress.pct * 100, 0, 100);
+  const vocabOverlayBasePct = clampValue(vocabOverlayBaseProgress.pct * 100, 0, 100);
+  const vocabOverlayFinalPct = clampValue(vocabOverlayFinalProgress.pct * 100, 0, 100);
+  const vocabOverlayDeltaPct = Math.max(0, vocabOverlayProgressPct - vocabOverlayBasePct);
+  const vocabOverlayBaseFillPct = vocabOverlayAbsorbing
+    ? vocabOverlayFinalPct
+    : vocabOverlayBasePct;
+  const vocabOverlayDeltaFillPct = vocabOverlayAbsorbing ? 0 : vocabOverlayDeltaPct;
+  const vocabOverlayCursorStyle = {
+    left: `${vocabOverlayProgressPct}%`,
+    borderTopColor:
+      vocabOverlayImageLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
+  };
+  const vocabOverlayImage = vocabOverlayImageLevel || vocabLevel;
+  const vocabOverlayImageSrc = vocabOverlayImage?.image || "";
+  const vocabOverlayImageAlt = vocabOverlayImage?.label || "Niveau vocabulaire";
+  const vocabOverlayImageClass =
+    vocabOverlayImagePhase === "out"
+      ? "vocab-image-fade-out"
+      : vocabOverlayImagePhase === "in"
+      ? "vocab-image-fade-in"
+      : "";
+  const vocabOverlayCountClass = vocabOverlayBounce ? "vocab-count-bounce" : "";
+  const vocabOverlayAbsorbClass = vocabOverlayAbsorbing ? "vocab-count-absorb" : "";
+  const vocabOverlayAbsorbStyle = {
+    "--vocab-absorb-x": `${vocabOverlayAbsorbVec.x}px`,
+    "--vocab-absorb-y": `${vocabOverlayAbsorbVec.y}px`,
+  };
+  useEffect(() => {
+    if (!vocabOverlayAbsorbing) return undefined;
+    const rafId = requestAnimationFrame(() => {
+      const deltaEl = vocabOverlayDeltaRef.current;
+      const cursorEl = vocabOverlayCursorRef.current;
+      if (!deltaEl || !cursorEl) return;
+      const deltaRect = deltaEl.getBoundingClientRect();
+      const cursorRect = cursorEl.getBoundingClientRect();
+      const dx =
+        cursorRect.left +
+        cursorRect.width / 2 -
+        (deltaRect.left + deltaRect.width / 2);
+      const dy =
+        cursorRect.top +
+        cursorRect.height / 2 -
+        (deltaRect.top + deltaRect.height / 2);
+      setVocabOverlayAbsorbVec({
+        x: Math.round(dx),
+        y: Math.round(dy),
+      });
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [vocabOverlayAbsorbing, vocabOverlayProgressPct, isMobileLayout]);
+  const vocabOverlayRankLabel = Number.isFinite(vocabOverlayRank)
+    ? `#${vocabOverlayRank}`
+    : null;
+  const renderVocabOverlayPanel = () => (
+    <div className="flex flex-col items-center gap-3">
+      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
+        Vocabulaire
+      </div>
+      <div
+        ref={vocabOverlayDeltaRef}
+        className={`text-4xl font-black tabular-nums ${vocabOverlayCountClass} ${vocabOverlayAbsorbClass}`}
+        style={vocabOverlayAbsorbStyle}
+      >
+        {vocabOverlayDeltaLabel}
+      </div>
+      <div className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
+        {vocabOverlayTotalLabel}
+      </div>
+      <div className="text-[11px] uppercase tracking-[0.18em] min-h-[14px]">
+        {vocabOverlayShowRanking ? (
+          <div className="flex items-center justify-center gap-2 vocab-word-fade-in">
+            <span className="opacity-70">Classement : </span>
+            <span className="font-bold">
+              {Number.isFinite(vocabOverlayRankEnd) ? `#${vocabOverlayRankEnd}` : "—"}
+            </span>
+            {Number.isFinite(vocabOverlayRankStart) &&
+            Number.isFinite(vocabOverlayRankEnd) ? (
+              vocabOverlayRankStart - vocabOverlayRankEnd > 0 ? (
+                <span className="text-green-500 font-bold flex items-center gap-1">
+                  <span aria-hidden="true">↑</span>
+                  <span>
+                    +{vocabOverlayRankStart - vocabOverlayRankEnd}
+                  </span>
+                </span>
+              ) : (
+                <span className="opacity-60">—</span>
+              )
+            ) : (
+              <span className="opacity-60">—</span>
+            )}
+          </div>
+        ) : (
+          <div
+            className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""}`}
+          >
+            {vocabOverlayCurrentWord || ""}
+          </div>
+        )}
+      </div>
+      <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
+        {vocabOverlayImageSrc ? (
+          <div className="relative">
+            <img
+              src={vocabOverlayImageSrc}
+              alt={vocabOverlayImageAlt}
+              className={`h-28 sm:h-32 w-auto select-none ${vocabOverlayImageClass}`}
+              draggable={false}
+            />
+            {vocabOverlayHasLevelUp ? (
+              <div className="absolute -top-2 -right-3 rotate-6 rounded-full bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 shadow-lg animate-pulse">
+                nouveau !!
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="text-sm font-extrabold uppercase tracking-widest">
+            {vocabOverlayImageAlt}
+          </div>
+        )}
+        <div className="w-full">
+          <div className="relative w-full">
+            <div
+              className={`h-3 rounded-full overflow-hidden ${
+                darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
+              }`}
+            >
+              <div className="absolute inset-0 grid grid-cols-6">
+                {VOCAB_LEVELS.map((level, idx) => (
+                  <div
+                    key={`overlay-${level.key}`}
+                    className={`h-full ${
+                      darkMode ? "bg-slate-900/40" : "bg-slate-200/70"
+                    } ${
+                      idx < VOCAB_LEVELS.length - 1
+                        ? darkMode
+                          ? "border-r border-slate-700/60"
+                          : "border-r border-slate-300/70"
+                        : ""
+                    }`}
+                  />
+                ))}
+              </div>
+              <div
+                className="absolute inset-y-0 left-0"
+                style={{
+                  width: `${vocabOverlayBaseFillPct}%`,
+                  background: darkMode
+                    ? "rgba(248, 250, 252, 0.85)"
+                    : "rgba(15, 23, 42, 0.85)",
+                  transition: vocabOverlayAbsorbing
+                    ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease`
+                    : "none",
+                }}
+              />
+              <div
+                className="absolute inset-y-0 vocab-delta-fill"
+                style={{
+                  left: `${vocabOverlayBasePct}%`,
+                  width: `${vocabOverlayDeltaFillPct}%`,
+                  opacity: vocabOverlayAbsorbing ? 0 : 1,
+                  transition: vocabOverlayAbsorbing
+                    ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease, opacity 0.6s ease`
+                    : "none",
+                }}
+              />
+            </div>
+            <div
+              ref={vocabOverlayCursorRef}
+              className="absolute -top-3"
+              style={{
+                ...vocabOverlayCursorStyle,
+                transform: "translateX(-50%)",
+              }}
+            >
+              <div
+                className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
+                style={{ borderTopColor: vocabOverlayCursorStyle.borderTopColor }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-6 gap-1 mt-2 text-[9px] uppercase tracking-wide text-slate-400">
+            {VOCAB_LEVELS.map((level) => {
+              const isActive = level.key === vocabOverlayImage?.key;
+              return (
+                <div
+                  key={`overlay-label-${level.key}`}
                   className={`text-center ${
                     isActive
                       ? darkMode
@@ -9551,6 +10314,38 @@ function handleTouchEnd() {
           document.body
         )
       : null;
+  const vocabOverlayClass =
+    vocabOverlayPhase === "in"
+      ? "vocab-overlay-in"
+      : vocabOverlayPhase === "out"
+      ? "vocab-overlay-out"
+      : "";
+  const vocabOverlayView =
+    isVocabOverlayOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className={`fixed inset-0 z-[12040] flex items-center justify-center px-4 py-6 ${vocabOverlayClass}`}
+            style={{ pointerEvents: "none" }}
+            aria-hidden="true"
+          >
+            <div
+              className={`absolute inset-0 backdrop-blur-sm ${
+                darkMode ? "bg-black/55" : "bg-white/65"
+              }`}
+            />
+            <div
+              className={`relative w-full max-w-lg rounded-2xl border p-4 shadow-2xl ${
+                darkMode
+                  ? "bg-slate-900/95 border-slate-700 text-slate-100"
+                  : "bg-white/95 border-slate-200 text-slate-900"
+              }`}
+            >
+              {renderVocabOverlayPanel()}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   const mobileChatLayer =
     isLoggedIn && isMobileLayout ? (
@@ -9598,6 +10393,7 @@ function handleTouchEnd() {
       {definitionModalView}
       {wordInfoModalView}
       {recordModalView}
+      {vocabOverlayView}
     </>
   );
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -9911,10 +10707,10 @@ function handleTouchEnd() {
                     className={`h-2.5 w-2.5 rounded-full transition ${
                       active
                         ? darkMode
-                          ? "bg-white"
+                          ? "bg-slate-100"
                           : "bg-slate-900"
                         : darkMode
-                        ? "bg-white/40"
+                        ? "bg-white/30"
                         : "bg-slate-300"
                     } ${active ? "scale-110" : ""}`}
                     aria-label={`Page ${idx + 1}`}
@@ -11651,53 +12447,6 @@ function handleTouchEnd() {
                   : renderEndStatsCard("w-full max-w-sm bg-transparent", false)}
               </div>
             )}
-            {phase === "results" &&
-              !isMobileLayout &&
-              isVocabOverlayOpen &&
-              Number.isFinite(vocabCount) &&
-              !isBreakCountdownOverlayActive && (
-                <div
-                  className={`absolute inset-0 z-30 flex items-center justify-center rounded-xl backdrop-blur-sm ${
-                    darkMode ? "bg-black/55" : "bg-white/65"
-                  }`}
-                >
-                  <div
-                    className={`relative w-full max-w-lg mx-4 rounded-2xl border p-4 shadow-2xl ${
-                      darkMode
-                        ? "bg-slate-900/95 border-slate-700 text-slate-100"
-                        : "bg-white/95 border-slate-200 text-slate-900"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className={`absolute top-3 right-3 h-8 w-8 rounded-full border flex items-center justify-center ${
-                        darkMode
-                          ? "border-slate-600 text-slate-100 hover:bg-slate-800"
-                          : "border-slate-200 text-slate-700 hover:bg-slate-100"
-                      }`}
-                      onClick={() => setIsVocabOverlayOpen(false)}
-                      aria-label="Fermer"
-                      title="Fermer"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                    {renderVocabPanel("pt-1")}
-                  </div>
-                </div>
-              )}
             {phase === "playing" && specialSolvedOverlay && (
               <div
                 className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${

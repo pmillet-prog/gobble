@@ -17,6 +17,53 @@ function hashWord(word) {
   return createHash("sha1").update(word).digest("hex");
 }
 
+export async function getKnownVocabWords(installId, words = []) {
+  if (!db || !installId) return new Set();
+  const rawWords = Array.isArray(words) ? words : [];
+  const normalizedWords = Array.from(
+    new Set(
+      rawWords
+        .map((word) => normalizeWord(word))
+        .filter((word) => typeof word === "string" && word)
+    )
+  );
+  if (normalizedWords.length === 0) return new Set();
+
+  const hashToWord = new Map();
+  normalizedWords.forEach((word) => {
+    hashToWord.set(hashWord(word), word);
+  });
+  const hashes = Array.from(hashToWord.keys());
+  const knownHashes = new Set();
+  const chunkSize = 900;
+
+  try {
+    for (let i = 0; i < hashes.length; i += chunkSize) {
+      const chunk = hashes.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const rows = await db.all(
+        `SELECT wordHash FROM vocab_words WHERE installId = ? AND wordHash IN (${placeholders})`,
+        [installId, ...chunk]
+      );
+      if (Array.isArray(rows)) {
+        rows.forEach((row) => {
+          if (row?.wordHash) knownHashes.add(row.wordHash);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Vocabulary lookup failed", err);
+    return new Set();
+  }
+
+  const knownWords = new Set();
+  knownHashes.forEach((hash) => {
+    const word = hashToWord.get(hash);
+    if (word) knownWords.add(word);
+  });
+  return knownWords;
+}
+
 export async function initVocabularyService() {
   if (db) return;
   try {
