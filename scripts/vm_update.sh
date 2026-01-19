@@ -1,6 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ce script est execute SUR la VM, depuis le repo clone (ex: ~/gobble_git)
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_DIR"
+
+# --- Runtime persistence (avant install/build) ---
+RUNTIME_DIR="$HOME/gobble_runtime"
+mkdir -p "$RUNTIME_DIR"
+
+DATA_RUNTIME_PATH="$REPO_DIR/server/data-runtime"
+if [ -e "$DATA_RUNTIME_PATH" ] && [ ! -L "$DATA_RUNTIME_PATH" ]; then
+  cp -a "$DATA_RUNTIME_PATH/." "$RUNTIME_DIR"/
+  rm -rf "$DATA_RUNTIME_PATH"
+fi
+ln -sfn "$RUNTIME_DIR" "$DATA_RUNTIME_PATH"
+
+DB_SOURCE="$REPO_DIR/server/data/gobble.db"
+DB_TARGET="$RUNTIME_DIR/gobble.db"
+if [ -e "$DB_SOURCE" ] && [ ! -L "$DB_SOURCE" ]; then
+  if [ ! -e "$DB_TARGET" ]; then
+    mv "$DB_SOURCE" "$DB_TARGET"
+  else
+    rm -f "$DB_SOURCE"
+  fi
+fi
+mkdir -p "$REPO_DIR/server/data"
+ln -sfn "$DB_TARGET" "$DB_SOURCE"
+
 # Ce script est exécuté SUR la VM, depuis le repo cloné (ex: ~/gobble_git)
 
 echo "=== Update repo already pulled by caller ==="
