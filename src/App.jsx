@@ -1032,6 +1032,24 @@ body.theme-dark textarea::placeholder {
   100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 0; }
 }
 
+@keyframes praiseShine {
+  0% { background-position: 0% 50%; filter: brightness(1); }
+  50% { background-position: 100% 50%; filter: brightness(1.25); }
+  100% { background-position: 0% 50%; filter: brightness(1); }
+}
+
+@keyframes praiseFlash {
+  0% { opacity: 0; }
+  18% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+
+@keyframes gobbleHold {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+  22% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 1; }
+}
+
 @keyframes gobbleShine {
   0% { background-position: 0% 50%; filter: drop-shadow(0 6px 14px rgba(120, 53, 15, 0.32)); }
   50% { background-position: 100% 50%; filter: drop-shadow(0 8px 18px rgba(245, 158, 11, 0.38)); }
@@ -1044,38 +1062,66 @@ body.theme-dark textarea::placeholder {
   top: 44%;
   z-index: 80;
   transform: translate(-50%, -50%);
-  animation: praiseDrift var(--praise-duration, 1500ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+  animation: praiseDrift var(--praise-duration, 1500ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards,
+    var(--praise-extra-anim, none);
   pointer-events: none;
   opacity: 1;
   white-space: nowrap;
   line-height: 1;
   letter-spacing: -0.02em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   will-change: transform, opacity;
   isolation: isolate;
-  font-family:
-    "Fredoka",
-    "Baloo 2",
-    "Nunito",
-    "Arial Rounded MT Bold",
-    "Comic Sans MS",
-    "Segoe UI",
-    sans-serif;
+}
+.praise-image-pop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.praise-image {
+  width: var(--praise-size, 240px);
+  height: auto;
+  display: block;
+  filter:
+    drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
+}
+.gobble-pop {
+  animation: gobbleHold var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+.praise-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+.praise-flash-full {
+  width: 100%;
+  height: 100%;
+  background: var(--praise-flash-color, transparent);
+  opacity: 0;
+  animation: praiseFlash 720ms ease-out forwards;
+}
+.praise-flash-hole {
+  position: absolute;
+  background: transparent;
+  box-shadow: 0 0 0 9999px var(--praise-flash-color, transparent);
+  border-radius: var(--praise-flash-radius, 16px);
+  opacity: 0;
+  animation: praiseFlash 720ms ease-out forwards;
 }
 .praise-outline {
-  text-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.1),
-    1px 0 0 rgba(0, 0, 0, 0.08),
-    -1px 0 0 rgba(0, 0, 0, 0.08),
-    0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 2px 6px rgba(0, 0, 0, 0.14);
+  -webkit-text-stroke: 1.5px rgba(0, 0, 0, 0.95);
+  paint-order: stroke fill;
+  text-shadow: none;
 }
 .praise-bronze {
   background:
     linear-gradient(140deg, #ffe1c6 0%, #ffb058 35%, #ff7e1a 70%, #d45505 100%);
+  background-size: 240% 240%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  --praise-extra-anim: praiseShine 1s ease-in-out infinite;
   filter:
     drop-shadow(0 2px 6px rgba(210, 102, 25, 0.35))
     drop-shadow(0 1px 2px rgba(255, 204, 160, 0.45));
@@ -1083,9 +1129,11 @@ body.theme-dark textarea::placeholder {
 .praise-silver {
   background:
     linear-gradient(135deg, #ffffff 0%, #e7f0ff 30%, #b9c7dc 58%, #f6fbff 78%, #8ea0b8 100%);
+  background-size: 240% 240%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  --praise-extra-anim: praiseShine 1.05s ease-in-out infinite;
   filter:
     drop-shadow(0 2px 6px rgba(118, 132, 150, 0.35))
     drop-shadow(0 1px 2px rgba(233, 243, 255, 0.7));
@@ -1093,9 +1141,11 @@ body.theme-dark textarea::placeholder {
 .praise-gold {
   background:
     linear-gradient(135deg, #fff2a8 0%, #ffd84a 30%, #ffb300 58%, #ffef9a 78%, #d78200 100%);
+  background-size: 240% 240%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  --praise-extra-anim: praiseShine 0.95s ease-in-out infinite;
   filter:
     drop-shadow(0 3px 8px rgba(176, 98, 13, 0.35))
     drop-shadow(0 1px 3px rgba(255, 230, 140, 0.7));
@@ -1108,7 +1158,7 @@ body.theme-dark textarea::placeholder {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: gobbleShine 1.15s ease-in-out infinite;
+  --praise-extra-anim: gobbleShine 1.15s ease-in-out infinite;
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.18),
     0 3px 8px rgba(0, 0, 0, 0.18);
@@ -1401,6 +1451,7 @@ export default function App() {
   const prevPositionsRef = useRef(new Map());
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [praiseFlash, setPraiseFlash] = useState(null);
+  const [gobbleFlash, setGobbleFlash] = useState(null);
   const [gridShake, setGridShake] = useState(false);
   const [mobileResultsPage, setMobileResultsPage] = useState(0);
   const resultsTouchRef = useRef({ startX: null, startY: null });
@@ -1441,6 +1492,11 @@ export default function App() {
   const weeklySlideWidthRef = useRef(0);
   const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
   const [weeklyDragging, setWeeklyDragging] = useState(false);
+  const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
+  const seasonTouchRef = useRef({ startX: null, startY: null });
+  const seasonSlideWidthRef = useRef(0);
+  const [seasonDragOffset, setSeasonDragOffset] = useState(0);
+  const [seasonDragging, setSeasonDragging] = useState(false);
   const [weeklyArrowVisible, setWeeklyArrowVisible] = useState(false);
   const [weeklyArrowBlink, setWeeklyArrowBlink] = useState(false);
   const [weeklyArrowBump, setWeeklyArrowBump] = useState(false);
@@ -1712,6 +1768,7 @@ export default function App() {
   const lastKeyboardInsetRef = useRef(0);
   const toastTimerRef = useRef(null);
   const praiseTimerRef = useRef(null);
+  const gobbleTimerRef = useRef(null);
   const praiseLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
@@ -3168,17 +3225,23 @@ function playTileStepSound(step) {
     const now = Date.now();
     if (now - praiseLastRef.current < 420) return;
     praiseLastRef.current = now;
-    if (kind === "gobble") {
-      triggerConfettiBurst("gobble");
-    }
     const angle = Math.random() * Math.PI * 2;
     const minDist = isMobileLayout ? 90 : 140;
     const maxDist = isMobileLayout ? 160 : 240;
     const dist = minDist + Math.random() * (maxDist - minDist);
     const dx = Math.round(Math.cos(angle) * dist);
     const dy = Math.round(Math.sin(angle) * dist);
-  const scale = Number(((1.0 + Math.random() * 0.5) * 1.6).toFixed(2));
-  const durationMs = Math.round(2200 + Math.random() * 500);
+    const scale = Number(((1.0 + Math.random() * 0.5) * 1.6).toFixed(2));
+    if (kind === "gobble") {
+      const durationMs = Math.round(2200 + Math.random() * 400);
+      triggerConfettiBurst("gobble");
+      setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
+      if (gobbleTimerRef.current) clearTimeout(gobbleTimerRef.current);
+      gobbleTimerRef.current = setTimeout(() => setGobbleFlash(null), durationMs);
+      if (shakeGrid) triggerGridShake();
+      return;
+    }
+    const durationMs = Math.round(1500 + Math.random() * 300);
     setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
     if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
     praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
@@ -3198,7 +3261,7 @@ function playTileStepSound(step) {
 
     const base = {
       origin,
-      zIndex: 12000,
+      zIndex: 13050,
       disableForReducedMotion: true,
     };
 
@@ -3570,8 +3633,7 @@ function playTileStepSound(step) {
     }
     if (!Number.isFinite(vocabCount)) return;
     if (!vocabResultsReadyKey) return;
-    const overlayKey = roundId || tournamentSummaryAt || vocabResultsReadyKey;
-    if (vocabResultsReadyKey !== overlayKey) return;
+    const overlayKey = vocabResultsReadyKey;
     if (vocabOverlayRoundRef.current === overlayKey) return;
     vocabOverlayRoundRef.current = overlayKey;
 
@@ -4923,6 +4985,31 @@ function playTileStepSound(step) {
     playSwipeSound();
   }
 
+  function getSeasonPages() {
+    return ["trophies", "vocab"];
+  }
+
+  function shiftSeasonPage(delta) {
+    const pages = getSeasonPages();
+    const total = pages.length;
+    if (!Number.isInteger(delta) || total <= 1) return;
+    setSeasonActiveIndex((prev) => {
+      const next = (prev + delta + total) % total;
+      return next;
+    });
+    playSwipeSound();
+  }
+
+  function goToSeasonPage(nextIndex) {
+    const pages = getSeasonPages();
+    const total = pages.length;
+    if (total <= 1) return;
+    const next = clampValue(nextIndex, 0, total - 1);
+    setSeasonActiveIndex(next);
+    setSeasonDragOffset(0);
+    setSeasonDragging(false);
+  }
+
   function triggerWeeklyArrowHint({ blink = false, showForMs = 1600 } = {}) {
     if (weeklyArrowTimerRef.current) {
       clearTimeout(weeklyArrowTimerRef.current);
@@ -5022,10 +5109,84 @@ function playTileStepSound(step) {
     setWeeklyDragOffset(0);
   }
 
+  function handleSeasonTouchStart(e) {
+    if (statsTab !== "season") return;
+    const touch = e?.touches?.[0];
+    const x = touch?.clientX ?? null;
+    const y = touch?.clientY ?? null;
+    seasonTouchRef.current.startX = x;
+    seasonTouchRef.current.startY = y;
+    seasonSlideWidthRef.current =
+      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
+    setSeasonDragOffset(0);
+    setSeasonDragging(false);
+  }
+
+  function handleSeasonTouchMove(e) {
+    if (statsTab !== "season") return;
+    const startX = seasonTouchRef.current.startX;
+    const startY = seasonTouchRef.current.startY;
+    if (startX == null || startY == null) return;
+    const touch = e?.touches?.[0];
+    const currentX = touch?.clientX ?? null;
+    const currentY = touch?.clientY ?? null;
+    if (currentX == null || currentY == null) return;
+    const deltaX = currentX - startX;
+    const deltaY = currentY - startY;
+    if (!seasonDragging) {
+      if (Math.abs(deltaX) < 8) return;
+      if (Math.abs(deltaX) < Math.abs(deltaY)) {
+        seasonTouchRef.current.startX = null;
+        seasonTouchRef.current.startY = null;
+        setSeasonDragging(false);
+        setSeasonDragOffset(0);
+        return;
+      }
+      setSeasonDragging(true);
+    }
+    setSeasonDragOffset(deltaX);
+  }
+
+  function handleSeasonTouchEnd(e) {
+    if (statsTab !== "season") return;
+    const startX = seasonTouchRef.current.startX;
+    const startY = seasonTouchRef.current.startY;
+    seasonTouchRef.current.startX = null;
+    seasonTouchRef.current.startY = null;
+    const width = seasonSlideWidthRef.current || window.innerWidth || 1;
+    const endX = e?.changedTouches?.[0]?.clientX ?? null;
+    setSeasonDragging(false);
+    if (startX == null || startY == null || endX == null) {
+      setSeasonDragOffset(0);
+      return;
+    }
+    const delta = endX - startX;
+    const threshold = Math.max(WEEKLY_SWIPE_THRESHOLD, width * 0.1);
+    if (Math.abs(delta) >= threshold) {
+      shiftSeasonPage(delta < 0 ? 1 : -1);
+    }
+    setSeasonDragOffset(0);
+  }
+
+  function handleStatsTouchStart(e) {
+    if (statsTab === "weekly") return handleWeeklyTouchStart(e);
+    if (statsTab === "season") return handleSeasonTouchStart(e);
+  }
+
+  function handleStatsTouchMove(e) {
+    if (statsTab === "weekly") return handleWeeklyTouchMove(e);
+    if (statsTab === "season") return handleSeasonTouchMove(e);
+  }
+
+  function handleStatsTouchEnd(e) {
+    if (statsTab === "weekly") return handleWeeklyTouchEnd(e);
+    if (statsTab === "season") return handleSeasonTouchEnd(e);
+  }
+
   function getResultsPages() {
     return isTargetRound
       ? ["round", "total", "vocab"]
-      : ["round", "total", "vocab", "found", "all"];
+      : ["round", "total", "found", "all", "vocab"];
   }
 
   function setResultsPageInstant(nextPage) {
@@ -5382,6 +5543,15 @@ function playTileStepSound(step) {
       void requestTrophyStatus();
     }
   }, [isWeeklyOpen, statsTab]);
+
+  useEffect(() => {
+    if (statsTab !== "season") return;
+    setSeasonActiveIndex(0);
+    setSeasonDragOffset(0);
+    setSeasonDragging(false);
+    seasonTouchRef.current.startX = null;
+    seasonTouchRef.current.startY = null;
+  }, [statsTab]);
 
   useEffect(() => {
     if (!isPlayersOverlayOpen) return;
@@ -7379,33 +7549,17 @@ function handleTouchEnd() {
           </div>
         )}
         <div className="w-full">
-          <div className="relative w-full">
-            <div
-              className={`h-3 rounded-full overflow-hidden ${
-                darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
-              }`}
-            >
-              <div className="absolute inset-0 grid grid-cols-6">
-                {VOCAB_LEVELS.map((level, idx) => (
-                  <div
-                    key={level.key}
-                    className={`h-full ${
-                      darkMode ? "bg-slate-900/40" : "bg-slate-200/70"
-                    } ${
-                      idx < VOCAB_LEVELS.length - 1
-                        ? darkMode
-                          ? "border-r border-slate-700/60"
-                          : "border-r border-slate-300/70"
-                        : ""
-                    }`}
-                  />
-                ))}
-              </div>
+            <div className="relative w-full">
               <div
-                className="absolute inset-y-0 left-0"
-                style={{
-                  width: `${vocabBasePct}%`,
-                  background: darkMode
+                className={`h-3 rounded-full overflow-hidden ${
+                  darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
+                }`}
+              >
+                <div
+                  className="absolute inset-y-0 left-0"
+                  style={{
+                    width: `${vocabBasePct}%`,
+                    background: darkMode
                     ? "rgba(248, 250, 252, 0.85)"
                     : "rgba(15, 23, 42, 0.85)",
                 }}
@@ -7420,40 +7574,21 @@ function handleTouchEnd() {
                 />
               ) : null}
             </div>
-            <div
-              className="absolute -top-3"
-              style={{
-                ...vocabCursorStyle,
-                transform: "translateX(-50%)",
-              }}
-            >
               <div
-                className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
-                style={{ borderTopColor: vocabCursorStyle.borderTopColor }}
-              />
+                className="absolute -top-3"
+                style={{
+                  ...vocabCursorStyle,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <div
+                  className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
+                  style={{ borderTopColor: vocabCursorStyle.borderTopColor }}
+                />
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-6 gap-1 mt-2 text-[9px] uppercase tracking-wide text-slate-400">
-            {VOCAB_LEVELS.map((level) => {
-              const isActive = level.key === vocabLevel?.key;
-              return (
-                <div
-                  key={`label-${level.key}`}
-                  className={`text-center ${
-                    isActive
-                      ? darkMode
-                        ? "text-slate-100 font-bold"
-                        : "text-slate-700 font-bold"
-                      : ""
-                  }`}
-                >
-                  {level.label}
-                </div>
-              );
-            })}
-          </div>
         </div>
-      </div>
     </div>
   );
   const vocabOverlayTotalValue = Number.isFinite(vocabOverlayAnimatedTotal)
@@ -7464,12 +7599,42 @@ function handleTouchEnd() {
     : 0;
   const vocabOverlayDeltaLabel = `+${formatNumber(vocabOverlayDeltaValue)}`;
   const vocabOverlayTotalLabel = `${formatNumber(vocabOverlayTotalValue)} mots uniques`;
-  const vocabOverlayProgress = getVocabProgress(vocabOverlayTotalValue);
-  const vocabOverlayBaseProgress = getVocabProgress(vocabOverlayBaseCount);
-  const vocabOverlayFinalProgress = getVocabProgress(vocabOverlayTargetCount);
-  const vocabOverlayProgressPct = clampValue(vocabOverlayProgress.pct * 100, 0, 100);
-  const vocabOverlayBasePct = clampValue(vocabOverlayBaseProgress.pct * 100, 0, 100);
-  const vocabOverlayFinalPct = clampValue(vocabOverlayFinalProgress.pct * 100, 0, 100);
+  const vocabOverlayActiveLevel = vocabOverlayImageLevel || getVocabLevelMeta(vocabOverlayTotalValue);
+  const vocabOverlayRange = Math.max(
+    1,
+    (vocabOverlayActiveLevel?.max ?? vocabOverlayTotalValue) -
+      (vocabOverlayActiveLevel?.min ?? 0)
+  );
+  const vocabOverlayCurrentWithin = clampValue(
+    vocabOverlayTotalValue - (vocabOverlayActiveLevel?.min ?? 0),
+    0,
+    vocabOverlayRange
+  );
+  const vocabOverlayBaseWithin = clampValue(
+    vocabOverlayBaseCount - (vocabOverlayActiveLevel?.min ?? 0),
+    0,
+    vocabOverlayRange
+  );
+  const vocabOverlayTargetWithin = clampValue(
+    vocabOverlayTargetCount - (vocabOverlayActiveLevel?.min ?? 0),
+    0,
+    vocabOverlayRange
+  );
+  const vocabOverlayProgressPct = clampValue(
+    (vocabOverlayCurrentWithin / vocabOverlayRange) * 100,
+    0,
+    100
+  );
+  const vocabOverlayBasePct = clampValue(
+    (vocabOverlayBaseWithin / vocabOverlayRange) * 100,
+    0,
+    100
+  );
+  const vocabOverlayFinalPct = clampValue(
+    (vocabOverlayTargetWithin / vocabOverlayRange) * 100,
+    0,
+    100
+  );
   const vocabOverlayDeltaPct = Math.max(0, vocabOverlayProgressPct - vocabOverlayBasePct);
   const vocabOverlayBaseFillPct = vocabOverlayAbsorbing
     ? vocabOverlayFinalPct
@@ -7480,7 +7645,7 @@ function handleTouchEnd() {
     borderTopColor:
       vocabOverlayImageLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
   };
-  const vocabOverlayImage = vocabOverlayImageLevel || vocabLevel;
+  const vocabOverlayImage = vocabOverlayActiveLevel || vocabLevel;
   const vocabOverlayImageSrc = vocabOverlayImage?.image || "";
   const vocabOverlayImageAlt = vocabOverlayImage?.label || "Niveau vocabulaire";
   const vocabOverlayImageClass =
@@ -7547,7 +7712,7 @@ function handleTouchEnd() {
             Number.isFinite(vocabOverlayRankEnd) ? (
               vocabOverlayRankStart - vocabOverlayRankEnd > 0 ? (
                 <span className="text-green-500 font-bold flex items-center gap-1">
-                  <span aria-hidden="true">↑</span>
+                  <span aria-hidden="true">?</span>
                   <span>
                     +{vocabOverlayRankStart - vocabOverlayRankEnd}
                   </span>
@@ -7594,22 +7759,6 @@ function handleTouchEnd() {
                 darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
               }`}
             >
-              <div className="absolute inset-0 grid grid-cols-6">
-                {VOCAB_LEVELS.map((level, idx) => (
-                  <div
-                    key={`overlay-${level.key}`}
-                    className={`h-full ${
-                      darkMode ? "bg-slate-900/40" : "bg-slate-200/70"
-                    } ${
-                      idx < VOCAB_LEVELS.length - 1
-                        ? darkMode
-                          ? "border-r border-slate-700/60"
-                          : "border-r border-slate-300/70"
-                        : ""
-                    }`}
-                  />
-                ))}
-              </div>
               <div
                 className="absolute inset-y-0 left-0"
                 style={{
@@ -7647,25 +7796,6 @@ function handleTouchEnd() {
                 style={{ borderTopColor: vocabOverlayCursorStyle.borderTopColor }}
               />
             </div>
-          </div>
-          <div className="grid grid-cols-6 gap-1 mt-2 text-[9px] uppercase tracking-wide text-slate-400">
-            {VOCAB_LEVELS.map((level) => {
-              const isActive = level.key === vocabOverlayImage?.key;
-              return (
-                <div
-                  key={`overlay-label-${level.key}`}
-                  className={`text-center ${
-                    isActive
-                      ? darkMode
-                        ? "text-slate-100 font-bold"
-                        : "text-slate-700 font-bold"
-                      : ""
-                  }`}
-                >
-                  {level.label}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
@@ -8310,7 +8440,7 @@ function handleTouchEnd() {
     if (!isMobileLayout || phase !== "results") return;
     const pages = isTargetRound
       ? ["round", "total", "vocab"]
-      : ["round", "total", "vocab", "found", "all"];
+      : ["round", "total", "found", "all", "vocab"];
     setMobileResultsPage((prev) => clampValue(prev, 0, pages.length - 1));
   }, [isMobileLayout, phase, isTargetRound]);
 
@@ -8318,7 +8448,7 @@ function handleTouchEnd() {
     if (!isMobileLayout || phase !== "results") return;
     const pages = isTargetRound
       ? ["round", "total", "vocab"]
-      : ["round", "total", "vocab", "found", "all"];
+      : ["round", "total", "found", "all", "vocab"];
     const pageKey = pages[clampValue(mobileResultsPage, 0, pages.length - 1)];
     if (pageKey === "round") setResultsRankingMode("round");
     if (pageKey === "total") setResultsRankingMode("total");
@@ -9483,7 +9613,7 @@ function handleTouchEnd() {
         onClick={() => shiftWeeklyBoard(-1)}
         aria-label="Page precedente"
       >
-        ‹
+        {"<"}
       </button>
       {weeklyBoardsMeta.map((board, idx) => {
         const isActive = idx === safeWeeklyIndex;
@@ -9517,7 +9647,65 @@ function handleTouchEnd() {
         onClick={() => shiftWeeklyBoard(1)}
         aria-label="Page suivante"
       >
-        ›
+        {">"}
+      </button>
+    </div>
+  ) : null;
+  const seasonPages = getSeasonPages();
+  const safeSeasonIndex =
+    seasonActiveIndex >= 0 && seasonActiveIndex < seasonPages.length ? seasonActiveIndex : 0;
+  const seasonOffsetPercent =
+    seasonDragOffset && seasonSlideWidthRef.current
+      ? (seasonDragOffset / seasonSlideWidthRef.current) * 100
+      : 0;
+  const showSeasonDots = seasonPages.length > 1;
+  const seasonDots = showSeasonDots ? (
+    <div className="flex items-center justify-center gap-2 py-2">
+      <button
+        type="button"
+        className={`hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition ${
+          darkMode
+            ? "border-slate-600 text-slate-100 hover:bg-slate-800"
+            : "border-slate-200 text-slate-700 hover:bg-slate-100"
+        }`}
+        onClick={() => shiftSeasonPage(-1)}
+        aria-label="Page precedente"
+      >
+        {"<"}
+      </button>
+      {seasonPages.map((page, idx) => {
+        const isActive = idx === safeSeasonIndex;
+        const dotColor = isActive
+          ? darkMode
+            ? "bg-slate-100"
+            : "bg-slate-900"
+          : darkMode
+          ? "bg-white/30"
+          : "bg-slate-300";
+        return (
+          <button
+            key={page}
+            type="button"
+            className={`h-2.5 w-2.5 rounded-full transition ${dotColor} ${
+              isActive ? "scale-110" : ""
+            }`}
+            aria-label={`Page ${idx + 1}`}
+            aria-current={isActive ? "true" : undefined}
+            onClick={() => goToSeasonPage(idx)}
+          />
+        );
+      })}
+      <button
+        type="button"
+        className={`hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition ${
+          darkMode
+            ? "border-slate-600 text-slate-100 hover:bg-slate-800"
+            : "border-slate-200 text-slate-700 hover:bg-slate-100"
+        }`}
+        onClick={() => shiftSeasonPage(1)}
+        aria-label="Page suivante"
+      >
+        {">"}
       </button>
     </div>
   ) : null;
@@ -9595,9 +9783,9 @@ function handleTouchEnd() {
                   : "bg-white/95 border-slate-200 text-slate-900"
               }`}
               onClick={(e) => e.stopPropagation()}
-              onTouchStart={handleWeeklyTouchStart}
-              onTouchMove={handleWeeklyTouchMove}
-              onTouchEnd={handleWeeklyTouchEnd}
+              onTouchStart={handleStatsTouchStart}
+              onTouchMove={handleStatsTouchMove}
+              onTouchEnd={handleStatsTouchEnd}
             >
               <button
                 type="button"
@@ -9619,6 +9807,7 @@ function handleTouchEnd() {
                 ) : null}
               </div>
               {statsTab === "weekly" ? weeklyDots : null}
+              {statsTab === "season" ? seasonDots : null}
               {statsTab === "weekly" ? (
 
               <div className="relative px-4 pb-4">
@@ -9675,110 +9864,136 @@ function handleTouchEnd() {
 
               ) : (
                 <div className="relative px-4 pb-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="overflow-hidden rounded-2xl border-0 bg-transparent">
                     <div
-                      className={`rounded-2xl border p-4 ${
-                        darkMode
-                          ? "bg-slate-900/60 border-slate-700"
-                          : "bg-white border-slate-200"
-                      }`}
+                      className="flex w-full"
+                      style={{
+                        transform: `translateX(calc(${safeSeasonIndex * -100}% + ${seasonOffsetPercent}%))`,
+                        transition: seasonDragging ? "none" : "transform 0.25s ease-out",
+                      }}
                     >
-                      <div className="flex items-center justify-between gap-2 mb-4">
-                        <div className="text-sm font-semibold">Trophees</div>
-                        {trophyStatus?.shieldCount > 0 ? (
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-300/70 text-amber-700 dark:text-amber-300">
-                            Bouclier
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-col items-center gap-3">
+                      {seasonPages.map((page) => (
                         <div
-                          className="w-[110px] h-[110px] rounded-full flex items-center justify-center"
-                          style={{ background: trophyPalette.bg }}
+                          key={page}
+                          className="w-full shrink-0 px-2"
+                          style={{ minHeight: "60vh" }}
                         >
-                          <svg width="80" height="80" viewBox="0 0 64 64" fill="none">
-                            <path
-                              d="M20 10h24v6h8v6c0 10-8 18-18 18h-4v8h10v6H24v-6h10v-8h-4c-10 0-18-8-18-18v-6h8v-6z"
-                              fill={trophyPalette.accent}
-                            />
-                            <path d="M24 10h16v6H24z" fill={trophyPalette.accent} />
-                          </svg>
-                        </div>
-                        <div className="text-sm font-semibold opacity-80">
-                          Ligue : {trophyLeague}
-                        </div>
-                        <div className="text-3xl font-black tabular-nums">
-                          {trophyTotalValue != null ? formatNumber(trophyTotalValue) : "..."}
-                        </div>
-                        <div
-                          className={`text-sm font-bold ${
-                            trophyDeltaValue > 0
-                              ? "text-emerald-500"
-                              : trophyDeltaValue < 0
-                              ? "text-rose-500"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {trophyDeltaLabel}
-                        </div>
-                        <div className="w-full mt-2">
-                          <div className="flex items-center justify-between text-xs opacity-70 mb-1">
-                            <span>Progression</span>
-                            <span>{trophyProgressLabel}</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/60 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${Math.round((trophyProgress.pct || 0) * 100)}%`,
-                                background: trophyPalette.accent,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      className={`rounded-2xl border p-4 ${
-                        darkMode
-                          ? "bg-slate-900/60 border-slate-700"
-                          : "bg-white border-slate-200"
-                      }`}
-                    >
-                      <div className="text-sm font-semibold mb-3">
-                        Historique recent
-                      </div>
-                      {trophyLoading ? (
-                        <div className="text-sm opacity-70">Chargement...</div>
-                      ) : trophyHistory.length === 0 ? (
-                        <div className="text-sm opacity-70">
-                          Pas encore d'historique cette saison.
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          {trophyHistory.map((entry) => (
-                            <div
-                              key={`${entry.ts}-${entry.delta}`}
-                              className="flex items-center justify-between text-sm"
-                            >
-                              <span
-                                className={`font-semibold ${
-                                  entry.delta > 0
-                                    ? "text-emerald-500"
-                                    : entry.delta < 0
-                                    ? "text-rose-500"
-                                    : "text-slate-400"
-                                }`}
-                              >
-                                {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
-                              </span>
-                              <span className="text-xs opacity-70">
-                                {formatNumber(entry.trophies)} - {entry.league}
-                              </span>
+                          {page === "trophies" ? (
+                            <div className="p-4 space-y-4">
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <div
+                                  className={`rounded-2xl border p-4 ${
+                                    darkMode
+                                      ? "bg-slate-900/60 border-slate-700"
+                                      : "bg-white border-slate-200"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2 mb-4">
+                                    <div className="text-sm font-semibold">Trophees</div>
+                                    {trophyStatus?.shieldCount > 0 ? (
+                                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-300/70 text-amber-700 dark:text-amber-300">
+                                        Bouclier
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex flex-col items-center gap-3">
+                                    <div
+                                      className="w-[110px] h-[110px] rounded-full flex items-center justify-center"
+                                      style={{ background: trophyPalette.bg }}
+                                    >
+                                      <svg width="80" height="80" viewBox="0 0 64 64" fill="none">
+                                        <path
+                                          d="M20 10h24v6h8v6c0 10-8 18-18 18h-4v8h10v6H24v-6h10v-8h-4c-10 0-18-8-18-18v-6h8v-6z"
+                                          fill={trophyPalette.accent}
+                                        />
+                                        <path d="M24 10h16v6H24z" fill={trophyPalette.accent} />
+                                      </svg>
+                                    </div>
+                                    <div className="text-sm font-semibold opacity-80">
+                                      Ligue : {trophyLeague}
+                                    </div>
+                                    <div className="text-3xl font-black tabular-nums">
+                                      {trophyTotalValue != null ? formatNumber(trophyTotalValue) : "..."}
+                                    </div>
+                                    <div
+                                      className={`text-sm font-bold ${
+                                        trophyDeltaValue > 0
+                                          ? "text-emerald-500"
+                                          : trophyDeltaValue < 0
+                                          ? "text-rose-500"
+                                          : "text-slate-400"
+                                      }`}
+                                    >
+                                      {trophyDeltaLabel}
+                                    </div>
+                                    <div className="w-full mt-2">
+                                      <div className="flex items-center justify-between text-xs opacity-70 mb-1">
+                                        <span>Progression</span>
+                                        <span>{trophyProgressLabel}</span>
+                                      </div>
+                                      <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/60 overflow-hidden">
+                                        <div
+                                          className="h-full rounded-full transition-all"
+                                          style={{
+                                            width: `${Math.round((trophyProgress.pct || 0) * 100)}%`,
+                                            background: trophyPalette.accent,
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`rounded-2xl border p-4 ${
+                                    darkMode
+                                      ? "bg-slate-900/60 border-slate-700"
+                                      : "bg-white border-slate-200"
+                                  }`}
+                                >
+                                  <div className="text-sm font-semibold mb-3">
+                                    Historique recent
+                                  </div>
+                                  {trophyLoading ? (
+                                    <div className="text-sm opacity-70">Chargement...</div>
+                                  ) : trophyHistory.length === 0 ? (
+                                    <div className="text-sm opacity-70">
+                                      Pas encore d'historique cette saison.
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col gap-2">
+                                      {trophyHistory.map((entry) => (
+                                        <div
+                                          key={`${entry.ts}-${entry.delta}`}
+                                          className="flex items-center justify-between text-sm"
+                                        >
+                                          <span
+                                            className={`font-semibold ${
+                                              entry.delta > 0
+                                                ? "text-emerald-500"
+                                                : entry.delta < 0
+                                                ? "text-rose-500"
+                                                : "text-slate-400"
+                                            }`}
+                                          >
+                                            {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+                                          </span>
+                                          <span className="text-xs opacity-70">
+                                            {formatNumber(entry.trophies)} - {entry.league}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          ))}
+                          ) : (
+                            <div className="p-4">
+                              {renderVocabPanel()}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -10520,6 +10735,7 @@ function handleTouchEnd() {
   const praiseRect = !isMobileLayout
     ? gridRef.current?.getBoundingClientRect?.()
     : null;
+  const flashRect = gridRef.current?.getBoundingClientRect?.() || null;
   const praisePositionStyle =
     praiseRect && Number.isFinite(praiseRect.left) && Number.isFinite(praiseRect.top)
       ? {
@@ -10527,38 +10743,139 @@ function handleTouchEnd() {
           top: `${Math.round(praiseRect.top + praiseRect.height * 0.45)}px`,
         }
       : undefined;
-  const gobbleSizeClass = isMobileLayout ? "text-7xl" : "text-8xl";
-  const praiseSizeClass = isMobileLayout ? "text-5xl" : "text-6xl";
-  const praiseVariantClass =
-    praiseFlash?.kind === "gobble"
-      ? `praise-gobble ${gobbleSizeClass}`
-      : praiseFlash?.kind === "gold"
-      ? `praise-gold ${praiseSizeClass}`
+  const gobbleImageSize = isMobileLayout ? 260 : 340;
+  const praiseImageSize = isMobileLayout ? 220 : 300;
+  const praiseImageSrc =
+    praiseFlash?.kind === "gold"
+      ? "/bigwords/enorme.png"
       : praiseFlash?.kind === "purple"
-      ? `praise-silver ${praiseSizeClass}`
-      : `praise-bronze ${praiseSizeClass}`;
+      ? "/bigwords/fabuleux.png"
+      : praiseFlash?.kind === "blue"
+      ? "/bigwords/excellent.png"
+      : "";
+  const praiseImageAlt =
+    praiseFlash?.kind === "gold"
+      ? "ENORME"
+      : praiseFlash?.kind === "purple"
+      ? "FABULEUX"
+      : praiseFlash?.kind === "blue"
+      ? "EXCELLENT"
+      : "";
+  const praiseImageSizePx = praiseImageSize;
+  const gobbleImageSrc = gobbleFlash ? "/bigwords/gobble.png" : "";
+  const gobbleImageAlt = "GOBBLE";
+  const gobbleImageSizePx = gobbleImageSize;
+  const praiseFlashColor =
+    praiseFlash?.kind === "gold"
+      ? "rgba(255, 92, 36, 0.55)"
+      : praiseFlash?.kind === "purple"
+      ? "rgba(168, 85, 247, 0.55)"
+      : praiseFlash?.kind === "blue"
+      ? "rgba(34, 197, 94, 0.55)"
+      : "transparent";
+  const gobbleFlashColor = gobbleFlash ? "rgba(255, 200, 64, 0.55)" : "transparent";
+  const flashPadding = isMobileLayout ? 8 : 12;
+  const flashRadiusBase = isMobileLayout ? 18 : 22;
+  const buildFlashHoleStyle = (color) =>
+    flashRect &&
+    Number.isFinite(flashRect.left) &&
+    Number.isFinite(flashRect.top) &&
+    Number.isFinite(flashRect.width) &&
+    Number.isFinite(flashRect.height)
+      ? {
+          left: `${Math.max(0, Math.round(flashRect.left - flashPadding))}px`,
+          top: `${Math.max(0, Math.round(flashRect.top - flashPadding))}px`,
+          width: `${Math.max(0, Math.round(flashRect.width + flashPadding * 2))}px`,
+          height: `${Math.max(0, Math.round(flashRect.height + flashPadding * 2))}px`,
+          ["--praise-flash-color"]: color,
+          ["--praise-flash-radius"]: `${flashRadiusBase}px`,
+        }
+      : null;
+  const praiseFlashHoleStyle = buildFlashHoleStyle(praiseFlashColor);
+  const gobbleFlashHoleStyle = buildFlashHoleStyle(gobbleFlashColor);
   const praiseOverlay =
-    phase === "playing" && praiseFlash && typeof document !== "undefined"
+    phase === "playing" && (praiseFlash || gobbleFlash) && typeof document !== "undefined"
       ? createPortal(
-          <div
-            key={praiseFlash.id}
-            className={[
-              "praise-pop praise-outline font-extrabold tracking-tight",
-              praiseVariantClass,
-            ].join(" ")}
-            style={{
-              ...praisePositionStyle,
-              ["--praise-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
-              ["--praise-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
-              ["--praise-scale"]: praiseFlash.scale || 1.6,
-              ["--praise-duration"]: `${Math.max(
-                1200,
-                Math.min(2000, praiseFlash.durationMs || 1500)
-              )}ms`,
-            }}
-          >
-            {praiseFlash.text}
-          </div>,
+          <>
+            {gobbleFlash ? (
+              <div
+                key={`flash-gobble-${gobbleFlash.id}`}
+                className="praise-flash"
+                style={{ ["--praise-flash-color"]: gobbleFlashColor }}
+              >
+                {gobbleFlashHoleStyle ? (
+                  <div className="praise-flash-hole" style={gobbleFlashHoleStyle} />
+                ) : (
+                  <div className="praise-flash-full" />
+                )}
+              </div>
+            ) : null}
+            {gobbleFlash ? (
+              <div
+                key={gobbleFlash.id}
+                className="praise-pop praise-image-pop gobble-pop"
+                style={{
+                  ...praisePositionStyle,
+                  ["--praise-x"]: `${Math.round(gobbleFlash.dx || 0)}px`,
+                  ["--praise-y"]: `${Math.round(gobbleFlash.dy || 0)}px`,
+                  ["--praise-scale"]: gobbleFlash.scale || 1.6,
+                  ["--praise-size"]: `${gobbleImageSizePx}px`,
+                  ["--praise-duration"]: `${Math.max(
+                    1600,
+                    Math.min(3000, gobbleFlash.durationMs || 2200)
+                  )}ms`,
+                }}
+              >
+                {gobbleImageSrc ? (
+                  <img
+                    src={gobbleImageSrc}
+                    alt={gobbleImageAlt}
+                    className="praise-image"
+                    draggable={false}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+            {praiseFlash ? (
+              <>
+                <div
+                  key={`flash-${praiseFlash.id}`}
+                  className="praise-flash"
+                  style={{ ["--praise-flash-color"]: praiseFlashColor }}
+                >
+                  {praiseFlashHoleStyle ? (
+                    <div className="praise-flash-hole" style={praiseFlashHoleStyle} />
+                  ) : (
+                    <div className="praise-flash-full" />
+                  )}
+                </div>
+                <div
+                  key={praiseFlash.id}
+                  className="praise-pop praise-image-pop"
+                  style={{
+                    ...praisePositionStyle,
+                    ["--praise-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
+                    ["--praise-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
+                    ["--praise-scale"]: praiseFlash.scale || 1.6,
+                    ["--praise-size"]: `${praiseImageSizePx}px`,
+                    ["--praise-duration"]: `${Math.max(
+                      1200,
+                      Math.min(2600, praiseFlash.durationMs || 1500)
+                    )}ms`,
+                  }}
+                >
+                  {praiseImageSrc ? (
+                    <img
+                      src={praiseImageSrc}
+                      alt={praiseImageAlt}
+                      className="praise-image"
+                      draggable={false}
+                    />
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </>,
           document.body
         )
       : null;
@@ -11373,7 +11690,7 @@ function handleTouchEnd() {
     if (isResults) {
       const resultsPages = isTargetRound
         ? ["round", "total", "vocab"]
-        : ["round", "total", "vocab", "found", "all"];
+        : ["round", "total", "found", "all", "vocab"];
       const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
       const resultsPageKey = resultsPages[safeResultsPage];
       const showVocabPage = resultsPageKey === "vocab";
@@ -13088,4 +13405,6 @@ function handleTouchEnd() {
     </>
   );
 }
+
+
 

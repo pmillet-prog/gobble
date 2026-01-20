@@ -4,3 +4,8 @@ dist/
 .env
 *.log
 server/data-runtime/
+server/data/gobble.db
+server/data/gobble.db-shm
+server/data/gobble.db-wal
+server/data/weekly-stats.json
+

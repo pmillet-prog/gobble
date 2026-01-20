@@ -4,11 +4,11 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "gold": 0,
+      "gold": 1,
       "silver": 1,
-      "bronze": 0,
-      "total": 1,
-      "achievedAt": 1768862048633
+      "bronze": 1,
+      "total": 3,
+      "achievedAt": 1768951350857
     }
   },
   "mostWordsInGame": {
@@ -38,30 +38,30 @@
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "totalScore": 10457,
-      "roundsPlayed": 227,
-      "achievedAt": 1768865242201
+      "totalScore": 11312,
+      "roundsPlayed": 235,
+      "achievedAt": 1768953131400
     },
     "nick:Tigre": {
       "nick": "Tigre",
       "playerKey": "nick:Tigre",
       "totalScore": 0,
-      "roundsPlayed": 3,
-      "achievedAt": 1768862203640
+      "roundsPlayed": 4,
+      "achievedAt": 1768865392287
     },
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 14111,
-      "roundsPlayed": 35,
-      "achievedAt": 1768865242201
+      "totalScore": 30946,
+      "roundsPlayed": 70,
+      "achievedAt": 1768951505860
     },
     "nick:Test": {
       "nick": "Test",
       "playerKey": "nick:Test",
       "totalScore": 0,
-      "roundsPlayed": 2,
-      "achievedAt": 1768833082754
+      "roundsPlayed": 4,
+      "achievedAt": 1768951670903
     },
     "install:a790e38c-125f-4a8f-814c-d3cd93008254": {
       "nick": "Tigrou",
@@ -324,6 +324,13 @@
       "ms": 51754,
       "word": "detalasse",
       "achievedAt": 1768859709162
+    },
+    "install:cid-1767297485869-305184": {
+      "nick": "Test",
+      "playerKey": "install:cid-1767297485869-305184",
+      "ms": 35208,
+      "word": "cimentes",
+      "achievedAt": 1768951125910
     }
   },
   "vocab": {
@@ -336,8 +343,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 1322,
-      "achievedAt": 1768865107132
+      "vocabCount": 1341,
+      "achievedAt": 1768944450119
     },
     "install:a790e38c-125f-4a8f-814c-d3cd93008254": {
       "nick": "Tigrou",
@@ -356,8 +363,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "gobbles": 6,
-      "achievedAt": 1768865107132
+      "gobbles": 13,
+      "achievedAt": 1768951330770
     }
   }
 }

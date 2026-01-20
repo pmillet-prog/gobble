@@ -1798,10 +1798,17 @@ async function startRoundForRoom(room) {
           maxPts: planUsed?.fixedWordScore || quality.maxPts || 0,
         }
       : { maxLen: 0, maxPts: 0 };
-  if (planUsed?.fixedWordScore) {
-    bestPossibleStats.maxPts = planUsed.fixedWordScore;
-  }
-  room.bestPossibleStats = bestPossibleStats;
+    if (planUsed?.fixedWordScore) {
+      bestPossibleStats.maxPts = planUsed.fixedWordScore;
+    }
+    if (planUsed?.type === "bonus_letter" && planUsed?.bonusLetter && dictionary) {
+      const scoreConfig = getSpecialScoreConfigFromPlan(planUsed);
+      const computed = scoreConfig ? computeBestPossible(grid, scoreConfig) : null;
+      if (computed && (computed.maxPts > 0 || computed.maxLen > 0)) {
+        bestPossibleStats = computed;
+      }
+    }
+    room.bestPossibleStats = bestPossibleStats;
 
   const nextTournamentRound =
     tournamentRound >= (room.tournament.totalRounds || TOURNAMENT_TOTAL_ROUNDS)
