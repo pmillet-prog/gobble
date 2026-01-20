@@ -16,6 +16,10 @@ if [ -e "$DATA_RUNTIME_PATH" ] && [ ! -L "$DATA_RUNTIME_PATH" ]; then
 fi
 ln -sfn "$RUNTIME_DIR" "$DATA_RUNTIME_PATH"
 
+# IMPORTANT: weekly legacy file is tracked by git and can override runtime; delete it every deploy.
+rm -f "$REPO_DIR/server/data/weekly-stats.json" 2>/dev/null || true
+export GOBBLE_DATA_DIR="$RUNTIME_DIR"
+
 DB_SOURCE="$REPO_DIR/server/data/gobble.db"
 DB_TARGET="$RUNTIME_DIR/gobble.db"
 if [ -e "$DB_SOURCE" ] && [ ! -L "$DB_SOURCE" ]; then
