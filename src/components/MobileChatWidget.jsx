@@ -248,10 +248,9 @@ function MobileChatWidget({
               <div className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0">
                 <input
                   type={chatInputType}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
+                  autoComplete="on"
+                  autoCapitalize="on"
+                  spellCheck={true}
                   inputMode="text"
                   enterKeyHint="send"
                   data-form-type="other"

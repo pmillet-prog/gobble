@@ -10,6 +10,7 @@ import MobileChatWidget from "./components/MobileChatWidget.jsx";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
+import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import {
   computeScore,
   filterDictionary,
@@ -67,6 +68,8 @@ const VOCAB_OVERLAY_FADE_MS = 1000;
 const VOCAB_OVERLAY_ZERO_DELAY_MS = 2000;
 const VOCAB_OVERLAY_SEGMENT_MS = 2000;
 const VOCAB_OVERLAY_WORDS_PER_SEGMENT = 10;
+const VOCAB_OVERLAY_MIN_COUNT_MS = 650;
+const VOCAB_OVERLAY_MAX_COUNT_MS = 5000;
 const VOCAB_OVERLAY_ABSORB_MS = 2000;
 const VOCAB_OVERLAY_END_HOLD_MS = 3000;
 const VOCAB_OVERLAY_IMAGE_FADE_MS = 450;
@@ -219,7 +222,6 @@ const WEEKLY_BOARDS = [
   { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus eleve" },
   { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
   { key: "bestRoundScore", label: "Score de manche", subtitle: "Total record" },
-  { key: "vocab", label: "Vocabulaire", subtitle: "Mots uniques" },
   { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
   { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
   { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
@@ -1283,6 +1285,7 @@ const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
+const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const REPORT_REASONS = [
@@ -1512,6 +1515,8 @@ export default function App() {
   const [playersOverlayMode, setPlayersOverlayMode] = useState("snapshot");
   const [playersOverlaySnapshot, setPlayersOverlaySnapshot] = useState([]);
   const [canResumeSession, setCanResumeSession] = useState(false);
+  const [resumeSnapshot, setResumeSnapshot] = useState(null);
+  const [resumePending, setResumePending] = useState(false);
   const autoResumeEnabledRef = useRef(false);
   const [serverStatus, setServerStatus] = useState("waiting");
   const serverTimeOffsetRef = useRef(0); // ms: serverNow - clientNow
@@ -1593,9 +1598,26 @@ export default function App() {
     url: "",
   });
   const [installId] = useState(() => getOrCreateInstallId());
+  const [tutorialSeenInstallId, setTutorialSeenInstallId] = useState(() => {
+    try {
+      return localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) || "";
+    } catch (_) {
+      return "";
+    }
+  });
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
+  const shouldShowTutorial =
+    tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
   const sessionRef = useRef(null);
   const resumeLockRef = useRef(false);
   const resumeLockAtRef = useRef(0);
+  const resumeProbeRef = useRef({ inFlight: false, lastAt: 0 });
+  const roundHandlersRef = useRef({
+    onRoundStarted: null,
+    onRoundEnded: null,
+    onBreakStarted: null,
+  });
   const isLoggedInRef = useRef(false);
   const nicknameRef = useRef(nickname);
   const currentRoomIdRef = useRef(currentRoomId);
@@ -3536,17 +3558,30 @@ function playTileStepSound(step) {
           return;
         }
 
-        const durationMs = Math.max(
-          200,
-          (deltaCount / VOCAB_OVERLAY_WORDS_PER_SEGMENT) * VOCAB_OVERLAY_SEGMENT_MS
+        const perWordMs = VOCAB_OVERLAY_SEGMENT_MS / VOCAB_OVERLAY_WORDS_PER_SEGMENT;
+        const linearDurationMs = Math.max(0, deltaCount) * perWordMs;
+        const durationMs = clampValue(
+          linearDurationMs,
+          VOCAB_OVERLAY_MIN_COUNT_MS,
+          VOCAB_OVERLAY_MAX_COUNT_MS
         );
+        const accelStrength = clampValue(
+          (linearDurationMs - durationMs) / Math.max(1, linearDurationMs),
+          0,
+          1
+        );
+        const accelPower = 1 + accelStrength * 3.2;
         const startAt = performance.now();
         vocabOverlayLastTickRef.current = 0;
 
         const step = (now) => {
           const elapsed = now - startAt;
           const t = Math.min(1, Math.max(0, elapsed / durationMs));
-          const currentDelta = Math.round(deltaCount * t);
+          const eased =
+            accelStrength > 0.01
+              ? (Math.exp(accelPower * t) - 1) / (Math.exp(accelPower) - 1)
+              : t;
+          const currentDelta = Math.round(deltaCount * eased);
           const currentTotal = baseCount + currentDelta;
           setVocabOverlayAnimatedDelta(currentDelta);
           setVocabOverlayAnimatedTotal(currentTotal);
@@ -4263,18 +4298,9 @@ function playTileStepSound(step) {
         resumeLockAtRef.current = 0;
         reconnectAttemptRef.current = false;
       };
-      if (!isLoggedInRef.current) {
-        hardReset();
-        return;
-      }
+      hardReset();
       setConnectionError("Reconnexion...");
       attemptSilentReconnect();
-      disconnectGraceTimerRef.current = setTimeout(() => {
-        disconnectGraceTimerRef.current = null;
-        if (!socket.connected) {
-          hardReset();
-        }
-      }, DISCONNECT_GRACE_MS);
     }
 
     function onMedalsUpdate(payload) {
@@ -4358,6 +4384,10 @@ function playTileStepSound(step) {
         return next.slice(0, 10);
       });
     }
+
+    roundHandlersRef.current.onRoundStarted = onRoundStarted;
+    roundHandlersRef.current.onRoundEnded = onRoundEnded;
+    roundHandlersRef.current.onBreakStarted = onBreakStarted;
 
     socket.on("roundStarted", onRoundStarted);
     socket.on("roundEnded", onRoundEnded);
@@ -4669,7 +4699,10 @@ function playTileStepSound(step) {
       if (!key) continue;
       const current = byPlayer.get(key);
       const value = getWeeklyValue(boardKey, entry);
-      if (boardKey === "totalScore" && (!Number.isFinite(value) || value <= 0)) {
+      if (
+        (boardKey === "totalScore" || boardKey === "bestRoundScore") &&
+        (!Number.isFinite(value) || value <= 0)
+      ) {
         continue;
       }
       const timeBoard =
@@ -4821,10 +4854,8 @@ function playTileStepSound(step) {
   }
 
   function requestVocabCount() {
-    if (!socket.connected) return Promise.resolve(null);
-    setVocabLoading(true);
-    return new Promise((resolve) => {
-      socket.emit("getVocabCount", (res) => {
+    const emitRequest = (resolve) => {
+      socket.emit("getVocabCount", { installId }, (res) => {
         const count = Number.isFinite(res?.count) ? res.count : null;
         if (Number.isFinite(count)) {
           setVocabCount(count);
@@ -4833,6 +4864,32 @@ function playTileStepSound(step) {
         setVocabLoading(false);
         resolve(count);
       });
+    };
+
+    setVocabLoading(true);
+    if (!socket.connected) {
+      return new Promise((resolve) => {
+        const onConnect = () => {
+          cleanup();
+          emitRequest(resolve);
+        };
+        const onError = () => {
+          cleanup();
+          setVocabLoading(false);
+          resolve(null);
+        };
+        const cleanup = () => {
+          socket.off("connect", onConnect);
+          socket.off("connect_error", onError);
+        };
+        socket.once("connect", onConnect);
+        socket.once("connect_error", onError);
+        socket.connect();
+      });
+    }
+
+    return new Promise((resolve) => {
+      emitRequest(resolve);
     });
   }
 
@@ -4986,7 +5043,7 @@ function playTileStepSound(step) {
   }
 
   function getSeasonPages() {
-    return ["trophies", "vocab"];
+    return ["vocab_rank", "trophies", "vocab_personal"];
   }
 
   function shiftSeasonPage(delta) {
@@ -5322,6 +5379,167 @@ function playTileStepSound(step) {
     }
   }
 
+  function applyResumeSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return;
+    if (snapshot.roomId) {
+      setCurrentRoomId(snapshot.roomId);
+      setRoomId(snapshot.roomId);
+    }
+    const phase = snapshot.phase || "lobby";
+    const currentRound = snapshot.currentRound || null;
+    const breakState = snapshot.breakState || null;
+    const lastRound = snapshot.lastRoundResults || null;
+    const playerState = snapshot.player || null;
+
+    if (phase === "playing" && currentRound?.grid && Array.isArray(currentRound.grid)) {
+      roundHandlersRef.current.onRoundStarted?.(currentRound);
+      if (Array.isArray(snapshot.ranking)) {
+        setProvisionalRanking(snapshot.ranking);
+      }
+      const words = Array.isArray(playerState?.words)
+        ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
+        : [];
+      setAccepted(words);
+      acceptedRef.current = words;
+      const scores = new Map();
+      const scoreConfig =
+        currentRound.special?.type === "bonus_letter" && currentRound.special?.bonusLetter
+          ? {
+              bonusLetter: currentRound.special.bonusLetter,
+              bonusLetterScore: currentRound.special.bonusLetterScore ?? 20,
+              disableBonuses: true,
+            }
+          : null;
+      if (currentRound.grid && words.length) {
+        words.forEach((word) => {
+          const path = findBestPathForWord(currentRound.grid, word, scoreConfig);
+          if (path) {
+            scores.set(word, computeScore(word, path, currentRound.grid, scoreConfig));
+          }
+        });
+      }
+      acceptedScoresRef.current = scores;
+      setScore(Number(playerState?.score) || 0);
+      submissionStatusRef.current.clear();
+      resetSubmissionQueue();
+      return;
+    }
+
+    if (lastRound?.payload) {
+      roundHandlersRef.current.onRoundEnded?.(lastRound.payload);
+      if (lastRound.round?.grid && Array.isArray(lastRound.round.grid)) {
+        setBoard(lastRound.round.grid);
+        setGridSize(lastRound.round.gridSize || getGridSizeForRoom(snapshot.roomId));
+        setSpecialRound(
+          lastRound.round.special && lastRound.round.special.isSpecial ? lastRound.round.special : null
+        );
+        if (lastRound.round.gridQuality) {
+          const stats = {
+            words: lastRound.round.gridQuality.words ?? null,
+            totalPts:
+              lastRound.round.gridQuality.possibleScore ??
+              lastRound.round.gridQuality.totalPts ??
+              lastRound.round.gridQuality.maxPts ??
+              null,
+            maxPts: lastRound.round.gridQuality.maxPts ?? null,
+            maxLen: lastRound.round.gridQuality.maxLen ?? null,
+            longWords: lastRound.round.gridQuality.longWords ?? null,
+          };
+          setRoundStats(stats);
+          bestGridMaxRef.current = stats?.maxPts ?? 0;
+          bestGridMaxLenRef.current = stats?.maxLen ?? 0;
+        }
+      }
+      if (breakState) {
+        roundHandlersRef.current.onBreakStarted?.(breakState);
+      }
+      const words = Array.isArray(playerState?.words)
+        ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
+        : [];
+      setAccepted(words);
+      acceptedRef.current = words;
+      if (lastRound.round?.grid && Array.isArray(lastRound.round.grid) && words.length) {
+        const scoreConfig =
+          lastRound.round.special?.type === "bonus_letter" && lastRound.round.special?.bonusLetter
+            ? {
+                bonusLetter: lastRound.round.special.bonusLetter,
+                bonusLetterScore: lastRound.round.special.bonusLetterScore ?? 20,
+                disableBonuses: true,
+              }
+            : null;
+        const scores = new Map();
+        words.forEach((word) => {
+          const path = findBestPathForWord(lastRound.round.grid, word, scoreConfig);
+          if (path) {
+            scores.set(word, computeScore(word, path, lastRound.round.grid, scoreConfig));
+          }
+        });
+        acceptedScoresRef.current = scores;
+      } else {
+        acceptedScoresRef.current = new Map();
+      }
+      setScore(Number(playerState?.score) || 0);
+      submissionStatusRef.current.clear();
+      resetSubmissionQueue();
+      return;
+    }
+
+    if (breakState) {
+      roundHandlersRef.current.onBreakStarted?.(breakState);
+    }
+  }
+
+  function requestSessionResumeSnapshot(reason = "probe") {
+    if (!hasSavedSession()) return;
+    const session = sessionRef.current;
+    const nick = session?.nick?.trim();
+    const roomToUse = session?.roomId || roomId;
+    const install = session?.installId || installId;
+    if (!nick || !roomToUse || !install) return;
+    const now = Date.now();
+    if (resumeProbeRef.current.inFlight && now - resumeProbeRef.current.lastAt < 2500) return;
+    resumeProbeRef.current.inFlight = true;
+    resumeProbeRef.current.lastAt = now;
+    setResumePending(true);
+
+    const finish = () => {
+      resumeProbeRef.current.inFlight = false;
+      setResumePending(false);
+    };
+    const doProbe = () => {
+      socket.emit(
+        "session:resume",
+        { roomId: roomToUse, installId: install, nick, takeover: false },
+        (res) => {
+          finish();
+          if (res?.ok && res?.available && res?.snapshot) {
+            setResumeSnapshot(res.snapshot);
+            setCanResumeSession(true);
+          } else {
+            setResumeSnapshot(null);
+          }
+        }
+      );
+    };
+
+    if (socket.connected) {
+      doProbe();
+      return;
+    }
+    const onError = () => {
+      socket.off("connect", onConnect);
+      socket.off("connect_error", onError);
+      finish();
+    };
+    const onConnect = () => {
+      socket.off("connect_error", onError);
+      doProbe();
+    };
+    socket.once("connect", onConnect);
+    socket.once("connect_error", onError);
+    socket.connect();
+  }
+
   function resumeLoginFromSession(reason = "resume") {
     if (!hasSavedSession()) return;
     const session = sessionRef.current;
@@ -5330,17 +5548,10 @@ function playTileStepSound(step) {
     const install = session?.installId || installId;
     if (!nick || !roomToUse || !install) return;
     const force = reason === "resume_button";
-    const shouldForceReconnect =
-      !isLoggedInRef.current &&
-      (force ||
-        reason === "visibility" ||
-        reason === "focus" ||
-        reason === "online" ||
-        reason === "foreground");
     const now = Date.now();
     if (resumeLockRef.current) {
       const elapsed = now - (resumeLockAtRef.current || 0);
-      if (!force && elapsed < 9000) return;
+      if (!force && elapsed < 6000) return;
       resumeLockRef.current = false;
       resumeLockAtRef.current = 0;
     }
@@ -5348,10 +5559,11 @@ function playTileStepSound(step) {
     resumeLockAtRef.current = now;
     setLoginError("");
     setConnectionError("Reconnexion...");
+    setIsConnecting(true);
 
     let settled = false;
     const cleanup = () => {
-      socket.off("connect", doLogin);
+      socket.off("connect", doResume);
       socket.off("connect_error", onResumeError);
     };
     const finish = () => {
@@ -5367,53 +5579,46 @@ function playTileStepSound(step) {
     };
     const onResumeError = () => {
       setConnectionError("Connexion au serveur impossible");
+      setIsConnecting(false);
       finish();
     };
     let resumeTimeout = setTimeout(() => {
       setConnectionError("Connexion au serveur impossible");
+      setIsConnecting(false);
       finish();
     }, 8000);
 
-    const doLogin = () => {
-      socket.emit("login", { nick, roomId: roomToUse, installId: install }, (res) => {
-        finish();
-        if (!res?.ok) {
-          if (res?.error === "pseudo_taken") {
+    const doResume = () => {
+      socket.emit(
+        "session:resume",
+        { roomId: roomToUse, installId: install, nick, takeover: true },
+        (res) => {
+          finish();
+          if (!res?.ok || !res?.available || !res?.snapshot) {
+            setConnectionError("Session expiree");
+            setIsConnecting(false);
             setIsLoggedIn(false);
+            return;
           }
+          persistSession({ nick, roomId: roomToUse, installId: install });
+          lastLoginPayloadRef.current = { nick, roomId: roomToUse };
+          setIsLoggedIn(true);
           setIsConnecting(false);
-          return;
+          setLoginError("");
+          setConnectionError("");
+          setResumeSnapshot(null);
+          applyResumeSnapshot(res.snapshot);
+          void requestTrophyStatus();
         }
-        const joinedRoom = res?.roomId || roomToUse;
-        persistSession({ nick, roomId: joinedRoom, installId: install });
-        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
-        setCurrentRoomId(joinedRoom);
-        setRoomId(joinedRoom);
-        const nextSize = getGridSizeForRoom(joinedRoom);
-        setGridSize(nextSize);
-        setBoard(Array(nextSize * nextSize).fill({ letter: "?", bonus: null }));
-        autoResumeEnabledRef.current = true;
-        setIsLoggedIn(true);
-        setIsConnecting(false);
-        setLoginError("");
-        setConnectionError("");
-        void requestTrophyStatus();
-      });
+      );
     };
 
-    const connectAndLogin = () => {
-      socket.once("connect", doLogin);
+    if (socket.connected) {
+      doResume();
+    } else {
+      socket.once("connect", doResume);
       socket.once("connect_error", onResumeError);
       socket.connect();
-    };
-
-    if (socket.connected && !shouldForceReconnect) {
-      doLogin();
-    } else {
-      if (socket.connected) {
-        socket.disconnect();
-      }
-      connectAndLogin();
     }
   }
 
@@ -5432,8 +5637,7 @@ function playTileStepSound(step) {
       .catch(() => {
         console.warn(`[watchdog] reconnect (${reason})`);
         socket.disconnect();
-        socket.connect();
-        resumeLoginFromSession("watchdog");
+        requestSessionResumeSnapshot("watchdog");
       });
   }
 
@@ -5445,11 +5649,13 @@ function playTileStepSound(step) {
         setNickname(stored.nick);
       }
       setCanResumeSession(true);
+      autoResumeEnabledRef.current = true;
+      requestSessionResumeSnapshot("boot");
     }
     const onConnect = () => {
-      if (!autoResumeEnabledRef.current) return;
       if (!hasSavedSession()) return;
-      resumeLoginFromSession("socket_connect");
+      if (isLoggedInRef.current) return;
+      requestSessionResumeSnapshot("socket_connect");
     };
     socket.on("connect", onConnect);
     return () => {
@@ -5586,11 +5792,13 @@ function playTileStepSound(step) {
     if (!socket.connected) {
       if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
       socket.connect();
+      if (!isLoggedInRef.current) {
+        requestSessionResumeSnapshot(reason);
+      }
       return;
     }
     if (!isLoggedInRef.current) {
-      if (!autoResumeEnabledRef.current) return;
-      resumeLoginFromSession(reason);
+      requestSessionResumeSnapshot(reason);
       return;
     }
     runHealthCheck(reason);
@@ -5695,6 +5903,7 @@ function playTileStepSound(step) {
         const nextSize = getGridSizeForRoom(joinedRoom);
         setGridSize(nextSize);
         setBoard(Array(nextSize * nextSize).fill({ letter: "?", bonus: null }));
+        setResumeSnapshot(null);
         setIsLoggedIn(true);
         setIsConnecting(false);
         setServerStatus("waiting");
@@ -5725,13 +5934,42 @@ function playTileStepSound(step) {
     }
   }
 
+  function openTutorial({ pendingLogin = false } = {}) {
+    setTutorialPendingLogin(pendingLogin);
+    setIsTutorialOpen(true);
+  }
+
+  function completeTutorial() {
+    setIsTutorialOpen(false);
+    setTutorialPendingLogin(false);
+    try {
+      localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, installId);
+    } catch (_) {}
+    setTutorialSeenInstallId(installId);
+    if (tutorialPendingLogin) {
+      handleLogin();
+    }
+  }
+
+  function openTutorialFromHome() {
+    openTutorial({ pendingLogin: false });
+  }
+
   function handleLoginOrResume(e) {
     if (e) e.preventDefault();
-    if (canResumeNow) {
-      resumeLoginFromSession("resume_button");
+    if (!isTutorialOpen && shouldShowTutorial) {
+      openTutorial({ pendingLogin: true });
       return;
     }
     handleLogin();
+  }
+
+  function handleResumeFromPrompt() {
+    resumeLoginFromSession("resume_button");
+  }
+
+  function dismissResumePrompt() {
+    setResumeSnapshot(null);
   }
 
   function startGameFromServer(
@@ -5919,12 +6157,9 @@ function playTileStepSound(step) {
 
   function attemptSilentReconnect() {
     if (reconnectAttemptRef.current) return;
-    const session = sessionRef.current;
-    const nick = session?.nick || nickname;
-    if (!nick) return;
     reconnectAttemptRef.current = true;
     setConnectionError("Reconnexion...");
-    resumeLoginFromSession("disconnect");
+    requestSessionResumeSnapshot("disconnect");
     setTimeout(() => {
       reconnectAttemptRef.current = false;
     }, 1500);
@@ -7521,13 +7756,31 @@ function handleTouchEnd() {
     borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
   };
   const vocabImageSrc = vocabLevel?.image || "";
-  const renderVocabPanel = (panelClassName = "") => (
-    <div className={`flex flex-col items-center gap-3 ${panelClassName}`}>
-      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-        Vocabulaire
+  const renderVocabPanel = ({
+    panelClassName = "",
+    showDelta = true,
+    showHeading = true,
+  } = {}) => (
+    <div
+      className={`flex flex-col items-center ${showDelta ? "gap-3" : "gap-2"} ${panelClassName}`}
+    >
+      {showHeading ? (
+        <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
+          Vocabulaire
+        </div>
+      ) : null}
+      {showDelta ? (
+        <div className="text-4xl font-black tabular-nums">{vocabDeltaLabel}</div>
+      ) : null}
+      <div
+        className={
+          showDelta
+            ? "text-xs font-semibold opacity-75 -mt-1"
+            : "text-lg font-extrabold tabular-nums"
+        }
+      >
+        {vocabTotalLabel}
       </div>
-      <div className="text-4xl font-black tabular-nums">{vocabDeltaLabel}</div>
-      <div className="text-xs font-semibold opacity-75 -mt-1">{vocabTotalLabel}</div>
       <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
         {vocabImageSrc ? (
           <div className="relative">
@@ -7549,22 +7802,22 @@ function handleTouchEnd() {
           </div>
         )}
         <div className="w-full">
-            <div className="relative w-full">
+          <div className="relative w-full px-1">
+            <div
+              className={`h-3 rounded-full overflow-hidden ${
+                darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
+              }`}
+            >
               <div
-                className={`h-3 rounded-full overflow-hidden ${
-                  darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
-                }`}
-              >
-                <div
-                  className="absolute inset-y-0 left-0"
-                  style={{
-                    width: `${vocabBasePct}%`,
-                    background: darkMode
+                className="absolute inset-y-0 left-0 rounded-l-full"
+                style={{
+                  width: `${showDelta ? vocabBasePct : vocabProgressPct}%`,
+                  background: darkMode
                     ? "rgba(248, 250, 252, 0.85)"
                     : "rgba(15, 23, 42, 0.85)",
                 }}
               />
-              {vocabDeltaValue && vocabDeltaValue > 0 ? (
+              {showDelta && vocabDeltaValue && vocabDeltaValue > 0 ? (
                 <div
                   className="absolute inset-y-0 vocab-delta-fill"
                   style={{
@@ -7574,21 +7827,21 @@ function handleTouchEnd() {
                 />
               ) : null}
             </div>
+            <div
+              className="absolute -top-3"
+              style={{
+                ...vocabCursorStyle,
+                transform: "translateX(-50%)",
+              }}
+            >
               <div
-                className="absolute -top-3"
-                style={{
-                  ...vocabCursorStyle,
-                  transform: "translateX(-50%)",
-                }}
-              >
-                <div
-                  className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
-                  style={{ borderTopColor: vocabCursorStyle.borderTopColor }}
-                />
-              </div>
+                className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
+                style={{ borderTopColor: vocabCursorStyle.borderTopColor }}
+              />
             </div>
           </div>
         </div>
+      </div>
     </div>
   );
   const vocabOverlayTotalValue = Number.isFinite(vocabOverlayAnimatedTotal)
@@ -7753,14 +8006,14 @@ function handleTouchEnd() {
           </div>
         )}
         <div className="w-full">
-          <div className="relative w-full">
+          <div className="relative w-full px-1">
             <div
               className={`h-3 rounded-full overflow-hidden ${
                 darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
               }`}
             >
               <div
-                className="absolute inset-y-0 left-0"
+                className="absolute inset-y-0 left-0 rounded-l-full"
                 style={{
                   width: `${vocabOverlayBaseFillPct}%`,
                   background: darkMode
@@ -7877,6 +8130,13 @@ function handleTouchEnd() {
       return specialTypeLabel;
     })();
 
+    const selfNickForResults = nicknameRef.current.trim();
+    const selfResultEntry =
+      selfNickForResults && Array.isArray(finalResults)
+        ? finalResults.find((entry) => entry.nick === selfNickForResults)
+        : null;
+    const showOfflineLabel = !selfResultEntry;
+
     return (
       <div
         className={`border rounded-xl shadow-xl p-4 text-sm leading-snug space-y-4 relative overflow-hidden ${themeClasses} ${className}`}
@@ -7913,6 +8173,11 @@ function handleTouchEnd() {
           </div>
         )}
         <div className="text-center text-lg font-bold">Bilan</div>
+        {showOfflineLabel ? (
+          <div className="text-center text-[11px] text-amber-500">
+            Vous etiez hors ligne sur cette manche.
+          </div>
+        ) : null}
         <div className="space-y-4">
           {!isSpeedRound && endStats.bestWord && (
             <div className="space-y-1">
@@ -8522,6 +8787,12 @@ function handleTouchEnd() {
     let bestWord = null; // { nick, word, pts }
     let longestWord = null; // { nick, word, len }
     let mostWords = null; // { nick, count }
+    const getWordTs = (entry, norm) => {
+      const map = entry?.wordTimes;
+      if (!map || typeof map !== "object") return null;
+      const ts = map[norm];
+      return Number.isFinite(ts) ? ts : null;
+    };
 
     for (const entry of finalResults) {
       const words = Array.isArray(entry.words) ? entry.words : [];
@@ -8534,11 +8805,24 @@ function handleTouchEnd() {
         const path = findBestPathForWord(board, norm, specialScoreConfig);
         if (!path) continue;
         const pts = computeScore(norm, path, board, specialScoreConfig);
-        if (!bestWord || pts > bestWord.pts) {
-          bestWord = { nick: entry.nick, word: raw, pts };
+        const wordTs = getWordTs(entry, norm);
+        if (
+          !bestWord ||
+          pts > bestWord.pts ||
+          (pts === bestWord.pts &&
+            wordTs != null &&
+            (!Number.isFinite(bestWord.ts) || wordTs < bestWord.ts))
+        ) {
+          bestWord = { nick: entry.nick, word: raw, pts, ts: wordTs };
         }
-        if (!longestWord || norm.length > longestWord.len) {
-          longestWord = { nick: entry.nick, word: raw, len: norm.length };
+        if (
+          !longestWord ||
+          norm.length > longestWord.len ||
+          (norm.length === longestWord.len &&
+            wordTs != null &&
+            (!Number.isFinite(longestWord.ts) || wordTs < longestWord.ts))
+        ) {
+          longestWord = { nick: entry.nick, word: raw, len: norm.length, ts: wordTs };
         }
       }
     }
@@ -8761,8 +9045,17 @@ function handleTouchEnd() {
       return tournamentSummary;
     }
     if (Array.isArray(tournamentRanking) && tournamentRanking.length > 0) {
+      const getRankingPoints = (entry) =>
+        typeof entry.score === "number" ? entry.score : entry.points || 0;
+      const getRankingGobbles = (entry) => Number(entry.gobbles) || 0;
       const ranking = [...tournamentRanking]
-        .sort((a, b) => (b.score ?? b.points ?? 0) - (a.score ?? a.points ?? 0))
+        .sort((a, b) => {
+          const diff = getRankingPoints(b) - getRankingPoints(a);
+          if (diff !== 0) return diff;
+          const gdiff = getRankingGobbles(b) - getRankingGobbles(a);
+          if (gdiff !== 0) return gdiff;
+          return (a.nick || "").localeCompare(b.nick || "");
+        })
         .map((entry) => ({
           nick: entry.nick,
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
@@ -8827,6 +9120,14 @@ function handleTouchEnd() {
   }, [players, finalResults, tournamentRanking, tournamentFinaleSummary, selfNick]);
 
   function renderMedalsInline(nick, fallbackMedals) {
+    if (phase === "results" && breakKind === "tournament_end") {
+      const times = [];
+      if (tournamentSummaryAt) times.push(tournamentSummaryAt);
+      if (tournamentFinaleHoldUntil) times.push(tournamentFinaleHoldUntil);
+      if (times.length && getNowServerMs() < Math.max(...times)) {
+        return null;
+      }
+    }
     const m = medals?.[nick] || fallbackMedals?.[nick];
     if (!m) return null;
     const toSuperscript = (n) => `x${n}`;
@@ -9590,6 +9891,7 @@ function handleTouchEnd() {
     }
   });
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
+  const seasonVocabEntries = dedupeWeeklyEntries("vocab", weeklyBoardData.vocab, weeklyLimit);
   const activeWeeklyEntries = activeWeeklyBoard
     ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
     : [];
@@ -9752,7 +10054,12 @@ function handleTouchEnd() {
         </button>
         <button
           type="button"
-          onClick={() => setStatsTab("season")}
+          onClick={() => {
+            setStatsTab("season");
+            setSeasonActiveIndex(0);
+            setSeasonDragOffset(0);
+            setSeasonDragging(false);
+          }}
           className={`px-3 py-1 text-xs font-semibold transition ${
             statsTab === "season"
               ? darkMode
@@ -9789,7 +10096,7 @@ function handleTouchEnd() {
             >
               <button
                 type="button"
-                className="absolute top-3 right-3 rounded-full p-2 text-sm font-semibold bg-black/20 text-white hover:bg-black/30"
+                className="absolute top-4 right-4 rounded-full p-2 text-sm font-semibold bg-black/20 text-white hover:bg-black/30"
                 onClick={closeWeeklyStatsOverlay}
                 aria-label="Fermer les stats"
               >
@@ -9878,7 +10185,38 @@ function handleTouchEnd() {
                           className="w-full shrink-0 px-2"
                           style={{ minHeight: "60vh" }}
                         >
-                          {page === "trophies" ? (
+                          {page === "vocab_rank" ? (
+                            <div className="p-4 space-y-3">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <div className="text-sm font-semibold opacity-80">
+                                  Mots uniques
+                                </div>
+                                {weeklyStatsLoading ? (
+                                  <div className="text-xs opacity-70">Mise a jour...</div>
+                                ) : null}
+                                {weeklyStatsError ? (
+                                  <div className="text-xs text-red-400">
+                                    Erreur ({weeklyStatsError})
+                                  </div>
+                                ) : null}
+                              </div>
+                              {seasonVocabEntries.length > 0 ? (
+                                <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                                  {seasonVocabEntries.map((entry, entryIdx) =>
+                                    renderWeeklyRow("vocab", entry, entryIdx)
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-sm opacity-70 py-8 text-center">
+                                  {weeklyStatsLoading
+                                    ? "Chargement..."
+                                    : weeklyStatsError
+                                    ? "Impossible de recuperer les stats"
+                                    : "Pas encore de stats cette saison."}
+                                </div>
+                              )}
+                            </div>
+                          ) : page === "trophies" ? (
                             <div className="p-4 space-y-4">
                               <div className="grid gap-4 md:grid-cols-2">
                                 <div
@@ -9989,7 +10327,7 @@ function handleTouchEnd() {
                             </div>
                           ) : (
                             <div className="p-4">
-                              {renderVocabPanel()}
+                              {renderVocabPanel({ showDelta: false, showHeading: false })}
                             </div>
                           )}
                         </div>
@@ -10561,6 +10899,13 @@ function handleTouchEnd() {
           document.body
         )
       : null;
+  const tutorialOverlay = (
+    <TutorialOverlay
+      open={isTutorialOpen}
+      darkMode={darkMode}
+      onComplete={completeTutorial}
+    />
+  );
 
   const mobileChatLayer =
     isLoggedIn && isMobileLayout ? (
@@ -10609,10 +10954,25 @@ function handleTouchEnd() {
       {wordInfoModalView}
       {recordModalView}
       {vocabOverlayView}
+      {tutorialOverlay}
     </>
   );
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
-  const canResumeNow = !!(canResumeSession && savedSessionNick && savedSessionNick === nickname.trim());
+  const canResumeNow = !!resumeSnapshot;
+  const resumeRoomLabel =
+    resumeSnapshot?.roomId && ROOM_OPTIONS[resumeSnapshot.roomId]
+      ? ROOM_OPTIONS[resumeSnapshot.roomId].label
+      : resumeSnapshot?.roomId || "";
+  const resumePhaseLabel =
+    resumeSnapshot?.phase === "playing"
+      ? "Manche en cours"
+      : resumeSnapshot?.phase === "results"
+      ? "Resultats"
+      : "Accueil";
+  const resumeRoundLabel =
+    resumeSnapshot?.currentRound?.tournament?.round ||
+    resumeSnapshot?.lastRoundResults?.payload?.tournament?.round ||
+    null;
 
   if (!isLoggedIn) {
     return (
@@ -10620,6 +10980,7 @@ function handleTouchEnd() {
         {weeklyStatsOverlay}
         {playersOverlay}
         {definitionModalView}
+        {tutorialOverlay}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -10638,9 +10999,6 @@ function handleTouchEnd() {
           <div>
   <div className="flex items-baseline gap-2 text-3xl font-black tracking-tight select-none">
     <span>GOBBLE</span>
-    <span className="text-[11px] font-extrabold tracking-widest px-2 py-0.5 rounded-full border border-amber-300 bg-amber-100 text-amber-900">
-      BETA
-    </span>
   </div>
   <p className={`text-sm ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
     Salon multijoueur sans compte...
@@ -10656,6 +11014,48 @@ function handleTouchEnd() {
               )}
             </div>
           </div>
+
+          {canResumeNow ? (
+            <div
+              className={`rounded-xl p-4 flex flex-col gap-2 border ${
+                darkMode ? "bg-emerald-900/20 border-emerald-400/30" : "bg-emerald-50 border-emerald-200"
+              }`}
+            >
+              <div className="text-sm font-semibold">Session en cours detectee</div>
+              <div className="text-xs opacity-70">
+                {savedSessionNick ? `Pseudo : ${savedSessionNick}` : "Pseudo disponible"}
+                {resumeRoomLabel ? ` • Salon : ${resumeRoomLabel}` : ""}
+              </div>
+              <div className="text-xs opacity-70">
+                {resumePhaseLabel}
+                {resumeRoundLabel ? ` • Manche ${resumeRoundLabel}` : ""}
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
+                  onClick={handleResumeFromPrompt}
+                  disabled={isConnecting}
+                >
+                  Reprendre
+                </button>
+                <button
+                  type="button"
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                    darkMode
+                      ? "bg-slate-700/60 hover:bg-slate-600 text-slate-100"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                  onClick={dismissResumePrompt}
+                  disabled={isConnecting}
+                >
+                  Rester a l'accueil
+                </button>
+              </div>
+            </div>
+          ) : resumePending ? (
+            <div className="text-xs opacity-70">Recherche de session en cours...</div>
+          ) : null}
 
           <form
             onSubmit={handleLoginOrResume}
@@ -10682,11 +11082,7 @@ function handleTouchEnd() {
               className="mt-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition disabled:opacity-60"
               disabled={isConnecting}
             >
-              {isConnecting
-                ? "Connexion..."
-                : canResumeNow
-                ? "Reprendre ma session"
-                : "Entrer dans la partie"}
+              {isConnecting ? "Connexion..." : "Entrer dans la partie"}
             </button>
             <button
               type="button"
@@ -10705,6 +11101,18 @@ function handleTouchEnd() {
               Joueurs en jeu ({playersCountForLobby})
             </button>
           </form>
+          <div className="flex justify-center">
+            <button
+              type="button"
+              className={`text-xs font-semibold underline underline-offset-2 ${
+                darkMode ? "text-amber-300 hover:text-amber-200" : "text-amber-700 hover:text-amber-600"
+              }`}
+              onClick={openTutorialFromHome}
+              disabled={isConnecting}
+            >
+              Relire le didacticiel
+            </button>
+          </div>
 
           <div className={`grid md:grid-cols-3 gap-2 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
             <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
@@ -11691,6 +12099,12 @@ function handleTouchEnd() {
       const resultsPages = isTargetRound
         ? ["round", "total", "vocab"]
         : ["round", "total", "found", "all", "vocab"];
+      const selfNickForResults = nicknameRef.current.trim();
+      const selfResultEntry =
+        selfNickForResults && Array.isArray(finalResults)
+          ? finalResults.find((entry) => entry.nick === selfNickForResults)
+          : null;
+      const showOfflineLabel = !selfResultEntry;
       const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
       const resultsPageKey = resultsPages[safeResultsPage];
       const showVocabPage = resultsPageKey === "vocab";
@@ -11843,8 +12257,14 @@ function handleTouchEnd() {
                     ) : null}
                   </div>
 
+                  {showOfflineLabel ? (
+                    <div className="text-[11px] text-amber-500">
+                      Vous etiez hors ligne sur cette manche.
+                    </div>
+                  ) : null}
+
                   {showVocabPage ? (
-                    renderVocabPanel("flex-1 min-h-0 pt-2")
+                    renderVocabPanel({ panelClassName: "flex-1 min-h-0 pt-2" })
                   ) : showResultsWords && !isTargetRound ? (
                     <div className="flex flex-col gap-2 flex-1 min-h-0">
                       {wordsEmpty ? (
@@ -12116,6 +12536,15 @@ function handleTouchEnd() {
                 <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
                 <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
               </ul>
+              <div className="mt-3 text-[12px] font-semibold">Support</div>
+              <p className="mt-1 text-[11px]">
+                <a
+                  href="mailto:support@gobble.fr"
+                  className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
+                >
+                  support@gobble.fr
+                </a>
+              </p>
             </div>
           </div>
         )}

@@ -309,7 +309,7 @@ const SPECIAL_QUALITY_ATTEMPTS = 220;
 
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
-const TOURNAMENT_RESULTS_BREAK_MS = 20 * 1000;
+const TOURNAMENT_RESULTS_BREAK_MS = 40 * 1000;
 const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
@@ -736,6 +736,7 @@ function createRoomState(roomId, config) {
     roundCounter: 0,
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
+    lastRoundResults: null,
     pendingDisconnects: new Map(), // socket.id -> { timer, installId, nick }
   };
 }
@@ -786,12 +787,15 @@ function getBotStrengthForNick(nick) {
 function emitPlayers(room) {
   io.to(room.id).emit(
     "playersUpdate",
-    Array.from(room.players.values()).map((p) => ({
-      nick: p.nick,
-      roomId: room.id,
-      installId: p.installId || null,
-      isBot: isBotToken(p?.token),
-    }))
+    Array.from(room.players.values())
+      .filter((p) => isPlayerConnected(p) || isBotToken(p?.token))
+      .map((p) => ({
+        nick: p.nick,
+        roomId: room.id,
+        installId: p.installId || null,
+        isBot: isBotToken(p?.token),
+        connected: isPlayerConnected(p) || isBotToken(p?.token),
+      }))
   );
 }
 
@@ -868,12 +872,164 @@ function clearPendingDisconnect(room, socketId) {
 }
 
 function emitRoomsStats() {
-  const payload = Array.from(rooms.values()).map((room) => ({
-    roomId: room.id,
-    label: room.config.label,
-    players: room.players.size,
-  }));
+  const payload = Array.from(rooms.values()).map((room) => {
+    const playersCount = Array.from(room.players.values()).filter(
+      (p) => p?.connected !== false
+    ).length;
+    return {
+      roomId: room.id,
+      label: room.config.label,
+      players: playersCount,
+    };
+  });
   io.emit("roomsStats", payload);
+}
+
+function findPlayerByInstallId(room, installId) {
+  if (!room || !installId) return null;
+  const normalized = normalizeInstallId(installId);
+  if (!normalized) return null;
+  for (const [socketId, player] of room.players.entries()) {
+    if (normalizeInstallId(player?.installId) === normalized) {
+      return { socketId, player };
+    }
+  }
+  return null;
+}
+
+function isPlayerConnected(player) {
+  if (!player) return false;
+  return player.connected !== false;
+}
+
+function hasPlayerActivity(data) {
+  if (!data) return false;
+  const wordsCount = data?.words ? data.words.size : 0;
+  const score = Number(data?.score) || 0;
+  return wordsCount > 0 || score > 0;
+}
+
+function buildRoundStartedPayload(room) {
+  const round = room?.currentRound;
+  if (!round) return null;
+  const totalRounds = room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
+  const currentTournamentRound = round.tournamentRound || 1;
+  const nextTournamentRound =
+    currentTournamentRound >= totalRounds ? 1 : currentTournamentRound + 1;
+  const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
+  const currentQuality = round.quality;
+
+  return {
+    roomId: room.id,
+    roundId: round.id,
+    grid: round.grid,
+    gridSize: room.config.gridSize,
+    durationMs: round.durationMs,
+    endsAt: round.endsAt,
+    targetLength: round.targetLength || null,
+    special: round.special?.isSpecial ? round.special : null,
+    gridQuality: currentQuality
+      ? {
+          words: currentQuality.words ?? 0,
+          maxLen: currentQuality.maxLen ?? 0,
+          maxPts:
+            round.special?.fixedWordScore || currentQuality.maxPts || 0,
+          totalPts: currentQuality.totalPts ?? 0,
+          possibleScore: currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
+          longWords: currentQuality.longWords ?? 0,
+        }
+      : null,
+    roundNumber: round.roundNumber,
+    tournament: {
+      id: room.tournament?.id || null,
+      round: currentTournamentRound,
+      totalRounds,
+      isFinalRound: currentTournamentRound === totalRounds,
+      nextRound: nextTournamentRound,
+      nextStartsNewTournament: currentTournamentRound === totalRounds,
+    },
+    nextSpecial: nextPlan?.isSpecial ? nextPlan : null,
+  };
+}
+
+function buildBreakSnapshot(room) {
+  if (!room?.breakState) return null;
+  return {
+    roomId: room.id,
+    nextStartAt: room.breakState.nextStartAt || null,
+    breakKind: room.breakState.breakKind || null,
+    tournament: room.breakState.tournament || null,
+    nextSpecial: room.breakState.nextSpecial || null,
+    tournamentSummary: room.breakState.tournamentSummary || null,
+    tournamentSummaryAt: room.breakState.tournamentSummaryAt || null,
+    targetSummary: room.breakState.targetSummary || null,
+  };
+}
+
+function buildLiveRanking(room, roundId) {
+  if (!room?.currentRound) return [];
+  const roundSubs = room.submissions.get(roundId) || new Map();
+  const ranking = [];
+  for (const player of room.players.values()) {
+    const data = roundSubs.get(player.nick);
+    const connected = isPlayerConnected(player) || isBotToken(player?.token);
+    const active = connected || hasPlayerActivity(data);
+    if (!active) continue;
+    ranking.push({ nick: player.nick, score: data?.score || 0 });
+  }
+  ranking.sort((a, b) => (b.score || 0) - (a.score || 0));
+  return ranking;
+}
+
+function buildSessionSnapshot(room, player) {
+  if (!room || !player) return null;
+  const round = room.currentRound;
+  const phase =
+    round?.status === "running"
+      ? "playing"
+      : room.breakState
+      ? "results"
+      : "lobby";
+  const currentRoundPayload = round?.status === "running"
+    ? buildRoundStartedPayload(room)
+    : null;
+  let score = 0;
+  let words = [];
+  let participated = false;
+  if (round?.status === "running") {
+    const roundSubs = room.submissions.get(round.id) || null;
+    const playerRound = roundSubs ? roundSubs.get(player.nick) : null;
+    score = playerRound?.score || 0;
+    words = Array.from(playerRound?.words || []);
+    participated = hasPlayerActivity(playerRound);
+  } else if (room.lastRoundResults?.payload?.results) {
+    const entry = room.lastRoundResults.payload.results.find((r) => r.nick === player.nick);
+    if (entry) {
+      score = entry.score || 0;
+      words = Array.isArray(entry.words) ? entry.words : [];
+      participated = Array.isArray(words) ? words.length > 0 || score > 0 : score > 0;
+    }
+  }
+  const playerState = {
+    nick: player.nick,
+    connected: isPlayerConnected(player),
+    score,
+    words,
+    participated,
+  };
+
+  return {
+    roomId: room.id,
+    phase,
+    player: playerState,
+    currentRound: currentRoundPayload,
+    ranking:
+      round?.status === "running" && round?.id
+        ? buildLiveRanking(room, round.id)
+        : [],
+    breakState: buildBreakSnapshot(room),
+    lastRoundResults: room.lastRoundResults || null,
+  };
 }
 
 function ensurePlayerInRound(room, nick) {
@@ -881,7 +1037,7 @@ function ensurePlayerInRound(room, nick) {
   const roundSubs = room.submissions.get(room.currentRound.id);
   if (!roundSubs) return;
   if (!roundSubs.has(nick)) {
-    roundSubs.set(nick, { words: new Set(), score: 0 });
+    roundSubs.set(nick, { words: new Set(), score: 0, wordTimes: new Map() });
   }
 }
 
@@ -890,10 +1046,14 @@ function broadcastProvisionalRanking(room) {
   const roundSubs = room.submissions.get(room.currentRound.id);
   if (!roundSubs) return;
 
-  const ranking = Array.from(room.players.values()).map((p) => {
-    const data = roundSubs.get(p.nick) || { score: 0 };
-    return { nick: p.nick, score: data.score };
-  });
+  const ranking = [];
+  for (const player of room.players.values()) {
+    const data = roundSubs.get(player.nick);
+    const connected = isPlayerConnected(player) || isBotToken(player?.token);
+    const active = connected || hasPlayerActivity(data);
+    if (!active) continue;
+    ranking.push({ nick: player.nick, score: data?.score || 0 });
+  }
 
   ranking.sort((a, b) => b.score - a.score);
 
@@ -1119,7 +1279,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
 
   let data = roundSubs.get(resolvedNick);
   if (!data) {
-    data = { words: new Set(), score: 0 };
+    data = { words: new Set(), score: 0, wordTimes: new Map() };
     roundSubs.set(resolvedNick, data);
   }
 
@@ -1128,6 +1288,8 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   }
 
   data.words.add(norm);
+  if (!data.wordTimes) data.wordTimes = new Map();
+  if (!data.wordTimes.has(norm)) data.wordTimes.set(norm, Date.now());
   data.score += wordPts;
 
   const playerObj = playerEntry?.player || null;
@@ -1464,11 +1626,21 @@ function computeRoundWordLeaders(round, results) {
       const scored = scoreWordOnGrid(raw, board, scoreConfig);
       if (!scored) continue;
       const pts = computeWordScoreForRound(round, scored.norm, scored.path, scored.pts);
+      const wordTs =
+        entry.wordTimes && Number.isFinite(entry.wordTimes[scored.norm])
+          ? entry.wordTimes[scored.norm]
+          : null;
       if (pts > bestPts) {
         bestPts = pts;
-        bestWord = { word: raw, pts, nick: entry.nick };
+        bestWord = { word: raw, pts, nick: entry.nick, ts: wordTs };
         bestScoreNicks.clear();
         if (entry.nick) bestScoreNicks.add(entry.nick);
+      } else if (
+        pts === bestPts &&
+        wordTs != null &&
+        (!bestWord || !Number.isFinite(bestWord.ts) || wordTs < bestWord.ts)
+      ) {
+        bestWord = { word: raw, pts, nick: entry.nick, ts: wordTs };
       } else if (pts === bestPts && entry.nick) {
         bestScoreNicks.add(entry.nick);
       }
@@ -1476,9 +1648,15 @@ function computeRoundWordLeaders(round, results) {
       const len = scored.norm.length;
       if (len > maxLen) {
         maxLen = len;
-        longestWord = { word: raw, len, nick: entry.nick };
+        longestWord = { word: raw, len, nick: entry.nick, ts: wordTs };
         longestWordNicks.clear();
         if (entry.nick) longestWordNicks.add(entry.nick);
+      } else if (
+        len === maxLen &&
+        wordTs != null &&
+        (!longestWord || !Number.isFinite(longestWord.ts) || wordTs < longestWord.ts)
+      ) {
+        longestWord = { word: raw, len, nick: entry.nick, ts: wordTs };
       } else if (len === maxLen && entry.nick) {
         longestWordNicks.add(entry.nick);
       }
@@ -1783,7 +1961,8 @@ async function startRoundForRoom(room) {
 
   const roundSubs = new Map();
   for (const p of room.players.values()) {
-    roundSubs.set(p.nick, { words: new Set(), score: 0 });
+    if (!isPlayerConnected(p) && !isBotToken(p?.token)) continue;
+    roundSubs.set(p.nick, { words: new Set(), score: 0, wordTimes: new Map() });
   }
   room.submissions.set(roundId, roundSubs);
   pruneRoomState(room);
@@ -2018,13 +2197,24 @@ async function endRoundForRoom(room) {
   let targetSummary = null;
 
   for (const player of room.players.values()) {
+    const connected = isPlayerConnected(player) || isBotToken(player?.token);
+    if (!connected) continue;
     if (!roundSubs.has(player.nick)) {
-      roundSubs.set(player.nick, { words: new Set(), score: 0 });
+      roundSubs.set(player.nick, { words: new Set(), score: 0, wordTimes: new Map() });
     }
   }
 
   for (const [nick, data] of roundSubs.entries()) {
+    const lookup = findPlayerByNick(room, nick);
+    const player = lookup?.player || null;
+    const connected = isPlayerConnected(player) || isBotNick(room, nick);
+    const participated = hasPlayerActivity(data);
+    if (!connected && !participated) {
+      continue;
+    }
     const rawWords = Array.from(data.words || []);
+    const wordTimes =
+      data.wordTimes instanceof Map ? Object.fromEntries(data.wordTimes.entries()) : {};
     const uniqueWords = Array.from(
       new Set(
         rawWords
@@ -2036,9 +2226,12 @@ async function endRoundForRoom(room) {
       nick,
       score: data.score,
       words: rawWords,
+      wordTimes,
       uniqueWords,
       newVocabWords: [],
       isBot: isBotNick(room, nick),
+      connected,
+      participated,
     });
   }
 
@@ -2094,6 +2287,7 @@ async function endRoundForRoom(room) {
   const targetScoreForWeekly = 500;
   for (const entry of results) {
     if (entry.isBot) continue;
+    if (!entry.participated) continue;
     const playerKey = getMedalKeyForNickLookup(room, entry.nick);
     if (!playerKey) continue;
     const wordsCount = Array.isArray(entry.words) ? entry.words.length : 0;
@@ -2225,6 +2419,8 @@ async function endRoundForRoom(room) {
 
     const targetResults = [];
     for (const player of room.players.values()) {
+      const connected = isPlayerConnected(player) || isBotToken(player?.token);
+      if (!connected) continue;
       const meta = foundMeta.get(player.nick);
       targetResults.push({
         nick: player.nick,
@@ -2233,6 +2429,8 @@ async function endRoundForRoom(room) {
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
         isBot: isBotToken(player?.token),
+        connected,
+        participated: !!meta,
       });
     }
 
@@ -2374,7 +2572,7 @@ async function endRoundForRoom(room) {
     breakKind === "tournament_end" ? null : getTournamentRoundPlan(room, nextTournamentRoundForBreak);
   const nextPlan = getTournamentRoundPlan(room, nextTournamentRoundForBreak);
   const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
-  io.to(room.id).emit("roundEnded", {
+  const roundEndedPayload = {
     roomId: room.id,
     roundId: room.currentRound.id,
     results,
@@ -2399,7 +2597,24 @@ async function endRoundForRoom(room) {
     tournamentSummary,
     tournamentSummaryAt,
     targetSummary,
-  });
+  };
+
+  room.lastRoundResults = {
+    endedAt: room.currentRound.endsAt || Date.now(),
+    round: {
+      id: room.currentRound.id,
+      grid: room.currentRound.grid,
+      gridSize: room.config.gridSize,
+      durationMs: room.currentRound.durationMs,
+      endsAt: room.currentRound.endsAt,
+      roundNumber: room.currentRound.roundNumber,
+      special: room.currentRound.special?.isSpecial ? room.currentRound.special : null,
+      gridQuality: room.currentRound.quality || null,
+    },
+    payload: roundEndedPayload,
+  };
+
+  io.to(room.id).emit("roundEnded", roundEndedPayload);
 
   const nextStartAt = Date.now() + breakMs;
   io.to(room.id).emit("breakStarted", {
@@ -2430,6 +2645,7 @@ async function endRoundForRoom(room) {
     tournamentSummary,
     tournamentSummaryAt,
     targetSummary,
+    lastRoundResults: room.lastRoundResults || null,
   };
 
   scheduleBreakPrecompute(
@@ -2452,6 +2668,63 @@ io.on("connection", (socket) => {
 
   socket.on("timeSync", (_payload, cb) => {
     cb?.({ ok: true, serverNow: Date.now() });
+  });
+
+  socket.on("session:resume", (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    const installId = normalizeInstallId(payload?.installId);
+    const roomId = payload?.roomId;
+    if (!installId || !roomId) {
+      cb?.({ ok: false, available: false, error: "invalid_payload" });
+      return;
+    }
+    const room = getRoom(roomId);
+    if (!room) {
+      cb?.({ ok: false, available: false, error: "invalid_room" });
+      return;
+    }
+    const match = findPlayerByInstallId(room, installId);
+    if (!match?.player) {
+      cb?.({ ok: true, available: false });
+      return;
+    }
+    const now = Date.now();
+    const takeover = !!payload?.takeover;
+    let player = match.player;
+    if (takeover) {
+      if (match.socketId && match.socketId !== socket.id) {
+        clearPendingDisconnect(room, match.socketId);
+        room.players.delete(match.socketId);
+        const oldSocket = io.sockets.sockets.get(match.socketId);
+        if (oldSocket) {
+          try {
+            oldSocket.leave(room.id);
+          } catch (_) {}
+          oldSocket.disconnect(true);
+        }
+      }
+      player = {
+        ...player,
+        connected: true,
+        lastSeenAt: now,
+      };
+      room.players.set(socket.id, player);
+      room.nickToInstallId.set(player.nick, player.installId || installId);
+      socket.data.installId = installId;
+      socket.data.nick = player.nick;
+      socket.data.roomId = room.id;
+      socket.roomId = room.id;
+      socket.join(room.id);
+      emitPlayers(room);
+      emitMedals(room);
+      broadcastProvisionalRanking(room);
+      emitRoomsStats();
+    }
+    const snapshot = buildSessionSnapshot(room, player);
+    cb?.({ ok: true, available: true, snapshot });
   });
 
   socket.on("login", (payload, cb) => {
@@ -2515,7 +2788,13 @@ io.on("connection", (socket) => {
     // Réservation de pseudo désactivée (trop gênant sur mobile lors des retours d'appli)
     cleanupExpiredMedals(room);
 
-    room.players.set(socket.id, { nick: trimmed, token: token || null, installId });
+    room.players.set(socket.id, {
+      nick: trimmed,
+      token: token || null,
+      installId,
+      connected: true,
+      lastSeenAt: now,
+    });
     room.nickToInstallId.set(trimmed, installId);
     socket.data.installId = installId;
     socket.data.nick = trimmed;
@@ -2721,8 +3000,14 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, mutedUntil });
   });
 
-  socket.on("getVocabCount", async (cb) => {
-    const installId = normalizeInstallId(socket.data?.installId);
+  socket.on("getVocabCount", async (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    const socketInstallId = normalizeInstallId(socket.data?.installId);
+    const payloadInstallId = normalizeInstallId(payload?.installId);
+    const installId = socketInstallId || payloadInstallId;
     if (!installId) {
       cb?.({ count: 0 });
       return;
@@ -2837,7 +3122,12 @@ io.on("connection", (socket) => {
       persistRoomMedals(room);
     }
     if (!player) return;
+    player.connected = false;
+    player.lastSeenAt = now;
     clearPendingDisconnect(room, socket.id);
+    emitPlayers(room);
+    emitRoomsStats();
+    broadcastProvisionalRanking(room);
     const timer = setTimeout(() => {
       clearPendingDisconnect(room, socket.id);
       const current = room.players.get(socket.id);

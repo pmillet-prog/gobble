@@ -500,7 +500,7 @@ class BotManager {
     const awakeKeys = new Set(awakeBots.map((bot) => this.botKey(bot)));
 
     const humanCount = Array.from(room.players.values()).filter(
-      (p) => !p?.token?.startsWith("bot-")
+      (p) => !p?.token?.startsWith("bot-") && p?.connected !== false
     ).length;
     const desiredTotal = desiredTotalPlayersForRoom(room, now);
     const desiredBots = Math.max(
