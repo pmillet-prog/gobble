@@ -45,12 +45,31 @@ cd server
 npm ci
 
 echo "=== Restart back (4000) ==="
-fuser -k 4000/tcp 2>/dev/null || true
+stop_port() {
+  local port="$1"
+  local pids
+  pids="$(fuser -n tcp "$port" 2>/dev/null || true)"
+  if [ -z "$pids" ]; then
+    return
+  fi
+  kill -TERM $pids 2>/dev/null || true
+  for _ in {1..6}; do
+    sleep 0.5
+    if ! fuser -n tcp "$port" >/dev/null 2>&1; then
+      break
+    fi
+  done
+  if fuser -n tcp "$port" >/dev/null 2>&1; then
+    kill -KILL $pids 2>/dev/null || true
+  fi
+}
+
+stop_port 4000
 nohup npm start > "$HOME/server.log" 2>&1 &
 
 
 echo "=== Restart front (3000) ==="
-fuser -k 3000/tcp 2>/dev/null || true
+stop_port 3000
 cd ..
 nohup npx serve -s dist -l 3000 > "$HOME/front.log" 2>&1 &
 
