@@ -4550,7 +4550,16 @@ function playTileStepSound(step) {
       return;
     }
     const t0 = Date.now();
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      next?.();
+    }, 1200);
     socket.emit("timeSync", null, (res) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
       const t1 = Date.now();
       if (res?.ok && typeof res.serverNow === "number") {
         const rtt = Math.max(0, t1 - t0);
@@ -5665,6 +5674,19 @@ function playTileStepSound(step) {
       if (!hasSavedSession()) return;
       if (isLoggedInRef.current) return;
       requestSessionResumeSnapshot("socket_connect");
+    };
+    socket.on("connect", onConnect);
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onConnect = () => {
+      if (!hasSavedSession()) return;
+      if (isLoggedInRef.current) return;
+      if (resumeLockRef.current) return;
+      resumeLoginFromSession("connect");
     };
     socket.on("connect", onConnect);
     return () => {

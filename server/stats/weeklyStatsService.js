@@ -36,6 +36,7 @@ let state = buildWeekState(getWeekStartTs());
 let history = new Map();
 let saveTimer = null;
 let lastBackupAt = 0;
+let lastSaveLogAt = 0;
 
 export function getWeekStartTs(now = Date.now()) {
   const d = new Date(now);
@@ -147,20 +148,29 @@ async function replaceFile(tmpPath, targetPath) {
   }
 }
 
+async function atomicWriteJson(filePath, payload) {
+  const json = JSON.stringify(payload, null, 2);
+  const tmpPath = `${filePath}.tmp`;
+  await fs.writeFile(tmpPath, json, "utf8");
+  await replaceFile(tmpPath, filePath);
+  return json;
+}
+
 async function saveToDisk() {
   saveTimer = null;
   const payload = {
     ...serializeWeekState(state),
     history: serializeHistory(),
   };
-  const json = JSON.stringify(payload, null, 2);
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await maybeBackupFile(DATA_PATH);
-    const tmpPath = `${DATA_PATH}.tmp`;
-    await fs.writeFile(tmpPath, json, "utf8");
-    await replaceFile(tmpPath, DATA_PATH);
-    console.log(`weeklyStats saving size=${Buffer.byteLength(json, "utf8")}`);
+    const json = await atomicWriteJson(DATA_PATH, payload);
+    const now = Date.now();
+    if (now - lastSaveLogAt > 5000) {
+      lastSaveLogAt = now;
+      console.log(`weeklyStats saving size=${Buffer.byteLength(json, "utf8")}`);
+    }
   } catch (_) {}
 }
 
@@ -175,8 +185,9 @@ async function readStatsFile(filePath) {
     const raw = await fs.readFile(filePath, "utf8");
     const stat = await fs.stat(filePath);
     const size = Number(stat.size) || Buffer.byteLength(raw, "utf8");
+    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(cleaned);
       return { parsed, mtimeMs: stat.mtimeMs || 0, size, path: filePath };
     } catch (_) {
       return { error: "parse", mtimeMs: stat.mtimeMs || 0, size, path: filePath };
@@ -219,9 +230,10 @@ async function readLatestBackup(basePath) {
 async function markCorrupt(filePath) {
   const dir = path.dirname(filePath);
   const base = path.basename(filePath);
-  const corruptPath = path.join(dir, `${base}.corrupt.${Date.now()}`);
+  const corruptPath = path.join(dir, `${base}.bad.${Date.now()}`);
   try {
-    await fs.rename(filePath, corruptPath);
+    await fs.copyFile(filePath, corruptPath);
+    await fs.unlink(filePath);
   } catch (_) {}
 }
 
@@ -231,13 +243,13 @@ async function loadFromDisk() {
   if (primary?.parsed) {
     selected = primary;
   } else if (primary?.error === "parse") {
+    await markCorrupt(DATA_PATH);
     const backup = await readLatestBackup(DATA_PATH);
     if (backup?.parsed) {
       selected = backup;
     } else {
       const legacy = await readStatsFile(LEGACY_DATA_PATH);
       if (legacy?.parsed) selected = legacy;
-      await markCorrupt(DATA_PATH);
     }
   } else {
     const legacy = await readStatsFile(LEGACY_DATA_PATH);

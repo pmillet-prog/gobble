@@ -8,17 +8,57 @@ import { normalizeWord } from "../../shared/gameLogic.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, "../data");
+const DATA_DIR = process.env.GOBBLE_DATA_DIR
+  ? path.resolve(process.env.GOBBLE_DATA_DIR)
+  : path.join(__dirname, "../data");
 const DB_PATH = path.join(DATA_DIR, "gobble.db");
 
 let db = null;
+let initPromise = null;
 
 function hashWord(word) {
   return createHash("sha1").update(word).digest("hex");
 }
 
+async function ensureDb() {
+  if (db) return db;
+  if (!initPromise) {
+    initPromise = (async () => {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+      await db.exec("PRAGMA journal_mode = WAL;");
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS vocab_words (
+          installId TEXT NOT NULL,
+          wordHash TEXT NOT NULL,
+          firstSeenTs INTEGER NOT NULL,
+          PRIMARY KEY(installId, wordHash)
+        );
+        CREATE TABLE IF NOT EXISTS vocab_counts (
+          installId TEXT PRIMARY KEY,
+          count INTEGER NOT NULL DEFAULT 0,
+          updatedAt INTEGER NOT NULL
+        );
+      `);
+      console.log(`vocab DB ready path=${DB_PATH}`);
+      return db;
+    })();
+  }
+  try {
+    await initPromise;
+  } catch (err) {
+    console.warn("Vocabulary service init failed", err);
+    db = null;
+    initPromise = null;
+    return null;
+  }
+  return db;
+}
+
 export async function getKnownVocabWords(installId, words = []) {
-  if (!db || !installId) return new Set();
+  if (!installId) return new Set();
+  const ready = await ensureDb();
+  if (!ready) return new Set();
   const rawWords = Array.isArray(words) ? words : [];
   const normalizedWords = Array.from(
     new Set(
@@ -65,32 +105,12 @@ export async function getKnownVocabWords(installId, words = []) {
 }
 
 export async function initVocabularyService() {
-  if (db) return;
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-    await db.exec("PRAGMA journal_mode = WAL;");
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS vocab_words (
-        installId TEXT NOT NULL,
-        wordHash TEXT NOT NULL,
-        firstSeenTs INTEGER NOT NULL,
-        PRIMARY KEY(installId, wordHash)
-      );
-      CREATE TABLE IF NOT EXISTS vocab_counts (
-        installId TEXT PRIMARY KEY,
-        count INTEGER NOT NULL DEFAULT 0,
-        updatedAt INTEGER NOT NULL
-      );
-    `);
-  } catch (err) {
-    console.warn("Vocabulary service init failed", err);
-    db = null;
-  }
+  await ensureDb();
 }
 
 export async function recordVocabularyBatch(entries = []) {
-  if (!db) return {};
+  const ready = await ensureDb();
+  if (!ready) return {};
   const safeEntries = Array.isArray(entries) ? entries : [];
   const now = Date.now();
   const addedByInstall = new Map();
@@ -156,7 +176,9 @@ export async function recordVocabularyBatch(entries = []) {
 }
 
 export async function getVocabularyCount(installId) {
-  if (!db || !installId) return 0;
+  if (!installId) return 0;
+  const ready = await ensureDb();
+  if (!ready) return 0;
   try {
     const row = await db.get(
       "SELECT count FROM vocab_counts WHERE installId = ?",
