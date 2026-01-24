@@ -1774,6 +1774,7 @@ export default function App() {
   const vocabOverlayDeltaRef = useRef(null);
   const vocabOverlayCursorRef = useRef(null);
   const vocabOverlayWordsRef = useRef([]);
+  const lastVocabFetchAtRef = useRef(0);
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
@@ -4893,6 +4894,14 @@ function playTileStepSound(step) {
     });
   }
 
+  function fetchVocabStats() {
+    if (!installId) return;
+    const now = Date.now();
+    if (now - lastVocabFetchAtRef.current < 2000) return;
+    lastVocabFetchAtRef.current = now;
+    void requestVocabCount();
+  }
+
   function requestTrophyStatus() {
     const emitRequest = (resolve) => {
       socket.emit("getTrophyStatus", { installId }, (res) => {
@@ -5689,6 +5698,20 @@ function playTileStepSound(step) {
     socket.on("connect", onConnect);
     return () => socket.off("connect", onConnect);
   }, []);
+
+  useEffect(() => {
+    if (!installId) return;
+    fetchVocabStats();
+  }, [installId]);
+
+  useEffect(() => {
+    const onConnect = () => {
+      if (!installId) return;
+      fetchVocabStats();
+    };
+    socket.on("connect", onConnect);
+    return () => socket.off("connect", onConnect);
+  }, [installId]);
 
   useEffect(() => {
     const onRoomsStats = (payload) => {
