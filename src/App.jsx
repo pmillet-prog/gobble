@@ -1496,6 +1496,7 @@ export default function App() {
   const weeklySlideWidthRef = useRef(0);
   const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
   const [weeklyDragging, setWeeklyDragging] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({ startX: null, startY: null });
   const seasonSlideWidthRef = useRef(0);
@@ -1633,6 +1634,21 @@ export default function App() {
     tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
+
+  function returnToLobby() {
+    setIsSettingsOpen(false);
+    setAppView("home");
+    dailySessionRef.current = { dateId: null, startedAt: null };
+    setDailyResult(null);
+    if (!isLoggedInRef.current) return;
+    manualDisconnectRef.current = true;
+    clearSavedSession();
+    setIsLoggedIn(false);
+    setConnectionError("");
+    try {
+      socket.disconnect();
+    } catch (_) {}
+  }
   const sessionRef = useRef(null);
   const resumeLockRef = useRef(false);
   const resumeLockAtRef = useRef(0);
@@ -1828,6 +1844,7 @@ export default function App() {
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
   const disconnectGraceTimerRef = useRef(null);
+  const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
@@ -4329,6 +4346,11 @@ function playTileStepSound(step) {
         reconnectAttemptRef.current = false;
       };
       hardReset();
+      if (manualDisconnectRef.current) {
+        manualDisconnectRef.current = false;
+        setConnectionError("");
+        return;
+      }
       setConnectionError("Reconnexion...");
       attemptSilentReconnect();
     }
@@ -4631,6 +4653,15 @@ function playTileStepSound(step) {
     autoResumeEnabledRef.current = true;
     try {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function clearSavedSession() {
+    sessionRef.current = null;
+    setCanResumeSession(false);
+    autoResumeEnabledRef.current = false;
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (_) {}
   }
 
@@ -10040,7 +10071,7 @@ function handleTouchEnd() {
     </div>
   ) : null;
 
-  function renderWeeklyRow(boardKey, entry, idx) {
+  function renderWeeklyRow(boardKey, entry, idx, { showVocabIcon = false } = {}) {
     if (!entry) return null;
     const rank = idx + 1;
     const achieved = entry.achievedAt ? formatWeeklyDate(entry.achievedAt) : null;
@@ -10052,7 +10083,8 @@ function handleTouchEnd() {
         ? weeklyVocabLookup.get(vocabEntryKey)
         : null;
     const resolvedVocabCount = Number.isFinite(vocabCountForRow) ? vocabCountForRow : 0;
-    const vocabMetaForRow = getVocabLevelMeta(resolvedVocabCount);
+    const vocabMetaForRow =
+      showVocabIcon && boardKey === "vocab" ? getVocabLevelMeta(resolvedVocabCount) : null;
 
     const valueParts = [];
     if (boardKey === "medals") {
@@ -10518,8 +10550,10 @@ function handleTouchEnd() {
                               </div>
                               {seasonVocabEntries.length > 0 ? (
                                 <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                                  {seasonVocabEntries.map((entry, entryIdx) =>
-                                    renderWeeklyRow("vocab", entry, entryIdx)
+                                {seasonVocabEntries.map((entry, entryIdx) =>
+                                    renderWeeklyRow("vocab", entry, entryIdx, {
+                                      showVocabIcon: true,
+                                    })
                                   )}
                                 </div>
                               ) : (
@@ -11222,6 +11256,164 @@ function handleTouchEnd() {
       onComplete={completeTutorial}
     />
   );
+  const settingsMenuView = isSettingsOpen ? (
+    <div className="fixed inset-0 z-[20000] flex items-start justify-end p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45"
+        onClick={() => setIsSettingsOpen(false)}
+        aria-label="Fermer les parametres"
+      />
+      <div
+        className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
+          darkMode
+            ? "bg-slate-900/95 border-white/10 text-slate-100"
+            : "bg-white/95 border-slate-200 text-slate-900"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-extrabold">Parametres</div>
+          <button
+            type="button"
+            className={`h-7 w-7 rounded-full border flex items-center justify-center ${
+              darkMode
+                ? "bg-slate-800/80 border-white/10 text-slate-100"
+                : "bg-white border-slate-200 text-slate-700"
+            }`}
+            onClick={() => setIsSettingsOpen(false)}
+            aria-label="Fermer"
+          >
+            <span className="text-base leading-none">×</span>
+          </button>
+        </div>
+        <div className="flex flex-col gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setDarkMode((v) => !v)}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              darkMode
+                ? "bg-slate-800/80 border-white/10 text-slate-100"
+                : "bg-slate-50 border-slate-200 text-slate-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              {darkMode ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                </svg>
+              )}
+              <span>{darkMode ? "Mode clair" : "Mode sombre"}</span>
+            </span>
+            <span className="text-[10px] font-semibold opacity-70">
+              {darkMode ? "Sombre" : "Clair"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsMuted((v) => !v)}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              darkMode
+                ? "bg-slate-800/80 border-white/10 text-slate-100"
+                : "bg-slate-50 border-slate-200 text-slate-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              {isMuted ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 5L6 9H3v6h3l5 4z" />
+                  <line x1="14" y1="9" x2="20" y2="15" />
+                  <line x1="20" y1="9" x2="14" y2="15" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 5L6 9H3v6h3l5 4z" />
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                  <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                </svg>
+              )}
+              <span>{isMuted ? "Son coupe" : "Son actif"}</span>
+            </span>
+            <span className="text-[10px] font-semibold opacity-70">
+              {isMuted ? "Off" : "On"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={returnToLobby}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              darkMode
+                ? "bg-slate-800/80 border-white/10 text-slate-100"
+                : "bg-slate-50 border-slate-200 text-slate-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              <span>Retour lobby</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const mobileChatLayer =
     isLoggedIn && isMobileLayout ? (
@@ -11271,6 +11463,7 @@ function handleTouchEnd() {
       {recordModalView}
       {vocabOverlayView}
       {tutorialOverlay}
+      {settingsMenuView}
     </>
   );
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -12391,48 +12584,14 @@ function handleTouchEnd() {
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setIsMuted((v) => !v)}
+              onClick={() => setIsSettingsOpen(true)}
               className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
               type="button"
             >
-              {isMuted ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M11 5L6 9H3v6h3l5 4z" />
-                  <line x1="14" y1="9" x2="20" y2="15" />
-                  <line x1="20" y1="9" x2="14" y2="15" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M11 5L6 9H3v6h3l5 4z" />
-                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                  <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                </svg>
-              )}
-              <span className="sr-only">{isMuted ? "Son coupé" : "Son actif"}</span>
-            </button>
-            <button
-              onClick={() => setDarkMode((v) => !v)}
-              className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-              type="button"
-            >
-              {darkMode ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2" />
-                  <path d="M12 20v2" />
-                  <path d="m4.93 4.93 1.41 1.41" />
-                  <path d="m17.66 17.66 1.41 1.41" />
-                  <path d="M2 12h2" />
-                  <path d="M20 12h2" />
-                  <path d="m6.34 17.66-1.41 1.41" />
-                  <path d="m19.07 4.93-1.41 1.41" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                </svg>
-              )}
-              <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
+              <span className="material-icons-outlined text-[12px] leading-none" aria-hidden="true">
+                settings
+              </span>
+              <span className="sr-only">Parametres</span>
             </button>
           </div>
           <span className="tabular-nums">
@@ -12749,12 +12908,10 @@ function handleTouchEnd() {
             gridSize={gridSize}
             headerRef={mobileHeaderRef}
             isFinaleBanner={isFinaleBanner}
-            isMuted={isMuted}
             isTargetRound={isTargetRound}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             phase={phase}
             roomLabelSeparator=" - "
-            setDarkMode={setDarkMode}
-            setIsMuted={setIsMuted}
             showHelpButton={false}
             tournament={tournament}
           />
@@ -13020,15 +13177,15 @@ function handleTouchEnd() {
         <style>{slideStyles}</style>
 
         {/* En-tête compact : titre, salon, score et boutons rapides */}
-          <MobileHeader
-            activeRoom={activeRoom}
-            countdownLines={countdownLines}
-            darkMode={darkMode}
-            gridSize={gridSize}
-            headerRef={mobileHeaderRef}
-            isFinaleBanner={isFinaleBanner}
-            isMuted={isMuted}
-            isTargetRound={isTargetRound}
+        <MobileHeader
+          activeRoom={activeRoom}
+          countdownLines={countdownLines}
+          darkMode={darkMode}
+          gridSize={gridSize}
+          headerRef={mobileHeaderRef}
+          isFinaleBanner={isFinaleBanner}
+          isTargetRound={isTargetRound}
+          onOpenSettings={() => setIsSettingsOpen(true)}
           phase={phase}
           roomLabelSeparator=" - "
           roundStatsText={
@@ -13038,8 +13195,6 @@ function handleTouchEnd() {
                 } pts`
               : null
           }
-          setDarkMode={setDarkMode}
-          setIsMuted={setIsMuted}
           setShowHelp={setShowHelp}
           showHelpButton={true}
           showRoundStats={true}
@@ -13378,46 +13533,13 @@ function handleTouchEnd() {
 
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
-              onClick={() => setIsMuted((v) => !v)}
+              onClick={() => setIsSettingsOpen(true)}
               className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-              >
-              {isMuted ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 5L6 9H3v6h3l5 4z" />
-                  <line x1="14" y1="9" x2="20" y2="15" />
-                  <line x1="20" y1="9" x2="14" y2="15" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 5L6 9H3v6h3l5 4z" />
-                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-                  <path d="M18.5 5.5a9 9 0 0 1 0 13" />
-                </svg>
-              )}
-              <span className="sr-only">{isMuted ? "Son coupé" : "Son actif"}</span>
-            </button>
-            <button
-              onClick={() => setDarkMode((v) => !v)}
-              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-              >
-              {darkMode ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5" />
-                  <line x1="12" y1="1" x2="12" y2="3" />
-                  <line x1="12" y1="21" x2="12" y2="23" />
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                  <line x1="1" y1="12" x2="3" y2="12" />
-                  <line x1="21" y1="12" x2="23" y2="12" />
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              )}
-              <span className="sr-only">{darkMode ? "Mode clair" : "Mode sombre"}</span>
+            >
+              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
+                settings
+              </span>
+              <span className="sr-only">Parametres</span>
             </button>
             <button
               onClick={() => setShowHelp((v) => !v)}

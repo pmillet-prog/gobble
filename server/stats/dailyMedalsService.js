@@ -11,11 +11,36 @@ const DATA_DIR = process.env.GOBBLE_DATA_DIR
   : DEFAULT_DATA_DIR;
 const DATA_PATH = path.join(DATA_DIR, "daily-medals.json");
 const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
+const PARIS_TZ = "Europe/Paris";
 
-let state = { rooms: {} };
+let state = { rooms: {}, lastResetDateId: null };
 let saveTimer = null;
 let lastBackupAt = 0;
 let lastSaveLogAt = 0;
+
+function getParisDateId(date = new Date()) {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PARIS_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = dtf.formatToParts(date);
+  const year = Number(parts.find((p) => p.type === "year")?.value || 0);
+  const month = Number(parts.find((p) => p.type === "month")?.value || 0);
+  const day = Number(parts.find((p) => p.type === "day")?.value || 0);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function ensureDailyReset() {
+  const currentDateId = getParisDateId();
+  if (state.lastResetDateId === currentDateId) return;
+  state.lastResetDateId = currentDateId;
+  if (state.rooms && Object.keys(state.rooms).length) {
+    state.rooms = {};
+    scheduleSave();
+  }
+}
 
 function reviveMap(obj = {}) {
   const map = new Map();
@@ -70,6 +95,7 @@ async function saveToDisk() {
   saveTimer = null;
   const payload = {
     rooms: state.rooms || {},
+    lastResetDateId: state.lastResetDateId || getParisDateId(),
   };
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
@@ -182,9 +208,12 @@ async function loadFromDisk() {
       selected.parsed && typeof selected.parsed.rooms === "object" && selected.parsed.rooms
         ? selected.parsed.rooms
         : {};
-    state = { rooms: { ...rooms } };
+    state = {
+      rooms: { ...rooms },
+      lastResetDateId: selected.parsed.lastResetDateId || getParisDateId(),
+    };
   } else {
-    state = { rooms: {} };
+    state = { rooms: {}, lastResetDateId: getParisDateId() };
   }
 
   const loadedPath = selected?.path || "none";
@@ -194,9 +223,11 @@ async function loadFromDisk() {
 }
 
 await loadFromDisk();
+ensureDailyReset();
 
 export function getDailyMedalsForRoom(roomId) {
   if (!roomId) return null;
+  ensureDailyReset();
   const entry = state.rooms?.[roomId];
   if (!entry || typeof entry !== "object") return null;
   const changed = pruneRoomEntry(entry);
@@ -209,6 +240,7 @@ export function getDailyMedalsForRoom(roomId) {
 
 export function persistDailyMedalsForRoom(roomId, medalsMap, expiryMap) {
   if (!roomId) return;
+  ensureDailyReset();
   const medals = serializeMap(medalsMap);
   const expiry = serializeMap(expiryMap);
   if (!Object.keys(medals).length && !Object.keys(expiry).length) {

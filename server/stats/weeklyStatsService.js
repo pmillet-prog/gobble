@@ -13,6 +13,7 @@ const DATA_DIR = process.env.GOBBLE_DATA_DIR
 const DATA_PATH = path.join(DATA_DIR, "weekly-stats.json");
 const LEGACY_DATA_PATH = path.join(LEGACY_DATA_DIR, "weekly-stats.json");
 const TOP_N = 50;
+const PARIS_TZ = "Europe/Paris";
 
 const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -38,16 +39,69 @@ let saveTimer = null;
 let lastBackupAt = 0;
 let lastSaveLogAt = 0;
 
+function getParisParts(date) {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PARIS_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = dtf.formatToParts(date);
+  const getNum = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: getNum("year"),
+    month: getNum("month"),
+    day: getNum("day"),
+    hour: getNum("hour"),
+    minute: getNum("minute"),
+    second: getNum("second"),
+  };
+}
+
+function getParisOffsetMinutes(date) {
+  const parts = getParisParts(date);
+  const asUTC = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+  return Math.round((asUTC - date.getTime()) / 60000);
+}
+
+function getParisMidnightTs(year, month, day) {
+  const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const offsetMinutes = getParisOffsetMinutes(utcMidnight);
+  return utcMidnight.getTime() - offsetMinutes * 60 * 1000;
+}
+
 export function getWeekStartTs(now = Date.now()) {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  const day = (d.getDay() + 6) % 7; // Monday = 0
-  d.setDate(d.getDate() - day);
-  return d.getTime();
+  const parts = getParisParts(new Date(now));
+  const utcDate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  const day = (utcDate.getUTCDay() + 6) % 7; // Monday = 0
+  utcDate.setUTCDate(utcDate.getUTCDate() - day);
+  return getParisMidnightTs(
+    utcDate.getUTCFullYear(),
+    utcDate.getUTCMonth() + 1,
+    utcDate.getUTCDate()
+  );
 }
 
 function getNextResetTs(weekStartTs) {
-  return weekStartTs + 7 * 24 * 60 * 60 * 1000;
+  const parts = getParisParts(new Date(weekStartTs));
+  const utcDate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  utcDate.setUTCDate(utcDate.getUTCDate() + 7);
+  return getParisMidnightTs(
+    utcDate.getUTCFullYear(),
+    utcDate.getUTCMonth() + 1,
+    utcDate.getUTCDate()
+  );
 }
 
 function reviveMap(obj = {}) {

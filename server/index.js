@@ -916,11 +916,23 @@ function hydrateDailyMedals(room) {
   if (!snapshot) return;
   room.medals = snapshot.medals;
   room.medalExpiry = snapshot.expiry;
+  room.medalDateId = getParisDateId();
+}
+
+function ensureDailyMedalsDate(room) {
+  if (!room) return false;
+  const currentDateId = getParisDateId();
+  if (room.medalDateId === currentDateId) return false;
+  room.medalDateId = currentDateId;
+  const hadEntries = room.medals?.size || room.medalExpiry?.size;
+  if (room.medals) room.medals.clear();
+  if (room.medalExpiry) room.medalExpiry.clear();
+  return Boolean(hadEntries);
 }
 
 function cleanupExpiredMedals(room) {
   const now = Date.now();
-  let changed = false;
+  let changed = ensureDailyMedalsDate(room);
   for (const [key, expiresAt] of room.medalExpiry.entries()) {
     if (expiresAt > now) continue;
     room.medalExpiry.delete(key);
@@ -1689,10 +1701,59 @@ function analyzeGridQuality(grid, minWords = 0, opts = {}) {
   };
 }
 
+const PARIS_TZ = "Europe/Paris";
+
+function getParisParts(date) {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PARIS_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = dtf.formatToParts(date);
+  const getNum = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: getNum("year"),
+    month: getNum("month"),
+    day: getNum("day"),
+    hour: getNum("hour"),
+    minute: getNum("minute"),
+    second: getNum("second"),
+  };
+}
+
+function getParisOffsetMinutes(date) {
+  const parts = getParisParts(date);
+  const asUTC = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+  return Math.round((asUTC - date.getTime()) / 60000);
+}
+
+function getParisMidnightTs(year, month, day) {
+  const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const offsetMinutes = getParisOffsetMinutes(utcMidnight);
+  return utcMidnight.getTime() - offsetMinutes * 60 * 1000;
+}
+
 function getNextMidnightTs(now = Date.now()) {
-  const d = new Date(now);
-  d.setHours(24, 0, 0, 0);
-  return d.getTime();
+  const parts = getParisParts(new Date(now));
+  const utcDate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+  return getParisMidnightTs(
+    utcDate.getUTCFullYear(),
+    utcDate.getUTCMonth() + 1,
+    utcDate.getUTCDate()
+  );
 }
 
 function getMedalKeyForInstallId(installId) {

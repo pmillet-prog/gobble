@@ -1993,7 +1993,31 @@ function emitPlayers(room) {
 }
 
 
+function getParisDateId(date = new Date()) {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = dtf.formatToParts(date);
+  const year = Number(parts.find((p) => p.type === "year")?.value || 0);
+  const month = Number(parts.find((p) => p.type === "month")?.value || 0);
+  const day = Number(parts.find((p) => p.type === "day")?.value || 0);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function ensureDailyMedalsDate(room) {
+  if (!room) return;
+  const currentDateId = getParisDateId();
+  if (room.medalDateId === currentDateId) return;
+  room.medalDateId = currentDateId;
+  if (room.medals) room.medals.clear();
+  if (room.medalExpiry) room.medalExpiry.clear();
+}
+
 function cleanupExpiredMedals(room) {
+  ensureDailyMedalsDate(room);
   const now = Date.now();
   for (const [key, expiresAt] of room.medalExpiry.entries()) {
     if (expiresAt > now) continue;
@@ -2540,10 +2564,57 @@ function analyzeGridQuality(grid, minWords = 0, opts = {}) {
   };
 }
 
+function getParisParts(date) {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = dtf.formatToParts(date);
+  const getNum = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return {
+    year: getNum("year"),
+    month: getNum("month"),
+    day: getNum("day"),
+    hour: getNum("hour"),
+    minute: getNum("minute"),
+    second: getNum("second"),
+  };
+}
+
+function getParisOffsetMinutes(date) {
+  const parts = getParisParts(date);
+  const asUTC = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+  return Math.round((asUTC - date.getTime()) / 60000);
+}
+
+function getParisMidnightTs(year, month, day) {
+  const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const offsetMinutes = getParisOffsetMinutes(utcMidnight);
+  return utcMidnight.getTime() - offsetMinutes * 60 * 1000;
+}
+
 function getNextMidnightTs(now = Date.now()) {
-  const d = new Date(now);
-  d.setHours(24, 0, 0, 0);
-  return d.getTime();
+  const parts = getParisParts(new Date(now));
+  const utcDate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+  return getParisMidnightTs(
+    utcDate.getUTCFullYear(),
+    utcDate.getUTCMonth() + 1,
+    utcDate.getUTCDate()
+  );
 }
 
 function getMedalKeyForInstallId(installId) {
