@@ -1443,6 +1443,7 @@ export default function App() {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [showHelp, setShowHelp] = useState(false);
+  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | live
   const [analysis, setAnalysis] = useState(null);
   const [highlightPlayers, setHighlightPlayers] = useState([]);
   const listItemRefs = useRef(new Map());
@@ -1598,6 +1599,27 @@ export default function App() {
     url: "",
   });
   const [installId] = useState(() => getOrCreateInstallId());
+  const [dailyStatus, setDailyStatus] = useState({
+    loading: false,
+    ready: false,
+    hasPlayed: false,
+    dateId: null,
+    myResult: null,
+    champion: null,
+    error: "",
+  });
+  const [dailyBoard, setDailyBoard] = useState({
+    loading: false,
+    ready: false,
+    dateId: null,
+    entries: [],
+    error: "",
+  });
+  const [dailyResult, setDailyResult] = useState(null);
+  const [dailyStartError, setDailyStartError] = useState("");
+  const [dailySubmitError, setDailySubmitError] = useState("");
+  const dailySessionRef = useRef({ dateId: null, startedAt: null });
+  const dailySubmitRef = useRef({ inFlight: false });
   const [tutorialSeenInstallId, setTutorialSeenInstallId] = useState(() => {
     try {
       return localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) || "";
@@ -1609,6 +1631,8 @@ export default function App() {
   const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
   const shouldShowTutorial =
     tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
+  const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
+  const isDailyPlay = appView === "daily_play";
   const sessionRef = useRef(null);
   const resumeLockRef = useRef(false);
   const resumeLockAtRef = useRef(0);
@@ -1629,6 +1653,11 @@ export default function App() {
 
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn;
+  }, [isLoggedIn]);
+  useEffect(() => {
+    if (isLoggedIn) {
+      setAppView("live");
+    }
   }, [isLoggedIn]);
   useEffect(() => {
     nicknameRef.current = nickname;
@@ -4496,6 +4525,7 @@ function playTileStepSound(step) {
 
   useEffect(() => {
     if (phase !== "results") return;
+    if (isDailyPlay) return;
     if (!dictionary) return;
     if (specialRound?.type === "target_long") return;
     if (specialRound?.type === "target_score") return;
@@ -4517,6 +4547,12 @@ function playTileStepSound(step) {
     showAllWords,
     roundId,
   ]);
+
+  useEffect(() => {
+    if (!isDailyPlay) return;
+    if (phase !== "results") return;
+    submitDailyScore();
+  }, [isDailyPlay, phase]);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -4860,6 +4896,204 @@ function playTileStepSound(step) {
       .finally(() => {
         clearTimeout(timer);
         setWeeklyStatsLoading(false);
+      });
+  }
+
+  function fetchDailyStatus() {
+    setDailyStatus((prev) => ({ ...prev, loading: true, error: "" }));
+    const query = installId ? `?installId=${encodeURIComponent(installId)}` : "";
+    fetch(`/api/daily/status${query}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok) {
+          throw new Error(data?.error || `http_${res.status || "error"}`);
+        }
+        return data;
+      })
+      .then((data) => {
+        setDailyStatus({
+          loading: false,
+          ready: !!data?.ready,
+          hasPlayed: !!data?.hasPlayed,
+          dateId: data?.dateId || null,
+          myResult: data?.myResult || null,
+          champion: data?.champion || null,
+          error: "",
+        });
+      })
+      .catch(() => {
+        setDailyStatus((prev) => ({
+          ...prev,
+          loading: false,
+          error: "erreur",
+        }));
+      });
+  }
+
+  function fetchDailyBoard(dateId = null) {
+    setDailyBoard((prev) => ({ ...prev, loading: true, error: "" }));
+    const query = dateId ? `?dateId=${encodeURIComponent(dateId)}` : "";
+    fetch(`/api/daily/board${query}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok && !data?.ready) {
+          throw new Error(data?.error || `http_${res.status || "error"}`);
+        }
+        return data;
+      })
+      .then((data) => {
+        setDailyBoard({
+          loading: false,
+          ready: !!data?.ready,
+          dateId: data?.dateId || null,
+          entries: Array.isArray(data?.entries) ? data.entries : [],
+          error: "",
+        });
+      })
+      .catch(() => {
+        setDailyBoard((prev) => ({
+          ...prev,
+          loading: false,
+          error: "erreur",
+        }));
+      });
+  }
+
+  function openDailyHome() {
+    setDailyStartError("");
+    setDailySubmitError("");
+    setDailyResult(null);
+    setAppView("daily");
+    fetchDailyStatus();
+    fetchDailyBoard();
+  }
+
+  function startDailyGame() {
+    const pseudo = String(nickname || "").trim();
+    if (!pseudo) {
+      setDailyStartError("Pseudo requis");
+      return;
+    }
+    setDailyStartError("");
+    setDailySubmitError("");
+    const payload = { installId, pseudo };
+    fetch("/api/daily/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok) {
+          const error = data?.error || "erreur";
+          throw new Error(error);
+        }
+        return data;
+      })
+      .then((data) => {
+        if (!data?.grid || !Array.isArray(data.grid)) {
+          throw new Error("bad_grid");
+        }
+        dailySessionRef.current = {
+          dateId: data.dateId || null,
+          startedAt: Date.now(),
+        };
+        setDailyResult(null);
+        setAppView("daily_play");
+        startGameFromServerRef.current?.(
+          data.grid,
+          null,
+          data.durationMs || null,
+          null,
+          null,
+          data.gridSize || null,
+          null,
+          data.gridQuality || null,
+          null
+        );
+        fetchDailyBoard(data.dateId || null);
+      })
+      .catch((err) => {
+        const msg = err?.message === "already_played" ? "Deja joue" : "Erreur";
+        setDailyStartError(msg);
+        fetchDailyStatus();
+        fetchDailyBoard();
+      });
+  }
+
+  function submitDailyScore() {
+    if (dailySubmitRef.current.inFlight) return;
+    dailySubmitRef.current.inFlight = true;
+    setDailySubmitError("");
+    const session = dailySessionRef.current;
+    const dateId = session?.dateId || dailyStatus?.dateId || null;
+    const durationMs = session?.startedAt ? Date.now() - session.startedAt : null;
+    const payload = {
+      dateId,
+      installId,
+      pseudo: String(nickname || "").trim() || "Joueur",
+      foundWords: acceptedRef.current || accepted,
+      clientScore: score,
+      durationMs,
+    };
+    fetch("/api/daily/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok) {
+          const error = data?.error || "erreur";
+          throw new Error(error);
+        }
+        return data;
+      })
+      .then((data) => {
+        setDailyResult({
+          dateId: data?.dateId || dateId,
+          score: Number.isFinite(data?.score) ? data.score : score,
+          rank: Number.isFinite(data?.rank) ? data.rank : null,
+          totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
+        });
+        if (Array.isArray(data?.board)) {
+          setDailyBoard((prev) => ({
+            ...prev,
+            entries: data.board,
+            ready: true,
+            dateId: data.dateId || prev.dateId,
+            error: "",
+          }));
+        }
+        setDailyStatus((prev) => ({
+          ...prev,
+          hasPlayed: true,
+          myResult: {
+            score: Number.isFinite(data?.score) ? data.score : score,
+            rank: Number.isFinite(data?.rank) ? data.rank : null,
+            submittedAt: Date.now(),
+          },
+        }));
+        setAppView("daily_results");
+      })
+      .catch((err) => {
+        const msg = err?.message === "already_played" ? "Deja joue" : "Erreur";
+        setDailySubmitError(msg);
+        fetchDailyStatus();
+        fetchDailyBoard();
+      })
+      .finally(() => {
+        dailySubmitRef.current.inFlight = false;
       });
   }
 
@@ -5683,6 +5917,7 @@ function playTileStepSound(step) {
 
   useEffect(() => {
     const onConnect = () => {
+      if (isDailyView) return;
       if (!hasSavedSession()) return;
       if (isLoggedInRef.current) return;
       if (resumeLockRef.current) return;
@@ -5692,7 +5927,7 @@ function playTileStepSound(step) {
     return () => {
       socket.off("connect", onConnect);
     };
-  }, []);
+  }, [isDailyView]);
 
   useEffect(() => {
     const onConnect = () => {
@@ -5722,18 +5957,20 @@ function playTileStepSound(step) {
   }, []);
 
   useEffect(() => {
+    if (isDailyView) return;
     if (!installId) return;
     fetchVocabStats();
-  }, [installId]);
+  }, [installId, isDailyView]);
 
   useEffect(() => {
     const onConnect = () => {
+      if (isDailyView) return;
       if (!installId) return;
       fetchVocabStats();
     };
     socket.on("connect", onConnect);
     return () => socket.off("connect", onConnect);
-  }, [installId]);
+  }, [installId, isDailyView]);
 
   useEffect(() => {
     const onRoomsStats = (payload) => {
@@ -7796,6 +8033,14 @@ function handleTouchEnd() {
   const vocabProgressPct = clampValue(vocabProgress.pct * 100, 0, 100);
   const vocabBasePct = clampValue(vocabBaseProgress.pct * 100, 0, 100);
   const vocabDeltaPct = Math.max(0, vocabProgressPct - vocabBasePct);
+  const vocabLevelMin = Number.isFinite(vocabLevel?.min) ? vocabLevel.min : 0;
+  const vocabLevelMax = Number.isFinite(vocabLevel?.max) ? vocabLevel.max : vocabTotalValue;
+  const vocabLevelRange = Math.max(1, vocabLevelMax - vocabLevelMin);
+  const vocabLevelProgressPct = clampValue(
+    ((vocabTotalValue - vocabLevelMin) / vocabLevelRange) * 100,
+    0,
+    100
+  );
   const vocabCursorStyle = {
     left: `${vocabProgressPct}%`,
     borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
@@ -7856,7 +8101,7 @@ function handleTouchEnd() {
               <div
                 className="absolute inset-y-0 left-0 rounded-l-full"
                 style={{
-                  width: `${showDelta ? vocabBasePct : vocabProgressPct}%`,
+                  width: `${showDelta ? vocabBasePct : vocabLevelProgressPct}%`,
                   background: darkMode
                     ? "rgba(248, 250, 252, 0.85)"
                     : "rgba(15, 23, 42, 0.85)",
@@ -7876,6 +8121,7 @@ function handleTouchEnd() {
               className="absolute -top-3"
               style={{
                 ...vocabCursorStyle,
+                left: showDelta ? vocabCursorStyle.left : `${vocabLevelProgressPct}%`,
                 transform: "translateX(-50%)",
               }}
             >
@@ -8574,6 +8820,7 @@ function handleTouchEnd() {
         nick: entry.nick,
         score: typeof entry.score === "number" ? entry.score : null,
         rank: typeof entry.rank === "number" ? entry.rank : null,
+        isDailyChampion: !!entry.isDailyChampion,
       });
       seen.add(entry.nick);
     });
@@ -8585,6 +8832,7 @@ function handleTouchEnd() {
         nick: player.nick,
         score: typeof player.score === "number" ? player.score : null,
         rank: null,
+        isDailyChampion: !!player.isDailyChampion,
       });
       seen.add(player.nick);
     });
@@ -8600,7 +8848,7 @@ function handleTouchEnd() {
           selfEntry.score = currentScore;
         }
       } else {
-        entries.push({ nick: selfNick, score: currentScore, rank: null });
+        entries.push({ nick: selfNick, score: currentScore, rank: null, isDailyChampion: false });
         seen.add(selfNick);
       }
     }
@@ -8629,7 +8877,12 @@ function handleTouchEnd() {
     }));
   }
 
-  const rankingSource = buildRanking();
+  const liveRankingSource = buildRanking();
+  const dailyEntriesRaw = Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : [];
+  const dailyEntries = dailyEntriesRaw.filter((entry) => !entry?.isPalier);
+  const dailyWidgetEntries = isMobileLayout ? dailyEntriesRaw : dailyEntries;
+  const dailyRankingSource = dailyWidgetEntries;
+  const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
 
   // Animation FLIP pour la liste de mots
   useEffect(() => {
@@ -9165,15 +9418,16 @@ function handleTouchEnd() {
   }, [players, finalResults, tournamentRanking, tournamentFinaleSummary, selfNick]);
 
   function renderMedalsInline(nick, fallbackMedals) {
+    const persistentMedals = medals?.[nick] || null;
     if (phase === "results" && breakKind === "tournament_end") {
       const times = [];
       if (tournamentSummaryAt) times.push(tournamentSummaryAt);
       if (tournamentFinaleHoldUntil) times.push(tournamentFinaleHoldUntil);
       if (times.length && getNowServerMs() < Math.max(...times)) {
-        return null;
+        if (!persistentMedals) return null;
       }
     }
-    const m = medals?.[nick] || fallbackMedals?.[nick];
+    const m = persistentMedals || fallbackMedals?.[nick];
     if (!m) return null;
     const toSuperscript = (n) => `x${n}`;
 
@@ -9230,12 +9484,29 @@ function handleTouchEnd() {
     );
   }
 
-  function renderNickSuffix(nick, fallbackMedals) {
+  function renderNickSuffix(nick, entryOrFallback, maybeFallback) {
+    const entry =
+      entryOrFallback && typeof entryOrFallback === "object" && !Array.isArray(entryOrFallback)
+        ? entryOrFallback
+        : null;
+    const fallbackMedals = Array.isArray(entryOrFallback)
+      ? entryOrFallback
+      : Array.isArray(maybeFallback)
+      ? maybeFallback
+      : null;
     const dot = renderHumanDot(nick);
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
-    if (!dot && !medalsInline) return null;
+    const crown = entry?.isDailyChampion ? (
+      <span className={`inline-flex items-center ${darkMode ? "text-amber-300" : "text-amber-600"}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M4 6l4.5 3 3.5-4 3.5 4L20 6l-2 10H6L4 6zm3 12h10l.4 2H6.6l.4-2z" />
+        </svg>
+      </span>
+    ) : null;
+    if (!dot && !medalsInline && !crown) return null;
     return (
       <span className="inline-flex items-center gap-1 ml-1">
+        {crown}
         {dot}
         {medalsInline}
       </span>
@@ -11019,7 +11290,208 @@ function handleTouchEnd() {
     resumeSnapshot?.lastRoundResults?.payload?.tournament?.round ||
     null;
 
-  if (!isLoggedIn) {
+  const dailyMyResult = dailyStatus?.myResult || dailyResult;
+  const dailyScoreLabel =
+    dailyMyResult && Number.isFinite(dailyMyResult.score) ? dailyMyResult.score : null;
+  const dailyRankLabel =
+    dailyMyResult && Number.isFinite(dailyMyResult.rank) ? dailyMyResult.rank : null;
+
+  const dailyBoardList = (
+    <div
+      className={`rounded-xl border px-3 py-2 max-h-[360px] overflow-auto ${
+        darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+      }`}
+    >
+      {dailyEntries.length ? (
+        dailyEntries.map((entry, idx) => {
+          const isPalier = !!entry?.isPalier;
+          const label = entry?.rightLabel
+            ? entry.rightLabel
+            : Number.isFinite(entry?.score)
+            ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${entry.score} pts`
+            : "-";
+          const isSelfDaily =
+            !isPalier &&
+            ((entry?.installId && installId && entry.installId === installId) ||
+              (entry?.nick && selfNick && entry.nick === selfNick));
+          return (
+            <div
+              key={entry?.playerKey || entry?.installId || `${entry?.nick}-${idx}`}
+              className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
+                darkMode ? "border-white/5" : "border-slate-100"
+              } ${
+                isPalier ? (darkMode ? "text-amber-200" : "text-amber-700") : ""
+              } ${
+                isSelfDaily
+                  ? darkMode
+                    ? "bg-emerald-900/30 text-emerald-100"
+                    : "bg-emerald-50 text-emerald-800"
+                  : ""
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
+                  {idx + 1}
+                </span>
+                <span className="truncate font-semibold">{entry?.nick || "Joueur"}</span>
+              </div>
+              <span className="text-[11px] font-semibold opacity-80 shrink-0">{label}</span>
+            </div>
+          );
+        })
+      ) : (
+        <div className="text-xs opacity-70 py-6 text-center">Aucun score pour le moment.</div>
+      )}
+    </div>
+  );
+
+  if (!isLoggedIn && appView === "daily") {
+    return (
+      <>
+        {tutorialOverlay}
+        <div
+          className={`min-h-screen flex items-center justify-center px-4 ${
+            darkMode
+              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
+              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
+          }`}
+        >
+          <div
+            className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 ${
+              darkMode
+                ? "bg-slate-900/70 border border-white/10"
+                : "bg-white/90 border border-slate-200"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-2xl font-black tracking-tight">Grille du jour</div>
+                <div className="text-xs opacity-70">
+                  {dailyStatus?.dateId ? `Date : ${dailyStatus.dateId}` : "Chargement..."}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                  darkMode
+                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                    : "bg-white border border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setAppView("home")}
+              >
+                Retour accueil
+              </button>
+            </div>
+
+            {!dailyBoard.ready && (
+              <div className="text-sm font-semibold text-amber-500">
+                Grille en preparation...
+              </div>
+            )}
+            {dailyStatus.error && (
+              <div className="text-xs text-red-500">Erreur daily ({dailyStatus.error})</div>
+            )}
+            {dailyBoard.error && (
+              <div className="text-xs text-red-500">Erreur classement ({dailyBoard.error})</div>
+            )}
+
+            {dailyBoardList}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                  dailyStatus.ready && !dailyStatus.hasPlayed
+                    ? "bg-blue-600 hover:bg-blue-500 text-white"
+                    : "bg-slate-400/60 text-white cursor-not-allowed"
+                }`}
+                onClick={startDailyGame}
+                disabled={!dailyStatus.ready || dailyStatus.hasPlayed}
+              >
+                Jouer
+              </button>
+              {dailyStartError && (
+                <span className="text-xs text-red-400">{dailyStartError}</span>
+              )}
+            </div>
+
+            {dailyStatus.hasPlayed && (
+              <div className="text-sm font-semibold">
+                Deja joue{dailyScoreLabel != null ? ` : ${dailyScoreLabel} pts` : ""}
+                {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (appView === "daily_results" && !isLoggedIn) {
+    return (
+      <>
+        {tutorialOverlay}
+        <div
+          className={`min-h-screen flex items-center justify-center px-4 ${
+            darkMode
+              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
+              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
+          }`}
+        >
+          <div
+            className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 ${
+              darkMode
+                ? "bg-slate-900/70 border border-white/10"
+                : "bg-white/90 border border-slate-200"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-2xl font-black tracking-tight">Resultat daily</div>
+                <div className="text-xs opacity-70">
+                  {dailyResult?.dateId ? `Date : ${dailyResult.dateId}` : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                  darkMode
+                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                    : "bg-white border border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setAppView("daily")}
+              >
+                Retour classement
+              </button>
+            </div>
+
+            <div className="text-sm font-semibold">
+              {dailyScoreLabel != null ? `Score : ${dailyScoreLabel} pts` : "Score : -"}
+              {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
+              {dailyResult?.totalPlayers ? ` / ${dailyResult.totalPlayers}` : ""}
+            </div>
+            {dailySubmitError && (
+              <div className="text-xs text-red-400">{dailySubmitError}</div>
+            )}
+
+            {dailyBoardList}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-600 hover:bg-blue-500 text-white"
+                onClick={() => setAppView("home")}
+              >
+                Retour accueil
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (!isLoggedIn && !isDailyPlay) {
     return (
       <>
         {weeklyStatsOverlay}
@@ -11051,9 +11523,23 @@ function handleTouchEnd() {
 </div>
 
             <div className="flex flex-col items-start gap-1 text-xs">
-              <span className={`px-3 py-1 rounded-full border ${darkMode ? "bg-white/10 border-white/10" : "bg-slate-100 border-slate-200 text-slate-700"}`}>
-                {isConnecting ? "Connexion..." : "Serveur en \u00e9coute"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full border ${darkMode ? "bg-white/10 border-white/10" : "bg-slate-100 border-slate-200 text-slate-700"}`}>
+                  {isConnecting ? "Connexion..." : "Serveur en \u00e9coute"}
+                </span>
+                <button
+                  type="button"
+                  className={`px-2.5 py-1 rounded-full border text-[10px] font-semibold transition ${
+                    darkMode
+                      ? "bg-slate-800/80 border-white/10 text-slate-100"
+                      : "bg-white border-slate-200 text-slate-700"
+                  }`}
+                  onClick={() => window.location.reload()}
+                  disabled={isConnecting}
+                >
+                  Rafraichir
+                </button>
+              </div>
               {connectionError && (
                 <span className={darkMode ? "text-red-300" : "text-red-600"}>{connectionError}</span>
               )}
@@ -11136,6 +11622,19 @@ function handleTouchEnd() {
               disabled={isConnecting}
             >
               Stats
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-amber-500 hover:bg-amber-400 text-white shadow-sm"
+              onClick={openDailyHome}
+              disabled={isConnecting}
+            >
+              <span className="inline-flex items-center gap-2">
+                Grille du jour
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-white/80 text-amber-900">
+                  Nouveau
+                </span>
+              </span>
             </button>
             <button
               type="button"
@@ -11395,7 +11894,9 @@ function handleTouchEnd() {
                       animateRank={false}
                       showWheel={false}
                       flatStyle={true}
-                      renderNickSuffix={(nick) => renderNickSuffix(nick, tournamentFinaleMedals)}
+                      renderNickSuffix={(nick, entry) =>
+                        renderNickSuffix(nick, entry, tournamentFinaleMedals)
+                      }
                       renderAfterRank={renderRankDelta}
                     />
                   </div>
@@ -12690,7 +13191,7 @@ function handleTouchEnd() {
               >
                 {nextHintLabel}
               </div>
-              {phase === "playing" ? (
+              {phase === "playing" && !isDailyPlay ? (
                 <button
                   type="button"
                   className={`absolute bottom-2 right-2 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
@@ -12718,7 +13219,7 @@ function handleTouchEnd() {
                   : undefined
               }
             >
-              {phase === "playing" ? (
+              {phase === "playing" && !isDailyPlay ? (
                 <button
                   type="button"
                   className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
@@ -12739,6 +13240,7 @@ function handleTouchEnd() {
                 flatStyle={true}
                 highlightedPlayers={highlightPlayers}
                 fitHeight={true}
+                renderNickSuffix={renderNickSuffix}
                 className="h-full"
               />
             </div>
@@ -13399,7 +13901,7 @@ function handleTouchEnd() {
             >
               <div className="w-9 shrink-0" />
               <div
-                className={`flex-1 min-w-0 overflow-hidden text-center font-bold text-lg leading-none flex items-center justify-center ${
+                className={`flex-1 min-w-0 overflow-visible text-center font-bold text-lg leading-none flex items-center justify-center ${
                   shake ? "shake" : ""
                 }`}
               >
@@ -13422,7 +13924,7 @@ function handleTouchEnd() {
     </span>
   ) : liveWord ? (
     <div
-      className="flex justify-center items-center gap-1 max-w-full overflow-hidden"
+      className="flex justify-center items-center gap-1 max-w-full overflow-visible"
       style={{ transform: `scale(${previewScale})`, transformOrigin: "center" }}
     >
       {liveWord.split("").map((ch, idx) => {
@@ -13461,20 +13963,12 @@ function handleTouchEnd() {
                 className="w-9 h-9 shrink-0 rounded-lg border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:bg-white flex items-center justify-center dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800/80"
                 title="Rotation 90 deg"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ transform: "translate(-1px, 1px)" }}
+                <span
+                  className="material-icons-outlined text-[18px] leading-none"
+                  aria-hidden="true"
                 >
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1 2.13-9.36L23 10" />
-                </svg>
+                  autorenew
+                </span>
                 <span className="sr-only">Rotation 90 deg</span>
               </button>
             </div>
@@ -13710,7 +14204,8 @@ function handleTouchEnd() {
         </div>
 
         {/* Colonne 4 : Chat */}
-        <div
+        {!isDailyPlay && (
+          <div
           className={`${chatBlockClasses} card w-full min-h-0 order-4`}
           style={{ ...COLUMN_HEIGHT_STYLE, overflow: "hidden" }}
           onClick={() => {
@@ -13719,7 +14214,7 @@ function handleTouchEnd() {
               chatInputRef.current.focus();
             }
           }}
-        >
+          >
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-bold text-center">Chat</h2>
             <div className="flex items-center gap-3">
@@ -13834,7 +14329,7 @@ function handleTouchEnd() {
               {txt}
             </button>
           ))}
-        </div>
+          </div>
 
         <div className="mt-3 flex gap-2">
           <input
@@ -13872,6 +14367,7 @@ function handleTouchEnd() {
           </button>
           </div>
         </div>
+        )}
       </div>
       </div>
       {praiseOverlay}

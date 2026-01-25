@@ -48,7 +48,7 @@ export default function MobileWordPreview({
     >
       <div className="w-8 shrink-0" />
       <div
-        className={`flex-1 min-w-0 overflow-hidden text-center font-bold flex items-center justify-center ${
+        className={`flex-1 min-w-0 overflow-visible text-center font-bold flex items-center justify-center ${
           shake ? "shake" : ""
         }`}
         style={{ fontSize: `${baseFontPx}px`, lineHeight: 1.1 }}
@@ -79,7 +79,7 @@ export default function MobileWordPreview({
           </span>
         ) : liveWord ? (
           <div
-            className="flex justify-center items-center max-w-full overflow-hidden"
+            className="flex justify-center items-center max-w-full overflow-visible"
             style={{
               gap: `${previewGapPx}px`,
               transform: `scale(${previewScale})`,
@@ -127,20 +127,12 @@ export default function MobileWordPreview({
           className="w-8 h-8 shrink-0 rounded-lg border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:bg-white flex items-center justify-center dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800/80"
           title="Rotation 90 deg"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ transform: "translate(-1px, 1px)" }}
+          <span
+            className="material-icons-outlined text-[16px] leading-none"
+            aria-hidden="true"
           >
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1 2.13-9.36L23 10" />
-          </svg>
+            autorenew
+          </span>
           <span className="sr-only">Rotation 90 deg</span>
         </button>
       ) : (

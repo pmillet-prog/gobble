@@ -56,6 +56,17 @@ import {
   getDailyMedalsForRoom,
   persistDailyMedalsForRoom,
 } from "./stats/dailyMedalsService.js";
+import {
+  addDaysToDateId,
+  ensureDaily,
+  getDailyBoard,
+  getDailyStatus,
+  getParisDateId,
+  loadDailyChampion,
+  refreshDailyChampionIfNeeded,
+  startDailyAttempt,
+  submitDailyResult,
+} from "./daily/dailyService.js";
 
 const computePool = createComputePool();
 void initVocabularyService().catch((err) =>
@@ -68,6 +79,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
+app.use(express.json({ limit: "1mb" }));
 app.set("trust proxy", true);
 
 const BOT_NICK_SET = new Set(
@@ -206,6 +218,86 @@ app.get("/api/stats/weekly", (req, res) => {
       boards: {},
     });
   }
+});
+
+const DAILY_NICK_MAX_LEN = 25;
+
+function sanitizeDailyNick(raw) {
+  const trimmed = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return "";
+  return trimmed.slice(0, DAILY_NICK_MAX_LEN);
+}
+
+app.get("/api/daily/status", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.query?.installId);
+  const payload = await getDailyStatus(null, installId || null);
+  res.json(payload);
+});
+
+app.get("/api/daily/board", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
+  const payload = await getDailyBoard(dateId || null);
+  if (!payload.ready) {
+    res.status(503);
+  }
+  res.json(payload);
+});
+
+app.post("/api/daily/start", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.body?.installId);
+  const pseudo = sanitizeDailyNick(req.body?.pseudo || "");
+  if (!installId || !pseudo) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const result = await startDailyAttempt(null, installId, pseudo);
+  if (!result.ok) {
+    if (result.error === "already_played") {
+      res.status(409);
+    } else if (result.error === "not_ready") {
+      res.status(503);
+    } else {
+      res.status(500);
+    }
+  }
+  return res.json(result);
+});
+
+app.post("/api/daily/submit", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.body?.installId);
+  const pseudo = sanitizeDailyNick(req.body?.pseudo || "");
+  if (!installId || !pseudo) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const result = await submitDailyResult({
+    dateId: typeof req.body?.dateId === "string" ? req.body.dateId : null,
+    installId,
+    pseudo,
+    foundWords: req.body?.foundWords,
+    durationMs: req.body?.durationMs,
+    dictionary,
+  });
+  if (!result.ok) {
+    if (result.error === "already_played") {
+      res.status(409);
+    } else if (result.error === "not_ready") {
+      res.status(503);
+    } else if (result.error === "no_dictionary") {
+      res.status(500);
+    } else {
+      res.status(400);
+    }
+  }
+  return res.json(result);
 });
 
 app.get("/api/players", (req, res) => {
@@ -372,12 +464,19 @@ const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
 const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
+let dailyChampion = null;
+let dailyChampionInstallId = null;
 
 function normalizeInstallId(raw) {
   if (typeof raw !== "string") return "";
   const trimmed = raw.trim();
   if (!trimmed || trimmed.length > INSTALL_ID_MAX_LEN) return "";
   return trimmed;
+}
+
+function isDailyChampionInstallId(raw) {
+  if (!dailyChampionInstallId) return false;
+  return normalizeInstallId(raw) === dailyChampionInstallId;
 }
 
 function sanitizeReportReason(raw) {
@@ -502,6 +601,13 @@ try {
   );
   dictionary = null;
 }
+
+void loadDailyChampion()
+  .then((champion) => {
+    dailyChampion = champion || null;
+    dailyChampionInstallId = normalizeInstallId(champion?.installId);
+  })
+  .catch(() => {});
 
 function getRoundPlan(roundNumber, roomConfig) {
   const size = roomConfig?.gridSize || 4;
@@ -795,6 +901,7 @@ function emitPlayers(room) {
         installId: p.installId || null,
         isBot: isBotToken(p?.token),
         connected: isPlayerConnected(p) || isBotToken(p?.token),
+        isDailyChampion: isDailyChampionInstallId(p.installId),
       }))
   );
 }
@@ -975,7 +1082,11 @@ function buildLiveRanking(room, roundId) {
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
     const active = connected || hasPlayerActivity(data);
     if (!active) continue;
-    ranking.push({ nick: player.nick, score: data?.score || 0 });
+    ranking.push({
+      nick: player.nick,
+      score: data?.score || 0,
+      isDailyChampion: isDailyChampionInstallId(player.installId),
+    });
   }
   ranking.sort((a, b) => (b.score || 0) - (a.score || 0));
   return ranking;
@@ -1052,7 +1163,11 @@ function broadcastProvisionalRanking(room) {
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
     const active = connected || hasPlayerActivity(data);
     if (!active) continue;
-    ranking.push({ nick: player.nick, score: data?.score || 0 });
+    ranking.push({
+      nick: player.nick,
+      score: data?.score || 0,
+      isDailyChampion: isDailyChampionInstallId(player.installId),
+    });
   }
 
   ranking.sort((a, b) => b.score - a.score);
@@ -1063,8 +1178,30 @@ function broadcastProvisionalRanking(room) {
     ranking: ranking.map((entry, idx) => ({
       nick: entry.nick,
       rank: idx + 1,
+      isDailyChampion: entry.isDailyChampion || false,
     })),
   });
+}
+
+function broadcastDailyChampionUpdate() {
+  rooms.forEach((room) => {
+    emitPlayers(room);
+    broadcastProvisionalRanking(room);
+  });
+}
+
+async function refreshDailyChampionCache() {
+  const champion = await refreshDailyChampionIfNeeded();
+  const nextInstallId = normalizeInstallId(champion?.installId);
+  const changed =
+    (champion?.dateId || null) !== (dailyChampion?.dateId || null) ||
+    (nextInstallId || null) !== (dailyChampionInstallId || null);
+  dailyChampion = champion || null;
+  dailyChampionInstallId = nextInstallId || null;
+  if (changed) {
+    broadcastDailyChampionUpdate();
+  }
+  return champion;
 }
 
 function pushChatMessage(room, message) {
@@ -1118,7 +1255,12 @@ function getFullRanking(room) {
   const roundSubs = room.submissions.get(room.currentRound.id) || new Map();
   const ranking = [];
   for (const [nick, data] of roundSubs.entries()) {
-    ranking.push({ nick, score: data.score || 0 });
+    const lookup = findPlayerByNick(room, nick);
+    ranking.push({
+      nick,
+      score: data.score || 0,
+      isDailyChampion: isDailyChampionInstallId(lookup?.player?.installId),
+    });
   }
   ranking.sort((a, b) => b.score - a.score);
   return ranking;
@@ -3167,3 +3309,18 @@ server.listen(PORT, "0.0.0.0", () => {
 rooms.forEach((room) =>
   startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e))
 );
+
+const dailyToday = getParisDateId();
+void ensureDaily(dailyToday);
+void ensureDaily(addDaysToDateId(dailyToday, 1));
+void refreshDailyChampionCache();
+
+const DAILY_MAINTENANCE_MS = 5 * 60 * 1000;
+const dailyMaintenanceTimer = setInterval(() => {
+  const today = getParisDateId();
+  const tomorrow = addDaysToDateId(today, 1);
+  void ensureDaily(today);
+  void ensureDaily(tomorrow);
+  void refreshDailyChampionCache();
+}, DAILY_MAINTENANCE_MS);
+dailyMaintenanceTimer.unref?.();

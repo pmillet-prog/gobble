@@ -6,18 +6,9 @@
       "playerKey": "install:cid-1767297485869-305184",
       "gold": 1,
       "silver": 1,
-      "bronze": 2,
-      "total": 4,
-      "achievedAt": 1769364543936
-    },
-    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
-      "nick": "Tigre",
-      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "gold": 0,
-      "silver": 0,
       "bronze": 1,
-      "total": 1,
-      "achievedAt": 1769300986842
+      "total": 3,
+      "achievedAt": 1768951350857
     }
   },
   "mostWordsInGame": {
@@ -47,9 +38,9 @@
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "totalScore": 11841,
-      "roundsPlayed": 237,
-      "achievedAt": 1769374124171
+      "totalScore": 11364,
+      "roundsPlayed": 236,
+      "achievedAt": 1769259580281
     },
     "nick:Tigre": {
       "nick": "Tigre",
@@ -61,9 +52,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 38775,
-      "roundsPlayed": 86,
-      "achievedAt": 1769378265718
+      "totalScore": 34371,
+      "roundsPlayed": 78,
+      "achievedAt": 1769251873125
     },
     "nick:Test": {
       "nick": "Test",
@@ -105,9 +96,9 @@
     "nick:Kamil": {
       "nick": "Kamil",
       "playerKey": "nick:Kamil",
-      "word": "durit",
-      "pts": 30,
-      "achievedAt": 1769281694313
+      "word": "dures",
+      "pts": 27,
+      "achievedAt": 1768846022640
     },
     "nick:BiscotteTurbo": {
       "nick": "BiscotteTurbo",
@@ -171,83 +162,6 @@
       "word": "torea",
       "pts": 11,
       "achievedAt": 1769275096488
-    },
-    "nick:TourEiffel": {
-      "nick": "TourEiffel",
-      "playerKey": "nick:TourEiffel",
-      "word": "routent",
-      "pts": 102,
-      "achievedAt": 1769355799090
-    },
-    "nick:CapitaineAccent": {
-      "nick": "CapitaineAccent",
-      "playerKey": "nick:CapitaineAccent",
-      "word": "acuite",
-      "pts": 45,
-      "achievedAt": 1769289510942
-    },
-    "nick:(cacharel)": {
-      "nick": "(cacharel)",
-      "playerKey": "nick:(cacharel)",
-      "word": "actons",
-      "pts": 57,
-      "achievedAt": 1769291371651
-    },
-    "nick:Tremblote": {
-      "nick": "Tremblote",
-      "playerKey": "nick:Tremblote",
-      "word": "saucer",
-      "pts": 45,
-      "achievedAt": 1769295794111
-    },
-    "nick:Alcapouet": {
-      "nick": "Alcapouet",
-      "playerKey": "nick:Alcapouet",
-      "word": "rumens",
-      "pts": 31,
-      "achievedAt": 1769351019328
-    },
-    "nick:PetitPoucet": {
-      "nick": "PetitPoucet",
-      "playerKey": "nick:PetitPoucet",
-      "word": "liegeas",
-      "pts": 54,
-      "achievedAt": 1769354623301
-    },
-    "nick:CarotteRâpée": {
-      "nick": "CarotteRâpée",
-      "playerKey": "nick:CarotteRâpée",
-      "word": "jais",
-      "pts": 33,
-      "achievedAt": 1769360012650
-    },
-    "nick:TuilesEnFolies": {
-      "nick": "TuilesEnFolies",
-      "playerKey": "nick:TuilesEnFolies",
-      "word": "godai",
-      "pts": 78,
-      "achievedAt": 1769364499601
-    },
-    "nick:Citronpitou": {
-      "nick": "Citronpitou",
-      "playerKey": "nick:Citronpitou",
-      "word": "tetee",
-      "pts": 16,
-      "achievedAt": 1769375298103
-    },
-    "nick:MontrealMaven": {
-      "nick": "MontrealMaven",
-      "playerKey": "nick:MontrealMaven",
-      "word": "melonne",
-      "pts": 57,
-      "achievedAt": 1769377106272
-    },
-    "nick:KouignAmann": {
-      "nick": "KouignAmann",
-      "playerKey": "nick:KouignAmann",
-      "word": "rouirais",
-      "pts": 156,
-      "achievedAt": 1769381006031
     }
   },
   "longestWord": {
@@ -341,83 +255,6 @@
       "word": "oraisons",
       "len": 8,
       "achievedAt": 1769275106566
-    },
-    "nick:TourEiffel": {
-      "nick": "TourEiffel",
-      "playerKey": "nick:TourEiffel",
-      "word": "routent",
-      "len": 7,
-      "achievedAt": 1769355799090
-    },
-    "nick:CapitaineAccent": {
-      "nick": "CapitaineAccent",
-      "playerKey": "nick:CapitaineAccent",
-      "word": "decaties",
-      "len": 8,
-      "achievedAt": 1769289500722
-    },
-    "nick:(cacharel)": {
-      "nick": "(cacharel)",
-      "playerKey": "nick:(cacharel)",
-      "word": "casait",
-      "len": 6,
-      "achievedAt": 1769291291641
-    },
-    "nick:Tremblote": {
-      "nick": "Tremblote",
-      "playerKey": "nick:Tremblote",
-      "word": "saucer",
-      "len": 6,
-      "achievedAt": 1769295794111
-    },
-    "nick:Alcapouet": {
-      "nick": "Alcapouet",
-      "playerKey": "nick:Alcapouet",
-      "word": "saveurs",
-      "len": 7,
-      "achievedAt": 1769351054568
-    },
-    "nick:PetitPoucet": {
-      "nick": "PetitPoucet",
-      "playerKey": "nick:PetitPoucet",
-      "word": "liegeas",
-      "len": 7,
-      "achievedAt": 1769354623301
-    },
-    "nick:CarotteRâpée": {
-      "nick": "CarotteRâpée",
-      "playerKey": "nick:CarotteRâpée",
-      "word": "tantra",
-      "len": 6,
-      "achievedAt": 1769360028384
-    },
-    "nick:TuilesEnFolies": {
-      "nick": "TuilesEnFolies",
-      "playerKey": "nick:TuilesEnFolies",
-      "word": "diatomee",
-      "len": 8,
-      "achievedAt": 1769364495806
-    },
-    "nick:Citronpitou": {
-      "nick": "Citronpitou",
-      "playerKey": "nick:Citronpitou",
-      "word": "battre",
-      "len": 6,
-      "achievedAt": 1769375303315
-    },
-    "nick:MontrealMaven": {
-      "nick": "MontrealMaven",
-      "playerKey": "nick:MontrealMaven",
-      "word": "melonne",
-      "len": 7,
-      "achievedAt": 1769377106272
-    },
-    "nick:KouignAmann": {
-      "nick": "KouignAmann",
-      "playerKey": "nick:KouignAmann",
-      "word": "rouirais",
-      "len": 8,
-      "achievedAt": 1769381006031
     }
   },
   "bestRoundScore": {
@@ -525,83 +362,6 @@
       "pts": 154,
       "roundId": "room-4x4#1769275033835",
       "achievedAt": 1769275151699
-    },
-    "nick:TourEiffel": {
-      "nick": "TourEiffel",
-      "playerKey": "nick:TourEiffel",
-      "pts": 139,
-      "roundId": "room-4x4#1769355694232",
-      "achievedAt": 1769355812517
-    },
-    "nick:CapitaineAccent": {
-      "nick": "CapitaineAccent",
-      "playerKey": "nick:CapitaineAccent",
-      "pts": 98,
-      "roundId": "room-4x4#1769289393270",
-      "achievedAt": 1769289510942
-    },
-    "nick:(cacharel)": {
-      "nick": "(cacharel)",
-      "playerKey": "nick:(cacharel)",
-      "pts": 388,
-      "roundId": "room-4x4#1769291253836",
-      "achievedAt": 1769291371651
-    },
-    "nick:Tremblote": {
-      "nick": "Tremblote",
-      "playerKey": "nick:Tremblote",
-      "pts": 52,
-      "roundId": "room-4x4#1769295680203",
-      "achievedAt": 1769295795961
-    },
-    "nick:Alcapouet": {
-      "nick": "Alcapouet",
-      "playerKey": "nick:Alcapouet",
-      "pts": 351,
-      "roundId": "room-4x4#1769350981590",
-      "achievedAt": 1769351099035
-    },
-    "nick:PetitPoucet": {
-      "nick": "PetitPoucet",
-      "playerKey": "nick:PetitPoucet",
-      "pts": 276,
-      "roundId": "room-4x4#1769354523550",
-      "achievedAt": 1769354641730
-    },
-    "nick:CarotteRâpée": {
-      "nick": "CarotteRâpée",
-      "playerKey": "nick:CarotteRâpée",
-      "pts": 73,
-      "roundId": "room-4x4#1769359911308",
-      "achievedAt": 1769360028384
-    },
-    "nick:TuilesEnFolies": {
-      "nick": "TuilesEnFolies",
-      "playerKey": "nick:TuilesEnFolies",
-      "pts": 106,
-      "roundId": "room-4x4#1769364383828",
-      "achievedAt": 1769364499601
-    },
-    "nick:Citronpitou": {
-      "nick": "Citronpitou",
-      "playerKey": "nick:Citronpitou",
-      "pts": 45,
-      "roundId": "room-4x4#1769375189656",
-      "achievedAt": 1769375305624
-    },
-    "nick:MontrealMaven": {
-      "nick": "MontrealMaven",
-      "playerKey": "nick:MontrealMaven",
-      "pts": 116,
-      "roundId": "room-4x4#1769377005300",
-      "achievedAt": 1769377122847
-    },
-    "nick:KouignAmann": {
-      "nick": "KouignAmann",
-      "playerKey": "nick:KouignAmann",
-      "pts": 335,
-      "roundId": "room-4x4#1769380907207",
-      "achievedAt": 1769381024630
     }
   },
   "bestTimeTargetLong": {
@@ -615,9 +375,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "ms": 43595,
-      "word": "mistonne",
-      "achievedAt": 1769338429250
+      "ms": 69544,
+      "word": "tarerions",
+      "achievedAt": 1768861527871
     }
   },
   "bestTimeTargetScore": {
@@ -673,8 +433,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "gobbles": 15,
-      "achievedAt": 1769338625713
+      "gobbles": 14,
+      "achievedAt": 1769034144496
     }
   },
   "history": {}

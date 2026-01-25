@@ -621,6 +621,7 @@ function RankingWidgetMobile({
         const rowKey = String(entry?.playerKey || entry?.nick || `row-${index}`);
         const isSelf = selfNick && entry.nick === selfNick;
         const isHighlighted = entry.nick && highlightSet.has(entry.nick);
+        const isPalier = !!entry?.isPalier;
         const rank = index + 1;
         const wordsCount =
           typeof entry?.wordsCount === "number" ? entry.wordsCount : null;
@@ -654,7 +655,11 @@ function RankingWidgetMobile({
           </>
         );
 
-        const rowColor = isSelf
+        const palierText = darkMode ? "text-amber-200" : "text-amber-700";
+        const palierBg = darkMode ? "bg-amber-900/30" : "bg-amber-50";
+        const rowColor = isPalier
+          ? palierText
+          : isSelf
           ? darkMode
             ? "text-slate-900"
             : "text-white"
@@ -663,7 +668,9 @@ function RankingWidgetMobile({
             ? "text-amber-200"
             : "text-amber-700"
           : extendedOtherColor;
-        const rowBg = isSelf
+        const rowBg = isPalier
+          ? palierBg
+          : isSelf
           ? darkMode
             ? "bg-slate-100/90"
             : "bg-slate-900/80"
@@ -702,7 +709,7 @@ function RankingWidgetMobile({
                 <span className="min-w-0 flex items-baseline gap-1">
                   <span className="truncate">{entry.nick}</span>
                   {renderNickSuffix ? (
-                    <span className="flex-none">{renderNickSuffix(entry.nick)}</span>
+                    <span className="flex-none">{renderNickSuffix(entry.nick, entry)}</span>
                   ) : null}
                 </span>
               </div>
@@ -1020,6 +1027,7 @@ function RankingWidgetMobile({
               }
 
               const labelEntry = isSelfLine && youEntry ? youEntry : row.entry;
+              const isPalier = !!labelEntry?.isPalier;
               const wordsCount =
                 typeof labelEntry?.wordsCount === "number" ? labelEntry.wordsCount : null;
               const scoreLabel = buildRightLabel(labelEntry, scoreValue, wordsCount);
@@ -1032,14 +1040,20 @@ function RankingWidgetMobile({
                   ? labelEntry.roundGobbles
                   : 0;
 
-              const lineColor = isSelfLine
+              const palierText = darkMode ? "text-amber-200" : "text-amber-700";
+              const palierBg = darkMode ? "bg-amber-900/30" : "bg-amber-50";
+              const lineColor = isPalier
+                ? palierText
+                : isSelfLine
                 ? selfTextColor
                 : isHighlighted
                 ? darkMode
                   ? "text-amber-200"
                   : "text-amber-700"
                 : normalTextColor;
-              const lineBg = isSelfLine
+              const lineBg = isPalier
+                ? palierBg
+                : isSelfLine
                 ? darkMode
                   ? "bg-slate-800/60"
                   : "bg-blue-50"
@@ -1079,11 +1093,14 @@ function RankingWidgetMobile({
                     }
                     style={rightStyle}
                   >
-                    <span className="flex-1 min-w-0 flex items-baseline gap-1">
-                      <span className="truncate">{row.type === "empty" ? "" : displayNick}</span>
+                      <span className="flex-1 min-w-0 flex items-baseline gap-1">
+                        <span className="truncate">{row.type === "empty" ? "" : displayNick}</span>
                       {renderNickSuffix && row.type !== "empty" ? (
                         <span className="flex-none">
-                          {renderNickSuffix(row.entry ? row.entry.nick : displayNick)}
+                          {renderNickSuffix(
+                            row.entry ? row.entry.nick : displayNick,
+                            row.entry || null
+                          )}
                         </span>
                       ) : null}
                     </span>

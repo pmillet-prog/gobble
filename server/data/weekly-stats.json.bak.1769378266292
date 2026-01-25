@@ -61,9 +61,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 38775,
-      "roundsPlayed": 86,
-      "achievedAt": 1769378265718
+      "totalScore": 38549,
+      "roundsPlayed": 85,
+      "achievedAt": 1769364503828
     },
     "nick:Test": {
       "nick": "Test",
@@ -241,13 +241,6 @@
       "word": "melonne",
       "pts": 57,
       "achievedAt": 1769377106272
-    },
-    "nick:KouignAmann": {
-      "nick": "KouignAmann",
-      "playerKey": "nick:KouignAmann",
-      "word": "rouirais",
-      "pts": 156,
-      "achievedAt": 1769381006031
     }
   },
   "longestWord": {
@@ -411,13 +404,6 @@
       "word": "melonne",
       "len": 7,
       "achievedAt": 1769377106272
-    },
-    "nick:KouignAmann": {
-      "nick": "KouignAmann",
-      "playerKey": "nick:KouignAmann",
-      "word": "rouirais",
-      "len": 8,
-      "achievedAt": 1769381006031
     }
   },
   "bestRoundScore": {
@@ -595,13 +581,6 @@
       "pts": 116,
       "roundId": "room-4x4#1769377005300",
       "achievedAt": 1769377122847
-    },
-    "nick:KouignAmann": {
-      "nick": "KouignAmann",
-      "playerKey": "nick:KouignAmann",
-      "pts": 335,
-      "roundId": "room-4x4#1769380907207",
-      "achievedAt": 1769381024630
     }
   },
   "bestTimeTargetLong": {
