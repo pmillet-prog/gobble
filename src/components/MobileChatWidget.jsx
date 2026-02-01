@@ -76,7 +76,7 @@ function MobileChatWidget({
     mobileChatUnreadCount > 0 ? (mobileChatUnreadCount >= 10 ? "9+" : String(mobileChatUnreadCount)) : "";
   return (
     <>
-      <div className="fixed bottom-4 right-4 z-30">
+      <div className="fixed bottom-4 right-4 z-[20050]">
         <button
           type="button"
           onClick={() => {
@@ -98,7 +98,7 @@ function MobileChatWidget({
 
       {isChatVisible && (
         <div
-          className={`fixed left-0 right-0 top-0 z-40 flex items-end justify-center bg-black/40 ${
+          className={`fixed left-0 right-0 top-0 z-[20050] flex items-end justify-center bg-black/40 ${
             hasKeyboardInset ? "" : "chat-safe-bottom"
           }`}
           style={{

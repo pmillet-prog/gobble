@@ -28,7 +28,7 @@ const socket = io(WS_URL, {
   transports: ["websocket", "polling"],
   reconnectionDelay: 500,
   reconnectionDelayMax: 4000,
-  timeout: 8000,
+  timeout: 10000,
 });
 
 export default socket;

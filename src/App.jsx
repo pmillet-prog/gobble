@@ -32,7 +32,7 @@ const DEFAULT_DURATION = 120;
 const COUNTDOWN = 0;
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-const FINAL_ROUND_RESULTS_SECONDS = 30;
+const FINAL_ROUND_RESULTS_SECONDS = 20;
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
@@ -225,6 +225,10 @@ const WEEKLY_BOARDS = [
   { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
   { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
   { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
+];
+const FINALE_WEEKLY_BOARDS = [
+  { key: "vocab", label: "Vocabulaire", subtitle: "Mots uniques" },
+  ...WEEKLY_BOARDS,
 ];
 const WEEKLY_RECORD_LABELS = {
   bestWord: "Meilleur mot",
@@ -733,13 +737,42 @@ body {
   animation: resultsSwapFade 0.5s ease both;
 }
 
+@keyframes finaleSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes finaleSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+
+.finale-slide-in {
+  animation: finaleSlideIn 0.45s ease-out both;
+}
+
+.finale-slide-out {
+  animation: finaleSlideOut 0.35s ease-in both;
+}
+
 @keyframes shake {
   10%, 90% { transform: translateX(-2px); }
   20%, 80% { transform: translateX(4px); }
   30%, 50%, 70% { transform: translateX(-6px); }
   40%, 60% { transform: translateX(6px); }
 }
-
 
 .tile-btn {
   transition: transform 0.15s ease, box-shadow 0.18s ease;
@@ -1361,8 +1394,8 @@ const VOCAB_LEVELS = [
   { key: "ecolier", label: "Ecolier", min: 500, max: 2000, image: "/vocab-ranks/ecolier.png", color: "#22c55e" },
   { key: "collegien", label: "Collegien", min: 2000, max: 5000, image: "/vocab-ranks/collegien.png", color: "#ef4444" },
   { key: "lyceen", label: "Lyceen", min: 5000, max: 10000, image: "/vocab-ranks/lyceen.png", color: "#f59e0b" },
-  { key: "etudiant", label: "Etudiant", min: 10000, max: 50000, image: "/vocab-ranks/etudiant.png", color: "#3b82f6" },
-  { key: "expert", label: "Expert", min: 50000, max: 300000, image: "/vocab-ranks/expert.png", color: "#facc15" },
+  { key: "etudiant", label: "Etudiant", min: 10000, max: 20000, image: "/vocab-ranks/etudiant.png", color: "#3b82f6" },
+  { key: "expert", label: "Expert", min: 20000, max: 300000, image: "/vocab-ranks/expert.png", color: "#facc15" },
 ];
 function getLeaguePalette(league, darkMode) {
   const meta = LEAGUE_META[league] || LEAGUE_META.Bronze;
@@ -1490,6 +1523,8 @@ export default function App() {
   const [weeklyStats, setWeeklyStats] = useState(null);
   const [weeklyStatsLoading, setWeeklyStatsLoading] = useState(false);
   const [weeklyStatsError, setWeeklyStatsError] = useState("");
+  const weeklyStatsSnapshotRef = useRef(null);
+  const weeklyStatsBaselineRef = useRef(null);
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
   const weeklyTouchRef = useRef({ startX: null, startY: null });
   const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
@@ -1616,6 +1651,12 @@ export default function App() {
     entries: [],
     error: "",
   });
+  const [dailyHistory, setDailyHistory] = useState({ days: [], medalTotals: [] });
+  const [dailyHistoryLoading, setDailyHistoryLoading] = useState(false);
+  const [dailyHistoryError, setDailyHistoryError] = useState("");
+  const [dailyHistoryIndex, setDailyHistoryIndex] = useState(0);
+  const [dailyRankingView, setDailyRankingView] = useState("today");
+  const dailyHistoryScrollRef = useRef(null);
   const [dailyResult, setDailyResult] = useState(null);
   const [dailyStartError, setDailyStartError] = useState("");
   const [dailySubmitError, setDailySubmitError] = useState("");
@@ -1844,6 +1885,8 @@ export default function App() {
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
   const disconnectGraceTimerRef = useRef(null);
+  const lastBackgroundTimeRef = useRef(0);
+  const manualRefreshTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
@@ -3999,17 +4042,6 @@ function playTileStepSound(step) {
   }, [isMobileLayout, installSupport]);
 
   useEffect(() => {
-    const onBeforeUnload = (e) => {
-      if (phase === "playing") {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [phase]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
 
     const onVisibility = () => {
@@ -4125,13 +4157,19 @@ function playTileStepSound(step) {
       setServerRoundDurationMs(null);
       setRoundId(endedId || null);
       setTournament(tournamentPayload || tournamentRef.current || null);
-      setBreakKind(tournamentPayload?.breakKind || null);
-      if (tournamentPayload?.breakKind === "tournament_end") {
+      const endBreakKind = tournamentPayload?.breakKind || null;
+      setBreakKind(endBreakKind);
+      if (endBreakKind === "tournament_end") {
         setTournamentFinaleHoldUntil(
           getNowServerMs() + FINAL_ROUND_RESULTS_SECONDS * 1000
         );
       } else {
         setTournamentFinaleHoldUntil(null);
+      }
+      if (endBreakKind === "tournament_end") {
+        weeklyStatsBaselineRef.current = weeklyStatsSnapshotRef.current;
+      } else {
+        weeklyStatsBaselineRef.current = null;
       }
       setTournamentRoundPoints(tournamentPayload?.roundAwarded || {});
       setTournamentTotals(tournamentPayload?.totals || {});
@@ -4191,6 +4229,12 @@ function playTileStepSound(step) {
       syncServerTime();
       setNextStartAt(nextTs || null);
       setBreakKind(bk);
+      if (bk === "tournament_end" && !weeklyStatsBaselineRef.current) {
+        weeklyStatsBaselineRef.current = weeklyStatsSnapshotRef.current;
+      }
+      if (bk !== "tournament_end") {
+        weeklyStatsBaselineRef.current = null;
+      }
       if (bk !== "tournament_end") {
         setTournamentFinaleHoldUntil(null);
       }
@@ -4212,7 +4256,12 @@ function playTileStepSound(step) {
       const sanitized = Array.isArray(list) ? list : [];
       setPlayers(sanitized);
       const prev = prevPlayersRef.current;
-      const current = new Set(sanitized.map((p) => p.nick).filter(Boolean));
+      const current = new Set(
+        sanitized
+          .filter((p) => p && !p.isBot && !isSystemAuthor(p.nick))
+          .map((p) => p.nick)
+          .filter(Boolean)
+      );
       const joined = [...current].filter((n) => !prev.has(n));
       const left = [...prev].filter((n) => !current.has(n));
       const sysMessages = [
@@ -4965,6 +5014,36 @@ function playTileStepSound(step) {
       });
   }
 
+  function fetchDailyHistory(days = 10) {
+    if (dailyHistoryLoading) return;
+    setDailyHistoryLoading(true);
+    setDailyHistoryError("");
+    fetch(`/api/daily/history?days=${encodeURIComponent(days)}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok) {
+          throw new Error(data?.error || `http_${res.status || "error"}`);
+        }
+        return data;
+      })
+      .then((data) => {
+        const safeDays = Array.isArray(data?.days) ? data.days : [];
+        const safeMedals = Array.isArray(data?.medalTotals) ? data.medalTotals : [];
+        setDailyHistory({ days: safeDays, medalTotals: safeMedals });
+      })
+      .catch(() => {
+        setDailyHistory({ days: [], medalTotals: [] });
+        setDailyHistoryError("erreur");
+      })
+      .finally(() => {
+        setDailyHistoryLoading(false);
+      });
+  }
+
   function fetchDailyBoard(dateId = null) {
     setDailyBoard((prev) => ({ ...prev, loading: true, error: "" }));
     const query = dateId ? `?dateId=${encodeURIComponent(dateId)}` : "";
@@ -5005,6 +5084,7 @@ function playTileStepSound(step) {
     setAppView("daily");
     fetchDailyStatus();
     fetchDailyBoard();
+    fetchDailyHistory(10);
   }
 
   function startDailyGame() {
@@ -5326,7 +5406,7 @@ function playTileStepSound(step) {
   }
 
   function getSeasonPages() {
-    return ["vocab_rank", "trophies", "vocab_personal"];
+    return ["vocab_rank", "vocab_personal"];
   }
 
   function shiftSeasonPage(delta) {
@@ -5988,10 +6068,33 @@ function playTileStepSound(step) {
   }, []);
 
   useEffect(() => {
+    weeklyStatsSnapshotRef.current = weeklyStats;
+  }, [weeklyStats]);
+
+  useEffect(() => {
+    if (phase !== "results" || breakKind !== "tournament_end") {
+      weeklyStatsBaselineRef.current = null;
+    }
+  }, [phase, breakKind]);
+
+  useEffect(() => {
     if (isDailyView) return;
     if (!installId) return;
     fetchVocabStats();
   }, [installId, isDailyView]);
+
+  useEffect(() => {
+    if (appView !== "daily") return;
+    setDailyHistoryIndex(0);
+    setDailyRankingView("today");
+    if (dailyHistoryScrollRef.current) {
+      dailyHistoryScrollRef.current.scrollTo({ left: 0, behavior: "auto" });
+    }
+  }, [
+    appView,
+    Array.isArray(dailyHistory?.days) ? dailyHistory.days.length : 0,
+    Array.isArray(dailyHistory?.medalTotals) ? dailyHistory.medalTotals.length : 0,
+  ]);
 
   useEffect(() => {
     const onConnect = () => {
@@ -6100,25 +6203,57 @@ function playTileStepSound(step) {
 
   function handleForeground(reason = "foreground") {
     if (!hasSavedSession() && !isLoggedInRef.current) {
+      lastBackgroundTimeRef.current = 0;
       return;
+    }
+    const lastBackgroundTime = lastBackgroundTimeRef.current;
+    const timeSinceBackground =
+      lastBackgroundTime > 0 ? Date.now() - lastBackgroundTime : 0;
+    const shouldForceReconnect = timeSinceBackground > 5000;
+    if (shouldForceReconnect) {
+      try {
+        socket.disconnect();
+      } catch (_) {}
+      if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
+      setTimeout(() => {
+        lastBackgroundTimeRef.current = 0;
+        socket.connect();
+        requestSessionResumeSnapshot(reason);
+      }, 200);
+      return;
+    }
+    if (lastBackgroundTime) {
+      lastBackgroundTimeRef.current = 0;
     }
     if (!socket.connected) {
       if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
       socket.connect();
-      if (!isLoggedInRef.current) {
-        requestSessionResumeSnapshot(reason);
-      }
-      return;
-    }
-    if (!isLoggedInRef.current) {
       requestSessionResumeSnapshot(reason);
       return;
     }
     runHealthCheck(reason);
   }
 
+  function handleManualRefresh() {
+    if (manualRefreshTimerRef.current) {
+      clearTimeout(manualRefreshTimerRef.current);
+      manualRefreshTimerRef.current = null;
+    }
+    try {
+      socket.disconnect();
+    } catch (_) {}
+    manualRefreshTimerRef.current = setTimeout(() => {
+      manualRefreshTimerRef.current = null;
+      socket.connect();
+    }, 300);
+  }
+
   useEffect(() => {
     const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        lastBackgroundTimeRef.current = Date.now();
+        return;
+      }
       if (document.visibilityState === "visible") {
         handleForeground("visibility");
       }
@@ -8912,7 +9047,32 @@ function handleTouchEnd() {
   const dailyEntriesRaw = Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : [];
   const dailyEntries = dailyEntriesRaw.filter((entry) => !entry?.isPalier);
   const dailyWidgetEntries = isMobileLayout ? dailyEntriesRaw : dailyEntries;
-  const dailyRankingSource = dailyWidgetEntries;
+  const dailyRankingSource = React.useMemo(() => {
+    const base = Array.isArray(dailyWidgetEntries) ? dailyWidgetEntries : [];
+    if (!isDailyPlay || !selfNick || !Number.isFinite(score)) return base;
+    const hasSelf = base.some(
+      (entry) => entry && !entry.isPalier && entry.nick === selfNick
+    );
+    if (hasSelf) return base;
+    const selfEntry = {
+      nick: selfNick,
+      score,
+      wordsCount: Number.isFinite(accepted?.length) ? accepted.length : null,
+      installId: installId || null,
+      isPalier: false,
+      playerKey: installId ? `install:${installId}` : `nick:${selfNick}`,
+    };
+    const merged = [...base, selfEntry];
+    merged.sort((a, b) => {
+      const diff = (b?.score || 0) - (a?.score || 0);
+      if (diff !== 0) return diff;
+      const aPalier = a?.isPalier ? 1 : 0;
+      const bPalier = b?.isPalier ? 1 : 0;
+      if (aPalier !== bPalier) return aPalier - bPalier;
+      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+    });
+    return merged;
+  }, [dailyWidgetEntries, isDailyPlay, selfNick, score, accepted?.length, installId]);
   const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
 
   // Animation FLIP pour la liste de mots
@@ -9365,6 +9525,20 @@ function handleTouchEnd() {
   const recordBadgesByNickForRound =
     isTargetRound ? targetRecordBadgesByNick : roundRecordBadgesByNick;
 
+  function renderCrownIcon(className = "") {
+    return (
+      <span
+        className={`inline-flex items-center ${
+          darkMode ? "text-amber-300" : "text-amber-600"
+        } ${className}`}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M4 6l4.5 3 3.5-4 3.5 4L20 6l-2 10H6L4 6zm3 12h10l.4 2H6.6l.4-2z" />
+        </svg>
+      </span>
+    );
+  }
+
   const tournamentFinaleSummary = React.useMemo(() => {
     if (
       tournamentSummary &&
@@ -9418,6 +9592,9 @@ function handleTouchEnd() {
     players.forEach((p) => {
       if (p?.isBot && p?.nick) set.add(p.nick);
     });
+    lobbyPlayersList.forEach((p) => {
+      if (p?.isBot && p?.nick) set.add(p.nick);
+    });
     finalResults.forEach((entry) => {
       if (entry?.isBot && entry?.nick) set.add(entry.nick);
     });
@@ -9428,11 +9605,14 @@ function handleTouchEnd() {
       if (entry?.isBot && entry?.nick) set.add(entry.nick);
     });
     return set;
-  }, [players, finalResults, tournamentRanking, tournamentFinaleSummary]);
+  }, [players, lobbyPlayersList, finalResults, tournamentRanking, tournamentFinaleSummary]);
 
   const humanNickSet = React.useMemo(() => {
     const set = new Set();
     players.forEach((p) => {
+      if (p?.isBot === false && p?.nick) set.add(p.nick);
+    });
+    lobbyPlayersList.forEach((p) => {
       if (p?.isBot === false && p?.nick) set.add(p.nick);
     });
     finalResults.forEach((entry) => {
@@ -9446,7 +9626,7 @@ function handleTouchEnd() {
     });
     if (selfNick) set.add(selfNick);
     return set;
-  }, [players, finalResults, tournamentRanking, tournamentFinaleSummary, selfNick]);
+  }, [players, lobbyPlayersList, finalResults, tournamentRanking, tournamentFinaleSummary, selfNick]);
 
   function renderMedalsInline(nick, fallbackMedals) {
     const persistentMedals = medals?.[nick] || null;
@@ -9527,13 +9707,7 @@ function handleTouchEnd() {
       : null;
     const dot = renderHumanDot(nick);
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
-    const crown = entry?.isDailyChampion ? (
-      <span className={`inline-flex items-center ${darkMode ? "text-amber-300" : "text-amber-600"}`}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M4 6l4.5 3 3.5-4 3.5 4L20 6l-2 10H6L4 6zm3 12h10l.4 2H6.6l.4-2z" />
-        </svg>
-      </span>
-    ) : null;
+    const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
     if (!dot && !medalsInline && !crown) return null;
     return (
       <span className="inline-flex items-center gap-1 ml-1">
@@ -9855,7 +10029,7 @@ function handleTouchEnd() {
 
   const chatRulesModal = isChatRulesOpen ? (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      className="fixed inset-0 z-[20060] flex items-center justify-center bg-black/50 px-4"
       onClick={cancelChatRules}
     >
       <div
@@ -9902,7 +10076,7 @@ function handleTouchEnd() {
   ) : null;
 
   const userMenuView = userMenu.open ? (
-    <div className="fixed inset-0 z-[9998]" onClick={closeUserMenu}>
+    <div className="fixed inset-0 z-[20060]" onClick={closeUserMenu}>
       <div
         className={`fixed min-w-[170px] rounded-lg border px-2 py-2 text-xs shadow-lg ${
           darkMode
@@ -9988,7 +10162,7 @@ function handleTouchEnd() {
 
   const reportModal = reportDialog.open ? (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
+      className="fixed inset-0 z-[20061] flex items-center justify-center bg-black/50 px-4"
       onClick={closeReportDialog}
     >
       <div
@@ -10070,6 +10244,67 @@ function handleTouchEnd() {
       </div>
     </div>
   ) : null;
+
+  function getWeeklyEntryKey(entry) {
+    if (!entry) return "";
+    if (entry.playerKey) return entry.playerKey;
+    if (entry.nick) return `nick:${String(entry.nick).trim().toLowerCase()}`;
+    return "";
+  }
+
+  function getWeeklyMetricValue(boardKey, entry) {
+    if (!entry) return null;
+    if (boardKey === "medals") return Number(entry.total) || 0;
+    if (boardKey === "mostWordsInGame") return Number(entry.wordsCount) || 0;
+    if (boardKey === "totalScore") return Number(entry.totalScore) || 0;
+    if (boardKey === "bestWord") return Number(entry.pts) || 0;
+    if (boardKey === "longestWord") return Number(entry.len) || 0;
+    if (boardKey === "bestRoundScore") return Number(entry.pts) || 0;
+    if (boardKey === "vocab") return Number(entry.vocabCount) || 0;
+    if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
+      return Number(entry.ms) || 0;
+    }
+    if (boardKey === "mostGobbles") return Number(entry.gobbles) || 0;
+    return null;
+  }
+
+  function hasWeeklyChanges(boardKey, currentEntries, baselineRankMap, baselineValueMap) {
+    if (!baselineRankMap || baselineRankMap.size === 0) return false;
+    const isTimeBoard =
+      boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
+    for (let i = 0; i < currentEntries.length; i += 1) {
+      const entry = currentEntries[i];
+      const entryKey = getWeeklyEntryKey(entry);
+      if (!entryKey) continue;
+      const prevRank = baselineRankMap.get(entryKey);
+      if (Number.isFinite(prevRank) && prevRank !== i + 1) {
+        return true;
+      }
+      const currentValue = getWeeklyMetricValue(boardKey, entry);
+      const baseValue = baselineValueMap?.get(entryKey);
+      if (Number.isFinite(currentValue) && Number.isFinite(baseValue)) {
+        if (isTimeBoard && currentValue < baseValue) return true;
+        if (!isTimeBoard && currentValue > baseValue) return true;
+      }
+    }
+    return false;
+  }
+
+  function renderRankDeltaIndicator(delta) {
+    if (!delta) return null;
+    const up = delta > 0;
+    return (
+      <span
+        className={`text-[10px] font-black tabular-nums ${
+          up ? "text-emerald-600" : "text-red-600"
+        }`}
+        title={up ? `+${delta} places` : `${delta} places`}
+      >
+        {up ? "\u25B2" : "\u25BC"}
+        {Math.abs(delta)}
+      </span>
+    );
+  }
 
   function renderWeeklyRow(boardKey, entry, idx, { showVocabIcon = false } = {}) {
     if (!entry) return null;
@@ -10205,6 +10440,179 @@ function handleTouchEnd() {
     );
   }
 
+  function renderFinaleWeeklyRow(
+    boardKey,
+    entry,
+    idx,
+    {
+      showVocabIcon = false,
+      baselineRankMap = null,
+      baselineValueMap = null,
+      showChanges = false,
+    } = {}
+  ) {
+    if (!entry) return null;
+    const rank = idx + 1;
+    const achieved = entry.achievedAt ? formatWeeklyDate(entry.achievedAt) : null;
+    const baseNick = entry.nick || "Joueur";
+    const entryKey = getWeeklyEntryKey(entry);
+    const vocabEntryKey =
+      entry.playerKey || (entry.nick ? String(entry.nick).trim().toLowerCase() : null);
+    const vocabCountForRow =
+      vocabEntryKey && weeklyVocabLookup.has(vocabEntryKey)
+        ? weeklyVocabLookup.get(vocabEntryKey)
+        : null;
+    const resolvedVocabCount = Number.isFinite(vocabCountForRow) ? vocabCountForRow : 0;
+    const vocabMetaForRow =
+      showVocabIcon && boardKey === "vocab" ? getVocabLevelMeta(resolvedVocabCount) : null;
+
+    const valueParts = [];
+    if (boardKey === "medals") {
+      valueParts.push(`${formatNumber(entry.total) ?? 0} médailles`);
+    } else if (boardKey === "mostWordsInGame") {
+      valueParts.push(`${formatNumber(entry.wordsCount) ?? 0} mots`);
+    } else if (boardKey === "totalScore") {
+      valueParts.push(`${formatNumber(entry.totalScore) ?? 0} pts`);
+    } else if (boardKey === "bestWord") {
+      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
+    } else if (boardKey === "longestWord") {
+      valueParts.push(`${formatNumber(entry.len) ?? 0} lettres`);
+    } else if (boardKey === "bestRoundScore") {
+      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
+    } else if (boardKey === "vocab") {
+      valueParts.push(`${formatNumber(entry.vocabCount) ?? 0} mots`);
+    } else if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
+      valueParts.push(formatMsShort(entry.ms) || "");
+    } else if (boardKey === "mostGobbles") {
+      valueParts.push(`${formatNumber(entry.gobbles) ?? 0} gobbles`);
+    }
+
+    const detailParts = [];
+    if (boardKey === "medals") {
+      detailParts.push(`Or ${formatNumber(entry.gold) ?? 0}`);
+      detailParts.push(`Arg ${formatNumber(entry.silver) ?? 0}`);
+      detailParts.push(`Br ${formatNumber(entry.bronze) ?? 0}`);
+    }
+    if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
+      detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
+    }
+    const hasWord =
+      (boardKey === "bestWord" ||
+        boardKey === "longestWord" ||
+        boardKey === "bestTimeTargetLong" ||
+        boardKey === "bestTimeTargetScore") &&
+      entry.word;
+    const wordLabel = hasWord ? entry.word : "";
+    const wordButton =
+      hasWord && entry.word ? (
+        <button
+          type="button"
+          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-[11px] ${
+            darkMode
+              ? "bg-slate-800 border-slate-600 text-slate-100"
+              : "bg-white border-gray-300 text-gray-700"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            openDefinition(entry.word);
+          }}
+          aria-label="Voir la definition"
+          title="Voir la definition"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="16.65" y1="16.65" x2="21" y2="21" />
+          </svg>
+        </button>
+      ) : null;
+
+    const isTimeBoard =
+      boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
+    const currentValue = getWeeklyMetricValue(boardKey, entry);
+    const prevRank =
+      entryKey && baselineRankMap ? baselineRankMap.get(entryKey) : null;
+    const rankDelta = Number.isFinite(prevRank) ? prevRank - rank : 0;
+    const baseValue =
+      entryKey && baselineValueMap ? baselineValueMap.get(entryKey) : null;
+    let deltaLabel = null;
+    if (showChanges && Number.isFinite(currentValue) && Number.isFinite(baseValue)) {
+      if (isTimeBoard && currentValue < baseValue) {
+        const deltaSec = Math.max(0, Math.round((baseValue - currentValue) / 1000));
+        if (deltaSec > 0) deltaLabel = `-${deltaSec}s`;
+      }
+      if (!isTimeBoard && currentValue > baseValue) {
+        const deltaVal = Math.round(currentValue - baseValue);
+        if (deltaVal > 0) deltaLabel = `+${deltaVal}`;
+      }
+    }
+
+    return (
+      <div
+        key={`${boardKey}-${entry.playerKey || entry.word || entry.roundId || idx}`}
+        className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-7 text-center text-sm font-bold text-amber-500">{rank}</span>
+          <div className="min-w-0">
+            <div className="font-semibold truncate flex items-center gap-2">
+              {vocabMetaForRow?.image ? (
+                <img
+                  src={vocabMetaForRow.image}
+                  alt={vocabMetaForRow.label || "Niveau"}
+                  className="h-6 w-6 shrink-0"
+                  draggable={false}
+                />
+              ) : null}
+              <span className="truncate">{baseNick}</span>
+            </div>
+            {achieved ? <div className="text-[11px] opacity-60 truncate">{achieved}</div> : null}
+            {detailParts.length > 0 || hasWord ? (
+              <div className="text-[11px] opacity-60 truncate flex items-center gap-1">
+                {detailParts.length > 0 ? (
+                  <span className="truncate">{detailParts.join(" - ")}</span>
+                ) : null}
+                {hasWord ? (
+                  <button
+                    type="button"
+                    className="truncate font-semibold hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDefinition(wordLabel);
+                    }}
+                  >
+                    {wordLabel}
+                  </button>
+                ) : null}
+                {wordButton}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="text-right text-sm font-bold tabular-nums whitespace-nowrap flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            {showChanges ? renderRankDeltaIndicator(rankDelta) : null}
+            <span>{valueParts.join(" ")}</span>
+          </div>
+          {deltaLabel ? (
+            <span className="text-[11px] font-black tabular-nums text-emerald-600">
+              {deltaLabel}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   const weeklyBoardsMeta = WEEKLY_BOARDS;
   const safeWeeklyIndex =
     weeklyActiveIndex >= 0 && weeklyActiveIndex < weeklyBoardsMeta.length ? weeklyActiveIndex : 0;
@@ -10239,6 +10647,27 @@ function handleTouchEnd() {
     }
   });
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
+  const finaleBaselineBoards = weeklyStatsBaselineRef.current?.boards || {};
+  const finaleBaselineRankMaps = {};
+  const finaleBaselineValueMaps = {};
+  FINALE_WEEKLY_BOARDS.forEach((boardMeta) => {
+    const entries = dedupeWeeklyEntries(
+      boardMeta.key,
+      finaleBaselineBoards[boardMeta.key],
+      weeklyLimit
+    );
+    const rankMap = new Map();
+    const valueMap = new Map();
+    entries.forEach((entry, idx) => {
+      const entryKey = getWeeklyEntryKey(entry);
+      if (!entryKey) return;
+      rankMap.set(entryKey, idx + 1);
+      const value = getWeeklyMetricValue(boardMeta.key, entry);
+      if (Number.isFinite(value)) valueMap.set(entryKey, value);
+    });
+    finaleBaselineRankMaps[boardMeta.key] = rankMap;
+    finaleBaselineValueMaps[boardMeta.key] = valueMap;
+  });
   const seasonVocabEntries = dedupeWeeklyEntries("vocab", weeklyBoardData.vocab, weeklyLimit);
   const activeWeeklyEntries = activeWeeklyBoard
     ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
@@ -10374,7 +10803,7 @@ function handleTouchEnd() {
           {" - Reset : lundi a minuit"}
         </div>
       ) : (
-        <div className="text-xs opacity-70">Trophees mensuels</div>
+        <div className="text-xs opacity-70">Classements saison</div>
       )}
     </div>
   );
@@ -10565,115 +10994,6 @@ function handleTouchEnd() {
                                     : "Pas encore de stats cette saison."}
                                 </div>
                               )}
-                            </div>
-                          ) : page === "trophies" ? (
-                            <div className="p-4 space-y-4">
-                              <div className="grid gap-4 md:grid-cols-2">
-                                <div
-                                  className={`rounded-2xl border p-4 ${
-                                    darkMode
-                                      ? "bg-slate-900/60 border-slate-700"
-                                      : "bg-white border-slate-200"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between gap-2 mb-4">
-                                    <div className="text-sm font-semibold">Trophees</div>
-                                    {trophyStatus?.shieldCount > 0 ? (
-                                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-300/70 text-amber-700 dark:text-amber-300">
-                                        Bouclier
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <div className="flex flex-col items-center gap-3">
-                                    <div
-                                      className="w-[110px] h-[110px] rounded-full flex items-center justify-center"
-                                      style={{ background: trophyPalette.bg }}
-                                    >
-                                      <svg width="80" height="80" viewBox="0 0 64 64" fill="none">
-                                        <path
-                                          d="M20 10h24v6h8v6c0 10-8 18-18 18h-4v8h10v6H24v-6h10v-8h-4c-10 0-18-8-18-18v-6h8v-6z"
-                                          fill={trophyPalette.accent}
-                                        />
-                                        <path d="M24 10h16v6H24z" fill={trophyPalette.accent} />
-                                      </svg>
-                                    </div>
-                                    <div className="text-sm font-semibold opacity-80">
-                                      Ligue : {trophyLeague}
-                                    </div>
-                                    <div className="text-3xl font-black tabular-nums">
-                                      {trophyTotalValue != null ? formatNumber(trophyTotalValue) : "..."}
-                                    </div>
-                                    <div
-                                      className={`text-sm font-bold ${
-                                        trophyDeltaValue > 0
-                                          ? "text-emerald-500"
-                                          : trophyDeltaValue < 0
-                                          ? "text-rose-500"
-                                          : "text-slate-400"
-                                      }`}
-                                    >
-                                      {trophyDeltaLabel}
-                                    </div>
-                                    <div className="w-full mt-2">
-                                      <div className="flex items-center justify-between text-xs opacity-70 mb-1">
-                                        <span>Progression</span>
-                                        <span>{trophyProgressLabel}</span>
-                                      </div>
-                                      <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/60 overflow-hidden">
-                                        <div
-                                          className="h-full rounded-full transition-all"
-                                          style={{
-                                            width: `${Math.round((trophyProgress.pct || 0) * 100)}%`,
-                                            background: trophyPalette.accent,
-                                          }}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div
-                                  className={`rounded-2xl border p-4 ${
-                                    darkMode
-                                      ? "bg-slate-900/60 border-slate-700"
-                                      : "bg-white border-slate-200"
-                                  }`}
-                                >
-                                  <div className="text-sm font-semibold mb-3">
-                                    Historique recent
-                                  </div>
-                                  {trophyLoading ? (
-                                    <div className="text-sm opacity-70">Chargement...</div>
-                                  ) : trophyHistory.length === 0 ? (
-                                    <div className="text-sm opacity-70">
-                                      Pas encore d'historique cette saison.
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col gap-2">
-                                      {trophyHistory.map((entry) => (
-                                        <div
-                                          key={`${entry.ts}-${entry.delta}`}
-                                          className="flex items-center justify-between text-sm"
-                                        >
-                                          <span
-                                            className={`font-semibold ${
-                                              entry.delta > 0
-                                                ? "text-emerald-500"
-                                                : entry.delta < 0
-                                                ? "text-rose-500"
-                                                : "text-slate-400"
-                                            }`}
-                                          >
-                                            {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
-                                          </span>
-                                          <span className="text-xs opacity-70">
-                                            {formatNumber(entry.trophies)} - {entry.league}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
                             </div>
                           ) : (
                             <div className="p-4">
@@ -11416,7 +11736,7 @@ function handleTouchEnd() {
   ) : null;
 
   const mobileChatLayer =
-    isLoggedIn && isMobileLayout ? (
+    isLoggedIn ? (
       <MobileChatWidget
         chatInput={chatInput}
         chatInputRef={chatInputRef}
@@ -11454,7 +11774,6 @@ function handleTouchEnd() {
     <>
       {weeklyStatsOverlay}
       {playersOverlay}
-      {mobileChatLayer}
       {userMenuView}
       {reportModal}
       {chatRulesModal}
@@ -11464,6 +11783,7 @@ function handleTouchEnd() {
       {vocabOverlayView}
       {tutorialOverlay}
       {settingsMenuView}
+      {mobileChatLayer}
     </>
   );
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -11488,16 +11808,28 @@ function handleTouchEnd() {
     dailyMyResult && Number.isFinite(dailyMyResult.score) ? dailyMyResult.score : null;
   const dailyRankLabel =
     dailyMyResult && Number.isFinite(dailyMyResult.rank) ? dailyMyResult.rank : null;
+  const todayDateId = dailyStatus?.dateId || dailyBoard?.dateId || null;
+  const dailyHistoryDaysRaw = Array.isArray(dailyHistory?.days) ? dailyHistory.days : [];
+  const dailyHistoryDays = todayDateId
+    ? dailyHistoryDaysRaw.filter((entry) => entry?.dateId && entry.dateId !== todayDateId)
+    : dailyHistoryDaysRaw;
+  const dailyHistoryPages = [
+    ...dailyHistoryDays.map((entry) => ({ type: "day", ...entry })),
+    { type: "medals", medalTotals: Array.isArray(dailyHistory?.medalTotals) ? dailyHistory.medalTotals : [] },
+  ];
+  const dailyHistoryPageCount = dailyHistoryPages.length;
 
-  const dailyBoardList = (
+  const renderDailyBoardList = (maxHeightClass = "max-h-[360px]") => (
     <div
-      className={`rounded-xl border px-3 py-2 max-h-[360px] overflow-auto ${
+      className={`rounded-xl border px-3 py-2 ${maxHeightClass} overflow-auto ${
         darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
       }`}
     >
       {dailyEntries.length ? (
         dailyEntries.map((entry, idx) => {
           const isPalier = !!entry?.isPalier;
+          const firstRealIndex = dailyEntries.findIndex((item) => item && !item.isPalier);
+          const isWinner = !isPalier && idx === firstRealIndex;
           const label = entry?.rightLabel
             ? entry.rightLabel
             : Number.isFinite(entry?.score)
@@ -11526,7 +11858,10 @@ function handleTouchEnd() {
                 <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
                   {idx + 1}
                 </span>
-                <span className="truncate font-semibold">{entry?.nick || "Joueur"}</span>
+                <span className="truncate font-semibold flex items-center gap-1">
+                  {entry?.nick || "Joueur"}
+                  {isWinner ? renderCrownIcon() : null}
+                </span>
               </div>
               <span className="text-[11px] font-semibold opacity-80 shrink-0">{label}</span>
             </div>
@@ -11537,6 +11872,158 @@ function handleTouchEnd() {
       )}
     </div>
   );
+  const renderDailyHistorySlider = (panelHeightClass = "max-h-[320px]") =>
+    dailyHistoryPageCount > 0 ? (
+      <div className="space-y-2">
+        <div className="text-sm font-semibold">Historique</div>
+        {dailyHistoryLoading ? (
+          <div className="text-xs opacity-70">Chargement...</div>
+        ) : dailyHistoryError ? (
+          <div className="text-xs text-red-500">Erreur historique ({dailyHistoryError})</div>
+        ) : (
+          <>
+            <div
+              ref={dailyHistoryScrollRef}
+              className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const width = el.clientWidth || 1;
+                const page = Math.round(el.scrollLeft / width);
+                if (page !== dailyHistoryIndex) setDailyHistoryIndex(page);
+              }}
+            >
+              {dailyHistoryPages.map((page, idx) => (
+                <div key={`daily-history-${page.type}-${idx}`} className="w-full shrink-0 snap-start">
+                  <div
+                    className={`rounded-xl border px-3 py-3 ${
+                      darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    {page.type === "day" ? (
+                      <>
+                        <div className="flex items-baseline justify-between gap-2 mb-2">
+                          <div className="text-sm font-bold">Date : {page.dateId}</div>
+                          {Number.isFinite(page.totalPlayers) ? (
+                            <div className="text-[11px] opacity-70">
+                              {page.totalPlayers} joueurs
+                            </div>
+                          ) : null}
+                        </div>
+                        {Array.isArray(page.entries) && page.entries.length > 0 ? (
+                          <div className={`${panelHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}>
+                            {page.entries.map((entry, entryIdx) => {
+                              const isWinner = entryIdx === 0;
+                              const label = Number.isFinite(entry?.score)
+                                ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${
+                                    entry.score
+                                  } pts`
+                                : "-";
+                              return (
+                                <div
+                                  key={entry?.installId || `${entry?.nick}-${entryIdx}`}
+                                  className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
+                                    darkMode ? "border-white/5" : "border-slate-100"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
+                                      {entryIdx + 1}
+                                    </span>
+                                    <span className="truncate font-semibold flex items-center gap-1">
+                                      {entry?.nick || "Joueur"}
+                                      {isWinner ? renderCrownIcon() : null}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] font-semibold opacity-80 shrink-0">
+                                    {label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-xs opacity-70 py-6 text-center">
+                            Aucun score pour ce jour.
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline justify-between gap-2 mb-2">
+                          <div className="text-sm font-bold">Total médailles</div>
+                        </div>
+                        {Array.isArray(page.medalTotals) && page.medalTotals.length > 0 ? (
+                          <div className={`${panelHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}>
+                            {page.medalTotals.map((entry, entryIdx) => (
+                              <div
+                                key={`${entry.nick}-${entryIdx}`}
+                                className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
+                                  darkMode ? "border-white/5" : "border-slate-100"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
+                                    {entryIdx + 1}
+                                  </span>
+                                  <span className="truncate font-semibold flex items-center gap-1">
+                                    {entry?.nick || "Joueur"}
+                                    {entryIdx === 0 ? renderCrownIcon() : null}
+                                  </span>
+                                </div>
+                                <span className="text-[11px] font-semibold opacity-80 shrink-0">
+                                  {entry.total || 0} (Or {entry.gold || 0} · Arg {entry.silver || 0} · Br{" "}
+                                  {entry.bronze || 0})
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs opacity-70 py-6 text-center">
+                            Aucune médaille pour l'instant.
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {dailyHistoryPageCount > 1 ? (
+              <div className="flex items-center justify-center gap-2">
+                {dailyHistoryPages.map((_, idx) => {
+                  const active = idx === dailyHistoryIndex;
+                  const dotColor = active
+                    ? darkMode
+                      ? "bg-slate-100"
+                      : "bg-slate-900"
+                    : darkMode
+                    ? "bg-white/30"
+                    : "bg-slate-300";
+                  return (
+                    <button
+                      key={`daily-history-dot-${idx}`}
+                      type="button"
+                      className={`h-2.5 w-2.5 rounded-full transition ${dotColor} ${
+                        active ? "scale-110" : ""
+                      }`}
+                      aria-label={`Page ${idx + 1}`}
+                      aria-current={active ? "true" : undefined}
+                      onClick={() => {
+                        const el = dailyHistoryScrollRef.current;
+                        if (!el) return;
+                        const width = el.clientWidth || 1;
+                        el.scrollTo({ left: idx * width, behavior: "smooth" });
+                        setDailyHistoryIndex(idx);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    ) : null;
 
   if (!isLoggedIn && appView === "daily") {
     return (
@@ -11588,7 +12075,47 @@ function handleTouchEnd() {
               <div className="text-xs text-red-500">Erreur classement ({dailyBoard.error})</div>
             )}
 
-            {dailyBoardList}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  dailyRankingView === "today"
+                    ? darkMode
+                      ? "bg-blue-500 text-white"
+                      : "bg-blue-600 text-white"
+                    : darkMode
+                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                    : "bg-white border border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setDailyRankingView("today")}
+              >
+                Classement du jour
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  dailyRankingView === "history"
+                    ? darkMode
+                      ? "bg-blue-500 text-white"
+                      : "bg-blue-600 text-white"
+                    : darkMode
+                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                    : "bg-white border border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setDailyRankingView("history")}
+                disabled={dailyHistoryPageCount === 0}
+              >
+                Historique
+              </button>
+            </div>
+
+            {dailyRankingView === "today"
+              ? renderDailyBoardList("max-h-[520px]")
+              : renderDailyHistorySlider("max-h-[520px]") || (
+                  <div className="text-xs opacity-70 py-6 text-center">
+                    Aucun historique disponible.
+                  </div>
+                )}
 
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -11616,6 +12143,7 @@ function handleTouchEnd() {
             )}
           </div>
         </div>
+        {chatOverlays}
       </>
     );
   }
@@ -11667,7 +12195,7 @@ function handleTouchEnd() {
               <div className="text-xs text-red-400">{dailySubmitError}</div>
             )}
 
-            {dailyBoardList}
+            {renderDailyBoardList()}
 
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -11727,7 +12255,7 @@ function handleTouchEnd() {
                       ? "bg-slate-800/80 border-white/10 text-slate-100"
                       : "bg-white border-slate-200 text-slate-700"
                   }`}
-                  onClick={() => window.location.reload()}
+                  onClick={handleManualRefresh}
                   disabled={isConnecting}
                 >
                   Rafraichir
@@ -12033,10 +12561,22 @@ function handleTouchEnd() {
     const records = tournamentFinaleSummary.records || {};
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
+    const finaleBoards = FINALE_WEEKLY_BOARDS;
+    const finaleBoardCount = finaleBoards.length;
+    const safeFinaleSlideIndex = clampValue(finalePage, 0, finaleBoardCount);
+    const finaleSlideCardStyle = isMobileLayout
+      ? { height: "clamp(230px, 36vh, 300px)" }
+      : { height: "420px" };
+    const finaleSummaryClass = isMobileLayout
+      ? "bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 rounded-xl p-3 mb-20"
+      : "bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 rounded-xl p-3";
+    const finaleShellClass = isMobileLayout
+      ? "relative z-10 max-w-6xl mx-auto px-4 pt-4 pb-24"
+      : "relative z-10 max-w-6xl mx-auto px-4 py-8";
     return (
       <>
         <div
-          className={`min-h-screen relative overflow-hidden ${
+          className={`min-h-screen relative ${
             darkMode
               ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white"
               : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
@@ -12044,9 +12584,9 @@ function handleTouchEnd() {
         >
           <style>{slideStyles}</style>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1 min-w-0 flex flex-col gap-4">
+        <div className={finaleShellClass}>
+          <div className="flex flex-col gap-4">
+            <div className="w-full min-w-0 flex flex-col gap-4">
           <div className="text-center">
             <div className="text-sm font-semibold tracking-widest opacity-80">FIN DU MINI-TOURNOI</div>
             <div className="mt-1 text-3xl sm:text-4xl font-black tracking-tight">
@@ -12071,14 +12611,17 @@ function handleTouchEnd() {
               }}
             >
               <div className="w-full shrink-0 snap-start">
-                <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl">
+                <div
+                  className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden"
+                  style={finaleSlideCardStyle}
+                >
                   <div className="flex items-baseline justify-between gap-2 mb-2">
                     <div className="font-extrabold">Classement general</div>
                     <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
                       Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
                     </div>
                   </div>
-                  <div className="h-[360px]">
+                  <div className="min-h-0 flex-1">
                     <RankingWidgetMobile
                       fullRanking={finaleRanking}
                       selfNick={selfNick}
@@ -12087,6 +12630,7 @@ function handleTouchEnd() {
                       animateRank={false}
                       showWheel={false}
                       flatStyle={true}
+                      fitHeight={true}
                       renderNickSuffix={(nick, entry) =>
                         renderNickSuffix(nick, entry, tournamentFinaleMedals)
                       }
@@ -12095,74 +12639,78 @@ function handleTouchEnd() {
                   </div>
                 </div>
               </div>
-              <div className="w-full shrink-0 snap-start">
-                <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl">
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <div className="font-extrabold">Trophées</div>
-                    {trophyStatus?.shieldCount > 0 ? (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-amber-300/70 text-amber-700 dark:text-amber-300">
-                        Bouclier
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-col items-center gap-3">
+              {finaleBoards.map((boardMeta) => {
+                const entries = dedupeWeeklyEntries(
+                  boardMeta.key,
+                  weeklyBoardData[boardMeta.key],
+                  weeklyLimit
+                );
+                const baselineEntries = dedupeWeeklyEntries(
+                  boardMeta.key,
+                  finaleBaselineBoards[boardMeta.key],
+                  weeklyLimit
+                );
+                const hasChanges = hasWeeklyChanges(
+                  boardMeta.key,
+                  entries,
+                  finaleBaselineRankMaps[boardMeta.key],
+                  finaleBaselineValueMaps[boardMeta.key]
+                );
+                return (
+                  <div key={boardMeta.key} className="w-full shrink-0 snap-start">
                     <div
-                      className="w-[120px] h-[120px] rounded-full flex items-center justify-center"
-                      style={{ background: trophyPalette.bg }}
+                      className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden"
+                      style={finaleSlideCardStyle}
                     >
-                      <svg
-                        width="88"
-                        height="88"
-                        viewBox="0 0 64 64"
-                        fill="none"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M20 10h24v6h8v6c0 10-8 18-18 18h-4v8h10v6H24v-6h10v-8h-4c-10 0-18-8-18-18v-6h8v-6z"
-                          fill={trophyPalette.accent}
-                        />
-                        <path
-                          d="M24 10h16v6H24z"
-                          fill={trophyPalette.accent}
-                        />
-                      </svg>
-                    </div>
-                    <div className="text-sm font-semibold opacity-80">Ligue : {trophyLeague}</div>
-                    <div className="text-3xl font-black tabular-nums">
-                      {trophyTotalValue != null ? formatNumber(trophyTotalValue) : "..."}
-                    </div>
-                    <div
-                      className={`text-sm font-bold ${
-                        trophyDeltaValue > 0
-                          ? "text-emerald-500"
-                          : trophyDeltaValue < 0
-                          ? "text-rose-500"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      {trophyDeltaLabel}
-                    </div>
-                    <div className="w-full mt-2">
-                      <div className="flex items-center justify-between text-xs opacity-70 mb-1">
-                        <span>Progression</span>
-                        <span>{trophyProgressLabel}</span>
+                      <div className="flex items-baseline justify-between gap-2 mb-2">
+                        <div className="font-extrabold">
+                          Classement hebdo - {boardMeta.label}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
+                          {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                        </div>
                       </div>
-                      <div className="h-2 rounded-full bg-slate-200/60 dark:bg-slate-700/60 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.round((trophyProgress.pct || 0) * 100)}%`,
-                            background: trophyPalette.accent,
-                          }}
-                        />
+                      <div className="text-xs text-slate-500 dark:text-slate-300 mb-2">
+                        {boardMeta.subtitle || ""}
+                      </div>
+                      {!hasChanges && baselineEntries.length > 0 ? (
+                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-300 mb-2">
+                          Aucun changement
+                        </div>
+                      ) : null}
+                      <div className="min-h-0 flex-1">
+                        {weeklyStatsLoading ? (
+                          <div className="h-full flex items-center justify-center text-sm opacity-70">
+                            Chargement...
+                          </div>
+                        ) : weeklyStatsError ? (
+                          <div className="h-full flex items-center justify-center text-sm text-red-400">
+                            Erreur ({weeklyStatsError})
+                          </div>
+                        ) : entries.length > 0 ? (
+                          <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                            {entries.map((entry, entryIdx) =>
+                              renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
+                                showVocabIcon: boardMeta.key === "vocab",
+                                baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
+                                baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
+                                showChanges: hasChanges,
+                              })
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-sm opacity-70">
+                            Pas encore de stats cette semaine.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
             <div className="flex items-center justify-center gap-2 mt-1">
-              {[0, 1].map((idx) => {
+              {Array.from({ length: 1 + finaleBoards.length }, (_, idx) => {
                 const active = finalePage === idx;
                 return (
                   <button
@@ -12192,17 +12740,17 @@ function handleTouchEnd() {
             </div>
           </div>
 
-          <div className="bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 rounded-xl p-3">
-            <div className="flex items-center justify-between gap-2">
+          <div className={finaleSummaryClass}>
+            <div className="flex flex-wrap items-center gap-2">
               <div className="text-xs font-extrabold tracking-widest text-slate-600 dark:text-slate-300">
-                STATS DU TOURNOI
+                BILAN DU MINI-TOURNOI
               </div>
               <button
                 type="button"
                 className="px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-500 transition"
                 onClick={openWeeklyStatsOverlay}
               >
-                Stats
+                Ouvrir stats
               </button>
             </div>
             <div className="mt-2 grid gap-2 text-xs leading-tight">
@@ -12310,7 +12858,7 @@ function handleTouchEnd() {
             </div>
           </div>
         </div>
-        <div className="hidden lg:flex w-full lg:w-[320px] xl:w-[360px] flex-col">
+        <div className="hidden">
           <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-bold text-center">Chat</h2>

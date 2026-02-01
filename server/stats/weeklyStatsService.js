@@ -354,17 +354,6 @@ function ensureCurrentWeek() {
   }
 }
 
-function getLatestNonEmptyWeek() {
-  let selected = !isWeekEmpty(state) ? state : null;
-  for (const week of history.values()) {
-    if (isWeekEmpty(week)) continue;
-    if (!selected || week.weekStartTs > selected.weekStartTs) {
-      selected = week;
-    }
-  }
-  return selected || state;
-}
-
 await loadFromDisk();
 
 function shouldReplace(current, valueKey, newValue, achievedAt, asc = false) {
@@ -527,7 +516,8 @@ function sortEntries(arr, key, asc = false) {
 
 export function getWeeklyStats(topN = TOP_N) {
   ensureCurrentWeek();
-  const activeState = getLatestNonEmptyWeek();
+  // Always expose the current week so rankings reset immediately on Monday 00:00 (Paris time).
+  const activeState = state;
   const weekStartTs = activeState.weekStartTs;
   const nextResetTs = getNextResetTs(weekStartTs);
   const mostWords = Array.from(activeState.mostWordsInGame.values()).filter(

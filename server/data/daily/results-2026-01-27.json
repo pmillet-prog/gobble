@@ -1,0 +1,15 @@
+{
+  "dateId": "2026-01-27",
+  "results": [
+    {
+      "installId": "cid-1767297485869-305184",
+      "pseudo": "Test",
+      "score": 3133,
+      "wordCount": 75,
+      "longestWordLen": 12,
+      "durationMs": 120063,
+      "submittedAt": 1769502833213
+    }
+  ],
+  "attempts": {}
+}

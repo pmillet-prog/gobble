@@ -1,0 +1,82 @@
+{
+  "dateId": "2026-02-03",
+  "seed": 2960402860,
+  "gridSize": 4,
+  "grid": [
+    {
+      "letter": "I",
+      "bonus": null
+    },
+    {
+      "letter": "N",
+      "bonus": "L3"
+    },
+    {
+      "letter": "T",
+      "bonus": "L2"
+    },
+    {
+      "letter": "G",
+      "bonus": null
+    },
+    {
+      "letter": "I",
+      "bonus": null
+    },
+    {
+      "letter": "A",
+      "bonus": null
+    },
+    {
+      "letter": "R",
+      "bonus": null
+    },
+    {
+      "letter": "E",
+      "bonus": "M3"
+    },
+    {
+      "letter": "A",
+      "bonus": null
+    },
+    {
+      "letter": "F",
+      "bonus": null
+    },
+    {
+      "letter": "C",
+      "bonus": "M2"
+    },
+    {
+      "letter": "I",
+      "bonus": null
+    },
+    {
+      "letter": "R",
+      "bonus": null
+    },
+    {
+      "letter": "E",
+      "bonus": null
+    },
+    {
+      "letter": "K",
+      "bonus": null
+    },
+    {
+      "letter": "M",
+      "bonus": null
+    }
+  ],
+  "durationMs": 120000,
+  "generatedAt": 1769987076483,
+  "wordCount": 203,
+  "longestWordLen": 12,
+  "gridQuality": {
+    "words": 203,
+    "maxLen": 12,
+    "maxPts": 210,
+    "totalPts": 8465,
+    "longWords": 1
+  }
+}

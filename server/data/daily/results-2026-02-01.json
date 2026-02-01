@@ -1,0 +1,47 @@
+{
+  "dateId": "2026-02-01",
+  "results": [
+    {
+      "installId": "cid-1767297485869-305184",
+      "pseudo": "Test",
+      "score": 2154,
+      "wordCount": 60,
+      "longestWordLen": 10,
+      "durationMs": 120088,
+      "submittedAt": 1769949972917
+    },
+    {
+      "installId": "75896535-55ba-43be-97f4-e2f17ea47a50",
+      "pseudo": "Tigre",
+      "score": 1737,
+      "wordCount": 44,
+      "longestWordLen": 10,
+      "durationMs": 121473,
+      "submittedAt": 1769950211475
+    },
+    {
+      "installId": "iid-1769950663498-264591",
+      "pseudo": "Gougou",
+      "score": 1721,
+      "wordCount": 47,
+      "longestWordLen": 10,
+      "durationMs": 120071,
+      "submittedAt": 1769950803292
+    },
+    {
+      "installId": "iid-1769952325026-326954",
+      "pseudo": "gaga",
+      "score": 3029,
+      "wordCount": 56,
+      "longestWordLen": 12,
+      "durationMs": 120340,
+      "submittedAt": 1769952456573
+    }
+  ],
+  "attempts": {
+    "iid-1769983950687-910576": {
+      "pseudo": "Gaga",
+      "startedAt": 1769983967497
+    }
+  }
+}

@@ -60,6 +60,7 @@ import {
   addDaysToDateId,
   ensureDaily,
   getDailyBoard,
+  getDailyHistory,
   getDailyStatus,
   getParisDateId,
   loadDailyChampion,
@@ -244,6 +245,17 @@ app.get("/api/daily/board", async (req, res) => {
   if (!payload.ready) {
     res.status(503);
   }
+  res.json(payload);
+});
+
+app.get("/api/daily/history", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const rawDays = Number(req.query?.days);
+  const days = Number.isFinite(rawDays)
+    ? Math.min(30, Math.max(1, Math.round(rawDays)))
+    : 7;
+  const payload = await getDailyHistory({ days });
   res.json(payload);
 });
 

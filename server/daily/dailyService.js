@@ -303,6 +303,52 @@ export async function getDailyBoard(dateId) {
   };
 }
 
+function buildDailyTopEntries(results, limit = 10) {
+  const entries = buildDailyBoardEntries(results).filter((entry) => !entry?.isPalier);
+  return entries.slice(0, Math.max(1, limit));
+}
+
+export async function getDailyHistory({ days = 7 } = {}) {
+  const safeDays = Math.min(30, Math.max(1, Math.round(days || 7)));
+  const todayId = getParisDateId();
+  const history = [];
+  const medalsMap = new Map();
+
+  for (let offset = 0; offset < safeDays; offset += 1) {
+    const dateId = addDaysToDateId(todayId, -offset);
+    const resultsPayload = await loadDailyResults(dateId);
+    const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
+    const topEntries = buildDailyTopEntries(results, 10);
+    history.push({
+      dateId,
+      entries: topEntries,
+      totalPlayers: results.length,
+    });
+    const medalRanks = ["gold", "silver", "bronze"];
+    topEntries.slice(0, 3).forEach((entry, idx) => {
+      const nick = entry?.nick;
+      if (!nick) return;
+      const current = medalsMap.get(nick) || { nick, gold: 0, silver: 0, bronze: 0, total: 0 };
+      const medal = medalRanks[idx];
+      if (medal) current[medal] += 1;
+      current.total = (current.gold || 0) + (current.silver || 0) + (current.bronze || 0);
+      medalsMap.set(nick, current);
+    });
+  }
+
+  const medalTotals = Array.from(medalsMap.values()).sort((a, b) => {
+    const diff = (b.total || 0) - (a.total || 0);
+    if (diff !== 0) return diff;
+    const gdiff = (b.gold || 0) - (a.gold || 0);
+    if (gdiff !== 0) return gdiff;
+    const sdiff = (b.silver || 0) - (a.silver || 0);
+    if (sdiff !== 0) return sdiff;
+    return String(a.nick || "").localeCompare(String(b.nick || ""));
+  });
+
+  return { days: history, medalTotals };
+}
+
 export async function startDailyAttempt(dateId, installId, pseudo) {
   const safeDateId = dateId || getParisDateId();
   const grid = await loadDailyGrid(safeDateId);
