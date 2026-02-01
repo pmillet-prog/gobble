@@ -1651,7 +1651,7 @@ export default function App() {
     entries: [],
     error: "",
   });
-  const [dailyHistory, setDailyHistory] = useState({ days: [], medalTotals: [] });
+  const [dailyHistory, setDailyHistory] = useState({ days: [], crownTotals: [] });
   const [dailyHistoryLoading, setDailyHistoryLoading] = useState(false);
   const [dailyHistoryError, setDailyHistoryError] = useState("");
   const [dailyHistoryIndex, setDailyHistoryIndex] = useState(0);
@@ -5032,11 +5032,23 @@ function playTileStepSound(step) {
       })
       .then((data) => {
         const safeDays = Array.isArray(data?.days) ? data.days : [];
-        const safeMedals = Array.isArray(data?.medalTotals) ? data.medalTotals : [];
-        setDailyHistory({ days: safeDays, medalTotals: safeMedals });
+        const rawCrowns = Array.isArray(data?.crownTotals)
+          ? data.crownTotals
+          : Array.isArray(data?.medalTotals)
+          ? data.medalTotals
+          : [];
+        const safeCrowns = rawCrowns.map((entry) => ({
+          nick: entry?.nick || "Joueur",
+          crowns: Number.isFinite(entry?.crowns)
+            ? entry.crowns
+            : Number.isFinite(entry?.gold)
+            ? entry.gold
+            : 0,
+        }));
+        setDailyHistory({ days: safeDays, crownTotals: safeCrowns });
       })
       .catch(() => {
-        setDailyHistory({ days: [], medalTotals: [] });
+        setDailyHistory({ days: [], crownTotals: [] });
         setDailyHistoryError("erreur");
       })
       .finally(() => {
@@ -6093,7 +6105,7 @@ function playTileStepSound(step) {
   }, [
     appView,
     Array.isArray(dailyHistory?.days) ? dailyHistory.days.length : 0,
-    Array.isArray(dailyHistory?.medalTotals) ? dailyHistory.medalTotals.length : 0,
+    Array.isArray(dailyHistory?.crownTotals) ? dailyHistory.crownTotals.length : 0,
   ]);
 
   useEffect(() => {
@@ -11815,7 +11827,10 @@ function handleTouchEnd() {
     : dailyHistoryDaysRaw;
   const dailyHistoryPages = [
     ...dailyHistoryDays.map((entry) => ({ type: "day", ...entry })),
-    { type: "medals", medalTotals: Array.isArray(dailyHistory?.medalTotals) ? dailyHistory.medalTotals : [] },
+    {
+      type: "crowns",
+      crownTotals: Array.isArray(dailyHistory?.crownTotals) ? dailyHistory.crownTotals : [],
+    },
   ];
   const dailyHistoryPageCount = dailyHistoryPages.length;
 
@@ -11950,11 +11965,11 @@ function handleTouchEnd() {
                     ) : (
                       <>
                         <div className="flex items-baseline justify-between gap-2 mb-2">
-                          <div className="text-sm font-bold">Total médailles</div>
+                          <div className="text-sm font-bold">Total couronnes</div>
                         </div>
-                        {Array.isArray(page.medalTotals) && page.medalTotals.length > 0 ? (
+                        {Array.isArray(page.crownTotals) && page.crownTotals.length > 0 ? (
                           <div className={`${panelHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}>
-                            {page.medalTotals.map((entry, entryIdx) => (
+                            {page.crownTotals.map((entry, entryIdx) => (
                               <div
                                 key={`${entry.nick}-${entryIdx}`}
                                 className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
@@ -11971,15 +11986,14 @@ function handleTouchEnd() {
                                   </span>
                                 </div>
                                 <span className="text-[11px] font-semibold opacity-80 shrink-0">
-                                  {entry.total || 0} (Or {entry.gold || 0} · Arg {entry.silver || 0} · Br{" "}
-                                  {entry.bronze || 0})
+                                  {entry.crowns || 0} couronne{entry.crowns > 1 ? "s" : ""}
                                 </span>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <div className="text-xs opacity-70 py-6 text-center">
-                            Aucune médaille pour l'instant.
+                            Aucune couronne pour l'instant.
                           </div>
                         )}
                       </>

@@ -43,6 +43,8 @@ import {
   initVocabularyService,
   recordVocabularyBatch,
   getVocabularyCount,
+  getVocabularyLeaderboard,
+  upsertVocabularyProfile,
   getKnownVocabWords,
 } from "./stats/vocabularyService.js";
 import {
@@ -180,7 +182,7 @@ app.get("/api/define", async (req, res) => {
   return res.json(payload);
 });
 
-app.get("/api/stats/weekly", (req, res) => {
+app.get("/api/stats/weekly", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "public, max-age=60");
   const rawTop = Number(req.query?.topN);
@@ -188,11 +190,54 @@ app.get("/api/stats/weekly", (req, res) => {
     Number.isFinite(rawTop) && rawTop > 0 ? Math.min(200, Math.max(1, Math.round(rawTop))) : undefined;
   try {
     const payload = getWeeklyStats(topN);
+    const boards = payload?.boards || {};
+    const nickByPlayerKey = new Map();
+    for (const value of Object.values(boards)) {
+      if (!Array.isArray(value)) continue;
+      for (const entry of value) {
+        const key = typeof entry?.playerKey === "string" ? entry.playerKey : "";
+        const nick = typeof entry?.nick === "string" ? entry.nick.trim() : "";
+        if (key && nick && !nickByPlayerKey.has(key)) {
+          nickByPlayerKey.set(key, nick);
+        }
+      }
+    }
+    const vocabularyFallback = await getVocabularyLeaderboard(payload?.topN || topN || 50);
+    const vocabByKey = new Map();
+    const vocabFromWeekly = Array.isArray(boards?.vocab) ? boards.vocab : [];
+    for (const entry of vocabFromWeekly) {
+      const key =
+        (typeof entry?.playerKey === "string" && entry.playerKey) ||
+        (entry?.installId ? `install:${entry.installId}` : "");
+      if (!key) continue;
+      vocabByKey.set(key, entry);
+    }
+    for (const entry of vocabularyFallback) {
+      if (!entry?.installId) continue;
+      const key = `install:${entry.installId}`;
+      const resolvedNick =
+        (typeof entry?.nick === "string" && entry.nick.trim()) || nickByPlayerKey.get(key) || "";
+      const displayNick = resolvedNick || `Joueur-${String(entry.installId).slice(0, 6)}`;
+      const next = {
+        nick: displayNick,
+        playerKey: key,
+        vocabCount: Number(entry.count) || 0,
+        achievedAt: Number(entry.updatedAt) || 0,
+      };
+      const current = vocabByKey.get(key);
+      if (!current || next.vocabCount > (Number(current?.vocabCount) || 0)) {
+        vocabByKey.set(key, next);
+      }
+    }
+    const mergedVocab = Array.from(vocabByKey.values()).sort((a, b) => {
+      const diff = (Number(b?.vocabCount) || 0) - (Number(a?.vocabCount) || 0);
+      if (diff !== 0) return diff;
+      return (Number(a?.achievedAt) || 0) - (Number(b?.achievedAt) || 0);
+    });
     const filterBots = (entries) =>
       Array.isArray(entries)
         ? entries.filter((entry) => !BOT_NICK_SET.has(entry?.nick))
         : [];
-    const boards = payload?.boards || {};
     const filteredBoards = {
       ...boards,
       medals: filterBots(boards.medals),
@@ -203,7 +248,7 @@ app.get("/api/stats/weekly", (req, res) => {
       bestRoundScore: filterBots(boards.bestRoundScore),
       bestTimeTargetLong: filterBots(boards.bestTimeTargetLong),
       bestTimeTargetScore: filterBots(boards.bestTimeTargetScore),
-      vocab: filterBots(boards.vocab),
+      vocab: filterBots(mergedVocab).slice(0, payload?.topN || topN || 50),
       mostGobbles: filterBots(boards.mostGobbles),
     };
     return res.json({ ...payload, boards: filteredBoards });
@@ -2928,6 +2973,7 @@ io.on("connection", (socket) => {
       };
       room.players.set(socket.id, player);
       room.nickToInstallId.set(player.nick, player.installId || installId);
+      void upsertVocabularyProfile(installId, player.nick, now);
       socket.data.installId = installId;
       socket.data.nick = player.nick;
       socket.data.roomId = room.id;
@@ -3011,6 +3057,7 @@ io.on("connection", (socket) => {
       lastSeenAt: now,
     });
     room.nickToInstallId.set(trimmed, installId);
+    void upsertVocabularyProfile(installId, trimmed, now);
     socket.data.installId = installId;
     socket.data.nick = trimmed;
     socket.data.roomId = room.id;

@@ -12,12 +12,94 @@ const DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
 const DB_PATH = path.join(DATA_DIR, "gobble.db");
+const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
 
 let db = null;
 let initPromise = null;
 
 function hashWord(word) {
   return createHash("sha1").update(word).digest("hex");
+}
+
+function extractInstallIdFromPlayerKey(playerKey) {
+  if (typeof playerKey !== "string") return "";
+  if (!playerKey.startsWith("install:")) return "";
+  return playerKey.slice("install:".length).trim();
+}
+
+function collectProfilesFromWeekObject(weekObj, sink) {
+  if (!weekObj || typeof weekObj !== "object") return;
+  const boardKeys = [
+    "medals",
+    "mostWordsInGame",
+    "totalScore",
+    "bestWord",
+    "longestWord",
+    "bestRoundScore",
+    "bestTimeTargetLong",
+    "bestTimeTargetScore",
+    "vocab",
+    "mostGobbles",
+  ];
+  for (const boardKey of boardKeys) {
+    const board = weekObj[boardKey];
+    if (!board || typeof board !== "object") continue;
+    for (const entry of Object.values(board)) {
+      const installId = extractInstallIdFromPlayerKey(entry?.playerKey);
+      const nick = typeof entry?.nick === "string" ? entry.nick.trim().slice(0, 25) : "";
+      if (!installId || !nick) continue;
+      const ts =
+        (Number.isFinite(entry?.achievedAt) && entry.achievedAt) ||
+        (Number.isFinite(entry?.updatedAt) && entry.updatedAt) ||
+        (Number.isFinite(weekObj?.weekStartTs) && weekObj.weekStartTs) ||
+        Date.now();
+      const prev = sink.get(installId);
+      if (!prev || ts >= prev.updatedAt) {
+        sink.set(installId, { nick, updatedAt: ts });
+      }
+    }
+  }
+}
+
+async function backfillVocabularyProfilesFromWeeklyStats() {
+  if (!db) return;
+  let parsed = null;
+  try {
+    const raw = await fs.readFile(WEEKLY_STATS_PATH, "utf8");
+    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+    parsed = JSON.parse(cleaned);
+  } catch (_) {
+    return;
+  }
+  if (!parsed || typeof parsed !== "object") return;
+  const profiles = new Map();
+  collectProfilesFromWeekObject(parsed, profiles);
+  if (parsed.history && typeof parsed.history === "object") {
+    for (const week of Object.values(parsed.history)) {
+      collectProfilesFromWeekObject(week, profiles);
+    }
+  }
+  if (!profiles.size) return;
+  try {
+    await db.exec("BEGIN");
+    for (const [installId, info] of profiles.entries()) {
+      await db.run(
+        `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+         VALUES (?, ?, ?)
+         ON CONFLICT(installId)
+         DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+        installId,
+        info.nick,
+        info.updatedAt
+      );
+    }
+    await db.exec("COMMIT");
+  } catch (err) {
+    try {
+      await db.exec("ROLLBACK");
+    } catch (_) {}
+    console.warn("Vocabulary profile backfill failed", err);
+  }
 }
 
 async function ensureDb() {
@@ -39,7 +121,13 @@ async function ensureDb() {
           count INTEGER NOT NULL DEFAULT 0,
           updatedAt INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS vocab_profiles (
+          installId TEXT PRIMARY KEY,
+          nick TEXT NOT NULL,
+          updatedAt INTEGER NOT NULL
+        );
       `);
+      await backfillVocabularyProfilesFromWeeklyStats();
       console.log(`vocab DB ready path=${DB_PATH}`);
       return db;
     })();
@@ -123,6 +211,18 @@ export async function recordVocabularyBatch(entries = []) {
       if (!installId) continue;
       seenInstallIds.add(installId);
       const ts = Number.isFinite(entry?.ts) ? entry.ts : now;
+      const nick = typeof entry?.nick === "string" ? entry.nick.trim().slice(0, 25) : "";
+      if (nick) {
+        await db.run(
+          `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+           VALUES (?, ?, ?)
+           ON CONFLICT(installId)
+           DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+          installId,
+          nick,
+          ts
+        );
+      }
       const words = Array.isArray(entry?.words) ? entry.words : [];
       const uniqueWords = new Set();
       for (const raw of words) {
@@ -188,6 +288,57 @@ export async function getVocabularyCount(installId) {
   } catch (err) {
     console.warn("Vocabulary count failed", err);
     return 0;
+  }
+}
+
+export async function getVocabularyLeaderboard(limit = 50) {
+  const ready = await ensureDb();
+  if (!ready) return [];
+  const safeLimit = Math.min(500, Math.max(1, Math.round(limit || 50)));
+  try {
+    const rows = await db.all(
+      `SELECT c.installId, c.count, c.updatedAt, p.nick
+       FROM vocab_counts c
+       LEFT JOIN vocab_profiles p ON p.installId = c.installId
+       ORDER BY c.count DESC, c.updatedAt ASC
+       LIMIT ?`,
+      safeLimit
+    );
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => ({
+        installId: row?.installId || "",
+        nick: typeof row?.nick === "string" ? row.nick.trim() : "",
+        count: Number(row?.count) || 0,
+        updatedAt: Number(row?.updatedAt) || 0,
+      }))
+      .filter((row) => row.installId && row.count > 0);
+  } catch (err) {
+    console.warn("Vocabulary leaderboard failed", err);
+    return [];
+  }
+}
+
+export async function upsertVocabularyProfile(installId, nick, updatedAt = Date.now()) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  const safeNick = typeof nick === "string" ? nick.trim().slice(0, 25) : "";
+  if (!safeInstallId || !safeNick) return false;
+  const ready = await ensureDb();
+  if (!ready) return false;
+  try {
+    await db.run(
+      `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+       VALUES (?, ?, ?)
+       ON CONFLICT(installId)
+       DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+      safeInstallId,
+      safeNick,
+      Number.isFinite(updatedAt) ? updatedAt : Date.now()
+    );
+    return true;
+  } catch (err) {
+    console.warn("Vocabulary profile upsert failed", err);
+    return false;
   }
 }
 

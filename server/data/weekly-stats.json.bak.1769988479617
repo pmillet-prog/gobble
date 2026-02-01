@@ -11,61 +11,14 @@
       "achievedAt": 1769986819890
     }
   },
-  "mostWordsInGame": {
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "wordsCount": 18,
-      "roundId": "room-4x4#1769988423850",
-      "achievedAt": 1769988543850
-    }
-  },
-  "totalScore": {
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 805,
-      "roundsPlayed": 1,
-      "achievedAt": 1769988543850
-    }
-  },
-  "bestWord": {
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "word": "dezonez",
-      "pts": 228,
-      "achievedAt": 1769988498638
-    }
-  },
-  "longestWord": {
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "word": "dezonez",
-      "len": 7,
-      "achievedAt": 1769988498638
-    }
-  },
-  "bestRoundScore": {
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "pts": 805,
-      "roundId": "room-4x4#1769988423850",
-      "achievedAt": 1769988538978
-    }
-  },
+  "mostWordsInGame": {},
+  "totalScore": {},
+  "bestWord": {},
+  "longestWord": {},
+  "bestRoundScore": {},
   "bestTimeTargetLong": {},
   "bestTimeTargetScore": {},
-  "vocab": {
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 1540,
-      "achievedAt": 1769988543850
-    }
-  },
+  "vocab": {},
   "mostGobbles": {},
   "history": {
     "1768777200000": {

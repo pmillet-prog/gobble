@@ -312,7 +312,7 @@ export async function getDailyHistory({ days = 7 } = {}) {
   const safeDays = Math.min(30, Math.max(1, Math.round(days || 7)));
   const todayId = getParisDateId();
   const history = [];
-  const medalsMap = new Map();
+  const crownsMap = new Map();
 
   for (let offset = 0; offset < safeDays; offset += 1) {
     const dateId = addDaysToDateId(todayId, -offset);
@@ -324,29 +324,22 @@ export async function getDailyHistory({ days = 7 } = {}) {
       entries: topEntries,
       totalPlayers: results.length,
     });
-    const medalRanks = ["gold", "silver", "bronze"];
-    topEntries.slice(0, 3).forEach((entry, idx) => {
-      const nick = entry?.nick;
-      if (!nick) return;
-      const current = medalsMap.get(nick) || { nick, gold: 0, silver: 0, bronze: 0, total: 0 };
-      const medal = medalRanks[idx];
-      if (medal) current[medal] += 1;
-      current.total = (current.gold || 0) + (current.silver || 0) + (current.bronze || 0);
-      medalsMap.set(nick, current);
-    });
+    const winner = topEntries[0];
+    const winnerNick = winner?.nick;
+    if (winnerNick) {
+      const current = crownsMap.get(winnerNick) || { nick: winnerNick, crowns: 0 };
+      current.crowns += 1;
+      crownsMap.set(winnerNick, current);
+    }
   }
 
-  const medalTotals = Array.from(medalsMap.values()).sort((a, b) => {
-    const diff = (b.total || 0) - (a.total || 0);
+  const crownTotals = Array.from(crownsMap.values()).sort((a, b) => {
+    const diff = (b.crowns || 0) - (a.crowns || 0);
     if (diff !== 0) return diff;
-    const gdiff = (b.gold || 0) - (a.gold || 0);
-    if (gdiff !== 0) return gdiff;
-    const sdiff = (b.silver || 0) - (a.silver || 0);
-    if (sdiff !== 0) return sdiff;
     return String(a.nick || "").localeCompare(String(b.nick || ""));
   });
 
-  return { days: history, medalTotals };
+  return { days: history, crownTotals };
 }
 
 export async function startDailyAttempt(dateId, installId, pseudo) {
