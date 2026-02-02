@@ -36,13 +36,6 @@
       "word": "dezonez",
       "pts": 228,
       "achievedAt": 1769988498638
-    },
-    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
-      "nick": "Tigre",
-      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "word": "meteo",
-      "pts": 54,
-      "achievedAt": 1769990402733
     }
   },
   "longestWord": {
@@ -52,13 +45,6 @@
       "word": "dezonez",
       "len": 7,
       "achievedAt": 1769988498638
-    },
-    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
-      "nick": "Tigre",
-      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "word": "semee",
-      "len": 5,
-      "achievedAt": 1769990398656
     }
   },
   "bestRoundScore": {
@@ -68,13 +54,6 @@
       "pts": 805,
       "roundId": "room-4x4#1769988423850",
       "achievedAt": 1769988538978
-    },
-    "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
-      "nick": "Tigre",
-      "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "pts": 162,
-      "roundId": "room-4x4#1769990325248",
-      "achievedAt": 1769990405597
     }
   },
   "bestTimeTargetLong": {},

@@ -2490,6 +2490,7 @@ async function endRoundForRoom(room) {
       uniqueWords,
       newVocabWords: [],
       isBot: isBotNick(room, nick),
+      isDailyChampion: isDailyChampionInstallId(player?.installId),
       connected,
       participated,
     });
@@ -2689,6 +2690,7 @@ async function endRoundForRoom(room) {
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
         isBot: isBotToken(player?.token),
+        isDailyChampion: isDailyChampionInstallId(player?.installId),
         connected,
         participated: !!meta,
       });
@@ -2726,7 +2728,15 @@ async function endRoundForRoom(room) {
         const basePoints = data?.points || 0;
         const gobbles = data?.gobbles || 0;
         const points = basePoints + gobbles;
-        return { nick, points, basePoints, gobbles, isBot: isBotNick(room, nick) };
+        const installId = getInstallIdForNick(room, nick);
+        return {
+          nick,
+          points,
+          basePoints,
+          gobbles,
+          isBot: isBotNick(room, nick),
+          isDailyChampion: isDailyChampionInstallId(installId),
+        };
       })
       .sort((a, b) => {
         const diff = (b.points || 0) - (a.points || 0);

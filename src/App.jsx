@@ -4181,6 +4181,7 @@ function playTileStepSound(step) {
               gobbles: e.gobbles ?? null,
               delta: e.delta ?? 0,
               isBot: !!e.isBot,
+              isDailyChampion: !!e.isDailyChampion,
             }))
           : []
       );
@@ -9576,6 +9577,7 @@ function handleTouchEnd() {
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
           gobbles: entry.gobbles ?? null,
           isBot: !!entry.isBot,
+          isDailyChampion: !!entry.isDailyChampion,
         }));
       return {
         winnerNick: ranking[0]?.nick || null,
@@ -9688,11 +9690,25 @@ function handleTouchEnd() {
     ) : null;
   }
 
-  function renderMedals(nick, fallbackMedals) {
+  function renderMedals(nick, entryOrFallback, maybeFallback) {
+    const entry =
+      entryOrFallback && typeof entryOrFallback === "object" && !Array.isArray(entryOrFallback)
+        ? entryOrFallback
+        : null;
+    const fallbackMedals = Array.isArray(entryOrFallback)
+      ? entryOrFallback
+      : Array.isArray(maybeFallback)
+      ? maybeFallback
+      : null;
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
-    return medalsInline ? (
-      <span className="inline-flex items-center gap-0.5 ml-1">{medalsInline}</span>
-    ) : null;
+    const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
+    if (!medalsInline && !crown) return null;
+    return (
+      <span className="inline-flex items-center gap-0.5 ml-1">
+        {crown}
+        {medalsInline}
+      </span>
+    );
   }
 
   function renderHumanDot(nick) {
@@ -12571,6 +12587,7 @@ function handleTouchEnd() {
     const finaleRanking = tournamentFinaleSummary.ranking.map((e) => ({
       nick: e.nick,
       score: typeof e.points === "number" ? e.points : e.score || 0,
+      isDailyChampion: !!e.isDailyChampion,
     }));
     const records = tournamentFinaleSummary.records || {};
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
@@ -14342,7 +14359,7 @@ function handleTouchEnd() {
                   const content = (
                     <>
                       {p.nick}
-                      {p.nick ? renderMedals(p.nick) : null}
+                      {p.nick ? renderMedals(p.nick, p) : null}
                     </>
                   );
                   return canOpenMenu ? (
