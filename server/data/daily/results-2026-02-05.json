@@ -1,0 +1,29 @@
+{
+  "dateId": "2026-02-05",
+  "results": [
+    {
+      "installId": "iid-1770286643563-134845",
+      "pseudo": "grabuge",
+      "score": 2166,
+      "wordCount": 50,
+      "longestWordLen": 11,
+      "durationMs": 120522,
+      "submittedAt": 1770286772825
+    },
+    {
+      "installId": "iid-1770287078327-882522",
+      "pseudo": "Super gobble",
+      "score": 1561,
+      "wordCount": 49,
+      "longestWordLen": 12,
+      "durationMs": 120082,
+      "submittedAt": 1770287207178
+    }
+  ],
+  "attempts": {
+    "iid-1770285424192-788550": {
+      "pseudo": "Bj",
+      "startedAt": 1770286054428
+    }
+  }
+}

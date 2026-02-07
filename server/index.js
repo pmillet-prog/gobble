@@ -446,15 +446,16 @@ const TARGET_BREAK_DURATION_MS = 30 * 1000; // 30 secondes pour manches cibles
 const MAX_CHAT_HISTORY = 50;
 const NICK_MAX_LEN = 25;
 const MIN_BIG_WORD = 50;
-const MIN_LONG_WORD = 5;
+const MIN_LONG_WORD = 6;
 const MIN_WORDS_BY_SIZE = { 4: 120, 5 : 100 }; 
 const SPECIAL_ROUND_EVERY = 5;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
-const MONSTROUS_MIN_TOTAL_SCORE = { 4: 2000, 5: 4000 };
-const MONSTROUS_MIN_LONG_WORD_LEN = 10;
+const MONSTROUS_MIN_TOTAL_SCORE = { 4: 4000, 5: 6000 };
+const MONSTROUS_MIN_LONG_WORD_LEN = 8;
 const MONSTROUS_MIN_LONG_WORD_COUNT = 3;
 const SPECIAL_QUALITY_ATTEMPTS = 220;
+const MONSTROUS_QUALITY_ATTEMPTS = 320;
 
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
@@ -710,7 +711,7 @@ function getRoundPlan(roundNumber, roomConfig) {
       minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
       minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
       minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
-      qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+      qualityAttempts: MONSTROUS_QUALITY_ATTEMPTS,
     };
   }
 
@@ -761,7 +762,7 @@ function buildMonstrousTournamentPlan(tournamentRound, roomConfig) {
     minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
     minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
     minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
-    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+    qualityAttempts: MONSTROUS_QUALITY_ATTEMPTS,
   };
 }
 
@@ -1429,6 +1430,45 @@ function resolveTargetHintCells(room, revealed) {
   return cells;
 }
 
+function expandTargetRevealed(word, revealed) {
+  if (!word || typeof word !== "string") return new Set(revealed || []);
+  const chars = word.split("");
+  const expanded = new Set(revealed || []);
+  for (let i = 0; i < chars.length - 1; i++) {
+    if (chars[i].toUpperCase() !== "Q") continue;
+    if (chars[i + 1].toUpperCase() !== "U") continue;
+    if (expanded.has(i) || expanded.has(i + 1)) {
+      expanded.add(i);
+      expanded.add(i + 1);
+    }
+  }
+  return expanded;
+}
+
+function pickTargetRevealGroup(word, revealed) {
+  if (!word || typeof word !== "string") return null;
+  const chars = word.split("");
+  const expanded = expandTargetRevealed(word, revealed);
+  const groups = [];
+  for (let i = 0; i < chars.length; i++) {
+    if (expanded.has(i)) continue;
+    const ch = chars[i].toUpperCase();
+    if (ch === "Q" && i + 1 < chars.length && chars[i + 1].toUpperCase() === "U") {
+      if (!expanded.has(i + 1)) {
+        groups.push([i, i + 1]);
+      }
+      i += 1;
+      continue;
+    }
+    if (ch === "U" && i > 0 && chars[i - 1].toUpperCase() === "Q") {
+      continue;
+    }
+    groups.push([i]);
+  }
+  if (!groups.length) return null;
+  return groups[Math.floor(Math.random() * groups.length)];
+}
+
 function submitWordForNick(room, { roundId, word, path, nick }) {
   if (!room) return { ok: false, error: "invalid_room" };
   if (!room.currentRound || room.currentRound.id !== roundId) {
@@ -1621,7 +1661,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
         nick: resolvedNick,
         pts: wordPts,
         word: norm,
-        text: `${resolvedNick} a trouvé le meilleur mot possible (${wordPts} pts)`,
+        text: `${resolvedNick} a trouvé le gobble du meilleur mot avec (${wordPts} points)`,
       });
     }
   } else if (!isSpeedRound && wordPts >= MIN_BIG_WORD) {
@@ -1639,16 +1679,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       !room.bestScoreRecord.players.has(resolvedNick)
     ) {
       room.bestScoreRecord.players.add(resolvedNick);
-      // égalisation seulement si on n'a pas atteint le superlatif possible
-      if (!isMaxPossiblePts) {
-        pushAnnouncement(room, {
-          type: "big_word",
-          nick: resolvedNick,
-          pts: wordPts,
-          word: norm,
-          text: `${resolvedNick} egalise le meilleur mot avec (${wordPts} pts)`,
-        });
-      }
+      // Égalisations ignorées: on n'annonce que le premier record.
     }
   }
 
@@ -1664,7 +1695,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       nick: resolvedNick,
       len,
       word: norm,
-      text: `${resolvedNick} a trouve le mot le plus long (${len} lettres)`,
+      text: `${resolvedNick} a trouvé le gobble du plus long mot avec (${len} lettres)`,
     });
   } else if (!isSpeedRound && len >= MIN_LONG_WORD) {
     if (len > room.bestLengthRecord.len) {
@@ -1681,13 +1712,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       !room.bestLengthRecord.players.has(resolvedNick)
     ) {
       room.bestLengthRecord.players.add(resolvedNick);
-      pushAnnouncement(room, {
-        type: "long_word",
-        nick: resolvedNick,
-        len,
-        word: norm,
-        text: `${resolvedNick} egalise le mot le plus long (${len} lettres)`,
-      });
+      // Égalisations ignorées: on n'annonce que le premier record.
     }
   }
 
@@ -2345,15 +2370,21 @@ async function startRoundForRoom(room) {
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
       if (revealed.size === 0 && word) {
-        const idx = Math.floor(Math.random() * word.length);
-        revealed.add(idx);
-        room.currentRound.targetRevealed = revealed;
+        const group = pickTargetRevealGroup(word, revealed);
+        if (group) {
+          group.forEach((idx) => revealed.add(idx));
+          room.currentRound.targetRevealed = revealed;
+        }
+      }
+      const expanded = expandTargetRevealed(word, revealed);
+      if (expanded.size !== revealed.size) {
+        room.currentRound.targetRevealed = expanded;
       }
       const chars = word.split("");
       const pattern = chars
-        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
+        .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
-      const revealCells = resolveTargetHintCells(room, Array.from(revealed));
+      const revealCells = resolveTargetHintCells(room, Array.from(expanded));
       io.to(room.id).emit("specialHint", {
         roomId: room.id,
         roundId,
@@ -2380,13 +2411,9 @@ async function startRoundForRoom(room) {
           const revealed = room.currentRound.targetRevealed || new Set();
           if (revealed.size >= chars.length) return;
 
-          const remaining = [];
-          for (let i = 0; i < chars.length; i++) {
-            if (!revealed.has(i)) remaining.push(i);
-          }
-          if (!remaining.length) return;
-          const idx = remaining[Math.floor(Math.random() * remaining.length)];
-          revealed.add(idx);
+          const group = pickTargetRevealGroup(word, revealed);
+          if (!group) return;
+          group.forEach((idx) => revealed.add(idx));
           room.currentRound.targetRevealed = revealed;
           emitHint();
         }, tMs)
@@ -3143,9 +3170,13 @@ io.on("connection", (socket) => {
         if (elapsed >= TARGET_HINT_FIRST_MS) {
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
+      const expanded = expandTargetRevealed(word, revealed);
+      if (expanded.size !== revealed.size) {
+        room.currentRound.targetRevealed = expanded;
+      }
       const chars = word.split("");
       const pattern = chars
-        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
+        .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
       socket.emit("specialHint", {
         roomId: room.id,
@@ -3153,7 +3184,7 @@ io.on("connection", (socket) => {
         kind: specialType,
         length: chars.length,
         pattern,
-        revealCells: resolveTargetHintCells(room, Array.from(revealed)),
+        revealCells: resolveTargetHintCells(room, Array.from(expanded)),
       });
     }
       }

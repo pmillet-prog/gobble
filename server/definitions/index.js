@@ -269,6 +269,9 @@ function extractConjugationHint(normalized, rawBase) {
 function extractFormOfHint(extract) {
   const normalized = normalizeForFormOf(extract);
   if (!normalized) return null;
+  const prefixRe =
+    /^(forme|feminin|masculin|pluriel|participe|premiere|deuxieme|troisieme|mauvaise|variante|graphie|orthographe)\b/;
+  if (!prefixRe.test(normalized)) return null;
   const rawBase = extractBaseFromRawForm(extract);
   const participleHint = extractParticipleHint(normalized, rawBase);
   if (participleHint) return participleHint;
@@ -1505,9 +1508,10 @@ const SPECIAL_ROUND_EVERY = 5;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
 const MONSTROUS_MIN_TOTAL_SCORE = { 4: 2000, 5: 4000 };
-const MONSTROUS_MIN_LONG_WORD_LEN = 10;
+const MONSTROUS_MIN_LONG_WORD_LEN = 8;
 const MONSTROUS_MIN_LONG_WORD_COUNT = 3;
 const SPECIAL_QUALITY_ATTEMPTS = 220;
+const MONSTROUS_QUALITY_ATTEMPTS = 320;
 
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
@@ -1519,7 +1523,14 @@ const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const MONSTROUS_POST_PREP_MIN_BREAK_MS = 5 * 1000;
 const DISCONNECT_GRACE_MS = 120 * 1000;
 
-const TARGET_LONG_MIN_LEN = 8;
+const TARGET_LONG_MIN_LEN = 11;
+const TARGET_LONG_PREFERRED_LEN = 13;
+const TARGET_LONG_BATCH_ATTEMPTS = 50;
+const TARGET_LONG_BATCHES_PER_LEN = 2;
+const TARGET_LONG_TOTAL_ATTEMPTS =
+  TARGET_LONG_BATCH_ATTEMPTS *
+  TARGET_LONG_BATCHES_PER_LEN *
+  (TARGET_LONG_PREFERRED_LEN - TARGET_LONG_MIN_LEN + 1);
 const TARGET_SCORE_MIN_PTS = 100;
 const TARGET_HINT_FIRST_MS = 15 * 1000;
 const TARGET_HINT_STEP_MS = 15 * 1000;
@@ -1754,7 +1765,7 @@ function getRoundPlan(roundNumber, roomConfig) {
       minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
       minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
       minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
-      qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+      qualityAttempts: MONSTROUS_QUALITY_ATTEMPTS,
     };
   }
 
@@ -1805,7 +1816,7 @@ function buildMonstrousTournamentPlan(tournamentRound, roomConfig) {
     minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
     minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
     minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
-    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+    qualityAttempts: MONSTROUS_QUALITY_ATTEMPTS,
   };
 }
 
@@ -2258,6 +2269,45 @@ function resolveTargetHintCells(room, revealed) {
     if (Number.isInteger(cellIndex)) cells.push(cellIndex);
   }
   return cells;
+}
+
+function expandTargetRevealed(word, revealed) {
+  if (!word || typeof word !== "string") return new Set(revealed || []);
+  const chars = word.split("");
+  const expanded = new Set(revealed || []);
+  for (let i = 0; i < chars.length - 1; i++) {
+    if (chars[i].toUpperCase() !== "Q") continue;
+    if (chars[i + 1].toUpperCase() !== "U") continue;
+    if (expanded.has(i) || expanded.has(i + 1)) {
+      expanded.add(i);
+      expanded.add(i + 1);
+    }
+  }
+  return expanded;
+}
+
+function pickTargetRevealGroup(word, revealed) {
+  if (!word || typeof word !== "string") return null;
+  const chars = word.split("");
+  const expanded = expandTargetRevealed(word, revealed);
+  const groups = [];
+  for (let i = 0; i < chars.length; i++) {
+    if (expanded.has(i)) continue;
+    const ch = chars[i].toUpperCase();
+    if (ch === "Q" && i + 1 < chars.length && chars[i + 1].toUpperCase() === "U") {
+      if (!expanded.has(i + 1)) {
+        groups.push([i, i + 1]);
+      }
+      i += 1;
+      continue;
+    }
+    if (ch === "U" && i > 0 && chars[i - 1].toUpperCase() === "Q") {
+      continue;
+    }
+    groups.push([i]);
+  }
+  if (!groups.length) return null;
+  return groups[Math.floor(Math.random() * groups.length)];
 }
 
 function submitWordForNick(room, { roundId, word, path, nick }) {
@@ -2824,12 +2874,20 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
     roundPlan?.qualityAttempts || room.config?.qualityAttempts || MAX_QUALITY_ATTEMPTS
   );
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
-  const maxAttemptsTotal = needsBonusLetter
+  const maxAttemptsBase = needsBonusLetter
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
     : maxAttempts;
+  const maxAttemptsTotal =
+    roundPlan?.type === "target_long"
+      ? Math.max(maxAttemptsBase, TARGET_LONG_TOTAL_ATTEMPTS)
+      : maxAttemptsBase;
   const size = room.config.gridSize;
   const effectiveMinWords = dictionary ? minWords : 0;
   const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
+  const isTargetLong = roundPlan?.type === "target_long";
+  const targetLongMinLen = TARGET_LONG_MIN_LEN;
+  const targetLongPreferredLen = Math.max(targetLongMinLen, TARGET_LONG_PREFERRED_LEN);
+  const targetLongBatchSize = Math.max(1, Math.min(TARGET_LONG_BATCH_ATTEMPTS, maxAttemptsTotal));
 
   if (minWords > 0 && !dictionary) {
     console.warn(`[${room.id}] Impossible de valider un minimum de mots (dico manquant)`);
@@ -2838,16 +2896,24 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   const startedAt = Date.now();
   let bestCandidate = null;
   let fallbackCandidate = null;
+  let targetLongThreshold = targetLongPreferredLen;
+  let targetLongAttemptsInBatch = 0;
+  let targetLongBatchesAtLen = 0;
+  let targetLongBestAtThreshold = null;
 
-  const pickTargetFromSolved = (solved, type) => {
+  const pickTargetFromSolved = (solved, type, opts = {}) => {
     if (!solved || solved.size === 0) return null;
 
     if (type === "target_long") {
+      const minLongLen = Math.max(
+        0,
+        Number.isFinite(opts?.minLongLen) ? opts.minLongLen : TARGET_LONG_MIN_LEN
+      );
       let maxLen = 0;
       for (const w of solved.keys()) {
         if (w.length > maxLen) maxLen = w.length;
       }
-      if (maxLen < TARGET_LONG_MIN_LEN) return null;
+      if (maxLen < minLongLen) return null;
       const maxWords = [];
       for (const w of solved.keys()) {
         if (w.length === maxLen) maxWords.push(w);
@@ -2910,6 +2976,9 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
     let targetWord = null;
     let targetLength = null;
     let targetPath = null;
+    let fallbackTargetWord = null;
+    let fallbackTargetLength = null;
+    let fallbackTargetPath = null;
     let bonusLetter = null;
     let solved = null;
     if (
@@ -2922,11 +2991,22 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
     }
 
     if (solved && (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")) {
-      const target = pickTargetFromSolved(solved, roundPlan.type);
+      const target = pickTargetFromSolved(
+        solved,
+        roundPlan.type,
+        isTargetLong ? { minLongLen: targetLongMinLen } : null
+      );
       if (target?.word) {
         targetWord = target.word;
         targetLength = target.length || target.word.length;
         targetPath = Array.isArray(target.path) ? target.path : null;
+      } else if (isTargetLong) {
+        const fallbackTarget = pickTargetFromSolved(solved, roundPlan.type, { minLongLen: 0 });
+        if (fallbackTarget?.word) {
+          fallbackTargetWord = fallbackTarget.word;
+          fallbackTargetLength = fallbackTarget.length || fallbackTarget.word.length;
+          fallbackTargetPath = Array.isArray(fallbackTarget.path) ? fallbackTarget.path : null;
+        }
       }
       quality.ok = quality.ok && !!targetWord;
     }
@@ -2963,7 +3043,18 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
       targetLength,
       targetPath,
     };
-    fallbackCandidate = candidate;
+    const fallbackCandidateOverride =
+      isTargetLong && !targetWord && fallbackTargetWord
+        ? {
+            ...candidate,
+            targetWord: fallbackTargetWord,
+            targetLength: fallbackTargetLength,
+            targetPath: fallbackTargetPath,
+          }
+        : candidate;
+    if (!isTargetLong || targetWord || fallbackTargetWord) {
+      fallbackCandidate = fallbackCandidateOverride;
+    }
     if (needsBonusLetter && !planForRound?.bonusLetter) {
       continue;
     }
@@ -2975,13 +3066,61 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
       (bestCandidate?.quality?.possibleScore || 0) / 500 +
       (bestCandidate?.quality?.longWords || 0);
 
-    if (!bestCandidate || currentScore > bestScore) {
-      bestCandidate = candidate;
-    }
+    if (isTargetLong) {
+      if (targetWord) {
+        const candidateLen = Number.isFinite(targetLength) ? targetLength : 0;
+        const bestLen = Number.isFinite(bestCandidate?.targetLength)
+          ? bestCandidate.targetLength
+          : 0;
+        if (
+          !bestCandidate ||
+          candidateLen > bestLen ||
+          (candidateLen === bestLen && currentScore > bestScore)
+        ) {
+          bestCandidate = candidate;
+        }
+        if (candidateLen >= targetLongThreshold) {
+          const bestThresholdLen = Number.isFinite(targetLongBestAtThreshold?.targetLength)
+            ? targetLongBestAtThreshold.targetLength
+            : 0;
+          const thresholdScore =
+            (targetLongBestAtThreshold?.quality?.words || 0) +
+            (targetLongBestAtThreshold?.quality?.possibleScore || 0) / 500 +
+            (targetLongBestAtThreshold?.quality?.longWords || 0);
+          if (
+            !targetLongBestAtThreshold ||
+            candidateLen > bestThresholdLen ||
+            (candidateLen === bestThresholdLen && currentScore > thresholdScore)
+          ) {
+            targetLongBestAtThreshold = candidate;
+          }
+        }
+      }
+      targetLongAttemptsInBatch += 1;
+      if (targetLongAttemptsInBatch >= targetLongBatchSize) {
+        if (targetLongBestAtThreshold) {
+          bestCandidate = targetLongBestAtThreshold;
+          break;
+        }
+        targetLongAttemptsInBatch = 0;
+        targetLongBatchesAtLen += 1;
+        if (targetLongBatchesAtLen >= TARGET_LONG_BATCHES_PER_LEN) {
+          if (targetLongThreshold > targetLongMinLen) {
+            targetLongThreshold -= 1;
+            targetLongBatchesAtLen = 0;
+            targetLongBestAtThreshold = null;
+          }
+        }
+      }
+    } else {
+      if (!bestCandidate || currentScore > bestScore) {
+        bestCandidate = candidate;
+      }
 
-    if (quality.ok) {
-      bestCandidate = candidate;
-      break;
+      if (quality.ok) {
+        bestCandidate = candidate;
+        break;
+      }
     }
   }
 
@@ -3200,15 +3339,21 @@ function startRoundForRoom(room) {
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
       if (revealed.size === 0 && word) {
-        const idx = Math.floor(Math.random() * word.length);
-        revealed.add(idx);
-        room.currentRound.targetRevealed = revealed;
+        const group = pickTargetRevealGroup(word, revealed);
+        if (group) {
+          group.forEach((idx) => revealed.add(idx));
+          room.currentRound.targetRevealed = revealed;
+        }
+      }
+      const expanded = expandTargetRevealed(word, revealed);
+      if (expanded.size !== revealed.size) {
+        room.currentRound.targetRevealed = expanded;
       }
       const chars = word.split("");
       const pattern = chars
-        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
+        .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
-      const revealCells = resolveTargetHintCells(room, Array.from(revealed));
+      const revealCells = resolveTargetHintCells(room, Array.from(expanded));
       io.to(room.id).emit("specialHint", {
         roomId: room.id,
         roundId,
@@ -3235,13 +3380,9 @@ function startRoundForRoom(room) {
           const revealed = room.currentRound.targetRevealed || new Set();
           if (revealed.size >= chars.length) return;
 
-          const remaining = [];
-          for (let i = 0; i < chars.length; i++) {
-            if (!revealed.has(i)) remaining.push(i);
-          }
-          if (!remaining.length) return;
-          const idx = remaining[Math.floor(Math.random() * remaining.length)];
-          revealed.add(idx);
+          const group = pickTargetRevealGroup(word, revealed);
+          if (!group) return;
+          group.forEach((idx) => revealed.add(idx));
           room.currentRound.targetRevealed = revealed;
           emitHint();
         }, tMs)
@@ -3762,9 +3903,13 @@ io.on("connection", (socket) => {
         if (elapsed >= TARGET_HINT_FIRST_MS) {
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
+      const expanded = expandTargetRevealed(word, revealed);
+      if (expanded.size !== revealed.size) {
+        room.currentRound.targetRevealed = expanded;
+      }
       const chars = word.split("");
       const pattern = chars
-        .map((ch, idx) => (revealed.has(idx) ? ch.toUpperCase() : "_"))
+        .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
       socket.emit("specialHint", {
         roomId: room.id,
@@ -3772,7 +3917,7 @@ io.on("connection", (socket) => {
         kind: specialType,
         length: chars.length,
         pattern,
-        revealCells: resolveTargetHintCells(room, Array.from(revealed)),
+        revealCells: resolveTargetHintCells(room, Array.from(expanded)),
       });
     }
       }
@@ -3956,19 +4101,6 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 rooms.forEach((room) => startRoundForRoom(room));
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

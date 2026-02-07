@@ -7,6 +7,34 @@ const NOT_FOUND_TTL_MS = 10 * 60 * 1000;
 const MAX_CONCURRENCY = 6;
 const DEBUG = process.env.DEBUG_DEFINE === "1";
 const USER_AGENT = "Gobble/1.0 (https://gobble.fr; contact: contact@gobble.fr)";
+const ALLOW_WIKIPEDIA_DEFINITIONS = false;
+const PROPER_NOUN_PATTERNS = [
+  /\bnom propre\b/,
+  /\bprenom\b/,
+  /\bnom de famille\b/,
+  /\bpatronyme\b/,
+  /\btoponyme\b/,
+  /\bgentile\b/,
+  /\banthroponyme\b/,
+  /\bethnie\b/,
+  /\bgroupe ethnique\b/,
+  /\bpeuple\b/,
+  /\btribu\b/,
+  /\bclan\b/,
+  /\bdynastie\b/,
+  /\bpersonnage\b/,
+];
+const COMMON_GRAMMAR_PATTERNS = [
+  /\bnom commun\b/,
+  /\badjectif\b/,
+  /\bverbe\b/,
+  /\badverbe\b/,
+  /\bpronom\b/,
+  /\bdeterminant\b/,
+  /\bpreposition\b/,
+  /\bconjonction\b/,
+  /\binterjection\b/,
+];
 
 const cache = new Map();
 const inflight = new Map();
@@ -80,6 +108,41 @@ function normalizeForFormOf(value) {
     .replace(/[^a-z'\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeForTextMatch(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikeProperNoun(summary, rawWord, source) {
+  if (!summary) return false;
+  if (source === "wikipedia" && !ALLOW_WIKIPEDIA_DEFINITIONS) return true;
+  const combined = [
+    summary.title || "",
+    summary.description || "",
+    summary.extract || "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (!combined) return false;
+  const text = normalizeForTextMatch(combined);
+  if (!text) return false;
+  if (COMMON_GRAMMAR_PATTERNS.some((re) => re.test(text))) return false;
+  if (PROPER_NOUN_PATTERNS.some((re) => re.test(text))) return true;
+  const word = String(rawWord || "").trim();
+  if (!word) return false;
+  const lowerWord = normalizeForTextMatch(word);
+  if (!lowerWord) return false;
+  if (text.startsWith(`${lowerWord} est `)) return true;
+  if (text.startsWith(`${lowerWord} est une `)) return true;
+  if (text.startsWith(`${lowerWord} est un `)) return true;
+  if (text.startsWith(`les ${lowerWord} sont `)) return true;
+  return false;
 }
 
 function hasDiacritics(value) {
@@ -298,6 +361,9 @@ function extractConjugationHint(normalized, rawBase) {
 function extractFormOfHint(extract) {
   const normalized = normalizeForFormOf(extract);
   if (!normalized) return null;
+  const prefixRe =
+    /^(forme|feminin|masculin|pluriel|participe|premiere|deuxieme|troisieme|mauvaise|variante|graphie|orthographe)\b/;
+  if (!prefixRe.test(normalized)) return null;
   const rawBase = extractBaseFromRawForm(extract);
   const participleHint = extractParticipleHint(normalized, rawBase);
   if (participleHint) return participleHint;
@@ -405,7 +471,13 @@ async function fetchSummary(baseUrl, title, options) {
     data?.content_urls?.desktop?.page ||
     data?.content_urls?.mobile?.page ||
     `${baseUrl}/wiki/${encodeURIComponent(title)}`;
-  return { title: normalizeNfc(data?.title || title), extract, url: urlOut };
+  return {
+    title: normalizeNfc(data?.title || title),
+    extract,
+    url: urlOut,
+    description: data?.description || "",
+    type: data?.type || "",
+  };
 }
 
 function extractWiktionaryDefinition(wikitext) {
@@ -552,10 +624,20 @@ function extractDictionaryApiDefinition(payload) {
   for (const entry of payload) {
     const meanings = Array.isArray(entry?.meanings) ? entry.meanings : [];
     for (const meaning of meanings) {
+      const pos = String(meaning?.partOfSpeech || "").toLowerCase();
+      if (pos.includes("proper") || pos.includes("nom propre")) {
+        continue;
+      }
       const defs = Array.isArray(meaning?.definitions) ? meaning.definitions : [];
       for (const def of defs) {
         const text = String(def?.definition || "").trim();
-        if (text) return clipDefinition(text);
+        if (text) {
+          const clipped = clipDefinition(text);
+          if (clipped && PROPER_NOUN_PATTERNS.some((re) => re.test(normalizeForTextMatch(clipped)))) {
+            continue;
+          }
+          return clipped;
+        }
       }
     }
   }
@@ -822,6 +904,7 @@ function buildAcidPhrases(word, inflections) {
 
 function buildPayload(word, summary, source) {
   if (!summary) return null;
+  if (looksLikeProperNoun(summary, word, source)) return null;
   const definition = clipDefinition(summary.extract || "");
   if (!definition) return null;
   return {
@@ -1277,6 +1360,12 @@ export async function getDefinition(rawWord, { timeoutMs = 2500, skipCache = fal
           options
         );
         if (fallbackDefinition) {
+          const fallbackIsProper = PROPER_NOUN_PATTERNS.some((re) =>
+            re.test(normalizeForTextMatch(fallbackDefinition))
+          );
+          if (fallbackIsProper) {
+            payload = null;
+          } else {
           payload = {
             ok: true,
             word: input,
@@ -1285,6 +1374,7 @@ export async function getDefinition(rawWord, { timeoutMs = 2500, skipCache = fal
             extract: fallbackDefinition,
             source: "dictionaryapi.dev",
           };
+          }
         }
       }
 

@@ -18,6 +18,7 @@ function MobileGrid({
   handleTouchStart,
   hintCellSet,
   hintOutlineCellSet,
+  implodeActive,
   isMobileLayout,
   lightGridSurfaceStyle,
   MOBILE_LAYOUT_MAX_WIDTH,
@@ -81,6 +82,7 @@ function MobileGrid({
         onMouseMove={handleMouseMove}
         onTouchMove={handleTouchMove}
       >
+        {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
         {board.map((_, displayIndex) => {
           const boardIndex = mapDisplayToBoardIndex(displayIndex);
           const cell = board[boardIndex] || { letter: "?", bonus: null };
@@ -115,7 +117,7 @@ function MobileGrid({
               onTouchCancel={handleTouchEnd}
               type="button"
               className={[
-                "relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
+                "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
                 isMobileLayout
                   ? "w-full"
                   : "w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] text-xl",

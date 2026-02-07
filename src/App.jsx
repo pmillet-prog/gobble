@@ -2,6 +2,7 @@
 // 
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import confetti from "canvas-confetti";
+import { applyHtmlAudioSettings, resolveSoundSettings } from "./audio/equalizer";
 import { createPortal } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
@@ -59,6 +60,8 @@ const BASE_GAP_RATIO = BASE_GAP_PX / BASE_TILE_PX; // ~0.14 pour conserver les p
 const MIN_TILE_SIZE = 40; // garde une lisibilité minimale
 const GRID_ROTATE_ANIM_MS = 820;
 const DARK_ROW_TEXT = "#e5e7eb";
+const LIVE_SOLVER_DURING_PLAY = false;
+const DEV_MODE = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
 const DARK_DIVIDER_COLOR = "#1f2937";
 const DARK_WORD_INACTIVE = "#e2e8f0";
 const WORD_BATCH_FLUSH_MS = 40;
@@ -73,6 +76,238 @@ const VOCAB_OVERLAY_MAX_COUNT_MS = 5000;
 const VOCAB_OVERLAY_ABSORB_MS = 2000;
 const VOCAB_OVERLAY_END_HOLD_MS = 3000;
 const VOCAB_OVERLAY_IMAGE_FADE_MS = 450;
+const DEBUG_AUDIO = false;
+const AUDIO_MASTER_GAIN = 0.7;
+const AUDIO_POLYPHONY_LIMIT = 10;
+const SOFT_CLIP_CURVE_CACHE = new Map();
+const AUDIO_COOLDOWNS_MS = {
+  tileStep: 40,
+  tick: 750,
+  countdownTick: 850,
+  swipe: 80,
+  bipmontre: 120,
+  vocabTick: 40,
+  vocabZero: 80,
+  vocabCling: 80,
+  specialFound: 80,
+  roundStart: 160,
+  invalidWord: 160,
+  dejaJoue: 160,
+  score: 60,
+  score2: 60,
+  tournamentCelebration: 240,
+  error: 120,
+  duplicate: 120,
+  gobbleVoice: 1200,
+};
+const VOCAB_SAMPLE_BASE_FREQ = 440;
+const BOOT_LOGO_SRC = "/favicon.png";
+const SOUND_ROOT = "/sound";
+const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
+const AMBIENT_MUSIC_TRACKS_DEFAULT = [
+  `${SOUND_ROOT}/music/oiseauxnuit.mp3`,
+  `${SOUND_ROOT}/music/oiseauxsoir.mp3`,
+  `${SOUND_ROOT}/music/reveiloiseaux.mp3`,
+  `${SOUND_ROOT}/music/reveiloiseaux2.mp3`,
+];
+const INCREMENTAL_SOUND_COUNT = 16;
+const INCREMENTAL_SOUND_PATHS = Array.from({ length: INCREMENTAL_SOUND_COUNT }, (_, idx) => {
+  const label = String(idx + 1).padStart(2, "0");
+  return `${SOUND_ROOT}/game/incremental/${label}.wav`;
+});
+const SCORE_SOUND_BANDS = [
+  { min: 3, max: 5, src: `${SOUND_ROOT}/game/scores/03.wav` },
+  { min: 6, max: 9, src: `${SOUND_ROOT}/game/scores/04.wav` },
+  { min: 10, max: 19, src: `${SOUND_ROOT}/game/scores/05.wav` },
+  { min: 20, max: 29, src: `${SOUND_ROOT}/game/scores/06.wav` },
+  { min: 30, max: Infinity, src: `${SOUND_ROOT}/game/scores/07.wav` },
+];
+const SCORE_SOUND_PATHS = SCORE_SOUND_BANDS.map((band) => band.src);
+const SCORE2_SOUND_PATHS = SCORE_SOUND_BANDS.map((band) =>
+  band.src.replace("/game/scores/", "/game/piano/")
+);
+const SOUND_PATHS = {
+  gobbleVoice: `${SOUND_ROOT}/game/gobble.mp3`,
+  blackHole: `${SOUND_ROOT}/game/chasse.mp3`,
+  chebabeu: `${SOUND_ROOT}/game/chebabeu.wav`,
+  clavier: `${SOUND_ROOT}/game/clavier.wav`,
+  souris: `${SOUND_ROOT}/game/souris.wav`,
+  roundStart: `${SOUND_ROOT}/game/dong.wav`,
+  specialFound: `${SOUND_ROOT}/game/charleston.wav`,
+  tictac10: `${SOUND_ROOT}/game/tictac10.wav`,
+  coeur: `${SOUND_ROOT}/game/coeur.wav`,
+  tictoc: `${SOUND_ROOT}/game/tictoc.mp3`,
+  vocabOverlay: `${SOUND_ROOT}/ui/progvoca.wav`,
+  vocabCling: `${SOUND_ROOT}/game/piece.wav`,
+  invalidWord: `${SOUND_ROOT}/game/invalide.mp3`,
+  dejaJoue: `${SOUND_ROOT}/game/dejajoue.wav`,
+  uiClick: `${SOUND_ROOT}/ui/click.wav`,
+  uiClose: `${SOUND_ROOT}/ui/bipmontre.wav`,
+  tournamentFireworks: `${SOUND_ROOT}/game/artifice.mp3`,
+  tournamentApplause: `${SOUND_ROOT}/game/applause.wav`,
+};
+const BOOT_ASSET_IMAGES = [
+  "/favicon.png",
+  "/bigwords/gobble.png",
+  "/bigwords/epique.png",
+  "/bigwords/enorme.png",
+  "/bigwords/excellent.png",
+  "/bigwords/fabuleux.png",
+  "/vocab-ranks/debutant.png",
+  "/vocab-ranks/ecolier.png",
+  "/vocab-ranks/collegien.png",
+  "/vocab-ranks/lyceen.png",
+  "/vocab-ranks/etudiant.png",
+  "/vocab-ranks/expert.png",
+];
+const BOOT_ASSET_FILES = [
+  "/dico.txt",
+  "/privacy.html",
+  "/privacy/index.html",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/manifest.webmanifest",
+  "/icon.svg",
+  "/favicon-16x16.png",
+  "/favicon-32x32.png",
+  "/apple-touch-icon.png",
+  "/sw.js",
+  "/.well-known/assetlinks.json",
+];
+const BOOT_ASSET_SOUNDS_BASE = [
+  SOUND_PATHS.gobbleVoice,
+  SOUND_PATHS.blackHole,
+  SOUND_PATHS.chebabeu,
+  SOUND_PATHS.clavier,
+  SOUND_PATHS.souris,
+  SOUND_PATHS.roundStart,
+  SOUND_PATHS.specialFound,
+  SOUND_PATHS.tictac10,
+  SOUND_PATHS.coeur,
+  SOUND_PATHS.tictoc,
+  SOUND_PATHS.vocabOverlay,
+  SOUND_PATHS.vocabCling,
+  SOUND_PATHS.invalidWord,
+  SOUND_PATHS.dejaJoue,
+  SOUND_PATHS.uiClick,
+  SOUND_PATHS.uiClose,
+  SOUND_PATHS.tournamentFireworks,
+  SOUND_PATHS.tournamentApplause,
+  ...INCREMENTAL_SOUND_PATHS,
+  ...SCORE_SOUND_PATHS,
+  ...SCORE2_SOUND_PATHS,
+  "/error.mp3",
+  `${SOUND_ROOT}/ui/click2.wav`,
+];
+const BOOT_MIN_HOLD_MS = 650;
+
+function preloadImage(src) {
+  return new Promise((resolve) => {
+    if (typeof Image === "undefined") {
+      resolve(false);
+      return;
+    }
+    let settled = false;
+    const img = new Image();
+    const finalize = (ok) => {
+      if (settled) return;
+      settled = true;
+      img.onload = null;
+      img.onerror = null;
+      resolve(ok);
+    };
+    img.onload = () => finalize(true);
+    img.onerror = () => finalize(false);
+    img.src = src;
+    if (img.decode) {
+      img.decode().then(
+        () => finalize(true),
+        () => finalize(false)
+      );
+    }
+  });
+}
+
+function preloadSound(src) {
+  if (typeof window === "undefined" || typeof fetch === "undefined") {
+    return Promise.resolve(false);
+  }
+  return fetch(src, { cache: "force-cache" })
+    .then((res) => {
+      if (!res.ok) throw new Error("bad-response");
+      return res.arrayBuffer();
+    })
+    .then(() => true)
+    .catch(() => false);
+}
+
+function resolveAmbientManifestTracks(payload) {
+  const raw = Array.isArray(payload) ? payload : payload?.tracks;
+  if (!Array.isArray(raw)) return null;
+  const seen = new Set();
+  const resolved = [];
+  raw.forEach((entry) => {
+    const value = typeof entry === "string" ? entry : entry?.src;
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    const full = trimmed.startsWith("/") ? trimmed : `${SOUND_ROOT}/music/${trimmed}`;
+    if (seen.has(full)) return;
+    seen.add(full);
+    resolved.push(full);
+  });
+  return resolved.length ? resolved : null;
+}
+
+async function loadAmbientTrackList() {
+  if (typeof fetch === "undefined") return AMBIENT_MUSIC_TRACKS_DEFAULT;
+  try {
+    const res = await fetch(AMBIENT_MUSIC_MANIFEST, { cache: "force-cache" });
+    if (!res.ok) return AMBIENT_MUSIC_TRACKS_DEFAULT;
+    const data = await res.json();
+    const resolved = resolveAmbientManifestTracks(data);
+    return resolved && resolved.length ? resolved : AMBIENT_MUSIC_TRACKS_DEFAULT;
+  } catch (_) {
+    return AMBIENT_MUSIC_TRACKS_DEFAULT;
+  }
+}
+
+const DEFINITION_PLACEHOLDER_RE = /^[.\u2026\u00b7\s-]+$/;
+
+function sanitizeDefinitionText(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (DEFINITION_PLACEHOLDER_RE.test(text)) return "";
+  return text;
+}
+
+function pickDefinitionText(data) {
+  if (!data) return "";
+  const primary = sanitizeDefinitionText(data.definition);
+  if (primary) return primary;
+  return sanitizeDefinitionText(data.extract);
+}
+
+function buildDefinitionFallbacks(clean, data, tried) {
+  const out = [];
+  const push = (value) => {
+    const term = String(value || "").trim();
+    if (!term) return;
+    const key = normalizeWord(term);
+    if (!key || tried.has(key)) return;
+    tried.add(key);
+    out.push(term);
+  };
+  push(data?.lemma);
+  push(data?.title);
+  push(data?.matchedTitle);
+  const normalized = normalizeWord(clean);
+  if (normalized && !tried.has(normalized)) {
+    tried.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
 
 function getGridSizeForRoom(roomKey) {
   return ROOM_OPTIONS[roomKey]?.gridSize || 4;
@@ -228,7 +463,7 @@ const WEEKLY_BOARDS = [
 ];
 const FINALE_WEEKLY_BOARDS = [
   { key: "vocab", label: "Vocabulaire", subtitle: "Mots uniques" },
-  ...WEEKLY_BOARDS,
+  ...WEEKLY_BOARDS.filter((board) => board.key !== "medals"),
 ];
 const WEEKLY_RECORD_LABELS = {
   bestWord: "Meilleur mot",
@@ -299,6 +534,400 @@ function SwapFadeText({ value, className = "" }) {
     phase === "out" ? "results-fade-out" : phase === "in" ? "results-fade-in" : "";
 
   return <span className={`${className} ${phaseClass}`}>{displayValue}</span>;
+}
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+}
+
+function parseRgbColor(value) {
+  if (!value || typeof value !== "string") return null;
+  const m = value.trim().match(/^rgba?\((.+)\)$/i);
+  if (!m) return null;
+  const parts = m[1].split(",").map((p) => p.trim());
+  if (parts.length < 3) return null;
+  const read = (v) => {
+    if (v.endsWith("%")) {
+      const n = parseFloat(v);
+      if (!Number.isFinite(n)) return 0;
+      return Math.round((n / 100) * 255);
+    }
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? Math.round(n) : 0;
+  };
+  const r = read(parts[0]);
+  const g = read(parts[1]);
+  const b = read(parts[2]);
+  const a =
+    parts.length >= 4 && Number.isFinite(parseFloat(parts[3]))
+      ? Math.max(0, Math.min(1, parseFloat(parts[3])))
+      : 1;
+  return { r, g, b, a };
+}
+
+function darkenColor(value, factor = 0.7) {
+  const parsed = parseRgbColor(value);
+  if (!parsed) return value;
+  const f = Math.max(0, Math.min(1, factor));
+  const r = Math.round(parsed.r * f);
+  const g = Math.round(parsed.g * f);
+  const b = Math.round(parsed.b * f);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function makeFxTile3D(letter, sizePx, thickPx, visuals = {}) {
+  const fx = document.createElement("div");
+  fx.className = "fxTile3d";
+  fx.style.setProperty("--s", `${sizePx}px`);
+  fx.style.setProperty("--t", `${thickPx}px`);
+  if (visuals.bg) fx.style.setProperty("--fx-bg", visuals.bg);
+  if (visuals.border) fx.style.setProperty("--fx-border", visuals.border);
+  if (visuals.side) fx.style.setProperty("--fx-side", visuals.side);
+  if (visuals.text) fx.style.setProperty("--fx-text", visuals.text);
+  fx.style.setProperty("--fx-font", `${Math.max(16, Math.round(sizePx * 0.46))}px`);
+
+  const bg = visuals.bg || "#f3c07a";
+  const border = visuals.border || "rgba(0,0,0,.25)";
+  const side = visuals.side || "#a6803f";
+  const back = visuals.back || side || bg;
+  const halfT = thickPx / 2;
+  const eps = Math.max(0.2, thickPx * 0.02);
+  const commonFaceStyle = {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    backfaceVisibility: "hidden",
+  };
+
+  const mkFace = (cls, withLetter = false) => {
+    const f = document.createElement("div");
+    f.className = `face ${cls}`;
+    Object.assign(f.style, commonFaceStyle);
+    if (withLetter) {
+      const s = document.createElement("span");
+      s.className = "letter";
+      s.textContent = letter;
+      f.appendChild(s);
+    }
+    return f;
+  };
+
+  const front = mkFace("front", true);
+  Object.assign(front.style, {
+    width: `${sizePx}px`,
+    height: `${sizePx}px`,
+    transform: `translate(-50%, -50%) translateZ(${halfT + eps}px)`,
+    background: bg,
+    border: `1px solid ${border}`,
+    borderRadius: "14px",
+    boxShadow:
+      "0 16px 26px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.35), inset 0 -14px 22px rgba(0,0,0,.22)",
+  });
+
+  const backFace = mkFace("back", true);
+  Object.assign(backFace.style, {
+    width: `${sizePx}px`,
+    height: `${sizePx}px`,
+    transform: `translate(-50%, -50%) rotateY(180deg) translateZ(${halfT + eps}px)`,
+    background: back,
+    border: `1px solid ${border}`,
+    borderRadius: "14px",
+  });
+
+  const right = mkFace("right");
+  Object.assign(right.style, {
+    width: `${thickPx}px`,
+    height: `${sizePx}px`,
+    transform: `translate(-50%, -50%) rotateY(90deg) translateZ(${sizePx / 2}px)`,
+    background: `linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.55)), ${side}`,
+    borderRadius: "6px",
+  });
+
+  const left = mkFace("left");
+  Object.assign(left.style, {
+    width: `${thickPx}px`,
+    height: `${sizePx}px`,
+    transform: `translate(-50%, -50%) rotateY(-90deg) translateZ(${sizePx / 2}px)`,
+    background: `linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.55)), ${side}`,
+    borderRadius: "6px",
+  });
+
+  const top = mkFace("top");
+  Object.assign(top.style, {
+    width: `${sizePx}px`,
+    height: `${thickPx}px`,
+    transform: `translate(-50%, -50%) rotateX(90deg) translateZ(${sizePx / 2}px)`,
+    background: `linear-gradient(90deg, rgba(0,0,0,.12), rgba(0,0,0,.55)), ${side}`,
+    borderRadius: "6px",
+  });
+
+  const bottom = mkFace("bottom");
+  Object.assign(bottom.style, {
+    width: `${sizePx}px`,
+    height: `${thickPx}px`,
+    transform: `translate(-50%, -50%) rotateX(-90deg) translateZ(${sizePx / 2}px)`,
+    background: `linear-gradient(90deg, rgba(0,0,0,.12), rgba(0,0,0,.55)), ${side}`,
+    borderRadius: "6px",
+  });
+
+  fx.appendChild(front);
+  fx.appendChild(backFace);
+  fx.appendChild(right);
+  fx.appendChild(left);
+  fx.appendChild(top);
+  fx.appendChild(bottom);
+
+  return fx;
+}
+
+async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }) {
+  if (prefersReducedMotion()) return null;
+  if (!tileEls || tileEls.length === 0) return null;
+  if (!Number.isFinite(holeX) || !Number.isFinite(holeY)) return null;
+  const randRangeLocal = (min, max) => Math.random() * (max - min) + min;
+  const expEaseIn = (t, k = 3) => {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    const kk = Math.max(0.001, k);
+    return (Math.exp(kk * t) - 1) / (Math.exp(kk) - 1);
+  };
+  if (DEV_MODE) {
+    console.info("[fx] black-hole start", {
+      count: tileEls.length,
+      durationMs,
+    });
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "fxOverlay";
+  document.body.appendChild(overlay);
+  overlay.style.perspectiveOrigin = `${holeX}px ${holeY}px`;
+
+  const fade = document.createElement("div");
+  fade.className = "fxScreenFade";
+  overlay.appendChild(fade);
+  const DEBUG_FX_CUBE = false;
+  if (DEV_MODE && DEBUG_FX_CUBE) {
+    const dbg = makeFxTile3D("A", 90, 28, {
+      bg: "#f3c07a",
+      side: "#a6803f",
+      border: "rgba(0,0,0,.25)",
+      text: "#1f1300",
+    });
+    dbg.style.left = "40px";
+    dbg.style.top = "40px";
+    dbg.style.transform = "rotateX(65deg) rotateY(-35deg)";
+    overlay.appendChild(dbg);
+  }
+
+  fade.animate(
+    [
+      { opacity: 0, offset: 0 },
+      { opacity: 0, offset: 0.72 },
+      { opacity: 1, offset: 1 },
+    ],
+    {
+      duration: durationMs,
+      easing: "linear",
+      fill: "forwards",
+    }
+  );
+
+  const anims = [];
+  const DEBUG_FX_GEOM = false;
+  let debugApplied = false;
+
+  for (const el of tileEls) {
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    const size = Math.round(Math.min(rect.width, rect.height));
+    const thick = Math.max(6, Math.round(size * 0.22));
+    const letter =
+      (el.querySelector?.(".tile-letter")?.textContent || el.textContent || "")
+        .trim()
+        .slice(0, 2);
+    const styles = window.getComputedStyle(el);
+    const bgRaw = styles.backgroundColor || "";
+    const bgParsed = parseRgbColor(bgRaw);
+    const bg = bgParsed && bgParsed.a >= 0.85 ? bgRaw : "#f3c07a";
+    const border =
+      styles.borderColor && styles.borderColor !== "transparent"
+        ? styles.borderColor
+        : "rgba(0,0,0,0.25)";
+    const text = "#1f1300";
+    const side = darkenColor(bg, 0.62);
+
+    const fx = makeFxTile3D(letter, size, thick, {
+      bg,
+      border,
+      side,
+      text,
+    });
+
+    fx.style.left = `${holeX - size / 2}px`;
+    fx.style.top = `${holeY - size / 2}px`;
+    overlay.appendChild(fx);
+    if (DEBUG_FX_GEOM && !debugApplied) {
+      debugApplied = true;
+      fx.style.transform = "rotateX(65deg) rotateY(-35deg) translateZ(0)";
+      fx.style.opacity = "1";
+      continue;
+    }
+
+    let x0 = rect.left + rect.width / 2 - holeX;
+    let y0 = rect.top + rect.height / 2 - holeY;
+    let r0 = Math.hypot(x0, y0);
+    const minR = Math.max(6, size * 0.18);
+    if (r0 < minR) {
+      const ang = Math.random() * Math.PI * 2;
+      x0 = Math.cos(ang) * minR;
+      y0 = Math.sin(ang) * minR;
+      r0 = minR;
+    }
+    const a0 = Math.atan2(y0, x0);
+
+    const maxDist = Math.max(1, Math.hypot(window.innerWidth, window.innerHeight));
+    const distNorm = Math.min(1, r0 / maxDist);
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const turns = 0.9 + 1.3 * distNorm + Math.random() * 0.6;
+    const spinTurns = 0.9 + 1.4 * distNorm + Math.random() * 0.8;
+    const zDepth = 220 + Math.random() * 260;
+    const spinZ = dir * 360 * spinTurns;
+    const orbitBias = randRangeLocal(-0.12, 0.12) * (0.4 + 0.6 * distNorm);
+    const wobbleAmp = 0.02 + 0.06 * distNorm;
+    const wobblePhase = Math.random() * Math.PI * 2;
+    const wobbleTurns = 1.4 + Math.random() * 1.6;
+
+    const steps = 14;
+    const kf = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const accelK = 3.2 + 2.2 * distNorm;
+      const moveEase = expEaseIn(t, accelK);
+      const rotEase = expEaseIn(t, accelK * 1.05);
+      const scaleEase = Math.pow(moveEase, 1.05);
+      const wobble = wobbleAmp * Math.sin(t * wobbleTurns * Math.PI * 2 + wobblePhase);
+      const rr = r0 * (1 - moveEase);
+      const orbitR = rr * (1 + orbitBias + wobble);
+      const aa = a0 + dir * turns * Math.PI * 2 * moveEase;
+
+      const x = Math.cos(aa) * orbitR * (1 + orbitBias * 0.25);
+      const y = Math.sin(aa) * orbitR * (1 - orbitBias * 0.25);
+      const z = -zDepth * moveEase;
+
+      const rz = spinZ * rotEase;
+      const rx = 0;
+      const ry = 0;
+
+      const s = 1 - 0.94 * Math.pow(scaleEase, 1.02);
+      const fadeStart = 0.6 + 0.25 * distNorm;
+      const fadeT = t <= fadeStart ? 0 : (t - fadeStart) / (1 - fadeStart);
+      const o = 1 - Math.pow(fadeT, 1.2);
+      kf.push({
+        transform: `translate3d(${x}px, ${y}px, ${z}px) rotateZ(${rz}deg) rotateX(${rx}deg) rotateY(${ry}deg) scale(${s})`,
+        opacity: o,
+      });
+    }
+
+    const durationScale = 0.65 + 0.95 * distNorm;
+    anims.push(
+      fx
+        .animate(kf, {
+          duration: durationMs * durationScale + Math.random() * 220,
+          easing: "cubic-bezier(.2,.9,.2,1)",
+          fill: "forwards",
+        })
+        .finished
+    );
+  }
+
+  await Promise.allSettled(anims);
+  return { overlay, fade };
+}
+
+function BootLoader({ progress = 0, darkMode = false }) {
+  if (typeof document === "undefined") return null;
+  const clamped = Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 1) : 0;
+  const percent = Math.round(clamped * 100);
+  const glowClass = darkMode
+    ? "bg-slate-950 text-slate-100"
+    : "bg-gradient-to-br from-amber-50 via-orange-50 to-white text-slate-900";
+  const cardClass = darkMode
+    ? "bg-slate-900/85 border-white/10"
+    : "bg-white/90 border-slate-200";
+  const barTrackClass = darkMode ? "bg-slate-800/70" : "bg-slate-200/80";
+  const barFillClass = darkMode ? "bg-amber-400" : "bg-amber-500";
+
+  return createPortal(
+    <div className={`fixed inset-0 z-[14000] flex items-center justify-center ${glowClass}`}>
+      <style>{`
+@keyframes bootFloatOne {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(10px, -14px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@keyframes bootFloatTwo {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-14px, 8px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@keyframes bootPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.3); }
+  70% { transform: scale(1.02); box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+}
+`}</style>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute -top-28 -left-16 h-64 w-64 rounded-full bg-amber-300/30 blur-3xl"
+          style={{ animation: "bootFloatOne 6s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute top-1/3 -right-24 h-72 w-72 rounded-full bg-orange-400/25 blur-3xl"
+          style={{ animation: "bootFloatTwo 7s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute -bottom-28 left-1/4 h-80 w-80 rounded-full bg-yellow-200/25 blur-3xl"
+          style={{ animation: "bootFloatOne 8s ease-in-out infinite" }}
+        />
+      </div>
+      <div className={`relative w-[92vw] max-w-sm rounded-3xl border p-6 shadow-2xl ${cardClass}`}>
+        <div className="flex items-center justify-center">
+          <div
+            className={`rounded-2xl p-3 ${darkMode ? "bg-amber-500/10" : "bg-amber-200/60"}`}
+            style={{ animation: "bootPulse 2.6s ease-in-out infinite" }}
+          >
+            <img
+              src={BOOT_LOGO_SRC}
+              alt="Gobble"
+              className="h-16 w-16 object-contain"
+              draggable="false"
+            />
+          </div>
+        </div>
+        <div className="mt-4 text-center text-xs font-black tracking-[0.32em] uppercase text-amber-500">
+          Gobble
+        </div>
+        <div className={`mt-2 text-center text-sm font-semibold ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
+          Chargement des medias
+        </div>
+        <div className={`mt-5 h-2 w-full overflow-hidden rounded-full ${barTrackClass}`}>
+          <div
+            className={`h-full rounded-full transition-[width] duration-300 ${barFillClass}`}
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+        <div className={`mt-2 flex items-center justify-between text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-500"}`}>
+          <span>{percent}%</span>
+          <span>Images + sons</span>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 
@@ -721,6 +1350,82 @@ body {
   }
 }
 
+@keyframes guideSwipeLeft {
+  0% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(-18px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+}
+
+@keyframes guidePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.35);
+  }
+  70% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 10px rgba(251, 191, 36, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
+@keyframes guideBlink {
+  0% {
+    background-color: rgba(251, 191, 36, 0.18);
+  }
+  50% {
+    background-color: rgba(251, 191, 36, 0.5);
+  }
+  100% {
+    background-color: rgba(251, 191, 36, 0.18);
+  }
+}
+
+@keyframes specialHintLetter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.8);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.8);
+  }
+}
+
+@keyframes specialHintTile {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.06);
+  }
+  70% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .results-fade-out {
   animation: resultsFadeOut 0.25s ease-in both;
 }
@@ -735,6 +1440,59 @@ body {
 
 .results-swap-fade {
   animation: resultsSwapFade 0.5s ease both;
+}
+
+.guide-swipe {
+  animation: guideSwipeLeft 1.6s ease-in-out infinite;
+}
+
+.guide-pulse {
+  animation: guidePulse 1.8s ease-in-out infinite;
+}
+
+.guide-highlight {
+  box-shadow: inset 0 0 0 2px rgba(251, 191, 36, 0.85);
+}
+
+.guide-blink {
+  animation: guideBlink 1.2s ease-in-out infinite;
+}
+
+.special-hint-letter {
+  animation: specialHintLetter 2.8s ease-in-out infinite;
+}
+
+.special-hint-tile {
+  animation: specialHintTile 2.8s ease-in-out infinite;
+  position: relative;
+}
+
+.special-hint-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  animation: specialHintLetter 2.8s ease-in-out infinite;
+}
+
+.special-hint-tile.special-hint-fill::before {
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.35),
+    inset 0 0 0 2px rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.special-hint-tile.special-hint-outline::before {
+  box-shadow: inset 0 0 0 3px rgba(16, 185, 129, 0.75);
+}
+
+body.theme-dark .special-hint-tile.special-hint-fill::before {
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.7),
+    inset 0 0 0 2px rgba(16, 185, 129, 0.7);
+  background: rgba(167, 243, 208, 0.85);
 }
 
 @keyframes finaleSlideIn {
@@ -765,6 +1523,136 @@ body {
 
 .finale-slide-out {
   animation: finaleSlideOut 0.35s ease-in both;
+}
+
+@keyframes tileImplode {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  45% {
+    opacity: var(--implode-opacity-mid, 0.6);
+    transform: translate3d(
+        calc(var(--implode-x) * 0.45 + var(--implode-ox)),
+        calc(var(--implode-y) * 0.45 + var(--implode-oy)),
+        0
+      )
+      rotate(calc(var(--implode-rot) * 0.6))
+      scale(var(--implode-scale-mid, 0.7));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--implode-x), var(--implode-y), 0)
+      rotate(var(--implode-rot))
+      scale(var(--implode-scale-end, 0.15));
+  }
+}
+
+.tile-implode {
+  animation: tileImplode var(--implode-dur, 0.9s) ease-in forwards;
+  animation-delay: var(--implode-delay, 0s);
+  will-change: transform, opacity;
+  z-index: 6;
+}
+
+ .fxOverlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  perspective: 320px;
+  transform-style: preserve-3d;
+  z-index: 9999;
+}
+
+.fxTile3d{
+  position:absolute;
+  width: var(--s);
+  height: var(--s);
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  z-index: 2;
+}
+
+.fxTile3d .face{
+  position:absolute;
+  backface-visibility: hidden;
+}
+
+.fxTile3d .front,
+.fxTile3d .back{
+  border-radius: 14px;
+}
+
+.fxTile3d .front{
+  background: var(--fx-bg, #f3c07a);
+  border: 1px solid var(--fx-border, rgba(0,0,0,.25));
+  box-shadow:
+    0 16px 26px rgba(0,0,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.35),
+    inset 0 -14px 22px rgba(0,0,0,.22);
+}
+
+.fxTile3d .back{
+  background: color-mix(in srgb, var(--fx-bg, #f3c07a) 70%, black);
+  border: 1px solid rgba(0,0,0,.25);
+}
+
+.fxTile3d .right,
+.fxTile3d .left{
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.55)), var(--fx-side, #a6803f);
+}
+
+.fxTile3d .top,
+.fxTile3d .bottom{
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(0,0,0,.12), rgba(0,0,0,.55)), var(--fx-side, #a6803f);
+}
+
+.fxTile3d .letter{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  font-weight: 900;
+  font-size: var(--fx-font, 22px);
+  letter-spacing:-.5px;
+  color: var(--fx-text, #1f2937);
+  text-shadow: 0 2px 0 rgba(0,0,0,.25), 0 0 8px rgba(255,255,255,.15);
+}
+
+.fxScreenFade{
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+@keyframes blackHolePulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.85);
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.35), 0 0 24px rgba(0, 0, 0, 0.45);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.05);
+    box-shadow: 0 0 18px rgba(0, 0, 0, 0.5), 0 0 36px rgba(0, 0, 0, 0.6);
+  }
+}
+
+.black-hole {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2f2f2f 0%, #0a0a0a 55%, #000 100%);
+  animation: blackHolePulse 0.75s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 5;
 }
 
 @keyframes shake {
@@ -1319,8 +2207,40 @@ const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
+const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v2";
+const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
+const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
+const GUIDED_RESULTS_STEPS = {
+  SWIPE_TOTAL: "swipe_total",
+  SWIPE_FOUND: "swipe_found",
+  SWIPE_ALL: "swipe_all",
+  TAP_WORD: "tap_word",
+  TAP_DEFINITION: "tap_definition",
+};
+const GUIDED_RESULTS_STEP_ORDER = [
+  GUIDED_RESULTS_STEPS.SWIPE_TOTAL,
+  GUIDED_RESULTS_STEPS.SWIPE_FOUND,
+  GUIDED_RESULTS_STEPS.SWIPE_ALL,
+  GUIDED_RESULTS_STEPS.TAP_WORD,
+  GUIDED_RESULTS_STEPS.TAP_DEFINITION,
+];
+const GUIDED_RESULTS_PAGE_TO_STEP = {
+  round: GUIDED_RESULTS_STEPS.SWIPE_TOTAL,
+  total: GUIDED_RESULTS_STEPS.SWIPE_FOUND,
+  found: GUIDED_RESULTS_STEPS.SWIPE_ALL,
+  all: GUIDED_RESULTS_STEPS.TAP_WORD,
+};
+const SPECIAL_TUTORIAL_HINT_FIRST_S = 15;
+const SPECIAL_TUTORIAL_HINT_STEP_S = 15;
+const SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK = 11;
+const SPECIAL_TUTORIAL_BONUS_TILE_STYLES = {
+  L2: { bg: "rgba(163,196,243,0.85)", border: "rgba(99,147,230,0.9)", text: "#0f172a" },
+  L3: { bg: "rgba(51,93,227,0.8)", border: "rgba(30,64,175,0.95)", text: "#ffffff" },
+  M2: { bg: "rgba(255,191,180,0.9)", border: "rgba(248,113,113,0.95)", text: "#0f172a" },
+  M3: { bg: "rgba(239,68,68,0.85)", border: "rgba(185,28,28,0.95)", text: "#ffffff" },
+};
 const REPORT_REASONS = [
   "Spam",
   "Harcèlement",
@@ -1459,22 +2379,173 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
+  const [inputLocked, setInputLocked] = useState(false);
+  const inputLockedRef = useRef(false);
+  const outroInFlightRef = useRef(false);
+  const outroRoundRef = useRef(null);
+  const [implodeActive, setImplodeActive] = useState(false);
+  const implodeRoundRef = useRef(null);
+  const implodeTimerRef = useRef(null);
+  const implodePhaseTimerRef = useRef(null);
+  const implodeFallbackRef = useRef(false);
+  const pendingRoundEndRef = useRef(null);
+  const pendingBreakStartRef = useRef(null);
+  const processRoundEndedRef = useRef(null);
+  const processBreakStartedRef = useRef(null);
+  const playOutroThenResultsRef = useRef(null);
   const gridRotateAnimRef = useRef(null);
   const gridRotateTimerRef = useRef(null);
   const [isGridRotating, setIsGridRotating] = useState(false);
   const [lastInputMode, setLastInputMode] = useState("keyboard");
   const audioCtxRef = useRef(null);
-  const gobbleVoiceRef = useRef({ audio: null, buffer: null, loading: false, last: 0 });
+  const audioSystemRef = useRef(null);
+  const audioUnlockedRef = useRef(false);
+  const audioVoiceRef = useRef({
+    activeVoices: 0,
+    maxVoices: AUDIO_POLYPHONY_LIMIT,
+    lastPlayed: new Map(),
+    drops: 0,
+    lastLogAt: 0,
+  });
+  const blackHoleAudioRef = useRef(null);
+  const blackHoleChebabeuRef = useRef(null);
+  const blackHoleClavierRef = useRef(null);
+  const blackHoleSourisRef = useRef(null);
+  const blackHoleSourisLoopRef = useRef({ intervalId: null, stopTimer: null });
+  const blackHoleClavierFadeRef = useRef(null);
+  const blackHoleAuxStopRef = useRef(null);
+  const blackHoleSyncTokenRef = useRef(0);
+  const tickCountdownAudioRef = useRef(null);
+  const tickCountdownTargetAudioRef = useRef(null);
+  const tickCountdownPlayedRef = useRef(false);
+  const countdownTickAudioRef = useRef(null);
+  const countdownTickPlayedRef = useRef(false);
+  const audioPoolRef = useRef(new Map());
+  const ambientMusicRef = useRef({
+    audio: null,
+    index: -1,
+    order: null,
+    orderKey: "",
+    lastTrack: null,
+    fadeRaf: null,
+    fadeTimer: null,
+    startGuard: null,
+    playCheck: null,
+    keepAlive: false,
+    primed: false,
+    active: false,
+  });
+  const ambientStartPendingRef = useRef(false);
+  const ambientRetryRef = useRef(false);
+  const roundStartPendingRef = useRef(null);
+  const roundStartRetryRef = useRef(false);
+  const gobbleVoiceRef = useRef({
+    audio: null,
+    buffer: null,
+    loading: false,
+    mediaSource: null,
+    mediaGain: null,
+    mediaCtx: null,
+  });
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
   const gridRef = useRef(null);
   const canVibrateRef = useRef(false);
   const [gridWidth, setGridWidth] = useState(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isSfxMuted, setIsSfxMuted] = useState(false);
+  const isSfxMutedRef = useRef(false);
+  const [isAmbientMuted, setIsAmbientMuted] = useState(false);
+  const isAmbientMutedRef = useRef(false);
+  const [isVibrationEnabled, setIsVibrationEnabled] = useState(true);
+  const isVibrationEnabledRef = useRef(true);
+  const [canVibrate, setCanVibrate] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
+  const [ambientTracks, setAmbientTracks] = useState(AMBIENT_MUSIC_TRACKS_DEFAULT);
+  const ambientTracksRef = useRef(AMBIENT_MUSIC_TRACKS_DEFAULT);
+  useEffect(() => {
+    ambientTracksRef.current = ambientTracks;
+  }, [ambientTracks]);
+  const [bootProgress, setBootProgress] = useState(() => ({
+    loaded: 0,
+    total:
+      BOOT_ASSET_IMAGES.length +
+      BOOT_ASSET_SOUNDS_BASE.length +
+      BOOT_ASSET_FILES.length +
+      AMBIENT_MUSIC_TRACKS_DEFAULT.length,
+    errors: 0,
+    done: false,
+  }));
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    let cancelled = false;
+    const run = async () => {
+      const resolvedAmbientTracks = await loadAmbientTrackList();
+      if (cancelled) return;
+      if (
+        Array.isArray(resolvedAmbientTracks) &&
+        resolvedAmbientTracks.length &&
+        resolvedAmbientTracks !== ambientTracksRef.current
+      ) {
+        ambientTracksRef.current = resolvedAmbientTracks;
+        setAmbientTracks(resolvedAmbientTracks);
+      }
+      const assets = [
+        ...BOOT_ASSET_IMAGES.map((src) => ({ type: "image", src })),
+        ...BOOT_ASSET_SOUNDS_BASE.map((src) => ({ type: "sound", src })),
+        ...resolvedAmbientTracks.map((src) => ({ type: "sound", src })),
+        ...BOOT_ASSET_FILES.map((src) => ({ type: "file", src })),
+      ];
+      const total = assets.length;
+      if (!total) {
+        setBootProgress((prev) => ({ ...prev, total: 0, done: true }));
+        return;
+      }
+      let loaded = 0;
+      let errors = 0;
+      setBootProgress((prev) => ({ ...prev, loaded: 0, errors: 0, total }));
+      const startedAt = performance.now();
+      const tickProgress = (ok) => {
+        loaded += 1;
+        if (!ok) errors += 1;
+        if (!cancelled) {
+          setBootProgress((prev) => ({
+            ...prev,
+            loaded,
+            errors,
+            total,
+          }));
+        }
+      };
+      const tasks = assets.map((asset) => {
+        const loader = asset.type === "image" ? preloadImage : preloadSound;
+        return loader(asset.src).then((ok) => {
+          tickProgress(ok);
+          return ok;
+        });
+      });
+      Promise.allSettled(tasks).then(() => {
+        const elapsed = performance.now() - startedAt;
+        const delay = Math.max(0, BOOT_MIN_HOLD_MS - elapsed);
+        window.setTimeout(() => {
+          if (cancelled) return;
+          setBootProgress((prev) => ({
+            ...prev,
+            loaded,
+            errors,
+            total,
+            done: true,
+          }));
+        }, delay);
+      });
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [showHelp, setShowHelp] = useState(false);
   const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | live
   const [analysis, setAnalysis] = useState(null);
@@ -1502,6 +2573,9 @@ export default function App() {
   const resultsMetaPulseEndTimerRef = useRef(null);
   const [finalePage, setFinalePage] = useState(0);
   const finaleScrollRef = useRef(null);
+  const finaleTouchRef = useRef({ startX: null, startY: null });
+  const finaleDraggingRef = useRef(false);
+  const finaleSlideWidthRef = useRef(0);
   const [nickname, setNickname] = useState(() => {
     try {
       return localStorage.getItem("boggle_nick") || "";
@@ -1512,6 +2586,15 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [roundId, setRoundId] = useState(null);
+  const [devPerfStats, setDevPerfStats] = useState(() => ({
+    longTasks: 0,
+    lastLongTaskMs: 0,
+    lastLongTaskAt: null,
+    lastSolveAllAt: null,
+  }));
+  const roundStartSoundRef = useRef(null);
+  const tickRef = useRef(tick);
+  const tickIntervalRef = useRef(null);
   const [serverEndsAt, setServerEndsAt] = useState(null);
   const [serverRoundDurationMs, setServerRoundDurationMs] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -1524,19 +2607,26 @@ export default function App() {
   const [weeklyStatsLoading, setWeeklyStatsLoading] = useState(false);
   const [weeklyStatsError, setWeeklyStatsError] = useState("");
   const weeklyStatsSnapshotRef = useRef(null);
-  const weeklyStatsBaselineRef = useRef(null);
+  const tournamentBaselineRef = useRef({
+    id: null,
+    weeklyStats: null,
+    rankingMap: null,
+    rankingRound: null,
+  });
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
   const weeklyTouchRef = useRef({ startX: null, startY: null });
   const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
   const weeklySlideWidthRef = useRef(0);
   const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
   const [weeklyDragging, setWeeklyDragging] = useState(false);
+  const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({ startX: null, startY: null });
   const seasonSlideWidthRef = useRef(0);
   const [seasonDragOffset, setSeasonDragOffset] = useState(0);
   const [seasonDragging, setSeasonDragging] = useState(false);
+  const seasonSwipeBlockRef = useRef(0);
   const [weeklyArrowVisible, setWeeklyArrowVisible] = useState(false);
   const [weeklyArrowBlink, setWeeklyArrowBlink] = useState(false);
   const [weeklyArrowBump, setWeeklyArrowBump] = useState(false);
@@ -1562,6 +2652,7 @@ export default function App() {
   const [specialRound, setSpecialRound] = useState(null);
   const [nextStartAt, setNextStartAt] = useState(null);
   const [breakCountdown, setBreakCountdown] = useState(null);
+  const breakCountdownRef = useRef(breakCountdown);
   const [upcomingSpecial, setUpcomingSpecial] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installMessage, setInstallMessage] = useState("");
@@ -1621,6 +2712,7 @@ export default function App() {
   const [tournamentFinaleHoldUntil, setTournamentFinaleHoldUntil] = useState(null);
   const [targetSummary, setTargetSummary] = useState(null); // { word, foundOrder }
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
+  const breakKindRef = useRef(breakKind);
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
   const [specialHint, setSpecialHint] = useState(null); // { kind, pattern, length, cells }
   const [specialSolvedOverlay, setSpecialSolvedOverlay] = useState(null); // { nick, word, kind }
@@ -1671,10 +2763,59 @@ export default function App() {
   });
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
+  const [guidedResultsSeenInstallId, setGuidedResultsSeenInstallId] = useState(() => {
+    try {
+      return localStorage.getItem(GUIDED_RESULTS_SEEN_STORAGE_KEY) || "";
+    } catch (_) {
+      return "";
+    }
+  });
+  const [guidedResultsStep, setGuidedResultsStep] = useState(null);
+  const [specialTutorialSeen, setSpecialTutorialSeen] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === "object") {
+        const installId = typeof parsed.installId === "string" ? parsed.installId : "";
+        const types =
+          parsed.types && typeof parsed.types === "object" && !Array.isArray(parsed.types)
+            ? parsed.types
+            : {};
+        return { installId, types };
+      }
+    } catch (_) {}
+    return { installId: "", types: {} };
+  });
+  const [specialTutorialPlan, setSpecialTutorialPlan] = useState(null);
+  const [isSpecialTutorialOpen, setIsSpecialTutorialOpen] = useState(false);
   const shouldShowTutorial =
     tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
+  const completeGuidedResultsTutorial = React.useCallback(() => {
+    if (!installId) return;
+    try {
+      localStorage.setItem(GUIDED_RESULTS_SEEN_STORAGE_KEY, installId);
+    } catch (_) {}
+    setGuidedResultsSeenInstallId(installId);
+    setGuidedResultsStep(null);
+  }, [installId]);
+  const markSpecialTutorialSeen = React.useCallback(
+    (type) => {
+      if (!type) return;
+      setSpecialTutorialSeen((prev) => {
+        const nextInstallId = installId || prev?.installId || "";
+        const nextTypes = { ...(prev?.types || {}) };
+        nextTypes[type] = true;
+        const next = { installId: nextInstallId, types: nextTypes };
+        try {
+          localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
+        } catch (_) {}
+        return next;
+      });
+    },
+    [installId]
+  );
 
   function returnToLobby() {
     setIsSettingsOpen(false);
@@ -1701,6 +2842,7 @@ export default function App() {
   });
   const isLoggedInRef = useRef(false);
   const nicknameRef = useRef(nickname);
+  const phaseRef = useRef(phase);
   const currentRoomIdRef = useRef(currentRoomId);
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
@@ -1720,14 +2862,60 @@ export default function App() {
     nicknameRef.current = nickname;
   }, [nickname]);
   useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+  useEffect(() => {
+    if (!DEV_MODE) return;
+    if (phase === "playing") {
+      setDevPerfStats((prev) => ({
+        ...prev,
+        longTasks: 0,
+        lastLongTaskMs: 0,
+        lastLongTaskAt: null,
+      }));
+    }
+  }, [phase]);
+  useEffect(() => {
+    inputLockedRef.current = inputLocked;
+  }, [inputLocked]);
+  useEffect(() => {
+    isSfxMutedRef.current = isSfxMuted;
+  }, [isSfxMuted]);
+  useEffect(() => {
+    isAmbientMutedRef.current = isAmbientMuted;
+  }, [isAmbientMuted]);
+  useEffect(() => {
+    isVibrationEnabledRef.current = isVibrationEnabled;
+  }, [isVibrationEnabled]);
+  useEffect(() => {
     currentRoomIdRef.current = currentRoomId;
   }, [currentRoomId]);
   useEffect(() => {
     roundIdRef.current = roundId;
   }, [roundId]);
   useEffect(() => {
+    breakCountdownRef.current = breakCountdown;
+  }, [breakCountdown]);
+  useEffect(() => {
+    breakKindRef.current = breakKind;
+  }, [breakKind]);
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
+  useEffect(() => {
     tournamentRef.current = tournament;
   }, [tournament]);
+  useEffect(() => {
+    if (!installId) return;
+    setSpecialTutorialSeen((prev) => {
+      if (prev?.installId === installId) return prev;
+      const next = { installId, types: {} };
+      try {
+        localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+  }, [installId]);
 
   // Zone active pour le clavier : "game" ou "chat"
   const [activeArea, setActiveArea] = useState("game");
@@ -1784,6 +2972,7 @@ export default function App() {
     definition: "",
     source: "",
     url: "",
+    fromWordInfo: false,
   });
   const [wordInfoModal, setWordInfoModal] = useState({
     open: false,
@@ -1878,6 +3067,7 @@ export default function App() {
   const toastTimerRef = useRef(null);
   const praiseTimerRef = useRef(null);
   const gobbleTimerRef = useRef(null);
+  const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
@@ -1889,17 +3079,15 @@ export default function App() {
   const manualRefreshTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(false);
+  const intentionalDisconnectRef = useRef(false);
+  const isBackgroundedRef = useRef(false);
+  const foregroundAttemptRef = useRef(0);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
   const bestGridMaxRef = useRef(0);
   const bestGridMaxLenRef = useRef(0);
   const bestWordAnnounceRef = useRef(-1);
-  const lastTickSoundRef = useRef(0);
-  const tickToneToggleRef = useRef(false);
-  const lastCountdownTickRef = useRef(0);
-  const countdownTickToggleRef = useRef(false);
-  const lastSwipeSoundRef = useRef(0);
   const tournamentCelebrationPlayedRef = useRef(false);
 
   const specialScoreConfig = React.useMemo(() => {
@@ -1926,12 +3114,613 @@ export default function App() {
   const [countdownHeight, setCountdownHeight] = useState(0);
   const [previewHeight, setPreviewHeight] = useState(0);
 
+  function createSoftClipCurve(amount = 1.25, samples = 1024) {
+    const key = `${amount}|${samples}`;
+    const cached = SOFT_CLIP_CURVE_CACHE.get(key);
+    if (cached) return cached;
+    const curve = new Float32Array(samples);
+    const k = Number.isFinite(amount) ? amount : 1;
+    for (let i = 0; i < samples; i++) {
+      const x = (i * 2) / (samples - 1) - 1;
+      curve[i] = Math.tanh(k * x);
+    }
+    SOFT_CLIP_CURVE_CACHE.set(key, curve);
+    return curve;
+  }
+
+  function randRange(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function dbToGain(db) {
+    return Math.pow(10, db / 20);
+  }
+
+  function humanizeGain(base, varianceDb = 1.2) {
+    const jitter = randRange(-varianceDb, varianceDb);
+    return base * dbToGain(jitter);
+  }
+
+  function humanizeFreq(freq, cents = 6) {
+    const jitter = randRange(-cents, cents);
+    return freq * Math.pow(2, jitter / 1200);
+  }
+
+  function createReverbImpulse(ctx, durationSec = 0.35, decay = 2.4) {
+    const length = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
+    const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch += 1) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < length; i += 1) {
+        const t = i / length;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+      }
+    }
+    return buffer;
+  }
+
+  function applyFilterEnv(filter, now, { base, peak, attack = 0.02, release = 0.12 } = {}) {
+    const baseFreq = Number.isFinite(base) ? base : 2000;
+    filter.frequency.setValueAtTime(baseFreq, now);
+    if (Number.isFinite(peak) && peak > 0) {
+      filter.frequency.linearRampToValueAtTime(peak, now + attack);
+      filter.frequency.setTargetAtTime(baseFreq, now + attack, release);
+    }
+  }
+
+  function connectSfxChain(ctx, system, sourceNode, opts = {}, now = ctx.currentTime) {
+    const nodes = [];
+    let input = sourceNode;
+    let reverbTap = sourceNode;
+
+    if (opts.filter) {
+      const filter = ctx.createBiquadFilter();
+      filter.type = opts.filter.type || "lowpass";
+      filter.Q.setValueAtTime(Number.isFinite(opts.filter.q) ? opts.filter.q : 0.7, now);
+      applyFilterEnv(filter, now, opts.filter.env || opts.filter);
+      input.connect(filter);
+      input = filter;
+      reverbTap = filter;
+      nodes.push(filter);
+    }
+
+    if (opts.saturation) {
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = createSoftClipCurve(opts.saturation, 1024);
+      shaper.oversample = "2x";
+      input.connect(shaper);
+      input = shaper;
+      reverbTap = shaper;
+      nodes.push(shaper);
+    }
+
+    if (opts.panRange && typeof ctx.createStereoPanner === "function") {
+      const panner = ctx.createStereoPanner();
+      panner.pan.setValueAtTime(randRange(-opts.panRange, opts.panRange), now);
+      input.connect(panner);
+      input = panner;
+      nodes.push(panner);
+    }
+
+    if (opts.reverbSend && system.reverbIn) {
+      const send = ctx.createGain();
+      send.gain.setValueAtTime(opts.reverbSend, now);
+      reverbTap.connect(send);
+      send.connect(system.reverbIn);
+      nodes.push(send);
+    }
+
+    input.connect(system.busIn);
+    return nodes;
+  }
+
+  function getAudioSystem({ force = false } = {}) {
+    if (!force && !audioUnlockedRef.current) return null;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioCtx();
+      audioSystemRef.current = null;
+      audioVoiceRef.current.activeVoices = 0;
+      audioVoiceRef.current.lastPlayed = new Map();
+      audioVoiceRef.current.drops = 0;
+    }
+    const ctx = audioCtxRef.current;
+    if (!audioSystemRef.current || audioSystemRef.current.ctx !== ctx) {
+      const busIn = ctx.createGain();
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = AUDIO_MASTER_GAIN;
+
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -24;
+      compressor.knee.value = 24;
+      compressor.ratio.value = 10;
+      compressor.attack.value = 0.005;
+      compressor.release.value = 0.2;
+
+      const limiter = ctx.createWaveShaper();
+      limiter.curve = createSoftClipCurve(1.25);
+      limiter.oversample = "4x";
+
+      const reverbIn = ctx.createGain();
+      const reverb = ctx.createConvolver();
+      const reverbHP = ctx.createBiquadFilter();
+      const reverbLP = ctx.createBiquadFilter();
+      const reverbGain = ctx.createGain();
+      reverb.buffer = createReverbImpulse(ctx, 0.35, 2.4);
+      reverbHP.type = "highpass";
+      reverbHP.frequency.value = 220;
+      reverbLP.type = "lowpass";
+      reverbLP.frequency.value = 7200;
+      reverbGain.gain.value = 0.22;
+
+      reverbIn.connect(reverb);
+      reverb.connect(reverbHP);
+      reverbHP.connect(reverbLP);
+      reverbLP.connect(reverbGain);
+      reverbGain.connect(busIn);
+
+      busIn.connect(masterGain);
+      masterGain.connect(compressor);
+      compressor.connect(limiter);
+      limiter.connect(ctx.destination);
+
+      audioSystemRef.current = {
+        ctx,
+        busIn,
+        masterGain,
+        compressor,
+        limiter,
+        reverbIn,
+        reverbGain,
+      };
+    }
+    return audioSystemRef.current;
+  }
+
+  function logAudioDrop(reason, soundKey) {
+    if (!DEBUG_AUDIO) return;
+    const state = audioVoiceRef.current;
+    const now = Date.now();
+    if (now - state.lastLogAt < 150) return;
+    state.lastLogAt = now;
+    console.debug(
+      `[audio] drop:${reason} ${soundKey} active=${state.activeVoices}/${state.maxVoices} drops=${state.drops}`
+    );
+  }
+
+  function shouldPlay(soundKey, cooldownMs) {
+    const state = audioVoiceRef.current;
+    const now =
+      typeof performance !== "undefined" && performance.now
+        ? performance.now()
+        : Date.now();
+    const minInterval =
+      Number.isFinite(cooldownMs) && cooldownMs >= 0
+        ? cooldownMs
+        : AUDIO_COOLDOWNS_MS[soundKey] ?? 0;
+    const last = state.lastPlayed.get(soundKey) || 0;
+    if (minInterval > 0 && now - last < minInterval) {
+      state.drops += 1;
+      logAudioDrop("cooldown", soundKey);
+      return false;
+    }
+    if (state.activeVoices >= state.maxVoices) {
+      state.drops += 1;
+      logAudioDrop("polyphony", soundKey);
+      return false;
+    }
+    state.lastPlayed.set(soundKey, now);
+    return true;
+  }
+
+  function startVoiceCount(soundKey, durationSec) {
+    const state = audioVoiceRef.current;
+    state.activeVoices += 1;
+    let done = false;
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      state.activeVoices = Math.max(0, state.activeVoices - 1);
+    };
+    if (Number.isFinite(durationSec) && durationSec > 0) {
+      setTimeout(cleanup, Math.ceil(durationSec * 1000) + 30);
+    }
+    return cleanup;
+  }
+
+  function getPooledAudio(src) {
+    let pool = audioPoolRef.current.get(src);
+    if (!pool) {
+      pool = [];
+      audioPoolRef.current.set(src, pool);
+    }
+    const available = pool.find((audio) => audio.paused || audio.ended);
+    if (available) return available;
+    const audio = new Audio(src);
+    audio.preload = "auto";
+    pool.push(audio);
+    return audio;
+  }
+
+  function playOneShotAudio(
+    src,
+    { volume, cooldownKey, cooldownMs, eqKey, pitch, onBlocked } = {}
+  ) {
+    if (isSfxMuted) return;
+    const key = cooldownKey || eqKey || src;
+    const overrides = {};
+    if (Number.isFinite(volume)) overrides.volume = volume;
+    if (Number.isFinite(pitch)) overrides.pitch = pitch;
+    const settings = resolveSoundSettings(eqKey || key, overrides);
+    const effectiveCooldown =
+      Number.isFinite(cooldownMs) && cooldownMs >= 0 ? cooldownMs : settings.cooldownMs;
+    if (!shouldPlay(key, effectiveCooldown)) return;
+    const audio = getPooledAudio(src);
+    const cleanup = startVoiceCount(key, 0.6);
+    const finalize = () => cleanup();
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch (_) {}
+    applyHtmlAudioSettings(audio, settings);
+    audio.addEventListener("ended", finalize, { once: true });
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch((err) => {
+        finalize();
+        if (typeof onBlocked === "function") {
+          onBlocked(err);
+        }
+      });
+    }
+  }
+
+  function fadeAudioVolume(audio, targetVolume, durationMs = 800) {
+    if (!audio) return;
+    if (ambientMusicRef.current.fadeRaf) {
+      cancelAnimationFrame(ambientMusicRef.current.fadeRaf);
+      ambientMusicRef.current.fadeRaf = null;
+    }
+    const start = performance.now();
+    const fromRaw = Number.isFinite(audio.volume) ? audio.volume : 0;
+    const from = Math.max(0, Math.min(1, fromRaw));
+    const to = Math.max(0, Math.min(1, targetVolume));
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / Math.max(1, durationMs));
+      const eased = t * (2 - t);
+      const nextVolume = from + (to - from) * eased;
+      audio.volume = Math.max(0, Math.min(1, nextVolume));
+      if (t < 1) {
+        ambientMusicRef.current.fadeRaf = requestAnimationFrame(step);
+      } else {
+        ambientMusicRef.current.fadeRaf = null;
+      }
+    };
+    ambientMusicRef.current.fadeRaf = requestAnimationFrame(step);
+  }
+
+  function fadeOutHtmlAudio(audio, durationMs = 260) {
+    if (!audio) return;
+    if (audio.__manualFadeRaf) {
+      cancelAnimationFrame(audio.__manualFadeRaf);
+      audio.__manualFadeRaf = null;
+    }
+    const start = performance.now();
+    const fromRaw = Number.isFinite(audio.volume) ? audio.volume : 1;
+    const from = Math.max(0, Math.min(1, fromRaw));
+    const fadeMs = Math.max(1, durationMs);
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / fadeMs);
+      const eased = t * (2 - t);
+      const nextVolume = from * (1 - eased);
+      audio.volume = Math.max(0, Math.min(1, nextVolume));
+      if (t < 1) {
+        audio.__manualFadeRaf = requestAnimationFrame(step);
+      } else {
+        audio.__manualFadeRaf = null;
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch (_) {}
+      }
+    };
+    audio.__manualFadeRaf = requestAnimationFrame(step);
+  }
+
+  function shuffleTracks(tracks, lastTrack = null) {
+    const order = [...tracks];
+    for (let i = order.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    if (order.length > 1 && lastTrack && order[0] === lastTrack) {
+      const swapIndex = 1 + Math.floor(Math.random() * (order.length - 1));
+      [order[0], order[swapIndex]] = [order[swapIndex], order[0]];
+    }
+    return order;
+  }
+
+  function getNextAmbientTrack() {
+    const tracks = ambientTracksRef.current || [];
+    if (!tracks.length) return null;
+    const trackKey = tracks.join("|");
+    const needsReshuffle =
+      !Array.isArray(ambientMusicRef.current.order) ||
+      ambientMusicRef.current.order.length !== tracks.length ||
+      ambientMusicRef.current.orderKey !== trackKey;
+    if (needsReshuffle) {
+      ambientMusicRef.current.order = shuffleTracks(
+        tracks,
+        ambientMusicRef.current.lastTrack
+      );
+      ambientMusicRef.current.orderKey = trackKey;
+      ambientMusicRef.current.index = -1;
+    }
+    if (
+      !ambientMusicRef.current.order ||
+      ambientMusicRef.current.index >= ambientMusicRef.current.order.length - 1
+    ) {
+      ambientMusicRef.current.order = shuffleTracks(
+        tracks,
+        ambientMusicRef.current.lastTrack
+      );
+      ambientMusicRef.current.index = -1;
+    }
+    const nextIndex = ambientMusicRef.current.index + 1;
+    ambientMusicRef.current.index = nextIndex;
+    const nextTrack = ambientMusicRef.current.order[nextIndex];
+    ambientMusicRef.current.lastTrack = nextTrack;
+    return nextTrack;
+  }
+
+  function ensureAmbientAudio() {
+    if (ambientMusicRef.current.audio) return ambientMusicRef.current.audio;
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.loop = false;
+    audio.volume = 0;
+    audio.addEventListener("ended", () => {
+      if (!ambientMusicRef.current.active) return;
+      const next = getNextAmbientTrack();
+      if (!next) return;
+      audio.src = next;
+      const eq = resolveSoundSettings("ambient");
+      const bc = breakCountdownRef.current;
+      const hasCountdown = typeof bc === "number";
+      const shouldBeAudible =
+        phaseRef.current === "results" &&
+        !ambientMusicRef.current.keepAlive &&
+        !isAmbientMutedRef.current &&
+        (!hasCountdown || bc > 14);
+      audio.muted = !shouldBeAudible;
+      audio.play().catch(() => {});
+      const targetVolume = shouldBeAudible ? eq.volume ?? 0.45 : 0;
+      fadeAudioVolume(audio, targetVolume, shouldBeAudible ? 1000 : 600);
+    });
+    ambientMusicRef.current.audio = audio;
+    return audio;
+  }
+
+  function primeAmbientAudio() {
+    if (ambientMusicRef.current.primed) return;
+    const tracks = ambientTracksRef.current || [];
+    if (!tracks.length) return;
+    const audio = ensureAmbientAudio();
+    const previousVolume = audio.volume;
+    const previousSrc = audio.src;
+    audio.src = tracks[0];
+    audio.volume = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise
+        .then(() => {
+          ambientMusicRef.current.primed = true;
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = previousVolume;
+          audio.src = previousSrc;
+        })
+        .catch(() => {
+          audio.volume = previousVolume;
+          audio.src = previousSrc;
+        });
+    } else {
+      audio.volume = previousVolume;
+      audio.src = previousSrc;
+    }
+  }
+
+  function startAmbientMusic({ silent = false, fadeMs = null } = {}) {
+    if (isAmbientMutedRef.current) return;
+    const tracks = ambientTracksRef.current || [];
+    if (!tracks.length) return;
+    const audio = ensureAmbientAudio();
+    const scheduleRetry = () => {
+      if (ambientRetryRef.current) return;
+      ambientRetryRef.current = true;
+      const retry = () => {
+        ambientRetryRef.current = false;
+        const bc = breakCountdownRef.current;
+        const hasCountdown = typeof bc === "number";
+        const shouldBeAudible =
+          phaseRef.current === "results" &&
+          (!hasCountdown || bc > 14);
+        const canPlayAmbient =
+          !isAmbientMutedRef.current;
+        if (canPlayAmbient) {
+          const fadeMs =
+            hasCountdown && typeof bc === "number"
+              ? Math.max(0, Math.round((bc - 10) * 1000))
+              : null;
+          startAmbientMusic({ silent: !shouldBeAudible, fadeMs });
+        }
+      };
+      window.addEventListener("pointerdown", retry, { once: true });
+      window.addEventListener("touchstart", retry, { once: true });
+      window.addEventListener("keydown", retry, { once: true });
+    };
+    const markPending = () => {
+      ambientStartPendingRef.current = true;
+      ambientMusicRef.current.active = false;
+      scheduleRetry();
+    };
+    audio.muted = !!silent;
+    const fadeOutMs = Number.isFinite(fadeMs) ? fadeMs : 700;
+    const fadeInMs = Number.isFinite(fadeMs) ? fadeMs : 1200;
+    const fadeStartMs = Number.isFinite(fadeMs) ? fadeMs : 350;
+    if (ambientMusicRef.current.active) {
+      ambientMusicRef.current.keepAlive = silent;
+      const eq = resolveSoundSettings("ambient");
+      const targetVolume = silent ? 0 : eq.volume ?? 0.45;
+      fadeAudioVolume(audio, targetVolume, silent ? fadeOutMs : fadeInMs);
+      if (audio.paused || audio.ended) {
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(markPending);
+        }
+      }
+      return;
+    }
+    const next = getNextAmbientTrack();
+    if (!next) return;
+    if (ambientMusicRef.current.playCheck) {
+      clearTimeout(ambientMusicRef.current.playCheck);
+      ambientMusicRef.current.playCheck = null;
+    }
+    ambientMusicRef.current.active = true;
+    ambientMusicRef.current.keepAlive = silent;
+    audio.src = next;
+    audio.muted = !!silent;
+    audio.volume = 0;
+    try {
+      audio.load?.();
+    } catch (_) {}
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(markPending);
+    }
+    const eq = resolveSoundSettings("ambient");
+    const targetVolume = silent ? 0 : eq.volume ?? 0.45;
+    fadeAudioVolume(audio, targetVolume, silent ? fadeStartMs : fadeInMs);
+    if (ambientMusicRef.current.startGuard) {
+      clearTimeout(ambientMusicRef.current.startGuard);
+    }
+    ambientMusicRef.current.startGuard = setTimeout(() => {
+      if (!ambientMusicRef.current.active) return;
+      if (audio.paused || audio.readyState < 2) {
+        const retryPromise = audio.play();
+        if (retryPromise && typeof retryPromise.catch === "function") {
+          retryPromise.catch(markPending);
+        }
+      }
+      if (ambientMusicRef.current.playCheck) {
+        clearTimeout(ambientMusicRef.current.playCheck);
+      }
+      ambientMusicRef.current.playCheck = setTimeout(() => {
+        if (!ambientMusicRef.current.active) return;
+        if (audio.paused) {
+          markPending();
+        }
+      }, 300);
+    }, 550);
+  }
+
+  function stopAmbientMusic({ fadeMs = 800, keepAlive = false } = {}) {
+    const audio = ambientMusicRef.current.audio;
+    if (!keepAlive) {
+      ambientMusicRef.current.active = false;
+      ambientMusicRef.current.keepAlive = false;
+    } else {
+      ambientMusicRef.current.keepAlive = true;
+    }
+    if (!audio) return;
+    if (ambientMusicRef.current.startGuard) {
+      clearTimeout(ambientMusicRef.current.startGuard);
+      ambientMusicRef.current.startGuard = null;
+    }
+    if (ambientMusicRef.current.playCheck) {
+      clearTimeout(ambientMusicRef.current.playCheck);
+      ambientMusicRef.current.playCheck = null;
+    }
+    if (ambientMusicRef.current.fadeTimer) {
+      clearTimeout(ambientMusicRef.current.fadeTimer);
+      ambientMusicRef.current.fadeTimer = null;
+    }
+    fadeAudioVolume(audio, 0, fadeMs);
+    if (!keepAlive) {
+      ambientMusicRef.current.fadeTimer = setTimeout(() => {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch (_) {}
+      }, Math.max(0, fadeMs) + 60);
+    }
+  }
+
+  function scheduleNodeCleanup(ctx, endTime, nodes, cleanup) {
+    let finished = false;
+    const finalize = () => {
+      if (finished) return;
+      finished = true;
+      nodes.forEach((node) => {
+        if (!node) return;
+        try {
+          node.disconnect();
+        } catch (_) {}
+      });
+      if (cleanup) cleanup();
+    };
+    const delayMs = Math.max(0, (endTime - ctx.currentTime) * 1000 + 40);
+    setTimeout(finalize, delayMs);
+    return finalize;
+  }
+
+  function withEnvelope(gainNode, t0, attack, sustainLevel, release, duration) {
+    const a = Math.max(0.003, Number.isFinite(attack) ? attack : 0.005);
+    const r = Math.max(0.02, Number.isFinite(release) ? release : 0.05);
+    const total = Math.max(a + r, Number.isFinite(duration) ? duration : a + r);
+    const sustain = Number.isFinite(sustainLevel) ? sustainLevel : 1;
+    const sustainEnd = Math.max(t0 + a, t0 + total - r);
+    gainNode.gain.cancelScheduledValues(t0);
+    gainNode.gain.setValueAtTime(0.0001, t0);
+    gainNode.gain.linearRampToValueAtTime(sustain, t0 + a);
+    gainNode.gain.linearRampToValueAtTime(sustain, sustainEnd);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, t0 + total);
+    return t0 + total;
+  }
+
+  function getGobbleMediaNodes(ctx, busIn) {
+    const existingCtx = gobbleVoiceRef.current.mediaCtx;
+    if (!gobbleVoiceRef.current.audio || (existingCtx && existingCtx !== ctx)) {
+      const audio = new Audio(SOUND_PATHS.gobbleVoice);
+      audio.preload = "auto";
+      gobbleVoiceRef.current.audio = audio;
+      gobbleVoiceRef.current.mediaSource = null;
+      gobbleVoiceRef.current.mediaGain = null;
+      gobbleVoiceRef.current.mediaCtx = null;
+    }
+    if (!gobbleVoiceRef.current.mediaSource || gobbleVoiceRef.current.mediaCtx !== ctx) {
+      const source = ctx.createMediaElementSource(gobbleVoiceRef.current.audio);
+      const gain = ctx.createGain();
+      source.connect(gain);
+      gain.connect(busIn);
+      gobbleVoiceRef.current.mediaSource = source;
+      gobbleVoiceRef.current.mediaGain = gain;
+      gobbleVoiceRef.current.mediaCtx = ctx;
+    }
+    return {
+      audio: gobbleVoiceRef.current.audio,
+      gain: gobbleVoiceRef.current.mediaGain,
+    };
+  }
+
   function ensureGobbleBuffer(ctx) {
     if (!ctx || gobbleVoiceRef.current.buffer || gobbleVoiceRef.current.loading) {
       return;
     }
     gobbleVoiceRef.current.loading = true;
-    fetch("/gobble.mp3")
+    fetch(SOUND_PATHS.gobbleVoice)
       .then((res) => res.arrayBuffer())
       .then((buf) => {
         const onSuccess = (decoded) => {
@@ -1957,7 +3746,7 @@ export default function App() {
 
   function primeGobbleAudio() {
     if (gobbleVoiceRef.current.audio) return;
-    const audio = new Audio("/gobble.mp3");
+    const audio = new Audio(SOUND_PATHS.gobbleVoice);
     audio.preload = "auto";
     gobbleVoiceRef.current.audio = audio;
 
@@ -1981,20 +3770,54 @@ export default function App() {
   // Débloque le contexte audio au premier geste utilisateur (mobile/desktop)
   useEffect(() => {
     function unlockAudio() {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-        audioCtxRef.current = new AudioCtx();
-      }
-      if (audioCtxRef.current.state === "suspended") {
-        audioCtxRef.current.resume().catch(() => {});
+      audioUnlockedRef.current = true;
+      const system = getAudioSystem({ force: true });
+      if (!system) return;
+      if (system.ctx.state === "suspended") {
+        system.ctx.resume().catch(() => {});
       }
       primeGobbleAudio();
-      ensureGobbleBuffer(audioCtxRef.current);
+      primeAmbientAudio();
+      ensureGobbleBuffer(system.ctx);
+      if (ambientStartPendingRef.current) {
+        ambientStartPendingRef.current = false;
+      }
+      if (
+        roundStartPendingRef.current &&
+        phaseRef.current === "playing" &&
+        roundIdRef.current === roundStartPendingRef.current
+      ) {
+        roundStartPendingRef.current = null;
+        playRoundStartSound();
+      }
+      const bc = breakCountdownRef.current;
+      const hasCountdown = typeof bc === "number";
+      const shouldBeAudible =
+        phaseRef.current === "results" &&
+        !isAmbientMutedRef.current &&
+        (!hasCountdown || bc > 14);
+      const shouldBeSilent =
+        !isAmbientMutedRef.current &&
+        (phaseRef.current !== "results" || (hasCountdown && bc <= 14));
+      if (shouldBeAudible || shouldBeSilent) {
+        const fadeMs =
+          hasCountdown && typeof bc === "number"
+            ? Math.max(0, Math.round((bc - 10) * 1000))
+            : null;
+        startAmbientMusic({ silent: !shouldBeAudible, fadeMs });
+      }
       window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
     }
     window.addEventListener("pointerdown", unlockAudio);
-    return () => window.removeEventListener("pointerdown", unlockAudio);
+    window.addEventListener("touchstart", unlockAudio);
+    window.addEventListener("keydown", unlockAudio);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
   }, []);
 
   useEffect(() => {
@@ -2081,9 +3904,13 @@ export default function App() {
       /(Chrome|CriOS|EdgA|SamsungBrowser)/i.test(ua);
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       canVibrateRef.current = true;
+      setCanVibrate(true);
+    } else {
+      canVibrateRef.current = false;
+      setCanVibrate(false);
     }
   }, []);
 
@@ -2777,477 +4604,257 @@ export default function App() {
     }
   }
 
-  // Son "GOBBLE" (MP3 placé dans /public/GOBBLE.mp3)
+  function ensureTournamentBaseline(tournamentPayload, { captureRanking = false } = {}) {
+    const tournamentId = tournamentPayload?.id || null;
+    if (!tournamentId) return;
+    let baseline = tournamentBaselineRef.current;
+    if (baseline.id !== tournamentId) {
+      tournamentBaselineRef.current = {
+        id: tournamentId,
+        weeklyStats: weeklyStatsSnapshotRef.current || null,
+        rankingMap: null,
+      };
+      baseline = tournamentBaselineRef.current;
+    }
+    if (!baseline.weeklyStats && weeklyStatsSnapshotRef.current) {
+      baseline.weeklyStats = weeklyStatsSnapshotRef.current;
+    }
+    if (
+      captureRanking &&
+      !baseline.rankingMap &&
+      Array.isArray(tournamentPayload?.ranking) &&
+      tournamentPayload.ranking.length
+    ) {
+      const rankMap = new Map();
+      tournamentPayload.ranking.forEach((entry, idx) => {
+        if (!entry?.nick) return;
+        const posNow = Number.isFinite(entry.pos) ? entry.pos : idx + 1;
+        rankMap.set(entry.nick, posNow);
+      });
+      baseline.rankingMap = rankMap;
+      baseline.rankingRound = Number.isFinite(tournamentPayload?.round)
+        ? tournamentPayload.round
+        : null;
+    }
+  }
+
+  // Son "GOBBLE" (MP3 placé dans /public/sound/game/gobble.mp3)
   function playGobbleVoice() {
-    if (isMuted) return;
-    const nowTs = Date.now();
-    if (nowTs - gobbleVoiceRef.current.last < 1200) return; // throttle
-    gobbleVoiceRef.current.last = nowTs;
-    const ctx = audioCtxRef.current;
-    const buffer = gobbleVoiceRef.current.buffer;
-    if (ctx && ctx.state === "running" && buffer) {
+    if (isSfxMuted) return;
+    if (!shouldPlay("gobbleVoice", AUDIO_COOLDOWNS_MS.gobbleVoice)) return;
+    const eq = resolveSoundSettings("gobbleVoice");
+    const system = getAudioSystem();
+    if (!system) {
+      if (!gobbleVoiceRef.current.audio) {
+        const audio = new Audio(SOUND_PATHS.gobbleVoice);
+        audio.preload = "auto";
+        gobbleVoiceRef.current.audio = audio;
+      }
+      const audio = gobbleVoiceRef.current.audio;
+      applyHtmlAudioSettings(audio, eq);
       try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } catch (_) {}
+      return;
+    }
+    const { ctx, busIn } = system;
+
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const buffer = gobbleVoiceRef.current.buffer;
+      if (buffer) {
+        const now = ctx.currentTime + 0.01;
         const source = ctx.createBufferSource();
         const gain = ctx.createGain();
         source.buffer = buffer;
-        gain.gain.value = 1;
+        const endTime = withEnvelope(
+          gain,
+          now,
+          0.006,
+          Math.min(1, 0.9 * (eq.volume ?? 1)),
+          0.08,
+          buffer.duration
+        );
+        const stopTime = endTime + 0.02;
         source.connect(gain);
-        gain.connect(ctx.destination);
-        source.start();
+        gain.connect(busIn);
+        const cleanup = startVoiceCount(
+          "gobbleVoice",
+          stopTime - ctx.currentTime + 0.05
+        );
+        const finalize = scheduleNodeCleanup(ctx, stopTime, [source, gain], cleanup);
+        source.onended = finalize;
+        try {
+          source.start(now);
+          source.stop(stopTime);
+        } catch (_) {}
         return;
-      } catch (_) {}
-    }
-    if (ctx && ctx.state === "running" && !buffer) {
+      }
+
       ensureGobbleBuffer(ctx);
-    }
+      const mediaNodes = getGobbleMediaNodes(ctx, busIn);
+      if (!mediaNodes) return;
+      const { audio, gain } = mediaNodes;
+      applyHtmlAudioSettings(audio, eq);
+      const now = ctx.currentTime + 0.005;
+      const duration =
+        Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 2.5;
+      withEnvelope(
+        gain,
+        now,
+        0.006,
+        Math.min(1, 0.9 * (eq.volume ?? 1)),
+        0.08,
+        duration
+      );
+      const cleanup = startVoiceCount("gobbleVoice", duration + 0.1);
+      audio.onended = () => cleanup();
+      try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } catch (_) {}
+    };
 
-    if (!gobbleVoiceRef.current.audio) {
-      const audio = new Audio("/gobble.mp3"); // fichier en minuscules dans /public
+    ctx.resume().then(start).catch(start);
+  }
+
+  // Son progressif par tuile (01..15)
+  function playTileStepSound(step) {
+    if (!Number.isFinite(step)) return;
+    const index = Math.max(1, Math.min(INCREMENTAL_SOUND_COUNT, Math.floor(step) + 1));
+    const src = INCREMENTAL_SOUND_PATHS[index - 1];
+    playOneShotAudio(src, { cooldownKey: "tileStep", eqKey: "tileStep" });
+  }
+
+  // Petit "tic tac" pour la fin de manche (fichier)
+  function playTickSound({ isTargetRound } = {}) {
+    if (isSfxMuted) return;
+    if (!shouldPlay("tick", AUDIO_COOLDOWNS_MS.tick)) return;
+    const soundKey = isTargetRound ? "coeur" : "tick";
+    const src = isTargetRound ? SOUND_PATHS.coeur : SOUND_PATHS.tictac10;
+    const eq = resolveSoundSettings(soundKey);
+    let audio = isTargetRound
+      ? tickCountdownTargetAudioRef.current
+      : tickCountdownAudioRef.current;
+    if (!audio) {
+      audio = new Audio(src);
       audio.preload = "auto";
-      gobbleVoiceRef.current.audio = audio;
+      if (isTargetRound) {
+        tickCountdownTargetAudioRef.current = audio;
+      } else {
+        tickCountdownAudioRef.current = audio;
+      }
     }
-
-    const audio = gobbleVoiceRef.current.audio;
+    if (!audio.paused && !audio.ended) return;
     try {
       audio.currentTime = 0;
+      applyHtmlAudioSettings(audio, eq);
       audio.play().catch(() => {});
     } catch (_) {}
   }
 
-    // Petit "bip" progressif à chaque tuile ajoutéee
-function playTileStepSound(step) {
-  if (isMuted) return;
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtx) return;
-  if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-    audioCtxRef.current = new AudioCtx();
-  }
-  const ctx = audioCtxRef.current;
-
-  const start = () => {
-    if (ctx.state !== "running") return;
-    const now = ctx.currentTime;
-
-    // A4 comme base, gamme pentatonique (ça reste consonant)
-    const baseFreq = 440;
-    const intervals = [0, 2, 4, 7, 9, 12, 14, 16]; // demi-tons
-    const idx = Math.min(intervals.length - 1, step);
-    const semi = intervals[idx];
-    const freq = baseFreq * Math.pow(2, semi / 12);
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(freq, now);
-
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.18, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    try {
-      osc.start(now);
-      osc.stop(now + 0.25);
-    } catch (_) {}
-  };
-
-  ctx.resume().then(start).catch(start);
-}
-
-  // Petit "tic tac" pour la fin de manche
-  function playTickSound() {
-    if (isMuted) return;
-    const nowTs = Date.now();
-    if (nowTs - lastTickSoundRef.current < 750) return;
-    lastTickSoundRef.current = nowTs;
-    tickToneToggleRef.current = !tickToneToggleRef.current;
-    const baseFreq = 420;
-    const freq = tickToneToggleRef.current ? baseFreq * 1.2 : baseFreq * 0.9;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-    }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now);
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.12, now + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      try {
-        osc.start(now);
-        osc.stop(now + 0.36);
-      } catch (_) {}
-    };
-    ctx.resume().then(start).catch(start);
-  }
-
   // "Tic tac" avant le début de manche (compte à rebours)
   function playCountdownTickSound() {
-    if (isMuted) return;
-    const nowTs = Date.now();
-    if (nowTs - lastCountdownTickRef.current < 850) return;
-    lastCountdownTickRef.current = nowTs;
-    countdownTickToggleRef.current = !countdownTickToggleRef.current;
-    const baseFreq = 520;
-    const freq = countdownTickToggleRef.current ? baseFreq * 1.08 : baseFreq * 0.92;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
+    if (isSfxMuted) return;
+    if (!shouldPlay("countdownTick", AUDIO_COOLDOWNS_MS.countdownTick)) return;
+    const eq = resolveSoundSettings("countdownTick");
+    let audio = countdownTickAudioRef.current;
+    if (!audio) {
+      audio = new Audio(SOUND_PATHS.tictoc);
+      audio.preload = "auto";
+      countdownTickAudioRef.current = audio;
     }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, now);
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.1, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      try {
-        osc.start(now);
-        osc.stop(now + 0.2);
-      } catch (_) {}
-    };
-    ctx.resume().then(start).catch(start);
+    if (!audio.paused && !audio.ended) return;
+    try {
+      audio.currentTime = 0;
+      applyHtmlAudioSettings(audio, eq);
+      audio.play().catch(() => {});
+    } catch (_) {}
   }
 
   function playSwipeSound() {
-    if (isMuted) return;
-    const nowTs = Date.now();
-    if (nowTs - lastSwipeSoundRef.current < 90) return;
-    lastSwipeSoundRef.current = nowTs;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-    }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(1200, now);
-      filter.Q.setValueAtTime(0.7, now);
-      osc.type = "square";
-      osc.frequency.setValueAtTime(320, now);
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.16, now + 0.002);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-      try {
-        osc.start(now);
-        osc.stop(now + 0.06);
-      } catch (_) {}
+    playOneShotAudio(SOUND_PATHS.uiClick, { cooldownKey: "swipe", eqKey: "swipe" });
+  }
+
+  function playCloseSound() {
+    playOneShotAudio(SOUND_PATHS.uiClose, { cooldownKey: "bipmontre", eqKey: "bipmontre" });
+  }
+
+  function scheduleRoundStartRetry(roundKey) {
+    if (roundStartRetryRef.current) return;
+    roundStartRetryRef.current = true;
+    const retry = () => {
+      roundStartRetryRef.current = false;
+      if (phaseRef.current !== "playing") return;
+      if (roundKey && roundIdRef.current && roundIdRef.current !== roundKey) return;
+      playRoundStartSound();
     };
-    ctx.resume().then(start).catch(start);
+    window.addEventListener("pointerdown", retry, { once: true });
+    window.addEventListener("touchstart", retry, { once: true });
+    window.addEventListener("keydown", retry, { once: true });
   }
 
   // Celebration fin de mini-tournoi
   function playTournamentCelebrationSound() {
-    if (isMuted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
+    if (!shouldPlay("tournamentCelebration", AUDIO_COOLDOWNS_MS.tournamentCelebration)) {
+      return;
     }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0, now);
-      master.gain.linearRampToValueAtTime(0.3, now + 0.02);
-      master.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
-      master.connect(ctx.destination);
-
-      const chord = [0, 4, 7, 12];
-      const base = 440;
-      chord.forEach((semi, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const t0 = now + idx * 0.04;
-        osc.type = idx % 2 === 0 ? "sine" : "triangle";
-        osc.frequency.setValueAtTime(base * Math.pow(2, semi / 12), t0);
-        gain.gain.setValueAtTime(0, t0);
-        gain.gain.linearRampToValueAtTime(0.6, t0 + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
-        osc.connect(gain);
-        gain.connect(master);
-        try {
-          osc.start(t0);
-          osc.stop(t0 + 1.05);
-        } catch (_) {}
+    playOneShotAudio(SOUND_PATHS.tournamentFireworks, {
+      cooldownKey: "tournamentFireworks",
+      eqKey: "tournamentFireworks",
+    });
+    setTimeout(() => {
+      playOneShotAudio(SOUND_PATHS.tournamentApplause, {
+        cooldownKey: "tournamentApplause",
+        eqKey: "tournamentApplause",
       });
-    };
-    ctx.resume().then(start).catch(start);
+    }, 260);
   }
 
   function playRoundStartSound() {
-  if (isMuted) return;
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtx) return;
-  if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-    audioCtxRef.current = new AudioCtx();
-  }
-  const ctx = audioCtxRef.current;
-
-  const start = () => {
-    if (ctx.state !== "running") return;
-    const now = ctx.currentTime;
-
-    // On part sur un DO5 comme tonique (C5)
-    const baseFreq = 523.25;
-
-    // 1 1 3 5 3 5 en degrés de gamme majeure -> 0,0,4,7,4,7 demi-tons
-    const semitones = [0, 4, 7, 12, 7, 16];
-
-    // Durée et tempo de la petite phrase
-    const noteDur = 0.12;      // durée de chaque note
-    const gap = 0.02;          // petit espace entre les notes
-    const totalDur = semitones.length * (noteDur + gap) + 0.12;
-
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0, now);
-    master.gain.linearRampToValueAtTime(0.42, now + 0.025);
-    master.gain.linearRampToValueAtTime(0.0001, now + totalDur);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.setValueAtTime(180, now);
-    filter.Q.setValueAtTime(0.7, now);
-
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.setValueAtTime(-24, now);
-    comp.knee.setValueAtTime(22, now);
-    comp.ratio.setValueAtTime(10, now);
-    comp.attack.setValueAtTime(0.004, now);
-    comp.release.setValueAtTime(0.18, now);
-
-    master.connect(filter);
-    filter.connect(comp);
-    comp.connect(ctx.destination);
-
-    semitones.forEach((semi, idx) => {
-      const osc = ctx.createOscillator();
-      const oscB = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const voiceB = ctx.createGain();
-      const panner =
-        typeof ctx.createStereoPanner === "function" ? ctx.createStereoPanner() : null;
-
-      const freq = baseFreq * Math.pow(2, semi / 12);
-      const t0 = now + idx * (noteDur + gap);
-
-      osc.type = idx % 2 === 0 ? "triangle" : "sine";
-      osc.frequency.setValueAtTime(freq, t0);
-      oscB.type = "sine";
-      oscB.frequency.setValueAtTime(freq * 2, t0);
-      voiceB.gain.setValueAtTime(0.22, t0);
-
-      // Attack/decay par note
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(1, t0 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, t0 + noteDur);
-
-      if (panner) {
-        const pan =
-          semitones.length <= 1 ? 0 : (idx / (semitones.length - 1)) * 0.8 - 0.4;
-        panner.pan.setValueAtTime(pan, t0);
-        gain.connect(panner);
-        panner.connect(master);
-      } else {
-        gain.connect(master);
-      }
-
-      osc.connect(gain);
-      oscB.connect(voiceB);
-      voiceB.connect(gain);
-
-      try {
-        osc.start(t0);
-        oscB.start(t0);
-        osc.stop(t0 + noteDur + 0.04);
-        oscB.stop(t0 + noteDur + 0.04);
-      } catch (_) {}
+    if (isSfxMuted) return;
+    playOneShotAudio(SOUND_PATHS.roundStart, {
+      cooldownKey: "roundStart",
+      eqKey: "roundStart",
+      onBlocked: () => {
+        const roundKey = roundIdRef.current || null;
+        if (!roundKey) return;
+        roundStartPendingRef.current = roundKey;
+        scheduleRoundStartRetry(roundKey);
+      },
     });
-  };
-
-  ctx.resume().then(start).catch(start);
-}
+  }
 
   // Palette de sons par paliers de score (plus mélodique)
-  const SCORE_SFX_BANDS = [
-    { min: 0, intervals: [0], gain: 0.13, dur: 0.38 },
-    { min: 5, intervals: [0, 7], gain: 0.15, dur: 0.42 },
-    { min: 10, intervals: [0, 4, 7], gain: 0.17, dur: 0.45 },
-    { min: 20, intervals: [0, 4, 9, 12], gain: 0.2, dur: 0.5 },
-    { min: 35, intervals: [0, 3, 7, 12, 15], gain: 0.22, dur: 0.55 },
-    { min: 50, intervals: [0, 5, 9, 12, 17], gain: 0.24, dur: 0.6 },
-  ];
-
   function playScoreSound(points) {
-    if (isMuted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-    }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime;
-      const band =
-        SCORE_SFX_BANDS.slice()
-          .sort((a, b) => a.min - b.min)
-          .reduce((acc, b) => (points >= b.min ? b : acc), SCORE_SFX_BANDS[0]);
-
-      // Gamme pentatonique pour la progression, racine en SOL4 (392 Hz)
-      const pentatonic = [0, 2, 4, 7, 9, 12, 14, 16];
-      const step = Math.min(pentatonic.length - 1, Math.floor(points / 8));
-      const rootFreq = 392 * Math.pow(2, pentatonic[step] / 12);
-
-      const attack = 0.02;
-      const decay = 0.1;
-      const release = 0.25;
-      const totalDur = band.dur;
-
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0, now);
-      master.gain.linearRampToValueAtTime(band.gain, now + attack);
-      master.gain.linearRampToValueAtTime(band.gain * 0.6, now + attack + decay);
-      master.gain.linearRampToValueAtTime(band.gain * 0.45, now + totalDur - release);
-      master.gain.linearRampToValueAtTime(0.0001, now + totalDur);
-      const filter = ctx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(5200, now);
-      filter.Q.setValueAtTime(0.65, now);
-
-      const comp = ctx.createDynamicsCompressor();
-      comp.threshold.setValueAtTime(-26, now);
-      comp.knee.setValueAtTime(26, now);
-      comp.ratio.setValueAtTime(10, now);
-      comp.attack.setValueAtTime(0.004, now);
-      comp.release.setValueAtTime(0.2, now);
-
-      master.connect(filter);
-      filter.connect(comp);
-      comp.connect(ctx.destination);
-
-      band.intervals.forEach((semi, idx) => {
-        const noteStart = now + idx * 0.03; // arpège plus perceptible
-        const osc = ctx.createOscillator();
-        const oscB = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const voiceB = ctx.createGain();
-        const panner =
-          typeof ctx.createStereoPanner === "function" ? ctx.createStereoPanner() : null;
-        const freq = rootFreq * Math.pow(2, semi / 12);
-        osc.frequency.setValueAtTime(freq, noteStart);
-        oscB.frequency.setValueAtTime(freq * 2, noteStart); // octave au-dessus
-        osc.type = idx % 2 === 0 ? "triangle" : "sine";
-        oscB.type = "sine";
-        voiceB.gain.setValueAtTime(0.28, noteStart);
-
-        // légère dérive pour adoucir
-        const detuneJitter = (Math.random() - 0.5) * 10;
-        const baseDetune = idx * 3 + detuneJitter;
-        osc.detune.setValueAtTime(baseDetune, noteStart);
-        oscB.detune.setValueAtTime(baseDetune * 0.7, noteStart);
-
-        const lfo = ctx.createOscillator();
-        const lfoGain = ctx.createGain();
-        lfo.frequency.setValueAtTime(5.2, noteStart);
-        lfoGain.gain.setValueAtTime(8, noteStart); // cents
-        lfo.connect(lfoGain);
-        lfoGain.connect(osc.detune);
-        lfoGain.connect(oscB.detune);
-
-        // enveloppe locale
-        gain.gain.setValueAtTime(0, noteStart);
-        gain.gain.linearRampToValueAtTime(1, noteStart + attack * 0.8);
-        gain.gain.linearRampToValueAtTime(0.75, noteStart + attack + decay);
-        gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + totalDur);
-
-        if (panner) {
-          const pan =
-            band.intervals.length <= 1
-              ? 0
-              : (idx / (band.intervals.length - 1)) * 0.7 - 0.35;
-          panner.pan.setValueAtTime(pan, noteStart);
-          gain.connect(panner);
-          panner.connect(master);
-        } else {
-          gain.connect(master);
-        }
-
-        osc.connect(gain);
-        oscB.connect(voiceB);
-        voiceB.connect(gain);
-
-        try {
-          lfo.start(noteStart);
-          lfo.stop(noteStart + totalDur);
-          osc.start(noteStart); // très léger décalage pour l'effet arpège
-          oscB.start(noteStart);
-          osc.stop(noteStart + totalDur);
-          oscB.stop(noteStart + totalDur);
-        } catch (err) {
-          /* ignore sporadic start/stop errors */
-        }
-      });
-    };
-
-    ctx.resume().then(start).catch(start);
+    if (isSfxMuted) return;
+    const safePoints = Number.isFinite(points) ? Math.max(0, points) : 0;
+    if (safePoints < 3) return;
+    const band =
+      SCORE_SOUND_BANDS.find((entry) => safePoints >= entry.min && safePoints <= entry.max) ||
+      SCORE_SOUND_BANDS[0];
+    playOneShotAudio(band.src, { cooldownKey: "score", eqKey: "score" });
+    const pianoSrc = band.src.replace("/game/scores/", "/game/piano/");
+    playOneShotAudio(pianoSrc, { cooldownKey: "score2", eqKey: "score2" });
   }
 
-  function playVocabOverlayTone(freq, durationMs = 120, gainValue = 0.14) {
-    if (isMuted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-    }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime + 0.01;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const durationSec = Math.max(0.05, durationMs / 1000);
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(gainValue, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      try {
-        osc.start(now);
-        osc.stop(now + durationSec + 0.02);
-      } catch (_) {}
-    };
-    ctx.resume().then(start).catch(start);
+
+  function playVocabOverlayTone(
+    freq,
+    durationMs = 120,
+    gainValue = 0.14,
+    soundKey = "vocabTick",
+    sampleSrc = SOUND_PATHS.vocabOverlay
+  ) {
+    if (isSfxMuted) return;
+    const jitteredFreq = humanizeFreq(freq, 4);
+    const pitch = jitteredFreq / VOCAB_SAMPLE_BASE_FREQ;
+    playOneShotAudio(sampleSrc, {
+      cooldownKey: soundKey,
+      eqKey: soundKey,
+      pitch,
+    });
   }
 
   function playVocabOverlayTickSound(wordIndex) {
@@ -3264,53 +4871,40 @@ function playTileStepSound(step) {
       const t = (idx - 11) / 9;
       freq = mid + (high - mid) * t;
     }
-    playVocabOverlayTone(freq, 95, 0.12);
+    playVocabOverlayTone(freq, 95, 0.1, "vocabTick");
   }
 
   function playVocabOverlayZeroSound() {
-    playVocabOverlayTone(170, 520, 0.18);
+    playVocabOverlayTone(170, 520, 0.16, "vocabZero");
   }
 
   function playVocabOverlayClingSound() {
-    playVocabOverlayTone(880, 110, 0.16);
-    setTimeout(() => playVocabOverlayTone(1320, 160, 0.14), 70);
+    playVocabOverlayTone(880, 110, 0.14, "vocabCling", SOUND_PATHS.vocabCling);
+    setTimeout(
+      () => playVocabOverlayTone(1320, 160, 0.12, "vocabCling2", SOUND_PATHS.vocabCling),
+      70
+    );
   }
 
   function playSpecialFoundSound() {
-    if (isMuted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-    }
-    const ctx = audioCtxRef.current;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime + 0.01;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(520, now);
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      try {
-        osc.start(now);
-        osc.stop(now + 0.2);
-      } catch (_) {}
-    };
-    ctx.resume().then(start).catch(start);
+    if (isSfxMuted) return;
+    playOneShotAudio(SOUND_PATHS.specialFound, {
+      cooldownKey: "specialFound",
+      eqKey: "specialFound",
+    });
   }
 
   function maybePlayAnnouncementSound(item) {
     if (!item) return;
-    const self = (nickname || "").trim();
-    if (item.nick && self && item.nick.trim() !== self) return;
-    if (item.type === "best_possible_score" || item.type === "longest_possible") {
-      playGobbleVoice();
+    if (item.type !== "best_possible_score" && item.type !== "longest_possible") {
+      return;
     }
+    const selfRaw = (nicknameRef.current || nickname || "").trim();
+    const authorRaw = (item.nick || "").trim();
+    const self = selfRaw ? selfRaw.toLowerCase() : "";
+    const author = authorRaw ? authorRaw.toLowerCase() : "";
+    if (!self || !author || self !== author) return;
+    playGobbleVoice();
   }
 
   function triggerBigScoreFlash(pts) {
@@ -3326,7 +4920,12 @@ function playTileStepSound(step) {
       setGridShake(true);
     }
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      if (
+        canVibrateRef.current &&
+        isVibrationEnabledRef.current &&
+        typeof navigator !== "undefined" &&
+        typeof navigator.vibrate === "function"
+      ) {
         navigator.vibrate(50);
       }
     } catch (_) {}
@@ -3345,6 +4944,7 @@ function playTileStepSound(step) {
     const dy = Math.round(Math.sin(angle) * dist);
     const scale = Number(((1.0 + Math.random() * 0.5) * 1.6).toFixed(2));
     if (kind === "gobble") {
+      lastGobbleAtRef.current = now;
       const durationMs = Math.round(2200 + Math.random() * 400);
       triggerConfettiBurst("gobble");
       setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
@@ -3512,30 +5112,47 @@ function playTileStepSound(step) {
     });
     const forceFreshDefinition =
       specialRound?.type === "target_long" || specialRound?.type === "target_score";
-    const definitionUrl = forceFreshDefinition
-      ? `/api/define?word=${encodeURIComponent(clean)}&nocache=1`
-      : `/api/define?word=${encodeURIComponent(clean)}`;
-    fetch(definitionUrl)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (requestId !== targetDefinitionRequestRef.current) return;
-        if (!data) {
+    const tried = new Set();
+    const baseKey = normalizeWord(clean);
+    if (baseKey) tried.add(baseKey);
+
+    const fetchDefinition = (word) => {
+      const definitionUrl = forceFreshDefinition
+        ? `/api/define?word=${encodeURIComponent(word)}&nocache=1`
+        : `/api/define?word=${encodeURIComponent(word)}`;
+      fetch(definitionUrl)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (requestId !== targetDefinitionRequestRef.current) return;
+          if (!data) {
+            setTargetDefinition((prev) => ({ ...prev, loading: false, ok: false }));
+            return;
+          }
+          const definitionText = pickDefinitionText(data);
+          const ok = !!definitionText || !!data.ok;
+          if (!definitionText) {
+            const fallbacks = buildDefinitionFallbacks(clean, data, tried);
+            if (fallbacks.length) {
+              fetchDefinition(fallbacks[0]);
+              return;
+            }
+          }
+          setTargetDefinition({
+            word: data.displayWord || data.word || clean,
+            loading: false,
+            ok,
+            definition: definitionText,
+            source: data.source || "",
+            url: data.url || "",
+          });
+        })
+        .catch(() => {
+          if (requestId !== targetDefinitionRequestRef.current) return;
           setTargetDefinition((prev) => ({ ...prev, loading: false, ok: false }));
-          return;
-        }
-        setTargetDefinition({
-          word: data.displayWord || data.word || clean,
-          loading: false,
-          ok: !!data.definition || !!data.extract,
-          definition: data.definition || data.extract || "",
-          source: data.source || "",
-          url: data.url || "",
         });
-      })
-      .catch(() => {
-        if (requestId !== targetDefinitionRequestRef.current) return;
-        setTargetDefinition((prev) => ({ ...prev, loading: false, ok: false }));
-      });
+    };
+
+    fetchDefinition(clean);
   }, [specialRound?.type, targetSummary, targetDefinition.word, targetDefinition.ok, phase]);
 
   useEffect(() => {
@@ -3548,26 +5165,85 @@ function playTileStepSound(step) {
     triggerConfettiBurst("target");
   }, [foundTargetThisRound, specialRound?.type, roundId]);
 
-   useEffect(() => {
-  if (phase === "playing") {
-    playRoundStartSound();
-  }
-}, [phase]);
-
   useEffect(() => {
-    if (phase === "playing" && typeof tick === "number" && tick > 0 && tick <= 10) {
-      playTickSound();
+    if (phase !== "playing") return;
+    if (!roundId) return;
+    if (roundStartSoundRef.current === roundId) return;
+    roundStartSoundRef.current = roundId;
+    if (!audioUnlockedRef.current) {
+      roundStartPendingRef.current = roundId;
+      return;
     }
-  }, [tick, phase]);
+    playRoundStartSound();
+  }, [phase, roundId]);
 
   useEffect(() => {
-    if (
-      typeof breakCountdown === "number" &&
-      breakCountdown > 0 &&
-      breakCountdown <= 10 &&
-      phase !== "playing" &&
-      breakKind !== "tournament_end"
-    ) {
+    if (phase !== "playing") {
+      tickCountdownPlayedRef.current = false;
+      if (tickCountdownAudioRef.current) {
+        try {
+          tickCountdownAudioRef.current.pause();
+          tickCountdownAudioRef.current.currentTime = 0;
+        } catch (_) {}
+      }
+      if (tickCountdownTargetAudioRef.current) {
+        try {
+          tickCountdownTargetAudioRef.current.pause();
+          tickCountdownTargetAudioRef.current.currentTime = 0;
+        } catch (_) {}
+      }
+      return;
+    }
+    if (typeof tick !== "number") return;
+    if (tick > 10) {
+      tickCountdownPlayedRef.current = false;
+      return;
+    }
+    if (tick <= 10 && tick > 0 && !tickCountdownPlayedRef.current) {
+      const isTargetRoundNow =
+        specialRound?.type === "target_long" || specialRound?.type === "target_score";
+      tickCountdownPlayedRef.current = true;
+      playTickSound({ isTargetRound: isTargetRoundNow });
+    }
+  }, [tick, phase, specialRound?.type]);
+
+  useEffect(() => {
+    const hasCountdown = typeof breakCountdown === "number";
+    const shouldBeAudible =
+      phase === "results" &&
+      !isAmbientMuted;
+
+    if (isAmbientMuted) {
+      stopAmbientMusic({ fadeMs: 700, keepAlive: false });
+      return;
+    }
+
+    if (shouldBeAudible) {
+      startAmbientMusic({ silent: false });
+    } else {
+      startAmbientMusic({ silent: true });
+    }
+  }, [phase, breakKind, breakCountdown, isAmbientMuted]);
+
+  useEffect(() => {
+    const shouldReset =
+      phase === "playing" ||
+      breakKind === "tournament_end" ||
+      typeof breakCountdown !== "number" ||
+      breakCountdown > 10 ||
+      breakCountdown <= 0;
+    if (shouldReset) {
+      countdownTickPlayedRef.current = false;
+      if (countdownTickAudioRef.current) {
+        try {
+          countdownTickAudioRef.current.pause();
+          countdownTickAudioRef.current.currentTime = 0;
+        } catch (_) {}
+      }
+      return;
+    }
+    if (!countdownTickPlayedRef.current) {
+      countdownTickPlayedRef.current = true;
       playCountdownTickSound();
     }
   }, [breakCountdown, phase, breakKind]);
@@ -3588,6 +5264,18 @@ function playTileStepSound(step) {
     setVocabOverlayShowRanking(false);
     setVocabOverlayWordFading(false);
     setVocabOverlayCurrentWord("");
+  }
+
+  function skipVocabOverlayAnimation() {
+    if (!isVocabOverlayOpen) return;
+    playCloseSound();
+    clearVocabOverlayTimers();
+    setVocabOverlayPhase("out");
+    queueVocabOverlayTimer(
+      setTimeout(() => {
+        stopVocabOverlayAnimation();
+      }, 220)
+    );
   }
 
   function startVocabOverlayAnimation({
@@ -3760,7 +5448,27 @@ function playTileStepSound(step) {
     if (!vocabResultsReadyKey) return;
     const overlayKey = vocabResultsReadyKey;
     if (vocabOverlayRoundRef.current === overlayKey) return;
+    const vocabSeenStorageKey = installId
+      ? `${VOCAB_OVERLAY_SEEN_STORAGE_KEY}:${installId}`
+      : VOCAB_OVERLAY_SEEN_STORAGE_KEY;
+    let overlayAlreadySeen = false;
+    try {
+      overlayAlreadySeen =
+        typeof localStorage !== "undefined" &&
+        localStorage.getItem(vocabSeenStorageKey) === overlayKey;
+    } catch (_) {
+      overlayAlreadySeen = false;
+    }
+    if (overlayAlreadySeen) {
+      vocabOverlayRoundRef.current = overlayKey;
+      return;
+    }
     vocabOverlayRoundRef.current = overlayKey;
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(vocabSeenStorageKey, overlayKey);
+      }
+    } catch (_) {}
 
     const selfKey = (nicknameRef.current || nickname || "").trim();
     const selfResult =
@@ -3812,6 +5520,7 @@ function playTileStepSound(step) {
     roundId,
     nickname,
     tournamentSummaryAt,
+    installId,
     vocabCount,
     vocabRoundDelta,
     vocabResultsReadyKey,
@@ -3930,6 +5639,589 @@ function playTileStepSound(step) {
       }
     });
   }, [gridRotationTurns]);
+
+  const clearImplodeAnimation = React.useCallback(() => {
+    if (implodeTimerRef.current) {
+      clearTimeout(implodeTimerRef.current);
+      implodeTimerRef.current = null;
+    }
+    tileRefs.current.forEach((el) => {
+      if (!el) return;
+      el.classList.remove("tile-implode");
+      el.style.removeProperty("--implode-x");
+      el.style.removeProperty("--implode-y");
+      el.style.removeProperty("--implode-ox");
+      el.style.removeProperty("--implode-oy");
+      el.style.removeProperty("--implode-rot");
+      el.style.removeProperty("--implode-delay");
+      el.style.removeProperty("--implode-dur");
+      el.style.removeProperty("--implode-opacity-mid");
+      el.style.removeProperty("--implode-scale-mid");
+      el.style.removeProperty("--implode-scale-end");
+    });
+  }, []);
+
+  const triggerImplodeAnimation = React.useCallback(() => {
+    const gridEl = gridRef.current;
+    if (!gridEl) return;
+    const gridRect = gridEl.getBoundingClientRect();
+    if (!gridRect.width || !gridRect.height) return;
+
+    const centerX = gridRect.left + gridRect.width / 2;
+    const centerY = gridRect.top + gridRect.height / 2;
+    const maxDist = Math.max(1, Math.hypot(gridRect.width / 2, gridRect.height / 2));
+    let maxTotalMs = 0;
+
+    tileRefs.current.forEach((el) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const tileCenterX = rect.left + rect.width / 2;
+      const tileCenterY = rect.top + rect.height / 2;
+      const dx = centerX - tileCenterX;
+      const dy = centerY - tileCenterY;
+      const dist = Math.hypot(dx, dy);
+      const distNorm = Math.min(1, dist / maxDist);
+      const orbitFactor = 0.22 + Math.random() * 0.28;
+      const rot = (Math.random() * 2 - 1) * 720;
+      const delay = distNorm * 0.35;
+      const minDur = 1.2;
+      const maxDur = 2.6;
+      const duration = minDur + distNorm * (maxDur - minDur);
+      const opacityMid = Math.max(0.1, 1 - distNorm * 0.6);
+      const scaleMid = 0.6 + distNorm * 0.25;
+      const scaleEnd = 0.08 + distNorm * 0.12;
+
+      let ox = 0;
+      let oy = 0;
+      if (dist > 0.5) {
+        const inv = 1 / dist;
+        const perpX = -dy * inv;
+        const perpY = dx * inv;
+        const orbitMag = dist * orbitFactor;
+        ox = perpX * orbitMag;
+        oy = perpY * orbitMag;
+      }
+
+      el.style.setProperty("--implode-x", `${dx}px`);
+      el.style.setProperty("--implode-y", `${dy}px`);
+      el.style.setProperty("--implode-ox", `${ox}px`);
+      el.style.setProperty("--implode-oy", `${oy}px`);
+      el.style.setProperty("--implode-rot", `${rot}deg`);
+      el.style.setProperty("--implode-delay", `${delay}s`);
+      el.style.setProperty("--implode-dur", `${duration}s`);
+      el.style.setProperty("--implode-opacity-mid", `${opacityMid}`);
+      el.style.setProperty("--implode-scale-mid", `${scaleMid}`);
+      el.style.setProperty("--implode-scale-end", `${scaleEnd}`);
+
+      el.classList.remove("tile-implode");
+      void el.offsetWidth;
+      el.classList.add("tile-implode");
+      maxTotalMs = Math.max(maxTotalMs, (delay + duration) * 1000);
+    });
+
+    if (maxTotalMs > 0) {
+      if (implodeTimerRef.current) clearTimeout(implodeTimerRef.current);
+      const cleanupMs = Math.max(maxTotalMs, IMPLODE_PHASE_MS) + 80;
+      implodeTimerRef.current = setTimeout(() => {
+        clearImplodeAnimation();
+      }, Math.ceil(cleanupMs));
+    }
+  }, [clearImplodeAnimation]);
+
+  const stopImplodePhase = React.useCallback(() => {
+    if (implodePhaseTimerRef.current) {
+      clearTimeout(implodePhaseTimerRef.current);
+      implodePhaseTimerRef.current = null;
+    }
+    implodeFallbackRef.current = false;
+    pendingRoundEndRef.current = null;
+    pendingBreakStartRef.current = null;
+    setImplodeActive(false);
+    clearImplodeAnimation();
+  }, [clearImplodeAnimation]);
+
+  const clearSelection = React.useCallback(() => {
+    setCurrentTiles([]);
+    currentTilesRef.current = [];
+    setHighlightPath([]);
+  }, []);
+
+  const startImplodePhase = React.useCallback(
+    (payload = null, { fallback = false } = {}) => {
+      if (payload) {
+        pendingRoundEndRef.current = payload;
+        implodeFallbackRef.current = false;
+      } else if (fallback) {
+        implodeFallbackRef.current = true;
+      }
+
+      if (implodePhaseTimerRef.current) {
+        return;
+      }
+
+      if (!payload) {
+        pendingRoundEndRef.current = null;
+      }
+
+      const activeRoundId = payload?.roundId ?? roundIdRef.current ?? null;
+      if (activeRoundId) {
+        implodeRoundRef.current = activeRoundId;
+      }
+
+      if (draggingRef.current) {
+        draggingRef.current = false;
+        clearSelection();
+      }
+
+      setImplodeActive(true);
+      triggerImplodeAnimation();
+
+      implodePhaseTimerRef.current = setTimeout(() => {
+        implodePhaseTimerRef.current = null;
+        const pending = pendingRoundEndRef.current;
+        pendingRoundEndRef.current = null;
+        const shouldFallback = implodeFallbackRef.current;
+        implodeFallbackRef.current = false;
+        if (pending && processRoundEndedRef.current) {
+          processRoundEndedRef.current(pending);
+        } else if (shouldFallback) {
+          setServerStatus("break");
+          setPhase("results");
+        }
+        const pendingBreak = pendingBreakStartRef.current;
+        if (pendingBreak && processBreakStartedRef.current) {
+          pendingBreakStartRef.current = null;
+          processBreakStartedRef.current(pendingBreak);
+        }
+        setImplodeActive(false);
+        clearImplodeAnimation();
+      }, IMPLODE_PHASE_MS);
+    },
+    [clearImplodeAnimation, triggerImplodeAnimation]
+  );
+
+  const processRoundEnded = React.useCallback(
+    ({
+      roomId: endedRoomId,
+      roundId: endedId,
+      results = [],
+      tournament: tournamentPayload = null,
+      tournamentSummary: summary = null,
+      tournamentSummaryAt: summaryAt = null,
+      targetSummary: targetSummaryPayload = null,
+    }) => {
+      if (endedRoomId) {
+        setCurrentRoomId(endedRoomId);
+        setRoomId(endedRoomId);
+      }
+      setPhase("results");
+      setServerStatus("break");
+      setProvisionalRanking([]);
+      setAnnouncements([]);
+      setFinalResults(Array.isArray(results) ? results : []);
+      setServerEndsAt(null);
+      setServerRoundDurationMs(null);
+      setRoundId(endedId || null);
+      setTournament(tournamentPayload || tournamentRef.current || null);
+      const endBreakKind = tournamentPayload?.breakKind || null;
+      setBreakKind(endBreakKind);
+      if (tournamentPayload) {
+        ensureTournamentBaseline(tournamentPayload, { captureRanking: true });
+      }
+      if (endBreakKind === "tournament_end") {
+        setTournamentFinaleHoldUntil(
+          getNowServerMs() + FINAL_ROUND_RESULTS_SECONDS * 1000
+        );
+      } else {
+        setTournamentFinaleHoldUntil(null);
+      }
+      setTournamentRoundPoints(tournamentPayload?.roundAwarded || {});
+      setTournamentTotals(tournamentPayload?.totals || {});
+      const baselineRound = tournamentBaselineRef.current.rankingRound;
+      const currentRound = Number.isFinite(tournamentPayload?.round)
+        ? tournamentPayload.round
+        : null;
+      const useBaselineDelta =
+        Number.isFinite(baselineRound) &&
+        Number.isFinite(currentRound) &&
+        baselineRound < currentRound;
+      setTournamentRanking(
+        Array.isArray(tournamentPayload?.ranking)
+          ? tournamentPayload.ranking.map((e, idx) => {
+              const posNow = Number.isFinite(e.pos) ? e.pos : idx + 1;
+              const basePos = tournamentBaselineRef.current.rankingMap?.get(e.nick);
+              const delta =
+                useBaselineDelta && Number.isFinite(basePos)
+                  ? basePos - posNow
+                  : e.delta ?? 0;
+              return {
+                nick: e.nick,
+                score: e.points,
+                gobbles: e.gobbles ?? null,
+                delta,
+                isBot: !!e.isBot,
+                isDailyChampion: !!e.isDailyChampion,
+              };
+            })
+          : []
+      );
+      setTournamentSummary(summary || null);
+      setTournamentSummaryAt(summaryAt || null);
+      setTargetSummary(targetSummaryPayload || null);
+      setResultsRankingMode("round");
+      const stableVocabKey =
+        endedId ||
+        summaryAt ||
+        (tournamentPayload?.id
+          ? `tournament-${tournamentPayload.id}-${tournamentPayload.round || "end"}`
+          : null);
+      const vocabResultsKey = stableVocabKey || `results-${Date.now()}`;
+      vocabResultsPendingRef.current = vocabResultsKey;
+      setVocabResultsReadyKey(null);
+      void requestVocabCount().then((count) => {
+        if (vocabResultsPendingRef.current !== vocabResultsKey) return;
+        if (!Number.isFinite(count)) {
+          setVocabRoundDelta(null);
+          return;
+        }
+        const base = vocabBaselineRef.current;
+        if (Number.isFinite(base)) {
+          setVocabRoundDelta(Math.max(0, count - base));
+        } else {
+          setVocabRoundDelta(null);
+        }
+        setVocabResultsReadyKey(vocabResultsKey);
+      });
+
+      if (Array.isArray(results)) {
+        const selfScore = results.find((r) => r.nick === nicknameRef.current.trim())?.score;
+        if (typeof selfScore === "number") {
+          setScore(selfScore);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    processRoundEndedRef.current = processRoundEnded;
+  }, [processRoundEnded]);
+
+
+  const playOutroThenResults = React.useCallback(
+    async (payload, { fallback = false } = {}) => {
+      const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
+      if (outroInFlightRef.current) {
+        if (payload) pendingRoundEndRef.current = payload;
+        return;
+      }
+      if (roundKey && outroRoundRef.current === roundKey) {
+        if (payload) pendingRoundEndRef.current = payload;
+        return;
+      }
+      if (roundKey) {
+        outroRoundRef.current = roundKey;
+      }
+      outroInFlightRef.current = true;
+
+      pendingRoundEndRef.current = payload || null;
+      implodeFallbackRef.current = !!fallback;
+      pendingBreakStartRef.current = null;
+
+      const gridEl = gridRef.current;
+      const gridRect = gridEl?.getBoundingClientRect?.();
+      const holeX =
+        gridRect && Number.isFinite(gridRect.left) && Number.isFinite(gridRect.width)
+          ? gridRect.left + gridRect.width / 2
+          : null;
+      const holeY =
+        gridRect && Number.isFinite(gridRect.top) && Number.isFinite(gridRect.height)
+          ? gridRect.top + gridRect.height / 2
+          : null;
+
+      const tileEls = tileRefs.current.filter(Boolean);
+
+      // On laisse les joueurs valider des mots pendant l'anim trou noir.
+      if (draggingRef.current) {
+        draggingRef.current = false;
+        clearSelection();
+      }
+
+      if (blackHoleSourisLoopRef.current.intervalId) {
+        clearInterval(blackHoleSourisLoopRef.current.intervalId);
+        blackHoleSourisLoopRef.current.intervalId = null;
+      }
+      if (blackHoleSourisLoopRef.current.stopTimer) {
+        clearTimeout(blackHoleSourisLoopRef.current.stopTimer);
+        blackHoleSourisLoopRef.current.stopTimer = null;
+      }
+      if (blackHoleClavierFadeRef.current) {
+        clearTimeout(blackHoleClavierFadeRef.current);
+        blackHoleClavierFadeRef.current = null;
+      }
+      if (blackHoleAuxStopRef.current) {
+        clearTimeout(blackHoleAuxStopRef.current);
+        blackHoleAuxStopRef.current = null;
+      }
+
+      const prevOpacity = gridEl?.style?.opacity;
+      const prevTransition = gridEl?.style?.transition;
+      if (gridEl) {
+        gridEl.style.transition = "opacity 40ms linear";
+        gridEl.style.opacity = "0";
+      }
+
+      if (!isSfxMuted) {
+        if (!blackHoleAudioRef.current) {
+          const audio = new Audio(SOUND_PATHS.blackHole);
+          audio.preload = "auto";
+          blackHoleAudioRef.current = audio;
+        }
+        const audio = blackHoleAudioRef.current;
+        const eq = resolveSoundSettings("blackHole");
+        try {
+          audio.currentTime = 0;
+          applyHtmlAudioSettings(audio, eq);
+          audio.play().catch(() => {});
+        } catch (_) {}
+        if (!blackHoleChebabeuRef.current) {
+          const audioAlt = new Audio(SOUND_PATHS.chebabeu);
+          audioAlt.preload = "auto";
+          blackHoleChebabeuRef.current = audioAlt;
+        }
+        const audioAlt = blackHoleChebabeuRef.current;
+        const eqAlt = resolveSoundSettings("chebabeu");
+        const syncToken = ++blackHoleSyncTokenRef.current;
+        const stopAux = (fadeMs = 260) => {
+          if (blackHoleSyncTokenRef.current !== syncToken) return;
+          if (blackHoleSourisLoopRef.current.intervalId) {
+            clearInterval(blackHoleSourisLoopRef.current.intervalId);
+            blackHoleSourisLoopRef.current.intervalId = null;
+          }
+          if (blackHoleSourisLoopRef.current.stopTimer) {
+            clearTimeout(blackHoleSourisLoopRef.current.stopTimer);
+            blackHoleSourisLoopRef.current.stopTimer = null;
+          }
+          if (blackHoleClavierFadeRef.current) {
+            clearTimeout(blackHoleClavierFadeRef.current);
+            blackHoleClavierFadeRef.current = null;
+          }
+          if (blackHoleAuxStopRef.current) {
+            clearTimeout(blackHoleAuxStopRef.current);
+            blackHoleAuxStopRef.current = null;
+          }
+          if (blackHoleClavierRef.current) {
+            fadeOutHtmlAudio(blackHoleClavierRef.current, fadeMs);
+          }
+        };
+        try {
+          audioAlt.currentTime = 0;
+          applyHtmlAudioSettings(audioAlt, eqAlt);
+          audioAlt.play().catch(() => {});
+        } catch (_) {}
+        audioAlt.addEventListener(
+          "ended",
+          () => {
+            stopAux(300);
+          },
+          { once: true }
+        );
+        if (!blackHoleClavierRef.current) {
+          const audioKeys = new Audio(SOUND_PATHS.clavier);
+          audioKeys.preload = "auto";
+          blackHoleClavierRef.current = audioKeys;
+        }
+        const audioKeys = blackHoleClavierRef.current;
+        const eqKeys = resolveSoundSettings("clavier");
+        try {
+          audioKeys.currentTime = 0;
+          applyHtmlAudioSettings(audioKeys, eqKeys);
+          audioKeys.play().catch(() => {});
+        } catch (_) {}
+        if (!blackHoleSourisRef.current) {
+          const audioMouse = new Audio(SOUND_PATHS.souris);
+          audioMouse.preload = "auto";
+          blackHoleSourisRef.current = audioMouse;
+        }
+        const audioMouse = blackHoleSourisRef.current;
+        try {
+          audioMouse.preload = "auto";
+          audioMouse.load?.();
+        } catch (_) {}
+
+        const chebStartAt = performance.now();
+        const playSourisOnce = () => {
+          playOneShotAudio(SOUND_PATHS.souris, {
+            cooldownKey: "souris",
+            eqKey: "souris",
+            cooldownMs: 0,
+          });
+        };
+        playSourisOnce();
+        const scheduleSync = () => {
+          if (blackHoleSyncTokenRef.current !== syncToken) return;
+          const chebDuration =
+            Number.isFinite(audioAlt.duration) && audioAlt.duration > 0
+              ? audioAlt.duration
+              : null;
+          if (!chebDuration) {
+            audioAlt.addEventListener("loadedmetadata", scheduleSync, { once: true });
+            blackHoleAuxStopRef.current = setTimeout(() => {
+              stopAux(280);
+            }, 6400);
+            return;
+          }
+          const elapsed = performance.now() - chebStartAt;
+          const totalMs = Math.max(0, Math.round(chebDuration * 1000));
+          const remainingMs = Math.max(0, totalMs - elapsed);
+          if (remainingMs <= 40) return;
+
+          const sourisDuration =
+            Number.isFinite(audioMouse.duration) && audioMouse.duration > 0
+              ? audioMouse.duration
+              : 0.22;
+          const intervalMs = Math.max(180, Math.round(sourisDuration * 1000 * 1.6));
+          if (remainingMs > intervalMs + 20) {
+            blackHoleSourisLoopRef.current.intervalId = setInterval(
+              playSourisOnce,
+              intervalMs
+            );
+            blackHoleSourisLoopRef.current.stopTimer = setTimeout(() => {
+              if (blackHoleSourisLoopRef.current.intervalId) {
+                clearInterval(blackHoleSourisLoopRef.current.intervalId);
+                blackHoleSourisLoopRef.current.intervalId = null;
+              }
+              blackHoleSourisLoopRef.current.stopTimer = null;
+            }, remainingMs);
+          }
+
+          const clavierDuration =
+            Number.isFinite(audioKeys.duration) && audioKeys.duration > 0
+              ? audioKeys.duration
+              : null;
+          if (clavierDuration && clavierDuration * 1000 > totalMs + 10) {
+            const fadeMs = Math.min(600, Math.max(180, Math.round(totalMs * 0.22)));
+            const delay = Math.max(0, remainingMs - fadeMs);
+            blackHoleClavierFadeRef.current = setTimeout(() => {
+              fadeOutHtmlAudio(audioKeys, fadeMs);
+              blackHoleClavierFadeRef.current = null;
+            }, delay);
+          }
+          blackHoleAuxStopRef.current = setTimeout(() => {
+            stopAux(280);
+          }, remainingMs);
+        };
+        scheduleSync();
+      }
+
+      let fxOverlay = null;
+      let fxFade = null;
+      try {
+        if (holeX != null && holeY != null && tileEls.length > 0) {
+          const fx = await playBlackHoleOutro3D({
+            tileEls,
+            holeX,
+            holeY,
+            durationMs: 6000,
+          });
+          fxOverlay = fx?.overlay || null;
+          fxFade = fx?.fade || null;
+        }
+      } finally {
+        if (gridEl) {
+          gridEl.style.opacity = prevOpacity || "";
+          gridEl.style.transition = prevTransition || "";
+        }
+      }
+
+      const pending = pendingRoundEndRef.current;
+      pendingRoundEndRef.current = null;
+      const shouldFallback = implodeFallbackRef.current;
+      implodeFallbackRef.current = false;
+
+      if (pending && processRoundEndedRef.current) {
+        processRoundEndedRef.current(pending);
+      } else if (shouldFallback) {
+        setServerStatus("break");
+        setPhase("results");
+      }
+
+      if (fxOverlay && fxFade) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        try {
+          await fxFade
+            .animate([{ opacity: 1 }, { opacity: 0 }], {
+              duration: 220,
+              easing: "ease-out",
+              fill: "forwards",
+            })
+            .finished;
+        } catch (_) {}
+        fxOverlay.remove();
+      }
+
+      const pendingBreak = pendingBreakStartRef.current;
+      if (pendingBreak && processBreakStartedRef.current) {
+        pendingBreakStartRef.current = null;
+        processBreakStartedRef.current(pendingBreak);
+      }
+
+      outroInFlightRef.current = false;
+    },
+    [clearSelection]
+  );
+
+  useEffect(() => {
+    playOutroThenResultsRef.current = playOutroThenResults;
+  }, [playOutroThenResults]);
+
+  const processBreakStarted = React.useCallback(
+    ({
+      roomId: incomingRoomId,
+      nextStartAt: nextTs,
+      breakKind: bk = null,
+      tournament: tournamentPayload = null,
+      nextSpecial = null,
+      tournamentSummary: summary = null,
+      tournamentSummaryAt: summaryAt = null,
+      targetSummary: targetSummaryPayload = null,
+    }) => {
+      const activeRoomId = currentRoomIdRef.current;
+      if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
+      syncServerTime();
+      setNextStartAt(nextTs || null);
+      setBreakKind(bk);
+      if (tournamentPayload) {
+        ensureTournamentBaseline(tournamentPayload);
+      }
+      if (bk !== "tournament_end") {
+        setTournamentFinaleHoldUntil(null);
+      }
+      if (bk) {
+        setPhase("results");
+        setServerStatus("break");
+        setServerEndsAt(null);
+        setServerRoundDurationMs(null);
+        setRoundId(null);
+      }
+      if (tournamentPayload) setTournament(tournamentPayload);
+      setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
+      if (summary) setTournamentSummary(summary);
+      setTournamentSummaryAt(summaryAt || null);
+      setTargetSummary(targetSummaryPayload || null);
+    },
+    []
+  );
+
+  useEffect(() => {
+    processBreakStartedRef.current = processBreakStarted;
+  }, [processBreakStarted]);
+
+  useEffect(() => {
+    return () => {
+      stopImplodePhase();
+    };
+  }, [stopImplodePhase]);
 
   function maybeAnnounceBestWord(nick, word, pts) {
     if (typeof pts !== "number") return;
@@ -4063,6 +6355,49 @@ function playTileStepSound(step) {
   }, []);
 
   useEffect(() => {
+    if (!DEV_MODE) return;
+    if (typeof PerformanceObserver === "undefined") return;
+    let observer = null;
+    try {
+      observer = new PerformanceObserver((list) => {
+        let count = 0;
+        let maxDuration = 0;
+        list.getEntries().forEach((entry) => {
+          if (entry.duration < 50) return;
+          count += 1;
+          maxDuration = Math.max(maxDuration, entry.duration);
+          const phase = phaseRef.current;
+          const tickValue = tickRef.current;
+          if (phase === "playing" && typeof tickValue === "number" && tickValue <= 10) {
+            console.warn(
+              "[perf] longtask",
+              Math.round(entry.duration),
+              "ms",
+              "tick",
+              tickValue
+            );
+          }
+        });
+        if (count > 0) {
+          const now = Date.now();
+          setDevPerfStats((prev) => ({
+            ...prev,
+            longTasks: prev.longTasks + count,
+            lastLongTaskMs: Math.round(maxDuration),
+            lastLongTaskAt: now,
+          }));
+        }
+      });
+      observer.observe({ entryTypes: ["longtask"] });
+    } catch (_) {}
+    return () => {
+      try {
+        observer?.disconnect();
+      } catch (_) {}
+    };
+  }, []);
+
+  useEffect(() => {
     function onRoundStarted({
       roomId: incomingRoomId,
       roundId: incomingRoundId,
@@ -4078,6 +6413,12 @@ function playTileStepSound(step) {
       targetLength = null,
     }) {
       if (!grid || !Array.isArray(grid)) return;
+      stopImplodePhase();
+      pendingBreakStartRef.current = null;
+      pendingRoundEndRef.current = null;
+      outroInFlightRef.current = false;
+      outroRoundRef.current = null;
+      setInputLocked(false);
       syncServerTime();
       if (incomingRoomId) {
         setCurrentRoomId(incomingRoomId);
@@ -4094,6 +6435,9 @@ function playTileStepSound(step) {
       setTournamentFinaleHoldUntil(null);
       setTargetSummary(null);
       setTournament(tournamentPayload || null);
+      if (tournamentPayload) {
+        ensureTournamentBaseline(tournamentPayload);
+      }
       if (
         (special?.type === "target_long" || special?.type === "target_score") &&
         typeof targetLength === "number" &&
@@ -4144,113 +6488,31 @@ function playTileStepSound(step) {
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
     }) {
-      if (endedRoomId) {
-        setCurrentRoomId(endedRoomId);
-        setRoomId(endedRoomId);
-      }
-      setPhase("results");
-      setServerStatus("break");
-      setProvisionalRanking([]);
-      setAnnouncements([]);
-      setFinalResults(Array.isArray(results) ? results : []);
-      setServerEndsAt(null);
-      setServerRoundDurationMs(null);
-      setRoundId(endedId || null);
-      setTournament(tournamentPayload || tournamentRef.current || null);
-      const endBreakKind = tournamentPayload?.breakKind || null;
-      setBreakKind(endBreakKind);
-      if (endBreakKind === "tournament_end") {
-        setTournamentFinaleHoldUntil(
-          getNowServerMs() + FINAL_ROUND_RESULTS_SECONDS * 1000
-        );
-      } else {
-        setTournamentFinaleHoldUntil(null);
-      }
-      if (endBreakKind === "tournament_end") {
-        weeklyStatsBaselineRef.current = weeklyStatsSnapshotRef.current;
-      } else {
-        weeklyStatsBaselineRef.current = null;
-      }
-      setTournamentRoundPoints(tournamentPayload?.roundAwarded || {});
-      setTournamentTotals(tournamentPayload?.totals || {});
-      setTournamentRanking(
-        Array.isArray(tournamentPayload?.ranking)
-          ? tournamentPayload.ranking.map((e) => ({
-              nick: e.nick,
-              score: e.points,
-              gobbles: e.gobbles ?? null,
-              delta: e.delta ?? 0,
-              isBot: !!e.isBot,
-              isDailyChampion: !!e.isDailyChampion,
-            }))
-          : []
+      playOutroThenResultsRef.current?.(
+        {
+          roomId: endedRoomId,
+          roundId: endedId,
+          results,
+          tournament: tournamentPayload,
+          tournamentSummary: summary,
+          tournamentSummaryAt: summaryAt,
+          targetSummary: targetSummaryPayload,
+        },
+        { fallback: false }
       );
-      setTournamentSummary(summary || null);
-      setTournamentSummaryAt(summaryAt || null);
-      setTargetSummary(targetSummaryPayload || null);
-      setResultsRankingMode("round");
-      const vocabResultsKey = endedId || summaryAt || `results-${Date.now()}`;
-      vocabResultsPendingRef.current = vocabResultsKey;
-      setVocabResultsReadyKey(null);
-      void requestVocabCount().then((count) => {
-        if (vocabResultsPendingRef.current !== vocabResultsKey) return;
-        if (!Number.isFinite(count)) {
-          setVocabRoundDelta(null);
-          return;
-        }
-        const base = vocabBaselineRef.current;
-        if (Number.isFinite(base)) {
-          setVocabRoundDelta(Math.max(0, count - base));
-        } else {
-          setVocabRoundDelta(null);
-        }
-        setVocabResultsReadyKey(vocabResultsKey);
-      });
-
-      if (Array.isArray(results)) {
-        const selfScore = results.find((r) => r.nick === nicknameRef.current.trim())?.score;
-        if (typeof selfScore === "number") {
-          setScore(selfScore);
-        }
-      }
     }
 
-    function onBreakStarted({
-      roomId: incomingRoomId,
-      nextStartAt: nextTs,
-      breakKind: bk = null,
-      tournament: tournamentPayload = null,
-      nextSpecial = null,
-      tournamentSummary: summary = null,
-      tournamentSummaryAt: summaryAt = null,
-      targetSummary: targetSummaryPayload = null,
-    }) {
-      const activeRoomId = currentRoomIdRef.current;
-      if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
-      syncServerTime();
-      setNextStartAt(nextTs || null);
-      setBreakKind(bk);
-      if (bk === "tournament_end" && !weeklyStatsBaselineRef.current) {
-        weeklyStatsBaselineRef.current = weeklyStatsSnapshotRef.current;
+    function onBreakStarted(payload = {}) {
+      if (!payload || typeof payload !== "object") return;
+      if (pendingRoundEndRef.current || inputLockedRef.current) {
+        pendingBreakStartRef.current = payload;
+        return;
       }
-      if (bk !== "tournament_end") {
-        weeklyStatsBaselineRef.current = null;
+      if (phaseRef.current === "playing") {
+        pendingBreakStartRef.current = payload;
+        return;
       }
-      if (bk !== "tournament_end") {
-        setTournamentFinaleHoldUntil(null);
-      }
-      if (bk) {
-        setPhase("results");
-        setServerStatus("break");
-        setServerEndsAt(null);
-        setServerRoundDurationMs(null);
-        setRoundId(null);
-      }
-      if (tournamentPayload) setTournament(tournamentPayload);
-      setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
-      if (summary) setTournamentSummary(summary);
-      setTournamentSummaryAt(summaryAt || null);
-      setTargetSummary(targetSummaryPayload || null);
+      processBreakStartedRef.current?.(payload);
     }
 
     function onPlayersUpdate(list = []) {
@@ -4326,9 +6588,12 @@ function playTileStepSound(step) {
       ) {
         return;
       }
-      const self = nicknameRef.current.trim();
-      const author = (entry.nick || "").trim();
+      const selfRaw = (nicknameRef.current || nickname || "").trim();
+      const authorRaw = (entry.nick || "").trim();
+      const self = selfRaw ? selfRaw.toLowerCase() : "";
+      const author = authorRaw ? authorRaw.toLowerCase() : "";
       if (!self || !author || self !== author) return;
+      if (Date.now() - lastGobbleAtRef.current < 1600) return;
       triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
       triggerConfettiBurst("gobble");
     }
@@ -4366,6 +6631,11 @@ function playTileStepSound(step) {
     }
 
     function onDisconnect() {
+      const wasIntentional = intentionalDisconnectRef.current;
+      intentionalDisconnectRef.current = false;
+      if (isBackgroundedRef.current) {
+        return;
+      }
       if (disconnectGraceTimerRef.current) {
         clearTimeout(disconnectGraceTimerRef.current);
       }
@@ -4395,14 +6665,18 @@ function playTileStepSound(step) {
         resumeLockAtRef.current = 0;
         reconnectAttemptRef.current = false;
       };
-      hardReset();
+      if (!wasIntentional && !hasSavedSession() && !isLoggedInRef.current) {
+        hardReset();
+      }
       if (manualDisconnectRef.current) {
         manualDisconnectRef.current = false;
         setConnectionError("");
         return;
       }
-      setConnectionError("Reconnexion...");
-      attemptSilentReconnect();
+      if (!wasIntentional) {
+        setConnectionError("Reconnexion...");
+        attemptSilentReconnect();
+      }
     }
 
     function onMedalsUpdate(payload) {
@@ -4530,14 +6804,24 @@ function playTileStepSound(step) {
   useEffect(() => {
     let id = null;
 
+    // Guard: ensure only one timer interval at a time.
+    if (tickIntervalRef.current) {
+      clearInterval(tickIntervalRef.current);
+      tickIntervalRef.current = null;
+    }
+
     const finalizeRound = () => {
-      setServerStatus("break");
-      setPhase("results");
+      playOutroThenResultsRef.current?.(null, { fallback: true });
+    };
+
+    const setIntervalSafe = (fn) => {
+      id = setInterval(fn, 1000);
+      tickIntervalRef.current = id;
     };
 
     if (phase === "countdown") {
       setTick(COUNTDOWN);
-      id = setInterval(() => {
+      setIntervalSafe(() => {
         setTick((t) => {
           if (t <= 1) {
             clearInterval(id);
@@ -4546,54 +6830,42 @@ function playTileStepSound(step) {
           }
           return t - 1;
         });
-      }, 1000);
+      });
     } else if (phase === "playing") {
       const maxDuration =
         Number.isFinite(serverRoundDurationMs)
           ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
           : ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION;
 
-      if (serverEndsAt) {
-        const updateRemaining = () => {
-          const now = getNowServerMs();
-          const remaining = Math.min(
-            maxDuration,
-            Math.max(0, Math.round((serverEndsAt - now) / 1000))
-          );
+      // Guard: always derive remaining time from a fixed end timestamp.
+      const endTimeMs = serverEndsAt ?? getNowServerMs() + maxDuration * 1000;
+      const updateRemaining = () => {
+        const now = getNowServerMs();
+        const remaining = Math.min(
+          maxDuration,
+          Math.max(0, Math.round((endTimeMs - now) / 1000))
+        );
 
-          if (remaining <= 0) {
-            clearInterval(id);
-            finalizeRound();
-            return 0;
-          }
+        if (remaining <= 0) {
+          clearInterval(id);
+          finalizeRound();
+          return 0;
+        }
 
-          return remaining;
-        };
+        return remaining;
+      };
 
-        setTick(updateRemaining());
-        id = setInterval(() => {
-          setTick(updateRemaining);
-        }, 1000);
-      } else {
-        const fallbackDuration = maxDuration;
-        setTick(fallbackDuration);
-        id = setInterval(() => {
-          setTick((t) => {
-            if (t <= 1) {
-              clearInterval(id);
-              finalizeRound();
-              return 0;
-            }
-            return t - 1;
-          });
-        }, 1000);
-      }
+      setTick(updateRemaining());
+      setIntervalSafe(() => {
+        setTick(updateRemaining);
+      });
     }
 
     return () => {
       if (id) clearInterval(id);
+      if (tickIntervalRef.current === id) tickIntervalRef.current = null;
     };
-  }, [phase, serverEndsAt, serverRoundDurationMs, board, dictionary, currentRoomId, roomId, specialScoreConfig]);
+  }, [phase, serverEndsAt, serverRoundDurationMs, currentRoomId, roomId]);
 
   useEffect(() => {
     if (phase !== "results") return;
@@ -4628,6 +6900,7 @@ function playTileStepSound(step) {
 
   useEffect(() => {
     if (phase !== "playing") return;
+    if (!LIVE_SOLVER_DURING_PLAY) return;
     if (specialRound?.type === "speed") return;
     if (specialRound?.type === "monstrous") return;
     if (specialRound?.type === "target_long") return;
@@ -5418,6 +7691,11 @@ function playTileStepSound(step) {
     playSwipeSound();
   }
 
+  function shouldIgnoreSwipeClick(ref, delayMs = 450) {
+    const last = ref?.current || 0;
+    return Date.now() - last < delayMs;
+  }
+
   function getSeasonPages() {
     return ["vocab_rank", "vocab_personal"];
   }
@@ -5514,11 +7792,8 @@ function playTileStepSound(step) {
         return;
       }
       setWeeklyDragging(true);
-    }
-    if (!weeklyDragging && Math.abs(deltaX) > 6) {
       triggerWeeklyArrowHint();
     }
-    setWeeklyDragOffset(deltaX);
   }
 
   function handleWeeklyTouchEnd(e) {
@@ -5528,16 +7803,18 @@ function playTileStepSound(step) {
     weeklyTouchRef.current.startX = null;
     weeklyTouchRef.current.startY = null;
     const width = weeklySlideWidthRef.current || window.innerWidth || 1;
-    const endX = e?.changedTouches?.[0]?.clientX ?? null;
+    const touch = e?.changedTouches?.[0];
     setWeeklyDragging(false);
-    if (startX == null || startY == null || endX == null) {
+    if (startX == null || startY == null || !touch) {
       setWeeklyDragOffset(0);
       return;
     }
-    const delta = endX - startX;
-    const threshold = Math.max(WEEKLY_SWIPE_THRESHOLD, width * 0.1);
-    if (Math.abs(delta) >= threshold) {
-      shiftWeeklyBoard(delta < 0 ? 1 : -1);
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
+    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+      weeklySwipeBlockRef.current = Date.now();
+      shiftWeeklyBoard(deltaX < 0 ? 1 : -1);
     }
     setWeeklyDragOffset(0);
   }
@@ -5577,7 +7854,6 @@ function playTileStepSound(step) {
       }
       setSeasonDragging(true);
     }
-    setSeasonDragOffset(deltaX);
   }
 
   function handleSeasonTouchEnd(e) {
@@ -5587,16 +7863,18 @@ function playTileStepSound(step) {
     seasonTouchRef.current.startX = null;
     seasonTouchRef.current.startY = null;
     const width = seasonSlideWidthRef.current || window.innerWidth || 1;
-    const endX = e?.changedTouches?.[0]?.clientX ?? null;
+    const touch = e?.changedTouches?.[0];
     setSeasonDragging(false);
-    if (startX == null || startY == null || endX == null) {
+    if (startX == null || startY == null || !touch) {
       setSeasonDragOffset(0);
       return;
     }
-    const delta = endX - startX;
-    const threshold = Math.max(WEEKLY_SWIPE_THRESHOLD, width * 0.1);
-    if (Math.abs(delta) >= threshold) {
-      shiftSeasonPage(delta < 0 ? 1 : -1);
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
+    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+      seasonSwipeBlockRef.current = Date.now();
+      shiftSeasonPage(deltaX < 0 ? 1 : -1);
     }
     setSeasonDragOffset(0);
   }
@@ -5752,6 +8030,72 @@ function playTileStepSound(step) {
     const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       shiftResultsPage(deltaX < 0 ? 1 : -1);
+    }
+  }
+
+  function getFinalePagesCount() {
+    return 1 + FINALE_WEEKLY_BOARDS.length;
+  }
+
+  function goToFinalePage(nextIndex) {
+    const total = getFinalePagesCount();
+    if (total <= 1) return;
+    const current = clampValue(finalePage, 0, total - 1);
+    const next = clampValue(nextIndex, 0, total - 1);
+    if (next === current) return;
+    setFinalePage(next);
+    playSwipeSound();
+  }
+
+  function shiftFinalePage(delta) {
+    if (!Number.isInteger(delta)) return;
+    goToFinalePage(finalePage + delta);
+  }
+
+  function handleFinaleTouchStart(e) {
+    const touch = e?.touches?.[0];
+    if (!touch) return;
+    finaleTouchRef.current.startX = touch.clientX;
+    finaleTouchRef.current.startY = touch.clientY;
+    finaleSlideWidthRef.current =
+      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
+    finaleDraggingRef.current = false;
+  }
+
+  function handleFinaleTouchMove(e) {
+    const startX = finaleTouchRef.current.startX;
+    const startY = finaleTouchRef.current.startY;
+    if (startX == null || startY == null) return;
+    const touch = e?.touches?.[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    if (!finaleDraggingRef.current) {
+      if (Math.abs(deltaX) < 8) return;
+      if (Math.abs(deltaX) < Math.abs(deltaY)) {
+        finaleTouchRef.current.startX = null;
+        finaleTouchRef.current.startY = null;
+        finaleDraggingRef.current = false;
+        return;
+      }
+      finaleDraggingRef.current = true;
+    }
+  }
+
+  function handleFinaleTouchEnd(e) {
+    const startX = finaleTouchRef.current.startX;
+    const startY = finaleTouchRef.current.startY;
+    finaleTouchRef.current.startX = null;
+    finaleTouchRef.current.startY = null;
+    const width = finaleSlideWidthRef.current || window.innerWidth || 1;
+    const touch = e?.changedTouches?.[0];
+    finaleDraggingRef.current = false;
+    if (startX == null || startY == null || !touch) return;
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
+    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+      shiftFinalePage(deltaX < 0 ? 1 : -1);
     }
   }
 
@@ -6012,6 +8356,7 @@ function playTileStepSound(step) {
       })
       .catch(() => {
         console.warn(`[watchdog] reconnect (${reason})`);
+        intentionalDisconnectRef.current = true;
         socket.disconnect();
         requestSessionResumeSnapshot("watchdog");
       });
@@ -6082,13 +8427,10 @@ function playTileStepSound(step) {
 
   useEffect(() => {
     weeklyStatsSnapshotRef.current = weeklyStats;
-  }, [weeklyStats]);
-
-  useEffect(() => {
-    if (phase !== "results" || breakKind !== "tournament_end") {
-      weeklyStatsBaselineRef.current = null;
+    if (tournamentBaselineRef.current.id && !tournamentBaselineRef.current.weeklyStats) {
+      tournamentBaselineRef.current.weeklyStats = weeklyStats;
     }
-  }, [phase, breakKind]);
+  }, [weeklyStats]);
 
   useEffect(() => {
     if (isDailyView) return;
@@ -6215,6 +8557,9 @@ function playTileStepSound(step) {
   }, [nextStartAt]);
 
   function handleForeground(reason = "foreground") {
+    const now = Date.now();
+    if (now - foregroundAttemptRef.current < 800) return;
+    foregroundAttemptRef.current = now;
     if (!hasSavedSession() && !isLoggedInRef.current) {
       lastBackgroundTimeRef.current = 0;
       return;
@@ -6225,6 +8570,7 @@ function playTileStepSound(step) {
     const shouldForceReconnect = timeSinceBackground > 5000;
     if (shouldForceReconnect) {
       try {
+        intentionalDisconnectRef.current = true;
         socket.disconnect();
       } catch (_) {}
       if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
@@ -6253,6 +8599,7 @@ function playTileStepSound(step) {
       manualRefreshTimerRef.current = null;
     }
     try {
+      intentionalDisconnectRef.current = true;
       socket.disconnect();
     } catch (_) {}
     manualRefreshTimerRef.current = setTimeout(() => {
@@ -6264,10 +8611,12 @@ function playTileStepSound(step) {
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
+        isBackgroundedRef.current = true;
         lastBackgroundTimeRef.current = Date.now();
         return;
       }
       if (document.visibilityState === "visible") {
+        isBackgroundedRef.current = false;
         handleForeground("visibility");
       }
     };
@@ -6559,6 +8908,16 @@ function playTileStepSound(step) {
     const updateBestRefs = opts.updateBestRefs !== false;
     if (!dictionary) return [];
     if (!sourceBoard || sourceBoard.length === 0) return [];
+    if (DEV_MODE) {
+      console.info("[solver] solveAll start", {
+        phase: phaseRef.current,
+        size: sourceBoard.length,
+      });
+      setDevPerfStats((prev) => ({
+        ...prev,
+        lastSolveAllAt: Date.now(),
+      }));
+    }
     const filtered = filterDictionary(dictionary, sourceBoard);
     const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
     solutionsRef.current = solved;
@@ -6585,6 +8944,8 @@ function playTileStepSound(step) {
     sourceBoard,
     { updateBestRefs = true, jobKey, delayMs } = {}
   ) {
+    // Guard: never compute solveAll during playing.
+    if (phaseRef.current === "playing" && !LIVE_SOLVER_DURING_PLAY) return;
     cancelAllWordsCompute();
     if (!dictionary || dictionary.size === 0) return;
     if (!sourceBoard || sourceBoard.length === 0) return;
@@ -6681,11 +9042,6 @@ function playTileStepSound(step) {
     prevPositionsRef.current = map;
   }
 
-  function clearSelection() {
-    setCurrentTiles([]);
-    currentTilesRef.current = [];
-    setHighlightPath([]);
-  }
 
   function rotateGridClockwise() {
     if (isGridRotating) return;
@@ -6986,9 +9342,13 @@ function playTileStepSound(step) {
     closeReportDialog();
   }
 
-  function openDefinition(term) {
+  function openDefinition(term, { fromWordInfo = false } = {}) {
     const clean = String(term || "").trim();
     if (!clean) return;
+    const originFromWordInfo = !!fromWordInfo;
+    if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION) {
+      completeGuidedResultsTutorial();
+    }
     const requestId = ++definitionRequestIdRef.current;
     if (definitionBlinkTimerRef.current) {
       clearTimeout(definitionBlinkTimerRef.current);
@@ -7019,42 +9379,61 @@ function playTileStepSound(step) {
       source: "",
       url: "",
       ok: false,
+      fromWordInfo: originFromWordInfo,
     });
 
-    fetch(`/api/define?word=${encodeURIComponent(clean)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (requestId !== definitionRequestIdRef.current) return;
-        if (!data) {
+    const tried = new Set();
+    const baseKey = normalizeWord(clean);
+    if (baseKey) tried.add(baseKey);
+
+    const fetchDefinition = (word) => {
+      fetch(`/api/define?word=${encodeURIComponent(word)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (requestId !== definitionRequestIdRef.current) return;
+          if (!data) {
+            setDefinitionModal((prev) => ({ ...prev, loading: false, ok: false }));
+            return;
+          }
+          const definitionText = pickDefinitionText(data);
+          const ok = !!definitionText || !!data.ok;
+          if (!definitionText) {
+            const fallbacks = buildDefinitionFallbacks(clean, data, tried);
+            if (fallbacks.length) {
+              fetchDefinition(fallbacks[0]);
+              return;
+            }
+          }
+          setDefinitionModal({
+            open: true,
+            loading: false,
+            word: data.displayWord || data.word || clean,
+            lemma: data.lemma || "",
+            lemmaLabel: data.lemmaLabel || "",
+            lemmaGuess: !!data.lemmaGuess,
+            participleBase: data.participleBase || "",
+            participleLabel: data.participleLabel || "",
+            participleGuess: !!data.participleGuess,
+            inflectionBase: data.inflectionBase || "",
+            inflectionLabel: data.inflectionLabel || "",
+            inflectionGuess: !!data.inflectionGuess,
+            matchedTitle: data.matchedTitle || "",
+            phraseGuess: !!data.phraseGuess,
+            title: data.title || "",
+            definition: definitionText,
+            source: data.source || "",
+            url: data.url || "",
+            ok,
+            fromWordInfo: originFromWordInfo,
+          });
+        })
+        .catch(() => {
+          if (requestId !== definitionRequestIdRef.current) return;
           setDefinitionModal((prev) => ({ ...prev, loading: false, ok: false }));
-          return;
-        }
-        setDefinitionModal({
-          open: true,
-          loading: false,
-          word: data.displayWord || data.word || clean,
-          lemma: data.lemma || "",
-          lemmaLabel: data.lemmaLabel || "",
-          lemmaGuess: !!data.lemmaGuess,
-          participleBase: data.participleBase || "",
-          participleLabel: data.participleLabel || "",
-          participleGuess: !!data.participleGuess,
-          inflectionBase: data.inflectionBase || "",
-          inflectionLabel: data.inflectionLabel || "",
-          inflectionGuess: !!data.inflectionGuess,
-          matchedTitle: data.matchedTitle || "",
-          phraseGuess: !!data.phraseGuess,
-          title: data.title || "",
-          definition: data.definition || data.extract || "",
-          source: data.source || "",
-          url: data.url || "",
-          ok: !!data.ok,
         });
-      })
-      .catch(() => {
-        if (requestId !== definitionRequestIdRef.current) return;
-        setDefinitionModal((prev) => ({ ...prev, loading: false, ok: false }));
-      });
+    };
+
+    fetchDefinition(clean);
   }
 
   function closeDefinition() {
@@ -7092,6 +9471,10 @@ function playTileStepSound(step) {
     setCurrentTiles((prev) => {
       const next = [...prev, label];
       currentTilesRef.current = next;
+      if (next.length === 1) {
+        tileStepRef.current = 0;
+        playTileStepSound(0);
+      }
 
       const raw = normalizeWord(next.join(""));
       if (!raw) return prev;
@@ -7165,6 +9548,7 @@ function playTileStepSound(step) {
       // On ne gère le reste que si le jeu est la zone active
       if (activeArea !== "game") return;
       if (phase !== "playing") return;
+      if (inputLockedRef.current) return;
 
       const target = e.target;
       const tag = target.tagName;
@@ -7209,44 +9593,92 @@ function playTileStepSound(step) {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeArea, phase, board, dictionary]);
 
-  function playDefeatTone(freqs = [280, 220]) {
-    if (isMuted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-    }
-    const ctx = audioCtxRef.current;
-    const now = ctx.currentTime + 0.01;
-    freqs.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const t0 = now + idx * 0.1;
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, t0);
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      try {
-        osc.start(t0);
-        osc.stop(t0 + 0.16);
-      } catch (_) {}
-    });
+  function playDefeatTone(freqs = [280, 220], soundKey = "error") {
+    if (isSfxMuted) return;
+    if (!shouldPlay(soundKey, AUDIO_COOLDOWNS_MS[soundKey] ?? 120)) return;
+    const system = getAudioSystem();
+    if (!system) return;
+    const { ctx } = system;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime + 0.01;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(humanizeGain(0.9, 1.0), now);
+      const fxNodes = connectSfxChain(
+        ctx,
+        system,
+        master,
+        {
+          filter: { type: "lowpass", base: 1800, peak: 4200, q: 0.8, attack: 0.02, release: 0.12 },
+          saturation: 0.7,
+          panRange: 0.12,
+          reverbSend: 0.06,
+        },
+        now
+      );
+      const nodes = [master, ...fxNodes];
+      let lastStop = now;
+      let lastOsc = null;
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t0 = now + idx * 0.1;
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(humanizeFreq(freq, 5), t0);
+        const endTime = withEnvelope(
+          gain,
+          t0,
+          0.006,
+          humanizeGain(0.14, 1.4),
+          0.05,
+          0.16
+        );
+        const stopTime = endTime + 0.02;
+        osc.connect(gain);
+        gain.connect(master);
+        nodes.push(osc, gain);
+        if (stopTime > lastStop) lastStop = stopTime;
+        lastOsc = osc;
+        try {
+          osc.start(t0);
+          osc.stop(stopTime);
+        } catch (_) {}
+      });
+      const finalStopTime = lastStop;
+      const cleanup = startVoiceCount(soundKey, finalStopTime - ctx.currentTime + 0.1);
+      const finalize = scheduleNodeCleanup(ctx, finalStopTime + 0.05, nodes, cleanup);
+      if (lastOsc) lastOsc.onended = finalize;
+    };
+    ctx.resume().then(start).catch(start);
   }
 
   function playErrorSound() {
-    playDefeatTone([290, 230]);
+    playDefeatTone([290, 230], "error");
+  }
+
+  function playInvalidWordSound() {
+    if (isSfxMuted) return;
+    playOneShotAudio(SOUND_PATHS.invalidWord, {
+      cooldownKey: "invalidWord",
+      eqKey: "invalidWord",
+    });
+  }
+
+  function playAlreadyPlayedSound() {
+    if (isSfxMuted) return;
+    playOneShotAudio(SOUND_PATHS.dejaJoue, {
+      cooldownKey: "dejaJoue",
+      eqKey: "dejaJoue",
+    });
   }
 
   function playDuplicateErrorTone() {
-    playDefeatTone([320, 260]);
+    playDefeatTone([320, 260], "duplicate");
   }
 
     // =============== VIBRATIONS (optionnelles, mobile) ===============
   function vibrateLight() {
-    if (!canVibrateRef.current) return;
+    if (!canVibrateRef.current || !isVibrationEnabledRef.current) return;
     try {
       navigator.vibrate(15);
     } catch (_) {}
@@ -7259,7 +9691,7 @@ function playTileStepSound(step) {
 
 
   function vibrateErrorPattern() {
-    if (!canVibrateRef.current) return;
+    if (!canVibrateRef.current || !isVibrationEnabledRef.current) return;
     try {
       navigator.vibrate([40, 60, 40]);
     } catch (_) {}
@@ -7311,10 +9743,13 @@ function playTileStepSound(step) {
     // restart the animation even if the state was already true
     requestAnimationFrame(() => setShake(true));
     const lower = (msg || "").toLowerCase();
-    const isDuplicate =
-      lower.includes("déjà") || lower.includes("deja");
-    if (isDuplicate) {
-      playDuplicateErrorTone();
+    const isDuplicate = lower.includes("déjà") || lower.includes("deja");
+    const isInvalidDico =
+      lower.includes("dico") || lower.includes("dictionnaire") || lower.includes("absent");
+    if (isInvalidDico) {
+      playInvalidWordSound();
+    } else if (isDuplicate) {
+      playAlreadyPlayedSound();
     } else {
       playErrorSound();
     }
@@ -7328,7 +9763,7 @@ function playTileStepSound(step) {
    * Drag souris : démarrage
    */
   function handleMouseDown(index, mode = "mouse") {
-    if (phase !== "playing") return;
+    if (phase !== "playing" || inputLocked) return;
     setActiveArea("game");
     draggingRef.current = true;
     setLastInputMode(mode);
@@ -7472,7 +9907,7 @@ return [...prevPath, index];
   }
 
  function handleTouchStart(e, index) {
-  if (phase !== "playing") return;
+  if (phase !== "playing" || inputLocked) return;
   if (!e.touches || e.touches.length === 0) return;
 
   setActiveArea("game");
@@ -7481,6 +9916,8 @@ return [...prevPath, index];
   clearStatusMessage();
 
   const letter = board[index].letter;
+  tileStepRef.current = 0;
+  playTileStepSound(0);
   setCurrentTiles([letter]);
   currentTilesRef.current = [letter];
   setHighlightPath([index]);
@@ -7562,6 +9999,7 @@ function handleTouchEnd() {
         setStatusMessageWithHold("Pas le mot cible", 1400);
       } else if (reason === "already_found") {
         setStatusMessageWithHold("Deja trouve", 1200);
+        playAlreadyPlayedSound();
       }
       markRejectedWord(word, reason || "error");
       return;
@@ -7637,7 +10075,6 @@ function handleTouchEnd() {
       }
 
       const isSpeedRound = specialRound?.type === "speed";
-      const isBonusLetterRound = specialRound?.type === "bonus_letter";
       const maxPossiblePts = bestGridMaxRef.current || 0;
       const maxPossibleLen = bestGridMaxLenRef.current || 0;
       const allowScoreGobble = !isSpeedRound;
@@ -7645,18 +10082,19 @@ function handleTouchEnd() {
       const isGobbleNow =
         (allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts) ||
         (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
-      const allowLocalGobble = !isBonusLetterRound;
 
       if (!isTargetRoundNow) {
-        if (allowLocalGobble && isGobbleNow) {
+        if (isGobbleNow) {
           playGobbleVoice();
           triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
           triggerConfettiBurst("gobble");
-        } else if (safePts >= 50) {
+        } else if (safePts > 29) {
+          triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
+        } else if (safePts > 19) {
           triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
-        } else if (safePts >= 35) {
+        } else if (safePts > 9) {
           triggerPraiseFlash("FABULEUX !", { kind: "purple" });
-        } else if (safePts >= 20) {
+        } else if (safePts > 5) {
           triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
         }
         if (safePts >= BIG_SCORE_THRESHOLD) {
@@ -7810,6 +10248,7 @@ function handleTouchEnd() {
 
 
   function submit()  {
+  if (inputLocked) return;
   if (typeof window !== "undefined") {
     window.scrollTo(0, 0);
   }
@@ -7897,7 +10336,6 @@ function handleTouchEnd() {
  playScoreSound(pts);
  maybeAnnounceBestWord(nickname.trim() || "Moi", display || raw, pts);
  const isSpeedRound = specialRound?.type === "speed";
- const isBonusLetterRound = specialRound?.type === "bonus_letter";
  const maxPossiblePts = bestGridMaxRef.current || 0;
  const maxPossibleLen = bestGridMaxLenRef.current || 0;
  const allowScoreGobble = !isSpeedRound;
@@ -7905,17 +10343,18 @@ function handleTouchEnd() {
  const isGobbleNow =
   (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
   (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
- const allowLocalGobble = !isBonusLetterRound;
 
- if (allowLocalGobble && isGobbleNow) {
+ if (isGobbleNow) {
   playGobbleVoice();
   triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
   triggerConfettiBurst("gobble");
- } else if (pts >= 50) {
+ } else if (pts > 29) {
+   triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
+ } else if (pts > 19) {
    triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
- } else if (pts >= 35) {
+ } else if (pts > 9) {
    triggerPraiseFlash("FABULEUX !", { kind: "purple" });
- } else if (pts >= 20) {
+ } else if (pts > 5) {
    triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
  }
  if (pts >= BIG_SCORE_THRESHOLD) {
@@ -7979,6 +10418,9 @@ function handleTouchEnd() {
     if (!clean) return;
     const foundBy = getWordFinders(clean);
     setWordInfoModal({ open: true, word: clean, foundBy });
+    if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_WORD) {
+      setGuidedResultsStep(GUIDED_RESULTS_STEPS.TAP_DEFINITION);
+    }
   }
 
   function closeWordInfoModal() {
@@ -8065,6 +10507,12 @@ function handleTouchEnd() {
     : specialHint?.pattern || buildTargetBlankPattern(specialHint?.length);
   const isTargetHintRound =
     specialRound?.type === "target_long" || specialRound?.type === "target_score";
+  const targetScoreMax =
+    specialRound?.type === "target_score"
+      ? Number.isFinite(roundStats?.maxPts) && roundStats.maxPts > 0
+        ? roundStats.maxPts
+        : bestGridMaxRef.current || null
+      : null;
   const nextHintSeconds =
     isTargetHintRound &&
     phase === "playing" &&
@@ -8525,6 +10973,10 @@ function handleTouchEnd() {
     </div>
   );
   const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
+  const isSpeedRound = specialRound?.type === "speed";
+  const speedWordScore = isSpeedRound
+    ? specialRound?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
+    : null;
   const foundList = acceptedRef.current.map((word) => ({
     word,
     isFound: true,
@@ -8552,9 +11004,22 @@ function handleTouchEnd() {
     isFound: acceptedRef.current.includes(entry.word),
     status: pendingStatusMap.get(entry.word)?.status || entry.status || "idle",
     reason: pendingStatusMap.get(entry.word)?.reason || entry.reason || "",
-    userPts:
-      pendingStatusMap.get(entry.word)?.userPts ?? acceptedScoresRef.current.get(entry.word),
-    bestPts: typeof entry.pts === "number" ? entry.pts : entry.bestPts,
+    userPts: (() => {
+      const raw =
+        pendingStatusMap.get(entry.word)?.userPts ??
+        acceptedScoresRef.current.get(entry.word);
+      if (speedWordScore == null) return raw;
+      const status = pendingStatusMap.get(entry.word)?.status || entry.status || "idle";
+      const isPending = status === "pending";
+      const isFound = acceptedRef.current.includes(entry.word) || isPending;
+      return isFound ? speedWordScore : raw;
+    })(),
+    bestPts:
+      speedWordScore == null
+        ? typeof entry.pts === "number"
+          ? entry.pts
+          : entry.bestPts
+        : speedWordScore,
   }));
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
   const resultPillClass = darkMode
@@ -8572,6 +11037,20 @@ function handleTouchEnd() {
     const minHeightStyle = inResults
       ? { minHeight: "clamp(240px, 40vh, 380px)" }
       : undefined;
+    const longestWordRaw =
+      typeof endStats.longestWord?.word === "string" ? endStats.longestWord.word.trim() : "";
+    const longestWordLen = longestWordRaw ? normalizeWord(longestWordRaw).length : 0;
+    const longestWordScale = clampValue(
+      Math.pow(0.94, Math.max(0, longestWordLen - 10)),
+      0.58,
+      1
+    );
+    const longestWordStyle = {
+      fontSize: `${longestWordScale}em`,
+      lineHeight: 1.05,
+      letterSpacing: longestWordScale < 0.82 ? "-0.02em" : undefined,
+      whiteSpace: "nowrap",
+    };
 
     const specialTypeLabel = (() => {
       if (!upcomingSpecial?.isSpecial) return null;
@@ -8706,8 +11185,8 @@ function handleTouchEnd() {
                 <span className={`${resultLabelClass} text-xs sm:text-sm font-semibold`}>
                   Mot le plus long
                 </span>
-                <span className="flex items-center gap-2 text-right flex-wrap justify-end">
-                  <span className="font-bold break-all text-sm sm:text-base">
+                <span className="flex items-center gap-2 text-right justify-end flex-nowrap">
+                  <span className="font-bold text-sm sm:text-base" style={longestWordStyle}>
                     {endStats.longestWord.word}
                   </span>
                   {endStats.longestWord.word && (
@@ -9090,10 +11569,24 @@ function handleTouchEnd() {
 
   // Animation FLIP pour la liste de mots
   useEffect(() => {
+    // Guard: only run when the list is actually visible in results.
+    if (phase !== "results") return;
+    if (!showAllWords && !displayList.length) return;
+    if (!Array.isArray(displayList) || displayList.length === 0) return;
+    if (!listItemRefs.current || listItemRefs.current.size === 0) return;
+
+    const MAX_FLIP_ITEMS = 120;
+    if (displayList.length > MAX_FLIP_ITEMS) {
+      // Too many items: skip FLIP (avoid layout thrash).
+      prevPositionsRef.current = new Map();
+      return;
+    }
+
     const prev = prevPositionsRef.current;
     const hasPrev = prev && prev.size > 0;
+    let rafId = 0;
 
-    requestAnimationFrame(() => {
+    rafId = requestAnimationFrame(() => {
       const next = new Map();
 
       displayList.forEach((entry, idx) => {
@@ -9147,7 +11640,18 @@ function handleTouchEnd() {
       // On conserve les positions courantes pour la prochaine transition
       prevPositionsRef.current = next;
     });
-  }, [showAllWords, displayList.length, accepted.length]);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [phase, showAllWords, displayList.length, accepted.length]);
+
+  useEffect(() => {
+    if (phase !== "results") {
+      // Reset positions when leaving results to avoid stale deltas.
+      prevPositionsRef.current = new Map();
+    }
+  }, [phase]);
 
 
   useEffect(() => {
@@ -9202,7 +11706,18 @@ function handleTouchEnd() {
     specialRound?.type === "target_long" ||
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
-  const isSpeedRound = specialRound?.type === "speed";
+  const guidedResultsEligible =
+    !isDailyView && isMobileLayout && phase === "results" && !isTargetRound;
+  const guidedResultsPages = guidedResultsEligible ? getResultsPages() : [];
+  const guidedResultsPageKey = guidedResultsPages.length
+    ? guidedResultsPages[clampValue(mobileResultsPage, 0, guidedResultsPages.length - 1)]
+    : null;
+  const guidedWordTarget =
+    guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_WORD &&
+    guidedResultsPageKey === "all" &&
+    displayList.length > 0
+      ? displayList[1]?.word || displayList[0]?.word
+      : null;
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
     const pages = isTargetRound
@@ -9228,6 +11743,48 @@ function handleTouchEnd() {
       setShowAllWords(true);
     }
   }, [isMobileLayout, phase, isTargetRound, mobileResultsPage, showAllWords, displayList]);
+  useEffect(() => {
+    if (phase !== "playing" || !specialRound?.isSpecial) return;
+    if (!installId) return;
+    const seenTypes = specialTutorialSeen?.types || {};
+    if (seenTypes[specialRound.type]) return;
+    if (isSpecialTutorialOpen) return;
+    setSpecialTutorialPlan(specialRound);
+    setIsSpecialTutorialOpen(true);
+  }, [
+    phase,
+    roundId,
+    specialRound,
+    specialTutorialSeen,
+    installId,
+    isSpecialTutorialOpen,
+  ]);
+  useEffect(() => {
+    if (phase === "playing" && specialRound?.isSpecial) return;
+    if (isSpecialTutorialOpen) {
+      setIsSpecialTutorialOpen(false);
+    }
+    if (specialTutorialPlan) {
+      setSpecialTutorialPlan(null);
+    }
+  }, [phase, specialRound, isSpecialTutorialOpen, specialTutorialPlan]);
+  useEffect(() => {
+    if (!guidedResultsEligible || !installId) return;
+    if (guidedResultsSeenInstallId === installId) return;
+    setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.SWIPE_TOTAL);
+  }, [guidedResultsEligible, guidedResultsSeenInstallId, installId]);
+  useEffect(() => {
+    if (!guidedResultsEligible || !guidedResultsStep || !guidedResultsPageKey) return;
+    const targetStep = GUIDED_RESULTS_PAGE_TO_STEP[guidedResultsPageKey];
+    if (!targetStep) return;
+    const currentIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(guidedResultsStep);
+    const targetIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(targetStep);
+    const maxAutoIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(GUIDED_RESULTS_STEPS.TAP_WORD);
+    if (currentIndex === -1 || targetIndex === -1) return;
+    if (currentIndex <= maxAutoIndex && targetIndex > currentIndex) {
+      setGuidedResultsStep(targetStep);
+    }
+  }, [guidedResultsEligible, guidedResultsStep, guidedResultsPageKey]);
   const formatTargetTime = (ms) => {
     if (!Number.isFinite(ms)) return "PAS TROUVÉ";
     const seconds = Math.max(0, ms) / 1000;
@@ -9548,6 +12105,17 @@ function handleTouchEnd() {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M4 6l4.5 3 3.5-4 3.5 4L20 6l-2 10H6L4 6zm3 12h10l.4 2H6.6l.4-2z" />
         </svg>
+      </span>
+    );
+  }
+
+  function renderGobbleBadge(gobbles) {
+    const count = Number(gobbles) || 0;
+    if (count <= 0) return null;
+    const label = `G${count > 1 ? `x${count}` : ""}`;
+    return (
+      <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
+        {label}
       </span>
     );
   }
@@ -10086,7 +12654,10 @@ function handleTouchEnd() {
                 ? "bg-slate-800 border-slate-600 text-slate-100"
                 : "bg-gray-50 border-gray-200 text-slate-900"
             }`}
-            onClick={cancelChatRules}
+            onClick={() => {
+              playCloseSound();
+              cancelChatRules();
+            }}
           >
             Fermer
           </button>
@@ -10419,43 +12990,45 @@ function handleTouchEnd() {
         </button>
       ) : null;
 
+    const metaTokens = [];
+    if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
+    if (achieved) metaTokens.push(achieved);
+    const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
+
     return (
       <div
         key={`${boardKey}-${entry.playerKey || entry.word || entry.roundId || idx}`}
-        className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0"
+        className="flex items-center justify-between gap-2 py-1 border-b border-slate-200/60 dark:border-white/10 last:border-0"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-7 text-center text-sm font-bold text-amber-500">{rank}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-6 text-center text-xs font-bold text-amber-500">{rank}</span>
           <div className="min-w-0">
-            <div className="font-semibold truncate flex items-center gap-2">
+            <div className="font-semibold truncate flex items-center gap-1 text-xs">
               {vocabMetaForRow?.image ? (
                 <img
                   src={vocabMetaForRow.image}
                   alt={vocabMetaForRow.label || "Niveau"}
-                  className="h-6 w-6 shrink-0"
+                  className="h-5 w-5 shrink-0"
                   draggable={false}
                 />
               ) : null}
               <span className="truncate">{baseNick}</span>
+              {metaLabel ? (
+                <span className="text-[10px] opacity-60 truncate">{metaLabel}</span>
+              ) : null}
             </div>
-            {achieved ? <div className="text-[11px] opacity-60 truncate">{achieved}</div> : null}
-            {detailParts.length > 0 || hasWord ? (
-              <div className="text-[11px] opacity-60 truncate flex items-center gap-1">
-                {detailParts.length > 0 ? (
-                  <span className="truncate">{detailParts.join(" - ")}</span>
-                ) : null}
-                {hasWord ? (
-                  <button
-                    type="button"
-                    className="truncate font-semibold hover:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDefinition(wordLabel);
-                    }}
-                  >
-                    {wordLabel}
-                  </button>
-                ) : null}
+            {hasWord ? (
+              <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
+                <button
+                  type="button"
+                  className="truncate font-semibold hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDefinition(wordLabel);
+                  }}
+                >
+                  {wordLabel}
+                </button>
                 {wordButton}
               </div>
             ) : null}
@@ -10584,55 +13157,57 @@ function handleTouchEnd() {
       }
     }
 
+    const metaTokens = [];
+    if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
+    if (achieved) metaTokens.push(achieved);
+    const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
+
     return (
       <div
         key={`${boardKey}-${entry.playerKey || entry.word || entry.roundId || idx}`}
-        className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0"
+        className="flex items-center justify-between gap-3 py-1 border-b border-slate-200/60 dark:border-white/10 last:border-0"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className="w-7 text-center text-sm font-bold text-amber-500">{rank}</span>
+          <span className="w-7 text-center text-xs font-bold text-amber-500">{rank}</span>
           <div className="min-w-0">
-            <div className="font-semibold truncate flex items-center gap-2">
+            <div className="font-semibold truncate flex items-center gap-2 text-xs">
               {vocabMetaForRow?.image ? (
                 <img
                   src={vocabMetaForRow.image}
                   alt={vocabMetaForRow.label || "Niveau"}
-                  className="h-6 w-6 shrink-0"
+                  className="h-5 w-5 shrink-0"
                   draggable={false}
                 />
               ) : null}
               <span className="truncate">{baseNick}</span>
+              {metaLabel ? (
+                <span className="text-[10px] opacity-60 truncate">{metaLabel}</span>
+              ) : null}
             </div>
-            {achieved ? <div className="text-[11px] opacity-60 truncate">{achieved}</div> : null}
-            {detailParts.length > 0 || hasWord ? (
-              <div className="text-[11px] opacity-60 truncate flex items-center gap-1">
-                {detailParts.length > 0 ? (
-                  <span className="truncate">{detailParts.join(" - ")}</span>
-                ) : null}
-                {hasWord ? (
-                  <button
-                    type="button"
-                    className="truncate font-semibold hover:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDefinition(wordLabel);
-                    }}
-                  >
-                    {wordLabel}
-                  </button>
-                ) : null}
+            {hasWord ? (
+              <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
+                <button
+                  type="button"
+                  className="truncate font-semibold hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDefinition(wordLabel);
+                  }}
+                >
+                  {wordLabel}
+                </button>
                 {wordButton}
               </div>
             ) : null}
           </div>
         </div>
-        <div className="text-right text-sm font-bold tabular-nums whitespace-nowrap flex flex-col items-end gap-1">
+        <div className="text-right text-xs font-bold tabular-nums whitespace-nowrap flex flex-col items-end gap-1">
           <div className="flex items-center gap-2">
             {showChanges ? renderRankDeltaIndicator(rankDelta) : null}
             <span>{valueParts.join(" ")}</span>
           </div>
           {deltaLabel ? (
-            <span className="text-[11px] font-black tabular-nums text-emerald-600">
+            <span className="text-[10px] font-black tabular-nums text-emerald-600">
               {deltaLabel}
             </span>
           ) : null}
@@ -10675,7 +13250,7 @@ function handleTouchEnd() {
     }
   });
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
-  const finaleBaselineBoards = weeklyStatsBaselineRef.current?.boards || {};
+  const finaleBaselineBoards = tournamentBaselineRef.current.weeklyStats?.boards || {};
   const finaleBaselineRankMaps = {};
   const finaleBaselineValueMaps = {};
   FINALE_WEEKLY_BOARDS.forEach((boardMeta) => {
@@ -10717,7 +13292,10 @@ function handleTouchEnd() {
             ? "border-slate-600 text-slate-100 hover:bg-slate-800"
             : "border-slate-200 text-slate-700 hover:bg-slate-100"
         }`}
-        onClick={() => shiftWeeklyBoard(-1)}
+        onClick={() => {
+          if (shouldIgnoreSwipeClick(weeklySwipeBlockRef)) return;
+          shiftWeeklyBoard(-1);
+        }}
         aria-label="Page precedente"
       >
         {"<"}
@@ -10740,7 +13318,10 @@ function handleTouchEnd() {
             }`}
             aria-label={`Page ${idx + 1}`}
             aria-current={isActive ? "true" : undefined}
-            onClick={() => setWeeklyActiveIndex(idx)}
+            onClick={() => {
+              if (shouldIgnoreSwipeClick(weeklySwipeBlockRef)) return;
+              setWeeklyActiveIndex(idx);
+            }}
           />
         );
       })}
@@ -10751,7 +13332,10 @@ function handleTouchEnd() {
             ? "border-slate-600 text-slate-100 hover:bg-slate-800"
             : "border-slate-200 text-slate-700 hover:bg-slate-100"
         }`}
-        onClick={() => shiftWeeklyBoard(1)}
+        onClick={() => {
+          if (shouldIgnoreSwipeClick(weeklySwipeBlockRef)) return;
+          shiftWeeklyBoard(1);
+        }}
         aria-label="Page suivante"
       >
         {">"}
@@ -10775,7 +13359,10 @@ function handleTouchEnd() {
             ? "border-slate-600 text-slate-100 hover:bg-slate-800"
             : "border-slate-200 text-slate-700 hover:bg-slate-100"
         }`}
-        onClick={() => shiftSeasonPage(-1)}
+        onClick={() => {
+          if (shouldIgnoreSwipeClick(seasonSwipeBlockRef)) return;
+          shiftSeasonPage(-1);
+        }}
         aria-label="Page precedente"
       >
         {"<"}
@@ -10798,7 +13385,10 @@ function handleTouchEnd() {
             }`}
             aria-label={`Page ${idx + 1}`}
             aria-current={isActive ? "true" : undefined}
-            onClick={() => goToSeasonPage(idx)}
+            onClick={() => {
+              if (shouldIgnoreSwipeClick(seasonSwipeBlockRef)) return;
+              goToSeasonPage(idx);
+            }}
           />
         );
       })}
@@ -10809,7 +13399,10 @@ function handleTouchEnd() {
             ? "border-slate-600 text-slate-100 hover:bg-slate-800"
             : "border-slate-200 text-slate-700 hover:bg-slate-100"
         }`}
-        onClick={() => shiftSeasonPage(1)}
+        onClick={() => {
+          if (shouldIgnoreSwipeClick(seasonSwipeBlockRef)) return;
+          shiftSeasonPage(1);
+        }}
         aria-label="Page suivante"
       >
         {">"}
@@ -10902,7 +13495,10 @@ function handleTouchEnd() {
               <button
                 type="button"
                 className="absolute top-4 right-4 rounded-full p-2 text-sm font-semibold bg-black/20 text-white hover:bg-black/30"
-                onClick={closeWeeklyStatsOverlay}
+                onClick={() => {
+                  playCloseSound();
+                  closeWeeklyStatsOverlay();
+                }}
                 aria-label="Fermer les stats"
               >
                 X
@@ -11144,7 +13740,10 @@ function handleTouchEnd() {
               <button
                 type="button"
                 className="absolute top-3 right-3 z-20 rounded-full h-10 w-16 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
-                onClick={closePlayersOverlay}
+                onClick={() => {
+                  playCloseSound();
+                  closePlayersOverlay();
+                }}
                 aria-label="Fermer la liste des joueurs"
               >
                 <span className="pointer-events-none">X</span>
@@ -11260,7 +13859,11 @@ function handleTouchEnd() {
               role="dialog"
               aria-modal="true"
               className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
-                darkMode
+                definitionModal.fromWordInfo
+                  ? darkMode
+                    ? "bg-slate-900 text-slate-100 border-slate-600"
+                    : "bg-white text-slate-900 border-slate-200"
+                  : darkMode
                   ? "bg-slate-900/80 text-slate-100 border-slate-600"
                   : "bg-white/80 text-slate-900 border-slate-200"
               }`}
@@ -11341,7 +13944,10 @@ function handleTouchEnd() {
                       ? "bg-slate-800 border-slate-600 text-slate-100"
                       : "bg-gray-50 border-gray-200 text-slate-900"
                   }`}
-                  onClick={closeDefinition}
+                  onClick={() => {
+                    playCloseSound();
+                    closeDefinition();
+                  }}
                 >
                   Fermer
                 </button>
@@ -11372,7 +13978,10 @@ function handleTouchEnd() {
               <button
                 type="button"
                 className="absolute top-3 right-3 z-20 rounded-full h-9 w-12 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
-                onClick={closeWordInfoModal}
+                onClick={() => {
+                  playCloseSound();
+                  closeWordInfoModal();
+                }}
                 aria-label="Fermer"
               >
                 <span className="pointer-events-none">X</span>
@@ -11381,7 +13990,7 @@ function handleTouchEnd() {
                 <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
                   Mot
                 </div>
-                <div className="text-xl font-extrabold flex items-center gap-2">
+                <div className="text-xl font-extrabold flex items-center gap-2 relative">
                   <span>{wordInfoModal.word}</span>
                   <button
                     type="button"
@@ -11389,10 +13998,14 @@ function handleTouchEnd() {
                       darkMode
                         ? "bg-slate-800 border-slate-600 text-slate-100"
                         : "bg-white border-gray-300 text-gray-700"
+                    } ${
+                      guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION
+                        ? "ring-2 ring-amber-400 guide-pulse"
+                        : ""
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openDefinition(wordInfoModal.word);
+                      openDefinition(wordInfoModal.word, { fromWordInfo: true });
                     }}
                     aria-label="Voir la definition"
                     title="Voir la definition"
@@ -11412,6 +14025,22 @@ function handleTouchEnd() {
                       <line x1="16.65" y1="16.65" x2="21" y2="21" />
                     </svg>
                   </button>
+                  {guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION ? (
+                    <div
+                      className={`absolute -bottom-12 right-0 flex items-center gap-2 rounded-full px-3 py-2 text-[18px] font-semibold shadow-xl pointer-events-none ${
+                        darkMode
+                          ? "text-slate-100 ring-2 ring-white/10"
+                          : "text-slate-900 ring-2 ring-black/10"
+                      }`}
+                      style={{
+                        maxWidth: "360px",
+                        backgroundColor: darkMode ? "#0b0f14" : "#ffffff",
+                        opacity: 1,
+                      }}
+                    >
+                      La loupe ouvre la définition
+                    </div>
+                  ) : null}
                 </div>
                 <div className="mt-2 text-xs opacity-70">Trouvé par :</div>
               </div>
@@ -11505,7 +14134,10 @@ function handleTouchEnd() {
               <button
                 type="button"
                 className="absolute top-3 right-3 z-20 rounded-full h-9 w-12 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
-                onClick={closeRecordModal}
+                onClick={() => {
+                  playCloseSound();
+                  closeRecordModal();
+                }}
                 aria-label="Fermer"
               >
                 <span className="pointer-events-none">X</span>
@@ -11576,8 +14208,9 @@ function handleTouchEnd() {
       ? createPortal(
           <div
             className={`fixed inset-0 z-[12040] flex items-center justify-center px-4 py-6 ${vocabOverlayClass}`}
-            style={{ pointerEvents: "none" }}
-            aria-hidden="true"
+            role="dialog"
+            aria-modal="true"
+            onClick={skipVocabOverlayAnimation}
           >
             <div
               className={`absolute inset-0 backdrop-blur-sm ${
@@ -11590,8 +14223,221 @@ function handleTouchEnd() {
                   ? "bg-slate-900/95 border-slate-700 text-slate-100"
                   : "bg-white/95 border-slate-200 text-slate-900"
               }`}
+              onClick={(e) => e.stopPropagation()}
             >
+              <button
+                type="button"
+                className={`absolute top-3 right-3 z-10 rounded-full h-9 px-3 text-xs font-bold border ${
+                  darkMode
+                    ? "bg-slate-800/80 border-white/10 text-slate-100"
+                    : "bg-white border-slate-200 text-slate-700"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  skipVocabOverlayAnimation();
+                }}
+                aria-label="Passer l'animation vocabulaire"
+              >
+                Passer
+              </button>
               {renderVocabOverlayPanel()}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+  const specialTutorialType = specialTutorialPlan?.type || null;
+  const specialTutorialLabel = specialTutorialPlan?.label || "Manche spéciale";
+  const specialTutorialFixedScore =
+    specialTutorialPlan?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK;
+  const specialTutorialBonusLetter = specialTutorialPlan?.bonusLetter || "";
+  const specialTutorialBonusScore = specialTutorialPlan?.bonusLetterScore ?? 20;
+  const monstrousMinLongLen = specialTutorialPlan?.minLongWordLen ?? null;
+  const monstrousMinLongCount = specialTutorialPlan?.minLongWordCount ?? null;
+  const monstrousMinTotalScore = specialTutorialPlan?.minTotalScore ?? null;
+  const specialTutorialContent = (() => {
+    if (!specialTutorialType) return null;
+    if (specialTutorialType === "target_long" || specialTutorialType === "target_score") {
+      const goalLabel =
+        specialTutorialType === "target_long"
+          ? "le mot le plus long"
+          : "le mot qui rapporte le plus de points";
+      return {
+        lead: `Manche spéciale ${specialTutorialLabel} : ici, pas besoin de s'acharner à trouver plein de mots, il n'y en a qu'un seul !`,
+        bullets: [
+          `Objectif : trouver ${goalLabel}.`,
+          `Un indice toutes les ${SPECIAL_TUTORIAL_HINT_STEP_S}s (le premier après ${SPECIAL_TUTORIAL_HINT_FIRST_S}s).`,
+          "Sois rapide : le premier à le trouver remporte le plus de points !",
+        ],
+        showTargetDemo: true,
+        targetIsScore: specialTutorialType === "target_score",
+      };
+    }
+    if (specialTutorialType === "speed") {
+      return {
+        lead: `Tous les mots valent ${specialTutorialFixedScore} points.`,
+        bullets: [
+          "Privilégie les petits mots rapides pour marquer un maximum.",
+          "Un gobble \"mot le plus long\" s'y cache quand même.",
+        ],
+      };
+    }
+    if (specialTutorialType === "monstrous") {
+      const bullets = [
+        Number.isFinite(monstrousMinLongCount) && Number.isFinite(monstrousMinLongLen)
+          ? `Au moins ${monstrousMinLongCount} mots d'au moins ${monstrousMinLongLen} lettres.`
+          : null,
+        monstrousMinTotalScore ? `Potentiel total d'au moins ${monstrousMinTotalScore} points.` : null,
+      ].filter(Boolean);
+      return {
+        lead: "Grille monstrueuse : une grille riche en mots longs.",
+        bullets,
+      };
+    }
+    if (specialTutorialType === "bonus_letter") {
+      return {
+        lead: `Lettre en or : ${specialTutorialBonusLetter ? specialTutorialBonusLetter.toUpperCase() : "?"} vaut ${specialTutorialBonusScore} points.`,
+        bullets: ["Les autres lettres gardent leur valeur habituelle."],
+      };
+    }
+    return {
+      lead: `Manche spéciale ${specialTutorialLabel}.`,
+      bullets: [],
+    };
+  })();
+  const closeSpecialTutorial = React.useCallback(() => {
+    setIsSpecialTutorialOpen(false);
+    if (specialTutorialPlan?.type) {
+      markSpecialTutorialSeen(specialTutorialPlan.type);
+    }
+    setSpecialTutorialPlan(null);
+  }, [markSpecialTutorialSeen, specialTutorialPlan]);
+  const specialTutorialDemo =
+    specialTutorialContent?.showTargetDemo && specialTutorialPlan ? (
+      <div
+        className={`mt-4 rounded-xl border p-3 ${
+          darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white/90 border-slate-200"
+        }`}
+      >
+        <div className={`text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+          Indice toutes les {SPECIAL_TUTORIAL_HINT_STEP_S}s
+        </div>
+        <div className="mt-2 flex items-center justify-center gap-2 text-lg font-black tracking-[0.3em]">
+          {["_", "_", "_", "_", "_", "_"].map((mark, idx) => {
+            const isHintLetter = idx === 2;
+            return (
+              <span
+                key={`hint-${idx}`}
+                className={isHintLetter ? "special-hint-letter text-amber-500" : ""}
+              >
+                {isHintLetter ? "A" : mark}
+              </span>
+            );
+          })}
+        </div>
+        <div
+          className="mt-3 grid place-content-center"
+          style={{
+            gridTemplateColumns: "repeat(4, 44px)",
+            gridTemplateRows: "repeat(4, 44px)",
+            gap: "6px",
+          }}
+        >
+          {Array.from({ length: 16 }).map((_, idx) => {
+            const isHint = idx === 5;
+            const hintStyleClass = isHint
+              ? specialTutorialContent?.targetIsScore
+                ? "special-hint-outline"
+                : "special-hint-fill"
+              : "";
+            const bonusMap = specialTutorialContent?.targetIsScore
+              ? new Map([
+                  [1, "L2"],
+                  [3, "M2"],
+                  [10, "L3"],
+                  [12, "M3"],
+                ])
+              : null;
+            const bonusKey = bonusMap?.get(idx) || null;
+            const bonusStyle = bonusKey ? SPECIAL_TUTORIAL_BONUS_TILE_STYLES[bonusKey] : null;
+            return (
+              <div
+                key={`demo-cell-${idx}`}
+                className={`relative flex items-center justify-center rounded-lg border text-sm font-black ${
+                  darkMode ? "bg-slate-800/70 border-slate-600" : "bg-slate-100 border-slate-300"
+                } ${isHint ? "special-hint-tile" : ""} ${hintStyleClass}`}
+                style={
+                  bonusStyle
+                    ? {
+                        background: bonusStyle.bg,
+                        borderColor: bonusStyle.border,
+                        color: bonusStyle.text,
+                      }
+                    : undefined
+                }
+              >
+                {bonusKey ? (
+                  <span
+                    className={`absolute -top-1 -right-1 rounded-full px-1.5 py-0.5 text-[0.6rem] font-black ${
+                      bonusKey === "M3"
+                        ? "bg-red-600 text-white"
+                        : bonusKey === "M2"
+                        ? "bg-blue-700 text-white"
+                        : "bg-amber-600 text-white"
+                    }`}
+                  >
+                    {bonusKey}
+                  </span>
+                ) : null}
+                {isHint ? <span className="special-hint-letter">A</span> : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ) : null;
+  const specialTutorialOverlay =
+    isSpecialTutorialOpen && specialTutorialPlan && specialTutorialContent && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[13080] flex items-center justify-center px-4 py-6">
+            <div
+              className={`absolute inset-0 ${darkMode ? "bg-black/60" : "bg-white/60"} backdrop-blur-sm`}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`relative w-full max-w-lg rounded-2xl border p-4 shadow-2xl ${
+                darkMode
+                  ? "bg-slate-900/95 border-slate-700 text-slate-100"
+                  : "bg-white/95 border-slate-200 text-slate-900"
+              }`}
+            >
+              <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
+                Manche spéciale
+              </div>
+              <div className="mt-1 text-lg font-black">{specialTutorialLabel}</div>
+              <p className={`mt-2 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
+                {specialTutorialContent.lead}
+              </p>
+              {specialTutorialContent.bullets?.length ? (
+                <ul className="mt-3 text-[12px] list-disc list-inside space-y-1">
+                  {specialTutorialContent.bullets.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {specialTutorialDemo}
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                    darkMode ? "bg-amber-500 hover:bg-amber-400" : "bg-amber-500 hover:bg-amber-400"
+                  }`}
+                  onClick={closeSpecialTutorial}
+                >
+                  Compris !
+                </button>
+              </div>
             </div>
           </div>,
           document.body
@@ -11604,12 +14450,18 @@ function handleTouchEnd() {
       onComplete={completeTutorial}
     />
   );
+  const sfxOn = !isSfxMuted;
+  const ambientOn = !isAmbientMuted;
+  const vibrationOn = isVibrationEnabled && canVibrate;
   const settingsMenuView = isSettingsOpen ? (
     <div className="fixed inset-0 z-[20000] flex items-start justify-end p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/45"
-        onClick={() => setIsSettingsOpen(false)}
+        onClick={() => {
+          playCloseSound();
+          setIsSettingsOpen(false);
+        }}
         aria-label="Fermer les parametres"
       />
       <div
@@ -11628,7 +14480,10 @@ function handleTouchEnd() {
                 ? "bg-slate-800/80 border-white/10 text-slate-100"
                 : "bg-white border-slate-200 text-slate-700"
             }`}
-            onClick={() => setIsSettingsOpen(false)}
+            onClick={() => {
+              playCloseSound();
+              setIsSettingsOpen(false);
+            }}
             aria-label="Fermer"
           >
             <span className="text-base leading-none">×</span>
@@ -11688,15 +14543,19 @@ function handleTouchEnd() {
           </button>
           <button
             type="button"
-            onClick={() => setIsMuted((v) => !v)}
+            onClick={() => setIsSfxMuted((v) => !v)}
             className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
               darkMode
-                ? "bg-slate-800/80 border-white/10 text-slate-100"
-                : "bg-slate-50 border-slate-200 text-slate-800"
+                ? sfxOn
+                  ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
+                  : "bg-rose-950/70 border-rose-400/40 text-slate-100"
+                : sfxOn
+                ? "bg-emerald-100 border-emerald-300 text-slate-800"
+                : "bg-rose-100 border-rose-300 text-slate-800"
             }`}
           >
             <span className="inline-flex items-center gap-2">
-              {isMuted ? (
+              {isSfxMuted ? (
                 <svg
                   width="16"
                   height="16"
@@ -11727,10 +14586,128 @@ function handleTouchEnd() {
                   <path d="M18.5 5.5a9 9 0 0 1 0 13" />
                 </svg>
               )}
-              <span>{isMuted ? "Son coupe" : "Son actif"}</span>
+              <span>{isSfxMuted ? "Effets sonores coupés" : "Effets sonores actifs"}</span>
             </span>
             <span className="text-[10px] font-semibold opacity-70">
-              {isMuted ? "Off" : "On"}
+              {isSfxMuted ? "Off" : "On"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsAmbientMuted((v) => !v)}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              darkMode
+                ? ambientOn
+                  ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
+                  : "bg-rose-950/70 border-rose-400/40 text-slate-100"
+                : ambientOn
+                ? "bg-emerald-100 border-emerald-300 text-slate-800"
+                : "bg-rose-100 border-rose-300 text-slate-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              {isAmbientMuted ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                  <line x1="4" y1="4" x2="20" y2="20" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              )}
+              <span>{isAmbientMuted ? "Musique d'ambiance coupée" : "Musique d'ambiance active"}</span>
+            </span>
+            <span className="text-[10px] font-semibold opacity-70">
+              {isAmbientMuted ? "Off" : "On"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!canVibrate) return;
+              setIsVibrationEnabled((v) => !v);
+            }}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              !canVibrate
+                ? darkMode
+                  ? "bg-slate-800/70 border-white/10 text-slate-100"
+                  : "bg-slate-50 border-slate-200 text-slate-800"
+                : darkMode
+                ? vibrationOn
+                  ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
+                  : "bg-rose-950/70 border-rose-400/40 text-slate-100"
+                : vibrationOn
+                ? "bg-emerald-100 border-emerald-300 text-slate-800"
+                : "bg-rose-100 border-rose-300 text-slate-800"
+            } ${canVibrate ? "" : "opacity-50 cursor-not-allowed"}`}
+            disabled={!canVibrate}
+          >
+            <span className="inline-flex items-center gap-2">
+              {isVibrationEnabled ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m2 8 2 4-2 4" />
+                  <path d="m22 8-2 4 2 4" />
+                  <rect x="8" y="4" width="8" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m2 8 2 4-2 4" />
+                  <path d="m22 8-2 4 2 4" />
+                  <rect x="8" y="4" width="8" height="16" rx="1" />
+                  <line x1="4" y1="4" x2="20" y2="20" />
+                </svg>
+              )}
+              <span>
+                {canVibrate
+                  ? isVibrationEnabled
+                    ? "Vibrations actives"
+                    : "Vibrations coupées"
+                  : "Vibrations indisponibles"}
+              </span>
+            </span>
+            <span className="text-[10px] font-semibold opacity-70">
+              {canVibrate ? (isVibrationEnabled ? "On" : "Off") : "--"}
             </span>
           </button>
           <button
@@ -11788,6 +14765,7 @@ function handleTouchEnd() {
         onUnblockInstallId={unblockInstallId}
         onOpenChat={requestOpenChat}
         onOpenRules={() => setIsChatRulesOpen(true)}
+        onCloseSound={playCloseSound}
         onOpenUserMenu={openUserMenu}
         showBlockedList={showBlockedList}
         selfNick={selfNick}
@@ -11798,6 +14776,16 @@ function handleTouchEnd() {
         visibleMessages={visibleMessages}
       />
     ) : null;
+  const devNowMs = DEV_MODE ? Date.now() : 0;
+  const devLastLongTaskAge =
+    devPerfStats.lastLongTaskAt != null
+      ? Math.round((devNowMs - devPerfStats.lastLongTaskAt) / 1000)
+      : null;
+  const devLastSolveAllAge =
+    devPerfStats.lastSolveAllAt != null
+      ? Math.round((devNowMs - devPerfStats.lastSolveAllAt) / 1000)
+      : null;
+  const devPerfOverlay = null;
   const chatOverlays = (
     <>
       {weeklyStatsOverlay}
@@ -11810,10 +14798,20 @@ function handleTouchEnd() {
       {recordModalView}
       {vocabOverlayView}
       {tutorialOverlay}
+      {specialTutorialOverlay}
       {settingsMenuView}
       {mobileChatLayer}
+      {devPerfOverlay}
     </>
   );
+  const bootProgressPct =
+    bootProgress.total > 0 ? bootProgress.loaded / bootProgress.total : 1;
+  const bootOverlay = !bootProgress.done ? (
+    <BootLoader progress={bootProgressPct} darkMode={darkMode} />
+  ) : null;
+  if (!bootProgress.done) {
+    return bootOverlay;
+  }
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
   const canResumeNow = !!resumeSnapshot;
   const resumeRoomLabel =
@@ -11866,6 +14864,7 @@ function handleTouchEnd() {
             : Number.isFinite(entry?.score)
             ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${entry.score} pts`
             : "-";
+          const gobbleBadge = !isPalier ? renderGobbleBadge(entry?.gobbles) : null;
           const isSelfDaily =
             !isPalier &&
             ((entry?.installId && installId && entry.installId === installId) ||
@@ -11892,6 +14891,7 @@ function handleTouchEnd() {
                 <span className="truncate font-semibold flex items-center gap-1">
                   {entry?.nick || "Joueur"}
                   {isWinner ? renderCrownIcon() : null}
+                  {gobbleBadge}
                 </span>
               </div>
               <span className="text-[11px] font-semibold opacity-80 shrink-0">{label}</span>
@@ -11949,6 +14949,7 @@ function handleTouchEnd() {
                                     entry.score
                                   } pts`
                                 : "-";
+                              const gobbleBadge = renderGobbleBadge(entry?.gobbles);
                               return (
                                 <div
                                   key={entry?.installId || `${entry?.nick}-${entryIdx}`}
@@ -11963,6 +14964,7 @@ function handleTouchEnd() {
                                     <span className="truncate font-semibold flex items-center gap-1">
                                       {entry?.nick || "Joueur"}
                                       {isWinner ? renderCrownIcon() : null}
+                                      {gobbleBadge}
                                     </span>
                                   </div>
                                   <span className="text-[11px] font-semibold opacity-80 shrink-0">
@@ -12449,7 +15451,9 @@ function handleTouchEnd() {
   const gobbleImageSize = isMobileLayout ? 260 : 340;
   const praiseImageSize = isMobileLayout ? 220 : 300;
   const praiseImageSrc =
-    praiseFlash?.kind === "gold"
+    praiseFlash?.kind === "epic"
+      ? "/bigwords/epique.png"
+      : praiseFlash?.kind === "gold"
       ? "/bigwords/enorme.png"
       : praiseFlash?.kind === "purple"
       ? "/bigwords/fabuleux.png"
@@ -12457,7 +15461,9 @@ function handleTouchEnd() {
       ? "/bigwords/excellent.png"
       : "";
   const praiseImageAlt =
-    praiseFlash?.kind === "gold"
+    praiseFlash?.kind === "epic"
+      ? "EPIQUE"
+      : praiseFlash?.kind === "gold"
       ? "ENORME"
       : praiseFlash?.kind === "purple"
       ? "FABULEUX"
@@ -12469,7 +15475,9 @@ function handleTouchEnd() {
   const gobbleImageAlt = "GOBBLE";
   const gobbleImageSizePx = gobbleImageSize;
   const praiseFlashColor =
-    praiseFlash?.kind === "gold"
+    praiseFlash?.kind === "epic"
+      ? "rgba(244, 114, 182, 0.55)"
+      : praiseFlash?.kind === "gold"
       ? "rgba(255, 92, 36, 0.55)"
       : praiseFlash?.kind === "purple"
       ? "rgba(168, 85, 247, 0.55)"
@@ -12584,26 +15592,76 @@ function handleTouchEnd() {
       : null;
 
   if (showTournamentFinale) {
-    const finaleRanking = tournamentFinaleSummary.ranking.map((e) => ({
-      nick: e.nick,
-      score: typeof e.points === "number" ? e.points : e.score || 0,
-      isDailyChampion: !!e.isDailyChampion,
-    }));
-    const records = tournamentFinaleSummary.records || {};
+    const baselineRankingMap = tournamentBaselineRef.current.rankingMap;
+    const baselineRound = tournamentBaselineRef.current.rankingRound;
+    const finaleDeltaByNick = new Map();
+    if (Array.isArray(tournamentRanking)) {
+      tournamentRanking.forEach((entry) => {
+        if (!entry?.nick || !Number.isFinite(entry.delta)) return;
+        finaleDeltaByNick.set(entry.nick, entry.delta);
+      });
+    }
+    const currentRound = Number.isFinite(tournament?.round)
+      ? tournament.round
+      : TOURNAMENT_TOTAL_ROUNDS;
+    const useBaselineDelta =
+      baselineRankingMap && baselineRankingMap.size > 0
+        ? !Number.isFinite(baselineRound) ||
+          !Number.isFinite(currentRound) ||
+          baselineRound < currentRound
+        : false;
+    const finaleRanking = tournamentFinaleSummary.ranking.map((e, idx) => {
+      const posNow = Number.isFinite(e.pos) ? e.pos : idx + 1;
+      const basePos = baselineRankingMap?.get(e.nick);
+      const fallbackDelta =
+        finaleDeltaByNick.has(e.nick)
+          ? finaleDeltaByNick.get(e.nick)
+          : e.delta ?? 0;
+      const delta =
+        useBaselineDelta && Number.isFinite(basePos) && Number.isFinite(posNow)
+          ? basePos - posNow
+          : fallbackDelta;
+      return {
+        nick: e.nick,
+        score: typeof e.points === "number" ? e.points : e.score || 0,
+        delta,
+        isDailyChampion: !!e.isDailyChampion,
+      };
+    });
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
     const finaleBoards = FINALE_WEEKLY_BOARDS;
-    const finaleBoardCount = finaleBoards.length;
-    const safeFinaleSlideIndex = clampValue(finalePage, 0, finaleBoardCount);
-    const finaleSlideCardStyle = isMobileLayout
-      ? { height: "clamp(230px, 36vh, 300px)" }
-      : { height: "420px" };
-    const finaleSummaryClass = isMobileLayout
-      ? "bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 rounded-xl p-3 mb-20"
-      : "bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-white/10 rounded-xl p-3";
-    const finaleShellClass = isMobileLayout
-      ? "relative z-10 max-w-6xl mx-auto px-4 pt-4 pb-24"
-      : "relative z-10 max-w-6xl mx-auto px-4 py-8";
+    const { height: finaleViewportHeight } = getViewportSize();
+    const finaleSafeHeight = Math.max(0, finaleViewportHeight || 0);
+    const finalePaddingY = isMobileLayout ? 12 : 24;
+    const finaleHeaderHeight = clampValue(
+      Math.round(finaleSafeHeight * (isMobileLayout ? 0.22 : 0.24)),
+      isMobileLayout ? 110 : 140,
+      isMobileLayout ? 200 : 240
+    );
+    const finaleDotsHeight = clampValue(
+      Math.round(finaleSafeHeight * 0.055),
+      18,
+      28
+    );
+    const finaleContentHeight = Math.max(
+      0,
+      finaleSafeHeight - finalePaddingY * 2 - finaleHeaderHeight - finaleDotsHeight
+    );
+    const finaleShellClass = "relative z-10 max-w-6xl mx-auto px-4";
+    const finaleShellStyle = {
+      minHeight: "100svh",
+      height: finaleSafeHeight ? `${finaleSafeHeight}px` : "100svh",
+      paddingTop: `${finalePaddingY}px`,
+      paddingBottom: `${finalePaddingY}px`,
+    };
+    const finaleHeaderStyle = { height: `${finaleHeaderHeight}px` };
+    const finaleCarouselStyle = finaleContentHeight
+      ? { height: `${finaleContentHeight}px` }
+      : undefined;
+    const finaleDotsStyle = { height: `${finaleDotsHeight}px` };
+    const finaleSlideCardStyle = { height: "100%", minHeight: 0 };
+    const finaleCardPaddingClass = isMobileLayout ? "p-3" : "p-4";
     return (
       <>
         <div
@@ -12614,431 +15672,313 @@ function handleTouchEnd() {
           }`}
         >
           <style>{slideStyles}</style>
-
-        <div className={finaleShellClass}>
-          <div className="flex flex-col gap-4">
-            <div className="w-full min-w-0 flex flex-col gap-4">
-          <div className="text-center">
-            <div className="text-sm font-semibold tracking-widest opacity-80">FIN DU MINI-TOURNOI</div>
-            <div className="mt-1 text-3xl sm:text-4xl font-black tracking-tight">
-              Bravo {winnerNick} !
-            </div>
-            <div className="mt-2 text-sm font-bold opacity-90">
-              {bc != null
-                ? `Nouveau tournoi dans : ${bc}s`
-                : "Nouveau tournoi imminent..."}
-            </div>
-          </div>
-
-          <div className="relative">
-            <div
-              ref={finaleScrollRef}
-              className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                const width = el.clientWidth || 1;
-                const page = Math.round(el.scrollLeft / width);
-                if (page !== finalePage) setFinalePage(page);
-              }}
-            >
-              <div className="w-full shrink-0 snap-start">
-                <div
-                  className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden"
-                  style={finaleSlideCardStyle}
-                >
-                  <div className="flex items-baseline justify-between gap-2 mb-2">
-                    <div className="font-extrabold">Classement general</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                      Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
-                    </div>
-                  </div>
-                  <div className="min-h-0 flex-1">
-                    <RankingWidgetMobile
-                      fullRanking={finaleRanking}
-                      selfNick={selfNick}
-                      darkMode={darkMode}
-                      expanded={true}
-                      animateRank={false}
-                      showWheel={false}
-                      flatStyle={true}
-                      fitHeight={true}
-                      renderNickSuffix={(nick, entry) =>
-                        renderNickSuffix(nick, entry, tournamentFinaleMedals)
-                      }
-                      renderAfterRank={renderRankDelta}
-                    />
-                  </div>
+          <div className={finaleShellClass} style={finaleShellStyle}>
+            <div className="flex flex-col min-h-0 h-full gap-3">
+              <div className="text-center flex flex-col justify-center" style={finaleHeaderStyle}>
+                <div className="text-sm font-semibold tracking-widest opacity-80">
+                  FIN DU MINI-TOURNOI
+                </div>
+                <div className="mt-1 text-3xl sm:text-4xl font-black tracking-tight">
+                  Bravo {winnerNick} !
+                </div>
+                <div className="mt-2 text-sm font-bold opacity-90">
+                  {bc != null
+                    ? `Nouveau tournoi dans : ${bc}s`
+                    : "Nouveau tournoi imminent..."}
                 </div>
               </div>
-              {finaleBoards.map((boardMeta) => {
-                const entries = dedupeWeeklyEntries(
-                  boardMeta.key,
-                  weeklyBoardData[boardMeta.key],
-                  weeklyLimit
-                );
-                const baselineEntries = dedupeWeeklyEntries(
-                  boardMeta.key,
-                  finaleBaselineBoards[boardMeta.key],
-                  weeklyLimit
-                );
-                const hasChanges = hasWeeklyChanges(
-                  boardMeta.key,
-                  entries,
-                  finaleBaselineRankMaps[boardMeta.key],
-                  finaleBaselineValueMaps[boardMeta.key]
-                );
-                return (
-                  <div key={boardMeta.key} className="w-full shrink-0 snap-start">
+
+              <div
+                className="relative min-h-0 flex flex-col overflow-hidden"
+                style={finaleCarouselStyle}
+              >
+                <div
+                  ref={finaleScrollRef}
+                  className="flex w-full h-full min-h-0"
+                  style={{
+                    transform: `translateX(calc(${finalePage * -100}%))`,
+                    transition: "transform 0.25s ease-out",
+                  }}
+                  onTouchStart={handleFinaleTouchStart}
+                  onTouchMove={handleFinaleTouchMove}
+                  onTouchEnd={handleFinaleTouchEnd}
+                  onTouchCancel={handleFinaleTouchEnd}
+                >
+                  <div className="w-full shrink-0 h-full">
                     <div
-                      className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden"
+                      className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
                       style={finaleSlideCardStyle}
                     >
-                      <div className="flex items-baseline justify-between gap-2 mb-2">
-                        <div className="font-extrabold">
-                          Classement hebdo - {boardMeta.label}
-                        </div>
+                      <div className="flex items-baseline justify-between gap-2 mb-1">
+                        <div className="font-extrabold">Classement general</div>
                         <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                          {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                          Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
                         </div>
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-300 mb-2">
-                        {boardMeta.subtitle || ""}
-                      </div>
-                      {!hasChanges && baselineEntries.length > 0 ? (
-                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-300 mb-2">
-                          Aucun changement
-                        </div>
-                      ) : null}
                       <div className="min-h-0 flex-1">
-                        {weeklyStatsLoading ? (
-                          <div className="h-full flex items-center justify-center text-sm opacity-70">
-                            Chargement...
-                          </div>
-                        ) : weeklyStatsError ? (
-                          <div className="h-full flex items-center justify-center text-sm text-red-400">
-                            Erreur ({weeklyStatsError})
-                          </div>
-                        ) : entries.length > 0 ? (
-                          <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                            {entries.map((entry, entryIdx) =>
-                              renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
-                                showVocabIcon: boardMeta.key === "vocab",
-                                baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
-                                baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
-                                showChanges: hasChanges,
-                              })
-                            )}
-                          </div>
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-sm opacity-70">
-                            Pas encore de stats cette semaine.
-                          </div>
-                        )}
+                        <RankingWidgetMobile
+                          fullRanking={finaleRanking}
+                          selfNick={selfNick}
+                          darkMode={darkMode}
+                          expanded={true}
+                          animateRank={false}
+                          showWheel={false}
+                          flatStyle={true}
+                          fitHeight={true}
+                          renderNickSuffix={(nick, entry) =>
+                            renderNickSuffix(nick, entry, tournamentFinaleMedals)
+                          }
+                          renderAfterRank={renderRankDelta}
+                        />
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-center gap-2 mt-1">
-              {Array.from({ length: 1 + finaleBoards.length }, (_, idx) => {
-                const active = finalePage === idx;
-                return (
-                  <button
-                    key={`finale-dot-${idx}`}
-                    type="button"
-                    className={`h-2.5 w-2.5 rounded-full transition ${
-                      active
-                        ? darkMode
-                          ? "bg-slate-100"
-                          : "bg-slate-900"
-                        : darkMode
-                        ? "bg-white/30"
-                        : "bg-slate-300"
-                    } ${active ? "scale-110" : ""}`}
-                    aria-label={`Page ${idx + 1}`}
-                    aria-current={active ? "true" : undefined}
-                    onClick={() => {
-                      const el = finaleScrollRef.current;
-                      if (!el) return;
-                      const width = el.clientWidth || 1;
-                      el.scrollTo({ left: idx * width, behavior: "smooth" });
-                      setFinalePage(idx);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          <div className={finaleSummaryClass}>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-xs font-extrabold tracking-widest text-slate-600 dark:text-slate-300">
-                BILAN DU MINI-TOURNOI
-              </div>
-              <button
-                type="button"
-                className="px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-500 transition"
-                onClick={openWeeklyStatsOverlay}
-              >
-                Ouvrir stats
-              </button>
-            </div>
-            <div className="mt-2 grid gap-2 text-xs leading-tight">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold">Plus de mots en une manche</span>
-                <span className="tabular-nums">
-                  {records?.mostWords?.nick ? (
-                    <>
-                      <strong>{records.mostWords.nick}</strong> ({records.mostWords.count}) - manche{" "}
-                      {records.mostWords.round}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold">Meilleur mot</span>
-                <span className="tabular-nums">
-                  {records?.bestWord?.nick ? (
-                    <>
-                      <strong>{records.bestWord.nick}</strong> :{" "}
-                      <strong>{records.bestWord.word}</strong>
-                      {records.bestWord.word && (
-                        <button
-                          type="button"
-                          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 align-middle ${darkMode
-                              ? "bg-slate-800 border-slate-600 text-slate-100"
-                              : "bg-white border-gray-300 text-gray-700"} ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDefinition(records.bestWord.word);
-                          }}
-                          aria-label="Voir la definition"
-                          title="Voir la definition"
+                  {finaleBoards.map((boardMeta) => {
+                    const entries = dedupeWeeklyEntries(
+                      boardMeta.key,
+                      weeklyBoardData[boardMeta.key],
+                      weeklyLimit
+                    );
+                    const baselineEntries = dedupeWeeklyEntries(
+                      boardMeta.key,
+                      finaleBaselineBoards[boardMeta.key],
+                      weeklyLimit
+                    );
+                    const hasChanges = hasWeeklyChanges(
+                      boardMeta.key,
+                      entries,
+                      finaleBaselineRankMaps[boardMeta.key],
+                      finaleBaselineValueMaps[boardMeta.key]
+                    );
+                    return (
+                      <div key={boardMeta.key} className="w-full shrink-0 h-full">
+                        <div
+                          className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
+                          style={finaleSlideCardStyle}
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <circle cx="11" cy="11" r="7" />
-                            <line x1="16.65" y1="16.65" x2="21" y2="21" />
-                          </svg>
-                        </button>
-                      )}{" "}
-                      ({records.bestWord.pts} pts) - manche{" "}
-                      {records.bestWord.round}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold">Mot le plus long</span>
-                <span className="tabular-nums">
-                  {records?.longestWord?.nick ? (
-                    <>
-                      <strong>{records.longestWord.nick}</strong> :{" "}
-                      <strong>{records.longestWord.word}</strong>
-                      {records.longestWord.word && (
-                        <button
-                          type="button"
-                          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 align-middle ${darkMode
-                              ? "bg-slate-800 border-slate-600 text-slate-100"
-                              : "bg-white border-gray-300 text-gray-700"} ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDefinition(records.longestWord.word);
-                          }}
-                          aria-label="Voir la definition"
-                          title="Voir la definition"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <circle cx="11" cy="11" r="7" />
-                            <line x1="16.65" y1="16.65" x2="21" y2="21" />
-                          </svg>
-                        </button>
-                      )}{" "}
-                      ({records.longestWord.len}) - manche{" "}
-                      {records.longestWord.round}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </span>
+                          <div className="flex items-baseline justify-between gap-2 mb-1">
+                            <div className="font-extrabold">
+                              Classement hebdo - {boardMeta.label}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
+                              {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-300 mb-1">
+                            {boardMeta.subtitle || ""}
+                          </div>
+                          {!hasChanges && baselineEntries.length > 0 ? (
+                            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-300 mb-1">
+                              Aucun changement
+                            </div>
+                          ) : null}
+                          <div className="min-h-0 flex-1">
+                            {weeklyStatsLoading ? (
+                              <div className="h-full flex items-center justify-center text-sm opacity-70">
+                                Chargement...
+                              </div>
+                            ) : weeklyStatsError ? (
+                              <div className="h-full flex items-center justify-center text-sm text-red-400">
+                                Erreur ({weeklyStatsError})
+                              </div>
+                            ) : entries.length > 0 ? (
+                              <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                                {entries.map((entry, entryIdx) =>
+                                  renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
+                                    showVocabIcon: boardMeta.key === "vocab",
+                                    baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
+                                    baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
+                                    showChanges: hasChanges,
+                                  })
+                                )}
+                              </div>
+                            ) : (
+                              <div className="h-full flex items-center justify-center text-sm opacity-70">
+                                Pas encore de stats cette semaine.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-center gap-2" style={finaleDotsStyle}>
+                  {Array.from({ length: 1 + finaleBoards.length }, (_, idx) => {
+                    const active = finalePage === idx;
+                    return (
+                      <button
+                        key={`finale-dot-${idx}`}
+                        type="button"
+                        className={`h-2.5 w-2.5 rounded-full transition ${
+                          active
+                            ? darkMode
+                              ? "bg-slate-100"
+                              : "bg-slate-900"
+                            : darkMode
+                            ? "bg-white/30"
+                            : "bg-slate-300"
+                        } ${active ? "scale-110" : ""}`}
+                        aria-label={`Page ${idx + 1}`}
+                        aria-current={active ? "true" : undefined}
+                        onClick={() => {
+                          goToFinalePage(idx);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div className="hidden">
-          <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-center">Chat</h2>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className={`text-[11px] font-semibold ${
-                    darkMode ? "text-slate-300" : "text-slate-600"
-                  }`}
-                  onClick={() => setIsChatRulesOpen(true)}
-                >
-                  Règles
-                </button>
-                <button
-                type="button"
-                className={`text-[11px] font-semibold ${
-                  darkMode ? "text-amber-300" : "text-blue-600"
-                }`}
-                onClick={() => setShowBlockedList((prev) => !prev)}
-              >
-                Joueurs bloqués ({blockedCount})
-              </button>
-              </div>
-            </div>
-            {renderBlockedListPanel()}
-            <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
-              {visibleMessages.map((msg, idx) => {
-                const count = visibleMessages.length;
-                const rankFromBottom = count - 1 - idx;
-                let opacity = 1;
-
-              if (rankFromBottom >= chatFullVisibleLines) {
-                const extra = rankFromBottom - (chatFullVisibleLines - 1);
-                const maxExtra = chatVisibleLimit - chatFullVisibleLines;
-                const t = maxExtra > 0 ? Math.min(extra / maxExtra, 1) : 1;
-                opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
-              }
-
-                const author = (msg.nick || msg.author || "Anonyme").trim();
-                const authorInstallId =
-                  typeof msg.installId === "string" ? msg.installId : "";
-                const isYou = authorInstallId
-                  ? authorInstallId === installId
-                  : author === selfNick;
-                const isSystem = isSystemAuthor(author);
-                const isLast = msg.id === lastMessageId;
-                const canOpenMenu =
-                  !isSystem && authorInstallId && authorInstallId !== installId;
-
-                return (
-                <div
-                  key={msg.id}
-                  data-chat-row
-                  className={`w-full transition-opacity duration-300 ${
-                    isLast ? "slide-fade-in" : ""
-                  }`}
-                    style={{ opacity }}
-                  >
-                    {isSystem ? (
-                      <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
-                        {msg.text}
-                      </div>
-                    ) : (
-                      <div
-                        className={[
-                          "w-full px-1 py-0.5 text-sm",
-                          isYou ? "bg-blue-50" : "bg-white",
-                        ].join(" ")}
-                      >
-                        {canOpenMenu ? (
-                          <button
-                            type="button"
-                            className="font-semibold mr-1 text-black hover:underline"
-                            onClick={(e) =>
-                              openUserMenu(e, {
-                                nick: author,
-                                installId: authorInstallId,
-                                messageId: msg.id,
-                              })
-                            }
-                          >
-                            {author} :
-                          </button>
-                        ) : (
-                          <span className="font-semibold mr-1 text-black">
-                            {author} :
-                          </span>
-                        )}
-                        <span className="text-black">{msg.text}</span>
-                      </div>
-                    )}
+            <div className="hidden">
+              <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-bold text-center">Chat</h2>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      className={`text-[11px] font-semibold ${
+                        darkMode ? "text-slate-300" : "text-slate-600"
+                      }`}
+                      onClick={() => setIsChatRulesOpen(true)}
+                    >
+                      Règles
+                    </button>
+                    <button
+                      type="button"
+                      className={`text-[11px] font-semibold ${
+                        darkMode ? "text-amber-300" : "text-blue-600"
+                      }`}
+                      onClick={() => setShowBlockedList((prev) => !prev)}
+                    >
+                      Joueurs bloqués ({blockedCount})
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+                {renderBlockedListPanel()}
+                <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
+                  {visibleMessages.map((msg, idx) => {
+                    const count = visibleMessages.length;
+                    const rankFromBottom = count - 1 - idx;
+                    let opacity = 1;
 
-            <div className="mt-2 flex flex-wrap gap-2">
-              {QUICK_REPLIES.map((txt, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => submitChat(null, txt)}
-                  disabled={chatInputDisabled}
-                  className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {txt}
-                </button>
-              ))}
-            </div>
+                    if (rankFromBottom >= chatFullVisibleLines) {
+                      const extra = rankFromBottom - (chatFullVisibleLines - 1);
+                      const maxExtra = chatVisibleLimit - chatFullVisibleLines;
+                      const t = maxExtra > 0 ? Math.min(extra / maxExtra, 1) : 1;
+                      opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
+                    }
 
-            <div className="mt-3 flex gap-2">
-              <input
-                ref={chatInputRef}
-                type={chatInputType}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-              inputMode="text"
-              enterKeyHint="send"
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-bwignore="true"
-              data-autofill="off"
-              aria-autocomplete="none"
-              aria-label="Message du chat"
-              onFocus={handleChatInputFocus}
-              readOnly={chatInputDisabled}
-              aria-disabled={chatInputDisabled}
-              className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
-                placeholder={chatInputPlaceholder}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={handleChatInputKeyDown}
-              />
-              <button
-                type="button"
-                className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
-                disabled={!chatInput.trim() || chatInputDisabled}
-                onClick={() => submitChat(null)}
-              >
-                Envoyer
-              </button>
+                    const author = (msg.nick || msg.author || "Anonyme").trim();
+                    const authorInstallId =
+                      typeof msg.installId === "string" ? msg.installId : "";
+                    const isYou = authorInstallId
+                      ? authorInstallId === installId
+                      : author === selfNick;
+                    const isSystem = isSystemAuthor(author);
+                    const isLast = msg.id === lastMessageId;
+                    const canOpenMenu =
+                      !isSystem && authorInstallId && authorInstallId !== installId;
+
+                    return (
+                      <div
+                        key={msg.id}
+                        data-chat-row
+                        className={`w-full transition-opacity duration-300 ${
+                          isLast ? "slide-fade-in" : ""
+                        }`}
+                        style={{ opacity }}
+                      >
+                        {isSystem ? (
+                          <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
+                            {msg.text}
+                          </div>
+                        ) : (
+                          <div
+                            className={[
+                              "w-full px-1 py-0.5 text-sm",
+                              isYou ? "bg-blue-50" : "bg-white",
+                            ].join(" ")}
+                          >
+                            {canOpenMenu ? (
+                              <button
+                                type="button"
+                                className="font-semibold mr-1 text-black hover:underline"
+                                onClick={(e) =>
+                                  openUserMenu(e, {
+                                    nick: author,
+                                    installId: authorInstallId,
+                                    messageId: msg.id,
+                                  })
+                                }
+                              >
+                                {author} :
+                              </button>
+                            ) : (
+                              <span className="font-semibold mr-1 text-black">
+                                {author} :
+                              </span>
+                            )}
+                            <span className="text-black">{msg.text}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {QUICK_REPLIES.map((txt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => submitChat(null, txt)}
+                      disabled={chatInputDisabled}
+                      className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {txt}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <input
+                    ref={chatInputRef}
+                    type={chatInputType}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    inputMode="text"
+                    enterKeyHint="send"
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-autofill="off"
+                    aria-autocomplete="none"
+                    aria-label="Message du chat"
+                    onFocus={handleChatInputFocus}
+                    readOnly={chatInputDisabled}
+                    aria-disabled={chatInputDisabled}
+                    className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
+                    placeholder={chatInputPlaceholder}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={handleChatInputKeyDown}
+                  />
+                  <button
+                    type="button"
+                    className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                    disabled={!chatInput.trim() || chatInputDisabled}
+                    onClick={() => submitChat(null)}
+                  >
+                    Envoyer
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-          </div>
-        </div>
         </div>
         {praiseOverlay}
         {chatOverlays}
@@ -13187,6 +16127,7 @@ function handleTouchEnd() {
             gridRef={gridRef}
             gridShake={gridShake}
             gridSize={gridSize}
+            implodeActive={implodeActive}
             handleMouseDown={handleMouseDown}
             handleMouseMove={handleMouseMove}
             handleMouseUp={handleMouseUp}
@@ -13423,6 +16364,57 @@ function handleTouchEnd() {
         resultsPageKey === "all"
           ? allWords.length === 0
           : foundWordsCount === 0;
+      const guidedSwipeHintText =
+        guidedResultsEligible && guidedResultsStep === GUIDED_RESULTS_STEPS.SWIPE_TOTAL && resultsPageKey === "round"
+          ? "pour voir le classement général"
+          : guidedResultsEligible && guidedResultsStep === GUIDED_RESULTS_STEPS.SWIPE_FOUND && resultsPageKey === "total"
+          ? "pour voir les mots trouvés"
+          : guidedResultsEligible && guidedResultsStep === GUIDED_RESULTS_STEPS.SWIPE_ALL && resultsPageKey === "found"
+          ? "pour voir tous les mots trouvables"
+          : null;
+      const guidedSwipeOverlay = guidedSwipeHintText ? (
+        <div className="absolute inset-0 pointer-events-none z-30">
+          <div
+            className={`absolute bottom-4 right-4 flex items-center gap-3 rounded-full px-5 py-4 text-[20px] font-semibold shadow-xl ${
+              darkMode
+                ? "text-slate-100 ring-2 ring-white/10"
+                : "text-slate-900 ring-2 ring-black/10"
+            }`}
+            style={{ backgroundColor: darkMode ? "#0b0f14" : "#ffffff", opacity: 1 }}
+          >
+            <span className="material-symbols-outlined text-[40px] guide-swipe">
+              swipe_left
+            </span>
+            <span>{guidedSwipeHintText}</span>
+          </div>
+        </div>
+      ) : null;
+      const showGuidedWordHint =
+        guidedResultsEligible &&
+        guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_WORD &&
+        resultsPageKey === "all" &&
+        guidedWordTarget;
+      const guidedWordOverlay = showGuidedWordHint ? (
+        <div className="absolute inset-0 pointer-events-none z-30">
+          <div
+            className={`absolute bottom-4 left-3 flex items-center gap-3 rounded-full px-4 py-3 text-[18px] font-semibold shadow-xl ${
+              darkMode
+                ? "text-slate-100 ring-2 ring-white/10"
+                : "text-slate-900 ring-2 ring-black/10"
+            }`}
+            style={{
+              backgroundColor: darkMode ? "#0b0f14" : "#ffffff",
+              maxWidth: "360px",
+              opacity: 1,
+            }}
+          >
+            <span className="material-symbols-outlined text-[32px]">
+              gesture_select
+            </span>
+            <span>Clique sur un mot pour savoir qui l'a trouvé</span>
+          </div>
+        </div>
+      ) : null;
       const isTargetResults = isTargetRound;
       const resultsCardClassName = `relative rounded-xl px-3 py-2 flex flex-col gap-2 overflow-hidden ${
         isTargetResults ? "flex-none" : "flex-1 min-h-0"
@@ -13509,7 +16501,9 @@ function handleTouchEnd() {
               onTouchEnd={handleResultsTouchEnd}
               onTouchCancel={handleResultsTouchEnd}
             >
-              <div className="relative flex-1 min-h-0 overflow-hidden">
+              {guidedSwipeOverlay}
+              {guidedWordOverlay}
+              <div className="relative flex-1 min-h-0 overflow-hidden z-10">
                 <div className={`flex flex-col gap-2 h-full results-fade-layer ${resultsFadeClass}`}>
                   <div className="flex items-center justify-between gap-2 text-xs">
                     <div className="font-semibold">
@@ -13594,6 +16588,8 @@ function handleTouchEnd() {
                                 : isFound
                                 ? "font-semibold"
                                 : "text-gray-600";
+                              const isGuidedWordTarget =
+                                showGuidedWordHint && entry.word === guidedWordTarget;
                               return (
                                 <li
                                   key={entry.word}
@@ -13608,7 +16604,7 @@ function handleTouchEnd() {
                                   }}
                                   className={`rounded px-1 flex items-center justify-between gap-2 transition ${
                                     selected ? "bg-blue-50 text-blue-800" : "hover:bg-gray-100"
-                                  }`}
+                                  } ${isGuidedWordTarget ? "guide-highlight guide-blink" : ""}`}
                                   style={{
                                     transitionDuration: "220ms",
                                     opacity: visible ? 1 : 0,
@@ -13616,7 +16612,7 @@ function handleTouchEnd() {
                                     maxHeight: visible ? "48px" : "0px",
                                     paddingTop: "2px",
                                     paddingBottom: "2px",
-                                    overflow: "hidden",
+                                    overflow: isGuidedWordTarget ? "visible" : "hidden",
                                     pointerEvents: visible ? "auto" : "none",
                                     position: visible ? "relative" : "absolute",
                                     top: 0,
@@ -13688,6 +16684,11 @@ function handleTouchEnd() {
                                       </span>
                                     )}
                                   </span>
+                                  {isGuidedWordTarget ? (
+                                    <span className="sr-only">
+                                      Cliquez sur ce mot pour savoir qui l'a trouvé.
+                                    </span>
+                                  ) : null}
                                 </li>
                               );
                             })}
@@ -13911,6 +16912,16 @@ function handleTouchEnd() {
                   </span>
                 )}
               </div>
+              {specialRound?.type === "target_score" ? (
+                <div
+                  className="mt-1 font-semibold opacity-80 text-center"
+                  style={{ fontSize: `${specialMetaFont}px` }}
+                >
+                  {Number.isFinite(targetScoreMax) && targetScoreMax > 0
+                    ? `${formatNumber(targetScoreMax)} pts`
+                    : "-- pts"}
+                </div>
+              ) : null}
               {specialHint?.length ? (
                 <div
                   className="mt-1 font-semibold opacity-70 text-center"
@@ -14009,6 +17020,7 @@ function handleTouchEnd() {
               gridRef={gridRef}
               gridShake={gridShake}
               gridSize={gridSize}
+              implodeActive={implodeActive}
               gridRotationTurns={gridRotationTurns}
               handleMouseDown={handleMouseDown}
               handleMouseMove={handleMouseMove}
@@ -14459,6 +17471,7 @@ function handleTouchEnd() {
                 </div>
               </div>
             )}
+            {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
             <div
             
               ref={gridRef}
@@ -14529,7 +17542,7 @@ function handleTouchEnd() {
   type="button"
   className={[
     // plus de tailles figées en px ici
-    "relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
+    "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
     bonusClass,
     highlightClass,
     hintClass,
@@ -15076,6 +18089,3 @@ function handleTouchEnd() {
     </>
   );
 }
-
-
-

@@ -186,7 +186,28 @@ function buildPalierEntries(maxScore) {
   return entries;
 }
 
-function buildDailyBoardEntries(results) {
+function computeDailyGobbles({ bestWordPts, longestWordLen }, maxWordPts, maxWordLen) {
+  let gobbles = 0;
+  if (
+    Number.isFinite(maxWordPts) &&
+    maxWordPts > 0 &&
+    Number.isFinite(bestWordPts) &&
+    bestWordPts >= maxWordPts
+  ) {
+    gobbles += 1;
+  }
+  if (
+    Number.isFinite(maxWordLen) &&
+    maxWordLen > 0 &&
+    Number.isFinite(longestWordLen) &&
+    longestWordLen >= maxWordLen
+  ) {
+    gobbles += 1;
+  }
+  return gobbles;
+}
+
+function buildDailyBoardEntries(results, { maxWordPts = null, maxWordLen = null } = {}) {
   const sorted = sortResults(results);
   const maxScore = sorted.length ? Number(sorted[0]?.score) || 0 : 0;
   const palierEntries = buildPalierEntries(maxScore);
@@ -196,6 +217,18 @@ function buildDailyBoardEntries(results) {
     wordsCount: Number.isFinite(entry.wordCount) ? entry.wordCount : null,
     installId: entry.installId || null,
     submittedAt: entry.submittedAt || null,
+    gobbles: Number.isFinite(entry.gobbles)
+      ? entry.gobbles
+      : computeDailyGobbles(
+          {
+            bestWordPts: Number.isFinite(entry.bestWordPts) ? entry.bestWordPts : null,
+            longestWordLen: Number.isFinite(entry.longestWordLen)
+              ? entry.longestWordLen
+              : null,
+          },
+          maxWordPts,
+          maxWordLen
+        ),
     isPalier: false,
   }));
   const merged = [...playerEntries, ...palierEntries];
@@ -292,19 +325,28 @@ export async function getDailyStatus(dateId, installId) {
 export async function getDailyBoard(dateId) {
   const safeDateId = dateId || getParisDateId();
   const grid = await loadDailyGrid(safeDateId);
+  const gridQuality = grid?.gridQuality || null;
+  const maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
+  const maxWordLen = Number.isFinite(gridQuality?.maxLen)
+    ? gridQuality.maxLen
+    : Number.isFinite(grid?.longestWordLen)
+    ? grid.longestWordLen
+    : null;
   const ready = !!grid;
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
   return {
     dateId: safeDateId,
     ready,
-    entries: buildDailyBoardEntries(results),
+    entries: buildDailyBoardEntries(results, { maxWordPts, maxWordLen }),
     totalPlayers: results.length,
   };
 }
 
-function buildDailyTopEntries(results, limit = 10) {
-  const entries = buildDailyBoardEntries(results).filter((entry) => !entry?.isPalier);
+function buildDailyTopEntries(results, limit = 10, { maxWordPts = null, maxWordLen = null } = {}) {
+  const entries = buildDailyBoardEntries(results, { maxWordPts, maxWordLen }).filter(
+    (entry) => !entry?.isPalier
+  );
   return entries.slice(0, Math.max(1, limit));
 }
 
@@ -316,9 +358,17 @@ export async function getDailyHistory({ days = 7 } = {}) {
 
   for (let offset = 0; offset < safeDays; offset += 1) {
     const dateId = addDaysToDateId(todayId, -offset);
+    const grid = await loadDailyGrid(dateId);
+    const gridQuality = grid?.gridQuality || null;
+    const maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
+    const maxWordLen = Number.isFinite(gridQuality?.maxLen)
+      ? gridQuality.maxLen
+      : Number.isFinite(grid?.longestWordLen)
+      ? grid.longestWordLen
+      : null;
     const resultsPayload = await loadDailyResults(dateId);
     const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
-    const topEntries = buildDailyTopEntries(results, 10);
+    const topEntries = buildDailyTopEntries(results, 10, { maxWordPts, maxWordLen });
     history.push({
       dateId,
       entries: topEntries,
@@ -409,13 +459,39 @@ export async function submitDailyResult({
   let score = 0;
   let wordCount = 0;
   let longestWordLen = 0;
+  let bestWordPts = 0;
+  const gridQuality = grid?.gridQuality || null;
+  let maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
+  let maxWordLen = Number.isFinite(gridQuality?.maxLen)
+    ? gridQuality.maxLen
+    : Number.isFinite(grid?.longestWordLen)
+    ? grid.longestWordLen
+    : null;
+  if (!Number.isFinite(maxWordPts) || !Number.isFinite(maxWordLen)) {
+    let fallbackMaxPts = 0;
+    let fallbackMaxLen = 0;
+    for (const [word, data] of solved.entries()) {
+      const len = word.length;
+      const pts = data?.pts || 0;
+      if (len > fallbackMaxLen) fallbackMaxLen = len;
+      if (pts > fallbackMaxPts) fallbackMaxPts = pts;
+    }
+    if (!Number.isFinite(maxWordPts)) maxWordPts = fallbackMaxPts;
+    if (!Number.isFinite(maxWordLen)) maxWordLen = fallbackMaxLen;
+  }
   for (const word of uniqueWords) {
     const data = solved.get(word);
     if (!data) continue;
     score += data.pts || 0;
     wordCount += 1;
+    if ((data?.pts || 0) > bestWordPts) bestWordPts = data?.pts || 0;
     if (word.length > longestWordLen) longestWordLen = word.length;
   }
+  const gobbles = computeDailyGobbles(
+    { bestWordPts, longestWordLen },
+    maxWordPts,
+    maxWordLen
+  );
 
   const submittedAt = Date.now();
   const entry = {
@@ -424,6 +500,8 @@ export async function submitDailyResult({
     score,
     wordCount,
     longestWordLen,
+    bestWordPts,
+    gobbles,
     durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : null,
     submittedAt,
   };
@@ -446,7 +524,7 @@ export async function submitDailyResult({
     score,
     rank: rank >= 0 ? rank + 1 : null,
     totalPlayers: sorted.length,
-    board: buildDailyBoardEntries(results),
+    board: buildDailyBoardEntries(results, { maxWordPts, maxWordLen }),
   };
 }
 

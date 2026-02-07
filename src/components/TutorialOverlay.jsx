@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { tileScore } from "./gameLogic";
 
@@ -78,6 +78,7 @@ const STEPS = [
     ],
     imageSrc: "/bigwords/gobble.png",
     imageAlt: "Gobble",
+    imageAspect: 823 / 223,
   },
   {
     key: "vocab",
@@ -92,6 +93,7 @@ const STEPS = [
     ],
     imageSrc: "/vocab-ranks/debutant.png",
     imageAlt: "Grade debutant",
+    imageAspect: 1,
   },
 ];
 
@@ -123,6 +125,8 @@ function TutorialOverlay({
   initialStep = 0,
 }) {
   const [stepIndex, setStepIndex] = useState(initialStep);
+  const imageCacheRef = useRef(new Set());
+  const [, forceImageTick] = useState(0);
   const step = STEPS[stepIndex] || STEPS[0];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === STEPS.length - 1;
@@ -130,6 +134,26 @@ function TutorialOverlay({
   useEffect(() => {
     if (open) setStepIndex(initialStep);
   }, [open, initialStep]);
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return undefined;
+    let cancelled = false;
+    const sources = STEPS.map((entry) => entry.imageSrc).filter(Boolean);
+    sources.forEach((src) => {
+      if (imageCacheRef.current.has(src)) return;
+      const img = new Image();
+      const finalize = () => {
+        if (cancelled) return;
+        imageCacheRef.current.add(src);
+        forceImageTick((tick) => tick + 1);
+      };
+      img.onload = finalize;
+      img.onerror = finalize;
+      img.src = src;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const demo = useMemo(() => {
     if (!step?.showDemo) return null;
@@ -328,18 +352,41 @@ ${keyframeCss}
       </div>
     ) : null;
   const stepImageMaxWidth = step.key === "vocab" ? 140 : 220;
+  const stepImageRatio = Number.isFinite(step.imageAspect)
+    ? step.imageAspect
+    : 1;
+  const stepImageLoaded = step.imageSrc
+    ? imageCacheRef.current.has(step.imageSrc)
+    : true;
   const stepImage = step.imageSrc ? (
     <div
       className={`self-start rounded-xl border p-2 ${
         darkMode ? "bg-slate-900/60 border-slate-700" : "bg-white/80 border-slate-200"
       }`}
     >
-      <img
-        src={step.imageSrc}
-        alt={step.imageAlt || ""}
-        className="block h-auto w-auto"
-        style={{ maxWidth: `${stepImageMaxWidth}px` }}
-      />
+      <div
+        className="relative overflow-hidden rounded-lg"
+        style={{
+          width: `${stepImageMaxWidth}px`,
+          aspectRatio: `${stepImageRatio}`,
+        }}
+      >
+        {!stepImageLoaded ? (
+          <div
+            className={`absolute inset-0 ${darkMode ? "bg-slate-700/40" : "bg-slate-200/70"} animate-pulse`}
+          />
+        ) : null}
+        <img
+          src={step.imageSrc}
+          alt={step.imageAlt || ""}
+          loading="eager"
+          decoding="async"
+          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+            stepImageLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          draggable="false"
+        />
+      </div>
     </div>
   ) : null;
 

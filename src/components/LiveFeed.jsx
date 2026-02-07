@@ -141,9 +141,9 @@ function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
   const renderAnnouncementText = (text = "", nick) => {
     if (!text) return null;
     const emphasisSplitRe =
-      /(record de mot|mot le plus long|mot en or|meilleur mot|record de score)/gi;
+      /(record de mot|mot le plus long|mot en or|meilleur mot|record de score|gobble du plus long mot|gobble du meilleur mot)/gi;
     const emphasisTestRe =
-      /^(record de mot|mot le plus long|mot en or|meilleur mot|record de score)$/i;
+      /^(record de mot|mot le plus long|mot en or|meilleur mot|record de score|gobble du plus long mot|gobble du meilleur mot)$/i;
     const chunks = text.split(emphasisSplitRe);
     return chunks.map((chunk, idx) => {
       if (!chunk) return null;

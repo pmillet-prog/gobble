@@ -23,6 +23,7 @@ function MobileChatWidget({
   onUnblockInstallId,
   onOpenChat,
   onOpenRules,
+  onCloseSound,
   onOpenUserMenu,
   showBlockedList,
   selfNick,
@@ -141,6 +142,9 @@ function MobileChatWidget({
                   type="button"
                   onPointerDown={(e) => {
                     e.preventDefault();
+                    if (typeof onCloseSound === "function") {
+                      onCloseSound();
+                    }
                     setIsChatOpenMobile(false);
                   }}
                   onClick={(e) => e.preventDefault()}

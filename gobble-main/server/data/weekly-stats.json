@@ -1,0 +1,159 @@
+{
+  "weekStartTs": 1767567600000,
+  "medals": {
+    "nick:ProtoPanache": {
+      "nick": "ProtoPanache",
+      "playerKey": "nick:ProtoPanache",
+      "gold": 3,
+      "silver": 1,
+      "bronze": 0,
+      "total": 4,
+      "achievedAt": 1768051032422
+    }
+  },
+  "mostWordsInGame": {
+    "nick:ProtoPanache": {
+      "nick": "ProtoPanache",
+      "playerKey": "nick:ProtoPanache",
+      "wordsCount": 120,
+      "roundId": "room-5x5#sample",
+      "achievedAt": 1768065432422
+    },
+    "install:cid-1766094538971-819697": {
+      "nick": "Tigrou",
+      "playerKey": "install:cid-1766094538971-819697",
+      "wordsCount": 83,
+      "roundId": "room-4x4#1768083065311",
+      "achievedAt": 1768083185311
+    },
+    "nick:Tigrou": {
+      "nick": "Tigrou",
+      "playerKey": "nick:Tigrou",
+      "wordsCount": 0,
+      "roundId": "room-4x4#1768080281698",
+      "achievedAt": 1768080401698
+    },
+    "install:6de60db4-435b-42a8-9b87-4c05ae52fe97": {
+      "nick": "grgr",
+      "playerKey": "install:6de60db4-435b-42a8-9b87-4c05ae52fe97",
+      "wordsCount": 0,
+      "roundId": "room-4x4#1768081899973",
+      "achievedAt": 1768081989973
+    }
+  },
+  "bestWord": {
+    "nick:Crux": {
+      "nick": "Crux",
+      "playerKey": "nick:Crux",
+      "word": "EXACTION",
+      "pts": 142,
+      "achievedAt": 1768054632422
+    },
+    "nick:BOT-Vega": {
+      "nick": "BOT-Vega",
+      "playerKey": "nick:BOT-Vega",
+      "word": "GALVANOSCOPE",
+      "pts": 118,
+      "achievedAt": 1768058232422
+    },
+    "install:cid-1766094538971-819697": {
+      "nick": "Tigrou",
+      "playerKey": "install:cid-1766094538971-819697",
+      "word": "saignera",
+      "pts": 144,
+      "achievedAt": 1768084518477
+    }
+  },
+  "longestWord": {
+    "nick:QuasarMots": {
+      "nick": "QuasarMots",
+      "playerKey": "nick:QuasarMots",
+      "word": "HYPERBOLIQUES",
+      "len": 13,
+      "achievedAt": 1768058232422
+    },
+    "nick:BOT-Nexus": {
+      "nick": "BOT-Nexus",
+      "playerKey": "nick:BOT-Nexus",
+      "word": "MICROTECHNIQUE",
+      "len": 15,
+      "achievedAt": 1768054632422
+    },
+    "install:cid-1766094538971-819697": {
+      "nick": "Tigrou",
+      "playerKey": "install:cid-1766094538971-819697",
+      "word": "adapterez",
+      "len": 9,
+      "achievedAt": 1768083777433
+    }
+  },
+  "bestRoundScore": {
+    "nick:Proutosaurus Rex": {
+      "nick": "Proutosaurus Rex",
+      "playerKey": "nick:Proutosaurus Rex",
+      "pts": 2100,
+      "roundId": "room-4x4#sample",
+      "achievedAt": 1768061832422
+    },
+    "install:cid-1766094538971-819697": {
+      "nick": "Tigrou",
+      "playerKey": "install:cid-1766094538971-819697",
+      "pts": 1874,
+      "roundId": "room-4x4#1768083065311",
+      "achievedAt": 1768083183630
+    },
+    "nick:Tigrou": {
+      "nick": "Tigrou",
+      "playerKey": "nick:Tigrou",
+      "pts": 0,
+      "roundId": "room-4x4#1768080281698",
+      "achievedAt": 1768080401698
+    },
+    "install:6de60db4-435b-42a8-9b87-4c05ae52fe97": {
+      "nick": "grgr",
+      "playerKey": "install:6de60db4-435b-42a8-9b87-4c05ae52fe97",
+      "pts": 0,
+      "roundId": "room-4x4#1768081899973",
+      "achievedAt": 1768081989973
+    }
+  },
+  "bestTimeTargetLong": {
+    "nick:Crux": {
+      "nick": "Crux",
+      "playerKey": "nick:Crux",
+      "ms": 5200,
+      "word": "GALAXIE",
+      "achievedAt": 1768067232422
+    }
+  },
+  "bestTimeTargetScore": {
+    "nick:QuasarMots": {
+      "nick": "QuasarMots",
+      "playerKey": "nick:QuasarMots",
+      "ms": 4300,
+      "word": "QUASAR",
+      "achievedAt": 1768069032422
+    },
+    "install:cid-1766094538971-819697": {
+      "nick": "Tigrou",
+      "playerKey": "install:cid-1766094538971-819697",
+      "ms": 62283,
+      "word": "pakols",
+      "achievedAt": 1768083452672
+    }
+  },
+  "mostGobbles": {
+    "nick:ProtoPanache": {
+      "nick": "ProtoPanache",
+      "playerKey": "nick:ProtoPanache",
+      "gobbles": 6,
+      "achievedAt": 1768070832422
+    },
+    "install:cid-1766094538971-819697": {
+      "nick": "Tigrou",
+      "playerKey": "install:cid-1766094538971-819697",
+      "gobbles": 3,
+      "achievedAt": 1768084559646
+    }
+  }
+}

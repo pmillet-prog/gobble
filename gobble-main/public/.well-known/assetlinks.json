@@ -1,0 +1,16 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.gobble.twa",
+      "sha256_cert_fingerprints": [
+        "9D:1C:74:C3:27:99:40:9A:A5:E3:8E:58:7E:71:8E:D4:4B:32:94:FA:0F:EE:C9:51:9C:40:30:70:6D:DF:09:53",
+        "7C:B0:52:9F:0F:B6:AC:95:07:AF:E9:01:49:0C:D8:90:67:BB:B7:CF:E9:CC:3C:FF:CE:C9:F8:26:3E:A3:1B:30"
+      ]
+    }
+  }
+]

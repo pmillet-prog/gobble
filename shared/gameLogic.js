@@ -1,10 +1,10 @@
 ﻿// shared/gameLogic.js
-// Logique pure du Boggle : gÃ©nÃ©ration de grille, voisinage, scoring, solveur.
+// Logique pure du Boggle : génération de grille, voisinage, scoring, solveur.
 
 // -----------------
 // Constantes
 // -----------------
-export const SIZE = 5;
+export const SIZE = 4;
 
 export const LETTER_BAG =
   "EEEEEEAAAAAAIIIIIIOOOOONNNNNRRRRRTTTTTLLLLSSSSSSSUUUUDDDDGGBBCCMMFPPHVWYKJXQZ";
@@ -77,7 +77,7 @@ export function neighbors(i, size = SIZE, total = null) {
 }
 
 // -----------------
-// GÃ©nÃ©ration de la grille
+// Génération de la grille
 // -----------------
 
 // Reproduit la logique de startGame() dans ton App.jsx :

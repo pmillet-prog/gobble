@@ -1,0 +1,1 @@
+$env:GOBBLE_FORCE_TARGET_SPECIALS="1"    à entrer dans console avant npm start

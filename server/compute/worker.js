@@ -10,7 +10,14 @@ const __dirname = path.dirname(__filename);
 
 const MAX_QUALITY_ATTEMPTS = 50;
 const SPECIAL_QUALITY_ATTEMPTS = 220;
-const TARGET_LONG_MIN_LEN = 8;
+const TARGET_LONG_MIN_LEN = 11;
+const TARGET_LONG_PREFERRED_LEN = 13;
+const TARGET_LONG_BATCH_ATTEMPTS = 50;
+const TARGET_LONG_BATCHES_PER_LEN = 2;
+const TARGET_LONG_TOTAL_ATTEMPTS =
+  TARGET_LONG_BATCH_ATTEMPTS *
+  TARGET_LONG_BATCHES_PER_LEN *
+  (TARGET_LONG_PREFERRED_LEN - TARGET_LONG_MIN_LEN + 1);
 const TARGET_SCORE_MIN_PTS = 100;
 const BONUS_LETTER_MIN_WORDS = 30;
 const BONUS_LETTER_SCORE = 20;
@@ -93,15 +100,19 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
   };
 }
 
-function pickTargetFromSolved(solved, type) {
+function pickTargetFromSolved(solved, type, opts = {}) {
   if (!solved || solved.size === 0) return null;
 
   if (type === "target_long") {
+    const minLongLen = Math.max(
+      0,
+      Number.isFinite(opts?.minLongLen) ? opts.minLongLen : TARGET_LONG_MIN_LEN
+    );
     let maxLen = 0;
     for (const w of solved.keys()) {
       if (w.length > maxLen) maxLen = w.length;
     }
-    if (maxLen < TARGET_LONG_MIN_LEN) return null;
+    if (maxLen < minLongLen) return null;
     const maxWords = [];
     for (const w of solved.keys()) {
       if (w.length === maxLen) maxWords.push(w);
@@ -140,15 +151,27 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     roundPlan?.qualityAttempts || roomConfig?.qualityAttempts || MAX_QUALITY_ATTEMPTS
   );
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
-  const maxAttemptsTotal = needsBonusLetter
+  const maxAttemptsBase = needsBonusLetter
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
     : maxAttempts;
+  const maxAttemptsTotal =
+    roundPlan?.type === "target_long"
+      ? Math.max(maxAttemptsBase, TARGET_LONG_TOTAL_ATTEMPTS)
+      : maxAttemptsBase;
   const size = roomConfig?.gridSize || 4;
   const effectiveMinWords = dictionary ? minWords : 0;
   const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
+  const isTargetLong = roundPlan?.type === "target_long";
+  const targetLongMinLen = TARGET_LONG_MIN_LEN;
+  const targetLongPreferredLen = Math.max(targetLongMinLen, TARGET_LONG_PREFERRED_LEN);
+  const targetLongBatchSize = Math.max(1, Math.min(TARGET_LONG_BATCH_ATTEMPTS, maxAttemptsTotal));
 
   let bestCandidate = null;
   let fallbackCandidate = null;
+  let targetLongThreshold = targetLongPreferredLen;
+  let targetLongAttemptsInBatch = 0;
+  let targetLongBatchesAtLen = 0;
+  let targetLongBestAtThreshold = null;
 
   for (let attempt = 1; attempt <= maxAttemptsTotal; attempt++) {
     let grid = generateGrid(size);
@@ -190,17 +213,31 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     let targetWord = null;
     let targetLength = null;
     let targetPath = null;
+    let fallbackTargetWord = null;
+    let fallbackTargetLength = null;
+    let fallbackTargetPath = null;
     let bonusLetter = null;
 
     if (
       solved &&
       (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")
     ) {
-      const target = pickTargetFromSolved(solved, roundPlan.type);
+      const target = pickTargetFromSolved(
+        solved,
+        roundPlan.type,
+        isTargetLong ? { minLongLen: targetLongMinLen } : null
+      );
       if (target?.word) {
         targetWord = target.word;
         targetLength = target.length || target.word.length;
         targetPath = Array.isArray(target.path) ? target.path : null;
+      } else if (isTargetLong) {
+        const fallbackTarget = pickTargetFromSolved(solved, roundPlan.type, { minLongLen: 0 });
+        if (fallbackTarget?.word) {
+          fallbackTargetWord = fallbackTarget.word;
+          fallbackTargetLength = fallbackTarget.length || fallbackTarget.word.length;
+          fallbackTargetPath = Array.isArray(fallbackTarget.path) ? fallbackTarget.path : null;
+        }
       }
       quality.ok = quality.ok && !!targetWord;
     }
@@ -229,7 +266,18 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       targetLength,
       targetPath,
     };
-    fallbackCandidate = candidate;
+    const fallbackCandidateOverride =
+      isTargetLong && !targetWord && fallbackTargetWord
+        ? {
+            ...candidate,
+            targetWord: fallbackTargetWord,
+            targetLength: fallbackTargetLength,
+            targetPath: fallbackTargetPath,
+          }
+        : candidate;
+    if (!isTargetLong || targetWord || fallbackTargetWord) {
+      fallbackCandidate = fallbackCandidateOverride;
+    }
     if (needsBonusLetter && !planForRound?.bonusLetter) {
       continue;
     }
@@ -241,13 +289,61 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       (bestCandidate?.quality?.possibleScore || 0) / 500 +
       (bestCandidate?.quality?.longWords || 0);
 
-    if (!bestCandidate || currentScore > bestScore) {
-      bestCandidate = candidate;
-    }
+    if (isTargetLong) {
+      if (targetWord) {
+        const candidateLen = Number.isFinite(targetLength) ? targetLength : 0;
+        const bestLen = Number.isFinite(bestCandidate?.targetLength)
+          ? bestCandidate.targetLength
+          : 0;
+        if (
+          !bestCandidate ||
+          candidateLen > bestLen ||
+          (candidateLen === bestLen && currentScore > bestScore)
+        ) {
+          bestCandidate = candidate;
+        }
+        if (candidateLen >= targetLongThreshold) {
+          const bestThresholdLen = Number.isFinite(targetLongBestAtThreshold?.targetLength)
+            ? targetLongBestAtThreshold.targetLength
+            : 0;
+          const thresholdScore =
+            (targetLongBestAtThreshold?.quality?.words || 0) +
+            (targetLongBestAtThreshold?.quality?.possibleScore || 0) / 500 +
+            (targetLongBestAtThreshold?.quality?.longWords || 0);
+          if (
+            !targetLongBestAtThreshold ||
+            candidateLen > bestThresholdLen ||
+            (candidateLen === bestThresholdLen && currentScore > thresholdScore)
+          ) {
+            targetLongBestAtThreshold = candidate;
+          }
+        }
+      }
+      targetLongAttemptsInBatch += 1;
+      if (targetLongAttemptsInBatch >= targetLongBatchSize) {
+        if (targetLongBestAtThreshold) {
+          bestCandidate = targetLongBestAtThreshold;
+          break;
+        }
+        targetLongAttemptsInBatch = 0;
+        targetLongBatchesAtLen += 1;
+        if (targetLongBatchesAtLen >= TARGET_LONG_BATCHES_PER_LEN) {
+          if (targetLongThreshold > targetLongMinLen) {
+            targetLongThreshold -= 1;
+            targetLongBatchesAtLen = 0;
+            targetLongBestAtThreshold = null;
+          }
+        }
+      }
+    } else {
+      if (!bestCandidate || currentScore > bestScore) {
+        bestCandidate = candidate;
+      }
 
-    if (quality.ok) {
-      bestCandidate = candidate;
-      break;
+      if (quality.ok) {
+        bestCandidate = candidate;
+        break;
+      }
     }
   }
 
