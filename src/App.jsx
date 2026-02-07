@@ -471,7 +471,7 @@ const WEEKLY_BOARDS = [
 ];
 const FINALE_WEEKLY_BOARDS = [
   { key: "vocab", label: "Vocabulaire", subtitle: "Mots uniques" },
-  ...WEEKLY_BOARDS.filter((board) => board.key !== "medals"),
+  ...WEEKLY_BOARDS,
 ];
 const WEEKLY_RECORD_LABELS = {
   bestWord: "Meilleur mot",
@@ -7061,6 +7061,19 @@ export default function App() {
     }
   }
 
+  function formatWeeklyDayTime(ts) {
+    if (!ts) return "";
+    try {
+      return new Date(ts).toLocaleString("fr-FR", {
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return "";
+    }
+  }
+
   function formatMsShort(ms) {
     if (!Number.isFinite(ms)) return "";
     const seconds = ms / 1000;
@@ -12935,10 +12948,74 @@ function handleTouchEnd() {
     );
   }
 
+  function useNickTruncation(ref, deps = []) {
+    const [isTruncated, setIsTruncated] = useState(false);
+    useLayoutEffect(() => {
+      const el = ref?.current;
+      if (!el) return;
+      const check = () => {
+        const slack = el.clientWidth - el.scrollWidth;
+        setIsTruncated((prev) => {
+          if (slack < -1) return true;
+          if (prev && slack < 24) return true;
+          return false;
+        });
+      };
+      check();
+      let ro = null;
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(check);
+        ro.observe(el);
+      } else if (typeof window !== "undefined") {
+        window.addEventListener("resize", check);
+      }
+      return () => {
+        if (ro) ro.disconnect();
+        if (typeof window !== "undefined") {
+          window.removeEventListener("resize", check);
+        }
+      };
+    }, deps);
+    return isTruncated;
+  }
+
+  function WeeklyNickLine({ nick, metaLabel, compactMetaLabel, vocabMeta }) {
+    const nickRef = useRef(null);
+    const isTruncated = useNickTruncation(nickRef, [nick, metaLabel, compactMetaLabel]);
+    const useCompact = Boolean(compactMetaLabel) && isTruncated;
+    const metaText = useCompact ? compactMetaLabel : metaLabel;
+    const metaClass = useCompact
+      ? "text-[9px] opacity-60 truncate leading-tight"
+      : "text-[10px] opacity-60 truncate";
+    const gapClass = useCompact ? "gap-0.5" : "gap-1";
+
+    return (
+      <div className={`font-semibold truncate flex items-center ${gapClass} text-xs`}>
+        {vocabMeta?.image ? (
+          <img
+            src={vocabMeta.image}
+            alt={vocabMeta.label || "Niveau"}
+            className="h-5 w-5 shrink-0"
+            draggable={false}
+          />
+        ) : null}
+        <span ref={nickRef} className="truncate">
+          {nick}
+        </span>
+        {metaText ? <span className={metaClass}>{metaText}</span> : null}
+      </div>
+    );
+  }
+
   function renderWeeklyRow(boardKey, entry, idx, { showVocabIcon = false } = {}) {
     if (!entry) return null;
     const rank = idx + 1;
-    const achieved = entry.achievedAt ? formatWeeklyDate(entry.achievedAt) : null;
+    const isTotalScoreBoard = boardKey === "totalScore";
+    const achieved = entry.achievedAt
+      ? isTotalScoreBoard
+        ? formatWeeklyDayTime(entry.achievedAt)
+        : formatWeeklyDate(entry.achievedAt)
+      : null;
     const baseNick = entry.nick || "Joueur";
     const vocabEntryKey =
       entry.playerKey || (entry.nick ? String(entry.nick).trim().toLowerCase() : null);
@@ -12952,7 +13029,7 @@ function handleTouchEnd() {
 
     const valueParts = [];
     if (boardKey === "medals") {
-      valueParts.push(`${formatNumber(entry.total) ?? 0} médailles`);
+      valueParts.push(`${formatNumber(entry.total) ?? 0}`);
     } else if (boardKey === "mostWordsInGame") {
       valueParts.push(`${formatNumber(entry.wordsCount) ?? 0} mots`);
     } else if (boardKey === "totalScore") {
@@ -12972,13 +13049,15 @@ function handleTouchEnd() {
     }
 
     const detailParts = [];
+    const compactDetailParts = [];
     if (boardKey === "medals") {
-      detailParts.push(`Or ${formatNumber(entry.gold) ?? 0}`);
-      detailParts.push(`Arg ${formatNumber(entry.silver) ?? 0}`);
-      detailParts.push(`Br ${formatNumber(entry.bronze) ?? 0}`);
+      detailParts.push(`\u{1F947} ${formatNumber(entry.gold) ?? 0}`);
+      detailParts.push(`\u{1F948} ${formatNumber(entry.silver) ?? 0}`);
+      detailParts.push(`\u{1F949} ${formatNumber(entry.bronze) ?? 0}`);
     }
     if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
       detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
+      compactDetailParts.push(`${formatNumber(entry.roundsPlayed)} m`);
     }
     const hasWord =
       (boardKey === "bestWord" ||
@@ -13024,6 +13103,13 @@ function handleTouchEnd() {
     if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
     if (achieved) metaTokens.push(achieved);
     const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
+    const compactTokens = [];
+    if (compactDetailParts.length > 0) compactTokens.push(compactDetailParts.join(" \u00b7 "));
+    if (achieved) compactTokens.push(achieved);
+    const compactMetaLabel =
+      compactTokens.length > 0
+        ? `\u00b7 ${compactTokens.join(" \u00b7 ")}`
+        : metaLabel;
 
     return (
       <div
@@ -13033,20 +13119,12 @@ function handleTouchEnd() {
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-6 text-center text-xs font-bold text-amber-500">{rank}</span>
           <div className="min-w-0">
-            <div className="font-semibold truncate flex items-center gap-1 text-xs">
-              {vocabMetaForRow?.image ? (
-                <img
-                  src={vocabMetaForRow.image}
-                  alt={vocabMetaForRow.label || "Niveau"}
-                  className="h-5 w-5 shrink-0"
-                  draggable={false}
-                />
-              ) : null}
-              <span className="truncate">{baseNick}</span>
-              {metaLabel ? (
-                <span className="text-[10px] opacity-60 truncate">{metaLabel}</span>
-              ) : null}
-            </div>
+            <WeeklyNickLine
+              nick={baseNick}
+              metaLabel={metaLabel}
+              compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
+              vocabMeta={vocabMetaForRow}
+            />
             {hasWord ? (
               <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
                 <button
@@ -13084,7 +13162,12 @@ function handleTouchEnd() {
   ) {
     if (!entry) return null;
     const rank = idx + 1;
-    const achieved = entry.achievedAt ? formatWeeklyDate(entry.achievedAt) : null;
+    const isTotalScoreBoard = boardKey === "totalScore";
+    const achieved = entry.achievedAt
+      ? isTotalScoreBoard
+        ? formatWeeklyDayTime(entry.achievedAt)
+        : formatWeeklyDate(entry.achievedAt)
+      : null;
     const baseNick = entry.nick || "Joueur";
     const entryKey = getWeeklyEntryKey(entry);
     const vocabEntryKey =
@@ -13099,7 +13182,7 @@ function handleTouchEnd() {
 
     const valueParts = [];
     if (boardKey === "medals") {
-      valueParts.push(`${formatNumber(entry.total) ?? 0} médailles`);
+      valueParts.push(`${formatNumber(entry.total) ?? 0}`);
     } else if (boardKey === "mostWordsInGame") {
       valueParts.push(`${formatNumber(entry.wordsCount) ?? 0} mots`);
     } else if (boardKey === "totalScore") {
@@ -13119,13 +13202,15 @@ function handleTouchEnd() {
     }
 
     const detailParts = [];
+    const compactDetailParts = [];
     if (boardKey === "medals") {
-      detailParts.push(`Or ${formatNumber(entry.gold) ?? 0}`);
-      detailParts.push(`Arg ${formatNumber(entry.silver) ?? 0}`);
-      detailParts.push(`Br ${formatNumber(entry.bronze) ?? 0}`);
+      detailParts.push(`\u{1F947} ${formatNumber(entry.gold) ?? 0}`);
+      detailParts.push(`\u{1F948} ${formatNumber(entry.silver) ?? 0}`);
+      detailParts.push(`\u{1F949} ${formatNumber(entry.bronze) ?? 0}`);
     }
     if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
       detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
+      compactDetailParts.push(`${formatNumber(entry.roundsPlayed)} m`);
     }
     const hasWord =
       (boardKey === "bestWord" ||
@@ -13191,6 +13276,13 @@ function handleTouchEnd() {
     if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
     if (achieved) metaTokens.push(achieved);
     const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
+    const compactTokens = [];
+    if (compactDetailParts.length > 0) compactTokens.push(compactDetailParts.join(" \u00b7 "));
+    if (achieved) compactTokens.push(achieved);
+    const compactMetaLabel =
+      compactTokens.length > 0
+        ? `\u00b7 ${compactTokens.join(" \u00b7 ")}`
+        : metaLabel;
 
     return (
       <div
@@ -13200,20 +13292,12 @@ function handleTouchEnd() {
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-7 text-center text-xs font-bold text-amber-500">{rank}</span>
           <div className="min-w-0">
-            <div className="font-semibold truncate flex items-center gap-2 text-xs">
-              {vocabMetaForRow?.image ? (
-                <img
-                  src={vocabMetaForRow.image}
-                  alt={vocabMetaForRow.label || "Niveau"}
-                  className="h-5 w-5 shrink-0"
-                  draggable={false}
-                />
-              ) : null}
-              <span className="truncate">{baseNick}</span>
-              {metaLabel ? (
-                <span className="text-[10px] opacity-60 truncate">{metaLabel}</span>
-              ) : null}
-            </div>
+            <WeeklyNickLine
+              nick={baseNick}
+              metaLabel={metaLabel}
+              compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
+              vocabMeta={vocabMetaForRow}
+            />
             {hasWord ? (
               <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
                 <button
@@ -13442,20 +13526,15 @@ function handleTouchEnd() {
 
   const statsHeaderTitle = (
     <div>
-      <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-        Stats
-      </div>
       <div className="text-lg font-extrabold">
-        {statsTab === "weekly" ? activeWeeklyBoard?.label : "Saison"}
+        {statsTab === "weekly" ? activeWeeklyBoard?.label : "Vocabulaire"}
       </div>
       {statsTab === "weekly" ? (
         <div className="text-xs opacity-70">
           {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
           {" - Reset : lundi a minuit"}
         </div>
-      ) : (
-        <div className="text-xs opacity-70">Classements saison</div>
-      )}
+      ) : null}
     </div>
   );
   const statsHeaderToggle = (
@@ -13508,11 +13587,12 @@ function handleTouchEnd() {
     isWeeklyOpen && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="fixed inset-0 z-[12000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 py-6"
+            className="fixed inset-0 z-[12000] bg-black/70 backdrop-blur-sm flex items-start justify-center px-2 sm:px-4 pb-6 overflow-y-auto"
+            style={{ paddingTop: "max(1.5rem, env(safe-area-inset-top))" }}
             onClick={closeWeeklyStatsOverlay}
           >
             <div
-              className={`relative w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden ${
+              className={`relative w-full max-w-none rounded-2xl border shadow-2xl overflow-hidden ${
                 darkMode
                   ? "bg-slate-900/90 border-white/10 text-white"
                   : "bg-white/95 border-slate-200 text-slate-900"
@@ -13522,22 +13602,31 @@ function handleTouchEnd() {
               onTouchMove={handleStatsTouchMove}
               onTouchEnd={handleStatsTouchEnd}
             >
-              <button
-                type="button"
-                className="absolute top-4 right-4 rounded-full p-2 text-sm font-semibold bg-black/20 text-white hover:bg-black/30"
-                onClick={() => {
-                  playCloseSound();
-                  closeWeeklyStatsOverlay();
-                }}
-                aria-label="Fermer les stats"
-              >
-                X
-              </button>
-              <div className="p-4 pb-2">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  {statsTab === "weekly" ? statsHeaderToggle : statsHeaderTitle}
-                  {statsTab === "weekly" ? statsHeaderTitle : statsHeaderToggle}
+              <div className="p-4 pb-2 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+                    GOBBLE STATS
+                  </div>
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
+                      darkMode
+                        ? "bg-slate-800/80 border-white/10 text-slate-100"
+                        : "bg-white border-slate-200 text-slate-700"
+                    }`}
+                    onClick={() => {
+                      playCloseSound();
+                      closeWeeklyStatsOverlay();
+                    }}
+                    aria-label="Fermer les stats"
+                  >
+                    Fermer
+                  </button>
                 </div>
+                <div className="flex items-center justify-start">
+                  {statsHeaderToggle}
+                </div>
+                {statsHeaderTitle}
                 {statsTab === "weekly" ? (
                   <div className="mt-2 text-[11px] opacity-70">
                     Slide gauche/droite pour changer de categorie
@@ -13548,7 +13637,7 @@ function handleTouchEnd() {
               {statsTab === "season" ? seasonDots : null}
               {statsTab === "weekly" ? (
 
-              <div className="relative px-4 pb-4">
+              <div className="relative px-2 sm:px-4 pb-4">
                 <div className="overflow-hidden rounded-2xl border-0 bg-transparent">
                   <div
                     className="flex w-full"
@@ -13562,7 +13651,7 @@ function handleTouchEnd() {
                       return (
                         <div
                           key={board.key}
-                          className="w-full shrink-0 px-2"
+                          className="w-full shrink-0 px-0"
                           style={{ minHeight: "60vh" }}
                         >
                           <div className="p-4 space-y-3">
@@ -13601,7 +13690,7 @@ function handleTouchEnd() {
               </div>
 
               ) : (
-                <div className="relative px-4 pb-4">
+                <div className="relative px-2 sm:px-4 pb-4">
                   <div className="overflow-hidden rounded-2xl border-0 bg-transparent">
                     <div
                       className="flex w-full"
@@ -13613,7 +13702,7 @@ function handleTouchEnd() {
                       {seasonPages.map((page) => (
                         <div
                           key={page}
-                          className="w-full shrink-0 px-2"
+                          className="w-full shrink-0 px-0"
                           style={{ minHeight: "60vh" }}
                         >
                           {page === "vocab_rank" ? (

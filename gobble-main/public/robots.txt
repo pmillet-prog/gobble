@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://gobble.fr/sitemap.xml
