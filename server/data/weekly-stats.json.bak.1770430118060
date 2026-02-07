@@ -58,11 +58,11 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "gold": 2,
+      "gold": 1,
       "silver": 0,
       "bronze": 2,
-      "total": 4,
-      "achievedAt": 1770430979019
+      "total": 3,
+      "achievedAt": 1770427988053
     }
   },
   "mostWordsInGame": {
@@ -197,9 +197,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 73898,
-      "roundsPlayed": 136,
-      "achievedAt": 1770430938956
+      "totalScore": 71722,
+      "roundsPlayed": 130,
+      "achievedAt": 1770428143067
     },
     "install:cid-1765882618641-405809": {
       "nick": "Bj",
@@ -1035,8 +1035,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 3086,
-      "achievedAt": 1770430938956
+      "vocabCount": 3046,
+      "achievedAt": 1770428143067
     },
     "install:cid-1765882618641-405809": {
       "nick": "Bj",

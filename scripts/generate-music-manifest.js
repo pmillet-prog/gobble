@@ -4,6 +4,7 @@ const path = require("path");
 const projectRoot = path.join(__dirname, "..");
 const musicDir = path.join(projectRoot, "public", "sound", "music");
 const outFile = path.join(musicDir, "index.json");
+const fallbackFile = path.join(projectRoot, "src", "audio", "ambientDefaults.json");
 const exts = new Set([".mp3", ".wav", ".ogg", ".m4a"]);
 
 function getTracks() {
@@ -19,4 +20,9 @@ function getTracks() {
 const tracks = getTracks();
 const payload = JSON.stringify(tracks, null, 2);
 fs.writeFileSync(outFile, payload);
-console.log(`[music-manifest] ${tracks.length} track(s) -> public/sound/music/index.json`);
+const fallbackTracks = tracks.map((name) => `/sound/music/${name}`);
+const fallbackPayload = JSON.stringify(fallbackTracks, null, 2);
+fs.writeFileSync(fallbackFile, fallbackPayload);
+console.log(
+  `[music-manifest] ${tracks.length} track(s) -> public/sound/music/index.json + src/audio/ambientDefaults.json`
+);

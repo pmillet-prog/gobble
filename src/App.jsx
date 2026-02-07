@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import confetti from "canvas-confetti";
 import { applyHtmlAudioSettings, resolveSoundSettings } from "./audio/equalizer";
+import AMBIENT_MUSIC_TRACKS_FALLBACK from "./audio/ambientDefaults.json";
 import { createPortal } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
@@ -93,6 +94,7 @@ const AUDIO_COOLDOWNS_MS = {
   roundStart: 160,
   invalidWord: 160,
   dejaJoue: 160,
+  shortWord: 160,
   score: 60,
   score2: 60,
   tournamentCelebration: 240,
@@ -104,12 +106,16 @@ const VOCAB_SAMPLE_BASE_FREQ = 440;
 const BOOT_LOGO_SRC = "/favicon.png";
 const SOUND_ROOT = "/sound";
 const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
-const AMBIENT_MUSIC_TRACKS_DEFAULT = [
+const AMBIENT_MUSIC_TRACKS_BASE = [
   `${SOUND_ROOT}/music/oiseauxnuit.mp3`,
   `${SOUND_ROOT}/music/oiseauxsoir.mp3`,
   `${SOUND_ROOT}/music/reveiloiseaux.mp3`,
   `${SOUND_ROOT}/music/reveiloiseaux2.mp3`,
 ];
+const AMBIENT_MUSIC_TRACKS_DEFAULT =
+  Array.isArray(AMBIENT_MUSIC_TRACKS_FALLBACK) && AMBIENT_MUSIC_TRACKS_FALLBACK.length
+    ? AMBIENT_MUSIC_TRACKS_FALLBACK
+    : AMBIENT_MUSIC_TRACKS_BASE;
 const INCREMENTAL_SOUND_COUNT = 16;
 const INCREMENTAL_SOUND_PATHS = Array.from({ length: INCREMENTAL_SOUND_COUNT }, (_, idx) => {
   const label = String(idx + 1).padStart(2, "0");
@@ -132,6 +138,7 @@ const SOUND_PATHS = {
   chebabeu: `${SOUND_ROOT}/game/chebabeu.wav`,
   clavier: `${SOUND_ROOT}/game/clavier.wav`,
   souris: `${SOUND_ROOT}/game/souris.wav`,
+  shortWord: `${SOUND_ROOT}/game/error.mp3`,
   roundStart: `${SOUND_ROOT}/game/dong.wav`,
   specialFound: `${SOUND_ROOT}/game/charleston.wav`,
   tictac10: `${SOUND_ROOT}/game/tictac10.wav`,
@@ -189,6 +196,7 @@ const BOOT_ASSET_SOUNDS_BASE = [
   SOUND_PATHS.vocabCling,
   SOUND_PATHS.invalidWord,
   SOUND_PATHS.dejaJoue,
+  SOUND_PATHS.shortWord,
   SOUND_PATHS.uiClick,
   SOUND_PATHS.uiClose,
   SOUND_PATHS.tournamentFireworks,
@@ -262,7 +270,7 @@ function resolveAmbientManifestTracks(payload) {
 async function loadAmbientTrackList() {
   if (typeof fetch === "undefined") return AMBIENT_MUSIC_TRACKS_DEFAULT;
   try {
-    const res = await fetch(AMBIENT_MUSIC_MANIFEST, { cache: "force-cache" });
+    const res = await fetch(AMBIENT_MUSIC_MANIFEST, { cache: "no-store" });
     if (!res.ok) return AMBIENT_MUSIC_TRACKS_DEFAULT;
     const data = await res.json();
     const resolved = resolveAmbientManifestTracks(data);
@@ -2437,6 +2445,7 @@ export default function App() {
   });
   const ambientStartPendingRef = useRef(false);
   const ambientRetryRef = useRef(false);
+  const lastAmbientPhaseRef = useRef(null);
   const roundStartPendingRef = useRef(null);
   const roundStartRetryRef = useRef(false);
   const gobbleVoiceRef = useRef({
@@ -3439,6 +3448,13 @@ export default function App() {
       [order[0], order[swapIndex]] = [order[swapIndex], order[0]];
     }
     return order;
+  }
+
+  function resetAmbientOrder() {
+    ambientMusicRef.current.order = null;
+    ambientMusicRef.current.orderKey = "";
+    ambientMusicRef.current.index = -1;
+    ambientMusicRef.current.lastTrack = null;
   }
 
   function getNextAmbientTrack() {
@@ -5208,22 +5224,25 @@ export default function App() {
   }, [tick, phase, specialRound?.type]);
 
   useEffect(() => {
-    const hasCountdown = typeof breakCountdown === "number";
-    const shouldBeAudible =
-      phase === "results" &&
-      !isAmbientMuted;
+    const isResults = phase === "results";
+    const wasResults = lastAmbientPhaseRef.current === "results";
+    lastAmbientPhaseRef.current = phase;
+
+    if (isResults && !wasResults) {
+      resetAmbientOrder();
+    }
 
     if (isAmbientMuted) {
       stopAmbientMusic({ fadeMs: 700, keepAlive: false });
       return;
     }
 
-    if (shouldBeAudible) {
+    if (isResults) {
       startAmbientMusic({ silent: false });
     } else {
-      startAmbientMusic({ silent: true });
+      stopAmbientMusic({ fadeMs: 700, keepAlive: false });
     }
-  }, [phase, breakKind, breakCountdown, isAmbientMuted]);
+  }, [phase, isAmbientMuted]);
 
   useEffect(() => {
     const shouldReset =
@@ -9664,6 +9683,14 @@ export default function App() {
     });
   }
 
+  function playShortWordSound() {
+    if (isSfxMuted) return;
+    playOneShotAudio(SOUND_PATHS.shortWord, {
+      cooldownKey: "shortWord",
+      eqKey: "shortWord",
+    });
+  }
+
   function playAlreadyPlayedSound() {
     if (isSfxMuted) return;
     playOneShotAudio(SOUND_PATHS.dejaJoue, {
@@ -9746,8 +9773,11 @@ export default function App() {
     const isDuplicate = lower.includes("déjà") || lower.includes("deja");
     const isInvalidDico =
       lower.includes("dico") || lower.includes("dictionnaire") || lower.includes("absent");
+    const isTooShort = lower.includes("trop court");
     if (isInvalidDico) {
       playInvalidWordSound();
+    } else if (isTooShort) {
+      playShortWordSound();
     } else if (isDuplicate) {
       playAlreadyPlayedSound();
     } else {
