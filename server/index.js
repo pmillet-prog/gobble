@@ -1486,7 +1486,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   }
 
   const normInput = normalizeWord(word);
-  if (!normInput || normInput.length < 3) {
+  if (!normInput || normInput.length < 2) {
     return { ok: false, error: "invalid_word" };
   }
 

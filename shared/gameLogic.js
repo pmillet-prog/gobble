@@ -278,7 +278,7 @@ export function solveGrid(board, dictionary, special = null) {
   const found = new Map();
 
   for (const word of filtered) {
-    if (word.length < 3 || word.length > 25) continue;
+    if (word.length < 2 || word.length > 25) continue;
     const path = findBestPathForWord(board, word, special);
     if (path) {
       const pts = computeScore(word, path, board, special);
@@ -294,7 +294,7 @@ export function solveGrid(board, dictionary, special = null) {
 // - sinon { norm, path, pts }
 export function scoreWordOnGrid(rawWord, board, special = null) {
   const norm = normalizeWord(rawWord);
-  if (!norm || norm.length < 3) return null;
+  if (!norm || norm.length < 2) return null;
 
   const path = findBestPathForWord(board, norm, special);
   if (!path) return null;
@@ -305,10 +305,9 @@ export function scoreWordOnGrid(rawWord, board, special = null) {
 
 export function scoreWordOnGridWithPath(rawWord, board, path, special = null) {
   const norm = normalizeWord(rawWord);
-  if (!norm || norm.length < 3) return null;
+  if (!norm || norm.length < 2) return null;
   if (!pathMatchesWord(board, norm, path)) return null;
   const pts = computeScore(norm, path, board, special);
   return { norm, path, pts };
 }
-
 

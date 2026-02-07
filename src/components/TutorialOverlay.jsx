@@ -28,7 +28,7 @@ const STEPS = [
       "Glisse ton doigt pour relier des tuiles adjacentes sur la grille.",
     bullets: [
       "Adjacentes = haut, bas, gauche, droite, diagonale.",
-      "Minimum 3 lettres, une tuile ne peut pas etre réutilisée.",
+      "Minimum 2 lettres, une tuile ne peut pas etre réutilisée.",
       "Relâche pour valider le mot.",
     ],
     showDemo: true,

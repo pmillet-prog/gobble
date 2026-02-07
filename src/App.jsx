@@ -2217,6 +2217,7 @@ const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v2";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
+const TWO_LETTER_POPUP_SEEN_STORAGE_KEY = "gobble_two_letter_popup_seen_v1";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
@@ -2770,6 +2771,7 @@ export default function App() {
       return "";
     }
   });
+  const [twoLetterPopupOpen, setTwoLetterPopupOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
   const [guidedResultsSeenInstallId, setGuidedResultsSeenInstallId] = useState(() => {
@@ -2796,6 +2798,17 @@ export default function App() {
     return { installId: "", types: {} };
   });
   const [specialTutorialPlan, setSpecialTutorialPlan] = useState(null);
+  const twoLetterPopupKey = installId
+    ? `${TWO_LETTER_POPUP_SEEN_STORAGE_KEY}:${installId}`
+    : TWO_LETTER_POPUP_SEEN_STORAGE_KEY;
+  useEffect(() => {
+    if (!installId) return;
+    try {
+      const seen = localStorage.getItem(twoLetterPopupKey);
+      if (seen === "1") return;
+    } catch (_) {}
+    setTwoLetterPopupOpen(true);
+  }, [installId, twoLetterPopupKey]);
   const [isSpecialTutorialOpen, setIsSpecialTutorialOpen] = useState(false);
   const shouldShowTutorial =
     tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
@@ -10303,7 +10316,7 @@ function handleTouchEnd() {
     const display = currentTilesRef.current.join("");
     const raw = normalizeWord(display);
 
-    if (!raw || raw.length < 3) return error("Mot trop court");
+    if (!raw || raw.length < 2) return error("Mot trop court");
     if (!dictionary || !dictionary.has(raw)) return error("Absent du dico");
     if (acceptedRef.current.includes(raw)) return error("D\u00e9j\u00e0 trouv\u00e9");
     if (pendingWordsRef.current.has(raw)) return error("D\u00e9j\u00e0 envoy\u00e9");
@@ -14365,6 +14378,64 @@ function handleTouchEnd() {
           document.body
         )
       : null;
+  const twoLetterPopupView =
+    twoLetterPopupOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[12055] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-6"
+            onClick={() => {
+              playCloseSound();
+              setTwoLetterPopupOpen(false);
+              try {
+                localStorage.setItem(twoLetterPopupKey, "1");
+              } catch (_) {}
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${
+                darkMode
+                  ? "bg-slate-900/90 border-white/10 text-white"
+                  : "bg-white/95 border-slate-200 text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5 space-y-3">
+                <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+                  Nouveau !
+                </div>
+                <div className="text-lg font-extrabold">
+                  Les mots de 2 lettres sont maintenant valides.
+                </div>
+                <div className="text-sm opacity-80">
+                  Tu peux les utiliser pendant les manches, comme les autres mots.
+                </div>
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    className={`px-4 py-2 text-xs font-semibold rounded-full border ${
+                      darkMode
+                        ? "bg-slate-800/80 border-white/10 text-slate-100"
+                        : "bg-white border-slate-200 text-slate-700"
+                    }`}
+                    onClick={() => {
+                      playCloseSound();
+                      setTwoLetterPopupOpen(false);
+                      try {
+                        localStorage.setItem(twoLetterPopupKey, "1");
+                      } catch (_) {}
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
   const specialTutorialType = specialTutorialPlan?.type || null;
   const specialTutorialLabel = specialTutorialPlan?.label || "Manche spéciale";
   const specialTutorialFixedScore =
@@ -14915,6 +14986,7 @@ function handleTouchEnd() {
       {definitionModalView}
       {wordInfoModalView}
       {recordModalView}
+      {twoLetterPopupView}
       {vocabOverlayView}
       {tutorialOverlay}
       {specialTutorialOverlay}
@@ -15369,6 +15441,7 @@ function handleTouchEnd() {
         {weeklyStatsOverlay}
         {playersOverlay}
         {definitionModalView}
+        {twoLetterPopupView}
         {tutorialOverlay}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${

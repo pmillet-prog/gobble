@@ -229,7 +229,7 @@ export function findBestPathForWord(board, targetNorm, special = null) {
 export function solveAll(board, dictionary, special = null) {
   const found = new Map();
   for (const word of dictionary) {
-    if (word.length < 3 || word.length > 25) continue;
+    if (word.length < 2 || word.length > 25) continue;
     const path = findBestPathForWord(board, word, special);
     if (path) {
       found.set(word, path);
@@ -237,4 +237,3 @@ export function solveAll(board, dictionary, special = null) {
   }
   return found;
 }
-

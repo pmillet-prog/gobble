@@ -30,7 +30,7 @@ export const SOUND_EQ = {
   tileStep: { volume: 1, stretch: 1, pitch: 2 },
   invalidWord: { volume: 0.85 },
   dejaJoue: { volume: 0.9 },
-  shortWord: { volume: 0.6 },
+  shortWord: { volume: 0.4 },
   gobbleVoice: { volume: 0.95 },
   // Black hole
   blackHole: { volume: 0.7 },

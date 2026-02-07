@@ -298,7 +298,7 @@ function extractBaseFromRawForm(extract) {
 function extractParticipleHint(normalized, rawBase) {
   if (!normalized) return null;
   const base = rawBase || extractVerbBaseFromFormOf(normalized);
-  if (!base || base.length < 3) return null;
+  if (!base || base.length < 2) return null;
   const match = normalized.match(
     /\bparticipe (passe|present)(?: (masculin|feminin))?(?: (singulier|pluriel))?/
   );
@@ -320,7 +320,7 @@ function extractConjugationHint(normalized, rawBase) {
   );
   if (!personMatch) return null;
   const base = rawBase || extractVerbBaseFromFormOf(normalized);
-  if (!base || base.length < 3) return null;
+  if (!base || base.length < 2) return null;
   let detail = normalized.slice(personMatch[0].length).trim();
   if (detail) {
     const baseToken = normalizeForFormOf(base).split(" ")[0];
@@ -447,7 +447,7 @@ function extractFormOfHint(extract) {
     const match = normalized.match(pattern.re);
     if (!match) continue;
     const base = rawBase || match[1];
-    if (!base || base.length < 3) continue;
+    if (!base || base.length < 2) continue;
     return { base, label: pattern.label, kind: pattern.kind };
   }
   const verbBase = extractVerbBaseFromFormOf(normalized);
