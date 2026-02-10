@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { tileScore } from "./gameLogic";
+import AssetManager from "../assets/assetManager";
+import { IMAGE_KEYS } from "../assets/assetKeys";
 
 const DEMO_GRID_SIZE = 4;
 const DEMO_GRID = [
@@ -76,7 +78,7 @@ const STEPS = [
       "1 gobble pour le mot qui rapporte le plus de points.",
       "Chaque gobble ajoute automatiquement 1 point au classement du mini-tournoi.",
     ],
-    imageSrc: "/bigwords/gobble.png",
+    imageKey: IMAGE_KEYS.bigwords.gobble,
     imageAlt: "Gobble",
     imageAspect: 823 / 223,
   },
@@ -91,7 +93,7 @@ const STEPS = [
       "Plus tu accumules, plus ton niveau de vocabulaire monte.",
       "sauras-tu atteindre le haut du classement ?"
     ],
-    imageSrc: "/vocab-ranks/debutant.png",
+    imageKey: IMAGE_KEYS.vocab.debutant,
     imageAlt: "Grade debutant",
     imageAspect: 1,
   },
@@ -125,8 +127,6 @@ function TutorialOverlay({
   initialStep = 0,
 }) {
   const [stepIndex, setStepIndex] = useState(initialStep);
-  const imageCacheRef = useRef(new Set());
-  const [, forceImageTick] = useState(0);
   const step = STEPS[stepIndex] || STEPS[0];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === STEPS.length - 1;
@@ -134,26 +134,6 @@ function TutorialOverlay({
   useEffect(() => {
     if (open) setStepIndex(initialStep);
   }, [open, initialStep]);
-  useEffect(() => {
-    if (!open || typeof window === "undefined") return undefined;
-    let cancelled = false;
-    const sources = STEPS.map((entry) => entry.imageSrc).filter(Boolean);
-    sources.forEach((src) => {
-      if (imageCacheRef.current.has(src)) return;
-      const img = new Image();
-      const finalize = () => {
-        if (cancelled) return;
-        imageCacheRef.current.add(src);
-        forceImageTick((tick) => tick + 1);
-      };
-      img.onload = finalize;
-      img.onerror = finalize;
-      img.src = src;
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
 
   const demo = useMemo(() => {
     if (!step?.showDemo) return null;
@@ -355,10 +335,10 @@ ${keyframeCss}
   const stepImageRatio = Number.isFinite(step.imageAspect)
     ? step.imageAspect
     : 1;
-  const stepImageLoaded = step.imageSrc
-    ? imageCacheRef.current.has(step.imageSrc)
-    : true;
-  const stepImage = step.imageSrc ? (
+  const stepImageAsset = step.imageKey ? AssetManager.getImage(step.imageKey) : null;
+  const stepImageSrc = stepImageAsset?.url || "";
+  const stepImageLoaded = step.imageKey ? !!stepImageSrc : true;
+  const stepImage = step.imageKey ? (
     <div
       className={`self-start rounded-xl border p-2 ${
         darkMode ? "bg-slate-900/60 border-slate-700" : "bg-white/80 border-slate-200"
@@ -377,7 +357,7 @@ ${keyframeCss}
           />
         ) : null}
         <img
-          src={step.imageSrc}
+          src={stepImageSrc}
           alt={step.imageAlt || ""}
           loading="eager"
           decoding="async"

@@ -9,15 +9,6 @@
       "bronze": 0,
       "total": 2,
       "achievedAt": 1770730635164
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "gold": 2,
-      "silver": 1,
-      "bronze": 0,
-      "total": 3,
-      "achievedAt": 1770733831800
     }
   },
   "mostWordsInGame": {
@@ -48,13 +39,6 @@
       "wordsCount": 94,
       "roundId": "room-4x4#1770729544703",
       "achievedAt": 1770729664703
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "wordsCount": 87,
-      "roundId": "room-4x4#1770731765634",
-      "achievedAt": 1770731885634
     }
   },
   "totalScore": {
@@ -75,9 +59,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 9480,
-      "roundsPlayed": 24,
-      "achievedAt": 1770734271911
+      "totalScore": 9298,
+      "roundsPlayed": 23,
+      "achievedAt": 1770729169467
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -85,13 +69,6 @@
       "totalScore": 7168,
       "roundsPlayed": 9,
       "achievedAt": 1770731075306
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "totalScore": 9090,
-      "roundsPlayed": 12,
-      "achievedAt": 1770733791664
     }
   },
   "bestWord": {
@@ -147,9 +124,9 @@
     "install:iid-1770731577320-743680": {
       "nick": "Test",
       "playerKey": "install:iid-1770731577320-743680",
-      "word": "jaserais",
-      "pts": 192,
-      "achievedAt": 1770733126396
+      "word": "baiserent",
+      "pts": 87,
+      "achievedAt": 1770731591694
     }
   },
   "longestWord": {
@@ -263,9 +240,9 @@
     "install:iid-1770731577320-743680": {
       "nick": "Test",
       "playerKey": "install:iid-1770731577320-743680",
-      "pts": 1489,
-      "roundId": "room-4x4#1770731765634",
-      "achievedAt": 1770731886747
+      "pts": 277,
+      "roundId": "room-4x4#1770731480489",
+      "achievedAt": 1770731598201
     }
   },
   "bestTimeTargetLong": {
@@ -296,13 +273,6 @@
       "ms": 47708,
       "word": "lisser",
       "achievedAt": 1770730117639
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "ms": 87194,
-      "word": "attiedissant",
-      "achievedAt": 1770733638776
     }
   },
   "bestTimeTargetScore": {
@@ -312,13 +282,6 @@
       "ms": 81643,
       "word": "tippait",
       "achievedAt": 1770725619635
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "ms": 52509,
-      "word": "pavoise",
-      "achievedAt": 1770731698064
     }
   },
   "vocab": {
@@ -337,20 +300,14 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 3266,
-      "achievedAt": 1770734271911
+      "vocabCount": 3263,
+      "achievedAt": 1770729169467
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
       "playerKey": "install:iid-1770729240308-222917",
       "vocabCount": 338,
       "achievedAt": 1770731075306
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "vocabCount": 378,
-      "achievedAt": 1770733791664
     }
   },
   "mostGobbles": {
@@ -363,20 +320,14 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "gobbles": 3,
-      "achievedAt": 1770734271911
+      "gobbles": 2,
+      "achievedAt": 1770729169467
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
       "playerKey": "install:iid-1770729240308-222917",
       "gobbles": 5,
       "achievedAt": 1770731075306
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "gobbles": 7,
-      "achievedAt": 1770733506453
     }
   },
   "history": {

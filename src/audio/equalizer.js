@@ -21,7 +21,7 @@ export const SOUND_EQ = {
   bipmontre: { volume: 0.45 },
   // Game
   tick: { volume: 0.5 },
-  coeur: { volume: 0.7, stretch: 0.875 },
+  coeur: { volume: 1, stretch: 0.875 },
   countdownTick: { volume: 0.9 },
   vocabTick: { volume: 0.3, pitchMin: 0.35, pitchMax: 3 },
   vocabZero: { volume: 0.5, pitchMin: 0.35, pitchMax: 3 },
@@ -29,9 +29,11 @@ export const SOUND_EQ = {
   vocabCling2: { volume: 0.5, pitchMin: 0.35, pitchMax: 3 },
   tileStep: { volume: 1, stretch: 1, pitch: 2 },
   invalidWord: { volume: 0.85 },
-  dejaJoue: { volume: 0.9 },
+  dejaJoue: { volume: 0.2 },
   shortWord: { volume: 0.4 },
   gobbleVoice: { volume: 0.95 },
+  score: { volume: 1, stretch: 2, pitch: 0.5 },
+  score2: { volume: 1, stretch: 3.25, pitch: 1 },
   // Black hole
   blackHole: { volume: 0.7 },
   chebabeu: { volume: 1.5 },
@@ -39,8 +41,7 @@ export const SOUND_EQ = {
   souris: { volume: 0.9, stretch: 1 },
   roundStart: { volume: 0.95, stretch: 1 },
   specialFound: { volume: 0.9 },
-  score: { volume: 1, stretch: 1, pitch: 1 },
-  score2: { volume: 0.8, stretch: 3.25, pitch: 1 },
+
   // Tournament
   tournamentFireworks: { volume: 0.9 },
   tournamentApplause: { volume: 0.95 },

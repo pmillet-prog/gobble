@@ -1,25 +1,6 @@
 {
   "weekStartTs": 1770591600000,
-  "medals": {
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "gold": 1,
-      "silver": 1,
-      "bronze": 0,
-      "total": 2,
-      "achievedAt": 1770730635164
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "gold": 2,
-      "silver": 1,
-      "bronze": 0,
-      "total": 3,
-      "achievedAt": 1770733831800
-    }
-  },
+  "medals": {},
   "mostWordsInGame": {
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
@@ -41,29 +22,15 @@
       "wordsCount": 65,
       "roundId": "room-4x4#1770712229025",
       "achievedAt": 1770712349025
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "wordsCount": 94,
-      "roundId": "room-4x4#1770729544703",
-      "achievedAt": 1770729664703
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "wordsCount": 87,
-      "roundId": "room-4x4#1770731765634",
-      "achievedAt": 1770731885634
     }
   },
   "totalScore": {
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "totalScore": 2671,
-      "roundsPlayed": 17,
-      "achievedAt": 1770729829756
+      "totalScore": 2653,
+      "roundsPlayed": 16,
+      "achievedAt": 1770727068611
     },
     "install:c8e525b5-ad83-45f6-be7b-927ce40d6fc5": {
       "nick": "test ffdsrrr",
@@ -75,23 +42,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 9480,
-      "roundsPlayed": 24,
-      "achievedAt": 1770734271911
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "totalScore": 7168,
-      "roundsPlayed": 9,
-      "achievedAt": 1770731075306
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "totalScore": 9090,
-      "roundsPlayed": 12,
-      "achievedAt": 1770733791664
+      "totalScore": 8411,
+      "roundsPlayed": 20,
+      "achievedAt": 1770727833922
     }
   },
   "bestWord": {
@@ -112,9 +65,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "word": "carquois",
-      "pts": 135,
-      "achievedAt": 1770729160263
+      "word": "optasse",
+      "pts": 120,
+      "achievedAt": 1770724876710
     },
     "nick:ChocolatineDebat": {
       "nick": "ChocolatineDebat",
@@ -129,27 +82,6 @@
       "word": "damera",
       "pts": 84,
       "achievedAt": 1770726232865
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "word": "dessinas",
-      "pts": 162,
-      "achievedAt": 1770729622810
-    },
-    "nick:(cacharel)": {
-      "nick": "(cacharel)",
-      "playerKey": "nick:(cacharel)",
-      "word": "recre",
-      "pts": 33,
-      "achievedAt": 1770729809525
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "word": "jaserais",
-      "pts": 192,
-      "achievedAt": 1770733126396
     }
   },
   "longestWord": {
@@ -170,9 +102,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "word": "carquois",
-      "len": 8,
-      "achievedAt": 1770729160263
+      "word": "passait",
+      "len": 7,
+      "achievedAt": 1770724852544
     },
     "nick:ChocolatineDebat": {
       "nick": "ChocolatineDebat",
@@ -187,27 +119,6 @@
       "word": "medusait",
       "len": 8,
       "achievedAt": 1770726278412
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "word": "reagissant",
-      "len": 10,
-      "achievedAt": 1770731022602
-    },
-    "nick:(cacharel)": {
-      "nick": "(cacharel)",
-      "playerKey": "nick:(cacharel)",
-      "word": "recre",
-      "len": 5,
-      "achievedAt": 1770729809525
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "word": "baiserent",
-      "len": 9,
-      "achievedAt": 1770731591694
     }
   },
   "bestRoundScore": {
@@ -245,27 +156,6 @@
       "pts": 923,
       "roundId": "room-4x4#1770726183348",
       "achievedAt": 1770726300332
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "pts": 2302,
-      "roundId": "room-4x4#1770729544703",
-      "achievedAt": 1770729663921
-    },
-    "nick:(cacharel)": {
-      "nick": "(cacharel)",
-      "playerKey": "nick:(cacharel)",
-      "pts": 87,
-      "roundId": "room-4x4#1770729709756",
-      "achievedAt": 1770729827791
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "pts": 1489,
-      "roundId": "room-4x4#1770731765634",
-      "achievedAt": 1770731886747
     }
   },
   "bestTimeTargetLong": {
@@ -289,20 +179,6 @@
       "ms": 61889,
       "word": "tumefias",
       "achievedAt": 1770724459393
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "ms": 47708,
-      "word": "lisser",
-      "achievedAt": 1770730117639
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "ms": 87194,
-      "word": "attiedissant",
-      "achievedAt": 1770733638776
     }
   },
   "bestTimeTargetScore": {
@@ -312,21 +188,14 @@
       "ms": 81643,
       "word": "tippait",
       "achievedAt": 1770725619635
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "ms": 52509,
-      "word": "pavoise",
-      "achievedAt": 1770731698064
     }
   },
   "vocab": {
     "install:75896535-55ba-43be-97f4-e2f17ea47a50": {
       "nick": "Tigre",
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
-      "vocabCount": 328,
-      "achievedAt": 1770729829756
+      "vocabCount": 324,
+      "achievedAt": 1770727068611
     },
     "install:c8e525b5-ad83-45f6-be7b-927ce40d6fc5": {
       "nick": "test ffdsrrr",
@@ -337,20 +206,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 3266,
-      "achievedAt": 1770734271911
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "vocabCount": 338,
-      "achievedAt": 1770731075306
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "vocabCount": 378,
-      "achievedAt": 1770733791664
+      "vocabCount": 3246,
+      "achievedAt": 1770727833922
     }
   },
   "mostGobbles": {
@@ -359,24 +216,6 @@
       "playerKey": "install:75896535-55ba-43be-97f4-e2f17ea47a50",
       "gobbles": 1,
       "achievedAt": 1770726138210
-    },
-    "install:cid-1767297485869-305184": {
-      "nick": "Test",
-      "playerKey": "install:cid-1767297485869-305184",
-      "gobbles": 3,
-      "achievedAt": 1770734271911
-    },
-    "install:iid-1770729240308-222917": {
-      "nick": "Test2",
-      "playerKey": "install:iid-1770729240308-222917",
-      "gobbles": 5,
-      "achievedAt": 1770731075306
-    },
-    "install:iid-1770731577320-743680": {
-      "nick": "Test",
-      "playerKey": "install:iid-1770731577320-743680",
-      "gobbles": 7,
-      "achievedAt": 1770733506453
     }
   },
   "history": {

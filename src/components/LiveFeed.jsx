@@ -41,21 +41,31 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
     big_word: 2,
     long_word: 2,
   };
-  const bucket = new Map(); // key -> { idx, p, type }
+  const SUPER_TYPES = new Set(["best_possible_score", "longest_possible"]);
+  const bucket = new Map(); // key -> { idxs: number[], p, types: Set<string> }
   const filteredAnn = [];
   filteredAnnRaw.forEach((a) => {
     const tsBucket = Math.floor((a.ts || Date.now()) / 1000);
     const key = `${a.nick || "_"}|${tsBucket}`;
     const p = PRIORITY[a.type] ?? 0;
+    const isSuper = SUPER_TYPES.has(a.type);
     const existing = bucket.get(key);
     if (!existing) {
-      bucket.set(key, { idx: filteredAnn.length, p, type: a.type });
+      bucket.set(key, { idxs: [filteredAnn.length], p, types: new Set([a.type]) });
+      filteredAnn.push(a);
+      return;
+    }
+    if (isSuper && !existing.types.has(a.type)) {
+      existing.types.add(a.type);
+      existing.idxs.push(filteredAnn.length);
       filteredAnn.push(a);
       return;
     }
     if (p > existing.p) {
-      filteredAnn[existing.idx] = a;
-      bucket.set(key, { idx: existing.idx, p, type: a.type });
+      const mainIdx = existing.idxs[0];
+      filteredAnn[mainIdx] = a;
+      existing.p = p;
+      existing.types.add(a.type);
     }
     // si priorité plus faible ou égale, on ignore l'annonce courante
   });

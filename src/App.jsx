@@ -2,7 +2,16 @@
 // 
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import confetti from "canvas-confetti";
-import { applyHtmlAudioSettings, resolveSoundSettings } from "./audio/equalizer";
+import { resolveSoundSettings } from "./audio/equalizer";
+import AssetManager from "./assets/assetManager";
+import {
+  IMAGE_KEYS,
+  SFX_KEYS,
+  makeIncrementalSfxKey,
+  makeScoreSfxKey,
+  makeScore2SfxKey,
+} from "./assets/assetKeys";
+import ASSET_MANIFEST_BASE from "./assets/assetManifest";
 import AMBIENT_MUSIC_TRACKS_FALLBACK from "./audio/ambientDefaults.json";
 import { createPortal } from "react-dom";
 import socket from "./socket";
@@ -103,7 +112,6 @@ const AUDIO_COOLDOWNS_MS = {
   gobbleVoice: 1200,
 };
 const VOCAB_SAMPLE_BASE_FREQ = 440;
-const BOOT_LOGO_SRC = "/favicon.png";
 const SOUND_ROOT = "/sound";
 const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
 const AMBIENT_MUSIC_TRACKS_BASE = [
@@ -132,6 +140,10 @@ const SCORE_SOUND_PATHS = SCORE_SOUND_BANDS.map((band) => band.src);
 const SCORE2_SOUND_PATHS = SCORE_SOUND_BANDS.map((band) =>
   band.src.replace("/game/scores/", "/game/piano/")
 );
+const SCORE_LOW_PATH = `${SOUND_ROOT}/game/scores/01.wav`;
+const SCORE2_LOW_PATH = `${SOUND_ROOT}/game/piano/01.wav`;
+const SCORE_LOW_KEY = makeScoreSfxKey("01");
+const SCORE2_LOW_KEY = makeScore2SfxKey("01");
 const SOUND_PATHS = {
   gobbleVoice: `${SOUND_ROOT}/game/gobble.mp3`,
   blackHole: `${SOUND_ROOT}/game/chasse.mp3`,
@@ -153,20 +165,34 @@ const SOUND_PATHS = {
   tournamentFireworks: `${SOUND_ROOT}/game/artifice.mp3`,
   tournamentApplause: `${SOUND_ROOT}/game/applause.wav`,
 };
+const INCREMENTAL_SFX_KEYS = INCREMENTAL_SOUND_PATHS.map((src) => {
+  const label = src.split("/").pop()?.split(".")[0] || "00";
+  return makeIncrementalSfxKey(label);
+});
+const SCORE_SFX_KEYS = SCORE_SOUND_PATHS.map((src) => {
+  const label = src.split("/").pop()?.split(".")[0] || "00";
+  return makeScoreSfxKey(label);
+});
+const SCORE2_SFX_KEYS = SCORE2_SOUND_PATHS.map((src) => {
+  const label = src.split("/").pop()?.split(".")[0] || "00";
+  return makeScore2SfxKey(label);
+});
 const BOOT_ASSET_IMAGES = [
-  "/favicon.png",
-  "/bigwords/gobble.png",
-  "/bigwords/epique.png",
-  "/bigwords/enorme.png",
-  "/bigwords/excellent.png",
-  "/bigwords/fabuleux.png",
-  "/vocab-ranks/debutant.png",
-  "/vocab-ranks/ecolier.png",
-  "/vocab-ranks/collegien.png",
-  "/vocab-ranks/lyceen.png",
-  "/vocab-ranks/etudiant.png",
-  "/vocab-ranks/expert.png",
+  { key: IMAGE_KEYS.favicon, url: "/favicon.png", priority: "critical" },
+  { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.png", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.png", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.png", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.png", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.debutant, url: "/vocab-ranks/debutant.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.ecolier, url: "/vocab-ranks/ecolier.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.collegien, url: "/vocab-ranks/collegien.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.lyceen, url: "/vocab-ranks/lyceen.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.etudiant, url: "/vocab-ranks/etudiant.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.expert, url: "/vocab-ranks/expert.png", priority: "high" },
 ];
+const IMAGE_FALLBACKS = new Map(BOOT_ASSET_IMAGES.map((entry) => [entry.key, entry.url]));
 const BOOT_ASSET_FILES = [
   "/dico.txt",
   "/privacy.html",
@@ -182,72 +208,127 @@ const BOOT_ASSET_FILES = [
   "/.well-known/assetlinks.json",
 ];
 const BOOT_ASSET_SOUNDS_BASE = [
-  SOUND_PATHS.gobbleVoice,
-  SOUND_PATHS.blackHole,
-  SOUND_PATHS.chebabeu,
-  SOUND_PATHS.clavier,
-  SOUND_PATHS.souris,
-  SOUND_PATHS.roundStart,
-  SOUND_PATHS.specialFound,
-  SOUND_PATHS.tictac10,
-  SOUND_PATHS.coeur,
-  SOUND_PATHS.tictoc,
-  SOUND_PATHS.vocabOverlay,
-  SOUND_PATHS.vocabCling,
-  SOUND_PATHS.invalidWord,
-  SOUND_PATHS.dejaJoue,
-  SOUND_PATHS.shortWord,
-  SOUND_PATHS.uiClick,
-  SOUND_PATHS.uiClose,
-  SOUND_PATHS.tournamentFireworks,
-  SOUND_PATHS.tournamentApplause,
-  ...INCREMENTAL_SOUND_PATHS,
-  ...SCORE_SOUND_PATHS,
-  ...SCORE2_SOUND_PATHS,
-  "/error.mp3",
-  `${SOUND_ROOT}/ui/click2.wav`,
+  { key: SFX_KEYS.gobbleVoice, url: SOUND_PATHS.gobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
+  { key: SFX_KEYS.blackHole, url: SOUND_PATHS.blackHole, priority: "low", meta: { eqKey: "blackHole" } },
+  { key: SFX_KEYS.chebabeu, url: SOUND_PATHS.chebabeu, priority: "low", meta: { eqKey: "chebabeu" } },
+  { key: SFX_KEYS.clavier, url: SOUND_PATHS.clavier, priority: "low", meta: { eqKey: "clavier" } },
+  { key: SFX_KEYS.souris, url: SOUND_PATHS.souris, priority: "low", meta: { eqKey: "souris" } },
+  { key: SFX_KEYS.roundStart, url: SOUND_PATHS.roundStart, priority: "high", meta: { eqKey: "roundStart" } },
+  { key: SFX_KEYS.specialFound, url: SOUND_PATHS.specialFound, priority: "high", meta: { eqKey: "specialFound" } },
+  { key: SFX_KEYS.tictac10, url: SOUND_PATHS.tictac10, priority: "critical", meta: { eqKey: "tick" } },
+  { key: SFX_KEYS.coeur, url: SOUND_PATHS.coeur, priority: "critical", meta: { eqKey: "coeur" } },
+  { key: SFX_KEYS.tictoc, url: SOUND_PATHS.tictoc, priority: "critical", meta: { eqKey: "countdownTick" } },
+  { key: SFX_KEYS.vocabOverlay, url: SOUND_PATHS.vocabOverlay, priority: "high", meta: { eqKey: "vocabTick" } },
+  { key: SFX_KEYS.vocabCling, url: SOUND_PATHS.vocabCling, priority: "high", meta: { eqKey: "vocabCling" } },
+  { key: SFX_KEYS.invalidWord, url: SOUND_PATHS.invalidWord, priority: "critical", meta: { eqKey: "invalidWord" } },
+  { key: SFX_KEYS.dejaJoue, url: SOUND_PATHS.dejaJoue, priority: "critical", meta: { eqKey: "dejaJoue" } },
+  { key: SFX_KEYS.shortWord, url: SOUND_PATHS.shortWord, priority: "critical", meta: { eqKey: "shortWord" } },
+  { key: SFX_KEYS.uiClick, url: SOUND_PATHS.uiClick, priority: "critical", meta: { eqKey: "swipe" } },
+  { key: SFX_KEYS.uiClose, url: SOUND_PATHS.uiClose, priority: "high", meta: { eqKey: "bipmontre" } },
+  { key: SFX_KEYS.tournamentFireworks, url: SOUND_PATHS.tournamentFireworks, priority: "high", meta: { eqKey: "tournamentFireworks" } },
+  { key: SFX_KEYS.tournamentApplause, url: SOUND_PATHS.tournamentApplause, priority: "high", meta: { eqKey: "tournamentApplause" } },
+  { key: SCORE_LOW_KEY, url: SCORE_LOW_PATH, priority: "critical", meta: { eqKey: "score" } },
+  { key: SCORE2_LOW_KEY, url: SCORE2_LOW_PATH, priority: "critical", meta: { eqKey: "score2" } },
+  { key: SFX_KEYS.errorAlt, url: "/error.mp3", priority: "low", meta: { eqKey: "error" } },
+  { key: SFX_KEYS.clickAlt, url: `${SOUND_ROOT}/ui/click2.wav`, priority: "low", meta: { eqKey: "swipe" } },
 ];
+const INCREMENTAL_SFX_ENTRIES = INCREMENTAL_SOUND_PATHS.map((url, idx) => ({
+  key: INCREMENTAL_SFX_KEYS[idx],
+  url,
+  priority: "critical",
+  meta: { eqKey: "tileStep" },
+}));
+const SCORE_SFX_ENTRIES = SCORE_SOUND_PATHS.map((url, idx) => ({
+  key: SCORE_SFX_KEYS[idx],
+  url,
+  priority: "critical",
+  meta: { eqKey: "score" },
+}));
+const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
+  key: SCORE2_SFX_KEYS[idx],
+  url,
+  priority: "critical",
+  meta: { eqKey: "score2" },
+}));
 const BOOT_MIN_HOLD_MS = 650;
 
-function preloadImage(src) {
-  return new Promise((resolve) => {
-    if (typeof Image === "undefined") {
-      resolve(false);
-      return;
-    }
-    let settled = false;
-    const img = new Image();
-    const finalize = (ok) => {
-      if (settled) return;
-      settled = true;
-      img.onload = null;
-      img.onerror = null;
-      resolve(ok);
-    };
-    img.onload = () => finalize(true);
-    img.onerror = () => finalize(false);
-    img.src = src;
-    if (img.decode) {
-      img.decode().then(
-        () => finalize(true),
-        () => finalize(false)
-      );
-    }
-  });
+function stripExtension(src) {
+  if (!src || typeof src !== "string") return src;
+  return src.replace(/\.[a-z0-9]{2,5}$/i, "");
 }
 
-function preloadSound(src) {
-  if (typeof window === "undefined" || typeof fetch === "undefined") {
-    return Promise.resolve(false);
-  }
-  return fetch(src, { cache: "force-cache" })
-    .then((res) => {
-      if (!res.ok) throw new Error("bad-response");
-      return res.arrayBuffer();
-    })
-    .then(() => true)
-    .catch(() => false);
+function buildCandidatesFromBase(base, order) {
+  const clean = stripExtension(base);
+  if (!clean) return [];
+  return order.map((ext) => `${clean}.${ext}`);
 }
+
+function buildImageCandidates(url) {
+  const candidates = buildCandidatesFromBase(url, ["webp", "png"]);
+  return candidates.length ? candidates : [url];
+}
+
+function buildSfxCandidates(url) {
+  const candidates = buildCandidatesFromBase(url, ["m4a", "wav", "mp3"]);
+  return candidates.length ? candidates : [url];
+}
+
+function buildImageManifest(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    key: item.key,
+    type: "image",
+    candidates: buildImageCandidates(item.url),
+    priority: item.priority,
+  }));
+}
+
+function buildSfxManifest(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    key: item.key,
+    type: "sfx",
+    candidates: buildSfxCandidates(item.url),
+    priority: item.priority,
+    meta: item.meta || {},
+  }));
+}
+
+function makeFileKey(url) {
+  return `file_${String(url || "")
+    .replace(/^\//, "")
+    .replace(/[^a-z0-9]+/gi, "_")
+    .toLowerCase()}`;
+}
+
+function buildFileManifest(items) {
+  return (Array.isArray(items) ? items : []).map((url) => ({
+    key: makeFileKey(url),
+    type: "file",
+    candidates: [url],
+    priority: "low",
+  }));
+}
+
+function dedupeManifest(entries) {
+  const map = new Map();
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    if (!entry?.key) return;
+    map.set(entry.key, entry);
+  });
+  return Array.from(map.values());
+}
+
+const BOOT_ASSET_SFX = [
+  ...BOOT_ASSET_SOUNDS_BASE,
+  ...INCREMENTAL_SFX_ENTRIES,
+  ...SCORE_SFX_ENTRIES,
+  ...SCORE2_SFX_ENTRIES,
+];
+const BOOT_ASSET_MANIFEST = dedupeManifest([
+  ...ASSET_MANIFEST_BASE,
+  ...buildImageManifest(BOOT_ASSET_IMAGES),
+  ...buildSfxManifest(BOOT_ASSET_SFX),
+  ...buildFileManifest(BOOT_ASSET_FILES),
+]);
 
 function resolveAmbientManifestTracks(payload) {
   const raw = Array.isArray(payload) ? payload : payload?.tracks;
@@ -858,8 +939,17 @@ async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }
 
 function BootLoader({ progress = 0, darkMode = false }) {
   if (typeof document === "undefined") return null;
-  const clamped = Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 1) : 0;
+  const progressValue =
+    typeof progress === "number"
+      ? progress
+      : Number.isFinite(progress?.loaded) && Number.isFinite(progress?.total) && progress.total > 0
+      ? progress.loaded / progress.total
+      : 0;
+  const clamped = Number.isFinite(progressValue) ? Math.min(Math.max(progressValue, 0), 1) : 0;
   const percent = Math.round(clamped * 100);
+  const logoSrc = AssetManager.getImage(IMAGE_KEYS.favicon).url || "";
+  const stageLabel = typeof progress === "object" ? progress?.stage || "" : "";
+  const keyLabel = typeof progress === "object" ? progress?.key || "" : "";
   const glowClass = darkMode
     ? "bg-slate-950 text-slate-100"
     : "bg-gradient-to-br from-amber-50 via-orange-50 to-white text-slate-900";
@@ -909,7 +999,7 @@ function BootLoader({ progress = 0, darkMode = false }) {
             style={{ animation: "bootPulse 2.6s ease-in-out infinite" }}
           >
             <img
-              src={BOOT_LOGO_SRC}
+              src={logoSrc}
               alt="Gobble"
               className="h-16 w-16 object-contain"
               draggable="false"
@@ -928,10 +1018,19 @@ function BootLoader({ progress = 0, darkMode = false }) {
             style={{ width: `${percent}%` }}
           />
         </div>
-        <div className={`mt-2 flex items-center justify-between text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-500"}`}>
-          <span>{percent}%</span>
-          <span>Images + sons</span>
-        </div>
+          <div className={`mt-2 flex items-center justify-between text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-500"}`}>
+            <span>{percent}%</span>
+            <span>Assets</span>
+          </div>
+          {stageLabel || keyLabel ? (
+            <div
+              className={`mt-1 text-[10px] font-semibold truncate ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+              title={`${stageLabel} ${keyLabel}`.trim()}
+            >
+              {stageLabel ? `${stageLabel} · ` : ""}
+              {keyLabel}
+            </div>
+          ) : null}
       </div>
     </div>,
     document.body
@@ -2319,12 +2418,12 @@ const LEAGUE_META = {
 };
 
 const VOCAB_LEVELS = [
-  { key: "debutant", label: "Debutant", min: 0, max: 500, image: "/vocab-ranks/debutant.png", color: "#f59e0b" },
-  { key: "ecolier", label: "Ecolier", min: 500, max: 2000, image: "/vocab-ranks/ecolier.png", color: "#22c55e" },
-  { key: "collegien", label: "Collegien", min: 2000, max: 5000, image: "/vocab-ranks/collegien.png", color: "#ef4444" },
-  { key: "lyceen", label: "Lyceen", min: 5000, max: 10000, image: "/vocab-ranks/lyceen.png", color: "#f59e0b" },
-  { key: "etudiant", label: "Etudiant", min: 10000, max: 20000, image: "/vocab-ranks/etudiant.png", color: "#3b82f6" },
-  { key: "expert", label: "Expert", min: 20000, max: 300000, image: "/vocab-ranks/expert.png", color: "#facc15" },
+  { key: "debutant", label: "Debutant", min: 0, max: 500, imageKey: IMAGE_KEYS.vocab.debutant, color: "#f59e0b" },
+  { key: "ecolier", label: "Ecolier", min: 500, max: 2000, imageKey: IMAGE_KEYS.vocab.ecolier, color: "#22c55e" },
+  { key: "collegien", label: "Collegien", min: 2000, max: 5000, imageKey: IMAGE_KEYS.vocab.collegien, color: "#ef4444" },
+  { key: "lyceen", label: "Lyceen", min: 5000, max: 10000, imageKey: IMAGE_KEYS.vocab.lyceen, color: "#f59e0b" },
+  { key: "etudiant", label: "Etudiant", min: 10000, max: 20000, imageKey: IMAGE_KEYS.vocab.etudiant, color: "#3b82f6" },
+  { key: "expert", label: "Expert", min: 20000, max: 300000, imageKey: IMAGE_KEYS.vocab.expert, color: "#facc15" },
 ];
 function getLeaguePalette(league, darkMode) {
   const meta = LEAGUE_META[league] || LEAGUE_META.Bronze;
@@ -2416,20 +2515,15 @@ export default function App() {
     drops: 0,
     lastLogAt: 0,
   });
-  const blackHoleAudioRef = useRef(null);
-  const blackHoleChebabeuRef = useRef(null);
-  const blackHoleClavierRef = useRef(null);
-  const blackHoleSourisRef = useRef(null);
+  const blackHoleHandleRef = useRef(null);
+  const blackHoleChebHandleRef = useRef(null);
+  const blackHoleClavierHandleRef = useRef(null);
   const blackHoleSourisLoopRef = useRef({ intervalId: null, stopTimer: null });
   const blackHoleClavierFadeRef = useRef(null);
   const blackHoleAuxStopRef = useRef(null);
   const blackHoleSyncTokenRef = useRef(0);
-  const tickCountdownAudioRef = useRef(null);
-  const tickCountdownTargetAudioRef = useRef(null);
   const tickCountdownPlayedRef = useRef(false);
-  const countdownTickAudioRef = useRef(null);
   const countdownTickPlayedRef = useRef(false);
-  const audioPoolRef = useRef(new Map());
   const ambientMusicRef = useRef({
     audio: null,
     index: -1,
@@ -2449,14 +2543,7 @@ export default function App() {
   const lastAmbientPhaseRef = useRef(null);
   const roundStartPendingRef = useRef(null);
   const roundStartRetryRef = useRef(false);
-  const gobbleVoiceRef = useRef({
-    audio: null,
-    buffer: null,
-    loading: false,
-    mediaSource: null,
-    mediaGain: null,
-    mediaCtx: null,
-  });
+  const roundStartAtRef = useRef(0);
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
   const gridRef = useRef(null);
@@ -2480,13 +2567,11 @@ export default function App() {
   }, [ambientTracks]);
   const [bootProgress, setBootProgress] = useState(() => ({
     loaded: 0,
-    total:
-      BOOT_ASSET_IMAGES.length +
-      BOOT_ASSET_SOUNDS_BASE.length +
-      BOOT_ASSET_FILES.length +
-      AMBIENT_MUSIC_TRACKS_DEFAULT.length,
+    total: BOOT_ASSET_MANIFEST.length,
     errors: 0,
     done: false,
+    stage: "",
+    key: "",
   }));
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -2502,22 +2587,32 @@ export default function App() {
         ambientTracksRef.current = resolvedAmbientTracks;
         setAmbientTracks(resolvedAmbientTracks);
       }
-      const assets = [
-        ...BOOT_ASSET_IMAGES.map((src) => ({ type: "image", src })),
-        ...BOOT_ASSET_SOUNDS_BASE.map((src) => ({ type: "sound", src })),
-        ...resolvedAmbientTracks.map((src) => ({ type: "sound", src })),
-        ...BOOT_ASSET_FILES.map((src) => ({ type: "file", src })),
-      ];
-      const total = assets.length;
+      const ambientManifest = buildFileManifest(resolvedAmbientTracks || []);
+      const bootManifest = dedupeManifest([
+        ...BOOT_ASSET_MANIFEST,
+        ...ambientManifest,
+      ]);
+      AssetManager.setAudioSystemProvider(getAudioSystem);
+      AssetManager.setMuted(isSfxMutedRef.current);
+      AssetManager.setMasterVolume(1);
+      AssetManager.registerManifest(bootManifest);
+      const total = bootManifest.length;
       if (!total) {
-        setBootProgress((prev) => ({ ...prev, total: 0, done: true }));
+        setBootProgress((prev) => ({ ...prev, total: 0, done: true, stage: "", key: "" }));
         return;
       }
       let loaded = 0;
       let errors = 0;
-      setBootProgress((prev) => ({ ...prev, loaded: 0, errors: 0, total }));
+      setBootProgress((prev) => ({
+        ...prev,
+        loaded: 0,
+        errors: 0,
+        total,
+        stage: "",
+        key: "",
+      }));
       const startedAt = performance.now();
-      const tickProgress = (ok) => {
+      const tickProgress = ({ ok, key, stage }) => {
         loaded += 1;
         if (!ok) errors += 1;
         if (!cancelled) {
@@ -2526,30 +2621,38 @@ export default function App() {
             loaded,
             errors,
             total,
+            stage: stage || "",
+            key: key || "",
           }));
         }
       };
-      const tasks = assets.map((asset) => {
-        const loader = asset.type === "image" ? preloadImage : preloadSound;
-        return loader(asset.src).then((ok) => {
-          tickProgress(ok);
-          return ok;
-        });
+      await AssetManager.preload({
+        priority: "critical",
+        onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "critical" }),
+        concurrency: 4,
       });
-      Promise.allSettled(tasks).then(() => {
-        const elapsed = performance.now() - startedAt;
-        const delay = Math.max(0, BOOT_MIN_HOLD_MS - elapsed);
-        window.setTimeout(() => {
-          if (cancelled) return;
-          setBootProgress((prev) => ({
-            ...prev,
-            loaded,
-            errors,
-            total,
-            done: true,
-          }));
-        }, delay);
+      await AssetManager.preload({
+        priority: "high",
+        onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "high" }),
+        concurrency: 4,
       });
+      await AssetManager.preload({
+        priority: "all",
+        onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "low" }),
+        concurrency: 4,
+      });
+      const elapsed = performance.now() - startedAt;
+      const delay = Math.max(0, BOOT_MIN_HOLD_MS - elapsed);
+      window.setTimeout(() => {
+        if (cancelled) return;
+        setBootProgress((prev) => ({
+          ...prev,
+          loaded,
+          errors,
+          total,
+          done: true,
+        }));
+      }, delay);
     };
     run();
     return () => {
@@ -2559,6 +2662,34 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | live
   const [analysis, setAnalysis] = useState(null);
+  const missingImageRef = useRef(new Set());
+  const assetVersion = bootProgress?.done ? 1 : 0;
+  const getImageUrl = (key) => {
+    if (!key) return "";
+    const url = AssetManager.getImage(key).url || "";
+    if (url) return url;
+    if (bootProgress?.done) {
+      if (DEV_MODE && !missingImageRef.current.has(key)) {
+        missingImageRef.current.add(key);
+        console.error(`[asset] image manquante (no-fallback): ${key}`);
+      }
+      return "";
+    }
+    const fallback = IMAGE_FALLBACKS.get(key) || "";
+    if (fallback && DEV_MODE && !missingImageRef.current.has(key)) {
+      missingImageRef.current.add(key);
+      console.error(`[asset] image manquante (fallback): ${key}`);
+    }
+    return fallback;
+  };
+  const getFileUrl = (key) => {
+    if (!key) return "";
+    return AssetManager.getFileUrl(key) || "";
+  };
+  const resolveAmbientSrc = (src) => {
+    if (!src) return "";
+    return getFileUrl(makeFileKey(src));
+  };
   const [highlightPlayers, setHighlightPlayers] = useState([]);
   const listItemRefs = useRef(new Map());
   const mobileHeaderRef = useRef(null);
@@ -2902,6 +3033,7 @@ export default function App() {
   }, [inputLocked]);
   useEffect(() => {
     isSfxMutedRef.current = isSfxMuted;
+    AssetManager.setMuted(isSfxMuted);
   }, [isSfxMuted]);
   useEffect(() => {
     isAmbientMutedRef.current = isAmbientMuted;
@@ -3311,7 +3443,7 @@ export default function App() {
     );
   }
 
-  function shouldPlay(soundKey, cooldownMs) {
+  function shouldPlay(soundKey, cooldownMs, { ignorePolyphony = false } = {}) {
     const state = audioVoiceRef.current;
     const now =
       typeof performance !== "undefined" && performance.now
@@ -3327,7 +3459,7 @@ export default function App() {
       logAudioDrop("cooldown", soundKey);
       return false;
     }
-    if (state.activeVoices >= state.maxVoices) {
+    if (!ignorePolyphony && state.activeVoices >= state.maxVoices) {
       state.drops += 1;
       logAudioDrop("polyphony", soundKey);
       return false;
@@ -3351,51 +3483,56 @@ export default function App() {
     return cleanup;
   }
 
-  function getPooledAudio(src) {
-    let pool = audioPoolRef.current.get(src);
-    if (!pool) {
-      pool = [];
-      audioPoolRef.current.set(src, pool);
-    }
-    const available = pool.find((audio) => audio.paused || audio.ended);
-    if (available) return available;
-    const audio = new Audio(src);
-    audio.preload = "auto";
-    pool.push(audio);
-    return audio;
-  }
 
   function playOneShotAudio(
-    src,
-    { volume, cooldownKey, cooldownMs, eqKey, pitch, onBlocked } = {}
+    assetKey,
+    { volume, cooldownKey, cooldownMs, eqKey, pitch, onBlocked, ignorePolyphony } = {}
   ) {
     if (isSfxMuted) return;
-    const key = cooldownKey || eqKey || src;
+    const key = cooldownKey || eqKey || assetKey;
     const overrides = {};
     if (Number.isFinite(volume)) overrides.volume = volume;
     if (Number.isFinite(pitch)) overrides.pitch = pitch;
     const settings = resolveSoundSettings(eqKey || key, overrides);
     const effectiveCooldown =
       Number.isFinite(cooldownMs) && cooldownMs >= 0 ? cooldownMs : settings.cooldownMs;
-    if (!shouldPlay(key, effectiveCooldown)) return;
-    const audio = getPooledAudio(src);
-    const cleanup = startVoiceCount(key, 0.6);
-    const finalize = () => cleanup();
-    try {
-      audio.pause();
-      audio.currentTime = 0;
-    } catch (_) {}
-    applyHtmlAudioSettings(audio, settings);
-    audio.addEventListener("ended", finalize, { once: true });
-    const playPromise = audio.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch((err) => {
-        finalize();
-        if (typeof onBlocked === "function") {
-          onBlocked(err);
-        }
-      });
+    if (!shouldPlay(key, effectiveCooldown, { ignorePolyphony: !!ignorePolyphony })) return;
+    const rate = (settings.pitch ?? 1) * (settings.stretch ?? 1);
+    const handle = AssetManager.playSfx(assetKey, {
+      eqKey: eqKey || key,
+      gain: settings.volume ?? 1,
+      rate,
+    });
+    if (!handle) {
+      if (typeof onBlocked === "function") onBlocked();
+      return;
     }
+    if (!ignorePolyphony) {
+      const buffer = AssetManager.getSfxBuffer(assetKey);
+      const duration = buffer ? buffer.duration / Math.max(0.01, rate) : 0.6;
+      startVoiceCount(key, duration);
+    }
+  }
+
+  function playSfxHandle(assetKey, { eqKey, gain, rate, voiceKey } = {}) {
+    if (isSfxMuted) return null;
+    const key = voiceKey || eqKey || assetKey;
+    const settings = resolveSoundSettings(eqKey || key, {
+      volume: Number.isFinite(gain) ? gain : undefined,
+    });
+    const effectiveRate =
+      Number.isFinite(rate) ? rate : (settings.pitch ?? 1) * (settings.stretch ?? 1);
+    const handle = AssetManager.playSfx(assetKey, {
+      eqKey: eqKey || key,
+      gain: settings.volume ?? 1,
+      rate: effectiveRate,
+    });
+    const buffer = AssetManager.getSfxBuffer(assetKey);
+    if (handle && buffer) {
+      const duration = buffer.duration / Math.max(0.01, effectiveRate);
+      startVoiceCount(key, duration);
+    }
+    return handle;
   }
 
   function fadeAudioVolume(audio, targetVolume, durationMs = 800) {
@@ -3422,33 +3559,6 @@ export default function App() {
     ambientMusicRef.current.fadeRaf = requestAnimationFrame(step);
   }
 
-  function fadeOutHtmlAudio(audio, durationMs = 260) {
-    if (!audio) return;
-    if (audio.__manualFadeRaf) {
-      cancelAnimationFrame(audio.__manualFadeRaf);
-      audio.__manualFadeRaf = null;
-    }
-    const start = performance.now();
-    const fromRaw = Number.isFinite(audio.volume) ? audio.volume : 1;
-    const from = Math.max(0, Math.min(1, fromRaw));
-    const fadeMs = Math.max(1, durationMs);
-    const step = (now) => {
-      const t = Math.min(1, (now - start) / fadeMs);
-      const eased = t * (2 - t);
-      const nextVolume = from * (1 - eased);
-      audio.volume = Math.max(0, Math.min(1, nextVolume));
-      if (t < 1) {
-        audio.__manualFadeRaf = requestAnimationFrame(step);
-      } else {
-        audio.__manualFadeRaf = null;
-        try {
-          audio.pause();
-          audio.currentTime = 0;
-        } catch (_) {}
-      }
-    };
-    audio.__manualFadeRaf = requestAnimationFrame(step);
-  }
 
   function shuffleTracks(tracks, lastTrack = null) {
     const order = [...tracks];
@@ -3513,7 +3623,9 @@ export default function App() {
       if (!ambientMusicRef.current.active) return;
       const next = getNextAmbientTrack();
       if (!next) return;
-      audio.src = next;
+      const resolvedNext = resolveAmbientSrc(next);
+      if (!resolvedNext) return;
+      audio.src = resolvedNext;
       const eq = resolveSoundSettings("ambient");
       const bc = breakCountdownRef.current;
       const hasCountdown = typeof bc === "number";
@@ -3538,7 +3650,9 @@ export default function App() {
     const audio = ensureAmbientAudio();
     const previousVolume = audio.volume;
     const previousSrc = audio.src;
-    audio.src = tracks[0];
+    const primeSrc = resolveAmbientSrc(tracks[0]);
+    if (!primeSrc) return;
+    audio.src = primeSrc;
     audio.volume = 0;
     const playPromise = audio.play();
     if (playPromise && typeof playPromise.then === "function") {
@@ -3617,9 +3731,11 @@ export default function App() {
       clearTimeout(ambientMusicRef.current.playCheck);
       ambientMusicRef.current.playCheck = null;
     }
+    const resolvedNext = resolveAmbientSrc(next);
+    if (!resolvedNext) return;
     ambientMusicRef.current.active = true;
     ambientMusicRef.current.keepAlive = silent;
-    audio.src = next;
+    audio.src = resolvedNext;
     audio.muted = !!silent;
     audio.volume = 0;
     try {
@@ -3718,96 +3834,26 @@ export default function App() {
     gainNode.gain.exponentialRampToValueAtTime(0.0001, t0 + total);
     return t0 + total;
   }
-
-  function getGobbleMediaNodes(ctx, busIn) {
-    const existingCtx = gobbleVoiceRef.current.mediaCtx;
-    if (!gobbleVoiceRef.current.audio || (existingCtx && existingCtx !== ctx)) {
-      const audio = new Audio(SOUND_PATHS.gobbleVoice);
-      audio.preload = "auto";
-      gobbleVoiceRef.current.audio = audio;
-      gobbleVoiceRef.current.mediaSource = null;
-      gobbleVoiceRef.current.mediaGain = null;
-      gobbleVoiceRef.current.mediaCtx = null;
+  const requestAudioUnlock = (event) => {
+    if (event && event.isTrusted === false) return false;
+    const hasGesture = !!event;
+    if (!hasGesture && !audioUnlockedRef.current) return false;
+    if (!audioUnlockedRef.current) {
+      audioUnlockedRef.current = true;
     }
-    if (!gobbleVoiceRef.current.mediaSource || gobbleVoiceRef.current.mediaCtx !== ctx) {
-      const source = ctx.createMediaElementSource(gobbleVoiceRef.current.audio);
-      const gain = ctx.createGain();
-      source.connect(gain);
-      gain.connect(busIn);
-      gobbleVoiceRef.current.mediaSource = source;
-      gobbleVoiceRef.current.mediaGain = gain;
-      gobbleVoiceRef.current.mediaCtx = ctx;
+    void AssetManager.unlockAudio();
+    const system = getAudioSystem({ force: true });
+    if (system?.ctx && system.ctx.state === "suspended") {
+      system.ctx.resume().catch(() => {});
     }
-    return {
-      audio: gobbleVoiceRef.current.audio,
-      gain: gobbleVoiceRef.current.mediaGain,
-    };
-  }
+    return !!system?.ctx;
+  };
 
-  function ensureGobbleBuffer(ctx) {
-    if (!ctx || gobbleVoiceRef.current.buffer || gobbleVoiceRef.current.loading) {
-      return;
-    }
-    gobbleVoiceRef.current.loading = true;
-    fetch(SOUND_PATHS.gobbleVoice)
-      .then((res) => res.arrayBuffer())
-      .then((buf) => {
-        const onSuccess = (decoded) => {
-          gobbleVoiceRef.current.buffer = decoded;
-          gobbleVoiceRef.current.loading = false;
-        };
-        const onError = () => {
-          gobbleVoiceRef.current.loading = false;
-        };
-        try {
-          const decodeResult = ctx.decodeAudioData(buf, onSuccess, onError);
-          if (decodeResult && typeof decodeResult.then === "function") {
-            decodeResult.then(onSuccess).catch(onError);
-          }
-        } catch (_) {
-          onError();
-        }
-      })
-      .catch(() => {
-        gobbleVoiceRef.current.loading = false;
-      });
-  }
-
-  function primeGobbleAudio() {
-    if (gobbleVoiceRef.current.audio) return;
-    const audio = new Audio(SOUND_PATHS.gobbleVoice);
-    audio.preload = "auto";
-    gobbleVoiceRef.current.audio = audio;
-
-    const previousVolume = audio.volume;
-    audio.volume = 0;
-    const playPromise = audio.play();
-    if (playPromise && typeof playPromise.then === "function") {
-      playPromise
-        .then(() => {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = previousVolume;
-        })
-        .catch(() => {
-          audio.volume = previousVolume;
-        });
-    } else {
-      audio.volume = previousVolume;
-    }
-  }
   // Débloque le contexte audio au premier geste utilisateur (mobile/desktop)
   useEffect(() => {
-    function unlockAudio() {
-      audioUnlockedRef.current = true;
-      const system = getAudioSystem({ force: true });
-      if (!system) return;
-      if (system.ctx.state === "suspended") {
-        system.ctx.resume().catch(() => {});
-      }
-      primeGobbleAudio();
+    function unlockAudio(event) {
+      const hasCtx = requestAudioUnlock(event);
       primeAmbientAudio();
-      ensureGobbleBuffer(system.ctx);
       if (ambientStartPendingRef.current) {
         ambientStartPendingRef.current = false;
       }
@@ -3835,9 +3881,14 @@ export default function App() {
             : null;
         startAmbientMusic({ silent: !shouldBeAudible, fadeMs });
       }
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("touchstart", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
+      const stopListening = () => {
+        if (hasCtx && audioCtxRef.current?.state === "running") {
+          window.removeEventListener("pointerdown", unlockAudio);
+          window.removeEventListener("touchstart", unlockAudio);
+          window.removeEventListener("keydown", unlockAudio);
+        }
+      };
+      stopListening();
     }
     window.addEventListener("pointerdown", unlockAudio);
     window.addEventListener("touchstart", unlockAudio);
@@ -4669,145 +4720,46 @@ export default function App() {
 
   // Son "GOBBLE" (MP3 placé dans /public/sound/game/gobble.mp3)
   function playGobbleVoice() {
-    if (isSfxMuted) return;
-    if (!shouldPlay("gobbleVoice", AUDIO_COOLDOWNS_MS.gobbleVoice)) return;
-    const eq = resolveSoundSettings("gobbleVoice");
-    const system = getAudioSystem();
-    if (!system) {
-      if (!gobbleVoiceRef.current.audio) {
-        const audio = new Audio(SOUND_PATHS.gobbleVoice);
-        audio.preload = "auto";
-        gobbleVoiceRef.current.audio = audio;
-      }
-      const audio = gobbleVoiceRef.current.audio;
-      applyHtmlAudioSettings(audio, eq);
-      try {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      } catch (_) {}
-      return;
-    }
-    const { ctx, busIn } = system;
-
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const buffer = gobbleVoiceRef.current.buffer;
-      if (buffer) {
-        const now = ctx.currentTime + 0.01;
-        const source = ctx.createBufferSource();
-        const gain = ctx.createGain();
-        source.buffer = buffer;
-        const endTime = withEnvelope(
-          gain,
-          now,
-          0.006,
-          Math.min(1, 0.9 * (eq.volume ?? 1)),
-          0.08,
-          buffer.duration
-        );
-        const stopTime = endTime + 0.02;
-        source.connect(gain);
-        gain.connect(busIn);
-        const cleanup = startVoiceCount(
-          "gobbleVoice",
-          stopTime - ctx.currentTime + 0.05
-        );
-        const finalize = scheduleNodeCleanup(ctx, stopTime, [source, gain], cleanup);
-        source.onended = finalize;
-        try {
-          source.start(now);
-          source.stop(stopTime);
-        } catch (_) {}
-        return;
-      }
-
-      ensureGobbleBuffer(ctx);
-      const mediaNodes = getGobbleMediaNodes(ctx, busIn);
-      if (!mediaNodes) return;
-      const { audio, gain } = mediaNodes;
-      applyHtmlAudioSettings(audio, eq);
-      const now = ctx.currentTime + 0.005;
-      const duration =
-        Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 2.5;
-      withEnvelope(
-        gain,
-        now,
-        0.006,
-        Math.min(1, 0.9 * (eq.volume ?? 1)),
-        0.08,
-        duration
-      );
-      const cleanup = startVoiceCount("gobbleVoice", duration + 0.1);
-      audio.onended = () => cleanup();
-      try {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      } catch (_) {}
-    };
-
-    ctx.resume().then(start).catch(start);
+    playOneShotAudio(SFX_KEYS.gobbleVoice, {
+      cooldownKey: "gobbleVoice",
+      eqKey: "gobbleVoice",
+    });
   }
 
   // Son progressif par tuile (01..15)
   function playTileStepSound(step) {
     if (!Number.isFinite(step)) return;
     const index = Math.max(1, Math.min(INCREMENTAL_SOUND_COUNT, Math.floor(step) + 1));
-    const src = INCREMENTAL_SOUND_PATHS[index - 1];
-    playOneShotAudio(src, { cooldownKey: "tileStep", eqKey: "tileStep" });
+    const assetKey = INCREMENTAL_SFX_KEYS[index - 1];
+    playOneShotAudio(assetKey, { cooldownKey: "tileStep", eqKey: "tileStep" });
   }
 
   // Petit "tic tac" pour la fin de manche (fichier)
   function playTickSound({ isTargetRound } = {}) {
     if (isSfxMuted) return;
-    if (!shouldPlay("tick", AUDIO_COOLDOWNS_MS.tick)) return;
     const soundKey = isTargetRound ? "coeur" : "tick";
-    const src = isTargetRound ? SOUND_PATHS.coeur : SOUND_PATHS.tictac10;
-    const eq = resolveSoundSettings(soundKey);
-    let audio = isTargetRound
-      ? tickCountdownTargetAudioRef.current
-      : tickCountdownAudioRef.current;
-    if (!audio) {
-      audio = new Audio(src);
-      audio.preload = "auto";
-      if (isTargetRound) {
-        tickCountdownTargetAudioRef.current = audio;
-      } else {
-        tickCountdownAudioRef.current = audio;
-      }
-    }
-    if (!audio.paused && !audio.ended) return;
-    try {
-      audio.currentTime = 0;
-      applyHtmlAudioSettings(audio, eq);
-      audio.play().catch(() => {});
-    } catch (_) {}
+    const assetKey = isTargetRound ? SFX_KEYS.coeur : SFX_KEYS.tictac10;
+    playOneShotAudio(assetKey, {
+      cooldownKey: "tick",
+      eqKey: soundKey,
+    });
   }
 
   // "Tic tac" avant le début de manche (compte à rebours)
   function playCountdownTickSound() {
     if (isSfxMuted) return;
-    if (!shouldPlay("countdownTick", AUDIO_COOLDOWNS_MS.countdownTick)) return;
-    const eq = resolveSoundSettings("countdownTick");
-    let audio = countdownTickAudioRef.current;
-    if (!audio) {
-      audio = new Audio(SOUND_PATHS.tictoc);
-      audio.preload = "auto";
-      countdownTickAudioRef.current = audio;
-    }
-    if (!audio.paused && !audio.ended) return;
-    try {
-      audio.currentTime = 0;
-      applyHtmlAudioSettings(audio, eq);
-      audio.play().catch(() => {});
-    } catch (_) {}
+    playOneShotAudio(SFX_KEYS.tictoc, {
+      cooldownKey: "countdownTick",
+      eqKey: "countdownTick",
+    });
   }
 
   function playSwipeSound() {
-    playOneShotAudio(SOUND_PATHS.uiClick, { cooldownKey: "swipe", eqKey: "swipe" });
+    playOneShotAudio(SFX_KEYS.uiClick, { cooldownKey: "swipe", eqKey: "swipe" });
   }
 
   function playCloseSound() {
-    playOneShotAudio(SOUND_PATHS.uiClose, { cooldownKey: "bipmontre", eqKey: "bipmontre" });
+    playOneShotAudio(SFX_KEYS.uiClose, { cooldownKey: "bipmontre", eqKey: "bipmontre" });
   }
 
   function scheduleRoundStartRetry(roundKey) {
@@ -4829,12 +4781,12 @@ export default function App() {
     if (!shouldPlay("tournamentCelebration", AUDIO_COOLDOWNS_MS.tournamentCelebration)) {
       return;
     }
-    playOneShotAudio(SOUND_PATHS.tournamentFireworks, {
+    playOneShotAudio(SFX_KEYS.tournamentFireworks, {
       cooldownKey: "tournamentFireworks",
       eqKey: "tournamentFireworks",
     });
     setTimeout(() => {
-      playOneShotAudio(SOUND_PATHS.tournamentApplause, {
+      playOneShotAudio(SFX_KEYS.tournamentApplause, {
         cooldownKey: "tournamentApplause",
         eqKey: "tournamentApplause",
       });
@@ -4843,7 +4795,7 @@ export default function App() {
 
   function playRoundStartSound() {
     if (isSfxMuted) return;
-    playOneShotAudio(SOUND_PATHS.roundStart, {
+    playOneShotAudio(SFX_KEYS.roundStart, {
       cooldownKey: "roundStart",
       eqKey: "roundStart",
       onBlocked: () => {
@@ -4859,13 +4811,42 @@ export default function App() {
   function playScoreSound(points) {
     if (isSfxMuted) return;
     const safePoints = Number.isFinite(points) ? Math.max(0, points) : 0;
+    if (safePoints === 2) {
+      // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
+      playOneShotAudio(SCORE_LOW_KEY, {
+        cooldownKey: "score",
+        cooldownMs: 0,
+        eqKey: "score",
+        ignorePolyphony: true,
+      });
+      playOneShotAudio(SCORE2_LOW_KEY, {
+        cooldownKey: "score2",
+        cooldownMs: 0,
+        eqKey: "score2",
+        ignorePolyphony: true,
+      });
+      return;
+    }
     if (safePoints < 3) return;
-    const band =
-      SCORE_SOUND_BANDS.find((entry) => safePoints >= entry.min && safePoints <= entry.max) ||
-      SCORE_SOUND_BANDS[0];
-    playOneShotAudio(band.src, { cooldownKey: "score", eqKey: "score" });
-    const pianoSrc = band.src.replace("/game/scores/", "/game/piano/");
-    playOneShotAudio(pianoSrc, { cooldownKey: "score2", eqKey: "score2" });
+    const bandIndex =
+      SCORE_SOUND_BANDS.findIndex(
+        (entry) => safePoints >= entry.min && safePoints <= entry.max
+      ) || 0;
+    const scoreKey = SCORE_SFX_KEYS[bandIndex] || SCORE_SFX_KEYS[0];
+    const pianoKey = SCORE2_SFX_KEYS[bandIndex] || SCORE2_SFX_KEYS[0];
+    // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
+    playOneShotAudio(scoreKey, {
+      cooldownKey: "score",
+      cooldownMs: 0,
+      eqKey: "score",
+      ignorePolyphony: true,
+    });
+    playOneShotAudio(pianoKey, {
+      cooldownKey: "score2",
+      cooldownMs: 0,
+      eqKey: "score2",
+      ignorePolyphony: true,
+    });
   }
 
 
@@ -4874,15 +4855,19 @@ export default function App() {
     durationMs = 120,
     gainValue = 0.14,
     soundKey = "vocabTick",
-    sampleSrc = SOUND_PATHS.vocabOverlay
+    sampleKey = SFX_KEYS.vocabOverlay
   ) {
     if (isSfxMuted) return;
     const jitteredFreq = humanizeFreq(freq, 4);
     const pitch = jitteredFreq / VOCAB_SAMPLE_BASE_FREQ;
-    playOneShotAudio(sampleSrc, {
-      cooldownKey: soundKey,
+    // Les ticks vocabulaires sont joués en rafales + pitch progressif: pas de cooldown.
+    const cooldownTag = `${soundKey}:${Math.round(pitch * 1000)}`;
+    playOneShotAudio(sampleKey, {
+      cooldownKey: cooldownTag,
+      cooldownMs: 0,
       eqKey: soundKey,
       pitch,
+      ignorePolyphony: true,
     });
   }
 
@@ -4908,16 +4893,36 @@ export default function App() {
   }
 
   function playVocabOverlayClingSound() {
-    playVocabOverlayTone(880, 110, 0.14, "vocabCling", SOUND_PATHS.vocabCling);
+    playVocabOverlayTone(880, 110, 0.14, "vocabCling", SFX_KEYS.vocabCling);
     setTimeout(
-      () => playVocabOverlayTone(1320, 160, 0.12, "vocabCling2", SOUND_PATHS.vocabCling),
+      () => playVocabOverlayTone(1320, 160, 0.12, "vocabCling2", SFX_KEYS.vocabCling),
       70
     );
   }
 
+  function debugVocabTickBurst(count = 20, intervalMs = 28) {
+    const safeCount = Math.max(1, Math.floor(count));
+    const safeInterval = Math.max(8, Math.floor(intervalMs));
+    for (let i = 0; i < safeCount; i += 1) {
+      const t = safeCount > 1 ? i / (safeCount - 1) : 0;
+      const freq = 220 + (1320 - 220) * t;
+      setTimeout(() => playVocabOverlayTone(freq, 90, 0.12, "vocabTick"), i * safeInterval);
+    }
+  }
+
+  useEffect(() => {
+    if (!DEV_MODE) return;
+    window.__debugVocabTicks = () => debugVocabTickBurst();
+    return () => {
+      try {
+        delete window.__debugVocabTicks;
+      } catch (_) {}
+    };
+  }, []);
+
   function playSpecialFoundSound() {
     if (isSfxMuted) return;
-    playOneShotAudio(SOUND_PATHS.specialFound, {
+    playOneShotAudio(SFX_KEYS.specialFound, {
       cooldownKey: "specialFound",
       eqKey: "specialFound",
     });
@@ -5209,18 +5214,6 @@ export default function App() {
   useEffect(() => {
     if (phase !== "playing") {
       tickCountdownPlayedRef.current = false;
-      if (tickCountdownAudioRef.current) {
-        try {
-          tickCountdownAudioRef.current.pause();
-          tickCountdownAudioRef.current.currentTime = 0;
-        } catch (_) {}
-      }
-      if (tickCountdownTargetAudioRef.current) {
-        try {
-          tickCountdownTargetAudioRef.current.pause();
-          tickCountdownTargetAudioRef.current.currentTime = 0;
-        } catch (_) {}
-      }
       return;
     }
     if (typeof tick !== "number") return;
@@ -5266,12 +5259,6 @@ export default function App() {
       breakCountdown <= 0;
     if (shouldReset) {
       countdownTickPlayedRef.current = false;
-      if (countdownTickAudioRef.current) {
-        try {
-          countdownTickAudioRef.current.pause();
-          countdownTickAudioRef.current.currentTime = 0;
-        } catch (_) {}
-      }
       return;
     }
     if (!countdownTickPlayedRef.current) {
@@ -5846,6 +5833,7 @@ export default function App() {
         setCurrentRoomId(endedRoomId);
         setRoomId(endedRoomId);
       }
+      roundStartAtRef.current = 0;
       setPhase("results");
       setServerStatus("break");
       setProvisionalRanking([]);
@@ -6004,25 +5992,6 @@ export default function App() {
       }
 
       if (!isSfxMuted) {
-        if (!blackHoleAudioRef.current) {
-          const audio = new Audio(SOUND_PATHS.blackHole);
-          audio.preload = "auto";
-          blackHoleAudioRef.current = audio;
-        }
-        const audio = blackHoleAudioRef.current;
-        const eq = resolveSoundSettings("blackHole");
-        try {
-          audio.currentTime = 0;
-          applyHtmlAudioSettings(audio, eq);
-          audio.play().catch(() => {});
-        } catch (_) {}
-        if (!blackHoleChebabeuRef.current) {
-          const audioAlt = new Audio(SOUND_PATHS.chebabeu);
-          audioAlt.preload = "auto";
-          blackHoleChebabeuRef.current = audioAlt;
-        }
-        const audioAlt = blackHoleChebabeuRef.current;
-        const eqAlt = resolveSoundSettings("chebabeu");
         const syncToken = ++blackHoleSyncTokenRef.current;
         const stopAux = (fadeMs = 260) => {
           if (blackHoleSyncTokenRef.current !== syncToken) return;
@@ -6042,48 +6011,48 @@ export default function App() {
             clearTimeout(blackHoleAuxStopRef.current);
             blackHoleAuxStopRef.current = null;
           }
-          if (blackHoleClavierRef.current) {
-            fadeOutHtmlAudio(blackHoleClavierRef.current, fadeMs);
+          if (blackHoleClavierHandleRef.current) {
+            blackHoleClavierHandleRef.current.fadeOut?.(fadeMs);
+            blackHoleClavierHandleRef.current = null;
           }
         };
-        try {
-          audioAlt.currentTime = 0;
-          applyHtmlAudioSettings(audioAlt, eqAlt);
-          audioAlt.play().catch(() => {});
-        } catch (_) {}
-        audioAlt.addEventListener(
-          "ended",
-          () => {
-            stopAux(300);
-          },
-          { once: true }
-        );
-        if (!blackHoleClavierRef.current) {
-          const audioKeys = new Audio(SOUND_PATHS.clavier);
-          audioKeys.preload = "auto";
-          blackHoleClavierRef.current = audioKeys;
+
+        if (blackHoleHandleRef.current) {
+          blackHoleHandleRef.current.stop?.();
+          blackHoleHandleRef.current = null;
         }
-        const audioKeys = blackHoleClavierRef.current;
-        const eqKeys = resolveSoundSettings("clavier");
-        try {
-          audioKeys.currentTime = 0;
-          applyHtmlAudioSettings(audioKeys, eqKeys);
-          audioKeys.play().catch(() => {});
-        } catch (_) {}
-        if (!blackHoleSourisRef.current) {
-          const audioMouse = new Audio(SOUND_PATHS.souris);
-          audioMouse.preload = "auto";
-          blackHoleSourisRef.current = audioMouse;
+        if (blackHoleChebHandleRef.current) {
+          blackHoleChebHandleRef.current.stop?.();
+          blackHoleChebHandleRef.current = null;
         }
-        const audioMouse = blackHoleSourisRef.current;
-        try {
-          audioMouse.preload = "auto";
-          audioMouse.load?.();
-        } catch (_) {}
+        if (blackHoleClavierHandleRef.current) {
+          blackHoleClavierHandleRef.current.stop?.();
+          blackHoleClavierHandleRef.current = null;
+        }
+
+        blackHoleHandleRef.current = playSfxHandle(SFX_KEYS.blackHole, {
+          eqKey: "blackHole",
+          voiceKey: "blackHole",
+        });
+        blackHoleChebHandleRef.current = playSfxHandle(SFX_KEYS.chebabeu, {
+          eqKey: "chebabeu",
+          voiceKey: "chebabeu",
+        });
+        blackHoleClavierHandleRef.current = playSfxHandle(SFX_KEYS.clavier, {
+          eqKey: "clavier",
+          voiceKey: "clavier",
+        });
+
+        const chebBuffer = AssetManager.getSfxBuffer(SFX_KEYS.chebabeu);
+        const chebDuration = chebBuffer?.duration || null;
+        const sourisBuffer = AssetManager.getSfxBuffer(SFX_KEYS.souris);
+        const sourisDuration = sourisBuffer?.duration || 0.22;
+        const clavierBuffer = AssetManager.getSfxBuffer(SFX_KEYS.clavier);
+        const clavierDuration = clavierBuffer?.duration || null;
 
         const chebStartAt = performance.now();
         const playSourisOnce = () => {
-          playOneShotAudio(SOUND_PATHS.souris, {
+          playOneShotAudio(SFX_KEYS.souris, {
             cooldownKey: "souris",
             eqKey: "souris",
             cooldownMs: 0,
@@ -6092,12 +6061,7 @@ export default function App() {
         playSourisOnce();
         const scheduleSync = () => {
           if (blackHoleSyncTokenRef.current !== syncToken) return;
-          const chebDuration =
-            Number.isFinite(audioAlt.duration) && audioAlt.duration > 0
-              ? audioAlt.duration
-              : null;
           if (!chebDuration) {
-            audioAlt.addEventListener("loadedmetadata", scheduleSync, { once: true });
             blackHoleAuxStopRef.current = setTimeout(() => {
               stopAux(280);
             }, 6400);
@@ -6108,10 +6072,6 @@ export default function App() {
           const remainingMs = Math.max(0, totalMs - elapsed);
           if (remainingMs <= 40) return;
 
-          const sourisDuration =
-            Number.isFinite(audioMouse.duration) && audioMouse.duration > 0
-              ? audioMouse.duration
-              : 0.22;
           const intervalMs = Math.max(180, Math.round(sourisDuration * 1000 * 1.6));
           if (remainingMs > intervalMs + 20) {
             blackHoleSourisLoopRef.current.intervalId = setInterval(
@@ -6127,15 +6087,14 @@ export default function App() {
             }, remainingMs);
           }
 
-          const clavierDuration =
-            Number.isFinite(audioKeys.duration) && audioKeys.duration > 0
-              ? audioKeys.duration
-              : null;
           if (clavierDuration && clavierDuration * 1000 > totalMs + 10) {
             const fadeMs = Math.min(600, Math.max(180, Math.round(totalMs * 0.22)));
             const delay = Math.max(0, remainingMs - fadeMs);
             blackHoleClavierFadeRef.current = setTimeout(() => {
-              fadeOutHtmlAudio(audioKeys, fadeMs);
+              if (blackHoleClavierHandleRef.current) {
+                blackHoleClavierHandleRef.current.fadeOut?.(fadeMs);
+                blackHoleClavierHandleRef.current = null;
+              }
               blackHoleClavierFadeRef.current = null;
             }, delay);
           }
@@ -6308,15 +6267,41 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetch("/dico.txt")
-      .then((r) => r.text())
-      .then((txt) => {
-        const list = txt
+    let cancelled = false;
+    const loadDictionary = async () => {
+      const fileKey = makeFileKey("/dico.txt");
+      const buffer = AssetManager.getFileBuffer(fileKey);
+      if (buffer) {
+        try {
+          const text = new TextDecoder("utf-8").decode(new Uint8Array(buffer));
+          if (cancelled) return;
+          const list = text
+            .split(/\r?\n/)
+            .map((x) => normalizeWord(x.trim()))
+            .filter(Boolean);
+          setDictionary(new Set(list));
+          return;
+        } catch (_) {}
+      }
+      if (AssetManager.isReady(fileKey)) {
+        console.error(`[asset] dico.txt manquant dans AssetManager (${fileKey})`);
+        return;
+      }
+      try {
+        const res = await fetch("/dico.txt");
+        const text = await res.text();
+        if (cancelled) return;
+        const list = text
           .split(/\r?\n/)
           .map((x) => normalizeWord(x.trim()))
           .filter(Boolean);
         setDictionary(new Set(list));
-    });
+      } catch (_) {}
+    };
+    loadDictionary();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -6487,6 +6472,11 @@ export default function App() {
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
+      if (Number.isFinite(endsAt) && Number.isFinite(durationMs)) {
+        roundStartAtRef.current = Math.max(0, endsAt - durationMs);
+      } else {
+        roundStartAtRef.current = getNowServerMs();
+      }
       setVocabRoundDelta(null);
       setVocabResultsReadyKey(null);
       vocabResultsPendingRef.current = null;
@@ -7418,7 +7408,8 @@ export default function App() {
     fetchDailyHistory(10);
   }
 
-  function startDailyGame() {
+  function startDailyGame(e) {
+    requestAudioUnlock(e);
     const pseudo = String(nickname || "").trim();
     if (!pseudo) {
       setDailyStartError("Pseudo requis");
@@ -8403,7 +8394,11 @@ export default function App() {
         console.warn(`[watchdog] reconnect (${reason})`);
         intentionalDisconnectRef.current = true;
         socket.disconnect();
-        requestSessionResumeSnapshot("watchdog");
+        if (isLoggedInRef.current && !isDailyView) {
+          resumeLoginFromSession("watchdog");
+        } else {
+          requestSessionResumeSnapshot("watchdog");
+        }
       });
   }
 
@@ -8609,6 +8604,7 @@ export default function App() {
       lastBackgroundTimeRef.current = 0;
       return;
     }
+    const canAutoResume = isLoggedInRef.current && !isDailyView;
     const lastBackgroundTime = lastBackgroundTimeRef.current;
     const timeSinceBackground =
       lastBackgroundTime > 0 ? Date.now() - lastBackgroundTime : 0;
@@ -8621,8 +8617,12 @@ export default function App() {
       if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
       setTimeout(() => {
         lastBackgroundTimeRef.current = 0;
-        socket.connect();
-        requestSessionResumeSnapshot(reason);
+        if (canAutoResume) {
+          resumeLoginFromSession(reason);
+        } else {
+          socket.connect();
+          requestSessionResumeSnapshot(reason);
+        }
       }, 200);
       return;
     }
@@ -8631,8 +8631,12 @@ export default function App() {
     }
     if (!socket.connected) {
       if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
-      socket.connect();
-      requestSessionResumeSnapshot(reason);
+      if (canAutoResume) {
+        resumeLoginFromSession(reason);
+      } else {
+        socket.connect();
+        requestSessionResumeSnapshot(reason);
+      }
       return;
     }
     runHealthCheck(reason);
@@ -8812,6 +8816,7 @@ export default function App() {
 
   function handleLoginOrResume(e) {
     if (e) e.preventDefault();
+    requestAudioUnlock(e);
     if (!isTutorialOpen && shouldShowTutorial) {
       openTutorial({ pendingLogin: true });
       return;
@@ -8819,7 +8824,8 @@ export default function App() {
     handleLogin();
   }
 
-  function handleResumeFromPrompt() {
+  function handleResumeFromPrompt(e) {
+    requestAudioUnlock(e);
     resumeLoginFromSession("resume_button");
   }
 
@@ -9026,7 +9032,11 @@ export default function App() {
     if (reconnectAttemptRef.current) return;
     reconnectAttemptRef.current = true;
     setConnectionError("Reconnexion...");
-    requestSessionResumeSnapshot("disconnect");
+    if (isLoggedInRef.current && !isDailyView) {
+      resumeLoginFromSession("disconnect");
+    } else {
+      requestSessionResumeSnapshot("disconnect");
+    }
     setTimeout(() => {
       reconnectAttemptRef.current = false;
     }, 1500);
@@ -9703,7 +9713,7 @@ export default function App() {
 
   function playInvalidWordSound() {
     if (isSfxMuted) return;
-    playOneShotAudio(SOUND_PATHS.invalidWord, {
+    playOneShotAudio(SFX_KEYS.invalidWord, {
       cooldownKey: "invalidWord",
       eqKey: "invalidWord",
     });
@@ -9711,7 +9721,7 @@ export default function App() {
 
   function playShortWordSound() {
     if (isSfxMuted) return;
-    playOneShotAudio(SOUND_PATHS.shortWord, {
+    playOneShotAudio(SFX_KEYS.shortWord, {
       cooldownKey: "shortWord",
       eqKey: "shortWord",
     });
@@ -9719,7 +9729,7 @@ export default function App() {
 
   function playAlreadyPlayedSound() {
     if (isSfxMuted) return;
-    playOneShotAudio(SOUND_PATHS.dejaJoue, {
+    playOneShotAudio(SFX_KEYS.dejaJoue, {
       cooldownKey: "dejaJoue",
       eqKey: "dejaJoue",
     });
@@ -10728,7 +10738,7 @@ function handleTouchEnd() {
     left: `${vocabProgressPct}%`,
     borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
   };
-  const vocabImageSrc = vocabLevel?.image || "";
+  const vocabImageSrc = vocabLevel?.imageKey ? getImageUrl(vocabLevel.imageKey) : "";
   const renderVocabPanel = ({
     panelClassName = "",
     showDelta = true,
@@ -10873,7 +10883,9 @@ function handleTouchEnd() {
       vocabOverlayImageLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
   };
   const vocabOverlayImage = vocabOverlayActiveLevel || vocabLevel;
-  const vocabOverlayImageSrc = vocabOverlayImage?.image || "";
+  const vocabOverlayImageSrc = vocabOverlayImage?.imageKey
+    ? getImageUrl(vocabOverlayImage.imageKey)
+    : "";
   const vocabOverlayImageAlt = vocabOverlayImage?.label || "Niveau vocabulaire";
   const vocabOverlayImageClass =
     vocabOverlayImagePhase === "out"
@@ -11077,6 +11089,55 @@ function handleTouchEnd() {
           : entry.bestPts
         : speedWordScore,
   }));
+  const gobbleBadgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
+  const gobbleMaxPts = displayList.reduce((max, entry) => {
+    const pts = entry.bestPts;
+    if (!Number.isFinite(pts)) return max;
+    return Math.max(max, pts);
+  }, 0);
+  const gobbleMaxLen = displayList.reduce((max, entry) => {
+    const len = normalizeWord(entry.word || "").length;
+    return Math.max(max, len);
+  }, 0);
+  const gobbleCandidates = new Map();
+  if (gobbleMaxPts > 0 || gobbleMaxLen > 0) {
+    displayList.forEach((entry) => {
+      const len = normalizeWord(entry.word || "").length;
+      const isBest =
+        Number.isFinite(entry.bestPts) && entry.bestPts === gobbleMaxPts;
+      const isLong = len > 0 && len === gobbleMaxLen;
+      if (!isBest && !isLong) return;
+      gobbleCandidates.set(entry.word, { best: isBest, long: isLong });
+    });
+  }
+  const renderGobbleCandidate = (word) => {
+    const meta = gobbleCandidates.get(word);
+    if (!meta) return null;
+    const count = (meta.best ? 1 : 0) + (meta.long ? 1 : 0);
+    if (!count) return null;
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {Array.from({ length: count }).map((_, idx) =>
+          gobbleBadgeUrl ? (
+            <img
+              key={`gobble-candidate-${word}-${idx}`}
+              src={gobbleBadgeUrl}
+              alt="G"
+              className="block h-3 w-auto"
+              style={{ imageRendering: "auto" }}
+            />
+          ) : (
+            <span
+              key={`gobble-candidate-${word}-${idx}`}
+              className={darkMode ? "text-white" : "text-black"}
+            >
+              G
+            </span>
+          )
+        )}
+      </span>
+    );
+  };
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
   const resultPillClass = darkMode
     ? "inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-gray-100 text-xs sm:text-sm"
@@ -11945,6 +12006,41 @@ function handleTouchEnd() {
     return { winner, bestWord, longestWord, mostWords };
   }, [finalResults, board]);
 
+  const gobbleWordAwardsByNick = React.useMemo(() => {
+    const map = new Map();
+    const addAward = (nick, kind) => {
+      if (!nick) return;
+      const prev = map.get(nick) || { bestWord: false, longestWord: false };
+      if (kind === "bestWord") prev.bestWord = true;
+      if (kind === "longestWord") prev.longestWord = true;
+      map.set(nick, prev);
+    };
+
+    if (endStats?.bestWord?.nick) addAward(endStats.bestWord.nick, "bestWord");
+    if (endStats?.longestWord?.nick) addAward(endStats.longestWord.nick, "longestWord");
+
+    if (Array.isArray(announcements)) {
+      const startAt = roundStartAtRef.current || 0;
+      announcements.forEach((entry) => {
+        const nick = entry?.nick;
+        const type = entry?.type;
+        const rawTs = entry?.ts ?? entry?.id ?? 0;
+        const ts = Number.isFinite(rawTs) ? rawTs : Number(rawTs) || 0;
+        if (startAt && (!ts || ts < startAt)) return;
+        if (!nick || !type) return;
+        if (type === "best_possible_score" || type === "big_word") {
+          addAward(nick, "bestWord");
+        }
+        if (type === "longest_possible" || type === "long_word") {
+          addAward(nick, "longestWord");
+        }
+      });
+    }
+
+    return map;
+  }, [endStats, announcements]);
+  const gobbleAwardsForLive = phase === "playing" ? gobbleWordAwardsByNick : null;
+
   const weeklyRecordHighlights = React.useMemo(() => {
     if (phase !== "results") return [];
     if (!weeklyStats || !Array.isArray(finalResults) || finalResults.length === 0) return [];
@@ -12168,10 +12264,25 @@ function handleTouchEnd() {
   function renderGobbleBadge(gobbles) {
     const count = Number(gobbles) || 0;
     if (count <= 0) return null;
-    const label = `G${count > 1 ? `x${count}` : ""}`;
+    const badgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
+    const suffix = count > 1 ? `x${count}` : "";
     return (
-      <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
-        {label}
+      <span
+        className={`inline-flex items-center justify-center gap-1 h-4 min-w-[16px] px-1 text-[9px] font-black ${
+          darkMode ? "text-white" : "text-black"
+        }`}
+      >
+        {badgeUrl ? (
+          <img
+            src={badgeUrl}
+            alt="G"
+            className="block h-3 w-auto"
+            style={{ imageRendering: "auto" }}
+          />
+        ) : (
+          <span>G</span>
+        )}
+        {suffix ? <span>{suffix}</span> : null}
       </span>
     );
   }
@@ -13004,9 +13115,9 @@ function handleTouchEnd() {
 
     return (
       <div className={`font-semibold truncate flex items-center ${gapClass} text-xs`}>
-        {vocabMeta?.image ? (
+        {vocabMeta?.imageKey ? (
           <img
-            src={vocabMeta.image}
+            src={getImageUrl(vocabMeta.imageKey)}
             alt={vocabMeta.label || "Niveau"}
             className="h-5 w-5 shrink-0"
             draggable={false}
@@ -14995,10 +15106,8 @@ function handleTouchEnd() {
       {devPerfOverlay}
     </>
   );
-  const bootProgressPct =
-    bootProgress.total > 0 ? bootProgress.loaded / bootProgress.total : 1;
   const bootOverlay = !bootProgress.done ? (
-    <BootLoader progress={bootProgressPct} darkMode={darkMode} />
+    <BootLoader progress={bootProgress} darkMode={darkMode} />
   ) : null;
   if (!bootProgress.done) {
     return bootOverlay;
@@ -15642,16 +15751,17 @@ function handleTouchEnd() {
       : undefined;
   const gobbleImageSize = isMobileLayout ? 260 : 340;
   const praiseImageSize = isMobileLayout ? 220 : 300;
-  const praiseImageSrc =
+  const praiseImageKey =
     praiseFlash?.kind === "epic"
-      ? "/bigwords/epique.png"
+      ? IMAGE_KEYS.bigwords.epique
       : praiseFlash?.kind === "gold"
-      ? "/bigwords/enorme.png"
+      ? IMAGE_KEYS.bigwords.enorme
       : praiseFlash?.kind === "purple"
-      ? "/bigwords/fabuleux.png"
+      ? IMAGE_KEYS.bigwords.fabuleux
       : praiseFlash?.kind === "blue"
-      ? "/bigwords/excellent.png"
+      ? IMAGE_KEYS.bigwords.excellent
       : "";
+  const praiseImageSrc = praiseImageKey ? getImageUrl(praiseImageKey) : "";
   const praiseImageAlt =
     praiseFlash?.kind === "epic"
       ? "EPIQUE"
@@ -15663,7 +15773,7 @@ function handleTouchEnd() {
       ? "EXCELLENT"
       : "";
   const praiseImageSizePx = praiseImageSize;
-  const gobbleImageSrc = gobbleFlash ? "/bigwords/gobble.png" : "";
+  const gobbleImageSrc = gobbleFlash ? getImageUrl(IMAGE_KEYS.bigwords.gobble) : "";
   const gobbleImageAlt = "GOBBLE";
   const gobbleImageSizePx = gobbleImageSize;
   const praiseFlashColor =
@@ -15917,6 +16027,8 @@ function handleTouchEnd() {
                           showWheel={false}
                           flatStyle={true}
                           fitHeight={true}
+                          assetVersion={assetVersion}
+                          gobbleWordAwardsByNick={gobbleAwardsForLive}
                           renderNickSuffix={(nick, entry) =>
                             renderNickSuffix(nick, entry, tournamentFinaleMedals)
                           }
@@ -16835,7 +16947,10 @@ function handleTouchEnd() {
                                         aria-hidden="true"
                                       />
                                     )}
-                                    <span className={wordClassName}>{entry.word}</span>
+                                    <span className="flex items-center gap-1 min-w-0">
+                                      <span className={wordClassName}>{entry.word}</span>
+                                      {renderGobbleCandidate(entry.word)}
+                                    </span>
                                   </button>
                                   <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                                     {typeof userPts === "number" && isFound && (
@@ -16901,6 +17016,8 @@ function handleTouchEnd() {
                           showWheel={false}
                           flatStyle={true}
                           showRoundAward={true}
+                          assetVersion={assetVersion}
+                          gobbleWordAwardsByNick={gobbleAwardsForLive}
                           renderNickSuffix={renderNickSuffix}
                           renderAfterRank={
                             resultsRankingModeForMobile === "total" ? renderRankDelta : null
@@ -17128,7 +17245,7 @@ function handleTouchEnd() {
               >
                 {nextHintLabel}
               </div>
-              {phase === "playing" && !isDailyPlay ? (
+              {phase === "playing" && !isDailyPlay && !isTargetRound ? (
                 <button
                   type="button"
                   className={`absolute bottom-2 right-2 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
@@ -17156,7 +17273,7 @@ function handleTouchEnd() {
                   : undefined
               }
             >
-              {phase === "playing" && !isDailyPlay ? (
+              {phase === "playing" && !isDailyPlay && !isTargetRound ? (
                 <button
                   type="button"
                   className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
@@ -17177,6 +17294,8 @@ function handleTouchEnd() {
                 flatStyle={true}
                 highlightedPlayers={highlightPlayers}
                 fitHeight={true}
+                assetVersion={assetVersion}
+                gobbleWordAwardsByNick={gobbleAwardsForLive}
                 renderNickSuffix={renderNickSuffix}
                 className="h-full"
               />
@@ -17472,6 +17591,8 @@ function handleTouchEnd() {
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}
           highlightedPlayers={highlightPlayers}
+          assetVersion={assetVersion}
+          gobbleWordAwardsByNick={gobbleAwardsForLive}
           renderNickSuffix={renderNickSuffix}
         />
       )}
@@ -17534,6 +17655,8 @@ function handleTouchEnd() {
           flatStyle={isMobileLayout}
           highlightedPlayers={highlightPlayers}
           showRoundAward={true}
+          assetVersion={assetVersion}
+          gobbleWordAwardsByNick={gobbleAwardsForLive}
           renderNickSuffix={renderNickSuffix}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
           recordBadgesByNick={
@@ -18058,7 +18181,10 @@ function handleTouchEnd() {
                                 aria-hidden="true"
                               />
                             )}
-                            <span className={wordClassName}>{entry.word}</span>
+                            <span className="flex items-center gap-1 min-w-0">
+                              <span className={wordClassName}>{entry.word}</span>
+                              {renderGobbleCandidate(entry.word)}
+                            </span>
                           </span>
                           <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                             {typeof userPts === "number" && isFound && (

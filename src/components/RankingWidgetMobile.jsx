@@ -1,4 +1,6 @@
 import React from "react";
+import AssetManager from "../assets/assetManager";
+import { IMAGE_KEYS } from "../assets/assetKeys";
 
 function clampValue(value, min, max) {
   if (!Number.isFinite(value)) return min;
@@ -335,8 +337,10 @@ function RankingWidgetMobile({
   renderNickSuffix = null,
   renderAfterRank = null,
   recordBadgesByNick = null,
+  gobbleWordAwardsByNick = null,
   onRecordBadgeClick = null,
   className = "",
+  assetVersion,
 }) {
   const me = (selfNick || "").trim();
   const safeRanking = Array.isArray(fullRanking) ? fullRanking : [];
@@ -607,6 +611,43 @@ function RankingWidgetMobile({
     }
     return recordBadgesByNick[nick] || [];
   };
+  const getGobbleWordAwardsForNick = (nick) => {
+    if (!gobbleWordAwardsByNick || !nick) return null;
+    if (typeof gobbleWordAwardsByNick.get === "function") {
+      return gobbleWordAwardsByNick.get(nick) || null;
+    }
+    return gobbleWordAwardsByNick[nick] || null;
+  };
+  const gobbleBadgeUrl = AssetManager.getImage(IMAGE_KEYS.gobbleBadge).url || "";
+  const renderGobbleWordBadges = (nick) => {
+    const awards = getGobbleWordAwardsForNick(nick);
+    if (!awards) return null;
+    const count =
+      (awards.bestWord ? 1 : 0) + (awards.longestWord ? 1 : 0);
+    if (!count) return null;
+    return (
+      <span className="inline-flex items-center gap-0.5 ml-1">
+        {Array.from({ length: count }).map((_, idx) =>
+          gobbleBadgeUrl ? (
+            <img
+              key={`gobble-award-${nick}-${idx}`}
+              src={gobbleBadgeUrl}
+              alt="G"
+              className="block h-3 w-auto"
+              style={{ imageRendering: "auto" }}
+            />
+          ) : (
+            <span
+              key={`gobble-award-${nick}-${idx}`}
+              className={darkMode ? "text-white" : "text-black"}
+            >
+              G
+            </span>
+          )
+        )}
+      </span>
+    );
+  };
 
   const flatList = (
     <div
@@ -629,7 +670,7 @@ function RankingWidgetMobile({
         const scoreLabelBase = buildRightLabel(entry, entry.score, wordsCount);
         let scoreLabelInner = scoreLabelBase;
         if (!entry?.rightLabel && typeof entry.score === "number" && gobbles != null) {
-          scoreLabelInner = `${scoreLabelBase} · G:${gobbles}`;
+          scoreLabelInner = scoreLabelBase;
         }
         const roundPoints =
           showRoundAward && typeof entry?.roundPoints === "number"
@@ -639,13 +680,51 @@ function RankingWidgetMobile({
           showRoundAward && typeof entry?.roundGobbles === "number"
             ? entry.roundGobbles
             : 0;
+        const gobblesBadge =
+          !entry?.rightLabel &&
+          typeof entry.score === "number" &&
+          typeof gobbles === "number" &&
+          gobbles > 0 ? (
+            <span
+              className={`mr-1 inline-flex items-center justify-center gap-1 h-4 min-w-[16px] px-1 text-[9px] font-black ${
+                darkMode ? "text-white" : "text-black"
+              }`}
+            >
+              {gobbleBadgeUrl ? (
+                <img
+                  src={gobbleBadgeUrl}
+                  alt="G"
+                  className="block h-3 w-auto"
+                  style={{ imageRendering: "auto" }}
+                />
+              ) : (
+                <span>G</span>
+              )}
+              {gobbles > 1 ? <span>{`x${gobbles}`}</span> : null}
+            </span>
+          ) : null;
         const scoreContent = (
           <>
             {roundGobbles > 0 ? (
-              <span className="mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
-                {`G${roundGobbles > 1 ? `x${roundGobbles}` : ""}`}
+              <span
+                className={`mr-1 inline-flex items-center justify-center gap-1 h-4 min-w-[16px] px-1 text-[9px] font-black ${
+                  darkMode ? "text-white" : "text-black"
+                }`}
+              >
+                {gobbleBadgeUrl ? (
+                  <img
+                    src={gobbleBadgeUrl}
+                    alt="G"
+                    className="block h-3 w-auto"
+                    style={{ imageRendering: "auto" }}
+                  />
+                ) : (
+                  <span>G</span>
+                )}
+                {roundGobbles > 1 ? <span>{`x${roundGobbles}`}</span> : null}
               </span>
             ) : null}
+            {gobblesBadge}
             {roundPoints != null && roundPoints > 0 ? (
               <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
                 +{roundPoints}
@@ -711,6 +790,7 @@ function RankingWidgetMobile({
                   {renderNickSuffix ? (
                     <span className="flex-none">{renderNickSuffix(entry.nick, entry)}</span>
                   ) : null}
+                  {renderGobbleWordBadges(entry.nick)}
                 </span>
               </div>
               {recordBadgeItems.length ? (
@@ -1103,6 +1183,9 @@ function RankingWidgetMobile({
                           )}
                         </span>
                       ) : null}
+                      {row.type !== "empty"
+                        ? renderGobbleWordBadges(row.entry ? row.entry.nick : displayNick)
+                        : null}
                     </span>
                     <span
                       className={"ml-2 tabular-nums " + (cfg.scoreClass || "")}
@@ -1115,7 +1198,11 @@ function RankingWidgetMobile({
                       ) : (
                         <>
                           {roundGobbles > 0 ? (
-                            <span className="mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black">
+                            <span
+                              className={`mr-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 text-[9px] font-black ${
+                                darkMode ? "text-white" : "text-black"
+                              }`}
+                            >
                               {`G${roundGobbles > 1 ? `x${roundGobbles}` : ""}`}
                             </span>
                           ) : null}
