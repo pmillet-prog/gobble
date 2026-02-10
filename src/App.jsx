@@ -2791,6 +2791,7 @@ export default function App() {
   const [weeklyDragging, setWeeklyDragging] = useState(false);
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({ startX: null, startY: null });
   const seasonSlideWidthRef = useRef(0);
@@ -15208,31 +15209,31 @@ function handleTouchEnd() {
               {canVibrate ? (isVibrationEnabled ? "On" : "Off") : "--"}
             </span>
           </button>
-          <div
-            className={`w-full rounded-xl border px-3 py-2 ${
+          <button
+            type="button"
+            onClick={() => {
+              setIsSettingsOpen(false);
+              setIsAboutOpen(true);
+            }}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
               darkMode
-                ? "bg-slate-800/70 border-white/10 text-slate-100"
-                : "bg-slate-50 border-slate-200 text-slate-800"
+                ? "bg-transparent border-white/15 text-slate-100"
+                : "bg-transparent border-slate-200 text-slate-800"
             }`}
           >
-            <div className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-              A propos
-            </div>
-            <div className="text-sm font-bold leading-tight">Paul Millet</div>
-            <a
-              href="mailto:support@gobble.fr"
-              className="text-[11px] underline underline-offset-2 opacity-80"
-            >
-              support@gobble.fr
-            </a>
-          </div>
+            <span className="inline-flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
+                À propos
+              </span>
+            </span>
+          </button>
           <button
             type="button"
             onClick={returnToLobby}
             className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
               darkMode
-                ? "bg-slate-800/80 border-white/10 text-slate-100"
-                : "bg-slate-50 border-slate-200 text-slate-800"
+                ? "bg-amber-500 border-amber-300 text-slate-900"
+                : "bg-amber-400 border-amber-300 text-slate-900"
             }`}
           >
             <span className="inline-flex items-center gap-2">
@@ -15251,6 +15252,51 @@ function handleTouchEnd() {
               <span>Retour lobby</span>
             </span>
           </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  const aboutModalView = isAboutOpen ? (
+    <div className="fixed inset-0 z-[20010] flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45"
+        onClick={() => setIsAboutOpen(false)}
+        aria-label="Fermer à propos"
+      />
+      <div
+        className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
+          darkMode
+            ? "bg-slate-900/95 border-white/10 text-slate-100"
+            : "bg-white/95 border-slate-200 text-slate-900"
+        }`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="À propos"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-extrabold">À propos</div>
+          <button
+            type="button"
+            className={`h-7 w-7 rounded-full border flex items-center justify-center ${
+              darkMode
+                ? "bg-slate-800/80 border-white/10 text-slate-100"
+                : "bg-white border-slate-200 text-slate-700"
+            }`}
+            onClick={() => setIsAboutOpen(false)}
+            aria-label="Fermer"
+          >
+            <span className="text-base leading-none">×</span>
+          </button>
+        </div>
+        <div className="space-y-2 text-sm">
+          <div className="font-semibold">Un jeu créé par Paul Millet</div>
+          <a
+            href="mailto:support@gobble.fr"
+            className="text-[12px] underline underline-offset-2 opacity-80"
+          >
+            support@gobble.fr
+          </a>
         </div>
       </div>
     </div>
@@ -15317,6 +15363,7 @@ function handleTouchEnd() {
       {tutorialOverlay}
       {specialTutorialOverlay}
       {settingsMenuView}
+      {aboutModalView}
       {mobileChatLayer}
       {devPerfOverlay}
     </>
