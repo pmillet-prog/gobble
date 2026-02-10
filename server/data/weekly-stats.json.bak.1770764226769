@@ -38,9 +38,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "wordsCount": 76,
-      "roundId": "room-4x4#1770764271276",
-      "achievedAt": 1770764391276
+      "wordsCount": 65,
+      "roundId": "room-4x4#1770712229025",
+      "achievedAt": 1770712349025
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -75,9 +75,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 14123,
-      "roundsPlayed": 32,
-      "achievedAt": 1770766119238
+      "totalScore": 9480,
+      "roundsPlayed": 24,
+      "achievedAt": 1770734271911
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -219,9 +219,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "word": "claquates",
-      "len": 9,
-      "achievedAt": 1770764635704
+      "word": "carquois",
+      "len": 8,
+      "achievedAt": 1770729160263
     },
     "nick:ChocolatineDebat": {
       "nick": "ChocolatineDebat",
@@ -484,8 +484,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 3378,
-      "achievedAt": 1770766119238
+      "vocabCount": 3266,
+      "achievedAt": 1770734271911
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",

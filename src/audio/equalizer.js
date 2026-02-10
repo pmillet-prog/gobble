@@ -28,7 +28,7 @@ export const SOUND_EQ = {
   vocabCling: { volume: 0.55, pitchMin: 0.35, pitchMax: 3 },
   vocabCling2: { volume: 0.5, pitchMin: 0.35, pitchMax: 3 },
   tileStep: { volume: 1, stretch: 1, pitch: 2 },
-  invalidWord: { volume: 0.85 },
+  invalidWord: { volume: 0.5 },
   dejaJoue: { volume: 0.2 },
   shortWord: { volume: 0.4 },
   gobbleVoice: { volume: 0.95 },

@@ -15,7 +15,9 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
       };
     })
     // on garde l'ordre naturel d'arrivée pour dédoublonner correctement
-    .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+    // On ne garde que les annonces de gobble (superlatifs), on ignore les "nouveaux records" intermédiaires.
+    .filter((a) => a.type !== "big_word" && a.type !== "long_word");
 
   const superlativeSeen = new Set();
   const filteredAnnRaw = annWithTs.filter((a) => {
@@ -154,13 +156,28 @@ function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
       /(record de mot|mot le plus long|mot en or|meilleur mot|record de score|gobble du plus long mot|gobble du meilleur mot)/gi;
     const emphasisTestRe =
       /^(record de mot|mot le plus long|mot en or|meilleur mot|record de score|gobble du plus long mot|gobble du meilleur mot)$/i;
+    const gobbleSplitRe = /(gobble)/gi;
     const chunks = text.split(emphasisSplitRe);
     return chunks.map((chunk, idx) => {
       if (!chunk) return null;
       if (emphasisTestRe.test(chunk)) {
+        const gobbleParts = chunk.split(gobbleSplitRe);
         return (
           <em key={`em-${idx}`} className="text-blue-600">
-            {chunk}
+            {gobbleParts.map((part, partIdx) => {
+              if (!part) return null;
+              if (part.toLowerCase() === "gobble") {
+                return (
+                  <span
+                    key={`gobble-${idx}-${partIdx}`}
+                    className="text-amber-500 dark:text-amber-300 font-extrabold"
+                  >
+                    {part}
+                  </span>
+                );
+              }
+              return <span key={`em-${idx}-${partIdx}`}>{part}</span>;
+            })}
           </em>
         );
       }
