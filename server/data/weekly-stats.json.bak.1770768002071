@@ -199,13 +199,6 @@
       "word": "lors",
       "pts": 12,
       "achievedAt": 1770759808396
-    },
-    "nick:BiscotteTurbo": {
-      "nick": "BiscotteTurbo",
-      "playerKey": "nick:BiscotteTurbo",
-      "word": "drapier",
-      "pts": 156,
-      "achievedAt": 1770768006482
     }
   },
   "longestWord": {
@@ -313,13 +306,6 @@
       "word": "lors",
       "len": 4,
       "achievedAt": 1770759808396
-    },
-    "nick:BiscotteTurbo": {
-      "nick": "BiscotteTurbo",
-      "playerKey": "nick:BiscotteTurbo",
-      "word": "derapas",
-      "len": 7,
-      "achievedAt": 1770768003932
     }
   },
   "bestRoundScore": {
@@ -427,13 +413,6 @@
       "pts": 21,
       "roundId": "room-4x4#1770759695599",
       "achievedAt": 1770759810759
-    },
-    "nick:BiscotteTurbo": {
-      "nick": "BiscotteTurbo",
-      "playerKey": "nick:BiscotteTurbo",
-      "pts": 397,
-      "roundId": "room-4x4#1770767898385",
-      "achievedAt": 1770768016276
     }
   },
   "bestTimeTargetLong": {

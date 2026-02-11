@@ -7543,59 +7543,70 @@ export default function App() {
     fetchDailyHistory(10);
   }
 
-  function startDailyGame(e) {
+  async function startDailyGame(e) {
     requestAudioUnlock(e);
     const pseudo = String(nickname || "").trim();
     if (!pseudo) {
       setDailyStartError("Pseudo requis");
       return;
     }
-    setDailyStartError("");
+    setDailyStartError(null);
     setDailySubmitError("");
     const payload = { installId, pseudo };
-    fetch("/api/daily/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
-        if (!res.ok) {
-          const error = data?.error || "erreur";
-          throw new Error(error);
+    try {
+      const res = await fetch("/api/daily/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.error === "already_played") {
+          setDailyStartError("Deja joue");
+          fetchDailyStatus();
+          fetchDailyBoard();
+          return;
         }
-        return data;
-      })
-      .then((data) => {
-        if (!data?.grid || !Array.isArray(data.grid)) {
-          throw new Error("bad_grid");
-        }
-        dailySessionRef.current = {
-          dateId: data.dateId || null,
-          startedAt: Date.now(),
-        };
-        setDailyResult(null);
-        setAppView("daily_play");
-        startGameFromServerRef.current?.(
-          data.grid,
-          null,
-          data.durationMs || null,
-          null,
-          null,
-          data.gridSize || null,
-          null,
-          data.gridQuality || null,
-          null
-        );
-        fetchDailyBoard(data.dateId || null);
-      })
-      .catch((err) => {
-        const msg = err?.message === "already_played" ? "Deja joue" : "Erreur";
-        setDailyStartError(msg);
+        const code = `E${res.status || 0}`;
+        setDailyStartError(code);
+        console.warn("[daily/start] http", {
+          status: res.status,
+          error: data?.error || null,
+          hasInstallId: !!installId,
+          pseudoLen: pseudo.length,
+          installIdLen: typeof installId === "string" ? installId.length : 0,
+        });
         fetchDailyStatus();
         fetchDailyBoard();
-      });
+        return;
+      }
+      if (!data?.grid || !Array.isArray(data.grid)) {
+        throw new Error("bad_grid");
+      }
+      dailySessionRef.current = {
+        dateId: data.dateId || null,
+        startedAt: Date.now(),
+      };
+      setDailyResult(null);
+      setAppView("daily_play");
+      startGameFromServerRef.current?.(
+        data.grid,
+        null,
+        data.durationMs || null,
+        null,
+        null,
+        data.gridSize || null,
+        null,
+        data.gridQuality || null,
+        null
+      );
+      fetchDailyBoard(data.dateId || null);
+    } catch (err) {
+      setDailyStartError("ENET");
+      console.warn("[daily/start] network", err);
+      fetchDailyStatus();
+      fetchDailyBoard();
+    }
   }
 
   function submitDailyScore() {
@@ -7954,7 +7965,7 @@ export default function App() {
     const deltaX = currentX - startX;
     const deltaY = currentY - startY;
     if (!weeklyDragging) {
-      if (Math.abs(deltaX) < 8) return;
+      if (Math.abs(deltaX) < 6) return;
       if (Math.abs(deltaX) < Math.abs(deltaY)) {
         weeklyTouchRef.current.startX = null;
         weeklyTouchRef.current.startY = null;
@@ -7965,6 +7976,10 @@ export default function App() {
       setWeeklyDragging(true);
       triggerWeeklyArrowHint();
     }
+    if (e?.cancelable) e.preventDefault();
+    const width = weeklySlideWidthRef.current || window.innerWidth || 1;
+    const clamped = clampValue(deltaX, -width * 0.35, width * 0.35);
+    setWeeklyDragOffset(clamped);
   }
 
   function handleWeeklyTouchEnd(e) {
@@ -7982,7 +7997,7 @@ export default function App() {
     }
     const deltaX = touch.clientX - startX;
     const deltaY = touch.clientY - startY;
-    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
+    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       weeklySwipeBlockRef.current = Date.now();
       shiftWeeklyBoard(deltaX < 0 ? 1 : -1);
@@ -8015,7 +8030,7 @@ export default function App() {
     const deltaX = currentX - startX;
     const deltaY = currentY - startY;
     if (!seasonDragging) {
-      if (Math.abs(deltaX) < 8) return;
+      if (Math.abs(deltaX) < 6) return;
       if (Math.abs(deltaX) < Math.abs(deltaY)) {
         seasonTouchRef.current.startX = null;
         seasonTouchRef.current.startY = null;
@@ -8025,6 +8040,10 @@ export default function App() {
       }
       setSeasonDragging(true);
     }
+    if (e?.cancelable) e.preventDefault();
+    const width = seasonSlideWidthRef.current || window.innerWidth || 1;
+    const clamped = clampValue(deltaX, -width * 0.35, width * 0.35);
+    setSeasonDragOffset(clamped);
   }
 
   function handleSeasonTouchEnd(e) {
@@ -8042,7 +8061,7 @@ export default function App() {
     }
     const deltaX = touch.clientX - startX;
     const deltaY = touch.clientY - startY;
-    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
+    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       seasonSwipeBlockRef.current = Date.now();
       shiftSeasonPage(deltaX < 0 ? 1 : -1);
@@ -15623,6 +15642,8 @@ function handleTouchEnd() {
     return (
       <>
         {tutorialOverlay}
+        {settingsMenuView}
+        {aboutModalView}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -15725,7 +15746,9 @@ function handleTouchEnd() {
                 Jouer
               </button>
               {dailyStartError && (
-                <span className="text-xs text-red-400">{dailyStartError}</span>
+                <span className="ml-2 text-[11px] font-bold text-red-400">
+                  {dailyStartError}
+                </span>
               )}
             </div>
 
@@ -15746,6 +15769,8 @@ function handleTouchEnd() {
     return (
       <>
         {tutorialOverlay}
+        {settingsMenuView}
+        {aboutModalView}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -15814,6 +15839,8 @@ function handleTouchEnd() {
         {definitionModalView}
         {twoLetterPopupView}
         {tutorialOverlay}
+        {settingsMenuView}
+        {aboutModalView}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -15840,20 +15867,23 @@ function handleTouchEnd() {
 
             <div className="flex flex-col items-start gap-1 text-xs">
               <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full border ${darkMode ? "bg-white/10 border-white/10" : "bg-slate-100 border-slate-200 text-slate-700"}`}>
-                  {isConnecting ? "Connexion..." : "Serveur en \u00e9coute"}
-                </span>
                 <button
                   type="button"
-                  className={`px-2.5 py-1 rounded-full border text-[10px] font-semibold transition ${
+                  className={`px-2.5 py-1 rounded-full border text-[10px] font-semibold transition inline-flex items-center gap-1 ${
                     darkMode
                       ? "bg-slate-800/80 border-white/10 text-slate-100"
                       : "bg-white border-slate-200 text-slate-700"
                   }`}
-                  onClick={handleManualRefresh}
-                  disabled={isConnecting}
+                  onClick={() => setIsSettingsOpen(true)}
+                  aria-label="Ouvrir les paramètres"
                 >
-                  Rafraichir
+                  <span
+                    className="material-icons-outlined text-[14px] leading-none"
+                    aria-hidden="true"
+                  >
+                    settings
+                  </span>
+                  Parametres
                 </button>
               </div>
               {connectionError && (
