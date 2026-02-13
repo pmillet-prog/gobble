@@ -100,7 +100,6 @@ const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
 const ANNOUNCEMENT_BATCH_MS = 220;
 const ANNOUNCEMENT_BATCH_MAX = 12;
-const ROUND_OUTRO_MS = 6200;
 
 function sanitizeDefineWord(raw) {
   const rawWord = String(raw || "").trim();
@@ -2457,19 +2456,15 @@ async function startRoundForRoom(room) {
 
   room.currentRound.timers.push(
     setTimeout(() => {
-      beginRoundOutro(room);
+      endRoundForRoom(room).catch((err) =>
+        console.warn("endRoundForRoom failed", err)
+      );
     }, roundDurationMs)
   );
 }
 
 async function endRoundForRoom(room) {
-  if (!room || !room.currentRound) return;
-  if (
-    room.currentRound.status !== "running" &&
-    room.currentRound.status !== "ending"
-  ) {
-    return;
-  }
+  if (!room || !room.currentRound || room.currentRound.status !== "running") return;
   if (room.currentRound.timers) {
     room.currentRound.timers.forEach((t) => clearTimeout(t));
   }
@@ -2962,33 +2957,6 @@ async function endRoundForRoom(room) {
     startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
   }, breakMs);
   pruneRoomState(room);
-}
-
-function beginRoundOutro(room) {
-  if (!room || !room.currentRound) return;
-  if (room.currentRound.status !== "running") return;
-  room.currentRound.status = "ending";
-
-  if (room.currentRound.timers) {
-    room.currentRound.timers.forEach((t) => clearTimeout(t));
-  }
-  room.currentRound.timers = [];
-  if (room.endSoonTimeout) clearTimeout(room.endSoonTimeout);
-  if (room.finalFightScheduled) clearTimeout(room.finalFightScheduled);
-
-  io.to(room.id).emit("roundEnding", {
-    roomId: room.id,
-    roundId: room.currentRound.id,
-    endsAt: room.currentRound.endsAt || Date.now(),
-    outroMs: ROUND_OUTRO_MS,
-  });
-
-  const outroTimer = setTimeout(() => {
-    endRoundForRoom(room).catch((err) =>
-      console.warn("endRoundForRoom failed", err)
-    );
-  }, ROUND_OUTRO_MS);
-  room.currentRound.timers.push(outroTimer);
 }
 
 io.on("connection", (socket) => {

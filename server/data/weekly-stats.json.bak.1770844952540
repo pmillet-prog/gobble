@@ -75,9 +75,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 15610,
-      "roundsPlayed": 35,
-      "achievedAt": 1770847597945
+      "totalScore": 14123,
+      "roundsPlayed": 32,
+      "achievedAt": 1770766119238
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -112,9 +112,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "word": "tirerez",
-      "pts": 162,
-      "achievedAt": 1770847220490
+      "word": "carquois",
+      "pts": 135,
+      "achievedAt": 1770729160263
     },
     "nick:ChocolatineDebat": {
       "nick": "ChocolatineDebat",
@@ -227,20 +227,6 @@
       "word": "danse",
       "pts": 54,
       "achievedAt": 1770843527116
-    },
-    "nick:Lena": {
-      "nick": "Lena",
-      "playerKey": "nick:Lena",
-      "word": "toiler",
-      "pts": 24,
-      "achievedAt": 1770844955874
-    },
-    "nick:Malo": {
-      "nick": "Malo",
-      "playerKey": "nick:Malo",
-      "word": "salures",
-      "pts": 102,
-      "achievedAt": 1770845586998
     }
   },
   "longestWord": {
@@ -376,20 +362,6 @@
       "word": "sinuons",
       "len": 7,
       "achievedAt": 1770843499548
-    },
-    "nick:Lena": {
-      "nick": "Lena",
-      "playerKey": "nick:Lena",
-      "word": "toiler",
-      "len": 6,
-      "achievedAt": 1770844955874
-    },
-    "nick:Malo": {
-      "nick": "Malo",
-      "playerKey": "nick:Malo",
-      "word": "salures",
-      "len": 7,
-      "achievedAt": 1770845586998
     }
   },
   "bestRoundScore": {
@@ -525,20 +497,6 @@
       "pts": 393,
       "roundId": "room-4x4#1770843425685",
       "achievedAt": 1770843542512
-    },
-    "nick:Lena": {
-      "nick": "Lena",
-      "playerKey": "nick:Lena",
-      "pts": 52,
-      "roundId": "room-4x4#1770844851499",
-      "achievedAt": 1770844967112
-    },
-    "nick:Malo": {
-      "nick": "Malo",
-      "playerKey": "nick:Malo",
-      "pts": 273,
-      "roundId": "room-4x4#1770845496836",
-      "achievedAt": 1770845615147
     }
   },
   "bestTimeTargetLong": {
@@ -610,8 +568,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 3398,
-      "achievedAt": 1770847597945
+      "vocabCount": 3378,
+      "achievedAt": 1770766119238
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -636,8 +594,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "gobbles": 4,
-      "achievedAt": 1770847597945
+      "gobbles": 3,
+      "achievedAt": 1770734271911
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",

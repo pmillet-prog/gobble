@@ -3232,7 +3232,6 @@ export default function App() {
   const submissionStatusRef = useRef(new Map());
   const pendingWordsRef = useRef(new Set());
   const pendingQueueRef = useRef([]);
-  const lateWordsRef = useRef(new Map());
   const inFlightBatchesRef = useRef(new Map());
   const batchTimerRef = useRef(null);
   const batchSeqRef = useRef(1);
@@ -5864,73 +5863,6 @@ export default function App() {
     [clearImplodeAnimation, triggerImplodeAnimation]
   );
 
-  function mergeLateWordsIntoResults(results) {
-    const late = lateWordsRef.current;
-    const base = Array.isArray(results) ? results : [];
-    if (!late || late.size === 0) return base;
-    const selfNick = (nicknameRef.current || "").trim();
-    if (!selfNick) {
-      late.clear();
-      return base;
-    }
-    const next = base.map((entry) => ({ ...entry }));
-    let entry = next.find((row) => row && row.nick === selfNick);
-    if (!entry) {
-      entry = {
-        nick: selfNick,
-        score: 0,
-        words: [],
-        wordTimes: {},
-        uniqueWords: [],
-        newVocabWords: [],
-        isBot: false,
-        isDailyChampion: false,
-        connected: true,
-        participated: true,
-      };
-      next.push(entry);
-    }
-    const existingNorms = new Set(
-      Array.isArray(entry.words)
-        ? entry.words.map((word) => normalizeWord(word)).filter(Boolean)
-        : []
-    );
-    const wordTimes =
-      entry.wordTimes && typeof entry.wordTimes === "object"
-        ? { ...entry.wordTimes }
-        : {};
-    let addScore = 0;
-    const addedWords = [];
-    const addedNorms = [];
-    late.forEach((meta, norm) => {
-      if (!norm || existingNorms.has(norm)) return;
-      existingNorms.add(norm);
-      const rawWord = meta?.raw || norm.toUpperCase();
-      addedWords.push(rawWord);
-      addedNorms.push(norm);
-      if (Number.isFinite(meta?.pts)) addScore += meta.pts;
-      if (Number.isFinite(meta?.ts)) {
-        wordTimes[norm] = meta.ts;
-      }
-    });
-    if (addedWords.length) {
-      entry.words = [...(Array.isArray(entry.words) ? entry.words : []), ...addedWords];
-      const uniqueSet = new Set(
-        Array.isArray(entry.uniqueWords)
-          ? entry.uniqueWords.map((word) => normalizeWord(word)).filter(Boolean)
-          : []
-      );
-      addedNorms.forEach((norm) => uniqueSet.add(norm));
-      entry.uniqueWords = Array.from(uniqueSet);
-      entry.wordTimes = wordTimes;
-      entry.score = (Number.isFinite(entry.score) ? entry.score : 0) + addScore;
-      entry.participated = true;
-      if (entry.connected == null) entry.connected = true;
-    }
-    late.clear();
-    return next;
-  }
-
   const processRoundEnded = React.useCallback(
     ({
       roomId: endedRoomId,
@@ -5950,7 +5882,7 @@ export default function App() {
       setServerStatus("break");
       setProvisionalRanking([]);
       setAnnouncements([]);
-      setFinalResults(mergeLateWordsIntoResults(results));
+      setFinalResults(Array.isArray(results) ? results : []);
       setServerEndsAt(null);
       setServerRoundDurationMs(null);
       setRoundId(endedId || null);
@@ -6048,11 +5980,7 @@ export default function App() {
         return;
       }
       if (roundKey && outroRoundRef.current === roundKey) {
-        if (payload && processRoundEndedRef.current) {
-          processRoundEndedRef.current(payload);
-        } else if (payload) {
-          pendingRoundEndRef.current = payload;
-        }
+        if (payload) pendingRoundEndRef.current = payload;
         return;
       }
       if (roundKey) {
@@ -6077,7 +6005,9 @@ export default function App() {
 
       const tileEls = tileRefs.current.filter(Boolean);
 
-      // On laisse les joueurs valider pendant l'anim trou noir (comptage local).
+      // On verrouille les validations pendant l'anim trou noir pour éviter des scores non comptabilisés.
+      setInputLocked(true);
+      inputLockedRef.current = true;
       if (draggingRef.current) {
         draggingRef.current = false;
         clearSelection();
@@ -6588,7 +6518,6 @@ export default function App() {
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
-      lateWordsRef.current.clear();
       if (Number.isFinite(endsAt) && Number.isFinite(durationMs)) {
         roundStartAtRef.current = Math.max(0, endsAt - durationMs);
       } else {
@@ -6639,15 +6568,6 @@ export default function App() {
         },
         { fallback: false }
       );
-    }
-
-    function onRoundEnding({ roomId: endingRoomId, roundId: endingId } = {}) {
-      const activeRoomId = currentRoomIdRef.current;
-      const activeRoundId = roundIdRef.current;
-      if (endingRoomId && activeRoomId && endingRoomId !== activeRoomId) return;
-      if (endingId && activeRoundId && endingId !== activeRoundId) return;
-      if (phaseRef.current !== "playing") return;
-      playOutroThenResultsRef.current?.(null, { fallback: false });
     }
 
     function onBreakStarted(payload = {}) {
@@ -6921,7 +6841,6 @@ export default function App() {
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
 
     socket.on("roundStarted", onRoundStarted);
-    socket.on("roundEnding", onRoundEnding);
     socket.on("roundEnded", onRoundEnded);
     socket.on("breakStarted", onBreakStarted);
     socket.on("playersUpdate", onPlayersUpdate);
@@ -6939,7 +6858,6 @@ export default function App() {
 
     return () => {
       socket.off("roundStarted", onRoundStarted);
-      socket.off("roundEnding", onRoundEnding);
       socket.off("roundEnded", onRoundEnded);
       socket.off("breakStarted", onBreakStarted);
       socket.off("playersUpdate", onPlayersUpdate);
@@ -10464,16 +10382,10 @@ function handleTouchEnd() {
     scheduleBatchFlush();
   }
 
-  function applyLocalWordScoring({ raw, display, path, markLate = false }) {
+  function applyLocalWordScoring({ raw, display, path }) {
     const pts = computeScore(raw, path, board, specialScoreConfig);
     const displayStr = display || raw.toUpperCase();
     const now = Date.now();
-
-    if (markLate) {
-      if (!lateWordsRef.current.has(raw)) {
-        lateWordsRef.current.set(raw, { raw: displayStr, pts, ts: now });
-      }
-    }
 
     setScore((s) => s + pts);
     acceptedScoresRef.current.set(raw, pts);
@@ -10570,13 +10482,6 @@ function handleTouchEnd() {
       path = findBestPathForWord(board, raw, specialScoreConfig);
       if (!path) return error("Mot absent de la grille");
       setHighlightPath(path);
-    }
-
-    const allowLateLocal =
-      outroInFlightRef.current && Boolean(pendingRoundEndRef.current);
-    if (allowLateLocal) {
-      applyLocalWordScoring({ raw, display, path, markLate: true });
-      return;
     }
 
     // Mode en ligne : envoi optimiste + batch
