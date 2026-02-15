@@ -55,13 +55,6 @@
       "wordsCount": 87,
       "roundId": "room-4x4#1770731765634",
       "achievedAt": 1770731885634
-    },
-    "install:iid-1771130885177-412145": {
-      "nick": "Fouboulou",
-      "playerKey": "install:iid-1771130885177-412145",
-      "wordsCount": 33,
-      "roundId": "room-4x4#1771130927069",
-      "achievedAt": 1771131047069
     }
   },
   "totalScore": {
@@ -82,9 +75,9 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "totalScore": 24132,
-      "roundsPlayed": 44,
-      "achievedAt": 1771130852009
+      "totalScore": 21956,
+      "roundsPlayed": 41,
+      "achievedAt": 1771084736289
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -99,13 +92,6 @@
       "totalScore": 9090,
       "roundsPlayed": 12,
       "achievedAt": 1770733791664
-    },
-    "install:iid-1771130885177-412145": {
-      "nick": "Fouboulou",
-      "playerKey": "install:iid-1771130885177-412145",
-      "totalScore": 1014,
-      "roundsPlayed": 1,
-      "achievedAt": 1771131047069
     }
   },
   "bestWord": {
@@ -318,13 +304,6 @@
       "word": "tasser",
       "pts": 36,
       "achievedAt": 1771095660978
-    },
-    "install:iid-1771130885177-412145": {
-      "nick": "Fouboulou",
-      "playerKey": "install:iid-1771130885177-412145",
-      "word": "corsais",
-      "pts": 126,
-      "achievedAt": 1771130949527
     }
   },
   "longestWord": {
@@ -537,13 +516,6 @@
       "word": "tasser",
       "len": 6,
       "achievedAt": 1771095660978
-    },
-    "install:iid-1771130885177-412145": {
-      "nick": "Fouboulou",
-      "playerKey": "install:iid-1771130885177-412145",
-      "word": "corsais",
-      "len": 7,
-      "achievedAt": 1771130949527
     }
   },
   "bestRoundScore": {
@@ -756,13 +728,6 @@
       "pts": 119,
       "roundId": "room-4x4#1771095541711",
       "achievedAt": 1771095660978
-    },
-    "install:iid-1771130885177-412145": {
-      "nick": "Fouboulou",
-      "playerKey": "install:iid-1771130885177-412145",
-      "pts": 1014,
-      "roundId": "room-4x4#1771130927069",
-      "achievedAt": 1771131026525
     }
   },
   "bestTimeTargetLong": {
@@ -834,8 +799,8 @@
     "install:cid-1767297485869-305184": {
       "nick": "Test",
       "playerKey": "install:cid-1767297485869-305184",
-      "vocabCount": 3549,
-      "achievedAt": 1771130852009
+      "vocabCount": 3506,
+      "achievedAt": 1771084736289
     },
     "install:iid-1770729240308-222917": {
       "nick": "Test2",
@@ -848,12 +813,6 @@
       "playerKey": "install:iid-1770731577320-743680",
       "vocabCount": 378,
       "achievedAt": 1770733791664
-    },
-    "install:iid-1771130885177-412145": {
-      "nick": "Fouboulou",
-      "playerKey": "install:iid-1771130885177-412145",
-      "vocabCount": 33,
-      "achievedAt": 1771131047069
     }
   },
   "mostGobbles": {

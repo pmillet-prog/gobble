@@ -251,6 +251,9 @@ const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
   meta: { eqKey: "score2" },
 }));
 const BOOT_MIN_HOLD_MS = 650;
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
+const STATS_WEEKLY_DISPLAY_LIMIT = 50;
+const STATS_SEASON_TARGET_LIMIT = 200;
 
 function stripExtension(src) {
   if (!src || typeof src !== "string") return src;
@@ -351,7 +354,7 @@ function resolveAmbientManifestTracks(payload) {
 async function loadAmbientTrackList() {
   if (typeof fetch === "undefined") return AMBIENT_MUSIC_TRACKS_DEFAULT;
   try {
-    const res = await fetch(AMBIENT_MUSIC_MANIFEST, { cache: "no-store" });
+    const res = await fetch(AMBIENT_MUSIC_MANIFEST, { cache: "force-cache" });
     if (!res.ok) return AMBIENT_MUSIC_TRACKS_DEFAULT;
     const data = await res.json();
     const resolved = resolveAmbientManifestTracks(data);
@@ -456,6 +459,23 @@ function computeIsUltraCompact() {
   );
 }
 
+function isStandaloneDisplayMode() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
+    window.navigator?.standalone === true
+  );
+}
+
+function computeIsAndroidWebBrowser() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isAndroid = /Android/i.test(ua);
+  if (!isAndroid) return false;
+  return !isStandaloneDisplayMode();
+}
+
 function getDefaultRoomId() {
   if (typeof window !== "undefined") {
     const isMobile = computeIsMobileLayout();
@@ -542,8 +562,8 @@ const BONUS_CLASSES = {
 const WEEKLY_BOARDS = [
   { key: "medals", label: "Medailles", subtitle: "Total hebdo" },
   { key: "mostWordsInGame", label: "Mots par manche", subtitle: "Volume max" },
-  { key: "totalScore", label: "Score total", subtitle: "Somme hebdo (cibles = 500 pts)" },
-  { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus eleve" },
+  { key: "totalScore", label: "Score total", subtitle: "Somme hebdo (cibles = 1000 pts)" },
+  { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus élevé" },
   { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
   { key: "bestRoundScore", label: "Score de manche", subtitle: "Total record" },
   { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
@@ -2689,7 +2709,7 @@ export default function App() {
     };
   }, []);
   const [showHelp, setShowHelp] = useState(false);
-  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | live
+  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | live
   const [analysis, setAnalysis] = useState(null);
   const missingImageRef = useRef(new Set());
   const assetVersion = bootProgress?.done ? 1 : 0;
@@ -2721,12 +2741,15 @@ export default function App() {
   };
   const [highlightPlayers, setHighlightPlayers] = useState([]);
   const listItemRefs = useRef(new Map());
+  const wordListFlipPrevRectsRef = useRef(new Map());
+  const wordListFlipPendingRef = useRef(false);
+  const wordListFlipRafIdsRef = useRef([]);
+  const wordListFlipTimersRef = useRef(new Map());
   const mobileHeaderRef = useRef(null);
   const mobileRankingRef = useRef(null);
   const mobileHelpRef = useRef(null);
   const safeAreaProbeRef = useRef(null);
   const safeAreaTopProbeRef = useRef(null);
-  const prevPositionsRef = useRef(new Map());
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [praiseFlash, setPraiseFlash] = useState(null);
   const [gobbleFlash, setGobbleFlash] = useState(null);
@@ -2738,9 +2761,7 @@ export default function App() {
   const [resultsSlidePhase, setResultsSlidePhase] = useState("idle");
   const resultsSlideOutTimerRef = useRef(null);
   const resultsSlideInTimerRef = useRef(null);
-  const [resultsMetaPulse, setResultsMetaPulse] = useState(false);
-  const resultsMetaPulseStartTimerRef = useRef(null);
-  const resultsMetaPulseEndTimerRef = useRef(null);
+  const [resultsReorderTick, setResultsReorderTick] = useState(0);
   const [finalePage, setFinalePage] = useState(0);
   const finaleScrollRef = useRef(null);
   const finaleTouchRef = useRef({ startX: null, startY: null });
@@ -2784,7 +2805,12 @@ export default function App() {
     rankingRound: null,
   });
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
-  const weeklyTouchRef = useRef({ startX: null, startY: null });
+  const weeklyTouchRef = useRef({
+    startX: null,
+    startY: null,
+    fromScrollable: false,
+    gestureAxis: "none",
+  });
   const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
   const weeklySlideWidthRef = useRef(0);
   const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
@@ -2793,7 +2819,12 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
-  const seasonTouchRef = useRef({ startX: null, startY: null });
+  const seasonTouchRef = useRef({
+    startX: null,
+    startY: null,
+    fromScrollable: false,
+    gestureAxis: "none",
+  });
   const seasonSlideWidthRef = useRef(0);
   const [seasonDragOffset, setSeasonDragOffset] = useState(0);
   const [seasonDragging, setSeasonDragging] = useState(false);
@@ -2828,6 +2859,9 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installMessage, setInstallMessage] = useState("");
   const [installSupport, setInstallSupport] = useState("unknown"); // unknown | available | unavailable | installed | maybe
+  const [isAndroidWebBrowser, setIsAndroidWebBrowser] = useState(() =>
+    computeIsAndroidWebBrowser()
+  );
   const [isFullscreen] = useState(false);
   const [mobileHeaderOffsetPx, setMobileHeaderOffsetPx] = useState(0);
   const [isMobileLayout, setIsMobileLayout] = useState(() => {
@@ -3002,6 +3036,9 @@ export default function App() {
 
   function returnToLobby() {
     setIsSettingsOpen(false);
+    setPhase("lobby");
+    setServerStatus("waiting");
+    stopAllActiveAudio({ suspendContext: true, immediate: true });
     setAppView("home");
     dailySessionRef.current = { dateId: null, startedAt: null };
     setDailyResult(null);
@@ -3815,7 +3852,7 @@ export default function App() {
     }, 550);
   }
 
-  function stopAmbientMusic({ fadeMs = 800, keepAlive = false } = {}) {
+  function stopAmbientMusic({ fadeMs = 800, keepAlive = false, immediate = false } = {}) {
     const audio = ambientMusicRef.current.audio;
     if (!keepAlive) {
       ambientMusicRef.current.active = false;
@@ -3836,6 +3873,21 @@ export default function App() {
       clearTimeout(ambientMusicRef.current.fadeTimer);
       ambientMusicRef.current.fadeTimer = null;
     }
+    if (ambientMusicRef.current.fadeRaf) {
+      cancelAnimationFrame(ambientMusicRef.current.fadeRaf);
+      ambientMusicRef.current.fadeRaf = null;
+    }
+    if (immediate) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = true;
+        audio.src = "";
+        audio.removeAttribute?.("src");
+        audio.load?.();
+      } catch (_) {}
+      return;
+    }
     fadeAudioVolume(audio, 0, fadeMs);
     if (!keepAlive) {
       ambientMusicRef.current.fadeTimer = setTimeout(() => {
@@ -3844,6 +3896,51 @@ export default function App() {
           audio.currentTime = 0;
         } catch (_) {}
       }, Math.max(0, fadeMs) + 60);
+    }
+  }
+
+  function stopBlackHoleAudio({ fadeMs = 220 } = {}) {
+    blackHoleSyncTokenRef.current += 1;
+    if (blackHoleSourisLoopRef.current.intervalId) {
+      clearInterval(blackHoleSourisLoopRef.current.intervalId);
+      blackHoleSourisLoopRef.current.intervalId = null;
+    }
+    if (blackHoleSourisLoopRef.current.stopTimer) {
+      clearTimeout(blackHoleSourisLoopRef.current.stopTimer);
+      blackHoleSourisLoopRef.current.stopTimer = null;
+    }
+    if (blackHoleClavierFadeRef.current) {
+      clearTimeout(blackHoleClavierFadeRef.current);
+      blackHoleClavierFadeRef.current = null;
+    }
+    if (blackHoleAuxStopRef.current) {
+      clearTimeout(blackHoleAuxStopRef.current);
+      blackHoleAuxStopRef.current = null;
+    }
+    if (blackHoleHandleRef.current) {
+      blackHoleHandleRef.current.stop?.();
+      blackHoleHandleRef.current = null;
+    }
+    if (blackHoleChebHandleRef.current) {
+      blackHoleChebHandleRef.current.stop?.();
+      blackHoleChebHandleRef.current = null;
+    }
+    if (blackHoleClavierHandleRef.current) {
+      if (fadeMs > 0) blackHoleClavierHandleRef.current.fadeOut?.(fadeMs);
+      else blackHoleClavierHandleRef.current.stop?.();
+      blackHoleClavierHandleRef.current = null;
+    }
+  }
+
+  function stopAllActiveAudio({ suspendContext = false, immediate = false } = {}) {
+    stopBlackHoleAudio({ fadeMs: immediate ? 0 : 220 });
+    stopAmbientMusic({ fadeMs: immediate ? 0 : 700, keepAlive: false, immediate });
+    ambientStartPendingRef.current = false;
+    ambientRetryRef.current = false;
+    if (!suspendContext) return;
+    const ctx = audioCtxRef.current;
+    if (ctx && ctx.state === "running") {
+      ctx.suspend().catch(() => {});
     }
   }
 
@@ -4749,10 +4846,13 @@ export default function App() {
       Array.isArray(tournamentPayload?.ranking) &&
       tournamentPayload.ranking.length
     ) {
+      const visibleRanking = tournamentPayload.ranking.filter(
+        (entry) => getTournamentPoints(entry) > 0
+      );
       const rankMap = new Map();
-      tournamentPayload.ranking.forEach((entry, idx) => {
+      visibleRanking.forEach((entry, idx) => {
         if (!entry?.nick) return;
-        const posNow = Number.isFinite(entry.pos) ? entry.pos : idx + 1;
+        const posNow = idx + 1;
         rankMap.set(entry.nick, posNow);
       });
       baseline.rankingMap = rankMap;
@@ -4760,6 +4860,13 @@ export default function App() {
         ? tournamentPayload.round
         : null;
     }
+  }
+
+  function getTournamentPoints(entry) {
+    if (!entry) return 0;
+    if (Number.isFinite(entry.points)) return entry.points;
+    if (Number.isFinite(entry.score)) return entry.score;
+    return 0;
   }
 
   // Son "GOBBLE" (MP3 placé dans /public/sound/game/gobble.mp3)
@@ -5909,10 +6016,13 @@ export default function App() {
         Number.isFinite(baselineRound) &&
         Number.isFinite(currentRound) &&
         baselineRound < currentRound;
+      const visibleTournamentRanking = Array.isArray(tournamentPayload?.ranking)
+        ? tournamentPayload.ranking.filter((entry) => getTournamentPoints(entry) > 0)
+        : [];
       setTournamentRanking(
-        Array.isArray(tournamentPayload?.ranking)
-          ? tournamentPayload.ranking.map((e, idx) => {
-              const posNow = Number.isFinite(e.pos) ? e.pos : idx + 1;
+        visibleTournamentRanking.length
+          ? visibleTournamentRanking.map((e, idx) => {
+              const posNow = idx + 1;
               const basePos = tournamentBaselineRef.current.rankingMap?.get(e.nick);
               const delta =
                 useBaselineDelta && Number.isFinite(basePos)
@@ -6228,7 +6338,8 @@ export default function App() {
       syncServerTime();
       setNextStartAt(nextTs || null);
       setBreakKind(bk);
-      if (tournamentPayload) {
+      const isTournamentEndBreak = bk === "tournament_end";
+      if (tournamentPayload && !isTournamentEndBreak) {
         ensureTournamentBaseline(tournamentPayload);
       }
       if (bk !== "tournament_end") {
@@ -6241,7 +6352,11 @@ export default function App() {
         setServerRoundDurationMs(null);
         setRoundId(null);
       }
-      if (tournamentPayload) setTournament(tournamentPayload);
+      // Pendant l'ecran final du mini-tournoi, on garde l'etat du tournoi termine.
+      // Le serveur a deja reset le tournoi suivant avant d'emettre breakStarted.
+      if (tournamentPayload && !isTournamentEndBreak) {
+        setTournament(tournamentPayload);
+      }
       setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
       if (summary) setTournamentSummary(summary);
       setTournamentSummaryAt(summaryAt || null);
@@ -6371,16 +6486,32 @@ export default function App() {
 
   // Verifie si on est deja en mode standalone
   useEffect(() => {
-    const standalone = () => {
-      if (typeof window === "undefined") return false;
-      return (
-        window.matchMedia?.("(display-mode: standalone)")?.matches ||
-        window.navigator?.standalone === true
-      );
-    };
-    if (standalone()) {
+    if (isStandaloneDisplayMode()) {
       setInstallSupport("installed");
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const updateAndroidWebState = () => {
+      setIsAndroidWebBrowser(computeIsAndroidWebBrowser());
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        updateAndroidWebState();
+      }
+    };
+    updateAndroidWebState();
+    window.addEventListener("focus", updateAndroidWebState);
+    window.addEventListener("resize", updateAndroidWebState);
+    window.addEventListener("appinstalled", updateAndroidWebState);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", updateAndroidWebState);
+      window.removeEventListener("resize", updateAndroidWebState);
+      window.removeEventListener("appinstalled", updateAndroidWebState);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   // Fallback : si on est en mobile mais aucun prompt reçu, on marque indisponible
@@ -6414,6 +6545,26 @@ export default function App() {
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const stopAudioForBackground = () => {
+      stopAllActiveAudio({ suspendContext: true, immediate: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        stopAudioForBackground();
+      }
+    };
+    window.addEventListener("pagehide", stopAudioForBackground);
+    window.addEventListener("beforeunload", stopAudioForBackground);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", stopAudioForBackground);
+      window.removeEventListener("beforeunload", stopAudioForBackground);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -7687,6 +7838,7 @@ export default function App() {
   function openWeeklyStatsOverlay() {
     setWeeklyActiveIndex((idx) => (idx >= 0 && idx < WEEKLY_BOARDS.length ? idx : 0));
     setIsWeeklyOpen(true);
+    setAppView("stats");
     setStatsTab("weekly");
     fetchWeeklyStats(true);
     void requestVocabCount();
@@ -7695,6 +7847,7 @@ export default function App() {
 
   function closeWeeklyStatsOverlay() {
     setIsWeeklyOpen(false);
+    setAppView(isLoggedIn ? "live" : "home");
   }
 
   useEffect(() => {
@@ -7796,6 +7949,37 @@ export default function App() {
     return Date.now() - last < delayMs;
   }
 
+  function isStatsScrollTouchTarget(target) {
+    if (typeof Element === "undefined") return false;
+    const touchEl = target instanceof Element ? target : null;
+    const scrollEl = touchEl?.closest?.('[data-stats-scroll="true"]');
+    if (!scrollEl) return false;
+    return scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+  }
+
+  function resolveStatsGestureAxis(touchRef, deltaX, deltaY) {
+    const currentAxis = touchRef?.current?.gestureAxis || "none";
+    if (currentAxis === "horizontal" || currentAxis === "vertical") {
+      return currentAxis;
+    }
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    if (absX < 7 && absY < 7) return "pending";
+    if (!touchRef?.current?.fromScrollable) {
+      touchRef.current.gestureAxis = "horizontal";
+      return "horizontal";
+    }
+    if (absX >= absY * 1.2) {
+      touchRef.current.gestureAxis = "horizontal";
+      return "horizontal";
+    }
+    if (absY > absX) {
+      touchRef.current.gestureAxis = "vertical";
+      return "vertical";
+    }
+    return "pending";
+  }
+
   function getSeasonPages() {
     return ["vocab_rank", "vocab_personal"];
   }
@@ -7859,6 +8043,8 @@ export default function App() {
 
   function handleWeeklyTouchStart(e) {
     if (statsTab !== "weekly") return;
+    weeklyTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
+    weeklyTouchRef.current.gestureAxis = "none";
     const touch = e?.touches?.[0];
     const x = touch?.clientX ?? null;
     const y = touch?.clientY ?? null;
@@ -7882,15 +8068,15 @@ export default function App() {
     if (currentX == null || currentY == null) return;
     const deltaX = currentX - startX;
     const deltaY = currentY - startY;
+    const axis = resolveStatsGestureAxis(weeklyTouchRef, deltaX, deltaY);
+    if (axis === "vertical") {
+      setWeeklyDragging(false);
+      setWeeklyDragOffset(0);
+      return;
+    }
+    if (axis !== "horizontal") return;
     if (!weeklyDragging) {
       if (Math.abs(deltaX) < 6) return;
-      if (Math.abs(deltaX) < Math.abs(deltaY)) {
-        weeklyTouchRef.current.startX = null;
-        weeklyTouchRef.current.startY = null;
-        setWeeklyDragging(false);
-        setWeeklyDragOffset(0);
-        return;
-      }
       setWeeklyDragging(true);
       triggerWeeklyArrowHint();
     }
@@ -7902,6 +8088,9 @@ export default function App() {
 
   function handleWeeklyTouchEnd(e) {
     if (statsTab !== "weekly") return;
+    const axis = weeklyTouchRef.current.gestureAxis;
+    weeklyTouchRef.current.gestureAxis = "none";
+    weeklyTouchRef.current.fromScrollable = false;
     const startX = weeklyTouchRef.current.startX;
     const startY = weeklyTouchRef.current.startY;
     weeklyTouchRef.current.startX = null;
@@ -7909,6 +8098,10 @@ export default function App() {
     const width = weeklySlideWidthRef.current || window.innerWidth || 1;
     const touch = e?.changedTouches?.[0];
     setWeeklyDragging(false);
+    if (axis === "vertical") {
+      setWeeklyDragOffset(0);
+      return;
+    }
     if (startX == null || startY == null || !touch) {
       setWeeklyDragOffset(0);
       return;
@@ -7925,6 +8118,8 @@ export default function App() {
 
   function handleSeasonTouchStart(e) {
     if (statsTab !== "season") return;
+    seasonTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
+    seasonTouchRef.current.gestureAxis = "none";
     const touch = e?.touches?.[0];
     const x = touch?.clientX ?? null;
     const y = touch?.clientY ?? null;
@@ -7947,15 +8142,15 @@ export default function App() {
     if (currentX == null || currentY == null) return;
     const deltaX = currentX - startX;
     const deltaY = currentY - startY;
+    const axis = resolveStatsGestureAxis(seasonTouchRef, deltaX, deltaY);
+    if (axis === "vertical") {
+      setSeasonDragging(false);
+      setSeasonDragOffset(0);
+      return;
+    }
+    if (axis !== "horizontal") return;
     if (!seasonDragging) {
       if (Math.abs(deltaX) < 6) return;
-      if (Math.abs(deltaX) < Math.abs(deltaY)) {
-        seasonTouchRef.current.startX = null;
-        seasonTouchRef.current.startY = null;
-        setSeasonDragging(false);
-        setSeasonDragOffset(0);
-        return;
-      }
       setSeasonDragging(true);
     }
     if (e?.cancelable) e.preventDefault();
@@ -7966,6 +8161,9 @@ export default function App() {
 
   function handleSeasonTouchEnd(e) {
     if (statsTab !== "season") return;
+    const axis = seasonTouchRef.current.gestureAxis;
+    seasonTouchRef.current.gestureAxis = "none";
+    seasonTouchRef.current.fromScrollable = false;
     const startX = seasonTouchRef.current.startX;
     const startY = seasonTouchRef.current.startY;
     seasonTouchRef.current.startX = null;
@@ -7973,6 +8171,10 @@ export default function App() {
     const width = seasonSlideWidthRef.current || window.innerWidth || 1;
     const touch = e?.changedTouches?.[0];
     setSeasonDragging(false);
+    if (axis === "vertical") {
+      setSeasonDragOffset(0);
+      return;
+    }
     if (startX == null || startY == null || !touch) {
       setSeasonDragOffset(0);
       return;
@@ -8057,7 +8259,7 @@ export default function App() {
     if (isWordsJump) {
       setResultsPageInstant(next);
     } else if (isRankingJump) {
-      triggerResultsMetaPulse({ immediate: true });
+      triggerResultsReorder();
       setResultsPageInstant(next);
     } else {
       startResultsSlide(next);
@@ -8070,26 +8272,8 @@ export default function App() {
     goToResultsPage(mobileResultsPage + delta);
   }
 
-  function triggerResultsMetaPulse({ immediate = false } = {}) {
-    if (resultsMetaPulseStartTimerRef.current) {
-      clearTimeout(resultsMetaPulseStartTimerRef.current);
-      resultsMetaPulseStartTimerRef.current = null;
-    }
-    if (resultsMetaPulseEndTimerRef.current) {
-      clearTimeout(resultsMetaPulseEndTimerRef.current);
-      resultsMetaPulseEndTimerRef.current = null;
-    }
-    if (immediate) {
-      setResultsMetaPulse(true);
-    } else {
-      setResultsMetaPulse(false);
-      resultsMetaPulseStartTimerRef.current = setTimeout(() => {
-        setResultsMetaPulse(true);
-      }, 20);
-    }
-    resultsMetaPulseEndTimerRef.current = setTimeout(() => {
-      setResultsMetaPulse(false);
-    }, 520);
+  function triggerResultsReorder() {
+    setResultsReorderTick((prev) => prev + 1);
   }
 
   function handleResultsTouchStart(e) {
@@ -8452,7 +8636,7 @@ export default function App() {
 
   function setResultsRankingModeWithPulse(nextMode) {
     if (resultsRankingMode === nextMode) return;
-    triggerResultsMetaPulse({ immediate: true });
+    triggerResultsReorder();
     setResultsRankingMode(nextMode);
   }
 
@@ -8564,6 +8748,12 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    const shouldOpenStats = appView === "stats";
+    if (shouldOpenStats === isWeeklyOpen) return;
+    setIsWeeklyOpen(shouldOpenStats);
+  }, [appView, isWeeklyOpen]);
+
+  useEffect(() => {
     const onConnect = () => {
       if (isDailyView) return;
       if (!installId) return;
@@ -8630,8 +8820,12 @@ export default function App() {
     if (!isWeeklyOpen) return;
     if (statsTab === "season") {
       void requestTrophyStatus();
+      const currentTopN = Number.isFinite(weeklyStats?.topN) ? weeklyStats.topN : 0;
+      if (currentTopN < STATS_SEASON_TARGET_LIMIT) {
+        fetchWeeklyStats(true, STATS_SEASON_TARGET_LIMIT);
+      }
     }
-  }, [isWeeklyOpen, statsTab]);
+  }, [isWeeklyOpen, statsTab, weeklyStats?.topN]);
 
   useEffect(() => {
     if (statsTab !== "season") return;
@@ -8640,6 +8834,8 @@ export default function App() {
     setSeasonDragging(false);
     seasonTouchRef.current.startX = null;
     seasonTouchRef.current.startY = null;
+    seasonTouchRef.current.fromScrollable = false;
+    seasonTouchRef.current.gestureAxis = "none";
   }, [statsTab]);
 
   useEffect(() => {
@@ -9157,18 +9353,31 @@ export default function App() {
     setPhase("playing");
   }
 
-  function captureListPositions(list) {
-    const map = new Map();
-    list.forEach((entry) => {
-      const el = listItemRefs.current.get(entry.word);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        map.set(entry.word, rect);
-      }
-    });
-    prevPositionsRef.current = map;
+  function clearWordListFlipArtifacts() {
+    if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+      wordListFlipRafIdsRef.current.forEach((id) => window.cancelAnimationFrame(id));
+    }
+    wordListFlipRafIdsRef.current = [];
+    wordListFlipTimersRef.current.forEach((id) => clearTimeout(id));
+    wordListFlipTimersRef.current.clear();
   }
 
+  function isFoundLikeEntry(entry) {
+    if (!entry) return false;
+    return entry.isFound || entry.status === "pending" || entry.status === "rejected";
+  }
+
+  function prepareWordListFlip(list) {
+    const map = new Map();
+    (Array.isArray(list) ? list : []).forEach((entry) => {
+      if (!isFoundLikeEntry(entry)) return;
+      const el = listItemRefs.current.get(entry.word);
+      if (!el) return;
+      map.set(entry.word, el.getBoundingClientRect());
+    });
+    wordListFlipPrevRectsRef.current = map;
+    wordListFlipPendingRef.current = map.size > 0;
+  }
 
   function rotateGridClockwise() {
     if (isGridRotating) return;
@@ -10786,7 +10995,6 @@ function handleTouchEnd() {
     : "\u2014";
   const vocabTotalValue = Number.isFinite(vocabCount) ? vocabCount : 0;
   const vocabLevel = getVocabLevelMeta(vocabTotalValue);
-  const vocabProgress = getVocabProgress(vocabTotalValue);
   const vocabPrevValue = vocabHasDelta
     ? Math.max(0, vocabTotalValue - vocabDeltaValue)
     : vocabTotalValue;
@@ -10794,20 +11002,32 @@ function handleTouchEnd() {
   const vocabLevelUp =
     vocabHasDelta && vocabPrevLevel?.key && vocabLevel?.key && vocabPrevLevel.key !== vocabLevel.key;
   const vocabBaseValue = vocabPrevValue;
-  const vocabBaseProgress = getVocabProgress(vocabBaseValue);
-  const vocabProgressPct = clampValue(vocabProgress.pct * 100, 0, 100);
-  const vocabBasePct = clampValue(vocabBaseProgress.pct * 100, 0, 100);
-  const vocabDeltaPct = Math.max(0, vocabProgressPct - vocabBasePct);
   const vocabLevelMin = Number.isFinite(vocabLevel?.min) ? vocabLevel.min : 0;
   const vocabLevelMax = Number.isFinite(vocabLevel?.max) ? vocabLevel.max : vocabTotalValue;
   const vocabLevelRange = Math.max(1, vocabLevelMax - vocabLevelMin);
+  const vocabCurrentWithinLevel = clampValue(
+    vocabTotalValue - vocabLevelMin,
+    0,
+    vocabLevelRange
+  );
+  const vocabBaseWithinLevel = clampValue(
+    vocabBaseValue - vocabLevelMin,
+    0,
+    vocabLevelRange
+  );
   const vocabLevelProgressPct = clampValue(
-    ((vocabTotalValue - vocabLevelMin) / vocabLevelRange) * 100,
+    (vocabCurrentWithinLevel / vocabLevelRange) * 100,
     0,
     100
   );
+  const vocabLevelBasePct = clampValue(
+    (vocabBaseWithinLevel / vocabLevelRange) * 100,
+    0,
+    100
+  );
+  const vocabLevelDeltaPct = Math.max(0, vocabLevelProgressPct - vocabLevelBasePct);
   const vocabCursorStyle = {
-    left: `${vocabProgressPct}%`,
+    left: `${vocabLevelProgressPct}%`,
     borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
   };
   const vocabImageSrc = vocabLevel?.imageKey ? getImageUrl(vocabLevel.imageKey) : "";
@@ -10866,7 +11086,7 @@ function handleTouchEnd() {
               <div
                 className="absolute inset-y-0 left-0 rounded-l-full"
                 style={{
-                  width: `${showDelta ? vocabBasePct : vocabLevelProgressPct}%`,
+                  width: `${showDelta ? vocabLevelBasePct : vocabLevelProgressPct}%`,
                   background: darkMode
                     ? "rgba(248, 250, 252, 0.85)"
                     : "rgba(15, 23, 42, 0.85)",
@@ -10876,8 +11096,8 @@ function handleTouchEnd() {
                 <div
                   className="absolute inset-y-0 vocab-delta-fill"
                   style={{
-                    left: `${vocabBasePct}%`,
-                    width: `${vocabDeltaPct}%`,
+                    left: `${vocabLevelBasePct}%`,
+                    width: `${vocabLevelDeltaPct}%`,
                   }}
                 />
               ) : null}
@@ -10886,7 +11106,6 @@ function handleTouchEnd() {
               className="absolute -top-3"
               style={{
                 ...vocabCursorStyle,
-                left: showDelta ? vocabCursorStyle.left : `${vocabLevelProgressPct}%`,
                 transform: "translateX(-50%)",
               }}
             >
@@ -11161,11 +11380,6 @@ function handleTouchEnd() {
           : entry.bestPts
         : speedWordScore,
   }));
-  const flipList = displayList.filter(
-    (entry) =>
-      entry &&
-      (entry.isFound || entry.status === "pending" || entry.status === "rejected")
-  );
   const gobbleBadgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
   const isSpeedRoundForResults = specialRound?.type === "speed";
   const gobbleMaxPts = isSpeedRoundForResults
@@ -11766,91 +11980,53 @@ function handleTouchEnd() {
   }, [dailyWidgetEntries, isDailyPlay, selfNick, score, accepted?.length, installId]);
   const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
 
-  // Animation FLIP pour la liste de mots (uniquement les mots visibles)
-  useEffect(() => {
-    // Guard: only run when the list is actually visible in results.
+  useLayoutEffect(() => {
     if (phase !== "results") return;
-    if (!Array.isArray(flipList) || flipList.length === 0) return;
-    if (!listItemRefs.current || listItemRefs.current.size === 0) return;
+    if (!wordListFlipPendingRef.current) return;
 
-    const MAX_FLIP_ITEMS = 120;
-    if (flipList.length > MAX_FLIP_ITEMS) {
-      // Too many items: skip FLIP (avoid layout thrash).
-      prevPositionsRef.current = new Map();
+    const prevRects = wordListFlipPrevRectsRef.current;
+    wordListFlipPendingRef.current = false;
+    if (!prevRects || prevRects.size === 0) return;
+
+    clearWordListFlipArtifacts();
+    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
       return;
     }
 
-    const prev = prevPositionsRef.current;
-    const hasPrev = prev && prev.size > 0;
-    let rafId = 0;
-
-    rafId = requestAnimationFrame(() => {
-      const next = new Map();
-
-      flipList.forEach((entry, idx) => {
+    const startRaf = window.requestAnimationFrame(() => {
+      displayList.forEach((entry) => {
+        if (!isFoundLikeEntry(entry)) return;
         const el = listItemRefs.current.get(entry.word);
         if (!el) return;
+        const prevRect = prevRects.get(entry.word);
+        if (!prevRect) return;
+        const nextRect = el.getBoundingClientRect();
+        const dx = prevRect.left - nextRect.left;
+        const dy = prevRect.top - nextRect.top;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
 
-        const rect = el.getBoundingClientRect();
-        next.set(entry.word, rect);
+        el.style.transition = "none";
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        el.style.willChange = "transform";
 
-        // Si on a des positions précédentes, on anime les déplacements (FLIP)
-        if (hasPrev) {
-          const prevRect = prev.get(entry.word);
-
-          if (prevRect) {
-            const dx = prevRect.left - rect.left;
-            const dy = prevRect.top - rect.top;
-
-            if (dx !== 0 || dy !== 0) {
-              el.style.transition = "none";
-              el.style.transform = `translate(${dx}px, ${dy}px)`;
-              requestAnimationFrame(() => {
-                el.style.transition = "transform 220ms ease, opacity 200ms ease";
-                el.style.transform = "";
-              });
-              setTimeout(() => {
-                el.style.transition = "";
-                el.style.transform = "";
-              }, 260);
-            }
-          } else {
-            // Nouvel élément : petite anim d'apparition
-            el.style.transition = "none";
-            el.style.transform = "translateY(-8px) scale(0.96)";
-            el.style.opacity = "0";
-            requestAnimationFrame(() => {
-              el.style.transition = "transform 220ms ease, opacity 200ms ease";
-              el.style.transform = "";
-              el.style.opacity = "";
-            });
-            setTimeout(() => {
-              el.style.transition = "";
-              el.style.transform = "";
-            }, 260);
-          }
-
-          const delay = Math.min(idx * 8, 120);
-          el.style.transitionDelay = `${delay}ms`;
-        }
+        const settleRaf = window.requestAnimationFrame(() => {
+          if (!el.isConnected) return;
+          el.style.transition = "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)";
+          el.style.transform = "";
+          const timeoutId = setTimeout(() => {
+            if (!el.isConnected) return;
+            el.style.transition = "";
+            el.style.transform = "";
+            el.style.willChange = "";
+          }, 280);
+          wordListFlipTimersRef.current.set(entry.word, timeoutId);
+        });
+        wordListFlipRafIdsRef.current.push(settleRaf);
       });
-
-      // On conserve les positions courantes pour la prochaine transition
-      prevPositionsRef.current = next;
     });
 
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [phase, showAllWords, flipList.length, accepted.length]);
-
-  useEffect(() => {
-    if (phase !== "results") {
-      // Reset positions when leaving results to avoid stale deltas.
-      prevPositionsRef.current = new Map();
-    }
-  }, [phase]);
-
+    wordListFlipRafIdsRef.current.push(startRaf);
+  }, [phase, showAllWords, displayList]);
 
   useEffect(() => {
     if (phase === "results") {
@@ -11860,30 +12036,19 @@ function handleTouchEnd() {
   useEffect(() => {
     return () => {
       clearResultsSlideTimers();
-      if (resultsMetaPulseStartTimerRef.current) {
-        clearTimeout(resultsMetaPulseStartTimerRef.current);
-        resultsMetaPulseStartTimerRef.current = null;
-      }
-      if (resultsMetaPulseEndTimerRef.current) {
-        clearTimeout(resultsMetaPulseEndTimerRef.current);
-        resultsMetaPulseEndTimerRef.current = null;
-      }
+      clearWordListFlipArtifacts();
+      wordListFlipPrevRectsRef.current = new Map();
+      wordListFlipPendingRef.current = false;
     };
   }, []);
   useEffect(() => {
     if (phase === "results") return;
     clearResultsSlideTimers();
-    if (resultsMetaPulseStartTimerRef.current) {
-      clearTimeout(resultsMetaPulseStartTimerRef.current);
-      resultsMetaPulseStartTimerRef.current = null;
-    }
-    if (resultsMetaPulseEndTimerRef.current) {
-      clearTimeout(resultsMetaPulseEndTimerRef.current);
-      resultsMetaPulseEndTimerRef.current = null;
-    }
+    clearWordListFlipArtifacts();
+    wordListFlipPrevRectsRef.current = new Map();
+    wordListFlipPendingRef.current = false;
     setResultsSlidePhase("idle");
     resultsDraggingRef.current = false;
-    setResultsMetaPulse(false);
   }, [phase]);
   function buildRankingWindow(list, you, maxTop = 5, context = 2, maxItems = 12) {
     if (list.length <= maxItems) return list;
@@ -11933,14 +12098,14 @@ function handleTouchEnd() {
     if (pageKey === "round") setResultsRankingMode("round");
     if (pageKey === "total") setResultsRankingMode("total");
     if (pageKey === "found" && showAllWords) {
-      captureListPositions(flipList);
+      prepareWordListFlip(displayList);
       setShowAllWords(false);
     }
     if (pageKey === "all" && !showAllWords) {
-      captureListPositions(flipList);
+      prepareWordListFlip(displayList);
       setShowAllWords(true);
     }
-  }, [isMobileLayout, phase, isTargetRound, mobileResultsPage, showAllWords, flipList]);
+  }, [isMobileLayout, phase, isTargetRound, mobileResultsPage, showAllWords, displayList]);
   useEffect(() => {
     if (phase !== "playing" || !specialRound?.isSpecial) return;
     if (!installId) return;
@@ -13595,6 +13760,11 @@ function handleTouchEnd() {
     }
   });
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
+  const weeklyBoardDisplayLimit = STATS_WEEKLY_DISPLAY_LIMIT;
+  const seasonBoardDisplayLimit = Math.min(
+    STATS_SEASON_TARGET_LIMIT,
+    Math.max(STATS_WEEKLY_DISPLAY_LIMIT, weeklyLimit)
+  );
   const finaleBaselineBoards = tournamentBaselineRef.current.weeklyStats?.boards || {};
   const finaleBaselineRankMaps = {};
   const finaleBaselineValueMaps = {};
@@ -13616,9 +13786,17 @@ function handleTouchEnd() {
     finaleBaselineRankMaps[boardMeta.key] = rankMap;
     finaleBaselineValueMaps[boardMeta.key] = valueMap;
   });
-  const seasonVocabEntries = dedupeWeeklyEntries("vocab", weeklyBoardData.vocab, weeklyLimit);
+  const seasonVocabEntries = dedupeWeeklyEntries(
+    "vocab",
+    weeklyBoardData.vocab,
+    seasonBoardDisplayLimit
+  );
   const activeWeeklyEntries = activeWeeklyBoard
-    ? dedupeWeeklyEntries(activeWeeklyBoard.key, weeklyBoardData[activeWeeklyBoard.key], weeklyLimit)
+    ? dedupeWeeklyEntries(
+        activeWeeklyBoard.key,
+        weeklyBoardData[activeWeeklyBoard.key],
+        weeklyBoardDisplayLimit
+      )
     : [];
   const weeklyWeekNumber = weeklyStats?.weekStartTs
     ? getISOWeekNumber(new Date(weeklyStats.weekStartTs))
@@ -13821,6 +13999,7 @@ function handleTouchEnd() {
           height: `${Math.round(weeklyOverlayHeight)}px`,
           maxHeight: `${Math.round(weeklyOverlayHeight)}px`,
           minHeight: `${Math.round(weeklyOverlayHeight)}px`,
+          boxSizing: "border-box",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }
@@ -13828,178 +14007,165 @@ function handleTouchEnd() {
           height: "100dvh",
           maxHeight: "100dvh",
           minHeight: "100dvh",
+          boxSizing: "border-box",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         };
-  const weeklyStatsOverlay =
-    isWeeklyOpen && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed inset-0 z-[12000] bg-black/70 backdrop-blur-sm flex items-stretch justify-center px-2 sm:px-4 overflow-hidden"
-            style={weeklyOverlayStyle}
-            onClick={closeWeeklyStatsOverlay}
-          >
-            <div
-              className={`relative w-full max-w-none rounded-2xl border shadow-2xl overflow-hidden flex flex-col min-h-0 ${
+  const weeklyStatsPage =
+    appView === "stats" ? (
+      <div
+        className={`relative w-full max-w-none h-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col min-h-0 ${
+          darkMode
+            ? "bg-slate-900/90 border-white/10 text-white"
+            : "bg-white/95 border-slate-200 text-slate-900"
+        }`}
+        onTouchStart={handleStatsTouchStart}
+        onTouchMove={handleStatsTouchMove}
+        onTouchEnd={handleStatsTouchEnd}
+      >
+        <div className="p-4 pb-2 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+              GOBBLE STATS
+            </div>
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
                 darkMode
-                  ? "bg-slate-900/90 border-white/10 text-white"
-                  : "bg-white/95 border-slate-200 text-slate-900"
+                  ? "bg-slate-800/80 border-white/10 text-slate-100"
+                  : "bg-white border-slate-200 text-slate-700"
               }`}
-              onClick={(e) => e.stopPropagation()}
-              onTouchStart={handleStatsTouchStart}
-              onTouchMove={handleStatsTouchMove}
-              onTouchEnd={handleStatsTouchEnd}
+              onClick={() => {
+                playCloseSound();
+                closeWeeklyStatsOverlay();
+              }}
+              aria-label="Fermer les stats"
             >
-              <div className="p-4 pb-2 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-                    GOBBLE STATS
-                  </div>
-                  <button
-                    type="button"
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
-                      darkMode
-                        ? "bg-slate-800/80 border-white/10 text-slate-100"
-                        : "bg-white border-slate-200 text-slate-700"
-                    }`}
-                    onClick={() => {
-                      playCloseSound();
-                      closeWeeklyStatsOverlay();
-                    }}
-                    aria-label="Fermer les stats"
-                  >
-                    Fermer
-                  </button>
-                </div>
-                <div className="flex items-center justify-start">
-                  {statsHeaderToggle}
-                </div>
-                {statsHeaderTitle}
-                {statsTab === "weekly" ? (
-                  <div className="mt-2 text-[11px] opacity-70">
-                    Slide gauche/droite pour changer de categorie
-                  </div>
-                ) : null}
+              Fermer
+            </button>
+          </div>
+          <div className="flex items-center justify-start">{statsHeaderToggle}</div>
+          {statsHeaderTitle}
+          {statsTab === "weekly" ? (
+            <div className="mt-2 text-[11px] opacity-70">
+              Slide gauche/droite pour changer de categorie
+            </div>
+          ) : null}
+        </div>
+        {statsTab === "weekly" ? weeklyDots : null}
+        {statsTab === "season" ? seasonDots : null}
+        {statsTab === "weekly" ? (
+          <div className="relative px-2 sm:px-4 pb-4 flex-1 min-h-0 flex flex-col">
+            <div className="overflow-hidden rounded-2xl border-0 bg-transparent flex-1 min-h-0">
+              <div
+                className="flex w-full h-full"
+                style={{
+                  transform: `translateX(calc(${safeWeeklyIndex * -100}% + ${weeklyOffsetPercent}%))`,
+                  transition: weeklyDragging ? "none" : "transform 0.25s ease-out",
+                }}
+              >
+                {weeklyBoardsMeta.map((board, idx) => {
+                  const entries = dedupeWeeklyEntries(
+                    board.key,
+                    weeklyBoardData[board.key],
+                    weeklyBoardDisplayLimit
+                  );
+                  return (
+                    <div key={board.key} className="w-full shrink-0 px-0 flex flex-col min-h-0 h-full">
+                      <div className="p-4 space-y-3 flex flex-col min-h-0 h-full">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="text-sm font-semibold opacity-80">{board.subtitle || ""}</div>
+                          {weeklyStatsLoading && idx === safeWeeklyIndex ? (
+                            <div className="text-xs opacity-70">Mise a jour...</div>
+                          ) : null}
+                          {weeklyStatsError && idx === safeWeeklyIndex ? (
+                            <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
+                          ) : null}
+                        </div>
+                        {entries.length > 0 ? (
+                          <div
+                            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                            data-stats-scroll="true"
+                            style={{ WebkitOverflowScrolling: "touch" }}
+                          >
+                            {entries.map((entry, entryIdx) => renderWeeklyRow(board.key, entry, entryIdx))}
+                          </div>
+                        ) : (
+                          <div className="text-sm opacity-70 py-8 text-center flex-1 min-h-0 flex items-center justify-center">
+                            {weeklyStatsLoading && idx === safeWeeklyIndex
+                              ? "Chargement..."
+                              : weeklyStatsError && idx === safeWeeklyIndex
+                              ? "Impossible de recuperer les stats"
+                              : "Pas encore de stats cette semaine."}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {statsTab === "weekly" ? weeklyDots : null}
-              {statsTab === "season" ? seasonDots : null}
-              {statsTab === "weekly" ? (
-
-              <div className="relative px-2 sm:px-4 pb-4 flex-1 min-h-0">
-                <div className="overflow-hidden rounded-2xl border-0 bg-transparent">
-                  <div
-                    className="flex w-full"
-                    style={{
-                      transform: `translateX(calc(${safeWeeklyIndex * -100}% + ${weeklyOffsetPercent}%))`,
-                      transition: weeklyDragging ? "none" : "transform 0.25s ease-out",
-                    }}
-                  >
-                    {weeklyBoardsMeta.map((board, idx) => {
-                      const entries = dedupeWeeklyEntries(board.key, weeklyBoardData[board.key], weeklyLimit);
-                      return (
-                        <div
-                          key={board.key}
-                          className="w-full shrink-0 px-0 flex flex-col min-h-0"
-                        >
-                          <div className="p-4 space-y-3 flex flex-col min-h-0">
-                            <div className="flex items-baseline justify-between gap-2">
-                              <div className="text-sm font-semibold opacity-80">
-                                {board.subtitle || ""}
-                              </div>
-                              {weeklyStatsLoading && idx === safeWeeklyIndex ? (
-                                <div className="text-xs opacity-70">Mise a jour...</div>
-                              ) : null}
-                              {weeklyStatsError && idx === safeWeeklyIndex ? (
-                                <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
-                              ) : null}
-                            </div>
-                            {entries.length > 0 ? (
-                              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                                {entries.map((entry, entryIdx) =>
-                                  renderWeeklyRow(board.key, entry, entryIdx)
-                                )}
-                              </div>
-                            ) : (
-                              <div className="text-sm opacity-70 py-8 text-center flex-1 min-h-0 flex items-center justify-center">
-                                {weeklyStatsLoading && idx === safeWeeklyIndex
-                                  ? "Chargement..."
-                                  : weeklyStatsError && idx === safeWeeklyIndex
-                                  ? "Impossible de recuperer les stats"
-                                  : "Pas encore de stats cette semaine."}
-                              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="relative px-2 sm:px-4 pb-4 flex-1 min-h-0 flex flex-col">
+            <div className="overflow-hidden rounded-2xl border-0 bg-transparent flex-1 min-h-0">
+              <div
+                className="flex w-full min-h-0 h-full"
+                style={{
+                  transform: `translateX(calc(${safeSeasonIndex * -100}% + ${seasonOffsetPercent}%))`,
+                  transition: seasonDragging ? "none" : "transform 0.25s ease-out",
+                }}
+              >
+                {seasonPages.map((page) => (
+                  <div key={page} className="w-full shrink-0 px-0 flex flex-col min-h-0 h-full">
+                    {page === "vocab_rank" ? (
+                      <div className="p-4 space-y-3 flex flex-col min-h-0 h-full">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="text-sm font-semibold opacity-80">Mots uniques</div>
+                          {weeklyStatsLoading ? (
+                            <div className="text-xs opacity-70">Mise a jour...</div>
+                          ) : null}
+                          {weeklyStatsError ? (
+                            <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
+                          ) : null}
+                        </div>
+                        {seasonVocabEntries.length > 0 ? (
+                          <div
+                            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                            data-stats-scroll="true"
+                            style={{ WebkitOverflowScrolling: "touch" }}
+                          >
+                            {seasonVocabEntries.map((entry, entryIdx) =>
+                              renderWeeklyRow("vocab", entry, entryIdx, { showVocabIcon: true })
                             )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        ) : (
+                          <div className="text-sm opacity-70 py-8 text-center flex-1 min-h-0 flex items-center justify-center">
+                            {weeklyStatsLoading
+                              ? "Chargement..."
+                              : weeklyStatsError
+                              ? "Impossible de recuperer les stats"
+                              : "Pas encore de stats cette saison."}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        className="p-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                        data-stats-scroll="true"
+                        style={{ WebkitOverflowScrolling: "touch" }}
+                      >
+                        {renderVocabPanel({ showDelta: false, showHeading: false })}
+                      </div>
+                    )}
                   </div>
-                </div>
+                ))}
               </div>
-
-              ) : (
-                <div className="relative px-2 sm:px-4 pb-4 flex-1 min-h-0">
-                  <div className="overflow-hidden rounded-2xl border-0 bg-transparent flex-1 min-h-0">
-                    <div
-                      className="flex w-full min-h-0"
-                      style={{
-                        transform: `translateX(calc(${safeSeasonIndex * -100}% + ${seasonOffsetPercent}%))`,
-                        transition: seasonDragging ? "none" : "transform 0.25s ease-out",
-                      }}
-                    >
-                      {seasonPages.map((page) => (
-                        <div
-                          key={page}
-                          className="w-full shrink-0 px-0 flex flex-col min-h-0"
-                        >
-                          {page === "vocab_rank" ? (
-                            <div className="p-4 space-y-3 flex flex-col min-h-0">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <div className="text-sm font-semibold opacity-80">
-                                  Mots uniques
-                                </div>
-                                {weeklyStatsLoading ? (
-                                  <div className="text-xs opacity-70">Mise a jour...</div>
-                                ) : null}
-                                {weeklyStatsError ? (
-                                  <div className="text-xs text-red-400">
-                                    Erreur ({weeklyStatsError})
-                                  </div>
-                                ) : null}
-                              </div>
-                              {seasonVocabEntries.length > 0 ? (
-                                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                                  {seasonVocabEntries.map((entry, entryIdx) =>
-                                    renderWeeklyRow("vocab", entry, entryIdx, {
-                                      showVocabIcon: true,
-                                    })
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="text-sm opacity-70 py-8 text-center flex-1 min-h-0 flex items-center justify-center">
-                                  {weeklyStatsLoading
-                                    ? "Chargement..."
-                                    : weeklyStatsError
-                                    ? "Impossible de recuperer les stats"
-                                    : "Pas encore de stats cette saison."}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="p-4 flex-1 min-h-0">
-                              {renderVocabPanel({ showDelta: false, showHeading: false })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>,
-          document.body
-        )
-      : null;
+          </div>
+        )}
+      </div>
+    ) : null;
 
   const playersOverlayEntries =
     playersOverlayMode === "snapshot"
@@ -15274,7 +15440,6 @@ function handleTouchEnd() {
   const devPerfOverlay = null;
   const chatOverlays = (
     <>
-      {weeklyStatsOverlay}
       {playersOverlay}
       {userMenuView}
       {reportModal}
@@ -15736,10 +15901,32 @@ function handleTouchEnd() {
     );
   }
 
+  if (!isLoggedIn && appView === "stats") {
+    return (
+      <>
+        {playersOverlay}
+        {definitionModalView}
+        {twoLetterPopupView}
+        {tutorialOverlay}
+        {settingsMenuView}
+        {aboutModalView}
+        <div
+          className={`w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden ${
+            darkMode
+              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
+              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
+          }`}
+          style={weeklyOverlayStyle}
+        >
+          {weeklyStatsPage}
+        </div>
+      </>
+    );
+  }
+
   if (!isLoggedIn && !isDailyPlay) {
     return (
       <>
-        {weeklyStatsOverlay}
         {playersOverlay}
         {definitionModalView}
         {twoLetterPopupView}
@@ -15791,11 +15978,52 @@ function handleTouchEnd() {
                   Parametres
                 </button>
               </div>
-              {connectionError && (
-                <span className={darkMode ? "text-red-300" : "text-red-600"}>{connectionError}</span>
-              )}
             </div>
           </div>
+
+          {isAndroidWebBrowser ? (
+            <a
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-xl p-3 border transition flex items-center justify-between gap-3 ${
+                darkMode
+                  ? "bg-emerald-900/20 border-emerald-400/30 hover:bg-emerald-900/30"
+                  : "bg-emerald-50 border-emerald-200 hover:bg-emerald-100/70"
+              }`}
+              aria-label="Installer Gobble depuis Google Play"
+            >
+              <span className="inline-flex items-center gap-3 min-w-0">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 shrink-0">
+                  <svg
+                    viewBox="0 0 512 512"
+                    width="20"
+                    height="20"
+                    aria-hidden="true"
+                  >
+                    <polygon fill="#00D26A" points="30,30 286,256 30,482" />
+                    <polygon fill="#00AEEF" points="286,256 370,182 456,256 370,330" />
+                    <polygon fill="#FFD400" points="30,30 370,182 286,256" />
+                    <polygon fill="#FF3D57" points="30,482 286,256 370,330" />
+                  </svg>
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[10px] uppercase tracking-widest opacity-70">
+                    Version application
+                  </span>
+                  <span className="block text-sm font-semibold truncate">
+                    Disponible sur Google Play
+                  </span>
+                </span>
+              </span>
+              <span
+                className="material-icons-outlined text-[18px] opacity-70 shrink-0"
+                aria-hidden="true"
+              >
+                open_in_new
+              </span>
+            </a>
+          ) : null}
 
           {canResumeNow ? (
             <div
@@ -15856,9 +16084,6 @@ function handleTouchEnd() {
                 maxLength={25}
               />
             </label>
-            {loginError && (
-              <div className="text-red-300 text-xs">{loginError}</div>
-            )}
             <button
               type="submit"
               className="mt-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition disabled:opacity-60"
@@ -16093,6 +16318,9 @@ function handleTouchEnd() {
   if (showTournamentFinale) {
     const baselineRankingMap = tournamentBaselineRef.current.rankingMap;
     const baselineRound = tournamentBaselineRef.current.rankingRound;
+    const finaleSummaryRanking = Array.isArray(tournamentFinaleSummary?.ranking)
+      ? tournamentFinaleSummary.ranking.filter((entry) => getTournamentPoints(entry) > 0)
+      : [];
     const finaleDeltaByNick = new Map();
     if (Array.isArray(tournamentRanking)) {
       tournamentRanking.forEach((entry) => {
@@ -16109,8 +16337,8 @@ function handleTouchEnd() {
           !Number.isFinite(currentRound) ||
           baselineRound < currentRound
         : false;
-    const finaleRanking = tournamentFinaleSummary.ranking.map((e, idx) => {
-      const posNow = Number.isFinite(e.pos) ? e.pos : idx + 1;
+    const finaleRanking = finaleSummaryRanking.map((e, idx) => {
+      const posNow = idx + 1;
       const basePos = baselineRankingMap?.get(e.nick);
       const fallbackDelta =
         finaleDeltaByNick.has(e.nick)
@@ -17077,6 +17305,7 @@ function handleTouchEnd() {
                                 !isPending &&
                                 !isRejected &&
                                 !isSpeedRound;
+                              const isTrouvable = !isFound && !isRejected;
                               const visible = showAllWords || isFound || isRejected;
                               const wordClassName = isRejected
                                 ? darkMode
@@ -17108,17 +17337,21 @@ function handleTouchEnd() {
                                   } ${isGuidedWordTarget ? "guide-highlight guide-blink" : ""}`}
                                   style={{
                                     transitionDuration: "220ms",
+                                    transitionProperty: isTrouvable
+                                      ? "opacity, max-height"
+                                      : "opacity, transform, max-height",
                                     opacity: visible ? 1 : 0,
-                                    transform: visible ? "translateY(0)" : "translateY(-8px)",
+                                    transform:
+                                      isTrouvable || visible
+                                        ? "translateY(0)"
+                                        : "translateY(-8px)",
                                     maxHeight: visible ? "48px" : "0px",
-                                    paddingTop: "2px",
-                                    paddingBottom: "2px",
-                                    overflow: isGuidedWordTarget ? "visible" : "hidden",
+                                    paddingTop: visible ? "2px" : "0px",
+                                    paddingBottom: visible ? "2px" : "0px",
+                                    overflow:
+                                      isGuidedWordTarget && visible ? "visible" : "hidden",
                                     pointerEvents: visible ? "auto" : "none",
-                                    position: visible ? "relative" : "absolute",
-                                    top: 0,
-                                    left: 0,
-                                    width: "100%",
+                                    position: "relative",
                                     color:
                                       !isFound && !isPending && darkMode
                                         ? DARK_WORD_INACTIVE
@@ -17209,7 +17442,7 @@ function handleTouchEnd() {
                           darkMode={darkMode}
                           expanded={true}
                           animateRank={false}
-                          animateReorder={resultsMetaPulse}
+                          animateReorderTick={resultsReorderTick}
                           showWheel={false}
                           flatStyle={true}
                           showRoundAward={true}
@@ -17846,7 +18079,7 @@ function handleTouchEnd() {
           darkMode={darkMode}
           expanded={true}
           animateRank={false}
-          animateReorder={resultsMetaPulse}
+          animateReorderTick={resultsReorderTick}
           showWheel={false}
           showBadge={!isMobileLayout}
           flatStyle={isMobileLayout}
@@ -18256,7 +18489,7 @@ function handleTouchEnd() {
                       <button
                         type="button"
                         onClick={() => {
-                          captureListPositions(flipList);
+                          prepareWordListFlip(displayList);
                           setShowAllWords(false);
                         }}
                         className={`px-3 py-1 transition ${
@@ -18274,7 +18507,7 @@ function handleTouchEnd() {
                       <button
                         type="button"
                         onClick={() => {
-                          captureListPositions(flipList);
+                          prepareWordListFlip(displayList);
                           setShowAllWords(true);
                         }}
                         className={`px-3 py-1 transition ${
@@ -18315,6 +18548,7 @@ function handleTouchEnd() {
                         bestPts !== userPts &&
                         !isPending &&
                         !isRejected;
+                      const isTrouvable = !isFound && !isRejected;
                       const visible = showAllWords || isFound || isRejected;
                       const wordClassName = isRejected
                         ? darkMode
@@ -18346,17 +18580,20 @@ function handleTouchEnd() {
                           }`}
                           style={{
                             transitionDuration: "220ms",
+                            transitionProperty: isTrouvable
+                              ? "opacity, max-height"
+                              : "opacity, transform, max-height",
                             opacity: visible ? 1 : 0,
-                            transform: visible ? "translateY(0)" : "translateY(-8px)",
+                            transform:
+                              isTrouvable || visible
+                                ? "translateY(0)"
+                                : "translateY(-8px)",
                             maxHeight: visible ? "48px" : "0px",
-                            paddingTop: "2px",
-                            paddingBottom: "2px",
+                            paddingTop: visible ? "2px" : "0px",
+                            paddingBottom: visible ? "2px" : "0px",
                             overflow: "hidden",
                             pointerEvents: visible ? "auto" : "none",
-                            position: visible ? "relative" : "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
+                            position: "relative",
                             color:
                               !isFound && !isPending && darkMode
                                 ? DARK_WORD_INACTIVE

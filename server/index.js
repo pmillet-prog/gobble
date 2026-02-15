@@ -1952,26 +1952,74 @@ function computeRoundWordLeaders(round, results) {
   return { bestWord, longestWord, bestScoreNicks, longestWordNicks };
 }
 
-function assignSpecialGobblesFromResults(room, results) {
-  const specialType = room?.currentRound?.special?.type;
-  if (specialType !== "speed" && specialType !== "monstrous") return;
-  const leaders = computeRoundWordLeaders(room.currentRound, results);
-  if (!leaders) return;
+function recomputeRoundGobblesFromResults(room, results) {
+  if (!room?.currentRound || !Array.isArray(results)) return;
+  const specialType = room.currentRound?.special?.type;
+  const isTargetRound =
+    specialType === "target_long" || specialType === "target_score";
 
   const gobbles = new Map();
-  const addGobble = (nick) => {
-    if (!nick) return;
-    const current = gobbles.get(nick) || 0;
-    if (current >= 2) return;
-    gobbles.set(nick, current + 1);
-  };
-
-  if (specialType === "monstrous") {
-    leaders.bestScoreNicks.forEach((nick) => addGobble(nick));
+  const gobbleFlags = new Map();
+  if (isTargetRound) {
+    room.currentRound.gobbles = gobbles;
+    room.currentRound.gobbleFlags = gobbleFlags;
+    return;
   }
-  leaders.longestWordNicks.forEach((nick) => addGobble(nick));
+
+  const board = room.currentRound.grid;
+  if (!Array.isArray(board) || board.length === 0) {
+    room.currentRound.gobbles = gobbles;
+    room.currentRound.gobbleFlags = gobbleFlags;
+    return;
+  }
+
+  const scoreConfig = getSpecialScoreConfig(room.currentRound);
+  const maxLenPossible = Number(room.bestPossibleStats?.maxLen) || 0;
+  const maxPtsPossible = Number(room.bestPossibleStats?.maxPts) || 0;
+  const scoreGobbleEnabled = specialType !== "speed" && maxPtsPossible > 0;
+  const lenGobbleEnabled = maxLenPossible > 0;
+
+  for (const entry of results) {
+    const nick = entry?.nick;
+    if (!nick) continue;
+    const words = Array.isArray(entry?.words) ? entry.words : [];
+    if (!words.length) continue;
+
+    let hasScoreGobble = false;
+    let hasLenGobble = false;
+    for (const raw of words) {
+      const scored = scoreWordOnGrid(raw, board, scoreConfig);
+      if (!scored) continue;
+      const pts = computeWordScoreForRound(
+        room.currentRound,
+        scored.norm,
+        scored.path,
+        scored.pts
+      );
+      const len = scored.norm.length;
+      if (scoreGobbleEnabled && pts === maxPtsPossible) {
+        hasScoreGobble = true;
+      }
+      if (lenGobbleEnabled && len === maxLenPossible) {
+        hasLenGobble = true;
+      }
+      if (
+        (!scoreGobbleEnabled || hasScoreGobble) &&
+        (!lenGobbleEnabled || hasLenGobble)
+      ) {
+        break;
+      }
+    }
+
+    const count = (hasScoreGobble ? 1 : 0) + (hasLenGobble ? 1 : 0);
+    if (count > 0) {
+      gobbles.set(nick, count);
+      gobbleFlags.set(nick, { score: hasScoreGobble, len: hasLenGobble });
+    }
+  }
 
   room.currentRound.gobbles = gobbles;
+  room.currentRound.gobbleFlags = gobbleFlags;
 }
 
 function queueDefinitionPrefetch(room, results, targetSummary, roundOverride = null) {
@@ -2567,12 +2615,12 @@ async function endRoundForRoom(room) {
   }
 
   results.sort((a, b) => b.score - a.score);
-  assignSpecialGobblesFromResults(room, results);
+  recomputeRoundGobblesFromResults(room, results);
 
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
   const roundGobbles = room.currentRound.gobbles || new Map();
   const targetFoundAt = room.currentRound.targetFoundAt || new Map();
-  const targetScoreForWeekly = 500;
+  const targetScoreForWeekly = 1000;
   for (const entry of results) {
     if (entry.isBot) continue;
     if (!entry.participated) continue;

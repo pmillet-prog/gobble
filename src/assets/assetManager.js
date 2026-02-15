@@ -394,6 +394,41 @@ function withCacheBust(url) {
   return `${url}${sep}asset_bust=${stamp}`;
 }
 
+function isPersistentStaticAsset(url) {
+  if (!url || typeof url !== "string") return false;
+  let pathname = "";
+  if (typeof window !== "undefined") {
+    try {
+      pathname = new URL(url, window.location.origin).pathname || "";
+    } catch (_) {
+      pathname = url;
+    }
+  } else {
+    pathname = url;
+  }
+  const lower = String(pathname).toLowerCase();
+  if (
+    lower.startsWith("/sound/") ||
+    lower.startsWith("/bigwords/") ||
+    lower.startsWith("/vocab-ranks/")
+  ) {
+    return true;
+  }
+  return (
+    lower.endsWith(".mp3") ||
+    lower.endsWith(".m4a") ||
+    lower.endsWith(".wav") ||
+    lower.endsWith(".ogg") ||
+    lower.endsWith(".webm") ||
+    lower.endsWith(".png") ||
+    lower.endsWith(".webp") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".svg") ||
+    lower.endsWith(".txt")
+  );
+}
+
 async function fetchWithTimeout(url, timeoutMs = 8000) {
   const attempt = async (cache, targetUrl) => {
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -415,11 +450,16 @@ async function fetchWithTimeout(url, timeoutMs = 8000) {
     }
   };
 
-  const attempts = [
-    { cache: "force-cache", url },
-    { cache: "no-store", url },
-    { cache: "no-store", url: withCacheBust(url) },
-  ];
+  const attempts = isPersistentStaticAsset(url)
+    ? [
+        { cache: "force-cache", url },
+        { cache: "default", url },
+      ]
+    : [
+        { cache: "force-cache", url },
+        { cache: "no-store", url },
+        { cache: "no-store", url: withCacheBust(url) },
+      ];
   let lastError = null;
   for (const entry of attempts) {
     try {

@@ -328,7 +328,7 @@ function RankingWidgetMobile({
   expanded,
   fitHeight = true,
   animateRank = true,
-  animateReorder = false,
+  animateReorderTick = 0,
   showWheel = true,
   showBadge = false,
   flatStyle = false,
@@ -353,6 +353,8 @@ function RankingWidgetMobile({
   const rowRefs = React.useRef(new Map());
   const prevRowPositionsRef = React.useRef(new Map());
   const reorderTimersRef = React.useRef(new Map());
+  const reorderRafIdsRef = React.useRef([]);
+  const lastAnimatedTickRef = React.useRef(-1);
   const [rowPx, setRowPx] = React.useState(null);
   const [rowsCount, setRowsCount] = React.useState(5);
   const WHEEL_ROWS = 5;
@@ -368,6 +370,13 @@ function RankingWidgetMobile({
     flex: "0 0 auto",
   };
   const gapPx = 4;
+  const rankingOrderKey = React.useMemo(
+    () =>
+      safeRanking
+        .map((entry, index) => String(entry?.playerKey || entry?.nick || `row-${index}`))
+        .join("|"),
+    [safeRanking]
+  );
 
   React.useEffect(() => {
     if (!fitHeight || expanded) {
@@ -404,11 +413,27 @@ function RankingWidgetMobile({
   }, [fitHeight, expanded]);
 
   React.useLayoutEffect(() => {
+    const clearPendingReorderArtifacts = () => {
+      reorderTimersRef.current.forEach((id) => clearTimeout(id));
+      reorderTimersRef.current.clear();
+      if (
+        typeof window !== "undefined" &&
+        typeof window.cancelAnimationFrame === "function" &&
+        reorderRafIdsRef.current.length
+      ) {
+        reorderRafIdsRef.current.forEach((id) => window.cancelAnimationFrame(id));
+      }
+      reorderRafIdsRef.current = [];
+    };
+
     if (!flatStyle) {
+      clearPendingReorderArtifacts();
       prevRowPositionsRef.current = new Map();
+      lastAnimatedTickRef.current = -1;
       return undefined;
     }
 
+    clearPendingReorderArtifacts();
     const nodes = rowRefs.current;
     const nextPositions = new Map();
     nodes.forEach((node, key) => {
@@ -421,9 +446,13 @@ function RankingWidgetMobile({
     });
 
     const prevPositions = prevRowPositionsRef.current;
-    if (animateReorder && prevPositions && prevPositions.size > 0) {
-      reorderTimersRef.current.forEach((id) => clearTimeout(id));
-      reorderTimersRef.current.clear();
+    const shouldAnimateReorder =
+      prevPositions &&
+      prevPositions.size > 0 &&
+      animateReorderTick !== lastAnimatedTickRef.current;
+
+    if (shouldAnimateReorder) {
+      lastAnimatedTickRef.current = animateReorderTick;
 
       nodes.forEach((node, key) => {
         if (!node) return;
@@ -432,15 +461,20 @@ function RankingWidgetMobile({
         if (!prevRect || !nextRect) return;
         const dx = prevRect.left - nextRect.left;
         const dy = prevRect.top - nextRect.top;
-        if (dx === 0 && dy === 0) return;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
         node.style.transition = "none";
         node.style.transform = `translate(${dx}px, ${dy}px)`;
         node.style.willChange = "transform";
-        const raf =
-          typeof window !== "undefined" && window.requestAnimationFrame
-            ? window.requestAnimationFrame
-            : (cb) => setTimeout(cb, 0);
-        raf(() => {
+        if (
+          typeof window === "undefined" ||
+          typeof window.requestAnimationFrame !== "function"
+        ) {
+          node.style.transition = "transform 500ms cubic-bezier(0.22, 1, 0.36, 1)";
+          node.style.transform = "";
+          return;
+        }
+        const rafId = window.requestAnimationFrame(() => {
+          if (!node.isConnected) return;
           node.style.transition = "transform 500ms cubic-bezier(0.22, 1, 0.36, 1)";
           node.style.transform = "";
           const timeoutId = setTimeout(() => {
@@ -449,15 +483,15 @@ function RankingWidgetMobile({
           }, 520);
           reorderTimersRef.current.set(key, timeoutId);
         });
+        reorderRafIdsRef.current.push(rafId);
       });
     }
 
     prevRowPositionsRef.current = nextPositions;
     return () => {
-      reorderTimersRef.current.forEach((id) => clearTimeout(id));
-      reorderTimersRef.current.clear();
+      clearPendingReorderArtifacts();
     };
-  }, [safeRanking, animateReorder, flatStyle]);
+  }, [animateReorderTick, flatStyle, rankingOrderKey]);
 
 
   // Met à jour le rang cible quand le classement bouge

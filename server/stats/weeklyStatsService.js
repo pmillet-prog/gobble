@@ -433,6 +433,7 @@ export function recordMostWordsInGame(playerKey, nick, wordsCount, roundId, achi
 export function recordTotalScore(playerKey, nick, scoreToAdd, achievedAt = Date.now()) {
   ensureCurrentWeek();
   if (!playerKey || !nick || !Number.isFinite(scoreToAdd)) return;
+  if (scoreToAdd <= 0) return;
   const current = state.totalScore.get(playerKey) || {
     nick,
     playerKey,
