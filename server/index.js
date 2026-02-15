@@ -1615,11 +1615,21 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   ) {
     if (!room.currentRound.targetFoundAt) room.currentRound.targetFoundAt = new Map();
     if (!room.currentRound.targetFoundAt.has(resolvedNick)) {
-      room.currentRound.targetFoundAt.set(resolvedNick, Date.now());
+      const foundAt = Date.now();
+      room.currentRound.targetFoundAt.set(resolvedNick, foundAt);
+      const startedAt =
+        (room.currentRound.endsAt || foundAt) -
+        (room.currentRound.durationMs || room.config.durationMs || 0);
+      const elapsed = Math.max(0, foundAt - startedAt);
+      const elapsedSeconds = elapsed / 1000;
+      const elapsedLabel = (elapsedSeconds < 10 ? elapsedSeconds.toFixed(2) : elapsedSeconds.toFixed(1))
+        .replace(".", ",");
       pushAnnouncement(room, {
         type: "special_target_found",
         nick: resolvedNick,
-        text: `${resolvedNick} a trouvé !`,
+        elapsedMs: elapsed,
+        elapsedSeconds,
+        text: `${resolvedNick} a trouvé en ${elapsedLabel} secondes`,
       });
       io.to(room.id).emit("specialSolved", {
         roomId: room.id,
@@ -1628,18 +1638,13 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
         kind: specialType,
       });
       if (!isBotPlayer && playerKey) {
-        const startedAt =
-          (room.currentRound.endsAt || Date.now()) -
-          (room.currentRound.durationMs || room.config.durationMs || 0);
-        const foundAt = room.currentRound.targetFoundAt.get(resolvedNick);
-        const elapsed = Math.max(0, (foundAt || Date.now()) - startedAt);
         recordBestTargetTime(
           specialType,
           playerKey,
           resolvedNick,
           elapsed,
           targetWord,
-          foundAt || Date.now()
+          foundAt
         );
       }
     }

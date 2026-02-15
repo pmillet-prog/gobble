@@ -250,7 +250,28 @@ const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
   priority: "critical",
   meta: { eqKey: "score2" },
 }));
-const BOOT_MIN_HOLD_MS = 650;
+const BOOT_MIN_HOLD_MS = 5000;
+const BOOT_INTRO_GIF_SRC = "/intro%20gobble.gif";
+const BOOT_INTRO_GIF_LOOP_MS = 2600;
+const BOOT_FUN_MESSAGES = [
+  "Jonglage avec les tuiles...",
+  "Melange des lettres...",
+  "Secouage du gobelet...",
+  "Polissage des cases...",
+  "Affutage des consonnes...",
+  "Hydratation des voyelles...",
+  "Preparation du plateau...",
+  "Reglage du chrono...",
+  "Synchronisation des cerveaux...",
+  "Dressage des \"G\"...",
+  "Mise en orbite des tuiles...",
+  "Calibrage du score...",
+  "Tri des mots trop faciles...",
+  "Chasse aux doublons...",
+  "Compression du dictionnaire...",
+  "Remplissage des sacs de lettres...",
+  "Cuisson des anagrammes...",
+];
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
 const STATS_SEASON_TARGET_LIMIT = 200;
@@ -959,25 +980,101 @@ async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }
 
 function BootLoader({ progress = 0, darkMode = false }) {
   if (typeof document === "undefined") return null;
+  const [gifLoadFailed, setGifLoadFailed] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [gifLoopTick, setGifLoopTick] = useState(0);
+  const [funMessage, setFunMessage] = useState(() => {
+    if (!BOOT_FUN_MESSAGES.length) return "Chargement en cours...";
+    return BOOT_FUN_MESSAGES[Math.floor(Math.random() * BOOT_FUN_MESSAGES.length)];
+  });
+  const startedAtRef = useRef(
+    typeof performance !== "undefined" ? performance.now() : Date.now()
+  );
+
   const progressValue =
     typeof progress === "number"
       ? progress
       : Number.isFinite(progress?.loaded) && Number.isFinite(progress?.total) && progress.total > 0
       ? progress.loaded / progress.total
       : 0;
+  const isBootDone = !!(typeof progress === "object" && progress?.done);
+  const isSlowLoading = !isBootDone && elapsedMs >= BOOT_MIN_HOLD_MS;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const tick = () => {
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      setElapsedMs(Math.max(0, now - startedAtRef.current));
+    };
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!isSlowLoading || gifLoadFailed) return undefined;
+    const id = window.setInterval(() => {
+      setGifLoopTick((prev) => prev + 1);
+    }, BOOT_INTRO_GIF_LOOP_MS);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [isSlowLoading, gifLoadFailed]);
+
+  useEffect(() => {
+    if (!isSlowLoading && gifLoopTick !== 0) {
+      setGifLoopTick(0);
+    }
+  }, [isSlowLoading, gifLoopTick]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!BOOT_FUN_MESSAGES.length) return undefined;
+    let timerId = null;
+    const scheduleNext = () => {
+      const delay = 1100 + Math.floor(Math.random() * 900);
+      timerId = window.setTimeout(() => {
+        setFunMessage((prev) => {
+          if (BOOT_FUN_MESSAGES.length === 1) return BOOT_FUN_MESSAGES[0];
+          let next = prev;
+          let guard = 0;
+          while (next === prev && guard < 10) {
+            next = BOOT_FUN_MESSAGES[Math.floor(Math.random() * BOOT_FUN_MESSAGES.length)];
+            guard += 1;
+          }
+          return next;
+        });
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+    return () => {
+      if (timerId) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, []);
+
   const clamped = Number.isFinite(progressValue) ? Math.min(Math.max(progressValue, 0), 1) : 0;
   const percent = Math.round(clamped * 100);
   const logoSrc = AssetManager.getImage(IMAGE_KEYS.favicon).url || "";
-  const stageLabel = typeof progress === "object" ? progress?.stage || "" : "";
-  const keyLabel = typeof progress === "object" ? progress?.key || "" : "";
+  const gifSrc = gifLoadFailed
+    ? logoSrc
+    : `${BOOT_INTRO_GIF_SRC}${isSlowLoading ? `?loop=${gifLoopTick}` : ""}`;
   const glowClass = darkMode
     ? "bg-slate-950 text-slate-100"
-    : "bg-gradient-to-br from-amber-50 via-orange-50 to-white text-slate-900";
+    : "bg-slate-100 text-slate-900";
   const cardClass = darkMode
     ? "bg-slate-900/85 border-white/10"
-    : "bg-white/90 border-slate-200";
+    : "bg-white border-slate-200";
   const barTrackClass = darkMode ? "bg-slate-800/70" : "bg-slate-200/80";
   const barFillClass = darkMode ? "bg-amber-400" : "bg-amber-500";
+  const blobOneClass = darkMode ? "bg-amber-300/30" : "bg-sky-200/40";
+  const blobTwoClass = darkMode ? "bg-orange-400/25" : "bg-blue-200/35";
+  const blobThreeClass = darkMode ? "bg-yellow-200/25" : "bg-cyan-100/35";
 
   return createPortal(
     <div className={`fixed inset-0 z-[14000] flex items-center justify-center ${glowClass}`}>
@@ -997,32 +1094,38 @@ function BootLoader({ progress = 0, darkMode = false }) {
   70% { transform: scale(1.02); box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
 }
+@keyframes bootGifBoomerang {
+  0% { transform: translateX(-3px) scale(0.995); }
+  100% { transform: translateX(3px) scale(1.005); }
+}
 `}</style>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className="absolute -top-28 -left-16 h-64 w-64 rounded-full bg-amber-300/30 blur-3xl"
+          className={`absolute -top-28 -left-16 h-64 w-64 rounded-full blur-3xl ${blobOneClass}`}
           style={{ animation: "bootFloatOne 6s ease-in-out infinite" }}
         />
         <div
-          className="absolute top-1/3 -right-24 h-72 w-72 rounded-full bg-orange-400/25 blur-3xl"
+          className={`absolute top-1/3 -right-24 h-72 w-72 rounded-full blur-3xl ${blobTwoClass}`}
           style={{ animation: "bootFloatTwo 7s ease-in-out infinite" }}
         />
         <div
-          className="absolute -bottom-28 left-1/4 h-80 w-80 rounded-full bg-yellow-200/25 blur-3xl"
+          className={`absolute -bottom-28 left-1/4 h-80 w-80 rounded-full blur-3xl ${blobThreeClass}`}
           style={{ animation: "bootFloatOne 8s ease-in-out infinite" }}
         />
       </div>
-      <div className={`relative w-[92vw] max-w-sm rounded-3xl border p-6 shadow-2xl ${cardClass}`}>
+      <div className={`relative w-[94vw] max-w-md rounded-3xl border p-5 shadow-2xl ${cardClass}`}>
         <div className="flex items-center justify-center">
-          <div
-            className={`rounded-2xl p-3 ${darkMode ? "bg-amber-500/10" : "bg-amber-200/60"}`}
-            style={{ animation: "bootPulse 2.6s ease-in-out infinite" }}
-          >
+          <div className={`w-full rounded-2xl overflow-hidden border ${darkMode ? "border-white/10" : "border-slate-200"}`}>
             <img
-              src={logoSrc}
-              alt="Gobble"
-              className="h-16 w-16 object-contain"
+              src={gifSrc}
+              alt="Intro Gobble"
+              className="w-full object-cover"
+              style={{
+                maxHeight: "260px",
+                animation: isSlowLoading ? "bootGifBoomerang 0.9s ease-in-out infinite alternate" : undefined,
+              }}
               draggable="false"
+              onError={() => setGifLoadFailed(true)}
             />
           </div>
         </div>
@@ -1042,13 +1145,15 @@ function BootLoader({ progress = 0, darkMode = false }) {
             <span>{percent}%</span>
             <span>Assets</span>
           </div>
-          {stageLabel || keyLabel ? (
-            <div
-              className={`mt-1 text-[10px] font-semibold truncate ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-              title={`${stageLabel} ${keyLabel}`.trim()}
-            >
-              {stageLabel ? `${stageLabel} · ` : ""}
-              {keyLabel}
+          <div
+            className={`mt-1 text-[10px] font-semibold truncate ${darkMode ? "text-slate-300" : "text-slate-600"}`}
+            title={funMessage}
+          >
+            {funMessage}
+          </div>
+          {isSlowLoading ? (
+            <div className={`mt-1 text-[10px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+              Connexion lente, animation relancée en boucle.
             </div>
           ) : null}
       </div>
@@ -1834,8 +1939,52 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
 }
 
 .tile-hint-outline {
-  outline: 3px solid rgba(16, 185, 129, 0.75);
-  outline-offset: -3px;
+  position: relative;
+  outline: 4px solid rgba(16, 185, 129, 0.9);
+  outline-offset: -4px;
+}
+
+.tile-hint-outline::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 2px rgba(16, 185, 129, 0.95),
+    0 0 12px 2px rgba(16, 185, 129, 0.45);
+  animation: tileHintOutlineGlow 1.4s ease-in-out infinite;
+}
+
+@keyframes tileHintOutlineGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(16, 185, 129, 0.95),
+      0 0 12px 2px rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(16, 185, 129, 1),
+      0 0 18px 4px rgba(16, 185, 129, 0.65),
+      0 0 30px 10px rgba(16, 185, 129, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-hint-outline::after {
+    animation: none;
+  }
+}
+
+body.theme-dark .tile-hint-outline {
+  outline-color: rgba(52, 211, 153, 0.98);
+}
+
+body.theme-dark .tile-hint-outline::after {
+  box-shadow:
+    0 0 0 2px rgba(52, 211, 153, 0.95),
+    0 0 14px 3px rgba(16, 185, 129, 0.6);
 }
 
 body.theme-dark .tile-hint {
@@ -15457,10 +15606,14 @@ function handleTouchEnd() {
       {devPerfOverlay}
     </>
   );
-  const bootOverlay = !bootProgress.done ? (
-    <BootLoader progress={bootProgress} darkMode={darkMode} />
+  const isBootBlocking = !bootProgress.done;
+  const bootOverlay = isBootBlocking ? (
+    <BootLoader
+      progress={bootProgress}
+      darkMode={darkMode}
+    />
   ) : null;
-  if (!bootProgress.done) {
+  if (isBootBlocking) {
     return bootOverlay;
   }
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -16101,16 +16254,11 @@ function handleTouchEnd() {
             </button>
             <button
               type="button"
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-amber-500 hover:bg-amber-400 text-white shadow-sm"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
               onClick={openDailyHome}
               disabled={isConnecting}
             >
-              <span className="inline-flex items-center gap-2">
-                Grille du jour
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-white/80 text-amber-900">
-                  Nouveau
-                </span>
-              </span>
+              Grille du jour
             </button>
             <button
               type="button"
