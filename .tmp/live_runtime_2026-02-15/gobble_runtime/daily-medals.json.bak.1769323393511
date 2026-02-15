@@ -1,0 +1,15 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "nick:Tigrou": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        }
+      },
+      "expiry": {},
+      "updatedAt": 1769322742800
+    }
+  }
+}

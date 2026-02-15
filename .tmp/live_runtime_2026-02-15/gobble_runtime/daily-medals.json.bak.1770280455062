@@ -1,0 +1,24 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 2
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        }
+      },
+      "expiry": {
+        "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": 1770332400000,
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": 1770332400000
+      },
+      "updatedAt": 1770279705848
+    }
+  },
+  "lastResetDateId": "2026-02-05"
+}

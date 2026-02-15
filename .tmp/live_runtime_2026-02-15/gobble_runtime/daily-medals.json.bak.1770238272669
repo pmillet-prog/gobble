@@ -1,0 +1,42 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "gold": 2,
+          "silver": 2,
+          "bronze": 0
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "gold": 5,
+          "silver": 2,
+          "bronze": 1
+        },
+        "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "gold": 4,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        }
+      },
+      "expiry": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": 1770246000000,
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": 1770246000000,
+        "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": 1770246000000,
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": 1770246000000,
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": 1770246000000
+      },
+      "updatedAt": 1770238145888
+    }
+  },
+  "lastResetDateId": "2026-02-04"
+}

@@ -22,6 +22,9 @@ import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
 import TutorialOverlay from "./components/TutorialOverlay.jsx";
+import ToastStack from "./components/ToastStack.jsx";
+import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
+import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
 import {
   computeScore,
   filterDictionary,
@@ -250,18 +253,19 @@ const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
   priority: "critical",
   meta: { eqKey: "score2" },
 }));
-const BOOT_MIN_HOLD_MS = 5000;
+const BOOT_MIN_HOLD_MS = 4800;
+const BOOT_TRANSITION_MS = 500;
 const BOOT_INTRO_GIF_SRC = "/intro%20gobble.gif";
 const BOOT_INTRO_GIF_LOOP_MS = 2600;
 const BOOT_FUN_MESSAGES = [
   "Jonglage avec les tuiles...",
-  "Melange des lettres...",
+  "Mélange des lettres...",
   "Secouage du gobelet...",
   "Polissage des cases...",
-  "Affutage des consonnes...",
+  "Affûtage des consonnes...",
   "Hydratation des voyelles...",
-  "Preparation du plateau...",
-  "Reglage du chrono...",
+  "Préparation du plateau...",
+  "Réglage du chrono...",
   "Synchronisation des cerveaux...",
   "Dressage des \"G\"...",
   "Mise en orbite des tuiles...",
@@ -275,6 +279,84 @@ const BOOT_FUN_MESSAGES = [
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
 const STATS_SEASON_TARGET_LIMIT = 200;
+const DUEL_TUTORIAL_STEPS = [
+  "Chaque semaine, tu es dans l'équipe Rouge ou Bleue.",
+  "Chaque jour, tu as 3 objectifs (facile, moyen, difficile). Valide-les dans le jeu principal pour aider ton equipe.",
+  "Gobbles + duel sur la grille quotidienne font aussi monter le score. Si ton equipe gagne et que tu as été actif, tu portes la couronne la semaine suivante.",
+];
+const ENABLE_FAKE_DAILY_HISTORY = false; // false to disable test data quickly
+
+function parseIsoDateId(raw) {
+  const match = String(raw || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+}
+
+function formatIsoDateId(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shiftIsoDateId(dateId, deltaDays) {
+  const parsed = parseIsoDateId(dateId);
+  const base = parsed
+    ? new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day))
+    : new Date();
+  base.setUTCDate(base.getUTCDate() + Number(deltaDays || 0));
+  return formatIsoDateId(base);
+}
+
+function buildFakeDailyHistoryDays(todayDateId) {
+  if (!ENABLE_FAKE_DAILY_HISTORY) return [];
+  const seeds = [0, 1, 2];
+  const redNames = ["Atlas", "Nora", "Silo", "Iris", "Milo", "Romy"];
+  const blueNames = ["Lena", "Axel", "Maya", "Noe", "Sami", "Loup"];
+  return seeds.map((seed, seedIdx) => {
+    const redEntries = redNames.map((nick, idx) => ({
+      installId: `fake-red-${seedIdx}-${idx}`,
+      nick: `${nick}${seedIdx + 1}`,
+      score: 1200 - seed * 70 - idx * 55,
+      wordsCount: 24 - idx,
+      team: "red",
+      playerKey: `fake-red-${seedIdx}-${idx}`,
+      isPalier: false,
+    }));
+    const blueEntries = blueNames.map((nick, idx) => ({
+      installId: `fake-blue-${seedIdx}-${idx}`,
+      nick: `${nick}${seedIdx + 1}`,
+      score: 1160 - seed * 65 - idx * 52,
+      wordsCount: 23 - idx,
+      team: "blue",
+      playerKey: `fake-blue-${seedIdx}-${idx}`,
+      isPalier: false,
+    }));
+    const entries = [...redEntries, ...blueEntries].sort((a, b) => {
+      const diff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
+      if (diff !== 0) return diff;
+      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+    });
+    const redBalanced = redEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0);
+    const blueBalanced = blueEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0);
+    return {
+      // Keep test pages distinct from real history dates so they always remain visible in test mode.
+      dateId: `TEST-${shiftIsoDateId(todayDateId || null, -(seedIdx + 1))}`,
+      totalPlayers: entries.length,
+      entries,
+      battle: {
+        totalsRawByTeam: { red: redBalanced, blue: blueBalanced },
+        totalsBalancedByTeam: { red: redBalanced, blue: blueBalanced },
+        winnerTeam: redBalanced === blueBalanced ? null : redBalanced > blueBalanced ? "red" : "blue",
+      },
+      isFake: true,
+    };
+  });
+}
 
 function stripExtension(src) {
   if (!src || typeof src !== "string") return src;
@@ -978,7 +1060,12 @@ async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }
   return { overlay, fade };
 }
 
-function BootLoader({ progress = 0, darkMode = false }) {
+function BootLoader({
+  progress = 0,
+  darkMode = false,
+  fadingOut = false,
+  fadeDurationMs = BOOT_TRANSITION_MS,
+}) {
   if (typeof document === "undefined") return null;
   const [gifLoadFailed, setGifLoadFailed] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -1077,7 +1164,13 @@ function BootLoader({ progress = 0, darkMode = false }) {
   const blobThreeClass = darkMode ? "bg-yellow-200/25" : "bg-cyan-100/35";
 
   return createPortal(
-    <div className={`fixed inset-0 z-[14000] flex items-center justify-center ${glowClass}`}>
+    <div
+      className={`fixed inset-0 z-[14000] flex items-center justify-center ${glowClass}`}
+      style={{
+        opacity: fadingOut ? 0 : 1,
+        transition: `opacity ${Math.max(0, Number(fadeDurationMs) || 0)}ms ease`,
+      }}
+    >
       <style>{`
 @keyframes bootFloatOne {
   0% { transform: translate3d(0, 0, 0); }
@@ -2485,7 +2578,6 @@ const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v2";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
-const TWO_LETTER_POPUP_SEEN_STORAGE_KEY = "gobble_two_letter_popup_seen_v1";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
@@ -2668,7 +2760,7 @@ export default function App() {
   const [showAllWords, setShowAllWords] = useState(false);
   const [sortMode, setSortMode] = useState("score");
   const [allWords, setAllWords] = useState([]);
-  const [toast, setToast] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
   const [inputLocked, setInputLocked] = useState(false);
@@ -2771,6 +2863,8 @@ export default function App() {
     stage: "",
     key: "",
   }));
+  const [bootOverlayVisible, setBootOverlayVisible] = useState(true);
+  const [bootOverlayFading, setBootOverlayFading] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     let cancelled = false;
@@ -2857,8 +2951,35 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      if (bootProgress?.done) {
+        setBootOverlayVisible(false);
+        setBootOverlayFading(false);
+      }
+      return undefined;
+    }
+    if (!bootProgress?.done) {
+      setBootOverlayVisible(true);
+      setBootOverlayFading(false);
+      return undefined;
+    }
+    setBootOverlayVisible(true);
+    setBootOverlayFading(false);
+    const rafId = window.requestAnimationFrame(() => {
+      setBootOverlayFading(true);
+    });
+    const timerId = window.setTimeout(() => {
+      setBootOverlayVisible(false);
+      setBootOverlayFading(false);
+    }, BOOT_TRANSITION_MS);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
+    };
+  }, [bootProgress?.done]);
   const [showHelp, setShowHelp] = useState(false);
-  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | live
+  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | duel | live
   const [analysis, setAnalysis] = useState(null);
   const missingImageRef = useRef(new Set());
   const assetVersion = bootProgress?.done ? 1 : 0;
@@ -2961,9 +3082,17 @@ export default function App() {
     gestureAxis: "none",
   });
   const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
+  const weeklyFetchStateRef = useRef({
+    controller: null,
+    topN: null,
+    startedAt: 0,
+  });
+  const weeklyFetchRetryAfterRef = useRef(0);
   const weeklySlideWidthRef = useRef(0);
   const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
   const [weeklyDragging, setWeeklyDragging] = useState(false);
+  const weeklyDragRafRef = useRef(null);
+  const weeklyPendingDragOffsetRef = useRef(0);
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -3090,11 +3219,37 @@ export default function App() {
     champion: null,
     error: "",
   });
+  const [duelStatus, setDuelStatus] = useState({
+    loading: false,
+    error: "",
+    dateId: null,
+    weekId: null,
+    team: null,
+    crowned: false,
+    weekly: null,
+    objectives: null,
+    dailyBattle: null,
+    tutorialVersion: null,
+  });
+  const [resultsTeamDelta, setResultsTeamDelta] = useState({ red: 0, blue: 0 });
+  const [duelRerollBusyBucket, setDuelRerollBusyBucket] = useState(null);
+  const [duelPopupState, setDuelPopupState] = useState({
+    mode: null, // team | tutorial | objectives
+    step: 0,
+    team: null,
+    weekId: null,
+  });
+  const [duelObjectivesPopupDismissedDateId, setDuelObjectivesPopupDismissedDateId] = useState("");
+  const [duelConsumedValidatedByView, setDuelConsumedValidatedByView] = useState({
+    popup: { dateId: "", keys: [] },
+    page: { dateId: "", keys: [] },
+  });
   const [dailyBoard, setDailyBoard] = useState({
     loading: false,
     ready: false,
     dateId: null,
     entries: [],
+    battle: null,
     error: "",
   });
   const [dailyHistory, setDailyHistory] = useState({ days: [], crownTotals: [] });
@@ -3115,7 +3270,6 @@ export default function App() {
       return "";
     }
   });
-  const [twoLetterPopupOpen, setTwoLetterPopupOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
   const [guidedResultsSeenInstallId, setGuidedResultsSeenInstallId] = useState(() => {
@@ -3142,17 +3296,6 @@ export default function App() {
     return { installId: "", types: {} };
   });
   const [specialTutorialPlan, setSpecialTutorialPlan] = useState(null);
-  const twoLetterPopupKey = installId
-    ? `${TWO_LETTER_POPUP_SEEN_STORAGE_KEY}:${installId}`
-    : TWO_LETTER_POPUP_SEEN_STORAGE_KEY;
-  useEffect(() => {
-    if (!installId) return;
-    try {
-      const seen = localStorage.getItem(twoLetterPopupKey);
-      if (seen === "1") return;
-    } catch (_) {}
-    setTwoLetterPopupOpen(true);
-  }, [installId, twoLetterPopupKey]);
   const [isSpecialTutorialOpen, setIsSpecialTutorialOpen] = useState(false);
   const shouldShowTutorial =
     tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
@@ -3448,7 +3591,7 @@ export default function App() {
   const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
   const chatLastSentRef = useRef(0);
   const lastKeyboardInsetRef = useRef(0);
-  const toastTimerRef = useRef(null);
+  const toastTimersRef = useRef(new Map());
   const praiseTimerRef = useRef(null);
   const gobbleTimerRef = useRef(null);
   const lastGobbleAtRef = useRef(0);
@@ -6128,6 +6271,7 @@ export default function App() {
       tournamentSummary: summary = null,
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
+      teamDuel: teamDuelPayload = null,
     }) => {
       if (endedRoomId) {
         setCurrentRoomId(endedRoomId);
@@ -6192,6 +6336,62 @@ export default function App() {
       setTournamentSummaryAt(summaryAt || null);
       setTargetSummary(targetSummaryPayload || null);
       setResultsRankingMode("round");
+      const roundTeamDelta = { red: 0, blue: 0 };
+      if (teamDuelPayload && typeof teamDuelPayload === "object" && Array.isArray(results)) {
+        const teamByNick = new Map(
+          results
+            .map((entry) => {
+              const team = entry?.team === "red" || entry?.team === "blue" ? entry.team : null;
+              return team && entry?.nick ? [entry.nick, team] : null;
+            })
+            .filter(Boolean)
+        );
+        Object.entries(teamDuelPayload).forEach(([nick, duelUpdate]) => {
+          const team = teamByNick.get(nick);
+          if (team !== "red" && team !== "blue") return;
+          const objectiveUpdates = Array.isArray(duelUpdate?.objectiveUpdates)
+            ? duelUpdate.objectiveUpdates
+            : [];
+          const objectivePointsFromUpdates = objectiveUpdates
+            .filter((entry) => entry?.newlyValidated)
+            .reduce(
+              (sum, entry) =>
+                sum + (Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0),
+              0
+            );
+          const objectivePoints =
+            Number(duelUpdate?.objectivePointsAdded) || objectivePointsFromUpdates;
+          const gobblePoints = Number(duelUpdate?.gobblePointsAdded) || 0;
+          roundTeamDelta[team] += objectivePoints + gobblePoints;
+        });
+      }
+      setResultsTeamDelta(roundTeamDelta);
+      const selfNickNow = nicknameRef.current.trim();
+      const selfDuelUpdate =
+        teamDuelPayload &&
+        typeof teamDuelPayload === "object" &&
+        selfNickNow &&
+        teamDuelPayload[selfNickNow]
+          ? teamDuelPayload[selfNickNow]
+          : null;
+      if (selfDuelUpdate) {
+        const objectiveUpdates = Array.isArray(selfDuelUpdate.objectiveUpdates)
+          ? selfDuelUpdate.objectiveUpdates
+          : [];
+        objectiveUpdates
+          .filter((entry) => entry?.newlyValidated)
+          .forEach((entry) => {
+            const points = Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0;
+            showToast(
+              `✅ Objectif validé : ${entry?.title || "Objectif"} (+${points} équipe)`,
+              2800
+            );
+          });
+        const gobblePoints = Number(selfDuelUpdate.gobblePointsAdded) || 0;
+        if (gobblePoints > 0) {
+          showToast(`🔥 Gobble ! (+${gobblePoints} équipe)`, 2200);
+        }
+      }
       const stableVocabKey =
         endedId ||
         summaryAt ||
@@ -6550,11 +6750,29 @@ export default function App() {
     ]);
   }
 
-  function showToast(message) {
-    setToast({ id: Date.now(), message });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 1300);
+  function clearToasts() {
+    setToasts([]);
+    toastTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    toastTimersRef.current.clear();
   }
+
+  function showToast(message, durationMs = 2400) {
+    const text = String(message || "").trim();
+    if (!text) return;
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message: text }].slice(-4));
+    const timerId = setTimeout(() => {
+      toastTimersRef.current.delete(id);
+      setToasts((prev) => prev.filter((entry) => entry.id !== id));
+    }, Math.max(900, Math.round(durationMs)));
+    toastTimersRef.current.set(id, timerId);
+  }
+
+  useEffect(() => {
+    return () => {
+      clearToasts();
+    };
+  }, []);
 
   function getTileIndexFromPoint(x, y, useTolerance = true) {
     for (let i = 0; i < tileRefs.current.length; i++) {
@@ -6788,6 +7006,7 @@ export default function App() {
         setRoomId(incomingRoomId);
       }
       setFinalResults([]);
+      setResultsTeamDelta({ red: 0, blue: 0 });
       setProvisionalRanking([]);
       setAnnouncements([]);
       setNextStartAt(null);
@@ -6855,6 +7074,7 @@ export default function App() {
       tournamentSummary: summary = null,
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
+      teamDuel: teamDuelPayload = null,
     }) {
       playOutroThenResultsRef.current?.(
         {
@@ -6865,6 +7085,7 @@ export default function App() {
           tournamentSummary: summary,
           tournamentSummaryAt: summaryAt,
           targetSummary: targetSummaryPayload,
+          teamDuel: teamDuelPayload,
         },
         { fallback: false }
       );
@@ -6966,6 +7187,18 @@ export default function App() {
       triggerConfettiBurst("gobble");
     }
 
+    function maybeShowDuelToastFromAnnouncement(entry) {
+      if (!entry || entry.type !== "objective_validated") return;
+      const selfNickNow = (nicknameRef.current || "").trim().toLowerCase();
+      const nick = String(entry?.nick || "").trim().toLowerCase();
+      if (!selfNickNow || !nick || selfNickNow !== nick) return;
+      const points = Number(entry?.teamPoints) || 0;
+      showToast(
+        `✅ Objectif validé : ${entry?.objectiveTitle || "Objectif"} (+${points} équipe)`,
+        2800
+      );
+    }
+
     function onAnnouncement(data) {
       if (!data) return;
       if (data.type === "big_word" || data.type === "long_word") {
@@ -6973,6 +7206,7 @@ export default function App() {
       }
       maybePlayAnnouncementSound(data);
       maybeTriggerGobbleFromAnnouncement(data);
+      maybeShowDuelToastFromAnnouncement(data);
       appendAnnouncements([data]);
     }
 
@@ -6986,6 +7220,7 @@ export default function App() {
       filtered.forEach((entry) => {
         maybePlayAnnouncementSound(entry);
         maybeTriggerGobbleFromAnnouncement(entry);
+        maybeShowDuelToastFromAnnouncement(entry);
       });
       appendAnnouncements(filtered);
     }
@@ -7593,6 +7828,18 @@ export default function App() {
     const requestedTopN = Number.isFinite(topN)
       ? Math.min(200, Math.max(1, Math.round(topN)))
       : null;
+    const inFlight = weeklyFetchStateRef.current;
+    const sameInFlightTopN =
+      !!inFlight?.controller && inFlight.topN === requestedTopN;
+    if (sameInFlightTopN) return;
+    if (inFlight?.controller) {
+      if (!force) return;
+      try {
+        inFlight.controller.abort();
+      } catch (_) {}
+    }
+    const sameAsLastTopN = weeklyFetchRef.current.lastTopN === requestedTopN;
+    if (sameAsLastTopN && now < weeklyFetchRetryAfterRef.current) return;
     if (!force && weeklyStatsLoading) return;
     if (
       !force &&
@@ -7607,6 +7854,11 @@ export default function App() {
     setWeeklyStatsLoading(true);
     setWeeklyStatsError("");
     const controller = new AbortController();
+    weeklyFetchStateRef.current = {
+      controller,
+      topN: requestedTopN,
+      startedAt: now,
+    };
     const timer = setTimeout(() => controller.abort(), 6500);
     const query = requestedTopN ? `?topN=${requestedTopN}` : "";
     fetch(`/api/stats/weekly${query}`, {
@@ -7624,9 +7876,12 @@ export default function App() {
         }
       })
       .then((data) => {
+        if (weeklyFetchStateRef.current.controller !== controller) return;
+        weeklyFetchRetryAfterRef.current = 0;
         setWeeklyStats(data || null);
       })
       .catch((err) => {
+        if (weeklyFetchStateRef.current.controller !== controller) return;
         if (err.name === "AbortError") {
           setWeeklyStatsError("timeout");
         } else if (err.message === "bad_json") {
@@ -7634,10 +7889,23 @@ export default function App() {
         } else {
           setWeeklyStatsError("erreur");
         }
+        weeklyFetchRetryAfterRef.current = Date.now() + 2500;
       })
       .finally(() => {
         clearTimeout(timer);
-        setWeeklyStatsLoading(false);
+        if (weeklyFetchStateRef.current.controller !== controller) return;
+        const startedAt = weeklyFetchStateRef.current.startedAt || now;
+        weeklyFetchStateRef.current = {
+          controller: null,
+          topN: null,
+          startedAt: 0,
+        };
+        const elapsed = Math.max(0, Date.now() - startedAt);
+        const delay = Math.max(0, 220 - elapsed);
+        setTimeout(() => {
+          if (weeklyFetchStateRef.current.controller) return;
+          setWeeklyStatsLoading(false);
+        }, delay);
       });
   }
 
@@ -7666,6 +7934,20 @@ export default function App() {
           champion: data?.champion || null,
           error: "",
         });
+        if (data?.duel && typeof data.duel === "object") {
+          setDuelStatus({
+            loading: false,
+            error: "",
+            dateId: data.duel.dateId || null,
+            weekId: data.duel.weekId || null,
+            team: data.duel.team || null,
+            crowned: !!data.duel.crowned,
+            weekly: data.duel.weekly || null,
+            objectives: data.duel.objectives || null,
+            dailyBattle: data.duel.dailyBattle || null,
+            tutorialVersion: data.duel.tutorialVersion || null,
+          });
+        }
       })
       .catch(() => {
         setDailyStatus((prev) => ({
@@ -7674,6 +7956,215 @@ export default function App() {
           error: "erreur",
         }));
       });
+  }
+
+  function fetchDuelStatus({ dateId = null } = {}) {
+    if (!installId) return;
+    setDuelStatus((prev) => ({ ...prev, loading: true, error: "" }));
+    const params = new URLSearchParams();
+    params.set("installId", installId);
+    if (dateId) params.set("dateId", dateId);
+    fetch(`/api/duel/status?${params.toString()}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok) {
+          throw new Error(data?.error || `http_${res.status || "error"}`);
+        }
+        return data;
+      })
+      .then((data) => {
+        setDuelStatus({
+          loading: false,
+          error: "",
+          dateId: data?.dateId || null,
+          weekId: data?.weekId || null,
+          team: data?.team || null,
+          crowned: !!data?.crowned,
+          weekly: data?.weekly || null,
+          objectives: data?.objectives || null,
+          dailyBattle: data?.dailyBattle || null,
+          tutorialVersion: data?.tutorialVersion || null,
+        });
+      })
+      .catch(() => {
+        setDuelStatus((prev) => ({
+          ...prev,
+          loading: false,
+          error: "erreur",
+        }));
+      });
+  }
+
+  function rerollDuelObjective(bucket) {
+    if (!installId || !bucket) return;
+    setDuelRerollBusyBucket(bucket);
+    fetch("/api/duel/objectives/reroll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ installId, bucket }),
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!res.ok || !data?.ok) {
+          const code = data?.error || "reroll_error";
+          throw new Error(code);
+        }
+        return data;
+      })
+      .then((data) => {
+        setDuelStatus((prev) => ({
+          ...prev,
+          objectives: {
+            ...(prev?.objectives || {}),
+            dateId: data?.dateId || prev?.objectives?.dateId || null,
+            rerollUsed: !!data?.rerollUsed,
+            objectives: Array.isArray(data?.objectives) ? data.objectives : prev?.objectives?.objectives || [],
+          },
+        }));
+        showToast(`🎲 Nouvel objectif : ${data?.objective?.title || "Objectif"}`, 2600);
+      })
+      .catch((err) => {
+        const code = err?.message || "";
+        if (code === "all_validated") {
+          showToast("Reroll indisponible (objectifs déjà validés)", 2600);
+        } else if (code === "reroll_used") {
+          showToast("Reroll déjà utilisé aujourd'hui", 2200);
+        } else {
+          showToast("Reroll indisponible", 2000);
+        }
+      })
+      .finally(() => {
+        setDuelRerollBusyBucket(null);
+        fetchDuelStatus();
+      });
+  }
+
+  function handleDuelObjectiveValidated(objective) {
+    const objectiveKey =
+      objective?.id ||
+      objective?.title ||
+      objective?.bucket ||
+      "validated";
+    playOneShotAudio(SFX_KEYS.vocabCling, {
+      cooldownKey: `duelObjectiveValidated:${objectiveKey}`,
+      cooldownMs: 0,
+      eqKey: "vocabCling",
+    });
+  }
+
+  function getDuelConsumedValidatedKeys(view) {
+    const safeView = view === "popup" ? "popup" : "page";
+    const currentDateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
+    const state = duelConsumedValidatedByView?.[safeView];
+    if (!state || state.dateId !== currentDateId) return [];
+    return Array.isArray(state.keys) ? state.keys : [];
+  }
+
+  function markDuelValidatedObjectiveConsumed(view, _objective, key) {
+    const consumedKey = String(key || "").trim();
+    if (!consumedKey) return;
+    const safeView = view === "popup" ? "popup" : "page";
+    const currentDateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
+    if (!currentDateId) return;
+    setDuelConsumedValidatedByView((prev) => {
+      const current = prev?.[safeView] || { dateId: "", keys: [] };
+      const baseKeys =
+        current.dateId === currentDateId && Array.isArray(current.keys) ? current.keys : [];
+      if (baseKeys.includes(consumedKey)) return prev;
+      return {
+        ...prev,
+        [safeView]: {
+          dateId: currentDateId,
+          keys: [...baseKeys, consumedKey],
+        },
+      };
+    });
+  }
+
+  function duelObjectivesAreCompleted() {
+    const list = Array.isArray(duelStatus?.objectives?.objectives)
+      ? duelStatus.objectives.objectives
+      : [];
+    if (!list.length) return false;
+    return list.every((objective) => !!objective?.validated);
+  }
+
+  function canShowDuelObjectivesPopup() {
+    const dateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
+    if (!dateId) return false;
+    if (duelObjectivesAreCompleted()) return false;
+    return duelObjectivesPopupDismissedDateId !== dateId;
+  }
+
+  function closeDuelObjectivesPopup() {
+    const dateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
+    if (dateId) {
+      setDuelObjectivesPopupDismissedDateId(dateId);
+    }
+    setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
+  }
+
+  function acknowledgeDuelTeamPopup() {
+    if (!installId || !duelStatus?.weekId) {
+      setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
+      return;
+    }
+    try {
+      localStorage.setItem(`gobble_duel_week_seen:${installId}`, duelStatus.weekId);
+    } catch (_) {}
+    const version = duelStatus?.tutorialVersion || "duel-v1";
+    let seenTutorial = "";
+    try {
+      seenTutorial = localStorage.getItem(`gobble_duel_tutorial_seen:${installId}`) || "";
+    } catch (_) {}
+    if (seenTutorial !== version) {
+      setDuelPopupState({
+        mode: "tutorial",
+        step: 0,
+        team: duelStatus?.team || null,
+        weekId: duelStatus?.weekId || null,
+      });
+      return;
+    }
+    if (canShowDuelObjectivesPopup()) {
+      setDuelPopupState({
+        mode: "objectives",
+        step: 0,
+        team: duelStatus?.team || null,
+        weekId: duelStatus?.weekId || null,
+      });
+      return;
+    }
+    setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
+  }
+
+  function advanceDuelTutorial() {
+    setDuelPopupState((prev) => {
+      const nextStep = Number(prev?.step || 0) + 1;
+      if (nextStep >= DUEL_TUTORIAL_STEPS.length) {
+        const version = duelStatus?.tutorialVersion || "duel-v1";
+        if (installId) {
+          try {
+            localStorage.setItem(`gobble_duel_tutorial_seen:${installId}`, version);
+          } catch (_) {}
+        }
+        if (canShowDuelObjectivesPopup()) {
+          return {
+            mode: "objectives",
+            step: 0,
+            team: duelStatus?.team || null,
+            weekId: duelStatus?.weekId || null,
+          };
+        }
+        return { mode: null, step: 0, team: null, weekId: null };
+      }
+      return { ...prev, step: nextStep };
+    });
   }
 
   function fetchDailyHistory(days = 10) {
@@ -7739,6 +8230,7 @@ export default function App() {
           ready: !!data?.ready,
           dateId: data?.dateId || null,
           entries: Array.isArray(data?.entries) ? data.entries : [],
+          battle: data?.battle || null,
           error: "",
         });
       })
@@ -7759,6 +8251,33 @@ export default function App() {
     fetchDailyStatus();
     fetchDailyBoard();
     fetchDailyHistory(10);
+    fetchDuelStatus();
+  }
+
+  function classifyDailyStartNetworkError(err) {
+    const name = String(err?.name || "").trim();
+    const msg = String(err?.message || "").toLowerCase();
+    if (msg === "bad_grid") return "E_DAILY_BAD_GRID";
+    if (name === "AbortError" || msg.includes("abort") || msg.includes("timeout")) {
+      return "ENET_TIMEOUT";
+    }
+    if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) {
+      return "ENET_OFFLINE";
+    }
+    if (
+      msg.includes("ssl") ||
+      msg.includes("tls") ||
+      msg.includes("certificate") ||
+      msg.includes("cert")
+    ) {
+      return "ENET_TLS";
+    }
+    if (msg.includes("cors")) return "ENET_CORS";
+    if (msg.includes("networkerror")) return "ENET_NETWORK";
+    if (msg.includes("failed to fetch") || msg.includes("load failed")) {
+      return "ENET_FETCH";
+    }
+    return "ENET_UNKNOWN";
   }
 
   async function startDailyGame(e) {
@@ -7801,6 +8320,20 @@ export default function App() {
       if (!data?.grid || !Array.isArray(data.grid)) {
         throw new Error("bad_grid");
       }
+      if (data?.duel && typeof data.duel === "object") {
+        setDuelStatus({
+          loading: false,
+          error: "",
+          dateId: data.duel.dateId || null,
+          weekId: data.duel.weekId || null,
+          team: data.duel.team || null,
+          crowned: !!data.duel.crowned,
+          weekly: data.duel.weekly || null,
+          objectives: data.duel.objectives || null,
+          dailyBattle: data.duel.dailyBattle || null,
+          tutorialVersion: data.duel.tutorialVersion || null,
+        });
+      }
       dailySessionRef.current = {
         dateId: data.dateId || null,
         startedAt: Date.now(),
@@ -7820,8 +8353,17 @@ export default function App() {
       );
       fetchDailyBoard(data.dateId || null);
     } catch (err) {
-      setDailyStartError("ENET");
-      console.warn("[daily/start] network", err);
+      const code = classifyDailyStartNetworkError(err);
+      setDailyStartError(code);
+      console.warn("[daily/start] network", {
+        code,
+        name: err?.name || null,
+        message: err?.message || String(err || ""),
+        online:
+          typeof navigator !== "undefined" && navigator
+            ? navigator.onLine
+            : null,
+      });
       fetchDailyStatus();
       fetchDailyBoard();
     }
@@ -7857,6 +8399,20 @@ export default function App() {
         return data;
       })
       .then((data) => {
+        if (data?.duel && typeof data.duel === "object") {
+          setDuelStatus({
+            loading: false,
+            error: "",
+            dateId: data.duel.dateId || null,
+            weekId: data.duel.weekId || null,
+            team: data.duel.team || null,
+            crowned: !!data.duel.crowned,
+            weekly: data.duel.weekly || null,
+            objectives: data.duel.objectives || null,
+            dailyBattle: data.duel.dailyBattle || null,
+            tutorialVersion: data.duel.tutorialVersion || null,
+          });
+        }
         setDailyResult({
           dateId: data?.dateId || dateId,
           score: Number.isFinite(data?.score) ? data.score : score,
@@ -7869,6 +8425,7 @@ export default function App() {
             entries: data.board,
             ready: true,
             dateId: data.dateId || prev.dateId,
+            battle: data?.duel?.dailyBattle || prev?.battle || null,
             error: "",
           }));
         }
@@ -7992,6 +8549,13 @@ export default function App() {
     fetchWeeklyStats(true);
     void requestVocabCount();
     void requestTrophyStatus();
+    fetchDuelStatus();
+  }
+
+  function openDuelPage() {
+    setIsWeeklyOpen(false);
+    setAppView("duel");
+    fetchDuelStatus();
   }
 
   function closeWeeklyStatsOverlay() {
@@ -8111,14 +8675,26 @@ export default function App() {
     if (currentAxis === "horizontal" || currentAxis === "vertical") {
       return currentAxis;
     }
+    const fromScrollable = !!touchRef?.current?.fromScrollable;
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
-    if (absX < 7 && absY < 7) return "pending";
-    if (!touchRef?.current?.fromScrollable) {
+    const deadZone = fromScrollable ? 9 : 7;
+    if (absX < deadZone && absY < deadZone) return "pending";
+    if (!fromScrollable) {
       touchRef.current.gestureAxis = "horizontal";
       return "horizontal";
     }
-    if (absX >= absY * 1.2) {
+    const horizontalStrong = absX >= 12 && absX >= absY * 0.85;
+    const verticalStrong = absY >= 12 && absY > absX * 1.2;
+    if (horizontalStrong) {
+      touchRef.current.gestureAxis = "horizontal";
+      return "horizontal";
+    }
+    if (verticalStrong) {
+      touchRef.current.gestureAxis = "vertical";
+      return "vertical";
+    }
+    if (absX > absY) {
       touchRef.current.gestureAxis = "horizontal";
       return "horizontal";
     }
@@ -8190,6 +8766,29 @@ export default function App() {
     }
   }
 
+  function applyWeeklyDragOffset(nextOffset) {
+    const value = Number.isFinite(nextOffset) ? nextOffset : 0;
+    weeklyPendingDragOffsetRef.current = value;
+    if (weeklyDragRafRef.current) return;
+    weeklyDragRafRef.current = requestAnimationFrame(() => {
+      weeklyDragRafRef.current = null;
+      setWeeklyDragOffset((prev) => {
+        const next = weeklyPendingDragOffsetRef.current;
+        if (Math.abs(prev - next) < 0.5) return prev;
+        return next;
+      });
+    });
+  }
+
+  function resetWeeklyDragOffset() {
+    weeklyPendingDragOffsetRef.current = 0;
+    if (weeklyDragRafRef.current) {
+      cancelAnimationFrame(weeklyDragRafRef.current);
+      weeklyDragRafRef.current = null;
+    }
+    setWeeklyDragOffset(0);
+  }
+
   function handleWeeklyTouchStart(e) {
     if (statsTab !== "weekly") return;
     weeklyTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
@@ -8202,7 +8801,7 @@ export default function App() {
     weeklySlideWidthRef.current =
       (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
     triggerWeeklyArrowHint();
-    setWeeklyDragOffset(0);
+    resetWeeklyDragOffset();
     setWeeklyDragging(false);
   }
 
@@ -8220,7 +8819,7 @@ export default function App() {
     const axis = resolveStatsGestureAxis(weeklyTouchRef, deltaX, deltaY);
     if (axis === "vertical") {
       setWeeklyDragging(false);
-      setWeeklyDragOffset(0);
+      resetWeeklyDragOffset();
       return;
     }
     if (axis !== "horizontal") return;
@@ -8232,7 +8831,7 @@ export default function App() {
     if (e?.cancelable) e.preventDefault();
     const width = weeklySlideWidthRef.current || window.innerWidth || 1;
     const clamped = clampValue(deltaX, -width * 0.35, width * 0.35);
-    setWeeklyDragOffset(clamped);
+    applyWeeklyDragOffset(clamped);
   }
 
   function handleWeeklyTouchEnd(e) {
@@ -8248,11 +8847,11 @@ export default function App() {
     const touch = e?.changedTouches?.[0];
     setWeeklyDragging(false);
     if (axis === "vertical") {
-      setWeeklyDragOffset(0);
+      resetWeeklyDragOffset();
       return;
     }
     if (startX == null || startY == null || !touch) {
-      setWeeklyDragOffset(0);
+      resetWeeklyDragOffset();
       return;
     }
     const deltaX = touch.clientX - startX;
@@ -8262,7 +8861,7 @@ export default function App() {
       weeklySwipeBlockRef.current = Date.now();
       shiftWeeklyBoard(deltaX < 0 ? 1 : -1);
     }
-    setWeeklyDragOffset(0);
+    resetWeeklyDragOffset();
   }
 
   function handleSeasonTouchStart(e) {
@@ -8871,6 +9470,143 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!installId) return;
+    fetchDuelStatus();
+    const timer = setInterval(() => {
+      fetchDuelStatus();
+    }, 30000);
+    const onConnect = () => fetchDuelStatus();
+    socket.on("connect", onConnect);
+    return () => {
+      clearInterval(timer);
+      socket.off("connect", onConnect);
+    };
+  }, [installId]);
+
+  useEffect(() => {
+    if (!installId) return;
+    const isLobbyView =
+      phase === "lobby" &&
+      appView !== "daily" &&
+      appView !== "daily_play" &&
+      appView !== "daily_results" &&
+      appView !== "stats" &&
+      appView !== "duel";
+    if (!isLobbyView) return;
+    fetchDuelStatus();
+  }, [installId, phase, appView]);
+
+  useEffect(() => {
+    const dateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
+    if (!dateId) {
+      setDuelConsumedValidatedByView({
+        popup: { dateId: "", keys: [] },
+        page: { dateId: "", keys: [] },
+      });
+      return;
+    }
+    setDuelObjectivesPopupDismissedDateId((prev) => (prev && prev !== dateId ? "" : prev));
+    setDuelConsumedValidatedByView((prev) => {
+      const popupState = prev?.popup || { dateId: "", keys: [] };
+      const pageState = prev?.page || { dateId: "", keys: [] };
+      let changed = false;
+      const nextPopup =
+        popupState.dateId === dateId ? popupState : { dateId, keys: [] };
+      const nextPage =
+        pageState.dateId === dateId ? pageState : { dateId, keys: [] };
+      if (nextPopup !== popupState || nextPage !== pageState) changed = true;
+      return changed
+        ? {
+            ...prev,
+            popup: nextPopup,
+            page: nextPage,
+          }
+        : prev;
+    });
+  }, [duelStatus?.objectives?.dateId, duelStatus?.dateId]);
+
+  useEffect(() => {
+    if (!installId) return;
+    if (!duelStatus?.weekId || !duelStatus?.team) return;
+    const isLobbyView =
+      phase === "lobby" &&
+      appView !== "daily" &&
+      appView !== "daily_play" &&
+      appView !== "daily_results" &&
+      appView !== "stats" &&
+      appView !== "duel";
+    if (!isLobbyView) return;
+    if (duelPopupState?.mode) return;
+    const weekStorageKey = `gobble_duel_week_seen:${installId}`;
+    const tutorialStorageKey = `gobble_duel_tutorial_seen:${installId}`;
+    let seenWeek = "";
+    let seenTutorial = "";
+    try {
+      seenWeek = localStorage.getItem(weekStorageKey) || "";
+      seenTutorial = localStorage.getItem(tutorialStorageKey) || "";
+    } catch (_) {}
+    if (seenWeek !== duelStatus.weekId) {
+      setDuelPopupState({
+        mode: "team",
+        step: 0,
+        team: duelStatus.team,
+        weekId: duelStatus.weekId,
+      });
+      return;
+    }
+    const tutorialVersion = duelStatus?.tutorialVersion || "duel-v1";
+    if (seenTutorial !== tutorialVersion) {
+      setDuelPopupState({
+        mode: "tutorial",
+        step: 0,
+        team: duelStatus.team,
+        weekId: duelStatus.weekId,
+      });
+      return;
+    }
+    if (canShowDuelObjectivesPopup()) {
+      setDuelPopupState({
+        mode: "objectives",
+        step: 0,
+        team: duelStatus.team,
+        weekId: duelStatus.weekId,
+      });
+    }
+  }, [
+    installId,
+    duelStatus?.weekId,
+    duelStatus?.team,
+    duelStatus?.tutorialVersion,
+    duelStatus?.objectives?.dateId,
+    duelStatus?.objectives?.objectives,
+    duelObjectivesPopupDismissedDateId,
+    phase,
+    appView,
+    duelPopupState?.mode,
+  ]);
+
+  useEffect(() => {
+    const isLobbyView =
+      phase === "lobby" &&
+      appView !== "daily" &&
+      appView !== "daily_play" &&
+      appView !== "daily_results" &&
+      appView !== "stats" &&
+      appView !== "duel";
+    if (isLobbyView) return;
+    if (duelPopupState?.mode) {
+      setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
+    }
+  }, [phase, appView, duelPopupState?.mode]);
+
+  useEffect(() => {
+    if (duelPopupState?.mode !== "objectives") return;
+    if (duelObjectivesAreCompleted()) {
+      setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
+    }
+  }, [duelPopupState?.mode, duelStatus?.objectives?.objectives]);
+
+  useEffect(() => {
     weeklyStatsSnapshotRef.current = weeklyStats;
     if (tournamentBaselineRef.current.id && !tournamentBaselineRef.current.weeklyStats) {
       tournamentBaselineRef.current.weeklyStats = weeklyStats;
@@ -8986,6 +9722,26 @@ export default function App() {
     seasonTouchRef.current.fromScrollable = false;
     seasonTouchRef.current.gestureAxis = "none";
   }, [statsTab]);
+
+  useEffect(() => {
+    return () => {
+      if (weeklyDragRafRef.current) {
+        cancelAnimationFrame(weeklyDragRafRef.current);
+        weeklyDragRafRef.current = null;
+      }
+      const inFlight = weeklyFetchStateRef.current;
+      if (inFlight?.controller) {
+        try {
+          inFlight.controller.abort();
+        } catch (_) {}
+      }
+      weeklyFetchStateRef.current = {
+        controller: null,
+        topN: null,
+        startedAt: 0,
+      };
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPlayersOverlayOpen) return;
@@ -9276,11 +10032,7 @@ export default function App() {
     setAnalysis(null);
     setHighlightPlayers([]);
     setBigScoreFlash(null);
-    setToast(null);
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
+    clearToasts();
     solutionsRef.current = new Map();
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
@@ -9469,11 +10221,7 @@ export default function App() {
     setAnalysis(null);
     setHighlightPlayers([]);
     setBigScoreFlash(null);
-    setToast(null);
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
+    clearToasts();
     solutionsRef.current = new Map();
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
@@ -10567,7 +11315,6 @@ function handleTouchEnd() {
       } else {
         maybeAnnounceBestWord(nickname.trim() || "Moi", display || word, safePts);
         playScoreSound(safePts);
-        showToast(`+${safePts} pts`);
       }
 
       const isSpeedRound = specialRound?.type === "speed";
@@ -10795,7 +11542,6 @@ function handleTouchEnd() {
     if (pts >= BIG_SCORE_THRESHOLD) {
       triggerBigScoreFlash(pts);
     }
-    showToast(`+${pts} pts`);
 
     setAccepted((prev) => {
       const updated = [...prev, raw];
@@ -11647,10 +12393,17 @@ function handleTouchEnd() {
         ? finalResults.find((entry) => entry.nick === selfNickForResults)
         : null;
     const showOfflineLabel = !selfResultEntry;
+    const compactPillClass = darkMode
+      ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-gray-100 text-[11px] sm:text-xs"
+      : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-800 text-[11px] sm:text-xs";
+    const roundRedDelta = Math.max(0, Number(resultsTeamDelta?.red) || 0);
+    const roundBlueDelta = Math.max(0, Number(resultsTeamDelta?.blue) || 0);
+    const roundRedDeltaClass = darkMode ? "text-red-300" : "text-red-700";
+    const roundBlueDeltaClass = darkMode ? "text-blue-300" : "text-blue-700";
 
     return (
       <div
-        className={`border rounded-xl shadow-xl p-4 text-sm leading-snug space-y-4 relative overflow-hidden ${themeClasses} ${className}`}
+        className={`border rounded-xl shadow-xl p-3 text-sm leading-snug space-y-2 relative overflow-hidden ${themeClasses} ${className}`}
         style={minHeightStyle}
       >
         {showOverlay && (
@@ -11684,26 +12437,41 @@ function handleTouchEnd() {
           </div>
         )}
         <div className="text-center text-lg font-bold">Bilan</div>
+        <div
+          className={`rounded-lg border px-2 py-1 ${
+            darkMode
+              ? "bg-slate-900/60 border-white/10 text-slate-100"
+              : "bg-white border-slate-200 text-slate-800"
+          }`}
+        >
+          <div className="text-center text-lg sm:text-xl font-black tabular-nums leading-none">
+            <span className={`${roundRedDeltaClass} text-[11px] sm:text-xs align-middle`}>+{roundRedDelta}</span>{" "}
+            <span className="text-red-500">🔴 {duelRedScore}</span>{" "}
+            <span className="opacity-55 text-sm sm:text-base align-middle">VS</span>{" "}
+            <span className="text-blue-500">{duelBlueScore} 🔵</span>{" "}
+            <span className={`${roundBlueDeltaClass} text-[11px] sm:text-xs align-middle`}>+{roundBlueDelta}</span>
+          </div>
+        </div>
         {showOfflineLabel ? (
           <div className="text-center text-[11px] text-amber-500">
             Vous etiez hors ligne sur cette manche.
           </div>
         ) : null}
-        <div className="space-y-4">
+        <div className="space-y-2">
           {!isSpeedRound && endStats.bestWord && (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <div className="flex items-center justify-between gap-3">
-                <span className={`${resultLabelClass} text-xs sm:text-sm font-semibold`}>
+                <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
                   Meilleur mot
                 </span>
-                <span className="flex items-center gap-2 text-right flex-wrap justify-end">
-                  <span className="font-bold break-all text-sm sm:text-base">
+                <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
+                  <span className="font-bold break-all text-xs sm:text-sm">
                     {endStats.bestWord.word}
                   </span>
                   {endStats.bestWord.word && (
                     <button
                       type="button"
-                      className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
+                      className={`inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 ${
                         darkMode
                           ? "bg-slate-800 border-slate-600 text-slate-100"
                           : "bg-white border-gray-300 text-gray-700"
@@ -11716,8 +12484,8 @@ function handleTouchEnd() {
                       title="Voir la définition"
                     >
                       <svg
-                        width="16"
-                        height="16"
+                        width="14"
+                        height="14"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -11731,30 +12499,30 @@ function handleTouchEnd() {
                       </svg>
                     </button>
                   )}
-                  <span className={`${resultLabelClass} text-xs whitespace-nowrap`}>
+                  <span className={`${resultLabelClass} text-[10px] whitespace-nowrap`}>
                     ({endStats.bestWord.pts} pts)
                   </span>
                 </span>
               </div>
               <div className="flex justify-start">
-                <span className={`${resultPillClass} break-all`}>{endStats.bestWord.nick}</span>
+                <span className={`${compactPillClass} break-all`}>{endStats.bestWord.nick}</span>
               </div>
             </div>
           )}
           {endStats.longestWord && (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <div className="flex items-center justify-between gap-3">
-                <span className={`${resultLabelClass} text-xs sm:text-sm font-semibold`}>
+                <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
                   Mot le plus long
                 </span>
-                <span className="flex items-center gap-2 text-right justify-end flex-nowrap">
-                  <span className="font-bold text-sm sm:text-base" style={longestWordStyle}>
+                <span className="flex items-center gap-1.5 text-right justify-end flex-nowrap">
+                  <span className="font-bold text-xs sm:text-sm" style={longestWordStyle}>
                     {endStats.longestWord.word}
                   </span>
                   {endStats.longestWord.word && (
                     <button
                       type="button"
-                      className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
+                      className={`inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 ${
                         darkMode
                           ? "bg-slate-800 border-slate-600 text-slate-100"
                           : "bg-white border-gray-300 text-gray-700"
@@ -11767,8 +12535,8 @@ function handleTouchEnd() {
                       title="Voir la définition"
                     >
                       <svg
-                        width="16"
-                        height="16"
+                        width="14"
+                        height="14"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -11782,28 +12550,28 @@ function handleTouchEnd() {
                       </svg>
                     </button>
                   )}
-                  <span className={`${resultLabelClass} text-xs whitespace-nowrap`}>
+                  <span className={`${resultLabelClass} text-[10px] whitespace-nowrap`}>
                     ({endStats.longestWord.len} lettres)
                   </span>
                 </span>
               </div>
               <div className="flex justify-start items-center gap-2">
-                <span className={`${resultPillClass} break-all`}>{endStats.longestWord.nick}</span>
+                <span className={`${compactPillClass} break-all`}>{endStats.longestWord.nick}</span>
               </div>
             </div>
           )}
           {endStats.mostWords && (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <div className="flex items-center justify-between gap-3">
-                <span className={`${resultLabelClass} text-xs sm:text-sm font-semibold`}>
+                <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
                   Plus de mots
                 </span>
-                <span className="font-bold text-sm sm:text-base text-right">
+                <span className="font-bold text-xs sm:text-sm text-right">
                   {endStats.mostWords.count}
                 </span>
               </div>
               <div className="flex justify-start">
-                <span className={`${resultPillClass} break-all`}>{endStats.mostWords.nick}</span>
+                <span className={`${compactPillClass} break-all`}>{endStats.mostWords.nick}</span>
               </div>
             </div>
           )}
@@ -12040,6 +12808,7 @@ function handleTouchEnd() {
         nick: entry.nick,
         score: typeof entry.score === "number" ? entry.score : null,
         rank: typeof entry.rank === "number" ? entry.rank : null,
+        team: entry?.team || null,
         isDailyChampion: !!entry.isDailyChampion,
       });
       seen.add(entry.nick);
@@ -12052,6 +12821,7 @@ function handleTouchEnd() {
         nick: player.nick,
         score: typeof player.score === "number" ? player.score : null,
         rank: null,
+        team: player?.team || null,
         isDailyChampion: !!player.isDailyChampion,
       });
       seen.add(player.nick);
@@ -12068,7 +12838,13 @@ function handleTouchEnd() {
           selfEntry.score = currentScore;
         }
       } else {
-        entries.push({ nick: selfNick, score: currentScore, rank: null, isDailyChampion: false });
+        entries.push({
+          nick: selfNick,
+          score: currentScore,
+          rank: null,
+          team: duelStatus?.team || null,
+          isDailyChampion: false,
+        });
         seen.add(selfNick);
       }
     }
@@ -12113,6 +12889,7 @@ function handleTouchEnd() {
       score,
       wordsCount: Number.isFinite(accepted?.length) ? accepted.length : null,
       installId: installId || null,
+      team: duelStatus?.team || null,
       isPalier: false,
       playerKey: installId ? `install:${installId}` : `nick:${selfNick}`,
     };
@@ -12126,7 +12903,7 @@ function handleTouchEnd() {
       return String(a?.nick || "").localeCompare(String(b?.nick || ""));
     });
     return merged;
-  }, [dailyWidgetEntries, isDailyPlay, selfNick, score, accepted?.length, installId]);
+  }, [dailyWidgetEntries, isDailyPlay, selfNick, score, accepted?.length, installId, duelStatus?.team]);
   const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
 
   useLayoutEffect(() => {
@@ -12218,8 +12995,18 @@ function handleTouchEnd() {
     specialRound?.type === "target_long" ||
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
+  const selfNickForResults = nicknameRef.current.trim();
+  const selfHasResultsThisRound =
+    phase === "results" && selfNickForResults && Array.isArray(finalResults)
+      ? finalResults.some((entry) => entry?.nick === selfNickForResults)
+      : false;
+  const showOfflineResultsLabel = phase === "results" && !selfHasResultsThisRound;
   const guidedResultsEligible =
-    !isDailyView && isMobileLayout && phase === "results" && !isTargetRound;
+    !isDailyView &&
+    isMobileLayout &&
+    phase === "results" &&
+    !isTargetRound &&
+    !showOfflineResultsLabel;
   const guidedResultsPages = guidedResultsEligible ? getResultsPages() : [];
   const guidedResultsPageKey = guidedResultsPages.length
     ? guidedResultsPages[clampValue(mobileResultsPage, 0, guidedResultsPages.length - 1)]
@@ -12772,6 +13559,44 @@ function handleTouchEnd() {
     return set;
   }, [players, lobbyPlayersList, finalResults, tournamentRanking, tournamentFinaleSummary, selfNick]);
 
+  const teamByNick = React.useMemo(() => {
+    const map = new Map();
+    const put = (nick, team) => {
+      const cleanNick = nick ? String(nick).trim() : "";
+      if (!cleanNick) return;
+      if (team !== "red" && team !== "blue") return;
+      map.set(cleanNick, team);
+    };
+    players.forEach((entry) => put(entry?.nick, entry?.team));
+    lobbyPlayersList.forEach((entry) => put(entry?.nick, entry?.team));
+    provisionalRanking.forEach((entry) => put(entry?.nick, entry?.team));
+    finalResults.forEach((entry) => put(entry?.nick, entry?.team));
+    (tournamentRanking || []).forEach((entry) => put(entry?.nick, entry?.team));
+    (tournamentFinaleSummary?.ranking || []).forEach((entry) => put(entry?.nick, entry?.team));
+    const boardEntries = Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : [];
+    boardEntries.forEach((entry) => put(entry?.nick, entry?.team));
+    const historyDays = Array.isArray(dailyHistory?.days) ? dailyHistory.days : [];
+    historyDays.forEach((day) => {
+      if (!Array.isArray(day?.entries)) return;
+      day.entries.forEach((entry) => put(entry?.nick, entry?.team));
+    });
+    if (selfNick && (duelStatus?.team === "red" || duelStatus?.team === "blue")) {
+      map.set(selfNick, duelStatus.team);
+    }
+    return map;
+  }, [
+    players,
+    lobbyPlayersList,
+    provisionalRanking,
+    finalResults,
+    tournamentRanking,
+    tournamentFinaleSummary,
+    dailyBoard?.entries,
+    dailyHistory?.days,
+    duelStatus?.team,
+    selfNick,
+  ]);
+
   function renderMedalsInline(nick, fallbackMedals) {
     const persistentMedals = medals?.[nick] || null;
     if (phase === "results" && breakKind === "tournament_end") {
@@ -12841,13 +13666,35 @@ function handleTouchEnd() {
     );
   }
 
-  function renderHumanDot(nick) {
+  function renderHumanDot(nick, entry = null) {
+    const explicitTeam =
+      entry?.team === "red" || entry?.team === "blue" ? entry.team : null;
+    if (explicitTeam) {
+      return (
+        <span
+          className={`inline-block w-2 h-2 rounded-full ${
+            explicitTeam === "red" ? "bg-red-500" : "bg-blue-500"
+          }`}
+          aria-hidden="true"
+        />
+      );
+    }
     if (!nick) return null;
     if (botNickSet.has(nick)) return null;
     if (!humanNickSet.has(nick)) return null;
+    const team =
+      (entry?.team === "red" || entry?.team === "blue" ? entry.team : null) ||
+      teamByNick.get(nick) ||
+      null;
+    const colorClass =
+      team === "red"
+        ? "bg-red-500"
+        : team === "blue"
+        ? "bg-blue-500"
+        : "bg-slate-400";
     return (
       <span
-        className="inline-block w-2 h-2 rounded-full bg-orange-400"
+        className={`inline-block w-2 h-2 rounded-full ${colorClass}`}
         aria-hidden="true"
       />
     );
@@ -12863,7 +13710,7 @@ function handleTouchEnd() {
       : Array.isArray(maybeFallback)
       ? maybeFallback
       : null;
-    const dot = renderHumanDot(nick);
+    const dot = renderHumanDot(nick, entry);
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
     const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
     if (!dot && !medalsInline && !crown) return null;
@@ -13879,35 +14726,42 @@ function handleTouchEnd() {
   const safeWeeklyIndex =
     weeklyActiveIndex >= 0 && weeklyActiveIndex < weeklyBoardsMeta.length ? weeklyActiveIndex : 0;
   const activeWeeklyBoard = weeklyBoardsMeta[safeWeeklyIndex] || weeklyBoardsMeta[0];
-  const vocabBoardEntries = Number.isFinite(vocabCount)
-    ? [
-        {
-          nick: selfNick || "Toi",
-          vocabCount,
-          achievedAt: vocabUpdatedAt || Date.now(),
-          playerKey: installId ? `install:${installId}` : null,
-        },
-      ]
-    : [];
-  const weeklyBoardData = { ...(weeklyStats?.boards || {}) };
-  if (!Array.isArray(weeklyBoardData.vocab) || weeklyBoardData.vocab.length === 0) {
-    weeklyBoardData.vocab = vocabBoardEntries;
-  }
-  const weeklyVocabLookup = new Map();
-  const weeklyVocabEntries = Array.isArray(weeklyBoardData.vocab)
-    ? weeklyBoardData.vocab
-    : [];
-  weeklyVocabEntries.forEach((entry) => {
-    if (!entry) return;
-    const count = Number(entry.vocabCount) || 0;
-    if (entry.playerKey) {
-      weeklyVocabLookup.set(entry.playerKey, count);
+  const vocabBoardEntries = React.useMemo(() => {
+    if (!Number.isFinite(vocabCount)) return [];
+    return [
+      {
+        nick: selfNick || "Toi",
+        vocabCount,
+        achievedAt: Number.isFinite(vocabUpdatedAt) ? vocabUpdatedAt : null,
+        playerKey: installId ? `install:${installId}` : null,
+      },
+    ];
+  }, [vocabCount, selfNick, vocabUpdatedAt, installId]);
+  const weeklyBoardData = React.useMemo(() => {
+    const data = { ...(weeklyStats?.boards || {}) };
+    if (!Array.isArray(data.vocab) || data.vocab.length === 0) {
+      data.vocab = vocabBoardEntries;
     }
-    if (entry.nick) {
-      const nickKey = String(entry.nick).trim().toLowerCase();
-      if (nickKey) weeklyVocabLookup.set(nickKey, count);
-    }
-  });
+    return data;
+  }, [weeklyStats?.boards, vocabBoardEntries]);
+  const weeklyVocabLookup = React.useMemo(() => {
+    const lookup = new Map();
+    const weeklyVocabEntries = Array.isArray(weeklyBoardData.vocab)
+      ? weeklyBoardData.vocab
+      : [];
+    weeklyVocabEntries.forEach((entry) => {
+      if (!entry) return;
+      const count = Number(entry.vocabCount) || 0;
+      if (entry.playerKey) {
+        lookup.set(entry.playerKey, count);
+      }
+      if (entry.nick) {
+        const nickKey = String(entry.nick).trim().toLowerCase();
+        if (nickKey) lookup.set(nickKey, count);
+      }
+    });
+    return lookup;
+  }, [weeklyBoardData.vocab]);
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
   const weeklyBoardDisplayLimit = STATS_WEEKLY_DISPLAY_LIMIT;
   const seasonBoardDisplayLimit = Math.min(
@@ -13940,13 +14794,17 @@ function handleTouchEnd() {
     weeklyBoardData.vocab,
     seasonBoardDisplayLimit
   );
-  const activeWeeklyEntries = activeWeeklyBoard
-    ? dedupeWeeklyEntries(
-        activeWeeklyBoard.key,
-        weeklyBoardData[activeWeeklyBoard.key],
+  const weeklyEntriesByBoard = React.useMemo(() => {
+    const out = {};
+    weeklyBoardsMeta.forEach((board) => {
+      out[board.key] = dedupeWeeklyEntries(
+        board.key,
+        weeklyBoardData[board.key],
         weeklyBoardDisplayLimit
-      )
-    : [];
+      );
+    });
+    return out;
+  }, [weeklyBoardsMeta, weeklyBoardData, weeklyBoardDisplayLimit]);
   const weeklyWeekNumber = weeklyStats?.weekStartTs
     ? getISOWeekNumber(new Date(weeklyStats.weekStartTs))
     : getISOWeekNumber(new Date());
@@ -14211,14 +15069,12 @@ function handleTouchEnd() {
                 style={{
                   transform: `translateX(calc(${safeWeeklyIndex * -100}% + ${weeklyOffsetPercent}%))`,
                   transition: weeklyDragging ? "none" : "transform 0.25s ease-out",
+                  willChange: weeklyDragging ? "transform" : "auto",
                 }}
               >
                 {weeklyBoardsMeta.map((board, idx) => {
-                  const entries = dedupeWeeklyEntries(
-                    board.key,
-                    weeklyBoardData[board.key],
-                    weeklyBoardDisplayLimit
-                  );
+                  const entries = weeklyEntriesByBoard[board.key] || [];
+                  const shouldRenderRows = Math.abs(idx - safeWeeklyIndex) <= 1;
                   return (
                     <div key={board.key} className="w-full shrink-0 px-0 flex flex-col min-h-0 h-full">
                       <div className="p-4 space-y-3 flex flex-col min-h-0 h-full">
@@ -14231,15 +15087,15 @@ function handleTouchEnd() {
                             <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
                           ) : null}
                         </div>
-                        {entries.length > 0 ? (
+                        {shouldRenderRows && entries.length > 0 ? (
                           <div
                             className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
                             data-stats-scroll="true"
-                            style={{ WebkitOverflowScrolling: "touch" }}
+                            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                           >
                             {entries.map((entry, entryIdx) => renderWeeklyRow(board.key, entry, entryIdx))}
                           </div>
-                        ) : (
+                        ) : shouldRenderRows ? (
                           <div className="text-sm opacity-70 py-8 text-center flex-1 min-h-0 flex items-center justify-center">
                             {weeklyStatsLoading && idx === safeWeeklyIndex
                               ? "Chargement..."
@@ -14247,6 +15103,8 @@ function handleTouchEnd() {
                               ? "Impossible de recuperer les stats"
                               : "Pas encore de stats cette semaine."}
                           </div>
+                        ) : (
+                          <div className="flex-1 min-h-0" />
                         )}
                       </div>
                     </div>
@@ -14282,7 +15140,7 @@ function handleTouchEnd() {
                           <div
                             className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
                             data-stats-scroll="true"
-                            style={{ WebkitOverflowScrolling: "touch" }}
+                            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                           >
                             {seasonVocabEntries.map((entry, entryIdx) =>
                               renderWeeklyRow("vocab", entry, entryIdx, { showVocabIcon: true })
@@ -14302,7 +15160,7 @@ function handleTouchEnd() {
                       <div
                         className="p-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
                         data-stats-scroll="true"
-                        style={{ WebkitOverflowScrolling: "touch" }}
+                        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                       >
                         {renderVocabPanel({ showDelta: false, showHeading: false })}
                       </div>
@@ -14648,13 +15506,29 @@ function handleTouchEnd() {
             <div
               role="dialog"
               aria-modal="true"
-              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${
+              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-visible ${
                 darkMode
                   ? "bg-slate-900/85 border-white/10 text-white"
                   : "bg-white/85 border-slate-200/80 text-slate-900"
               }`}
               onClick={(e) => e.stopPropagation()}
             >
+              {guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION ? (
+                <div
+                  className={`absolute -top-14 right-2 z-30 flex items-center gap-2 rounded-full px-3 py-2 text-[16px] font-semibold shadow-xl pointer-events-none ${
+                    darkMode
+                      ? "text-slate-100 ring-2 ring-white/10"
+                      : "text-slate-900 ring-2 ring-black/10"
+                  }`}
+                  style={{
+                    maxWidth: "360px",
+                    backgroundColor: darkMode ? "#0b0f14" : "#ffffff",
+                    opacity: 1,
+                  }}
+                >
+                  La loupe ouvre la définition
+                </div>
+              ) : null}
               <button
                 type="button"
                 className="absolute top-3 right-3 z-20 rounded-full h-9 w-12 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
@@ -14705,22 +15579,6 @@ function handleTouchEnd() {
                       <line x1="16.65" y1="16.65" x2="21" y2="21" />
                     </svg>
                   </button>
-                  {guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION ? (
-                    <div
-                      className={`absolute -bottom-12 right-0 flex items-center gap-2 rounded-full px-3 py-2 text-[18px] font-semibold shadow-xl pointer-events-none ${
-                        darkMode
-                          ? "text-slate-100 ring-2 ring-white/10"
-                          : "text-slate-900 ring-2 ring-black/10"
-                      }`}
-                      style={{
-                        maxWidth: "360px",
-                        backgroundColor: darkMode ? "#0b0f14" : "#ffffff",
-                        opacity: 1,
-                      }}
-                    >
-                      La loupe ouvre la définition
-                    </div>
-                  ) : null}
                 </div>
                 <div className="mt-2 text-xs opacity-70">Trouvé par :</div>
               </div>
@@ -14921,64 +15779,6 @@ function handleTouchEnd() {
                 Passer
               </button>
               {renderVocabOverlayPanel()}
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
-  const twoLetterPopupView =
-    twoLetterPopupOpen && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed inset-0 z-[12055] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-6"
-            onClick={() => {
-              playCloseSound();
-              setTwoLetterPopupOpen(false);
-              try {
-                localStorage.setItem(twoLetterPopupKey, "1");
-              } catch (_) {}
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${
-                darkMode
-                  ? "bg-slate-900/90 border-white/10 text-white"
-                  : "bg-white/95 border-slate-200 text-slate-900"
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-5 space-y-3">
-                <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-                  Nouveau !
-                </div>
-                <div className="text-lg font-extrabold">
-                  Les mots de 2 lettres sont maintenant valides.
-                </div>
-                <div className="text-sm opacity-80">
-                  Tu peux les utiliser pendant les manches, comme les autres mots.
-                </div>
-                <div className="pt-2 flex justify-end">
-                  <button
-                    type="button"
-                    className={`px-4 py-2 text-xs font-semibold rounded-full border ${
-                      darkMode
-                        ? "bg-slate-800/80 border-white/10 text-slate-100"
-                        : "bg-white border-slate-200 text-slate-700"
-                    }`}
-                    onClick={() => {
-                      playCloseSound();
-                      setTwoLetterPopupOpen(false);
-                      try {
-                        localStorage.setItem(twoLetterPopupKey, "1");
-                      } catch (_) {}
-                    }}
-                  >
-                    OK
-                  </button>
-                </div>
-              </div>
             </div>
           </div>,
           document.body
@@ -15587,8 +16387,128 @@ function handleTouchEnd() {
       ? Math.round((devNowMs - devPerfStats.lastSolveAllAt) / 1000)
       : null;
   const devPerfOverlay = null;
+  const duelWeeklyTotals = duelStatus?.weekly?.totalsByTeam || { red: 0, blue: 0 };
+  const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
+  const duelBlueScore = Number(duelWeeklyTotals?.blue) || 0;
+  const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
+  const duelContributorsByTeam =
+    duelStatus?.weekly?.contributorsByTeam && typeof duelStatus.weekly.contributorsByTeam === "object"
+      ? duelStatus.weekly.contributorsByTeam
+      : {};
+  const duelContributorsSort = (a, b) => {
+    const pointsDiff = (Number(b?.points) || 0) - (Number(a?.points) || 0);
+    if (pointsDiff !== 0) return pointsDiff;
+    return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+  };
+  const duelContributorsRed = Array.isArray(duelContributorsByTeam.red)
+    ? [...duelContributorsByTeam.red].sort(duelContributorsSort)
+    : [];
+  const duelContributorsBlue = Array.isArray(duelContributorsByTeam.blue)
+    ? [...duelContributorsByTeam.blue].sort(duelContributorsSort)
+    : [];
+  const duelTeamTintColor =
+    duelTeam === "red"
+      ? "rgba(239, 68, 68, 0.05)"
+      : duelTeam === "blue"
+      ? "rgba(37, 99, 235, 0.05)"
+      : "";
+  const teamTintOverlay = duelTeamTintColor ? (
+    <div
+      aria-hidden="true"
+      className="fixed inset-0 pointer-events-none z-[1]"
+      style={{ backgroundColor: duelTeamTintColor }}
+    />
+  ) : null;
+  const duelPopupOverlay =
+    duelPopupState?.mode && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[12100] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+            <div
+              className={`w-full max-w-md rounded-2xl border p-4 space-y-3 ${
+                darkMode
+                  ? "bg-slate-900/95 border-white/10 text-slate-100"
+                  : "bg-white border-slate-200 text-slate-900"
+              }`}
+            >
+              {duelPopupState.mode === "team" ? (
+                <>
+                  <div className="text-lg font-black">Duel d'équipes</div>
+                  <div className="text-sm">
+                    Tu es dans l'équipe{" "}
+                    <span className={duelPopupState.team === "red" ? "text-red-500 font-bold" : "text-blue-500 font-bold"}>
+                      {duelPopupState.team === "red" ? "Rouge" : "Bleue"}
+                    </span>{" "}
+                    cette semaine.
+                  </div>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+                    onClick={acknowledgeDuelTeamPopup}
+                  >
+                    Compris
+                  </button>
+                </>
+              ) : duelPopupState.mode === "objectives" ? (
+                <>
+                  <div className="text-lg font-black">Objectifs du jour</div>
+                  <div className="text-sm opacity-80">
+                    Valide ces objectifs dans le jeu principal pour faire monter le score de ton équipe.
+                  </div>
+                  <DuelObjectivesPanel
+                    darkMode={darkMode}
+                    objectivesStatus={duelStatus?.objectives}
+                    onReroll={rerollDuelObjective}
+                    rerollBusyBucket={duelRerollBusyBucket}
+                    onObjectiveValidated={handleDuelObjectiveValidated}
+                    hiddenValidatedKeys={getDuelConsumedValidatedKeys("popup")}
+                    onValidatedObjectiveConsumed={(objective, key) =>
+                      markDuelValidatedObjectiveConsumed("popup", objective, key)
+                    }
+                    hasPlayedDaily={!!dailyStatus?.hasPlayed}
+                  />
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+                    onClick={closeDuelObjectivesPopup}
+                  >
+                    Continuer
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-lg font-black">Mini tuto Duel</div>
+                  <div className="text-sm">{DUEL_TUTORIAL_STEPS[duelPopupState.step] || ""}</div>
+                  <div className="text-xs opacity-70">
+                    {duelPopupState.step + 1}/{DUEL_TUTORIAL_STEPS.length}
+                  </div>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+                    onClick={advanceDuelTutorial}
+                  >
+                    {duelPopupState.step + 1 >= DUEL_TUTORIAL_STEPS.length ? "Terminer" : "Suivant"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+  const isBootBlocking = !bootProgress.done;
+  const shouldShowBootOverlay = isBootBlocking || bootOverlayVisible;
+  const bootOverlay = shouldShowBootOverlay ? (
+    <BootLoader
+      progress={bootProgress}
+      darkMode={darkMode}
+      fadingOut={!isBootBlocking && bootOverlayFading}
+      fadeDurationMs={BOOT_TRANSITION_MS}
+    />
+  ) : null;
   const chatOverlays = (
     <>
+      {bootOverlay}
+      {duelPopupOverlay}
       {playersOverlay}
       {userMenuView}
       {reportModal}
@@ -15596,7 +16516,6 @@ function handleTouchEnd() {
       {definitionModalView}
       {wordInfoModalView}
       {recordModalView}
-      {twoLetterPopupView}
       {vocabOverlayView}
       {tutorialOverlay}
       {specialTutorialOverlay}
@@ -15604,15 +16523,9 @@ function handleTouchEnd() {
       {aboutModalView}
       {mobileChatLayer}
       {devPerfOverlay}
+      <ToastStack toasts={toasts} darkMode={darkMode} />
     </>
   );
-  const isBootBlocking = !bootProgress.done;
-  const bootOverlay = isBootBlocking ? (
-    <BootLoader
-      progress={bootProgress}
-      darkMode={darkMode}
-    />
-  ) : null;
   if (isBootBlocking) {
     return bootOverlay;
   }
@@ -15634,23 +16547,48 @@ function handleTouchEnd() {
     null;
 
   const dailyMyResult = dailyStatus?.myResult || dailyResult;
+  const dailyBattle =
+    (dailyBoard?.battle && typeof dailyBoard.battle === "object" ? dailyBoard.battle : null) ||
+    (duelStatus?.dailyBattle && typeof duelStatus.dailyBattle === "object"
+      ? duelStatus.dailyBattle
+      : null);
+  const dailyBattleRedBalanced = Number(dailyBattle?.totalsBalancedByTeam?.red) || 0;
+  const dailyBattleBlueBalanced = Number(dailyBattle?.totalsBalancedByTeam?.blue) || 0;
   const dailyScoreLabel =
     dailyMyResult && Number.isFinite(dailyMyResult.score) ? dailyMyResult.score : null;
   const dailyRankLabel =
     dailyMyResult && Number.isFinite(dailyMyResult.rank) ? dailyMyResult.rank : null;
   const todayDateId = dailyStatus?.dateId || dailyBoard?.dateId || null;
-  const dailyHistoryDaysRaw = Array.isArray(dailyHistory?.days) ? dailyHistory.days : [];
-  const dailyHistoryDays = todayDateId
+  const fakeDailyHistoryDays = buildFakeDailyHistoryDays(todayDateId);
+  const dailyHistoryDaysRaw = (() => {
+    const realDays = Array.isArray(dailyHistory?.days) ? dailyHistory.days : [];
+    if (!ENABLE_FAKE_DAILY_HISTORY) return realDays;
+    const existingDateIds = new Set(realDays.map((entry) => String(entry?.dateId || "")));
+    const merged = [...realDays];
+    fakeDailyHistoryDays.forEach((entry) => {
+      const key = String(entry?.dateId || "");
+      if (!key || existingDateIds.has(key)) return;
+      merged.push(entry);
+    });
+    return merged;
+  })();
+  const dailyHistoryDays = (todayDateId
     ? dailyHistoryDaysRaw.filter((entry) => entry?.dateId && entry.dateId !== todayDateId)
-    : dailyHistoryDaysRaw;
-  const dailyHistoryPages = [
-    ...dailyHistoryDays.map((entry) => ({ type: "day", ...entry })),
-    {
-      type: "crowns",
-      crownTotals: Array.isArray(dailyHistory?.crownTotals) ? dailyHistory.crownTotals : [],
-    },
-  ];
+    : dailyHistoryDaysRaw
+  ).sort((a, b) => String(b?.dateId || "").localeCompare(String(a?.dateId || "")));
+  const dailyHistoryPages = [...dailyHistoryDays.map((entry) => ({ type: "day", ...entry }))];
   const dailyHistoryPageCount = dailyHistoryPages.length;
+  const dailyEntrySort = (a, b) => {
+    const scoreDiff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+  };
+  const dailyTodayRedEntries = dailyEntries
+    .filter((entry) => entry?.team === "red")
+    .sort(dailyEntrySort);
+  const dailyTodayBlueEntries = dailyEntries
+    .filter((entry) => entry?.team === "blue")
+    .sort(dailyEntrySort);
 
   const renderDailyBoardList = (maxHeightClass = "max-h-[360px]") => (
     <div
@@ -15661,8 +16599,6 @@ function handleTouchEnd() {
       {dailyEntries.length ? (
         dailyEntries.map((entry, idx) => {
           const isPalier = !!entry?.isPalier;
-          const firstRealIndex = dailyEntries.findIndex((item) => item && !item.isPalier);
-          const isWinner = !isPalier && idx === firstRealIndex;
           const label = entry?.rightLabel
             ? entry.rightLabel
             : Number.isFinite(entry?.score)
@@ -15694,7 +16630,7 @@ function handleTouchEnd() {
                 </span>
                 <span className="truncate font-semibold flex items-center gap-1">
                   {entry?.nick || "Joueur"}
-                  {isWinner ? renderCrownIcon() : null}
+                  {renderHumanDot(entry?.nick, entry)}
                   {gobbleBadge}
                 </span>
               </div>
@@ -15705,6 +16641,115 @@ function handleTouchEnd() {
       ) : (
         <div className="text-xs opacity-70 py-6 text-center">Aucun score pour le moment.</div>
       )}
+    </div>
+  );
+  const renderDailyTeamColumn = (entries, team, maxHeightClass = "max-h-[46vh] sm:max-h-[520px]") => (
+    <div
+      className={`rounded-xl border px-3 py-2 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
+        darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+      }`}
+    >
+      {entries.length ? (
+        entries.map((entry, idx) => {
+          const label = Number.isFinite(entry?.score)
+            ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${entry.score} pts`
+            : "-";
+          const gobbleBadge = renderGobbleBadge(entry?.gobbles);
+          const isSelfDaily =
+            (entry?.installId && installId && entry.installId === installId) ||
+            (entry?.nick && selfNick && entry.nick === selfNick);
+          return (
+            <div
+              key={entry?.playerKey || entry?.installId || `${entry?.nick}-${idx}`}
+              className={`py-1.5 text-sm border-b last:border-b-0 ${
+                darkMode ? "border-white/5" : "border-slate-100"
+              } ${
+                isSelfDaily
+                  ? darkMode
+                    ? "bg-emerald-900/30 text-emerald-100"
+                    : "bg-emerald-50 text-emerald-800"
+                  : ""
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
+                  {idx + 1}
+                </span>
+                <span className="min-w-0 truncate text-[11px] sm:text-xs font-semibold flex items-center gap-1">
+                  {entry?.nick || "Joueur"}
+                  {renderHumanDot(entry?.nick, { ...entry, team })}
+                  {gobbleBadge}
+                </span>
+              </div>
+              <div className="pl-6 text-[10px] font-semibold opacity-80 leading-tight">
+                {label}
+              </div>
+            </div>
+          );
+        })
+      ) : (
+        <div className="text-xs opacity-70 py-6 text-center">Aucun score pour le moment.</div>
+      )}
+    </div>
+  );
+  const renderDuelContributorsColumn = (entries, team, maxHeightClass = "max-h-[360px]") => (
+    <div
+      className={`rounded-xl border px-2 py-1.5 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
+        darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+      }`}
+    >
+      {entries.length ? (
+        entries.map((entry, idx) => {
+          const points = Number(entry?.points) || 0;
+          const isSelfEntry =
+            (entry?.installId && installId && entry.installId === installId) ||
+            (entry?.nick && selfNick && entry.nick === selfNick);
+          return (
+            <div
+              key={entry?.installId || `${entry?.nick}-${idx}`}
+              className={`flex items-center justify-between gap-2 py-1.5 text-xs border-b last:border-b-0 ${
+                darkMode ? "border-white/5" : "border-slate-100"
+              } ${
+                isSelfEntry
+                  ? darkMode
+                    ? "bg-emerald-900/30 text-emerald-100"
+                    : "bg-emerald-50 text-emerald-800"
+                  : ""
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[10px] font-black tabular-nums w-5 text-right opacity-70">
+                  {idx + 1}
+                </span>
+                <span className="truncate text-[10px] sm:text-[11px] font-semibold leading-tight flex items-center gap-1">
+                  {entry?.nick || "Joueur"}
+                  {renderHumanDot(entry?.nick, { ...entry, team })}
+                </span>
+              </div>
+              <span className="text-[10px] font-semibold opacity-85 shrink-0">{points} pts</span>
+            </div>
+          );
+        })
+      ) : (
+        <div className="text-xs opacity-70 py-6 text-center">Aucune contribution.</div>
+      )}
+    </div>
+  );
+  const renderDailyTodaySplit = (maxHeightClass = "max-h-[46vh] sm:max-h-[520px]") => (
+    <div className="space-y-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+        <div className="text-red-500 text-center truncate text-xl sm:text-2xl font-black tabular-nums">
+          {dailyBattleRedBalanced}
+        </div>
+        <div className="opacity-70 text-xs">VS</div>
+        <div className="text-blue-500 text-center truncate text-xl sm:text-2xl font-black tabular-nums">
+          {dailyBattleBlueBalanced}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 items-start gap-0">
+        {renderDailyTeamColumn(dailyTodayRedEntries, "red", maxHeightClass)}
+        {renderDailyTeamColumn(dailyTodayBlueEntries, "blue", maxHeightClass)}
+      </div>
     </div>
   );
   const renderDailyHistorySlider = (panelHeightClass = "max-h-[320px]") =>
@@ -15744,10 +16789,35 @@ function handleTouchEnd() {
                             </div>
                           ) : null}
                         </div>
+                        {page?.battle ? (
+                          <div className="mb-2 space-y-1">
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                              <span className="text-red-500 text-center truncate text-lg sm:text-xl font-black tabular-nums">
+                                {Number(page?.battle?.totalsBalancedByTeam?.red) || 0}
+                              </span>
+                              <span className="opacity-70 text-[11px]">VS</span>
+                              <span className="text-blue-500 text-center truncate text-lg sm:text-xl font-black tabular-nums">
+                                {Number(page?.battle?.totalsBalancedByTeam?.blue) || 0}
+                              </span>
+                            </div>
+                            {page?.battle?.winnerTeam === "red" ? (
+                              <div className="text-xs text-center">
+                                <span className="font-bold text-red-500">ROUGES</span>{" "}
+                                <span className="opacity-80">gagnent !</span>
+                              </div>
+                            ) : page?.battle?.winnerTeam === "blue" ? (
+                              <div className="text-xs text-center">
+                                <span className="font-bold text-blue-500">BLEUS</span>{" "}
+                                <span className="opacity-80">gagnent !</span>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-center opacity-70">Match nul</div>
+                            )}
+                          </div>
+                        ) : null}
                         {Array.isArray(page.entries) && page.entries.length > 0 ? (
                           <div className={`${panelHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}>
                             {page.entries.map((entry, entryIdx) => {
-                              const isWinner = entryIdx === 0;
                               const label = Number.isFinite(entry?.score)
                                 ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${
                                     entry.score
@@ -15767,7 +16837,7 @@ function handleTouchEnd() {
                                     </span>
                                     <span className="truncate font-semibold flex items-center gap-1">
                                       {entry?.nick || "Joueur"}
-                                      {isWinner ? renderCrownIcon() : null}
+                                      {renderHumanDot(entry?.nick, entry)}
                                       {gobbleBadge}
                                     </span>
                                   </div>
@@ -15864,6 +16934,7 @@ function handleTouchEnd() {
   if (!isLoggedIn && appView === "daily") {
     return (
       <>
+        {bootOverlay}
         {tutorialOverlay}
         {settingsMenuView}
         {aboutModalView}
@@ -15948,7 +17019,7 @@ function handleTouchEnd() {
             </div>
 
             {dailyRankingView === "today"
-              ? renderDailyBoardList("max-h-[520px]")
+              ? renderDailyTodaySplit("max-h-[46vh] sm:max-h-[520px]")
               : renderDailyHistorySlider("max-h-[520px]") || (
                   <div className="text-xs opacity-70 py-6 text-center">
                     Aucun historique disponible.
@@ -15991,6 +17062,7 @@ function handleTouchEnd() {
   if (appView === "daily_results" && !isLoggedIn) {
     return (
       <>
+        {bootOverlay}
         {tutorialOverlay}
         {settingsMenuView}
         {aboutModalView}
@@ -16054,12 +17126,106 @@ function handleTouchEnd() {
     );
   }
 
+  if (!isLoggedIn && appView === "duel") {
+    return (
+      <>
+        {bootOverlay}
+        {playersOverlay}
+        {definitionModalView}
+        {tutorialOverlay}
+        {settingsMenuView}
+        {aboutModalView}
+        <div
+          className={`w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden ${
+            darkMode
+              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
+              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
+          }`}
+          style={weeklyOverlayStyle}
+        >
+          <div
+            className={`relative w-full max-w-none h-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col min-h-0 ${
+              darkMode
+                ? "bg-slate-900/90 border-white/10 text-white"
+                : "bg-white/95 border-slate-200 text-slate-900"
+            }`}
+          >
+            <div className="p-4 pb-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
+                  DUEL D'EQUIPES
+                </div>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
+                    darkMode
+                      ? "bg-slate-800/80 border-white/10 text-slate-100"
+                      : "bg-white border-slate-200 text-slate-700"
+                  }`}
+                  onClick={() => setAppView("home")}
+                  aria-label="Fermer le duel"
+                >
+                  Fermer
+                </button>
+              </div>
+              <DuelWeeklyWidget darkMode={darkMode} redScore={duelRedScore} blueScore={duelBlueScore} />
+              <div
+                className={`rounded-xl border px-3 py-2 text-xs ${
+                  darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+                }`}
+              >
+                Equipe:{" "}
+                <span className={duelTeam === "red" ? "text-red-500 font-bold" : duelTeam === "blue" ? "text-blue-500 font-bold" : ""}>
+                  {duelTeam === "red" ? "Rouge" : duelTeam === "blue" ? "Bleue" : "Attribution en cours"}
+                </span>
+                {duelStatus?.crowned ? " • Couronné" : ""}
+              </div>
+            </div>
+            <div
+              className="px-4 pb-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray"
+              data-stats-scroll="true"
+              style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+            >
+              <div className="space-y-3">
+                <DuelObjectivesPanel
+                  darkMode={darkMode}
+                  objectivesStatus={duelStatus?.objectives}
+                  onReroll={rerollDuelObjective}
+                  rerollBusyBucket={duelRerollBusyBucket}
+                  onObjectiveValidated={handleDuelObjectiveValidated}
+                  hiddenValidatedKeys={getDuelConsumedValidatedKeys("page")}
+                  onValidatedObjectiveConsumed={(objective, key) =>
+                    markDuelValidatedObjectiveConsumed("page", objective, key)
+                  }
+                  hasPlayedDaily={!!dailyStatus?.hasPlayed}
+                />
+                <div className="space-y-2">
+                  <div className="text-[11px] uppercase tracking-[0.16em] font-bold opacity-70">
+                    Meilleurs contributeurs
+                  </div>
+                  <div className="grid grid-cols-2 items-center gap-0 text-xs font-black">
+                    <div className="text-red-500 text-center truncate">ROUGE</div>
+                    <div className="text-blue-500 text-center truncate">BLEU</div>
+                  </div>
+                  <div className="grid grid-cols-2 items-start gap-0">
+                    {renderDuelContributorsColumn(duelContributorsRed, "red", "max-h-[320px]")}
+                    {renderDuelContributorsColumn(duelContributorsBlue, "blue", "max-h-[320px]")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (!isLoggedIn && appView === "stats") {
     return (
       <>
+        {bootOverlay}
         {playersOverlay}
         {definitionModalView}
-        {twoLetterPopupView}
         {tutorialOverlay}
         {settingsMenuView}
         {aboutModalView}
@@ -16080,9 +17246,11 @@ function handleTouchEnd() {
   if (!isLoggedIn && !isDailyPlay) {
     return (
       <>
+        {bootOverlay}
+        {teamTintOverlay}
+        {duelPopupOverlay}
         {playersOverlay}
         {definitionModalView}
-        {twoLetterPopupView}
         {tutorialOverlay}
         {settingsMenuView}
         {aboutModalView}
@@ -16094,41 +17262,51 @@ function handleTouchEnd() {
           }`}
         >
         <div
-          className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-3 ${
+          className={`relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-3 ${
             darkMode
               ? "bg-slate-900/70 border border-white/10"
               : "bg-white/90 border border-slate-200"
           }`}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-  <div className="flex items-baseline gap-2 text-3xl font-black tracking-tight select-none">
-    <span>GOBBLE</span>
-  </div>
-  <p className={`text-sm ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-    Salon multijoueur sans compte...
-  </p>
-</div>
-
-            <div className="flex flex-col items-start gap-1 text-xs">
-              <div className="flex items-center gap-2">
+            <div
+              className={`w-full rounded-xl border px-3 py-2 ${
+                duelTeam === "red"
+                  ? darkMode
+                    ? "bg-red-900 border-red-700 text-red-50"
+                    : "bg-red-200 border-red-300 text-red-900"
+                  : duelTeam === "blue"
+                  ? darkMode
+                    ? "bg-blue-900 border-blue-700 text-blue-50"
+                    : "bg-blue-200 border-blue-300 text-blue-900"
+                  : darkMode
+                  ? "bg-slate-800 border-slate-700 text-slate-100"
+                  : "bg-slate-100 border-slate-200 text-slate-900"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-3xl font-black tracking-tight leading-none select-none">GOBBLE</div>
+                  <p className={`mt-1 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
+                    boggle en ligne
+                  </p>
+                </div>
                 <button
                   type="button"
-                  className={`px-2.5 py-1 rounded-full border text-[10px] font-semibold transition inline-flex items-center gap-1 ${
+                  className={`h-9 w-9 rounded-full border flex items-center justify-center transition shrink-0 ${
                     darkMode
-                      ? "bg-slate-800/80 border-white/10 text-slate-100"
-                      : "bg-white border-slate-200 text-slate-700"
+                      ? "bg-slate-800/90 border-white/10 text-slate-100 hover:bg-slate-700/90"
+                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
                   }`}
                   onClick={() => setIsSettingsOpen(true)}
                   aria-label="Ouvrir les paramètres"
                 >
                   <span
-                    className="material-icons-outlined text-[14px] leading-none"
+                    className="material-icons-outlined text-[22px] leading-none opacity-90"
                     aria-hidden="true"
                   >
                     settings
                   </span>
-                  Parametres
                 </button>
               </div>
             </div>
@@ -16269,6 +17447,14 @@ function handleTouchEnd() {
               Joueurs en jeu ({playersCountForLobby})
             </button>
           </form>
+          <DuelWeeklyWidget
+            darkMode={darkMode}
+            redScore={duelRedScore}
+            blueScore={duelBlueScore}
+            onClick={openDuelPage}
+            showHint
+            playerTeam={duelTeam}
+          />
           <div className="flex justify-center">
             <button
               type="button"
@@ -16282,26 +17468,6 @@ function handleTouchEnd() {
             </button>
           </div>
 
-          <div className={`grid md:grid-cols-3 gap-2 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
-            <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
-              <div className="font-semibold">Pseudo unique</div>
-              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                Pas de compte, juste un pseudo non utilisé par un autre joueur.
-              </div>
-            </div>
-            <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
-              <div className="font-semibold">Chat en direct</div>
-              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                Messages partagés dès que tu es connecté.
-              </div>
-            </div>
-            <div className={`p-2 rounded-lg border ${darkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>
-              <div className="font-semibold">Classement live</div>
-              <div className={`text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                Ta position se met à jour, les scores détaillés arrivent en fin de manche.
-              </div>
-            </div>
-          </div>
         </div>
         </div>
       </>
@@ -17201,12 +18367,6 @@ function handleTouchEnd() {
       const resultsPages = isTargetRound
         ? ["round", "total", "vocab"]
         : ["round", "total", "found", "all", "vocab"];
-      const selfNickForResults = nicknameRef.current.trim();
-      const selfResultEntry =
-        selfNickForResults && Array.isArray(finalResults)
-          ? finalResults.find((entry) => entry.nick === selfNickForResults)
-          : null;
-      const showOfflineLabel = !selfResultEntry;
       const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
       const resultsPageKey = resultsPages[safeResultsPage];
       const showVocabPage = resultsPageKey === "vocab";
@@ -17358,6 +18518,7 @@ function handleTouchEnd() {
             isFinaleBanner={isFinaleBanner}
             isTargetRound={isTargetRound}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            playerTeam={duelTeam}
             phase={phase}
             roomLabelSeparator=" - "
             showHelpButton={false}
@@ -17410,7 +18571,7 @@ function handleTouchEnd() {
                     ) : null}
                   </div>
 
-                  {showOfflineLabel ? (
+                  {showOfflineResultsLabel ? (
                     <div className="text-[11px] text-amber-500">
                       Vous etiez hors ligne sur cette manche.
                     </div>
@@ -17653,6 +18814,7 @@ function handleTouchEnd() {
           isFinaleBanner={isFinaleBanner}
           isTargetRound={isTargetRound}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          playerTeam={duelTeam}
           phase={phase}
           roomLabelSeparator=" - "
           roundStatsText={

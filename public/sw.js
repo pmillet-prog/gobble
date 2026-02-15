@@ -1,4 +1,4 @@
-const SW_VERSION = "v2";
+const SW_VERSION = "v3";
 const CACHE_PREFIX = "gobble-cache";
 const MEDIA_CACHE = `${CACHE_PREFIX}-media-${SW_VERSION}`;
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${SW_VERSION}`;
@@ -55,11 +55,15 @@ function makeCacheKey(url, stripSearch = false) {
 
 async function putInCache(cacheName, key, response) {
   if (!response || !response.ok) return;
+  if (response.status === 206) return;
   const cache = await caches.open(cacheName);
   await cache.put(key, response.clone());
 }
 
 async function mediaCacheFirst(request, url) {
+  if (request.headers.get("range")) {
+    return fetch(request);
+  }
   const cache = await caches.open(MEDIA_CACHE);
   const key = makeCacheKey(url, true);
   const cached = await cache.match(key);
@@ -117,6 +121,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (!isGetRequest(request)) return;
+  if (request.headers.get("range")) return;
   const url = new URL(request.url);
   if (!isSameOrigin(url)) return;
   if (isApiRequest(url.pathname)) return;

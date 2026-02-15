@@ -1,0 +1,301 @@
+{
+  "weekStartTs": 1768780800000,
+  "medals": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "gold": 1,
+      "silver": 0,
+      "bronze": 0,
+      "total": 1,
+      "achievedAt": 1769266109874
+    },
+    "nick:Tigrou": {
+      "nick": "Tigrou",
+      "playerKey": "nick:Tigrou",
+      "gold": 0,
+      "silver": 0,
+      "bronze": 1,
+      "total": 1,
+      "achievedAt": 1769266109875
+    }
+  },
+  "mostWordsInGame": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "wordsCount": 35,
+      "roundId": "room-4x4#1769265499483",
+      "achievedAt": 1769265619483
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "wordsCount": 84,
+      "roundId": "room-4x4#1769270151962",
+      "achievedAt": 1769270271962
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "wordsCount": 25,
+      "roundId": "room-4x4#1769270437155",
+      "achievedAt": 1769270557155
+    }
+  },
+  "totalScore": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "totalScore": 2967,
+      "roundsPlayed": 5,
+      "achievedAt": 1769266069792
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "totalScore": 7506,
+      "roundsPlayed": 9,
+      "achievedAt": 1769273603461
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "totalScore": 1436,
+      "roundsPlayed": 3,
+      "achievedAt": 1769271367517
+    }
+  },
+  "bestWord": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "word": "laisserait",
+      "pts": 168,
+      "achievedAt": 1769265607119
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "word": "yeyes",
+      "pts": 216,
+      "achievedAt": 1769273637751
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "word": "perie",
+      "pts": 78,
+      "achievedAt": 1769270460690
+    },
+    "nick:--SuperNapo--": {
+      "nick": "--SuperNapo--",
+      "playerKey": "nick:--SuperNapo--",
+      "word": "necrosai",
+      "pts": 56,
+      "achievedAt": 1769271050623
+    }
+  },
+  "longestWord": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "word": "laisserait",
+      "len": 10,
+      "achievedAt": 1769265607119
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "word": "laisserait",
+      "len": 10,
+      "achievedAt": 1769265575057
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "word": "perie",
+      "len": 5,
+      "achievedAt": 1769270460690
+    },
+    "nick:--SuperNapo--": {
+      "nick": "--SuperNapo--",
+      "playerKey": "nick:--SuperNapo--",
+      "word": "necrosai",
+      "len": 8,
+      "achievedAt": 1769271050623
+    }
+  },
+  "bestRoundScore": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "pts": 1249,
+      "roundId": "room-4x4#1769265499483",
+      "achievedAt": 1769265618361
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pts": 2414,
+      "roundId": "room-4x4#1769265499483",
+      "achievedAt": 1769265619640
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "pts": 837,
+      "roundId": "room-4x4#1769270437155",
+      "achievedAt": 1769270556334
+    },
+    "nick:--SuperNapo--": {
+      "nick": "--SuperNapo--",
+      "playerKey": "nick:--SuperNapo--",
+      "pts": 186,
+      "roundId": "room-4x4#1769270962396",
+      "achievedAt": 1769271080033
+    }
+  },
+  "bestTimeTargetLong": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "ms": 21817,
+      "word": "deparies",
+      "achievedAt": 1769265851538
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "ms": 80587,
+      "word": "deparies",
+      "achievedAt": 1769265910308
+    }
+  },
+  "bestTimeTargetScore": {
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "ms": 69550,
+      "word": "dolbys",
+      "achievedAt": 1769270386633
+    }
+  },
+  "vocab": {
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "vocabCount": 1268,
+      "achievedAt": 1769266069792
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "vocabCount": 4006,
+      "achievedAt": 1769273603461
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "vocabCount": 2454,
+      "achievedAt": 1769271367517
+    }
+  },
+  "mostGobbles": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "gobbles": 3,
+      "achievedAt": 1769267645726
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "gobbles": 2,
+      "achievedAt": 1769265619483
+    }
+  },
+  "history": {
+    "1768176000000": {
+      "weekStartTs": 1768176000000,
+      "medals": {},
+      "mostWordsInGame": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "wordsCount": 109,
+          "roundId": "room-4x4#1768780007244",
+          "achievedAt": 1768780127244
+        }
+      },
+      "totalScore": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "totalScore": 1286,
+          "roundsPlayed": 2,
+          "achievedAt": 1768780127244
+        },
+        "nick:Tigrou": {
+          "nick": "Tigrou",
+          "playerKey": "nick:Tigrou",
+          "totalScore": 0,
+          "roundsPlayed": 1,
+          "achievedAt": 1768780292359
+        }
+      },
+      "bestWord": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "sis",
+          "pts": 15,
+          "achievedAt": 1768779904112
+        }
+      },
+      "longestWord": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "patiriez",
+          "len": 8,
+          "achievedAt": 1768780070420
+        }
+      },
+      "bestRoundScore": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "pts": 1199,
+          "roundId": "room-4x4#1768780007244",
+          "achievedAt": 1768780126914
+        },
+        "nick:Tigrou": {
+          "nick": "Tigrou",
+          "playerKey": "nick:Tigrou",
+          "pts": 0,
+          "roundId": "room-4x4#1768780172359",
+          "achievedAt": 1768780292359
+        }
+      },
+      "bestTimeTargetLong": {},
+      "bestTimeTargetScore": {},
+      "vocab": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "vocabCount": 120,
+          "achievedAt": 1768780127244
+        }
+      },
+      "mostGobbles": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "gobbles": 1,
+          "achievedAt": 1768780127244
+        }
+      }
+    }
+  }
+}

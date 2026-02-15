@@ -1,0 +1,127 @@
+{
+  "dateId": "2026-02-12",
+  "results": [
+    {
+      "installId": "8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "pseudo": "JB",
+      "score": 322,
+      "wordCount": 19,
+      "longestWordLen": 8,
+      "bestWordPts": 50,
+      "gobbles": 0,
+      "durationMs": 125520,
+      "submittedAt": 1770852053877
+    },
+    {
+      "installId": "1868ba2a-5289-4517-b9c4-2356e5d0f91e",
+      "pseudo": "Zabou",
+      "score": 375,
+      "wordCount": 34,
+      "longestWordLen": 6,
+      "bestWordPts": 36,
+      "gobbles": 0,
+      "durationMs": 125527,
+      "submittedAt": 1770853460953
+    },
+    {
+      "installId": "7fe36a54-be56-415c-800f-8f661eab13f9",
+      "pseudo": "Pounie",
+      "score": 533,
+      "wordCount": 48,
+      "longestWordLen": 7,
+      "bestWordPts": 48,
+      "gobbles": 0,
+      "durationMs": 126333,
+      "submittedAt": 1770878177373
+    },
+    {
+      "installId": "264cb74f-d3e5-45b8-a4c4-27e5d7c65a60",
+      "pseudo": "Fraise",
+      "score": 347,
+      "wordCount": 30,
+      "longestWordLen": 7,
+      "bestWordPts": 48,
+      "gobbles": 0,
+      "durationMs": 123820,
+      "submittedAt": 1770882747457
+    },
+    {
+      "installId": "db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "pseudo": "Beerman",
+      "score": 1370,
+      "wordCount": 81,
+      "longestWordLen": 8,
+      "bestWordPts": 78,
+      "gobbles": 0,
+      "durationMs": 125436,
+      "submittedAt": 1770885632262
+    },
+    {
+      "installId": "1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pseudo": "Tigrou",
+      "score": 1293,
+      "wordCount": 78,
+      "longestWordLen": 8,
+      "bestWordPts": 114,
+      "gobbles": 0,
+      "durationMs": 125314,
+      "submittedAt": 1770889700406
+    },
+    {
+      "installId": "ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "pseudo": "Jérémy",
+      "score": 1200,
+      "wordCount": 77,
+      "longestWordLen": 8,
+      "bestWordPts": 75,
+      "gobbles": 0,
+      "durationMs": 125540,
+      "submittedAt": 1770898160894
+    },
+    {
+      "installId": "27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "pseudo": "Marty Mc Fly",
+      "score": 1234,
+      "wordCount": 98,
+      "longestWordLen": 8,
+      "bestWordPts": 48,
+      "gobbles": 0,
+      "durationMs": 125490,
+      "submittedAt": 1770900891174
+    },
+    {
+      "installId": "b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "pseudo": "isa1958",
+      "score": 504,
+      "wordCount": 43,
+      "longestWordLen": 8,
+      "bestWordPts": 36,
+      "gobbles": 0,
+      "durationMs": 123718,
+      "submittedAt": 1770920531773
+    },
+    {
+      "installId": "a77fad6b-4bd0-4ab9-9a49-da511f910d5e",
+      "pseudo": "Pierre",
+      "score": 200,
+      "wordCount": 18,
+      "longestWordLen": 6,
+      "bestWordPts": 42,
+      "gobbles": 0,
+      "durationMs": 122564,
+      "submittedAt": 1770926997502
+    },
+    {
+      "installId": "6587f711-a60f-4328-93d1-a0c6d3525bb0",
+      "pseudo": "Pacalou",
+      "score": 355,
+      "wordCount": 29,
+      "longestWordLen": 8,
+      "bestWordPts": 48,
+      "gobbles": 0,
+      "durationMs": 125494,
+      "submittedAt": 1770927250030
+    }
+  ],
+  "attempts": {}
+}

@@ -1,0 +1,623 @@
+{
+  "version": 1,
+  "tutorialVersion": "duel-v1",
+  "weeks": {
+    "2026-W07": {
+      "weekId": "2026-W07",
+      "weekStartTs": 1770591600000,
+      "generatedAt": 1771153557710,
+      "assignmentFromWeekId": "2026-W06",
+      "teamByInstallId": {
+        "iid-1770329375582-103979": "blue",
+        "iid-1770307431359-48426": "red",
+        "iid-1770308595042-122247": "red",
+        "iid-1770322144399-951019": "blue",
+        "iid-1770307991492-307001": "blue",
+        "c8e525b5-ad83-45f6-be7b-927ce40d6fc5": "red",
+        "iid-1770308407455-381130": "blue",
+        "cid-1765882618641-405809": "red",
+        "iid-1770285424192-788550": "red",
+        "iid-1770308249921-379317": "blue",
+        "iid-1770308850283-437464": "red",
+        "iid-1770309217261-207134": "blue",
+        "iid-1770457153851-805991": "blue",
+        "cc7c5a2b-cfec-4ebc-8bfd-30585debf99f": "red",
+        "iid-1770373891543-365097": "blue",
+        "iid-1770307885944-538899": "red",
+        "cid-1767297485869-305184": "blue",
+        "75896535-55ba-43be-97f4-e2f17ea47a50": "red",
+        "iid-1770367526168-50929": "red",
+        "a790e38c-125f-4a8f-814c-d3cd93008254": "red",
+        "fccf36f7-6322-4d88-be98-c5556eb94c75": "red",
+        "f8e5b5da-5452-46bb-aeff-77964f2bc603": "blue",
+        "ff2c08a8-df2a-4793-8524-e0eee3d21919": "red",
+        "iid-1771157257134-576612": "red",
+        "iid-1771157637368-842344": "blue",
+        "iid-1771161399290-529730": "red",
+        "iid-1771164003353-104734": "red"
+      },
+      "levelByInstallId": {
+        "iid-1770329375582-103979": 673.5150290477393,
+        "iid-1770307431359-48426": 667.5505522514868,
+        "iid-1770308595042-122247": 666.8232795242141,
+        "iid-1770322144399-951019": 656.7182910547397,
+        "iid-1770307991492-307001": 644.2778249787596,
+        "c8e525b5-ad83-45f6-be7b-927ce40d6fc5": 641.671339563863,
+        "iid-1770308407455-381130": 633.7323704333049,
+        "cid-1765882618641-405809": 624.2182910547397,
+        "iid-1770285424192-788550": 618.5427749820273,
+        "iid-1770308249921-379317": 615.2778249787596,
+        "iid-1770308850283-437464": 612.0046728971962,
+        "iid-1770309217261-207134": 591.421339563863,
+        "iid-1770457153851-805991": 585.9273903666427,
+        "cc7c5a2b-cfec-4ebc-8bfd-30585debf99f": 578.5505522514868,
+        "iid-1770373891543-365097": 566.1142263759086,
+        "iid-1770307885944-538899": 559.4596431605777,
+        "cid-1767297485869-305184": 539.6422707754483,
+        "75896535-55ba-43be-97f4-e2f17ea47a50": 535.0704049844237,
+        "iid-1770367526168-50929": 498.05558288243975
+      },
+      "totals": {
+        "objectivePoints": {
+          "red": 205,
+          "blue": 145
+        },
+        "gobblePoints": {
+          "red": 15,
+          "blue": 20
+        },
+        "dailyBonusPoints": {
+          "red": 0,
+          "blue": 0
+        }
+      },
+      "actionsByInstallId": {
+        "cid-1767297485869-305184": true,
+        "a790e38c-125f-4a8f-814c-d3cd93008254": true,
+        "fccf36f7-6322-4d88-be98-c5556eb94c75": true,
+        "ff2c08a8-df2a-4793-8524-e0eee3d21919": true,
+        "iid-1771157637368-842344": true,
+        "iid-1771161399290-529730": true,
+        "75896535-55ba-43be-97f4-e2f17ea47a50": true,
+        "iid-1771164003353-104734": true
+      },
+      "dailyWinsByDate": {},
+      "contributionsByInstallId": {
+        "iid-1771164003353-104734": {
+          "team": "red",
+          "objectivePoints": 25,
+          "gobblePoints": 5,
+          "totalPoints": 30
+        }
+      },
+      "nickByInstallId": {
+        "iid-1771164003353-104734": "Zky"
+      }
+    },
+    "2026-W06": {
+      "weekId": "2026-W06",
+      "weekStartTs": 1769986800000,
+      "generatedAt": 1771153557710,
+      "assignmentFromWeekId": "2026-W05",
+      "teamByInstallId": {
+        "cid-1767297485869-305184": "red",
+        "iid-1769983950687-910576": "blue",
+        "iid-1769950663498-264591": "blue",
+        "c8e525b5-ad83-45f6-be7b-927ce40d6fc5": "red",
+        "75896535-55ba-43be-97f4-e2f17ea47a50": "blue"
+      },
+      "levelByInstallId": {
+        "cid-1767297485869-305184": 945.5228070175438,
+        "iid-1769983950687-910576": 870.7728531855954,
+        "iid-1769950663498-264591": 811.6403508771929,
+        "c8e525b5-ad83-45f6-be7b-927ce40d6fc5": 767.0622009569378,
+        "75896535-55ba-43be-97f4-e2f17ea47a50": 657.0427631578947
+      },
+      "totals": {
+        "objectivePoints": {
+          "red": 0,
+          "blue": 0
+        },
+        "gobblePoints": {
+          "red": 0,
+          "blue": 0
+        },
+        "dailyBonusPoints": {
+          "red": 0,
+          "blue": 0
+        }
+      },
+      "actionsByInstallId": {},
+      "dailyWinsByDate": {}
+    }
+  },
+  "crownsByWeek": {
+    "2026-W07": {}
+  },
+  "dailyObjectivesByInstallId": {
+    "cid-1767297485869-305184": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 85,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_round_300",
+            "typeKey": "round_score",
+            "event": "round_score_at_least",
+            "title": "Atteindre 300 pts sur une manche",
+            "target": 300,
+            "points": 10,
+            "progress": 300,
+            "validated": true,
+            "validatedAt": 1771153610566
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_words_35",
+            "typeKey": "words_total",
+            "event": "word_any",
+            "title": "Valider 35 mots",
+            "target": 35,
+            "points": 25,
+            "progress": 35,
+            "validated": true,
+            "validatedAt": 1771153672299
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_target_word",
+            "typeKey": "target_word",
+            "event": "target_word_found",
+            "title": "Trouver un mot cible",
+            "target": 1,
+            "points": 50,
+            "progress": 1,
+            "validated": true,
+            "validatedAt": 1771154075881
+          }
+        ],
+        "updatedAt": 1771155771725
+      }
+    },
+    "a790e38c-125f-4a8f-814c-d3cd93008254": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 0,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_len_5",
+            "typeKey": "word_len",
+            "event": "word_len_at_least",
+            "title": "Trouver 1 mot de 5+ lettres",
+            "target": 5,
+            "points": 10,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_round_500",
+            "typeKey": "round_score",
+            "event": "round_score_at_least",
+            "title": "Atteindre 500 pts sur une manche",
+            "target": 500,
+            "points": 25,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_word_100",
+            "typeKey": "word_pts_100",
+            "event": "word_points_gte",
+            "title": "Trouver 1 mot >= 100 pts",
+            "target": 100,
+            "points": 50,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771154328282
+      }
+    },
+    "fccf36f7-6322-4d88-be98-c5556eb94c75": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": true,
+        "pointsAwarded": 35,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_words_15",
+            "typeKey": "words_total",
+            "event": "word_any",
+            "title": "Valider 15 mots",
+            "target": 15,
+            "points": 10,
+            "progress": 15,
+            "validated": true,
+            "validatedAt": 1771155507185
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_gobble_1",
+            "typeKey": "gobbles_1",
+            "event": "gobble_any",
+            "title": "Faire 1 gobble",
+            "target": 1,
+            "points": 25,
+            "progress": 1,
+            "validated": true,
+            "validatedAt": 1771155606603
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_target_word",
+            "typeKey": "target_word",
+            "event": "target_word_found",
+            "title": "Trouver un mot cible",
+            "target": 1,
+            "points": 50,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771155606603
+      }
+    },
+    "75896535-55ba-43be-97f4-e2f17ea47a50": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 25,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_bonus_tile",
+            "typeKey": "bonus_tile",
+            "event": "bonus_tile_word",
+            "title": "Valider 1 mot sur case double/triple",
+            "target": 1,
+            "points": 10,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_gobble_1",
+            "typeKey": "gobbles_1",
+            "event": "gobble_any",
+            "title": "Faire 1 gobble",
+            "target": 1,
+            "points": 25,
+            "progress": 1,
+            "validated": true,
+            "validatedAt": 1771161931434
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_len_9",
+            "typeKey": "word_len",
+            "event": "word_len_at_least",
+            "title": "Trouver 1 mot de 9+ lettres",
+            "target": 9,
+            "points": 50,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771161931434
+      }
+    },
+    "f8e5b5da-5452-46bb-aeff-77964f2bc603": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 0,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_words_15",
+            "typeKey": "words_total",
+            "event": "word_any",
+            "title": "Valider 15 mots",
+            "target": 15,
+            "points": 10,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_gobble_1",
+            "typeKey": "gobbles_1",
+            "event": "gobble_any",
+            "title": "Faire 1 gobble",
+            "target": 1,
+            "points": 25,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_word_100",
+            "typeKey": "word_pts_100",
+            "event": "word_points_gte",
+            "title": "Trouver 1 mot >= 100 pts",
+            "target": 100,
+            "points": 50,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771156758871
+      }
+    },
+    "ff2c08a8-df2a-4793-8524-e0eee3d21919": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 35,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_words_15",
+            "typeKey": "words_total",
+            "event": "word_any",
+            "title": "Valider 15 mots",
+            "target": 15,
+            "points": 10,
+            "progress": 15,
+            "validated": true,
+            "validatedAt": 1771157362428
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_word_50",
+            "typeKey": "word_pts_50",
+            "event": "word_points_gt",
+            "title": "Valider 1 mot > 50 pts",
+            "target": 50,
+            "points": 25,
+            "progress": 50,
+            "validated": true,
+            "validatedAt": 1771157358079
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_word_100",
+            "typeKey": "word_pts_100",
+            "event": "word_points_gte",
+            "title": "Trouver 1 mot >= 100 pts",
+            "target": 100,
+            "points": 50,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771157413984
+      }
+    },
+    "iid-1771157257134-576612": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 0,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_bonus_tile",
+            "typeKey": "bonus_tile",
+            "event": "bonus_tile_word",
+            "title": "Valider 1 mot sur case double/triple",
+            "target": 1,
+            "points": 10,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_round_500",
+            "typeKey": "round_score",
+            "event": "round_score_at_least",
+            "title": "Atteindre 500 pts sur une manche",
+            "target": 500,
+            "points": 25,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_target_word",
+            "typeKey": "target_word",
+            "event": "target_word_found",
+            "title": "Trouver un mot cible",
+            "target": 1,
+            "points": 50,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771157257268
+      }
+    },
+    "iid-1771157637368-842344": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": true,
+        "pointsAwarded": 60,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_words_15",
+            "typeKey": "words_total",
+            "event": "word_any",
+            "title": "Valider 15 mots",
+            "target": 15,
+            "points": 10,
+            "progress": 15,
+            "validated": true,
+            "validatedAt": 1771159305696
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_gobble_1",
+            "typeKey": "gobbles_1",
+            "event": "gobble_any",
+            "title": "Faire 1 gobble",
+            "target": 1,
+            "points": 25,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_round_1000",
+            "typeKey": "round_score",
+            "event": "round_score_at_least",
+            "title": "Atteindre 1000 pts sur une manche",
+            "target": 1000,
+            "points": 50,
+            "progress": 1000,
+            "validated": true,
+            "validatedAt": 1771159650063
+          }
+        ],
+        "updatedAt": 1771161105923
+      }
+    },
+    "iid-1771161399290-529730": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 85,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_round_300",
+            "typeKey": "round_score",
+            "event": "round_score_at_least",
+            "title": "Atteindre 300 pts sur une manche",
+            "target": 300,
+            "points": 10,
+            "progress": 300,
+            "validated": true,
+            "validatedAt": 1771161466080
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_word_50",
+            "typeKey": "word_pts_50",
+            "event": "word_points_gt",
+            "title": "Valider 1 mot > 50 pts",
+            "target": 50,
+            "points": 25,
+            "progress": 50,
+            "validated": true,
+            "validatedAt": 1771161460505
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_words_60",
+            "typeKey": "words_total",
+            "event": "word_any",
+            "title": "Valider 60 mots",
+            "target": 60,
+            "points": 50,
+            "progress": 60,
+            "validated": true,
+            "validatedAt": 1771161596122
+          }
+        ],
+        "updatedAt": 1771161631287
+      }
+    },
+    "iid-1771164003353-104734": {
+      "2026-02-15": {
+        "dateId": "2026-02-15",
+        "rerollUsed": false,
+        "pointsAwarded": 25,
+        "objectives": [
+          {
+            "bucket": "easy",
+            "id": "easy_word_50",
+            "typeKey": "word_pts_50",
+            "event": "word_points_gt",
+            "title": "Valider 1 mot > 50 pts",
+            "target": 50,
+            "points": 10,
+            "progress": 0,
+            "validated": false,
+            "validatedAt": null
+          },
+          {
+            "bucket": "medium",
+            "id": "medium_rare_letter",
+            "typeKey": "rare_letter",
+            "event": "rare_letter_word",
+            "title": "Valider 1 mot avec Z/K/X/Y",
+            "target": 1,
+            "points": 25,
+            "progress": 1,
+            "validated": true,
+            "validatedAt": 1771164066748
+          },
+          {
+            "bucket": "hard",
+            "id": "hard_gobble_2",
+            "typeKey": "gobbles_2",
+            "event": "gobble_any",
+            "title": "Faire 2 gobbles dans la journee",
+            "target": 2,
+            "points": 50,
+            "progress": 1,
+            "validated": false,
+            "validatedAt": null
+          }
+        ],
+        "updatedAt": 1771164345559
+      }
+    }
+  },
+  "dailyBattles": {
+    "2026-02-15": {
+      "dateId": "2026-02-15",
+      "totalsRawByTeam": {
+        "red": 1327,
+        "blue": 1452
+      },
+      "totalsBalancedByTeam": {
+        "red": 1327,
+        "blue": 1452
+      },
+      "countedPlayersByTeam": {
+        "red": 1,
+        "blue": 1
+      },
+      "totalPlayersByTeam": {
+        "red": 1,
+        "blue": 1
+      },
+      "ignoredInstallIds": [],
+      "winnerTeam": "blue",
+      "timestamp": 1771164969683
+    }
+  }
+}

@@ -1,0 +1,5282 @@
+{
+  "weekStartTs": 1769986800000,
+  "medals": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "gold": 14,
+      "silver": 4,
+      "bronze": 2,
+      "total": 20,
+      "achievedAt": 1770405120435
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "gold": 3,
+      "silver": 5,
+      "bronze": 4,
+      "total": 12,
+      "achievedAt": 1770401021429
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "gold": 13,
+      "silver": 9,
+      "bronze": 2,
+      "total": 24,
+      "achievedAt": 1770387829484
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "gold": 13,
+      "silver": 4,
+      "bronze": 1,
+      "total": 18,
+      "achievedAt": 1770405976616
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "gold": 4,
+      "silver": 3,
+      "bronze": 5,
+      "total": 12,
+      "achievedAt": 1770414891387
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "gold": 3,
+      "silver": 2,
+      "bronze": 5,
+      "total": 10,
+      "achievedAt": 1770406832272
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "gold": 0,
+      "silver": 0,
+      "bronze": 1,
+      "total": 1,
+      "achievedAt": 1770080883877
+    },
+    "nick:Beerman": {
+      "nick": "Beerman",
+      "playerKey": "nick:Beerman",
+      "gold": 1,
+      "silver": 1,
+      "bronze": 0,
+      "total": 2,
+      "achievedAt": 1770297698374
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "gold": 3,
+      "silver": 3,
+      "bronze": 1,
+      "total": 7,
+      "achievedAt": 1770327819872
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "gold": 2,
+      "silver": 0,
+      "bronze": 0,
+      "total": 2,
+      "achievedAt": 1770159535002
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "gold": 1,
+      "silver": 0,
+      "bronze": 0,
+      "total": 1,
+      "achievedAt": 1770211211706
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "gold": 0,
+      "silver": 1,
+      "bronze": 0,
+      "total": 1,
+      "achievedAt": 1770237327855
+    },
+    "nick:Tigrou": {
+      "nick": "Tigrou",
+      "playerKey": "nick:Tigrou",
+      "gold": 0,
+      "silver": 0,
+      "bronze": 1,
+      "total": 1,
+      "achievedAt": 1770329440883
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "gold": 0,
+      "silver": 1,
+      "bronze": 0,
+      "total": 1,
+      "achievedAt": 1770368918863
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "gold": 2,
+      "silver": 1,
+      "bronze": 1,
+      "total": 4,
+      "achievedAt": 1770405120432
+    }
+  },
+  "mostWordsInGame": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "wordsCount": 151,
+      "roundId": "room-4x4#1770215839629",
+      "achievedAt": 1770215959629
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "wordsCount": 58,
+      "roundId": "room-4x4#1770322631427",
+      "achievedAt": 1770322751427
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "wordsCount": 66,
+      "roundId": "room-4x4#1770399555557",
+      "achievedAt": 1770399675557
+    },
+    "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+      "nick": "uhuj",
+      "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+      "wordsCount": 1,
+      "roundId": "room-4x4#1770017465915",
+      "achievedAt": 1770017585915
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "wordsCount": 46,
+      "roundId": "room-4x4#1770058031540",
+      "achievedAt": 1770058151540
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "wordsCount": 56,
+      "roundId": "room-4x4#1770405320571",
+      "achievedAt": 1770405440571
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "wordsCount": 114,
+      "roundId": "room-4x4#1770215839629",
+      "achievedAt": 1770215959629
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "wordsCount": 166,
+      "roundId": "room-4x4#1770210121067",
+      "achievedAt": 1770210241067
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "wordsCount": 56,
+      "roundId": "room-4x4#1770329115668",
+      "achievedAt": 1770329235668
+    },
+    "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4": {
+      "nick": "Over",
+      "playerKey": "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4",
+      "wordsCount": 17,
+      "roundId": "room-4x4#1770077317536",
+      "achievedAt": 1770077437536
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "wordsCount": 12,
+      "roundId": "room-4x4#1770082224347",
+      "achievedAt": 1770082344347
+    },
+    "install:15685e66-416d-4a5c-8de4-75d60be3264a": {
+      "nick": "Toto",
+      "playerKey": "install:15685e66-416d-4a5c-8de4-75d60be3264a",
+      "wordsCount": 13,
+      "roundId": "room-4x4#1770139352815",
+      "achievedAt": 1770139472815
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "wordsCount": 64,
+      "roundId": "room-4x4#1770158399219",
+      "achievedAt": 1770158519219
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "wordsCount": 86,
+      "roundId": "room-4x4#1770210766454",
+      "achievedAt": 1770210886454
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "wordsCount": 20,
+      "roundId": "room-4x4#1770302115211",
+      "achievedAt": 1770302235211
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "wordsCount": 22,
+      "roundId": "room-4x4#1770365232545",
+      "achievedAt": 1770365352545
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "wordsCount": 33,
+      "roundId": "room-4x4#1770373757030",
+      "achievedAt": 1770373877030
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "wordsCount": 116,
+      "roundId": "room-4x4#1770402483008",
+      "achievedAt": 1770402603008
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "wordsCount": 63,
+      "roundId": "room-4x4#1770402483008",
+      "achievedAt": 1770402603008
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "wordsCount": 17,
+      "roundId": "room-4x4#1770418708972",
+      "achievedAt": 1770418828972
+    },
+    "install:e6b95803-e22f-4ee6-a7a0-ec382965e327": {
+      "nick": "Jb",
+      "playerKey": "install:e6b95803-e22f-4ee6-a7a0-ec382965e327",
+      "wordsCount": 1,
+      "roundId": "room-4x4#1770419564784",
+      "achievedAt": 1770419684784
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "wordsCount": 27,
+      "roundId": "room-4x4#1770420255229",
+      "achievedAt": 1770420375229
+    }
+  },
+  "totalScore": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "totalScore": 157415,
+      "roundsPlayed": 118,
+      "achievedAt": 1770405080299
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "totalScore": 46964,
+      "roundsPlayed": 67,
+      "achievedAt": 1770403413865
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "totalScore": 41406,
+      "roundsPlayed": 62,
+      "achievedAt": 1770400981337
+    },
+    "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+      "nick": "uhuj",
+      "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+      "totalScore": 5,
+      "roundsPlayed": 1,
+      "achievedAt": 1770017585915
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "totalScore": 13180,
+      "roundsPlayed": 38,
+      "achievedAt": 1770383196669
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "totalScore": 47829,
+      "roundsPlayed": 69,
+      "achievedAt": 1770406792176
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "totalScore": 181677,
+      "roundsPlayed": 156,
+      "achievedAt": 1770388119581
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "totalScore": 144306,
+      "roundsPlayed": 97,
+      "achievedAt": 1770405936504
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "totalScore": 77882,
+      "roundsPlayed": 167,
+      "achievedAt": 1770418183593
+    },
+    "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4": {
+      "nick": "Over",
+      "playerKey": "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4",
+      "totalScore": 412,
+      "roundsPlayed": 3,
+      "achievedAt": 1770077602636
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "totalScore": 2740,
+      "roundsPlayed": 18,
+      "achievedAt": 1770083034880
+    },
+    "install:15685e66-416d-4a5c-8de4-75d60be3264a": {
+      "nick": "Toto",
+      "playerKey": "install:15685e66-416d-4a5c-8de4-75d60be3264a",
+      "totalScore": 585,
+      "roundsPlayed": 3,
+      "achievedAt": 1770139637943
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "totalScore": 7683,
+      "roundsPlayed": 10,
+      "achievedAt": 1770159494914
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "totalScore": 3826,
+      "roundsPlayed": 4,
+      "achievedAt": 1770211171620
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "totalScore": 1035,
+      "roundsPlayed": 3,
+      "achievedAt": 1770302235211
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "totalScore": 953,
+      "roundsPlayed": 5,
+      "achievedAt": 1770365682848
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "totalScore": 11572,
+      "roundsPlayed": 34,
+      "achievedAt": 1770418183593
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "totalScore": 18297,
+      "roundsPlayed": 17,
+      "achievedAt": 1770405080299
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "totalScore": 3658,
+      "roundsPlayed": 6,
+      "achievedAt": 1770403248565
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "totalScore": 1369,
+      "roundsPlayed": 7,
+      "achievedAt": 1770418994368
+    },
+    "install:e6b95803-e22f-4ee6-a7a0-ec382965e327": {
+      "nick": "Jb",
+      "playerKey": "install:e6b95803-e22f-4ee6-a7a0-ec382965e327",
+      "totalScore": 22,
+      "roundsPlayed": 1,
+      "achievedAt": 1770419684784
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "totalScore": 1276,
+      "roundsPlayed": 4,
+      "achievedAt": 1770420660374
+    }
+  },
+  "bestWord": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "word": "fuiteriez",
+      "pts": 234,
+      "achievedAt": 1770319469767
+    },
+    "nick:MontrealMaven": {
+      "nick": "MontrealMaven",
+      "playerKey": "nick:MontrealMaven",
+      "word": "empates",
+      "pts": 20,
+      "achievedAt": 1770008199661
+    },
+    "nick:Fanny": {
+      "nick": "Fanny",
+      "playerKey": "nick:Fanny",
+      "word": "debague",
+      "pts": 58,
+      "achievedAt": 1770010905940
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "word": "niques",
+      "pts": 258,
+      "achievedAt": 1770327158560
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "word": "taxeras",
+      "pts": 138,
+      "achievedAt": 1770398883330
+    },
+    "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+      "nick": "uhuj",
+      "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+      "word": "mur",
+      "pts": 5,
+      "achievedAt": 1770017578687
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "word": "dilues",
+      "pts": 102,
+      "achievedAt": 1770236970091
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "word": "maillez",
+      "pts": 174,
+      "achievedAt": 1770066446382
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "word": "laquent",
+      "pts": 288,
+      "achievedAt": 1770198978197
+    },
+    "nick:ClaviersFou": {
+      "nick": "ClaviersFou",
+      "playerKey": "nick:ClaviersFou",
+      "word": "brisee",
+      "pts": 84,
+      "achievedAt": 1770304295425
+    },
+    "nick:TataPousse": {
+      "nick": "TataPousse",
+      "playerKey": "nick:TataPousse",
+      "word": "deroquas",
+      "pts": 198,
+      "achievedAt": 1770036398847
+    },
+    "nick:Celie": {
+      "nick": "Celie",
+      "playerKey": "nick:Celie",
+      "word": "fanant",
+      "pts": 102,
+      "achievedAt": 1770111684944
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "word": "boxat",
+      "pts": 234,
+      "achievedAt": 1770208068807
+    },
+    "nick:DodoDansLeMétro": {
+      "nick": "DodoDansLeMétro",
+      "playerKey": "nick:DodoDansLeMétro",
+      "word": "trole",
+      "pts": 48,
+      "achievedAt": 1770048090913
+    },
+    "nick:BiscotteTurbo": {
+      "nick": "BiscotteTurbo",
+      "playerKey": "nick:BiscotteTurbo",
+      "word": "swap",
+      "pts": 90,
+      "achievedAt": 1770048741716
+    },
+    "nick:Lena": {
+      "nick": "Lena",
+      "playerKey": "nick:Lena",
+      "word": "outrageons",
+      "pts": 93,
+      "achievedAt": 1770143222048
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "word": "pinterait",
+      "pts": 168,
+      "achievedAt": 1770328233291
+    },
+    "nick:ChocolatineDebat": {
+      "nick": "ChocolatineDebat",
+      "playerKey": "nick:ChocolatineDebat",
+      "word": "oiselet",
+      "pts": 38,
+      "achievedAt": 1770060438424
+    },
+    "nick:ZigzagZen": {
+      "nick": "ZigzagZen",
+      "playerKey": "nick:ZigzagZen",
+      "word": "consoeur",
+      "pts": 31,
+      "achievedAt": 1770210396746
+    },
+    "nick:MarcelDu12": {
+      "nick": "MarcelDu12",
+      "playerKey": "nick:MarcelDu12",
+      "word": "cesses",
+      "pts": 84,
+      "achievedAt": 1770065173758
+    },
+    "nick:MlleDiagonale": {
+      "nick": "MlleDiagonale",
+      "playerKey": "nick:MlleDiagonale",
+      "word": "cerise",
+      "pts": 96,
+      "achievedAt": 1770065217515
+    },
+    "nick:--SuperNapo--": {
+      "nick": "--SuperNapo--",
+      "playerKey": "nick:--SuperNapo--",
+      "word": "jusees",
+      "pts": 21,
+      "achievedAt": 1770068175854
+    },
+    "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4": {
+      "nick": "Over",
+      "playerKey": "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4",
+      "word": "sommee",
+      "pts": 30,
+      "achievedAt": 1770077502609
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "word": "brasse",
+      "pts": 96,
+      "achievedAt": 1770080933577
+    },
+    "nick:PoutinePower": {
+      "nick": "PoutinePower",
+      "playerKey": "nick:PoutinePower",
+      "word": "angelisa",
+      "pts": 72,
+      "achievedAt": 1770097280845
+    },
+    "nick:GastonLaGaffe": {
+      "nick": "GastonLaGaffe",
+      "playerKey": "nick:GastonLaGaffe",
+      "word": "marmonnas",
+      "pts": 168,
+      "achievedAt": 1770280596429
+    },
+    "nick:Kamil": {
+      "nick": "Kamil",
+      "playerKey": "nick:Kamil",
+      "word": "elfes",
+      "pts": 60,
+      "achievedAt": 1770383830402
+    },
+    "nick:PommeTatin": {
+      "nick": "PommeTatin",
+      "playerKey": "nick:PommeTatin",
+      "word": "bouta",
+      "pts": 32,
+      "achievedAt": 1770120392359
+    },
+    "nick:CarotteRâpée": {
+      "nick": "CarotteRâpée",
+      "playerKey": "nick:CarotteRâpée",
+      "word": "scannera",
+      "pts": 162,
+      "achievedAt": 1770320477011
+    },
+    "install:15685e66-416d-4a5c-8de4-75d60be3264a": {
+      "nick": "Toto",
+      "playerKey": "install:15685e66-416d-4a5c-8de4-75d60be3264a",
+      "word": "aveux",
+      "pts": 80,
+      "achievedAt": 1770139631554
+    },
+    "nick:KouignAmann": {
+      "nick": "KouignAmann",
+      "playerKey": "nick:KouignAmann",
+      "word": "bectai",
+      "pts": 19,
+      "achievedAt": 1770146779632
+    },
+    "nick:TourEiffel": {
+      "nick": "TourEiffel",
+      "playerKey": "nick:TourEiffel",
+      "word": "noulet",
+      "pts": 72,
+      "achievedAt": 1770147082345
+    },
+    "nick:LazyLlama": {
+      "nick": "LazyLlama",
+      "playerKey": "nick:LazyLlama",
+      "word": "arises",
+      "pts": 13,
+      "achievedAt": 1770150682466
+    },
+    "nick:CiseauPapierMot": {
+      "nick": "CiseauPapierMot",
+      "playerKey": "nick:CiseauPapierMot",
+      "word": "goya",
+      "pts": 42,
+      "achievedAt": 1770153749347
+    },
+    "nick:Marmotte": {
+      "nick": "Marmotte",
+      "playerKey": "nick:Marmotte",
+      "word": "lieurs",
+      "pts": 78,
+      "achievedAt": 1770157585660
+    },
+    "nick:Tremblote": {
+      "nick": "Tremblote",
+      "playerKey": "nick:Tremblote",
+      "word": "creer",
+      "pts": 60,
+      "achievedAt": 1770297079924
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "word": "destine",
+      "pts": 126,
+      "achievedAt": 1770158784727
+    },
+    "nick:MotsMarmiton": {
+      "nick": "MotsMarmiton",
+      "playerKey": "nick:MotsMarmiton",
+      "word": "talures",
+      "pts": 51,
+      "achievedAt": 1770199050761
+    },
+    "nick:Domi": {
+      "nick": "Domi",
+      "playerKey": "nick:Domi",
+      "word": "lusins",
+      "pts": 24,
+      "achievedAt": 1770205579489
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "word": "cirera",
+      "pts": 84,
+      "achievedAt": 1770210800696
+    },
+    "nick:LaMoucheDuCoche": {
+      "nick": "LaMoucheDuCoche",
+      "playerKey": "nick:LaMoucheDuCoche",
+      "word": "denoie",
+      "pts": 90,
+      "achievedAt": 1770222677804
+    },
+    "nick:MadameMots": {
+      "nick": "MadameMots",
+      "playerKey": "nick:MadameMots",
+      "word": "estompai",
+      "pts": 84,
+      "achievedAt": 1770235311022
+    },
+    "nick:CapitaineAccent": {
+      "nick": "CapitaineAccent",
+      "playerKey": "nick:CapitaineAccent",
+      "word": "managers",
+      "pts": 58,
+      "achievedAt": 1770407784697
+    },
+    "nick:Jagellon": {
+      "nick": "Jagellon",
+      "playerKey": "nick:Jagellon",
+      "word": "pipis",
+      "pts": 90,
+      "achievedAt": 1770324988577
+    },
+    "nick:Torto": {
+      "nick": "Torto",
+      "playerKey": "nick:Torto",
+      "word": "piaule",
+      "pts": 48,
+      "achievedAt": 1770240721793
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "word": "abusent",
+      "pts": 126,
+      "achievedAt": 1770301907016
+    },
+    "nick:Malo": {
+      "nick": "Malo",
+      "playerKey": "nick:Malo",
+      "word": "vinera",
+      "pts": 21,
+      "achievedAt": 1770333375440
+    },
+    "nick:Sylvie50": {
+      "nick": "Sylvie50",
+      "playerKey": "nick:Sylvie50",
+      "word": "indemnisa",
+      "pts": 84,
+      "achievedAt": 1770320181309
+    },
+    "nick:ZesteDeLime": {
+      "nick": "ZesteDeLime",
+      "playerKey": "nick:ZesteDeLime",
+      "word": "bresil",
+      "pts": 32,
+      "achievedAt": 1770322574915
+    },
+    "nick:PapiRatatouille": {
+      "nick": "PapiRatatouille",
+      "playerKey": "nick:PapiRatatouille",
+      "word": "annotees",
+      "pts": 138,
+      "achievedAt": 1770325285117
+    },
+    "nick:AubergineMagique": {
+      "nick": "AubergineMagique",
+      "playerKey": "nick:AubergineMagique",
+      "word": "algine",
+      "pts": 45,
+      "achievedAt": 1770334881921
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "word": "sucent",
+      "pts": 42,
+      "achievedAt": 1770364921497
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "word": "domaines",
+      "pts": 150,
+      "achievedAt": 1770368815417
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "word": "pageras",
+      "pts": 126,
+      "achievedAt": 1770404656934
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "word": "trient",
+      "pts": 90,
+      "achievedAt": 1770402691634
+    },
+    "nick:Proutosaurus Rex": {
+      "nick": "Proutosaurus Rex",
+      "playerKey": "nick:Proutosaurus Rex",
+      "word": "salopiau",
+      "pts": 150,
+      "achievedAt": 1770405072741
+    },
+    "nick:BarbeAPapa": {
+      "nick": "BarbeAPapa",
+      "playerKey": "nick:BarbeAPapa",
+      "word": "relatees",
+      "pts": 11,
+      "achievedAt": 1770412272357
+    },
+    "nick:(cacharel)": {
+      "nick": "(cacharel)",
+      "playerKey": "nick:(cacharel)",
+      "word": "epeures",
+      "pts": 114,
+      "achievedAt": 1770415023834
+    },
+    "nick:PetitPoucet": {
+      "nick": "PetitPoucet",
+      "playerKey": "nick:PetitPoucet",
+      "word": "exilas",
+      "pts": 42,
+      "achievedAt": 1770416178320
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "word": "quasar",
+      "pts": 46,
+      "achievedAt": 1770418309367
+    },
+    "install:e6b95803-e22f-4ee6-a7a0-ec382965e327": {
+      "nick": "Jb",
+      "playerKey": "install:e6b95803-e22f-4ee6-a7a0-ec382965e327",
+      "word": "rat",
+      "pts": 22,
+      "achievedAt": 1770419684558
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "word": "oteras",
+      "pts": 78,
+      "achievedAt": 1770420552753
+    }
+  },
+  "longestWord": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "word": "alterneras",
+      "len": 10,
+      "achievedAt": 1770032554571
+    },
+    "nick:MontrealMaven": {
+      "nick": "MontrealMaven",
+      "playerKey": "nick:MontrealMaven",
+      "word": "empates",
+      "len": 7,
+      "achievedAt": 1770008199661
+    },
+    "nick:Fanny": {
+      "nick": "Fanny",
+      "playerKey": "nick:Fanny",
+      "word": "debague",
+      "len": 7,
+      "achievedAt": 1770010905940
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "word": "tresseras",
+      "len": 9,
+      "achievedAt": 1770036588418
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "word": "chutasses",
+      "len": 9,
+      "achievedAt": 1770400599991
+    },
+    "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+      "nick": "uhuj",
+      "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+      "word": "mur",
+      "len": 3,
+      "achievedAt": 1770017578687
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "word": "crassant",
+      "len": 8,
+      "achievedAt": 1770019306869
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "word": "pressoir",
+      "len": 8,
+      "achievedAt": 1770020031697
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "word": "defrisassent",
+      "len": 12,
+      "achievedAt": 1770245190008
+    },
+    "nick:ClaviersFou": {
+      "nick": "ClaviersFou",
+      "playerKey": "nick:ClaviersFou",
+      "word": "brisee",
+      "len": 6,
+      "achievedAt": 1770304295425
+    },
+    "nick:TataPousse": {
+      "nick": "TataPousse",
+      "playerKey": "nick:TataPousse",
+      "word": "deroquas",
+      "len": 8,
+      "achievedAt": 1770036398847
+    },
+    "nick:Celie": {
+      "nick": "Celie",
+      "playerKey": "nick:Celie",
+      "word": "taniere",
+      "len": 7,
+      "achievedAt": 1770043574475
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "word": "terrassent",
+      "len": 10,
+      "achievedAt": 1770139404019
+    },
+    "nick:DodoDansLeMétro": {
+      "nick": "DodoDansLeMétro",
+      "playerKey": "nick:DodoDansLeMétro",
+      "word": "morose",
+      "len": 6,
+      "achievedAt": 1770048074193
+    },
+    "nick:BiscotteTurbo": {
+      "nick": "BiscotteTurbo",
+      "playerKey": "nick:BiscotteTurbo",
+      "word": "serosite",
+      "len": 8,
+      "achievedAt": 1770325639125
+    },
+    "nick:Lena": {
+      "nick": "Lena",
+      "playerKey": "nick:Lena",
+      "word": "outrageons",
+      "len": 10,
+      "achievedAt": 1770143222048
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "word": "pinterait",
+      "len": 9,
+      "achievedAt": 1770328233291
+    },
+    "nick:ChocolatineDebat": {
+      "nick": "ChocolatineDebat",
+      "playerKey": "nick:ChocolatineDebat",
+      "word": "oiselet",
+      "len": 7,
+      "achievedAt": 1770060438424
+    },
+    "nick:ZigzagZen": {
+      "nick": "ZigzagZen",
+      "playerKey": "nick:ZigzagZen",
+      "word": "consoeur",
+      "len": 8,
+      "achievedAt": 1770210396746
+    },
+    "nick:MarcelDu12": {
+      "nick": "MarcelDu12",
+      "playerKey": "nick:MarcelDu12",
+      "word": "hissent",
+      "len": 7,
+      "achievedAt": 1770065203695
+    },
+    "nick:MlleDiagonale": {
+      "nick": "MlleDiagonale",
+      "playerKey": "nick:MlleDiagonale",
+      "word": "cerise",
+      "len": 6,
+      "achievedAt": 1770065217515
+    },
+    "nick:--SuperNapo--": {
+      "nick": "--SuperNapo--",
+      "playerKey": "nick:--SuperNapo--",
+      "word": "jusees",
+      "len": 6,
+      "achievedAt": 1770068175854
+    },
+    "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4": {
+      "nick": "Over",
+      "playerKey": "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4",
+      "word": "etalera",
+      "len": 7,
+      "achievedAt": 1770077409515
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "word": "petits",
+      "len": 6,
+      "achievedAt": 1770080143765
+    },
+    "nick:PoutinePower": {
+      "nick": "PoutinePower",
+      "playerKey": "nick:PoutinePower",
+      "word": "angelisa",
+      "len": 8,
+      "achievedAt": 1770097280845
+    },
+    "nick:GastonLaGaffe": {
+      "nick": "GastonLaGaffe",
+      "playerKey": "nick:GastonLaGaffe",
+      "word": "marmonnas",
+      "len": 9,
+      "achievedAt": 1770280596429
+    },
+    "nick:Kamil": {
+      "nick": "Kamil",
+      "playerKey": "nick:Kamil",
+      "word": "ranimas",
+      "len": 7,
+      "achievedAt": 1770406283468
+    },
+    "nick:PommeTatin": {
+      "nick": "PommeTatin",
+      "playerKey": "nick:PommeTatin",
+      "word": "bouta",
+      "len": 5,
+      "achievedAt": 1770120392359
+    },
+    "nick:CarotteRâpée": {
+      "nick": "CarotteRâpée",
+      "playerKey": "nick:CarotteRâpée",
+      "word": "scannera",
+      "len": 8,
+      "achievedAt": 1770320477011
+    },
+    "install:15685e66-416d-4a5c-8de4-75d60be3264a": {
+      "nick": "Toto",
+      "playerKey": "install:15685e66-416d-4a5c-8de4-75d60be3264a",
+      "word": "terrassat",
+      "len": 9,
+      "achievedAt": 1770139381247
+    },
+    "nick:KouignAmann": {
+      "nick": "KouignAmann",
+      "playerKey": "nick:KouignAmann",
+      "word": "dictai",
+      "len": 6,
+      "achievedAt": 1770146776589
+    },
+    "nick:TourEiffel": {
+      "nick": "TourEiffel",
+      "playerKey": "nick:TourEiffel",
+      "word": "noulet",
+      "len": 6,
+      "achievedAt": 1770147082345
+    },
+    "nick:LazyLlama": {
+      "nick": "LazyLlama",
+      "playerKey": "nick:LazyLlama",
+      "word": "arises",
+      "len": 6,
+      "achievedAt": 1770150682466
+    },
+    "nick:CiseauPapierMot": {
+      "nick": "CiseauPapierMot",
+      "playerKey": "nick:CiseauPapierMot",
+      "word": "pacas",
+      "len": 5,
+      "achievedAt": 1770153718102
+    },
+    "nick:Marmotte": {
+      "nick": "Marmotte",
+      "playerKey": "nick:Marmotte",
+      "word": "lieurs",
+      "len": 6,
+      "achievedAt": 1770157585660
+    },
+    "nick:Tremblote": {
+      "nick": "Tremblote",
+      "playerKey": "nick:Tremblote",
+      "word": "rouer",
+      "len": 5,
+      "achievedAt": 1770297072312
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "word": "tuasses",
+      "len": 7,
+      "achievedAt": 1770158000236
+    },
+    "nick:MotsMarmiton": {
+      "nick": "MotsMarmiton",
+      "playerKey": "nick:MotsMarmiton",
+      "word": "talures",
+      "len": 7,
+      "achievedAt": 1770199050761
+    },
+    "nick:Domi": {
+      "nick": "Domi",
+      "playerKey": "nick:Domi",
+      "word": "lusins",
+      "len": 6,
+      "achievedAt": 1770205579489
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "word": "cribles",
+      "len": 7,
+      "achievedAt": 1770210772192
+    },
+    "nick:LaMoucheDuCoche": {
+      "nick": "LaMoucheDuCoche",
+      "playerKey": "nick:LaMoucheDuCoche",
+      "word": "ebonites",
+      "len": 8,
+      "achievedAt": 1770222683123
+    },
+    "nick:MadameMots": {
+      "nick": "MadameMots",
+      "playerKey": "nick:MadameMots",
+      "word": "estompai",
+      "len": 8,
+      "achievedAt": 1770235311022
+    },
+    "nick:CapitaineAccent": {
+      "nick": "CapitaineAccent",
+      "playerKey": "nick:CapitaineAccent",
+      "word": "managers",
+      "len": 8,
+      "achievedAt": 1770407784697
+    },
+    "nick:Jagellon": {
+      "nick": "Jagellon",
+      "playerKey": "nick:Jagellon",
+      "word": "elierez",
+      "len": 7,
+      "achievedAt": 1770239500723
+    },
+    "nick:Torto": {
+      "nick": "Torto",
+      "playerKey": "nick:Torto",
+      "word": "coulees",
+      "len": 7,
+      "achievedAt": 1770240701393
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "word": "abusent",
+      "len": 7,
+      "achievedAt": 1770301907016
+    },
+    "nick:Malo": {
+      "nick": "Malo",
+      "playerKey": "nick:Malo",
+      "word": "egalisai",
+      "len": 8,
+      "achievedAt": 1770382600269
+    },
+    "nick:Sylvie50": {
+      "nick": "Sylvie50",
+      "playerKey": "nick:Sylvie50",
+      "word": "indemnisa",
+      "len": 9,
+      "achievedAt": 1770320181309
+    },
+    "nick:ZesteDeLime": {
+      "nick": "ZesteDeLime",
+      "playerKey": "nick:ZesteDeLime",
+      "word": "bresil",
+      "len": 6,
+      "achievedAt": 1770322574915
+    },
+    "nick:PapiRatatouille": {
+      "nick": "PapiRatatouille",
+      "playerKey": "nick:PapiRatatouille",
+      "word": "annotees",
+      "len": 8,
+      "achievedAt": 1770325285117
+    },
+    "nick:AubergineMagique": {
+      "nick": "AubergineMagique",
+      "playerKey": "nick:AubergineMagique",
+      "word": "ardoise",
+      "len": 7,
+      "achievedAt": 1770405427342
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "word": "carotta",
+      "len": 7,
+      "achievedAt": 1770365083079
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "word": "domaines",
+      "len": 8,
+      "achievedAt": 1770368815417
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "word": "repassee",
+      "len": 8,
+      "achievedAt": 1770402204619
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "word": "citronnade",
+      "len": 10,
+      "achievedAt": 1770403197654
+    },
+    "nick:Proutosaurus Rex": {
+      "nick": "Proutosaurus Rex",
+      "playerKey": "nick:Proutosaurus Rex",
+      "word": "salopiau",
+      "len": 8,
+      "achievedAt": 1770405072741
+    },
+    "nick:BarbeAPapa": {
+      "nick": "BarbeAPapa",
+      "playerKey": "nick:BarbeAPapa",
+      "word": "relatees",
+      "len": 8,
+      "achievedAt": 1770412272357
+    },
+    "nick:(cacharel)": {
+      "nick": "(cacharel)",
+      "playerKey": "nick:(cacharel)",
+      "word": "epeures",
+      "len": 7,
+      "achievedAt": 1770415023834
+    },
+    "nick:PetitPoucet": {
+      "nick": "PetitPoucet",
+      "playerKey": "nick:PetitPoucet",
+      "word": "exilas",
+      "len": 6,
+      "achievedAt": 1770416178320
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "word": "larron",
+      "len": 6,
+      "achievedAt": 1770418294826
+    },
+    "install:e6b95803-e22f-4ee6-a7a0-ec382965e327": {
+      "nick": "Jb",
+      "playerKey": "install:e6b95803-e22f-4ee6-a7a0-ec382965e327",
+      "word": "rat",
+      "len": 3,
+      "achievedAt": 1770419684558
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "word": "garerais",
+      "len": 8,
+      "achievedAt": 1770420161074
+    }
+  },
+  "bestRoundScore": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pts": 3800,
+      "roundId": "room-4x4#1770235215726",
+      "achievedAt": 1770235331309
+    },
+    "nick:MontrealMaven": {
+      "nick": "MontrealMaven",
+      "playerKey": "nick:MontrealMaven",
+      "pts": 76,
+      "roundId": "room-4x4#1770008087953",
+      "achievedAt": 1770008203866
+    },
+    "nick:Fanny": {
+      "nick": "Fanny",
+      "playerKey": "nick:Fanny",
+      "pts": 260,
+      "roundId": "room-4x4#1770010803571",
+      "achievedAt": 1770010919742
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "pts": 1964,
+      "roundId": "room-4x4#1770152185542",
+      "achievedAt": 1770152300279
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "pts": 1369,
+      "roundId": "room-4x4#1770319599572",
+      "achievedAt": 1770319718766
+    },
+    "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+      "nick": "uhuj",
+      "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+      "pts": 5,
+      "roundId": "room-4x4#1770017465915",
+      "achievedAt": 1770017578687
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "pts": 694,
+      "roundId": "room-4x4#1770044672820",
+      "achievedAt": 1770044772975
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "pts": 2018,
+      "roundId": "room-4x4#1770066556656",
+      "achievedAt": 1770066674670
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "pts": 4802,
+      "roundId": "room-4x4#1770117680677",
+      "achievedAt": 1770117800555
+    },
+    "nick:ClaviersFou": {
+      "nick": "ClaviersFou",
+      "playerKey": "nick:ClaviersFou",
+      "pts": 260,
+      "roundId": "room-4x4#1770304216042",
+      "achievedAt": 1770304333324
+    },
+    "nick:TataPousse": {
+      "nick": "TataPousse",
+      "playerKey": "nick:TataPousse",
+      "pts": 456,
+      "roundId": "room-4x4#1770036283328",
+      "achievedAt": 1770036398847
+    },
+    "nick:Celie": {
+      "nick": "Celie",
+      "playerKey": "nick:Celie",
+      "pts": 465,
+      "roundId": "room-4x4#1770111602963",
+      "achievedAt": 1770111719165
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "pts": 4301,
+      "roundId": "room-4x4#1770226090272",
+      "achievedAt": 1770226209427
+    },
+    "nick:DodoDansLeMétro": {
+      "nick": "DodoDansLeMétro",
+      "playerKey": "nick:DodoDansLeMétro",
+      "pts": 218,
+      "roundId": "room-4x4#1770048004653",
+      "achievedAt": 1770048120830
+    },
+    "nick:BiscotteTurbo": {
+      "nick": "BiscotteTurbo",
+      "playerKey": "nick:BiscotteTurbo",
+      "pts": 505,
+      "roundId": "room-4x4#1770325543357",
+      "achievedAt": 1770325660399
+    },
+    "nick:Lena": {
+      "nick": "Lena",
+      "playerKey": "nick:Lena",
+      "pts": 389,
+      "roundId": "room-4x4#1770143119686",
+      "achievedAt": 1770143235415
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "pts": 1346,
+      "roundId": "room-4x4#1770372901325",
+      "achievedAt": 1770373020495
+    },
+    "nick:ChocolatineDebat": {
+      "nick": "ChocolatineDebat",
+      "playerKey": "nick:ChocolatineDebat",
+      "pts": 187,
+      "roundId": "room-4x4#1770060342939",
+      "achievedAt": 1770060462092
+    },
+    "nick:ZigzagZen": {
+      "nick": "ZigzagZen",
+      "playerKey": "nick:ZigzagZen",
+      "pts": 55,
+      "roundId": "room-4x4#1770210286207",
+      "achievedAt": 1770210400971
+    },
+    "nick:MarcelDu12": {
+      "nick": "MarcelDu12",
+      "playerKey": "nick:MarcelDu12",
+      "pts": 228,
+      "roundId": "room-4x4#1770065100814",
+      "achievedAt": 1770065219599
+    },
+    "nick:MlleDiagonale": {
+      "nick": "MlleDiagonale",
+      "playerKey": "nick:MlleDiagonale",
+      "pts": 189,
+      "roundId": "room-4x4#1770065100814",
+      "achievedAt": 1770065217515
+    },
+    "nick:--SuperNapo--": {
+      "nick": "--SuperNapo--",
+      "playerKey": "nick:--SuperNapo--",
+      "pts": 21,
+      "roundId": "room-4x4#1770068057662",
+      "achievedAt": 1770068175854
+    },
+    "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4": {
+      "nick": "Over",
+      "playerKey": "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4",
+      "pts": 187,
+      "roundId": "room-4x4#1770077317536",
+      "achievedAt": 1770077417735
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "pts": 399,
+      "roundId": "room-4x4#1770080918885",
+      "achievedAt": 1770081008493
+    },
+    "nick:PoutinePower": {
+      "nick": "PoutinePower",
+      "playerKey": "nick:PoutinePower",
+      "pts": 220,
+      "roundId": "room-4x4#1770097168541",
+      "achievedAt": 1770097286475
+    },
+    "nick:GastonLaGaffe": {
+      "nick": "GastonLaGaffe",
+      "playerKey": "nick:GastonLaGaffe",
+      "pts": 352,
+      "roundId": "room-4x4#1770280489561",
+      "achievedAt": 1770280605701
+    },
+    "nick:Kamil": {
+      "nick": "Kamil",
+      "playerKey": "nick:Kamil",
+      "pts": 218,
+      "roundId": "room-4x4#1770383721976",
+      "achievedAt": 1770383841046
+    },
+    "nick:PommeTatin": {
+      "nick": "PommeTatin",
+      "playerKey": "nick:PommeTatin",
+      "pts": 79,
+      "roundId": "room-4x4#1770120276732",
+      "achievedAt": 1770120392359
+    },
+    "nick:CarotteRâpée": {
+      "nick": "CarotteRâpée",
+      "playerKey": "nick:CarotteRâpée",
+      "pts": 166,
+      "roundId": "room-4x4#1770320365066",
+      "achievedAt": 1770320481504
+    },
+    "install:15685e66-416d-4a5c-8de4-75d60be3264a": {
+      "nick": "Toto",
+      "playerKey": "install:15685e66-416d-4a5c-8de4-75d60be3264a",
+      "pts": 324,
+      "roundId": "room-4x4#1770139517943",
+      "achievedAt": 1770139631554
+    },
+    "nick:KouignAmann": {
+      "nick": "KouignAmann",
+      "playerKey": "nick:KouignAmann",
+      "pts": 37,
+      "roundId": "room-4x4#1770146662232",
+      "achievedAt": 1770146779632
+    },
+    "nick:TourEiffel": {
+      "nick": "TourEiffel",
+      "playerKey": "nick:TourEiffel",
+      "pts": 128,
+      "roundId": "room-4x4#1770146992496",
+      "achievedAt": 1770147108547
+    },
+    "nick:LazyLlama": {
+      "nick": "LazyLlama",
+      "playerKey": "nick:LazyLlama",
+      "pts": 24,
+      "roundId": "room-4x4#1770150564405",
+      "achievedAt": 1770150682466
+    },
+    "nick:CiseauPapierMot": {
+      "nick": "CiseauPapierMot",
+      "playerKey": "nick:CiseauPapierMot",
+      "pts": 195,
+      "roundId": "room-4x4#1770153656517",
+      "achievedAt": 1770153773144
+    },
+    "nick:Marmotte": {
+      "nick": "Marmotte",
+      "playerKey": "nick:Marmotte",
+      "pts": 161,
+      "roundId": "room-4x4#1770304501162",
+      "achievedAt": 1770304618110
+    },
+    "nick:Tremblote": {
+      "nick": "Tremblote",
+      "playerKey": "nick:Tremblote",
+      "pts": 141,
+      "roundId": "room-4x4#1770296968001",
+      "achievedAt": 1770297087088
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "pts": 1336,
+      "roundId": "room-4x4#1770158234116",
+      "achievedAt": 1770158352708
+    },
+    "nick:MotsMarmiton": {
+      "nick": "MotsMarmiton",
+      "playerKey": "nick:MotsMarmiton",
+      "pts": 206,
+      "roundId": "room-4x4#1770198955888",
+      "achievedAt": 1770199074114
+    },
+    "nick:Domi": {
+      "nick": "Domi",
+      "playerKey": "nick:Domi",
+      "pts": 81,
+      "roundId": "room-4x4#1770205483168",
+      "achievedAt": 1770205601745
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "pts": 1870,
+      "roundId": "room-4x4#1770210766454",
+      "achievedAt": 1770210880378
+    },
+    "nick:LaMoucheDuCoche": {
+      "nick": "LaMoucheDuCoche",
+      "playerKey": "nick:LaMoucheDuCoche",
+      "pts": 476,
+      "roundId": "room-4x4#1770222593569",
+      "achievedAt": 1770222711439
+    },
+    "nick:MadameMots": {
+      "nick": "MadameMots",
+      "playerKey": "nick:MadameMots",
+      "pts": 355,
+      "roundId": "room-4x4#1770235215726",
+      "achievedAt": 1770235333487
+    },
+    "nick:CapitaineAccent": {
+      "nick": "CapitaineAccent",
+      "playerKey": "nick:CapitaineAccent",
+      "pts": 128,
+      "roundId": "room-4x4#1770407677713",
+      "achievedAt": 1770407795885
+    },
+    "nick:Jagellon": {
+      "nick": "Jagellon",
+      "playerKey": "nick:Jagellon",
+      "pts": 496,
+      "roundId": "room-4x4#1770239434045",
+      "achievedAt": 1770239552778
+    },
+    "nick:Torto": {
+      "nick": "Torto",
+      "playerKey": "nick:Torto",
+      "pts": 221,
+      "roundId": "room-4x4#1770240604533",
+      "achievedAt": 1770240721793
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "pts": 419,
+      "roundId": "room-4x4#1770301830059",
+      "achievedAt": 1770301927870
+    },
+    "nick:Malo": {
+      "nick": "Malo",
+      "playerKey": "nick:Malo",
+      "pts": 198,
+      "roundId": "room-4x4#1770382551448",
+      "achievedAt": 1770382667803
+    },
+    "nick:Sylvie50": {
+      "nick": "Sylvie50",
+      "playerKey": "nick:Sylvie50",
+      "pts": 175,
+      "roundId": "room-4x4#1770320079891",
+      "achievedAt": 1770320197273
+    },
+    "nick:ZesteDeLime": {
+      "nick": "ZesteDeLime",
+      "playerKey": "nick:ZesteDeLime",
+      "pts": 62,
+      "roundId": "room-4x4#1770322466321",
+      "achievedAt": 1770322584856
+    },
+    "nick:PapiRatatouille": {
+      "nick": "PapiRatatouille",
+      "playerKey": "nick:PapiRatatouille",
+      "pts": 395,
+      "roundId": "room-4x4#1770325183152",
+      "achievedAt": 1770325300458
+    },
+    "nick:AubergineMagique": {
+      "nick": "AubergineMagique",
+      "playerKey": "nick:AubergineMagique",
+      "pts": 262,
+      "roundId": "room-4x4#1770405320571",
+      "achievedAt": 1770405436223
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "pts": 270,
+      "roundId": "room-4x4#1770365067377",
+      "achievedAt": 1770365185067
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "pts": 965,
+      "roundId": "room-4x4#1770373757030",
+      "achievedAt": 1770373873380
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "pts": 2377,
+      "roundId": "room-4x4#1770404629681",
+      "achievedAt": 1770404748367
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "pts": 890,
+      "roundId": "room-4x4#1770402152718",
+      "achievedAt": 1770402269540
+    },
+    "nick:Proutosaurus Rex": {
+      "nick": "Proutosaurus Rex",
+      "playerKey": "nick:Proutosaurus Rex",
+      "pts": 250,
+      "roundId": "room-4x4#1770404960299",
+      "achievedAt": 1770405077292
+    },
+    "nick:BarbeAPapa": {
+      "nick": "BarbeAPapa",
+      "playerKey": "nick:BarbeAPapa",
+      "pts": 66,
+      "roundId": "room-4x4#1770412179744",
+      "achievedAt": 1770412296234
+    },
+    "nick:(cacharel)": {
+      "nick": "(cacharel)",
+      "playerKey": "nick:(cacharel)",
+      "pts": 305,
+      "roundId": "room-4x4#1770414926403",
+      "achievedAt": 1770415044581
+    },
+    "nick:PetitPoucet": {
+      "nick": "PetitPoucet",
+      "playerKey": "nick:PetitPoucet",
+      "pts": 51,
+      "roundId": "room-4x4#1770416067198",
+      "achievedAt": 1770416184457
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "pts": 330,
+      "roundId": "room-4x4#1770418708972",
+      "achievedAt": 1770418826545
+    },
+    "install:e6b95803-e22f-4ee6-a7a0-ec382965e327": {
+      "nick": "Jb",
+      "playerKey": "install:e6b95803-e22f-4ee6-a7a0-ec382965e327",
+      "pts": 22,
+      "roundId": "room-4x4#1770419564784",
+      "achievedAt": 1770419684558
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "pts": 370,
+      "roundId": "room-4x4#1770420255229",
+      "achievedAt": 1770420374299
+    }
+  },
+  "bestTimeTargetLong": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "ms": 51857,
+      "word": "enlacait",
+      "achievedAt": 1770235958210
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "ms": 11860,
+      "word": "metrasses",
+      "achievedAt": 1770380942455
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "ms": 39548,
+      "word": "alentours",
+      "achievedAt": 1770081453604
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "ms": 32022,
+      "word": "metrasses",
+      "achievedAt": 1770380962617
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "ms": 35048,
+      "word": "petaradai",
+      "achievedAt": 1770247378373
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "ms": 36564,
+      "word": "torturat",
+      "achievedAt": 1770321902522
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "ms": 40757,
+      "word": "torturat",
+      "achievedAt": 1770321906715
+    },
+    "nick:QuasarMots": {
+      "nick": "QuasarMots",
+      "playerKey": "nick:QuasarMots",
+      "ms": 75935,
+      "word": "goutassent",
+      "achievedAt": 1770386484425
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "ms": 76411,
+      "word": "noyautait",
+      "achievedAt": 1770399962159
+    }
+  },
+  "bestTimeTargetScore": {
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "ms": 35281,
+      "word": "mourras",
+      "achievedAt": 1770112853552
+    },
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "ms": 7011,
+      "word": "rendais",
+      "achievedAt": 1770152687911
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "ms": 27984,
+      "word": "garnies",
+      "achievedAt": 1770237075634
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "ms": 84088,
+      "word": "enlevais",
+      "achievedAt": 1770324861979
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "ms": 21145,
+      "word": "broutas",
+      "achievedAt": 1770372471850
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "ms": 51099,
+      "word": "dardera",
+      "achievedAt": 1770296703865
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "ms": 18041,
+      "word": "rendais",
+      "achievedAt": 1770152698941
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "ms": 40552,
+      "word": "cadavre",
+      "achievedAt": 1770158154596
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "ms": 51842,
+      "word": "laotiens",
+      "achievedAt": 1770210983391
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "ms": 75421,
+      "word": "adorerait",
+      "achievedAt": 1770302070561
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "ms": 16636,
+      "word": "baques",
+      "achievedAt": 1770319165773
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "ms": 67897,
+      "word": "resumez",
+      "achievedAt": 1770368706662
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "ms": 86133,
+      "word": "pedzant",
+      "achievedAt": 1770402929473
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "ms": 74700,
+      "word": "moulera",
+      "achievedAt": 1770418498506
+    }
+  },
+  "vocab": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "vocabCount": 8150,
+      "achievedAt": 1770405080299
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "vocabCount": 4009,
+      "achievedAt": 1770403413865
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "vocabCount": 3737,
+      "achievedAt": 1770400981337
+    },
+    "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+      "nick": "uhuj",
+      "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+      "vocabCount": 7,
+      "achievedAt": 1770017585915
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "vocabCount": 3667,
+      "achievedAt": 1770383031580
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "vocabCount": 3307,
+      "achievedAt": 1770406792176
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "vocabCount": 7665,
+      "achievedAt": 1770388119581
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "vocabCount": 6312,
+      "achievedAt": 1770405936504
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "vocabCount": 2494,
+      "achievedAt": 1770418183593
+    },
+    "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4": {
+      "nick": "Over",
+      "playerKey": "install:fba7cfbd-eacb-4e2b-8e38-cc55007e2cc4",
+      "vocabCount": 35,
+      "achievedAt": 1770077602636
+    },
+    "install:275a2523-85a8-4902-9c25-464760c0c3c7": {
+      "nick": "test",
+      "playerKey": "install:275a2523-85a8-4902-9c25-464760c0c3c7",
+      "vocabCount": 122,
+      "achievedAt": 1770083034880
+    },
+    "install:15685e66-416d-4a5c-8de4-75d60be3264a": {
+      "nick": "Toto",
+      "playerKey": "install:15685e66-416d-4a5c-8de4-75d60be3264a",
+      "vocabCount": 28,
+      "achievedAt": 1770139637943
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "vocabCount": 1254,
+      "achievedAt": 1770159494914
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "vocabCount": 173,
+      "achievedAt": 1770211171620
+    },
+    "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+      "nick": "Test fold",
+      "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "vocabCount": 33,
+      "achievedAt": 1770302235211
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "vocabCount": 72,
+      "achievedAt": 1770365682848
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "vocabCount": 524,
+      "achievedAt": 1770418183593
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "vocabCount": 880,
+      "achievedAt": 1770405080299
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "vocabCount": 228,
+      "achievedAt": 1770403248565
+    },
+    "install:47e11e36-4d37-45e6-a019-c7ae6952f584": {
+      "nick": "Test",
+      "playerKey": "install:47e11e36-4d37-45e6-a019-c7ae6952f584",
+      "vocabCount": 60,
+      "achievedAt": 1770418994368
+    },
+    "install:e6b95803-e22f-4ee6-a7a0-ec382965e327": {
+      "nick": "Jb",
+      "playerKey": "install:e6b95803-e22f-4ee6-a7a0-ec382965e327",
+      "vocabCount": 1,
+      "achievedAt": 1770419684784
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "vocabCount": 86,
+      "achievedAt": 1770420660374
+    }
+  },
+  "mostGobbles": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "gobbles": 69,
+      "achievedAt": 1770404749681
+    },
+    "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+      "nick": "isa1958",
+      "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "gobbles": 13,
+      "achievedAt": 1770399675557
+    },
+    "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+      "nick": "Nanou",
+      "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "gobbles": 15,
+      "achievedAt": 1770404749681
+    },
+    "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+      "nick": "Beerman",
+      "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "gobbles": 77,
+      "achievedAt": 1770387789394
+    },
+    "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+      "nick": "Pounie",
+      "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+      "gobbles": 14,
+      "achievedAt": 1770322586321
+    },
+    "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+      "nick": "Molly",
+      "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "gobbles": 6,
+      "achievedAt": 1770383031580
+    },
+    "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+      "nick": "Marty Mc Fly",
+      "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "gobbles": 35,
+      "achievedAt": 1770405606224
+    },
+    "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+      "nick": "Matza",
+      "playerKey": "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "gobbles": 21,
+      "achievedAt": 1770416022003
+    },
+    "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+      "nick": "duchou&duchou",
+      "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "gobbles": 1,
+      "achievedAt": 1770159209747
+    },
+    "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264": {
+      "nick": "Jérémy",
+      "playerKey": "install:ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "gobbles": 1,
+      "achievedAt": 1770210886454
+    },
+    "install:52ffcc6d-7882-4baa-a717-dc7904585ade": {
+      "nick": "jb",
+      "playerKey": "install:52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "gobbles": 1,
+      "achievedAt": 1770365022326
+    },
+    "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+      "nick": "JB",
+      "playerKey": "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "gobbles": 1,
+      "achievedAt": 1770368878812
+    },
+    "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb": {
+      "nick": "كريمkarim",
+      "playerKey": "install:8fe416bf-b870-4a0e-b34a-f72fd908c7eb",
+      "gobbles": 1,
+      "achievedAt": 1770403248565
+    },
+    "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e": {
+      "nick": "Sam",
+      "playerKey": "install:81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "gobbles": 3,
+      "achievedAt": 1770404419424
+    },
+    "install:a4199515-c491-4775-889d-fda43d36aa85": {
+      "nick": "Lily",
+      "playerKey": "install:a4199515-c491-4775-889d-fda43d36aa85",
+      "gobbles": 1,
+      "achievedAt": 1770420660374
+    }
+  },
+  "history": {
+    "1768176000000": {
+      "weekStartTs": 1768176000000,
+      "medals": {},
+      "mostWordsInGame": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "wordsCount": 109,
+          "roundId": "room-4x4#1768780007244",
+          "achievedAt": 1768780127244
+        }
+      },
+      "totalScore": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "totalScore": 1286,
+          "roundsPlayed": 2,
+          "achievedAt": 1768780127244
+        },
+        "nick:Tigrou": {
+          "nick": "Tigrou",
+          "playerKey": "nick:Tigrou",
+          "totalScore": 0,
+          "roundsPlayed": 1,
+          "achievedAt": 1768780292359
+        }
+      },
+      "bestWord": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "sis",
+          "pts": 15,
+          "achievedAt": 1768779904112
+        }
+      },
+      "longestWord": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "patiriez",
+          "len": 8,
+          "achievedAt": 1768780070420
+        }
+      },
+      "bestRoundScore": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "pts": 1199,
+          "roundId": "room-4x4#1768780007244",
+          "achievedAt": 1768780126914
+        },
+        "nick:Tigrou": {
+          "nick": "Tigrou",
+          "playerKey": "nick:Tigrou",
+          "pts": 0,
+          "roundId": "room-4x4#1768780172359",
+          "achievedAt": 1768780292359
+        }
+      },
+      "bestTimeTargetLong": {},
+      "bestTimeTargetScore": {},
+      "vocab": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "vocabCount": 120,
+          "achievedAt": 1768780127244
+        }
+      },
+      "mostGobbles": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "gobbles": 1,
+          "achievedAt": 1768780127244
+        }
+      }
+    },
+    "1768780800000": {
+      "weekStartTs": 1768780800000,
+      "medals": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "gold": 3,
+          "silver": 0,
+          "bronze": 0,
+          "total": 3,
+          "achievedAt": 1769376410496
+        },
+        "nick:Tigrou": {
+          "nick": "Tigrou",
+          "playerKey": "nick:Tigrou",
+          "gold": 0,
+          "silver": 0,
+          "bronze": 2,
+          "total": 2,
+          "achievedAt": 1769379652176
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0,
+          "total": 1,
+          "achievedAt": 1769296500685
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "gold": 0,
+          "silver": 0,
+          "bronze": 2,
+          "total": 2,
+          "achievedAt": 1769329359656
+        },
+        "nick:Beerman": {
+          "nick": "Beerman",
+          "playerKey": "nick:Beerman",
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1,
+          "total": 1,
+          "achievedAt": 1769336067698
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "gold": 5,
+          "silver": 0,
+          "bronze": 0,
+          "total": 5,
+          "achievedAt": 1769356689230
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "gold": 5,
+          "silver": 1,
+          "bronze": 1,
+          "total": 7,
+          "achievedAt": 1769383820757
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0,
+          "total": 1,
+          "achievedAt": 1769347548839
+        }
+      },
+      "mostWordsInGame": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "wordsCount": 45,
+          "roundId": "room-4x4#1769375800169",
+          "achievedAt": 1769375920169
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "wordsCount": 139,
+          "roundId": "room-4x4#1769373563690",
+          "achievedAt": 1769373683690
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "wordsCount": 30,
+          "roundId": "room-4x4#1769332411040",
+          "achievedAt": 1769332531040
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "wordsCount": 66,
+          "roundId": "room-4x4#1769295890365",
+          "achievedAt": 1769296010365
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "wordsCount": 69,
+          "roundId": "room-4x4#1769327534045",
+          "achievedAt": 1769327654045
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "wordsCount": 80,
+          "roundId": "room-4x4#1769364513387",
+          "achievedAt": 1769364633387
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "wordsCount": 12,
+          "roundId": "room-4x4#1769355673412",
+          "achievedAt": 1769355793412
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "wordsCount": 18,
+          "roundId": "room-4x4#1769381112841",
+          "achievedAt": 1769381232841
+        }
+      },
+      "totalScore": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "totalScore": 10576,
+          "roundsPlayed": 20,
+          "achievedAt": 1769376370418
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "totalScore": 61159,
+          "roundsPlayed": 58,
+          "achievedAt": 1769383630597
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "totalScore": 17975,
+          "roundsPlayed": 48,
+          "achievedAt": 1769373518593
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "totalScore": 5004,
+          "roundsPlayed": 8,
+          "achievedAt": 1769296460604
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "totalScore": 8403,
+          "roundsPlayed": 11,
+          "achievedAt": 1769329319607
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "totalScore": 48687,
+          "roundsPlayed": 41,
+          "achievedAt": 1769368565730
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "totalScore": 1859,
+          "roundsPlayed": 6,
+          "achievedAt": 1769356649140
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "totalScore": 694,
+          "roundsPlayed": 3,
+          "achievedAt": 1769381232841
+        }
+      },
+      "bestWord": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "word": "laisserait",
+          "pts": 168,
+          "achievedAt": 1769265607119
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "yeyes",
+          "pts": 216,
+          "achievedAt": 1769273637751
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "word": "melerais",
+          "pts": 156,
+          "achievedAt": 1769371964811
+        },
+        "nick:--SuperNapo--": {
+          "nick": "--SuperNapo--",
+          "playerKey": "nick:--SuperNapo--",
+          "word": "musard",
+          "pts": 102,
+          "achievedAt": 1769361981321
+        },
+        "nick:PoutinePower": {
+          "nick": "PoutinePower",
+          "playerKey": "nick:PoutinePower",
+          "word": "quetai",
+          "pts": 66,
+          "achievedAt": 1769276753526
+        },
+        "nick:LeChienSavant": {
+          "nick": "LeChienSavant",
+          "playerKey": "nick:LeChienSavant",
+          "word": "astarte",
+          "pts": 108,
+          "achievedAt": 1769278254380
+        },
+        "nick:GastonLaGaffe": {
+          "nick": "GastonLaGaffe",
+          "playerKey": "nick:GastonLaGaffe",
+          "word": "astarte",
+          "pts": 108,
+          "achievedAt": 1769278269422
+        },
+        "nick:AubergineMagique": {
+          "nick": "AubergineMagique",
+          "playerKey": "nick:AubergineMagique",
+          "word": "tressera",
+          "pts": 69,
+          "achievedAt": 1769279439073
+        },
+        "nick:BiscotteTurbo": {
+          "nick": "BiscotteTurbo",
+          "playerKey": "nick:BiscotteTurbo",
+          "word": "titrera",
+          "pts": 114,
+          "achievedAt": 1769280095448
+        },
+        "nick:MlleDiagonale": {
+          "nick": "MlleDiagonale",
+          "playerKey": "nick:MlleDiagonale",
+          "word": "entieretes",
+          "pts": 168,
+          "achievedAt": 1769280720331
+        },
+        "nick:PixelBaguette": {
+          "nick": "PixelBaguette",
+          "playerKey": "nick:PixelBaguette",
+          "word": "tantines",
+          "pts": 138,
+          "achievedAt": 1769287591456
+        },
+        "nick:Marmotte": {
+          "nick": "Marmotte",
+          "playerKey": "nick:Marmotte",
+          "word": "serrano",
+          "pts": 102,
+          "achievedAt": 1769288742228
+        },
+        "nick:TourEiffel": {
+          "nick": "TourEiffel",
+          "playerKey": "nick:TourEiffel",
+          "word": "ladino",
+          "pts": 13,
+          "achievedAt": 1769291740489
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "word": "fesserai",
+          "pts": 162,
+          "achievedAt": 1769295787299
+        },
+        "nick:CarotteRâpée": {
+          "nick": "CarotteRâpée",
+          "playerKey": "nick:CarotteRâpée",
+          "word": "antes",
+          "pts": 9,
+          "achievedAt": 1769300435459
+        },
+        "nick:PapiRatatouille": {
+          "nick": "PapiRatatouille",
+          "playerKey": "nick:PapiRatatouille",
+          "word": "etourdir",
+          "pts": 75,
+          "achievedAt": 1769303170690
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "word": "batonnets",
+          "pts": 192,
+          "achievedAt": 1769328233694
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "word": "targueras",
+          "pts": 162,
+          "achievedAt": 1769335803810
+        },
+        "nick:MotsMarmiton": {
+          "nick": "MotsMarmiton",
+          "playerKey": "nick:MotsMarmiton",
+          "word": "narguerai",
+          "pts": 54,
+          "achievedAt": 1769335839691
+        },
+        "nick:(cacharel)": {
+          "nick": "(cacharel)",
+          "playerKey": "nick:(cacharel)",
+          "word": "billion",
+          "pts": 20,
+          "achievedAt": 1769349381946
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "word": "valez",
+          "pts": 132,
+          "achievedAt": 1769355759724
+        },
+        "nick:MarcelDu12": {
+          "nick": "MarcelDu12",
+          "playerKey": "nick:MarcelDu12",
+          "word": "prestas",
+          "pts": 57,
+          "achievedAt": 1769355944902
+        },
+        "nick:Sylvie50": {
+          "nick": "Sylvie50",
+          "playerKey": "nick:Sylvie50",
+          "word": "chamite",
+          "pts": 144,
+          "achievedAt": 1769358662325
+        },
+        "nick:ChocolatineDebat": {
+          "nick": "ChocolatineDebat",
+          "playerKey": "nick:ChocolatineDebat",
+          "word": "gaine",
+          "pts": 11,
+          "achievedAt": 1769363743723
+        },
+        "nick:Zigouigoui": {
+          "nick": "Zigouigoui",
+          "playerKey": "nick:Zigouigoui",
+          "word": "pognais",
+          "pts": 42,
+          "achievedAt": 1769365313554
+        },
+        "nick:CapitaineAccent": {
+          "nick": "CapitaineAccent",
+          "playerKey": "nick:CapitaineAccent",
+          "word": "operon",
+          "pts": 31,
+          "achievedAt": 1769371249110
+        },
+        "nick:TropDeCafé": {
+          "nick": "TropDeCafé",
+          "playerKey": "nick:TropDeCafé",
+          "word": "marris",
+          "pts": 48,
+          "achievedAt": 1769371562305
+        },
+        "nick:PetitPoucet": {
+          "nick": "PetitPoucet",
+          "playerKey": "nick:PetitPoucet",
+          "word": "queter",
+          "pts": 42,
+          "achievedAt": 1769373035463
+        },
+        "nick:Domi": {
+          "nick": "Domi",
+          "playerKey": "nick:Domi",
+          "word": "toles",
+          "pts": 27,
+          "achievedAt": 1769373036042
+        },
+        "nick:DodoDansLeMétro": {
+          "nick": "DodoDansLeMétro",
+          "playerKey": "nick:DodoDansLeMétro",
+          "word": "milan",
+          "pts": 18,
+          "achievedAt": 1769376049553
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "word": "crics",
+          "pts": 90,
+          "achievedAt": 1769381164940
+        }
+      },
+      "longestWord": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "word": "laisserait",
+          "len": 10,
+          "achievedAt": 1769265607119
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "filetassent",
+          "len": 11,
+          "achievedAt": 1769372507652
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "word": "ratasses",
+          "len": 8,
+          "achievedAt": 1769347808889
+        },
+        "nick:--SuperNapo--": {
+          "nick": "--SuperNapo--",
+          "playerKey": "nick:--SuperNapo--",
+          "word": "necrosai",
+          "len": 8,
+          "achievedAt": 1769271050623
+        },
+        "nick:PoutinePower": {
+          "nick": "PoutinePower",
+          "playerKey": "nick:PoutinePower",
+          "word": "quetai",
+          "len": 6,
+          "achievedAt": 1769276753526
+        },
+        "nick:LeChienSavant": {
+          "nick": "LeChienSavant",
+          "playerKey": "nick:LeChienSavant",
+          "word": "astarte",
+          "len": 7,
+          "achievedAt": 1769278254380
+        },
+        "nick:GastonLaGaffe": {
+          "nick": "GastonLaGaffe",
+          "playerKey": "nick:GastonLaGaffe",
+          "word": "astarte",
+          "len": 7,
+          "achievedAt": 1769278269422
+        },
+        "nick:AubergineMagique": {
+          "nick": "AubergineMagique",
+          "playerKey": "nick:AubergineMagique",
+          "word": "tressera",
+          "len": 8,
+          "achievedAt": 1769279439073
+        },
+        "nick:BiscotteTurbo": {
+          "nick": "BiscotteTurbo",
+          "playerKey": "nick:BiscotteTurbo",
+          "word": "quartets",
+          "len": 8,
+          "achievedAt": 1769280075539
+        },
+        "nick:MlleDiagonale": {
+          "nick": "MlleDiagonale",
+          "playerKey": "nick:MlleDiagonale",
+          "word": "entieretes",
+          "len": 10,
+          "achievedAt": 1769280720331
+        },
+        "nick:PixelBaguette": {
+          "nick": "PixelBaguette",
+          "playerKey": "nick:PixelBaguette",
+          "word": "ralentirent",
+          "len": 11,
+          "achievedAt": 1769351134243
+        },
+        "nick:Marmotte": {
+          "nick": "Marmotte",
+          "playerKey": "nick:Marmotte",
+          "word": "serrano",
+          "len": 7,
+          "achievedAt": 1769288742228
+        },
+        "nick:TourEiffel": {
+          "nick": "TourEiffel",
+          "playerKey": "nick:TourEiffel",
+          "word": "ladino",
+          "len": 6,
+          "achievedAt": 1769291740489
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "word": "fesserai",
+          "len": 8,
+          "achievedAt": 1769295787299
+        },
+        "nick:CarotteRâpée": {
+          "nick": "CarotteRâpée",
+          "playerKey": "nick:CarotteRâpée",
+          "word": "antes",
+          "len": 5,
+          "achievedAt": 1769300435459
+        },
+        "nick:PapiRatatouille": {
+          "nick": "PapiRatatouille",
+          "playerKey": "nick:PapiRatatouille",
+          "word": "etourdir",
+          "len": 8,
+          "achievedAt": 1769303170690
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "word": "batonnets",
+          "len": 9,
+          "achievedAt": 1769328233694
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "word": "patisserie",
+          "len": 10,
+          "achievedAt": 1769345222766
+        },
+        "nick:MotsMarmiton": {
+          "nick": "MotsMarmiton",
+          "playerKey": "nick:MotsMarmiton",
+          "word": "narguerai",
+          "len": 9,
+          "achievedAt": 1769335839691
+        },
+        "nick:(cacharel)": {
+          "nick": "(cacharel)",
+          "playerKey": "nick:(cacharel)",
+          "word": "billion",
+          "len": 7,
+          "achievedAt": 1769349381946
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "word": "encadres",
+          "len": 8,
+          "achievedAt": 1769355976549
+        },
+        "nick:MarcelDu12": {
+          "nick": "MarcelDu12",
+          "playerKey": "nick:MarcelDu12",
+          "word": "posseda",
+          "len": 7,
+          "achievedAt": 1769355939697
+        },
+        "nick:Sylvie50": {
+          "nick": "Sylvie50",
+          "playerKey": "nick:Sylvie50",
+          "word": "maoistes",
+          "len": 8,
+          "achievedAt": 1769358658825
+        },
+        "nick:ChocolatineDebat": {
+          "nick": "ChocolatineDebat",
+          "playerKey": "nick:ChocolatineDebat",
+          "word": "daterai",
+          "len": 7,
+          "achievedAt": 1769373640596
+        },
+        "nick:Zigouigoui": {
+          "nick": "Zigouigoui",
+          "playerKey": "nick:Zigouigoui",
+          "word": "pognais",
+          "len": 7,
+          "achievedAt": 1769365313554
+        },
+        "nick:CapitaineAccent": {
+          "nick": "CapitaineAccent",
+          "playerKey": "nick:CapitaineAccent",
+          "word": "gangue",
+          "len": 6,
+          "achievedAt": 1769371238735
+        },
+        "nick:TropDeCafé": {
+          "nick": "TropDeCafé",
+          "playerKey": "nick:TropDeCafé",
+          "word": "marris",
+          "len": 6,
+          "achievedAt": 1769371562305
+        },
+        "nick:PetitPoucet": {
+          "nick": "PetitPoucet",
+          "playerKey": "nick:PetitPoucet",
+          "word": "queter",
+          "len": 6,
+          "achievedAt": 1769373035463
+        },
+        "nick:Domi": {
+          "nick": "Domi",
+          "playerKey": "nick:Domi",
+          "word": "toles",
+          "len": 5,
+          "achievedAt": 1769373036042
+        },
+        "nick:DodoDansLeMétro": {
+          "nick": "DodoDansLeMétro",
+          "playerKey": "nick:DodoDansLeMétro",
+          "word": "milan",
+          "len": 5,
+          "achievedAt": 1769376049553
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "word": "tissa",
+          "len": 5,
+          "achievedAt": 1769380994733
+        }
+      },
+      "bestRoundScore": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "pts": 1249,
+          "roundId": "room-4x4#1769265499483",
+          "achievedAt": 1769265618361
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "pts": 4068,
+          "roundId": "room-4x4#1769335097253",
+          "achievedAt": 1769335215991
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "pts": 906,
+          "roundId": "room-4x4#1769371942703",
+          "achievedAt": 1769372062179
+        },
+        "nick:--SuperNapo--": {
+          "nick": "--SuperNapo--",
+          "playerKey": "nick:--SuperNapo--",
+          "pts": 473,
+          "roundId": "room-4x4#1769361916894",
+          "achievedAt": 1769362033583
+        },
+        "nick:PoutinePower": {
+          "nick": "PoutinePower",
+          "playerKey": "nick:PoutinePower",
+          "pts": 174,
+          "roundId": "room-4x4#1769276635030",
+          "achievedAt": 1769276753526
+        },
+        "nick:LeChienSavant": {
+          "nick": "LeChienSavant",
+          "playerKey": "nick:LeChienSavant",
+          "pts": 410,
+          "roundId": "room-4x4#1769278151192",
+          "achievedAt": 1769278269114
+        },
+        "nick:GastonLaGaffe": {
+          "nick": "GastonLaGaffe",
+          "playerKey": "nick:GastonLaGaffe",
+          "pts": 405,
+          "roundId": "room-4x4#1769278151192",
+          "achievedAt": 1769278269422
+        },
+        "nick:AubergineMagique": {
+          "nick": "AubergineMagique",
+          "playerKey": "nick:AubergineMagique",
+          "pts": 85,
+          "roundId": "room-4x4#1769279321878",
+          "achievedAt": 1769279439073
+        },
+        "nick:BiscotteTurbo": {
+          "nick": "BiscotteTurbo",
+          "playerKey": "nick:BiscotteTurbo",
+          "pts": 942,
+          "roundId": "room-4x4#1769280012161",
+          "achievedAt": 1769280128216
+        },
+        "nick:MlleDiagonale": {
+          "nick": "MlleDiagonale",
+          "playerKey": "nick:MlleDiagonale",
+          "pts": 822,
+          "roundId": "room-4x4#1769280627532",
+          "achievedAt": 1769280745007
+        },
+        "nick:PixelBaguette": {
+          "nick": "PixelBaguette",
+          "playerKey": "nick:PixelBaguette",
+          "pts": 431,
+          "roundId": "room-4x4#1769287485778",
+          "achievedAt": 1769287603403
+        },
+        "nick:Marmotte": {
+          "nick": "Marmotte",
+          "playerKey": "nick:Marmotte",
+          "pts": 153,
+          "roundId": "room-4x4#1769288626536",
+          "achievedAt": 1769288742228
+        },
+        "nick:TourEiffel": {
+          "nick": "TourEiffel",
+          "playerKey": "nick:TourEiffel",
+          "pts": 25,
+          "roundId": "room-4x4#1769291628036",
+          "achievedAt": 1769291746966
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "pts": 1448,
+          "roundId": "room-4x4#1769295725277",
+          "achievedAt": 1769295837971
+        },
+        "nick:CarotteRâpée": {
+          "nick": "CarotteRâpée",
+          "playerKey": "nick:CarotteRâpée",
+          "pts": 9,
+          "roundId": "room-4x4#1769300317509",
+          "achievedAt": 1769300435459
+        },
+        "nick:PapiRatatouille": {
+          "nick": "PapiRatatouille",
+          "playerKey": "nick:PapiRatatouille",
+          "pts": 251,
+          "roundId": "room-4x4#1769303063378",
+          "achievedAt": 1769303179568
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "pts": 1900,
+          "roundId": "room-4x4#1769328179246",
+          "achievedAt": 1769328295442
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "pts": 2945,
+          "roundId": "room-4x4#1769345106672",
+          "achievedAt": 1769345222766
+        },
+        "nick:MotsMarmiton": {
+          "nick": "MotsMarmiton",
+          "playerKey": "nick:MotsMarmiton",
+          "pts": 169,
+          "roundId": "room-4x4#1769335742526",
+          "achievedAt": 1769335860988
+        },
+        "nick:(cacharel)": {
+          "nick": "(cacharel)",
+          "playerKey": "nick:(cacharel)",
+          "pts": 120,
+          "roundId": "room-4x4#1769349294735",
+          "achievedAt": 1769349411398
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "pts": 718,
+          "roundId": "room-4x4#1769355673412",
+          "achievedAt": 1769355787835
+        },
+        "nick:MarcelDu12": {
+          "nick": "MarcelDu12",
+          "playerKey": "nick:MarcelDu12",
+          "pts": 271,
+          "roundId": "room-4x4#1769355868527",
+          "achievedAt": 1769355986499
+        },
+        "nick:Sylvie50": {
+          "nick": "Sylvie50",
+          "playerKey": "nick:Sylvie50",
+          "pts": 659,
+          "roundId": "room-4x4#1769358555207",
+          "achievedAt": 1769358671781
+        },
+        "nick:ChocolatineDebat": {
+          "nick": "ChocolatineDebat",
+          "playerKey": "nick:ChocolatineDebat",
+          "pts": 88,
+          "roundId": "room-4x4#1769373563690",
+          "achievedAt": 1769373681724
+        },
+        "nick:Zigouigoui": {
+          "nick": "Zigouigoui",
+          "playerKey": "nick:Zigouigoui",
+          "pts": 165,
+          "roundId": "room-4x4#1769365204006",
+          "achievedAt": 1769365320091
+        },
+        "nick:CapitaineAccent": {
+          "nick": "CapitaineAccent",
+          "playerKey": "nick:CapitaineAccent",
+          "pts": 81,
+          "roundId": "room-4x4#1769371132090",
+          "achievedAt": 1769371249110
+        },
+        "nick:TropDeCafé": {
+          "nick": "TropDeCafé",
+          "playerKey": "nick:TropDeCafé",
+          "pts": 210,
+          "roundId": "room-4x4#1769371492482",
+          "achievedAt": 1769371608810
+        },
+        "nick:PetitPoucet": {
+          "nick": "PetitPoucet",
+          "playerKey": "nick:PetitPoucet",
+          "pts": 42,
+          "roundId": "room-4x4#1769372918317",
+          "achievedAt": 1769373035463
+        },
+        "nick:Domi": {
+          "nick": "Domi",
+          "playerKey": "nick:Domi",
+          "pts": 27,
+          "roundId": "room-4x4#1769372918317",
+          "achievedAt": 1769373036042
+        },
+        "nick:DodoDansLeMétro": {
+          "nick": "DodoDansLeMétro",
+          "playerKey": "nick:DodoDansLeMétro",
+          "pts": 66,
+          "roundId": "room-4x4#1769375965262",
+          "achievedAt": 1769376081159
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "pts": 419,
+          "roundId": "room-4x4#1769381112841",
+          "achievedAt": 1769381230676
+        }
+      },
+      "bestTimeTargetLong": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "ms": 21817,
+          "word": "deparies",
+          "achievedAt": 1769265851538
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "ms": 65100,
+          "word": "rendissent",
+          "achievedAt": 1769343716040
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "ms": 22644,
+          "word": "piquants",
+          "achievedAt": 1769296243182
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "ms": 48556,
+          "word": "enfarinai",
+          "achievedAt": 1769356937887
+        }
+      },
+      "bestTimeTargetScore": {
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "ms": 69550,
+          "word": "dolbys",
+          "achievedAt": 1769270386633
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "ms": 9059,
+          "word": "matinat",
+          "achievedAt": 1769335466472
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "ms": 52673,
+          "word": "biaiser",
+          "achievedAt": 1769376183016
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "ms": 24521,
+          "word": "obtenues",
+          "achievedAt": 1769383565118
+        }
+      },
+      "vocab": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "vocabCount": 1465,
+          "achievedAt": 1769376370418
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "vocabCount": 4785,
+          "achievedAt": 1769383630597
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "vocabCount": 2683,
+          "achievedAt": 1769373518593
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "vocabCount": 679,
+          "achievedAt": 1769296460604
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "vocabCount": 922,
+          "achievedAt": 1769329319607
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "vocabCount": 2420,
+          "achievedAt": 1769368565730
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "vocabCount": 55,
+          "achievedAt": 1769356649140
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "vocabCount": 37,
+          "achievedAt": 1769381232841
+        }
+      },
+      "mostGobbles": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "gobbles": 21,
+          "achievedAt": 1769383495466
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "gobbles": 4,
+          "achievedAt": 1769376085262
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "gobbles": 4,
+          "achievedAt": 1769329154544
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "gobbles": 3,
+          "achievedAt": 1769355793412
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "gobbles": 19,
+          "achievedAt": 1769368235508
+        },
+        "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac": {
+          "nick": "Boogles",
+          "playerKey": "install:848cbb4c-86a2-4c17-abf4-8f8508c61bac",
+          "gobbles": 2,
+          "achievedAt": 1769356483876
+        },
+        "install:d3818f0a-9812-4b77-8b8d-845ddd341641": {
+          "nick": "Ju",
+          "playerKey": "install:d3818f0a-9812-4b77-8b8d-845ddd341641",
+          "gobbles": 1,
+          "achievedAt": 1769380902677
+        }
+      }
+    },
+    "1769382000000": {
+      "weekStartTs": 1769382000000,
+      "medals": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "gold": 12,
+          "silver": 6,
+          "bronze": 4,
+          "total": 22,
+          "achievedAt": 1769967366834
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "gold": 15,
+          "silver": 6,
+          "bronze": 1,
+          "total": 22,
+          "achievedAt": 1769602566737
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "gold": 13,
+          "silver": 1,
+          "bronze": 3,
+          "total": 17,
+          "achievedAt": 1769811870955
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "gold": 2,
+          "silver": 0,
+          "bronze": 1,
+          "total": 3,
+          "achievedAt": 1769635165421
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "gold": 2,
+          "silver": 3,
+          "bronze": 0,
+          "total": 5,
+          "achievedAt": 1769607474258
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "gold": 6,
+          "silver": 7,
+          "bronze": 4,
+          "total": 17,
+          "achievedAt": 1769978848302
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "gold": 8,
+          "silver": 7,
+          "bronze": 4,
+          "total": 19,
+          "achievedAt": 1769977227332
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "gold": 6,
+          "silver": 4,
+          "bronze": 7,
+          "total": 17,
+          "achievedAt": 1769963359884
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "gold": 1,
+          "silver": 1,
+          "bronze": 1,
+          "total": 3,
+          "achievedAt": 1769793001824
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0,
+          "total": 1,
+          "achievedAt": 1769635931041
+        },
+        "nick:Beerman": {
+          "nick": "Beerman",
+          "playerKey": "nick:Beerman",
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0,
+          "total": 1,
+          "achievedAt": 1769774227453
+        }
+      },
+      "mostWordsInGame": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "wordsCount": 126,
+          "roundId": "room-4x4#1769550861392",
+          "achievedAt": 1769550981392
+        },
+        "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079": {
+          "nick": "Eriiiiiiiiiic",
+          "playerKey": "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079",
+          "wordsCount": 24,
+          "roundId": "room-4x4#1769504949652",
+          "achievedAt": 1769505069652
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "wordsCount": 38,
+          "roundId": "room-4x4#1769597904338",
+          "achievedAt": 1769598024338
+        },
+        "install:27161695-e589-44ce-a00b-02e43f7cf23a": {
+          "nick": "Mro",
+          "playerKey": "install:27161695-e589-44ce-a00b-02e43f7cf23a",
+          "wordsCount": 4,
+          "roundId": "room-4x4#1769419096786",
+          "achievedAt": 1769419216786
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "wordsCount": 124,
+          "roundId": "room-4x4#1769870426739",
+          "achievedAt": 1769870546739
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "wordsCount": 144,
+          "roundId": "room-4x4#1769523768160",
+          "achievedAt": 1769523888160
+        },
+        "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+          "nick": "uhuj",
+          "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+          "wordsCount": 6,
+          "roundId": "room-4x4#1769452219415",
+          "achievedAt": 1769452339415
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "wordsCount": 59,
+          "roundId": "room-4x4#1769460023591",
+          "achievedAt": 1769460143591
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "wordsCount": 23,
+          "roundId": "room-4x4#1769807162507",
+          "achievedAt": 1769807282507
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "wordsCount": 102,
+          "roundId": "room-4x4#1769541808270",
+          "achievedAt": 1769541928270
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "wordsCount": 62,
+          "roundId": "room-4x4#1769794058214",
+          "achievedAt": 1769794178214
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "wordsCount": 55,
+          "roundId": "room-4x4#1769619605734",
+          "achievedAt": 1769619725734
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "wordsCount": 71,
+          "roundId": "room-4x4#1769676285260",
+          "achievedAt": 1769676405260
+        },
+        "install:fec8d8cb-34b5-4865-a61a-f18cad11c025": {
+          "nick": "Abk",
+          "playerKey": "install:fec8d8cb-34b5-4865-a61a-f18cad11c025",
+          "wordsCount": 31,
+          "roundId": "room-4x4#1769596883912",
+          "achievedAt": 1769597003912
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "wordsCount": 83,
+          "roundId": "room-4x4#1769635200448",
+          "achievedAt": 1769635320448
+        },
+        "install:9c540359-e016-49b1-a241-f8d8d83a2571": {
+          "nick": "Coucou",
+          "playerKey": "install:9c540359-e016-49b1-a241-f8d8d83a2571",
+          "wordsCount": 2,
+          "roundId": "room-4x4#1769719252870",
+          "achievedAt": 1769719372870
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "wordsCount": 22,
+          "roundId": "room-4x4#1769719583101",
+          "achievedAt": 1769719703101
+        },
+        "install:954868c1-d390-4762-ac64-fcd52a5dbee4": {
+          "nick": "Nico",
+          "playerKey": "install:954868c1-d390-4762-ac64-fcd52a5dbee4",
+          "wordsCount": 1,
+          "roundId": "room-4x4#1769724205823",
+          "achievedAt": 1769724325823
+        },
+        "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf": {
+          "nick": "Tigrou",
+          "playerKey": "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf",
+          "wordsCount": 49,
+          "roundId": "room-4x4#1769958577456",
+          "achievedAt": 1769958697456
+        },
+        "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+          "nick": "Test fold",
+          "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+          "wordsCount": 1,
+          "roundId": "room-4x4#1769970088191",
+          "achievedAt": 1769970208191
+        }
+      },
+      "totalScore": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "totalScore": 123134,
+          "roundsPlayed": 117,
+          "achievedAt": 1769983911382
+        },
+        "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079": {
+          "nick": "Eriiiiiiiiiic",
+          "playerKey": "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079",
+          "totalScore": 543,
+          "roundsPlayed": 2,
+          "achievedAt": 1769505069652
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "totalScore": 77663,
+          "roundsPlayed": 193,
+          "achievedAt": 1769979333514
+        },
+        "install:27161695-e589-44ce-a00b-02e43f7cf23a": {
+          "nick": "Mro",
+          "playerKey": "install:27161695-e589-44ce-a00b-02e43f7cf23a",
+          "totalScore": 36,
+          "roundsPlayed": 1,
+          "achievedAt": 1769419216786
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "totalScore": 163876,
+          "roundsPlayed": 136,
+          "achievedAt": 1769967326732
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "totalScore": 173989,
+          "roundsPlayed": 112,
+          "achievedAt": 1769695538428
+        },
+        "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+          "nick": "uhuj",
+          "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+          "totalScore": 79,
+          "roundsPlayed": 1,
+          "achievedAt": 1769452339415
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "totalScore": 8760,
+          "roundsPlayed": 14,
+          "achievedAt": 1769635125336
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "totalScore": 4450,
+          "roundsPlayed": 21,
+          "achievedAt": 1769807447603
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "totalScore": 28385,
+          "roundsPlayed": 27,
+          "achievedAt": 1769626119477
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "totalScore": 69549,
+          "roundsPlayed": 104,
+          "achievedAt": 1769978808198
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "totalScore": 95588,
+          "roundsPlayed": 163,
+          "achievedAt": 1769971183754
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "totalScore": 85156,
+          "roundsPlayed": 131,
+          "achievedAt": 1769977187248
+        },
+        "install:fec8d8cb-34b5-4865-a61a-f18cad11c025": {
+          "nick": "Abk",
+          "playerKey": "install:fec8d8cb-34b5-4865-a61a-f18cad11c025",
+          "totalScore": 4568,
+          "roundsPlayed": 12,
+          "achievedAt": 1769727133063
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "totalScore": 4095,
+          "roundsPlayed": 4,
+          "achievedAt": 1769635890892
+        },
+        "install:9c540359-e016-49b1-a241-f8d8d83a2571": {
+          "nick": "Coucou",
+          "playerKey": "install:9c540359-e016-49b1-a241-f8d8d83a2571",
+          "totalScore": 17,
+          "roundsPlayed": 1,
+          "achievedAt": 1769719372870
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "totalScore": 1709,
+          "roundsPlayed": 6,
+          "achievedAt": 1769720393566
+        },
+        "install:954868c1-d390-4762-ac64-fcd52a5dbee4": {
+          "nick": "Nico",
+          "playerKey": "install:954868c1-d390-4762-ac64-fcd52a5dbee4",
+          "totalScore": 9,
+          "roundsPlayed": 1,
+          "achievedAt": 1769724325823
+        },
+        "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf": {
+          "nick": "Tigrou",
+          "playerKey": "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf",
+          "totalScore": 931,
+          "roundsPlayed": 1,
+          "achievedAt": 1769958697456
+        },
+        "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+          "nick": "Test fold",
+          "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+          "totalScore": 11,
+          "roundsPlayed": 1,
+          "achievedAt": 1769970208191
+        }
+      },
+      "bestWord": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "degelez",
+          "pts": 180,
+          "achievedAt": 1769622674344
+        },
+        "nick:Fanny": {
+          "nick": "Fanny",
+          "playerKey": "nick:Fanny",
+          "word": "mesons",
+          "pts": 78,
+          "achievedAt": 1769406097650
+        },
+        "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079": {
+          "nick": "Eriiiiiiiiiic",
+          "playerKey": "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079",
+          "word": "boot",
+          "pts": 36,
+          "achievedAt": 1769409834699
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "word": "zestee",
+          "pts": 246,
+          "achievedAt": 1769726224912
+        },
+        "nick:Marmotte": {
+          "nick": "Marmotte",
+          "playerKey": "nick:Marmotte",
+          "word": "seriant",
+          "pts": 102,
+          "achievedAt": 1769417209655
+        },
+        "install:27161695-e589-44ce-a00b-02e43f7cf23a": {
+          "nick": "Mro",
+          "playerKey": "install:27161695-e589-44ce-a00b-02e43f7cf23a",
+          "word": "sait",
+          "pts": 18,
+          "achievedAt": 1769419143004
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "word": "clisseriez",
+          "pts": 276,
+          "achievedAt": 1769469932950
+        },
+        "nick:AubergineMagique": {
+          "nick": "AubergineMagique",
+          "playerKey": "nick:AubergineMagique",
+          "word": "ahurit",
+          "pts": 54,
+          "achievedAt": 1769703399053
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "word": "vitrerai",
+          "pts": 210,
+          "achievedAt": 1769445601306
+        },
+        "nick:TourEiffel": {
+          "nick": "TourEiffel",
+          "playerKey": "nick:TourEiffel",
+          "word": "tentee",
+          "pts": 45,
+          "achievedAt": 1769435225703
+        },
+        "nick:PoutinePower": {
+          "nick": "PoutinePower",
+          "playerKey": "nick:PoutinePower",
+          "word": "diesait",
+          "pts": 120,
+          "achievedAt": 1769452002740
+        },
+        "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+          "nick": "uhuj",
+          "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+          "word": "lorgne",
+          "pts": 26,
+          "achievedAt": 1769452238146
+        },
+        "nick:LaMoucheDuCoche": {
+          "nick": "LaMoucheDuCoche",
+          "playerKey": "nick:LaMoucheDuCoche",
+          "word": "grelais",
+          "pts": 108,
+          "achievedAt": 1769455604160
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "word": "mantes",
+          "pts": 102,
+          "achievedAt": 1769634259609
+        },
+        "nick:LazyLlama": {
+          "nick": "LazyLlama",
+          "playerKey": "nick:LazyLlama",
+          "word": "riser",
+          "pts": 27,
+          "achievedAt": 1769727124609
+        },
+        "nick:QuebecNord": {
+          "nick": "QuebecNord",
+          "playerKey": "nick:QuebecNord",
+          "word": "hissa",
+          "pts": 22,
+          "achievedAt": 1769469702145
+        },
+        "nick:SaucissonSec": {
+          "nick": "SaucissonSec",
+          "playerKey": "nick:SaucissonSec",
+          "word": "tressent",
+          "pts": 138,
+          "achievedAt": 1769722923077
+        },
+        "nick:Citronpitou": {
+          "nick": "Citronpitou",
+          "playerKey": "nick:Citronpitou",
+          "word": "sargasse",
+          "pts": 144,
+          "achievedAt": 1769541699676
+        },
+        "nick:MlleDiagonale": {
+          "nick": "MlleDiagonale",
+          "playerKey": "nick:MlleDiagonale",
+          "word": "graciee",
+          "pts": 120,
+          "achievedAt": 1769514698111
+        },
+        "nick:CarotteRâpée": {
+          "nick": "CarotteRâpée",
+          "playerKey": "nick:CarotteRâpée",
+          "word": "renfilas",
+          "pts": 58,
+          "achievedAt": 1769522205586
+        },
+        "nick:CapitaineAccent": {
+          "nick": "CapitaineAccent",
+          "playerKey": "nick:CapitaineAccent",
+          "word": "eleva",
+          "pts": 11,
+          "achievedAt": 1769723797445
+        },
+        "nick:CiseauPapierMot": {
+          "nick": "CiseauPapierMot",
+          "playerKey": "nick:CiseauPapierMot",
+          "word": "guipe",
+          "pts": 66,
+          "achievedAt": 1769564502550
+        },
+        "nick:Celie": {
+          "nick": "Celie",
+          "playerKey": "nick:Celie",
+          "word": "recrees",
+          "pts": 57,
+          "achievedAt": 1769536603674
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "word": "exiler",
+          "pts": 126,
+          "achievedAt": 1769712674689
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "word": "deventez",
+          "pts": 222,
+          "achievedAt": 1769542056201
+        },
+        "nick:LacStJean": {
+          "nick": "LacStJean",
+          "playerKey": "nick:LacStJean",
+          "word": "niez",
+          "pts": 78,
+          "achievedAt": 1769922443149
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "word": "haletait",
+          "pts": 156,
+          "achievedAt": 1769544747516
+        },
+        "nick:PapiRatatouille": {
+          "nick": "PapiRatatouille",
+          "playerKey": "nick:PapiRatatouille",
+          "word": "sterique",
+          "pts": 105,
+          "achievedAt": 1769543853153
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "word": "formateras",
+          "pts": 186,
+          "achievedAt": 1769618537867
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "word": "obelisque",
+          "pts": 210,
+          "achievedAt": 1769802856098
+        },
+        "nick:Nougatine": {
+          "nick": "Nougatine",
+          "playerKey": "nick:Nougatine",
+          "word": "ravie",
+          "pts": 39,
+          "achievedAt": 1769553132984
+        },
+        "nick:ChocolatineDebat": {
+          "nick": "ChocolatineDebat",
+          "playerKey": "nick:ChocolatineDebat",
+          "word": "kats",
+          "pts": 13,
+          "achievedAt": 1769680900887
+        },
+        "nick:Zigouigoui": {
+          "nick": "Zigouigoui",
+          "playerKey": "nick:Zigouigoui",
+          "word": "tonnions",
+          "pts": 144,
+          "achievedAt": 1769560002780
+        },
+        "nick:Domi": {
+          "nick": "Domi",
+          "playerKey": "nick:Domi",
+          "word": "tisera",
+          "pts": 84,
+          "achievedAt": 1769760140053
+        },
+        "nick:BiscotteTurbo": {
+          "nick": "BiscotteTurbo",
+          "playerKey": "nick:BiscotteTurbo",
+          "word": "geres",
+          "pts": 18,
+          "achievedAt": 1769969500162
+        },
+        "install:fec8d8cb-34b5-4865-a61a-f18cad11c025": {
+          "nick": "Abk",
+          "playerKey": "install:fec8d8cb-34b5-4865-a61a-f18cad11c025",
+          "word": "zesteur",
+          "pts": 276,
+          "achievedAt": 1769726277792
+        },
+        "nick:PommeTatin": {
+          "nick": "PommeTatin",
+          "playerKey": "nick:PommeTatin",
+          "word": "alises",
+          "pts": 14,
+          "achievedAt": 1769598428929
+        },
+        "nick:ZigzagZen": {
+          "nick": "ZigzagZen",
+          "playerKey": "nick:ZigzagZen",
+          "word": "maquis",
+          "pts": 78,
+          "achievedAt": 1769603502141
+        },
+        "nick:(cacharel)": {
+          "nick": "(cacharel)",
+          "playerKey": "nick:(cacharel)",
+          "word": "supin",
+          "pts": 60,
+          "achievedAt": 1769609196819
+        },
+        "nick:KouignAmann": {
+          "nick": "KouignAmann",
+          "playerKey": "nick:KouignAmann",
+          "word": "niaisees",
+          "pts": 138,
+          "achievedAt": 1769620950634
+        },
+        "nick:MontrealMaven": {
+          "nick": "MontrealMaven",
+          "playerKey": "nick:MontrealMaven",
+          "word": "gorgeas",
+          "pts": 42,
+          "achievedAt": 1769968302084
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "word": "lassez",
+          "pts": 93,
+          "achievedAt": 1769635510936
+        },
+        "nick:GastonLaGaffe": {
+          "nick": "GastonLaGaffe",
+          "playerKey": "nick:GastonLaGaffe",
+          "word": "deserta",
+          "pts": 38,
+          "achievedAt": 1769970699533
+        },
+        "nick:Torto": {
+          "nick": "Torto",
+          "playerKey": "nick:Torto",
+          "word": "president",
+          "pts": 84,
+          "achievedAt": 1769898702699
+        },
+        "nick:TataPousse": {
+          "nick": "TataPousse",
+          "playerKey": "nick:TataPousse",
+          "word": "gredin",
+          "pts": 84,
+          "achievedAt": 1769693584449
+        },
+        "nick:PetitPoucet": {
+          "nick": "PetitPoucet",
+          "playerKey": "nick:PetitPoucet",
+          "word": "menes",
+          "pts": 18,
+          "achievedAt": 1769718404003
+        },
+        "install:9c540359-e016-49b1-a241-f8d8d83a2571": {
+          "nick": "Coucou",
+          "playerKey": "install:9c540359-e016-49b1-a241-f8d8d83a2571",
+          "word": "tar",
+          "pts": 12,
+          "achievedAt": 1769719366902
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "word": "elevait",
+          "pts": 138,
+          "achievedAt": 1769719659500
+        },
+        "nick:Sam7898745": {
+          "nick": "Sam7898745",
+          "playerKey": "nick:Sam7898745",
+          "word": "opens",
+          "pts": 17,
+          "achievedAt": 1769972201667
+        },
+        "nick:Kamil": {
+          "nick": "Kamil",
+          "playerKey": "nick:Kamil",
+          "word": "strasse",
+          "pts": 40,
+          "achievedAt": 1769959901231
+        },
+        "install:954868c1-d390-4762-ac64-fcd52a5dbee4": {
+          "nick": "Nico",
+          "playerKey": "install:954868c1-d390-4762-ac64-fcd52a5dbee4",
+          "word": "rue",
+          "pts": 9,
+          "achievedAt": 1769724261471
+        },
+        "nick:Alcapouet": {
+          "nick": "Alcapouet",
+          "playerKey": "nick:Alcapouet",
+          "word": "aimas",
+          "pts": 47,
+          "achievedAt": 1769780253570
+        },
+        "nick:Malo": {
+          "nick": "Malo",
+          "playerKey": "nick:Malo",
+          "word": "corna",
+          "pts": 33,
+          "achievedAt": 1769789500353
+        },
+        "nick:TropDeCafé": {
+          "nick": "TropDeCafé",
+          "playerKey": "nick:TropDeCafé",
+          "word": "ithos",
+          "pts": 66,
+          "achievedAt": 1769806315906
+        },
+        "nick:ProtoPanache": {
+          "nick": "ProtoPanache",
+          "playerKey": "nick:ProtoPanache",
+          "word": "serrer",
+          "pts": 42,
+          "achievedAt": 1769827598924
+        },
+        "nick:Proutosaurus Rex": {
+          "nick": "Proutosaurus Rex",
+          "playerKey": "nick:Proutosaurus Rex",
+          "word": "variees",
+          "pts": 120,
+          "achievedAt": 1769884020565
+        },
+        "nick:ZesteDeLime": {
+          "nick": "ZesteDeLime",
+          "playerKey": "nick:ZesteDeLime",
+          "word": "skai",
+          "pts": 39,
+          "achievedAt": 1769885499179
+        },
+        "nick:Sylvie50": {
+          "nick": "Sylvie50",
+          "playerKey": "nick:Sylvie50",
+          "word": "denti",
+          "pts": 60,
+          "achievedAt": 1769895399044
+        },
+        "nick:MademoiselleP": {
+          "nick": "MademoiselleP",
+          "playerKey": "nick:MademoiselleP",
+          "word": "fout",
+          "pts": 7,
+          "achievedAt": 1769898400535
+        },
+        "nick:QuasarMots": {
+          "nick": "QuasarMots",
+          "playerKey": "nick:QuasarMots",
+          "word": "lissas",
+          "pts": 72,
+          "achievedAt": 1769928423903
+        },
+        "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf": {
+          "nick": "Tigrou",
+          "playerKey": "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf",
+          "word": "sorbet",
+          "pts": 84,
+          "achievedAt": 1769958664065
+        },
+        "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+          "nick": "Test fold",
+          "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+          "word": "qui",
+          "pts": 11,
+          "achievedAt": 1769970105753
+        },
+        "nick:MarcelDu12": {
+          "nick": "MarcelDu12",
+          "playerKey": "nick:MarcelDu12",
+          "word": "epela",
+          "pts": 39,
+          "achievedAt": 1769976097748
+        }
+      },
+      "longestWord": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "word": "souperaient",
+          "len": 11,
+          "achievedAt": 1769811307951
+        },
+        "nick:Fanny": {
+          "nick": "Fanny",
+          "playerKey": "nick:Fanny",
+          "word": "mesons",
+          "len": 6,
+          "achievedAt": 1769406097650
+        },
+        "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079": {
+          "nick": "Eriiiiiiiiiic",
+          "playerKey": "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079",
+          "word": "lactee",
+          "len": 6,
+          "achievedAt": 1769505032658
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "word": "exonerais",
+          "len": 9,
+          "achievedAt": 1769791368123
+        },
+        "nick:Marmotte": {
+          "nick": "Marmotte",
+          "playerKey": "nick:Marmotte",
+          "word": "margeras",
+          "len": 8,
+          "achievedAt": 1769882814769
+        },
+        "install:27161695-e589-44ce-a00b-02e43f7cf23a": {
+          "nick": "Mro",
+          "playerKey": "install:27161695-e589-44ce-a00b-02e43f7cf23a",
+          "word": "sait",
+          "len": 4,
+          "achievedAt": 1769419143004
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "word": "souperaient",
+          "len": 11,
+          "achievedAt": 1769811377305
+        },
+        "nick:AubergineMagique": {
+          "nick": "AubergineMagique",
+          "playerKey": "nick:AubergineMagique",
+          "word": "setars",
+          "len": 6,
+          "achievedAt": 1769421707716
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "word": "quillerais",
+          "len": 10,
+          "achievedAt": 1769518943279
+        },
+        "nick:TourEiffel": {
+          "nick": "TourEiffel",
+          "playerKey": "nick:TourEiffel",
+          "word": "nasties",
+          "len": 7,
+          "achievedAt": 1769797605193
+        },
+        "nick:PoutinePower": {
+          "nick": "PoutinePower",
+          "playerKey": "nick:PoutinePower",
+          "word": "desilait",
+          "len": 8,
+          "achievedAt": 1769452006458
+        },
+        "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+          "nick": "uhuj",
+          "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+          "word": "lorgne",
+          "len": 6,
+          "achievedAt": 1769452238146
+        },
+        "nick:LaMoucheDuCoche": {
+          "nick": "LaMoucheDuCoche",
+          "playerKey": "nick:LaMoucheDuCoche",
+          "word": "creation",
+          "len": 8,
+          "achievedAt": 1769618237710
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "word": "cranasse",
+          "len": 8,
+          "achievedAt": 1769460094460
+        },
+        "nick:LazyLlama": {
+          "nick": "LazyLlama",
+          "playerKey": "nick:LazyLlama",
+          "word": "riser",
+          "len": 5,
+          "achievedAt": 1769727124609
+        },
+        "nick:QuebecNord": {
+          "nick": "QuebecNord",
+          "playerKey": "nick:QuebecNord",
+          "word": "hissa",
+          "len": 5,
+          "achievedAt": 1769469702145
+        },
+        "nick:SaucissonSec": {
+          "nick": "SaucissonSec",
+          "playerKey": "nick:SaucissonSec",
+          "word": "tressent",
+          "len": 8,
+          "achievedAt": 1769722923077
+        },
+        "nick:Citronpitou": {
+          "nick": "Citronpitou",
+          "playerKey": "nick:Citronpitou",
+          "word": "sargasse",
+          "len": 8,
+          "achievedAt": 1769541699676
+        },
+        "nick:MlleDiagonale": {
+          "nick": "MlleDiagonale",
+          "playerKey": "nick:MlleDiagonale",
+          "word": "emanates",
+          "len": 8,
+          "achievedAt": 1769934497240
+        },
+        "nick:CarotteRâpée": {
+          "nick": "CarotteRâpée",
+          "playerKey": "nick:CarotteRâpée",
+          "word": "renfilas",
+          "len": 8,
+          "achievedAt": 1769522205586
+        },
+        "nick:CapitaineAccent": {
+          "nick": "CapitaineAccent",
+          "playerKey": "nick:CapitaineAccent",
+          "word": "elida",
+          "len": 5,
+          "achievedAt": 1769531197144
+        },
+        "nick:CiseauPapierMot": {
+          "nick": "CiseauPapierMot",
+          "playerKey": "nick:CiseauPapierMot",
+          "word": "selenes",
+          "len": 7,
+          "achievedAt": 1769536604521
+        },
+        "nick:Celie": {
+          "nick": "Celie",
+          "playerKey": "nick:Celie",
+          "word": "recrees",
+          "len": 7,
+          "achievedAt": 1769536603674
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "word": "valusse",
+          "len": 7,
+          "achievedAt": 1769541710491
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "word": "recrutais",
+          "len": 9,
+          "achievedAt": 1769607216897
+        },
+        "nick:LacStJean": {
+          "nick": "LacStJean",
+          "playerKey": "nick:LacStJean",
+          "word": "tersees",
+          "len": 7,
+          "achievedAt": 1769542022253
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "word": "subirait",
+          "len": 8,
+          "achievedAt": 1769543842824
+        },
+        "nick:PapiRatatouille": {
+          "nick": "PapiRatatouille",
+          "playerKey": "nick:PapiRatatouille",
+          "word": "resituee",
+          "len": 8,
+          "achievedAt": 1769543820534
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "word": "souperaient",
+          "len": 11,
+          "achievedAt": 1769811279451
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "word": "petanques",
+          "len": 9,
+          "achievedAt": 1769802026807
+        },
+        "nick:Nougatine": {
+          "nick": "Nougatine",
+          "playerKey": "nick:Nougatine",
+          "word": "tigrates",
+          "len": 8,
+          "achievedAt": 1769966199083
+        },
+        "nick:ChocolatineDebat": {
+          "nick": "ChocolatineDebat",
+          "playerKey": "nick:ChocolatineDebat",
+          "word": "aspiras",
+          "len": 7,
+          "achievedAt": 1769557599247
+        },
+        "nick:Zigouigoui": {
+          "nick": "Zigouigoui",
+          "playerKey": "nick:Zigouigoui",
+          "word": "tonnions",
+          "len": 8,
+          "achievedAt": 1769560002780
+        },
+        "nick:Domi": {
+          "nick": "Domi",
+          "playerKey": "nick:Domi",
+          "word": "briseuse",
+          "len": 8,
+          "achievedAt": 1769760110546
+        },
+        "nick:BiscotteTurbo": {
+          "nick": "BiscotteTurbo",
+          "playerKey": "nick:BiscotteTurbo",
+          "word": "soiree",
+          "len": 6,
+          "achievedAt": 1769596298625
+        },
+        "install:fec8d8cb-34b5-4865-a61a-f18cad11c025": {
+          "nick": "Abk",
+          "playerKey": "install:fec8d8cb-34b5-4865-a61a-f18cad11c025",
+          "word": "arcannes",
+          "len": 8,
+          "achievedAt": 1769597142666
+        },
+        "nick:PommeTatin": {
+          "nick": "PommeTatin",
+          "playerKey": "nick:PommeTatin",
+          "word": "alises",
+          "len": 6,
+          "achievedAt": 1769598428929
+        },
+        "nick:ZigzagZen": {
+          "nick": "ZigzagZen",
+          "playerKey": "nick:ZigzagZen",
+          "word": "traitai",
+          "len": 7,
+          "achievedAt": 1769730416134
+        },
+        "nick:(cacharel)": {
+          "nick": "(cacharel)",
+          "playerKey": "nick:(cacharel)",
+          "word": "statuts",
+          "len": 7,
+          "achievedAt": 1769870529437
+        },
+        "nick:KouignAmann": {
+          "nick": "KouignAmann",
+          "playerKey": "nick:KouignAmann",
+          "word": "niaisees",
+          "len": 8,
+          "achievedAt": 1769620950634
+        },
+        "nick:MontrealMaven": {
+          "nick": "MontrealMaven",
+          "playerKey": "nick:MontrealMaven",
+          "word": "serrera",
+          "len": 7,
+          "achievedAt": 1769827601584
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "word": "soulait",
+          "len": 7,
+          "achievedAt": 1769635239237
+        },
+        "nick:GastonLaGaffe": {
+          "nick": "GastonLaGaffe",
+          "playerKey": "nick:GastonLaGaffe",
+          "word": "deserta",
+          "len": 7,
+          "achievedAt": 1769970699533
+        },
+        "nick:Torto": {
+          "nick": "Torto",
+          "playerKey": "nick:Torto",
+          "word": "president",
+          "len": 9,
+          "achievedAt": 1769898702699
+        },
+        "nick:TataPousse": {
+          "nick": "TataPousse",
+          "playerKey": "nick:TataPousse",
+          "word": "vendeur",
+          "len": 7,
+          "achievedAt": 1769693542437
+        },
+        "nick:PetitPoucet": {
+          "nick": "PetitPoucet",
+          "playerKey": "nick:PetitPoucet",
+          "word": "menes",
+          "len": 5,
+          "achievedAt": 1769718404003
+        },
+        "install:9c540359-e016-49b1-a241-f8d8d83a2571": {
+          "nick": "Coucou",
+          "playerKey": "install:9c540359-e016-49b1-a241-f8d8d83a2571",
+          "word": "taro",
+          "len": 4,
+          "achievedAt": 1769719362890
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "word": "elevais",
+          "len": 7,
+          "achievedAt": 1769719656655
+        },
+        "nick:Sam7898745": {
+          "nick": "Sam7898745",
+          "playerKey": "nick:Sam7898745",
+          "word": "nonnes",
+          "len": 6,
+          "achievedAt": 1769720798356
+        },
+        "nick:Kamil": {
+          "nick": "Kamil",
+          "playerKey": "nick:Kamil",
+          "word": "raguees",
+          "len": 7,
+          "achievedAt": 1769721442799
+        },
+        "install:954868c1-d390-4762-ac64-fcd52a5dbee4": {
+          "nick": "Nico",
+          "playerKey": "install:954868c1-d390-4762-ac64-fcd52a5dbee4",
+          "word": "rue",
+          "len": 3,
+          "achievedAt": 1769724261471
+        },
+        "nick:Alcapouet": {
+          "nick": "Alcapouet",
+          "playerKey": "nick:Alcapouet",
+          "word": "essaim",
+          "len": 6,
+          "achievedAt": 1769780198794
+        },
+        "nick:Malo": {
+          "nick": "Malo",
+          "playerKey": "nick:Malo",
+          "word": "cornier",
+          "len": 7,
+          "achievedAt": 1769789523420
+        },
+        "nick:TropDeCafé": {
+          "nick": "TropDeCafé",
+          "playerKey": "nick:TropDeCafé",
+          "word": "serin",
+          "len": 5,
+          "achievedAt": 1769806307311
+        },
+        "nick:ProtoPanache": {
+          "nick": "ProtoPanache",
+          "playerKey": "nick:ProtoPanache",
+          "word": "serrer",
+          "len": 6,
+          "achievedAt": 1769827598924
+        },
+        "nick:Proutosaurus Rex": {
+          "nick": "Proutosaurus Rex",
+          "playerKey": "nick:Proutosaurus Rex",
+          "word": "oberees",
+          "len": 7,
+          "achievedAt": 1769884007809
+        },
+        "nick:ZesteDeLime": {
+          "nick": "ZesteDeLime",
+          "playerKey": "nick:ZesteDeLime",
+          "word": "obels",
+          "len": 5,
+          "achievedAt": 1769885523516
+        },
+        "nick:Sylvie50": {
+          "nick": "Sylvie50",
+          "playerKey": "nick:Sylvie50",
+          "word": "denti",
+          "len": 5,
+          "achievedAt": 1769895399044
+        },
+        "nick:MademoiselleP": {
+          "nick": "MademoiselleP",
+          "playerKey": "nick:MademoiselleP",
+          "word": "fout",
+          "len": 4,
+          "achievedAt": 1769898400535
+        },
+        "nick:QuasarMots": {
+          "nick": "QuasarMots",
+          "playerKey": "nick:QuasarMots",
+          "word": "trollas",
+          "len": 7,
+          "achievedAt": 1769928415081
+        },
+        "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf": {
+          "nick": "Tigrou",
+          "playerKey": "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf",
+          "word": "sorbet",
+          "len": 6,
+          "achievedAt": 1769958664065
+        },
+        "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+          "nick": "Test fold",
+          "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+          "word": "qui",
+          "len": 3,
+          "achievedAt": 1769970105753
+        },
+        "nick:MarcelDu12": {
+          "nick": "MarcelDu12",
+          "playerKey": "nick:MarcelDu12",
+          "word": "ressue",
+          "len": 6,
+          "achievedAt": 1769976119210
+        }
+      },
+      "bestRoundScore": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "pts": 3819,
+          "roundId": "room-4x4#1769811260402",
+          "achievedAt": 1769811377595
+        },
+        "nick:Fanny": {
+          "nick": "Fanny",
+          "playerKey": "nick:Fanny",
+          "pts": 120,
+          "roundId": "room-4x4#1769405983314",
+          "achievedAt": 1769406101520
+        },
+        "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079": {
+          "nick": "Eriiiiiiiiiic",
+          "playerKey": "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079",
+          "pts": 399,
+          "roundId": "room-4x4#1769504949652",
+          "achievedAt": 1769505068103
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "pts": 1285,
+          "roundId": "room-4x4#1769787784241",
+          "achievedAt": 1769787904434
+        },
+        "nick:Marmotte": {
+          "nick": "Marmotte",
+          "playerKey": "nick:Marmotte",
+          "pts": 203,
+          "roundId": "room-4x4#1769417116312",
+          "achievedAt": 1769417233687
+        },
+        "install:27161695-e589-44ce-a00b-02e43f7cf23a": {
+          "nick": "Mro",
+          "playerKey": "install:27161695-e589-44ce-a00b-02e43f7cf23a",
+          "pts": 36,
+          "roundId": "room-4x4#1769419096786",
+          "achievedAt": 1769419160247
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "pts": 3757,
+          "roundId": "room-4x4#1769939788195",
+          "achievedAt": 1769939906472
+        },
+        "nick:AubergineMagique": {
+          "nick": "AubergineMagique",
+          "playerKey": "nick:AubergineMagique",
+          "pts": 116,
+          "roundId": "room-4x4#1769421602676",
+          "achievedAt": 1769421720371
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "pts": 5034,
+          "roundId": "room-4x4#1769602241495",
+          "achievedAt": 1769602360750
+        },
+        "nick:TourEiffel": {
+          "nick": "TourEiffel",
+          "playerKey": "nick:TourEiffel",
+          "pts": 125,
+          "roundId": "room-4x4#1769435108699",
+          "achievedAt": 1769435225703
+        },
+        "nick:PoutinePower": {
+          "nick": "PoutinePower",
+          "playerKey": "nick:PoutinePower",
+          "pts": 216,
+          "roundId": "room-4x4#1769451889086",
+          "achievedAt": 1769452006458
+        },
+        "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+          "nick": "uhuj",
+          "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+          "pts": 79,
+          "roundId": "room-4x4#1769452219415",
+          "achievedAt": 1769452265990
+        },
+        "nick:LaMoucheDuCoche": {
+          "nick": "LaMoucheDuCoche",
+          "playerKey": "nick:LaMoucheDuCoche",
+          "pts": 482,
+          "roundId": "room-4x4#1769455520965",
+          "achievedAt": 1769455637780
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "pts": 1348,
+          "roundId": "room-4x4#1769634239894",
+          "achievedAt": 1769634354969
+        },
+        "nick:LazyLlama": {
+          "nick": "LazyLlama",
+          "playerKey": "nick:LazyLlama",
+          "pts": 78,
+          "roundId": "room-4x4#1769727013063",
+          "achievedAt": 1769727132102
+        },
+        "nick:QuebecNord": {
+          "nick": "QuebecNord",
+          "playerKey": "nick:QuebecNord",
+          "pts": 22,
+          "roundId": "room-4x4#1769469583199",
+          "achievedAt": 1769469702145
+        },
+        "nick:SaucissonSec": {
+          "nick": "SaucissonSec",
+          "playerKey": "nick:SaucissonSec",
+          "pts": 296,
+          "roundId": "room-4x4#1769722825213",
+          "achievedAt": 1769722940206
+        },
+        "nick:Citronpitou": {
+          "nick": "Citronpitou",
+          "playerKey": "nick:Citronpitou",
+          "pts": 338,
+          "roundId": "room-4x4#1769541643169",
+          "achievedAt": 1769541758849
+        },
+        "nick:MlleDiagonale": {
+          "nick": "MlleDiagonale",
+          "playerKey": "nick:MlleDiagonale",
+          "pts": 647,
+          "roundId": "room-4x4#1769934385848",
+          "achievedAt": 1769934502523
+        },
+        "nick:CarotteRâpée": {
+          "nick": "CarotteRâpée",
+          "playerKey": "nick:CarotteRâpée",
+          "pts": 167,
+          "roundId": "room-4x4#1769522102163",
+          "achievedAt": 1769522218427
+        },
+        "nick:CapitaineAccent": {
+          "nick": "CapitaineAccent",
+          "playerKey": "nick:CapitaineAccent",
+          "pts": 11,
+          "roundId": "room-4x4#1769723680565",
+          "achievedAt": 1769723797445
+        },
+        "nick:CiseauPapierMot": {
+          "nick": "CiseauPapierMot",
+          "playerKey": "nick:CiseauPapierMot",
+          "pts": 240,
+          "roundId": "room-4x4#1769897757847",
+          "achievedAt": 1769897874757
+        },
+        "nick:Celie": {
+          "nick": "Celie",
+          "playerKey": "nick:Celie",
+          "pts": 122,
+          "roundId": "room-4x4#1769536495877",
+          "achievedAt": 1769536613495
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "pts": 378,
+          "roundId": "room-4x4#1769712573223",
+          "achievedAt": 1769712674689
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "pts": 3112,
+          "roundId": "room-4x4#1769546358570",
+          "achievedAt": 1769546478531
+        },
+        "nick:LacStJean": {
+          "nick": "LacStJean",
+          "playerKey": "nick:LacStJean",
+          "pts": 340,
+          "roundId": "room-4x4#1769541973404",
+          "achievedAt": 1769542088900
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "pts": 2220,
+          "roundId": "room-4x4#1769546358570",
+          "achievedAt": 1769546478700
+        },
+        "nick:PapiRatatouille": {
+          "nick": "PapiRatatouille",
+          "playerKey": "nick:PapiRatatouille",
+          "pts": 536,
+          "roundId": "room-4x4#1769543759997",
+          "achievedAt": 1769543877155
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "pts": 2132,
+          "roundId": "room-4x4#1769811260402",
+          "achievedAt": 1769811377898
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "pts": 2092,
+          "roundId": "room-4x4#1769546358570",
+          "achievedAt": 1769546477232
+        },
+        "nick:Nougatine": {
+          "nick": "Nougatine",
+          "playerKey": "nick:Nougatine",
+          "pts": 111,
+          "roundId": "room-4x4#1769553023084",
+          "achievedAt": 1769553139827
+        },
+        "nick:ChocolatineDebat": {
+          "nick": "ChocolatineDebat",
+          "playerKey": "nick:ChocolatineDebat",
+          "pts": 66,
+          "roundId": "room-4x4#1769557525489",
+          "achievedAt": 1769557643481
+        },
+        "nick:Zigouigoui": {
+          "nick": "Zigouigoui",
+          "playerKey": "nick:Zigouigoui",
+          "pts": 390,
+          "roundId": "room-4x4#1769559956623",
+          "achievedAt": 1769560073904
+        },
+        "nick:Domi": {
+          "nick": "Domi",
+          "playerKey": "nick:Domi",
+          "pts": 210,
+          "roundId": "room-4x4#1769760022907",
+          "achievedAt": 1769760140053
+        },
+        "nick:BiscotteTurbo": {
+          "nick": "BiscotteTurbo",
+          "playerKey": "nick:BiscotteTurbo",
+          "pts": 64,
+          "roundId": "room-4x4#1769969397791",
+          "achievedAt": 1769969515217
+        },
+        "install:fec8d8cb-34b5-4865-a61a-f18cad11c025": {
+          "nick": "Abk",
+          "playerKey": "install:fec8d8cb-34b5-4865-a61a-f18cad11c025",
+          "pts": 1036,
+          "roundId": "room-4x4#1769726157590",
+          "achievedAt": 1769726277792
+        },
+        "nick:PommeTatin": {
+          "nick": "PommeTatin",
+          "playerKey": "nick:PommeTatin",
+          "pts": 95,
+          "roundId": "room-4x4#1769598354545",
+          "achievedAt": 1769598469923
+        },
+        "nick:ZigzagZen": {
+          "nick": "ZigzagZen",
+          "playerKey": "nick:ZigzagZen",
+          "pts": 251,
+          "roundId": "room-4x4#1769603457320",
+          "achievedAt": 1769603575504
+        },
+        "nick:(cacharel)": {
+          "nick": "(cacharel)",
+          "playerKey": "nick:(cacharel)",
+          "pts": 143,
+          "roundId": "room-4x4#1769870426739",
+          "achievedAt": 1769870543586
+        },
+        "nick:KouignAmann": {
+          "nick": "KouignAmann",
+          "playerKey": "nick:KouignAmann",
+          "pts": 329,
+          "roundId": "room-4x4#1769620851277",
+          "achievedAt": 1769620967794
+        },
+        "nick:MontrealMaven": {
+          "nick": "MontrealMaven",
+          "playerKey": "nick:MontrealMaven",
+          "pts": 143,
+          "roundId": "room-4x4#1769626524897",
+          "achievedAt": 1769626641822
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "pts": 1507,
+          "roundId": "room-4x4#1769635200448",
+          "achievedAt": 1769635317922
+        },
+        "nick:GastonLaGaffe": {
+          "nick": "GastonLaGaffe",
+          "playerKey": "nick:GastonLaGaffe",
+          "pts": 43,
+          "roundId": "room-4x4#1769680786537",
+          "achievedAt": 1769680905298
+        },
+        "nick:Torto": {
+          "nick": "Torto",
+          "playerKey": "nick:Torto",
+          "pts": 353,
+          "roundId": "room-4x4#1769898613788",
+          "achievedAt": 1769898732409
+        },
+        "nick:TataPousse": {
+          "nick": "TataPousse",
+          "playerKey": "nick:TataPousse",
+          "pts": 368,
+          "roundId": "room-4x4#1769693467627",
+          "achievedAt": 1769693584449
+        },
+        "nick:PetitPoucet": {
+          "nick": "PetitPoucet",
+          "playerKey": "nick:PetitPoucet",
+          "pts": 36,
+          "roundId": "room-4x4#1769718292352",
+          "achievedAt": 1769718408657
+        },
+        "install:9c540359-e016-49b1-a241-f8d8d83a2571": {
+          "nick": "Coucou",
+          "playerKey": "install:9c540359-e016-49b1-a241-f8d8d83a2571",
+          "pts": 17,
+          "roundId": "room-4x4#1769719252870",
+          "achievedAt": 1769719366902
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "pts": 842,
+          "roundId": "room-4x4#1769719583101",
+          "achievedAt": 1769719690736
+        },
+        "nick:Sam7898745": {
+          "nick": "Sam7898745",
+          "playerKey": "nick:Sam7898745",
+          "pts": 63,
+          "roundId": "room-4x4#1769720723886",
+          "achievedAt": 1769720843683
+        },
+        "nick:Kamil": {
+          "nick": "Kamil",
+          "playerKey": "nick:Kamil",
+          "pts": 261,
+          "roundId": "room-4x4#1769721369242",
+          "achievedAt": 1769721488945
+        },
+        "install:954868c1-d390-4762-ac64-fcd52a5dbee4": {
+          "nick": "Nico",
+          "playerKey": "install:954868c1-d390-4762-ac64-fcd52a5dbee4",
+          "pts": 9,
+          "roundId": "room-4x4#1769724205823",
+          "achievedAt": 1769724261471
+        },
+        "nick:Alcapouet": {
+          "nick": "Alcapouet",
+          "playerKey": "nick:Alcapouet",
+          "pts": 579,
+          "roundId": "room-4x4#1769780145537",
+          "achievedAt": 1769780262235
+        },
+        "nick:Malo": {
+          "nick": "Malo",
+          "playerKey": "nick:Malo",
+          "pts": 139,
+          "roundId": "room-4x4#1769789405001",
+          "achievedAt": 1769789523420
+        },
+        "nick:TropDeCafé": {
+          "nick": "TropDeCafé",
+          "playerKey": "nick:TropDeCafé",
+          "pts": 210,
+          "roundId": "room-4x4#1769806232072",
+          "achievedAt": 1769806349202
+        },
+        "nick:ProtoPanache": {
+          "nick": "ProtoPanache",
+          "playerKey": "nick:ProtoPanache",
+          "pts": 68,
+          "roundId": "room-4x4#1769827482833",
+          "achievedAt": 1769827600330
+        },
+        "nick:Proutosaurus Rex": {
+          "nick": "Proutosaurus Rex",
+          "playerKey": "nick:Proutosaurus Rex",
+          "pts": 2681,
+          "roundId": "room-4x4#1769883935218",
+          "achievedAt": 1769884052581
+        },
+        "nick:ZesteDeLime": {
+          "nick": "ZesteDeLime",
+          "playerKey": "nick:ZesteDeLime",
+          "pts": 82,
+          "roundId": "room-4x4#1769885406217",
+          "achievedAt": 1769885523516
+        },
+        "nick:Sylvie50": {
+          "nick": "Sylvie50",
+          "playerKey": "nick:Sylvie50",
+          "pts": 60,
+          "roundId": "room-4x4#1769895281670",
+          "achievedAt": 1769895399044
+        },
+        "nick:MademoiselleP": {
+          "nick": "MademoiselleP",
+          "playerKey": "nick:MademoiselleP",
+          "pts": 7,
+          "roundId": "room-4x4#1769898283270",
+          "achievedAt": 1769898400535
+        },
+        "nick:QuasarMots": {
+          "nick": "QuasarMots",
+          "playerKey": "nick:QuasarMots",
+          "pts": 257,
+          "roundId": "room-4x4#1769928309354",
+          "achievedAt": 1769928427228
+        },
+        "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf": {
+          "nick": "Tigrou",
+          "playerKey": "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf",
+          "pts": 931,
+          "roundId": "room-4x4#1769958577456",
+          "achievedAt": 1769958693828
+        },
+        "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+          "nick": "Test fold",
+          "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+          "pts": 11,
+          "roundId": "room-4x4#1769970088191",
+          "achievedAt": 1769970105753
+        },
+        "nick:MarcelDu12": {
+          "nick": "MarcelDu12",
+          "playerKey": "nick:MarcelDu12",
+          "pts": 242,
+          "roundId": "room-4x4#1769976016657",
+          "achievedAt": 1769976135163
+        }
+      },
+      "bestTimeTargetLong": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "ms": 5006,
+          "word": "jaserait",
+          "achievedAt": 1769880007639
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "ms": 48092,
+          "word": "racontait",
+          "achievedAt": 1769542186626
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "ms": 54587,
+          "word": "germates",
+          "achievedAt": 1769598289075
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "ms": 63670,
+          "word": "racontait",
+          "achievedAt": 1769542202204
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "ms": 15792,
+          "word": "aluniras",
+          "achievedAt": 1769669113408
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "ms": 9885,
+          "word": "toleront",
+          "achievedAt": 1769810459608
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "ms": 24270,
+          "word": "pastellez",
+          "achievedAt": 1769630857135
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "ms": 26702,
+          "word": "decrassee",
+          "achievedAt": 1769705950538
+        }
+      },
+      "bestTimeTargetScore": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "ms": 28875,
+          "word": "curetees",
+          "achievedAt": 1769938031266
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "ms": 4828,
+          "word": "merises",
+          "achievedAt": 1769435803981
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "ms": 44765,
+          "word": "bisonnes",
+          "achievedAt": 1769449427407
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "ms": 13911,
+          "word": "tritons",
+          "achievedAt": 1769621840707
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "ms": 26068,
+          "word": "canadas",
+          "achievedAt": 1769635391678
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "ms": 5725,
+          "word": "wagon",
+          "achievedAt": 1769688580769
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "ms": 78302,
+          "word": "enraies",
+          "achievedAt": 1769769073707
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "ms": 81475,
+          "word": "keftas",
+          "achievedAt": 1769546319950
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "ms": 45676,
+          "word": "atonique",
+          "achievedAt": 1769634645792
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "ms": 56310,
+          "word": "canadas",
+          "achievedAt": 1769635421920
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "ms": 48232,
+          "word": "jouter",
+          "achievedAt": 1769710024907
+        }
+      },
+      "vocab": {
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "vocabCount": 6384,
+          "achievedAt": 1769983911382
+        },
+        "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079": {
+          "nick": "Eriiiiiiiiiic",
+          "playerKey": "install:dd710e4c-6dcd-4e3e-8a87-ed8efdd9e079",
+          "vocabCount": 34,
+          "achievedAt": 1769505069652
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "vocabCount": 3534,
+          "achievedAt": 1769979333514
+        },
+        "install:27161695-e589-44ce-a00b-02e43f7cf23a": {
+          "nick": "Mro",
+          "playerKey": "install:27161695-e589-44ce-a00b-02e43f7cf23a",
+          "vocabCount": 4,
+          "achievedAt": 1769419216786
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "vocabCount": 5418,
+          "achievedAt": 1769967326732
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "vocabCount": 4491,
+          "achievedAt": 1769695538428
+        },
+        "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673": {
+          "nick": "uhuj",
+          "playerKey": "install:d423afc2-ecc9-4033-9e3f-4d90a4d25673",
+          "vocabCount": 6,
+          "achievedAt": 1769452339415
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "vocabCount": 1032,
+          "achievedAt": 1769635125336
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "vocabCount": 396,
+          "achievedAt": 1769807447603
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "vocabCount": 1222,
+          "achievedAt": 1769626119477
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "vocabCount": 2891,
+          "achievedAt": 1769978808198
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "vocabCount": 3332,
+          "achievedAt": 1769971183754
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "vocabCount": 2476,
+          "achievedAt": 1769977187248
+        },
+        "install:fec8d8cb-34b5-4865-a61a-f18cad11c025": {
+          "nick": "Abk",
+          "playerKey": "install:fec8d8cb-34b5-4865-a61a-f18cad11c025",
+          "vocabCount": 220,
+          "achievedAt": 1769727133063
+        },
+        "install:d8237558-225b-47ac-b6b1-7779def89c00": {
+          "nick": "Bernardiñho",
+          "playerKey": "install:d8237558-225b-47ac-b6b1-7779def89c00",
+          "vocabCount": 220,
+          "achievedAt": 1769635890892
+        },
+        "install:9c540359-e016-49b1-a241-f8d8d83a2571": {
+          "nick": "Coucou",
+          "playerKey": "install:9c540359-e016-49b1-a241-f8d8d83a2571",
+          "vocabCount": 2,
+          "achievedAt": 1769719372870
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "vocabCount": 97,
+          "achievedAt": 1769720393566
+        },
+        "install:954868c1-d390-4762-ac64-fcd52a5dbee4": {
+          "nick": "Nico",
+          "playerKey": "install:954868c1-d390-4762-ac64-fcd52a5dbee4",
+          "vocabCount": 1,
+          "achievedAt": 1769724325823
+        },
+        "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf": {
+          "nick": "Tigrou",
+          "playerKey": "install:b7a00b9d-eee3-4dd2-8daf-5ff16e43e7bf",
+          "vocabCount": 49,
+          "achievedAt": 1769958697456
+        },
+        "install:2cd99324-dc57-4f1f-9daa-27ea307c7487": {
+          "nick": "Test fold",
+          "playerKey": "install:2cd99324-dc57-4f1f-9daa-27ea307c7487",
+          "vocabCount": 1,
+          "achievedAt": 1769970208191
+        }
+      },
+      "mostGobbles": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "nick": "Beerman",
+          "playerKey": "install:db8a4935-e67c-4215-93d1-52b8c526ae1f",
+          "gobbles": 83,
+          "achievedAt": 1769967326732
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "nick": "Tigrou",
+          "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+          "gobbles": 50,
+          "achievedAt": 1769969682857
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "nick": "Marty Mc Fly",
+          "playerKey": "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+          "gobbles": 41,
+          "achievedAt": 1769695538428
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "nick": "Molly",
+          "playerKey": "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+          "gobbles": 17,
+          "achievedAt": 1769890614073
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "nick": "duchou&duchou",
+          "playerKey": "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+          "gobbles": 3,
+          "achievedAt": 1769635125336
+        },
+        "install:3ea75cad-1e04-441d-b577-5b8f2fa92058": {
+          "nick": "tokyo",
+          "playerKey": "install:3ea75cad-1e04-441d-b577-5b8f2fa92058",
+          "gobbles": 13,
+          "achievedAt": 1769625788805
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "nick": "isa1958",
+          "playerKey": "install:b5db203e-13be-49cd-8c7a-5b23cf637473",
+          "gobbles": 21,
+          "achievedAt": 1769952544258
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "nick": "Pounie",
+          "playerKey": "install:7fe36a54-be56-415c-800f-8f661eab13f9",
+          "gobbles": 25,
+          "achievedAt": 1769971183754
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "nick": "Nanou",
+          "playerKey": "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+          "gobbles": 9,
+          "achievedAt": 1769973660138
+        },
+        "install:21f70b05-e598-4829-abb9-a7d8f045b632": {
+          "nick": "Nope",
+          "playerKey": "install:21f70b05-e598-4829-abb9-a7d8f045b632",
+          "gobbles": 2,
+          "achievedAt": 1769712888343
+        },
+        "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86": {
+          "nick": "Crack",
+          "playerKey": "install:02a905a0-46bd-47c9-afd3-c18f1fac2a86",
+          "gobbles": 1,
+          "achievedAt": 1769719703101
+        }
+      }
+    }
+  }
+}

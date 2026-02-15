@@ -1,0 +1,33 @@
+{
+  "dateId": "2026-01-30",
+  "results": [
+    {
+      "installId": "1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pseudo": "Tigrou",
+      "score": 2276,
+      "wordCount": 84,
+      "longestWordLen": 12,
+      "durationMs": 120061,
+      "submittedAt": 1769762853017
+    },
+    {
+      "installId": "b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "pseudo": "isa1958",
+      "score": 861,
+      "wordCount": 51,
+      "longestWordLen": 7,
+      "durationMs": 120060,
+      "submittedAt": 1769768107120
+    },
+    {
+      "installId": "db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "pseudo": "Beerman",
+      "score": 2910,
+      "wordCount": 80,
+      "longestWordLen": 10,
+      "durationMs": 120056,
+      "submittedAt": 1769772594780
+    }
+  ],
+  "attempts": {}
+}

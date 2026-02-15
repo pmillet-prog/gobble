@@ -1,0 +1,51 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "nick:Tigrou": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 2
+        },
+        "nick:Beerman": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "gold": 5,
+          "silver": 0,
+          "bronze": 0
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        }
+      },
+      "expiry": {
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": 1769385600000,
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": 1769385600000,
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": 1769385600000,
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": 1769385600000,
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": 1769385600000
+      },
+      "updatedAt": 1769356982188
+    }
+  }
+}

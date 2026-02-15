@@ -1,0 +1,60 @@
+{
+  "dateId": "2026-02-04",
+  "results": [
+    {
+      "installId": "1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pseudo": "Tigrou",
+      "score": 1963,
+      "wordCount": 42,
+      "longestWordLen": 10,
+      "durationMs": 120052,
+      "submittedAt": 1770186727672
+    },
+    {
+      "installId": "db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "pseudo": "Beerman",
+      "score": 2066,
+      "wordCount": 74,
+      "longestWordLen": 10,
+      "durationMs": 120051,
+      "submittedAt": 1770202372404
+    },
+    {
+      "installId": "27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "pseudo": "Marty Mc Fly",
+      "score": 2678,
+      "wordCount": 107,
+      "longestWordLen": 10,
+      "durationMs": 120021,
+      "submittedAt": 1770208045458
+    },
+    {
+      "installId": "7fe36a54-be56-415c-800f-8f661eab13f9",
+      "pseudo": "Pounie",
+      "score": 563,
+      "wordCount": 43,
+      "longestWordLen": 7,
+      "durationMs": 120039,
+      "submittedAt": 1770215790415
+    },
+    {
+      "installId": "ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "pseudo": "Jérémy",
+      "score": 2256,
+      "wordCount": 77,
+      "longestWordLen": 10,
+      "durationMs": 120114,
+      "submittedAt": 1770221780545
+    },
+    {
+      "installId": "b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "pseudo": "isa1958",
+      "score": 550,
+      "wordCount": 42,
+      "longestWordLen": 7,
+      "durationMs": 120122,
+      "submittedAt": 1770228640552
+    }
+  ],
+  "attempts": {}
+}

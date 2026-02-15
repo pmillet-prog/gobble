@@ -1,0 +1,81 @@
+{
+  "weekStartTs": 1768176000000,
+  "medals": {},
+  "mostWordsInGame": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "wordsCount": 109,
+      "roundId": "room-4x4#1768780007244",
+      "achievedAt": 1768780127244
+    }
+  },
+  "totalScore": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "totalScore": 1286,
+      "roundsPlayed": 2,
+      "achievedAt": 1768780127244
+    },
+    "nick:Tigrou": {
+      "nick": "Tigrou",
+      "playerKey": "nick:Tigrou",
+      "totalScore": 0,
+      "roundsPlayed": 1,
+      "achievedAt": 1768780292359
+    }
+  },
+  "bestWord": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "word": "sis",
+      "pts": 15,
+      "achievedAt": 1768779904112
+    }
+  },
+  "longestWord": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "word": "patiriez",
+      "len": 8,
+      "achievedAt": 1768780070420
+    }
+  },
+  "bestRoundScore": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pts": 1199,
+      "roundId": "room-4x4#1768780007244",
+      "achievedAt": 1768780126914
+    },
+    "nick:Tigrou": {
+      "nick": "Tigrou",
+      "playerKey": "nick:Tigrou",
+      "pts": 0,
+      "roundId": "room-4x4#1768780172359",
+      "achievedAt": 1768780292359
+    }
+  },
+  "bestTimeTargetLong": {},
+  "bestTimeTargetScore": {},
+  "vocab": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "vocabCount": 120,
+      "achievedAt": 1768780127244
+    }
+  },
+  "mostGobbles": {
+    "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+      "nick": "Tigrou",
+      "playerKey": "install:1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "gobbles": 1,
+      "achievedAt": 1768780127244
+    }
+  }
+}

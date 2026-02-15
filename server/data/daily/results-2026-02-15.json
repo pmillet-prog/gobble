@@ -1,0 +1,39 @@
+{
+  "dateId": "2026-02-15",
+  "results": [
+    {
+      "installId": "cid-1767297485869-305184",
+      "pseudo": "Test",
+      "score": 1452,
+      "wordCount": 65,
+      "longestWordLen": 12,
+      "bestWordPts": 132,
+      "gobbles": 1,
+      "durationMs": 125367,
+      "submittedAt": 1771154297576
+    },
+    {
+      "installId": "a790e38c-125f-4a8f-814c-d3cd93008254",
+      "pseudo": "Tigrou",
+      "score": 1327,
+      "wordCount": 54,
+      "longestWordLen": 12,
+      "bestWordPts": 132,
+      "gobbles": 1,
+      "durationMs": 125032,
+      "submittedAt": 1771154541901
+    },
+    {
+      "installId": "iid-1771167880339-769450",
+      "pseudo": "Boubou",
+      "score": 1419,
+      "wordCount": 63,
+      "longestWordLen": 11,
+      "bestWordPts": 90,
+      "gobbles": 0,
+      "durationMs": 125408,
+      "submittedAt": 1771168027925
+    }
+  ],
+  "attempts": {}
+}

@@ -343,6 +343,23 @@ export async function getDailyBoard(dateId) {
   };
 }
 
+export async function getDailyResultsSnapshot(dateId) {
+  const safeDateId = dateId || getParisDateId();
+  const payload = await loadDailyResults(safeDateId);
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  return {
+    dateId: safeDateId,
+    results: sortResults(results).map((entry) => ({
+      installId: entry?.installId || null,
+      nick: entry?.pseudo || entry?.nick || "Joueur",
+      score: Number(entry?.score) || 0,
+      wordCount: Number.isFinite(entry?.wordCount) ? entry.wordCount : null,
+      gobbles: Number.isFinite(entry?.gobbles) ? entry.gobbles : 0,
+      submittedAt: Number(entry?.submittedAt) || 0,
+    })),
+  };
+}
+
 function buildDailyTopEntries(results, limit = 10, { maxWordPts = null, maxWordLen = null } = {}) {
   const entries = buildDailyBoardEntries(results, { maxWordPts, maxWordLen }).filter(
     (entry) => !entry?.isPalier

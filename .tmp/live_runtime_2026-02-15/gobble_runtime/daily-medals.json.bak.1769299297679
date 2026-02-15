@@ -1,0 +1,28 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "nick:Tigrou": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        },
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        }
+      },
+      "expiry": {
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": 1769299200000,
+        "install:7ba6a286-5909-4a9f-9251-4ab33dd462eb": 1769299200000
+      },
+      "updatedAt": 1769299132059
+    }
+  }
+}

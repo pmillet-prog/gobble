@@ -1,0 +1,17 @@
+{
+  "dateId": "2026-02-15",
+  "results": [
+    {
+      "installId": "2965da7c-4733-438a-a09e-a58d555a89b8",
+      "pseudo": "Saby",
+      "score": 1909,
+      "wordCount": 48,
+      "longestWordLen": 9,
+      "bestWordPts": 198,
+      "gobbles": 0,
+      "durationMs": 126331,
+      "submittedAt": 1771111916280
+    }
+  ],
+  "attempts": {}
+}

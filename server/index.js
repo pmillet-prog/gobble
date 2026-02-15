@@ -64,12 +64,26 @@ import {
   getDailyBoard,
   getDailyHistory,
   getDailyStatus,
+  getDailyResultsSnapshot,
   getParisDateId,
-  loadDailyChampion,
-  refreshDailyChampionIfNeeded,
   startDailyAttempt,
   submitDailyResult,
 } from "./daily/dailyService.js";
+import {
+  annotateEntriesWithTeam,
+  getDailyBattleResult,
+  getDuelStatus,
+  getObjectivesStatus,
+  getParisWeekId as getDuelParisWeekId,
+  getTeamForInstall,
+  getWeeklyDuelScore,
+  isInstallCrowned,
+  recordDailyBattleFromEntries,
+  recordDailyPlayed,
+  recordMainRoundCompleted,
+  recordMainWordAccepted,
+  rerollObjective,
+} from "./stats/teamDuelService.js";
 
 const computePool = createComputePool();
 void initVocabularyService().catch((err) =>
@@ -279,7 +293,14 @@ app.get("/api/daily/status", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const installId = normalizeInstallId(req.query?.installId);
   const payload = await getDailyStatus(null, installId || null);
-  res.json(payload);
+  let duel = null;
+  if (installId) {
+    try {
+      await refreshInstallDuelCache(installId);
+      duel = await getDuelStatus(installId, { dateId: payload?.dateId || null });
+    } catch (_) {}
+  }
+  res.json({ ...payload, champion: null, duel });
 });
 
 app.get("/api/daily/board", async (req, res) => {
@@ -287,10 +308,17 @@ app.get("/api/daily/board", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
   const payload = await getDailyBoard(dateId || null);
+  const safeDateId = payload?.dateId || dateId || getParisDateId();
+  let entries = Array.isArray(payload?.entries) ? payload.entries : [];
+  entries = await annotateEntriesWithTeam(entries, { dateId: safeDateId });
+  let battle = await getDailyBattleResult(safeDateId);
+  if (payload?.ready && entries.length > 0) {
+    battle = await recordDailyBattleFromEntries(safeDateId, entries);
+  }
   if (!payload.ready) {
     res.status(503);
   }
-  res.json(payload);
+  res.json({ ...payload, entries, battle });
 });
 
 app.get("/api/daily/history", async (req, res) => {
@@ -301,7 +329,27 @@ app.get("/api/daily/history", async (req, res) => {
     ? Math.min(30, Math.max(1, Math.round(rawDays)))
     : 7;
   const payload = await getDailyHistory({ days });
-  res.json(payload);
+  const safeDays = Array.isArray(payload?.days) ? payload.days : [];
+  const enrichedDays = [];
+  for (const day of safeDays) {
+    const dateIdForDay = day?.dateId || null;
+    const entries = await annotateEntriesWithTeam(day?.entries || [], {
+      dateId: dateIdForDay,
+    });
+    let battle = dateIdForDay ? await getDailyBattleResult(dateIdForDay) : null;
+    if (dateIdForDay && !battle) {
+      const snapshot = await getDailyResultsSnapshot(dateIdForDay);
+      if (Array.isArray(snapshot?.results) && snapshot.results.length > 0) {
+        battle = await recordDailyBattleFromEntries(dateIdForDay, snapshot.results);
+      }
+    }
+    enrichedDays.push({ ...day, entries, battle: battle || null });
+  }
+  res.json({
+    ...payload,
+    days: enrichedDays,
+    crownTotals: [],
+  });
 });
 
 app.post("/api/daily/start", async (req, res) => {
@@ -322,6 +370,10 @@ app.post("/api/daily/start", async (req, res) => {
     } else {
       res.status(500);
     }
+  } else {
+    await refreshInstallDuelCache(installId);
+    const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
+    return res.json({ ...result, duel });
   }
   return res.json(result);
 });
@@ -353,11 +405,132 @@ app.post("/api/daily/submit", async (req, res) => {
     } else {
       res.status(400);
     }
+    return res.json(result);
   }
-  return res.json(result);
+  await recordDailyPlayed({ installId, dateId: result?.dateId || null });
+  let boardWithTeams = Array.isArray(result?.board) ? result.board : [];
+  if (boardWithTeams.length) {
+    boardWithTeams = await annotateEntriesWithTeam(boardWithTeams, {
+      dateId: result?.dateId || null,
+    });
+    await recordDailyBattleFromEntries(result.dateId || null, boardWithTeams);
+  }
+  await refreshInstallDuelCache(installId);
+  const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
+  return res.json({ ...result, board: boardWithTeams, duel });
 });
 
-app.get("/api/players", (req, res) => {
+app.get("/api/duel/status", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.query?.installId);
+  if (!installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  await refreshInstallDuelCache(installId);
+  const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
+  const payload = await getDuelStatus(installId, { dateId });
+  return res.json({ ok: true, ...payload });
+});
+
+app.get("/api/duel/weekly", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const weekId = typeof req.query?.weekId === "string" ? req.query.weekId : null;
+  const payload = await getWeeklyDuelScore(weekId);
+  return res.json(payload);
+});
+
+app.get("/api/duel/daily", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
+  const safeDateId = dateId || getParisDateId();
+  let battle = await getDailyBattleResult(safeDateId);
+  if (!battle) {
+    const snapshot = await getDailyResultsSnapshot(safeDateId);
+    if (Array.isArray(snapshot?.results) && snapshot.results.length > 0) {
+      battle = await recordDailyBattleFromEntries(safeDateId, snapshot.results);
+    }
+  }
+  return res.json({ dateId: safeDateId, battle: battle || null });
+});
+
+app.get("/api/duel/objectives", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.query?.installId);
+  const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
+  if (!installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const payload = await getObjectivesStatus(installId, dateId);
+  return res.json(payload);
+});
+
+app.post("/api/duel/objectives/reroll", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.body?.installId);
+  const dateId = typeof req.body?.dateId === "string" ? req.body.dateId : null;
+  const bucket = typeof req.body?.bucket === "string" ? req.body.bucket : null;
+  if (!installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const payload = await rerollObjective({ installId, dateId, bucket });
+  if (!payload?.ok) {
+    res.status(409);
+  }
+  return res.json(payload);
+});
+
+app.post("/api/duel/objectives/submit", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.body?.installId);
+  if (!installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const dateId = typeof req.body?.dateId === "string" ? req.body.dateId : null;
+  const eventType = typeof req.body?.eventType === "string" ? req.body.eventType : "";
+  let payload = { ok: false, error: "invalid_event" };
+  if (eventType === "word") {
+    payload = await recordMainWordAccepted({
+      installId,
+      nick: typeof req.body?.nick === "string" ? req.body.nick : "",
+      dateId,
+      roundSpecialType: req.body?.roundSpecialType || null,
+      wordLength: Number(req.body?.wordLength) || 0,
+      wordPoints: Number(req.body?.wordPoints) || 0,
+      usedBonusTile: !!req.body?.usedBonusTile,
+      usedRareLetter: !!req.body?.usedRareLetter,
+    });
+  } else if (eventType === "round") {
+    payload = await recordMainRoundCompleted({
+      installId,
+      nick: typeof req.body?.nick === "string" ? req.body.nick : "",
+      dateId,
+      isTargetRound: !!req.body?.isTargetRound,
+      roundScore: Number(req.body?.roundScore) || 0,
+      gobblesEarned: Number(req.body?.gobblesEarned) || 0,
+      targetFound: !!req.body?.targetFound,
+      participated: !!req.body?.participated,
+    });
+  } else if (eventType === "daily_played") {
+    await recordDailyPlayed({ installId, dateId });
+    payload = { ok: true };
+  }
+  if (!payload?.ok) {
+    res.status(400);
+  }
+  return res.json(payload);
+});
+
+app.get("/api/players", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "public, max-age=2");
   const requestedRoomId =
@@ -368,10 +541,23 @@ app.get("/api/players", (req, res) => {
   if (!room) {
     return res.json({ ok: false, error: "invalid_room", roomId: requestedRoomId });
   }
-  const players = Array.from(room.players.values())
+  const roomPlayers = Array.from(room.players.values());
+  await Promise.all(
+    roomPlayers.map(async (player) => {
+      const installId = normalizeInstallId(player?.installId);
+      if (!installId || isBotToken(player?.token)) return;
+      try {
+        await refreshInstallDuelCache(installId);
+      } catch (_) {}
+    })
+  );
+  const players = roomPlayers
     .map((p) => ({
       nick: p?.nick || "",
+      installId: p?.installId || null,
+      team: getTeamForInstallCached(p?.installId),
       isBot: isBotToken(p?.token),
+      isDailyChampion: isDailyChampionInstallId(p?.installId),
     }))
     .filter((p) => p.nick)
     .sort((a, b) => a.nick.localeCompare(b.nick));
@@ -452,6 +638,7 @@ const SPECIAL_ROUND_EVERY = 5;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
 const MONSTROUS_MIN_TOTAL_SCORE = { 4: 4000, 5: 6000 };
+const MONSTROUS_EXTRA_MIN_WORDS = 50;
 const MONSTROUS_MIN_LONG_WORD_LEN = 8;
 const MONSTROUS_MIN_LONG_WORD_COUNT = 3;
 const SPECIAL_QUALITY_ATTEMPTS = 220;
@@ -522,8 +709,8 @@ const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
 const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
-let dailyChampion = null;
-let dailyChampionInstallId = null;
+const duelInstallCache = new Map(); // installId -> { weekId, team, crowned, updatedAt }
+let duelWeekCacheKey = getDuelParisWeekId();
 
 function normalizeInstallId(raw) {
   if (typeof raw !== "string") return "";
@@ -532,9 +719,48 @@ function normalizeInstallId(raw) {
   return trimmed;
 }
 
+function getDuelCacheEntry(rawInstallId) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return null;
+  const currentWeek = getDuelParisWeekId();
+  if (duelWeekCacheKey !== currentWeek) {
+    duelWeekCacheKey = currentWeek;
+    for (const [key, value] of duelInstallCache.entries()) {
+      if (!value || value.weekId !== currentWeek) {
+        duelInstallCache.delete(key);
+      }
+    }
+  }
+  return duelInstallCache.get(installId) || null;
+}
+
 function isDailyChampionInstallId(raw) {
-  if (!dailyChampionInstallId) return false;
-  return normalizeInstallId(raw) === dailyChampionInstallId;
+  const entry = getDuelCacheEntry(raw);
+  return !!entry?.crowned;
+}
+
+function getTeamForInstallCached(rawInstallId) {
+  const entry = getDuelCacheEntry(rawInstallId);
+  const team = entry?.team;
+  return team === "red" || team === "blue" ? team : null;
+}
+
+async function refreshInstallDuelCache(rawInstallId) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return null;
+  const weekId = getDuelParisWeekId();
+  const [team, crowned] = await Promise.all([
+    getTeamForInstall(installId, { weekId }),
+    isInstallCrowned(installId, weekId),
+  ]);
+  const entry = {
+    weekId,
+    team: team === "red" || team === "blue" ? team : null,
+    crowned: !!crowned,
+    updatedAt: Date.now(),
+  };
+  duelInstallCache.set(installId, entry);
+  return entry;
 }
 
 function sanitizeReportReason(raw) {
@@ -660,13 +886,6 @@ try {
   dictionary = null;
 }
 
-void loadDailyChampion()
-  .then((champion) => {
-    dailyChampion = champion || null;
-    dailyChampionInstallId = normalizeInstallId(champion?.installId);
-  })
-  .catch(() => {});
-
 function getRoundPlan(roundNumber, roomConfig) {
   const size = roomConfig?.gridSize || 4;
   const base = {
@@ -707,7 +926,7 @@ function getRoundPlan(roundNumber, roomConfig) {
       type: "monstrous",
       label: "Grille monstrueuse",
       description: "Grille chargée en mots très longs et gros score potentiel",
-      minWords: roomConfig?.minWords || 0,
+      minWords: (roomConfig?.minWords || 0) + MONSTROUS_EXTRA_MIN_WORDS,
       minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
       minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
       minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
@@ -758,7 +977,7 @@ function buildMonstrousTournamentPlan(tournamentRound, roomConfig) {
     type: "monstrous",
     label: "Grille monstrueuse",
     description: "Grille chargée en mots très longs et gros score potentiel",
-    minWords: roomConfig?.minWords || 0,
+    minWords: (roomConfig?.minWords || 0) + MONSTROUS_EXTRA_MIN_WORDS,
     minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
     minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
     minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
@@ -957,6 +1176,7 @@ function emitPlayers(room) {
         nick: p.nick,
         roomId: room.id,
         installId: p.installId || null,
+        team: getTeamForInstallCached(p.installId),
         isBot: isBotToken(p?.token),
         connected: isPlayerConnected(p) || isBotToken(p?.token),
         isDailyChampion: isDailyChampionInstallId(p.installId),
@@ -1155,6 +1375,7 @@ function buildLiveRanking(room, roundId) {
     ranking.push({
       nick: player.nick,
       score: data?.score || 0,
+      team: getTeamForInstallCached(player.installId),
       isDailyChampion: isDailyChampionInstallId(player.installId),
     });
   }
@@ -1197,6 +1418,8 @@ function buildSessionSnapshot(room, player) {
     score,
     words,
     participated,
+    team: getTeamForInstallCached(player.installId),
+    isDailyChampion: isDailyChampionInstallId(player.installId),
   };
 
   return {
@@ -1236,6 +1459,7 @@ function broadcastProvisionalRanking(room) {
     ranking.push({
       nick: player.nick,
       score: data?.score || 0,
+      team: getTeamForInstallCached(player.installId),
       isDailyChampion: isDailyChampionInstallId(player.installId),
     });
   }
@@ -1248,30 +1472,42 @@ function broadcastProvisionalRanking(room) {
     ranking: ranking.map((entry, idx) => ({
       nick: entry.nick,
       rank: idx + 1,
+      team: entry.team || null,
       isDailyChampion: entry.isDailyChampion || false,
     })),
   });
 }
 
-function broadcastDailyChampionUpdate() {
+function broadcastCrownUpdate() {
   rooms.forEach((room) => {
     emitPlayers(room);
     broadcastProvisionalRanking(room);
   });
 }
 
-async function refreshDailyChampionCache() {
-  const champion = await refreshDailyChampionIfNeeded();
-  const nextInstallId = normalizeInstallId(champion?.installId);
-  const changed =
-    (champion?.dateId || null) !== (dailyChampion?.dateId || null) ||
-    (nextInstallId || null) !== (dailyChampionInstallId || null);
-  dailyChampion = champion || null;
-  dailyChampionInstallId = nextInstallId || null;
-  if (changed) {
-    broadcastDailyChampionUpdate();
+async function refreshConnectedPlayersDuelCache() {
+  let changed = false;
+  for (const room of rooms.values()) {
+    for (const player of room.players.values()) {
+      const installId = normalizeInstallId(player?.installId);
+      if (!installId) continue;
+      const prev = getDuelCacheEntry(installId);
+      try {
+        const next = await refreshInstallDuelCache(installId);
+        if (
+          !prev ||
+          prev.team !== next?.team ||
+          !!prev.crowned !== !!next?.crowned ||
+          prev.weekId !== next?.weekId
+        ) {
+          changed = true;
+        }
+      } catch (_) {}
+    }
   }
-  return champion;
+  if (changed) {
+    broadcastCrownUpdate();
+  }
 }
 
 function pushChatMessage(room, message) {
@@ -1329,6 +1565,7 @@ function getFullRanking(room) {
     ranking.push({
       nick,
       score: data.score || 0,
+      team: getTeamForInstallCached(lookup?.player?.installId),
       isDailyChampion: isDailyChampionInstallId(lookup?.player?.installId),
     });
   }
@@ -1469,6 +1706,17 @@ function pickTargetRevealGroup(word, revealed) {
   return groups[Math.floor(Math.random() * groups.length)];
 }
 
+function getObjectiveTeamPointsFromUpdates(updates) {
+  if (!Array.isArray(updates) || !updates.length) return 0;
+  return updates
+    .filter((entry) => entry?.newlyValidated)
+    .reduce(
+      (sum, entry) =>
+        sum + (Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0),
+      0
+    );
+}
+
 function submitWordForNick(room, { roundId, word, path, nick }) {
   if (!room) return { ok: false, error: "invalid_room" };
   if (!room.currentRound || room.currentRound.id !== roundId) {
@@ -1544,6 +1792,7 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   data.score += wordPts;
 
   const playerObj = playerEntry?.player || null;
+  const playerInstallId = normalizeInstallId(playerObj?.installId);
   const playerKey = getMedalKeyForPlayer(playerObj) || getMedalKeyForNick(resolvedNick);
   const isBotPlayer = isBotToken(playerObj?.token);
   if (!isBotPlayer && playerKey && !isTargetRound) {
@@ -1652,6 +1901,72 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
 
   if (isTargetRound) {
     return { ok: true, score: data.score, wordScore: wordPts };
+  }
+
+  if (!isBotPlayer && playerInstallId) {
+    const usedBonusTile = Array.isArray(scoredPath)
+      ? scoredPath.some((idx) => {
+          const cell = room.currentRound?.grid?.[idx];
+          const bonus = String(cell?.bonus || "");
+          return bonus === "M2" || bonus === "M3";
+        })
+      : false;
+    const usedRareLetter = /[zkxy]/i.test(norm);
+    const duelRoundRef = room.currentRound;
+    const duelRoundId = duelRoundRef?.id;
+    const duelWordTask = recordMainWordAccepted({
+      installId: playerInstallId,
+      nick: resolvedNick,
+      dateId: getParisDateId(),
+      roundSpecialType: room.currentRound?.special?.type || null,
+      wordLength: len,
+      wordPoints: wordPts,
+      usedBonusTile,
+      usedRareLetter,
+    }).then((duelWord) => {
+      const updates = Array.isArray(duelWord?.updates) ? duelWord.updates : [];
+      const teamPoints = getObjectiveTeamPointsFromUpdates(updates);
+      if (
+        teamPoints > 0 &&
+        duelRoundRef &&
+        duelRoundRef.id === duelRoundId
+      ) {
+        if (!(duelRoundRef.duelObjectivePointsByNick instanceof Map)) {
+          duelRoundRef.duelObjectivePointsByNick = new Map();
+        }
+        duelRoundRef.duelObjectivePointsByNick.set(
+          resolvedNick,
+          (Number(duelRoundRef.duelObjectivePointsByNick.get(resolvedNick)) || 0) + teamPoints
+        );
+      }
+      updates
+        .filter((entry) => entry?.newlyValidated)
+        .forEach((entry) => {
+          const points = Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0;
+          pushAnnouncement(room, {
+            type: "objective_validated",
+            nick: resolvedNick,
+            objectiveTitle: entry?.title || "Objectif",
+            teamPoints: points,
+            text: `✅ ${resolvedNick} a validé "${entry?.title || "Objectif"}" (+${points} équipe)`,
+          });
+        });
+    }).finally(() => {
+      void refreshInstallDuelCache(playerInstallId);
+      if (
+        duelRoundRef &&
+        duelRoundRef.id === duelRoundId &&
+        duelRoundRef.duelWordTasks instanceof Set
+      ) {
+        duelRoundRef.duelWordTasks.delete(duelWordTask);
+      }
+    });
+    if (duelRoundRef && duelRoundRef.id === duelRoundId) {
+      if (!(duelRoundRef.duelWordTasks instanceof Set)) {
+        duelRoundRef.duelWordTasks = new Set();
+      }
+      duelRoundRef.duelWordTasks.add(duelWordTask);
+    }
   }
 
   if (!isSpeedRound && isMaxPossiblePts) {
@@ -2295,6 +2610,8 @@ async function startRoundForRoom(room) {
     targetSolvedBy: null,
     gobbles: new Map(),
     gobbleFlags: new Map(),
+    duelWordTasks: new Set(),
+    duelObjectivePointsByNick: new Map(),
   };
 
   const roundSubs = new Map();
@@ -2528,6 +2845,13 @@ async function endRoundForRoom(room) {
   }
 
   room.currentRound.status = "finished";
+  const pendingDuelWordTasks =
+    room.currentRound.duelWordTasks instanceof Set
+      ? Array.from(room.currentRound.duelWordTasks)
+      : [];
+  if (pendingDuelWordTasks.length > 0) {
+    await Promise.allSettled(pendingDuelWordTasks);
+  }
 
   const roundSubs = room.submissions.get(room.currentRound.id) || new Map();
   const results = [];
@@ -2569,6 +2893,8 @@ async function endRoundForRoom(room) {
       wordTimes,
       uniqueWords,
       newVocabWords: [],
+      installId: player?.installId || null,
+      team: getTeamForInstallCached(player?.installId),
       isBot: isBotNick(room, nick),
       isDailyChampion: isDailyChampionInstallId(player?.installId),
       connected,
@@ -2624,8 +2950,14 @@ async function endRoundForRoom(room) {
 
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
   const roundGobbles = room.currentRound.gobbles || new Map();
+  const roundObjectivePointsByNick =
+    room.currentRound.duelObjectivePointsByNick instanceof Map
+      ? room.currentRound.duelObjectivePointsByNick
+      : new Map();
   const targetFoundAt = room.currentRound.targetFoundAt || new Map();
   const targetScoreForWeekly = 1000;
+  const teamDuelUpdates = new Map();
+  const duelDateId = getParisDateId(new Date(endedAt));
   for (const entry of results) {
     if (entry.isBot) continue;
     if (!entry.participated) continue;
@@ -2643,6 +2975,39 @@ async function endRoundForRoom(room) {
     const gobblesEarned = roundGobbles.get(entry.nick) || 0;
     if (gobblesEarned > 0) {
       recordMostGobbles(playerKey, entry.nick, gobblesEarned, endedAt);
+    }
+    const installIdForDuel = getInstallIdForNick(room, entry.nick);
+    if (installIdForDuel) {
+      const objectivePointsFromWords = Number(roundObjectivePointsByNick.get(entry.nick)) || 0;
+      const duelRound = await recordMainRoundCompleted({
+        installId: installIdForDuel,
+        nick: entry.nick,
+        dateId: duelDateId,
+        isTargetRound,
+        roundScore: entry.score || 0,
+        gobblesEarned,
+        targetFound: targetFoundAt.has(entry.nick),
+        participated: !!entry.participated,
+      });
+      const objectivePointsFromRound =
+        Number(duelRound?.objectivePointsAdded) ||
+        getObjectiveTeamPointsFromUpdates(duelRound?.updates);
+      const objectivePointsAdded = objectivePointsFromWords + objectivePointsFromRound;
+      if (
+        duelRound &&
+        (
+          objectivePointsAdded > 0 ||
+          (Array.isArray(duelRound.updates) && duelRound.updates.length > 0) ||
+          Number(duelRound?.gobblePointsAdded) > 0
+        )
+      ) {
+        teamDuelUpdates.set(entry.nick, {
+          objectiveUpdates: Array.isArray(duelRound?.updates) ? duelRound.updates : [],
+          objectivePointsAdded,
+          gobblePointsAdded: Number(duelRound?.gobblePointsAdded) || 0,
+        });
+      }
+      void refreshInstallDuelCache(installIdForDuel);
     }
   }
 
@@ -2769,6 +3134,8 @@ async function endRoundForRoom(room) {
         words: meta ? [room.currentRound.targetWord || ""] : [],
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
+        installId: player.installId || null,
+        team: getTeamForInstallCached(player.installId),
         isBot: isBotToken(player?.token),
         isDailyChampion: isDailyChampionInstallId(player?.installId),
         connected,
@@ -2814,6 +3181,7 @@ async function endRoundForRoom(room) {
           points,
           basePoints,
           gobbles,
+          team: getTeamForInstallCached(installId),
           isBot: isBotNick(room, nick),
           isDailyChampion: isDailyChampionInstallId(installId),
         };
@@ -2947,6 +3315,7 @@ async function endRoundForRoom(room) {
     tournamentSummary,
     tournamentSummaryAt,
     targetSummary,
+    teamDuel: Object.fromEntries(teamDuelUpdates.entries()),
   };
 
   room.lastRoundResults = {
@@ -3020,7 +3389,7 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, serverNow: Date.now() });
   });
 
-  socket.on("session:resume", (payload, cb) => {
+  socket.on("session:resume", async (payload, cb) => {
     if (typeof payload === "function") {
       cb = payload;
       payload = null;
@@ -3064,6 +3433,9 @@ io.on("connection", (socket) => {
       room.players.set(socket.id, player);
       room.nickToInstallId.set(player.nick, player.installId || installId);
       void upsertVocabularyProfile(installId, player.nick, now);
+      try {
+        await refreshInstallDuelCache(installId);
+      } catch (_) {}
       socket.data.installId = installId;
       socket.data.nick = player.nick;
       socket.data.roomId = room.id;
@@ -3078,7 +3450,7 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, available: true, snapshot });
   });
 
-  socket.on("login", (payload, cb) => {
+  socket.on("login", async (payload, cb) => {
     const nick = typeof payload === "string" ? payload : payload?.nick;
     const token = typeof payload === "object" ? payload?.clientId : null;
     const installId = normalizeInstallId(
@@ -3148,6 +3520,9 @@ io.on("connection", (socket) => {
     });
     room.nickToInstallId.set(trimmed, installId);
     void upsertVocabularyProfile(installId, trimmed, now);
+    try {
+      await refreshInstallDuelCache(installId);
+    } catch (_) {}
     socket.data.installId = installId;
     socket.data.nick = trimmed;
     socket.data.roomId = room.id;
@@ -3527,7 +3902,7 @@ rooms.forEach((room) =>
 const dailyToday = getParisDateId();
 void ensureDaily(dailyToday);
 void ensureDaily(addDaysToDateId(dailyToday, 1));
-void refreshDailyChampionCache();
+void refreshConnectedPlayersDuelCache();
 
 const DAILY_MAINTENANCE_MS = 5 * 60 * 1000;
 const dailyMaintenanceTimer = setInterval(() => {
@@ -3535,6 +3910,6 @@ const dailyMaintenanceTimer = setInterval(() => {
   const tomorrow = addDaysToDateId(today, 1);
   void ensureDaily(today);
   void ensureDaily(tomorrow);
-  void refreshDailyChampionCache();
+  void refreshConnectedPlayersDuelCache();
 }, DAILY_MAINTENANCE_MS);
 dailyMaintenanceTimer.unref?.();

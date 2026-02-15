@@ -1,0 +1,126 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "install:3f2176ac-6dee-4966-bcc1-bb3ef412d6d0": {
+          "gold": 1,
+          "silver": 1,
+          "bronze": 1
+        },
+        "install:cdb4255f-7b25-4dc5-ac71-91082173a9dd": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:8c7cb894-c651-4faf-ba21-9c1b95398723": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 1
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "gold": 1,
+          "silver": 1,
+          "bronze": 3
+        },
+        "install:1868ba2a-5289-4517-b9c4-2356e5d0f91e": {
+          "gold": 4,
+          "silver": 4,
+          "bronze": 2
+        },
+        "install:a3ef3af3-30ce-4c1f-a320-b505f668d164": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "gold": 3,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "gold": 4,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 1
+        },
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": {
+          "gold": 6,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:38cb376a-1398-4656-8ad3-e4836b3c2b84": {
+          "gold": 5,
+          "silver": 6,
+          "bronze": 2
+        },
+        "install:32bc4f47-ecd5-4c0e-a284-721bdba46e58": {
+          "gold": 2,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:6587f711-a60f-4328-93d1-a0c6d3525bb0": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:264cb74f-d3e5-45b8-a4c4-27e5d7c65a60": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 2
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "gold": 1,
+          "silver": 4,
+          "bronze": 0
+        },
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 1
+        },
+        "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        },
+        "install:a77fad6b-4bd0-4ab9-9a49-da511f910d5e": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        }
+      },
+      "expiry": {
+        "install:3f2176ac-6dee-4966-bcc1-bb3ef412d6d0": 1770850800000,
+        "install:cdb4255f-7b25-4dc5-ac71-91082173a9dd": 1770850800000,
+        "install:8c7cb894-c651-4faf-ba21-9c1b95398723": 1770850800000,
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": 1770850800000,
+        "install:1868ba2a-5289-4517-b9c4-2356e5d0f91e": 1770850800000,
+        "install:a3ef3af3-30ce-4c1f-a320-b505f668d164": 1770850800000,
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": 1770850800000,
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": 1770850800000,
+        "install:8df2c225-6daf-44f0-9ae3-1b8d766d6c44": 1770850800000,
+        "install:cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5": 1770850800000,
+        "install:27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4": 1770850800000,
+        "install:38cb376a-1398-4656-8ad3-e4836b3c2b84": 1770850800000,
+        "install:32bc4f47-ecd5-4c0e-a284-721bdba46e58": 1770850800000,
+        "install:6587f711-a60f-4328-93d1-a0c6d3525bb0": 1770850800000,
+        "install:264cb74f-d3e5-45b8-a4c4-27e5d7c65a60": 1770850800000,
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": 1770850800000,
+        "install:9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6": 1770850800000,
+        "install:d05b528f-65ef-4ef1-a06f-7a487ed52adb": 1770850800000,
+        "install:a77fad6b-4bd0-4ab9-9a49-da511f910d5e": 1770850800000
+      },
+      "updatedAt": 1770846384489
+    }
+  },
+  "lastResetDateId": "2026-02-11"
+}

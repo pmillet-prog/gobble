@@ -1,0 +1,627 @@
+{
+  "summary": {
+    "sourceWeekId": "2026-W06",
+    "targetWeekId": "2026-W07",
+    "playersCount": 68,
+    "counts": {
+      "red": 39,
+      "blue": 29
+    }
+  },
+  "red": [
+    {
+      "installId": "db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "nick": "Beerman",
+      "totalScore": 295281,
+      "roundsPlayed": 258,
+      "avg": 1144.5,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "nick": "Tigrou",
+      "totalScore": 276735,
+      "roundsPlayed": 265,
+      "avg": 1044.2830188679245,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "1868ba2a-5289-4517-b9c4-2356e5d0f91e",
+      "nick": "Zabou",
+      "totalScore": 212011,
+      "roundsPlayed": 292,
+      "avg": 726.0650684931506,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "3f2176ac-6dee-4966-bcc1-bb3ef412d6d0",
+      "nick": "Flo45",
+      "totalScore": 81215,
+      "roundsPlayed": 80,
+      "avg": 1015.1875,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "nick": "Molly",
+      "totalScore": 77438,
+      "roundsPlayed": 186,
+      "avg": 416.3333333333333,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "nick": "JB",
+      "totalScore": 50467,
+      "roundsPlayed": 110,
+      "avg": 458.7909090909091,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "cdb4255f-7b25-4dc5-ac71-91082173a9dd",
+      "nick": "Matza",
+      "totalScore": 45280,
+      "roundsPlayed": 83,
+      "avg": 545.5421686746988,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "a3ef3af3-30ce-4c1f-a320-b505f668d164",
+      "nick": "Nathalie",
+      "totalScore": 38657,
+      "roundsPlayed": 50,
+      "avg": 773.14,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "cd93c25c-169a-43a2-9dd2-3e1ff1d63d8a",
+      "nick": "Xxxx",
+      "totalScore": 32809,
+      "roundsPlayed": 189,
+      "avg": 173.59259259259258,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "c18dbcdd-141c-4be8-8f4c-0902cc2f9765",
+      "nick": "Marajune",
+      "totalScore": 23244,
+      "roundsPlayed": 36,
+      "avg": 645.6666666666666,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "nick": "Jérémy",
+      "totalScore": 19616,
+      "roundsPlayed": 17,
+      "avg": 1153.8823529411766,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "nick": "duchou&duchou",
+      "totalScore": 12614,
+      "roundsPlayed": 17,
+      "avg": 742,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "bedf02a7-3042-4ec6-8ea9-c2dd902ba1ba",
+      "nick": "Babethetienne",
+      "totalScore": 12155,
+      "roundsPlayed": 40,
+      "avg": 303.875,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "620b1503-15f4-4ff4-92fe-e805c7762389",
+      "nick": "Edelweiss",
+      "totalScore": 12118,
+      "roundsPlayed": 11,
+      "avg": 1101.6363636363637,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "01ccf7f9-5d45-42c6-99db-51903fbe5d17",
+      "nick": "Soso26",
+      "totalScore": 8253,
+      "roundsPlayed": 40,
+      "avg": 206.325,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "1da486b9-a275-420a-91cb-0d2dcec9b4e3",
+      "nick": "Magali",
+      "totalScore": 7110,
+      "roundsPlayed": 10,
+      "avg": 711,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "4e053c66-cad9-425b-a64a-8d226fb77a6c",
+      "nick": "Marajune",
+      "totalScore": 6784,
+      "roundsPlayed": 8,
+      "avg": 848,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "e31412d7-c908-4fb4-a563-beb796aa5305",
+      "nick": "Cspl",
+      "totalScore": 5069,
+      "roundsPlayed": 11,
+      "avg": 460.8181818181818,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "ecba3dd4-1463-429e-bf3e-8fc584330ed2",
+      "nick": "Whiterabbit",
+      "totalScore": 4776,
+      "roundsPlayed": 9,
+      "avg": 530.6666666666666,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "2965da7c-4733-438a-a09e-a58d555a89b8",
+      "nick": "Saby",
+      "totalScore": 3934,
+      "roundsPlayed": 6,
+      "avg": 655.6666666666666,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "8be8abae-fe83-4477-8b7a-62dcd867eaec",
+      "nick": "Dali",
+      "totalScore": 3635,
+      "roundsPlayed": 5,
+      "avg": 727,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "d76c7ea7-00d7-45d2-ac1b-cd169a04e3fa",
+      "nick": "marajune",
+      "totalScore": 2413,
+      "roundsPlayed": 3,
+      "avg": 804.3333333333334,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "78fbdf6f-7938-4bb7-9bef-5defc35d92a7",
+      "nick": "Bml",
+      "totalScore": 2263,
+      "roundsPlayed": 4,
+      "avg": 565.75,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "4f3e368b-cd84-4469-9d16-c6e5d59b153c",
+      "nick": "Uddasa",
+      "totalScore": 1818,
+      "roundsPlayed": 8,
+      "avg": 227.25,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "c00b17cc-6351-4042-9ad1-db40d7ea96e0",
+      "nick": "Uddasa",
+      "totalScore": 1780,
+      "roundsPlayed": 4,
+      "avg": 445,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "62e5db63-6d0f-43ec-a668-d55c8d61b3a7",
+      "nick": "Nadouce",
+      "totalScore": 1724,
+      "roundsPlayed": 2,
+      "avg": 862,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "bcd50da5-b59f-4993-a662-75d3375d125e",
+      "nick": "raoul",
+      "totalScore": 1699,
+      "roundsPlayed": 4,
+      "avg": 424.75,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "59971b50-7572-448b-84f3-8bd94f9ad5f6",
+      "nick": "Cynthia",
+      "totalScore": 1336,
+      "roundsPlayed": 2,
+      "avg": 668,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "31ef5800-6261-4937-827a-fa3d08d6e48a",
+      "nick": "Uddasa",
+      "totalScore": 1207,
+      "roundsPlayed": 7,
+      "avg": 172.42857142857142,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "ebcfc49c-0c76-493a-8446-a9ba33e7708f",
+      "nick": "Uddasa",
+      "totalScore": 1135,
+      "roundsPlayed": 4,
+      "avg": 283.75,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "bd8cf1a9-b973-4a9d-bbf3-b7ba61794ad6",
+      "nick": "MOLLY",
+      "totalScore": 1079,
+      "roundsPlayed": 4,
+      "avg": 269.75,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "aff74ae4-aa87-461f-8848-33c34da45f37",
+      "nick": "Uddasa",
+      "totalScore": 738,
+      "roundsPlayed": 3,
+      "avg": 246,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "52ffcc6d-7882-4baa-a717-dc7904585ade",
+      "nick": "jb",
+      "totalScore": 632,
+      "roundsPlayed": 3,
+      "avg": 210.66666666666666,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "15a8f176-c8a5-4d04-96c1-c0e48890dd80",
+      "nick": "LiliCarca11",
+      "totalScore": 162,
+      "roundsPlayed": 2,
+      "avg": 81,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "37969883-88e4-46c2-9dda-0917c722ff93",
+      "nick": "Marmottas",
+      "totalScore": 142,
+      "roundsPlayed": 2,
+      "avg": 71,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "81f56ec3-baac-4804-a1a6-198f0973272a",
+      "nick": "MpM",
+      "totalScore": 95,
+      "roundsPlayed": 2,
+      "avg": 47.5,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "2aa92b95-861c-4749-8517-4c6ea9fbc337",
+      "nick": "saroumanefr",
+      "totalScore": 88,
+      "roundsPlayed": 1,
+      "avg": 88,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "6036c495-d3c8-41b9-95ff-f9fd5081d9a1",
+      "nick": "ChatViré",
+      "totalScore": 6,
+      "roundsPlayed": 1,
+      "avg": 6,
+      "team": "red",
+      "level": null
+    },
+    {
+      "installId": "0b082e06-6f9f-4390-b789-19a682af194b",
+      "nick": "MollyB",
+      "totalScore": 4,
+      "roundsPlayed": 1,
+      "avg": 4,
+      "team": "red",
+      "level": null
+    }
+  ],
+  "blue": [
+    {
+      "installId": "27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "nick": "Marty Mc Fly",
+      "totalScore": 273530,
+      "roundsPlayed": 178,
+      "avg": 1536.685393258427,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "nick": "isa1958",
+      "totalScore": 99012,
+      "roundsPlayed": 126,
+      "avg": 785.8095238095239,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "38cb376a-1398-4656-8ad3-e4836b3c2b84",
+      "nick": "titou",
+      "totalScore": 92972,
+      "roundsPlayed": 148,
+      "avg": 628.1891891891892,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "32bc4f47-ecd5-4c0e-a284-721bdba46e58",
+      "nick": "isa",
+      "totalScore": 91587,
+      "roundsPlayed": 161,
+      "avg": 568.8633540372671,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "nick": "Matza",
+      "totalScore": 78722,
+      "roundsPlayed": 148,
+      "avg": 531.9054054054054,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "264cb74f-d3e5-45b8-a4c4-27e5d7c65a60",
+      "nick": "Fraise",
+      "totalScore": 72994,
+      "roundsPlayed": 157,
+      "avg": 464.9299363057325,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "nick": "Nanou",
+      "totalScore": 56443,
+      "roundsPlayed": 84,
+      "avg": 671.9404761904761,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "7fe36a54-be56-415c-800f-8f661eab13f9",
+      "nick": "Pounie",
+      "totalScore": 43727,
+      "roundsPlayed": 67,
+      "avg": 652.6417910447761,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "nick": "Sam",
+      "totalScore": 16249,
+      "roundsPlayed": 17,
+      "avg": 955.8235294117648,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "a77fad6b-4bd0-4ab9-9a49-da511f910d5e",
+      "nick": "Pierre",
+      "totalScore": 15992,
+      "roundsPlayed": 46,
+      "avg": 347.6521739130435,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "6587f711-a60f-4328-93d1-a0c6d3525bb0",
+      "nick": "Pacalou",
+      "totalScore": 8259,
+      "roundsPlayed": 17,
+      "avg": 485.8235294117647,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "8c7cb894-c651-4faf-ba21-9c1b95398723",
+      "nick": "nicolouchka",
+      "totalScore": 7083,
+      "roundsPlayed": 17,
+      "avg": 416.6470588235294,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "d195d057-8919-47b9-97c8-290ae68a7553",
+      "nick": "Desktop",
+      "totalScore": 7044,
+      "roundsPlayed": 7,
+      "avg": 1006.2857142857143,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "8c965e97-bbff-45fd-9345-95a3ec5b3f6e",
+      "nick": "Sylvie",
+      "totalScore": 5251,
+      "roundsPlayed": 4,
+      "avg": 1312.75,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "fabec3ee-35ff-4d1d-bff2-639c872a84a8",
+      "nick": "Uddasa",
+      "totalScore": 1906,
+      "roundsPlayed": 6,
+      "avg": 317.6666666666667,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "1872517d-88a3-412a-afcd-fef336adf9b5",
+      "nick": "Uddasa",
+      "totalScore": 1293,
+      "roundsPlayed": 4,
+      "avg": 323.25,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "27b061a6-d76c-4963-841a-27b38157bd89",
+      "nick": "nicolouchka",
+      "totalScore": 1274,
+      "roundsPlayed": 3,
+      "avg": 424.6666666666667,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "34355735-1e71-44fe-be94-43a5bc689129",
+      "nick": "Uddasa",
+      "totalScore": 1206,
+      "roundsPlayed": 6,
+      "avg": 201,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "56e2faa0-7ac7-46fb-b1cb-f07ded6a7b49",
+      "nick": "Uddasa",
+      "totalScore": 1001,
+      "roundsPlayed": 4,
+      "avg": 250.25,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "99af8499-47ef-4543-9ba1-acd67101d18e",
+      "nick": "Uddasa",
+      "totalScore": 657,
+      "roundsPlayed": 3,
+      "avg": 219,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "21f70b05-e598-4829-abb9-a7d8f045b632",
+      "nick": "Nope",
+      "totalScore": 640,
+      "roundsPlayed": 5,
+      "avg": 128,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "nick": "Test fold",
+      "totalScore": 260,
+      "roundsPlayed": 1,
+      "avg": 260,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "f9ca24d7-7480-4535-a1a6-c3fab402d14d",
+      "nick": "Sissi",
+      "totalScore": 227,
+      "roundsPlayed": 2,
+      "avg": 113.5,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "990e9e75-22cf-43f9-8dbe-357c4bfed205",
+      "nick": "Uddasa",
+      "totalScore": 135,
+      "roundsPlayed": 3,
+      "avg": 45,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "043f98fc-95c0-45c6-ac25-98bc1f1e8f72",
+      "nick": "Jojo",
+      "totalScore": 118,
+      "roundsPlayed": 1,
+      "avg": 118,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "315c83a0-35f1-4ff6-842a-052f516b3043",
+      "nick": "ipslore",
+      "totalScore": 88,
+      "roundsPlayed": 4,
+      "avg": 22,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "9fe1969c-34b9-4801-baee-899e5dc1c9eb",
+      "nick": "Poiuy2001",
+      "totalScore": 47,
+      "roundsPlayed": 2,
+      "avg": 23.5,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "b6666006-cd32-40d2-a8a1-a87a180a200c",
+      "nick": "Canard",
+      "totalScore": 36,
+      "roundsPlayed": 1,
+      "avg": 36,
+      "team": "blue",
+      "level": null
+    },
+    {
+      "installId": "4efef17a-b010-4138-bdf4-ae690fd46305",
+      "nick": "Ba2f",
+      "totalScore": 6,
+      "roundsPlayed": 1,
+      "avg": 6,
+      "team": "blue",
+      "level": null
+    }
+  ]
+}

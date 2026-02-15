@@ -1,0 +1,171 @@
+{
+  "dateId": "2026-02-07",
+  "results": [
+    {
+      "installId": "7fe36a54-be56-415c-800f-8f661eab13f9",
+      "pseudo": "Pounie",
+      "score": 1561,
+      "wordCount": 56,
+      "longestWordLen": 8,
+      "bestWordPts": 114,
+      "gobbles": 0,
+      "durationMs": 125428,
+      "submittedAt": 1770452869251
+    },
+    {
+      "installId": "af4d280b-a3e7-46f1-bb4b-c011fec00143",
+      "pseudo": "Jean-François",
+      "score": 2703,
+      "wordCount": 66,
+      "longestWordLen": 8,
+      "bestWordPts": 168,
+      "gobbles": 0,
+      "durationMs": 125491,
+      "submittedAt": 1770453992649
+    },
+    {
+      "installId": "db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "pseudo": "Beerman",
+      "score": 2963,
+      "wordCount": 73,
+      "longestWordLen": 9,
+      "bestWordPts": 168,
+      "gobbles": 0,
+      "durationMs": 125312,
+      "submittedAt": 1770454782350
+    },
+    {
+      "installId": "264cb74f-d3e5-45b8-a4c4-27e5d7c65a60",
+      "pseudo": "Fraise",
+      "score": 1011,
+      "wordCount": 31,
+      "longestWordLen": 7,
+      "bestWordPts": 114,
+      "gobbles": 0,
+      "durationMs": 124850,
+      "submittedAt": 1770457478329
+    },
+    {
+      "installId": "27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "pseudo": "Marty Mc Fly",
+      "score": 3591,
+      "wordCount": 109,
+      "longestWordLen": 8,
+      "bestWordPts": 156,
+      "gobbles": 0,
+      "durationMs": 125451,
+      "submittedAt": 1770458359433
+    },
+    {
+      "installId": "1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "pseudo": "Tigrou",
+      "score": 3768,
+      "wordCount": 106,
+      "longestWordLen": 8,
+      "bestWordPts": 156,
+      "gobbles": 0,
+      "durationMs": 125291,
+      "submittedAt": 1770461277623
+    },
+    {
+      "installId": "ba0c7f08-a1af-46fb-af49-3a145d6fe1df",
+      "pseudo": "Jun",
+      "score": 876,
+      "wordCount": 27,
+      "longestWordLen": 8,
+      "bestWordPts": 78,
+      "gobbles": 0,
+      "durationMs": 124871,
+      "submittedAt": 1770461540154
+    },
+    {
+      "installId": "81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "pseudo": "Sam",
+      "score": 3883,
+      "wordCount": 106,
+      "longestWordLen": 8,
+      "bestWordPts": 156,
+      "gobbles": 0,
+      "durationMs": 125418,
+      "submittedAt": 1770467757699
+    },
+    {
+      "installId": "9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "pseudo": "Nanou",
+      "score": 1967,
+      "wordCount": 54,
+      "longestWordLen": 8,
+      "bestWordPts": 144,
+      "gobbles": 0,
+      "durationMs": 125504,
+      "submittedAt": 1770469280548
+    },
+    {
+      "installId": "e31412d7-c908-4fb4-a563-beb796aa5305",
+      "pseudo": "Cspl",
+      "score": 968,
+      "wordCount": 26,
+      "longestWordLen": 8,
+      "bestWordPts": 162,
+      "gobbles": 0,
+      "durationMs": 124552,
+      "submittedAt": 1770476661034
+    },
+    {
+      "installId": "0845cdab-dc45-423e-b478-6ef99d69d272",
+      "pseudo": "MartinR",
+      "score": 1383,
+      "wordCount": 31,
+      "longestWordLen": 8,
+      "bestWordPts": 144,
+      "gobbles": 0,
+      "durationMs": 125644,
+      "submittedAt": 1770488909551
+    },
+    {
+      "installId": "b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "pseudo": "isa1958",
+      "score": 2143,
+      "wordCount": 56,
+      "longestWordLen": 8,
+      "bestWordPts": 156,
+      "gobbles": 0,
+      "durationMs": 124845,
+      "submittedAt": 1770494024035
+    },
+    {
+      "installId": "6587f711-a60f-4328-93d1-a0c6d3525bb0",
+      "pseudo": "Pacalou",
+      "score": 1213,
+      "wordCount": 38,
+      "longestWordLen": 8,
+      "bestWordPts": 120,
+      "gobbles": 0,
+      "durationMs": 125617,
+      "submittedAt": 1770499701642
+    },
+    {
+      "installId": "d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "pseudo": "Matza",
+      "score": 1672,
+      "wordCount": 41,
+      "longestWordLen": 8,
+      "bestWordPts": 156,
+      "gobbles": 0,
+      "durationMs": 126334,
+      "submittedAt": 1770499992667
+    },
+    {
+      "installId": "ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "pseudo": "Jérémy",
+      "score": 3972,
+      "wordCount": 99,
+      "longestWordLen": 8,
+      "bestWordPts": 168,
+      "gobbles": 0,
+      "durationMs": 124546,
+      "submittedAt": 1770503798413
+    }
+  ],
+  "attempts": {}
+}

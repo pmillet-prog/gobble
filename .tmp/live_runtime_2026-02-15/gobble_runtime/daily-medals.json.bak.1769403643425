@@ -1,0 +1,21 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "nick:Tigrou": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 2
+        },
+        "nick:Beerman": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        }
+      },
+      "expiry": {},
+      "updatedAt": 1769403442880
+    }
+  },
+  "lastResetDateId": "2026-01-26"
+}

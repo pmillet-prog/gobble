@@ -1,0 +1,41 @@
+{
+  "rooms": {
+    "room-4x4": {
+      "medals": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": {
+          "gold": 0,
+          "silver": 0,
+          "bronze": 1
+        },
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": {
+          "gold": 0,
+          "silver": 1,
+          "bronze": 0
+        },
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        },
+        "nick:Beerman": {
+          "gold": 1,
+          "silver": 0,
+          "bronze": 0
+        }
+      },
+      "expiry": {
+        "install:db8a4935-e67c-4215-93d1-52b8c526ae1f": 1769814000000,
+        "install:7fe36a54-be56-415c-800f-8f661eab13f9": 1769814000000,
+        "install:1478adda-6c80-4681-8ce1-83fd1d143ab0": 1769814000000,
+        "install:b5db203e-13be-49cd-8c7a-5b23cf637473": 1769814000000
+      },
+      "updatedAt": 1769774227456
+    }
+  },
+  "lastResetDateId": "2026-01-30"
+}

@@ -9,6 +9,7 @@ export default function MobileHeader({
   isFinaleBanner = false,
   isTargetRound,
   onOpenSettings,
+  playerTeam = null,
   phase,
   roundStatsText,
   roomLabelSeparator = " ",
@@ -22,16 +23,31 @@ export default function MobileHeader({
     top: "env(safe-area-inset-top)",
     zIndex: 30,
   };
+  const teamHeaderClass =
+    playerTeam === "red"
+      ? darkMode
+        ? "bg-red-900 border-red-700"
+        : "bg-red-200 border-red-300"
+      : playerTeam === "blue"
+      ? darkMode
+        ? "bg-blue-900 border-blue-700"
+        : "bg-blue-200 border-blue-300"
+      : "border-slate-200/70 dark:border-slate-700/70";
+  const metaTextClass = playerTeam
+    ? darkMode
+      ? "text-slate-200"
+      : "text-slate-700"
+    : "text-slate-500 dark:text-slate-400";
   return (
     <div
       ref={headerRef}
-      className="px-3 pt-2 pb-1 border-b border-slate-200/70 dark:border-slate-700/70"
+      className={`px-3 pt-2 pb-1 border-b ${teamHeaderClass}`}
       style={headerStyle}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
           <div className="text-lg font-extrabold tracking-tight leading-none">GOBBLE</div>
-          <div className="text-[0.7rem] text-slate-500 dark:text-slate-400 leading-tight">
+          <div className={`text-[0.7rem] leading-tight ${metaTextClass}`}>
             {tournament?.round && tournament?.totalRounds ? (
               <>
                 {isFinaleBanner || tournament.round === tournament.totalRounds ? (
@@ -51,7 +67,7 @@ export default function MobileHeader({
             )}
           </div>
           {phase === "playing" && showRoundStats && roundStatsText && !isTargetRound && (
-            <div className="text-[0.65rem] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+            <div className={`text-[0.65rem] leading-tight mt-0.5 ${metaTextClass}`}>
               {roundStatsText}
             </div>
           )}
