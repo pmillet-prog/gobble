@@ -338,7 +338,8 @@ function RankingWidgetMobile({
   renderAfterRank = null,
   recordBadgesByNick = null,
   gobbleWordAwardsByNick = null,
-  onRecordBadgeClick = null,
+  onPlayerNickClick = null,
+  isPlayerNickClickable = null,
   className = "",
   assetVersion,
 }) {
@@ -794,6 +795,11 @@ function RankingWidgetMobile({
           : "";
         const recordBadges = getRecordBadgesForNick(entry?.nick);
         const recordBadgeItems = Array.isArray(recordBadges) ? recordBadges : [];
+        const nickClickable =
+          typeof onPlayerNickClick === "function" &&
+          (typeof isPlayerNickClickable === "function"
+            ? !!isPlayerNickClickable(entry)
+            : true);
 
         return (
           <div
@@ -820,7 +826,25 @@ function RankingWidgetMobile({
                   ) : null}
                 </span>
                 <span className="min-w-0 flex items-baseline gap-1">
-                  <span className="truncate">{entry.nick}</span>
+                  {nickClickable ? (
+                    <button
+                      type="button"
+                      className="truncate text-left hover:underline underline-offset-2"
+                      data-round-player-anchor="1"
+                      data-round-player-nick={String(entry?.nick || "")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onPlayerNickClick?.(entry, event.currentTarget, {
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                        });
+                      }}
+                    >
+                      {entry.nick}
+                    </button>
+                  ) : (
+                    <span className="truncate">{entry.nick}</span>
+                  )}
                   {renderNickSuffix ? (
                     <span className="flex-none">{renderNickSuffix(entry.nick, entry)}</span>
                   ) : null}
@@ -829,17 +853,13 @@ function RankingWidgetMobile({
               </div>
               {recordBadgeItems.length ? (
                 <div className="flex items-center">
-                  <button
-                    type="button"
+                  <span
                     className="record-rainbow rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRecordBadgeClick?.(recordBadgeItems);
-                    }}
                     aria-label={`Nouveau record ${recordBadgeItems.length} categories`}
+                    title="Nouveau record"
                   >
                     Nouveau record
-                  </button>
+                  </span>
                 </div>
               ) : null}
             </div>

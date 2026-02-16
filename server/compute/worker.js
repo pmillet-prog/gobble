@@ -21,6 +21,13 @@ const TARGET_LONG_TOTAL_ATTEMPTS =
 const TARGET_SCORE_MIN_PTS = 100;
 const BONUS_LETTER_MIN_WORDS = 30;
 const BONUS_LETTER_SCORE = 20;
+const TARGET_LONG_LENGTH_BUCKETS = [8, 9, 10, "11plus"];
+const TARGET_LONG_FALLBACK_BY_BUCKET = {
+  8: [9, 10, "11plus"],
+  9: [10, 8, "11plus"],
+  10: [9, 8, "11plus"],
+  "11plus": [10, 9, 8],
+};
 
 let dictionary = null;
 try {
@@ -100,6 +107,46 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
   };
 }
 
+function pickRandomArrayEntry(list) {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function pickTargetLongLengthBucket() {
+  const picked = pickRandomArrayEntry(TARGET_LONG_LENGTH_BUCKETS);
+  return picked ?? "11plus";
+}
+
+function pickExactLengthTargetFromSolved(solved, targetLen) {
+  if (!solved || solved.size === 0) return null;
+  const exactLen = Number(targetLen);
+  if (!Number.isFinite(exactLen) || exactLen <= 0) return null;
+  const candidates = [];
+  for (const [word, data] of solved.entries()) {
+    if (word.length !== exactLen) continue;
+    candidates.push({ word, length: exactLen, path: data?.path || null });
+  }
+  return pickRandomArrayEntry(candidates);
+}
+
+function pickTargetLongFromSolvedByBucket(solved, bucket) {
+  if (bucket === "11plus") {
+    return pickTargetFromSolved(solved, "target_long", { minLongLen: TARGET_LONG_MIN_LEN });
+  }
+  return pickExactLengthTargetFromSolved(solved, bucket);
+}
+
+function pickTargetLongFallbackFromSolved(solved, primaryBucket) {
+  const fallbackOrder = TARGET_LONG_FALLBACK_BY_BUCKET[primaryBucket] || [];
+  for (const bucket of fallbackOrder) {
+    const pick = pickTargetLongFromSolvedByBucket(solved, bucket);
+    if (pick?.word) {
+      return { ...pick, bucket };
+    }
+  }
+  return null;
+}
+
 function pickTargetFromSolved(solved, type, opts = {}) {
   if (!solved || solved.size === 0) return null;
 
@@ -162,6 +209,8 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
   const effectiveMinWords = dictionary ? minWords : 0;
   const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
   const isTargetLong = roundPlan?.type === "target_long";
+  const targetLongBucket = isTargetLong ? pickTargetLongLengthBucket() : null;
+  const isTargetLong11PlusMode = isTargetLong && targetLongBucket === "11plus";
   const targetLongMinLen = TARGET_LONG_MIN_LEN;
   const targetLongPreferredLen = Math.max(targetLongMinLen, TARGET_LONG_PREFERRED_LEN);
   const targetLongBatchSize = Math.max(1, Math.min(TARGET_LONG_BATCH_ATTEMPTS, maxAttemptsTotal));
@@ -222,21 +271,30 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       solved &&
       (roundPlan?.type === "target_long" || roundPlan?.type === "target_score")
     ) {
-      const target = pickTargetFromSolved(
-        solved,
-        roundPlan.type,
-        isTargetLong ? { minLongLen: targetLongMinLen } : null
-      );
-      if (target?.word) {
-        targetWord = target.word;
-        targetLength = target.length || target.word.length;
-        targetPath = Array.isArray(target.path) ? target.path : null;
-      } else if (isTargetLong) {
-        const fallbackTarget = pickTargetFromSolved(solved, roundPlan.type, { minLongLen: 0 });
-        if (fallbackTarget?.word) {
-          fallbackTargetWord = fallbackTarget.word;
-          fallbackTargetLength = fallbackTarget.length || fallbackTarget.word.length;
-          fallbackTargetPath = Array.isArray(fallbackTarget.path) ? fallbackTarget.path : null;
+      if (isTargetLong) {
+        const target = pickTargetLongFromSolvedByBucket(solved, targetLongBucket);
+        if (target?.word) {
+          targetWord = target.word;
+          targetLength = target.length || target.word.length;
+          targetPath = Array.isArray(target.path) ? target.path : null;
+        } else {
+          const relaxedLongest = pickTargetFromSolved(solved, roundPlan.type, { minLongLen: 0 });
+          const fallbackByBucket = isTargetLong11PlusMode
+            ? null
+            : pickTargetLongFallbackFromSolved(solved, targetLongBucket);
+          const fallbackTarget = fallbackByBucket?.word ? fallbackByBucket : relaxedLongest;
+          if (fallbackTarget?.word) {
+            fallbackTargetWord = fallbackTarget.word;
+            fallbackTargetLength = fallbackTarget.length || fallbackTarget.word.length;
+            fallbackTargetPath = Array.isArray(fallbackTarget.path) ? fallbackTarget.path : null;
+          }
+        }
+      } else {
+        const target = pickTargetFromSolved(solved, roundPlan.type, null);
+        if (target?.word) {
+          targetWord = target.word;
+          targetLength = target.length || target.word.length;
+          targetPath = Array.isArray(target.path) ? target.path : null;
         }
       }
       quality.ok = quality.ok && !!targetWord;
@@ -255,7 +313,10 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
           bonusLetterScore: roundPlan?.bonusLetterScore || BONUS_LETTER_SCORE,
           disableBonuses: true,
         }
-      : roundPlan;
+      : {
+          ...roundPlan,
+          ...(isTargetLong ? { targetLongBucket } : null),
+        };
 
     const candidate = {
       grid,
@@ -289,7 +350,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       (bestCandidate?.quality?.possibleScore || 0) / 500 +
       (bestCandidate?.quality?.longWords || 0);
 
-    if (isTargetLong) {
+    if (isTargetLong11PlusMode) {
       if (targetWord) {
         const candidateLen = Number.isFinite(targetLength) ? targetLength : 0;
         const bestLen = Number.isFinite(bestCandidate?.targetLength)
@@ -333,6 +394,16 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
             targetLongBatchesAtLen = 0;
             targetLongBestAtThreshold = null;
           }
+        }
+      }
+    } else if (isTargetLong) {
+      if (targetWord) {
+        if (!bestCandidate || currentScore > bestScore) {
+          bestCandidate = candidate;
+        }
+        if (quality.ok) {
+          bestCandidate = candidate;
+          break;
         }
       }
     } else {

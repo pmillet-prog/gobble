@@ -94,7 +94,14 @@ const FALLBACK_VISIBLE = 18; // limite de secours pour éviter l'inflation du DO
 const ROW_ESTIMATE = 17; // hauteur approx. d'une ligne (text-[11px] + leading-tight)
 const GAP_ESTIMATE = 4; // gap-1 en Tailwind
 
-function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
+function LiveFeed({
+  items = [],
+  darkMode,
+  maxHeight = "220px",
+  wrapAroundBottomRight = false,
+  wrapAroundWidth = "clamp(48px, 12vw, 72px)",
+  wrapAroundHeight = "clamp(48px, 12vw, 72px)",
+}) {
   const color = darkMode ? "text-slate-200" : "text-slate-800";
   const listRef = useRef(null);
   const [maxVisible, setMaxVisible] = useState(FALLBACK_VISIBLE);
@@ -193,9 +200,23 @@ function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
       <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Flux live
       </div>
-      <div ref={listRef} className="flex-1 min-h-0 overflow-hidden flex flex-col gap-1">
+      <div ref={listRef} className="flex-1 min-h-0 overflow-hidden relative">
+        {wrapAroundBottomRight ? (
+          <div
+            aria-hidden="true"
+            className="float-right pointer-events-none"
+            style={{
+              width: wrapAroundWidth,
+              height: wrapAroundHeight,
+              marginTop: `calc(100% - ${wrapAroundHeight})`,
+              marginLeft: "6px",
+              shapeOutside: "circle(50% at 50% 50%)",
+              clipPath: "circle(50% at 50% 50%)",
+            }}
+          />
+        ) : null}
         {visibleItems.length === 0 && (
-          <div className="text-[11px] italic text-slate-400">Rien à signaler.</div>
+          <div className="text-[11px] italic text-slate-400 mb-1">Rien à signaler.</div>
         )}
         {visibleItems.map((item, idx) => {
           const key = item.id ?? `${item.kind || "item"}-${item.ts || idx}-${idx}`;
@@ -203,7 +224,7 @@ function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
             return (
               <div
                 key={key}
-                className="text-[11px] leading-tight italic flex items-center justify-between gap-2"
+                className="text-[11px] leading-tight italic flex items-center justify-between gap-2 mb-1"
               >
                 <span className="font-semibold not-italic truncate">{item.display.toUpperCase()}</span>
                 {item.label ? (
@@ -219,7 +240,7 @@ function LiveFeed({ items = [], darkMode, maxHeight = "220px" }) {
             );
           }
           return (
-            <div key={key} className="text-[11px] leading-tight italic">
+            <div key={key} className="text-[11px] leading-tight italic mb-1">
               {renderAnnouncementText(item.text, item.nick)}
             </div>
           );

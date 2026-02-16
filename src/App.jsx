@@ -25,6 +25,14 @@ import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
+import AutoScaleInline from "./components/AutoScaleInline.jsx";
+import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
+import RoundPlayerDetailsModal from "./components/RoundPlayerDetailsModal.jsx";
+import HomeChatModal from "./components/HomeChatModal.jsx";
+import {
+  readDuelObjectiveAnimationsState,
+  writeDuelObjectiveAnimationsState,
+} from "./utils/duelObjectiveAnimationsStorage";
 import {
   computeScore,
   filterDictionary,
@@ -253,10 +261,10 @@ const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
   priority: "critical",
   meta: { eqKey: "score2" },
 }));
-const BOOT_MIN_HOLD_MS = 4800;
+const BOOT_MIN_HOLD_MS = 3500;
 const BOOT_TRANSITION_MS = 500;
-const BOOT_INTRO_GIF_SRC = "/intro%20gobble.gif";
-const BOOT_INTRO_GIF_LOOP_MS = 2600;
+const BOOT_INTRO_GIF_SRC = "/introgobble.gif";
+const BOOT_OVERLAY_SEEN_SESSION_KEY = "gobble_boot_overlay_seen_v1";
 const BOOT_FUN_MESSAGES = [
   "Jonglage avec les tuiles...",
   "Mélange des lettres...",
@@ -653,6 +661,12 @@ function isSystemAuthor(rawAuthor) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
   return simplified === "system" || simplified === "systeme";
+}
+
+function isSystemChatMessage(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message.type === "system" || message.channel === "system") return true;
+  return isSystemAuthor(message.author || message.nick || "");
 }
 
 const BONUS_CLASSES = {
@@ -1069,7 +1083,6 @@ function BootLoader({
   if (typeof document === "undefined") return null;
   const [gifLoadFailed, setGifLoadFailed] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [gifLoopTick, setGifLoopTick] = useState(0);
   const [funMessage, setFunMessage] = useState(() => {
     if (!BOOT_FUN_MESSAGES.length) return "Chargement en cours...";
     return BOOT_FUN_MESSAGES[Math.floor(Math.random() * BOOT_FUN_MESSAGES.length)];
@@ -1099,23 +1112,6 @@ function BootLoader({
       window.clearInterval(id);
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    if (!isSlowLoading || gifLoadFailed) return undefined;
-    const id = window.setInterval(() => {
-      setGifLoopTick((prev) => prev + 1);
-    }, BOOT_INTRO_GIF_LOOP_MS);
-    return () => {
-      window.clearInterval(id);
-    };
-  }, [isSlowLoading, gifLoadFailed]);
-
-  useEffect(() => {
-    if (!isSlowLoading && gifLoopTick !== 0) {
-      setGifLoopTick(0);
-    }
-  }, [isSlowLoading, gifLoopTick]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1150,7 +1146,7 @@ function BootLoader({
   const logoSrc = AssetManager.getImage(IMAGE_KEYS.favicon).url || "";
   const gifSrc = gifLoadFailed
     ? logoSrc
-    : `${BOOT_INTRO_GIF_SRC}${isSlowLoading ? `?loop=${gifLoopTick}` : ""}`;
+    : BOOT_INTRO_GIF_SRC;
   const glowClass = darkMode
     ? "bg-slate-950 text-slate-100"
     : "bg-slate-100 text-slate-900";
@@ -1187,10 +1183,6 @@ function BootLoader({
   70% { transform: scale(1.02); box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
 }
-@keyframes bootGifBoomerang {
-  0% { transform: translateX(-3px) scale(0.995); }
-  100% { transform: translateX(3px) scale(1.005); }
-}
 `}</style>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
@@ -1215,7 +1207,6 @@ function BootLoader({
               className="w-full object-cover"
               style={{
                 maxHeight: "260px",
-                animation: isSlowLoading ? "bootGifBoomerang 0.9s ease-in-out infinite alternate" : undefined,
               }}
               draggable="false"
               onError={() => setGifLoadFailed(true)}
@@ -1246,7 +1237,7 @@ function BootLoader({
           </div>
           {isSlowLoading ? (
             <div className={`mt-1 text-[10px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-              Connexion lente, animation relancée en boucle.
+              Connexion lente...
             </div>
           ) : null}
       </div>
@@ -2568,7 +2559,7 @@ const CHAT_MAX_VISIBLE_LINES = 40;
 const MIN_CHAT_OPACITY = 0.03;
 const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
-const CHAT_DRAWER_ANIM_MS = 1000;
+const CHAT_DRAWER_ANIM_MS = 260;
 const TARGET_HINT_FIRST_MS = 15 * 1000;
 const TARGET_HINT_STEP_MS = 15 * 1000;
 const DISCONNECT_GRACE_MS = 30 * 1000;
@@ -2579,6 +2570,7 @@ const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v2";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
+const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
@@ -2655,6 +2647,24 @@ function getOrCreateInstallId() {
   } catch (_) {
     return generateInstallId();
   }
+}
+
+function getBroadcastMessageKey(message) {
+  if (!message || typeof message !== "object") return "";
+  const idPart = typeof message.id === "string" ? message.id.trim() : "";
+  const updatedPart =
+    typeof message.updatedAt === "string" ? message.updatedAt.trim() : "";
+  if (idPart && updatedPart) return `${idPart}:${updatedPart}`.slice(0, 140);
+  if (idPart) return idPart.slice(0, 140);
+  if (updatedPart) return updatedPart.slice(0, 140);
+  return "";
+}
+
+function getBroadcastSeenStorageKey(installId, messageKey) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  const safeMessageKey = typeof messageKey === "string" ? messageKey.trim() : "";
+  if (!safeInstallId || !safeMessageKey) return "";
+  return `${BROADCAST_SEEN_STORAGE_PREFIX}:${safeInstallId}:${safeMessageKey}`;
 }
 
 const formatNumber = (value) =>
@@ -2737,6 +2747,7 @@ export default function App() {
   const initialRoomId = getDefaultRoomId();
   const initialGridSize = getGridSizeForRoom(initialRoomId);
   const [roomId, setRoomId] = useState(initialRoomId);
+  const roomIdRef = useRef(initialRoomId);
   const [currentRoomId, setCurrentRoomId] = useState(null);
   const [gridSize, setGridSize] = useState(initialGridSize);
   const [gridRotationTurns, setGridRotationTurns] = useState(0);
@@ -2798,6 +2809,7 @@ export default function App() {
   const blackHoleClavierFadeRef = useRef(null);
   const blackHoleAuxStopRef = useRef(null);
   const blackHoleSyncTokenRef = useRef(0);
+  const roundEndTickHandleRef = useRef(null);
   const tickCountdownPlayedRef = useRef(false);
   const countdownTickPlayedRef = useRef(false);
   const ambientMusicRef = useRef({
@@ -2855,16 +2867,25 @@ export default function App() {
   useEffect(() => {
     ambientTracksRef.current = ambientTracks;
   }, [ambientTracks]);
+  const initialBootOverlaySeen = (() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem(BOOT_OVERLAY_SEEN_SESSION_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  })();
   const [bootProgress, setBootProgress] = useState(() => ({
     loaded: 0,
     total: BOOT_ASSET_MANIFEST.length,
     errors: 0,
-    done: false,
+    done: initialBootOverlaySeen,
     stage: "",
     key: "",
   }));
-  const [bootOverlayVisible, setBootOverlayVisible] = useState(true);
+  const [bootOverlayVisible, setBootOverlayVisible] = useState(!initialBootOverlaySeen);
   const [bootOverlayFading, setBootOverlayFading] = useState(false);
+  const bootOverlayPlayedRef = useRef(initialBootOverlaySeen);
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     let cancelled = false;
@@ -2960,10 +2981,12 @@ export default function App() {
       return undefined;
     }
     if (!bootProgress?.done) {
+      if (bootOverlayPlayedRef.current) return undefined;
       setBootOverlayVisible(true);
       setBootOverlayFading(false);
       return undefined;
     }
+    if (bootOverlayPlayedRef.current && !bootOverlayVisible) return undefined;
     setBootOverlayVisible(true);
     setBootOverlayFading(false);
     const rafId = window.requestAnimationFrame(() => {
@@ -2972,6 +2995,10 @@ export default function App() {
     const timerId = window.setTimeout(() => {
       setBootOverlayVisible(false);
       setBootOverlayFading(false);
+      bootOverlayPlayedRef.current = true;
+      try {
+        sessionStorage.setItem(BOOT_OVERLAY_SEEN_SESSION_KEY, "1");
+      } catch (_) {}
     }, BOOT_TRANSITION_MS);
     return () => {
       window.cancelAnimationFrame(rafId);
@@ -3167,6 +3194,9 @@ export default function App() {
   const [isChatClosing, setIsChatClosing] = useState(false);
   const chatCloseTimerRef = useRef(null);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
+  const [homeChatUnreadCount, setHomeChatUnreadCount] = useState(0);
+  const [isHomeChatOpen, setIsHomeChatOpen] = useState(false);
+  const [chatTab, setChatTab] = useState("messages");
   const [chatRulesAccepted, setChatRulesAccepted] = useState(() => {
     try {
       return localStorage.getItem(CHAT_RULES_STORAGE_KEY) === "1";
@@ -3210,6 +3240,12 @@ export default function App() {
     url: "",
   });
   const [installId] = useState(() => getOrCreateInstallId());
+  const [broadcastNotice, setBroadcastNotice] = useState({
+    loading: false,
+    message: null,
+    error: "",
+  });
+  const [broadcastSeenNonce, setBroadcastSeenNonce] = useState(0);
   const [dailyStatus, setDailyStatus] = useState({
     loading: false,
     ready: false,
@@ -3326,8 +3362,28 @@ export default function App() {
     [installId]
   );
 
+  function clearCelebrationFx() {
+    if (praiseTimerRef.current) {
+      clearTimeout(praiseTimerRef.current);
+      praiseTimerRef.current = null;
+    }
+    if (gobbleTimerRef.current) {
+      clearTimeout(gobbleTimerRef.current);
+      gobbleTimerRef.current = null;
+    }
+    confettiBurstTokenRef.current += 1;
+    setPraiseFlash(null);
+    setGobbleFlash(null);
+    try {
+      confetti.reset?.();
+    } catch (_) {}
+  }
+
   function returnToLobby() {
     setIsSettingsOpen(false);
+    clearCelebrationFx();
+    setInputLocked(false);
+    inputLockedRef.current = false;
     setPhase("lobby");
     setServerStatus("waiting");
     stopAllActiveAudio({ suspendContext: true, immediate: true });
@@ -3365,6 +3421,11 @@ export default function App() {
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn;
   }, [isLoggedIn]);
+  useEffect(() => {
+    if (isLoggedIn && phase !== "lobby") return;
+    clearCelebrationFx();
+    stopAllActiveAudio({ suspendContext: true, immediate: true });
+  }, [isLoggedIn, phase]);
   useEffect(() => {
     if (isLoggedIn) {
       setAppView("live");
@@ -3417,6 +3478,9 @@ export default function App() {
   useEffect(() => {
     currentRoomIdRef.current = currentRoomId;
   }, [currentRoomId]);
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
   useEffect(() => {
     roundIdRef.current = roundId;
   }, [roundId]);
@@ -3518,6 +3582,18 @@ export default function App() {
     wordsCount: null,
     records: [],
   });
+  const [roundPlayerModal, setRoundPlayerModal] = useState({
+    open: false,
+    nick: "",
+    words: [],
+    records: [],
+    anchorRect: null,
+    targetBoardKey: "",
+    targetBoardLabel: "",
+    targetBoardEntries: [],
+  });
+  const roundPlayerAnchorElementRef = useRef(null);
+  const roundPlayerAnchorNickRef = useRef("");
   const [definitionBlink, setDefinitionBlink] = useState(false);
   const [chatVisibleLimit, setChatVisibleLimit] = useState(
     DEFAULT_CHAT_VISIBLE_LINES
@@ -3570,6 +3646,7 @@ export default function App() {
   const vocabBaselineRoundRef = useRef(null);
   const vocabOverlayRoundRef = useRef(null);
   const vocabResultsPendingRef = useRef(null);
+  const skipVocabOverlayOnceRef = useRef(false);
   const vocabOverlayTimersRef = useRef([]);
   const vocabOverlayRafRef = useRef(null);
   const vocabOverlayLastTickRef = useRef(0);
@@ -3583,6 +3660,14 @@ export default function App() {
   const chatDesktopListRef = useRef(null);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
+  const isHomeChatOpenRef = useRef(false);
+  const lobbyPresenceRef = useRef(new Set());
+  const lobbyChatSubscriptionRef = useRef({
+    roomId: null,
+    subscribed: false,
+    inFlight: false,
+    connectPending: false,
+  });
   const wordHistoryRef = useRef([]);
   const wordHistoryIndexRef = useRef(-1);
   const chatHistoryRef = useRef([]);
@@ -3594,6 +3679,7 @@ export default function App() {
   const toastTimersRef = useRef(new Map());
   const praiseTimerRef = useRef(null);
   const gobbleTimerRef = useRef(null);
+  const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
@@ -3604,8 +3690,10 @@ export default function App() {
   const disconnectGraceTimerRef = useRef(null);
   const lastBackgroundTimeRef = useRef(0);
   const manualRefreshTimerRef = useRef(null);
+  const foregroundRetryTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(false);
+  const reconnectToastPendingRef = useRef(false);
   const intentionalDisconnectRef = useRef(false);
   const isBackgroundedRef = useRef(false);
   const foregroundAttemptRef = useRef(0);
@@ -3885,6 +3973,7 @@ export default function App() {
       const duration = buffer ? buffer.duration / Math.max(0.01, rate) : 0.6;
       startVoiceCount(key, duration);
     }
+    return handle;
   }
 
   function playSfxHandle(assetKey, { eqKey, gain, rate, voiceKey } = {}) {
@@ -4225,6 +4314,7 @@ export default function App() {
   }
 
   function stopAllActiveAudio({ suspendContext = false, immediate = false } = {}) {
+    stopRoundEndTickSound({ fadeMs: immediate ? 0 : 120 });
     stopBlackHoleAudio({ fadeMs: immediate ? 0 : 220 });
     stopAmbientMusic({ fadeMs: immediate ? 0 : 700, keepAlive: false, immediate });
     ambientStartPendingRef.current = false;
@@ -4495,6 +4585,13 @@ export default function App() {
   }, [isChatOpenMobile, isMobileLayout]);
 
   useEffect(() => {
+    isHomeChatOpenRef.current = isHomeChatOpen;
+    if (isHomeChatOpen) {
+      setHomeChatUnreadCount(0);
+    }
+  }, [isHomeChatOpen]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     if (!isChatOpenMobile) {
@@ -4615,6 +4712,12 @@ export default function App() {
     if (!definitionModal.open) return;
     if (phase === "lobby" && !isWeeklyOpen) closeDefinition();
   }, [definitionModal.open, phase, roundId, isWeeklyOpen]);
+  useEffect(() => {
+    if (!roundPlayerModal.open) return;
+    if (phase !== "results") {
+      closeRoundPlayerModal({ withSound: false });
+    }
+  }, [roundPlayerModal.open, phase]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -5177,12 +5280,21 @@ export default function App() {
     playOneShotAudio(assetKey, { cooldownKey: "tileStep", eqKey: "tileStep" });
   }
 
+  function stopRoundEndTickSound({ fadeMs = 120 } = {}) {
+    const handle = roundEndTickHandleRef.current;
+    if (!handle) return;
+    if (fadeMs > 0) handle.fadeOut?.(fadeMs);
+    else handle.stop?.();
+    roundEndTickHandleRef.current = null;
+  }
+
   // Petit "tic tac" pour la fin de manche (fichier)
   function playTickSound({ isTargetRound } = {}) {
     if (isSfxMuted) return;
+    stopRoundEndTickSound({ fadeMs: 0 });
     const soundKey = isTargetRound ? "coeur" : "tick";
     const assetKey = isTargetRound ? SFX_KEYS.coeur : SFX_KEYS.tictac10;
-    playOneShotAudio(assetKey, {
+    roundEndTickHandleRef.current = playOneShotAudio(assetKey, {
       cooldownKey: "tick",
       eqKey: soundKey,
     });
@@ -5439,6 +5551,7 @@ export default function App() {
 
   function triggerConfettiBurst(kind = "target") {
     if (typeof window === "undefined") return;
+    const burstToken = ++confettiBurstTokenRef.current;
 
     const rect = gridRef.current?.getBoundingClientRect?.();
     const origin = rect
@@ -5455,6 +5568,7 @@ export default function App() {
     };
 
     const fire = (particleRatio, opts) => {
+      if (confettiBurstTokenRef.current !== burstToken) return;
       confetti({
         ...base,
         ...opts,
@@ -5504,6 +5618,7 @@ export default function App() {
 
     const end = Date.now() + 2400;
     (function frame() {
+      if (confettiBurstTokenRef.current !== burstToken) return;
       confetti({
         ...base,
         particleCount: 4,
@@ -5671,6 +5786,10 @@ export default function App() {
       playTickSound({ isTargetRound: isTargetRoundNow });
     }
   }, [tick, phase, specialRound?.type]);
+  useEffect(() => {
+    if (phase === "playing") return;
+    stopRoundEndTickSound({ fadeMs: 80 });
+  }, [phase]);
 
   useEffect(() => {
     const isResults = phase === "results";
@@ -5959,7 +6078,15 @@ export default function App() {
     if (hasNewVocabWords) {
       deltaCount = sortedWords.length;
     } else if (!Number.isFinite(deltaCount) || deltaCount <= 0) {
-      deltaCount = Math.max(0, vocabCount - (vocabBaselineRef.current || 0));
+      const hasReliableBaseline =
+        Number.isFinite(vocabBaselineRef.current) &&
+        (!roundId || !vocabBaselineRoundRef.current || vocabBaselineRoundRef.current === roundId);
+      if (hasReliableBaseline) {
+        deltaCount = Math.max(0, vocabCount - vocabBaselineRef.current);
+      } else {
+        // En reprise tardive (resume) on evite un faux delta massif.
+        deltaCount = sortedWords.length;
+      }
     }
     let baseCount = Number.isFinite(vocabCount) ? Math.max(0, vocabCount - deltaCount) : 0;
     if (!Number.isFinite(baseCount)) baseCount = 0;
@@ -6413,6 +6540,11 @@ export default function App() {
         } else {
           setVocabRoundDelta(null);
         }
+        if (skipVocabOverlayOnceRef.current) {
+          skipVocabOverlayOnceRef.current = false;
+          setVocabResultsReadyKey(null);
+          return;
+        }
         setVocabResultsReadyKey(vocabResultsKey);
       });
 
@@ -6467,6 +6599,8 @@ export default function App() {
       // On verrouille les validations pendant l'anim trou noir pour éviter des scores non comptabilisés.
       setInputLocked(true);
       inputLockedRef.current = true;
+      // Le tic-tac (10s) de fin de manche ne doit pas continuer sous l'outro blackhole.
+      stopRoundEndTickSound({ fadeMs: 80 });
       if (draggingRef.current) {
         draggingRef.current = false;
         clearSelection();
@@ -6756,15 +6890,21 @@ export default function App() {
     toastTimersRef.current.clear();
   }
 
-  function showToast(message, durationMs = 2400) {
+  function showToast(message, durationMs = 2800) {
     const text = String(message || "").trim();
     if (!text) return;
+    const displayMs = Math.max(1500, Math.round((Number(durationMs) || 2800) + 500));
     const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, message: text }].slice(-4));
+    setToasts((prev) => [...prev, { id, message: text, durationMs: displayMs }].slice(-4));
+    playOneShotAudio(SFX_KEYS.vocabCling, {
+      cooldownKey: "toastPop",
+      cooldownMs: 100,
+      eqKey: "vocabCling",
+    });
     const timerId = setTimeout(() => {
       toastTimersRef.current.delete(id);
       setToasts((prev) => prev.filter((entry) => entry.id !== id));
-    }, Math.max(900, Math.round(durationMs)));
+    }, displayMs);
     toastTimersRef.current.set(id, timerId);
   }
 
@@ -7116,16 +7256,22 @@ export default function App() {
       );
       const joined = [...current].filter((n) => !prev.has(n));
       const left = [...prev].filter((n) => !current.has(n));
+      // Socket/playersUpdate : logs "tournoi" (front + jeu).
+      // Les logs "serveur" continuent d'être produits via fetchLobbyPlayers (polling front).
       const sysMessages = [
         ...joined.map((n) => ({
           id: `sys-join-${n}-${Date.now()}`,
           author: "Système",
-          text: `${n} a rejoint le serveur`,
+          channel: "system",
+          type: "system",
+          text: `${n} a rejoint le tournoi`,
         })),
         ...left.map((n) => ({
           id: `sys-leave-${n}-${Date.now()}`,
           author: "Système",
-          text: `${n} a quitté le serveur`,
+          channel: "system",
+          type: "system",
+          text: `${n} a quitté le tournoi`,
         })),
       ];
       if (sysMessages.length) {
@@ -7152,6 +7298,7 @@ export default function App() {
     function onChatNew(msg) {
       if (!msg || typeof msg !== "object") return;
       setChatMessages((prev) => [...prev, msg].slice(-CHAT_BUFFER_MAX));
+      if (isSystemChatMessage(msg)) return;
 
       const authorInstallId =
         typeof msg.installId === "string" ? msg.installId : "";
@@ -7159,8 +7306,12 @@ export default function App() {
       const author = (msg.author || msg.nick || "").trim();
       const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
-      if (!isChatOpenMobileRef.current) {
-        setMobileChatUnreadCount((prev) => prev + 1);
+      if (isLoggedInRef.current) {
+        if (!isChatOpenMobileRef.current) {
+          setMobileChatUnreadCount((prev) => Math.min(99, prev + 1));
+        }
+      } else if (!isHomeChatOpenRef.current) {
+        setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
       }
     }
 
@@ -7240,9 +7391,28 @@ export default function App() {
       reconnectAttemptRef.current = false;
     }
 
+    function onConnect() {
+      setConnectionError("");
+      if (reconnectToastPendingRef.current) {
+        reconnectToastPendingRef.current = false;
+        if (isLoggedInRef.current) {
+          showToast("Connexion rétablie", 2200);
+        }
+      }
+      if (!isLoggedInRef.current) {
+        const chatState = lobbyChatSubscriptionRef.current;
+        if (chatState?.subscribed || isHomeChatOpenRef.current || isChatOpenMobileRef.current) {
+          subscribeLobbyChat({ force: true });
+        }
+      }
+    }
+
     function onDisconnect() {
       const wasIntentional = intentionalDisconnectRef.current;
       intentionalDisconnectRef.current = false;
+      lobbyChatSubscriptionRef.current.subscribed = false;
+      lobbyChatSubscriptionRef.current.inFlight = false;
+      lobbyChatSubscriptionRef.current.connectPending = false;
       if (isBackgroundedRef.current) {
         return;
       }
@@ -7274,6 +7444,7 @@ export default function App() {
         resumeLockRef.current = false;
         resumeLockAtRef.current = 0;
         reconnectAttemptRef.current = false;
+        reconnectToastPendingRef.current = false;
       };
       if (!wasIntentional && !hasSavedSession() && !isLoggedInRef.current) {
         hardReset();
@@ -7281,10 +7452,15 @@ export default function App() {
       if (manualDisconnectRef.current) {
         manualDisconnectRef.current = false;
         setConnectionError("");
+        reconnectToastPendingRef.current = false;
         return;
       }
       if (!wasIntentional) {
         setConnectionError("Reconnexion...");
+        if (isLoggedInRef.current && !reconnectToastPendingRef.current) {
+          reconnectToastPendingRef.current = true;
+          showToast("Connexion perdue, reconnexion...", 2600);
+        }
         attemptSilentReconnect();
       }
     }
@@ -7388,6 +7564,7 @@ export default function App() {
     socket.on("specialHint", onSpecialHint);
     socket.on("specialSolved", onSpecialSolved);
     socket.on("trophiesUpdated", onTrophiesUpdated);
+    socket.on("connect", onConnect);
     socket.on("connect_error", onConnectError);
     socket.on("disconnect", onDisconnect);
 
@@ -7405,6 +7582,7 @@ export default function App() {
       socket.off("specialHint", onSpecialHint);
       socket.off("specialSolved", onSpecialSolved);
       socket.off("trophiesUpdated", onTrophiesUpdated);
+      socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
     };
@@ -7958,6 +8136,54 @@ export default function App() {
       });
   }
 
+  function fetchBroadcastNotice() {
+    setBroadcastNotice((prev) => ({ ...prev, loading: true, error: "" }));
+    fetch("/api/broadcast/current", {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (_) {
+          throw new Error("bad_json");
+        }
+        if (!res.ok || data?.ok === false) {
+          throw new Error(data?.error || `http_${res.status || "error"}`);
+        }
+        return data;
+      })
+      .then((data) => {
+        const nextMessage =
+          data?.message && typeof data.message === "object" ? data.message : null;
+        setBroadcastNotice({
+          loading: false,
+          message: nextMessage,
+          error: "",
+        });
+      })
+      .catch(() => {
+        setBroadcastNotice((prev) => ({
+          ...prev,
+          loading: false,
+          error: "erreur",
+        }));
+      });
+  }
+
+  function dismissBroadcastNotice() {
+    const messageKey = getBroadcastMessageKey(broadcastNotice?.message);
+    if (!messageKey || !installId) return;
+    const storageKey = getBroadcastSeenStorageKey(installId, messageKey);
+    if (!storageKey) return;
+    try {
+      localStorage.setItem(storageKey, "1");
+    } catch (_) {}
+    setBroadcastSeenNonce((value) => value + 1);
+  }
+
   function fetchDuelStatus({ dateId = null } = {}) {
     if (!installId) return;
     setDuelStatus((prev) => ({ ...prev, loading: true, error: "" }));
@@ -8258,6 +8484,8 @@ export default function App() {
     const name = String(err?.name || "").trim();
     const msg = String(err?.message || "").toLowerCase();
     if (msg === "bad_grid") return "E_DAILY_BAD_GRID";
+    if (msg === "bad_json") return "E_DAILY_BAD_JSON";
+    if (msg === "bad_payload") return "E_DAILY_BAD_PAYLOAD";
     if (name === "AbortError" || msg.includes("abort") || msg.includes("timeout")) {
       return "ENET_TIMEOUT";
     }
@@ -8296,10 +8524,28 @@ export default function App() {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({}));
+      const raw = await res.text();
+      let data = null;
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        data = null;
+      }
       if (!res.ok) {
         if (data?.error === "already_played") {
           setDailyStartError("Deja joue");
+          fetchDailyStatus();
+          fetchDailyBoard();
+          return;
+        }
+        if (data?.error === "bad_grid") {
+          setDailyStartError("E_DAILY_BAD_GRID");
+          console.warn("[daily/start] bad_grid", {
+            status: res.status,
+            hasInstallId: !!installId,
+            pseudoLen: pseudo.length,
+            installIdLen: typeof installId === "string" ? installId.length : 0,
+          });
           fetchDailyStatus();
           fetchDailyBoard();
           return;
@@ -8316,6 +8562,9 @@ export default function App() {
         fetchDailyStatus();
         fetchDailyBoard();
         return;
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error(raw ? "bad_json" : "bad_payload");
       }
       if (!data?.grid || !Array.isArray(data.grid)) {
         throw new Error("bad_grid");
@@ -8615,6 +8864,41 @@ export default function App() {
         const list = Array.isArray(data?.players) ? data.players : [];
         setLobbyPlayersList(list);
         setLobbyRoomStatus(data?.status && typeof data.status === "object" ? data.status : null);
+        if (!isLoggedInRef.current) {
+          const nextNicks = new Set(
+            list
+              .map((entry) => (entry?.nick ? String(entry.nick).trim() : ""))
+              .filter((nick) => nick && !isSystemAuthor(nick))
+          );
+          const prevNicks = lobbyPresenceRef.current;
+          if (prevNicks.size > 0) {
+            const joined = [...nextNicks].filter((nick) => !prevNicks.has(nick));
+            const left = [...prevNicks].filter((nick) => !nextNicks.has(nick));
+            const now = Date.now();
+            const logs = [
+              ...joined.map((nick, idx) => ({
+                id: `sys-home-join-${nick}-${now}-${idx}`,
+                author: "Système",
+                channel: "system",
+                type: "system",
+                text: `${nick} a rejoint le tournoi`,
+              })),
+              ...left.map((nick, idx) => ({
+                id: `sys-home-leave-${nick}-${now}-${idx}`,
+                author: "Système",
+                channel: "system",
+                type: "system",
+                text: `${nick} a quitté le tournoi`,
+              })),
+            ];
+            if (logs.length > 0) {
+              setChatMessages((prevMsgs) =>
+                [...prevMsgs, ...logs].slice(-CHAT_BUFFER_MAX)
+              );
+            }
+          }
+          lobbyPresenceRef.current = nextNicks;
+        }
       })
       .catch(() => {
         setLobbyPlayersList([]);
@@ -9186,6 +9470,8 @@ export default function App() {
     }
 
     if (lastRound?.payload) {
+      // Reprise en cours de phase results: ne pas rejouer l'overlay vocab depuis zero.
+      skipVocabOverlayOnceRef.current = true;
       roundHandlersRef.current.onRoundEnded?.(lastRound.payload);
       if (lastRound.round?.grid && Array.isArray(lastRound.round.grid)) {
         setBoard(lastRound.round.grid);
@@ -9470,6 +9756,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    fetchBroadcastNotice();
+    const timer = setInterval(() => {
+      fetchBroadcastNotice();
+    }, 45000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!installId) return;
     fetchDuelStatus();
     const timer = setInterval(() => {
@@ -9505,25 +9801,22 @@ export default function App() {
       });
       return;
     }
+    const saved =
+      installId ? readDuelObjectiveAnimationsState(installId, dateId) : null;
     setDuelObjectivesPopupDismissedDateId((prev) => (prev && prev !== dateId ? "" : prev));
-    setDuelConsumedValidatedByView((prev) => {
-      const popupState = prev?.popup || { dateId: "", keys: [] };
-      const pageState = prev?.page || { dateId: "", keys: [] };
-      let changed = false;
-      const nextPopup =
-        popupState.dateId === dateId ? popupState : { dateId, keys: [] };
-      const nextPage =
-        pageState.dateId === dateId ? pageState : { dateId, keys: [] };
-      if (nextPopup !== popupState || nextPage !== pageState) changed = true;
-      return changed
-        ? {
-            ...prev,
-            popup: nextPopup,
-            page: nextPage,
-          }
-        : prev;
-    });
-  }, [duelStatus?.objectives?.dateId, duelStatus?.dateId]);
+    setDuelConsumedValidatedByView(
+      saved || {
+        popup: { dateId, keys: [] },
+        page: { dateId, keys: [] },
+      }
+    );
+  }, [duelStatus?.objectives?.dateId, duelStatus?.dateId, installId]);
+
+  useEffect(() => {
+    const dateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
+    if (!installId || !dateId) return;
+    writeDuelObjectiveAnimationsState(installId, dateId, duelConsumedValidatedByView);
+  }, [installId, duelStatus?.objectives?.dateId, duelStatus?.dateId, duelConsumedValidatedByView]);
 
   useEffect(() => {
     if (!installId) return;
@@ -9663,6 +9956,44 @@ export default function App() {
     socket.on("connect", onConnect);
     return () => socket.off("connect", onConnect);
   }, [isLoggedIn, roomId]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      lobbyPresenceRef.current = new Set();
+      setHomeChatUnreadCount(0);
+      if (isHomeChatOpen) setIsHomeChatOpen(false);
+      lobbyChatSubscriptionRef.current = {
+        roomId: null,
+        subscribed: false,
+        inFlight: false,
+        connectPending: false,
+      };
+    }
+  }, [isLoggedIn, isHomeChatOpen]);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    const isHomeLobbyView = appView === "home";
+    if (!isHomeLobbyView) return;
+    fetchLobbyPlayers();
+    const timer = setInterval(() => {
+      fetchLobbyPlayers();
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isLoggedIn, appView, roomId]);
+
+  useEffect(() => {
+    const isHomeLobbyView = !isLoggedIn && appView === "home";
+    if (!isHomeLobbyView && isHomeChatOpen) {
+      setIsHomeChatOpen(false);
+    }
+  }, [isLoggedIn, appView, isHomeChatOpen]);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    if (!isHomeChatOpen && !isChatOpenMobile) return;
+    subscribeLobbyChat({ force: true });
+  }, [isLoggedIn, isHomeChatOpen, isChatOpenMobile, roomId]);
 
   useEffect(() => {
     if (!isWeeklyOpen || statsTab !== "weekly") {
@@ -9815,6 +10146,17 @@ export default function App() {
     runHealthCheck(reason);
   }
 
+  function scheduleForegroundRetry(reason = "foreground_retry", delayMs = 1200) {
+    if (foregroundRetryTimerRef.current) {
+      clearTimeout(foregroundRetryTimerRef.current);
+      foregroundRetryTimerRef.current = null;
+    }
+    foregroundRetryTimerRef.current = setTimeout(() => {
+      foregroundRetryTimerRef.current = null;
+      handleForeground(reason);
+    }, Math.max(200, Number(delayMs) || 1200));
+  }
+
   function handleManualRefresh() {
     if (manualRefreshTimerRef.current) {
       clearTimeout(manualRefreshTimerRef.current);
@@ -9840,19 +10182,50 @@ export default function App() {
       if (document.visibilityState === "visible") {
         isBackgroundedRef.current = false;
         handleForeground("visibility");
+        scheduleForegroundRetry("visibility_retry", 1400);
       }
     };
     const onFocus = () => handleForeground("focus");
     const onOnline = () => handleForeground("online");
+    const onPageShow = () => {
+      isBackgroundedRef.current = false;
+      handleForeground("pageshow");
+      scheduleForegroundRetry("pageshow_retry", 1200);
+    };
+    const onInteraction = () => {
+      if (!isLoggedInRef.current) return;
+      if (socket.connected) return;
+      handleForeground("interaction");
+    };
     window.addEventListener("focus", onFocus);
     window.addEventListener("online", onOnline);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("pointerdown", onInteraction, { passive: true });
+    window.addEventListener("touchstart", onInteraction, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      if (foregroundRetryTimerRef.current) {
+        clearTimeout(foregroundRetryTimerRef.current);
+        foregroundRetryTimerRef.current = null;
+      }
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("pointerdown", onInteraction);
+      window.removeEventListener("touchstart", onInteraction);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (socket.connected) return;
+      handleForeground("retry_timer");
+    }, 4500);
+    return () => clearInterval(id);
+  }, [isLoggedIn, isDailyView]);
 
   useEffect(() => {
     if (watchdogTimerRef.current) {
@@ -10017,6 +10390,8 @@ export default function App() {
     gridQuality = null,
     nextSpecial = null
   ) {
+    setInputLocked(false);
+    inputLockedRef.current = false;
     const derivedSize =
       incomingGridSize ||
       Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
@@ -10212,6 +10587,8 @@ export default function App() {
   }
 
   function startGame() {
+    setInputLocked(false);
+    inputLockedRef.current = false;
     const base = generateGrid(gridSize);
 
     setBoard(base);
@@ -10458,11 +10835,73 @@ export default function App() {
     }, CHAT_DRAWER_ANIM_MS);
   }
 
+  function subscribeLobbyChat({ force = false } = {}) {
+    if (isLoggedInRef.current) return;
+    const roomToUse = roomIdRef.current || getDefaultRoomId();
+    if (!roomToUse) return;
+    const state = lobbyChatSubscriptionRef.current;
+
+    const runSubscribe = () => {
+      if (!force && state.subscribed && state.roomId === roomToUse) return;
+      if (state.inFlight) return;
+      state.inFlight = true;
+      socket.emit("chat:subscribe", { roomId: roomToUse }, (res) => {
+        state.inFlight = false;
+        if (res?.ok) {
+          state.subscribed = true;
+          state.roomId = res.roomId || roomToUse;
+          setConnectionError("");
+        } else {
+          state.subscribed = false;
+          state.roomId = null;
+        }
+      });
+    };
+
+    if (socket.connected) {
+      runSubscribe();
+      return;
+    }
+    if (state.connectPending) return;
+    state.connectPending = true;
+    const onConnect = () => {
+      socket.off("connect_error", onError);
+      state.connectPending = false;
+      runSubscribe();
+    };
+    const onError = () => {
+      socket.off("connect", onConnect);
+      state.connectPending = false;
+    };
+    socket.once("connect", onConnect);
+    socket.once("connect_error", onError);
+    socket.connect();
+  }
+
   function requestOpenChat() {
     openChatPanel();
+    if (!isLoggedInRef.current) {
+      subscribeLobbyChat();
+    }
     if (!chatRulesAccepted) {
       setIsChatRulesOpen(true);
     }
+  }
+
+  function openHomeChat() {
+    setHomeChatUnreadCount(0);
+    if (isMobileLayout) {
+      requestOpenChat();
+      return;
+    }
+    if (!isLoggedInRef.current) {
+      subscribeLobbyChat();
+    }
+    setIsHomeChatOpen(true);
+  }
+
+  function closeHomeChat() {
+    setIsHomeChatOpen(false);
   }
 
   function confirmChatRules() {
@@ -10693,6 +11132,302 @@ export default function App() {
 
   function closeRecordModal() {
     setRecordModal((prev) => ({ ...prev, open: false }));
+  }
+
+  function buildRoundWordsForPlayer(nick) {
+    const cleanNick = String(nick || "").trim();
+    if (!cleanNick) return [];
+    const entry = Array.isArray(finalResults)
+      ? finalResults.find((row) => String(row?.nick || "").trim() === cleanNick)
+      : null;
+    if (!entry || !Array.isArray(entry.words)) return [];
+    const isSpeedRound = specialRound?.type === "speed";
+    const scoreAllowed = !isSpeedRound && !isTargetRound;
+    const scoreCache = new Map();
+    const getStats = (rawWord) => {
+      const word = String(rawWord || "").trim();
+      const norm = normalizeWord(word);
+      if (!norm) return { pts: null, len: word.length };
+      if (scoreCache.has(norm)) return scoreCache.get(norm);
+      const path = findBestPathForWord(board, norm, specialScoreConfig);
+      if (!path) {
+        const fallback = { pts: null, len: norm.length };
+        scoreCache.set(norm, fallback);
+        return fallback;
+      }
+      const stats = {
+        pts: scoreAllowed ? computeScore(norm, path, board, specialScoreConfig) : null,
+        len: norm.length,
+      };
+      scoreCache.set(norm, stats);
+      return stats;
+    };
+
+    let maxPts = null;
+    let maxLen = 0;
+    if (Array.isArray(finalResults)) {
+      finalResults.forEach((row) => {
+        if (!Array.isArray(row?.words)) return;
+        row.words.forEach((word) => {
+          const stats = getStats(word);
+          if (scoreAllowed && Number.isFinite(stats.pts)) {
+            maxPts = Number.isFinite(maxPts) ? Math.max(maxPts, stats.pts) : stats.pts;
+          }
+          if (Number.isFinite(stats.len)) {
+            maxLen = Math.max(maxLen, stats.len);
+          }
+        });
+      });
+    }
+
+    const unique = new Set();
+    const list = [];
+    entry.words.forEach((raw) => {
+      const word = String(raw || "").trim();
+      if (!word) return;
+      const key = word.toLowerCase();
+      if (unique.has(key)) return;
+      unique.add(key);
+      const stats = getStats(word);
+      const hasBestScore = scoreAllowed && Number.isFinite(stats.pts) && Number.isFinite(maxPts) && stats.pts === maxPts;
+      const hasLongest = Number.isFinite(stats.len) && maxLen > 0 && stats.len === maxLen;
+      const gobbleActive = isSpeedRound ? hasLongest : hasBestScore || hasLongest;
+      list.push({
+        word,
+        pts: scoreAllowed && Number.isFinite(stats.pts) ? stats.pts : null,
+        len: Number.isFinite(stats.len) ? stats.len : 0,
+        isGobble: !!gobbleActive,
+      });
+    });
+    list.sort((a, b) => {
+      if (scoreAllowed) {
+        const ptsDiff = (Number(b?.pts) || 0) - (Number(a?.pts) || 0);
+        if (ptsDiff !== 0) return ptsDiff;
+      }
+      const lenDiff = (Number(b?.len) || 0) - (Number(a?.len) || 0);
+      if (lenDiff !== 0) return lenDiff;
+      return String(a?.word || "").localeCompare(String(b?.word || ""), "fr", {
+        sensitivity: "base",
+      });
+    });
+    return list;
+  }
+
+  function getRoundRecordsForPlayer(nick) {
+    const cleanNick = String(nick || "").trim();
+    if (!cleanNick || !recordBadgesByNickForRound) return [];
+    if (typeof recordBadgesByNickForRound.get === "function") {
+      return recordBadgesByNickForRound.get(cleanNick) || [];
+    }
+    return recordBadgesByNickForRound[cleanNick] || [];
+  }
+
+  function buildTargetWeeklyLeaderboard(boardKey) {
+    if (!boardKey) return [];
+    const boards = weeklyStats?.boards && typeof weeklyStats.boards === "object" ? weeklyStats.boards : {};
+    const source = Array.isArray(boards[boardKey]) ? boards[boardKey] : [];
+    const cap = Math.max(Number(weeklyStats?.topN) || 50, 50);
+    const ranked = dedupeWeeklyEntries(boardKey, source, cap);
+    return ranked.map((item, index) => ({
+      rank: index + 1,
+      nick: item?.nick || `Joueur ${index + 1}`,
+      ms: Number.isFinite(item?.ms) ? item.ms : null,
+      isSelf:
+        String(item?.nick || "").trim().toLowerCase() ===
+        String(nicknameRef.current || "").trim().toLowerCase(),
+    }));
+  }
+
+  function getRoundPlayerAnchorRectFromElement(anchorElement, expectedNick = "") {
+    if (!(anchorElement instanceof HTMLElement)) return null;
+    if (typeof document === "undefined") return null;
+    if (!anchorElement.isConnected) return null;
+    const expected = String(expectedNick || "").trim();
+    const elementNick = String(anchorElement.dataset?.roundPlayerNick || "").trim();
+    if (expected && elementNick && elementNick !== expected) return null;
+    const rect = anchorElement.getBoundingClientRect?.();
+    if (
+      !rect ||
+      !Number.isFinite(rect.left) ||
+      !Number.isFinite(rect.top) ||
+      !Number.isFinite(rect.width) ||
+      !Number.isFinite(rect.height)
+    ) {
+      return null;
+    }
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  function findRoundPlayerAnchorRectByNick(nick, preferredRect = null) {
+    const cleanNick = String(nick || "").trim();
+    if (!cleanNick || typeof document === "undefined") return null;
+    const nodes = document.querySelectorAll("[data-round-player-anchor='1']");
+    if (!nodes || !nodes.length) return null;
+    const viewportHeight =
+      Number.isFinite(window?.innerHeight) && window.innerHeight > 0
+        ? window.innerHeight
+        : Number.POSITIVE_INFINITY;
+    const viewportWidth =
+      Number.isFinite(window?.innerWidth) && window.innerWidth > 0
+        ? window.innerWidth
+        : Number.POSITIVE_INFINITY;
+    const preferredCenterX =
+      Number.isFinite(preferredRect?.left) && Number.isFinite(preferredRect?.width)
+        ? preferredRect.left + preferredRect.width / 2
+        : null;
+    const preferredCenterY =
+      Number.isFinite(preferredRect?.top) && Number.isFinite(preferredRect?.height)
+        ? preferredRect.top + preferredRect.height / 2
+        : null;
+    let best = null;
+    nodes.forEach((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      const nodeNick = String(node.dataset?.roundPlayerNick || "").trim();
+      if (!nodeNick || nodeNick !== cleanNick) return;
+      const rect = node.getBoundingClientRect?.();
+      if (
+        !rect ||
+        !Number.isFinite(rect.left) ||
+        !Number.isFinite(rect.top) ||
+        !Number.isFinite(rect.width) ||
+        !Number.isFinite(rect.height)
+      ) {
+        return;
+      }
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const visible =
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < viewportHeight &&
+        rect.left < viewportWidth;
+      const area = rect.width * rect.height;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distance =
+        Number.isFinite(preferredCenterX) && Number.isFinite(preferredCenterY)
+          ? Math.hypot(centerX - preferredCenterX, centerY - preferredCenterY)
+          : Number.POSITIVE_INFINITY;
+      if (!best) {
+        best = { rect, area, visible, distance };
+        return;
+      }
+      if (visible && !best.visible) {
+        best = { rect, area, visible, distance };
+        return;
+      }
+      if (visible === best.visible) {
+        if (Number.isFinite(distance) && Number.isFinite(best.distance)) {
+          if (distance < best.distance - 0.5) {
+            best = { rect, area, visible, distance };
+            return;
+          }
+          if (Math.abs(distance - best.distance) <= 0.5 && area > best.area) {
+            best = { rect, area, visible, distance };
+          }
+          return;
+        }
+        if (area > best.area) {
+          best = { rect, area, visible, distance };
+        }
+      }
+    });
+    if (!best?.rect) return null;
+    return {
+      left: best.rect.left,
+      top: best.rect.top,
+      width: best.rect.width,
+      height: best.rect.height,
+    };
+  }
+
+  function openRoundPlayerModal(entry, anchorElement = null, clickPoint = null) {
+    const nick = String(entry?.nick || "").trim();
+    if (!nick) return;
+    const records = getRoundRecordsForPlayer(nick);
+    let targetBoardKey = "";
+    let targetBoardLabel = "";
+    let targetBoardEntries = [];
+    if (isTargetRound) {
+      if (!records.length) return;
+      const recordBoardKey =
+        records.find(
+          (record) =>
+            record?.categoryKey === "bestTimeTargetLong" ||
+            record?.categoryKey === "bestTimeTargetScore"
+        )?.categoryKey || "";
+      targetBoardKey =
+        specialRound?.type === "target_score"
+          ? "bestTimeTargetScore"
+          : specialRound?.type === "target_long"
+          ? "bestTimeTargetLong"
+          : recordBoardKey;
+      targetBoardLabel = WEEKLY_RECORD_LABELS[targetBoardKey] || "Classement hebdo";
+      targetBoardEntries = buildTargetWeeklyLeaderboard(targetBoardKey);
+    }
+    const rawRect = anchorElement?.getBoundingClientRect?.();
+    const hasPoint =
+      clickPoint &&
+      Number.isFinite(clickPoint.clientX) &&
+      Number.isFinite(clickPoint.clientY);
+    const anchorRect =
+      rawRect &&
+      Number.isFinite(rawRect.left) &&
+      Number.isFinite(rawRect.top) &&
+      Number.isFinite(rawRect.width) &&
+      Number.isFinite(rawRect.height)
+        ? {
+            left: rawRect.left,
+            top: rawRect.top,
+            width: rawRect.width,
+            height: rawRect.height,
+          }
+        : hasPoint
+        ? {
+            left: clickPoint.clientX,
+            top: clickPoint.clientY,
+            width: 0,
+            height: 0,
+          }
+        : null;
+    roundPlayerAnchorElementRef.current =
+      anchorElement instanceof HTMLElement ? anchorElement : null;
+    roundPlayerAnchorNickRef.current = nick;
+    setRoundPlayerModal({
+      open: true,
+      nick,
+      words: isTargetRound ? [] : buildRoundWordsForPlayer(nick),
+      records,
+      anchorRect,
+      targetBoardKey,
+      targetBoardLabel,
+      targetBoardEntries,
+    });
+  }
+
+  function closeRoundPlayerModal({ withSound = true } = {}) {
+    if (withSound) playCloseSound();
+    setRoundPlayerModal((prev) => {
+      if (!prev.open) return prev;
+      const anchorFromElement = getRoundPlayerAnchorRectFromElement(
+        roundPlayerAnchorElementRef.current,
+        roundPlayerAnchorNickRef.current || prev.nick
+      );
+      const liveAnchorRect =
+        anchorFromElement || findRoundPlayerAnchorRectByNick(prev.nick, prev.anchorRect);
+      return {
+        ...prev,
+        open: false,
+        anchorRect: liveAnchorRect || prev.anchorRect || null,
+      };
+    });
+    roundPlayerAnchorElementRef.current = null;
+    roundPlayerAnchorNickRef.current = "";
   }
 
   /**
@@ -11608,6 +12343,8 @@ function handleTouchEnd() {
     }
 
     if (roundId && (!socket.connected || !isLoggedIn)) {
+      handleForeground("submit_disconnected");
+      scheduleForegroundRetry("submit_retry", 1200);
       return error("Reconnecte-toi au serveur pour valider");
     }
 
@@ -11678,19 +12415,43 @@ function handleTouchEnd() {
       setIsChatRulesOpen(true);
       return;
     }
+
+    if (!socket.connected) {
+      if (!isLoggedInRef.current) {
+        subscribeLobbyChat();
+        setConnectionError("Connexion au serveur...");
+      } else {
+        setConnectionError("Connecte-toi au serveur pour envoyer un message.");
+      }
+      return;
+    }
+
     const now = Date.now();
     if (now - chatLastSentRef.current < CHAT_MIN_DELAY) return;
     chatLastSentRef.current = now;
 
-    if (!socket.connected) {
-      setConnectionError("Connecte-toi au serveur pour envoyer un message.");
-      return;
+    let payload = text;
+    if (!isLoggedInRef.current) {
+      const nickForLobby = (nicknameRef.current || nickname || "").trim();
+      if (!nickForLobby) {
+        setConnectionError("Choisis un pseudo pour discuter.");
+        return;
+      }
+      payload = {
+        text,
+        roomId: roomIdRef.current || getDefaultRoomId(),
+        nick: nickForLobby,
+        installId,
+        lobby: true,
+      };
     }
 
-    socket.emit("chat:send", text, (res) => {
+    socket.emit("chat:send", payload, (res) => {
       if (!res?.ok) {
         if (res?.error === "muted") {
           showToast("Chat temporairement bloqué");
+        } else if (res?.error === "empty_nick") {
+          setConnectionError("Choisis un pseudo pour discuter.");
         } else {
           setConnectionError("Message non envoyé");
         }
@@ -12667,8 +13428,11 @@ function handleTouchEnd() {
         <div className="text-center text-xs font-semibold tracking-widest text-slate-500">
           LE MOT ETAIT
         </div>
-        <div className="text-center text-2xl sm:text-3xl font-black tracking-tight break-all">
-          <span className="inline-flex items-center justify-center gap-2">
+        <div className="text-center text-2xl sm:text-3xl font-black tracking-tight">
+          <AutoScaleInline
+            minScale={wordLength > 10 ? 0.54 : 0.62}
+            className="gap-2 align-middle"
+          >
             <span>{word || "?"}</span>
             {cleanWord ? (
               <button
@@ -12701,7 +13465,7 @@ function handleTouchEnd() {
                 </svg>
               </button>
             ) : null}
-          </span>
+          </AutoScaleInline>
         </div>
         {wordLength ? (
           <div className="text-center text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-300">
@@ -12734,9 +13498,22 @@ function handleTouchEnd() {
       return !authorInstallId || !blockedInstallIdSet.has(authorInstallId);
     });
   }, [chatMessages, blockedInstallIdSet]);
-  const visibleMessages = filteredChatMessages.slice(-chatVisibleLimit);
+  const chatMessagesOnly = React.useMemo(
+    () => filteredChatMessages.filter((msg) => !isSystemChatMessage(msg)),
+    [filteredChatMessages]
+  );
+  const chatSystemMessages = React.useMemo(
+    () => filteredChatMessages.filter((msg) => isSystemChatMessage(msg)),
+    [filteredChatMessages]
+  );
+  const safeChatTab = chatTab === "system" ? "system" : "messages";
+  const activeChatMessages =
+    safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
+  const visibleMessages = activeChatMessages.slice(-chatVisibleLimit);
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
+  const chatMessagesCount = chatMessagesOnly.length;
+  const chatSystemCount = chatSystemMessages.length;
 
   const selfNick = nickname.trim();
   const blockedCount = blockedInstallIds.length;
@@ -13565,6 +14342,7 @@ function handleTouchEnd() {
       const cleanNick = nick ? String(nick).trim() : "";
       if (!cleanNick) return;
       if (team !== "red" && team !== "blue") return;
+      if (map.has(cleanNick)) return;
       map.set(cleanNick, team);
     };
     players.forEach((entry) => put(entry?.nick, entry?.team));
@@ -15605,6 +16383,26 @@ function handleTouchEnd() {
           document.body
         )
       : null;
+  const roundPlayerModalView = (
+    <RoundPlayerDetailsModal
+      open={roundPlayerModal.open}
+      darkMode={darkMode}
+      playerNick={roundPlayerModal.nick}
+      words={roundPlayerModal.words}
+      records={roundPlayerModal.records}
+      anchorRect={roundPlayerModal.anchorRect}
+      targetBoardKey={roundPlayerModal.targetBoardKey}
+      targetBoardLabel={roundPlayerModal.targetBoardLabel}
+      targetBoardEntries={roundPlayerModal.targetBoardEntries}
+      gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
+      showWordScores={specialRound?.type !== "speed"}
+      onClose={() => closeRoundPlayerModal({ withSound: true })}
+      onOpenDefinition={(word) => {
+        if (!word) return;
+        openDefinition(word, { fromWordInfo: true });
+      }}
+    />
+  );
 
   const recordModalRecords =
     Array.isArray(recordModal.records) && recordModal.records.length
@@ -16342,13 +17140,17 @@ function handleTouchEnd() {
   ) : null;
 
   const mobileChatLayer =
-    isLoggedIn ? (
+    isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home")) ? (
       <MobileChatWidget
         chatInput={chatInput}
         chatInputRef={chatInputRef}
         chatInputType={chatInputType}
         chatInputDisabled={chatInputDisabled}
         chatInputPlaceholder={chatInputPlaceholder}
+        chatTab={chatTab}
+        onChangeChatTab={setChatTab}
+        messagesCount={chatMessagesCount}
+        systemCount={chatSystemCount}
         onChatInputFocus={handleChatInputFocus}
         chatOverlayStyle={globalChatOverlayStyle}
         chatViewportStyle={chatViewportStyle}
@@ -16374,9 +17176,37 @@ function handleTouchEnd() {
         setChatInput={setChatInput}
         setIsChatOpenMobile={closeChatPanel}
         submitChat={submitChat}
+        showLauncherButton={isLoggedIn}
         visibleMessages={visibleMessages}
       />
     ) : null;
+  const homeChatVisibleMessages = React.useMemo(() => {
+    const source = safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
+    const cap = 120;
+    if (!Array.isArray(source)) return [];
+    if (source.length <= cap) return source;
+    return source.slice(-cap);
+  }, [safeChatTab, chatSystemMessages, chatMessagesOnly]);
+  const homeChatModalView = (
+    <HomeChatModal
+      open={isHomeChatOpen}
+      darkMode={darkMode}
+      chatTab={safeChatTab}
+      onChangeTab={setChatTab}
+      onClose={closeHomeChat}
+      messagesCount={chatMessagesCount}
+      systemCount={chatSystemCount}
+      messages={homeChatVisibleMessages}
+      chatInput={chatInput}
+      setChatInput={setChatInput}
+      onInputFocus={handleChatInputFocus}
+      onSubmit={() => submitChat(null)}
+      chatInputDisabled={chatInputDisabled}
+      chatInputPlaceholder={chatInputPlaceholder}
+      selfNick={selfNick}
+      selfInstallId={installId}
+    />
+  );
   const devNowMs = DEV_MODE ? Date.now() : 0;
   const devLastLongTaskAge =
     devPerfStats.lastLongTaskAt != null
@@ -16406,6 +17236,29 @@ function handleTouchEnd() {
   const duelContributorsBlue = Array.isArray(duelContributorsByTeam.blue)
     ? [...duelContributorsByTeam.blue].sort(duelContributorsSort)
     : [];
+  const broadcastMessageKey = getBroadcastMessageKey(broadcastNotice?.message);
+  const broadcastSeenStorageKey = getBroadcastSeenStorageKey(installId, broadcastMessageKey);
+  const broadcastAlreadySeen = React.useMemo(() => {
+    if (!broadcastSeenStorageKey) return true;
+    try {
+      return localStorage.getItem(broadcastSeenStorageKey) === "1";
+    } catch (_) {
+      return false;
+    }
+  }, [broadcastSeenStorageKey, broadcastSeenNonce]);
+  const isHomeLobbyView = !isLoggedIn && phase === "lobby" && appView === "home";
+  const shouldShowBroadcastPopup =
+    isHomeLobbyView &&
+    !duelPopupState?.mode &&
+    !!broadcastNotice?.message &&
+    !broadcastAlreadySeen;
+  const broadcastPopupOverlay = shouldShowBroadcastPopup ? (
+    <BroadcastNoticePopup
+      darkMode={darkMode}
+      message={broadcastNotice?.message}
+      onClose={dismissBroadcastNotice}
+    />
+  ) : null;
   const duelTeamTintColor =
     duelTeam === "red"
       ? "rgba(239, 68, 68, 0.05)"
@@ -16515,6 +17368,7 @@ function handleTouchEnd() {
       {chatRulesModal}
       {definitionModalView}
       {wordInfoModalView}
+      {roundPlayerModalView}
       {recordModalView}
       {vocabOverlayView}
       {tutorialOverlay}
@@ -16522,11 +17376,12 @@ function handleTouchEnd() {
       {settingsMenuView}
       {aboutModalView}
       {mobileChatLayer}
+      {homeChatModalView}
       {devPerfOverlay}
       <ToastStack toasts={toasts} darkMode={darkMode} />
     </>
   );
-  if (isBootBlocking) {
+  if (shouldShowBootOverlay) {
     return bootOverlay;
   }
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
@@ -16938,6 +17793,7 @@ function handleTouchEnd() {
         {tutorialOverlay}
         {settingsMenuView}
         {aboutModalView}
+        {homeChatModalView}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -17249,6 +18105,7 @@ function handleTouchEnd() {
         {bootOverlay}
         {teamTintOverlay}
         {duelPopupOverlay}
+        {broadcastPopupOverlay}
         {playersOverlay}
         {definitionModalView}
         {tutorialOverlay}
@@ -17400,6 +18257,7 @@ function handleTouchEnd() {
 
           <form
             onSubmit={handleLoginOrResume}
+            autoComplete="off"
             className={`rounded-xl p-4 flex flex-col gap-2 border ${
               darkMode ? "bg-slate-800/70 border-white/10" : "bg-white border-slate-200"
             }`}
@@ -17408,6 +18266,7 @@ function handleTouchEnd() {
               Pseudo
               <input
                 type="text"
+                autoComplete="off"
                 className="mt-1 w-full px-3 py-2 rounded-lg bg-white text-slate-900 outline-none border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/60 ios-input"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
@@ -17446,6 +18305,19 @@ function handleTouchEnd() {
             >
               Joueurs en jeu ({playersCountForLobby})
             </button>
+            <button
+              type="button"
+              className="relative px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
+              onClick={openHomeChat}
+              disabled={isConnecting}
+            >
+              Chat
+              {homeChatUnreadCount > 0 ? (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-[10px] font-extrabold text-white inline-flex items-center justify-center shadow">
+                  {homeChatUnreadCount >= 10 ? "9+" : homeChatUnreadCount}
+                </span>
+              ) : null}
+            </button>
           </form>
           <DuelWeeklyWidget
             darkMode={darkMode}
@@ -17470,6 +18342,8 @@ function handleTouchEnd() {
 
         </div>
         </div>
+        {mobileChatLayer}
+        {homeChatModalView}
       </>
     );
   }
@@ -17713,6 +18587,18 @@ function handleTouchEnd() {
           }`}
         >
           <style>{slideStyles}</style>
+          <button
+            type="button"
+            className={`fixed top-3 right-3 z-[20012] h-10 w-10 rounded-full border flex items-center justify-center transition ${
+              darkMode
+                ? "bg-slate-800/90 border-white/10 text-slate-100 hover:bg-slate-700/90"
+                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+            }`}
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="Ouvrir les paramètres"
+          >
+            <span className="material-symbols-outlined text-[24px] leading-none">settings</span>
+          </button>
           <div className={finaleShellClass} style={finaleShellStyle}>
             <div className="flex flex-col min-h-0 h-full gap-3">
               <div className="text-center flex flex-col justify-center" style={finaleHeaderStyle}>
@@ -17898,8 +18784,49 @@ function handleTouchEnd() {
                     </button>
                   </div>
                 </div>
+                <div className="mb-2">
+                  <div
+                    className={`inline-flex rounded-full border p-1 ${
+                      darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                        safeChatTab === "messages"
+                          ? "bg-blue-600 text-white"
+                          : darkMode
+                          ? "text-slate-200"
+                          : "text-slate-700"
+                      }`}
+                      onClick={() => setChatTab("messages")}
+                    >
+                      Messages ({chatMessagesCount})
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                        safeChatTab === "system"
+                          ? "bg-orange-500 text-white"
+                          : darkMode
+                          ? "text-slate-200"
+                          : "text-slate-700"
+                      }`}
+                      onClick={() => setChatTab("system")}
+                    >
+                      Système ({chatSystemCount})
+                    </button>
+                  </div>
+                </div>
                 {renderBlockedListPanel()}
                 <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
+                  {visibleMessages.length === 0 ? (
+                    <div className="text-sm text-slate-400 text-center mt-4">
+                      {safeChatTab === "system"
+                        ? "Aucun log de connexion/deconnexion."
+                        : "Aucun message pour l'instant."}
+                    </div>
+                  ) : null}
                   {visibleMessages.map((msg, idx) => {
                     const count = visibleMessages.length;
                     const rankFromBottom = count - 1 - idx;
@@ -17970,59 +18897,65 @@ function handleTouchEnd() {
                   })}
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {QUICK_REPLIES.map((txt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => submitChat(null, txt)}
-                      disabled={chatInputDisabled}
-                      className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {txt}
-                    </button>
-                  ))}
-                </div>
+                {safeChatTab !== "system" ? (
+                  <>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {QUICK_REPLIES.map((txt, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => submitChat(null, txt)}
+                          disabled={chatInputDisabled}
+                          className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {txt}
+                        </button>
+                      ))}
+                    </div>
 
-                <div className="mt-3 flex gap-2">
-                  <input
-                    ref={chatInputRef}
-                    type={chatInputType}
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    inputMode="text"
-                    enterKeyHint="send"
-                    data-form-type="other"
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-bwignore="true"
-                    data-autofill="off"
-                    aria-autocomplete="none"
-                    aria-label="Message du chat"
-                    onFocus={handleChatInputFocus}
-                    readOnly={chatInputDisabled}
-                    aria-disabled={chatInputDisabled}
-                    className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
-                    placeholder={chatInputPlaceholder}
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={handleChatInputKeyDown}
-                  />
-                  <button
-                    type="button"
-                    className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
-                    disabled={!chatInput.trim() || chatInputDisabled}
-                    onClick={() => submitChat(null)}
-                  >
-                    Envoyer
-                  </button>
-                </div>
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        ref={chatInputRef}
+                        type={chatInputType}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        inputMode="text"
+                        enterKeyHint="send"
+                        data-form-type="other"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-autofill="off"
+                        aria-autocomplete="none"
+                        aria-label="Message du chat"
+                        onFocus={handleChatInputFocus}
+                        readOnly={chatInputDisabled}
+                        aria-disabled={chatInputDisabled}
+                        className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
+                        placeholder={chatInputPlaceholder}
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={handleChatInputKeyDown}
+                      />
+                      <button
+                        type="button"
+                        className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                        disabled={!chatInput.trim() || chatInputDisabled}
+                        onClick={() => submitChat(null)}
+                      >
+                        Envoyer
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>
         </div>
+        {settingsMenuView}
+        {aboutModalView}
         {praiseOverlay}
         {chatOverlays}
       </>
@@ -18766,7 +19699,21 @@ function handleTouchEnd() {
                               ? recordBadgesByNickForRound
                               : null
                           }
-                          onRecordBadgeClick={openRecordModal}
+                          onPlayerNickClick={
+                            resultsRankingModeForMobile === "round"
+                              ? openRoundPlayerModal
+                              : null
+                          }
+                          isPlayerNickClickable={
+                            resultsRankingModeForMobile === "round"
+                              ? (rankingEntry) => {
+                                  if (!isTargetRound) return true;
+                                  const nick = String(rankingEntry?.nick || "").trim();
+                                  if (!nick) return false;
+                                  return getRoundRecordsForPlayer(nick).length > 0;
+                                }
+                              : null
+                          }
                         />
                       </div>
                     </div>
@@ -19107,6 +20054,9 @@ function handleTouchEnd() {
                 items={mobileAnnouncements}
                 darkMode={darkMode}
                 maxHeight="100%"
+                wrapAroundBottomRight={!isChatOpenMobile}
+                wrapAroundWidth="clamp(44px, 11vw, 68px)"
+                wrapAroundHeight="clamp(44px, 11vw, 68px)"
               />
             </div>
           </div>
@@ -19402,7 +20352,19 @@ function handleTouchEnd() {
           recordBadgesByNick={
             resultsRankingMode === "round" ? recordBadgesByNickForRound : null
           }
-          onRecordBadgeClick={openRecordModal}
+          onPlayerNickClick={
+            resultsRankingMode === "round" ? openRoundPlayerModal : null
+          }
+          isPlayerNickClickable={
+            resultsRankingMode === "round"
+              ? (rankingEntry) => {
+                  if (!isTargetRound) return true;
+                  const nick = String(rankingEntry?.nick || "").trim();
+                  if (!nick) return false;
+                  return getRoundRecordsForPlayer(nick).length > 0;
+                }
+              : null
+          }
         />
       </div>
 
@@ -20014,12 +20976,53 @@ function handleTouchEnd() {
             </button>
             </div>
           </div>
+          <div className="mb-2">
+            <div
+              className={`inline-flex rounded-full border p-1 ${
+                darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
+              }`}
+            >
+              <button
+                type="button"
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                  safeChatTab === "messages"
+                    ? "bg-blue-600 text-white"
+                    : darkMode
+                    ? "text-slate-200"
+                    : "text-slate-700"
+                }`}
+                onClick={() => setChatTab("messages")}
+              >
+                Messages ({chatMessagesCount})
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                  safeChatTab === "system"
+                    ? "bg-orange-500 text-white"
+                    : darkMode
+                    ? "text-slate-200"
+                    : "text-slate-700"
+                }`}
+                onClick={() => setChatTab("system")}
+              >
+                Système ({chatSystemCount})
+              </button>
+            </div>
+          </div>
           {renderBlockedListPanel()}
 
           <div
             ref={chatDesktopListRef}
             className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col justify-end overflow-hidden"
           >
+            {visibleMessages.length === 0 ? (
+              <div className="text-sm text-slate-400 text-center mt-4">
+                {safeChatTab === "system"
+                  ? "Aucun log de connexion/deconnexion."
+                  : "Aucun message pour l'instant."}
+              </div>
+            ) : null}
             {visibleMessages.map((msg, idx) => {
               // idx = 0 (en haut) -> plus ancien, idx = dernier -> plus r?cent
               const count = visibleMessages.length;
@@ -20093,55 +21096,59 @@ function handleTouchEnd() {
             })}
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-2">
-            {QUICK_REPLIES.map((txt, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => submitChat(null, txt)}
-                disabled={chatInputDisabled}
-              className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {txt}
-            </button>
-          ))}
-          </div>
+          {safeChatTab !== "system" ? (
+            <>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {QUICK_REPLIES.map((txt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => submitChat(null, txt)}
+                    disabled={chatInputDisabled}
+                    className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {txt}
+                  </button>
+                ))}
+              </div>
 
-        <div className="mt-3 flex gap-2">
-          <input
-            ref={chatInputRef}
-            type={chatInputType}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              inputMode="text"
-              enterKeyHint="send"
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-bwignore="true"
-              data-autofill="off"
-              aria-autocomplete="none"
-              aria-label="Message du chat"
-            onFocus={handleChatInputFocus}
-            readOnly={chatInputDisabled}
-            aria-disabled={chatInputDisabled}
-            className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
-            placeholder={chatInputPlaceholder}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={handleChatInputKeyDown}
-          />
-          <button
-            type="button"
-            className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={!chatInput.trim() || chatInputDisabled}
-            onClick={() => submitChat(null)}
-          >
-            Envoyer
-          </button>
-          </div>
+              <div className="mt-3 flex gap-2">
+                <input
+                  ref={chatInputRef}
+                  type={chatInputType}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  inputMode="text"
+                  enterKeyHint="send"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-autofill="off"
+                  aria-autocomplete="none"
+                  aria-label="Message du chat"
+                  onFocus={handleChatInputFocus}
+                  readOnly={chatInputDisabled}
+                  aria-disabled={chatInputDisabled}
+                  className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
+                  placeholder={chatInputPlaceholder}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={handleChatInputKeyDown}
+                />
+                <button
+                  type="button"
+                  className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                  disabled={!chatInput.trim() || chatInputDisabled}
+                  onClick={() => submitChat(null)}
+                >
+                  Envoyer
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
         )}
       </div>

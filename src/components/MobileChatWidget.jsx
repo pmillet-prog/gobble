@@ -6,6 +6,10 @@ function MobileChatWidget({
   chatInputType,
   chatInputDisabled,
   chatInputPlaceholder,
+  chatTab,
+  onChangeChatTab,
+  messagesCount,
+  systemCount,
   onChatInputFocus,
   chatOverlayStyle,
   chatViewportStyle,
@@ -31,6 +35,7 @@ function MobileChatWidget({
   setChatInput,
   setIsChatOpenMobile,
   submitChat,
+  showLauncherButton = true,
   visibleMessages,
 }) {
   const isSystemAuthor = (rawAuthor) => {
@@ -52,7 +57,6 @@ function MobileChatWidget({
   const sheetWrapStyle = {};
   const sheetStyle = {
     ...(chatSheetStyle || {}),
-    transition: "height 220ms ease, max-height 220ms ease",
     animation: isChatClosing
       ? `chatSheetOut ${animMs}ms ease forwards`
       : `chatSheetIn ${animMs}ms ease`,
@@ -75,27 +79,65 @@ function MobileChatWidget({
   };
   const unreadBadge =
     mobileChatUnreadCount > 0 ? (mobileChatUnreadCount >= 10 ? "9+" : String(mobileChatUnreadCount)) : "";
+  const currentTab = chatTab === "system" ? "system" : "messages";
+  const isSystemTab = currentTab === "system";
+  const safeMessagesCount = Number(messagesCount) || 0;
+  const safeSystemCount = Number(systemCount) || 0;
+  const chatButtonStyle = {
+    width: "clamp(64px, 15vw, 82px)",
+    height: "clamp(64px, 15vw, 82px)",
+  };
   return (
     <>
-      <div className="fixed bottom-4 right-4 z-[20050]">
-        <button
-          type="button"
-          onClick={() => {
-            onOpenChat();
+      {showLauncherButton ? (
+        <div
+          className="fixed z-[20050]"
+          style={{
+            right: "max(10px, 2.8vw)",
+            bottom: "max(14px, calc(env(safe-area-inset-bottom) + 4.2vh))",
           }}
-          className="px-3 py-2 rounded-full shadow-lg text-xs font-semibold bg-blue-600 text-white relative inline-flex items-center whitespace-nowrap"
         >
-          Chat
-          {mobileChatUnreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-          )}
-          {mobileChatUnreadCount > 0 && (
-            <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-[10px] font-extrabold text-white flex items-center justify-center shadow">
-              {unreadBadge}
-            </span>
-          )}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => {
+              onOpenChat();
+            }}
+            aria-label="Ouvrir le chat"
+            className="relative inline-flex items-center justify-center select-none"
+            style={chatButtonStyle}
+          >
+            <img
+              src="/buttons/chat.png"
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-contain drop-shadow-md"
+              draggable="false"
+            />
+            {mobileChatUnreadCount > 0 && (
+              <span
+                className="absolute h-3.5 w-3.5 rounded-full bg-amber-400 animate-pulse"
+                style={{
+                  top: "12%",
+                  right: "12%",
+                  transform: "translate(36%, -36%)",
+                }}
+              />
+            )}
+            {mobileChatUnreadCount > 0 && (
+              <span
+                className="absolute min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-[11px] font-extrabold text-white flex items-center justify-center shadow-md"
+                style={{
+                  top: "10%",
+                  right: "10%",
+                  transform: "translate(42%, -42%)",
+                }}
+              >
+                {unreadBadge}
+              </span>
+            )}
+          </button>
+        </div>
+      ) : null}
 
       {isChatVisible && (
         <div
@@ -158,6 +200,40 @@ function MobileChatWidget({
                 </button>
               </div>
             </div>
+            <div className="px-3 pt-2">
+              <div
+                className={`inline-flex rounded-full border p-1 ${
+                  darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
+                }`}
+              >
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                    currentTab === "messages"
+                      ? "bg-blue-600 text-white"
+                      : darkMode
+                      ? "text-slate-200"
+                      : "text-slate-700"
+                  }`}
+                  onClick={() => onChangeChatTab?.("messages")}
+                >
+                  Messages ({safeMessagesCount})
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                    currentTab === "system"
+                      ? "bg-orange-500 text-white"
+                      : darkMode
+                      ? "text-slate-200"
+                      : "text-slate-700"
+                  }`}
+                  onClick={() => onChangeChatTab?.("system")}
+                >
+                  Système ({safeSystemCount})
+                </button>
+              </div>
+            </div>
             <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
               {showBlockedList && (
                 <div
@@ -192,7 +268,9 @@ function MobileChatWidget({
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-sm">
                 {visibleMessages.length === 0 ? (
                   <div className="text-sm text-slate-400 text-center mt-4">
-                    Aucun message pour l'instant.
+                    {isSystemTab
+                      ? "Aucun log de connexion/deconnexion."
+                      : "Aucun message pour l'instant."}
                   </div>
                 ) : (
                   [...visibleMessages].reverse().map((msg) => {
@@ -249,52 +327,54 @@ function MobileChatWidget({
                   })
                 )}
               </div>
-              <div className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0">
-                <input
-                  type={chatInputType}
-                  autoComplete="on"
-                  autoCapitalize="on"
-                  spellCheck={true}
-                  inputMode="text"
-                  enterKeyHint="send"
-                  data-form-type="other"
-                  data-lpignore="true"
-                  data-1p-ignore="true"
-                  data-bwignore="true"
-                  data-autofill="off"
-                  aria-autocomplete="none"
-                  aria-label="Message du chat"
-                  readOnly={chatInputDisabled}
-                  aria-disabled={chatInputDisabled}
-                  onFocus={onChatInputFocus}
-                  ref={chatInputRef}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={handleChatInputKeyDown}
-                  className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
-                  placeholder={chatInputPlaceholder}
-                />
-                <button
-                  type="button"
-                  className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
-                  disabled={!chatInput.trim() || chatInputDisabled}
-                  onPointerDown={(e) => {
-                    if (!chatInput.trim() || chatInputDisabled) return;
-                    e.preventDefault();
-                    submitChat();
-                    if (chatInputRef.current) {
-                      try {
-                        chatInputRef.current.focus({ preventScroll: true });
-                      } catch (_) {
-                        chatInputRef.current.focus();
+              {!isSystemTab ? (
+                <div className="flex items-center gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700 shrink-0">
+                  <input
+                    type={chatInputType}
+                    autoComplete="on"
+                    autoCapitalize="on"
+                    spellCheck={true}
+                    inputMode="text"
+                    enterKeyHint="send"
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-autofill="off"
+                    aria-autocomplete="none"
+                    aria-label="Message du chat"
+                    readOnly={chatInputDisabled}
+                    aria-disabled={chatInputDisabled}
+                    onFocus={onChatInputFocus}
+                    ref={chatInputRef}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={handleChatInputKeyDown}
+                    className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600"
+                    placeholder={chatInputPlaceholder}
+                  />
+                  <button
+                    type="button"
+                    className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                    disabled={!chatInput.trim() || chatInputDisabled}
+                    onPointerDown={(e) => {
+                      if (!chatInput.trim() || chatInputDisabled) return;
+                      e.preventDefault();
+                      submitChat();
+                      if (chatInputRef.current) {
+                        try {
+                          chatInputRef.current.focus({ preventScroll: true });
+                        } catch (_) {
+                          chatInputRef.current.focus();
+                        }
                       }
-                    }
-                  }}
-                  onClick={(e) => e.preventDefault()}
-                >
-                  Envoyer
-                </button>
-              </div>
+                    }}
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    Envoyer
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
           </div>

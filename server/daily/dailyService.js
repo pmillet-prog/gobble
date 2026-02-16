@@ -309,7 +309,7 @@ function spawnDailyGenerator(dateId) {
 export async function getDailyStatus(dateId, installId) {
   const safeDateId = dateId || getParisDateId();
   const grid = await loadDailyGrid(safeDateId);
-  const ready = !!grid;
+  const ready = !!grid && Array.isArray(grid?.grid) && grid.grid.length > 0;
   let hasPlayed = false;
   let myResult = null;
   if (installId) {
@@ -332,7 +332,7 @@ export async function getDailyBoard(dateId) {
     : Number.isFinite(grid?.longestWordLen)
     ? grid.longestWordLen
     : null;
-  const ready = !!grid;
+  const ready = !!grid && Array.isArray(grid?.grid) && grid.grid.length > 0;
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
   return {
@@ -415,6 +415,9 @@ export async function startDailyAttempt(dateId, installId, pseudo) {
   if (!grid) {
     return { ok: false, error: "not_ready", dateId: safeDateId };
   }
+  if (!Array.isArray(grid?.grid) || grid.grid.length === 0) {
+    return { ok: false, error: "bad_grid", dateId: safeDateId };
+  }
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
   if (results.find((entry) => entry.installId === installId)) {
@@ -455,6 +458,9 @@ export async function submitDailyResult({
   const safeDateId = dateId || getParisDateId();
   const grid = await loadDailyGrid(safeDateId);
   if (!grid) return { ok: false, error: "not_ready", dateId: safeDateId };
+  if (!Array.isArray(grid?.grid) || grid.grid.length === 0) {
+    return { ok: false, error: "bad_grid", dateId: safeDateId };
+  }
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
   if (results.find((entry) => entry.installId === installId)) {

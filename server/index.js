@@ -84,6 +84,12 @@ import {
   recordMainWordAccepted,
   rerollObjective,
 } from "./stats/teamDuelService.js";
+import {
+  clearBroadcastMessage,
+  getActiveBroadcast,
+  getBroadcastAdminState,
+  setBroadcastMessage,
+} from "./admin/broadcastService.js";
 
 const computePool = createComputePool();
 void initVocabularyService().catch((err) =>
@@ -114,6 +120,15 @@ const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
 const ANNOUNCEMENT_BATCH_MS = 220;
 const ANNOUNCEMENT_BATCH_MAX = 12;
+const ADMIN_BROADCAST_TOKEN = String(process.env.ADMIN_BROADCAST_TOKEN || "").trim();
+
+function isBroadcastAdminAuthorized(req) {
+  if (!ADMIN_BROADCAST_TOKEN) return false;
+  const auth = String(req.headers?.authorization || "");
+  if (!auth.startsWith("Bearer ")) return false;
+  const token = auth.slice(7).trim();
+  return token === ADMIN_BROADCAST_TOKEN;
+}
 
 function sanitizeDefineWord(raw) {
   const rawWord = String(raw || "").trim();
@@ -367,6 +382,8 @@ app.post("/api/daily/start", async (req, res) => {
       res.status(409);
     } else if (result.error === "not_ready") {
       res.status(503);
+    } else if (result.error === "bad_grid") {
+      res.status(500);
     } else {
       res.status(500);
     }
@@ -400,6 +417,8 @@ app.post("/api/daily/submit", async (req, res) => {
       res.status(409);
     } else if (result.error === "not_ready") {
       res.status(503);
+    } else if (result.error === "bad_grid") {
+      res.status(500);
     } else if (result.error === "no_dictionary") {
       res.status(500);
     } else {
@@ -530,6 +549,72 @@ app.post("/api/duel/objectives/submit", async (req, res) => {
   return res.json(payload);
 });
 
+app.get("/api/broadcast/current", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  try {
+    const message = await getActiveBroadcast();
+    return res.json({ ok: true, message });
+  } catch (err) {
+    console.warn("getActiveBroadcast failed", err);
+    return res.json({ ok: false, error: "broadcast_unavailable", message: null });
+  }
+});
+
+app.get("/api/admin/broadcast", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  if (!isBroadcastAdminAuthorized(req)) {
+    res.status(401);
+    return res.json({ ok: false, error: "unauthorized" });
+  }
+  try {
+    const payload = await getBroadcastAdminState();
+    return res.json({ ok: true, ...payload });
+  } catch (err) {
+    console.warn("getBroadcastAdminState failed", err);
+    res.status(500);
+    return res.json({ ok: false, error: "broadcast_unavailable" });
+  }
+});
+
+app.post("/api/admin/broadcast", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  if (!isBroadcastAdminAuthorized(req)) {
+    res.status(401);
+    return res.json({ ok: false, error: "unauthorized" });
+  }
+  try {
+    const payload = await setBroadcastMessage(req.body || {});
+    if (!payload?.ok) {
+      res.status(400);
+    }
+    return res.json(payload);
+  } catch (err) {
+    console.warn("setBroadcastMessage failed", err);
+    res.status(500);
+    return res.json({ ok: false, error: "broadcast_unavailable" });
+  }
+});
+
+app.delete("/api/admin/broadcast", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  if (!isBroadcastAdminAuthorized(req)) {
+    res.status(401);
+    return res.json({ ok: false, error: "unauthorized" });
+  }
+  try {
+    const payload = await clearBroadcastMessage();
+    return res.json(payload);
+  } catch (err) {
+    console.warn("clearBroadcastMessage failed", err);
+    res.status(500);
+    return res.json({ ok: false, error: "broadcast_unavailable" });
+  }
+});
+
 app.get("/api/players", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "public, max-age=2");
@@ -552,6 +637,7 @@ app.get("/api/players", async (req, res) => {
     })
   );
   const players = roomPlayers
+    .filter((p) => isPlayerConnected(p) || isBotToken(p?.token))
     .map((p) => ({
       nick: p?.nick || "",
       installId: p?.installId || null,
@@ -627,9 +713,9 @@ const lagMonitor = setInterval(() => {
 lagMonitor.unref?.();
 
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
-const DEFAULT_BREAK_DURATION_MS = 45 * 1000; // 45 secondes
+const DEFAULT_BREAK_DURATION_MS = 60 * 1000; // 60 secondes
 const TARGET_BREAK_DURATION_MS = 30 * 1000; // 30 secondes pour manches cibles
-const MAX_CHAT_HISTORY = 50;
+const MAX_CHAT_HISTORY = 200;
 const NICK_MAX_LEN = 25;
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
@@ -654,8 +740,15 @@ const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const DISCONNECT_GRACE_MS = 120 * 1000;
 
 
-const TARGET_HINT_FIRST_MS = 15 * 1000;
-const TARGET_HINT_STEP_MS = 15 * 1000;
+const TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH = Object.freeze({
+  8: [14, 29, 43, 56, 68, 77, 84],
+  9: [13, 27, 40, 52, 63, 72, 79, 84],
+  10: [12, 25, 37, 48, 58, 67, 74, 80, 84],
+  11: [11, 23, 34, 44, 53, 61, 68, 74, 79, 84],
+  12: [10, 21, 32, 42, 51, 59, 66, 72, 78, 84],
+  "13+": [9, 20, 31, 41, 50, 58, 65, 71, 77, 82, 85],
+});
+const TARGET_HINT_DEFAULT_SECONDS = TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH[11];
 
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
@@ -992,7 +1085,7 @@ function buildTargetLongTournamentPlan(tournamentRound, roomConfig) {
     isSpecial: true,
     type: "target_long",
     label: "Mot le plus long",
-    description: `Trouve le mot le plus long (indice apres ${TARGET_HINT_FIRST_MS / 1000}s)`,
+    description: "Trouve le mot le plus long (indices progressifs pendant la manche)",
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
 }
@@ -1004,7 +1097,8 @@ function buildTargetScoreTournamentPlan(tournamentRound, roomConfig) {
     isSpecial: true,
     type: "target_score",
     label: "Meilleur mot",
-    description: `Trouve le meilleur mot (celui qui rapporte le plus de points, indice apres ${TARGET_HINT_FIRST_MS / 1000}s)`,
+    description:
+      "Trouve le meilleur mot (celui qui rapporte le plus de points, indices progressifs)",
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
 }
@@ -1704,6 +1798,38 @@ function pickTargetRevealGroup(word, revealed) {
   }
   if (!groups.length) return null;
   return groups[Math.floor(Math.random() * groups.length)];
+}
+
+function getTargetHintScheduleMs({
+  targetWord = "",
+  targetLength = null,
+  roundDurationMs = 90 * 1000,
+} = {}) {
+  const rawLength =
+    Number.isFinite(targetLength) && targetLength > 0
+      ? Number(targetLength)
+      : typeof targetWord === "string"
+      ? targetWord.length
+      : 0;
+  const safeLength = Math.max(1, Math.floor(rawLength));
+  const key =
+    safeLength >= 13
+      ? "13+"
+      : Object.prototype.hasOwnProperty.call(TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH, safeLength)
+      ? safeLength
+      : 11;
+  const secondsList =
+    TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH[key] || TARGET_HINT_DEFAULT_SECONDS || [];
+  const latestAllowed = Math.max(1000, (Number(roundDurationMs) || 90 * 1000) - 1000);
+  const timings = [];
+  let prev = -1;
+  for (const sec of secondsList) {
+    const ms = Math.max(0, Math.min(latestAllowed, Math.round(Number(sec) * 1000)));
+    if (ms <= prev) continue;
+    timings.push(ms);
+    prev = ms;
+  }
+  return timings;
 }
 
 function getObjectiveTeamPointsFromUpdates(updates) {
@@ -2568,6 +2694,16 @@ async function startRoundForRoom(room) {
   }
   let prepared = cached;
   let planUsed = prepared?.plan || tournamentPlan;
+  if (!prepared) {
+    // Startup path: ensure the very first round also goes through worker quality/solver.
+    prepared = await prepareNextGrid(room, planUsed, roundNumber);
+    if (prepared?.roundNumber === roundNumber && room.nextPreparedGrid?.roundNumber === roundNumber) {
+      room.nextPreparedGrid = null;
+    }
+    if (prepared?.plan) {
+      planUsed = prepared.plan;
+    }
+  }
   if (!prepared && planNeedsPreparedGrid(planUsed)) {
     console.warn(
       `[${room.id}] Prepared grid missing for ${planUsed.type}; falling back to base plan.`
@@ -2607,6 +2743,7 @@ async function startRoundForRoom(room) {
     targetPath: prepared?.targetPath || null,
     targetWordCellMap: null,
     targetRevealed: new Set(),
+    targetHintScheduleMs: [],
     targetSolvedBy: null,
     gobbles: new Map(),
     gobbleFlags: new Map(),
@@ -2730,9 +2867,16 @@ async function startRoundForRoom(room) {
     typeof room.currentRound.targetWord === "string" &&
     room.currentRound.targetWord
   ) {
+    const hintScheduleMs = getTargetHintScheduleMs({
+      targetWord: room.currentRound.targetWord,
+      targetLength: room.currentRound.targetLength,
+      roundDurationMs,
+    });
+    room.currentRound.targetHintScheduleMs = hintScheduleMs;
+    const firstHintMs = hintScheduleMs[0];
     pushAnnouncement(room, {
       type: "special_hint_soon",
-      text: `Indice dans ${TARGET_HINT_FIRST_MS / 1000} secondes...`,
+      text: `Indice dans ${Math.max(1, Math.round((firstHintMs || 0) / 1000))} secondes...`,
     });
 
     const emitHint = () => {
@@ -2765,14 +2909,12 @@ async function startRoundForRoom(room) {
       });
     };
 
-    room.currentRound.timers.push(setTimeout(emitHint, TARGET_HINT_FIRST_MS));
+    if (hintScheduleMs.length > 0) {
+      room.currentRound.timers.push(setTimeout(emitHint, hintScheduleMs[0]));
+    }
 
-    // À partir de 40s : révèle 1 lettre toutes les 20s
-    for (
-      let tMs = TARGET_HINT_FIRST_MS + TARGET_HINT_STEP_MS;
-      tMs < roundDurationMs;
-      tMs += TARGET_HINT_STEP_MS
-    ) {
+    for (let i = 1; i < hintScheduleMs.length; i += 1) {
+      const tMs = hintScheduleMs[i];
       room.currentRound.timers.push(
         setTimeout(() => {
           if (!room.currentRound || room.currentRound.id !== roundId) return;
@@ -3595,7 +3737,19 @@ io.on("connection", (socket) => {
           (room.currentRound.endsAt || Date.now()) -
           (room.currentRound.durationMs || room.config.durationMs || 0);
         const elapsed = Date.now() - startedAt;
-        if (elapsed >= TARGET_HINT_FIRST_MS) {
+        const targetHintScheduleMs =
+          Array.isArray(room.currentRound.targetHintScheduleMs) &&
+          room.currentRound.targetHintScheduleMs.length
+            ? room.currentRound.targetHintScheduleMs
+            : getTargetHintScheduleMs({
+                targetWord: room.currentRound.targetWord,
+                targetLength: room.currentRound.targetLength,
+                roundDurationMs:
+                  room.currentRound.durationMs || room.config.durationMs || 90 * 1000,
+              });
+        const firstHintMs =
+          targetHintScheduleMs.length > 0 ? targetHintScheduleMs[0] : Number.POSITIVE_INFINITY;
+        if (elapsed >= firstHintMs) {
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
       const expanded = expandTargetRevealed(word, revealed);
@@ -3632,26 +3786,52 @@ io.on("connection", (socket) => {
   });
 
   socket.on("chat:send", (text, cb) => {
-    const room = getRoom(socket.roomId);
+    let payload = text;
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    const isPayloadObject = payload && typeof payload === "object";
+    const roomIdFromPayload =
+      isPayloadObject && typeof payload.roomId === "string"
+        ? payload.roomId
+        : null;
+    const room = getRoom(
+      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
+    );
     if (!room) {
       cb?.({ ok: false, error: "invalid_room" });
       return;
     }
-    if (typeof text !== "string") {
+    const rawText = isPayloadObject ? payload.text : payload;
+    if (typeof rawText !== "string") {
       cb?.({ ok: false });
       return;
     }
-    const trimmed = text.trim();
+    const trimmed = rawText.trim();
     if (!trimmed) {
       cb?.({ ok: false });
       return;
     }
     const player = room.players.get(socket.id);
-    if (!player) {
-      cb?.({ ok: false, error: "not_logged_in" });
+    const lobbyNick =
+      isPayloadObject && typeof payload.nick === "string" ? payload.nick.trim() : "";
+    const isLobbyPayload = !player && isPayloadObject && payload?.lobby === true;
+    const authorNick = player?.nick || lobbyNick;
+    if (!authorNick) {
+      cb?.({ ok: false, error: "empty_nick" });
       return;
     }
-    const installId = normalizeInstallId(player.installId || socket.data?.installId);
+    if (authorNick.length > NICK_MAX_LEN) {
+      cb?.({ ok: false, error: "nick_too_long" });
+      return;
+    }
+    const installId = normalizeInstallId(
+      player?.installId ||
+        socket.data?.installId ||
+        (isPayloadObject ? payload.installId : "") ||
+        socket.data?.chatInstallId
+    );
     if (!installId) {
       cb?.({ ok: false, error: "invalid_install_id" });
       return;
@@ -3660,16 +3840,43 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "muted" });
       return;
     }
+    if (isLobbyPayload) {
+      socket.data.chatInstallId = installId;
+      socket.data.chatNick = authorNick;
+      socket.data.chatRoomId = room.id;
+      socket.join(room.id);
+    } else if (!player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
     const message = {
       id: randomUUID(),
       t: Date.now(),
       roomId: room.id,
-      nick: player.nick,
+      nick: authorNick,
       installId,
       text: trimmed,
     };
     pushChatMessage(room, message);
     cb?.({ ok: true });
+  });
+
+  socket.on("chat:subscribe", (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    socket.data.chatRoomId = room.id;
+    socket.join(room.id);
+    socket.emit("chat:history", Array.isArray(room.chatMessages) ? room.chatMessages : []);
+    cb?.({ ok: true, roomId: room.id });
   });
 
   socket.on("reportMessage", (payload, cb) => {

@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gobble - Broadcast Admin</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      .card {
+        background: #111827;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 8px;
+      }
+      .muted {
+        opacity: 0.8;
+        font-size: 13px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+        opacity: 0.9;
+      }
+      input,
+      textarea,
+      select,
+      button {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #475569;
+        border-radius: 8px;
+        background: #0b1220;
+        color: #e2e8f0;
+        padding: 10px;
+        font-size: 14px;
+      }
+      textarea {
+        min-height: 130px;
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .checks {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .checks label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+      }
+      .checks input {
+        width: auto;
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .primary {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+        font-weight: 700;
+      }
+      .danger {
+        background: #b91c1c;
+        border-color: #b91c1c;
+        color: #fff;
+      }
+      pre {
+        overflow: auto;
+        background: #020617;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px;
+        margin: 0;
+        font-size: 12px;
+      }
+      @media (min-width: 760px) {
+        .row {
+          grid-template-columns: 1fr 1fr;
+        }
+        .actions {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card">
+        <h1>Message global Gobble</h1>
+        <div class="muted">Publier un popup visible dans le lobby (accueil).</div>
+      </div>
+
+      <div class="card">
+        <label for="token">Token admin (Bearer)</label>
+        <input id="token" type="password" autocomplete="off" placeholder="ADMIN_BROADCAST_TOKEN" />
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="msgId">ID message (optionnel)</label>
+            <input id="msgId" type="text" placeholder="ex: maj-2026-02-16" />
+          </div>
+          <div>
+            <label for="scope">Scope</label>
+            <select id="scope">
+              <option value="lobby">Lobby</option>
+            </select>
+          </div>
+        </div>
+        <div style="height: 10px"></div>
+        <label for="title">Titre</label>
+        <input id="title" type="text" maxlength="140" placeholder="Mise a jour Gobble" />
+        <div style="height: 10px"></div>
+        <label for="body">Message</label>
+        <textarea id="body" maxlength="5000" placeholder="Texte du message..."></textarea>
+        <div style="height: 10px"></div>
+        <div class="row">
+          <div>
+            <label for="startAt">Début (optionnel)</label>
+            <input id="startAt" type="datetime-local" />
+          </div>
+          <div>
+            <label for="endAt">Fin (optionnel)</label>
+            <input id="endAt" type="datetime-local" />
+          </div>
+        </div>
+        <div style="height: 10px"></div>
+        <div class="row">
+          <div>
+            <label for="ctaLabel">Texte bouton (optionnel)</label>
+            <input id="ctaLabel" type="text" maxlength="40" placeholder="Voir les details" />
+          </div>
+          <div>
+            <label for="ctaUrl">Lien bouton (optionnel)</label>
+            <input id="ctaUrl" type="url" maxlength="500" placeholder="https://..." />
+          </div>
+        </div>
+        <div style="height: 10px"></div>
+        <div class="checks">
+          <label><input id="enabled" type="checkbox" checked /> Message actif</label>
+          <label><input id="dismissible" type="checkbox" checked /> Dismissible</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="actions">
+          <button id="loadBtn">Charger</button>
+          <button id="previewBtn">Aperçu public</button>
+          <button id="saveBtn" class="primary">Publier / Mettre a jour</button>
+          <button id="deleteBtn" class="danger">Supprimer</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>Etat</label>
+        <pre id="status">Prêt.</pre>
+      </div>
+    </main>
+
+    <script>
+      const STORAGE_TOKEN_KEY = "gobble_ops_broadcast_token";
+      const $ = (id) => document.getElementById(id);
+
+      const tokenEl = $("token");
+      const statusEl = $("status");
+      const msgIdEl = $("msgId");
+      const scopeEl = $("scope");
+      const titleEl = $("title");
+      const bodyEl = $("body");
+      const startAtEl = $("startAt");
+      const endAtEl = $("endAt");
+      const ctaLabelEl = $("ctaLabel");
+      const ctaUrlEl = $("ctaUrl");
+      const enabledEl = $("enabled");
+      const dismissibleEl = $("dismissible");
+
+      try {
+        const saved = localStorage.getItem(STORAGE_TOKEN_KEY) || "";
+        if (saved) tokenEl.value = saved;
+      } catch (_) {}
+
+      function setStatus(obj) {
+        statusEl.textContent =
+          typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+      }
+
+      function toIso(localDateTime) {
+        if (!localDateTime) return null;
+        const d = new Date(localDateTime);
+        if (!Number.isFinite(d.getTime())) return null;
+        return d.toISOString();
+      }
+
+      function toLocalDateTimeInput(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (!Number.isFinite(d.getTime())) return "";
+        const offsetMs = d.getTimezoneOffset() * 60000;
+        const local = new Date(d.getTime() - offsetMs);
+        return local.toISOString().slice(0, 16);
+      }
+
+      function authHeaders() {
+        const token = (tokenEl.value || "").trim();
+        return token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {};
+      }
+
+      async function apiFetch(url, options) {
+        const res = await fetch(url, {
+          cache: "no-store",
+          ...options,
+          headers: {
+            Accept: "application/json",
+            ...(options?.headers || {}),
+          },
+        });
+        const text = await res.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (_) {
+          data = { raw: text };
+        }
+        return { ok: res.ok, status: res.status, data };
+      }
+
+      function fillForm(message) {
+        const msg = message || {};
+        msgIdEl.value = msg.id || "";
+        scopeEl.value = msg.scope || "lobby";
+        titleEl.value = msg.title || "";
+        bodyEl.value = msg.body || "";
+        startAtEl.value = toLocalDateTimeInput(msg.startAt);
+        endAtEl.value = toLocalDateTimeInput(msg.endAt);
+        ctaLabelEl.value = msg.ctaLabel || "";
+        ctaUrlEl.value = msg.ctaUrl || "";
+        enabledEl.checked = msg.enabled !== false;
+        dismissibleEl.checked = msg.dismissible !== false;
+      }
+
+      $("loadBtn").addEventListener("click", async () => {
+        const token = (tokenEl.value || "").trim();
+        if (!token) {
+          setStatus("Token requis.");
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_TOKEN_KEY, token);
+        } catch (_) {}
+        const { ok, status, data } = await apiFetch("/api/admin/broadcast", {
+          method: "GET",
+          headers: authHeaders(),
+        });
+        if (ok && data?.message) {
+          fillForm(data.message);
+        }
+        setStatus({ ok, status, ...data });
+      });
+
+      $("previewBtn").addEventListener("click", async () => {
+        const { ok, status, data } = await apiFetch("/api/broadcast/current", {
+          method: "GET",
+        });
+        setStatus({ ok, status, ...data });
+      });
+
+      $("saveBtn").addEventListener("click", async () => {
+        const token = (tokenEl.value || "").trim();
+        if (!token) {
+          setStatus("Token requis.");
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_TOKEN_KEY, token);
+        } catch (_) {}
+        const payload = {
+          id: msgIdEl.value || null,
+          scope: scopeEl.value || "lobby",
+          title: titleEl.value || "",
+          body: bodyEl.value || "",
+          startAt: toIso(startAtEl.value),
+          endAt: toIso(endAtEl.value),
+          ctaLabel: ctaLabelEl.value || "",
+          ctaUrl: ctaUrlEl.value || "",
+          enabled: !!enabledEl.checked,
+          dismissible: !!dismissibleEl.checked,
+        };
+        const { ok, status, data } = await apiFetch("/api/admin/broadcast", {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        if (ok && data?.message) {
+          fillForm(data.message);
+        }
+        setStatus({ ok, status, payload, ...data });
+      });
+
+      $("deleteBtn").addEventListener("click", async () => {
+        const token = (tokenEl.value || "").trim();
+        if (!token) {
+          setStatus("Token requis.");
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_TOKEN_KEY, token);
+        } catch (_) {}
+        const { ok, status, data } = await apiFetch("/api/admin/broadcast", {
+          method: "DELETE",
+          headers: authHeaders(),
+        });
+        if (ok) {
+          fillForm(null);
+        }
+        setStatus({ ok, status, ...data });
+      });
+    </script>
+  </body>
+</html>
+

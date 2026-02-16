@@ -15,7 +15,7 @@ const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
 const PARIS_TZ = "Europe/Paris";
 const SHARED_K = 10;
 const DAILY_WIN_BONUS = 500;
-const GOBBLE_TEAM_POINTS = 5;
+const GOBBLE_TEAM_POINTS = 1;
 const OBJECTIVE_DAILY_CAP = 85;
 const OBJECTIVE_TUTORIAL_VERSION = "duel-v1";
 const MAX_INSTALL_ID_LEN = 128;
@@ -23,6 +23,10 @@ const MAX_NICK_LEN = 48;
 const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 const MAX_HISTORY_WEEKS = 30;
 const MAX_HISTORY_DAYS = 45;
+// Semaine de démarrage officielle du duel d'équipes.
+// Les couronnes ne s'appliquent qu'à partir de la semaine suivante (W+1).
+// Exemple: start=2026-W08 => premières couronnes en 2026-W09.
+const DUEL_START_WEEK_ID = String(process.env.GOBBLE_DUEL_START_WEEK_ID || "2026-W08").trim();
 
 const TEAM_VALUES = ["red", "blue"];
 const OBJECTIVE_BUCKETS = ["easy", "medium", "hard"];
@@ -301,6 +305,13 @@ function getWeekStartTsFromWeekId(weekId) {
   );
 }
 
+function isWeekIdBefore(leftWeekId, rightWeekId) {
+  const leftTs = getWeekStartTsFromWeekId(leftWeekId);
+  const rightTs = getWeekStartTsFromWeekId(rightWeekId);
+  if (!Number.isFinite(leftTs) || !Number.isFinite(rightTs)) return false;
+  return leftTs < rightTs;
+}
+
 function hashString(input) {
   const str = String(input || "");
   let h = 2166136261;
@@ -370,6 +381,37 @@ function makeDefaultState() {
 let state = makeDefaultState();
 let saveTimer = null;
 let lastBackupAt = 0;
+const weekStateInitPromises = new Map();
+
+function ensureWeekShape(week) {
+  if (!week || typeof week !== "object") return null;
+  if (!week.totals || typeof week.totals !== "object") {
+    week.totals = {
+      objectivePoints: { red: 0, blue: 0 },
+      gobblePoints: { red: 0, blue: 0 },
+      dailyBonusPoints: { red: 0, blue: 0 },
+    };
+  }
+  if (!week.contributionsByInstallId || typeof week.contributionsByInstallId !== "object") {
+    week.contributionsByInstallId = {};
+  }
+  if (!week.nickByInstallId || typeof week.nickByInstallId !== "object") {
+    week.nickByInstallId = {};
+  }
+  if (!week.actionsByInstallId || typeof week.actionsByInstallId !== "object") {
+    week.actionsByInstallId = {};
+  }
+  if (!week.dailyWinsByDate || typeof week.dailyWinsByDate !== "object") {
+    week.dailyWinsByDate = {};
+  }
+  if (!week.teamByInstallId || typeof week.teamByInstallId !== "object") {
+    week.teamByInstallId = {};
+  }
+  if (!week.levelByInstallId || typeof week.levelByInstallId !== "object") {
+    week.levelByInstallId = {};
+  }
+  return week;
+}
 
 async function maybeBackupFile(filePath) {
   const now = Date.now();
@@ -630,41 +672,41 @@ async function generateTeamsFromPreviousWeek(weekId) {
 
 async function ensureWeekState(weekId) {
   const safeWeekId = weekId || getParisWeekId();
-  const existing = state.weeks[safeWeekId];
-  if (existing && typeof existing === "object") {
-    if (!existing.totals || typeof existing.totals !== "object") {
-      existing.totals = {
-        objectivePoints: { red: 0, blue: 0 },
-        gobblePoints: { red: 0, blue: 0 },
-        dailyBonusPoints: { red: 0, blue: 0 },
-      };
-    }
-    if (!existing.contributionsByInstallId || typeof existing.contributionsByInstallId !== "object") {
-      existing.contributionsByInstallId = {};
-    }
-    if (!existing.nickByInstallId || typeof existing.nickByInstallId !== "object") {
-      existing.nickByInstallId = {};
-    }
-    if (!existing.actionsByInstallId || typeof existing.actionsByInstallId !== "object") {
-      existing.actionsByInstallId = {};
-    }
-    if (!existing.dailyWinsByDate || typeof existing.dailyWinsByDate !== "object") {
-      existing.dailyWinsByDate = {};
-    }
+  const existing = ensureWeekShape(state.weeks[safeWeekId]);
+  if (existing) {
     return existing;
   }
-  const week = makeWeekState(safeWeekId);
-  const generated = await generateTeamsFromPreviousWeek(safeWeekId);
-  week.teamByInstallId = generated.teamByInstallId || {};
-  week.levelByInstallId = generated.levelByInstallId || {};
-  state.weeks[safeWeekId] = week;
-  cleanupOldState();
-  scheduleSave();
-  return week;
+  const inFlight = weekStateInitPromises.get(safeWeekId);
+  if (inFlight) return inFlight;
+  const initPromise = (async () => {
+    const secondPass = ensureWeekShape(state.weeks[safeWeekId]);
+    if (secondPass) return secondPass;
+    const week = makeWeekState(safeWeekId);
+    const generated = await generateTeamsFromPreviousWeek(safeWeekId);
+    week.teamByInstallId = generated.teamByInstallId || {};
+    week.levelByInstallId = generated.levelByInstallId || {};
+    state.weeks[safeWeekId] = ensureWeekShape(week);
+    cleanupOldState();
+    scheduleSave();
+    return state.weeks[safeWeekId];
+  })().finally(() => {
+    weekStateInitPromises.delete(safeWeekId);
+  });
+  weekStateInitPromises.set(safeWeekId, initPromise);
+  return initPromise;
 }
 
 async function ensureCrownsForWeek(weekId) {
   await finalizeDailyBonusesUntil(getParisDateId());
+  const firstCrownsWeekId = DUEL_START_WEEK_ID ? shiftWeekId(DUEL_START_WEEK_ID, 1) : "";
+  if (firstCrownsWeekId && isWeekIdBefore(weekId, firstCrownsWeekId)) {
+    const existing = state.crownsByWeek?.[weekId];
+    if (!existing || Object.keys(existing).length > 0) {
+      state.crownsByWeek[weekId] = {};
+      scheduleSave();
+    }
+    return state.crownsByWeek[weekId];
+  }
   if (state.crownsByWeek?.[weekId]) return state.crownsByWeek[weekId];
   const previousWeekId = shiftWeekId(weekId, -1);
   const previousWeek = await ensureWeekState(previousWeekId);

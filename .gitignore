@@ -9,3 +9,6 @@ server/data/gobble.db-shm
 server/data/gobble.db-wal
 server/data/weekly-stats.json
 
+# Runtime data persisted on VM (must not be overwritten by deploys)
+server/data/**
+server/data-runtime/**
