@@ -434,6 +434,12 @@ function RankingWidgetMobile({
       return undefined;
     }
 
+    const reorderTickChanged = animateReorderTick !== lastAnimatedTickRef.current;
+    if (!expanded && !reorderTickChanged) {
+      // Live phase: skip costly FLIP measurements unless an explicit reorder tick is requested.
+      return undefined;
+    }
+
     clearPendingReorderArtifacts();
     const nodes = rowRefs.current;
     const nextPositions = new Map();
@@ -450,11 +456,9 @@ function RankingWidgetMobile({
     const shouldAnimateReorder =
       prevPositions &&
       prevPositions.size > 0 &&
-      animateReorderTick !== lastAnimatedTickRef.current;
+      reorderTickChanged;
 
     if (shouldAnimateReorder) {
-      lastAnimatedTickRef.current = animateReorderTick;
-
       nodes.forEach((node, key) => {
         if (!node) return;
         const prevRect = prevPositions.get(key);
@@ -488,11 +492,12 @@ function RankingWidgetMobile({
       });
     }
 
+    lastAnimatedTickRef.current = animateReorderTick;
     prevRowPositionsRef.current = nextPositions;
     return () => {
       clearPendingReorderArtifacts();
     };
-  }, [animateReorderTick, flatStyle, rankingOrderKey]);
+  }, [animateReorderTick, expanded, flatStyle, rankingOrderKey]);
 
 
   // Met à jour le rang cible quand le classement bouge
@@ -800,6 +805,14 @@ function RankingWidgetMobile({
           (typeof isPlayerNickClickable === "function"
             ? !!isPlayerNickClickable(entry)
             : true);
+        const anchorNick = String(entry?.nick || "");
+        const handleOpenPlayerDetails = (event, sourceElement = null) => {
+          if (!nickClickable) return;
+          onPlayerNickClick?.(entry, sourceElement || event.currentTarget, {
+            clientX: event.clientX,
+            clientY: event.clientY,
+          });
+        };
 
         return (
           <div
@@ -814,7 +827,22 @@ function RankingWidgetMobile({
               " " +
               rowColor +
               " transition " +
-              rowBg
+              rowBg +
+              (nickClickable ? " cursor-pointer hover:bg-slate-100/60 dark:hover:bg-slate-700/40" : "")
+            }
+            data-round-player-anchor={nickClickable ? "1" : undefined}
+            data-round-player-nick={nickClickable ? anchorNick : undefined}
+            role={nickClickable ? "button" : undefined}
+            tabIndex={nickClickable ? 0 : undefined}
+            onClick={nickClickable ? (event) => handleOpenPlayerDetails(event, event.currentTarget) : undefined}
+            onKeyDown={
+              nickClickable
+                ? (event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    handleOpenPlayerDetails(event, event.currentTarget);
+                  }
+                : undefined
             }
           >
             <div className="flex flex-col gap-0.5 min-w-0">
@@ -826,25 +854,9 @@ function RankingWidgetMobile({
                   ) : null}
                 </span>
                 <span className="min-w-0 flex items-baseline gap-1">
-                  {nickClickable ? (
-                    <button
-                      type="button"
-                      className="truncate text-left hover:underline underline-offset-2"
-                      data-round-player-anchor="1"
-                      data-round-player-nick={String(entry?.nick || "")}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onPlayerNickClick?.(entry, event.currentTarget, {
-                          clientX: event.clientX,
-                          clientY: event.clientY,
-                        });
-                      }}
-                    >
-                      {entry.nick}
-                    </button>
-                  ) : (
-                    <span className="truncate">{entry.nick}</span>
-                  )}
+                  <span className={nickClickable ? "truncate underline-offset-2" : "truncate"}>
+                    {entry.nick}
+                  </span>
                   {renderNickSuffix ? (
                     <span className="flex-none">{renderNickSuffix(entry.nick, entry)}</span>
                   ) : null}

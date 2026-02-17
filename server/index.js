@@ -81,6 +81,7 @@ import {
   recordDailyBattleFromEntries,
   recordDailyPlayed,
   recordMainRoundCompleted,
+  recordTournamentMedalPoints,
   recordMainWordAccepted,
   rerollObjective,
 } from "./stats/teamDuelService.js";
@@ -434,6 +435,29 @@ app.post("/api/daily/submit", async (req, res) => {
     });
     await recordDailyBattleFromEntries(result.dateId || null, boardWithTeams);
   }
+  const dailyEntry = Array.isArray(boardWithTeams)
+    ? boardWithTeams.find((entry) => normalizeInstallId(entry?.installId) === installId)
+    : null;
+  const dailyTeam = dailyEntry?.team === "red" || dailyEntry?.team === "blue"
+    ? dailyEntry.team
+    : getTeamForInstallCached(installId);
+  const dailyNick = String(dailyEntry?.nick || pseudo || "Joueur").trim() || "Joueur";
+  const dailyScore = Number(dailyEntry?.score ?? result?.score) || 0;
+  const dailyWords = Number(dailyEntry?.wordsCount ?? dailyEntry?.wordCount) || 0;
+  broadcastSystemChatMessage(
+    `${dailyNick} ${getTeamDot(dailyTeam)} a validé la grille du jour avec ${dailyScore} points - ${dailyWords} mots`,
+    {
+      installId,
+      team: dailyTeam,
+      nick: dailyNick,
+      meta: {
+        kind: "daily_completed",
+        dateId: result?.dateId || null,
+        score: dailyScore,
+        wordsCount: dailyWords,
+      },
+    }
+  );
   await refreshInstallDuelCache(installId);
   const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
   return res.json({ ...result, board: boardWithTeams, duel });
@@ -716,6 +740,7 @@ const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_BREAK_DURATION_MS = 60 * 1000; // 60 secondes
 const TARGET_BREAK_DURATION_MS = 30 * 1000; // 30 secondes pour manches cibles
 const MAX_CHAT_HISTORY = 200;
+const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
@@ -738,6 +763,8 @@ const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_F
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const DISCONNECT_GRACE_MS = 120 * 1000;
+const RANKING_BROADCAST_MIN_MS = 90;
+const DUEL_CACHE_REFRESH_MIN_MS = 45 * 1000;
 
 
 const TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH = Object.freeze({
@@ -748,7 +775,20 @@ const TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH = Object.freeze({
   12: [10, 21, 32, 42, 51, 59, 66, 72, 78, 84],
   "13+": [9, 20, 31, 41, 50, 58, 65, 71, 77, 82, 85],
 });
+const TARGET_HINT_SCHEDULE_SECONDS_SCORE_BY_LENGTH = Object.freeze({
+  5: [22, 39, 55, 70],
+  6: [20, 36, 51, 65, 78],
+  7: [18, 33, 47, 60, 72, 83],
+  8: [16, 30, 43, 55, 66, 76, 84],
+  9: [15, 28, 40, 51, 61, 70, 78, 84],
+  10: [14, 26, 37, 47, 56, 64, 71, 77, 84],
+  11: [13, 24, 34, 43, 51, 58, 64, 70, 76, 84],
+  12: [12, 22, 31, 39, 46, 52, 58, 64, 70, 76, 84],
+  "13+": [11, 20, 28, 35, 42, 48, 54, 60, 66, 72, 78, 84],
+});
 const TARGET_HINT_DEFAULT_SECONDS = TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH[11];
+const TARGET_HINT_SCORE_DEFAULT_SECONDS =
+  TARGET_HINT_SCHEDULE_SECONDS_SCORE_BY_LENGTH[9];
 
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
@@ -803,6 +843,7 @@ const mutedInstallIds = new Map();
 const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
 const duelInstallCache = new Map(); // installId -> { weekId, team, crowned, updatedAt }
+const duelCacheRefreshAt = new Map(); // installId -> ts
 let duelWeekCacheKey = getDuelParisWeekId();
 
 function normalizeInstallId(raw) {
@@ -854,6 +895,16 @@ async function refreshInstallDuelCache(rawInstallId) {
   };
   duelInstallCache.set(installId, entry);
   return entry;
+}
+
+function scheduleInstallDuelCacheRefresh(rawInstallId, minIntervalMs = DUEL_CACHE_REFRESH_MIN_MS) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return;
+  const now = Date.now();
+  const lastAt = Number(duelCacheRefreshAt.get(installId)) || 0;
+  if (now - lastAt < minIntervalMs) return;
+  duelCacheRefreshAt.set(installId, now);
+  void refreshInstallDuelCache(installId).catch(() => {});
 }
 
 function sanitizeReportReason(raw) {
@@ -1215,6 +1266,11 @@ function createRoomState(roomId, config) {
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
     lastRoundResults: null,
     pendingDisconnects: new Map(), // socket.id -> { timer, installId, nick }
+    rankingBroadcastTimer: null,
+    rankingLastBroadcastAt: 0,
+    rankingLastSignature: null,
+    rankingPendingPayload: null,
+    rankingPendingSignature: null,
   };
 }
 
@@ -1352,6 +1408,17 @@ function addMedal(room, nick, type) {
   } else {
     room.medalExpiry.delete(key);
   }
+  const installId = getInstallIdForNick(room, nick);
+  if (installId) {
+    void recordTournamentMedalPoints({
+      installId,
+      nick,
+      type,
+      dateId: getParisDateId(),
+    }).catch((err) => {
+      console.warn(`[${room.id}] medal duel points failed for ${nick} (${type})`, err);
+    });
+  }
   persistRoomMedals(room);
 }
 
@@ -1409,6 +1476,9 @@ function buildRoundStartedPayload(room) {
     currentTournamentRound >= totalRounds ? 1 : currentTournamentRound + 1;
   const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
   const currentQuality = round.quality;
+  const isBonusLetterRound = round.special?.type === "bonus_letter";
+  const bonusBestPts = Number(room?.bestPossibleStats?.maxPts) || 0;
+  const bonusPossibleScore = Number(room?.bestPossibleStats?.totalPts) || 0;
 
   return {
     roomId: room.id,
@@ -1418,15 +1488,23 @@ function buildRoundStartedPayload(room) {
     durationMs: round.durationMs,
     endsAt: round.endsAt,
     targetLength: round.targetLength || null,
+    targetHintScheduleMs: Array.isArray(round.targetHintScheduleMs)
+      ? round.targetHintScheduleMs
+      : [],
     special: round.special?.isSpecial ? round.special : null,
     gridQuality: currentQuality
       ? {
           words: currentQuality.words ?? 0,
           maxLen: currentQuality.maxLen ?? 0,
           maxPts:
-            round.special?.fixedWordScore || currentQuality.maxPts || 0,
+            isBonusLetterRound
+              ? bonusBestPts || currentQuality.maxPts || 0
+              : round.special?.fixedWordScore || currentQuality.maxPts || 0,
           totalPts: currentQuality.totalPts ?? 0,
-          possibleScore: currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
+          possibleScore:
+            isBonusLetterRound
+              ? bonusPossibleScore || currentQuality.possibleScore || currentQuality.totalPts || 0
+              : currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
           longWords: currentQuality.longWords ?? 0,
         }
       : null,
@@ -1474,7 +1552,12 @@ function buildLiveRanking(room, roundId) {
     });
   }
   ranking.sort((a, b) => (b.score || 0) - (a.score || 0));
-  return ranking;
+  return ranking.map((entry, idx) => ({
+    nick: entry.nick,
+    rank: idx + 1,
+    team: entry.team || null,
+    isDailyChampion: !!entry.isDailyChampion,
+  }));
 }
 
 function buildSessionSnapshot(room, player) {
@@ -1539,10 +1622,20 @@ function ensurePlayerInRound(room, nick) {
   }
 }
 
-function broadcastProvisionalRanking(room) {
-  if (!room.currentRound) return;
+function clearPendingRankingBroadcast(room) {
+  if (!room) return;
+  if (room.rankingBroadcastTimer) {
+    clearTimeout(room.rankingBroadcastTimer);
+    room.rankingBroadcastTimer = null;
+  }
+  room.rankingPendingPayload = null;
+  room.rankingPendingSignature = null;
+}
+
+function buildRankingUpdatePayload(room) {
+  if (!room?.currentRound || room.currentRound.status !== "running") return null;
   const roundSubs = room.submissions.get(room.currentRound.id);
-  if (!roundSubs) return;
+  if (!roundSubs) return null;
 
   const ranking = [];
   for (const player of room.players.values()) {
@@ -1559,17 +1652,82 @@ function broadcastProvisionalRanking(room) {
   }
 
   ranking.sort((a, b) => b.score - a.score);
+  const compact = ranking.map((entry, idx) => ({
+    nick: entry.nick,
+    rank: idx + 1,
+    team: entry.team || null,
+    isDailyChampion: entry.isDailyChampion || false,
+  }));
+  const signature = ranking
+    .map(
+      (entry) =>
+        `${entry.nick}:${Number(entry.score) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}`
+    )
+    .join("|");
 
-  io.to(room.id).emit("rankingUpdate", {
-    roomId: room.id,
-    roundId: room.currentRound.id,
-    ranking: ranking.map((entry, idx) => ({
-      nick: entry.nick,
-      rank: idx + 1,
-      team: entry.team || null,
-      isDailyChampion: entry.isDailyChampion || false,
-    })),
-  });
+  return {
+    payload: {
+      roomId: room.id,
+      roundId: room.currentRound.id,
+      ranking: compact,
+    },
+    signature,
+  };
+}
+
+function emitRankingUpdate(room, built) {
+  if (!room || !built?.payload) return;
+  if (built.signature && built.signature === room.rankingLastSignature) {
+    return;
+  }
+  io.to(room.id).emit("rankingUpdate", built.payload);
+  room.rankingLastSignature = built.signature || null;
+  room.rankingLastBroadcastAt = Date.now();
+}
+
+function flushPendingRankingBroadcast(room) {
+  if (!room) return;
+  room.rankingBroadcastTimer = null;
+  if (!room.rankingPendingPayload) return;
+  const built = {
+    payload: room.rankingPendingPayload,
+    signature: room.rankingPendingSignature,
+  };
+  room.rankingPendingPayload = null;
+  room.rankingPendingSignature = null;
+  emitRankingUpdate(room, built);
+}
+
+function broadcastProvisionalRanking(room, { force = false } = {}) {
+  if (!room?.currentRound || room.currentRound.status !== "running") return;
+  const built = buildRankingUpdatePayload(room);
+  if (!built) return;
+
+  room.rankingPendingPayload = built.payload;
+  room.rankingPendingSignature = built.signature;
+
+  const now = Date.now();
+  const elapsed = now - (room.rankingLastBroadcastAt || 0);
+
+  if (force || elapsed >= RANKING_BROADCAST_MIN_MS) {
+    if (room.rankingBroadcastTimer) {
+      clearTimeout(room.rankingBroadcastTimer);
+      room.rankingBroadcastTimer = null;
+    }
+    const immediate = {
+      payload: room.rankingPendingPayload,
+      signature: room.rankingPendingSignature,
+    };
+    room.rankingPendingPayload = null;
+    room.rankingPendingSignature = null;
+    emitRankingUpdate(room, immediate);
+    return;
+  }
+
+  if (room.rankingBroadcastTimer) return;
+  const waitMs = Math.max(0, RANKING_BROADCAST_MIN_MS - elapsed);
+  room.rankingBroadcastTimer = setTimeout(() => flushPendingRankingBroadcast(room), waitMs);
+  room.rankingBroadcastTimer.unref?.();
 }
 
 function broadcastCrownUpdate() {
@@ -1605,12 +1763,81 @@ async function refreshConnectedPlayersDuelCache() {
 }
 
 function pushChatMessage(room, message) {
-  room.chatMessages.push(message);
-  while (room.chatMessages.length > MAX_CHAT_HISTORY) {
-    room.chatMessages.shift();
+  if (!room || !message || typeof message !== "object") return;
+  const prevMessages = Array.isArray(room.chatMessages) ? room.chatMessages : [];
+  const deduped = [];
+  const seen = new Set();
+  for (const entry of [...prevMessages, message]) {
+    if (!entry || typeof entry !== "object") continue;
+    const id = typeof entry.id === "string" ? entry.id : "";
+    const key = id
+      ? `id:${id}`
+      : `fallback:${entry.t || entry.ts || 0}:${entry.nick || entry.author || ""}:${entry.text || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(entry);
   }
+
+  const users = [];
+  const system = [];
+  for (let i = deduped.length - 1; i >= 0; i -= 1) {
+    const entry = deduped[i];
+    const isSystem =
+      entry?.type === "system" ||
+      entry?.channel === "system" ||
+      String(entry?.nick || entry?.author || "").trim().toLowerCase() === "système" ||
+      String(entry?.nick || entry?.author || "").trim().toLowerCase() === "systeme" ||
+      String(entry?.nick || entry?.author || "").trim().toLowerCase() === "system";
+    if (isSystem) {
+      if (system.length < MAX_SYSTEM_CHAT_HISTORY) system.push(entry);
+      continue;
+    }
+    if (users.length < MAX_CHAT_HISTORY) users.push(entry);
+  }
+
+  const merged = [...users.reverse(), ...system.reverse()];
+  merged.sort((a, b) => {
+    const tA = Number(a?.t ?? a?.ts ?? 0) || 0;
+    const tB = Number(b?.t ?? b?.ts ?? 0) || 0;
+    if (tA !== tB) return tA - tB;
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+  });
+  room.chatMessages = merged;
+
   io.to(room.id).emit("chatMessage", message);
   io.to(room.id).emit("chat:new", message);
+}
+
+function getTeamDot(team) {
+  return team === "red" ? "🔴" : team === "blue" ? "🔵" : "⚪";
+}
+
+function pushSystemChatMessage(room, text, opts = {}) {
+  if (!room) return;
+  const trimmedText = String(text || "").trim();
+  if (!trimmedText) return;
+  const installId = normalizeInstallId(opts.installId || "");
+  const team = opts.team === "red" || opts.team === "blue" ? opts.team : null;
+  const message = {
+    id: randomUUID(),
+    t: Date.now(),
+    roomId: room.id,
+    nick: "Système",
+    author: "Système",
+    channel: "system",
+    type: "system",
+    text: trimmedText,
+    installId: installId || null,
+    team,
+    meta: opts.meta && typeof opts.meta === "object" ? opts.meta : null,
+  };
+  pushChatMessage(room, message);
+}
+
+function broadcastSystemChatMessage(text, opts = {}) {
+  for (const room of rooms.values()) {
+    pushSystemChatMessage(room, text, opts);
+  }
 }
 
 function flushAnnouncements(room) {
@@ -1668,17 +1895,19 @@ function getFullRanking(room) {
 }
 
 function computeBestPossible(grid, special = null) {
-  if (!dictionary) return { maxLen: 0, maxPts: 0 };
+  if (!dictionary) return { maxLen: 0, maxPts: 0, totalPts: 0 };
   const solved = solveGridCached(grid, dictionary, special);
   let maxLen = 0;
   let maxPts = 0;
+  let totalPts = 0;
   for (const [word, data] of solved.entries()) {
     const len = word.length;
     const pts = data?.pts || 0;
     if (len > maxLen) maxLen = len;
     if (pts > maxPts) maxPts = pts;
+    totalPts += pts;
   }
-  return { maxLen, maxPts };
+  return { maxLen, maxPts, totalPts };
 }
 
 function getSpecialScoreConfigFromPlan(plan) {
@@ -1804,6 +2033,7 @@ function getTargetHintScheduleMs({
   targetWord = "",
   targetLength = null,
   roundDurationMs = 90 * 1000,
+  roundType = "target_long",
 } = {}) {
   const rawLength =
     Number.isFinite(targetLength) && targetLength > 0
@@ -1812,14 +2042,20 @@ function getTargetHintScheduleMs({
       ? targetWord.length
       : 0;
   const safeLength = Math.max(1, Math.floor(rawLength));
+  const isTargetScoreRound = roundType === "target_score";
+  const scheduleByLength = isTargetScoreRound
+    ? TARGET_HINT_SCHEDULE_SECONDS_SCORE_BY_LENGTH
+    : TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH;
+  const fallbackSchedule = isTargetScoreRound
+    ? TARGET_HINT_SCORE_DEFAULT_SECONDS
+    : TARGET_HINT_DEFAULT_SECONDS;
   const key =
     safeLength >= 13
       ? "13+"
-      : Object.prototype.hasOwnProperty.call(TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH, safeLength)
+      : Object.prototype.hasOwnProperty.call(scheduleByLength, safeLength)
       ? safeLength
       : 11;
-  const secondsList =
-    TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH[key] || TARGET_HINT_DEFAULT_SECONDS || [];
+  const secondsList = scheduleByLength[key] || fallbackSchedule || [];
   const latestAllowed = Math.max(1000, (Number(roundDurationMs) || 90 * 1000) - 1000);
   const timings = [];
   let prev = -1;
@@ -2072,13 +2308,17 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
           pushAnnouncement(room, {
             type: "objective_validated",
             nick: resolvedNick,
+            objectiveId: entry?.id || "",
             objectiveTitle: entry?.title || "Objectif",
+            objectiveBucket: entry?.bucket || "",
+            objectiveProgress: Number(entry?.progress) || 0,
+            objectiveTarget: Number(entry?.target) || 0,
             teamPoints: points,
             text: `✅ ${resolvedNick} a validé "${entry?.title || "Objectif"}" (+${points} équipe)`,
           });
         });
     }).finally(() => {
-      void refreshInstallDuelCache(playerInstallId);
+      scheduleInstallDuelCacheRefresh(playerInstallId);
       if (
         duelRoundRef &&
         duelRoundRef.id === duelRoundId &&
@@ -2660,7 +2900,7 @@ function resetRoomRecords(room) {
   room.bestLengthRecord = { len: 0, players: new Set() };
   room.longestPossibleRecord = { len: 0, players: new Set() };
   room.bestPossibleScoreRecord = { pts: 0, players: new Set() };
-  room.bestPossibleStats = { maxLen: 0, maxPts: 0 };
+  room.bestPossibleStats = { maxLen: 0, maxPts: 0, totalPts: 0 };
   room.closeFightAnnounced = false;
   room.finalFightScheduled = null;
   room.endSoonTimeout = null;
@@ -2668,6 +2908,8 @@ function resetRoomRecords(room) {
 
 async function startRoundForRoom(room) {
   if (!room) return;
+  clearPendingRankingBroadcast(room);
+  room.rankingLastSignature = null;
   room.breakState = null;
 
   if (room.currentRound?.timers) {
@@ -2767,8 +3009,12 @@ async function startRoundForRoom(room) {
       ? {
           maxLen: quality.maxLen || 0,
           maxPts: planUsed?.fixedWordScore || quality.maxPts || 0,
+          totalPts:
+            quality.possibleScore ??
+            quality.totalPts ??
+            0,
         }
-      : { maxLen: 0, maxPts: 0 };
+      : { maxLen: 0, maxPts: 0, totalPts: 0 };
     if (planUsed?.fixedWordScore) {
       bestPossibleStats.maxPts = planUsed.fixedWordScore;
     }
@@ -2780,6 +3026,22 @@ async function startRoundForRoom(room) {
       }
     }
     room.bestPossibleStats = bestPossibleStats;
+
+  if (
+    planUsed?.isSpecial &&
+    (planUsed.type === "target_long" || planUsed.type === "target_score") &&
+    typeof room.currentRound.targetWord === "string" &&
+    room.currentRound.targetWord
+  ) {
+    room.currentRound.targetHintScheduleMs = getTargetHintScheduleMs({
+      targetWord: room.currentRound.targetWord,
+      targetLength: room.currentRound.targetLength,
+      roundDurationMs,
+      roundType: planUsed.type,
+    });
+  } else {
+    room.currentRound.targetHintScheduleMs = [];
+  }
 
   const nextTournamentRound =
     tournamentRound >= (room.tournament.totalRounds || TOURNAMENT_TOTAL_ROUNDS)
@@ -2804,6 +3066,9 @@ async function startRoundForRoom(room) {
     durationMs: room.currentRound.durationMs,
     endsAt: room.currentRound.endsAt,
     targetLength: room.currentRound.targetLength || null,
+    targetHintScheduleMs: Array.isArray(room.currentRound.targetHintScheduleMs)
+      ? room.currentRound.targetHintScheduleMs
+      : [],
     special: planUsed?.isSpecial ? planUsed : null,
     gridQuality: quality
       ? {
@@ -2814,7 +3079,10 @@ async function startRoundForRoom(room) {
               ? room.bestPossibleStats.maxPts || 0
               : planUsed?.fixedWordScore || quality.maxPts || 0,
           totalPts: quality.totalPts ?? 0,
-          possibleScore: quality.possibleScore ?? quality.totalPts ?? 0,
+          possibleScore:
+            planUsed?.type === "bonus_letter"
+              ? room.bestPossibleStats.totalPts || quality.possibleScore || quality.totalPts || 0
+              : quality.possibleScore ?? quality.totalPts ?? 0,
           longWords: quality.longWords ?? 0,
         }
       : null,
@@ -2831,7 +3099,7 @@ async function startRoundForRoom(room) {
     nextSpecial: nextPlan?.isSpecial ? nextPlan : null,
   });
 
-  broadcastProvisionalRanking(room);
+  broadcastProvisionalRanking(room, { force: true });
 
   // IMPORTANT: doit venir APRES "roundStarted", car le client purge son flux a la reception.
   if (
@@ -2867,11 +3135,16 @@ async function startRoundForRoom(room) {
     typeof room.currentRound.targetWord === "string" &&
     room.currentRound.targetWord
   ) {
-    const hintScheduleMs = getTargetHintScheduleMs({
-      targetWord: room.currentRound.targetWord,
-      targetLength: room.currentRound.targetLength,
-      roundDurationMs,
-    });
+    const hintScheduleMs =
+      Array.isArray(room.currentRound.targetHintScheduleMs) &&
+      room.currentRound.targetHintScheduleMs.length
+        ? room.currentRound.targetHintScheduleMs
+        : getTargetHintScheduleMs({
+            targetWord: room.currentRound.targetWord,
+            targetLength: room.currentRound.targetLength,
+            roundDurationMs,
+            roundType: planUsed.type,
+          });
     room.currentRound.targetHintScheduleMs = hintScheduleMs;
     const firstHintMs = hintScheduleMs[0];
     pushAnnouncement(room, {
@@ -2977,6 +3250,7 @@ async function startRoundForRoom(room) {
 
 async function endRoundForRoom(room) {
   if (!room || !room.currentRound || room.currentRound.status !== "running") return;
+  clearPendingRankingBroadcast(room);
   if (room.currentRound.timers) {
     room.currentRound.timers.forEach((t) => clearTimeout(t));
   }
@@ -3583,9 +3857,17 @@ io.on("connection", (socket) => {
       socket.data.roomId = room.id;
       socket.roomId = room.id;
       socket.join(room.id);
+      if (!isBotToken(player?.token)) {
+        const team = getTeamForInstallCached(installId);
+        pushSystemChatMessage(
+          room,
+          `${player.nick} ${getTeamDot(team)} a rejoint le tournoi`,
+          { installId, team, nick: player.nick, meta: { kind: "join_tournament" } }
+        );
+      }
       emitPlayers(room);
       emitMedals(room);
-      broadcastProvisionalRanking(room);
+      broadcastProvisionalRanking(room, { force: true });
       emitRoomsStats();
     }
     const snapshot = buildSessionSnapshot(room, player);
@@ -3670,6 +3952,14 @@ io.on("connection", (socket) => {
     socket.data.roomId = room.id;
     socket.roomId = room.id;
     socket.join(room.id);
+    if (!isBotToken(token)) {
+      const team = getTeamForInstallCached(installId);
+      pushSystemChatMessage(
+        room,
+        `${trimmed} ${getTeamDot(team)} a rejoint le tournoi`,
+        { installId, team, nick: trimmed, meta: { kind: "join_tournament" } }
+      );
+    }
     console.log("Login:", socket.id, trimmed, "->", room.id);
     appendConnectionLog({
       nick: trimmed,
@@ -3702,17 +3992,28 @@ io.on("connection", (socket) => {
         durationMs: room.currentRound.durationMs,
         endsAt: room.currentRound.endsAt,
         targetLength: room.currentRound.targetLength || null,
+        targetHintScheduleMs: Array.isArray(room.currentRound.targetHintScheduleMs)
+          ? room.currentRound.targetHintScheduleMs
+          : [],
         special: room.currentRound.special?.isSpecial ? room.currentRound.special : null,
         gridQuality: currentQuality
           ? {
               words: currentQuality.words ?? 0,
               maxLen: currentQuality.maxLen ?? 0,
               maxPts:
-                room.currentRound.special?.fixedWordScore ||
-                currentQuality.maxPts ||
-                0,
+                room.currentRound.special?.type === "bonus_letter"
+                  ? room.bestPossibleStats?.maxPts || currentQuality.maxPts || 0
+                  : room.currentRound.special?.fixedWordScore ||
+                    currentQuality.maxPts ||
+                    0,
               totalPts: currentQuality.totalPts ?? 0,
-              possibleScore: currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
+              possibleScore:
+                room.currentRound.special?.type === "bonus_letter"
+                  ? room.bestPossibleStats?.totalPts ||
+                    currentQuality.possibleScore ||
+                    currentQuality.totalPts ||
+                    0
+                  : currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
               longWords: currentQuality.longWords ?? 0,
             }
           : null,
@@ -3746,6 +4047,7 @@ io.on("connection", (socket) => {
                 targetLength: room.currentRound.targetLength,
                 roundDurationMs:
                   room.currentRound.durationMs || room.config.durationMs || 90 * 1000,
+                roundType: specialType,
               });
         const firstHintMs =
           targetHintScheduleMs.length > 0 ? targetHintScheduleMs[0] : Number.POSITIVE_INFINITY;
@@ -3770,7 +4072,7 @@ io.on("connection", (socket) => {
       });
     }
       }
-      broadcastProvisionalRanking(room);
+      broadcastProvisionalRanking(room, { force: true });
     } else if (room.breakState && typeof room.breakState.nextStartAt === "number") {
       socket.emit("breakStarted", {
         roomId: room.id,
@@ -3856,6 +4158,8 @@ io.on("connection", (socket) => {
       nick: authorNick,
       installId,
       text: trimmed,
+      team: getTeamForInstallCached(installId),
+      isDailyChampion: isDailyChampionInstallId(installId),
     };
     pushChatMessage(room, message);
     cb?.({ ok: true });
@@ -4065,16 +4369,30 @@ io.on("connection", (socket) => {
     clearPendingDisconnect(room, socket.id);
     emitPlayers(room);
     emitRoomsStats();
-    broadcastProvisionalRanking(room);
+    broadcastProvisionalRanking(room, { force: true });
     const timer = setTimeout(() => {
       clearPendingDisconnect(room, socket.id);
       const current = room.players.get(socket.id);
       if (current) {
         room.players.delete(socket.id);
+        if (!isBotToken(current?.token)) {
+          const currentInstallId = normalizeInstallId(current?.installId || "");
+          const team = getTeamForInstallCached(currentInstallId);
+          pushSystemChatMessage(
+            room,
+            `${current?.nick || "Joueur"} ${getTeamDot(team)} a quitté le tournoi`,
+            {
+              installId: currentInstallId,
+              team,
+              nick: current?.nick || "",
+              meta: { kind: "leave_tournament" },
+            }
+          );
+        }
         console.log("Client déconnecté", socket.id, current?.nick, "from", room.id);
         emitPlayers(room);
         emitMedals(room);
-        broadcastProvisionalRanking(room);
+        broadcastProvisionalRanking(room, { force: true });
         emitRoomsStats();
       }
     }, DISCONNECT_GRACE_MS);

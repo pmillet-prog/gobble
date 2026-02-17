@@ -87,7 +87,10 @@ const DARK_DIVIDER_COLOR = "#1f2937";
 const DARK_WORD_INACTIVE = "#e2e8f0";
 const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
-const WORD_BATCH_ACK_TIMEOUT_MS = 1400;
+const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
+const RANKING_UI_UPDATE_MIN_MS = 90;
+const PING_SERVER_TIMEOUT_MS = 2200;
+const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 2;
 const VOCAB_OVERLAY_FADE_MS = 1000;
 const VOCAB_OVERLAY_ZERO_DELAY_MS = 2000;
 const VOCAB_OVERLAY_SEGMENT_MS = 2000;
@@ -2553,27 +2556,32 @@ body.theme-dark .tile-hint {
 
 const DEFAULT_CHAT_VISIBLE_LINES = 18;
 const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
-const CHAT_BUFFER_MAX = 200;
+const CHAT_MESSAGES_HISTORY_MAX = 200;
+const CHAT_SYSTEM_HISTORY_MAX = 100;
+const CHAT_BUFFER_MAX = CHAT_MESSAGES_HISTORY_MAX + CHAT_SYSTEM_HISTORY_MAX;
 const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
-const MIN_CHAT_OPACITY = 0.03;
+const MIN_CHAT_OPACITY = 0.22;
 const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 260;
-const TARGET_HINT_FIRST_MS = 15 * 1000;
-const TARGET_HINT_STEP_MS = 15 * 1000;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
+const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
+const CHAT_MESSAGES_STORAGE_KEY = "gobble_chat_messages_v1";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
-const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v2";
+const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v3";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
+const PATCH_NOTES_VERSION = "2026-02-18";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-18T00:00:00+01:00");
+const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
     return {};
@@ -2589,6 +2597,7 @@ const readLocalSettings = () => {
   }
 };
 const GUIDED_RESULTS_STEPS = {
+  TAP_PSEUDO: "tap_pseudo",
   SWIPE_TOTAL: "swipe_total",
   SWIPE_FOUND: "swipe_found",
   SWIPE_ALL: "swipe_all",
@@ -2596,6 +2605,7 @@ const GUIDED_RESULTS_STEPS = {
   TAP_DEFINITION: "tap_definition",
 };
 const GUIDED_RESULTS_STEP_ORDER = [
+  GUIDED_RESULTS_STEPS.TAP_PSEUDO,
   GUIDED_RESULTS_STEPS.SWIPE_TOTAL,
   GUIDED_RESULTS_STEPS.SWIPE_FOUND,
   GUIDED_RESULTS_STEPS.SWIPE_ALL,
@@ -2608,8 +2618,6 @@ const GUIDED_RESULTS_PAGE_TO_STEP = {
   found: GUIDED_RESULTS_STEPS.SWIPE_ALL,
   all: GUIDED_RESULTS_STEPS.TAP_WORD,
 };
-const SPECIAL_TUTORIAL_HINT_FIRST_S = 15;
-const SPECIAL_TUTORIAL_HINT_STEP_S = 15;
 const SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK = 11;
 const SPECIAL_TUTORIAL_BONUS_TILE_STYLES = {
   L2: { bg: "rgba(163,196,243,0.85)", border: "rgba(99,147,230,0.9)", text: "#0f172a" },
@@ -2643,9 +2651,104 @@ function getOrCreateInstallId() {
     }
     const fresh = generateInstallId();
     localStorage.setItem(INSTALL_ID_STORAGE_KEY, fresh);
+    localStorage.setItem(INSTALL_ID_CREATED_AT_STORAGE_KEY, String(Date.now()));
     return fresh;
   } catch (_) {
     return generateInstallId();
+  }
+}
+
+function getInstallIdCreatedAtTs() {
+  try {
+    const raw = localStorage.getItem(INSTALL_ID_CREATED_AT_STORAGE_KEY);
+    const ts = Number(raw);
+    return Number.isFinite(ts) && ts > 0 ? ts : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getPatchNotesSeenStorageKey(installId, version = PATCH_NOTES_VERSION) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  if (!safeInstallId) return "";
+  return `${PATCH_NOTES_SEEN_STORAGE_PREFIX}:${version}:${safeInstallId}`;
+}
+
+function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  if (!safeInstallId) return false;
+  if (!Number.isFinite(PATCH_NOTES_RELEASE_TS)) return true;
+  if (!Number.isFinite(installIdCreatedAtTs)) {
+    // Legacy installs without timestamp are considered existing installs.
+    return true;
+  }
+  return installIdCreatedAtTs < PATCH_NOTES_RELEASE_TS;
+}
+
+function getChatMessageSortTime(message) {
+  const tsCandidate =
+    message?.t ??
+    message?.ts ??
+    message?.timestamp ??
+    message?.createdAt ??
+    0;
+  const ts = Number(tsCandidate);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function dedupeChatMessages(messages) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of Array.isArray(messages) ? messages : []) {
+    if (!raw || typeof raw !== "object") continue;
+    const id = typeof raw.id === "string" ? raw.id : "";
+    const key = id
+      ? `id:${id}`
+      : `fallback:${getChatMessageSortTime(raw)}:${raw.nick || raw.author || ""}:${raw.text || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(raw);
+  }
+  return out;
+}
+
+function capChatMessagesByType(messages) {
+  const deduped = dedupeChatMessages(messages);
+  const system = [];
+  const user = [];
+  for (let i = deduped.length - 1; i >= 0; i -= 1) {
+    const msg = deduped[i];
+    if (isSystemChatMessage(msg)) {
+      if (system.length < CHAT_SYSTEM_HISTORY_MAX) {
+        system.push(msg);
+      }
+      continue;
+    }
+    if (user.length < CHAT_MESSAGES_HISTORY_MAX) {
+      user.push(msg);
+    }
+  }
+  const merged = [...user.reverse(), ...system.reverse()];
+  merged.sort((a, b) => {
+    const tA = getChatMessageSortTime(a);
+    const tB = getChatMessageSortTime(b);
+    if (tA !== tB) return tA - tB;
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+  });
+  return merged.slice(-CHAT_BUFFER_MAX);
+}
+
+function readStoredChatMessages() {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem(CHAT_MESSAGES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return capChatMessagesByType(parsed);
+  } catch (_) {
+    return [];
   }
 }
 
@@ -3123,6 +3226,7 @@ export default function App() {
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({
     startX: null,
@@ -3228,6 +3332,7 @@ export default function App() {
   const breakKindRef = useRef(breakKind);
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
   const [specialHint, setSpecialHint] = useState(null); // { kind, pattern, length, cells }
+  const [targetHintScheduleMs, setTargetHintScheduleMs] = useState([]);
   const [specialSolvedOverlay, setSpecialSolvedOverlay] = useState(null); // { nick, word, kind }
   const [foundTargetThisRound, setFoundTargetThisRound] = useState(false);
   const [foundTargetWord, setFoundTargetWord] = useState("");
@@ -3240,6 +3345,7 @@ export default function App() {
     url: "",
   });
   const [installId] = useState(() => getOrCreateInstallId());
+  const [installIdCreatedAtTs] = useState(() => getInstallIdCreatedAtTs());
   const [broadcastNotice, setBroadcastNotice] = useState({
     loading: false,
     message: null,
@@ -3380,31 +3486,96 @@ export default function App() {
   }
 
   function returnToLobby() {
-    const wasLoggedIn = isLoggedInRef.current;
     setIsSettingsOpen(false);
     // Désactive immédiatement les events "manche live" pour éviter
     // qu'un roundEnded en transit relance un outro/blackhole après retour lobby.
     isLoggedInRef.current = false;
     phaseRef.current = "lobby";
     appViewRef.current = "home";
+    roundStartPendingRef.current = null;
+    roundStartRetryRef.current = false;
+    roundStartSoundRef.current = null;
     pendingRoundEndRef.current = null;
     pendingBreakStartRef.current = null;
     implodeFallbackRef.current = false;
     outroInFlightRef.current = false;
     outroRoundRef.current = null;
+    if (tickIntervalRef.current) {
+      clearInterval(tickIntervalRef.current);
+      tickIntervalRef.current = null;
+    }
+    if (disconnectGraceTimerRef.current) {
+      clearTimeout(disconnectGraceTimerRef.current);
+      disconnectGraceTimerRef.current = null;
+    }
+    if (manualRefreshTimerRef.current) {
+      clearTimeout(manualRefreshTimerRef.current);
+      manualRefreshTimerRef.current = null;
+    }
+    if (foregroundRetryTimerRef.current) {
+      clearTimeout(foregroundRetryTimerRef.current);
+      foregroundRetryTimerRef.current = null;
+    }
+    if (chatCloseTimerRef.current) {
+      clearTimeout(chatCloseTimerRef.current);
+      chatCloseTimerRef.current = null;
+    }
+    if (definitionBlinkTimerRef.current) {
+      clearTimeout(definitionBlinkTimerRef.current);
+      definitionBlinkTimerRef.current = null;
+    }
+    if (weeklyArrowTimerRef.current) {
+      clearTimeout(weeklyArrowTimerRef.current);
+      weeklyArrowTimerRef.current = null;
+    }
+    if (weeklyArrowBlinkTimerRef.current) {
+      clearTimeout(weeklyArrowBlinkTimerRef.current);
+      weeklyArrowBlinkTimerRef.current = null;
+    }
+    if (weeklyArrowBumpTimerRef.current) {
+      clearTimeout(weeklyArrowBumpTimerRef.current);
+      weeklyArrowBumpTimerRef.current = null;
+    }
+    stopImplodePhase();
     setImplodeActive(false);
+    clearResultsSlideTimers();
+    clearWordListFlipArtifacts();
+    clearVocabOverlayTimers();
+    stopVocabOverlayAnimation();
+    clearQueuedRankingUpdate();
+    resetSubmissionQueue();
+    cancelAllWordsCompute();
+    clearToasts();
+    clearStatusMessage({ force: true });
     clearCelebrationFx();
     setInputLocked(false);
     inputLockedRef.current = false;
     setPhase("lobby");
     setServerStatus("waiting");
-    stopAllActiveAudio({ suspendContext: true, immediate: true });
+    setRoundId(null);
+    setServerEndsAt(null);
+    setServerRoundDurationMs(null);
+    setNextStartAt(null);
+    setBreakCountdown(null);
+    setBreakKind(null);
+    setSpecialHint(null);
+    setTargetHintScheduleMs([]);
+    setSpecialSolvedOverlay(null);
+    setFoundTargetThisRound(false);
+    setFoundTargetWord("");
+    stopRoundEndTickSound({ fadeMs: 0 });
+    stopAllActiveAudio({ suspendContext: false, immediate: true });
     setAppView("home");
     dailySessionRef.current = { dateId: null, startedAt: null };
     setDailyResult(null);
-    if (!wasLoggedIn) return;
+    setResumePending(false);
+    setResumeSnapshot(null);
+    resumeProbeRef.current = { inFlight: false, lastAt: 0 };
+    resumeLockRef.current = false;
+    resumeLockAtRef.current = 0;
     manualDisconnectRef.current = true;
     clearSavedSession();
+    isLoggedInRef.current = false;
     setIsLoggedIn(false);
     setConnectionError("");
     try {
@@ -3431,6 +3602,10 @@ export default function App() {
   const startGameFromServerRef = useRef(null);
   const pingInFlightRef = useRef(false);
   const watchdogTimerRef = useRef(null);
+  const watchdogFailureCountRef = useRef(0);
+  const rankingQueueTimerRef = useRef(null);
+  const rankingQueuedRef = useRef(null);
+  const rankingLastApplyAtRef = useRef(0);
 
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn;
@@ -3444,7 +3619,7 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn && phase !== "lobby") return;
     clearCelebrationFx();
-    stopAllActiveAudio({ suspendContext: true, immediate: true });
+    stopAllActiveAudio({ suspendContext: false, immediate: true });
   }, [isLoggedIn, phase]);
   useEffect(() => {
     if (isLoggedIn) {
@@ -3505,6 +3680,15 @@ export default function App() {
     roundIdRef.current = roundId;
   }, [roundId]);
   useEffect(() => {
+    return () => {
+      if (rankingQueueTimerRef.current) {
+        clearTimeout(rankingQueueTimerRef.current);
+        rankingQueueTimerRef.current = null;
+      }
+      rankingQueuedRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
     breakCountdownRef.current = breakCountdown;
   }, [breakCountdown]);
   useEffect(() => {
@@ -3532,7 +3716,7 @@ export default function App() {
   const [activeArea, setActiveArea] = useState("game");
 
   // Chat
-  const [chatMessages, setChatMessages] = useState([]);
+  const [chatMessages, setChatMessages] = useState(() => readStoredChatMessages());
   const [chatInput, setChatInput] = useState("");
   const [blockedInstallIds, setBlockedInstallIds] = useState(() => {
     try {
@@ -3563,6 +3747,14 @@ export default function App() {
     reason: "",
     details: "",
   });
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CHAT_MESSAGES_STORAGE_KEY,
+        JSON.stringify(capChatMessagesByType(chatMessages))
+      );
+    } catch (_) {}
+  }, [chatMessages]);
   const [definitionModal, setDefinitionModal] = useState({
     open: false,
     loading: false,
@@ -3606,6 +3798,7 @@ export default function App() {
     open: false,
     nick: "",
     words: [],
+    allWords: [],
     records: [],
     anchorRect: null,
     targetBoardKey: "",
@@ -5325,6 +5518,8 @@ export default function App() {
   // Petit "tic tac" pour la fin de manche (fichier)
   function playTickSound({ isTargetRound } = {}) {
     if (isSfxMuted) return;
+    if (phaseRef.current !== "playing") return;
+    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
     stopRoundEndTickSound({ fadeMs: 0 });
     const soundKey = isTargetRound ? "coeur" : "tick";
     const assetKey = isTargetRound ? SFX_KEYS.coeur : SFX_KEYS.tictac10;
@@ -5337,6 +5532,7 @@ export default function App() {
   // "Tic tac" avant le début de manche (compte à rebours)
   function playCountdownTickSound() {
     if (isSfxMuted) return;
+    if (!isLoggedInRef.current) return;
     playOneShotAudio(SFX_KEYS.tictoc, {
       cooldownKey: "countdownTick",
       eqKey: "countdownTick",
@@ -5384,6 +5580,8 @@ export default function App() {
 
   function playRoundStartSound() {
     if (isSfxMuted) return;
+    if (phaseRef.current !== "playing") return;
+    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
     playOneShotAudio(SFX_KEYS.roundStart, {
       cooldownKey: "roundStart",
       eqKey: "roundStart",
@@ -6441,6 +6639,7 @@ export default function App() {
       roundStartAtRef.current = 0;
       setPhase("results");
       setServerStatus("break");
+      clearQueuedRankingUpdate();
       setProvisionalRanking([]);
       setAnnouncements([]);
       setFinalResults(Array.isArray(results) ? results : []);
@@ -6539,15 +6738,16 @@ export default function App() {
         const objectiveUpdates = Array.isArray(selfDuelUpdate.objectiveUpdates)
           ? selfDuelUpdate.objectiveUpdates
           : [];
-        objectiveUpdates
-          .filter((entry) => entry?.newlyValidated)
-          .forEach((entry) => {
-            const points = Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0;
-            showToast(
-              `✅ Objectif validé : ${entry?.title || "Objectif"} (+${points} équipe)`,
-              2800
-            );
-          });
+        objectiveUpdates.forEach((entry) => {
+          if (!entry) return;
+          if (entry?.newlyValidated) {
+            showToast(buildObjectiveToastMessage(entry, { validated: true }), 2800);
+            return;
+          }
+          if (isTargetWordsObjective(entry)) {
+            showToast(buildObjectiveToastMessage(entry, { validated: false }), 2200);
+          }
+        });
         const gobblePoints = Number(selfDuelUpdate.gobblePointsAdded) || 0;
         if (gobblePoints > 0) {
           showToast(`🔥 Gobble ! (+${gobblePoints} équipe)`, 2200);
@@ -6606,7 +6806,7 @@ export default function App() {
         const view = appViewRef.current;
         const isDailyViewNow =
           view === "daily" || view === "daily_play" || view === "daily_results";
-        if (!isLoggedInRef.current || isDailyViewNow) {
+        if (!isLoggedInRef.current || isDailyViewNow || phaseRef.current !== "playing") {
           return;
         }
       }
@@ -6961,6 +7161,42 @@ export default function App() {
     toastTimersRef.current.set(id, timerId);
   }
 
+  function getObjectiveBucketLabel(bucket) {
+    const key = String(bucket || "").toLowerCase();
+    if (key === "easy") return "facile";
+    if (key === "medium") return "moyen";
+    if (key === "hard") return "difficile";
+    return "";
+  }
+
+  function isTargetWordsObjective(entry) {
+    const id = String(entry?.id || entry?.objectiveId || "").toLowerCase();
+    const title = String(entry?.title || entry?.objectiveTitle || "").toLowerCase();
+    return id.includes("target_word") || title.includes("mot cible");
+  }
+
+  function buildObjectiveToastMessage(entry, { validated = false } = {}) {
+    const points = Number(entry?.teamPointsAwarded) || Number(entry?.teamPoints) || Number(entry?.points) || 0;
+    const pointsSuffix = points > 0 ? ` (+${points} équipe)` : "";
+    const title = String(entry?.title || entry?.objectiveTitle || "Objectif").trim() || "Objectif";
+    if (!isTargetWordsObjective(entry)) {
+      return `✅ Objectif validé : ${title}${pointsSuffix}`;
+    }
+    const target = Math.max(0, Number(entry?.target ?? entry?.objectiveTarget) || 0);
+    const progressRaw = Math.max(0, Number(entry?.progress ?? entry?.objectiveProgress) || 0);
+    if (validated) {
+      const bucketLabel = getObjectiveBucketLabel(entry?.bucket || entry?.objectiveBucket);
+      const bucketSuffix = bucketLabel ? ` (${bucketLabel})` : "";
+      const ratio = target > 0 ? ` (${target}/${target})` : "";
+      return `🎯 Objectif mots cibles${bucketSuffix} atteint !${ratio}${pointsSuffix}`;
+    }
+    if (target > 0) {
+      const progress = Math.min(progressRaw, target);
+      return `🎯 Mots cibles trouvés : ${progress}/${target}`;
+    }
+    return `🎯 Mots cibles trouvés`;
+  }
+
   useEffect(() => {
     return () => {
       clearToasts();
@@ -7192,9 +7428,11 @@ export default function App() {
       nextSpecial = null,
       tournament: tournamentPayload = null,
       targetLength = null,
+      targetHintScheduleMs = [],
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!grid || !Array.isArray(grid)) return;
+      clearQueuedRankingUpdate();
       stopImplodePhase();
       pendingBreakStartRef.current = null;
       pendingRoundEndRef.current = null;
@@ -7263,7 +7501,8 @@ export default function App() {
         payloadSize,
         special,
         gridQuality,
-        nextSpecial || null
+        nextSpecial || null,
+        targetHintScheduleMs
       );
     }
 
@@ -7278,6 +7517,19 @@ export default function App() {
       teamDuel: teamDuelPayload = null,
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (phaseRef.current !== "playing") {
+        processRoundEndedRef.current?.({
+          roomId: endedRoomId,
+          roundId: endedId,
+          results,
+          tournament: tournamentPayload,
+          tournamentSummary: summary,
+          tournamentSummaryAt: summaryAt,
+          targetSummary: targetSummaryPayload,
+          teamDuel: teamDuelPayload,
+        });
+        return;
+      }
       playOutroThenResultsRef.current?.(
         {
           roomId: endedRoomId,
@@ -7310,38 +7562,12 @@ export default function App() {
     function onPlayersUpdate(list = []) {
       const sanitized = Array.isArray(list) ? list : [];
       setPlayers(sanitized);
-      const prev = prevPlayersRef.current;
       const current = new Set(
         sanitized
           .filter((p) => p && !p.isBot && !isSystemAuthor(p.nick))
           .map((p) => p.nick)
           .filter(Boolean)
       );
-      const joined = [...current].filter((n) => !prev.has(n));
-      const left = [...prev].filter((n) => !current.has(n));
-      // Socket/playersUpdate : logs "tournoi" (front + jeu).
-      // Les logs "serveur" continuent d'être produits via fetchLobbyPlayers (polling front).
-      const sysMessages = [
-        ...joined.map((n) => ({
-          id: `sys-join-${n}-${Date.now()}`,
-          author: "Système",
-          channel: "system",
-          type: "system",
-          text: `${n} a rejoint le tournoi`,
-        })),
-        ...left.map((n) => ({
-          id: `sys-leave-${n}-${Date.now()}`,
-          author: "Système",
-          channel: "system",
-          type: "system",
-          text: `${n} a quitté le tournoi`,
-        })),
-      ];
-      if (sysMessages.length) {
-        setChatMessages((prevMsgs) =>
-          [...prevMsgs, ...sysMessages].slice(-CHAT_BUFFER_MAX)
-        );
-      }
       prevPlayersRef.current = current;
     }
 
@@ -7350,17 +7576,17 @@ export default function App() {
       const activeRoundId = roundIdRef.current;
       if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
       if (activeRoundId && rid && rid !== activeRoundId) return;
-      setProvisionalRanking(ranking);
+      queueRankingUpdate(ranking);
     }
 
     function onChatHistory(history = []) {
       if (!Array.isArray(history)) return;
-      setChatMessages(history.slice(-CHAT_BUFFER_MAX));
+      setChatMessages((prev) => capChatMessagesByType([...prev, ...history]));
     }
 
     function onChatNew(msg) {
       if (!msg || typeof msg !== "object") return;
-      setChatMessages((prev) => [...prev, msg].slice(-CHAT_BUFFER_MAX));
+      setChatMessages((prev) => capChatMessagesByType([...prev, msg]));
       if (isSystemChatMessage(msg)) return;
 
       const authorInstallId =
@@ -7406,9 +7632,18 @@ export default function App() {
       const selfNickNow = (nicknameRef.current || "").trim().toLowerCase();
       const nick = String(entry?.nick || "").trim().toLowerCase();
       if (!selfNickNow || !nick || selfNickNow !== nick) return;
-      const points = Number(entry?.teamPoints) || 0;
       showToast(
-        `✅ Objectif validé : ${entry?.objectiveTitle || "Objectif"} (+${points} équipe)`,
+        buildObjectiveToastMessage(
+          {
+            objectiveId: entry?.objectiveId,
+            objectiveTitle: entry?.objectiveTitle,
+            objectiveBucket: entry?.objectiveBucket,
+            objectiveProgress: entry?.objectiveProgress,
+            objectiveTarget: entry?.objectiveTarget,
+            teamPoints: entry?.teamPoints,
+          },
+          { validated: true }
+        ),
         2800
       );
     }
@@ -7443,9 +7678,11 @@ export default function App() {
       setIsConnecting(false);
       const hasSession = hasSavedSession() || autoResumeEnabledRef.current;
       if (!hasSession && !isLoggedInRef.current) {
+        isLoggedInRef.current = false;
         setIsLoggedIn(false);
         setLoginError("Connexion au serveur impossible");
       }
+      clearQueuedRankingUpdate();
       setConnectionError("Connexion au serveur impossible");
       setPlayers([]);
       setProvisionalRanking([]);
@@ -7455,6 +7692,8 @@ export default function App() {
     }
 
     function onConnect() {
+      watchdogFailureCountRef.current = 0;
+      batchUnsupportedRef.current = false;
       setConnectionError("");
       if (reconnectToastPendingRef.current) {
         reconnectToastPendingRef.current = false;
@@ -7483,6 +7722,8 @@ export default function App() {
         clearTimeout(disconnectGraceTimerRef.current);
       }
       const hardReset = () => {
+        clearQueuedRankingUpdate();
+        isLoggedInRef.current = false;
         setIsLoggedIn(false);
         setRoundId(null);
         setServerEndsAt(null);
@@ -7834,6 +8075,9 @@ export default function App() {
     sessionRef.current = null;
     setCanResumeSession(false);
     autoResumeEnabledRef.current = false;
+    setResumePending(false);
+    setResumeSnapshot(null);
+    resumeProbeRef.current = { inFlight: false, lastAt: 0 };
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (_) {}
@@ -7842,6 +8086,48 @@ export default function App() {
   function hasSavedSession() {
     const s = sessionRef.current;
     return Boolean(s?.nick && s?.roomId && s?.installId);
+  }
+
+  function clearQueuedRankingUpdate() {
+    if (rankingQueueTimerRef.current) {
+      clearTimeout(rankingQueueTimerRef.current);
+      rankingQueueTimerRef.current = null;
+    }
+    rankingQueuedRef.current = null;
+  }
+
+  function applyRankingUpdateNow(nextRanking = []) {
+    rankingLastApplyAtRef.current = Date.now();
+    setProvisionalRanking(Array.isArray(nextRanking) ? nextRanking : []);
+  }
+
+  function queueRankingUpdate(nextRanking = [], { force = false } = {}) {
+    const safeRanking = Array.isArray(nextRanking) ? nextRanking : [];
+    if (force) {
+      clearQueuedRankingUpdate();
+      applyRankingUpdateNow(safeRanking);
+      return;
+    }
+
+    rankingQueuedRef.current = safeRanking;
+    const now = Date.now();
+    const elapsed = now - (rankingLastApplyAtRef.current || 0);
+    if (!rankingQueueTimerRef.current && elapsed >= RANKING_UI_UPDATE_MIN_MS) {
+      const immediate = rankingQueuedRef.current;
+      rankingQueuedRef.current = null;
+      applyRankingUpdateNow(immediate || []);
+      return;
+    }
+    if (rankingQueueTimerRef.current) return;
+    const delayMs = Math.max(0, RANKING_UI_UPDATE_MIN_MS - elapsed);
+    rankingQueueTimerRef.current = setTimeout(() => {
+      rankingQueueTimerRef.current = null;
+      const pending = rankingQueuedRef.current;
+      rankingQueuedRef.current = null;
+      if (pending) {
+        applyRankingUpdateNow(pending);
+      }
+    }, delayMs);
   }
 
   function pingServer(reason = "ping") {
@@ -7855,7 +8141,7 @@ export default function App() {
         if (done) return;
         done = true;
         reject(new Error("timeout"));
-      }, 1500);
+      }, PING_SERVER_TIMEOUT_MS);
       const t0 = Date.now();
       socket.emit("timeSync", null, (res) => {
         if (done) return;
@@ -8543,11 +8829,60 @@ export default function App() {
     fetchDuelStatus();
   }
 
+  function parsePossiblyDirtyJson(rawText) {
+    if (typeof rawText !== "string") return null;
+    const raw = rawText.replace(/^\uFEFF/, "").trim();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (_) {}
+    const firstObj = raw.indexOf("{");
+    const lastObj = raw.lastIndexOf("}");
+    if (firstObj >= 0 && lastObj > firstObj) {
+      const candidate = raw.slice(firstObj, lastObj + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch (_) {}
+    }
+    const firstArr = raw.indexOf("[");
+    const lastArr = raw.lastIndexOf("]");
+    if (firstArr >= 0 && lastArr > firstArr) {
+      const candidate = raw.slice(firstArr, lastArr + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  function isLikelyHtmlPayload(rawText) {
+    const raw = String(rawText || "").trim().toLowerCase();
+    if (!raw) return false;
+    return (
+      raw.startsWith("<!doctype html") ||
+      raw.startsWith("<html") ||
+      raw.includes("<head") ||
+      raw.includes("<body")
+    );
+  }
+
+  async function readJsonResponseLoose(res) {
+    const raw = await res.text();
+    const data = parsePossiblyDirtyJson(raw);
+    return {
+      raw,
+      data,
+      parseOk: !!(data && typeof data === "object"),
+      isLikelyHtml: isLikelyHtmlPayload(raw),
+    };
+  }
+
   function classifyDailyStartNetworkError(err) {
     const name = String(err?.name || "").trim();
     const msg = String(err?.message || "").toLowerCase();
     if (msg === "bad_grid") return "E_DAILY_BAD_GRID";
     if (msg === "bad_json") return "E_DAILY_BAD_JSON";
+    if (msg === "bad_json_html") return "ENET_PROXY_HTML";
     if (msg === "bad_payload") return "E_DAILY_BAD_PAYLOAD";
     if (name === "AbortError" || msg.includes("abort") || msg.includes("timeout")) {
       return "ENET_TIMEOUT";
@@ -8582,17 +8917,29 @@ export default function App() {
     setDailySubmitError("");
     const payload = { installId, pseudo };
     try {
-      const res = await fetch("/api/daily/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const raw = await res.text();
+      let res = null;
       let data = null;
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (_) {
-        data = null;
+      let parseMeta = { raw: "", parseOk: false, isLikelyHtml: false };
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const cacheBust = attempt > 0 ? `?r=${Date.now()}` : "";
+        res = await fetch(`/api/daily/start${cacheBust}`, {
+          method: "POST",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "Cache-Control": "no-store, no-cache, max-age=0",
+            Pragma: "no-cache",
+          },
+          body: JSON.stringify(payload),
+        });
+        parseMeta = await readJsonResponseLoose(res);
+        data = parseMeta.data;
+        if (parseMeta.parseOk || !res.ok || attempt > 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      if (!res) {
+        throw new Error("bad_payload");
       }
       if (!res.ok) {
         if (data?.error === "already_played") {
@@ -8627,7 +8974,7 @@ export default function App() {
         return;
       }
       if (!data || typeof data !== "object") {
-        throw new Error(raw ? "bad_json" : "bad_payload");
+        throw new Error(parseMeta.isLikelyHtml ? "bad_json_html" : parseMeta.raw ? "bad_json" : "bad_payload");
       }
       if (!data?.grid || !Array.isArray(data.grid)) {
         throw new Error("bad_grid");
@@ -8698,15 +9045,19 @@ export default function App() {
     };
     fetch("/api/daily/submit", {
       method: "POST",
+      cache: "no-store",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload),
     })
       .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
+        const parsed = await readJsonResponseLoose(res);
+        const data = parsed.data;
         if (!res.ok) {
-          const error = data?.error || "erreur";
+          const error = data?.error || (parsed.isLikelyHtml ? "bad_json_html" : "erreur");
           throw new Error(error);
+        }
+        if (!data || typeof data !== "object") {
+          throw new Error(parsed.isLikelyHtml ? "bad_json_html" : parsed.raw ? "bad_json" : "bad_payload");
         }
         return data;
       })
@@ -8933,33 +9284,6 @@ export default function App() {
               .map((entry) => (entry?.nick ? String(entry.nick).trim() : ""))
               .filter((nick) => nick && !isSystemAuthor(nick))
           );
-          const prevNicks = lobbyPresenceRef.current;
-          if (prevNicks.size > 0) {
-            const joined = [...nextNicks].filter((nick) => !prevNicks.has(nick));
-            const left = [...prevNicks].filter((nick) => !nextNicks.has(nick));
-            const now = Date.now();
-            const logs = [
-              ...joined.map((nick, idx) => ({
-                id: `sys-home-join-${nick}-${now}-${idx}`,
-                author: "Système",
-                channel: "system",
-                type: "system",
-                text: `${nick} a rejoint le tournoi`,
-              })),
-              ...left.map((nick, idx) => ({
-                id: `sys-home-leave-${nick}-${now}-${idx}`,
-                author: "Système",
-                channel: "system",
-                type: "system",
-                text: `${nick} a quitté le tournoi`,
-              })),
-            ];
-            if (logs.length > 0) {
-              setChatMessages((prevMsgs) =>
-                [...prevMsgs, ...logs].slice(-CHAT_BUFFER_MAX)
-              );
-            }
-          }
           lobbyPresenceRef.current = nextNicks;
         }
       })
@@ -9535,7 +9859,7 @@ export default function App() {
     if (lastRound?.payload) {
       // Reprise en cours de phase results: ne pas rejouer l'overlay vocab depuis zero.
       skipVocabOverlayOnceRef.current = true;
-      roundHandlersRef.current.onRoundEnded?.(lastRound.payload);
+      processRoundEndedRef.current?.(lastRound.payload);
       if (lastRound.round?.grid && Array.isArray(lastRound.round.grid)) {
         setBoard(lastRound.round.grid);
         setGridSize(lastRound.round.gridSize || getGridSizeForRoom(snapshot.roomId));
@@ -9621,6 +9945,16 @@ export default function App() {
         { roomId: roomToUse, installId: install, nick, takeover: false },
         (res) => {
           finish();
+          const activeSession = sessionRef.current;
+          const sameSession =
+            activeSession &&
+            String(activeSession.nick || "").trim() === nick &&
+            activeSession.roomId === roomToUse &&
+            activeSession.installId === install;
+          if (!sameSession || isLoggedInRef.current) {
+            setResumeSnapshot(null);
+            return;
+          }
           if (res?.ok && res?.available && res?.snapshot) {
             setResumeSnapshot(res.snapshot);
             setCanResumeSession(true);
@@ -9703,14 +10037,27 @@ export default function App() {
         { roomId: roomToUse, installId: install, nick, takeover: true },
         (res) => {
           finish();
+          const activeSession = sessionRef.current;
+          const sameSession =
+            activeSession &&
+            String(activeSession.nick || "").trim() === nick &&
+            activeSession.roomId === roomToUse &&
+            activeSession.installId === install;
+          if (!sameSession) {
+            return;
+          }
           if (!res?.ok || !res?.available || !res?.snapshot) {
             setConnectionError("Session expiree");
             setIsConnecting(false);
+            isLoggedInRef.current = false;
             setIsLoggedIn(false);
             return;
           }
           persistSession({ nick, roomId: roomToUse, installId: install });
           lastLoginPayloadRef.current = { nick, roomId: roomToUse };
+          appViewRef.current = "live";
+          setAppView("live");
+          isLoggedInRef.current = true;
           setIsLoggedIn(true);
           setIsConnecting(false);
           setLoginError("");
@@ -9741,9 +10088,17 @@ export default function App() {
     if (!socket.connected) return;
     pingServer(reason)
       .then(() => {
+        watchdogFailureCountRef.current = 0;
         console.debug(`[watchdog] pong (${reason})`);
       })
       .catch(() => {
+        const failures = (watchdogFailureCountRef.current || 0) + 1;
+        watchdogFailureCountRef.current = failures;
+        if (failures < WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT) {
+          console.warn(`[watchdog] soft failure (${reason}) #${failures}`);
+          return;
+        }
+        watchdogFailureCountRef.current = 0;
         console.warn(`[watchdog] reconnect (${reason})`);
         intentionalDisconnectRef.current = true;
         socket.disconnect();
@@ -9793,6 +10148,7 @@ export default function App() {
 
   useEffect(() => {
     const onConnect = () => {
+      batchUnsupportedRef.current = false;
       const queue = pendingQueueRef.current;
       const queued = new Set(queue);
       submissionStatusRef.current.forEach((meta, word) => {
@@ -9841,6 +10197,31 @@ export default function App() {
       socket.off("connect", onConnect);
     };
   }, [installId]);
+
+  useEffect(() => {
+    if (!installId) return;
+    const isLobbyView =
+      phase === "lobby" &&
+      appView !== "daily" &&
+      appView !== "daily_play" &&
+      appView !== "daily_results" &&
+      appView !== "stats" &&
+      appView !== "duel";
+    if (!isLobbyView) return;
+    if (shouldShowTutorial) return;
+    if (!isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs)) return;
+    const seenStorageKey = getPatchNotesSeenStorageKey(installId);
+    if (!seenStorageKey) return;
+    let alreadySeen = false;
+    try {
+      alreadySeen = localStorage.getItem(seenStorageKey) === "1";
+    } catch (_) {}
+    if (alreadySeen) return;
+    setIsPatchNotesOpen(true);
+    try {
+      localStorage.setItem(seenStorageKey, "1");
+    } catch (_) {}
+  }, [installId, installIdCreatedAtTs, shouldShowTutorial, phase, appView]);
 
   useEffect(() => {
     if (!installId) return;
@@ -10177,20 +10558,18 @@ export default function App() {
       lastBackgroundTime > 0 ? Date.now() - lastBackgroundTime : 0;
     const shouldForceReconnect = timeSinceBackground > 5000;
     if (shouldForceReconnect) {
-      try {
-        intentionalDisconnectRef.current = true;
-        socket.disconnect();
-      } catch (_) {}
-      if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
-      setTimeout(() => {
-        lastBackgroundTimeRef.current = 0;
+      lastBackgroundTimeRef.current = 0;
+      if (!socket.connected) {
+        if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
         if (canAutoResume) {
           resumeLoginFromSession(reason);
         } else {
           socket.connect();
           requestSessionResumeSnapshot(reason);
         }
-      }, 200);
+        return;
+      }
+      runHealthCheck(`${reason}_post_bg`);
       return;
     }
     if (lastBackgroundTime) {
@@ -10372,11 +10751,23 @@ export default function App() {
         setGridSize(nextSize);
         setBoard(Array(nextSize * nextSize).fill({ letter: "?", bonus: null }));
         setResumeSnapshot(null);
+        appViewRef.current = "live";
+        setAppView("live");
+        isLoggedInRef.current = true;
         setIsLoggedIn(true);
         setIsConnecting(false);
         setServerStatus("waiting");
         setScore(0);
         void requestTrophyStatus();
+        socket.emit(
+          "session:resume",
+          { roomId: joinedRoom, installId, nick, takeover: false },
+          (probe) => {
+            if (probe?.ok && probe?.available && probe?.snapshot) {
+              applyResumeSnapshot(probe.snapshot);
+            }
+          }
+        );
         try {
           localStorage.setItem("boggle_nick", nick);
         } catch (_) {}
@@ -10435,6 +10826,11 @@ export default function App() {
 
   function handleResumeFromPrompt(e) {
     requestAudioUnlock(e);
+    if (!hasSavedSession()) {
+      setResumeSnapshot(null);
+      setResumePending(false);
+      return;
+    }
     resumeLoginFromSession("resume_button");
   }
 
@@ -10451,7 +10847,8 @@ export default function App() {
     incomingGridSize = null,
     specialInfo = null,
     gridQuality = null,
-    nextSpecial = null
+    nextSpecial = null,
+    incomingTargetHintScheduleMs = []
   ) {
     setInputLocked(false);
     inputLockedRef.current = false;
@@ -10481,6 +10878,11 @@ export default function App() {
     setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
+    setTargetHintScheduleMs(
+      Array.isArray(incomingTargetHintScheduleMs)
+        ? incomingTargetHintScheduleMs.filter((value) => Number.isFinite(value) && value >= 0)
+        : []
+    );
     if (false && specialInfo?.isSpecial) {
       setAnnouncements((prev) => [
         {
@@ -10513,6 +10915,7 @@ export default function App() {
     clearStatusMessage({ force: true });
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
+    clearQueuedRankingUpdate();
     setProvisionalRanking([]);
     const maxDuration =
       Number.isFinite(durationMs)
@@ -10672,6 +11075,7 @@ export default function App() {
     setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(null);
+    setTargetHintScheduleMs([]);
     setUpcomingSpecial(null);
     setRoundStats(null);
     setTargetSummary(null);
@@ -10680,6 +11084,7 @@ export default function App() {
     clearStatusMessage({ force: true });
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
+    clearQueuedRankingUpdate();
     setProvisionalRanking([]);
     setRoundId(null);
     setServerEndsAt(null);
@@ -11226,21 +11631,29 @@ export default function App() {
       return stats;
     };
 
-    let maxPts = null;
-    let maxLen = 0;
-    if (Array.isArray(finalResults)) {
-      finalResults.forEach((row) => {
-        if (!Array.isArray(row?.words)) return;
-        row.words.forEach((word) => {
-          const stats = getStats(word);
-          if (scoreAllowed && Number.isFinite(stats.pts)) {
-            maxPts = Number.isFinite(maxPts) ? Math.max(maxPts, stats.pts) : stats.pts;
-          }
-          if (Number.isFinite(stats.len)) {
-            maxLen = Math.max(maxLen, stats.len);
-          }
+    let maxPts =
+      scoreAllowed && Number.isFinite(roundStats?.maxPts) && roundStats.maxPts > 0
+        ? roundStats.maxPts
+        : null;
+    let maxLen =
+      Number.isFinite(roundStats?.maxLen) && roundStats.maxLen > 0
+        ? roundStats.maxLen
+        : 0;
+    if (!Number.isFinite(maxPts) || maxPts <= 0 || !maxLen) {
+      if (Array.isArray(finalResults)) {
+        finalResults.forEach((row) => {
+          if (!Array.isArray(row?.words)) return;
+          row.words.forEach((word) => {
+            const stats = getStats(word);
+            if (scoreAllowed && Number.isFinite(stats.pts)) {
+              maxPts = Number.isFinite(maxPts) ? Math.max(maxPts, stats.pts) : stats.pts;
+            }
+            if (Number.isFinite(stats.len)) {
+              maxLen = Math.max(maxLen, stats.len);
+            }
+          });
         });
-      });
+      }
     }
 
     const unique = new Set();
@@ -11252,7 +11665,11 @@ export default function App() {
       if (unique.has(key)) return;
       unique.add(key);
       const stats = getStats(word);
-      const hasBestScore = scoreAllowed && Number.isFinite(stats.pts) && Number.isFinite(maxPts) && stats.pts === maxPts;
+      const hasBestScore =
+        scoreAllowed &&
+        Number.isFinite(stats.pts) &&
+        Number.isFinite(maxPts) &&
+        stats.pts === maxPts;
       const hasLongest = Number.isFinite(stats.len) && maxLen > 0 && stats.len === maxLen;
       const gobbleActive = isSpeedRound ? hasLongest : hasBestScore || hasLongest;
       list.push({
@@ -11348,6 +11765,10 @@ export default function App() {
       Number.isFinite(preferredRect?.top) && Number.isFinite(preferredRect?.height)
         ? preferredRect.top + preferredRect.height / 2
         : null;
+    const maxAllowedDistance =
+      Number.isFinite(preferredCenterX) && Number.isFinite(preferredCenterY)
+        ? Math.max(120, Math.min(viewportWidth, viewportHeight) * 0.45)
+        : Number.POSITIVE_INFINITY;
     let best = null;
     nodes.forEach((node) => {
       if (!(node instanceof HTMLElement)) return;
@@ -11376,6 +11797,7 @@ export default function App() {
         Number.isFinite(preferredCenterX) && Number.isFinite(preferredCenterY)
           ? Math.hypot(centerX - preferredCenterX, centerY - preferredCenterY)
           : Number.POSITIVE_INFINITY;
+      if (Number.isFinite(distance) && distance > maxAllowedDistance) return;
       if (!best) {
         best = { rect, area, visible, distance };
         return;
@@ -11433,23 +11855,14 @@ export default function App() {
       targetBoardLabel = WEEKLY_RECORD_LABELS[targetBoardKey] || "Classement hebdo";
       targetBoardEntries = buildTargetWeeklyLeaderboard(targetBoardKey);
     }
-    const rawRect = anchorElement?.getBoundingClientRect?.();
+    const anchorFromElement = getRoundPlayerAnchorRectFromElement(anchorElement, nick);
     const hasPoint =
       clickPoint &&
       Number.isFinite(clickPoint.clientX) &&
       Number.isFinite(clickPoint.clientY);
     const anchorRect =
-      rawRect &&
-      Number.isFinite(rawRect.left) &&
-      Number.isFinite(rawRect.top) &&
-      Number.isFinite(rawRect.width) &&
-      Number.isFinite(rawRect.height)
-        ? {
-            left: rawRect.left,
-            top: rawRect.top,
-            width: rawRect.width,
-            height: rawRect.height,
-          }
+      anchorFromElement
+        ? anchorFromElement
         : hasPoint
         ? {
             left: clickPoint.clientX,
@@ -11465,6 +11878,20 @@ export default function App() {
       open: true,
       nick,
       words: isTargetRound ? [] : buildRoundWordsForPlayer(nick),
+      allWords: isTargetRound
+        ? []
+        : Array.isArray(allWords)
+        ? allWords.map((item) => {
+            const word = String(item?.word || "").trim();
+            const gobbleMeta =
+              typeof gobbleCandidates?.get === "function" ? gobbleCandidates.get(word) : null;
+            return {
+              word,
+              pts: Number.isFinite(item?.pts) ? item.pts : null,
+              isGobble: !!gobbleMeta,
+            };
+          })
+        : [],
       records,
       anchorRect,
       targetBoardKey,
@@ -12007,6 +12434,7 @@ function handleTouchEnd() {
     pendingQueueRef.current = [];
     pendingWordsRef.current.clear();
     submissionStatusRef.current.clear();
+    batchUnsupportedRef.current = false;
     touchSubmissionState();
   }
 
@@ -12196,6 +12624,9 @@ function handleTouchEnd() {
     if (!inFlight) return;
     if (inFlight.timeoutId) clearTimeout(inFlight.timeoutId);
     inFlightBatchesRef.current.delete(clientSeq);
+    if (res?.ok) {
+      batchUnsupportedRef.current = false;
+    }
     const results = Array.isArray(res?.results) ? res.results : [];
     const byWord = new Map();
     results.forEach((entry) => {
@@ -12591,13 +13022,16 @@ function handleTouchEnd() {
           if (!Number.isFinite(startAt)) return null;
           const now = getNowServerMs();
           const elapsed = Math.max(0, now - startAt);
-          let nextAt = startAt + TARGET_HINT_FIRST_MS;
-          if (elapsed >= TARGET_HINT_FIRST_MS) {
-            const steps =
-              Math.floor((elapsed - TARGET_HINT_FIRST_MS) / TARGET_HINT_STEP_MS) + 1;
-            nextAt = startAt + TARGET_HINT_FIRST_MS + steps * TARGET_HINT_STEP_MS;
-          }
-          const remainingMs = nextAt - now;
+          const schedule = Array.isArray(targetHintScheduleMs)
+            ? targetHintScheduleMs
+                .filter((value) => Number.isFinite(value) && value >= 0)
+                .sort((a, b) => a - b)
+            : [];
+          if (!schedule.length) return null;
+          const nextOffsetMs = schedule.find((value) => value > elapsed + 10);
+          if (!Number.isFinite(nextOffsetMs)) return null;
+          const nextAt = startAt + nextOffsetMs;
+          const remainingMs = Math.max(0, nextAt - now);
           return Math.max(0, Math.ceil(remainingMs / 1000));
         })()
       : null;
@@ -13572,7 +14006,7 @@ function handleTouchEnd() {
   const safeChatTab = chatTab === "system" ? "system" : "messages";
   const activeChatMessages =
     safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
-  const visibleMessages = activeChatMessages.slice(-chatVisibleLimit);
+  const visibleMessages = activeChatMessages;
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
   const chatMessagesCount = chatMessagesOnly.length;
@@ -13910,10 +14344,11 @@ function handleTouchEnd() {
   useEffect(() => {
     if (!guidedResultsEligible || !installId) return;
     if (guidedResultsSeenInstallId === installId) return;
-    setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.SWIPE_TOTAL);
+    setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.TAP_PSEUDO);
   }, [guidedResultsEligible, guidedResultsSeenInstallId, installId]);
   useEffect(() => {
     if (!guidedResultsEligible || !guidedResultsStep || !guidedResultsPageKey) return;
+    if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_PSEUDO) return;
     const targetStep = GUIDED_RESULTS_PAGE_TO_STEP[guidedResultsPageKey];
     if (!targetStep) return;
     const currentIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(guidedResultsStep);
@@ -16356,14 +16791,9 @@ function handleTouchEnd() {
             >
               {guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION ? (
                 <div
-                  className={`absolute -top-14 right-2 z-30 flex items-center gap-2 rounded-full px-3 py-2 text-[16px] font-semibold shadow-xl pointer-events-none ${
-                    darkMode
-                      ? "text-slate-100 ring-2 ring-white/10"
-                      : "text-slate-900 ring-2 ring-black/10"
-                  }`}
+                  className="absolute -top-14 right-2 z-30 flex items-center gap-2 rounded-full px-3 py-2 text-[16px] font-semibold shadow-xl pointer-events-none border border-amber-300 bg-amber-500 text-slate-900"
                   style={{
                     maxWidth: "360px",
-                    backgroundColor: darkMode ? "#0b0f14" : "#ffffff",
                     opacity: 1,
                   }}
                 >
@@ -16452,13 +16882,16 @@ function handleTouchEnd() {
       darkMode={darkMode}
       playerNick={roundPlayerModal.nick}
       words={roundPlayerModal.words}
+      allWords={roundPlayerModal.allWords}
       records={roundPlayerModal.records}
       anchorRect={roundPlayerModal.anchorRect}
       targetBoardKey={roundPlayerModal.targetBoardKey}
       targetBoardLabel={roundPlayerModal.targetBoardLabel}
       targetBoardEntries={roundPlayerModal.targetBoardEntries}
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
+      isSpeedRound={specialRound?.type === "speed"}
       showWordScores={specialRound?.type !== "speed"}
+      onToggleWordViewSound={playSwipeSound}
       onClose={() => closeRoundPlayerModal({ withSound: true })}
       onOpenDefinition={(word) => {
         if (!word) return;
@@ -16665,7 +17098,7 @@ function handleTouchEnd() {
         lead: `Manche spéciale ${specialTutorialLabel} : ici, pas besoin de s'acharner à trouver plein de mots, il n'y en a qu'un seul !`,
         bullets: [
           `Objectif : trouver ${goalLabel}.`,
-          `Un indice toutes les ${SPECIAL_TUTORIAL_HINT_STEP_S}s (le premier après ${SPECIAL_TUTORIAL_HINT_FIRST_S}s).`,
+          "Les indices se dévoilent progressivement au fil de la manche.",
           "Sois rapide : le premier à le trouver remporte le plus de points !",
         ],
         showTargetDemo: true,
@@ -16719,7 +17152,7 @@ function handleTouchEnd() {
         }`}
       >
         <div className={`text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-          Indice toutes les {SPECIAL_TUTORIAL_HINT_STEP_S}s
+          Indices progressifs
         </div>
         <div className="mt-2 flex items-center justify-center gap-2 text-lg font-black tracking-[0.3em]">
           {["_", "_", "_", "_", "_", "_"].map((mark, idx) => {
@@ -17156,51 +17589,145 @@ function handleTouchEnd() {
       </div>
     </div>
   ) : null;
-  const aboutModalView = isAboutOpen ? (
-    <div className="fixed inset-0 z-[20010] flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/45"
-        onClick={() => setIsAboutOpen(false)}
-        aria-label="Fermer à propos"
-      />
-      <div
-        className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
-          darkMode
-            ? "bg-slate-900/95 border-white/10 text-slate-100"
-            : "bg-white/95 border-slate-200 text-slate-900"
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="À propos"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-extrabold">À propos</div>
+  const aboutModalView = (
+    <>
+      {isAboutOpen ? (
+        <div className="fixed inset-0 z-[20010] flex items-center justify-center p-4">
           <button
             type="button"
-            className={`h-7 w-7 rounded-full border flex items-center justify-center ${
-              darkMode
-                ? "bg-slate-800/80 border-white/10 text-slate-100"
-                : "bg-white border-slate-200 text-slate-700"
-            }`}
+            className="absolute inset-0 bg-black/45"
             onClick={() => setIsAboutOpen(false)}
-            aria-label="Fermer"
+            aria-label="Fermer à propos"
+          />
+          <div
+            className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
+              darkMode
+                ? "bg-slate-900/95 border-white/10 text-slate-100"
+                : "bg-white/95 border-slate-200 text-slate-900"
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="À propos"
           >
-            <span className="text-base leading-none">×</span>
-          </button>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-extrabold">À propos</div>
+              <button
+                type="button"
+                className={`h-7 w-7 rounded-full border flex items-center justify-center ${
+                  darkMode
+                    ? "bg-slate-800/80 border-white/10 text-slate-100"
+                    : "bg-white border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setIsAboutOpen(false)}
+                aria-label="Fermer"
+              >
+                <span className="text-base leading-none">×</span>
+              </button>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="font-semibold">Un jeu créé par Paul Millet</div>
+              <a
+                href="mailto:support@gobble.fr"
+                className="text-[12px] underline underline-offset-2 opacity-80"
+              >
+                support@gobble.fr
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsPatchNotesOpen(true)}
+                className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
+                  darkMode
+                    ? "bg-slate-800/90 border-white/15 text-slate-100"
+                    : "bg-slate-50 border-slate-200 text-slate-900"
+                }`}
+              >
+                Patchnotes
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2 text-sm">
-          <div className="font-semibold">Un jeu créé par Paul Millet</div>
-          <a
-            href="mailto:support@gobble.fr"
-            className="text-[12px] underline underline-offset-2 opacity-80"
+      ) : null}
+      {isPatchNotesOpen ? (
+        <div className="fixed inset-0 z-[20030] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            onClick={() => setIsPatchNotesOpen(false)}
+            aria-label="Fermer patchnotes"
+          />
+          <div
+            className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl ${
+              darkMode
+                ? "bg-slate-950 border-white/20 text-slate-100"
+                : "bg-white border-slate-300 text-slate-900"
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Patchnotes"
           >
-            support@gobble.fr
-          </a>
+            <div
+              className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
+                darkMode
+                  ? "border-white/10 bg-amber-300/10"
+                  : "border-slate-200 bg-amber-50"
+              }`}
+            >
+              <div>
+                <div className="text-sm font-extrabold tracking-wide">Patchnotes</div>
+                <div className="text-[12px] italic opacity-80">patch du 18/02/2026</div>
+              </div>
+              <button
+                type="button"
+                className={`h-8 w-8 rounded-full border flex items-center justify-center ${
+                  darkMode
+                    ? "bg-slate-900 border-white/10 text-slate-100"
+                    : "bg-white border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setIsPatchNotesOpen(false)}
+                aria-label="Fermer"
+              >
+                <span className="text-base leading-none">×</span>
+              </button>
+            </div>
+            <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>ajout d'une liste des mots trouvés par chaque joueur en cliquant sur la ligne de son pseudo + didacticiel associé.</li>
+                <li>correction des gobbles listés dans la liste des mots trouvés de chaque joueur.</li>
+                <li>modification du chat pour persistance des messages et logs serveur + élargissement de l'historique à respectivement 200 et 100 entrées.</li>
+                <li>correction du calcul de score total possible sur manches lettres en or.</li>
+                <li>ajustement des indices pour les manches cibles + correction du décompte avant prochain indice.</li>
+                <li>tentative de correction d'un problème de grille quotidienne sur ancien modèle d'iphone.</li>
+                <li>correction d'anomalies lors de retours au lobby.</li>
+                <li>stabilité réseau améliorée sur mobile, avec reconnexion et reprise de session plus robustes.</li>
+                <li>validation des mots optimisée côté live, avec envoi par batch et repli automatique mot par mot si nécessaire.</li>
+                <li>chat système enrichi avec messages de connexion, déconnexion et validation de la grille du jour.</li>
+                <li>
+                  <span className="font-bold">Duel hebdo: médailles mini-tournoi comptent pour l’équipe (or/argent/bronze = 3/2/1 points).</span>
+                </li>
+                <li>les grilles quotidiennes accordent 200 points à l'équipe gagnante, au lieu de 500 comme défini précédemment.</li>
+                <li>objectifs duel complètement réajustés, avec logique de progression alignée et cumul sur plusieurs manches quand prévu.</li>
+                <li>ajout d'un bouton patch note dans le menu "à propos".</li>
+              </ul>
+              <div
+                className={`mt-4 rounded-xl border px-3 py-3 ${
+                  darkMode ? "border-white/10 bg-slate-900/60" : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  Pools objectifs mis à jour
+                </div>
+                <ul className="mt-2 list-disc pl-5 space-y-2">
+                  <li><span className="font-semibold">Easy (10 pts):</span> 100 mots, 50 mots 5+, 300 pts sur 5 manches, 10 mots &gt;50 pts, 1 mot avec Z/K/X/Y, 2 mots cibles.</li>
+                  <li><span className="font-semibold">Medium (25 pts):</span> 500 mots, 50 mots 7+, 2 gobbles, 500 pts sur 5 manches, 3 mots avec Z/K/X/Y, 30 mots &gt;50 pts, 5 mots cibles.</li>
+                  <li><span className="font-semibold">Hard (50 pts):</span> 10 mots cibles, 1000 mots, 50 mots &gt;=100 pts, 1000 pts sur 10 manches, 10 gobbles/jour, 50 mots 8+, 10 mots avec Z/K/X/Y.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  ) : null;
+      ) : null}
+    </>
+  );
 
   const mobileChatLayer =
     isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home")) ? (
@@ -17245,7 +17772,8 @@ function handleTouchEnd() {
     ) : null;
   const homeChatVisibleMessages = React.useMemo(() => {
     const source = safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
-    const cap = 120;
+    const cap =
+      safeChatTab === "system" ? CHAT_SYSTEM_HISTORY_MAX : CHAT_MESSAGES_HISTORY_MAX;
     if (!Array.isArray(source)) return [];
     if (source.length <= cap) return source;
     return source.slice(-cap);
@@ -17448,7 +17976,7 @@ function handleTouchEnd() {
     return bootOverlay;
   }
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
-  const canResumeNow = !!resumeSnapshot;
+  const canResumeNow = !isLoggedIn && hasSavedSession() && !!resumeSnapshot;
   const resumeRoomLabel =
     resumeSnapshot?.roomId && ROOM_OPTIONS[resumeSnapshot.roomId]
       ? ROOM_OPTIONS[resumeSnapshot.roomId].label
@@ -17889,6 +18417,10 @@ function handleTouchEnd() {
               >
                 Retour accueil
               </button>
+            </div>
+
+            <div className="text-xs font-semibold text-amber-500">
+              L'equipe qui gagne la grille du jour remporte 200 points pour son equipe.
             </div>
 
             {!dailyBoard.ready && (
@@ -18882,7 +19414,7 @@ function handleTouchEnd() {
                   </div>
                 </div>
                 {renderBlockedListPanel()}
-                <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col justify-end overflow-hidden">
+                <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray">
                   {visibleMessages.length === 0 ? (
                     <div className="text-sm text-slate-400 text-center mt-4">
                       {safeChatTab === "system"
@@ -19405,15 +19937,45 @@ function handleTouchEnd() {
           : guidedResultsEligible && guidedResultsStep === GUIDED_RESULTS_STEPS.SWIPE_ALL && resultsPageKey === "found"
           ? "pour voir tous les mots trouvables"
           : null;
+      const guidedPseudoOverlay =
+        guidedResultsEligible &&
+        guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_PSEUDO &&
+        resultsPageKey === "round" ? (
+          <div className="absolute inset-0 z-30 pointer-events-none">
+            <div
+              className="absolute top-3 left-3 right-3 rounded-2xl px-4 py-3 shadow-xl pointer-events-auto border border-amber-300 bg-amber-500 text-slate-900"
+            >
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-[24px] mt-0.5">touch_app</span>
+                <div className="flex-1">
+                  <div className="text-[15px] font-bold leading-tight">
+                    Clique sur un pseudo dans ce classement
+                  </div>
+                  <div className="text-[13px] opacity-80 leading-snug">
+                    Tu peux voir ses mots trouvés sur la manche.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="px-3 py-1 rounded-full text-[12px] font-semibold border bg-amber-400 border-amber-300 text-slate-900"
+                  onClick={() => setGuidedResultsStep(GUIDED_RESULTS_STEPS.SWIPE_TOTAL)}
+                >
+                  Compris
+                </button>
+              </div>
+            </div>
+            <div className="absolute top-20 left-8">
+              <span className="material-symbols-outlined text-[38px] text-amber-500">
+                arrow_downward
+              </span>
+            </div>
+          </div>
+        ) : null;
       const guidedSwipeOverlay = guidedSwipeHintText ? (
         <div className="absolute inset-0 pointer-events-none z-30">
           <div
-            className={`absolute bottom-4 right-4 flex items-center gap-3 rounded-full px-5 py-4 text-[20px] font-semibold shadow-xl ${
-              darkMode
-                ? "text-slate-100 ring-2 ring-white/10"
-                : "text-slate-900 ring-2 ring-black/10"
-            }`}
-            style={{ backgroundColor: darkMode ? "#0b0f14" : "#ffffff", opacity: 1 }}
+            className="absolute bottom-4 right-4 flex items-center gap-3 rounded-full px-5 py-4 text-[20px] font-semibold shadow-xl border border-amber-300 bg-amber-500 text-slate-900"
+            style={{ opacity: 1 }}
           >
             <span className="material-symbols-outlined text-[40px] guide-swipe">
               swipe_left
@@ -19430,13 +19992,8 @@ function handleTouchEnd() {
       const guidedWordOverlay = showGuidedWordHint ? (
         <div className="absolute inset-0 pointer-events-none z-30">
           <div
-            className={`absolute bottom-4 left-3 flex items-center gap-3 rounded-full px-4 py-3 text-[18px] font-semibold shadow-xl ${
-              darkMode
-                ? "text-slate-100 ring-2 ring-white/10"
-                : "text-slate-900 ring-2 ring-black/10"
-            }`}
+            className="absolute bottom-4 left-3 flex items-center gap-3 rounded-full px-4 py-3 text-[18px] font-semibold shadow-xl border border-amber-300 bg-amber-500 text-slate-900"
             style={{
-              backgroundColor: darkMode ? "#0b0f14" : "#ffffff",
               maxWidth: "360px",
               opacity: 1,
             }}
@@ -19535,6 +20092,7 @@ function handleTouchEnd() {
               onTouchEnd={handleResultsTouchEnd}
               onTouchCancel={handleResultsTouchEnd}
             >
+              {guidedPseudoOverlay}
               {guidedSwipeOverlay}
               {guidedWordOverlay}
               <div className="relative flex-1 min-h-0 overflow-hidden z-10">
@@ -21077,7 +21635,7 @@ function handleTouchEnd() {
 
           <div
             ref={chatDesktopListRef}
-            className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col justify-end overflow-hidden"
+            className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
           >
             {visibleMessages.length === 0 ? (
               <div className="text-sm text-slate-400 text-center mt-4">

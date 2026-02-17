@@ -14,8 +14,13 @@ const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
 
 const PARIS_TZ = "Europe/Paris";
 const SHARED_K = 10;
-const DAILY_WIN_BONUS = 500;
+const DAILY_WIN_BONUS = 200;
 const GOBBLE_TEAM_POINTS = 1;
+const MEDAL_TEAM_POINTS = {
+  gold: 3,
+  silver: 2,
+  bronze: 1,
+};
 const OBJECTIVE_DAILY_CAP = 85;
 const OBJECTIVE_TUTORIAL_VERSION = "duel-v1";
 const MAX_INSTALL_ID_LEN = 128;
@@ -39,127 +44,157 @@ const OBJECTIVE_POINTS_BY_BUCKET = {
 const OBJECTIVE_POOLS = {
   easy: [
     {
-      id: "easy_words_15",
+      id: "easy_words_100",
       typeKey: "words_total",
-      title: "Valider 15 mots",
-      target: 15,
+      title: "Valider 100 mots",
+      target: 100,
       event: "word_any",
     },
     {
-      id: "easy_len_5",
+      id: "easy_len_5_words_50",
       typeKey: "word_len",
-      title: "Trouver 1 mot de 5+ lettres",
-      target: 5,
+      title: "Trouver 50 mots de 5+ lettres",
+      target: 50,
+      minWordLength: 5,
       event: "word_len_at_least",
     },
     {
-      id: "easy_round_300",
+      id: "easy_round_300_x5",
       typeKey: "round_score",
-      title: "Atteindre 300 pts sur une manche",
-      target: 300,
+      title: "Atteindre 300 pts sur 5 manches",
+      target: 5,
+      minRoundScore: 300,
       event: "round_score_at_least",
     },
     {
-      id: "easy_bonus_tile",
-      typeKey: "bonus_tile",
-      title: "Valider 1 mot sur case double/triple",
-      target: 1,
-      event: "bonus_tile_word",
-    },
-    {
-      id: "easy_word_50",
+      id: "easy_word_50_x10",
       typeKey: "word_pts_50",
-      title: "Valider 1 mot > 50 pts",
-      target: 50,
+      title: "Valider 10 mots > 50 pts",
+      target: 10,
+      minWordPoints: 50,
       event: "word_points_gt",
     },
-  ],
-  medium: [
     {
-      id: "medium_words_35",
-      typeKey: "words_total",
-      title: "Valider 35 mots",
-      target: 35,
-      event: "word_any",
-    },
-    {
-      id: "medium_len_7",
-      typeKey: "word_len",
-      title: "Trouver 1 mot de 7+ lettres",
-      target: 7,
-      event: "word_len_at_least",
-    },
-    {
-      id: "medium_gobble_1",
-      typeKey: "gobbles_1",
-      title: "Faire 1 gobble",
-      target: 1,
-      event: "gobble_any",
-    },
-    {
-      id: "medium_round_500",
-      typeKey: "round_score",
-      title: "Atteindre 500 pts sur une manche",
-      target: 500,
-      event: "round_score_at_least",
-    },
-    {
-      id: "medium_rare_letter",
+      id: "easy_rare_letter_1",
       typeKey: "rare_letter",
       title: "Valider 1 mot avec Z/K/X/Y",
       target: 1,
       event: "rare_letter_word",
     },
     {
-      id: "medium_word_50",
-      typeKey: "word_pts_50",
-      title: "Valider 1 mot > 50 pts",
-      target: 50,
-      event: "word_points_gt",
-    },
-  ],
-  hard: [
-    {
-      id: "hard_target_word",
+      id: "easy_target_word_2",
       typeKey: "target_word",
-      title: "Trouver un mot cible",
-      target: 1,
+      title: "Trouver 2 mots cibles",
+      target: 2,
       event: "target_word_found",
     },
+  ],
+  medium: [
     {
-      id: "hard_words_60",
+      id: "medium_words_500",
       typeKey: "words_total",
-      title: "Valider 60 mots",
-      target: 60,
+      title: "Valider 500 mots",
+      target: 500,
       event: "word_any",
     },
     {
-      id: "hard_word_100",
-      typeKey: "word_pts_100",
-      title: "Trouver 1 mot >= 100 pts",
-      target: 100,
-      event: "word_points_gte",
+      id: "medium_len_7_words_50",
+      typeKey: "word_len",
+      title: "Trouver 50 mots de 7+ lettres",
+      target: 50,
+      minWordLength: 7,
+      event: "word_len_at_least",
     },
     {
-      id: "hard_round_1000",
-      typeKey: "round_score",
-      title: "Atteindre 1000 pts sur une manche",
-      target: 1000,
-      event: "round_score_at_least",
-    },
-    {
-      id: "hard_gobble_2",
+      id: "medium_gobble_2",
       typeKey: "gobbles_2",
-      title: "Faire 2 gobbles dans la journee",
+      title: "Faire 2 gobbles",
       target: 2,
       event: "gobble_any",
     },
     {
-      id: "hard_len_9",
+      id: "medium_round_500_x5",
+      typeKey: "round_score",
+      title: "Atteindre 500 pts sur 5 manches",
+      target: 5,
+      minRoundScore: 500,
+      event: "round_score_at_least",
+    },
+    {
+      id: "medium_rare_letter_3",
+      typeKey: "rare_letter",
+      title: "Valider 3 mots avec Z/K/X/Y",
+      target: 3,
+      event: "rare_letter_word",
+    },
+    {
+      id: "medium_word_50_x30",
+      typeKey: "word_pts_50",
+      title: "Valider 30 mots > 50 pts",
+      target: 30,
+      minWordPoints: 50,
+      event: "word_points_gt",
+    },
+    {
+      id: "medium_target_word_5",
+      typeKey: "target_word",
+      title: "Trouver 5 mots cibles",
+      target: 5,
+      event: "target_word_found",
+    },
+  ],
+  hard: [
+    {
+      id: "hard_target_word_10",
+      typeKey: "target_word",
+      title: "Trouver 10 mots cibles",
+      target: 10,
+      event: "target_word_found",
+    },
+    {
+      id: "hard_words_1000",
+      typeKey: "words_total",
+      title: "Valider 1000 mots",
+      target: 1000,
+      event: "word_any",
+    },
+    {
+      id: "hard_word_100_x50",
+      typeKey: "word_pts_100",
+      title: "Trouver 50 mots >= 100 pts",
+      target: 50,
+      minWordPoints: 100,
+      event: "word_points_gte",
+    },
+    {
+      id: "hard_round_1000_x10",
+      typeKey: "round_score",
+      title: "Atteindre 1000 pts sur 10 manches",
+      target: 10,
+      minRoundScore: 1000,
+      event: "round_score_at_least",
+    },
+    {
+      id: "hard_gobble_10",
+      typeKey: "gobbles_10",
+      title: "Faire 10 gobbles dans la journee",
+      target: 10,
+      event: "gobble_any",
+    },
+    {
+      id: "hard_len_8_words_50",
       typeKey: "word_len",
-      title: "Trouver 1 mot de 9+ lettres",
-      target: 9,
+      title: "Trouver 50 mots de 8+ lettres",
+      target: 50,
+      minWordLength: 8,
       event: "word_len_at_least",
+    },
+    {
+      id: "hard_rare_letter_10",
+      typeKey: "rare_letter",
+      title: "Valider 10 mots avec Z/K/X/Y",
+      target: 10,
+      event: "rare_letter_word",
     },
   ],
 };
@@ -344,6 +379,7 @@ function makeWeekState(weekId) {
       objectivePoints: { red: 0, blue: 0 },
       gobblePoints: { red: 0, blue: 0 },
       dailyBonusPoints: { red: 0, blue: 0 },
+      medalPoints: { red: 0, blue: 0 },
     },
     contributionsByInstallId: {},
     nickByInstallId: {},
@@ -353,7 +389,7 @@ function makeWeekState(weekId) {
 }
 
 function makeObjectiveFromDefinition(def, bucket) {
-  return {
+  const objective = {
     bucket,
     id: def.id,
     typeKey: def.typeKey,
@@ -365,6 +401,16 @@ function makeObjectiveFromDefinition(def, bucket) {
     validated: false,
     validatedAt: null,
   };
+  if (Number.isFinite(def?.minWordLength) && Number(def.minWordLength) > 0) {
+    objective.minWordLength = Number(def.minWordLength);
+  }
+  if (Number.isFinite(def?.minRoundScore) && Number(def.minRoundScore) > 0) {
+    objective.minRoundScore = Number(def.minRoundScore);
+  }
+  if (Number.isFinite(def?.minWordPoints) && Number(def.minWordPoints) > 0) {
+    objective.minWordPoints = Number(def.minWordPoints);
+  }
+  return objective;
 }
 
 function makeDefaultState() {
@@ -390,7 +436,20 @@ function ensureWeekShape(week) {
       objectivePoints: { red: 0, blue: 0 },
       gobblePoints: { red: 0, blue: 0 },
       dailyBonusPoints: { red: 0, blue: 0 },
+      medalPoints: { red: 0, blue: 0 },
     };
+  }
+  if (!week.totals.objectivePoints || typeof week.totals.objectivePoints !== "object") {
+    week.totals.objectivePoints = { red: 0, blue: 0 };
+  }
+  if (!week.totals.gobblePoints || typeof week.totals.gobblePoints !== "object") {
+    week.totals.gobblePoints = { red: 0, blue: 0 };
+  }
+  if (!week.totals.dailyBonusPoints || typeof week.totals.dailyBonusPoints !== "object") {
+    week.totals.dailyBonusPoints = { red: 0, blue: 0 };
+  }
+  if (!week.totals.medalPoints || typeof week.totals.medalPoints !== "object") {
+    week.totals.medalPoints = { red: 0, blue: 0 };
   }
   if (!week.contributionsByInstallId || typeof week.contributionsByInstallId !== "object") {
     week.contributionsByInstallId = {};
@@ -714,11 +773,13 @@ async function ensureCrownsForWeek(weekId) {
   const red =
     (Number(totals?.objectivePoints?.red) || 0) +
     (Number(totals?.gobblePoints?.red) || 0) +
-    (Number(totals?.dailyBonusPoints?.red) || 0);
+    (Number(totals?.dailyBonusPoints?.red) || 0) +
+    (Number(totals?.medalPoints?.red) || 0);
   const blue =
     (Number(totals?.objectivePoints?.blue) || 0) +
     (Number(totals?.gobblePoints?.blue) || 0) +
-    (Number(totals?.dailyBonusPoints?.blue) || 0);
+    (Number(totals?.dailyBonusPoints?.blue) || 0) +
+    (Number(totals?.medalPoints?.blue) || 0);
   const winnerTeam = red === blue ? null : red > blue ? "red" : "blue";
   const crowned = {};
   if (winnerTeam) {
@@ -794,29 +855,45 @@ function applyEventToObjective(objective, eventType, payload = {}) {
   if (!objective || objective.validated) return false;
   const nextProgress = Number(objective.progress) || 0;
   let progress = nextProgress;
-  if (objective.id.endsWith("_words_15") || objective.id.endsWith("_words_35") || objective.id.endsWith("_words_60")) {
+  if (objective.event === "word_any") {
     if (eventType === "word") progress += 1;
   } else if (objective.event === "word_len_at_least") {
-    if (eventType === "word" && Number(payload.wordLength) >= Number(objective.target || 0)) {
-      progress = Number(objective.target) || 1;
+    const minWordLength = Number(objective?.minWordLength) || 0;
+    const fallbackMin = Number(objective.target) || 0;
+    const threshold = minWordLength > 0 ? minWordLength : fallbackMin;
+    if (eventType === "word" && Number(payload.wordLength) >= threshold) {
+      if (minWordLength > 0) progress += 1;
+      else progress = Number(objective.target) || 1;
     }
   } else if (objective.event === "round_score_at_least") {
+    const minRoundScore = Number(objective?.minRoundScore) || 0;
+    const fallbackMin = Number(objective.target) || 0;
+    const threshold = minRoundScore > 0 ? minRoundScore : fallbackMin;
     if (
       eventType === "round" &&
       !payload.isTargetRound &&
-      Number(payload.roundScore) >= Number(objective.target || 0)
+      Number(payload.roundScore) >= threshold
     ) {
-      progress = Number(objective.target) || 1;
+      if (minRoundScore > 0) progress += 1;
+      else progress = Number(objective.target) || 1;
     }
   } else if (objective.event === "bonus_tile_word") {
     if (eventType === "word" && payload.usedBonusTile) progress += 1;
   } else if (objective.event === "word_points_gt") {
-    if (eventType === "word" && Number(payload.wordPoints) > Number(objective.target || 0)) {
-      progress = Number(objective.target) || 1;
+    const minWordPoints = Number(objective?.minWordPoints) || 0;
+    const fallbackMin = Number(objective.target) || 0;
+    const threshold = minWordPoints > 0 ? minWordPoints : fallbackMin;
+    if (eventType === "word" && Number(payload.wordPoints) > threshold) {
+      if (minWordPoints > 0) progress += 1;
+      else progress = Number(objective.target) || 1;
     }
   } else if (objective.event === "word_points_gte") {
-    if (eventType === "word" && Number(payload.wordPoints) >= Number(objective.target || 0)) {
-      progress = Number(objective.target) || 1;
+    const minWordPoints = Number(objective?.minWordPoints) || 0;
+    const fallbackMin = Number(objective.target) || 0;
+    const threshold = minWordPoints > 0 ? minWordPoints : fallbackMin;
+    if (eventType === "word" && Number(payload.wordPoints) >= threshold) {
+      if (minWordPoints > 0) progress += 1;
+      else progress = Number(objective.target) || 1;
     }
   } else if (objective.event === "rare_letter_word") {
     if (eventType === "word" && payload.usedRareLetter) progress += 1;
@@ -841,15 +918,23 @@ function getTeamTotals(week) {
   const objective = totals?.objectivePoints || { red: 0, blue: 0 };
   const gobble = totals?.gobblePoints || { red: 0, blue: 0 };
   const daily = totals?.dailyBonusPoints || { red: 0, blue: 0 };
+  const medal = totals?.medalPoints || { red: 0, blue: 0 };
   const red =
-    (Number(objective.red) || 0) + (Number(gobble.red) || 0) + (Number(daily.red) || 0);
+    (Number(objective.red) || 0) +
+    (Number(gobble.red) || 0) +
+    (Number(daily.red) || 0) +
+    (Number(medal.red) || 0);
   const blue =
-    (Number(objective.blue) || 0) + (Number(gobble.blue) || 0) + (Number(daily.blue) || 0);
+    (Number(objective.blue) || 0) +
+    (Number(gobble.blue) || 0) +
+    (Number(daily.blue) || 0) +
+    (Number(medal.blue) || 0);
   return {
     totalByTeam: { red, blue },
     objectiveByTeam: { red: Number(objective.red) || 0, blue: Number(objective.blue) || 0 },
     gobbleByTeam: { red: Number(gobble.red) || 0, blue: Number(gobble.blue) || 0 },
     dailyBonusByTeam: { red: Number(daily.red) || 0, blue: Number(daily.blue) || 0 },
+    medalByTeam: { red: Number(medal.red) || 0, blue: Number(medal.blue) || 0 },
   };
 }
 
@@ -932,6 +1017,7 @@ function addInstallContributionToWeek(week, installId, team, kind, points) {
           team: safeTeam,
           objectivePoints: 0,
           gobblePoints: 0,
+          medalPoints: 0,
           totalPoints: 0,
         };
   current.team = safeTeam;
@@ -939,6 +1025,8 @@ function addInstallContributionToWeek(week, installId, team, kind, points) {
     current.objectivePoints = (Number(current.objectivePoints) || 0) + safePoints;
   } else if (kind === "gobblePoints") {
     current.gobblePoints = (Number(current.gobblePoints) || 0) + safePoints;
+  } else if (kind === "medalPoints") {
+    current.medalPoints = (Number(current.medalPoints) || 0) + safePoints;
   }
   current.totalPoints = (Number(current.totalPoints) || 0) + safePoints;
   week.contributionsByInstallId[safeInstallId] = current;
@@ -984,7 +1072,8 @@ async function buildWeeklyContributorsByTeam(week) {
       Number(inferredObjectivePointsByInstall[installId]) || 0
     );
     const gobblePoints = Number(entry?.gobblePoints) || 0;
-    const points = objectivePoints + gobblePoints;
+    const medalPoints = Number(entry?.medalPoints) || 0;
+    const points = objectivePoints + gobblePoints + medalPoints;
     if (points <= 0) continue;
     const nick =
       normalizeNick(nickByInstallId[installId]) ||
@@ -1008,7 +1097,10 @@ async function buildWeeklyContributorsByTeam(week) {
 async function addTeamPoints(weekId, team, kind, points, { installId = "", nick = "" } = {}) {
   const safeTeam = TEAM_VALUES.includes(team) ? team : null;
   const safeKind =
-    kind === "objectivePoints" || kind === "gobblePoints" || kind === "dailyBonusPoints"
+    kind === "objectivePoints" ||
+    kind === "gobblePoints" ||
+    kind === "dailyBonusPoints" ||
+    kind === "medalPoints"
       ? kind
       : null;
   const safePoints = Number(points) || 0;
@@ -1017,7 +1109,7 @@ async function addTeamPoints(weekId, team, kind, points, { installId = "", nick 
   if (!week.totals) week.totals = {};
   if (!week.totals[safeKind]) week.totals[safeKind] = { red: 0, blue: 0 };
   week.totals[safeKind][safeTeam] = (Number(week.totals[safeKind][safeTeam]) || 0) + safePoints;
-  if (safeKind === "objectivePoints" || safeKind === "gobblePoints") {
+  if (safeKind === "objectivePoints" || safeKind === "gobblePoints" || safeKind === "medalPoints") {
     addInstallContributionToWeek(week, installId, safeTeam, safeKind, safePoints);
   }
   trackInstallNickOnWeek(week, installId, nick);
@@ -1426,6 +1518,30 @@ export async function recordDailyPlayed({
   await recordInstallAction(safeInstallId, { dateId: safeDateId });
 }
 
+export async function recordTournamentMedalPoints({
+  installId,
+  nick = "",
+  type = "",
+  dateId = null,
+}) {
+  const safeInstallId = normalizeInstallId(installId);
+  if (!safeInstallId) return { ok: false, error: "invalid_install_id" };
+  const safeType = type === "gold" || type === "silver" || type === "bronze" ? type : null;
+  if (!safeType) return { ok: false, error: "invalid_medal_type" };
+  const points = Number(MEDAL_TEAM_POINTS[safeType]) || 0;
+  if (points <= 0) return { ok: false, error: "invalid_points" };
+  const safeDateId = parseDateId(dateId) ? dateId : getParisDateId();
+  const weekId = getWeekIdFromDateId(safeDateId);
+  const team = await ensureInstallTeam(safeInstallId, weekId);
+  if (!team) return { ok: false, error: "missing_team", dateId: safeDateId, weekId };
+  await addTeamPoints(weekId, team, "medalPoints", points, {
+    installId: safeInstallId,
+    nick: normalizeNick(nick),
+  });
+  await recordInstallAction(safeInstallId, { dateId: safeDateId, weekId });
+  return { ok: true, dateId: safeDateId, weekId, team, type: safeType, points };
+}
+
 export async function getWeeklyDuelScore(weekId = null) {
   await finalizeDailyBonusesUntil(getParisDateId());
   const safeWeekId = weekId || getParisWeekId();
@@ -1439,6 +1555,7 @@ export async function getWeeklyDuelScore(weekId = null) {
     objectivePointsByTeam: totals.objectiveByTeam,
     gobblePointsByTeam: totals.gobbleByTeam,
     dailyBonusPointsByTeam: totals.dailyBonusByTeam,
+    medalPointsByTeam: totals.medalByTeam,
     contributorsByTeam,
     winnerTeam:
       totals.totalByTeam.red === totals.totalByTeam.blue
