@@ -3380,7 +3380,19 @@ export default function App() {
   }
 
   function returnToLobby() {
+    const wasLoggedIn = isLoggedInRef.current;
     setIsSettingsOpen(false);
+    // Désactive immédiatement les events "manche live" pour éviter
+    // qu'un roundEnded en transit relance un outro/blackhole après retour lobby.
+    isLoggedInRef.current = false;
+    phaseRef.current = "lobby";
+    appViewRef.current = "home";
+    pendingRoundEndRef.current = null;
+    pendingBreakStartRef.current = null;
+    implodeFallbackRef.current = false;
+    outroInFlightRef.current = false;
+    outroRoundRef.current = null;
+    setImplodeActive(false);
     clearCelebrationFx();
     setInputLocked(false);
     inputLockedRef.current = false;
@@ -3390,7 +3402,7 @@ export default function App() {
     setAppView("home");
     dailySessionRef.current = { dateId: null, startedAt: null };
     setDailyResult(null);
-    if (!isLoggedInRef.current) return;
+    if (!wasLoggedIn) return;
     manualDisconnectRef.current = true;
     clearSavedSession();
     setIsLoggedIn(false);
@@ -3409,6 +3421,8 @@ export default function App() {
     onBreakStarted: null,
   });
   const isLoggedInRef = useRef(false);
+  const appViewRef = useRef(appView);
+  const isDailyPlayRef = useRef(isDailyPlay);
   const nicknameRef = useRef(nickname);
   const phaseRef = useRef(phase);
   const currentRoomIdRef = useRef(currentRoomId);
@@ -3421,6 +3435,12 @@ export default function App() {
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn;
   }, [isLoggedIn]);
+  useEffect(() => {
+    appViewRef.current = appView;
+  }, [appView]);
+  useEffect(() => {
+    isDailyPlayRef.current = isDailyPlay;
+  }, [isDailyPlay]);
   useEffect(() => {
     if (isLoggedIn && phase !== "lobby") return;
     clearCelebrationFx();
@@ -4146,19 +4166,27 @@ export default function App() {
       ambientRetryRef.current = true;
       const retry = () => {
         ambientRetryRef.current = false;
+        const view = appViewRef.current;
+        const canPlayLiveAmbient =
+          isLoggedInRef.current &&
+          view !== "daily" &&
+          view !== "daily_play" &&
+          view !== "daily_results";
         const bc = breakCountdownRef.current;
         const hasCountdown = typeof bc === "number";
         const shouldBeAudible =
+          canPlayLiveAmbient &&
           phaseRef.current === "results" &&
           (!hasCountdown || bc > 14);
-        const canPlayAmbient =
-          !isAmbientMutedRef.current;
+        const canPlayAmbient = !isAmbientMutedRef.current && shouldBeAudible;
         if (canPlayAmbient) {
           const fadeMs =
             hasCountdown && typeof bc === "number"
               ? Math.max(0, Math.round((bc - 10) * 1000))
               : null;
-          startAmbientMusic({ silent: !shouldBeAudible, fadeMs });
+          startAmbientMusic({ silent: false, fadeMs });
+        } else {
+          stopAmbientMusic({ fadeMs: 260, keepAlive: false });
         }
       };
       window.addEventListener("pointerdown", retry, { once: true });
@@ -4390,19 +4418,25 @@ export default function App() {
       }
       const bc = breakCountdownRef.current;
       const hasCountdown = typeof bc === "number";
+      const view = appViewRef.current;
+      const canPlayLiveAmbient =
+        isLoggedInRef.current &&
+        view !== "daily" &&
+        view !== "daily_play" &&
+        view !== "daily_results";
       const shouldBeAudible =
+        canPlayLiveAmbient &&
         phaseRef.current === "results" &&
         !isAmbientMutedRef.current &&
         (!hasCountdown || bc > 14);
-      const shouldBeSilent =
-        !isAmbientMutedRef.current &&
-        (phaseRef.current !== "results" || (hasCountdown && bc <= 14));
-      if (shouldBeAudible || shouldBeSilent) {
+      if (shouldBeAudible) {
         const fadeMs =
           hasCountdown && typeof bc === "number"
             ? Math.max(0, Math.round((bc - 10) * 1000))
             : null;
-        startAmbientMusic({ silent: !shouldBeAudible, fadeMs });
+        startAmbientMusic({ silent: false, fadeMs });
+      } else {
+        stopAmbientMusic({ fadeMs: 220, keepAlive: false });
       }
       const stopListening = () => {
         if (hasCtx && audioCtxRef.current?.state === "running") {
@@ -5795,22 +5829,22 @@ export default function App() {
     const isResults = phase === "results";
     const wasResults = lastAmbientPhaseRef.current === "results";
     lastAmbientPhaseRef.current = phase;
+    const canPlayLiveAmbient =
+      isLoggedIn &&
+      !isDailyView &&
+      phase === "results";
 
     if (isResults && !wasResults) {
       resetAmbientOrder();
     }
 
-    if (isAmbientMuted) {
+    if (isAmbientMuted || !canPlayLiveAmbient) {
       stopAmbientMusic({ fadeMs: 700, keepAlive: false });
       return;
     }
 
-    if (isResults) {
-      startAmbientMusic({ silent: false });
-    } else {
-      stopAmbientMusic({ fadeMs: 700, keepAlive: false });
-    }
-  }, [phase, isAmbientMuted]);
+    startAmbientMusic({ silent: false });
+  }, [phase, isAmbientMuted, isLoggedIn, isDailyView]);
 
   useEffect(() => {
     const shouldReset =
@@ -6565,6 +6599,25 @@ export default function App() {
 
   const playOutroThenResults = React.useCallback(
     async (payload, { fallback = false } = {}) => {
+      const isLivePayload = !!(payload && typeof payload === "object");
+      // Garde-fou: un outro provenant du live socket ne doit jamais se déclencher
+      // hors session tournoi active (retour lobby / daily en cours).
+      if (isLivePayload) {
+        const view = appViewRef.current;
+        const isDailyViewNow =
+          view === "daily" || view === "daily_play" || view === "daily_results";
+        if (!isLoggedInRef.current || isDailyViewNow) {
+          return;
+        }
+      }
+      // Les outros fallback (sans payload) sont autorisés pour:
+      // - manche live locale (si connecté),
+      // - daily locale (daily_play).
+      if (!isLivePayload && fallback) {
+        const allowFallback = isLoggedInRef.current || isDailyPlayRef.current;
+        if (!allowFallback) return;
+      }
+
       const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
       if (outroInFlightRef.current) {
         if (payload) pendingRoundEndRef.current = payload;
@@ -7119,6 +7172,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const shouldHandleLiveRoundSocketEvents = () => {
+      if (!isLoggedInRef.current) return false;
+      const view = appViewRef.current;
+      // Les events des mini-tournois ne doivent jamais s'appliquer dans les vues daily/front.
+      return view !== "daily" && view !== "daily_play" && view !== "daily_results";
+    };
+
     function onRoundStarted({
       roomId: incomingRoomId,
       roundId: incomingRoundId,
@@ -7133,6 +7193,7 @@ export default function App() {
       tournament: tournamentPayload = null,
       targetLength = null,
     }) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!grid || !Array.isArray(grid)) return;
       stopImplodePhase();
       pendingBreakStartRef.current = null;
@@ -7216,6 +7277,7 @@ export default function App() {
       targetSummary: targetSummaryPayload = null,
       teamDuel: teamDuelPayload = null,
     }) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
       playOutroThenResultsRef.current?.(
         {
           roomId: endedRoomId,
@@ -7232,6 +7294,7 @@ export default function App() {
     }
 
     function onBreakStarted(payload = {}) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!payload || typeof payload !== "object") return;
       if (pendingRoundEndRef.current || inputLockedRef.current) {
         pendingBreakStartRef.current = payload;
