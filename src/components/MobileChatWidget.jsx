@@ -265,7 +265,10 @@ function MobileChatWidget({
                   )}
                 </div>
               )}
-              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-sm">
+              <div
+                className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse gap-1 text-sm"
+                style={{ overscrollBehavior: "contain" }}
+              >
                 {visibleMessages.length === 0 ? (
                   <div className="text-sm text-slate-400 text-center mt-4">
                     {isSystemTab

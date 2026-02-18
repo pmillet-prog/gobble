@@ -131,6 +131,7 @@ export default function HomeChatModal({
           className={`mx-4 mb-4 rounded-xl border px-3 py-3 max-h-[62vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
             darkMode ? "bg-slate-900/50 border-white/10" : "bg-slate-50 border-slate-200"
           }`}
+          style={{ overscrollBehavior: "contain" }}
         >
           {safeMessages.length === 0 ? (
             <div className="text-sm text-center opacity-70 py-8">

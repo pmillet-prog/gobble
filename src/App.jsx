@@ -18420,7 +18420,7 @@ function handleTouchEnd() {
             </div>
 
             <div className="text-xs font-semibold text-amber-500">
-              L'equipe qui gagne la grille du jour remporte 200 points pour son equipe.
+              L'equipe qui gagne la grille du jour remporte 200 points pour le duel hebdomadaire.
             </div>
 
             {!dailyBoard.ready && (
@@ -19414,7 +19414,10 @@ function handleTouchEnd() {
                   </div>
                 </div>
                 {renderBlockedListPanel()}
-                <div className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray">
+                <div
+                  className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
+                  style={{ overscrollBehavior: "contain" }}
+                >
                   {visibleMessages.length === 0 ? (
                     <div className="text-sm text-slate-400 text-center mt-4">
                       {safeChatTab === "system"
@@ -21636,6 +21639,7 @@ function handleTouchEnd() {
           <div
             ref={chatDesktopListRef}
             className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
+            style={{ overscrollBehavior: "contain" }}
           >
             {visibleMessages.length === 0 ? (
               <div className="text-sm text-slate-400 text-center mt-4">
