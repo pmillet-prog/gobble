@@ -11,11 +11,11 @@ function isSystemAuthor(rawAuthor) {
   return simplified === "system" || simplified === "systeme";
 }
 
-function formatBadgeCount(count) {
+function formatUnreadSuffix(count) {
   const n = Number(count) || 0;
-  if (n <= 0) return "0";
-  if (n >= 100) return "99+";
-  return String(n);
+  if (n <= 0) return "";
+  if (n >= 10) return " (9+)";
+  return ` (${n})`;
 }
 
 export default function HomeChatModal({
@@ -24,8 +24,7 @@ export default function HomeChatModal({
   chatTab = "messages",
   onChangeTab = null,
   onClose = null,
-  messagesCount = 0,
-  systemCount = 0,
+  messagesUnreadCount = 0,
   messages = [],
   chatInput = "",
   setChatInput = null,
@@ -54,6 +53,17 @@ export default function HomeChatModal({
   const currentTab = chatTab === "system" ? "system" : "messages";
   const isSystemTab = currentTab === "system";
   const title = currentTab === "system" ? "Messages systemes" : "Messages";
+  const listRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const el = listRef.current;
+    if (!el) return undefined;
+    const rafId = window.requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [open, currentTab, safeMessages.length]);
 
   return createPortal(
     <div className="fixed inset-0 z-[12130] flex items-center justify-center px-3 py-4">
@@ -108,7 +118,7 @@ export default function HomeChatModal({
                   : "text-slate-700"
               }`}
             >
-              Messages ({formatBadgeCount(messagesCount)})
+              Messages{formatUnreadSuffix(messagesUnreadCount)}
             </button>
             <button
               type="button"
@@ -121,13 +131,14 @@ export default function HomeChatModal({
                   : "text-slate-700"
               }`}
             >
-              Systeme ({formatBadgeCount(systemCount)})
+              Systeme
             </button>
           </div>
           <div className="mt-2 text-[11px] opacity-70">{title}</div>
         </div>
 
         <div
+          ref={listRef}
           className={`mx-4 mb-4 rounded-xl border px-3 py-3 max-h-[62vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
             darkMode ? "bg-slate-900/50 border-white/10" : "bg-slate-50 border-slate-200"
           }`}

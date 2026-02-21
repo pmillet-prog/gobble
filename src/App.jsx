@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
-import MobileChatWidget from "./components/MobileChatWidget.jsx";
+import ChatWidget from "./components/chat/ChatWidget.jsx";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
@@ -670,6 +670,13 @@ function isSystemChatMessage(message) {
   if (!message || typeof message !== "object") return false;
   if (message.type === "system" || message.channel === "system") return true;
   return isSystemAuthor(message.author || message.nick || "");
+}
+
+function formatChatUnreadSuffix(unreadCount) {
+  const value = Number(unreadCount) || 0;
+  if (value <= 0) return "";
+  if (value >= 10) return " (9+)";
+  return ` (${value})`;
 }
 
 const BONUS_CLASSES = {
@@ -2569,6 +2576,8 @@ const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
+const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
+const MAX_INSTALL_ID_LEN = 128;
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const CHAT_MESSAGES_STORAGE_KEY = "gobble_chat_messages_v1";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
@@ -2579,8 +2588,8 @@ const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
-const PATCH_NOTES_VERSION = "2026-02-18";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-18T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-02-21";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-21T00:00:00+01:00");
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -2640,6 +2649,72 @@ function generateInstallId() {
   } catch (_) {}
   return `iid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
+
+function normalizeInstallIdForLink(raw) {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > MAX_INSTALL_ID_LEN) return "";
+  return trimmed;
+}
+
+function computeLinkCodeChecksum(raw) {
+  const input = String(raw || "");
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36).padStart(6, "0").slice(-6);
+}
+
+function encodeBase64Url(raw) {
+  const source = String(raw || "");
+  try {
+    if (typeof btoa === "function") {
+      return btoa(source).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+  } catch (_) {}
+  return "";
+}
+
+function decodeBase64Url(raw) {
+  const input = String(raw || "").replace(/-/g, "+").replace(/_/g, "/");
+  if (!input) return "";
+  const padded = input + "=".repeat((4 - (input.length % 4)) % 4);
+  try {
+    if (typeof atob === "function") {
+      return atob(padded);
+    }
+  } catch (_) {}
+  return "";
+}
+
+function buildAccountLinkCode(installId) {
+  const safeInstallId = normalizeInstallIdForLink(installId);
+  if (!safeInstallId) return "";
+  const payload = encodeBase64Url(safeInstallId);
+  if (!payload) return "";
+  const checksum = computeLinkCodeChecksum(payload);
+  return `${ACCOUNT_LINK_CODE_PREFIX}-${payload}-${checksum}`;
+}
+
+function parseAccountLinkCode(rawCode) {
+  const raw = String(rawCode || "").trim();
+  if (!raw) return { ok: false, error: "empty" };
+  const compact = raw.replace(/[‐‑‒–—﹘﹣－]/g, "-").replace(/\s+/g, "");
+  const match = compact.match(/^([A-Za-z0-9]+)-([A-Za-z0-9_-]+)-([A-Za-z0-9]+)$/);
+  if (!match) return { ok: false, error: "format" };
+  const prefix = String(match[1] || "").toUpperCase();
+  if (prefix !== ACCOUNT_LINK_CODE_PREFIX) return { ok: false, error: "prefix" };
+  const payload = String(match[2] || "");
+  const checksum = String(match[3] || "").toLowerCase();
+  const expected = computeLinkCodeChecksum(payload);
+  if (checksum !== expected) return { ok: false, error: "checksum" };
+  const decodedInstallId = normalizeInstallIdForLink(decodeBase64Url(payload));
+  if (!decodedInstallId) return { ok: false, error: "install_id" };
+  return { ok: true, installId: decodedInstallId };
+}
+
 function getOrCreateInstallId() {
   try {
     const existing = localStorage.getItem(INSTALL_ID_STORAGE_KEY);
@@ -3227,6 +3302,12 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
+  const [isAccountLinkOpen, setIsAccountLinkOpen] = useState(false);
+  const [accountLinkInput, setAccountLinkInput] = useState("");
+  const [accountLinkError, setAccountLinkError] = useState("");
+  const [accountLinkInfo, setAccountLinkInfo] = useState("");
+  const [accountLinkChecking, setAccountLinkChecking] = useState(false);
+  const [accountLinkPreview, setAccountLinkPreview] = useState(null);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({
     startX: null,
@@ -3611,6 +3692,9 @@ export default function App() {
     isLoggedInRef.current = isLoggedIn;
   }, [isLoggedIn]);
   useEffect(() => {
+    isMobileLayoutRef.current = isMobileLayout;
+  }, [isMobileLayout]);
+  useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
   useEffect(() => {
@@ -3632,6 +3716,12 @@ export default function App() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+  useEffect(() => {
+    chatTabRef.current = chatTab === "system" ? "system" : "messages";
+  }, [chatTab]);
+  useEffect(() => {
+    isChatClosingRef.current = isChatClosing;
+  }, [isChatClosing]);
   useEffect(() => {
     if (!DEV_MODE) return;
     if (phase === "playing") {
@@ -3873,6 +3963,9 @@ export default function App() {
   const chatDesktopListRef = useRef(null);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
+  const isChatClosingRef = useRef(isChatClosing);
+  const isMobileLayoutRef = useRef(isMobileLayout);
+  const chatTabRef = useRef(chatTab === "system" ? "system" : "messages");
   const isHomeChatOpenRef = useRef(false);
   const lobbyPresenceRef = useRef(new Set());
   const lobbyChatSubscriptionRef = useRef({
@@ -4789,7 +4882,9 @@ export default function App() {
       return;
     }
 
-    setMobileChatUnreadCount(0);
+    if (chatTab !== "system") {
+      setMobileChatUnreadCount(0);
+    }
     setActiveArea("chat");
 
     if (typeof window === "undefined") return;
@@ -4803,20 +4898,46 @@ export default function App() {
       }
     };
 
-    const delay = isMobileLayout ? 0 : Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
+    const delay = isMobileLayout
+      ? Math.min(140, Math.max(60, CHAT_DRAWER_ANIM_MS - 120))
+      : Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
     const t = window.setTimeout(focusChatInput, delay);
 
     return () => {
       window.clearTimeout(t);
     };
-  }, [isChatOpenMobile, isMobileLayout]);
+  }, [isChatOpenMobile, isMobileLayout, chatTab]);
 
   useEffect(() => {
     isHomeChatOpenRef.current = isHomeChatOpen;
-    if (isHomeChatOpen) {
+    if (isHomeChatOpen && chatTab !== "system") {
       setHomeChatUnreadCount(0);
     }
-  }, [isHomeChatOpen]);
+  }, [isHomeChatOpen, chatTab]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    if (chatTab === "system") return;
+    if (isMobileLayout && (!isChatOpenMobile || isChatClosing)) return;
+    setMobileChatUnreadCount(0);
+  }, [isLoggedIn, chatTab, isMobileLayout, isChatOpenMobile, isChatClosing]);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    if (chatTab === "system") return;
+    const messagesVisible = isMobileLayout
+      ? isChatOpenMobile && !isChatClosing
+      : isHomeChatOpen;
+    if (!messagesVisible) return;
+    setHomeChatUnreadCount(0);
+  }, [
+    isLoggedIn,
+    chatTab,
+    isMobileLayout,
+    isHomeChatOpen,
+    isChatOpenMobile,
+    isChatClosing,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4882,6 +5003,7 @@ export default function App() {
     const t = window.setTimeout(() => {
       const el = chatInputRef.current;
       if (!el) return;
+      if (typeof document !== "undefined" && document.activeElement === el) return;
       try {
         el.focus({ preventScroll: true });
       } catch (_) {
@@ -4889,7 +5011,7 @@ export default function App() {
       }
     }, 40);
     return () => window.clearTimeout(t);
-  }, [phase, isMobileLayout, isChatOpenMobile, isChatClosing, activeArea]);
+  }, [isMobileLayout, isChatOpenMobile, isChatClosing, activeArea]);
 
   useEffect(() => {
     if (!isChatRulesOpen) return;
@@ -5002,6 +5124,17 @@ export default function App() {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
   }, [isMobileLayout, chatMessages.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isMobileLayout) return;
+    const el = chatDesktopListRef.current;
+    if (!el) return;
+    const rafId = window.requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isMobileLayout, chatTab, chatMessages.length, blockedInstallIds.length]);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -5420,7 +5553,12 @@ export default function App() {
         chatScrollLockRef.current = 0;
       }
     };
-  }, [isMobileLayout, phase, isChatOpenMobile, isChatClosing]);
+  }, [
+    isMobileLayout,
+    phase === "playing" || phase === "results",
+    isChatOpenMobile,
+    isChatClosing,
+  ]);
 
   useEffect(() => {
     if (phase !== "lobby") return;
@@ -7595,12 +7733,27 @@ export default function App() {
       const author = (msg.author || msg.nick || "").trim();
       const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
+      const currentTab = chatTabRef.current === "system" ? "system" : "messages";
       if (isLoggedInRef.current) {
-        if (!isChatOpenMobileRef.current) {
+        const isMobileNow = isMobileLayoutRef.current;
+        const messagesVisible =
+          currentTab === "messages" &&
+          (isMobileNow
+            ? isChatOpenMobileRef.current && !isChatClosingRef.current
+            : true);
+        if (!messagesVisible) {
           setMobileChatUnreadCount((prev) => Math.min(99, prev + 1));
         }
-      } else if (!isHomeChatOpenRef.current) {
-        setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
+      } else {
+        const isMobileNow = isMobileLayoutRef.current;
+        const messagesVisible =
+          currentTab === "messages" &&
+          (isMobileNow
+            ? isChatOpenMobileRef.current && !isChatClosingRef.current
+            : isHomeChatOpenRef.current);
+        if (!messagesVisible) {
+          setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
+        }
       }
     }
 
@@ -8877,6 +9030,72 @@ export default function App() {
     };
   }
 
+  function emitSocketAck(eventName, payload, { timeoutMs = 6500 } = {}) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let timeoutId = null;
+
+      const cleanup = () => {
+        socket.off("connect", onConnect);
+        socket.off("connect_error", onConnectError);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      };
+
+      const settleResolve = (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
+
+      const settleReject = (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      };
+
+      const send = () => {
+        timeoutId = setTimeout(() => {
+          settleReject(new Error("timeout"));
+        }, timeoutMs);
+        socket.emit(eventName, payload, (res) => {
+          if (!res || typeof res !== "object") {
+            settleReject(new Error("bad_payload"));
+            return;
+          }
+          if (res.ok === false) {
+            const err = new Error(String(res.error || "error"));
+            err.payload = res;
+            settleReject(err);
+            return;
+          }
+          settleResolve(res);
+        });
+      };
+
+      function onConnect() {
+        send();
+      }
+
+      function onConnectError(err) {
+        settleReject(new Error(err?.message || "connect_error"));
+      }
+
+      if (socket.connected) {
+        send();
+        return;
+      }
+
+      socket.once("connect", onConnect);
+      socket.once("connect_error", onConnectError);
+      socket.connect();
+    });
+  }
+
   function classifyDailyStartNetworkError(err) {
     const name = String(err?.name || "").trim();
     const msg = String(err?.message || "").toLowerCase();
@@ -8916,6 +9135,43 @@ export default function App() {
     setDailyStartError(null);
     setDailySubmitError("");
     const payload = { installId, pseudo };
+    const applyDailyStartSuccess = (data) => {
+      if (!data?.grid || !Array.isArray(data.grid)) {
+        throw new Error("bad_grid");
+      }
+      if (data?.duel && typeof data.duel === "object") {
+        setDuelStatus({
+          loading: false,
+          error: "",
+          dateId: data.duel.dateId || null,
+          weekId: data.duel.weekId || null,
+          team: data.duel.team || null,
+          crowned: !!data.duel.crowned,
+          weekly: data.duel.weekly || null,
+          objectives: data.duel.objectives || null,
+          dailyBattle: data.duel.dailyBattle || null,
+          tutorialVersion: data.duel.tutorialVersion || null,
+        });
+      }
+      dailySessionRef.current = {
+        dateId: data.dateId || null,
+        startedAt: Date.now(),
+      };
+      setDailyResult(null);
+      setAppView("daily_play");
+      startGameFromServerRef.current?.(
+        data.grid,
+        null,
+        data.durationMs || null,
+        null,
+        null,
+        data.gridSize || null,
+        null,
+        data.gridQuality || null,
+        null
+      );
+      fetchDailyBoard(data.dateId || null);
+    };
     try {
       let res = null;
       let data = null;
@@ -8976,43 +9232,41 @@ export default function App() {
       if (!data || typeof data !== "object") {
         throw new Error(parseMeta.isLikelyHtml ? "bad_json_html" : parseMeta.raw ? "bad_json" : "bad_payload");
       }
-      if (!data?.grid || !Array.isArray(data.grid)) {
-        throw new Error("bad_grid");
-      }
-      if (data?.duel && typeof data.duel === "object") {
-        setDuelStatus({
-          loading: false,
-          error: "",
-          dateId: data.duel.dateId || null,
-          weekId: data.duel.weekId || null,
-          team: data.duel.team || null,
-          crowned: !!data.duel.crowned,
-          weekly: data.duel.weekly || null,
-          objectives: data.duel.objectives || null,
-          dailyBattle: data.duel.dailyBattle || null,
-          tutorialVersion: data.duel.tutorialVersion || null,
-        });
-      }
-      dailySessionRef.current = {
-        dateId: data.dateId || null,
-        startedAt: Date.now(),
-      };
-      setDailyResult(null);
-      setAppView("daily_play");
-      startGameFromServerRef.current?.(
-        data.grid,
-        null,
-        data.durationMs || null,
-        null,
-        null,
-        data.gridSize || null,
-        null,
-        data.gridQuality || null,
-        null
-      );
-      fetchDailyBoard(data.dateId || null);
+      applyDailyStartSuccess(data);
     } catch (err) {
       const code = classifyDailyStartNetworkError(err);
+      if (code === "ENET_PROXY_HTML") {
+        try {
+          const socketData = await emitSocketAck("daily:start", payload, { timeoutMs: 7000 });
+          if (!socketData || typeof socketData !== "object") {
+            throw new Error("bad_payload");
+          }
+          if (socketData.ok === false) {
+            const socketError = String(socketData.error || "error");
+            if (socketError === "already_played") {
+              setDailyStartError("Deja joue");
+            } else if (socketError === "bad_grid") {
+              setDailyStartError("E_DAILY_BAD_GRID");
+            } else if (socketError === "not_ready") {
+              setDailyStartError("E503");
+            } else if (socketError === "bad_request") {
+              setDailyStartError("E400");
+            } else {
+              setDailyStartError("E_SOCKET");
+            }
+            fetchDailyStatus();
+            fetchDailyBoard();
+            return;
+          }
+          applyDailyStartSuccess(socketData);
+          return;
+        } catch (socketErr) {
+          console.warn("[daily/start] socket fallback failed", {
+            name: socketErr?.name || null,
+            message: socketErr?.message || String(socketErr || ""),
+          });
+        }
+      }
       setDailyStartError(code);
       console.warn("[daily/start] network", {
         code,
@@ -9028,7 +9282,7 @@ export default function App() {
     }
   }
 
-  function submitDailyScore() {
+  async function submitDailyScore() {
     if (dailySubmitRef.current.inFlight) return;
     dailySubmitRef.current.inFlight = true;
     setDailySubmitError("");
@@ -9043,15 +9297,59 @@ export default function App() {
       clientScore: score,
       durationMs,
     };
-    fetch("/api/daily/submit", {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
+    const applyDailySubmitSuccess = (data) => {
+      if (data?.duel && typeof data.duel === "object") {
+        setDuelStatus({
+          loading: false,
+          error: "",
+          dateId: data.duel.dateId || null,
+          weekId: data.duel.weekId || null,
+          team: data.duel.team || null,
+          crowned: !!data.duel.crowned,
+          weekly: data.duel.weekly || null,
+          objectives: data.duel.objectives || null,
+          dailyBattle: data.duel.dailyBattle || null,
+          tutorialVersion: data.duel.tutorialVersion || null,
+        });
+      }
+      setDailyResult({
+        dateId: data?.dateId || dateId,
+        score: Number.isFinite(data?.score) ? data.score : score,
+        rank: Number.isFinite(data?.rank) ? data.rank : null,
+        totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
+      });
+      if (Array.isArray(data?.board)) {
+        setDailyBoard((prev) => ({
+          ...prev,
+          entries: data.board,
+          ready: true,
+          dateId: data.dateId || prev.dateId,
+          battle: data?.duel?.dailyBattle || prev?.battle || null,
+          error: "",
+        }));
+      }
+      setDailyStatus((prev) => ({
+        ...prev,
+        hasPlayed: true,
+        myResult: {
+          score: Number.isFinite(data?.score) ? data.score : score,
+          rank: Number.isFinite(data?.rank) ? data.rank : null,
+          submittedAt: Date.now(),
+        },
+      }));
+      setAppView("daily_results");
+    };
+    try {
+      let data = null;
+      try {
+        const res = await fetch("/api/daily/submit", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(payload),
+        });
         const parsed = await readJsonResponseLoose(res);
-        const data = parsed.data;
+        data = parsed.data;
         if (!res.ok) {
           const error = data?.error || (parsed.isLikelyHtml ? "bad_json_html" : "erreur");
           throw new Error(error);
@@ -9059,59 +9357,28 @@ export default function App() {
         if (!data || typeof data !== "object") {
           throw new Error(parsed.isLikelyHtml ? "bad_json_html" : parsed.raw ? "bad_json" : "bad_payload");
         }
-        return data;
-      })
-      .then((data) => {
-        if (data?.duel && typeof data.duel === "object") {
-          setDuelStatus({
-            loading: false,
-            error: "",
-            dateId: data.duel.dateId || null,
-            weekId: data.duel.weekId || null,
-            team: data.duel.team || null,
-            crowned: !!data.duel.crowned,
-            weekly: data.duel.weekly || null,
-            objectives: data.duel.objectives || null,
-            dailyBattle: data.duel.dailyBattle || null,
-            tutorialVersion: data.duel.tutorialVersion || null,
-          });
+      } catch (httpErr) {
+        if (String(httpErr?.message || "") !== "bad_json_html") {
+          throw httpErr;
         }
-        setDailyResult({
-          dateId: data?.dateId || dateId,
-          score: Number.isFinite(data?.score) ? data.score : score,
-          rank: Number.isFinite(data?.rank) ? data.rank : null,
-          totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
-        });
-        if (Array.isArray(data?.board)) {
-          setDailyBoard((prev) => ({
-            ...prev,
-            entries: data.board,
-            ready: true,
-            dateId: data.dateId || prev.dateId,
-            battle: data?.duel?.dailyBattle || prev?.battle || null,
-            error: "",
-          }));
+        const socketData = await emitSocketAck("daily:submit", payload, { timeoutMs: 7000 });
+        if (!socketData || typeof socketData !== "object") {
+          throw new Error("bad_payload");
         }
-        setDailyStatus((prev) => ({
-          ...prev,
-          hasPlayed: true,
-          myResult: {
-            score: Number.isFinite(data?.score) ? data.score : score,
-            rank: Number.isFinite(data?.rank) ? data.rank : null,
-            submittedAt: Date.now(),
-          },
-        }));
-        setAppView("daily_results");
-      })
-      .catch((err) => {
-        const msg = err?.message === "already_played" ? "Deja joue" : "Erreur";
-        setDailySubmitError(msg);
-        fetchDailyStatus();
-        fetchDailyBoard();
-      })
-      .finally(() => {
-        dailySubmitRef.current.inFlight = false;
-      });
+        if (socketData.ok === false) {
+          throw new Error(socketData.error || "erreur");
+        }
+        data = socketData;
+      }
+      applyDailySubmitSuccess(data);
+    } catch (err) {
+      const msg = err?.message === "already_played" ? "Deja joue" : "Erreur";
+      setDailySubmitError(msg);
+      fetchDailyStatus();
+      fetchDailyBoard();
+    } finally {
+      dailySubmitRef.current.inFlight = false;
+    }
   }
 
   function requestVocabCount() {
@@ -11264,6 +11531,7 @@ export default function App() {
     }
     suppressChatResizeRef.current = false;
     setIsChatClosing(false);
+    setChatTab("messages");
     setMobileChatUnreadCount(0);
     captureChatViewportBaseline();
 
@@ -11292,6 +11560,7 @@ export default function App() {
         chatInputRef.current.blur();
       } catch (_) {}
     }
+    setChatTab("messages");
     chatBodyLockHeightRef.current = 0;
     gameViewportFreezeHeightRef.current = 0;
     chatCloseTimerRef.current = window.setTimeout(() => {
@@ -11369,6 +11638,7 @@ export default function App() {
   }
 
   function closeHomeChat() {
+    setChatTab("messages");
     setIsHomeChatOpen(false);
   }
 
@@ -14009,8 +14279,10 @@ function handleTouchEnd() {
   const visibleMessages = activeChatMessages;
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
-  const chatMessagesCount = chatMessagesOnly.length;
   const chatSystemCount = chatSystemMessages.length;
+  const chatMessagesUnreadCount = isLoggedIn
+    ? mobileChatUnreadCount
+    : homeChatUnreadCount;
 
   const selfNick = nickname.trim();
   const blockedCount = blockedInstallIds.length;
@@ -17285,6 +17557,183 @@ function handleTouchEnd() {
   const sfxOn = !isSfxMuted;
   const ambientOn = !isAmbientMuted;
   const vibrationOn = isVibrationEnabled && canVibrate;
+  const accountLinkCode = React.useMemo(
+    () => buildAccountLinkCode(installId),
+    [installId]
+  );
+  const copyAccountLinkCode = async () => {
+    if (!accountLinkCode) {
+      setAccountLinkError("Code indisponible.");
+      setAccountLinkInfo("");
+      return;
+    }
+    const value = accountLinkCode;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (!copied) throw new Error("copy_failed");
+      }
+      setAccountLinkInfo("Code copié.");
+      setAccountLinkError("");
+    } catch (_) {
+      setAccountLinkError("Impossible de copier le code.");
+      setAccountLinkInfo("");
+    }
+  };
+  const formatAccountLinkActivity = (rawTs) => {
+    const ts = Number(rawTs);
+    if (!Number.isFinite(ts) || ts <= 0) return "Inconnue";
+    try {
+      return new Date(ts).toLocaleString("fr-FR", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+    } catch (_) {
+      return "Inconnue";
+    }
+  };
+  const formatAccountLinkValidationError = (errorCode) => {
+    switch (String(errorCode || "")) {
+      case "empty":
+      case "empty_code":
+        return "Entre un code.";
+      case "format":
+      case "invalid_format":
+        return "Code invalide (format).";
+      case "prefix":
+      case "invalid_prefix":
+        return "Code invalide (prefixe).";
+      case "checksum":
+      case "invalid_checksum":
+        return "Code invalide.";
+      case "install_id":
+      case "invalid_install_id":
+        return "Code invalide (identifiant).";
+      default:
+        return "Code invalide.";
+    }
+  };
+  const verifyAccountLinkCode = async () => {
+    const rawCode = String(accountLinkInput || "").trim();
+    if (!rawCode) {
+      setAccountLinkError("Entre un code.");
+      setAccountLinkInfo("");
+      setAccountLinkPreview(null);
+      return;
+    }
+    const normalizedCode = rawCode.replace(/[‐‑‒–—﹘﹣－]/g, "-");
+    const localParsed = parseAccountLinkCode(normalizedCode);
+    if (!localParsed?.ok || !localParsed.installId) {
+      setAccountLinkError(formatAccountLinkValidationError(localParsed?.error));
+      setAccountLinkInfo("");
+      setAccountLinkPreview(null);
+      return;
+    }
+    setAccountLinkChecking(true);
+    setAccountLinkError("");
+    setAccountLinkInfo("");
+    setAccountLinkPreview(null);
+    try {
+      const res = await fetch("/api/account/link-preview", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ code: normalizedCode }),
+      });
+      const parsed = await readJsonResponseLoose(res);
+      const payload = parsed?.data;
+      const serverAccepted = !!(res.ok && payload?.ok && payload?.installId);
+      const resolvedInstallId = serverAccepted ? payload.installId : localParsed.installId;
+      const profile =
+        serverAccepted && payload?.profile && typeof payload.profile === "object"
+          ? payload.profile
+          : {};
+      setAccountLinkPreview({
+        code: rawCode,
+        installId: resolvedInstallId,
+        nick: typeof profile.nick === "string" ? profile.nick : "",
+        lastActivityTs: Number(profile.lastActivityTs) || 0,
+        vocabCount: Number(profile.vocabCount) || 0,
+        vocabRank:
+          Number.isFinite(profile.vocabRank) && Number(profile.vocabRank) > 0
+            ? Number(profile.vocabRank)
+            : null,
+        vocabTotalPlayers: Number(profile.vocabTotalPlayers) || 0,
+        found: serverAccepted ? !!payload?.found : false,
+      });
+      setAccountLinkInfo(serverAccepted ? "Code valide." : "Code valide (apercu indisponible).");
+      setAccountLinkError("");
+    } catch (_) {
+      setAccountLinkPreview({
+        code: rawCode,
+        installId: localParsed.installId,
+        nick: "",
+        lastActivityTs: 0,
+        vocabCount: 0,
+        vocabRank: null,
+        vocabTotalPlayers: 0,
+        found: false,
+      });
+      setAccountLinkInfo("Code valide (apercu indisponible).");
+      setAccountLinkError("");
+    } finally {
+      setAccountLinkChecking(false);
+    }
+  };
+  const applyAccountLinkCode = () => {
+    const rawCode = String(accountLinkInput || "").trim();
+    const preview =
+      accountLinkPreview && accountLinkPreview.code === rawCode
+        ? accountLinkPreview
+        : null;
+    if (!preview?.installId) {
+      setAccountLinkError("Vérifie d'abord le code.");
+      setAccountLinkInfo("");
+      return;
+    }
+    const nextInstallId = preview.installId;
+    if (nextInstallId === installId) {
+      setAccountLinkInfo("Ce compte est déjà lié sur cet appareil.");
+      setAccountLinkError("");
+      return;
+    }
+    try {
+      localStorage.setItem(INSTALL_ID_STORAGE_KEY, nextInstallId);
+      const existingCreatedAt = localStorage.getItem(INSTALL_ID_CREATED_AT_STORAGE_KEY);
+      if (!existingCreatedAt) {
+        localStorage.setItem(INSTALL_ID_CREATED_AT_STORAGE_KEY, String(Date.now()));
+      }
+      const currentSession = sessionRef.current;
+      if (currentSession?.nick && currentSession?.roomId) {
+        persistSession({
+          nick: currentSession.nick,
+          roomId: currentSession.roomId,
+          installId: nextInstallId,
+        });
+      }
+      setAccountLinkError("");
+      setAccountLinkInfo("Compte lié. Rechargement...");
+      window.setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      }, 120);
+    } catch (_) {
+      setAccountLinkError("Impossible d'appliquer ce code.");
+      setAccountLinkInfo("");
+    }
+  };
   const settingsMenuView = isSettingsOpen ? (
     <div className="fixed inset-0 z-[20000] flex items-start justify-end p-4">
       <button
@@ -17643,6 +18092,24 @@ function handleTouchEnd() {
               >
                 Patchnotes
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountLinkOpen(true);
+                  setAccountLinkInput("");
+                  setAccountLinkError("");
+                  setAccountLinkInfo("");
+                  setAccountLinkPreview(null);
+                  setAccountLinkChecking(false);
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
+                  darkMode
+                    ? "bg-slate-800/90 border-white/15 text-slate-100"
+                    : "bg-slate-50 border-slate-200 text-slate-900"
+                }`}
+              >
+                Lier un compte
+              </button>
             </div>
           </div>
         </div>
@@ -17674,7 +18141,7 @@ function handleTouchEnd() {
             >
               <div>
                 <div className="text-sm font-extrabold tracking-wide">Patchnotes</div>
-                <div className="text-[12px] italic opacity-80">patch du 18/02/2026</div>
+                <div className="text-[12px] italic opacity-80">historique des mises à jour</div>
               </div>
               <button
                 type="button"
@@ -17689,25 +18156,42 @@ function handleTouchEnd() {
                 <span className="text-base leading-none">×</span>
               </button>
             </div>
-            <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6">
-              <ul className="list-disc pl-5 space-y-2">
-                <li>ajout d'une liste des mots trouvés par chaque joueur en cliquant sur la ligne de son pseudo + didacticiel associé.</li>
-                <li>correction des gobbles listés dans la liste des mots trouvés de chaque joueur.</li>
-                <li>modification du chat pour persistance des messages et logs serveur + élargissement de l'historique à respectivement 200 et 100 entrées.</li>
-                <li>correction du calcul de score total possible sur manches lettres en or.</li>
-                <li>ajustement des indices pour les manches cibles + correction du décompte avant prochain indice.</li>
-                <li>tentative de correction d'un problème de grille quotidienne sur ancien modèle d'iphone.</li>
-                <li>correction d'anomalies lors de retours au lobby.</li>
-                <li>stabilité réseau améliorée sur mobile, avec reconnexion et reprise de session plus robustes.</li>
-                <li>validation des mots optimisée côté live, avec envoi par batch et repli automatique mot par mot si nécessaire.</li>
-                <li>chat système enrichi avec messages de connexion, déconnexion et validation de la grille du jour.</li>
-                <li>
-                  <span className="font-bold">Duel hebdo: médailles mini-tournoi comptent pour l’équipe (or/argent/bronze = 3/2/1 points).</span>
-                </li>
-                <li>les grilles quotidiennes accordent 200 points à l'équipe gagnante, au lieu de 500 comme défini précédemment.</li>
-                <li>objectifs duel complètement réajustés, avec logique de progression alignée et cumul sur plusieurs manches quand prévu.</li>
-                <li>ajout d'un bouton patch note dans le menu "à propos".</li>
-              </ul>
+            <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 21/02/2026
+                </div>
+                <ul className="mt-2 list-disc pl-5 space-y-2">
+                  <li>ajout d'un menu de liaison de compte pour récupérer ou transférer dans le cas de changement d'appareil.</li>
+                  <li>amélioration du chat (dilatation du champ de saisie, comportement lors du démarrage d'une nouvelle manche).</li>
+                  <li>rajout de chat pendant résultats de mini tournoi, sur version ordinateur.</li>
+                  <li>correction des manches cibles mot le plus long qui ne renvoyaient pas nécessairement le mot le plus long de la grille pour les mots de moins de 11 lettres.</li>
+                  <li>tentative de correction d'un problème de grille du jour sur certains modèles iPhone.</li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 18/02/2026
+                </div>
+                <ul className="mt-2 list-disc pl-5 space-y-2">
+                  <li>ajout d'une liste des mots trouvés par chaque joueur en cliquant sur la ligne de son pseudo + didacticiel associé.</li>
+                  <li>correction des gobbles listés dans la liste des mots trouvés de chaque joueur.</li>
+                  <li>modification du chat pour persistance des messages et logs serveur + élargissement de l'historique à respectivement 200 et 100 entrées.</li>
+                  <li>correction du calcul de score total possible sur manches lettres en or.</li>
+                  <li>ajustement des indices pour les manches cibles + correction du décompte avant prochain indice.</li>
+                  <li>tentative de correction d'un problème de grille quotidienne sur ancien modèle d'iphone.</li>
+                  <li>correction d'anomalies lors de retours au lobby.</li>
+                  <li>stabilité réseau améliorée sur mobile, avec reconnexion et reprise de session plus robustes.</li>
+                  <li>validation des mots optimisée côté live, avec envoi par batch et repli automatique mot par mot si nécessaire.</li>
+                  <li>chat système enrichi avec messages de connexion, déconnexion et validation de la grille du jour.</li>
+                  <li>
+                    <span className="font-bold">Duel hebdo: médailles mini-tournoi comptent pour l’équipe (or/argent/bronze = 3/2/1 points).</span>
+                  </li>
+                  <li>les grilles quotidiennes accordent 200 points à l'équipe gagnante, au lieu de 500 comme défini précédemment.</li>
+                  <li>objectifs duel complètement réajustés, avec logique de progression alignée et cumul sur plusieurs manches quand prévu.</li>
+                  <li>ajout d'un bouton patch note dans le menu "à propos".</li>
+                </ul>
+              </div>
               <div
                 className={`mt-4 rounded-xl border px-3 py-3 ${
                   darkMode ? "border-white/10 bg-slate-900/60" : "border-slate-200 bg-slate-50"
@@ -17726,12 +18210,168 @@ function handleTouchEnd() {
           </div>
         </div>
       ) : null}
+      {isAccountLinkOpen ? (
+        <div className="fixed inset-0 z-[20020] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            onClick={() => setIsAccountLinkOpen(false)}
+            aria-label="Fermer liaison compte"
+          />
+          <div
+            className={`relative w-full max-w-md rounded-2xl border shadow-2xl ${
+              darkMode
+                ? "bg-slate-950 border-white/20 text-slate-100"
+                : "bg-white border-slate-300 text-slate-900"
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Lier un compte"
+          >
+            <div
+              className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
+                darkMode
+                  ? "border-white/10 bg-blue-300/10"
+                  : "border-slate-200 bg-blue-50"
+              }`}
+            >
+              <div>
+                <div className="text-sm font-extrabold tracking-wide">Lier un compte</div>
+                <div className="text-[12px] italic opacity-80">code de récupération</div>
+              </div>
+              <button
+                type="button"
+                className={`h-8 w-8 rounded-full border flex items-center justify-center ${
+                  darkMode
+                    ? "bg-slate-900 border-white/10 text-slate-100"
+                    : "bg-white border-slate-200 text-slate-700"
+                }`}
+                onClick={() => setIsAccountLinkOpen(false)}
+                aria-label="Fermer"
+              >
+                <span className="text-base leading-none">×</span>
+              </button>
+            </div>
+            <div className="px-4 py-4 space-y-3 text-[13px]">
+              <div className="opacity-90">
+                Envoie ce code depuis l'ancien appareil. Sur le nouvel appareil, colle le code puis valide.
+              </div>
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wide opacity-75">
+                  Mon code
+                </div>
+                <div
+                  className={`rounded-lg border px-3 py-2 font-mono text-[12px] break-all ${
+                    darkMode
+                      ? "border-white/10 bg-slate-900/70 text-slate-100"
+                      : "border-slate-200 bg-slate-50 text-slate-900"
+                  }`}
+                >
+                  {accountLinkCode || "Code indisponible"}
+                </div>
+                <button
+                  type="button"
+                  onClick={copyAccountLinkCode}
+                  className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${
+                    darkMode
+                      ? "bg-slate-900 border-white/15 text-slate-100"
+                      : "bg-white border-slate-300 text-slate-900"
+                  }`}
+                >
+                  Copier mon code
+                </button>
+              </div>
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wide opacity-75">
+                  Code reçu
+                </div>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={accountLinkInput}
+                  onChange={(e) => {
+                    setAccountLinkInput(e.target.value);
+                    setAccountLinkError("");
+                    setAccountLinkInfo("");
+                    setAccountLinkPreview(null);
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-[13px] ios-input ${
+                    darkMode
+                      ? "bg-slate-900 border-white/15 text-slate-100"
+                      : "bg-white border-slate-300 text-slate-900"
+                  }`}
+                  placeholder="GBL1-..."
+                  aria-label="Code de liaison"
+                />
+                <button
+                  type="button"
+                  onClick={verifyAccountLinkCode}
+                  disabled={!accountLinkInput.trim() || accountLinkChecking}
+                  className={`w-full rounded-lg border px-3 py-2 text-[12px] font-semibold ${
+                    darkMode
+                      ? "bg-slate-900 border-white/15 text-slate-100"
+                      : "bg-white border-slate-300 text-slate-900"
+                  } disabled:opacity-50`}
+                >
+                  {accountLinkChecking ? "Vérification..." : "Vérifier le code"}
+                </button>
+                {accountLinkPreview ? (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-[12px] space-y-1 ${
+                      darkMode
+                        ? "border-white/10 bg-slate-900/70 text-slate-100"
+                        : "border-slate-200 bg-slate-50 text-slate-900"
+                    }`}
+                  >
+                    <div>
+                      <span className="font-semibold">Pseudo:</span>{" "}
+                      {accountLinkPreview.nick || "Inconnu"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Dernière activité:</span>{" "}
+                      {formatAccountLinkActivity(accountLinkPreview.lastActivityTs)}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Vocabulaire:</span>{" "}
+                      {accountLinkPreview.vocabCount} mots
+                      {accountLinkPreview.vocabRank && accountLinkPreview.vocabTotalPlayers
+                        ? ` (rang #${accountLinkPreview.vocabRank}/${accountLinkPreview.vocabTotalPlayers})`
+                        : ""}
+                    </div>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={applyAccountLinkCode}
+                  disabled={
+                    !accountLinkPreview ||
+                    accountLinkPreview.code !== String(accountLinkInput || "").trim()
+                  }
+                  className="w-full rounded-lg border border-blue-500 bg-blue-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                >
+                  Lier ce compte
+                </button>
+              </div>
+              {accountLinkError ? (
+                <div className="text-[12px] font-semibold text-red-500">{accountLinkError}</div>
+              ) : null}
+              {!accountLinkError && accountLinkInfo ? (
+                <div className="text-[12px] font-semibold text-emerald-500">{accountLinkInfo}</div>
+              ) : null}
+              <div className="text-[11px] opacity-70">
+                Attention: ce code donne accès au compte lié à cet identifiant.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 
   const mobileChatLayer =
     isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home")) ? (
-      <MobileChatWidget
+      <ChatWidget
         chatInput={chatInput}
         chatInputRef={chatInputRef}
         chatInputType={chatInputType}
@@ -17739,7 +18379,7 @@ function handleTouchEnd() {
         chatInputPlaceholder={chatInputPlaceholder}
         chatTab={chatTab}
         onChangeChatTab={setChatTab}
-        messagesCount={chatMessagesCount}
+        messagesUnreadCount={chatMessagesUnreadCount}
         systemCount={chatSystemCount}
         onChatInputFocus={handleChatInputFocus}
         chatOverlayStyle={globalChatOverlayStyle}
@@ -17749,6 +18389,8 @@ function handleTouchEnd() {
         cycleChatHistory={cycleChatHistory}
         darkMode={darkMode}
         hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
+        chatKeyboardInsetPx={chatKeyboardInsetPx}
+        keyboardInsetReservePx={keyboardInsetReservePx}
         isChatOpenMobile={isChatOpenMobile}
         isChatClosing={isChatClosing}
         mobileChatUnreadCount={mobileChatUnreadCount}
@@ -17785,7 +18427,7 @@ function handleTouchEnd() {
       chatTab={safeChatTab}
       onChangeTab={setChatTab}
       onClose={closeHomeChat}
-      messagesCount={chatMessagesCount}
+      messagesUnreadCount={homeChatUnreadCount}
       systemCount={chatSystemCount}
       messages={homeChatVisibleMessages}
       chatInput={chatInput}
@@ -19354,8 +19996,9 @@ function handleTouchEnd() {
                 </div>
               </div>
             </div>
-            <div className="hidden">
-              <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
+            {!isMobileLayout ? (
+              <div className="absolute left-full ml-3 top-0 h-full w-[340px] min-h-0">
+                <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-full">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="font-bold text-center">Chat</h2>
                   <div className="flex items-center gap-3">
@@ -19396,7 +20039,7 @@ function handleTouchEnd() {
                       }`}
                       onClick={() => setChatTab("messages")}
                     >
-                      Messages ({chatMessagesCount})
+                      Messages{formatChatUnreadSuffix(chatMessagesUnreadCount)}
                     </button>
                     <button
                       type="button"
@@ -19409,7 +20052,7 @@ function handleTouchEnd() {
                       }`}
                       onClick={() => setChatTab("system")}
                     >
-                      Système ({chatSystemCount})
+                      Système
                     </button>
                   </div>
                 </div>
@@ -19548,8 +20191,9 @@ function handleTouchEnd() {
                     </div>
                   </>
                 ) : null}
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         </div>
         {settingsMenuView}
@@ -21617,7 +22261,7 @@ function handleTouchEnd() {
                 }`}
                 onClick={() => setChatTab("messages")}
               >
-                Messages ({chatMessagesCount})
+                Messages{formatChatUnreadSuffix(chatMessagesUnreadCount)}
               </button>
               <button
                 type="button"
@@ -21630,7 +22274,7 @@ function handleTouchEnd() {
                 }`}
                 onClick={() => setChatTab("system")}
               >
-                Système ({chatSystemCount})
+                Système
               </button>
             </div>
           </div>

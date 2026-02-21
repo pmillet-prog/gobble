@@ -291,6 +291,83 @@ export async function getVocabularyCount(installId) {
   }
 }
 
+export async function getVocabularySnapshot(installId) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  if (!safeInstallId) {
+    return {
+      exists: false,
+      nick: "",
+      count: 0,
+      updatedAt: 0,
+      rank: null,
+      totalPlayers: 0,
+    };
+  }
+  const ready = await ensureDb();
+  if (!ready) {
+    return {
+      exists: false,
+      nick: "",
+      count: 0,
+      updatedAt: 0,
+      rank: null,
+      totalPlayers: 0,
+    };
+  }
+  try {
+    const profile = await db.get(
+      "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
+      safeInstallId
+    );
+    const countRow = await db.get(
+      "SELECT count, updatedAt FROM vocab_counts WHERE installId = ?",
+      safeInstallId
+    );
+    const count = Number(countRow?.count) || 0;
+    const profileUpdatedAt = Number(profile?.updatedAt) || 0;
+    const countUpdatedAt = Number(countRow?.updatedAt) || 0;
+    const updatedAt = Math.max(profileUpdatedAt, countUpdatedAt);
+    const nick = typeof profile?.nick === "string" ? profile.nick.trim() : "";
+    let rank = null;
+    let totalPlayers = 0;
+    if (count > 0) {
+      const higherRow = await db.get(
+        "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > ?",
+        count
+      );
+      const totalRow = await db.get(
+        "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > 0"
+      );
+      const higher = Number(higherRow?.c) || 0;
+      totalPlayers = Number(totalRow?.c) || 0;
+      rank = higher + 1;
+    } else {
+      const totalRow = await db.get(
+        "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > 0"
+      );
+      totalPlayers = Number(totalRow?.c) || 0;
+    }
+    return {
+      exists: !!profile || !!countRow,
+      nick,
+      count,
+      updatedAt,
+      rank,
+      totalPlayers,
+    };
+  } catch (err) {
+    console.warn("Vocabulary snapshot failed", err);
+    return {
+      exists: false,
+      nick: "",
+      count: 0,
+      updatedAt: 0,
+      rank: null,
+      totalPlayers: 0,
+    };
+  }
+}
+
 export async function getVocabularyLeaderboard(limit = 50) {
   const ready = await ensureDb();
   if (!ready) return [];

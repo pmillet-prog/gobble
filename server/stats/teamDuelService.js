@@ -1597,5 +1597,24 @@ export async function getDuelStatus(installId, { dateId = null, weekId = null } 
   };
 }
 
+export function getDuelNickForInstallId(installId) {
+  const safeInstallId = normalizeInstallId(installId);
+  if (!safeInstallId) return "";
+  const weekEntries = Object.values(state?.weeks || {});
+  const orderedWeeks = weekEntries
+    .filter((week) => week && typeof week === "object")
+    .sort((a, b) => (Number(b?.weekStartTs) || 0) - (Number(a?.weekStartTs) || 0));
+  for (const week of orderedWeeks) {
+    const nickMap =
+      week?.nickByInstallId && typeof week.nickByInstallId === "object"
+        ? week.nickByInstallId
+        : null;
+    if (!nickMap) continue;
+    const nick = normalizeNick(nickMap[safeInstallId]);
+    if (nick) return nick;
+  }
+  return "";
+}
+
 await loadFromDisk();
 cleanupOldState();

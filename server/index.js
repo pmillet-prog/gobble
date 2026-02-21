@@ -29,6 +29,7 @@ import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
 import {
   getWeekStartTs,
   getWeeklyStats,
+  getWeeklyNickForInstallId,
   recordBestRoundScore,
   recordBestTargetTime,
   recordBestWord,
@@ -43,6 +44,7 @@ import {
   initVocabularyService,
   recordVocabularyBatch,
   getVocabularyCount,
+  getVocabularySnapshot,
   getVocabularyLeaderboard,
   upsertVocabularyProfile,
   getKnownVocabWords,
@@ -76,6 +78,7 @@ import {
   getObjectivesStatus,
   getParisWeekId as getDuelParisWeekId,
   getTeamForInstall,
+  getDuelNickForInstallId,
   getWeeklyDuelScore,
   isInstallCrowned,
   recordDailyBattleFromEntries,
@@ -304,6 +307,67 @@ function sanitizeDailyNick(raw) {
   return trimmed.slice(0, DAILY_NICK_MAX_LEN);
 }
 
+async function runDailyStartFlow({ installId, pseudo }) {
+  const result = await startDailyAttempt(null, installId, pseudo);
+  if (!result?.ok) return result;
+  await refreshInstallDuelCache(installId);
+  const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
+  return { ...result, duel };
+}
+
+async function runDailySubmitFlow({
+  dateId = null,
+  installId,
+  pseudo,
+  foundWords,
+  durationMs,
+}) {
+  const result = await submitDailyResult({
+    dateId: typeof dateId === "string" ? dateId : null,
+    installId,
+    pseudo,
+    foundWords,
+    durationMs,
+    dictionary,
+  });
+  if (!result?.ok) return result;
+
+  await recordDailyPlayed({ installId, dateId: result?.dateId || null });
+  let boardWithTeams = Array.isArray(result?.board) ? result.board : [];
+  if (boardWithTeams.length) {
+    boardWithTeams = await annotateEntriesWithTeam(boardWithTeams, {
+      dateId: result?.dateId || null,
+    });
+    await recordDailyBattleFromEntries(result.dateId || null, boardWithTeams);
+  }
+  const dailyEntry = Array.isArray(boardWithTeams)
+    ? boardWithTeams.find((entry) => normalizeInstallId(entry?.installId) === installId)
+    : null;
+  const dailyTeam = dailyEntry?.team === "red" || dailyEntry?.team === "blue"
+    ? dailyEntry.team
+    : getTeamForInstallCached(installId);
+  const dailyNick = String(dailyEntry?.nick || pseudo || "Joueur").trim() || "Joueur";
+  const dailyScore = Number(dailyEntry?.score ?? result?.score) || 0;
+  const dailyWords = Number(dailyEntry?.wordsCount ?? dailyEntry?.wordCount) || 0;
+  broadcastSystemChatMessage(
+    `${dailyNick} ${getTeamDot(dailyTeam)} a validé la grille du jour avec ${dailyScore} points - ${dailyWords} mots`,
+    {
+      installId,
+      team: dailyTeam,
+      nick: dailyNick,
+      meta: {
+        kind: "daily_completed",
+        dateId: result?.dateId || null,
+        score: dailyScore,
+        wordsCount: dailyWords,
+      },
+    }
+  );
+  await refreshInstallDuelCache(installId);
+  const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
+  return { ...result, board: boardWithTeams, duel };
+}
+
 app.get("/api/daily/status", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
@@ -377,7 +441,7 @@ app.post("/api/daily/start", async (req, res) => {
     res.status(400);
     return res.json({ ok: false, error: "bad_request" });
   }
-  const result = await startDailyAttempt(null, installId, pseudo);
+  const result = await runDailyStartFlow({ installId, pseudo });
   if (!result.ok) {
     if (result.error === "already_played") {
       res.status(409);
@@ -388,10 +452,7 @@ app.post("/api/daily/start", async (req, res) => {
     } else {
       res.status(500);
     }
-  } else {
-    await refreshInstallDuelCache(installId);
-    const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
-    return res.json({ ...result, duel });
+    return res.json(result);
   }
   return res.json(result);
 });
@@ -405,13 +466,12 @@ app.post("/api/daily/submit", async (req, res) => {
     res.status(400);
     return res.json({ ok: false, error: "bad_request" });
   }
-  const result = await submitDailyResult({
+  const result = await runDailySubmitFlow({
     dateId: typeof req.body?.dateId === "string" ? req.body.dateId : null,
     installId,
     pseudo,
     foundWords: req.body?.foundWords,
     durationMs: req.body?.durationMs,
-    dictionary,
   });
   if (!result.ok) {
     if (result.error === "already_played") {
@@ -427,40 +487,38 @@ app.post("/api/daily/submit", async (req, res) => {
     }
     return res.json(result);
   }
-  await recordDailyPlayed({ installId, dateId: result?.dateId || null });
-  let boardWithTeams = Array.isArray(result?.board) ? result.board : [];
-  if (boardWithTeams.length) {
-    boardWithTeams = await annotateEntriesWithTeam(boardWithTeams, {
-      dateId: result?.dateId || null,
-    });
-    await recordDailyBattleFromEntries(result.dateId || null, boardWithTeams);
+  return res.json(result);
+});
+
+app.post("/api/account/link-preview", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const parsed = parseAccountLinkCode(req.body?.code);
+  if (!parsed?.ok || !parsed.installId) {
+    res.status(400);
+    return res.json({ ok: false, error: parsed?.error || "invalid_code" });
   }
-  const dailyEntry = Array.isArray(boardWithTeams)
-    ? boardWithTeams.find((entry) => normalizeInstallId(entry?.installId) === installId)
-    : null;
-  const dailyTeam = dailyEntry?.team === "red" || dailyEntry?.team === "blue"
-    ? dailyEntry.team
-    : getTeamForInstallCached(installId);
-  const dailyNick = String(dailyEntry?.nick || pseudo || "Joueur").trim() || "Joueur";
-  const dailyScore = Number(dailyEntry?.score ?? result?.score) || 0;
-  const dailyWords = Number(dailyEntry?.wordsCount ?? dailyEntry?.wordCount) || 0;
-  broadcastSystemChatMessage(
-    `${dailyNick} ${getTeamDot(dailyTeam)} a validé la grille du jour avec ${dailyScore} points - ${dailyWords} mots`,
-    {
-      installId,
-      team: dailyTeam,
-      nick: dailyNick,
-      meta: {
-        kind: "daily_completed",
-        dateId: result?.dateId || null,
-        score: dailyScore,
-        wordsCount: dailyWords,
-      },
-    }
-  );
-  await refreshInstallDuelCache(installId);
-  const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
-  return res.json({ ...result, board: boardWithTeams, duel });
+  const installId = parsed.installId;
+  const vocab = await getVocabularySnapshot(installId);
+  const weeklyNick = getWeeklyNickForInstallId(installId);
+  const duelNick = getDuelNickForInstallId(installId);
+  const nick = vocab?.nick || duelNick || weeklyNick || "";
+  const lastActivityTs = Number(vocab?.updatedAt) || 0;
+  return res.json({
+    ok: true,
+    installId,
+    profile: {
+      nick: nick || null,
+      lastActivityTs: lastActivityTs > 0 ? lastActivityTs : null,
+      vocabCount: Number(vocab?.count) || 0,
+      vocabRank:
+        Number.isFinite(vocab?.rank) && Number(vocab.rank) > 0
+          ? Number(vocab.rank)
+          : null,
+      vocabTotalPlayers: Number(vocab?.totalPlayers) || 0,
+    },
+    found: !!nick || !!vocab?.exists || (Number(vocab?.count) || 0) > 0,
+  });
 });
 
 app.get("/api/duel/status", async (req, res) => {
@@ -837,6 +895,7 @@ const REPORT_MUTE_THRESHOLD = 3;
 const REPORT_REASON_MAX_LEN = 160;
 const MUTE_DURATION_MS = 10 * 60 * 1000;
 const INSTALL_ID_MAX_LEN = 128;
+const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
@@ -851,6 +910,50 @@ function normalizeInstallId(raw) {
   const trimmed = raw.trim();
   if (!trimmed || trimmed.length > INSTALL_ID_MAX_LEN) return "";
   return trimmed;
+}
+
+function computeLinkCodeChecksum(raw) {
+  const input = String(raw || "");
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36).padStart(6, "0").slice(-6);
+}
+
+function decodeBase64Url(raw) {
+  const input = String(raw || "").replace(/-/g, "+").replace(/_/g, "/");
+  if (!input) return "";
+  const padded = input + "=".repeat((4 - (input.length % 4)) % 4);
+  try {
+    return Buffer.from(padded, "base64").toString("utf8");
+  } catch (_) {
+    return "";
+  }
+}
+
+function parseAccountLinkCode(rawCode) {
+  const raw = String(rawCode || "").trim();
+  if (!raw) return { ok: false, error: "empty_code" };
+  const compact = raw.replace(/[‐‑‒–—﹘﹣－]/g, "-").replace(/\s+/g, "");
+  const match = compact.match(/^([A-Za-z0-9]+)-([A-Za-z0-9_-]+)-([A-Za-z0-9]+)$/);
+  if (!match) return { ok: false, error: "invalid_format" };
+  const prefix = String(match[1] || "").toUpperCase();
+  if (prefix !== ACCOUNT_LINK_CODE_PREFIX) {
+    return { ok: false, error: "invalid_prefix" };
+  }
+  const payload = String(match[2] || "");
+  const checksum = String(match[3] || "").toLowerCase();
+  const expected = computeLinkCodeChecksum(payload);
+  if (checksum !== expected) {
+    return { ok: false, error: "invalid_checksum" };
+  }
+  const installId = normalizeInstallId(decodeBase64Url(payload));
+  if (!installId) {
+    return { ok: false, error: "invalid_install_id" };
+  }
+  return { ok: true, installId };
 }
 
 function getDuelCacheEntry(rawInstallId) {
@@ -4281,6 +4384,52 @@ io.on("connection", (socket) => {
     } catch (err) {
       console.warn("getTrophyStatus failed", err);
       cb?.({ ok: false, status: null });
+    }
+  });
+
+  socket.on("daily:start", async (payload, cb) => {
+    try {
+      const installId = normalizeInstallId(payload?.installId || socket.data?.installId);
+      const pseudo = sanitizeDailyNick(payload?.pseudo || socket.data?.nick || "");
+      if (!installId || !pseudo) {
+        cb?.({ ok: false, error: "bad_request" });
+        return;
+      }
+      const result = await runDailyStartFlow({ installId, pseudo });
+      if (!result || typeof result !== "object") {
+        cb?.({ ok: false, error: "internal" });
+        return;
+      }
+      cb?.(result);
+    } catch (err) {
+      console.warn("daily:start socket failed", err);
+      cb?.({ ok: false, error: "internal" });
+    }
+  });
+
+  socket.on("daily:submit", async (payload, cb) => {
+    try {
+      const installId = normalizeInstallId(payload?.installId || socket.data?.installId);
+      const pseudo = sanitizeDailyNick(payload?.pseudo || socket.data?.nick || "");
+      if (!installId || !pseudo) {
+        cb?.({ ok: false, error: "bad_request" });
+        return;
+      }
+      const result = await runDailySubmitFlow({
+        dateId: typeof payload?.dateId === "string" ? payload.dateId : null,
+        installId,
+        pseudo,
+        foundWords: payload?.foundWords,
+        durationMs: payload?.durationMs,
+      });
+      if (!result || typeof result !== "object") {
+        cb?.({ ok: false, error: "internal" });
+        return;
+      }
+      cb?.(result);
+    } catch (err) {
+      console.warn("daily:submit socket failed", err);
+      cb?.({ ok: false, error: "internal" });
     }
   });
 

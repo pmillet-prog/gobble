@@ -117,23 +117,20 @@ function pickTargetLongLengthBucket() {
   return picked ?? "11plus";
 }
 
-function pickExactLengthTargetFromSolved(solved, targetLen) {
-  if (!solved || solved.size === 0) return null;
+function pickTargetLongForExactMaxLen(solved, targetLen) {
   const exactLen = Number(targetLen);
   if (!Number.isFinite(exactLen) || exactLen <= 0) return null;
-  const candidates = [];
-  for (const [word, data] of solved.entries()) {
-    if (word.length !== exactLen) continue;
-    candidates.push({ word, length: exactLen, path: data?.path || null });
-  }
-  return pickRandomArrayEntry(candidates);
+  const longestUnique = pickTargetFromSolved(solved, "target_long", { minLongLen: 0 });
+  if (!longestUnique?.word) return null;
+  if (Number(longestUnique.length) !== exactLen) return null;
+  return longestUnique;
 }
 
 function pickTargetLongFromSolvedByBucket(solved, bucket) {
   if (bucket === "11plus") {
     return pickTargetFromSolved(solved, "target_long", { minLongLen: TARGET_LONG_MIN_LEN });
   }
-  return pickExactLengthTargetFromSolved(solved, bucket);
+  return pickTargetLongForExactMaxLen(solved, bucket);
 }
 
 function pickTargetLongFallbackFromSolved(solved, primaryBucket) {

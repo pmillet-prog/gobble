@@ -552,3 +552,42 @@ export function getWeeklyStats(topN = TOP_N) {
     },
   };
 }
+
+function findNickInWeekState(weekState, playerKey) {
+  if (!weekState || typeof weekState !== "object" || !playerKey) return "";
+  const boards = [
+    weekState.medals,
+    weekState.mostWordsInGame,
+    weekState.totalScore,
+    weekState.bestWord,
+    weekState.longestWord,
+    weekState.bestRoundScore,
+    weekState.bestTimeTargetLong,
+    weekState.bestTimeTargetScore,
+    weekState.vocab,
+    weekState.mostGobbles,
+  ];
+  for (const board of boards) {
+    if (!board || typeof board.get !== "function") continue;
+    const entry = board.get(playerKey);
+    const nick = typeof entry?.nick === "string" ? entry.nick.trim() : "";
+    if (nick) return nick;
+  }
+  return "";
+}
+
+export function getWeeklyNickForInstallId(installId) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  if (!safeInstallId) return "";
+  const playerKey = `install:${safeInstallId}`;
+  ensureCurrentWeek();
+  const fromCurrent = findNickInWeekState(state, playerKey);
+  if (fromCurrent) return fromCurrent;
+  const historyKeys = Array.from(history.keys()).sort((a, b) => b - a);
+  for (const weekStartTs of historyKeys) {
+    const week = history.get(weekStartTs);
+    const nick = findNickInWeekState(week, playerKey);
+    if (nick) return nick;
+  }
+  return "";
+}
