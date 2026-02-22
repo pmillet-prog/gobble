@@ -1,0 +1,440 @@
+{
+  "sourceWeeklyPath": ".tmp/backup_runtime/gobble_runtime/weekly-stats.json",
+  "computedAt": "2026-02-21T11:53:49.198Z",
+  "targetWeek": "2026-W09",
+  "previousWeek": "2026-W08",
+  "playerCount": 60,
+  "globalAvg": 889.7842302452316,
+  "levelSums": {
+    "red": 25078.16895637263,
+    "blue": 25073.701936136964
+  },
+  "counts": {
+    "red": 30,
+    "blue": 30
+  },
+  "red": [
+    {
+      "nick": "Beerman",
+      "installId": "db8a4935-e67c-4215-93d1-52b8c526ae1f",
+      "totalScore": 653276,
+      "roundsPlayed": 501,
+      "level": 1295.8392217269125
+    },
+    {
+      "nick": "Tigrou",
+      "installId": "1478adda-6c80-4681-8ce1-83fd1d143ab0",
+      "totalScore": 233199,
+      "roundsPlayed": 183,
+      "level": 1254.38778395053
+    },
+    {
+      "nick": "Sam",
+      "installId": "81aafa1e-6a5b-4e4a-b4be-ad03919d977e",
+      "totalScore": 67101,
+      "roundsPlayed": 53,
+      "level": 1206.3308301976558
+    },
+    {
+      "nick": "Warzowie",
+      "installId": "dc45d876-92a0-4f10-a688-60adb8fba02f",
+      "totalScore": 178347,
+      "roundsPlayed": 147,
+      "level": 1192.642307658932
+    },
+    {
+      "nick": "Warzowie",
+      "installId": "b50112eb-8c82-4769-87f7-be1d61f7ecfc",
+      "totalScore": 60358,
+      "roundsPlayed": 51,
+      "level": 1135.3416770893823
+    },
+    {
+      "nick": "Nathalie",
+      "installId": "a3ef3af3-30ce-4c1f-a320-b505f668d164",
+      "totalScore": 28368,
+      "roundsPlayed": 26,
+      "level": 1035.162286179231
+    },
+    {
+      "nick": "Jérémy",
+      "installId": "ee75a27f-fd9b-4c24-8cd2-51d60bb6e264",
+      "totalScore": 87634,
+      "roundsPlayed": 86,
+      "level": 1005.5400239838783
+    },
+    {
+      "nick": "Steph",
+      "installId": "f5f0653b-db26-4ed9-8cac-e568a7f2a6d2",
+      "totalScore": 362903,
+      "roundsPlayed": 385,
+      "level": 941.2679551960817
+    },
+    {
+      "nick": "Bernardiñho",
+      "installId": "d8237558-225b-47ac-b6b1-7779def89c00",
+      "totalScore": 8022,
+      "roundsPlayed": 8,
+      "level": 939.9912390251286
+    },
+    {
+      "nick": "titou",
+      "installId": "38cb376a-1398-4656-8ad3-e4836b3c2b84",
+      "totalScore": 159420,
+      "roundsPlayed": 181,
+      "level": 881.2452476568184
+    },
+    {
+      "nick": "duchou&duchou",
+      "installId": "7ba6a286-5909-4a9f-9251-4ab33dd462eb",
+      "totalScore": 8860,
+      "roundsPlayed": 11,
+      "level": 845.6115382120149
+    },
+    {
+      "nick": "Nicole",
+      "installId": "a0378c1f-8803-4163-85ef-f1a62690252c",
+      "totalScore": 255064,
+      "roundsPlayed": 310,
+      "level": 824.8807571951635
+    },
+    {
+      "nick": "zabie",
+      "installId": "c229b7eb-dee2-4f08-8fc6-77f77fff6739",
+      "totalScore": 35552,
+      "roundsPlayed": 44,
+      "level": 823.145227823191
+    },
+    {
+      "nick": "isa1958",
+      "installId": "b5db203e-13be-49cd-8c7a-5b23cf637473",
+      "totalScore": 278598,
+      "roundsPlayed": 349,
+      "level": 800.8240732658838
+    },
+    {
+      "nick": "Marajune",
+      "installId": "c18dbcdd-141c-4be8-8f4c-0902cc2f9765",
+      "totalScore": 289507,
+      "roundsPlayed": 367,
+      "level": 791.5247806431096
+    },
+    {
+      "nick": "MOLLY",
+      "installId": "bd8cf1a9-b973-4a9d-bbf3-b7ba61794ad6",
+      "totalScore": 1332,
+      "roundsPlayed": 3,
+      "level": 786.9109463424859
+    },
+    {
+      "nick": "Sissi",
+      "installId": "f9ca24d7-7480-4535-a1a6-c3fab402d14d",
+      "totalScore": 502,
+      "roundsPlayed": 2,
+      "level": 783.3201918710264
+    },
+    {
+      "nick": "Margot",
+      "installId": "22a37635-06a6-41e0-bbfd-4a5b722cc38c",
+      "totalScore": 157501,
+      "roundsPlayed": 206,
+      "level": 770.3650106595014
+    },
+    {
+      "nick": "Fouinette",
+      "installId": "b9635831-612b-42b5-ba7a-c05e4a8dcefa",
+      "totalScore": 74736,
+      "roundsPlayed": 101,
+      "level": 753.4580387608318
+    },
+    {
+      "nick": "Zabou",
+      "installId": "1868ba2a-5289-4517-b9c4-2356e5d0f91e",
+      "totalScore": 201543,
+      "roundsPlayed": 270,
+      "level": 751.5744367944725
+    },
+    {
+      "nick": "Nanou",
+      "installId": "dbb3db45-a9f9-45d1-b3e3-5f132871e140",
+      "totalScore": 88137,
+      "roundsPlayed": 124,
+      "level": 724.1406141974054
+    },
+    {
+      "nick": "chris",
+      "installId": "b5d8d39b-931d-4c78-bfbc-f759ceff5c31",
+      "totalScore": 4988,
+      "roundsPlayed": 10,
+      "level": 694.2921151226158
+    },
+    {
+      "nick": "Gwen",
+      "installId": "d77273db-d8ad-4c39-b196-ba3dea4ae197",
+      "totalScore": 1249,
+      "roundsPlayed": 5,
+      "level": 676.4561534968211
+    },
+    {
+      "nick": "Cathy",
+      "installId": "8c3bc769-2d88-448a-933d-7dba9b4db19a",
+      "totalScore": 1875,
+      "roundsPlayed": 6,
+      "level": 673.3026439032698
+    },
+    {
+      "nick": "Vivi",
+      "installId": "80a8599e-5810-46bf-8de2-6e0c9dd05d33",
+      "totalScore": 49385,
+      "roundsPlayed": 79,
+      "level": 654.8633966567676
+    },
+    {
+      "nick": "Matza",
+      "installId": "cdb4255f-7b25-4dc5-ac71-91082173a9dd",
+      "totalScore": 14912,
+      "roundsPlayed": 28,
+      "level": 626.5747974329556
+    },
+    {
+      "nick": "Whiterabbit",
+      "installId": "ecba3dd4-1463-429e-bf3e-8fc584330ed2",
+      "totalScore": 36429,
+      "roundsPlayed": 67,
+      "level": 588.6602896422379
+    },
+    {
+      "nick": "Pascale",
+      "installId": "1ec9a42a-6016-46ae-89e9-3b67d9472bc1",
+      "totalScore": 68910,
+      "roundsPlayed": 126,
+      "level": 572.1164875180318
+    },
+    {
+      "nick": "raoul",
+      "installId": "bcd50da5-b59f-4993-a662-75d3375d125e",
+      "totalScore": 17559,
+      "roundsPlayed": 37,
+      "level": 562.9115383500492
+    },
+    {
+      "nick": "Molly",
+      "installId": "cedd4fe1-a7c3-4a44-bfa4-50f067ab46a5",
+      "totalScore": 54701,
+      "roundsPlayed": 121,
+      "level": 485.4873458202467
+    }
+  ],
+  "blue": [
+    {
+      "nick": "Marty Mc Fly",
+      "installId": "27f69882-a19c-4aa5-9bd2-9fc1d0b3f6f4",
+      "totalScore": 514860,
+      "roundsPlayed": 359,
+      "level": 1419.397946619112
+    },
+    {
+      "nick": "Alcalec",
+      "installId": "9c337bb5-174f-41b0-8d4b-d32b8a1762c0",
+      "totalScore": 26195,
+      "roundsPlayed": 18,
+      "level": 1253.315796516154
+    },
+    {
+      "nick": "tokyo",
+      "installId": "3ea75cad-1e04-441d-b577-5b8f2fa92058",
+      "totalScore": 109220,
+      "roundsPlayed": 88,
+      "level": 1205.2841051270645
+    },
+    {
+      "nick": "Jérémy OB",
+      "installId": "fdf2c4c0-0d6e-4119-94b0-df293b3f9100",
+      "totalScore": 38284,
+      "roundsPlayed": 31,
+      "level": 1150.7766415232272
+    },
+    {
+      "nick": "Criss",
+      "installId": "00a96d3d-3662-48b8-b2d2-597589196968",
+      "totalScore": 12784,
+      "roundsPlayed": 10,
+      "level": 1084.0921151226157
+    },
+    {
+      "nick": "Warzowie",
+      "installId": "33a6bfa3-a381-4b46-9865-d940739e4037",
+      "totalScore": 9390,
+      "roundsPlayed": 8,
+      "level": 1015.9912390251286
+    },
+    {
+      "nick": "Flo45",
+      "installId": "3f2176ac-6dee-4966-bcc1-bb3ef412d6d0",
+      "totalScore": 128343,
+      "roundsPlayed": 129,
+      "level": 987.3441892262756
+    },
+    {
+      "nick": "Jean-François",
+      "installId": "af4d280b-a3e7-46f1-bb4b-c011fec00143",
+      "totalScore": 13277,
+      "roundsPlayed": 13,
+      "level": 964.123578367492
+    },
+    {
+      "nick": "Cours_Forest",
+      "installId": "fedec650-bba3-4b9a-90e8-a1ac13aea897",
+      "totalScore": 2820,
+      "roundsPlayed": 3,
+      "level": 901.3724848040243
+    },
+    {
+      "nick": "Grégory29",
+      "installId": "5e017ebc-4c0c-4b3a-8544-2e87dde3c1bc",
+      "totalScore": 7037,
+      "roundsPlayed": 8,
+      "level": 885.2690168029064
+    },
+    {
+      "nick": "jjd1959",
+      "installId": "31437d95-c0e1-4edb-996c-b893dafb372b",
+      "totalScore": 176922,
+      "roundsPlayed": 205,
+      "level": 864.2783362904759
+    },
+    {
+      "nick": "Natou",
+      "installId": "7c28624f-774d-46d3-ae84-a4e21110271c",
+      "totalScore": 5171,
+      "roundsPlayed": 7,
+      "level": 827.5789589677834
+    },
+    {
+      "nick": "Desktop",
+      "installId": "d195d057-8919-47b9-97c8-290ae68a7553",
+      "totalScore": 82,
+      "roundsPlayed": 1,
+      "level": 816.3493002229378
+    },
+    {
+      "nick": "Sandrine 33",
+      "installId": "7ea821ab-3ad1-43dc-b26b-bc919a8a149d",
+      "totalScore": 28954,
+      "roundsPlayed": 37,
+      "level": 805.3583468606876
+    },
+    {
+      "nick": "Delgloss",
+      "installId": "82d3d68d-3c33-4608-a796-c2308276b2ad",
+      "totalScore": 712,
+      "roundsPlayed": 2,
+      "level": 800.8201918710264
+    },
+    {
+      "nick": "Nanou",
+      "installId": "9a2a902b-8ba4-4b74-87e5-d00f4aa40fe6",
+      "totalScore": 115757,
+      "roundsPlayed": 149,
+      "level": 783.992718883348
+    },
+    {
+      "nick": "Bibou",
+      "installId": "5cb87bba-35e1-49cc-a92f-17ca9d6f18a9",
+      "totalScore": 1227,
+      "roundsPlayed": 3,
+      "level": 778.8340232655628
+    },
+    {
+      "nick": "Pat",
+      "installId": "bb74e8c8-a9f7-4fff-b5e9-df32b40cf103",
+      "totalScore": 1865,
+      "roundsPlayed": 4,
+      "level": 768.7744501751655
+    },
+    {
+      "nick": "Nadia",
+      "installId": "786547eb-5168-4a32-97a7-98e6a04cbc2f",
+      "totalScore": 207,
+      "roundsPlayed": 2,
+      "level": 758.736858537693
+    },
+    {
+      "nick": "isa",
+      "installId": "32bc4f47-ecd5-4c0e-a284-721bdba46e58",
+      "totalScore": 170011,
+      "roundsPlayed": 231,
+      "level": 742.3603415039515
+    },
+    {
+      "nick": "Cecile3364",
+      "installId": "bea30288-62f4-46ec-8ea7-558342b9c4a9",
+      "totalScore": 27416,
+      "roundsPlayed": 40,
+      "level": 726.2768460490463
+    },
+    {
+      "nick": "Pounie",
+      "installId": "7fe36a54-be56-415c-800f-8f661eab13f9",
+      "totalScore": 97097,
+      "roundsPlayed": 142,
+      "level": 697.3344888319232
+    },
+    {
+      "nick": "Babethetienne",
+      "installId": "bedf02a7-3042-4ec6-8ea9-c2dd902ba1ba",
+      "totalScore": 1355,
+      "roundsPlayed": 5,
+      "level": 683.5228201634877
+    },
+    {
+      "nick": "Cspl",
+      "installId": "e31412d7-c908-4fb4-a563-beb796aa5305",
+      "totalScore": 10493,
+      "roundsPlayed": 19,
+      "level": 668.6497345673212
+    },
+    {
+      "nick": "Xxxx",
+      "installId": "cd93c25c-169a-43a2-9dd2-3e1ff1d63d8a",
+      "totalScore": 3335,
+      "roundsPlayed": 9,
+      "level": 643.8338053922272
+    },
+    {
+      "nick": "Chapi",
+      "installId": "913e2dce-70fa-4c78-93ac-e60d00b5ba9d",
+      "totalScore": 5586,
+      "roundsPlayed": 13,
+      "level": 629.732274019666
+    },
+    {
+      "nick": "JB",
+      "installId": "8df2c225-6daf-44f0-9ae3-1b8d766d6c44",
+      "totalScore": 16824,
+      "roundsPlayed": 32,
+      "level": 612.424816725055
+    },
+    {
+      "nick": "Matza",
+      "installId": "d05b528f-65ef-4ef1-a06f-7a487ed52adb",
+      "totalScore": 128692,
+      "roundsPlayed": 231,
+      "level": 570.9122087238685
+    },
+    {
+      "nick": "Fraise",
+      "installId": "264cb74f-d3e5-45b8-a4c4-27e5d7c65a60",
+      "totalScore": 85028,
+      "roundsPlayed": 166,
+      "level": 533.6695585366609
+    },
+    {
+      "nick": "Test fold",
+      "installId": "2cd99324-dc57-4f1f-9daa-27ea307c7487",
+      "totalScore": 5901,
+      "roundsPlayed": 20,
+      "level": 493.2947434150772
+    }
+  ]
+}

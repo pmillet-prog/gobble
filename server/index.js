@@ -6,7 +6,7 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
-import { readFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 
 import {
@@ -57,6 +57,15 @@ import {
   K_BASE as TROPHY_K_BASE,
 } from "./stats/trophyService.js";
 import {
+  initGobblarsService,
+  getGobblarProfile,
+  addGobblars,
+  grantWeeklyWinnerGobblars,
+  applyThemeSelection,
+  THEME_UNLOCK_COST,
+  WEEKLY_WIN_GOBBLARS_BONUS,
+} from "./stats/gobblarsService.js";
+import {
   getDailyMedalsForRoom,
   persistDailyMedalsForRoom,
 } from "./stats/dailyMedalsService.js";
@@ -101,6 +110,9 @@ void initVocabularyService().catch((err) =>
 );
 void initTrophyService().catch((err) =>
   console.warn("Trophy service init failed", err)
+);
+void initGobblarsService().catch((err) =>
+  console.warn("Gobblars service init failed", err)
 );
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -332,6 +344,16 @@ async function runDailySubmitFlow({
   });
   if (!result?.ok) return result;
 
+  const dailyGobbles = Number(result?.gobbles) || 0;
+  if (dailyGobbles > 0) {
+    await addGobblars({
+      installId,
+      amount: dailyGobbles,
+      reason: "daily_gobbles",
+      meta: { dateId: result?.dateId || null },
+    }).catch(() => {});
+  }
+
   await recordDailyPlayed({ installId, dateId: result?.dateId || null });
   let boardWithTeams = Array.isArray(result?.board) ? result.board : [];
   if (boardWithTeams.length) {
@@ -518,6 +540,100 @@ app.post("/api/account/link-preview", async (req, res) => {
       vocabTotalPlayers: Number(vocab?.totalPlayers) || 0,
     },
     found: !!nick || !!vocab?.exists || (Number(vocab?.count) || 0) > 0,
+  });
+});
+
+app.post("/api/account/link-apply", (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const currentInstallId = normalizeInstallIdRaw(req.body?.currentInstallId);
+  const parsed = parseAccountLinkCode(req.body?.code);
+  if (!currentInstallId || !parsed?.ok || !parsed.installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const targetInstallId = resolveCanonicalInstallId(parsed.installId);
+  if (!targetInstallId) {
+    res.status(400);
+    return res.json({ ok: false, error: "invalid_target_install_id" });
+  }
+  const linked = linkInstallIds(currentInstallId, targetInstallId);
+  const canonicalInstallId = resolveCanonicalInstallId(currentInstallId);
+  return res.json({
+    ok: true,
+    linked,
+    canonicalInstallId: canonicalInstallId || targetInstallId,
+  });
+});
+
+app.get("/api/theme/profile", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.query?.installId);
+  if (!installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  await refreshInstallDuelCache(installId).catch(() => {});
+  const profile = await getGobblarProfile(installId);
+  if (!profile) {
+    res.status(500);
+    return res.json({ ok: false, error: "profile_unavailable" });
+  }
+  return res.json({
+    ok: true,
+    installId,
+    balance: Number(profile.balance) || 0,
+    themeApplied: profile.themeApplied || {},
+    themeUnlocks: profile.themeUnlocks || {},
+    unlockCost: Number.isFinite(Number(profile.unlockCost))
+      ? Number(profile.unlockCost)
+      : THEME_UNLOCK_COST,
+    lockableCategories: Array.isArray(profile.lockableCategories)
+      ? profile.lockableCategories
+      : [],
+  });
+});
+
+app.post("/api/theme/apply", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const installId = normalizeInstallId(req.body?.installId);
+  if (!installId) {
+    res.status(400);
+    return res.json({ ok: false, error: "bad_request" });
+  }
+  const mode = req.body?.mode === "single" ? "single" : "full";
+  const category = typeof req.body?.category === "string" ? req.body.category : "";
+  const draftTheme =
+    req.body?.draftTheme && typeof req.body.draftTheme === "object"
+      ? req.body.draftTheme
+      : {};
+  const result = await applyThemeSelection({
+    installId,
+    mode,
+    category,
+    draftTheme,
+    unlockCost: THEME_UNLOCK_COST,
+  });
+  if (!result) {
+    res.status(500);
+    return res.json({ ok: false, error: "theme_apply_failed" });
+  }
+  if (result.ok === false) {
+    res.status(409);
+    return res.json(result);
+  }
+  return res.json({
+    ok: true,
+    installId,
+    balance: Number(result.balance) || 0,
+    spent: Number(result.spent) || 0,
+    requiredUnlocks: Array.isArray(result.requiredUnlocks) ? result.requiredUnlocks : [],
+    changedCategories: Array.isArray(result.changedCategories) ? result.changedCategories : [],
+    themeApplied: result.themeApplied || {},
+    themeUnlocks: result.themeUnlocks || {},
+    unlockCost: THEME_UNLOCK_COST,
   });
 });
 
@@ -820,6 +936,11 @@ const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+const MEDAL_GOBBLARS = Object.freeze({
+  gold: 10,
+  silver: 5,
+  bronze: 3,
+});
 const DISCONNECT_GRACE_MS = 120 * 1000;
 const RANKING_BROADCAST_MIN_MS = 90;
 const DUEL_CACHE_REFRESH_MIN_MS = 45 * 1000;
@@ -896,6 +1017,10 @@ const REPORT_REASON_MAX_LEN = 160;
 const MUTE_DURATION_MS = 10 * 60 * 1000;
 const INSTALL_ID_MAX_LEN = 128;
 const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
+const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
+  ? path.resolve(process.env.GOBBLE_DATA_DIR)
+  : path.join(__dirname, "../data");
+const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json");
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
@@ -903,13 +1028,110 @@ const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
 const duelInstallCache = new Map(); // installId -> { weekId, team, crowned, updatedAt }
 const duelCacheRefreshAt = new Map(); // installId -> ts
+const installAliasByInstallId = new Map();
 let duelWeekCacheKey = getDuelParisWeekId();
 
-function normalizeInstallId(raw) {
+function normalizeInstallIdRaw(raw) {
   if (typeof raw !== "string") return "";
   const trimmed = raw.trim();
   if (!trimmed || trimmed.length > INSTALL_ID_MAX_LEN) return "";
   return trimmed;
+}
+
+function resolveCanonicalInstallId(rawInstallId, { maxDepth = 16 } = {}) {
+  let current = normalizeInstallIdRaw(rawInstallId);
+  if (!current) return "";
+  const visited = new Set([current]);
+  for (let i = 0; i < maxDepth; i += 1) {
+    const next = normalizeInstallIdRaw(installAliasByInstallId.get(current));
+    if (!next || next === current || visited.has(next)) break;
+    current = next;
+    visited.add(current);
+  }
+  return current;
+}
+
+function normalizeInstallId(raw) {
+  return resolveCanonicalInstallId(raw);
+}
+
+function saveInstallAliases() {
+  try {
+    mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
+    const aliases = {};
+    for (const [from, to] of installAliasByInstallId.entries()) {
+      const safeFrom = normalizeInstallIdRaw(from);
+      const safeTo = normalizeInstallIdRaw(to);
+      if (!safeFrom || !safeTo || safeFrom === safeTo) continue;
+      aliases[safeFrom] = safeTo;
+    }
+    writeFileSync(
+      INSTALL_ALIASES_PATH,
+      JSON.stringify(
+        {
+          version: 1,
+          updatedAt: Date.now(),
+          aliases,
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
+  } catch (err) {
+    console.warn("install alias save failed", err);
+  }
+}
+
+function loadInstallAliases() {
+  installAliasByInstallId.clear();
+  try {
+    const raw = readFileSync(INSTALL_ALIASES_PATH, "utf8");
+    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+    const parsed = JSON.parse(cleaned);
+    const source =
+      parsed?.aliases && typeof parsed.aliases === "object"
+        ? parsed.aliases
+        : parsed && typeof parsed === "object"
+        ? parsed
+        : {};
+    for (const [fromRaw, toRaw] of Object.entries(source)) {
+      const from = normalizeInstallIdRaw(fromRaw);
+      const to = normalizeInstallIdRaw(toRaw);
+      if (!from || !to || from === to) continue;
+      installAliasByInstallId.set(from, to);
+    }
+    // Compaction: resolve chains and drop invalid/self links.
+    for (const [fromRaw, toRaw] of Array.from(installAliasByInstallId.entries())) {
+      const from = normalizeInstallIdRaw(fromRaw);
+      const to = resolveCanonicalInstallId(toRaw);
+      if (!from || !to || from === to) {
+        installAliasByInstallId.delete(fromRaw);
+        continue;
+      }
+      installAliasByInstallId.set(from, to);
+    }
+  } catch (_) {}
+}
+
+function linkInstallIds(fromInstallId, targetInstallId) {
+  const from = normalizeInstallIdRaw(fromInstallId);
+  const target = resolveCanonicalInstallId(targetInstallId);
+  if (!from || !target || from === target) return false;
+  installAliasByInstallId.set(from, target);
+  for (const [keyRaw, valueRaw] of Array.from(installAliasByInstallId.entries())) {
+    const key = normalizeInstallIdRaw(keyRaw);
+    const value = resolveCanonicalInstallId(valueRaw);
+    if (!key || !value || key === value) {
+      installAliasByInstallId.delete(keyRaw);
+      continue;
+    }
+    installAliasByInstallId.set(key, value);
+  }
+  saveInstallAliases();
+  duelInstallCache.clear();
+  duelCacheRefreshAt.clear();
+  return true;
 }
 
 function computeLinkCodeChecksum(raw) {
@@ -997,6 +1219,13 @@ async function refreshInstallDuelCache(rawInstallId) {
     updatedAt: Date.now(),
   };
   duelInstallCache.set(installId, entry);
+  if (entry.crowned && entry.weekId) {
+    void grantWeeklyWinnerGobblars({
+      installId,
+      weekId: entry.weekId,
+      amount: WEEKLY_WIN_GOBBLARS_BONUS,
+    }).catch(() => {});
+  }
   return entry;
 }
 
@@ -1097,6 +1326,7 @@ function loadIgnoredIps() {
 }
 
 const IGNORED_IPS = loadIgnoredIps();
+loadInstallAliases();
 
 function appendConnectionLog({ nick, roomId, ip, userAgent }) {
   const safeNick = String(nick || "").replace(/\r|\n/g, " ").trim();
@@ -1521,6 +1751,33 @@ function addMedal(room, nick, type) {
     }).catch((err) => {
       console.warn(`[${room.id}] medal duel points failed for ${nick} (${type})`, err);
     });
+    const gobblarsAmount = Number(MEDAL_GOBBLARS[type]) || 0;
+    if (gobblarsAmount > 0) {
+      void addGobblars({
+        installId,
+        amount: gobblarsAmount,
+        reason: "tournament_medal",
+        meta: {
+          roomId: room.id,
+          nick,
+          medal: type,
+        },
+      })
+        .then((result) => {
+          if (!result || result.ok === false) return;
+          emitToInstallId(room, installId, "gobblarsAwarded", {
+            kind: "tournament_medal",
+            medal: type,
+            amount: gobblarsAmount,
+            balance: Number(result.balance) || 0,
+            nick,
+            ts: Date.now(),
+          });
+        })
+        .catch((err) => {
+          console.warn(`[${room.id}] medal gobblars failed for ${nick} (${type})`, err);
+        });
+    }
   }
   persistRoomMedals(room);
 }
@@ -1556,6 +1813,17 @@ function findPlayerByInstallId(room, installId) {
     }
   }
   return null;
+}
+
+function emitToInstallId(room, installId, eventName, payload) {
+  if (!room || !installId || !eventName) return;
+  const normalized = normalizeInstallId(installId);
+  if (!normalized) return;
+  for (const [socketId, player] of room.players.entries()) {
+    if (normalizeInstallId(player?.installId) !== normalized) continue;
+    if (player?.connected === false) continue;
+    io.to(socketId).emit(eventName, payload);
+  }
 }
 
 function isPlayerConnected(player) {
@@ -2301,14 +2569,15 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       score: false,
       len: false,
     };
-    if (flags[kind]) return;
+    if (flags[kind]) return false;
 
     const currentCount = room.currentRound.gobbles.get(resolvedNick) || 0;
-    if (currentCount >= 2) return; // max 2 gobbles par manche
+    if (currentCount >= 2) return false; // max 2 gobbles comptés pour points/manche
 
     flags[kind] = true;
     room.currentRound.gobbleFlags.set(resolvedNick, flags);
     room.currentRound.gobbles.set(resolvedNick, currentCount + 1);
+    return true;
   }
 
   const isSpeedRound = room.currentRound?.special?.type === "speed";
@@ -2503,6 +2772,37 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
       room.bestLengthRecord.players.add(resolvedNick);
       // Égalisations ignorées: on n'annonce que le premier record.
     }
+  }
+
+  const liveGobblarsNow =
+    (!isSpeedRound && isMaxPossiblePts ? 1 : 0) + (isMaxPossibleLen ? 1 : 0);
+  if (!isBotPlayer && playerInstallId && liveGobblarsNow > 0) {
+    void addGobblars({
+      installId: playerInstallId,
+      amount: liveGobblarsNow,
+      reason: "live_gobble",
+      meta: {
+        roomId: room.id,
+        roundId: roundId || null,
+        nick: resolvedNick,
+        word: norm,
+        points: Number(wordPts) || 0,
+        length: Number(len) || 0,
+      },
+    })
+      .then((result) => {
+        if (!result || result.ok === false) return;
+        emitToInstallId(room, playerInstallId, "gobblarsAwarded", {
+          kind: "live_gobble",
+          amount: liveGobblarsNow,
+          balance: Number(result.balance) || 0,
+          nick: resolvedNick,
+          ts: Date.now(),
+        });
+      })
+      .catch((err) => {
+        console.warn(`[${room.id}] live gobble gobblars failed for ${resolvedNick}`, err);
+      });
   }
 
   const ranking = getFullRanking(room);

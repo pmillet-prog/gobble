@@ -11,6 +11,7 @@ const DATA_DIR = process.env.GOBBLE_DATA_DIR
   : DEFAULT_DATA_DIR;
 const DATA_PATH = path.join(DATA_DIR, "team-duel.json");
 const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
+const INSTALL_ALIASES_PATH = path.join(DATA_DIR, "install-aliases.json");
 
 const PARIS_TZ = "Europe/Paris";
 const SHARED_K = 10;
@@ -211,6 +212,56 @@ function normalizeNick(raw) {
   const trimmed = raw.trim();
   if (!trimmed) return "";
   return trimmed.slice(0, MAX_NICK_LEN);
+}
+
+function resolveCanonicalInstallId(installId, aliasByInstallId = {}) {
+  let current = normalizeInstallId(installId);
+  if (!current) return "";
+  const visited = new Set([current]);
+  for (let i = 0; i < 16; i += 1) {
+    const nextRaw = aliasByInstallId?.[current];
+    const next = normalizeInstallId(nextRaw);
+    if (!next || next === current || visited.has(next)) break;
+    current = next;
+    visited.add(current);
+  }
+  return current;
+}
+
+function quantile(values, q) {
+  if (!Array.isArray(values) || values.length === 0) return 0;
+  const sorted = values
+    .map((v) => Number(v) || 0)
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const p = Math.max(0, Math.min(1, Number(q) || 0));
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * p)));
+  return sorted[idx] || 0;
+}
+
+async function readInstallAliasMap() {
+  try {
+    const raw = await fs.readFile(INSTALL_ALIASES_PATH, "utf8");
+    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+    const parsed = JSON.parse(cleaned);
+    const aliases =
+      parsed?.aliases && typeof parsed.aliases === "object"
+        ? parsed.aliases
+        : parsed && typeof parsed === "object"
+        ? parsed
+        : {};
+    const out = {};
+    for (const [fromRaw, toRaw] of Object.entries(aliases)) {
+      const from = normalizeInstallId(fromRaw);
+      const to = normalizeInstallId(toRaw);
+      if (!from || !to || from === to) continue;
+      out[from] = to;
+    }
+    return out;
+  } catch (_) {
+    return {};
+  }
 }
 
 function pad2(value) {
@@ -674,41 +725,116 @@ async function readInstallNickMapForWeek(targetWeekId) {
 
 async function generateTeamsFromPreviousWeek(weekId) {
   const previousWeekId = shiftWeekId(weekId, -1);
+  const aliasByInstallId = await readInstallAliasMap();
   const rows = await readWeeklyStatsForWeek(previousWeekId);
+  const previousWeek = ensureWeekShape(state.weeks?.[previousWeekId]);
+  const inferredObjectivePointsByInstall = {};
+  for (const [rawInstallId, byDate] of Object.entries(state.dailyObjectivesByInstallId || {})) {
+    const installId = resolveCanonicalInstallId(rawInstallId, aliasByInstallId);
+    if (!installId || !byDate || typeof byDate !== "object") continue;
+    let sum = 0;
+    for (const [dateId, day] of Object.entries(byDate)) {
+      if (!parseDateId(dateId)) continue;
+      if (getWeekIdFromDateId(dateId) !== previousWeekId) continue;
+      sum += Math.max(0, Number(day?.pointsAwarded) || 0);
+    }
+    if (sum > 0) {
+      inferredObjectivePointsByInstall[installId] =
+        (Number(inferredObjectivePointsByInstall[installId]) || 0) + sum;
+    }
+  }
+  const contributionByInstallId = new Map();
+  for (const [rawInstallId, entry] of Object.entries(previousWeek?.contributionsByInstallId || {})) {
+    const installId = resolveCanonicalInstallId(rawInstallId, aliasByInstallId);
+    if (!installId) continue;
+    const prev = contributionByInstallId.get(installId) || {
+      objectivePoints: 0,
+      gobblePoints: 0,
+      medalPoints: 0,
+    };
+    prev.objectivePoints += Number(entry?.objectivePoints) || 0;
+    prev.gobblePoints += Number(entry?.gobblePoints) || 0;
+    prev.medalPoints += Number(entry?.medalPoints) || 0;
+    contributionByInstallId.set(installId, prev);
+  }
+  for (const [installId, inferredObjectivePoints] of Object.entries(
+    inferredObjectivePointsByInstall
+  )) {
+    const prev = contributionByInstallId.get(installId) || {
+      objectivePoints: 0,
+      gobblePoints: 0,
+      medalPoints: 0,
+    };
+    prev.objectivePoints = Math.max(
+      Number(prev.objectivePoints) || 0,
+      Number(inferredObjectivePoints) || 0
+    );
+    contributionByInstallId.set(installId, prev);
+  }
+
+  const mergedPlayersByInstallId = new Map();
   const players = [];
   let weightedScore = 0;
   let weightedRounds = 0;
   rows.forEach((row) => {
     const key = typeof row?.playerKey === "string" ? row.playerKey : "";
     if (!key.startsWith("install:")) return;
-    const installId = normalizeInstallId(key.slice("install:".length));
+    const installId = resolveCanonicalInstallId(key.slice("install:".length), aliasByInstallId);
     if (!installId) return;
     const totalScore = Number(row?.totalScore) || 0;
     const roundsPlayedRaw = Number(row?.roundsPlayed) || 0;
     if (totalScore <= 0 && roundsPlayedRaw <= 0) return;
     const roundsPlayed = Math.max(1, roundsPlayedRaw);
-    players.push({
+    const previous = mergedPlayersByInstallId.get(installId) || {
       installId,
-      totalScore,
-      roundsPlayed,
-      avg: totalScore / roundsPlayed,
-    });
-    weightedScore += totalScore;
-    weightedRounds += roundsPlayed;
+      totalScore: 0,
+      roundsPlayed: 0,
+      avg: 0,
+    };
+    previous.totalScore += totalScore;
+    previous.roundsPlayed += roundsPlayed;
+    previous.avg = previous.roundsPlayed > 0 ? previous.totalScore / previous.roundsPlayed : 0;
+    mergedPlayersByInstallId.set(installId, previous);
   });
+  for (const player of mergedPlayersByInstallId.values()) {
+    players.push(player);
+    weightedScore += player.totalScore;
+    weightedRounds += player.roundsPlayed;
+  }
 
   if (!players.length) {
     return { teamByInstallId: {}, levelByInstallId: {} };
   }
 
   const globalAvg = weightedRounds > 0 ? weightedScore / weightedRounds : 0;
+  const participationValues = [];
   players.forEach((player) => {
     player.level = (player.totalScore + SHARED_K * globalAvg) / (player.roundsPlayed + SHARED_K);
+    const contribution = contributionByInstallId.get(player.installId);
+    const participationPoints =
+      Math.max(0, Number(contribution?.objectivePoints) || 0) +
+      Math.max(0, Number(contribution?.gobblePoints) || 0) +
+      Math.max(0, Number(contribution?.medalPoints) || 0);
+    player.participationPoints = participationPoints;
+    if (participationPoints > 0) {
+      participationValues.push(participationPoints);
+    }
     player.tie = hashString(`${weekId}|${player.installId}`);
+  });
+  const participationP75 = quantile(participationValues, 0.75);
+  const hasParticipation = participationP75 > 0;
+  players.forEach((player) => {
+    if (!hasParticipation) {
+      player.participationFactor = 1;
+    } else {
+      const scaled = Math.min(1, (player.participationPoints || 0) / participationP75);
+      player.participationFactor = 0.9 + 0.2 * scaled;
+    }
+    player.effectiveLevel = (player.level || 0) * (player.participationFactor || 1);
   });
 
   players.sort((a, b) => {
-    const d = (b.level || 0) - (a.level || 0);
+    const d = (b.effectiveLevel || 0) - (a.effectiveLevel || 0);
     if (d !== 0) return d;
     return (a.tie || 0) - (b.tie || 0);
   });
@@ -723,7 +849,7 @@ async function generateTeamsFromPreviousWeek(weekId) {
       sum.red === sum.blue ? tiePick : sum.red < sum.blue ? "red" : "blue";
     teamByInstallId[player.installId] = team;
     levelByInstallId[player.installId] = player.level;
-    sum[team] += player.level || 0;
+    sum[team] += player.effectiveLevel || 0;
   }
 
   return { teamByInstallId, levelByInstallId };

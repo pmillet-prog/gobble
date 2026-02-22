@@ -53,6 +53,16 @@ function formatRecordValueLabel(record) {
   return "";
 }
 
+function formatPlayerRankLabel(rank, total) {
+  if (!Number.isFinite(rank) || rank <= 0) return "";
+  const safeRank = Math.max(1, Math.trunc(rank));
+  const ordinal = safeRank === 1 ? "1er" : `${safeRank}e`;
+  if (Number.isFinite(total) && total > 0) {
+    return `${ordinal} / ${Math.trunc(total)}`;
+  }
+  return ordinal;
+}
+
 export default function RoundPlayerDetailsModal({
   open = false,
   darkMode = false,
@@ -67,6 +77,12 @@ export default function RoundPlayerDetailsModal({
   gobbleBadgeUrl = "",
   isSpeedRound = false,
   showWordScores = true,
+  playerRank = null,
+  playerRankTotal = 0,
+  canGoPrev = false,
+  canGoNext = false,
+  onPrevPlayer = null,
+  onNextPlayer = null,
   onToggleWordViewSound = null,
   onClose = null,
   onOpenDefinition = null,
@@ -491,17 +507,52 @@ export default function RoundPlayerDetailsModal({
                 {hasTargetBoard ? targetBoardLabel || "Classement cible" : playerNick || "Joueur"}
               </div>
             </div>
-            <button
-              type="button"
-              className={`h-8 px-3 rounded-full text-xs font-semibold border ${
-                darkMode
-                  ? "bg-slate-800 border-slate-600 text-slate-100"
-                  : "bg-white border-slate-300 text-slate-700"
-              }`}
-              onClick={() => onClose?.()}
-            >
-              Fermer
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {canGoPrev ? (
+                <button
+                  type="button"
+                  className={`h-8 w-8 rounded-full border text-lg font-bold leading-none ${
+                    darkMode
+                      ? "bg-slate-800 border-slate-600 text-slate-100"
+                      : "bg-white border-slate-300 text-slate-700"
+                  }`}
+                  onClick={() => onPrevPlayer?.()}
+                  aria-label="Joueur précédent"
+                >
+                  &#8249;
+                </button>
+              ) : null}
+              {Number.isFinite(playerRank) ? (
+                <div className="text-[11px] font-bold tabular-nums opacity-80 min-w-[72px] text-center">
+                  {formatPlayerRankLabel(playerRank, playerRankTotal)}
+                </div>
+              ) : null}
+              {canGoNext ? (
+                <button
+                  type="button"
+                  className={`h-8 w-8 rounded-full border text-lg font-bold leading-none ${
+                    darkMode
+                      ? "bg-slate-800 border-slate-600 text-slate-100"
+                      : "bg-white border-slate-300 text-slate-700"
+                  }`}
+                  onClick={() => onNextPlayer?.()}
+                  aria-label="Joueur suivant"
+                >
+                  &#8250;
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={`h-8 px-3 rounded-full text-xs font-semibold border ${
+                  darkMode
+                    ? "bg-slate-800 border-slate-600 text-slate-100"
+                    : "bg-white border-slate-300 text-slate-700"
+                }`}
+                onClick={() => onClose?.()}
+              >
+                Fermer
+              </button>
+            </div>
           </div>
 
           <div

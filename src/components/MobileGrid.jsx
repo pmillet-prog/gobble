@@ -28,8 +28,13 @@ function MobileGrid({
   normalizeBonusLabel,
   normalizeLetterKey,
   phase,
+  specialIndicatorPreset,
   specialSolvedOverlay,
+  defaultTileBaseClass = "theme-tile-base",
+  tilePointsVisible = true,
   tileRefs,
+  tileMaterialClass,
+  tileColorPreset,
   tileScore,
   tick,
   usedSet,
@@ -55,6 +60,45 @@ function MobileGrid({
     const t = normalizeRotationTurns(gridRotationTurns);
     return rotateIndexByTurns(displayIndex, gridSize, (4 - t) % 4);
   };
+  const getBonusBadgeClass = (displayBonus) => {
+    if (displayBonus === "L3") return "bg-blue-700 text-white";
+    if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
+    if (displayBonus === "M3") return "bg-red-600 text-white";
+    if (displayBonus === "M2") return "bg-amber-500 text-slate-900";
+    return "bg-slate-600 text-white";
+  };
+  const getBonusLetterRingClass = (displayBonus) => {
+    if (displayBonus === "L3") return "theme-letter-ring theme-letter-ring-L3";
+    if (displayBonus === "L2") return "theme-letter-ring theme-letter-ring-L2";
+    if (displayBonus === "M3") return "theme-letter-ring theme-letter-ring-M3";
+    if (displayBonus === "M2") return "theme-letter-ring theme-letter-ring-M2";
+    return "";
+  };
+  const getTileTextureStyle = (index, size, colorPreset) => {
+    const textureByColor = {
+      wood: "/textures/bois.png",
+      marble: "/textures/marbre.jpg",
+      jeans: "/textures/jeans.jpg",
+      concrete: "/textures/beton.jpg",
+    };
+    const texture = textureByColor[String(colorPreset || "")];
+    if (!texture) return null;
+    const safeSize = Number.isInteger(size) && size > 0 ? size : 4;
+    const safeIndex = Number.isInteger(index) && index >= 0 ? index : 0;
+    const row = Math.floor(safeIndex / safeSize);
+    const col = safeIndex % safeSize;
+    const denom = Math.max(1, safeSize - 1);
+    const x = (col / denom) * 100;
+    const y = (row / denom) * 100;
+    return {
+      backgroundImage: `url("${texture}")`,
+      backgroundSize: `${safeSize * 100}% ${safeSize * 100}%`,
+      backgroundPosition: `${x}% ${y}%`,
+      backgroundRepeat: "no-repeat",
+      backgroundBlendMode: "multiply",
+    };
+  };
+  const isSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
   return (
     <div
       className="flex justify-center items-center flex-shrink-0 w-full"
@@ -68,7 +112,8 @@ function MobileGrid({
         }
         style={{
           gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-          gap: mobileGapPx,
+          gap: isSquareMaterial ? "0px" : mobileGapPx,
+          padding: isSquareMaterial ? "0px" : undefined,
           touchAction: "none",
           width: "100%",
           maxWidth: mobileGridSide
@@ -96,15 +141,26 @@ function MobileGrid({
           const letterPts = isBonusLetterTile
             ? bonusLetterScore ?? 20
             : tileScore(cell);
+          const useFillIndicator = specialIndicatorPreset === "fill";
+          const useRingIndicator = specialIndicatorPreset === "ring";
+          const useBadgeIndicator = specialIndicatorPreset === "badge";
           const bonusClass = isBonusLetterTile
             ? "bonus-letter-tile"
-            : displayBonus
+            : useFillIndicator && displayBonus
             ? BONUS_CLASSES[displayBonus]
-            : "bg-orange-200 border-orange-500 border-2";
+            : defaultTileBaseClass;
           const highlightClass = isUsed ? "tile-used" : "";
           const hintClass = isHint ? "tile-hint" : "";
           const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
-          const showBonusBadge = displayBonus && !bonusLetterKey;
+          const letterRingClass =
+            !isBonusLetterTile && useRingIndicator && displayBonus
+              ? getBonusLetterRingClass(displayBonus)
+              : "";
+          const showBonusBadge =
+            !isBonusLetterTile &&
+            useBadgeIndicator &&
+            displayBonus &&
+            !bonusLetterKey;
 
           return (
             <button
@@ -121,6 +177,7 @@ function MobileGrid({
                 isMobileLayout
                   ? "w-full"
                   : "w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] text-xl",
+                tileMaterialClass,
                 bonusClass,
                 highlightClass,
                 hintClass,
@@ -134,21 +191,28 @@ function MobileGrid({
                       aspectRatio: "1 / 1",
                       fontSize: `${mobileTileFontPx}px`,
                       willChange: "transform",
+                      ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
                     }
-                  : { willChange: "transform" }
+                  : {
+                      willChange: "transform",
+                      ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
+                    }
               }
             >
-              <span className="tile-letter">{letter}</span>
-              {letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
+              <span className={`tile-letter ${letterRingClass}`.trim()}>{letter}</span>
+              {tilePointsVisible && letterPts > 0 ? (
+                <span className="tile-points">{letterPts}</span>
+              ) : null}
               {showBonusBadge && (
                 <span
-                  className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
-                    displayBonus === "M3"
-                      ? "bg-red-600 text-white"
-                      : displayBonus === "M2"
-                      ? "bg-blue-700 text-white"
-                      : "bg-amber-600 text-white"
-                  }`}
+                  className={`absolute top-0 right-0 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                    displayBonus
+                  )}`}
+                  style={{
+                    transform: isSquareMaterial
+                      ? "translate(-8%, 8%)"
+                      : "translate(10%, -10%)",
+                  }}
                 >
                   {displayBonus}
                 </span>

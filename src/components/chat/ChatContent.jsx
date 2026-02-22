@@ -27,6 +27,41 @@ function formatUnreadSuffix(unreadCount) {
   return ` (${value})`;
 }
 
+const CHAT_TIME_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function parseMessageTimestampMs(message) {
+  if (!message || typeof message !== "object") return null;
+  const candidates = [message.t, message.ts, message.timestamp, message.createdAt];
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    if (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+    if (typeof candidate === "string") {
+      const raw = candidate.trim();
+      if (!raw) continue;
+      const asNumber = Number(raw);
+      if (Number.isFinite(asNumber) && asNumber > 0) return asNumber;
+      const parsed = Date.parse(raw);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function formatMessageTime(message) {
+  const ts = parseMessageTimestampMs(message);
+  if (!Number.isFinite(ts)) return "";
+  try {
+    return CHAT_TIME_FORMATTER.format(new Date(ts));
+  } catch (_) {
+    return "";
+  }
+}
+
 export default function ChatContent({
   darkMode,
   isOpen,
@@ -253,6 +288,8 @@ export default function ChatContent({
               const author = (msg.nick || msg.author || "Anonyme").trim();
               const authorInstallId =
                 typeof msg.installId === "string" ? msg.installId : "";
+              const messageTime = formatMessageTime(msg);
+              const systemAuthor = author || "Système";
               const isYou = authorInstallId
                 ? authorInstallId === selfInstallId
                 : author === selfNick;
@@ -275,13 +312,21 @@ export default function ChatContent({
                   }
                 >
                   {isSystem ? (
-                    <span>{msg.text}</span>
+                    <div className="flex items-baseline gap-1 flex-wrap">
+                      <span className="font-semibold">{systemAuthor}:</span>
+                      {messageTime ? (
+                        <span className="text-[10px] leading-none opacity-70">
+                          {messageTime}
+                        </span>
+                      ) : null}
+                      <span>{msg.text}</span>
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
                       {canOpenMenu ? (
                         <button
                           type="button"
-                          className="font-semibold mr-1 hover:underline"
+                          className="font-semibold hover:underline"
                           onClick={(e) =>
                             onOpenUserMenu?.(e, {
                               nick: author,
@@ -293,8 +338,13 @@ export default function ChatContent({
                           {author}:
                         </button>
                       ) : (
-                        <span className="font-semibold mr-1">{author}:</span>
+                        <span className="font-semibold">{author}:</span>
                       )}
+                      {messageTime ? (
+                        <span className="text-[10px] leading-none opacity-70">
+                          {messageTime}
+                        </span>
+                      ) : null}
                       <span>{msg.text}</span>
                     </div>
                   )}

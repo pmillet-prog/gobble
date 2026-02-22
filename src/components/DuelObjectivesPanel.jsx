@@ -313,9 +313,10 @@ export default function DuelObjectivesPanel({
               <div className="font-semibold">Tous les objectifs du jour ont été accomplis !</div>
               {!hasPlayedDaily ? (
                 <div className="opacity-80">
-                  Mais n'oubliez pas que l'equipe qui gagne la grille du jour rapporte
+                  Mais n'oubliez pas de jouer la grille du jour ! L'équipe qui gagne la
+                  grille du jour rapporte
                   {" "}<span className="font-semibold text-amber-500">+200 points</span>{" "}
-                  a son equipe.
+                  .
                 </div>
               ) : (
                 <div className="opacity-80">

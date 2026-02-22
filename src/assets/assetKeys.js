@@ -1,6 +1,7 @@
 export const IMAGE_KEYS = {
   favicon: "img_favicon",
   gobbleBadge: "img_gobble_badge",
+  gobblarsBadge: "img_gobblars_badge",
   bigwords: {
     gobble: "img_bigwords_gobble",
     epique: "img_bigwords_epique",
@@ -20,6 +21,7 @@ export const IMAGE_KEYS = {
 
 export const SFX_KEYS = {
   gobbleVoice: "sfx_gobble_voice",
+  doubleGobbleVoice: "sfx_double_gobble_voice",
   blackHole: "sfx_black_hole",
   chebabeu: "sfx_chebabeu",
   clavier: "sfx_clavier",

@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
-import ChatWidget from "./components/chat/ChatWidget.jsx";
+import MobileChatWidget from "./components/MobileChatWidget.jsx";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
@@ -102,7 +102,6 @@ const VOCAB_OVERLAY_END_HOLD_MS = 3000;
 const VOCAB_OVERLAY_IMAGE_FADE_MS = 450;
 const DEBUG_AUDIO = false;
 const AUDIO_MASTER_GAIN = 0.7;
-const SOUND_MASTER_VOLUME_DEFAULT = 1;
 const AUDIO_POLYPHONY_LIMIT = 10;
 const SOFT_CLIP_CURVE_CACHE = new Map();
 const AUDIO_COOLDOWNS_MS = {
@@ -140,12 +139,6 @@ const AMBIENT_MUSIC_TRACKS_DEFAULT =
     ? AMBIENT_MUSIC_TRACKS_FALLBACK
     : AMBIENT_MUSIC_TRACKS_BASE;
 const INCREMENTAL_SOUND_COUNT = 16;
-
-function normalizeSoundMasterVolume(raw, fallback = SOUND_MASTER_VOLUME_DEFAULT) {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(0, Math.min(1, value));
-}
 const INCREMENTAL_SOUND_PATHS = Array.from({ length: INCREMENTAL_SOUND_COUNT }, (_, idx) => {
   const label = String(idx + 1).padStart(2, "0");
   return `${SOUND_ROOT}/game/incremental/${label}.wav`;
@@ -167,7 +160,6 @@ const SCORE_LOW_KEY = makeScoreSfxKey("01");
 const SCORE2_LOW_KEY = makeScore2SfxKey("01");
 const SOUND_PATHS = {
   gobbleVoice: `${SOUND_ROOT}/game/gobble.mp3`,
-  doubleGobbleVoice: `${SOUND_ROOT}/game/doublegobble.mp3`,
   blackHole: `${SOUND_ROOT}/game/chasse.mp3`,
   chebabeu: `${SOUND_ROOT}/game/chebabeu.wav`,
   clavier: `${SOUND_ROOT}/game/clavier.wav`,
@@ -202,7 +194,6 @@ const SCORE2_SFX_KEYS = SCORE2_SOUND_PATHS.map((src) => {
 const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.favicon, url: "/favicon.png", priority: "critical" },
   { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
-  { key: IMAGE_KEYS.gobblarsBadge, url: "/Gobblars.png", priority: "critical" },
   { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.png", priority: "critical" },
   { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.png", priority: "critical" },
   { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.png", priority: "high" },
@@ -232,7 +223,6 @@ const BOOT_ASSET_FILES = [
 ];
 const BOOT_ASSET_SOUNDS_BASE = [
   { key: SFX_KEYS.gobbleVoice, url: SOUND_PATHS.gobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
-  { key: SFX_KEYS.doubleGobbleVoice, url: SOUND_PATHS.doubleGobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
   { key: SFX_KEYS.blackHole, url: SOUND_PATHS.blackHole, priority: "low", meta: { eqKey: "blackHole" } },
   { key: SFX_KEYS.chebabeu, url: SOUND_PATHS.chebabeu, priority: "low", meta: { eqKey: "chebabeu" } },
   { key: SFX_KEYS.clavier, url: SOUND_PATHS.clavier, priority: "low", meta: { eqKey: "clavier" } },
@@ -643,100 +633,10 @@ function normalizeBonusLabel(bonus) {
   return bonus;
 }
 
-function getBonusBadgeClass(displayBonus) {
-  if (displayBonus === "L3") return "bg-blue-700 text-white";
-  if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
-  if (displayBonus === "M3") return "bg-red-600 text-white";
-  if (displayBonus === "M2") return "bg-amber-500 text-slate-900";
-  return "bg-slate-600 text-white";
-}
-
-function getBonusLetterRingClass(displayBonus) {
-  if (displayBonus === "L3") return "theme-letter-ring theme-letter-ring-L3";
-  if (displayBonus === "L2") return "theme-letter-ring theme-letter-ring-L2";
-  if (displayBonus === "M3") return "theme-letter-ring theme-letter-ring-M3";
-  if (displayBonus === "M2") return "theme-letter-ring theme-letter-ring-M2";
-  return "";
-}
-
 function normalizeLetterKey(letter) {
   if (!letter) return "";
   if (letter === "Qu") return "qu";
   return String(letter).toLowerCase();
-}
-
-const TILE_LETTER_SCALE_MIN = 0.8;
-const TILE_LETTER_SCALE_MAX = 1.45;
-const TILE_LETTER_SCALE_DEFAULT = 1.2;
-
-function normalizeTileLetterScale(value, fallback = TILE_LETTER_SCALE_DEFAULT) {
-  const base = Number.isFinite(Number(fallback)) ? Number(fallback) : TILE_LETTER_SCALE_DEFAULT;
-  const raw = Number(value);
-  if (!Number.isFinite(raw)) {
-    return clampValue(base, TILE_LETTER_SCALE_MIN, TILE_LETTER_SCALE_MAX);
-  }
-  return clampValue(raw, TILE_LETTER_SCALE_MIN, TILE_LETTER_SCALE_MAX);
-}
-
-function getThemeCategoryValue(theme, category) {
-  if (!theme || typeof theme !== "object") return undefined;
-  if (category === "tileColor") return theme.tileColor;
-  if (category === "font") return theme.font;
-  if (category === "letterScale")
-    return normalizeTileLetterScale(theme.letterScale, TILE_LETTER_SCALE_DEFAULT);
-  if (category === "letterColor") return theme.letterColor;
-  if (category === "background") return theme.background;
-  if (category === "material") return theme.material;
-  if (category === "specialIndicator") return theme.specialIndicator;
-  if (category === "uiContrast") return theme.uiContrast;
-  if (category === "darkMode") return !!theme.darkMode;
-  return undefined;
-}
-
-function getTileMaterialClass(materialPreset) {
-  if (materialPreset === "native") return "";
-  if (materialPreset === "bubble") return "theme-material-bubble";
-  if (materialPreset === "rounded-square") return "theme-material-rounded-square";
-  if (materialPreset === "square") return "theme-material-square";
-  return "theme-material-classic";
-}
-
-function getTileColorTextureStyle(index, size, tileColorPreset) {
-  const tileColorMeta = TILE_COLOR_MAP[tileColorPreset];
-  if (!tileColorMeta?.texture) return null;
-  const safeSize = Number.isInteger(size) && size > 0 ? size : 4;
-  const safeIndex = Number.isInteger(index) && index >= 0 ? index : 0;
-  const row = Math.floor(safeIndex / safeSize);
-  const col = safeIndex % safeSize;
-  const denom = Math.max(1, safeSize - 1);
-  const x = (col / denom) * 100;
-  const y = (row / denom) * 100;
-  return {
-    backgroundImage: `url("${tileColorMeta.texture}")`,
-    backgroundSize: `${safeSize * 100}% ${safeSize * 100}%`,
-    backgroundPosition: `${x}% ${y}%`,
-    backgroundRepeat: "no-repeat",
-    backgroundBlendMode: "multiply",
-  };
-}
-
-function getTileColorSwatchStyle(tileColorOption) {
-  if (!tileColorOption || typeof tileColorOption !== "object") return {};
-  const borderColor = "rgba(0, 0, 0, 0.22)";
-  if (tileColorOption.texture) {
-    return {
-      backgroundColor: tileColorOption.bg || "#ffffff",
-      backgroundImage: `url("${tileColorOption.texture}")`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      borderColor,
-    };
-  }
-  return {
-    background: tileColorOption.bg || "#ffffff",
-    borderColor,
-  };
 }
 
 function buildCompletedTargetPattern(pattern, word) {
@@ -770,28 +670,6 @@ function isSystemChatMessage(message) {
   if (!message || typeof message !== "object") return false;
   if (message.type === "system" || message.channel === "system") return true;
   return isSystemAuthor(message.author || message.nick || "");
-}
-
-function formatChatUnreadSuffix(unreadCount) {
-  const value = Number(unreadCount) || 0;
-  if (value <= 0) return "";
-  if (value >= 10) return " (9+)";
-  return ` (${value})`;
-}
-
-const CHAT_TIME_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function formatChatMessageTime(message) {
-  const ts = getChatMessageSortTime(message);
-  if (!Number.isFinite(ts) || ts <= 0) return "";
-  try {
-    return CHAT_TIME_FORMATTER.format(new Date(ts));
-  } catch (_) {
-    return "";
-  }
 }
 
 const BONUS_CLASSES = {
@@ -1374,62 +1252,6 @@ function BootLoader({
 
 // Petite CSS pour le slide d'apparition
 const slideStyles = `
-@font-face {
-  font-family: "GobbleColleged";
-  src: url("/fonts/Colleged.ttf") format("truetype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "GobbleGemstone";
-  src: url("/fonts/Gemstone.ttf") format("truetype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "GobbleMinecraft";
-  src: url("/fonts/Minecraft.ttf") format("truetype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "GobblePerfectPen";
-  src: url("/fonts/KGPerfectPenmanship.otf") format("opentype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Gobble04B30";
-  src: url("/fonts/04B_30__.TTF") format("truetype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "GobbleDraft";
-  src: url("/fonts/draft.otf") format("opentype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "GobbleStarWars";
-  src: url("/fonts/Starwars.ttf") format("truetype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 html {
   color-scheme: light;
   -webkit-text-size-adjust: 100%;
@@ -2260,76 +2082,10 @@ body.theme-dark .tile-hint {
 }
 
 .tile-letter {
-  color: var(--tile-letter-color, #0f172a);
-  font-family: var(--tile-letter-font, inherit);
-  font-size: min(
-    calc(var(--tile-letter-size-scale, 1) * var(--tile-font-preset-size, 1) * 1em),
-    1.52em
-  );
-  letter-spacing: var(--tile-font-preset-spacing, 0em);
-  transform: var(--tile-font-preset-transform, none);
-  transform-origin: center;
+  color: #0f172a;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.85),
     0 3px 10px rgba(0, 0, 0, 0.22);
-}
-
-body[data-tile-font-preset="classic"] .tile-letter {
-  --tile-font-preset-size: 1;
-  --tile-font-preset-spacing: 0em;
-  --tile-font-preset-transform: none;
-  font-weight: 900;
-  -webkit-text-stroke: 0;
-}
-
-body[data-tile-font-preset="serif"] .tile-letter {
-  --tile-font-preset-size: 1.04;
-  --tile-font-preset-spacing: 0.01em;
-  font-weight: 900;
-  -webkit-text-stroke: 0.01em rgba(15, 23, 42, 0.1);
-}
-
-body[data-tile-font-preset="serif"] .tile-letter:not(.theme-letter-ring) {
-  --tile-font-preset-transform: skewX(-5deg);
-}
-
-body[data-tile-font-preset="rounded"] .tile-letter {
-  --tile-font-preset-size: 0.9;
-  --tile-font-preset-spacing: 0.02em;
-  font-weight: 800;
-  -webkit-text-stroke: 0.01em rgba(15, 23, 42, 0.1);
-}
-
-body[data-tile-font-preset="rounded"] .tile-letter:not(.theme-letter-ring) {
-  --tile-font-preset-transform: translateY(0.01em) scale(0.93);
-}
-
-body[data-tile-font-preset="display"] .tile-letter {
-  --tile-font-preset-size: 1.12;
-  --tile-font-preset-spacing: -0.06em;
-  font-weight: 900;
-  -webkit-text-stroke: 0.03em rgba(15, 23, 42, 0.24);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9),
-    0 4px 12px rgba(0, 0, 0, 0.28);
-}
-
-body[data-tile-font-preset="display"] .tile-letter:not(.theme-letter-ring) {
-  --tile-font-preset-transform: translateY(-0.01em) scaleX(0.8);
-}
-
-body[data-tile-font-preset="kgp"] .tile-letter {
-  --tile-font-preset-size: 1.08;
-  --tile-font-preset-spacing: 0.025em;
-  font-weight: 900;
-  -webkit-text-stroke: 0.02em rgba(15, 23, 42, 0.16);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.92),
-    0 5px 13px rgba(0, 0, 0, 0.3);
-}
-
-body[data-tile-font-preset="kgp"] .tile-letter:not(.theme-letter-ring) {
-  --tile-font-preset-transform: rotate(-4deg) scale(1.02);
 }
 
 body.theme-dark .tile-letter {
@@ -2365,112 +2121,6 @@ body.theme-dark .tile-points {
 .tile-used .tile-points {
   background: transparent;
   color: #000;
-}
-
-.theme-tile-base {
-  background-color: var(--theme-tile-bg, #fdba74) !important;
-  border: 2px solid var(--theme-tile-border, #f97316) !important;
-}
-
-.theme-letter-ring {
-  --theme-letter-ring: #f59e0b;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.18em;
-  height: 1.18em;
-  padding: 0 0.16em;
-  border: 2px solid var(--theme-letter-ring);
-  border-radius: 9999px;
-  box-sizing: border-box;
-  line-height: 1;
-  transform: translateY(0.02em);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
-    0 1px 1px rgba(0, 0, 0, 0.2);
-}
-
-.theme-letter-ring-L2 {
-  --theme-letter-ring: #38bdf8;
-}
-
-.theme-letter-ring-L3 {
-  --theme-letter-ring: #1d4ed8;
-}
-
-.theme-letter-ring-M2 {
-  --theme-letter-ring: #ffbfb4;
-}
-
-.theme-letter-ring-M3 {
-  --theme-letter-ring: #dc2626;
-}
-
-@keyframes themeUnlockPop {
-  0% {
-    transform: scale(1);
-  }
-  35% {
-    transform: scale(1.35) rotate(-10deg);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.theme-unlock-pop {
-  animation: themeUnlockPop 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.theme-material-classic {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.18),
-    -1px 0 0 rgba(0, 0, 0, 0.2),
-    0 2px 0 rgba(0, 0, 0, 0.25),
-    0 8px 16px rgba(0, 0, 0, 0.22);
-}
-
-.theme-material-bubble {
-  border-radius: 9999px !important;
-  box-shadow:
-    inset 0 8px 14px rgba(255, 255, 255, 0.45),
-    inset 0 -8px 14px rgba(0, 0, 0, 0.16),
-    0 8px 14px rgba(0, 0, 0, 0.18);
-}
-
-.theme-material-bubble .tile-points {
-  right: 10px;
-  bottom: 10px;
-}
-
-.theme-material-rounded-square {
-  border-radius: 14px !important;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -6px 10px rgba(0, 0, 0, 0.2),
-    0 8px 14px rgba(0, 0, 0, 0.2);
-}
-
-.theme-material-square {
-  border-radius: 0 !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -6px 10px rgba(0, 0, 0, 0.2),
-    0 6px 12px rgba(0, 0, 0, 0.2);
-  transform: scale(1.03);
-}
-
-.tile-used.theme-material-square {
-  transform: scale(1.03);
-}
-
-.tile-hint.theme-material-square {
-  box-shadow:
-    0 0 0 2px rgba(59, 130, 246, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -6px 10px rgba(0, 0, 0, 0.2),
-    0 6px 12px rgba(0, 0, 0, 0.2) !important;
 }
 
 .shake {
@@ -2510,27 +2160,6 @@ body.theme-dark .tile-points {
 body.theme-dark {
   background: #0b1020;
   color: #e5e7eb;
-}
-
-body.theme-custom-bg {
-  background-color: var(--theme-bg-color, #dbeafe) !important;
-  background-image: var(--theme-bg-image, none) !important;
-  background-size: var(--theme-bg-size, auto) !important;
-  background-repeat: var(--theme-bg-repeat, repeat) !important;
-  background-position: var(--theme-bg-position, center) !important;
-}
-
-body.theme-contrast-soft #root,
-body.theme-contrast-strong #root {
-  transition: filter 160ms ease;
-}
-
-body.theme-contrast-soft #root {
-  filter: contrast(0.95) saturate(0.96);
-}
-
-body.theme-contrast-strong #root {
-  filter: contrast(1.09) saturate(1.05);
 }
 
 body.theme-dark .bg-white {
@@ -2938,11 +2567,8 @@ const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 260;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
-const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "👏", "❤️", "😂"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
-const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
-const MAX_INSTALL_ID_LEN = 128;
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const CHAT_MESSAGES_STORAGE_KEY = "gobble_chat_messages_v1";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
@@ -2953,257 +2579,8 @@ const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
-const THEME_UNLOCK_COST_DEFAULT = 500;
-const THEME_LOCKABLE_CATEGORIES = [
-  "tileColor",
-  "font",
-  "letterColor",
-  "background",
-  "material",
-  "specialIndicator",
-];
-const TILE_COLOR_OPTIONS = [
-  { id: "native", label: "Classique", bg: "#fed7aa", border: "#f97316" },
-  { id: "white", label: "Blanc", bg: "#ffffff", border: "#d1d5db" },
-  { id: "amber", label: "Ambre", bg: "#fdba74", border: "#f97316" },
-  { id: "sand", label: "Sable", bg: "#f3d9b1", border: "#c69253" },
-  { id: "ivory", label: "Ivoire", bg: "#f8f5e9", border: "#cabf9f" },
-  { id: "mint", label: "Menthe", bg: "#b7e4c7", border: "#52b788" },
-  { id: "ocean", label: "Océan", bg: "#8ecae6", border: "#219ebc" },
-  { id: "lavender", label: "Lavande", bg: "#cdb4db", border: "#9d4edd" },
-  { id: "rose", label: "Rose", bg: "#ffc8dd", border: "#ff7096" },
-  { id: "slate", label: "Ardoise", bg: "#94a3b8", border: "#475569" },
-  { id: "charcoal", label: "Charbon", bg: "#334155", border: "#0f172a" },
-  { id: "neon", label: "Néon", bg: "#99f6e4", border: "#0d9488" },
-  { id: "wood", label: "Bois", bg: "#d8b68a", border: "#8b5a2b", texture: "/textures/bois.png" },
-  { id: "marble", label: "Marbre", bg: "#f3f4f6", border: "#9ca3af", texture: "/textures/marbre.jpg" },
-  { id: "jeans", label: "Jeans", bg: "#9bb3d6", border: "#355c9a", texture: "/textures/jeans.jpg" },
-  { id: "concrete", label: "Béton", bg: "#d1d5db", border: "#6b7280", texture: "/textures/beton.jpg" },
-];
-const FONT_OPTIONS = [
-  {
-    id: "classic",
-    label: "Classique",
-    family: "\"Avenir Next\", \"Trebuchet MS\", \"Segoe UI\", \"Roboto\", sans-serif",
-  },
-  {
-    id: "serif",
-    label: "Serif",
-    family: "\"Georgia\", \"Times New Roman\", serif",
-  },
-  {
-    id: "rounded",
-    label: "Arrondie",
-    family:
-      "\"Chalkboard SE\", \"Comic Sans MS\", ui-rounded, \"SF Pro Rounded\", \"Nunito\", \"Quicksand\", \"Arial Rounded MT Bold\", \"Segoe UI\", sans-serif",
-  },
-  { id: "mono", label: "Monospace", family: "\"Consolas\", \"Courier New\", monospace" },
-  {
-    id: "kgp",
-    label: "KGP",
-    family:
-      "\"GobblePerfectPen\", \"KGPerfectPenmanship\", \"Segoe Print\", cursive",
-  },
-  {
-    id: "display",
-    label: "Display",
-    family:
-      "\"GobbleMinecraft\", \"Bebas Neue\", \"Arial Black\", \"Franklin Gothic Heavy\", \"Impact\", \"Roboto Condensed\", \"Haettenschweiler\", sans-serif",
-  },
-  {
-    id: "draft",
-    label: "Draft",
-    family: "\"GobbleDraft\", \"GobbleColleged\", \"Georgia\", serif",
-  },
-  {
-    id: "starwars",
-    label: "star wars",
-    family: "\"GobbleStarWars\", \"GobbleMinecraft\", \"Arial Black\", sans-serif",
-  },
-];
-const LETTER_COLOR_OPTIONS = [
-  { id: "slate", label: "Ardoise", value: "#0f172a" },
-  { id: "white", label: "Blanc", value: "#ffffff" },
-  { id: "ink", label: "Encre", value: "#111827" },
-  { id: "navy", label: "Bleu nuit", value: "#1e3a8a" },
-  { id: "emerald", label: "Vert pin", value: "#065f46" },
-  { id: "choco", label: "Brun", value: "#4a2c0d" },
-  { id: "burgundy", label: "Bordeaux", value: "#7f1d1d" },
-  { id: "violet", label: "Violet", value: "#6d28d9" },
-  { id: "teal", label: "Canard", value: "#0f766e" },
-  { id: "coral", label: "Corail", value: "#c2410c" },
-  { id: "gold", label: "Or", value: "#a16207" },
-];
-const BACKGROUND_OPTIONS = [
-  { id: "app-default", label: "Interface actuelle", style: {}, native: true },
-  { id: "solid-white", label: "Blanc", style: { color: "#ffffff", image: "none", size: "auto" } },
-  { id: "solid-sky", label: "Ciel", style: { color: "#dbeafe", image: "none", size: "auto" } },
-  { id: "solid-forest", label: "Forêt", style: { color: "#dcfce7", image: "none", size: "auto" } },
-  { id: "solid-night", label: "Nuit", style: { color: "#1e293b", image: "none", size: "auto" } },
-  { id: "solid-sand", label: "Sable", style: { color: "#fef3c7", image: "none", size: "auto" } },
-  { id: "solid-rose", label: "Rose", style: { color: "#ffe4e6", image: "none", size: "auto" } },
-  {
-    id: "paper-letters",
-    label: "Papier lettres",
-    style: {
-      color: "#fff7ed",
-      image:
-        "radial-gradient(circle at 12px 12px, rgba(15,23,42,0.07) 1px, transparent 1px), radial-gradient(circle at 32px 32px, rgba(15,23,42,0.06) 1px, transparent 1px)",
-      size: "44px 44px",
-    },
-  },
-  {
-    id: "paper-hearts",
-    label: "Papier coeurs",
-    style: {
-      color: "#fff1f2",
-      image:
-        "radial-gradient(circle at 10px 10px, rgba(244,63,94,0.18) 2px, transparent 3px), radial-gradient(circle at 28px 20px, rgba(244,63,94,0.15) 2px, transparent 3px)",
-      size: "40px 40px",
-    },
-  },
-  {
-    id: "paper-stars",
-    label: "Papier étoiles",
-    style: {
-      color: "#eef2ff",
-      image:
-        "radial-gradient(circle at 6px 6px, rgba(99,102,241,0.22) 1.5px, transparent 2px), radial-gradient(circle at 20px 24px, rgba(99,102,241,0.16) 1.5px, transparent 2px)",
-      size: "32px 32px",
-    },
-  },
-  {
-    id: "paper-bubbles",
-    label: "Papier bulles",
-    style: {
-      color: "#ecfeff",
-      image:
-        "radial-gradient(circle at 18px 18px, rgba(6,182,212,0.14) 8px, transparent 9px), radial-gradient(circle at 46px 30px, rgba(6,182,212,0.1) 6px, transparent 7px)",
-      size: "64px 64px",
-    },
-  },
-  {
-    id: "paper-confetti",
-    label: "Papier confettis",
-    style: {
-      color: "#fff7ed",
-      image:
-        "radial-gradient(circle at 12px 8px, rgba(217,119,6,0.25) 2px, transparent 2px), radial-gradient(circle at 28px 20px, rgba(5,150,105,0.25) 2px, transparent 2px), radial-gradient(circle at 42px 12px, rgba(220,38,38,0.25) 2px, transparent 2px)",
-      size: "56px 32px",
-    },
-  },
-];
-const MATERIAL_OPTIONS = [
-  { id: "native", label: "Classique" },
-  { id: "bubble", label: "Bulle" },
-  { id: "rounded-square", label: "Carré arrondi" },
-  { id: "square", label: "Carré plein" },
-];
-const SPECIAL_INDICATOR_OPTIONS = [
-  { id: "fill", label: "Tuile colorée" },
-  { id: "ring", label: "Lettre" },
-  { id: "badge", label: "Pastille" },
-];
-const UI_CONTRAST_OPTIONS = [
-  { id: "normal", label: "Normal" },
-  { id: "soft", label: "Doux" },
-  { id: "strong", label: "Fort" },
-];
-const GRID_SURFACE_OPTIONS = [
-  { id: "white", label: "Blanc", value: "#ffffff" },
-  { id: "cream", label: "Crème", value: "#fff7ed" },
-  { id: "sky", label: "Bleu clair", value: "#e0f2fe" },
-  { id: "mint", label: "Menthe", value: "#ecfdf5" },
-  { id: "sand", label: "Sable", value: "#fef3c7" },
-  { id: "slate", label: "Ardoise", value: "#e2e8f0" },
-];
-const DEFAULT_THEME_PRESET = {
-  darkMode: false,
-  tileColor: "native",
-  font: "classic",
-  letterScale: TILE_LETTER_SCALE_DEFAULT,
-  letterColor: "slate",
-  background: "app-default",
-  gridSurface: "white",
-  material: "native",
-  specialIndicator: "fill",
-  uiContrast: "normal",
-};
-const TILE_COLOR_MAP = Object.fromEntries(TILE_COLOR_OPTIONS.map((entry) => [entry.id, entry]));
-const FONT_MAP = Object.fromEntries(FONT_OPTIONS.map((entry) => [entry.id, entry]));
-const LETTER_COLOR_MAP = Object.fromEntries(LETTER_COLOR_OPTIONS.map((entry) => [entry.id, entry]));
-const BACKGROUND_MAP = Object.fromEntries(BACKGROUND_OPTIONS.map((entry) => [entry.id, entry]));
-const MATERIAL_MAP = Object.fromEntries(MATERIAL_OPTIONS.map((entry) => [entry.id, entry]));
-const SPECIAL_INDICATOR_MAP = Object.fromEntries(
-  SPECIAL_INDICATOR_OPTIONS.map((entry) => [entry.id, entry])
-);
-const UI_CONTRAST_MAP = Object.fromEntries(UI_CONTRAST_OPTIONS.map((entry) => [entry.id, entry]));
-const GRID_SURFACE_MAP = Object.fromEntries(GRID_SURFACE_OPTIONS.map((entry) => [entry.id, entry]));
-const THEME_PRESET_CATEGORIES = [
-  "darkMode",
-  "tileColor",
-  "font",
-  "letterScale",
-  "letterColor",
-  "background",
-  "gridSurface",
-  "material",
-  "specialIndicator",
-  "uiContrast",
-];
-const THEME_PICKER_OPTIONS = {
-  tileColor: TILE_COLOR_OPTIONS,
-  font: FONT_OPTIONS,
-  letterColor: LETTER_COLOR_OPTIONS,
-  background: BACKGROUND_OPTIONS,
-  gridSurface: GRID_SURFACE_OPTIONS,
-  material: MATERIAL_OPTIONS,
-  specialIndicator: SPECIAL_INDICATOR_OPTIONS,
-  uiContrast: UI_CONTRAST_OPTIONS,
-};
-const THEME_PICKER_LABELS = {
-  tileColor: "Couleur de tuile",
-  font: "Police",
-  letterScale: "Taille des lettres",
-  letterColor: "Couleur de lettre",
-  background: "Couleur de fond",
-  gridSurface: "Fond de grille",
-  material: "Forme",
-  specialIndicator: "Indicateur spécial",
-  uiContrast: "Contraste",
-};
-
-function getThemeUnlockItemKey(category, optionId) {
-  return `${String(category || "").trim()}:${String(optionId || "").trim()}`;
-}
-
-function isThemeCategoryLockableGlobal(category) {
-  return THEME_LOCKABLE_CATEGORIES.includes(String(category || "").trim());
-}
-
-function isThemeOptionIdKnown(category, optionId) {
-  const key = String(category || "").trim();
-  const target = String(optionId || "").trim();
-  const options = THEME_PICKER_OPTIONS[key];
-  if (!Array.isArray(options)) return false;
-  return options.some((entry) => String(entry?.id || "") === target);
-}
-
-function isThemeOptionLockableGlobal(category, optionId) {
-  const key = String(category || "").trim();
-  const target = String(optionId || "").trim();
-  if (!isThemeCategoryLockableGlobal(key)) return false;
-  if (!isThemeOptionIdKnown(key, target)) return false;
-  return String(DEFAULT_THEME_PRESET[key] || "") !== target;
-}
-
-function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
-  if (!isThemeOptionLockableGlobal(category, optionId)) return true;
-  const unlockKey = getThemeUnlockItemKey(category, optionId);
-  return !!unlocks?.[unlockKey];
-}
-const PATCH_NOTES_VERSION = "2026-02-21";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-21T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-02-18";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-18T00:00:00+01:00");
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -3219,121 +2596,6 @@ const readLocalSettings = () => {
     return {};
   }
 };
-
-function normalizeThemePreset(rawTheme = {}) {
-  const source = rawTheme && typeof rawTheme === "object" ? rawTheme : {};
-  const migratedFont =
-    source.font === "script" ||
-    source.font === "warning" ||
-    source.font === "danger" ||
-    source.font === "bubble"
-      ? "draft"
-      : source.font;
-  const legacyMaterial = String(source.material || "");
-  const migratedTileColor =
-    TILE_COLOR_MAP[source.tileColor]
-      ? source.tileColor
-      : legacyMaterial === "wood"
-      ? "wood"
-      : DEFAULT_THEME_PRESET.tileColor;
-  const migratedMaterial =
-    legacyMaterial === "bubble" ||
-    legacyMaterial === "square" ||
-    legacyMaterial === "rounded-square" ||
-    legacyMaterial === "native"
-      ? legacyMaterial
-      : legacyMaterial === "classic"
-      ? "native"
-      : DEFAULT_THEME_PRESET.material;
-  const out = {
-    darkMode:
-      typeof source.darkMode === "boolean" ? source.darkMode : DEFAULT_THEME_PRESET.darkMode,
-    tileColor: migratedTileColor,
-    font: FONT_MAP[migratedFont] ? migratedFont : DEFAULT_THEME_PRESET.font,
-    letterScale: normalizeTileLetterScale(source.letterScale, DEFAULT_THEME_PRESET.letterScale),
-    letterColor: LETTER_COLOR_MAP[source.letterColor]
-      ? source.letterColor
-      : DEFAULT_THEME_PRESET.letterColor,
-    background: BACKGROUND_MAP[source.background]
-      ? source.background
-      : DEFAULT_THEME_PRESET.background,
-    gridSurface: GRID_SURFACE_MAP[source.gridSurface]
-      ? source.gridSurface
-      : DEFAULT_THEME_PRESET.gridSurface,
-    material: MATERIAL_MAP[migratedMaterial] ? migratedMaterial : DEFAULT_THEME_PRESET.material,
-    specialIndicator: SPECIAL_INDICATOR_MAP[source.specialIndicator]
-      ? source.specialIndicator
-      : DEFAULT_THEME_PRESET.specialIndicator,
-    uiContrast: UI_CONTRAST_MAP[source.uiContrast]
-      ? source.uiContrast
-      : DEFAULT_THEME_PRESET.uiContrast,
-  };
-  return out;
-}
-
-function normalizeThemeUnlocks(rawUnlocks = {}, rawTheme = {}) {
-  const source = rawUnlocks && typeof rawUnlocks === "object" ? rawUnlocks : {};
-  const safeTheme = normalizeThemePreset(rawTheme);
-  const out = {};
-  const sourceItems =
-    source.items && typeof source.items === "object" ? source.items : source;
-  for (const category of THEME_LOCKABLE_CATEGORIES) {
-    if (source[category] === true) {
-      const optionId = String(
-        safeTheme?.[category] ?? DEFAULT_THEME_PRESET[category] ?? ""
-      ).trim();
-      if (isThemeOptionLockableGlobal(category, optionId)) {
-        out[getThemeUnlockItemKey(category, optionId)] = true;
-      }
-    }
-  }
-  for (const [rawKey, rawVal] of Object.entries(sourceItems)) {
-    if (!rawVal) continue;
-    const key = String(rawKey || "").trim();
-    const sep = key.indexOf(":");
-    if (sep <= 0 || sep >= key.length - 1) continue;
-    const category = key.slice(0, sep);
-    const optionId = key.slice(sep + 1);
-    if (!isThemeOptionLockableGlobal(category, optionId)) continue;
-    out[getThemeUnlockItemKey(category, optionId)] = true;
-  }
-  return out;
-}
-
-function hasAnyThemeUnlock(unlocks = {}) {
-  return Object.values(unlocks || {}).some(Boolean);
-}
-
-function coerceThemeToLegacyNativeDefault(rawTheme = {}, rawUnlocks = {}) {
-  let safeTheme = normalizeThemePreset(rawTheme);
-  const safeUnlocks = normalizeThemeUnlocks(rawUnlocks, safeTheme);
-  const hasUnlocks = hasAnyThemeUnlock(safeUnlocks);
-  const looksLikeOldDefault =
-    safeTheme.tileColor === "amber" &&
-    safeTheme.background === "solid-sky" &&
-    (safeTheme.material === "classic" || safeTheme.material === "native") &&
-    safeTheme.specialIndicator === "fill" &&
-    safeTheme.font === "classic" &&
-    safeTheme.letterColor === "slate" &&
-    safeTheme.uiContrast === "normal";
-  if (!hasUnlocks && looksLikeOldDefault) {
-    safeTheme = {
-      ...safeTheme,
-      tileColor: "native",
-      background: "app-default",
-      material: "native",
-    };
-  }
-  // Hard guard: a locked option must stay on default applied value.
-  const enforcedTheme = { ...safeTheme };
-  for (const category of THEME_LOCKABLE_CATEGORIES) {
-    const selectedOptionId = enforcedTheme[category];
-    if (!isThemeOptionUnlockedFromMap(safeUnlocks, category, selectedOptionId)) {
-      enforcedTheme[category] = DEFAULT_THEME_PRESET[category];
-    }
-  }
-  return normalizeThemePreset(enforcedTheme);
-}
 const GUIDED_RESULTS_STEPS = {
   TAP_PSEUDO: "tap_pseudo",
   SWIPE_TOTAL: "swipe_total",
@@ -3378,72 +2640,6 @@ function generateInstallId() {
   } catch (_) {}
   return `iid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
-
-function normalizeInstallIdForLink(raw) {
-  if (typeof raw !== "string") return "";
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed.length > MAX_INSTALL_ID_LEN) return "";
-  return trimmed;
-}
-
-function computeLinkCodeChecksum(raw) {
-  const input = String(raw || "");
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36).padStart(6, "0").slice(-6);
-}
-
-function encodeBase64Url(raw) {
-  const source = String(raw || "");
-  try {
-    if (typeof btoa === "function") {
-      return btoa(source).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-    }
-  } catch (_) {}
-  return "";
-}
-
-function decodeBase64Url(raw) {
-  const input = String(raw || "").replace(/-/g, "+").replace(/_/g, "/");
-  if (!input) return "";
-  const padded = input + "=".repeat((4 - (input.length % 4)) % 4);
-  try {
-    if (typeof atob === "function") {
-      return atob(padded);
-    }
-  } catch (_) {}
-  return "";
-}
-
-function buildAccountLinkCode(installId) {
-  const safeInstallId = normalizeInstallIdForLink(installId);
-  if (!safeInstallId) return "";
-  const payload = encodeBase64Url(safeInstallId);
-  if (!payload) return "";
-  const checksum = computeLinkCodeChecksum(payload);
-  return `${ACCOUNT_LINK_CODE_PREFIX}-${payload}-${checksum}`;
-}
-
-function parseAccountLinkCode(rawCode) {
-  const raw = String(rawCode || "").trim();
-  if (!raw) return { ok: false, error: "empty" };
-  const compact = raw.replace(/[‐‑‒–—﹘﹣－]/g, "-").replace(/\s+/g, "");
-  const match = compact.match(/^([A-Za-z0-9]+)-([A-Za-z0-9_-]+)-([A-Za-z0-9]+)$/);
-  if (!match) return { ok: false, error: "format" };
-  const prefix = String(match[1] || "").toUpperCase();
-  if (prefix !== ACCOUNT_LINK_CODE_PREFIX) return { ok: false, error: "prefix" };
-  const payload = String(match[2] || "");
-  const checksum = String(match[3] || "").toLowerCase();
-  const expected = computeLinkCodeChecksum(payload);
-  if (checksum !== expected) return { ok: false, error: "checksum" };
-  const decodedInstallId = normalizeInstallIdForLink(decodeBase64Url(payload));
-  if (!decodedInstallId) return { ok: false, error: "install_id" };
-  return { ok: true, installId: decodedInstallId };
-}
-
 function getOrCreateInstallId() {
   try {
     const existing = localStorage.getItem(INSTALL_ID_STORAGE_KEY);
@@ -3681,7 +2877,6 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
-  const gridHitboxRef = useRef(null);
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const outroInFlightRef = useRef(false);
@@ -3749,173 +2944,27 @@ export default function App() {
     initialSettingsRef.current = readLocalSettings();
   }
   const initialSettings = initialSettingsRef.current || {};
-  const legacySfxEnabledDefault =
-    typeof initialSettings.sfxMuted === "boolean" ? !initialSettings.sfxMuted : true;
-  const initialAmbientEnabled =
-    typeof initialSettings.soundAmbientEnabled === "boolean"
-      ? initialSettings.soundAmbientEnabled
-      : typeof initialSettings.ambientMuted === "boolean"
-      ? !initialSettings.ambientMuted
-      : true;
-  const initialValidationSoundEnabled =
-    typeof initialSettings.soundValidationEnabled === "boolean"
-      ? initialSettings.soundValidationEnabled
-      : legacySfxEnabledDefault;
-  const initialTileStepSoundEnabled =
-    typeof initialSettings.soundTileStepEnabled === "boolean"
-      ? initialSettings.soundTileStepEnabled
-      : legacySfxEnabledDefault;
-  const initialTimerSoundEnabled =
-    typeof initialSettings.soundTimerEnabled === "boolean"
-      ? initialSettings.soundTimerEnabled
-      : legacySfxEnabledDefault;
-  const initialGobbleSoundEnabled =
-    typeof initialSettings.soundGobbleEnabled === "boolean"
-      ? initialSettings.soundGobbleEnabled
-      : legacySfxEnabledDefault;
-  const initialInvalidErrorSoundEnabled =
-    typeof initialSettings.soundInvalidErrorEnabled === "boolean"
-      ? initialSettings.soundInvalidErrorEnabled
-      : initialValidationSoundEnabled;
-  const initialMasterVolume = normalizeSoundMasterVolume(
-    initialSettings.soundMasterVolume,
-    SOUND_MASTER_VOLUME_DEFAULT
-  );
-  const initialAnySfxCategoryEnabled =
-    initialValidationSoundEnabled ||
-    initialTileStepSoundEnabled ||
-    initialTimerSoundEnabled ||
-    initialGobbleSoundEnabled ||
-    initialInvalidErrorSoundEnabled;
   const [gridWidth, setGridWidth] = useState(null);
-  const [isSfxMuted, setIsSfxMuted] = useState(() => !initialAnySfxCategoryEnabled);
+  const [isSfxMuted, setIsSfxMuted] = useState(() =>
+    typeof initialSettings.sfxMuted === "boolean" ? initialSettings.sfxMuted : false
+  );
   const isSfxMutedRef = useRef(isSfxMuted);
-  const [isAmbientMuted, setIsAmbientMuted] = useState(() => !initialAmbientEnabled);
+  const [isAmbientMuted, setIsAmbientMuted] = useState(() =>
+    typeof initialSettings.ambientMuted === "boolean" ? initialSettings.ambientMuted : false
+  );
   const isAmbientMutedRef = useRef(isAmbientMuted);
-  const [soundValidationEnabled, setSoundValidationEnabled] = useState(
-    () => initialValidationSoundEnabled
-  );
-  const [soundTileStepEnabled, setSoundTileStepEnabled] = useState(
-    () => initialTileStepSoundEnabled
-  );
-  const [soundTimerEnabled, setSoundTimerEnabled] = useState(
-    () => initialTimerSoundEnabled
-  );
-  const [soundGobbleEnabled, setSoundGobbleEnabled] = useState(
-    () => initialGobbleSoundEnabled
-  );
-  const [soundInvalidErrorEnabled, setSoundInvalidErrorEnabled] = useState(
-    () => initialInvalidErrorSoundEnabled
-  );
   const [isVibrationEnabled, setIsVibrationEnabled] = useState(() =>
     typeof initialSettings.vibration === "boolean" ? initialSettings.vibration : true
   );
-  const [soundMasterVolume, setSoundMasterVolume] = useState(() => initialMasterVolume);
-  const soundMasterVolumeRef = useRef(soundMasterVolume);
   const isVibrationEnabledRef = useRef(isVibrationEnabled);
   const [canVibrate, setCanVibrate] = useState(false);
-  const initialThemeSource = {
-    ...DEFAULT_THEME_PRESET,
-    ...(initialSettings.theme && typeof initialSettings.theme === "object"
-      ? initialSettings.theme
-      : {}),
-    darkMode:
-      typeof initialSettings.darkMode === "boolean"
-        ? initialSettings.darkMode
-        : typeof window !== "undefined" && window.matchMedia
-        ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        : DEFAULT_THEME_PRESET.darkMode,
-    font: initialSettings.tileLetterFont || undefined,
-    letterScale: initialSettings.tileLetterScale || undefined,
-    letterColor: initialSettings.tileLetterColor || undefined,
-    uiContrast: initialSettings.uiContrast || undefined,
-    tileColor: initialSettings.tileColor || undefined,
-    background: initialSettings.backgroundTheme || undefined,
-    material: initialSettings.tileMaterial || undefined,
-    specialIndicator: initialSettings.specialIndicator || undefined,
-  };
-  const initialThemeUnlocks = normalizeThemeUnlocks(
-    initialSettings.themeUnlocks,
-    initialThemeSource
-  );
-  const initialThemePreset = coerceThemeToLegacyNativeDefault(
-    initialThemeSource,
-    initialThemeUnlocks
-  );
-  const [themeApplied, setThemeApplied] = useState(initialThemePreset);
-  const [themeDraft, setThemeDraft] = useState(initialThemePreset);
-  const [themeUnlocks, setThemeUnlocks] = useState(initialThemeUnlocks);
-  const [themeUnlockCost, setThemeUnlockCost] = useState(THEME_UNLOCK_COST_DEFAULT);
-  const [themeLastChangedCategory, setThemeLastChangedCategory] = useState("tileColor");
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
-  const [themePickerCategory, setThemePickerCategory] = useState("");
-  const [themePurchaseConfirm, setThemePurchaseConfirm] = useState(null);
-  const [themeApplying, setThemeApplying] = useState(false);
-  const [themeLoading, setThemeLoading] = useState(false);
-  const [gobblarsBalance, setGobblarsBalance] = useState(0);
-  const [themeUnlockAnimToken, setThemeUnlockAnimToken] = useState(0);
-  const [themeRecentlyUnlocked, setThemeRecentlyUnlocked] = useState([]);
-  const gobblarsKnownBalanceRef = useRef(null);
-  const fetchThemeProfileRef = useRef(null);
-  const showToastRef = useRef(() => {});
-  const themeProfileFetchStateRef = useRef({ inFlight: false, lastAt: 0 });
-  const [darkMode, setDarkMode] = useState(!!initialThemePreset.darkMode);
-  const [tileLetterFontPreset, setTileLetterFontPreset] = useState(initialThemePreset.font);
-  const [tileLetterScalePreset, setTileLetterScalePreset] = useState(initialThemePreset.letterScale);
-  const [tileLetterColorPreset, setTileLetterColorPreset] = useState(initialThemePreset.letterColor);
-  const [uiContrastPreset, setUiContrastPreset] = useState(initialThemePreset.uiContrast);
-  const [tileColorPreset, setTileColorPreset] = useState(initialThemePreset.tileColor);
-  const [backgroundThemePreset, setBackgroundThemePreset] = useState(initialThemePreset.background);
-  const [tileMaterialPreset, setTileMaterialPreset] = useState(initialThemePreset.material);
-  const [specialIndicatorPreset, setSpecialIndicatorPreset] = useState(
-    initialThemePreset.specialIndicator
-  );
-  const [tilePointsVisible, setTilePointsVisible] = useState(() =>
-    typeof initialSettings.tilePointsVisible === "boolean"
-      ? initialSettings.tilePointsVisible
-      : true
-  );
-  const tileLetterFontFamily =
-    FONT_MAP[tileLetterFontPreset]?.family || FONT_MAP[DEFAULT_THEME_PRESET.font].family;
-  const tileLetterScaleValue = normalizeTileLetterScale(
-    tileLetterScalePreset,
-    DEFAULT_THEME_PRESET.letterScale
-  );
-  const tileLetterColorValue =
-    LETTER_COLOR_MAP[tileLetterColorPreset]?.value ||
-    LETTER_COLOR_MAP[DEFAULT_THEME_PRESET.letterColor].value;
-  const tileColorValue = TILE_COLOR_MAP[tileColorPreset] || TILE_COLOR_MAP[DEFAULT_THEME_PRESET.tileColor];
-  const isNativeTileColor = tileColorPreset === "native";
-  const defaultTileBaseClass = isNativeTileColor
-    ? "bg-orange-200 border-orange-500 border-2"
-    : "theme-tile-base";
-  const backgroundThemeValue =
-    BACKGROUND_MAP[backgroundThemePreset] || BACKGROUND_MAP[DEFAULT_THEME_PRESET.background];
-  const applyThemeVisualState = React.useCallback((rawTheme) => {
-    const safe = normalizeThemePreset(rawTheme);
-    setDarkMode(!!safe.darkMode);
-    setTileColorPreset(safe.tileColor);
-    setTileLetterFontPreset(safe.font);
-    setTileLetterScalePreset(safe.letterScale);
-    setTileLetterColorPreset(safe.letterColor);
-    setBackgroundThemePreset(safe.background);
-    setTileMaterialPreset(safe.material);
-    setSpecialIndicatorPreset(safe.specialIndicator);
-    setUiContrastPreset(safe.uiContrast);
-    return safe;
-  }, []);
-  const applyThemePresetToLocalState = React.useCallback(
-    (rawTheme, { syncDraft = false } = {}) => {
-      const safe = normalizeThemePreset(rawTheme);
-      setThemeApplied(safe);
-      applyThemeVisualState(safe);
-      if (syncDraft) {
-        setThemeDraft(safe);
-      }
-      return safe;
-    },
-    [applyThemeVisualState]
-  );
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof initialSettings.darkMode === "boolean") {
+      return initialSettings.darkMode;
+    }
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
   const [ambientTracks, setAmbientTracks] = useState(AMBIENT_MUSIC_TRACKS_DEFAULT);
   const ambientTracksRef = useRef(AMBIENT_MUSIC_TRACKS_DEFAULT);
   useEffect(() => {
@@ -3961,9 +3010,7 @@ export default function App() {
       ]);
       AssetManager.setAudioSystemProvider(getAudioSystem);
       AssetManager.setMuted(isSfxMutedRef.current);
-      AssetManager.setMasterVolume(
-        normalizeSoundMasterVolume(soundMasterVolumeRef.current, SOUND_MASTER_VOLUME_DEFAULT)
-      );
+      AssetManager.setMasterVolume(1);
       AssetManager.registerManifest(bootManifest);
       const total = bootManifest.length;
       if (!total) {
@@ -4178,16 +3225,8 @@ export default function App() {
   const weeklyPendingDragOffsetRef = useRef(0);
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSoundMenuOpen, setIsSoundMenuOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
-  const [isSupportOpen, setIsSupportOpen] = useState(false);
-  const [isAccountLinkOpen, setIsAccountLinkOpen] = useState(false);
-  const [accountLinkInput, setAccountLinkInput] = useState("");
-  const [accountLinkError, setAccountLinkError] = useState("");
-  const [accountLinkInfo, setAccountLinkInfo] = useState("");
-  const [accountLinkChecking, setAccountLinkChecking] = useState(false);
-  const [accountLinkPreview, setAccountLinkPreview] = useState(null);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({
     startX: null,
@@ -4572,9 +3611,6 @@ export default function App() {
     isLoggedInRef.current = isLoggedIn;
   }, [isLoggedIn]);
   useEffect(() => {
-    isMobileLayoutRef.current = isMobileLayout;
-  }, [isMobileLayout]);
-  useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
   useEffect(() => {
@@ -4597,15 +3633,6 @@ export default function App() {
     phaseRef.current = phase;
   }, [phase]);
   useEffect(() => {
-    chatTabRef.current = chatTab === "system" ? "system" : "messages";
-    if (chatTab === "system") {
-      setIsDesktopEmojiPickerOpen(false);
-    }
-  }, [chatTab]);
-  useEffect(() => {
-    isChatClosingRef.current = isChatClosing;
-  }, [isChatClosing]);
-  useEffect(() => {
     if (!DEV_MODE) return;
     if (phase === "playing") {
       setDevPerfStats((prev) => ({
@@ -4620,21 +3647,6 @@ export default function App() {
     inputLockedRef.current = inputLocked;
   }, [inputLocked]);
   useEffect(() => {
-    const hasAnySfxCategoryEnabled =
-      soundValidationEnabled ||
-      soundTileStepEnabled ||
-      soundTimerEnabled ||
-      soundGobbleEnabled ||
-      soundInvalidErrorEnabled;
-    setIsSfxMuted(!hasAnySfxCategoryEnabled);
-  }, [
-    soundValidationEnabled,
-    soundTileStepEnabled,
-    soundTimerEnabled,
-    soundGobbleEnabled,
-    soundInvalidErrorEnabled,
-  ]);
-  useEffect(() => {
     isSfxMutedRef.current = isSfxMuted;
     AssetManager.setMuted(isSfxMuted);
   }, [isSfxMuted]);
@@ -4642,73 +3654,22 @@ export default function App() {
     isAmbientMutedRef.current = isAmbientMuted;
   }, [isAmbientMuted]);
   useEffect(() => {
-    soundMasterVolumeRef.current = normalizeSoundMasterVolume(
-      soundMasterVolume,
-      SOUND_MASTER_VOLUME_DEFAULT
-    );
-  }, [soundMasterVolume]);
-  useEffect(() => {
-    const safeMasterVolume = normalizeSoundMasterVolume(
-      soundMasterVolume,
-      SOUND_MASTER_VOLUME_DEFAULT
-    );
-    AssetManager.setMasterVolume(safeMasterVolume);
-    if (audioSystemRef.current?.masterGain) {
-      audioSystemRef.current.masterGain.gain.value = AUDIO_MASTER_GAIN * safeMasterVolume;
-    }
-  }, [soundMasterVolume]);
-  useEffect(() => {
     isVibrationEnabledRef.current = isVibrationEnabled;
   }, [isVibrationEnabled]);
   useEffect(() => {
     if (typeof localStorage === "undefined") return;
     try {
-      const persistedTheme = normalizeThemePreset(themeApplied);
       localStorage.setItem(
         SETTINGS_STORAGE_KEY,
         JSON.stringify({
-          darkMode: !!persistedTheme.darkMode,
+          darkMode,
           sfxMuted: isSfxMuted,
           ambientMuted: isAmbientMuted,
-          soundAmbientEnabled: !isAmbientMuted,
-          soundValidationEnabled,
-          soundTileStepEnabled,
-          soundTimerEnabled,
-          soundGobbleEnabled,
-          soundInvalidErrorEnabled,
-          soundMasterVolume: normalizeSoundMasterVolume(
-            soundMasterVolume,
-            SOUND_MASTER_VOLUME_DEFAULT
-          ),
           vibration: isVibrationEnabled,
-          tileLetterFont: persistedTheme.font,
-          tileLetterScale: persistedTheme.letterScale,
-          tileLetterColor: persistedTheme.letterColor,
-          uiContrast: persistedTheme.uiContrast,
-          tileColor: persistedTheme.tileColor,
-          backgroundTheme: persistedTheme.background,
-          tileMaterial: persistedTheme.material,
-          specialIndicator: persistedTheme.specialIndicator,
-          tilePointsVisible,
-          themeUnlocks,
-          theme: persistedTheme,
         })
       );
     } catch (_) {}
-  }, [
-    themeApplied,
-    isSfxMuted,
-    isAmbientMuted,
-    soundValidationEnabled,
-    soundTileStepEnabled,
-    soundTimerEnabled,
-    soundGobbleEnabled,
-    soundInvalidErrorEnabled,
-    soundMasterVolume,
-    isVibrationEnabled,
-    tilePointsVisible,
-    themeUnlocks,
-  ]);
+  }, [darkMode, isSfxMuted, isAmbientMuted, isVibrationEnabled]);
   useEffect(() => {
     currentRoomIdRef.current = currentRoomId;
   }, [currentRoomId]);
@@ -4757,7 +3718,6 @@ export default function App() {
   // Chat
   const [chatMessages, setChatMessages] = useState(() => readStoredChatMessages());
   const [chatInput, setChatInput] = useState("");
-  const [isDesktopEmojiPickerOpen, setIsDesktopEmojiPickerOpen] = useState(false);
   const [blockedInstallIds, setBlockedInstallIds] = useState(() => {
     try {
       const raw = localStorage.getItem(BLOCKED_INSTALL_IDS_STORAGE_KEY);
@@ -4913,9 +3873,6 @@ export default function App() {
   const chatDesktopListRef = useRef(null);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
-  const isChatClosingRef = useRef(isChatClosing);
-  const isMobileLayoutRef = useRef(isMobileLayout);
-  const chatTabRef = useRef(chatTab === "system" ? "system" : "messages");
   const isHomeChatOpenRef = useRef(false);
   const lobbyPresenceRef = useRef(new Set());
   const lobbyChatSubscriptionRef = useRef({
@@ -4933,7 +3890,6 @@ export default function App() {
   const chatLastSentRef = useRef(0);
   const lastKeyboardInsetRef = useRef(0);
   const toastTimersRef = useRef(new Map());
-  const gobblarToastDelayTimersRef = useRef(new Set());
   const praiseTimerRef = useRef(null);
   const gobbleTimerRef = useRef(null);
   const confettiBurstTokenRef = useRef(0);
@@ -5101,9 +4057,7 @@ export default function App() {
     if (!audioSystemRef.current || audioSystemRef.current.ctx !== ctx) {
       const busIn = ctx.createGain();
       const masterGain = ctx.createGain();
-      masterGain.gain.value =
-        AUDIO_MASTER_GAIN *
-        normalizeSoundMasterVolume(soundMasterVolumeRef.current, SOUND_MASTER_VOLUME_DEFAULT);
+      masterGain.gain.value = AUDIO_MASTER_GAIN;
 
       const compressor = ctx.createDynamicsCompressor();
       compressor.threshold.value = -24;
@@ -5357,11 +4311,7 @@ export default function App() {
         (!hasCountdown || bc > 14);
       audio.muted = !shouldBeAudible;
       audio.play().catch(() => {});
-      const masterVolume = normalizeSoundMasterVolume(
-        soundMasterVolumeRef.current,
-        SOUND_MASTER_VOLUME_DEFAULT
-      );
-      const targetVolume = shouldBeAudible ? (eq.volume ?? 0.45) * masterVolume : 0;
+      const targetVolume = shouldBeAudible ? eq.volume ?? 0.45 : 0;
       fadeAudioVolume(audio, targetVolume, shouldBeAudible ? 1000 : 600);
     });
     ambientMusicRef.current.audio = audio;
@@ -5448,11 +4398,7 @@ export default function App() {
     if (ambientMusicRef.current.active) {
       ambientMusicRef.current.keepAlive = silent;
       const eq = resolveSoundSettings("ambient");
-      const masterVolume = normalizeSoundMasterVolume(
-        soundMasterVolumeRef.current,
-        SOUND_MASTER_VOLUME_DEFAULT
-      );
-      const targetVolume = silent ? 0 : (eq.volume ?? 0.45) * masterVolume;
+      const targetVolume = silent ? 0 : eq.volume ?? 0.45;
       fadeAudioVolume(audio, targetVolume, silent ? fadeOutMs : fadeInMs);
       if (audio.paused || audio.ended) {
         const playPromise = audio.play();
@@ -5483,11 +4429,7 @@ export default function App() {
       playPromise.catch(markPending);
     }
     const eq = resolveSoundSettings("ambient");
-    const masterVolume = normalizeSoundMasterVolume(
-      soundMasterVolumeRef.current,
-      SOUND_MASTER_VOLUME_DEFAULT
-    );
-    const targetVolume = silent ? 0 : (eq.volume ?? 0.45) * masterVolume;
+    const targetVolume = silent ? 0 : eq.volume ?? 0.45;
     fadeAudioVolume(audio, targetVolume, silent ? fadeStartMs : fadeInMs);
     if (ambientMusicRef.current.startGuard) {
       clearTimeout(ambientMusicRef.current.startGuard);
@@ -5778,60 +4720,6 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    const contrastClassNames = ["theme-contrast-soft", "theme-contrast-strong"];
-    contrastClassNames.forEach((name) => document.body.classList.remove(name));
-    if (uiContrastPreset === "soft") {
-      document.body.classList.add("theme-contrast-soft");
-    } else if (uiContrastPreset === "strong") {
-      document.body.classList.add("theme-contrast-strong");
-    }
-  }, [uiContrastPreset]);
-
-  useEffect(() => {
-    try {
-      const body = document.body;
-      if (!body) return;
-      const preset = FONT_MAP[tileLetterFontPreset] ? tileLetterFontPreset : DEFAULT_THEME_PRESET.font;
-      body.setAttribute("data-tile-font-preset", preset);
-    } catch (_) {}
-  }, [tileLetterFontPreset]);
-
-  useEffect(() => {
-    try {
-      const rootStyle = document.documentElement?.style;
-      if (!rootStyle) return;
-      rootStyle.setProperty("--tile-letter-font", tileLetterFontFamily);
-      rootStyle.setProperty("--tile-letter-size-scale", String(tileLetterScaleValue));
-      rootStyle.setProperty("--tile-letter-color", tileLetterColorValue);
-      rootStyle.setProperty("--theme-tile-bg", tileColorValue.bg || "#fdba74");
-      rootStyle.setProperty("--theme-tile-border", tileColorValue.border || "#f97316");
-    } catch (_) {}
-  }, [tileLetterFontFamily, tileLetterScaleValue, tileLetterColorValue, tileColorValue]);
-
-  useEffect(() => {
-    try {
-      const bodyStyle = document.body?.style;
-      if (!bodyStyle) return;
-      const bg = backgroundThemeValue?.style || {};
-      if (backgroundThemeValue?.native) {
-        document.body.classList.remove("theme-custom-bg");
-        bodyStyle.removeProperty("--theme-bg-color");
-        bodyStyle.removeProperty("--theme-bg-image");
-        bodyStyle.removeProperty("--theme-bg-size");
-        bodyStyle.removeProperty("--theme-bg-repeat");
-        bodyStyle.removeProperty("--theme-bg-position");
-        return;
-      }
-      bodyStyle.setProperty("--theme-bg-color", bg.color || "#dbeafe");
-      bodyStyle.setProperty("--theme-bg-image", bg.image || "none");
-      bodyStyle.setProperty("--theme-bg-size", bg.size || "auto");
-      bodyStyle.setProperty("--theme-bg-repeat", bg.repeat || "repeat");
-      bodyStyle.setProperty("--theme-bg-position", bg.position || "center");
-      document.body.classList.add("theme-custom-bg");
-    } catch (_) {}
-  }, [backgroundThemeValue]);
-
-  useEffect(() => {
     if (typeof window !== "undefined") {
       isTouchDeviceRef.current =
         "ontouchstart" in window || navigator.maxTouchPoints > 0;
@@ -5901,9 +4789,7 @@ export default function App() {
       return;
     }
 
-    if (chatTab !== "system") {
-      setMobileChatUnreadCount(0);
-    }
+    setMobileChatUnreadCount(0);
     setActiveArea("chat");
 
     if (typeof window === "undefined") return;
@@ -5917,46 +4803,20 @@ export default function App() {
       }
     };
 
-    const delay = isMobileLayout
-      ? Math.min(140, Math.max(60, CHAT_DRAWER_ANIM_MS - 120))
-      : Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
+    const delay = isMobileLayout ? 0 : Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
     const t = window.setTimeout(focusChatInput, delay);
 
     return () => {
       window.clearTimeout(t);
     };
-  }, [isChatOpenMobile, isMobileLayout, chatTab]);
+  }, [isChatOpenMobile, isMobileLayout]);
 
   useEffect(() => {
     isHomeChatOpenRef.current = isHomeChatOpen;
-    if (isHomeChatOpen && chatTab !== "system") {
+    if (isHomeChatOpen) {
       setHomeChatUnreadCount(0);
     }
-  }, [isHomeChatOpen, chatTab]);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    if (chatTab === "system") return;
-    if (isMobileLayout && (!isChatOpenMobile || isChatClosing)) return;
-    setMobileChatUnreadCount(0);
-  }, [isLoggedIn, chatTab, isMobileLayout, isChatOpenMobile, isChatClosing]);
-
-  useEffect(() => {
-    if (isLoggedIn) return;
-    if (chatTab === "system") return;
-    const messagesVisible = isMobileLayout
-      ? isChatOpenMobile && !isChatClosing
-      : isHomeChatOpen;
-    if (!messagesVisible) return;
-    setHomeChatUnreadCount(0);
-  }, [
-    isLoggedIn,
-    chatTab,
-    isMobileLayout,
-    isHomeChatOpen,
-    isChatOpenMobile,
-    isChatClosing,
-  ]);
+  }, [isHomeChatOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -6022,7 +4882,6 @@ export default function App() {
     const t = window.setTimeout(() => {
       const el = chatInputRef.current;
       if (!el) return;
-      if (typeof document !== "undefined" && document.activeElement === el) return;
       try {
         el.focus({ preventScroll: true });
       } catch (_) {
@@ -6030,7 +4889,7 @@ export default function App() {
       }
     }, 40);
     return () => window.clearTimeout(t);
-  }, [isMobileLayout, isChatOpenMobile, isChatClosing, activeArea]);
+  }, [phase, isMobileLayout, isChatOpenMobile, isChatClosing, activeArea]);
 
   useEffect(() => {
     if (!isChatRulesOpen) return;
@@ -6143,17 +5002,6 @@ export default function App() {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
   }, [isMobileLayout, chatMessages.length]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayout) return;
-    const el = chatDesktopListRef.current;
-    if (!el) return;
-    const rafId = window.requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
-    });
-    return () => window.cancelAnimationFrame(rafId);
-  }, [isMobileLayout, chatTab, chatMessages.length, blockedInstallIds.length]);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -6572,12 +5420,7 @@ export default function App() {
         chatScrollLockRef.current = 0;
       }
     };
-  }, [
-    isMobileLayout,
-    phase === "playing" || phase === "results",
-    isChatOpenMobile,
-    isChatClosing,
-  ]);
+  }, [isMobileLayout, phase, isChatOpenMobile, isChatClosing]);
 
   useEffect(() => {
     if (phase !== "lobby") return;
@@ -6650,21 +5493,7 @@ export default function App() {
 
   // Son "GOBBLE" (MP3 placé dans /public/sound/game/gobble.mp3)
   function playGobbleVoice() {
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    if (!soundGobbleEnabled) return;
     playOneShotAudio(SFX_KEYS.gobbleVoice, {
-      cooldownKey: "gobbleVoice",
-      eqKey: "gobbleVoice",
-    });
-  }
-
-  // Son "DOUBLE GOBBLE" (mot meilleur score + mot le plus long)
-  function playDoubleGobbleVoice() {
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    if (!soundGobbleEnabled) return;
-    playOneShotAudio(SFX_KEYS.doubleGobbleVoice, {
       cooldownKey: "gobbleVoice",
       eqKey: "gobbleVoice",
     });
@@ -6672,7 +5501,6 @@ export default function App() {
 
   // Son progressif par tuile (01..15)
   function playTileStepSound(step) {
-    if (!soundTileStepEnabled) return;
     if (!Number.isFinite(step)) return;
     const index = Math.max(1, Math.min(INCREMENTAL_SOUND_COUNT, Math.floor(step) + 1));
     const assetKey = INCREMENTAL_SFX_KEYS[index - 1];
@@ -6689,7 +5517,6 @@ export default function App() {
 
   // Petit "tic tac" pour la fin de manche (fichier)
   function playTickSound({ isTargetRound } = {}) {
-    if (!soundTimerEnabled) return;
     if (isSfxMuted) return;
     if (phaseRef.current !== "playing") return;
     if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
@@ -6704,7 +5531,6 @@ export default function App() {
 
   // "Tic tac" avant le début de manche (compte à rebours)
   function playCountdownTickSound() {
-    if (!soundTimerEnabled) return;
     if (isSfxMuted) return;
     if (!isLoggedInRef.current) return;
     playOneShotAudio(SFX_KEYS.tictoc, {
@@ -6753,7 +5579,6 @@ export default function App() {
   }
 
   function playRoundStartSound() {
-    if (!soundTimerEnabled) return;
     if (isSfxMuted) return;
     if (phaseRef.current !== "playing") return;
     if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
@@ -6771,9 +5596,6 @@ export default function App() {
 
   // Palette de sons par paliers de score (plus mélodique)
   function playScoreSound(points) {
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    if (!soundValidationEnabled) return;
     if (isSfxMuted) return;
     const safePoints = Number.isFinite(points) ? Math.max(0, points) : 0;
     if (safePoints === 2) {
@@ -7966,7 +6788,6 @@ export default function App() {
           setScore(selfScore);
         }
       }
-      void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
     },
     []
   );
@@ -8320,21 +7141,14 @@ export default function App() {
     setToasts([]);
     toastTimersRef.current.forEach((timerId) => clearTimeout(timerId));
     toastTimersRef.current.clear();
-    gobblarToastDelayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
-    gobblarToastDelayTimersRef.current.clear();
   }
 
-  function showToast(message, durationMs = 2800, options = {}) {
+  function showToast(message, durationMs = 2800) {
     const text = String(message || "").trim();
     if (!text) return;
     const displayMs = Math.max(1500, Math.round((Number(durationMs) || 2800) + 500));
     const id = Date.now() + Math.random();
-    const iconSrc = typeof options?.iconSrc === "string" ? options.iconSrc : "";
-    const iconAlt = typeof options?.iconAlt === "string" ? options.iconAlt : "";
-    const position = options?.position === "top-left" ? "top-left" : "top-right";
-    setToasts((prev) =>
-      [...prev, { id, message: text, durationMs: displayMs, iconSrc, iconAlt, position }].slice(-6)
-    );
+    setToasts((prev) => [...prev, { id, message: text, durationMs: displayMs }].slice(-4));
     playOneShotAudio(SFX_KEYS.vocabCling, {
       cooldownKey: "toastPop",
       cooldownMs: 100,
@@ -8346,10 +7160,6 @@ export default function App() {
     }, displayMs);
     toastTimersRef.current.set(id, timerId);
   }
-
-  useEffect(() => {
-    showToastRef.current = showToast;
-  });
 
   function getObjectiveBucketLabel(bucket) {
     const key = String(bucket || "").toLowerCase();
@@ -8393,137 +7203,24 @@ export default function App() {
     };
   }, []);
 
-  function clearGridHitboxCache() {
-    gridHitboxRef.current = null;
-  }
-
-  function resolveGridAxisIndex(pos, start, cellSize, gapSize, count, useTolerance = true) {
-    if (
-      !Number.isFinite(pos) ||
-      !Number.isFinite(start) ||
-      !Number.isFinite(cellSize) ||
-      !Number.isFinite(gapSize) ||
-      !Number.isFinite(count) ||
-      count <= 0 ||
-      cellSize <= 0
-    ) {
-      return null;
-    }
-    const gap = Math.max(0, gapSize);
-    const stride = cellSize + gap;
-    const fullSize = cellSize * count + gap * (count - 1);
-    let rel = pos - start;
-    const edgeTolerance = Math.max(4, cellSize * 0.35);
-    if (rel < 0) {
-      if (!useTolerance || Math.abs(rel) > edgeTolerance) return null;
-      rel = 0;
-    } else if (rel > fullSize) {
-      if (!useTolerance || Math.abs(rel - fullSize) > edgeTolerance) return null;
-      rel = Math.max(0, fullSize - 0.0001);
-    }
-    let axis = Math.floor(rel / stride);
-    axis = Math.max(0, Math.min(count - 1, axis));
-    const inStride = rel - axis * stride;
-    if (inStride <= cellSize) return axis;
-    if (!useTolerance || gap <= 0) return null;
-    const inGap = inStride - cellSize;
-    const gapTolerance = Math.max(2, Math.min(cellSize * 0.4, Math.max(gap * 0.5, 6)));
-    if (inGap <= gapTolerance) return axis;
-    if (inGap >= gap - gapTolerance) return Math.min(count - 1, axis + 1);
-    return null;
-  }
-
-  function buildGridHitboxMetrics() {
-    const gridEl = gridRef.current;
-    if (!gridEl) return null;
-    const rect = gridEl.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-    const style = window.getComputedStyle(gridEl);
-    const borderLeft = parseFloat(style.borderLeftWidth) || 0;
-    const borderRight = parseFloat(style.borderRightWidth) || 0;
-    const borderTop = parseFloat(style.borderTopWidth) || 0;
-    const borderBottom = parseFloat(style.borderBottomWidth) || 0;
-    const paddingLeft = parseFloat(style.paddingLeft) || 0;
-    const paddingRight = parseFloat(style.paddingRight) || 0;
-    const paddingTop = parseFloat(style.paddingTop) || 0;
-    const paddingBottom = parseFloat(style.paddingBottom) || 0;
-    const contentLeft = rect.left + borderLeft + paddingLeft;
-    const contentTop = rect.top + borderTop + paddingTop;
-    const contentWidth = Math.max(
-      0,
-      rect.width - borderLeft - borderRight - paddingLeft - paddingRight
-    );
-    const contentHeight = Math.max(
-      0,
-      rect.height - borderTop - borderBottom - paddingTop - paddingBottom
-    );
-    const fallbackGap = isMobileLayout ? 4 : tileGapPx || 0;
-    const colGap = Number.isFinite(parseFloat(style.columnGap))
-      ? parseFloat(style.columnGap)
-      : fallbackGap;
-    const rowGap = Number.isFinite(parseFloat(style.rowGap))
-      ? parseFloat(style.rowGap)
-      : fallbackGap;
-    const size = Math.max(1, Number(gridSize) || 1);
-    const cellWidth = (contentWidth - colGap * (size - 1)) / size;
-    const cellHeight = (contentHeight - rowGap * (size - 1)) / size;
-    if (cellWidth <= 0 || cellHeight <= 0) return null;
-    const metrics = {
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      size,
-      contentLeft,
-      contentTop,
-      colGap,
-      rowGap,
-      cellWidth,
-      cellHeight,
-    };
-    gridHitboxRef.current = metrics;
-    return metrics;
-  }
-
-  function getGridHitboxMetrics() {
-    const cached = gridHitboxRef.current;
-    if (!cached) return buildGridHitboxMetrics();
-    const gridEl = gridRef.current;
-    if (!gridEl) return buildGridHitboxMetrics();
-    const rect = gridEl.getBoundingClientRect();
-    const sizeNow = Math.max(1, Number(gridSize) || 1);
-    const stale =
-      cached.size !== sizeNow ||
-      Math.abs(rect.left - cached.left) > 0.5 ||
-      Math.abs(rect.top - cached.top) > 0.5 ||
-      Math.abs(rect.width - cached.width) > 0.5 ||
-      Math.abs(rect.height - cached.height) > 0.5;
-    return stale ? buildGridHitboxMetrics() : cached;
-  }
-
   function getTileIndexFromPoint(x, y, useTolerance = true) {
-    const metrics = getGridHitboxMetrics();
-    if (!metrics) return null;
-    const col = resolveGridAxisIndex(
-      x,
-      metrics.contentLeft,
-      metrics.cellWidth,
-      metrics.colGap,
-      metrics.size,
-      useTolerance
-    );
-    const row = resolveGridAxisIndex(
-      y,
-      metrics.contentTop,
-      metrics.cellHeight,
-      metrics.rowGap,
-      metrics.size,
-      useTolerance
-    );
-    if (row == null || col == null) return null;
-    const displayIndex = row * metrics.size + col;
-    if (displayIndex < 0 || displayIndex >= metrics.size * metrics.size) return null;
-    return mapDisplayToBoardIndex(displayIndex, metrics.size, gridRotationTurns);
+    for (let i = 0; i < tileRefs.current.length; i++) {
+      const el = tileRefs.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      // Hitbox tactile : toute la tuile (rapide), + tolérance légère dans l'inter-tuile.
+      const minDim = Math.min(rect.width, rect.height);
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return i;
+      if (!useTolerance) continue;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.hypot(dx, dy);
+      const radius = minDim * 0.6; // tolérance (aide en diagonale / inter-tuile)
+      if (dist <= radius) return i;
+    }
+    return null;
   }
 
   useEffect(() => {
@@ -8898,27 +7595,12 @@ export default function App() {
       const author = (msg.author || msg.nick || "").trim();
       const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
-      const currentTab = chatTabRef.current === "system" ? "system" : "messages";
       if (isLoggedInRef.current) {
-        const isMobileNow = isMobileLayoutRef.current;
-        const messagesVisible =
-          currentTab === "messages" &&
-          (isMobileNow
-            ? isChatOpenMobileRef.current && !isChatClosingRef.current
-            : true);
-        if (!messagesVisible) {
+        if (!isChatOpenMobileRef.current) {
           setMobileChatUnreadCount((prev) => Math.min(99, prev + 1));
         }
-      } else {
-        const isMobileNow = isMobileLayoutRef.current;
-        const messagesVisible =
-          currentTab === "messages" &&
-          (isMobileNow
-            ? isChatOpenMobileRef.current && !isChatClosingRef.current
-            : isHomeChatOpenRef.current);
-        if (!messagesVisible) {
-          setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
-        }
+      } else if (!isHomeChatOpenRef.current) {
+        setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
       }
     }
 
@@ -9169,50 +7851,6 @@ export default function App() {
       });
     }
 
-    function onGobblarsAwarded(payload = {}) {
-      if (!payload || typeof payload !== "object") return;
-      const amount = Math.max(0, Math.trunc(Number(payload?.amount) || 0));
-      const balance = Number(payload?.balance);
-      if (Number.isFinite(balance)) {
-        setGobblarsBalance(Math.max(0, Math.trunc(balance)));
-        gobblarsKnownBalanceRef.current = Math.max(0, Math.trunc(balance));
-      }
-      if (!amount) return;
-      const awardKind = String(payload?.kind || "").toLowerCase();
-      if (awardKind === "live_gobble") {
-        const message =
-          amount >= 2
-            ? `Double gobble ! +${amount} Gobblars`
-            : `Gobble ! +${amount} Gobblar`;
-        const timerId = window.setTimeout(() => {
-          gobblarToastDelayTimersRef.current.delete(timerId);
-          showToastRef.current?.(message, 3000, {
-            iconSrc: "/Gobblars.png",
-            iconAlt: "Gobblars",
-            position: "top-left",
-          });
-        }, 1000);
-        gobblarToastDelayTimersRef.current.add(timerId);
-        return;
-      }
-      const medalKey = String(payload?.medal || "").toLowerCase();
-      const medalLabel =
-        medalKey === "gold"
-          ? "or"
-          : medalKey === "silver"
-          ? "argent"
-          : medalKey === "bronze"
-          ? "bronze"
-          : "";
-      const message = medalLabel
-        ? `Médaille ${medalLabel}: +${amount} Gobblars`
-        : `+${amount} Gobblars`;
-      showToastRef.current?.(message, 3000, {
-        iconSrc: "/Gobblars.png",
-        iconAlt: "Gobblars",
-      });
-    }
-
     roundHandlersRef.current.onRoundStarted = onRoundStarted;
     roundHandlersRef.current.onRoundEnded = onRoundEnded;
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
@@ -9230,7 +7868,6 @@ export default function App() {
     socket.on("specialHint", onSpecialHint);
     socket.on("specialSolved", onSpecialSolved);
     socket.on("trophiesUpdated", onTrophiesUpdated);
-    socket.on("gobblarsAwarded", onGobblarsAwarded);
     socket.on("connect", onConnect);
     socket.on("connect_error", onConnectError);
     socket.on("disconnect", onDisconnect);
@@ -9249,7 +7886,6 @@ export default function App() {
       socket.off("specialHint", onSpecialHint);
       socket.off("specialSolved", onSpecialSolved);
       socket.off("trophiesUpdated", onTrophiesUpdated);
-      socket.off("gobblarsAwarded", onGobblarsAwarded);
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
@@ -10548,7 +9184,6 @@ export default function App() {
           submittedAt: Date.now(),
         },
       }));
-      void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
       setAppView("daily_results");
     };
     try {
@@ -12606,7 +11241,6 @@ export default function App() {
       draggingRef.current = false;
       clearSelection();
     }
-    clearGridHitboxCache();
     const prevRects = new Map();
     for (let i = 0; i < board.length; i++) {
       const el = tileRefs.current[i];
@@ -12744,7 +11378,6 @@ export default function App() {
     }
     suppressChatResizeRef.current = false;
     setIsChatClosing(false);
-    setChatTab("messages");
     setMobileChatUnreadCount(0);
     captureChatViewportBaseline();
 
@@ -12773,7 +11406,6 @@ export default function App() {
         chatInputRef.current.blur();
       } catch (_) {}
     }
-    setChatTab("messages");
     chatBodyLockHeightRef.current = 0;
     gameViewportFreezeHeightRef.current = 0;
     chatCloseTimerRef.current = window.setTimeout(() => {
@@ -12851,7 +11483,6 @@ export default function App() {
   }
 
   function closeHomeChat() {
-    setChatTab("messages");
     setIsHomeChatOpen(false);
   }
 
@@ -13185,63 +11816,6 @@ export default function App() {
     return recordBadgesByNickForRound[cleanNick] || [];
   }
 
-  function canOpenRoundPlayerDetails(entry) {
-    const nick = String(entry?.nick || "").trim();
-    if (!nick) return false;
-    if (!isTargetRound) return true;
-    return getRoundRecordsForPlayer(nick).length > 0;
-  }
-
-  function buildRoundPlayerModalPayload(nick, anchorRect = null) {
-    const cleanNick = String(nick || "").trim();
-    if (!cleanNick) return null;
-    const records = getRoundRecordsForPlayer(cleanNick);
-    let targetBoardKey = "";
-    let targetBoardLabel = "";
-    let targetBoardEntries = [];
-    if (isTargetRound) {
-      if (!records.length) return null;
-      const recordBoardKey =
-        records.find(
-          (record) =>
-            record?.categoryKey === "bestTimeTargetLong" ||
-            record?.categoryKey === "bestTimeTargetScore"
-        )?.categoryKey || "";
-      targetBoardKey =
-        specialRound?.type === "target_score"
-          ? "bestTimeTargetScore"
-          : specialRound?.type === "target_long"
-          ? "bestTimeTargetLong"
-          : recordBoardKey;
-      targetBoardLabel = WEEKLY_RECORD_LABELS[targetBoardKey] || "Classement hebdo";
-      targetBoardEntries = buildTargetWeeklyLeaderboard(targetBoardKey);
-    }
-    return {
-      open: true,
-      nick: cleanNick,
-      words: isTargetRound ? [] : buildRoundWordsForPlayer(cleanNick),
-      allWords: isTargetRound
-        ? []
-        : Array.isArray(allWords)
-        ? allWords.map((item) => {
-            const word = String(item?.word || "").trim();
-            const gobbleMeta =
-              typeof gobbleCandidates?.get === "function" ? gobbleCandidates.get(word) : null;
-            return {
-              word,
-              pts: Number.isFinite(item?.pts) ? item.pts : null,
-              isGobble: !!gobbleMeta,
-            };
-          })
-        : [],
-      records,
-      anchorRect: anchorRect || null,
-      targetBoardKey,
-      targetBoardLabel,
-      targetBoardEntries,
-    };
-  }
-
   function buildTargetWeeklyLeaderboard(boardKey) {
     if (!boardKey) return [];
     const boards = weeklyStats?.boards && typeof weeklyStats.boards === "object" ? weeklyStats.boards : {};
@@ -13374,6 +11948,27 @@ export default function App() {
   function openRoundPlayerModal(entry, anchorElement = null, clickPoint = null) {
     const nick = String(entry?.nick || "").trim();
     if (!nick) return;
+    const records = getRoundRecordsForPlayer(nick);
+    let targetBoardKey = "";
+    let targetBoardLabel = "";
+    let targetBoardEntries = [];
+    if (isTargetRound) {
+      if (!records.length) return;
+      const recordBoardKey =
+        records.find(
+          (record) =>
+            record?.categoryKey === "bestTimeTargetLong" ||
+            record?.categoryKey === "bestTimeTargetScore"
+        )?.categoryKey || "";
+      targetBoardKey =
+        specialRound?.type === "target_score"
+          ? "bestTimeTargetScore"
+          : specialRound?.type === "target_long"
+          ? "bestTimeTargetLong"
+          : recordBoardKey;
+      targetBoardLabel = WEEKLY_RECORD_LABELS[targetBoardKey] || "Classement hebdo";
+      targetBoardEntries = buildTargetWeeklyLeaderboard(targetBoardKey);
+    }
     const anchorFromElement = getRoundPlayerAnchorRectFromElement(anchorElement, nick);
     const hasPoint =
       clickPoint &&
@@ -13390,40 +11985,33 @@ export default function App() {
             height: 0,
           }
         : null;
-    const payload = buildRoundPlayerModalPayload(nick, anchorRect);
-    if (!payload) return;
     roundPlayerAnchorElementRef.current =
       anchorElement instanceof HTMLElement ? anchorElement : null;
     roundPlayerAnchorNickRef.current = nick;
-    setRoundPlayerModal(payload);
-  }
-
-  function navigateRoundPlayerModal(step = 1) {
-    if (!roundPlayerModal?.open) return;
-    const currentNick = String(roundPlayerModal?.nick || "").trim();
-    if (!currentNick) return;
-    const navEntries = Array.isArray(finalRanking)
-      ? finalRanking.filter((entry) => canOpenRoundPlayerDetails(entry))
-      : [];
-    if (!navEntries.length) return;
-    const currentIndex = navEntries.findIndex(
-      (entry) => String(entry?.nick || "").trim() === currentNick
-    );
-    if (currentIndex < 0) return;
-    const direction = Number(step) < 0 ? -1 : 1;
-    const nextIndex = clampValue(currentIndex + direction, 0, navEntries.length - 1);
-    if (nextIndex === currentIndex) return;
-    const nextNick = String(navEntries[nextIndex]?.nick || "").trim();
-    if (!nextNick) return;
-    const nextAnchorRect =
-      findRoundPlayerAnchorRectByNick(nextNick, roundPlayerModal.anchorRect) ||
-      roundPlayerModal.anchorRect ||
-      null;
-    const payload = buildRoundPlayerModalPayload(nextNick, nextAnchorRect);
-    if (!payload) return;
-    roundPlayerAnchorElementRef.current = null;
-    roundPlayerAnchorNickRef.current = nextNick;
-    setRoundPlayerModal(payload);
+    setRoundPlayerModal({
+      open: true,
+      nick,
+      words: isTargetRound ? [] : buildRoundWordsForPlayer(nick),
+      allWords: isTargetRound
+        ? []
+        : Array.isArray(allWords)
+        ? allWords.map((item) => {
+            const word = String(item?.word || "").trim();
+            const gobbleMeta =
+              typeof gobbleCandidates?.get === "function" ? gobbleCandidates.get(word) : null;
+            return {
+              word,
+              pts: Number.isFinite(item?.pts) ? item.pts : null,
+              isGobble: !!gobbleMeta,
+            };
+          })
+        : [],
+      records,
+      anchorRect,
+      targetBoardKey,
+      targetBoardLabel,
+      targetBoardEntries,
+    });
   }
 
   function closeRoundPlayerModal({ withSound = true } = {}) {
@@ -13637,12 +12225,10 @@ export default function App() {
   }
 
   function playErrorSound() {
-    if (!soundInvalidErrorEnabled) return;
     playDefeatTone([290, 230], "error");
   }
 
   function playInvalidWordSound() {
-    if (!soundInvalidErrorEnabled) return;
     if (isSfxMuted) return;
     playOneShotAudio(SFX_KEYS.invalidWord, {
       cooldownKey: "invalidWord",
@@ -13651,7 +12237,6 @@ export default function App() {
   }
 
   function playShortWordSound() {
-    if (!soundValidationEnabled) return;
     if (isSfxMuted) return;
     playOneShotAudio(SFX_KEYS.shortWord, {
       cooldownKey: "shortWord",
@@ -13660,7 +12245,6 @@ export default function App() {
   }
 
   function playAlreadyPlayedSound() {
-    if (!soundInvalidErrorEnabled) return;
     if (isSfxMuted) return;
     playOneShotAudio(SFX_KEYS.dejaJoue, {
       cooldownKey: "dejaJoue",
@@ -13669,7 +12253,6 @@ export default function App() {
   }
 
   function playDuplicateErrorTone() {
-    if (!soundInvalidErrorEnabled) return;
     playDefeatTone([320, 260], "duplicate");
   }
 
@@ -13764,8 +12347,6 @@ export default function App() {
    */
   function handleMouseDown(index, mode = "mouse") {
     if (phase !== "playing" || inputLocked) return;
-    clearGridHitboxCache();
-    buildGridHitboxMetrics();
     setActiveArea("game");
     draggingRef.current = true;
     setLastInputMode(mode);
@@ -13905,16 +12486,13 @@ return [...prevPath, index];
   function handleMouseUp() {
     if (!draggingRef.current) return;
     draggingRef.current = false;
-    clearGridHitboxCache();
     submit();
   }
 
-function handleTouchStart(e, index) {
+ function handleTouchStart(e, index) {
   if (phase !== "playing" || inputLocked) return;
   if (!e.touches || e.touches.length === 0) return;
 
-  clearGridHitboxCache();
-  buildGridHitboxMetrics();
   setActiveArea("game");
   draggingRef.current = true;
   setLastInputMode("touch");
@@ -13931,7 +12509,6 @@ function handleTouchStart(e, index) {
 function handleTouchMove(e) {
   if (!draggingRef.current) return;
   if (!e.touches || e.touches.length === 0) return;
-  if (e.cancelable) e.preventDefault();
 
   const touch = e.touches[0];
   const idx = getTileIndexFromPoint(touch.clientX, touch.clientY, true);
@@ -13952,7 +12529,6 @@ function handleMouseMove(e) {
 function handleTouchEnd() {
   if (!draggingRef.current) return;
   draggingRef.current = false;
-  clearGridHitboxCache();
   submit();
 }
 
@@ -14086,17 +12662,13 @@ function handleTouchEnd() {
       const maxPossibleLen = bestGridMaxLenRef.current || 0;
       const allowScoreGobble = !isSpeedRound;
       const allowLenGobble = true;
-      const isScoreGobbleNow =
-        allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts;
-      const isLenGobbleNow =
-        allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen;
-      const isGobbleNow = isScoreGobbleNow || isLenGobbleNow;
-      const isDoubleGobbleNow = isScoreGobbleNow && isLenGobbleNow;
+      const isGobbleNow =
+        (allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts) ||
+        (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
 
       if (!isTargetRoundNow) {
         if (isGobbleNow) {
-          if (isDoubleGobbleNow) playDoubleGobbleVoice();
-          else playGobbleVoice();
+          playGobbleVoice();
           triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
           triggerConfettiBurst("gobble");
         } else if (safePts > 29) {
@@ -14293,16 +12865,12 @@ function handleTouchEnd() {
     const maxPossibleLen = bestGridMaxLenRef.current || 0;
     const allowScoreGobble = !isSpeedRound;
     const allowLenGobble = true;
-    const isScoreGobbleNow =
-      allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts;
-    const isLenGobbleNow =
-      allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen;
-    const isGobbleNow = isScoreGobbleNow || isLenGobbleNow;
-    const isDoubleGobbleNow = isScoreGobbleNow && isLenGobbleNow;
+    const isGobbleNow =
+      (allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts) ||
+      (allowLenGobble && maxPossibleLen > 0 && wordLen === maxPossibleLen);
 
     if (isGobbleNow) {
-      if (isDoubleGobbleNow) playDoubleGobbleVoice();
-      else playGobbleVoice();
+      playGobbleVoice();
       triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
       triggerConfettiBurst("gobble");
     } else if (pts > 29) {
@@ -14447,33 +13015,6 @@ function handleTouchEnd() {
   }
 
   // Chat
-  function appendChatEmoji(emoji) {
-    const value = String(emoji || "").trim();
-    if (!value || chatInputDisabled) return;
-    setChatInput((prev) => {
-      const base = String(prev || "");
-      if (!base) return value;
-      return /\s$/.test(base) ? `${base}${value}` : `${base} ${value}`;
-    });
-    setActiveArea("chat");
-    try {
-      chatInputRef.current?.focus();
-    } catch (_) {}
-  }
-
-  function autoResizeDesktopChatInput(el = chatInputRef.current) {
-    const node = el;
-    if (!node || node.tagName !== "TEXTAREA") return;
-    node.style.height = "auto";
-    const nextHeight = Math.min(node.scrollHeight, 140);
-    node.style.height = `${Math.max(40, nextHeight)}px`;
-    node.style.overflowY = node.scrollHeight > 140 ? "auto" : "hidden";
-  }
-
-  useEffect(() => {
-    autoResizeDesktopChatInput();
-  }, [chatInput]);
-
   function submitChat(e, forcedText = null) {
     if (e) e.preventDefault();
     const text = (forcedText ?? chatInput).trim();
@@ -15582,10 +14123,8 @@ function handleTouchEnd() {
   const visibleMessages = activeChatMessages;
   const lastMessageId =
     visibleMessages[visibleMessages.length - 1]?.id ?? null;
+  const chatMessagesCount = chatMessagesOnly.length;
   const chatSystemCount = chatSystemMessages.length;
-  const chatMessagesUnreadCount = isLoggedIn
-    ? mobileChatUnreadCount
-    : homeChatUnreadCount;
 
   const selfNick = nickname.trim();
   const blockedCount = blockedInstallIds.length;
@@ -16767,25 +15306,21 @@ function handleTouchEnd() {
   const effectiveGridWidth = maxGridSideByHeight
     ? Math.min(widthCandidate, maxGridSideByHeight)
     : widthCandidate;
-  const isSquareMaterial = tileMaterialPreset === "square";
   const gapRatio = Math.max(0.08, Math.min(0.18, BASE_GAP_RATIO));
-  const effectiveDesktopPaddingPx = isSquareMaterial ? 0 : GRID_PADDING_PX;
-  const effectiveGapRatio = isSquareMaterial ? 0 : gapRatio;
   const innerGridWidth = Math.max(
     0,
-    (effectiveGridWidth || 0) - effectiveDesktopPaddingPx
+    (effectiveGridWidth || 0) - GRID_PADDING_PX
   );
   const tileSizeRaw =
     innerGridWidth > 0
-      ? innerGridWidth / (gridSize + effectiveGapRatio * (gridSize - 1))
+      ? innerGridWidth / (gridSize + gapRatio * (gridSize - 1))
       : BASE_TILE_PX;
   const tileSizePx = Math.max(MIN_TILE_SIZE, tileSizeRaw);
-  const tileGapPx = isSquareMaterial ? 0 : clampValue(tileSizePx * gapRatio, 4, 10);
+  const tileGapPx = clampValue(tileSizePx * gapRatio, 4, 10);
   const computedGridWidth =
-    tileSizePx * gridSize + tileGapPx * (gridSize - 1) + effectiveDesktopPaddingPx;
+    tileSizePx * gridSize + tileGapPx * (gridSize - 1) + GRID_PADDING_PX;
   const fontScale = 1;
   const tileFontPx = Math.max(14, Math.min(32, tileSizePx * 0.48 * fontScale));
-  const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
   const countdownLabel = (() => {
     if (phase === "playing") {
       const sec = Math.max(0, tick || 0);
@@ -18456,18 +16991,6 @@ function handleTouchEnd() {
         )
       : null;
   const roundPlayerModalView = (
-    (() => {
-      const navEntries = Array.isArray(finalRanking)
-        ? finalRanking.filter((entry) => canOpenRoundPlayerDetails(entry))
-        : [];
-      const navIndex = navEntries.findIndex(
-        (entry) => String(entry?.nick || "").trim() === String(roundPlayerModal.nick || "").trim()
-      );
-      const playerRank = navIndex >= 0 ? navIndex + 1 : null;
-      const playerRankTotal = navEntries.length;
-      const canGoPrev = navIndex > 0;
-      const canGoNext = navIndex >= 0 && navIndex < navEntries.length - 1;
-      return (
     <RoundPlayerDetailsModal
       open={roundPlayerModal.open}
       darkMode={darkMode}
@@ -18482,26 +17005,6 @@ function handleTouchEnd() {
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
       showWordScores={specialRound?.type !== "speed"}
-      playerRank={playerRank}
-      playerRankTotal={playerRankTotal}
-      canGoPrev={canGoPrev}
-      canGoNext={canGoNext}
-      onPrevPlayer={
-        canGoPrev
-          ? () => {
-              playSwipeSound();
-              navigateRoundPlayerModal(-1);
-            }
-          : null
-      }
-      onNextPlayer={
-        canGoNext
-          ? () => {
-              playSwipeSound();
-              navigateRoundPlayerModal(1);
-            }
-          : null
-      }
       onToggleWordViewSound={playSwipeSound}
       onClose={() => closeRoundPlayerModal({ withSound: true })}
       onOpenDefinition={(word) => {
@@ -18509,8 +17012,6 @@ function handleTouchEnd() {
         openDefinition(word, { fromWordInfo: true });
       }}
     />
-      );
-    })()
   );
 
   const recordModalRecords =
@@ -18895,758 +17396,11 @@ function handleTouchEnd() {
       onComplete={completeTutorial}
     />
   );
+  const sfxOn = !isSfxMuted;
   const ambientOn = !isAmbientMuted;
-  const allSoundOn =
-    ambientOn &&
-    soundValidationEnabled &&
-    soundTileStepEnabled &&
-    soundTimerEnabled &&
-    soundGobbleEnabled &&
-    soundInvalidErrorEnabled;
-  const enabledSoundCount = [
-    ambientOn,
-    soundValidationEnabled,
-    soundTileStepEnabled,
-    soundTimerEnabled,
-    soundGobbleEnabled,
-    soundInvalidErrorEnabled,
-  ].filter(Boolean).length;
   const vibrationOn = isVibrationEnabled && canVibrate;
-  const setAllSoundEnabled = React.useCallback((enabled) => {
-    const next = !!enabled;
-    setIsAmbientMuted(!next);
-    setSoundValidationEnabled(next);
-    setSoundTileStepEnabled(next);
-    setSoundTimerEnabled(next);
-    setSoundGobbleEnabled(next);
-    setSoundInvalidErrorEnabled(next);
-  }, []);
-  const tileLetterColorSelected =
-    LETTER_COLOR_MAP[tileLetterColorPreset] || LETTER_COLOR_MAP[DEFAULT_THEME_PRESET.letterColor];
-  const gobblarsBadgeUrl = getImageUrl(IMAGE_KEYS.gobblarsBadge) || "/Gobblars.png";
-  const accountLinkCode = React.useMemo(
-    () => buildAccountLinkCode(installId),
-    [installId]
-  );
-  const copyAccountLinkCode = async () => {
-    if (!accountLinkCode) {
-      setAccountLinkError("Code indisponible.");
-      setAccountLinkInfo("");
-      return;
-    }
-    const value = accountLinkCode;
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-      } else if (typeof document !== "undefined") {
-        const textarea = document.createElement("textarea");
-        textarea.value = value;
-        textarea.setAttribute("readonly", "");
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        const copied = document.execCommand("copy");
-        document.body.removeChild(textarea);
-        if (!copied) throw new Error("copy_failed");
-      }
-      setAccountLinkInfo("Code copié.");
-      setAccountLinkError("");
-    } catch (_) {
-      setAccountLinkError("Impossible de copier le code.");
-      setAccountLinkInfo("");
-    }
-  };
-  const formatAccountLinkActivity = (rawTs) => {
-    const ts = Number(rawTs);
-    if (!Number.isFinite(ts) || ts <= 0) return "Inconnue";
-    try {
-      return new Date(ts).toLocaleString("fr-FR", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-    } catch (_) {
-      return "Inconnue";
-    }
-  };
-  const formatAccountLinkValidationError = (errorCode) => {
-    switch (String(errorCode || "")) {
-      case "empty":
-      case "empty_code":
-        return "Entre un code.";
-      case "format":
-      case "invalid_format":
-        return "Code invalide (format).";
-      case "prefix":
-      case "invalid_prefix":
-        return "Code invalide (prefixe).";
-      case "checksum":
-      case "invalid_checksum":
-        return "Code invalide.";
-      case "install_id":
-      case "invalid_install_id":
-        return "Code invalide (identifiant).";
-      default:
-        return "Code invalide.";
-    }
-  };
-  const verifyAccountLinkCode = async () => {
-    const rawCode = String(accountLinkInput || "").trim();
-    if (!rawCode) {
-      setAccountLinkError("Entre un code.");
-      setAccountLinkInfo("");
-      setAccountLinkPreview(null);
-      return;
-    }
-    const normalizedCode = rawCode.replace(/[‐‑‒–—﹘﹣－]/g, "-");
-    const localParsed = parseAccountLinkCode(normalizedCode);
-    if (!localParsed?.ok || !localParsed.installId) {
-      setAccountLinkError(formatAccountLinkValidationError(localParsed?.error));
-      setAccountLinkInfo("");
-      setAccountLinkPreview(null);
-      return;
-    }
-    setAccountLinkChecking(true);
-    setAccountLinkError("");
-    setAccountLinkInfo("");
-    setAccountLinkPreview(null);
-    try {
-      const res = await fetch("/api/account/link-preview", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ code: normalizedCode }),
-      });
-      const parsed = await readJsonResponseLoose(res);
-      const payload = parsed?.data;
-      const serverAccepted = !!(res.ok && payload?.ok && payload?.installId);
-      const resolvedInstallId = serverAccepted ? payload.installId : localParsed.installId;
-      const profile =
-        serverAccepted && payload?.profile && typeof payload.profile === "object"
-          ? payload.profile
-          : {};
-      setAccountLinkPreview({
-        code: rawCode,
-        installId: resolvedInstallId,
-        nick: typeof profile.nick === "string" ? profile.nick : "",
-        lastActivityTs: Number(profile.lastActivityTs) || 0,
-        vocabCount: Number(profile.vocabCount) || 0,
-        vocabRank:
-          Number.isFinite(profile.vocabRank) && Number(profile.vocabRank) > 0
-            ? Number(profile.vocabRank)
-            : null,
-        vocabTotalPlayers: Number(profile.vocabTotalPlayers) || 0,
-        found: serverAccepted ? !!payload?.found : false,
-      });
-      setAccountLinkInfo(serverAccepted ? "Code valide." : "Code valide (apercu indisponible).");
-      setAccountLinkError("");
-    } catch (_) {
-      setAccountLinkPreview({
-        code: rawCode,
-        installId: localParsed.installId,
-        nick: "",
-        lastActivityTs: 0,
-        vocabCount: 0,
-        vocabRank: null,
-        vocabTotalPlayers: 0,
-        found: false,
-      });
-      setAccountLinkInfo("Code valide (apercu indisponible).");
-      setAccountLinkError("");
-    } finally {
-      setAccountLinkChecking(false);
-    }
-  };
-  const applyAccountLinkCode = async () => {
-    const rawCode = String(accountLinkInput || "").trim();
-    const normalizedCode = rawCode.replace(/[‐‑‒–—﹘﹣－]/g, "-");
-    const preview =
-      accountLinkPreview && accountLinkPreview.code === rawCode
-        ? accountLinkPreview
-        : null;
-    if (!preview?.installId) {
-      setAccountLinkError("Vérifie d'abord le code.");
-      setAccountLinkInfo("");
-      return;
-    }
-    let nextInstallId = preview.installId;
-    if (nextInstallId === installId) {
-      setAccountLinkInfo("Ce compte est déjà lié sur cet appareil.");
-      setAccountLinkError("");
-      return;
-    }
-    try {
-      let serverLinked = false;
-      try {
-        const res = await fetch("/api/account/link-apply", {
-          method: "POST",
-          cache: "no-store",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            currentInstallId: installId,
-            code: normalizedCode,
-          }),
-        });
-        const parsed = await readJsonResponseLoose(res);
-        const payload = parsed?.data;
-        if (res.ok && payload?.ok) {
-          serverLinked = true;
-          if (typeof payload?.canonicalInstallId === "string" && payload.canonicalInstallId.trim()) {
-            nextInstallId = payload.canonicalInstallId.trim();
-          }
-        }
-      } catch (_) {}
-      localStorage.setItem(INSTALL_ID_STORAGE_KEY, nextInstallId);
-      const existingCreatedAt = localStorage.getItem(INSTALL_ID_CREATED_AT_STORAGE_KEY);
-      if (!existingCreatedAt) {
-        localStorage.setItem(INSTALL_ID_CREATED_AT_STORAGE_KEY, String(Date.now()));
-      }
-      const currentSession = sessionRef.current;
-      if (currentSession?.nick && currentSession?.roomId) {
-        persistSession({
-          nick: currentSession.nick,
-          roomId: currentSession.roomId,
-          installId: nextInstallId,
-        });
-      }
-      setAccountLinkError("");
-      setAccountLinkInfo(
-        serverLinked
-          ? "Compte lié. Rechargement..."
-          : "Compte lié localement. Fusion serveur indisponible."
-      );
-      window.setTimeout(() => {
-        if (typeof window !== "undefined") {
-          window.location.reload();
-        }
-      }, 120);
-    } catch (_) {
-      setAccountLinkError("Impossible d'appliquer ce code.");
-      setAccountLinkInfo("");
-    }
-  };
-  const themeDraftSafe = React.useMemo(() => normalizeThemePreset(themeDraft), [themeDraft]);
-  const themeAppliedSafe = React.useMemo(() => normalizeThemePreset(themeApplied), [themeApplied]);
-  const themePreviewBackgroundStyle = React.useMemo(() => {
-    const bgMeta = BACKGROUND_MAP[themeDraftSafe.background] || {};
-    const style = bgMeta.style || {};
-    if (bgMeta.native) {
-      return {
-        backgroundColor: darkMode ? "#0f172a" : "#f8fafc",
-        backgroundImage: "none",
-      };
-    }
-    return {
-      backgroundColor: style.color || "#dbeafe",
-      backgroundImage: style.image || "none",
-      backgroundSize: style.size || "auto",
-      backgroundRepeat: style.repeat || "repeat",
-      backgroundPosition: style.position || "center",
-    };
-  }, [darkMode, themeDraftSafe.background]);
-  const themePreviewTileColor =
-    TILE_COLOR_MAP[themeDraftSafe.tileColor] || TILE_COLOR_MAP[DEFAULT_THEME_PRESET.tileColor];
-  const themePreviewMaterialClass = getTileMaterialClass(themeDraftSafe.material);
-  const themePreviewCells = React.useMemo(
-    () => [
-      { letter: "G", bonus: "M2" },
-      { letter: "O", bonus: null },
-      { letter: "B", bonus: "L2" },
-      { letter: "B", bonus: null },
-      { letter: "L", bonus: "L3" },
-      { letter: "E", bonus: "M3" },
-      { letter: "A", bonus: null },
-      { letter: "R", bonus: "L2" },
-      { letter: "T", bonus: null },
-      { letter: "H", bonus: "M2" },
-      { letter: "E", bonus: null },
-      { letter: "M", bonus: "L3" },
-      { letter: "E", bonus: "L2" },
-      { letter: "X", bonus: null },
-      { letter: "Y", bonus: null },
-      { letter: "Z", bonus: "M3" },
-    ],
-    []
-  );
-  const themePreviewGridRef = useRef(null);
-  const themePreviewTileRefs = useRef([]);
-  const themePreviewEmptySet = React.useMemo(() => new Set(), []);
-  const themePreviewNoop = React.useCallback(() => {}, []);
-  const themePreviewMobileGapPx = "clamp(6px, 2.4vw, 14px)";
-  const themePreviewMobileGridSide = React.useMemo(() => {
-    const viewportWidth =
-      mobileLayoutSizing.viewportWidth ||
-      (typeof window !== "undefined" ? window.innerWidth : 360);
-    return Math.round(Math.max(180, Math.min(viewportWidth - 96, 320)));
-  }, [mobileLayoutSizing.viewportWidth]);
-  const themePreviewMobileTileFontPx = React.useMemo(
-    () =>
-      Math.max(
-        18,
-        Math.min(32, Math.round((themePreviewMobileGridSide / 4) * 0.35))
-      ),
-    [themePreviewMobileGridSide]
-  );
-  const themePreviewUseFill = themeDraftSafe.specialIndicator === "fill";
-  const themePreviewUseRing = themeDraftSafe.specialIndicator === "ring";
-  const themePreviewUseBadge = themeDraftSafe.specialIndicator === "badge";
-  const themePreviewIsSquare = themeDraftSafe.material === "square";
-  const themePreviewGap = themePreviewIsSquare
-    ? "0px"
-    : isMobileLayout
-    ? "4px"
-    : `${tileGapPx}px`;
-  const themePreviewPadding = themePreviewIsSquare ? "0px" : isMobileLayout ? "8px" : "16px";
-  const themeControlButtons = React.useMemo(
-    () => [
-      { id: "darkMode", kind: "toggle", title: "Mode clair/sombre" },
-      { id: "tileColor", kind: "picker", title: "Couleur de tuile" },
-      { id: "font", kind: "picker", title: "Police" },
-      { id: "letterScale", kind: "picker", title: "Taille des lettres" },
-      { id: "letterColor", kind: "picker", title: "Couleur des lettres" },
-      { id: "background", kind: "picker", title: "Fond / papier peint" },
-      { id: "material", kind: "picker", title: "Formes" },
-      { id: "specialIndicator", kind: "picker", title: "Indicateur spéciale" },
-      { id: "tilePoints", kind: "toggle", title: "Score sur tuile" },
-    ],
-    []
-  );
-  const isThemeCategoryLockable = React.useCallback(
-    (category) => THEME_LOCKABLE_CATEGORIES.includes(String(category || "")),
-    []
-  );
-  const isThemeOptionUnlocked = React.useCallback(
-    (category, optionId, unlocksOverride = null) => {
-      const safeUnlocks = unlocksOverride && typeof unlocksOverride === "object"
-        ? unlocksOverride
-        : themeUnlocks;
-      return isThemeOptionUnlockedFromMap(safeUnlocks, category, optionId);
-    },
-    [themeUnlocks]
-  );
-  const computeThemeApplyMeta = React.useCallback(
-    (mode, category = "", draftOverride = null) => {
-      const safeMode = mode === "single" ? "single" : "full";
-      const safeCategory = String(category || "").trim();
-      const draftTheme = normalizeThemePreset(draftOverride || themeDraftSafe);
-      const categoriesToApply =
-        safeMode === "single"
-          ? [safeCategory].filter((key) => THEME_PRESET_CATEGORIES.includes(key))
-          : THEME_PRESET_CATEGORIES.slice();
-      const changedCategories = categoriesToApply.filter(
-        (key) =>
-          getThemeCategoryValue(themeAppliedSafe, key) !==
-          getThemeCategoryValue(draftTheme, key)
-      );
-      const requiredUnlocks = changedCategories
-        .map((key) => {
-          if (!isThemeCategoryLockable(key)) return "";
-          const optionId = getThemeCategoryValue(draftTheme, key);
-          const defaultId = getThemeCategoryValue(DEFAULT_THEME_PRESET, key);
-          if (optionId === defaultId) return "";
-          if (isThemeOptionUnlocked(key, optionId, themeUnlocks)) return "";
-          return getThemeUnlockItemKey(key, optionId);
-        })
-        .filter(Boolean);
-      const parsedUnlockCost = Number(themeUnlockCost);
-      const unlockUnitCost = Math.max(
-        0,
-        Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST_DEFAULT
-      );
-      const totalCost = requiredUnlocks.length * unlockUnitCost;
-      const canAfford = gobblarsBalance >= totalCost;
-      return {
-        mode: safeMode,
-        category: safeCategory,
-        categoriesToApply,
-        changedCategories,
-        requiredUnlocks,
-        draftTheme,
-        unlockUnitCost,
-        totalCost,
-        canAfford,
-      };
-    },
-    [
-      gobblarsBalance,
-      isThemeCategoryLockable,
-      isThemeOptionUnlocked,
-      themeAppliedSafe,
-      themeDraftSafe,
-      themeUnlocks,
-      themeUnlockCost,
-    ]
-  );
-  const themeSingleApplyMeta = React.useMemo(
-    () => computeThemeApplyMeta("single", themeLastChangedCategory),
-    [computeThemeApplyMeta, themeLastChangedCategory]
-  );
-  const themeFullApplyMeta = React.useMemo(
-    () => computeThemeApplyMeta("full"),
-    [computeThemeApplyMeta]
-  );
-  const applyThemeDraftCategory = React.useCallback(
-    (category, value) => {
-      const key = String(category || "").trim();
-      if (!THEME_PRESET_CATEGORIES.includes(key)) return;
-      const nextDraft = normalizeThemePreset({
-        ...themeDraftSafe,
-        [key]:
-          key === "darkMode"
-            ? !!value
-            : key === "letterScale"
-            ? normalizeTileLetterScale(value, themeDraftSafe.letterScale)
-            : value,
-      });
-      setThemeLastChangedCategory(key);
-      setThemeDraft(nextDraft);
-      applyThemeVisualState(nextDraft);
-    },
-    [applyThemeVisualState, themeDraftSafe]
-  );
-  const buildThemeDraftWithOption = React.useCallback(
-    (category, optionId) =>
-      normalizeThemePreset({
-        ...themeDraftSafe,
-        [String(category || "").trim()]: optionId,
-      }),
-    [themeDraftSafe]
-  );
-  const closeThemeMenu = React.useCallback(() => {
-    setIsThemeMenuOpen(false);
-    setThemePickerCategory("");
-    setThemePurchaseConfirm(null);
-    setThemeDraft(themeAppliedSafe);
-    applyThemeVisualState(themeAppliedSafe);
-  }, [applyThemeVisualState, themeAppliedSafe]);
-  const fetchThemeProfile = React.useCallback(
-    async ({ silent = false, announceGain = false, force = false } = {}) => {
-      if (!installId) return null;
-      const fetchState = themeProfileFetchStateRef.current;
-      const now = Date.now();
-      if (fetchState.inFlight) return null;
-      if (!force && silent && now - (Number(fetchState.lastAt) || 0) < 3000) {
-        return null;
-      }
-      fetchState.inFlight = true;
-      fetchState.lastAt = now;
-      if (!silent) setThemeLoading(true);
-      try {
-        const res = await fetch(
-          `/api/theme/profile?installId=${encodeURIComponent(installId)}`,
-          {
-            cache: "no-store",
-            headers: { Accept: "application/json" },
-          }
-        );
-        const parsed = await readJsonResponseLoose(res);
-        const payload = parsed?.data;
-        if (!res.ok || !payload?.ok) return null;
-        const nextUnlocks = normalizeThemeUnlocks(
-          payload.themeUnlocks || {},
-          payload.themeApplied || {}
-        );
-        const nextThemeFromServer = coerceThemeToLegacyNativeDefault(
-          payload.themeApplied || {},
-          nextUnlocks
-        );
-        const nextTheme = normalizeThemePreset({
-          ...nextThemeFromServer,
-          // La preference localement appliquee (clair/sombre) reste prioritaire.
-          darkMode: !!darkMode,
-          // Champ local (non persisté serveur pour l'instant): on preserve.
-          gridSurface: themeAppliedSafe.gridSurface,
-        });
-        const nextBalance = Math.max(0, Number(payload.balance) || 0);
-        const prevBalance = Number(gobblarsKnownBalanceRef.current);
-        if (
-          announceGain &&
-          Number.isFinite(prevBalance) &&
-          nextBalance > prevBalance
-        ) {
-          const gain = nextBalance - prevBalance;
-          showToastRef.current?.(`+${gain} Gobblars`, 2600, {
-            iconSrc: gobblarsBadgeUrl,
-            iconAlt: "Gobblars",
-          });
-        }
-        gobblarsKnownBalanceRef.current = nextBalance;
-        setGobblarsBalance(nextBalance);
-        const parsedUnlockCost = Number(payload.unlockCost);
-        setThemeUnlockCost(
-          Math.max(
-            0,
-            Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST_DEFAULT
-          )
-        );
-        setThemeUnlocks(nextUnlocks);
-        if (isThemeMenuOpen) {
-          setThemeApplied(nextTheme);
-        } else {
-          applyThemePresetToLocalState(nextTheme, { syncDraft: true });
-        }
-        return payload;
-      } catch (_) {
-        return null;
-      } finally {
-        fetchState.inFlight = false;
-        if (!silent) setThemeLoading(false);
-      }
-    },
-    [
-      applyThemePresetToLocalState,
-      darkMode,
-      gobblarsBadgeUrl,
-      installId,
-      isThemeMenuOpen,
-      themeAppliedSafe.gridSurface,
-    ]
-  );
-  const openThemeMenu = React.useCallback(() => {
-    setIsSoundMenuOpen(false);
-    setThemeDraft(themeAppliedSafe);
-    applyThemeVisualState(themeAppliedSafe);
-    setThemePickerCategory("");
-    setThemePurchaseConfirm(null);
-    setIsThemeMenuOpen(true);
-    void fetchThemeProfile({ silent: true, force: true });
-  }, [applyThemeVisualState, fetchThemeProfile, themeAppliedSafe]);
-  const openSoundMenu = React.useCallback(() => {
-    setIsThemeMenuOpen(false);
-    setIsSoundMenuOpen(true);
-  }, []);
-  const closeSoundMenu = React.useCallback(() => {
-    setIsSoundMenuOpen(false);
-  }, []);
-  fetchThemeProfileRef.current = fetchThemeProfile;
-  const requestThemeResetDefault = React.useCallback(() => {
-    const defaults = normalizeThemePreset({
-      ...DEFAULT_THEME_PRESET,
-      darkMode: !!themeDraftSafe.darkMode,
-    });
-    setThemeDraft(defaults);
-    setThemeLastChangedCategory("tileColor");
-    applyThemeVisualState(defaults);
-  }, [applyThemeVisualState, themeDraftSafe.darkMode]);
-  const executeThemeApply = React.useCallback(
-    async (actionMeta) => {
-      if (!installId || themeApplying) return false;
-      const mode = actionMeta?.mode === "single" ? "single" : "full";
-      const category =
-        mode === "single" ? String(actionMeta?.category || themeLastChangedCategory || "") : "";
-      const draftThemeForApply = normalizeThemePreset(actionMeta?.draftTheme || themeDraftSafe);
-      setThemeApplying(true);
-      try {
-        const res = await fetch("/api/theme/apply", {
-          method: "POST",
-          cache: "no-store",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            installId,
-            mode,
-            category,
-            draftTheme: draftThemeForApply,
-          }),
-        });
-        const parsed = await readJsonResponseLoose(res);
-        const payload = parsed?.data;
-        if (!res.ok || !payload?.ok) {
-          if (payload?.error === "insufficient_funds") {
-            const required = Math.max(0, Number(payload?.required) || 0);
-            const balance = Math.max(0, Number(payload?.balance) || 0);
-            gobblarsKnownBalanceRef.current = balance;
-            setGobblarsBalance(balance);
-            showToast(
-              required > 0
-                ? `Pas assez de Gobblars (${balance}/${required}).`
-                : "Pas assez de Gobblars.",
-              2600,
-              { iconSrc: gobblarsBadgeUrl, iconAlt: "Gobblars" }
-            );
-          } else {
-            showToast("Impossible d'appliquer ce thème.");
-          }
-          return false;
-        }
-        const nextUnlocks = normalizeThemeUnlocks(
-          payload.themeUnlocks || {},
-          payload.themeApplied || themeDraftSafe
-        );
-        const nextTheme = coerceThemeToLegacyNativeDefault(
-          payload.themeApplied || draftThemeForApply,
-          nextUnlocks
-        );
-        const unlockedNow = Object.keys(nextUnlocks || {}).filter(
-          (key) => !!nextUnlocks[key] && !themeUnlocks?.[key]
-        );
-        const nextBalance = Math.max(0, Number(payload.balance) || 0);
-        gobblarsKnownBalanceRef.current = nextBalance;
-        setGobblarsBalance(nextBalance);
-        {
-          const parsedUnlockCost = Number(payload.unlockCost);
-          setThemeUnlockCost(
-            Math.max(
-              0,
-              Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST_DEFAULT
-            )
-          );
-        }
-        setThemeUnlocks(nextUnlocks);
-        applyThemePresetToLocalState(nextTheme, { syncDraft: true });
-        if (unlockedNow.length > 0) {
-          setThemeRecentlyUnlocked(unlockedNow);
-          setThemeUnlockAnimToken((prev) => prev + 1);
-          showToast(`Déverrouillé: ${unlockedNow.length} option(s).`);
-          window.setTimeout(() => {
-            setThemeRecentlyUnlocked((prev) =>
-              prev.filter((key) => !unlockedNow.includes(key))
-            );
-          }, 650);
-        }
-        const spent = Math.max(0, Number(payload.spent) || 0);
-        showToast(spent > 0 ? `-${spent} Gobblars` : "Thème appliqué.", 2600, {
-          iconSrc: spent > 0 ? gobblarsBadgeUrl : "",
-          iconAlt: "Gobblars",
-        });
-        setThemePurchaseConfirm(null);
-        return true;
-      } catch (_) {
-        showToast("Erreur réseau thème.");
-        return false;
-      } finally {
-        setThemeApplying(false);
-      }
-    },
-    [
-      applyThemePresetToLocalState,
-      installId,
-      gobblarsBadgeUrl,
-      showToast,
-      themeApplying,
-      themeDraftSafe,
-      themeLastChangedCategory,
-      themeUnlocks,
-    ]
-  );
-  const handleThemeAction = React.useCallback(
-    (actionMeta) => {
-      if (!actionMeta) return;
-      const hasAnyChange = actionMeta.changedCategories.length > 0;
-      if (!hasAnyChange) {
-        closeThemeMenu();
-        return;
-      }
-      if (actionMeta.totalCost > 0) {
-        setThemePurchaseConfirm(actionMeta);
-        return;
-      }
-      void executeThemeApply(actionMeta);
-    },
-    [closeThemeMenu, executeThemeApply]
-  );
-  const handleThemeOptionBuy = React.useCallback(
-    (category, optionId) => {
-      const safeCategory = String(category || "").trim();
-      if (!safeCategory) return;
-      const nextDraft = buildThemeDraftWithOption(safeCategory, optionId);
-      setThemeLastChangedCategory(safeCategory);
-      setThemeDraft(nextDraft);
-      applyThemeVisualState(nextDraft);
-      const actionMeta = {
-        ...computeThemeApplyMeta("single", safeCategory, nextDraft),
-        draftTheme: nextDraft,
-      };
-      handleThemeAction(actionMeta);
-    },
-    [
-      applyThemeVisualState,
-      buildThemeDraftWithOption,
-      computeThemeApplyMeta,
-      handleThemeAction,
-    ]
-  );
-  const confirmThemePurchase = React.useCallback(() => {
-    if (!themePurchaseConfirm) return;
-    if (themePurchaseConfirm.totalCost > gobblarsBalance) {
-      showToast("Pas assez de Gobblars.", 2600, {
-        iconSrc: gobblarsBadgeUrl,
-        iconAlt: "Gobblars",
-      });
-      return;
-    }
-    void executeThemeApply(themePurchaseConfirm);
-  }, [executeThemeApply, gobblarsBalance, gobblarsBadgeUrl, showToast, themePurchaseConfirm]);
-  useEffect(() => {
-    if (!installId) return undefined;
-    const safeFetch = (opts) => void fetchThemeProfileRef.current?.(opts);
-    safeFetch({ silent: true, force: true });
-    const intervalId = window.setInterval(() => {
-      safeFetch({ silent: true });
-    }, 120000);
-    const onFocus = () => safeFetch({ silent: true });
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        safeFetch({ silent: true });
-      }
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.clearInterval(intervalId);
-    };
-  }, [installId]);
-  useEffect(() => {
-    if (isSettingsOpen) return;
-    setIsSoundMenuOpen(false);
-    setIsThemeMenuOpen(false);
-    setThemePickerCategory("");
-    setThemePurchaseConfirm(null);
-    setThemeDraft(themeAppliedSafe);
-    applyThemeVisualState(themeAppliedSafe);
-  }, [applyThemeVisualState, isSettingsOpen, themeAppliedSafe]);
-  const themeSingleActionLabel = themeSingleApplyMeta.totalCost > 0 ? "Acheter" : "Appliquer";
-  const themeFullActionLabel = themeFullApplyMeta.totalCost > 0 ? "Acheter le thème" : "Appliquer";
-  const themeCategoryLabel = React.useCallback(
-    (category) =>
-      category === "darkMode"
-        ? "Mode clair/sombre"
-        : THEME_PICKER_LABELS[category] || String(category || ""),
-    []
-  );
-  const themeFullChangedLabels = React.useMemo(
-    () => (themeFullApplyMeta.changedCategories || []).map((key) => themeCategoryLabel(key)),
-    [themeCategoryLabel, themeFullApplyMeta.changedCategories]
-  );
-  const themeFullChangedSummary =
-    themeFullChangedLabels.length > 0
-      ? themeFullChangedLabels.join(" · ")
-      : "Aucun paramètre modifié";
-  const themePickerOptions = THEME_PICKER_OPTIONS[themePickerCategory] || [];
-  const themePickerTitle = THEME_PICKER_LABELS[themePickerCategory] || "Choix";
-  const themePickerCurrentValue =
-    themePickerCategory && themeDraftSafe && Object.prototype.hasOwnProperty.call(themeDraftSafe, themePickerCategory)
-      ? themeDraftSafe[themePickerCategory]
-      : null;
-  const themePickerViewMode =
-    themePickerCategory === "tileColor" ||
-    themePickerCategory === "letterColor" ||
-    themePickerCategory === "background"
-      ? "palette"
-      : themePickerCategory === "letterScale"
-      ? "slider"
-      : themePickerCategory === "font"
-      ? "font-list"
-      : "list";
-  const themeLastCategoryLabel =
-    themeLastChangedCategory === "darkMode"
-      ? "Mode clair/sombre"
-      : THEME_PICKER_LABELS[themeLastChangedCategory] || "Dernier changement";
   const settingsMenuView = isSettingsOpen ? (
     <div className="fixed inset-0 z-[20000] flex items-start justify-end p-4">
-      <style>{slideStyles}</style>
       <button
         type="button"
         className="absolute inset-0 bg-black/45"
@@ -19684,7 +17438,7 @@ function handleTouchEnd() {
         <div className="flex flex-col gap-2 text-sm">
           <button
             type="button"
-            onClick={openThemeMenu}
+            onClick={() => setDarkMode((v) => !v)}
             className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
               darkMode
                 ? "bg-slate-800/80 border-white/10 text-slate-100"
@@ -19692,87 +17446,148 @@ function handleTouchEnd() {
             }`}
           >
             <span className="inline-flex items-center gap-2">
-              <span
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${
-                  darkMode
-                    ? "bg-slate-700 border-white/15 text-amber-300"
-                    : "bg-white border-slate-300 text-amber-500"
-                }`}
-              >
-                {darkMode ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="4" />
-                    <path d="M12 2v2" />
-                    <path d="M12 20v2" />
-                    <path d="m4.93 4.93 1.41 1.41" />
-                    <path d="m17.66 17.66 1.41 1.41" />
-                    <path d="M2 12h2" />
-                    <path d="M20 12h2" />
-                    <path d="m6.34 17.66-1.41 1.41" />
-                    <path d="m19.07 4.93-1.41 1.41" />
-                  </svg>
-                )}
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Thème</span>
-                <span className="text-[10px] opacity-70">
-                  Personnaliser les tuiles et l'interface
-                </span>
-              </span>
+              {darkMode ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                </svg>
+              )}
+              <span>{darkMode ? "Mode clair" : "Mode sombre"}</span>
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold border border-amber-300/40 bg-amber-300/15 text-amber-500">
-              <img src={gobblarsBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
-              {Math.max(0, Number(gobblarsBalance) || 0)}
+            <span className="text-[10px] font-semibold opacity-70">
+              {darkMode ? "Sombre" : "Clair"}
             </span>
           </button>
           <button
             type="button"
-            onClick={openSoundMenu}
+            onClick={() => setIsSfxMuted((v) => !v)}
             className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
               darkMode
-                ? allSoundOn
+                ? sfxOn
                   ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                  : "bg-slate-800/80 border-white/10 text-slate-100"
-                : allSoundOn
+                  : "bg-rose-950/70 border-rose-400/40 text-slate-100"
+                : sfxOn
                 ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                : "bg-slate-50 border-slate-200 text-slate-800"
+                : "bg-rose-100 border-rose-300 text-slate-800"
             }`}
           >
             <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                volume_up
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Son</span>
-                <span className="text-[10px] opacity-70">
-                  {enabledSoundCount}/6 activés
-                </span>
-              </span>
+              {isSfxMuted ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 5L6 9H3v6h3l5 4z" />
+                  <line x1="14" y1="9" x2="20" y2="15" />
+                  <line x1="20" y1="9" x2="14" y2="15" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 5L6 9H3v6h3l5 4z" />
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                  <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+                </svg>
+              )}
+              <span>{isSfxMuted ? "Effets sonores coupés" : "Effets sonores actifs"}</span>
             </span>
             <span className="text-[10px] font-semibold opacity-70">
-              {allSoundOn ? "Tout On" : "Configurer"}
+              {isSfxMuted ? "Off" : "On"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsAmbientMuted((v) => !v)}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              darkMode
+                ? ambientOn
+                  ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
+                  : "bg-rose-950/70 border-rose-400/40 text-slate-100"
+                : ambientOn
+                ? "bg-emerald-100 border-emerald-300 text-slate-800"
+                : "bg-rose-100 border-rose-300 text-slate-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              {isAmbientMuted ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                  <line x1="4" y1="4" x2="20" y2="20" />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              )}
+              <span>{isAmbientMuted ? "Musique d'ambiance coupée" : "Musique d'ambiance active"}</span>
+            </span>
+            <span className="text-[10px] font-semibold opacity-70">
+              {isAmbientMuted ? "Off" : "On"}
             </span>
           </button>
           <button
@@ -19886,801 +17701,6 @@ function handleTouchEnd() {
           </button>
         </div>
       </div>
-      <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l shadow-2xl transition-transform duration-300 ${
-          darkMode
-            ? "bg-slate-950 border-white/10 text-slate-100"
-            : "bg-white border-slate-200 text-slate-900"
-        } ${isSoundMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
-      >
-        <div className="h-full flex flex-col">
-          <div
-            className={`shrink-0 px-4 py-3 border-b ${
-              darkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={closeSoundMenu}
-                className={`h-8 px-2 rounded-lg border text-xs font-semibold ${
-                  darkMode
-                    ? "bg-slate-900 border-white/15 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
-              >
-                Retour
-              </button>
-              <div className="text-sm font-extrabold tracking-wide">Son</div>
-              <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
-                {enabledSoundCount}/6
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
-            <button
-              type="button"
-              onClick={() => setAllSoundEnabled(!allSoundOn)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? allSoundOn
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : allSoundOn
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span className="font-semibold">Tout On / Tout Off</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {allSoundOn ? "Tout On" : "Tout Off"}
-              </span>
-            </button>
-            <div
-              className={`w-full rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? "bg-slate-900/70 border-white/10 text-slate-100"
-                  : "bg-white border-slate-200 text-slate-800"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-                <span>Volume général</span>
-                <span>{Math.round(soundMasterVolume * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={Math.round(soundMasterVolume * 100)}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  setSoundMasterVolume(
-                    normalizeSoundMasterVolume(
-                      Number.isFinite(next) ? next / 100 : SOUND_MASTER_VOLUME_DEFAULT,
-                      SOUND_MASTER_VOLUME_DEFAULT
-                    )
-                  );
-                }}
-                className="mt-2 w-full accent-blue-500"
-                aria-label="Volume général"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsAmbientMuted((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? ambientOn
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : ambientOn
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son d'ambiance</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {ambientOn ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundValidationEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundValidationEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundValidationEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son de validation</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundValidationEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundInvalidErrorEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundInvalidErrorEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundInvalidErrorEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Mots invalides / erreurs</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundInvalidErrorEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundTileStepEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundTileStepEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundTileStepEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son des tuiles (step)</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundTileStepEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundTimerEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundTimerEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundTimerEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son des timers</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundTimerEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundGobbleEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundGobbleEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundGobbleEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son gobble (incl. double)</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundGobbleEnabled ? "On" : "Off"}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l shadow-2xl transition-transform duration-300 ${
-          darkMode
-            ? "bg-slate-950 border-white/10 text-slate-100"
-            : "bg-white border-slate-200 text-slate-900"
-        } ${isThemeMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
-      >
-        <div className="h-full flex flex-col">
-          <div
-            className={`shrink-0 px-4 py-3 border-b ${
-              darkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={closeThemeMenu}
-                className={`h-8 px-2 rounded-lg border text-xs font-semibold ${
-                  darkMode
-                    ? "bg-slate-900 border-white/15 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
-              >
-                Retour
-              </button>
-              <div className="text-sm font-extrabold tracking-wide">Thème</div>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold border border-amber-400/40 bg-amber-400/15 text-amber-500">
-                <img src={gobblarsBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
-                {gobblarsBalance}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            <div
-              className={`rounded-2xl border p-3 ${
-                darkMode ? "border-white/10 bg-slate-900/40" : "border-slate-200 bg-white/70"
-              }`}
-              style={themePreviewBackgroundStyle}
-            >
-              <div className="text-[11px] font-semibold uppercase tracking-widest opacity-80 text-center">
-                Aperçu en temps réel
-              </div>
-              {isMobileLayout ? (
-                <div className="mt-2">
-                  <MobileGrid
-                    board={themePreviewCells}
-                    BONUS_CLASSES={BONUS_CLASSES}
-                    bonusLetterKey=""
-                    bonusLetterScore={20}
-                    darkMode={darkMode}
-                    gridRef={themePreviewGridRef}
-                    gridShake={false}
-                    gridSize={4}
-                    gridRotationTurns={0}
-                    handleMouseDown={themePreviewNoop}
-                    handleMouseMove={themePreviewNoop}
-                    handleMouseUp={themePreviewNoop}
-                    handleTouchEnd={themePreviewNoop}
-                    handleTouchMove={themePreviewNoop}
-                    handleTouchStart={themePreviewNoop}
-                    hintCellSet={themePreviewEmptySet}
-                    hintOutlineCellSet={themePreviewEmptySet}
-                    implodeActive={false}
-                    isMobileLayout={true}
-                    lightGridSurfaceStyle={{}}
-                    MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
-                    mobileGapPx={themePreviewMobileGapPx}
-                    mobileGridSide={themePreviewMobileGridSide}
-                    mobileTileFontPx={themePreviewMobileTileFontPx}
-                    normalizeBonusLabel={normalizeBonusLabel}
-                    normalizeLetterKey={normalizeLetterKey}
-                    phase="playing"
-                    specialIndicatorPreset={themeDraftSafe.specialIndicator}
-                    specialSolvedOverlay={false}
-                    defaultTileBaseClass={defaultTileBaseClass}
-                    tilePointsVisible={tilePointsVisible}
-                    tileRefs={themePreviewTileRefs}
-                    tileMaterialClass={themePreviewMaterialClass}
-                    tileColorPreset={themeDraftSafe.tileColor}
-                    tileScore={tileScore}
-                    tick={0}
-                    usedSet={themePreviewEmptySet}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="mt-2 grid bg-white border rounded-xl w-full"
-                  style={{
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: themePreviewGap,
-                    padding: themePreviewPadding,
-                    maxWidth: "100%",
-                  }}
-                >
-                    {themePreviewCells.map((cell, idx) => {
-                      const displayBonus = normalizeBonusLabel(cell.bonus);
-                      const useFillBonus =
-                        themePreviewUseFill && displayBonus && BONUS_CLASSES[displayBonus];
-                      const tileBaseClass = useFillBonus
-                        ? BONUS_CLASSES[displayBonus]
-                        : defaultTileBaseClass;
-                      const letterRingClass =
-                        themePreviewUseRing && displayBonus
-                          ? getBonusLetterRingClass(displayBonus)
-                          : "";
-                      return (
-                        <button
-                          key={`theme-preview-tile-${idx}`}
-                          type="button"
-                          className={`tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none ${themePreviewMaterialClass} ${tileBaseClass}`}
-                          style={{
-                            width: "100%",
-                            aspectRatio: "1 / 1",
-                            pointerEvents: "none",
-                            fontSize: "clamp(20px, 5vw, 32px)",
-                            borderColor: useFillBonus ? undefined : themePreviewTileColor.border,
-                            backgroundColor: useFillBonus ? undefined : themePreviewTileColor.bg,
-                            ...(getTileColorTextureStyle(idx, 4, themeDraftSafe.tileColor) || {}),
-                          }}
-                          aria-hidden="true"
-                        >
-                          <span className={`tile-letter ${letterRingClass}`.trim()}>{cell.letter}</span>
-                          {tilePointsVisible ? (
-                            <span className="tile-points">{tileScore({ letter: cell.letter })}</span>
-                          ) : null}
-                          {themePreviewUseBadge && displayBonus ? (
-                            <span
-                              className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
-                                displayBonus
-                              )}`}
-                              style={{
-                                transform: themePreviewIsSquare
-                                  ? "translate(-8%, 8%)"
-                                  : "translate(10%, -10%)",
-                              }}
-                            >
-                              {displayBonus}
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                </div>
-              )}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={requestThemeResetDefault}
-                  disabled={themeApplying}
-                  className={`rounded-xl border px-2 py-2 text-left text-[11px] font-semibold ${
-                    darkMode
-                      ? "bg-slate-900/90 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-800"
-                  } disabled:opacity-50`}
-                >
-                  <div className="font-extrabold">Par défaut</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleThemeAction(themeFullApplyMeta)}
-                  disabled={
-                    themeApplying ||
-                    (themeFullApplyMeta.totalCost > 0 && !themeFullApplyMeta.canAfford)
-                  }
-                  className="rounded-xl border border-blue-500 bg-blue-600 px-2 py-2 text-left text-[11px] font-semibold text-white disabled:opacity-50"
-                >
-                  <div className="font-extrabold">
-                    {themeFullActionLabel}
-                    {themeFullApplyMeta.totalCost > 0 ? ` (${themeFullApplyMeta.totalCost} G)` : ""}
-                  </div>
-                  <div className="mt-1 text-blue-100">
-                    {themeFullApplyMeta.changedCategories.length} paramètre(s) modifié(s)
-                  </div>
-                  <div className="mt-1 text-[10px] leading-4 text-blue-100/95 break-words">
-                    {themeFullChangedSummary}
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              {themeControlButtons.map((entry) => {
-                const selected = entry.kind === "picker" ? themePickerCategory === entry.id : false;
-                const buttonClass = `${
-                  darkMode
-                    ? "bg-slate-900 border-white/10 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-800"
-                } ${selected ? "ring-2 ring-blue-400 border-blue-400" : ""}`;
-                return (
-                  <button
-                    key={`theme-control-${entry.id}`}
-                    type="button"
-                    title={entry.title}
-                    aria-label={entry.title}
-                    onClick={() => {
-                      if (entry.id === "darkMode") {
-                        const nextDarkMode = !themeDraftSafe.darkMode;
-                        const nextTheme = normalizeThemePreset({
-                          ...themeDraftSafe,
-                          darkMode: nextDarkMode,
-                        });
-                        setThemeLastChangedCategory("darkMode");
-                        setThemeDraft(nextTheme);
-                        setThemeApplied((prev) =>
-                          normalizeThemePreset({
-                            ...prev,
-                            darkMode: nextDarkMode,
-                          })
-                        );
-                        applyThemeVisualState(nextTheme);
-                        return;
-                      }
-                      if (entry.id === "tilePoints") {
-                        setTilePointsVisible((prev) => !prev);
-                        return;
-                      }
-                      setThemePickerCategory(entry.id);
-                    }}
-                    className={`relative aspect-square rounded-xl border ${buttonClass}`}
-                  >
-                    <span className="sr-only">{entry.title}</span>
-                    <span className="inline-flex h-full w-full items-center justify-center">
-                      {entry.id === "darkMode" ? (
-                        themeDraftSafe.darkMode ? (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                          </svg>
-                        ) : (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="4" />
-                            <path d="M12 2v2" />
-                            <path d="M12 20v2" />
-                            <path d="m4.93 4.93 1.41 1.41" />
-                            <path d="m17.66 17.66 1.41 1.41" />
-                            <path d="M2 12h2" />
-                            <path d="M20 12h2" />
-                            <path d="m6.34 17.66-1.41 1.41" />
-                            <path d="m19.07 4.93-1.41 1.41" />
-                          </svg>
-                        )
-                      ) : null}
-                      {entry.id === "tileColor" ? (
-                        <span
-                          className="inline-flex h-6 w-6 rounded-md border"
-                          style={getTileColorSwatchStyle(themePreviewTileColor)}
-                        />
-                      ) : null}
-                      {entry.id === "font" ? (
-                        <span
-                          className="font-extrabold text-base"
-                          style={{
-                            fontFamily: "\"GobblePerfectPen\", \"KGPerfectPenmanship\", cursive",
-                          }}
-                        >
-                          Aa
-                        </span>
-                      ) : null}
-                      {entry.id === "letterScale" ? (
-                        <svg
-                          width="22"
-                          height="22"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <text
-                            x="7.5"
-                            y="14"
-                            textAnchor="middle"
-                            fontSize="8"
-                            fontWeight="700"
-                            fill="currentColor"
-                            stroke="none"
-                          >
-                            A
-                          </text>
-                          <line x1="15.5" y1="4.5" x2="15.5" y2="19.5" />
-                          <polyline points="13.8,6.2 15.5,4.5 17.2,6.2" />
-                          <polyline points="13.8,17.8 15.5,19.5 17.2,17.8" />
-                        </svg>
-                      ) : null}
-                      {entry.id === "letterColor" ? (
-                        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-                          <text
-                            x="12"
-                            y="16.5"
-                            textAnchor="middle"
-                            fontSize="16"
-                            fontWeight="900"
-                            fill={tileLetterColorValue}
-                            stroke="#111111"
-                            strokeWidth="1.2"
-                            paintOrder="stroke fill"
-                            style={{ filter: "drop-shadow(0 0 0.8px rgba(255,255,255,0.9))" }}
-                          >
-                            A
-                          </text>
-                        </svg>
-                      ) : null}
-                      {entry.id === "background" ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[18px] leading-none">
-                            format_paint
-                          </span>
-                          <span
-                            className="inline-flex h-3.5 w-3.5 rounded-sm border"
-                            style={themePreviewBackgroundStyle}
-                          />
-                        </span>
-                      ) : null}
-                      {entry.id === "material" ? (
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <rect
-                            x="3.5"
-                            y="3.5"
-                            width="12"
-                            height="12"
-                            rx="2.8"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <circle
-                            cx="14.5"
-                            cy="14.5"
-                            r="5.8"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      ) : null}
-                      {entry.id === "specialIndicator" ? (
-                        <span className="material-symbols-outlined text-[20px] leading-none">flare</span>
-                      ) : null}
-                      {entry.id === "tilePoints" ? (
-                        <span className="inline-flex items-center justify-center text-[13px] font-black leading-none">
-                          {tilePointsVisible ? "123" : "123/"}
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {themePickerCategory ? (
-          <div className="absolute inset-0 z-[2] flex items-center justify-center p-3">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setThemePickerCategory("")}
-              aria-label="Fermer sélecteur thème"
-            />
-            <div
-              className={`relative w-full max-w-sm rounded-2xl border p-3 shadow-2xl ${
-                darkMode
-                  ? "bg-slate-950 border-white/20 text-slate-100"
-                  : "bg-white border-slate-300 text-slate-900"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="text-sm font-extrabold">{themePickerTitle}</div>
-                <button
-                  type="button"
-                  onClick={() => setThemePickerCategory("")}
-                  className={`h-7 w-7 rounded-full border flex items-center justify-center ${
-                    darkMode
-                      ? "bg-slate-900 border-white/10 text-slate-100"
-                      : "bg-white border-slate-200 text-slate-700"
-                  }`}
-                  aria-label="Fermer"
-                >
-                  <span className="text-base leading-none">×</span>
-                </button>
-              </div>
-              {themePickerViewMode === "slider" ? (
-                <div className="space-y-3 px-1 pb-1">
-                  <input
-                    type="range"
-                    min={TILE_LETTER_SCALE_MIN}
-                    max={TILE_LETTER_SCALE_MAX}
-                    step={0.02}
-                    value={normalizeTileLetterScale(themePickerCurrentValue, TILE_LETTER_SCALE_DEFAULT)}
-                    onChange={(e) => {
-                      applyThemeDraftCategory(themePickerCategory, Number(e.target.value));
-                    }}
-                    className="w-full accent-blue-500"
-                    aria-label="Taille des lettres"
-                  />
-                  <div className={`text-xs font-semibold flex items-center justify-between ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                    <span>Petit</span>
-                    <span>
-                      {Math.round(
-                        (normalizeTileLetterScale(
-                          themePickerCurrentValue,
-                          TILE_LETTER_SCALE_DEFAULT
-                        ) /
-                          TILE_LETTER_SCALE_DEFAULT) *
-                          100
-                      )}
-                      %
-                    </span>
-                    <span>Grand</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-h-[54vh] overflow-y-auto space-y-2 pr-1">
-                  {themePickerOptions.map((option) => {
-                    const selected = option.id === themePickerCurrentValue;
-                    const optionUnlockKey = getThemeUnlockItemKey(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionLockable = isThemeOptionLockableGlobal(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionUnlocked = isThemeOptionUnlocked(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionDraft = buildThemeDraftWithOption(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionMeta = computeThemeApplyMeta(
-                      "single",
-                      themePickerCategory,
-                      optionDraft
-                    );
-                    const optionBuyCost =
-                      optionLockable && !optionUnlocked ? optionMeta.totalCost : 0;
-                    const optionCanAfford =
-                      optionBuyCost <= 0 ? true : gobblarsBalance >= optionBuyCost;
-                    const justUnlocked =
-                      themeRecentlyUnlocked.includes(optionUnlockKey) &&
-                      themeUnlockAnimToken > 0;
-                    const isPalette =
-                      themePickerViewMode === "palette" &&
-                      (themePickerCategory === "tileColor" ||
-                        themePickerCategory === "letterColor" ||
-                        themePickerCategory === "background");
-                    const optionStyle =
-                      themePickerCategory === "tileColor"
-                        ? getTileColorSwatchStyle(option)
-                        : themePickerCategory === "letterColor"
-                        ? {
-                            background: option.value,
-                            borderColor: "rgba(0, 0, 0, 0.2)",
-                          }
-                        : themePickerCategory === "background"
-                        ? {
-                            backgroundColor: option.style?.color || "#dbeafe",
-                            backgroundImage: option.style?.image || "none",
-                            backgroundSize: option.style?.size || "auto",
-                            borderColor: "rgba(0, 0, 0, 0.2)",
-                          }
-                        : null;
-                    return (
-                      <div
-                        key={`${themePickerCategory}-${option.id}`}
-                        className={`w-full rounded-xl border px-2 py-2 flex items-center justify-between gap-2 ${
-                          selected
-                            ? darkMode
-                              ? "border-blue-400 bg-blue-500/20"
-                              : "border-blue-400 bg-blue-50"
-                            : darkMode
-                            ? "border-white/10 bg-slate-900/70"
-                            : "border-slate-200 bg-white"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            applyThemeDraftCategory(themePickerCategory, option.id);
-                          }}
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <span className="inline-flex items-center gap-2 min-w-0">
-                            {isPalette ? (
-                              <span
-                                className="inline-flex h-6 w-6 rounded-md border shrink-0"
-                                style={optionStyle || undefined}
-                              />
-                            ) : null}
-                            <span
-                              className="truncate text-sm"
-                              style={
-                                themePickerViewMode === "font-list"
-                                  ? { fontFamily: option.family || undefined }
-                                  : undefined
-                              }
-                            >
-                              {option.label}
-                            </span>
-                          </span>
-                        </button>
-                        <div className="shrink-0 inline-flex items-center gap-1">
-                          {selected ? (
-                            <span className="material-symbols-outlined text-[18px] leading-none text-emerald-500">
-                              check_circle
-                            </span>
-                          ) : null}
-                          {optionLockable && !optionUnlocked ? (
-                            <span
-                              className={`material-symbols-outlined text-[16px] leading-none text-amber-500 ${
-                                justUnlocked ? "theme-unlock-pop" : ""
-                              }`}
-                            >
-                              lock
-                            </span>
-                          ) : null}
-                          {optionLockable && !optionUnlocked ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleThemeOptionBuy(themePickerCategory, option.id);
-                              }}
-                              disabled={themeApplying || !optionCanAfford}
-                              className={`h-7 px-2 rounded-lg border text-[11px] font-semibold ${
-                                darkMode
-                                  ? "bg-amber-600/90 border-amber-300/50 text-slate-950"
-                                  : "bg-amber-500 border-amber-300 text-slate-900"
-                              } disabled:opacity-50`}
-                            >
-                              Acheter{optionBuyCost > 0 ? ` (${optionBuyCost}G)` : ""}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {themePurchaseConfirm ? (
-          <div className="absolute inset-0 z-[3] flex items-center justify-center p-3">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/45"
-              onClick={() => setThemePurchaseConfirm(null)}
-              aria-label="Fermer confirmation achat thème"
-            />
-            <div
-              className={`relative w-full max-w-sm rounded-2xl border p-4 shadow-2xl ${
-                darkMode
-                  ? "bg-slate-950 border-white/20 text-slate-100"
-                  : "bg-white border-slate-300 text-slate-900"
-              }`}
-            >
-              <div className="text-sm font-extrabold">Confirmation d'achat</div>
-              <div className="mt-2 text-[13px] leading-5 opacity-90">
-                {themePurchaseConfirm.mode === "single"
-                  ? `Déverrouiller ${themeLastCategoryLabel} pour ${themePurchaseConfirm.totalCost} Gobblars ?`
-                  : `Déverrouiller ce thème pour ${themePurchaseConfirm.totalCost} Gobblars ?`}
-              </div>
-              <div className="mt-2 text-[11px] leading-4 opacity-80 break-words">
-                Modifiés: {((themePurchaseConfirm.changedCategories || []).map((key) => themeCategoryLabel(key)).join(" · ")) || "Aucun"}
-              </div>
-              <div className="mt-2 text-[11px] opacity-80">
-                Solde: {gobblarsBalance} G
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setThemePurchaseConfirm(null)}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                    darkMode
-                      ? "bg-slate-900 border-white/10 text-slate-100"
-                      : "bg-white border-slate-200 text-slate-800"
-                  }`}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmThemePurchase}
-                  disabled={themeApplying || gobblarsBalance < themePurchaseConfirm.totalCost}
-                  className="rounded-xl border border-amber-500 bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-                >
-                  Valider
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
     </div>
   ) : null;
   const aboutModalView = (
@@ -20690,10 +17710,7 @@ function handleTouchEnd() {
           <button
             type="button"
             className="absolute inset-0 bg-black/45"
-            onClick={() => {
-              setIsAboutOpen(false);
-              setIsSupportOpen(false);
-            }}
+            onClick={() => setIsAboutOpen(false)}
             aria-label="Fermer à propos"
           />
           <div
@@ -20715,10 +17732,7 @@ function handleTouchEnd() {
                     ? "bg-slate-800/80 border-white/10 text-slate-100"
                     : "bg-white border-slate-200 text-slate-700"
                 }`}
-                onClick={() => {
-                  setIsAboutOpen(false);
-                  setIsSupportOpen(false);
-                }}
+                onClick={() => setIsAboutOpen(false)}
                 aria-label="Fermer"
               >
                 <span className="text-base leading-none">×</span>
@@ -20743,102 +17757,6 @@ function handleTouchEnd() {
               >
                 Patchnotes
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAccountLinkOpen(true);
-                  setAccountLinkInput("");
-                  setAccountLinkError("");
-                  setAccountLinkInfo("");
-                  setAccountLinkPreview(null);
-                  setAccountLinkChecking(false);
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                  darkMode
-                    ? "bg-slate-800/90 border-white/15 text-slate-100"
-                    : "bg-slate-50 border-slate-200 text-slate-900"
-                }`}
-              >
-                Lier un compte
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSupportOpen(true)}
-                className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                  darkMode
-                    ? "bg-slate-800/90 border-white/15 text-slate-100"
-                    : "bg-slate-50 border-slate-200 text-slate-900"
-                }`}
-              >
-                Soutenir Gobble
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {isSupportOpen ? (
-        <div className="fixed inset-0 z-[20025] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/55"
-            onClick={() => setIsSupportOpen(false)}
-            aria-label="Fermer soutien Gobble"
-          />
-          <div
-            className={`relative w-full max-w-lg rounded-2xl border shadow-2xl ${
-              darkMode
-                ? "bg-slate-950 border-white/20 text-slate-100"
-                : "bg-white border-slate-300 text-slate-900"
-            }`}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Soutenir Gobble"
-          >
-            <div
-              className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
-                darkMode
-                  ? "border-white/10 bg-emerald-300/10"
-                  : "border-slate-200 bg-emerald-50"
-              }`}
-            >
-              <div className="text-sm font-extrabold tracking-wide">Soutenir Gobble</div>
-              <button
-                type="button"
-                className={`h-8 w-8 rounded-full border flex items-center justify-center ${
-                  darkMode
-                    ? "bg-slate-900 border-white/10 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
-                onClick={() => setIsSupportOpen(false)}
-                aria-label="Fermer"
-              >
-                <span className="text-base leading-none">×</span>
-              </button>
-            </div>
-            <div className="px-4 py-4 space-y-3 text-[13px] leading-6">
-              <p>
-                Gobble est un jeu libre, sans pub et sans revenu, que j'ai patiemment créé de A à Z.
-              </p>
-              <p>
-                Contrairement à bien des jeux : Pas de pubs. Pas de tracking. Pas de profilage. Pas de cookies,
-                pas de “consentement” à 12 boutons.
-              </p>
-              <p>
-                Si le jeu te plaît et que tu veux me remercier, ou juste m'aider à maintenir le nom de domaine et
-                l'hébergement, voici un lien !
-              </p>
-              <p>Des bisous et bon jeu ! :)</p>
-              <p className="font-semibold">
-                (Il n'y a AUCUNE obligation, tu peux bien sûr jouer sans jamais donner !)
-              </p>
-              <a
-                href="https://paypal.me/gobblefr"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center justify-center w-full rounded-lg border border-emerald-500 bg-emerald-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-emerald-500"
-              >
-                Ouvrir le lien PayPal
-              </a>
             </div>
           </div>
         </div>
@@ -20870,7 +17788,7 @@ function handleTouchEnd() {
             >
               <div>
                 <div className="text-sm font-extrabold tracking-wide">Patchnotes</div>
-                <div className="text-[12px] italic opacity-80">historique des mises à jour</div>
+                <div className="text-[12px] italic opacity-80">patch du 18/02/2026</div>
               </div>
               <button
                 type="button"
@@ -20885,42 +17803,25 @@ function handleTouchEnd() {
                 <span className="text-base leading-none">×</span>
               </button>
             </div>
-            <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
-              <div>
-                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
-                  patch du 21/02/2026
-                </div>
-                <ul className="mt-2 list-disc pl-5 space-y-2">
-                  <li>ajout d'un menu de liaison de compte pour récupérer ou transférer dans le cas de changement d'appareil.</li>
-                  <li>amélioration du chat (dilatation du champ de saisie, comportement lors du démarrage d'une nouvelle manche).</li>
-                  <li>rajout de chat pendant résultats de mini tournoi, sur version ordinateur.</li>
-                  <li>correction des manches cibles mot le plus long qui ne renvoyaient pas nécessairement le mot le plus long de la grille pour les mots de moins de 11 lettres.</li>
-                  <li>tentative de correction d'un problème de grille du jour sur certains modèles iPhone.</li>
-                </ul>
-              </div>
-              <div>
-                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
-                  patch du 18/02/2026
-                </div>
-                <ul className="mt-2 list-disc pl-5 space-y-2">
-                  <li>ajout d'une liste des mots trouvés par chaque joueur en cliquant sur la ligne de son pseudo + didacticiel associé.</li>
-                  <li>correction des gobbles listés dans la liste des mots trouvés de chaque joueur.</li>
-                  <li>modification du chat pour persistance des messages et logs serveur + élargissement de l'historique à respectivement 200 et 100 entrées.</li>
-                  <li>correction du calcul de score total possible sur manches lettres en or.</li>
-                  <li>ajustement des indices pour les manches cibles + correction du décompte avant prochain indice.</li>
-                  <li>tentative de correction d'un problème de grille quotidienne sur ancien modèle d'iphone.</li>
-                  <li>correction d'anomalies lors de retours au lobby.</li>
-                  <li>stabilité réseau améliorée sur mobile, avec reconnexion et reprise de session plus robustes.</li>
-                  <li>validation des mots optimisée côté live, avec envoi par batch et repli automatique mot par mot si nécessaire.</li>
-                  <li>chat système enrichi avec messages de connexion, déconnexion et validation de la grille du jour.</li>
-                  <li>
-                    <span className="font-bold">Duel hebdo: médailles mini-tournoi comptent pour l’équipe (or/argent/bronze = 3/2/1 points).</span>
-                  </li>
-                  <li>les grilles quotidiennes accordent 200 points à l'équipe gagnante, au lieu de 500 comme défini précédemment.</li>
-                  <li>objectifs duel complètement réajustés, avec logique de progression alignée et cumul sur plusieurs manches quand prévu.</li>
-                  <li>ajout d'un bouton patch note dans le menu "à propos".</li>
-                </ul>
-              </div>
+            <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>ajout d'une liste des mots trouvés par chaque joueur en cliquant sur la ligne de son pseudo + didacticiel associé.</li>
+                <li>correction des gobbles listés dans la liste des mots trouvés de chaque joueur.</li>
+                <li>modification du chat pour persistance des messages et logs serveur + élargissement de l'historique à respectivement 200 et 100 entrées.</li>
+                <li>correction du calcul de score total possible sur manches lettres en or.</li>
+                <li>ajustement des indices pour les manches cibles + correction du décompte avant prochain indice.</li>
+                <li>tentative de correction d'un problème de grille quotidienne sur ancien modèle d'iphone.</li>
+                <li>correction d'anomalies lors de retours au lobby.</li>
+                <li>stabilité réseau améliorée sur mobile, avec reconnexion et reprise de session plus robustes.</li>
+                <li>validation des mots optimisée côté live, avec envoi par batch et repli automatique mot par mot si nécessaire.</li>
+                <li>chat système enrichi avec messages de connexion, déconnexion et validation de la grille du jour.</li>
+                <li>
+                  <span className="font-bold">Duel hebdo: médailles mini-tournoi comptent pour l’équipe (or/argent/bronze = 3/2/1 points).</span>
+                </li>
+                <li>les grilles quotidiennes accordent 200 points à l'équipe gagnante, au lieu de 500 comme défini précédemment.</li>
+                <li>objectifs duel complètement réajustés, avec logique de progression alignée et cumul sur plusieurs manches quand prévu.</li>
+                <li>ajout d'un bouton patch note dans le menu "à propos".</li>
+              </ul>
               <div
                 className={`mt-4 rounded-xl border px-3 py-3 ${
                   darkMode ? "border-white/10 bg-slate-900/60" : "border-slate-200 bg-slate-50"
@@ -20939,168 +17840,12 @@ function handleTouchEnd() {
           </div>
         </div>
       ) : null}
-      {isAccountLinkOpen ? (
-        <div className="fixed inset-0 z-[20020] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/55"
-            onClick={() => setIsAccountLinkOpen(false)}
-            aria-label="Fermer liaison compte"
-          />
-          <div
-            className={`relative w-full max-w-md rounded-2xl border shadow-2xl ${
-              darkMode
-                ? "bg-slate-950 border-white/20 text-slate-100"
-                : "bg-white border-slate-300 text-slate-900"
-            }`}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Lier un compte"
-          >
-            <div
-              className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
-                darkMode
-                  ? "border-white/10 bg-blue-300/10"
-                  : "border-slate-200 bg-blue-50"
-              }`}
-            >
-              <div>
-                <div className="text-sm font-extrabold tracking-wide">Lier un compte</div>
-                <div className="text-[12px] italic opacity-80">code de récupération</div>
-              </div>
-              <button
-                type="button"
-                className={`h-8 w-8 rounded-full border flex items-center justify-center ${
-                  darkMode
-                    ? "bg-slate-900 border-white/10 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
-                onClick={() => setIsAccountLinkOpen(false)}
-                aria-label="Fermer"
-              >
-                <span className="text-base leading-none">×</span>
-              </button>
-            </div>
-            <div className="px-4 py-4 space-y-3 text-[13px]">
-              <div className="opacity-90">
-                Envoie ce code depuis l'ancien appareil. Sur le nouvel appareil, colle le code puis valide.
-              </div>
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold uppercase tracking-wide opacity-75">
-                  Mon code
-                </div>
-                <div
-                  className={`rounded-lg border px-3 py-2 font-mono text-[12px] break-all ${
-                    darkMode
-                      ? "border-white/10 bg-slate-900/70 text-slate-100"
-                      : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  {accountLinkCode || "Code indisponible"}
-                </div>
-                <button
-                  type="button"
-                  onClick={copyAccountLinkCode}
-                  className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${
-                    darkMode
-                      ? "bg-slate-900 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-900"
-                  }`}
-                >
-                  Copier mon code
-                </button>
-              </div>
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold uppercase tracking-wide opacity-75">
-                  Code reçu
-                </div>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={accountLinkInput}
-                  onChange={(e) => {
-                    setAccountLinkInput(e.target.value);
-                    setAccountLinkError("");
-                    setAccountLinkInfo("");
-                    setAccountLinkPreview(null);
-                  }}
-                  className={`w-full rounded-lg border px-3 py-2 text-[13px] ios-input ${
-                    darkMode
-                      ? "bg-slate-900 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-900"
-                  }`}
-                  placeholder="GBL1-..."
-                  aria-label="Code de liaison"
-                />
-                <button
-                  type="button"
-                  onClick={verifyAccountLinkCode}
-                  disabled={!accountLinkInput.trim() || accountLinkChecking}
-                  className={`w-full rounded-lg border px-3 py-2 text-[12px] font-semibold ${
-                    darkMode
-                      ? "bg-slate-900 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-900"
-                  } disabled:opacity-50`}
-                >
-                  {accountLinkChecking ? "Vérification..." : "Vérifier le code"}
-                </button>
-                {accountLinkPreview ? (
-                  <div
-                    className={`rounded-lg border px-3 py-2 text-[12px] space-y-1 ${
-                      darkMode
-                        ? "border-white/10 bg-slate-900/70 text-slate-100"
-                        : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
-                  >
-                    <div>
-                      <span className="font-semibold">Pseudo:</span>{" "}
-                      {accountLinkPreview.nick || "Inconnu"}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Dernière activité:</span>{" "}
-                      {formatAccountLinkActivity(accountLinkPreview.lastActivityTs)}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Vocabulaire:</span>{" "}
-                      {accountLinkPreview.vocabCount} mots
-                      {accountLinkPreview.vocabRank && accountLinkPreview.vocabTotalPlayers
-                        ? ` (rang #${accountLinkPreview.vocabRank}/${accountLinkPreview.vocabTotalPlayers})`
-                        : ""}
-                    </div>
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={applyAccountLinkCode}
-                  disabled={
-                    !accountLinkPreview ||
-                    accountLinkPreview.code !== String(accountLinkInput || "").trim()
-                  }
-                  className="w-full rounded-lg border border-blue-500 bg-blue-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                >
-                  Lier ce compte
-                </button>
-              </div>
-              {accountLinkError ? (
-                <div className="text-[12px] font-semibold text-red-500">{accountLinkError}</div>
-              ) : null}
-              {!accountLinkError && accountLinkInfo ? (
-                <div className="text-[12px] font-semibold text-emerald-500">{accountLinkInfo}</div>
-              ) : null}
-              <div className="text-[11px] opacity-70">
-                Attention: ce code donne accès au compte lié à cet identifiant.
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 
   const mobileChatLayer =
     isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home")) ? (
-      <ChatWidget
+      <MobileChatWidget
         chatInput={chatInput}
         chatInputRef={chatInputRef}
         chatInputType={chatInputType}
@@ -21108,7 +17853,7 @@ function handleTouchEnd() {
         chatInputPlaceholder={chatInputPlaceholder}
         chatTab={chatTab}
         onChangeChatTab={setChatTab}
-        messagesUnreadCount={chatMessagesUnreadCount}
+        messagesCount={chatMessagesCount}
         systemCount={chatSystemCount}
         onChatInputFocus={handleChatInputFocus}
         chatOverlayStyle={globalChatOverlayStyle}
@@ -21118,8 +17863,6 @@ function handleTouchEnd() {
         cycleChatHistory={cycleChatHistory}
         darkMode={darkMode}
         hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
-        chatKeyboardInsetPx={chatKeyboardInsetPx}
-        keyboardInsetReservePx={keyboardInsetReservePx}
         isChatOpenMobile={isChatOpenMobile}
         isChatClosing={isChatClosing}
         mobileChatUnreadCount={mobileChatUnreadCount}
@@ -21156,7 +17899,7 @@ function handleTouchEnd() {
       chatTab={safeChatTab}
       onChangeTab={setChatTab}
       onClose={closeHomeChat}
-      messagesUnreadCount={homeChatUnreadCount}
+      messagesCount={chatMessagesCount}
       systemCount={chatSystemCount}
       messages={homeChatVisibleMessages}
       chatInput={chatInput}
@@ -22725,9 +19468,8 @@ function handleTouchEnd() {
                 </div>
               </div>
             </div>
-            {!isMobileLayout ? (
-              <div className="absolute left-full ml-3 top-0 h-full w-[340px] min-h-0">
-                <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-full">
+            <div className="hidden">
+              <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-[min(720px,calc(100vh-4rem))]">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="font-bold text-center">Chat</h2>
                   <div className="flex items-center gap-3">
@@ -22768,7 +19510,7 @@ function handleTouchEnd() {
                       }`}
                       onClick={() => setChatTab("messages")}
                     >
-                      Messages{formatChatUnreadSuffix(chatMessagesUnreadCount)}
+                      Messages ({chatMessagesCount})
                     </button>
                     <button
                       type="button"
@@ -22781,7 +19523,7 @@ function handleTouchEnd() {
                       }`}
                       onClick={() => setChatTab("system")}
                     >
-                      Système
+                      Système ({chatSystemCount})
                     </button>
                   </div>
                 </div>
@@ -22812,8 +19554,6 @@ function handleTouchEnd() {
                     const author = (msg.nick || msg.author || "Anonyme").trim();
                     const authorInstallId =
                       typeof msg.installId === "string" ? msg.installId : "";
-                    const messageTime = formatChatMessageTime(msg);
-                    const systemAuthor = author || "Système";
                     const isYou = authorInstallId
                       ? authorInstallId === installId
                       : author === selfNick;
@@ -22833,15 +19573,7 @@ function handleTouchEnd() {
                       >
                         {isSystem ? (
                           <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
-                            <div className="flex items-baseline gap-1 flex-wrap">
-                              <span className="font-semibold">{systemAuthor}:</span>
-                              {messageTime ? (
-                                <span className="text-[10px] leading-none opacity-70">
-                                  {messageTime}
-                                </span>
-                              ) : null}
-                              <span>{msg.text}</span>
-                            </div>
+                            {msg.text}
                           </div>
                         ) : (
                           <div
@@ -22850,31 +19582,26 @@ function handleTouchEnd() {
                               isYou ? "bg-blue-50" : "bg-white",
                             ].join(" ")}
                           >
-                            <div className="flex items-baseline gap-1.5 flex-wrap">
-                              {canOpenMenu ? (
-                                <button
-                                  type="button"
-                                  className="font-semibold text-black hover:underline"
-                                  onClick={(e) =>
-                                    openUserMenu(e, {
-                                      nick: author,
-                                      installId: authorInstallId,
-                                      messageId: msg.id,
-                                    })
-                                  }
-                                >
-                                  {author} :
-                                </button>
-                              ) : (
-                                <span className="font-semibold text-black">{author} :</span>
-                              )}
-                              {messageTime ? (
-                                <span className="text-[10px] leading-none text-slate-500">
-                                  {messageTime}
-                                </span>
-                              ) : null}
-                              <span className="text-black">{msg.text}</span>
-                            </div>
+                            {canOpenMenu ? (
+                              <button
+                                type="button"
+                                className="font-semibold mr-1 text-black hover:underline"
+                                onClick={(e) =>
+                                  openUserMenu(e, {
+                                    nick: author,
+                                    installId: authorInstallId,
+                                    messageId: msg.id,
+                                  })
+                                }
+                              >
+                                {author} :
+                              </button>
+                            ) : (
+                              <span className="font-semibold mr-1 text-black">
+                                {author} :
+                              </span>
+                            )}
+                            <span className="text-black">{msg.text}</span>
                           </div>
                         )}
                       </div>
@@ -22935,9 +19662,8 @@ function handleTouchEnd() {
                     </div>
                   </>
                 ) : null}
-                </div>
               </div>
-            ) : null}
+            </div>
           </div>
         </div>
         {settingsMenuView}
@@ -22974,7 +19700,7 @@ function handleTouchEnd() {
       18,
       Math.min(
         32,
-        Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.35)
+        Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.42)
       )
     );
     const useVisualViewport = !(isChatOpenMobile || isChatClosing);
@@ -23089,7 +19815,6 @@ function handleTouchEnd() {
             gridRef={gridRef}
             gridShake={gridShake}
             gridSize={gridSize}
-            gridRotationTurns={gridRotationTurns}
             implodeActive={implodeActive}
             handleMouseDown={handleMouseDown}
             handleMouseMove={handleMouseMove}
@@ -23108,13 +19833,8 @@ function handleTouchEnd() {
             normalizeBonusLabel={normalizeBonusLabel}
             normalizeLetterKey={normalizeLetterKey}
             phase={phase}
-            specialIndicatorPreset={specialIndicatorPreset}
             specialSolvedOverlay={specialSolvedOverlay}
-            defaultTileBaseClass={defaultTileBaseClass}
-            tilePointsVisible={tilePointsVisible}
             tileRefs={tileRefs}
-            tileMaterialClass={tileMaterialClass}
-            tileColorPreset={tileColorPreset}
             tileScore={tileScore}
             tick={tick}
             usedSet={usedSet}
@@ -23194,7 +19914,7 @@ function handleTouchEnd() {
       18,
       Math.min(
         32,
-        Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.35)
+        Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.42)
       )
     );
     const mobileBodyHeightStyle =
@@ -24055,13 +20775,8 @@ function handleTouchEnd() {
               normalizeBonusLabel={normalizeBonusLabel}
               normalizeLetterKey={normalizeLetterKey}
               phase={phase}
-              specialIndicatorPreset={specialIndicatorPreset}
               specialSolvedOverlay={specialSolvedOverlay}
-              defaultTileBaseClass={defaultTileBaseClass}
-              tilePointsVisible={tilePointsVisible}
               tileRefs={tileRefs}
-              tileMaterialClass={tileMaterialClass}
-              tileColorPreset={tileColorPreset}
               tileScore={tileScore}
               tick={tick}
               usedSet={usedSet}
@@ -24380,7 +21095,12 @@ function handleTouchEnd() {
           }
           isPlayerNickClickable={
             resultsRankingMode === "round"
-              ? (rankingEntry) => canOpenRoundPlayerDetails(rankingEntry)
+              ? (rankingEntry) => {
+                  if (!isTargetRound) return true;
+                  const nick = String(rankingEntry?.nick || "").trim();
+                  if (!nick) return false;
+                  return getRoundRecordsForPlayer(nick).length > 0;
+                }
               : null
           }
         />
@@ -24520,13 +21240,7 @@ function handleTouchEnd() {
                 gridTemplateColumns: isMobileLayout
                   ? `repeat(${gridSize}, minmax(0, 1fr))`
                   : `repeat(${gridSize}, ${tileSizePx}px)`,
-                gap:
-                  tileMaterialPreset === "square"
-                    ? "0px"
-                    : isMobileLayout
-                    ? "4px"
-                    : `${tileGapPx}px`,
-                padding: tileMaterialPreset === "square" ? "0px" : undefined,
+                gap: isMobileLayout ? "4px" : `${tileGapPx}px`,
                 touchAction: "none",
                 ...(isMobileLayout
                   ? {}
@@ -24561,26 +21275,15 @@ function handleTouchEnd() {
                 const letterPts = isBonusLetterTile
                   ? bonusLetterScore ?? 20
                   : tileScore(cell);
-                const useFillIndicator = specialIndicatorPreset === "fill";
-                const useRingIndicator = specialIndicatorPreset === "ring";
-                const useBadgeIndicator = specialIndicatorPreset === "badge";
                 const bonusClass = isBonusLetterTile
                   ? "bonus-letter-tile"
-                  : useFillIndicator && displayBonus
+                  : displayBonus
                   ? BONUS_CLASSES[displayBonus]
-                  : defaultTileBaseClass;
+                  : "bg-orange-200 border-orange-500 border-2";
                 const highlightClass = isUsed ? "tile-used" : "";
                 const hintClass = isHint ? "tile-hint" : "";
                 const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
-                const letterRingClass =
-                  !isBonusLetterTile && useRingIndicator && displayBonus
-                    ? getBonusLetterRingClass(displayBonus)
-                    : "";
-                const showBonusBadge =
-                  !isBonusLetterTile &&
-                  useBadgeIndicator &&
-                  displayBonus &&
-                  !bonusLetterKey;
+                const showBonusBadge = displayBonus && !bonusLetterKey;
 
                 return (
                   <button
@@ -24588,13 +21291,13 @@ function handleTouchEnd() {
   ref={(el) => (tileRefs.current[boardIndex] = el)}
   onMouseDown={() => handleMouseDown(boardIndex)}
   onTouchStart={(e) => handleTouchStart(e, boardIndex)}
+  onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
   onTouchCancel={handleTouchEnd}
   type="button"
   className={[
     // plus de tailles figées en px ici
     "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
-    tileMaterialClass,
     bonusClass,
     highlightClass,
     hintClass,
@@ -24608,23 +21311,21 @@ function handleTouchEnd() {
     aspectRatio: "1 / 1",
     willChange: "transform",
     fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
-    ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
   }}
 >
-  <span className={`tile-letter ${letterRingClass}`.trim()}>
+  <span className="tile-letter">
     {letter}
   </span>
-  {tilePointsVisible && letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
+  {letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
   {showBonusBadge && (
     <span
-      className={`absolute top-0 right-0 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
-        displayBonus
-      )}`}
-      style={{
-        transform: isSquareMaterial
-          ? "translate(-8%, 8%)"
-          : "translate(10%, -10%)",
-      }}
+      className={`absolute -top-1 -right-1 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${
+        displayBonus === "M3"
+          ? "bg-red-600 text-white"
+          : displayBonus === "M2"
+          ? "bg-blue-700 text-white"
+          : "bg-amber-600 text-white"
+      }`}
     >
       {displayBonus}
     </span>
@@ -25030,7 +21731,7 @@ function handleTouchEnd() {
                 }`}
                 onClick={() => setChatTab("messages")}
               >
-                Messages{formatChatUnreadSuffix(chatMessagesUnreadCount)}
+                Messages ({chatMessagesCount})
               </button>
               <button
                 type="button"
@@ -25043,7 +21744,7 @@ function handleTouchEnd() {
                 }`}
                 onClick={() => setChatTab("system")}
               >
-                Système
+                Système ({chatSystemCount})
               </button>
             </div>
           </div>
@@ -25077,8 +21778,6 @@ function handleTouchEnd() {
               const author = (msg.nick || msg.author || "Anonyme").trim();
               const authorInstallId =
                 typeof msg.installId === "string" ? msg.installId : "";
-              const messageTime = formatChatMessageTime(msg);
-              const systemAuthor = author || "Système";
               const isYou = authorInstallId
                 ? authorInstallId === installId
                 : author === selfNick;
@@ -25098,15 +21797,7 @@ function handleTouchEnd() {
                 >
                   {isSystem ? (
                     <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
-                      <div className="flex items-baseline gap-1 flex-wrap">
-                        <span className="font-semibold">{systemAuthor}:</span>
-                        {messageTime ? (
-                          <span className="text-[10px] leading-none opacity-70">
-                            {messageTime}
-                          </span>
-                        ) : null}
-                        <span>{msg.text}</span>
-                      </div>
+                      {msg.text}
                     </div>
                   ) : (
                     <div
@@ -25115,11 +21806,11 @@ function handleTouchEnd() {
                         isYou ? "bg-blue-50" : "bg-white",
                       ].join(" ")}
                     >
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {canOpenMenu ? (
                           <button
                             type="button"
-                            className="font-semibold text-black hover:underline"
+                            className="font-semibold mr-1 text-black hover:underline"
                             onClick={(e) =>
                               openUserMenu(e, {
                                 nick: author,
@@ -25131,13 +21822,10 @@ function handleTouchEnd() {
                             {author} :
                           </button>
                         ) : (
-                          <span className="font-semibold text-black">{author} :</span>
-                        )}
-                        {messageTime ? (
-                          <span className="text-[10px] leading-none text-slate-500">
-                            {messageTime}
+                          <span className="font-semibold mr-1 text-black">
+                            {author} :
                           </span>
-                        ) : null}
+                        )}
                         <span className="text-black">{msg.text}</span>
                       </div>
                     </div>
@@ -25163,46 +21851,10 @@ function handleTouchEnd() {
                 ))}
               </div>
 
-              {isDesktopEmojiPickerOpen ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {DESKTOP_CHAT_EMOJIS.map((emoji) => (
-                    <button
-                      key={`chat-emoji-${emoji}`}
-                      type="button"
-                      onClick={() => appendChatEmoji(emoji)}
-                      disabled={chatInputDisabled}
-                      className={`h-8 w-8 rounded-md border text-base leading-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
-                        darkMode
-                          ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
-                          : "bg-white border-slate-300 hover:bg-slate-100"
-                      }`}
-                      title={`Ajouter ${emoji}`}
-                      aria-label={`Ajouter ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="mt-3 flex items-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDesktopEmojiPickerOpen((prev) => !prev)}
-                  disabled={chatInputDisabled}
-                  className={`px-2 py-2 text-sm rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
-                    darkMode
-                      ? "bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700"
-                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                  }`}
-                  aria-label="Raccourci émoticônes"
-                  title="Raccourci émoticônes"
-                >
-                  🙂
-                </button>
-                <textarea
+              <div className="mt-3 flex gap-2">
+                <input
                   ref={chatInputRef}
-                  rows={1}
+                  type={chatInputType}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
@@ -25219,13 +21871,10 @@ function handleTouchEnd() {
                   onFocus={handleChatInputFocus}
                   readOnly={chatInputDisabled}
                   aria-disabled={chatInputDisabled}
-                  className="flex-1 min-w-0 border rounded px-3 py-2 text-sm ios-input chat-input resize-none min-h-[40px] max-h-[140px]"
+                  className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
                   placeholder={chatInputPlaceholder}
                   value={chatInput}
-                  onChange={(e) => {
-                    setChatInput(e.target.value);
-                    autoResizeDesktopChatInput(e.currentTarget);
-                  }}
+                  onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={handleChatInputKeyDown}
                 />
                 <button

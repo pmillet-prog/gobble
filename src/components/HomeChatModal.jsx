@@ -18,6 +18,41 @@ function formatUnreadSuffix(count) {
   return ` (${n})`;
 }
 
+const CHAT_TIME_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function parseMessageTimestampMs(message) {
+  if (!message || typeof message !== "object") return null;
+  const candidates = [message.t, message.ts, message.timestamp, message.createdAt];
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    if (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+    if (typeof candidate === "string") {
+      const raw = candidate.trim();
+      if (!raw) continue;
+      const asNumber = Number(raw);
+      if (Number.isFinite(asNumber) && asNumber > 0) return asNumber;
+      const parsed = Date.parse(raw);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function formatMessageTime(message) {
+  const ts = parseMessageTimestampMs(message);
+  if (!Number.isFinite(ts)) return "";
+  try {
+    return CHAT_TIME_FORMATTER.format(new Date(ts));
+  } catch (_) {
+    return "";
+  }
+}
+
 export default function HomeChatModal({
   open = false,
   darkMode = false,
@@ -35,6 +70,8 @@ export default function HomeChatModal({
   selfNick = "",
   selfInstallId = "",
 }) {
+  const listRef = React.useRef(null);
+
   React.useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => {
@@ -47,13 +84,10 @@ export default function HomeChatModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  if (!open || typeof document === "undefined") return null;
-
   const safeMessages = Array.isArray(messages) ? messages : [];
   const currentTab = chatTab === "system" ? "system" : "messages";
   const isSystemTab = currentTab === "system";
   const title = currentTab === "system" ? "Messages systemes" : "Messages";
-  const listRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return undefined;
@@ -64,6 +98,8 @@ export default function HomeChatModal({
     });
     return () => window.cancelAnimationFrame(rafId);
   }, [open, currentTab, safeMessages.length]);
+
+  if (!open || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[12130] flex items-center justify-center px-3 py-4">
@@ -155,8 +191,10 @@ export default function HomeChatModal({
               {safeMessages.map((msg, idx) => {
                 const key = msg?.id || `chat-${idx}`;
                 const author = (msg?.nick || msg?.author || "Anonyme").trim();
+                const systemAuthor = author || "Système";
                 const authorInstallId =
                   typeof msg?.installId === "string" ? msg.installId : "";
+                const messageTime = formatMessageTime(msg);
                 const isYou = authorInstallId
                   ? authorInstallId === selfInstallId
                   : author === selfNick;
@@ -167,7 +205,15 @@ export default function HomeChatModal({
                       key={key}
                       className="px-2 py-1 text-xs italic text-orange-700 dark:text-amber-300"
                     >
-                      {msg?.text || ""}
+                      <div className="flex items-baseline gap-1 flex-wrap">
+                        <span className="font-bold">{systemAuthor}:</span>
+                        {messageTime ? (
+                          <span className="text-[10px] leading-none opacity-70">
+                            {messageTime}
+                          </span>
+                        ) : null}
+                        <span>{msg?.text || ""}</span>
+                      </div>
                     </div>
                   );
                 }
@@ -182,8 +228,15 @@ export default function HomeChatModal({
                         : "bg-white text-slate-900 border border-slate-200"
                     }`}
                   >
-                    <span className="font-bold mr-1">{author}:</span>
-                    <span>{msg?.text || ""}</span>
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <span className="font-bold">{author}:</span>
+                      {messageTime ? (
+                        <span className="text-[10px] leading-none opacity-70">
+                          {messageTime}
+                        </span>
+                      ) : null}
+                      <span>{msg?.text || ""}</span>
+                    </div>
                   </div>
                 );
               })}
