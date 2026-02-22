@@ -3202,8 +3202,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-02-21";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-21T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-02-22";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-22T00:00:00+01:00");
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -20886,6 +20886,69 @@ function handleTouchEnd() {
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 22/02/2026
+                </div>
+                <ul className="mt-2 list-disc pl-5 space-y-2">
+                  <li>La mise à jour de cette semaine a du caractère !</li>
+                  <li>
+                    introduction d'un menu thème avec des éléments de base modifiables et des
+                    éléments déverrouillables via une monnaie en jeu baptisée "gobblars".
+                  </li>
+                  <li>
+                    la grille est maintenant personnalisable à souhait, des milliers de
+                    combinaisons sont possibles.
+                  </li>
+                  <li>
+                    même sans avoir déverrouillé les options, il est possible de les tester et
+                    d'avoir un aperçu en temps réel pour se fixer des objectifs et trouver une
+                    configuration qui marche bien, le temps d'accumuler les gobblars qu'il faut
+                    pour la mettre en place. N'hésitez pas à m'envoyer vos retours là-dessus, soit
+                    via Facebook, soit via l'adresse support de Gobble
+                    (support@gobble.fr).
+                  </li>
+                  <li>
+                    introduction des gobblars. J'ai choisi d'en distribuer 500 à chaque joueur
+                    pour qu'ils puissent débloquer leur premier paramètre de thème.
+                  </li>
+                  <li>
+                    chaque gobble en jeu rapporte un gobblar. Les médailles rapportent également
+                    des gobblars (10/5/3).
+                  </li>
+                  <li>
+                    introduction des double gobble, pour les mots qui sont à la fois mot le plus
+                    cher et le plus long, avec un visuel adapté et un son correspondant.
+                  </li>
+                  <li>
+                    ajout d'un raccourci émoticônes sur version ordinateur, avec légère
+                    modification du champ de saisie qui peut se dilater pour les longs messages.
+                  </li>
+                  <li>
+                    suppression d'une boucle un peu trop lourde introduite lors de
+                    l'implémentation de la fonction rotation de grille qui recalculait pour chaque
+                    tuile leur position dans l'espace au moment de la validation (ta faute ça
+                    beerman ! :p :p).
+                  </li>
+                  <li>
+                    création d'un menu séparé pour la partie "son" dans les paramètres. Chaque
+                    type de son est maintenant désactivable, avec ajout d'un master volume pour un
+                    réglage indépendant de ceux du téléphone.
+                  </li>
+                  <li>
+                    ajout de la possibilité de passer de la liste de mots trouvés d'un joueur à un
+                    autre pendant la phase résultats.
+                  </li>
+                  <li>
+                    ajout de l'heure à laquelle les messages ont été envoyés et sur les logs
+                    serveur.
+                  </li>
+                  <li>
+                    ajout d'un menu "soutenir gobble" dans "à propos" pour participer aux frais de
+                    maintien du projet, qui restera gratuit quoi qu'il arrive.
+                  </li>
+                </ul>
+              </div>
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 21/02/2026
