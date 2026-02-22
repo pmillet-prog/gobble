@@ -89,8 +89,8 @@ const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
 const RANKING_UI_UPDATE_MIN_MS = 90;
-const PING_SERVER_TIMEOUT_MS = 2200;
-const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 2;
+const PING_SERVER_TIMEOUT_MS = 3200;
+const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 3;
 const VOCAB_OVERLAY_FADE_MS = 1000;
 const VOCAB_OVERLAY_ZERO_DELAY_MS = 2000;
 const VOCAB_OVERLAY_SEGMENT_MS = 2000;
@@ -6879,6 +6879,9 @@ export default function App() {
   }, []);
 
   function playSpecialFoundSound() {
+    if (phaseRef.current !== "playing") return;
+    const view = appViewRef.current;
+    if (view === "daily" || view === "daily_play" || view === "daily_results") return;
     if (isSfxMuted) return;
     playOneShotAudio(SFX_KEYS.specialFound, {
       cooldownKey: "specialFound",
@@ -8922,6 +8925,7 @@ export default function App() {
 
     function maybeTriggerGobbleFromAnnouncement(entry) {
       if (!entry) return;
+      if (phaseRef.current !== "playing") return;
       if (
         entry.type !== "best_possible_score" &&
         entry.type !== "longest_possible"
@@ -9086,6 +9090,7 @@ export default function App() {
 
     function onSpecialHint(payload) {
       if (!payload || typeof payload !== "object") return;
+      if (phaseRef.current !== "playing") return;
       const activeRoundId = roundIdRef.current;
       if (activeRoundId && payload.roundId && payload.roundId !== activeRoundId) return;
       const hintKind = payload.kind || null;
@@ -9105,6 +9110,7 @@ export default function App() {
 
     function onSpecialSolved(payload) {
       if (!payload || typeof payload !== "object") return;
+      if (phaseRef.current !== "playing") return;
       const activeRoundId = roundIdRef.current;
       if (activeRoundId && payload.roundId && payload.roundId !== activeRoundId) return;
       const me = nicknameRef.current.trim();
@@ -12137,7 +12143,7 @@ export default function App() {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (socket.connected) return;
       handleForeground("retry_timer");
-    }, 4500);
+    }, 5500);
     return () => clearInterval(id);
   }, [isLoggedIn, isDailyView]);
 
@@ -12149,7 +12155,7 @@ export default function App() {
     if (phase === "playing") {
       watchdogTimerRef.current = setInterval(
         () => runHealthCheck("watchdog_playing"),
-        12000
+        15000
       );
     }
     return () => {
@@ -12521,7 +12527,7 @@ export default function App() {
     }
     setTimeout(() => {
       reconnectAttemptRef.current = false;
-    }, 1500);
+    }, 3000);
   }
 
   function startGame() {

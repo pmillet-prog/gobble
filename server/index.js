@@ -1599,6 +1599,7 @@ function createRoomState(roomId, config) {
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
     lastRoundResults: null,
     pendingDisconnects: new Map(), // socket.id -> { timer, installId, nick }
+    presenceAnnouncedAt: new Map(), // installId -> last join announcement ts
     rankingBroadcastTimer: null,
     rankingLastBroadcastAt: 0,
     rankingLastSignature: null,
@@ -2056,6 +2057,27 @@ function emitRankingUpdate(room, built) {
   room.rankingLastBroadcastAt = Date.now();
 }
 
+function markPresenceJoinAnnounced(room, rawInstallId) {
+  if (!room?.presenceAnnouncedAt) return;
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return;
+  room.presenceAnnouncedAt.set(installId, Date.now());
+}
+
+function wasPresenceJoinAnnounced(room, rawInstallId) {
+  if (!room?.presenceAnnouncedAt) return false;
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return false;
+  return room.presenceAnnouncedAt.has(installId);
+}
+
+function clearPresenceAnnouncement(room, rawInstallId) {
+  if (!room?.presenceAnnouncedAt) return;
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return;
+  room.presenceAnnouncedAt.delete(installId);
+}
+
 function flushPendingRankingBroadcast(room) {
   if (!room) return;
   room.rankingBroadcastTimer = null;
@@ -2176,7 +2198,6 @@ function pushChatMessage(room, message) {
   room.chatMessages = merged;
 
   io.to(room.id).emit("chatMessage", message);
-  io.to(room.id).emit("chat:new", message);
 }
 
 function getTeamDot(team) {
@@ -4260,17 +4281,8 @@ io.on("connection", (socket) => {
       socket.data.roomId = room.id;
       socket.roomId = room.id;
       socket.join(room.id);
-      if (!isBotToken(player?.token)) {
-        const team = getTeamForInstallCached(installId);
-        pushSystemChatMessage(
-          room,
-          `${player.nick} ${getTeamDot(team)} a rejoint le tournoi`,
-          { installId, team, nick: player.nick, meta: { kind: "join_tournament" } }
-        );
-      }
       emitPlayers(room);
       emitMedals(room);
-      broadcastProvisionalRanking(room, { force: true });
       emitRoomsStats();
     }
     const snapshot = buildSessionSnapshot(room, player);
@@ -4337,6 +4349,7 @@ io.on("connection", (socket) => {
 
     // Réservation de pseudo désactivée (trop gênant sur mobile lors des retours d'appli)
     cleanupExpiredMedals(room);
+    const isResumeLogin = !!resumeSocketId;
 
     room.players.set(socket.id, {
       nick: trimmed,
@@ -4355,13 +4368,14 @@ io.on("connection", (socket) => {
     socket.data.roomId = room.id;
     socket.roomId = room.id;
     socket.join(room.id);
-    if (!isBotToken(token)) {
+    if (!isBotToken(token) && !isResumeLogin) {
       const team = getTeamForInstallCached(installId);
       pushSystemChatMessage(
         room,
         `${trimmed} ${getTeamDot(team)} a rejoint le tournoi`,
         { installId, team, nick: trimmed, meta: { kind: "join_tournament" } }
       );
+      markPresenceJoinAnnounced(room, installId);
     }
     console.log("Login:", socket.id, trimmed, "->", room.id);
     appendConnectionLog({
@@ -4475,7 +4489,10 @@ io.on("connection", (socket) => {
       });
     }
       }
-      broadcastProvisionalRanking(room, { force: true });
+      const builtRanking = buildRankingUpdatePayload(room);
+      if (builtRanking?.payload) {
+        socket.emit("rankingUpdate", builtRanking.payload);
+      }
     } else if (room.breakState && typeof room.breakState.nextStartAt === "number") {
       socket.emit("breakStarted", {
         roomId: room.id,
@@ -4818,7 +4835,6 @@ io.on("connection", (socket) => {
     clearPendingDisconnect(room, socket.id);
     emitPlayers(room);
     emitRoomsStats();
-    broadcastProvisionalRanking(room, { force: true });
     const timer = setTimeout(() => {
       clearPendingDisconnect(room, socket.id);
       const current = room.players.get(socket.id);
@@ -4826,22 +4842,24 @@ io.on("connection", (socket) => {
         room.players.delete(socket.id);
         if (!isBotToken(current?.token)) {
           const currentInstallId = normalizeInstallId(current?.installId || "");
-          const team = getTeamForInstallCached(currentInstallId);
-          pushSystemChatMessage(
-            room,
-            `${current?.nick || "Joueur"} ${getTeamDot(team)} a quitté le tournoi`,
-            {
-              installId: currentInstallId,
-              team,
-              nick: current?.nick || "",
-              meta: { kind: "leave_tournament" },
-            }
-          );
+          if (wasPresenceJoinAnnounced(room, currentInstallId)) {
+            const team = getTeamForInstallCached(currentInstallId);
+            pushSystemChatMessage(
+              room,
+              `${current?.nick || "Joueur"} ${getTeamDot(team)} a quitté le tournoi`,
+              {
+                installId: currentInstallId,
+                team,
+                nick: current?.nick || "",
+                meta: { kind: "leave_tournament" },
+              }
+            );
+            clearPresenceAnnouncement(room, currentInstallId);
+          }
         }
         console.log("Client déconnecté", socket.id, current?.nick, "from", room.id);
         emitPlayers(room);
         emitMedals(room);
-        broadcastProvisionalRanking(room, { force: true });
         emitRoomsStats();
       }
     }, DISCONNECT_GRACE_MS);
