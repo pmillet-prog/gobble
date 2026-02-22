@@ -94,6 +94,19 @@ export default function ChatContent({
   const messagesEndRef = useRef(null);
   const messagesListRef = useRef(null);
   const localTextareaRef = useRef(null);
+  const lastVisibleMessageKey = React.useMemo(() => {
+    if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {
+      return "empty";
+    }
+    const last = visibleMessages[visibleMessages.length - 1];
+    if (!last || typeof last !== "object") return "missing";
+    const id = typeof last.id === "string" ? last.id.trim() : "";
+    if (id) return `id:${id}`;
+    const ts = parseMessageTimestampMs(last);
+    const author = String(last.nick || last.author || "").trim();
+    const text = String(last.text || "");
+    return `fallback:${ts || 0}:${author}:${text}`;
+  }, [visibleMessages]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -105,6 +118,7 @@ export default function ChatContent({
       const listEl = messagesListRef.current;
       if (listEl) {
         listEl.scrollTop = listEl.scrollHeight;
+        return;
       }
       messagesEndRef.current?.scrollIntoView({ block: "end" });
     };
@@ -123,7 +137,7 @@ export default function ChatContent({
       if (timeout1 !== null) window.clearTimeout(timeout1);
       if (timeout2 !== null) window.clearTimeout(timeout2);
     };
-  }, [isOpen, chatTab, visibleMessages.length, chatKeyboardInsetPx, keyboardInsetReservePx]);
+  }, [isOpen, chatTab, lastVisibleMessageKey, chatKeyboardInsetPx, keyboardInsetReservePx]);
 
   useEffect(() => {
     const el = localTextareaRef.current;
@@ -131,6 +145,21 @@ export default function ChatContent({
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
   }, [chatInput, chatTab, isOpen, isSystemTab]);
+
+  useEffect(() => {
+    if (!isOpen || isSystemTab) return undefined;
+    let rafId = null;
+    const syncBottom = () => {
+      const listEl = messagesListRef.current;
+      if (listEl) {
+        listEl.scrollTop = listEl.scrollHeight;
+      }
+    };
+    rafId = window.requestAnimationFrame(syncBottom);
+    return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, [chatInput, isOpen, isSystemTab]);
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {

@@ -88,6 +88,17 @@ export default function HomeChatModal({
   const currentTab = chatTab === "system" ? "system" : "messages";
   const isSystemTab = currentTab === "system";
   const title = currentTab === "system" ? "Messages systemes" : "Messages";
+  const lastMessageKey = React.useMemo(() => {
+    if (!safeMessages.length) return "empty";
+    const last = safeMessages[safeMessages.length - 1];
+    if (!last || typeof last !== "object") return "missing";
+    const id = typeof last.id === "string" ? last.id.trim() : "";
+    if (id) return `id:${id}`;
+    const ts = parseMessageTimestampMs(last);
+    const author = String(last.nick || last.author || "").trim();
+    const text = String(last.text || "");
+    return `fallback:${ts || 0}:${author}:${text}`;
+  }, [safeMessages]);
 
   React.useEffect(() => {
     if (!open) return undefined;
@@ -97,7 +108,7 @@ export default function HomeChatModal({
       el.scrollTop = el.scrollHeight;
     });
     return () => window.cancelAnimationFrame(rafId);
-  }, [open, currentTab, safeMessages.length]);
+  }, [open, currentTab, lastMessageKey]);
 
   if (!open || typeof document === "undefined") return null;
 

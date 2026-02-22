@@ -6534,23 +6534,16 @@ export default function App() {
         document.body.style.height = px;
         document.documentElement.style.height = px;
       }
-      if (typeof window !== "undefined") {
-        window.scrollTo(0, 0);
-      }
     };
 
     applyLockedHeight();
     window.addEventListener("resize", applyLockedHeight);
-    window.addEventListener("scroll", applyLockedHeight, { passive: true });
     const vv = window.visualViewport;
     vv?.addEventListener("resize", applyLockedHeight);
-    vv?.addEventListener("scroll", applyLockedHeight);
 
     return () => {
       window.removeEventListener("resize", applyLockedHeight);
-      window.removeEventListener("scroll", applyLockedHeight);
       vv?.removeEventListener("resize", applyLockedHeight);
-      vv?.removeEventListener("scroll", applyLockedHeight);
       document.body.style.overflow = previousOverflow;
       document.body.style.height = previousHeight;
       document.body.style.position = previousPosition;
