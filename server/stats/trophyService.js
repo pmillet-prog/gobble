@@ -77,6 +77,7 @@ export async function initTrophyService() {
     await fs.mkdir(DATA_DIR, { recursive: true });
     db = await open({ filename: DB_PATH, driver: sqlite3.Database });
     await db.exec("PRAGMA journal_mode = WAL;");
+    await db.exec("PRAGMA busy_timeout = 5000;");
     await db.exec(`
       CREATE TABLE IF NOT EXISTS trophies (
         installId TEXT PRIMARY KEY,

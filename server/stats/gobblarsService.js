@@ -143,6 +143,62 @@ function isThemeOptionUnlocked(unlocks, category, optionId) {
 }
 
 let db = null;
+let writeQueue = Promise.resolve();
+const SQLITE_BUSY_MAX_RETRIES = 10;
+const SQLITE_BUSY_RETRY_BASE_MS = 40;
+
+function isSqliteBusyError(err) {
+  const code = String(err?.code || "").toUpperCase();
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    code === "SQLITE_BUSY" ||
+    msg.includes("database is locked") ||
+    msg.includes("sqlite_busy")
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (err) {
+      if (!isSqliteBusyError(err) || attempt >= retries) {
+        throw err;
+      }
+      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
+      await sleep(waitMs);
+    }
+  }
+}
+
+function runSerializedWrite(task) {
+  const execute = () => runWithBusyRetry(task);
+  const next = writeQueue.then(execute, execute);
+  writeQueue = next.catch(() => {});
+  return next;
+}
+
+async function runInImmediateTransaction(task) {
+  await db.exec("BEGIN IMMEDIATE");
+  let committed = false;
+  try {
+    const result = await task();
+    await db.exec("COMMIT");
+    committed = true;
+    return result;
+  } catch (err) {
+    if (!committed) {
+      try {
+        await db.exec("ROLLBACK");
+      } catch (_) {}
+    }
+    throw err;
+  }
+}
 
 function safeJsonParse(raw, fallback) {
   try {
@@ -235,19 +291,28 @@ async function getOrCreateProfileRow(installId) {
   );
   if (existing) return existing;
   const now = Date.now();
+  const defaultThemeJson = JSON.stringify(DEFAULT_THEME);
+  const defaultUnlocksJson = JSON.stringify(sanitizeUnlocksInput({}, DEFAULT_THEME));
   await db.run(
-    "INSERT INTO gobblar_profiles (installId, balance, themeApplied, themeUnlocks, updatedAt) VALUES (?, ?, ?, ?, ?)",
+    `INSERT OR IGNORE INTO gobblar_profiles
+     (installId, balance, themeApplied, themeUnlocks, updatedAt)
+     VALUES (?, ?, ?, ?, ?)`,
     installId,
     0,
-    JSON.stringify(DEFAULT_THEME),
-    JSON.stringify(sanitizeUnlocksInput({}, DEFAULT_THEME)),
+    defaultThemeJson,
+    defaultUnlocksJson,
     now
   );
+  const row = await db.get(
+    "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
+    installId
+  );
+  if (row) return row;
   return {
     installId,
     balance: 0,
-    themeApplied: JSON.stringify(DEFAULT_THEME),
-    themeUnlocks: JSON.stringify(sanitizeUnlocksInput({}, DEFAULT_THEME)),
+    themeApplied: defaultThemeJson,
+    themeUnlocks: defaultUnlocksJson,
     updatedAt: now,
   };
 }
@@ -357,6 +422,7 @@ export async function initGobblarsService() {
     await fs.mkdir(DATA_DIR, { recursive: true });
     db = await open({ filename: DB_PATH, driver: sqlite3.Database });
     await db.exec("PRAGMA journal_mode = WAL;");
+    await db.exec("PRAGMA busy_timeout = 5000;");
     await db.exec(`
       CREATE TABLE IF NOT EXISTS gobblar_profiles (
         installId TEXT PRIMARY KEY,
@@ -431,36 +497,34 @@ export async function addGobblars({
   if (!safeAmount) {
     return getProfileParsed(installId);
   }
-  await db.exec("BEGIN");
-  try {
-    const profile = await getProfileParsed(installId);
-    if (!profile) throw new Error("profile_missing");
-    const nextBalance = profile.balance + safeAmount;
-    if (nextBalance < 0) {
-      await db.exec("ROLLBACK");
-      return {
-        ok: false,
-        error: "insufficient_funds",
-        balance: profile.balance,
-        required: Math.abs(safeAmount),
-      };
-    }
-    const updated = await updateProfileRow(installId, {
-      balance: nextBalance,
-      themeApplied: profile.themeApplied,
-      themeUnlocks: profile.themeUnlocks,
-      now: ts,
-    });
-    await insertLedgerEntry(installId, safeAmount, reason, meta, ts);
-    await db.exec("COMMIT");
-    return { ok: true, ...updated };
-  } catch (err) {
+  return runSerializedWrite(async () => {
     try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
-    console.warn("Gobblars add failed", err);
-    return null;
-  }
+      return await runInImmediateTransaction(async () => {
+        const profile = await getProfileParsed(installId);
+        if (!profile) throw new Error("profile_missing");
+        const nextBalance = profile.balance + safeAmount;
+        if (nextBalance < 0) {
+          return {
+            ok: false,
+            error: "insufficient_funds",
+            balance: profile.balance,
+            required: Math.abs(safeAmount),
+          };
+        }
+        const updated = await updateProfileRow(installId, {
+          balance: nextBalance,
+          themeApplied: profile.themeApplied,
+          themeUnlocks: profile.themeUnlocks,
+          now: ts,
+        });
+        await insertLedgerEntry(installId, safeAmount, reason, meta, ts);
+        return { ok: true, ...updated };
+      });
+    } catch (err) {
+      console.warn("Gobblars add failed", err);
+      return null;
+    }
+  });
 }
 
 export async function grantWeeklyWinnerGobblars({
@@ -472,40 +536,38 @@ export async function grantWeeklyWinnerGobblars({
   const safeAmount = Math.max(0, Math.trunc(Number(amount) || 0));
   if (!safeAmount) return getProfileParsed(installId);
   const ts = Date.now();
-  await db.exec("BEGIN");
-  try {
-    const profile = await getProfileParsed(installId);
-    if (!profile) throw new Error("profile_missing");
-    const insertRes = await db.run(
-      `INSERT OR IGNORE INTO gobblar_week_rewards (installId, weekId, source, amount, awardedAt)
-       VALUES (?, ?, ?, ?, ?)`,
-      installId,
-      weekId,
-      "duel_winner",
-      safeAmount,
-      ts
-    );
-    const changed = Number(insertRes?.changes) || 0;
-    if (!changed) {
-      await db.exec("COMMIT");
-      return { ok: true, awarded: false, ...profile };
-    }
-    const updated = await updateProfileRow(installId, {
-      balance: profile.balance + safeAmount,
-      themeApplied: profile.themeApplied,
-      themeUnlocks: profile.themeUnlocks,
-      now: ts,
-    });
-    await insertLedgerEntry(installId, safeAmount, "weekly_duel_winner", { weekId }, ts);
-    await db.exec("COMMIT");
-    return { ok: true, awarded: true, ...updated };
-  } catch (err) {
+  return runSerializedWrite(async () => {
     try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
-    console.warn("Weekly winner gobblars failed", err);
-    return null;
-  }
+      return await runInImmediateTransaction(async () => {
+        const profile = await getProfileParsed(installId);
+        if (!profile) throw new Error("profile_missing");
+        const insertRes = await db.run(
+          `INSERT OR IGNORE INTO gobblar_week_rewards (installId, weekId, source, amount, awardedAt)
+           VALUES (?, ?, ?, ?, ?)`,
+          installId,
+          weekId,
+          "duel_winner",
+          safeAmount,
+          ts
+        );
+        const changed = Number(insertRes?.changes) || 0;
+        if (!changed) {
+          return { ok: true, awarded: false, ...profile };
+        }
+        const updated = await updateProfileRow(installId, {
+          balance: profile.balance + safeAmount,
+          themeApplied: profile.themeApplied,
+          themeUnlocks: profile.themeUnlocks,
+          now: ts,
+        });
+        await insertLedgerEntry(installId, safeAmount, "weekly_duel_winner", { weekId }, ts);
+        return { ok: true, awarded: true, ...updated };
+      });
+    } catch (err) {
+      console.warn("Weekly winner gobblars failed", err);
+      return null;
+    }
+  });
 }
 
 function getThemeValueByCategory(theme, category) {
@@ -559,84 +621,82 @@ export async function applyThemeSelection({
   const categoriesToApply =
     safeMode === "single" ? [safeCategory].filter((x) => categoryOrder.includes(x)) : categoryOrder;
 
-  await db.exec("BEGIN");
-  try {
-    const profile = await getProfileParsed(installId);
-    if (!profile) throw new Error("profile_missing");
-    const currentTheme = sanitizeThemeInput(profile.themeApplied);
-    const currentUnlocks = sanitizeUnlocksInput(profile.themeUnlocks, currentTheme);
-    const changedCategories = [];
-    for (const key of categoriesToApply) {
-      if (getThemeValueByCategory(currentTheme, key) !== getThemeValueByCategory(themeDraft, key)) {
-        changedCategories.push(key);
-      }
-    }
-    const requiredUnlocks = changedCategories
-      .map((key) => {
-        if (!LOCKABLE_THEME_CATEGORIES.includes(key)) return "";
-        const optionId = getThemeValueByCategory(themeDraft, key);
-        const defaultId = getThemeValueByCategory(DEFAULT_THEME, key);
-        if (optionId === defaultId) return "";
-        if (isThemeOptionUnlocked(currentUnlocks, key, optionId)) return "";
-        return getThemeUnlockItemKey(key, optionId);
-      })
-      .filter(Boolean);
-    const parsedUnlockCost = Number(unlockCost);
-    const unlockPrice = Math.max(
-      0,
-      Math.trunc(Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST)
-    );
-    const spent = requiredUnlocks.length * unlockPrice;
-    if (spent > profile.balance) {
-      await db.exec("ROLLBACK");
-      return {
-        ok: false,
-        error: "insufficient_funds",
-        balance: profile.balance,
-        required: spent,
-      };
-    }
-
-    const nextUnlocks = { ...currentUnlocks };
-    for (const unlockKey of requiredUnlocks) nextUnlocks[unlockKey] = true;
-    const nextTheme = { ...currentTheme };
-    for (const key of categoriesToApply) {
-      nextTheme[key] = themeDraft[key];
-    }
-    const nextBalance = profile.balance - spent;
-    const ts = Date.now();
-    await updateProfileRow(installId, {
-      balance: nextBalance,
-      themeApplied: nextTheme,
-      themeUnlocks: nextUnlocks,
-      now: ts,
-    });
-    if (spent > 0) {
-      await insertLedgerEntry(
-        installId,
-        -spent,
-        safeMode === "single" ? "theme_unlock_single" : "theme_unlock_full",
-        { requiredUnlocks, categoriesToApply },
-        ts
-      );
-    }
-    await db.exec("COMMIT");
-    return {
-      ok: true,
-      balance: nextBalance,
-      spent,
-      requiredUnlocks,
-      changedCategories,
-      themeApplied: nextTheme,
-      themeUnlocks: nextUnlocks,
-      unlockCost: unlockPrice,
-      lockableCategories: LOCKABLE_THEME_CATEGORIES,
-    };
-  } catch (err) {
+  return runSerializedWrite(async () => {
     try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
-    console.warn("Theme apply failed", err);
-    return null;
-  }
+      return await runInImmediateTransaction(async () => {
+        const profile = await getProfileParsed(installId);
+        if (!profile) throw new Error("profile_missing");
+        const currentTheme = sanitizeThemeInput(profile.themeApplied);
+        const currentUnlocks = sanitizeUnlocksInput(profile.themeUnlocks, currentTheme);
+        const changedCategories = [];
+        for (const key of categoriesToApply) {
+          if (getThemeValueByCategory(currentTheme, key) !== getThemeValueByCategory(themeDraft, key)) {
+            changedCategories.push(key);
+          }
+        }
+        const requiredUnlocks = changedCategories
+          .map((key) => {
+            if (!LOCKABLE_THEME_CATEGORIES.includes(key)) return "";
+            const optionId = getThemeValueByCategory(themeDraft, key);
+            const defaultId = getThemeValueByCategory(DEFAULT_THEME, key);
+            if (optionId === defaultId) return "";
+            if (isThemeOptionUnlocked(currentUnlocks, key, optionId)) return "";
+            return getThemeUnlockItemKey(key, optionId);
+          })
+          .filter(Boolean);
+        const parsedUnlockCost = Number(unlockCost);
+        const unlockPrice = Math.max(
+          0,
+          Math.trunc(Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST)
+        );
+        const spent = requiredUnlocks.length * unlockPrice;
+        if (spent > profile.balance) {
+          return {
+            ok: false,
+            error: "insufficient_funds",
+            balance: profile.balance,
+            required: spent,
+          };
+        }
+
+        const nextUnlocks = { ...currentUnlocks };
+        for (const unlockKey of requiredUnlocks) nextUnlocks[unlockKey] = true;
+        const nextTheme = { ...currentTheme };
+        for (const key of categoriesToApply) {
+          nextTheme[key] = themeDraft[key];
+        }
+        const nextBalance = profile.balance - spent;
+        const ts = Date.now();
+        await updateProfileRow(installId, {
+          balance: nextBalance,
+          themeApplied: nextTheme,
+          themeUnlocks: nextUnlocks,
+          now: ts,
+        });
+        if (spent > 0) {
+          await insertLedgerEntry(
+            installId,
+            -spent,
+            safeMode === "single" ? "theme_unlock_single" : "theme_unlock_full",
+            { requiredUnlocks, categoriesToApply },
+            ts
+          );
+        }
+        return {
+          ok: true,
+          balance: nextBalance,
+          spent,
+          requiredUnlocks,
+          changedCategories,
+          themeApplied: nextTheme,
+          themeUnlocks: nextUnlocks,
+          unlockCost: unlockPrice,
+          lockableCategories: LOCKABLE_THEME_CATEGORIES,
+        };
+      });
+    } catch (err) {
+      console.warn("Theme apply failed", err);
+      return null;
+    }
+  });
 }
