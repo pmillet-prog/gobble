@@ -479,8 +479,9 @@ class BotManager {
     }
 
     // Pendant une manche, on garde les bots stables (pas de pop-in/out en plein jeu).
-    const isRunning = room?.currentRound?.status === "running";
-    if (isRunning) return;
+    const isRoundActive =
+      room?.currentRound?.status === "running" || room?.currentRound?.status === "intro";
+    if (isRoundActive) return;
 
     // Roulement discret: on change un peu la prÈsence d'une heure ‡ l'autre.
     const slotKey = getParisTimeSlotKey(now, BOT_ROTATION_MINUTES);
@@ -606,7 +607,10 @@ class BotManager {
 
     const timer = setTimeout(() => {
       this.presenceTimers.delete(key);
-      if (room?.currentRound?.status === "running") {
+      if (
+        room?.currentRound?.status === "running" ||
+        room?.currentRound?.status === "intro"
+      ) {
         const retryDelay = 1500 + Math.random() * 2500;
         const retry = setTimeout(() => {
           this.presenceTimers.delete(key);

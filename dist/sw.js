@@ -1,8 +1,9 @@
-const SW_VERSION = "v3";
+const SW_VERSION = "v4";
 const CACHE_PREFIX = "gobble-cache";
 const MEDIA_CACHE = `${CACHE_PREFIX}-media-${SW_VERSION}`;
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${SW_VERSION}`;
 const CACHE_NAMES = new Set([MEDIA_CACHE, SHELL_CACHE]);
+const MEDIA_CACHE_MAX_ENTRIES = 180;
 
 const SHELL_URLS = ["/", "/index.html", "/manifest.webmanifest", "/favicon.png", "/icon.svg"];
 
@@ -40,6 +41,17 @@ function isMediaPath(pathname) {
   );
 }
 
+function isAudioPath(pathname) {
+  return (
+    pathname.startsWith("/sound/") ||
+    pathname.endsWith(".mp3") ||
+    pathname.endsWith(".m4a") ||
+    pathname.endsWith(".wav") ||
+    pathname.endsWith(".ogg") ||
+    pathname.endsWith(".webm")
+  );
+}
+
 function shouldHandleAsMedia(request, url) {
   if (isApiRequest(url.pathname)) return false;
   if (isMediaPath(url.pathname)) return true;
@@ -60,7 +72,20 @@ async function putInCache(cacheName, key, response) {
   await cache.put(key, response.clone());
 }
 
+async function trimCache(cacheName, maxEntries = MEDIA_CACHE_MAX_ENTRIES) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length <= maxEntries) return;
+    const overflow = keys.length - maxEntries;
+    await Promise.all(keys.slice(0, overflow).map((request) => cache.delete(request)));
+  } catch (_) {}
+}
+
 async function mediaCacheFirst(request, url) {
+  if (request.destination === "audio" || isAudioPath(url.pathname)) {
+    return fetch(request);
+  }
   if (request.headers.get("range")) {
     return fetch(request);
   }
@@ -71,6 +96,7 @@ async function mediaCacheFirst(request, url) {
   try {
     const network = await fetch(request);
     await putInCache(MEDIA_CACHE, key, network);
+    await trimCache(MEDIA_CACHE);
     return network;
   } catch (_) {
     if (cached) return cached;

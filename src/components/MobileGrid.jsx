@@ -30,6 +30,7 @@ function MobileGrid({
   phase,
   specialIndicatorPreset,
   specialSolvedOverlay,
+  introHideTiles = false,
   defaultTileBaseClass = "theme-tile-base",
   tilePointsVisible = true,
   tileRefs,
@@ -182,6 +183,7 @@ function MobileGrid({
                 highlightClass,
                 hintClass,
                 hintOutlineClass,
+                introHideTiles ? "opacity-0 pointer-events-none" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}

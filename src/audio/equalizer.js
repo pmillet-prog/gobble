@@ -32,7 +32,7 @@ export const SOUND_EQ = {
   dejaJoue: { volume: 0.2 },
   shortWord: { volume: 0.4 },
   gobbleVoice: { volume: 0.95 },
-  score: { volume: 1, stretch: 2, pitch: 0.5 },
+  score: { volume: 0.6, stretch: 2, pitch: 0.5 },
   score2: { volume: 1, stretch: 3.25, pitch: 1 },
   // Black hole
   blackHole: { volume: 0.7 },

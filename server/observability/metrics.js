@@ -4,6 +4,12 @@ const histogram = monitorEventLoopDelay({ resolution: 20 });
 histogram.enable();
 
 const startedAt = Date.now();
+const NS_TO_MS = 1e6;
+
+function nsToMs(value) {
+  if (!Number.isFinite(value)) return null;
+  return value / NS_TO_MS;
+}
 
 function safePercentile(h, p) {
   if (!h || typeof h.percentile !== "function") return null;
@@ -17,9 +23,9 @@ function safePercentile(h, p) {
 
 export function getMetrics({ roomsCount = null, socketsCount = null } = {}) {
   const mem = process.memoryUsage();
-  const p50 = safePercentile(histogram, 50);
-  const p95 = safePercentile(histogram, 95);
-  const p99 = safePercentile(histogram, 99);
+  const p50 = nsToMs(safePercentile(histogram, 50));
+  const p95 = nsToMs(safePercentile(histogram, 95));
+  const p99 = nsToMs(safePercentile(histogram, 99));
 
   return {
     eventLoopDelay: {

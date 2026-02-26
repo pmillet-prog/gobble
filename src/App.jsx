@@ -13,7 +13,7 @@ import {
 } from "./assets/assetKeys";
 import ASSET_MANIFEST_BASE from "./assets/assetManifest";
 import AMBIENT_MUSIC_TRACKS_FALLBACK from "./audio/ambientDefaults.json";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
@@ -44,6 +44,7 @@ import {
   tileScore,
 } from "./components/gameLogic";
 import { generateGrid } from "./components/gridGeneration";
+import { SUPPORT_DONORS } from "./constants/supportDonors";
 
 
 const ROOM_OPTIONS = {
@@ -59,15 +60,18 @@ const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
-const MAIN_GRID_HEIGHT = "clamp(520px, 82vh, 880px)";
+const MAIN_GRID_HEIGHT = "max(360px, calc(100vh - 180px))";
 const KEYBOARD_INSET_THRESHOLD_PX = 80;
 const CHAT_SHEET_HEIGHT_RATIO = 0.8;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
-  minHeight: "520px",
+  minHeight: "360px",
 };
 const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
+const DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 0.85, 1.05];
+const DESKTOP_COLUMN_MIN_WIDTHS_PX = [220, 340, 260, 260];
+const DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX = "gobble_desktop_cols_v1";
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
 const MOBILE_LAYOUT_MAX_WIDTH = 520;
@@ -80,6 +84,33 @@ const BASE_GAP_PX = 8; // gap-2 de référence
 const BASE_GAP_RATIO = BASE_GAP_PX / BASE_TILE_PX; // ~0.14 pour conserver les proportions
 const MIN_TILE_SIZE = 40; // garde une lisibilité minimale
 const GRID_ROTATE_ANIM_MS = 820;
+const MOBILE_ROUND_INTRO_RESULTS_FADE_MS = 300;
+const MOBILE_ROUND_INTRO_INTRO_FADE_IN_MS = 220;
+const MOBILE_ROUND_INTRO_TITLE_HOLD_MS = 2500;
+const MOBILE_ROUND_INTRO_TITLE_FADE_MS = 180;
+const MOBILE_ROUND_INTRO_TILE_HOLD_MS = 80;
+const MOBILE_ROUND_INTRO_COUNTDOWN_FROM = 3;
+const MOBILE_ROUND_INTRO_COUNTDOWN_STEP_MS = 1000;
+const MOBILE_ROUND_INTRO_COUNTDOWN_TOTAL_MS =
+  MOBILE_ROUND_INTRO_COUNTDOWN_FROM * MOBILE_ROUND_INTRO_COUNTDOWN_STEP_MS;
+const MOBILE_ROUND_INTRO_GO_LABEL = "PARTEZ !";
+const MOBILE_ROUND_INTRO_GO_HOLD_MS = 360;
+const MOBILE_ROUND_INTRO_GO_FADE_MS = 320;
+const MOBILE_ROUND_INTRO_GO_TOTAL_MS =
+  MOBILE_ROUND_INTRO_GO_HOLD_MS + MOBILE_ROUND_INTRO_GO_FADE_MS;
+const DEV_PHASE_LOOP_QUERY_PARAM = "phaseLoop";
+const DEV_PHASE_LOOP_RESULTS_MS = 10_000;
+const DEV_PHASE_LOOP_PLAYING_MS = 10_000;
+const DEV_PHASE_LOOP_PLAYING_GUARD_MS = 250;
+const DEV_PHASE_LOOP_INTRO_TILE_ESTIMATE_MS = 1200;
+const DEV_PHASE_LOOP_INTRO_MS =
+  MOBILE_ROUND_INTRO_RESULTS_FADE_MS +
+  MOBILE_ROUND_INTRO_INTRO_FADE_IN_MS +
+  MOBILE_ROUND_INTRO_TITLE_HOLD_MS +
+  MOBILE_ROUND_INTRO_TITLE_FADE_MS +
+  DEV_PHASE_LOOP_INTRO_TILE_ESTIMATE_MS +
+  MOBILE_ROUND_INTRO_TILE_HOLD_MS +
+  MOBILE_ROUND_INTRO_COUNTDOWN_TOTAL_MS;
 const DARK_ROW_TEXT = "#e5e7eb";
 const LIVE_SOLVER_DURING_PLAY = false;
 const DEV_MODE = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
@@ -89,6 +120,9 @@ const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
 const RANKING_UI_UPDATE_MIN_MS = 90;
+const PLAYERS_UI_UPDATE_MIN_MS = 120;
+const SAMSUNG_RANKING_UI_UPDATE_MIN_MS = 260;
+const SAMSUNG_PLAYERS_UI_UPDATE_MIN_MS = 320;
 const PING_SERVER_TIMEOUT_MS = 3200;
 const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 3;
 const VOCAB_OVERLAY_FADE_MS = 1000;
@@ -104,9 +138,26 @@ const DEBUG_AUDIO = false;
 const AUDIO_MASTER_GAIN = 0.7;
 const SOUND_MASTER_VOLUME_DEFAULT = 1;
 const AUDIO_POLYPHONY_LIMIT = 10;
+const AUDIO_COOLDOWN_PRUNE_MS = 60_000;
+const AUDIO_COOLDOWN_MAX_KEYS = 256;
+const SAMSUNG_SAFE_MODE_STORAGE_KEY = "samsungSafeMode";
+const SAMSUNG_DIAG_QUERY_PARAM = "samsungDiag";
+const SAMSUNG_DIAG_STORAGE_KEY = "gobbleSamsungDiagEnabled";
+const SAMSUNG_DIAG_SNAPSHOT_STORAGE_KEY = "gobbleSamsungDiagLast";
+const SAMSUNG_BROWSER_WARNING_SESSION_KEY = "gobbleSamsungBrowserWarningShown";
+const SAMSUNG_DIAG_RING_LIMIT = 180;
+const SAMSUNG_DIAG_FLUSH_INTERVAL_MS = 4000;
+const SAMSUNG_DIAG_TOUCH_RATE_WINDOW_MS = 1000;
+const SAMSUNG_DIAG_HIGH_TOUCH_RATE_PER_SEC = 70;
+const SAMSUNG_DIAG_TOUCH_RATE_MIN_SAMPLES = 8;
+const SAMSUNG_DIAG_TOUCH_RATE_MIN_ELAPSED_MS = 140;
+const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
+const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
+const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
+const SAMSUNG_BIGWORD_FLASH_MS = 650;
 const SOFT_CLIP_CURVE_CACHE = new Map();
 const AUDIO_COOLDOWNS_MS = {
-  tileStep: 40,
+  tileStep: 12,
   tick: 750,
   countdownTick: 850,
   swipe: 80,
@@ -127,6 +178,11 @@ const AUDIO_COOLDOWNS_MS = {
   gobbleVoice: 1200,
 };
 const VOCAB_SAMPLE_BASE_FREQ = 440;
+const CACHE_PURGE_QUERY_PARAM = "purgeCache";
+const MEDIA_CACHE_PURGE_VERSION = "2026-02-26-audio-hotfix-2";
+const MEDIA_CACHE_PURGE_STORAGE_KEY = `gobbleMediaCachePurged:${MEDIA_CACHE_PURGE_VERSION}`;
+const SW_MEDIA_CACHE_PREFIX = "gobble-cache-media-";
+const SOUND_ASSET_VERSION = "2026-02-26-audio-hotfix-2";
 const SOUND_ROOT = "/sound";
 const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
 const AMBIENT_MUSIC_TRACKS_BASE = [
@@ -140,16 +196,16 @@ const AMBIENT_MUSIC_TRACKS_DEFAULT =
     ? AMBIENT_MUSIC_TRACKS_FALLBACK
     : AMBIENT_MUSIC_TRACKS_BASE;
 const INCREMENTAL_SOUND_COUNT = 16;
+const INCREMENTAL_BASE_NOTE_NUMBER = 9;
+const INCREMENTAL_BASE_NOTE_INDEX = INCREMENTAL_BASE_NOTE_NUMBER - 1;
+const INCREMENTAL_SOUND_BASE_PATH = `${SOUND_ROOT}/game/incremental/09.wav`;
+const INCREMENTAL_BASE_SFX_KEY = makeIncrementalSfxKey("09");
 
 function normalizeSoundMasterVolume(raw, fallback = SOUND_MASTER_VOLUME_DEFAULT) {
   const value = Number(raw);
   if (!Number.isFinite(value)) return fallback;
   return Math.max(0, Math.min(1, value));
 }
-const INCREMENTAL_SOUND_PATHS = Array.from({ length: INCREMENTAL_SOUND_COUNT }, (_, idx) => {
-  const label = String(idx + 1).padStart(2, "0");
-  return `${SOUND_ROOT}/game/incremental/${label}.wav`;
-});
 const SCORE_SOUND_BANDS = [
   { min: 3, max: 5, src: `${SOUND_ROOT}/game/scores/03.wav` },
   { min: 6, max: 9, src: `${SOUND_ROOT}/game/scores/04.wav` },
@@ -165,32 +221,35 @@ const SCORE_LOW_PATH = `${SOUND_ROOT}/game/scores/01.wav`;
 const SCORE2_LOW_PATH = `${SOUND_ROOT}/game/piano/01.wav`;
 const SCORE_LOW_KEY = makeScoreSfxKey("01");
 const SCORE2_LOW_KEY = makeScore2SfxKey("01");
+function withSoundAssetVersion(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return raw;
+  const joiner = raw.includes("?") ? "&" : "?";
+  return `${raw}${joiner}v=${encodeURIComponent(SOUND_ASSET_VERSION)}`;
+}
+
 const SOUND_PATHS = {
-  gobbleVoice: `${SOUND_ROOT}/game/gobble.mp3`,
-  doubleGobbleVoice: `${SOUND_ROOT}/game/doublegobble.mp3`,
-  blackHole: `${SOUND_ROOT}/game/chasse.mp3`,
-  chebabeu: `${SOUND_ROOT}/game/chebabeu.wav`,
-  clavier: `${SOUND_ROOT}/game/clavier.wav`,
-  souris: `${SOUND_ROOT}/game/souris.wav`,
-  shortWord: `${SOUND_ROOT}/game/error.mp3`,
-  roundStart: `${SOUND_ROOT}/game/dong.wav`,
-  specialFound: `${SOUND_ROOT}/game/charleston.wav`,
-  tictac10: `${SOUND_ROOT}/game/tictac10.wav`,
-  coeur: `${SOUND_ROOT}/game/coeur.wav`,
-  tictoc: `${SOUND_ROOT}/game/tictoc.mp3`,
-  vocabOverlay: `${SOUND_ROOT}/ui/progvoca.wav`,
-  vocabCling: `${SOUND_ROOT}/game/piece.wav`,
-  invalidWord: `${SOUND_ROOT}/game/invalide.mp3`,
-  dejaJoue: `${SOUND_ROOT}/game/dejajoue.wav`,
-  uiClick: `${SOUND_ROOT}/ui/click.wav`,
-  uiClose: `${SOUND_ROOT}/ui/bipmontre.wav`,
-  tournamentFireworks: `${SOUND_ROOT}/game/artifice.mp3`,
-  tournamentApplause: `${SOUND_ROOT}/game/applause.wav`,
+  gobbleVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/gobble.mp3`),
+  doubleGobbleVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/doublegobble.mp3`),
+  blackHole: withSoundAssetVersion(`${SOUND_ROOT}/game/chasse.mp3`),
+  chebabeu: withSoundAssetVersion(`${SOUND_ROOT}/game/chebabeu.wav`),
+  clavier: withSoundAssetVersion(`${SOUND_ROOT}/game/clavier.wav`),
+  souris: withSoundAssetVersion(`${SOUND_ROOT}/game/souris.wav`),
+  shortWord: withSoundAssetVersion(`${SOUND_ROOT}/game/error.mp3`),
+  roundStart: withSoundAssetVersion(`${SOUND_ROOT}/game/dong.wav`),
+  specialFound: withSoundAssetVersion(`${SOUND_ROOT}/game/charleston.wav`),
+  tictac10: withSoundAssetVersion(`${SOUND_ROOT}/game/tictac10.wav`),
+  coeur: withSoundAssetVersion(`${SOUND_ROOT}/game/coeur.wav`),
+  tictoc: withSoundAssetVersion(`${SOUND_ROOT}/game/tictoc.mp3`),
+  vocabOverlay: withSoundAssetVersion(`${SOUND_ROOT}/ui/progvoca.wav`),
+  vocabCling: withSoundAssetVersion(`${SOUND_ROOT}/game/piece.wav`),
+  invalidWord: withSoundAssetVersion(`${SOUND_ROOT}/game/invalide.mp3`),
+  dejaJoue: withSoundAssetVersion(`${SOUND_ROOT}/game/dejajoue.wav`),
+  uiClick: withSoundAssetVersion(`${SOUND_ROOT}/ui/click.wav`),
+  uiClose: withSoundAssetVersion(`${SOUND_ROOT}/ui/bipmontre.wav`),
+  tournamentFireworks: withSoundAssetVersion(`${SOUND_ROOT}/game/artifice.mp3`),
+  tournamentApplause: withSoundAssetVersion(`${SOUND_ROOT}/game/applause.wav`),
 };
-const INCREMENTAL_SFX_KEYS = INCREMENTAL_SOUND_PATHS.map((src) => {
-  const label = src.split("/").pop()?.split(".")[0] || "00";
-  return makeIncrementalSfxKey(label);
-});
 const SCORE_SFX_KEYS = SCORE_SOUND_PATHS.map((src) => {
   const label = src.split("/").pop()?.split(".")[0] || "00";
   return makeScoreSfxKey(label);
@@ -204,6 +263,7 @@ const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
   { key: IMAGE_KEYS.gobblarsBadge, url: "/Gobblars.png", priority: "critical" },
   { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.png", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.doubleGobble, url: "/bigwords/doublegobble.png", priority: "critical" },
   { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.png", priority: "critical" },
   { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.png", priority: "high" },
   { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.png", priority: "high" },
@@ -256,24 +316,62 @@ const BOOT_ASSET_SOUNDS_BASE = [
   { key: SFX_KEYS.errorAlt, url: "/error.mp3", priority: "low", meta: { eqKey: "error" } },
   { key: SFX_KEYS.clickAlt, url: `${SOUND_ROOT}/ui/click2.wav`, priority: "low", meta: { eqKey: "swipe" } },
 ];
-const INCREMENTAL_SFX_ENTRIES = INCREMENTAL_SOUND_PATHS.map((url, idx) => ({
-  key: INCREMENTAL_SFX_KEYS[idx],
-  url,
-  priority: "critical",
-  meta: { eqKey: "tileStep" },
+const ESSENTIAL_SFX_KEYS = new Set([
+  SFX_KEYS.gobbleVoice,
+  SFX_KEYS.doubleGobbleVoice,
+  SFX_KEYS.roundStart,
+  SFX_KEYS.specialFound,
+  SFX_KEYS.tictac10,
+  SFX_KEYS.coeur,
+  SFX_KEYS.tictoc,
+  SFX_KEYS.vocabOverlay,
+  SFX_KEYS.vocabCling,
+  SFX_KEYS.invalidWord,
+  SFX_KEYS.dejaJoue,
+  SFX_KEYS.shortWord,
+  SFX_KEYS.uiClick,
+  SFX_KEYS.uiClose,
+  INCREMENTAL_BASE_SFX_KEY,
+  SCORE_LOW_KEY,
+  SCORE2_LOW_KEY,
+]);
+const BOOT_ASSET_SFX_ESSENTIAL = BOOT_ASSET_SOUNDS_BASE.filter((entry) =>
+  ESSENTIAL_SFX_KEYS.has(entry.key)
+);
+const BOOT_ASSET_SFX_OPTIONAL = BOOT_ASSET_SOUNDS_BASE.filter(
+  (entry) => !ESSENTIAL_SFX_KEYS.has(entry.key)
+).map((entry) => ({
+  ...entry,
+  priority: "low",
 }));
+const INCREMENTAL_SFX_ENTRIES = [{
+  key: INCREMENTAL_BASE_SFX_KEY,
+  url: INCREMENTAL_SOUND_BASE_PATH,
+  priority: "high",
+  meta: { eqKey: "tileStep" },
+}];
 const SCORE_SFX_ENTRIES = SCORE_SOUND_PATHS.map((url, idx) => ({
   key: SCORE_SFX_KEYS[idx],
   url,
-  priority: "critical",
+  priority: "high",
   meta: { eqKey: "score" },
 }));
 const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
   key: SCORE2_SFX_KEYS[idx],
   url,
-  priority: "critical",
+  priority: "high",
   meta: { eqKey: "score2" },
 }));
+const BOOT_ASSET_SFX_VARIATIONS = [
+  ...INCREMENTAL_SFX_ENTRIES,
+  ...SCORE_SFX_ENTRIES,
+  ...SCORE2_SFX_ENTRIES,
+];
+const REGISTERED_SFX_MANIFEST = dedupeManifest([
+  ...BOOT_ASSET_SFX_ESSENTIAL,
+  ...BOOT_ASSET_SFX_OPTIONAL,
+  ...BOOT_ASSET_SFX_VARIATIONS,
+]);
 const BOOT_MIN_HOLD_MS = 3500;
 const BOOT_TRANSITION_MS = 500;
 const BOOT_INTRO_GIF_SRC = "/introgobble.gif";
@@ -379,15 +477,31 @@ function buildFakeDailyHistoryDays(todayDateId) {
   });
 }
 
+function splitUrlPathAndSuffix(src) {
+  const raw = String(src || "").trim();
+  if (!raw) return { path: "", suffix: "" };
+  const queryIdx = raw.indexOf("?");
+  const hashIdx = raw.indexOf("#");
+  let cut = raw.length;
+  if (queryIdx >= 0) cut = Math.min(cut, queryIdx);
+  if (hashIdx >= 0) cut = Math.min(cut, hashIdx);
+  return {
+    path: raw.slice(0, cut),
+    suffix: raw.slice(cut),
+  };
+}
+
 function stripExtension(src) {
-  if (!src || typeof src !== "string") return src;
-  return src.replace(/\.[a-z0-9]{2,5}$/i, "");
+  const { path, suffix } = splitUrlPathAndSuffix(src);
+  if (!path) return String(src || "");
+  return `${path.replace(/\.[a-z0-9]{2,5}$/i, "")}${suffix}`;
 }
 
 function buildCandidatesFromBase(base, order) {
-  const clean = stripExtension(base);
-  if (!clean) return [];
-  return order.map((ext) => `${clean}.${ext}`);
+  const cleaned = stripExtension(base);
+  const { path: cleanPath, suffix } = splitUrlPathAndSuffix(cleaned);
+  if (!cleanPath) return [];
+  return order.map((ext) => `${cleanPath}.${ext}${suffix}`);
 }
 
 function buildImageCandidates(url) {
@@ -444,16 +558,9 @@ function dedupeManifest(entries) {
   return Array.from(map.values());
 }
 
-const BOOT_ASSET_SFX = [
-  ...BOOT_ASSET_SOUNDS_BASE,
-  ...INCREMENTAL_SFX_ENTRIES,
-  ...SCORE_SFX_ENTRIES,
-  ...SCORE2_SFX_ENTRIES,
-];
-const BOOT_ASSET_MANIFEST = dedupeManifest([
-  ...ASSET_MANIFEST_BASE,
+const BOOT_ASSET_MANIFEST_BASE = dedupeManifest([
+  ...ASSET_MANIFEST_BASE.filter((entry) => entry?.type !== "sfx"),
   ...buildImageManifest(BOOT_ASSET_IMAGES),
-  ...buildSfxManifest(BOOT_ASSET_SFX),
   ...buildFileManifest(BOOT_ASSET_FILES),
 ]);
 
@@ -485,6 +592,35 @@ async function loadAmbientTrackList() {
     return resolved && resolved.length ? resolved : AMBIENT_MUSIC_TRACKS_DEFAULT;
   } catch (_) {
     return AMBIENT_MUSIC_TRACKS_DEFAULT;
+  }
+}
+
+async function purgeRuntimeMediaCache({ force = false } = {}) {
+  if (typeof window === "undefined" || typeof caches === "undefined") {
+    return { ok: false, reason: "cache-api-unavailable", deleted: 0 };
+  }
+  if (!force && typeof localStorage !== "undefined") {
+    try {
+      const seen = localStorage.getItem(MEDIA_CACHE_PURGE_STORAGE_KEY);
+      if (seen === "1") {
+        return { ok: true, skipped: true, deleted: 0 };
+      }
+    } catch (_) {}
+  }
+  try {
+    const names = await caches.keys();
+    const targets = names.filter((name) => String(name || "").startsWith(SW_MEDIA_CACHE_PREFIX));
+    if (targets.length) {
+      await Promise.all(targets.map((name) => caches.delete(name)));
+    }
+    if (typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem(MEDIA_CACHE_PURGE_STORAGE_KEY, "1");
+      } catch (_) {}
+    }
+    return { ok: true, deleted: targets.length };
+  } catch (_) {
+    return { ok: false, reason: "cache-delete-failed", deleted: 0 };
   }
 }
 
@@ -600,6 +736,21 @@ function computeIsAndroidWebBrowser() {
   return !isStandaloneDisplayMode();
 }
 
+function isAndroidWebViewUserAgent(ua) {
+  const value = String(ua || "");
+  if (!/Android/i.test(value)) return false;
+  if (/; wv\)/i.test(value) || /\bwv\b/i.test(value)) return true;
+  const hasVersionChrome = /Version\/[\d.]+\s+Chrome\/[\d.]+/i.test(value);
+  const hasMobileSafari = /Mobile Safari\/[\d.]+/i.test(value);
+  const looksBrowser = /(SamsungBrowser|CriOS|FxiOS|EdgA|OPR|YaBrowser|DuckDuckGo|UCBrowser)/i.test(value);
+  return hasVersionChrome && hasMobileSafari && !looksBrowser;
+}
+
+function isLikelySamsungDeviceUserAgent(ua) {
+  const value = String(ua || "");
+  return /SM-[A-Z0-9]+/i.test(value) || /SAMSUNG/i.test(value);
+}
+
 function getDefaultRoomId() {
   if (typeof window !== "undefined") {
     const isMobile = computeIsMobileLayout();
@@ -611,6 +762,87 @@ function getDefaultRoomId() {
 function clampValue(value, min, max) {
   if (!Number.isFinite(value)) return min;
   return Math.min(Math.max(value, min), max);
+}
+
+function normalizeDesktopColumnFractions(rawFractions) {
+  const source = Array.isArray(rawFractions) ? rawFractions : DESKTOP_COLUMN_DEFAULT_FRACTIONS;
+  const safe = DESKTOP_COLUMN_DEFAULT_FRACTIONS.map((fallback, idx) => {
+    const value = Number(source[idx]);
+    if (!Number.isFinite(value) || value <= 0) return fallback;
+    return value;
+  });
+  const sum = safe.reduce((acc, value) => acc + value, 0);
+  if (!Number.isFinite(sum) || sum <= 0) {
+    return [...DESKTOP_COLUMN_DEFAULT_FRACTIONS];
+  }
+  return safe.map((value) => value / sum);
+}
+
+function areDesktopFractionsEqual(a, b, epsilon = 0.0005) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (Math.abs((Number(a[i]) || 0) - (Number(b[i]) || 0)) > epsilon) return false;
+  }
+  return true;
+}
+
+function readDesktopColumnFractionsForInstall(installId) {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+  }
+  const key = String(installId || "").trim();
+  if (!key) return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+  try {
+    const raw = localStorage.getItem(`${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${key}`);
+    if (!raw) return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+    const parsed = JSON.parse(raw);
+    return normalizeDesktopColumnFractions(parsed);
+  } catch (_) {
+    return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+  }
+}
+
+function writeDesktopColumnFractionsForInstall(installId, fractions) {
+  if (typeof localStorage === "undefined") return;
+  const key = String(installId || "").trim();
+  if (!key) return;
+  try {
+    localStorage.setItem(
+      `${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${key}`,
+      JSON.stringify(normalizeDesktopColumnFractions(fractions))
+    );
+  } catch (_) {}
+}
+
+function buildRankingSignature(list) {
+  if (!Array.isArray(list) || list.length === 0) return "";
+  const size = list.length;
+  const limit = Math.min(size, 20);
+  let out = `n:${size}|`;
+  for (let i = 0; i < limit; i += 1) {
+    const entry = list[i] || {};
+    const nick = String(entry.nick || "").trim();
+    const score =
+      Number.isFinite(entry.score) ? entry.score : Number.isFinite(entry.points) ? entry.points : 0;
+    const rank = Number.isFinite(entry.rank) ? entry.rank : i + 1;
+    out += `${nick}:${rank}:${score}|`;
+  }
+  return out;
+}
+
+function buildPlayersSignature(list) {
+  if (!Array.isArray(list) || list.length === 0) return "";
+  const size = list.length;
+  const limit = Math.min(size, 24);
+  let out = `n:${size}|`;
+  for (let i = 0; i < limit; i += 1) {
+    const entry = list[i] || {};
+    const nick = String(entry.nick || "").trim();
+    const team = String(entry.team || "");
+    const bot = entry.isBot ? "1" : "0";
+    out += `${nick}:${team}:${bot}|`;
+  }
+  return out;
 }
 
 function normalizeRotationTurns(turns) {
@@ -2045,6 +2277,98 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
   }
 }
 
+.mobile-round-intro-backdrop {
+  opacity: 1;
+}
+
+.mobile-round-intro-fade-to-black {
+  animation: resultsFadeIn ${MOBILE_ROUND_INTRO_RESULTS_FADE_MS}ms ease-out forwards;
+}
+
+.mobile-round-intro-fade-from-black {
+  animation: resultsFadeOut ${MOBILE_ROUND_INTRO_INTRO_FADE_IN_MS}ms ease-out forwards;
+}
+
+@keyframes roundIntroCountdownPop {
+  0% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  76% {
+    opacity: 0.96;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.68);
+  }
+}
+
+.round-intro-countdown-pop {
+  animation: roundIntroCountdownPop ${MOBILE_ROUND_INTRO_COUNTDOWN_STEP_MS}ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes roundIntroGoFade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.round-intro-go-fade {
+  animation: roundIntroGoFade ${MOBILE_ROUND_INTRO_GO_TOTAL_MS}ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes goldPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(255, 210, 80, 0.18));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(255, 220, 110, 0.26));
+  }
+}
+
+@keyframes tileIntroIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--intro-x, 0px), var(--intro-y, 0px), 0)
+      rotate(var(--intro-rot, 0deg))
+      scale(var(--intro-scale-start, 2.6));
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(
+        calc(var(--intro-x, 0px) * 0.14),
+        calc(var(--intro-y, 0px) * 0.14),
+        0
+      )
+      rotate(calc(var(--intro-rot, 0deg) * 0.16))
+      scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+}
+
+.tile-intro {
+  animation: tileIntroIn var(--intro-dur, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--intro-delay, 0s);
+  will-change: transform, opacity;
+  z-index: 6;
+}
+
 .tile-implode {
   animation: tileImplode var(--implode-dur, 0.9s) ease-in forwards;
   animation-delay: var(--implode-delay, 0s);
@@ -2937,7 +3261,7 @@ const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 260;
 const DISCONNECT_GRACE_MS = 30 * 1000;
-const QUICK_REPLIES = ["GG !", "Bien joué", "On continue ?", "Belle grille !"];
+const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
 const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "👏", "❤️", "😂"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
@@ -3202,8 +3526,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-02-22";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-22T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-02-26";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-26T00:00:00+01:00");
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -3650,6 +3974,19 @@ function getVocabProgress(count) {
   return { value: safe, pct: 1 };
 }
 
+function getSpecialRoundDisplayLabel(specialInfo) {
+  if (!specialInfo || typeof specialInfo !== "object") return "";
+  if (typeof specialInfo.label === "string" && specialInfo.label.trim()) {
+    return specialInfo.label.trim();
+  }
+  if (specialInfo.type === "speed") return "Jeu rapide";
+  if (specialInfo.type === "monstrous") return "Grille monstrueuse";
+  if (specialInfo.type === "target_long") return "Mot le plus long";
+  if (specialInfo.type === "target_score") return "Meilleur mot";
+  if (specialInfo.type === "bonus_letter") return "Lettre en or";
+  return "Manche speciale";
+}
+
 export default function App() {
   const initialRoomId = getDefaultRoomId();
   const initialGridSize = getGridSizeForRoom(initialRoomId);
@@ -3682,6 +4019,7 @@ export default function App() {
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
   const gridHitboxRef = useRef(null);
+  const dragGridMetricsRef = useRef(null);
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const outroInFlightRef = useRef(false);
@@ -3689,6 +4027,7 @@ export default function App() {
   const [implodeActive, setImplodeActive] = useState(false);
   const implodeRoundRef = useRef(null);
   const implodeTimerRef = useRef(null);
+  const tileIntroTimerRef = useRef(null);
   const implodePhaseTimerRef = useRef(null);
   const implodeFallbackRef = useRef(false);
   const pendingRoundEndRef = useRef(null);
@@ -3709,6 +4048,7 @@ export default function App() {
     lastPlayed: new Map(),
     drops: 0,
     lastLogAt: 0,
+    lastPruneAt: 0,
   });
   const blackHoleHandleRef = useRef(null);
   const blackHoleChebHandleRef = useRef(null);
@@ -3718,6 +4058,13 @@ export default function App() {
   const blackHoleAuxStopRef = useRef(null);
   const blackHoleSyncTokenRef = useRef(0);
   const roundEndTickHandleRef = useRef(null);
+  const roundStartHandleRef = useRef(null);
+  const roundStartStopTimerRef = useRef(null);
+  const roundStartSoundUntilRef = useRef(0);
+  const introCountdownTickGuardRef = useRef({ at: 0, token: 0, value: null, roundId: null });
+  const introCountdownHandleRef = useRef(null);
+  const introCountdownStopTimerRef = useRef(null);
+  const introCountdownPlayedRoundRef = useRef(null);
   const tickCountdownPlayedRef = useRef(false);
   const countdownTickPlayedRef = useRef(false);
   const ambientMusicRef = useRef({
@@ -3931,7 +4278,7 @@ export default function App() {
   })();
   const [bootProgress, setBootProgress] = useState(() => ({
     loaded: 0,
-    total: BOOT_ASSET_MANIFEST.length,
+    total: BOOT_ASSET_MANIFEST_BASE.length,
     errors: 0,
     done: initialBootOverlaySeen,
     stage: "",
@@ -3944,6 +4291,15 @@ export default function App() {
     if (typeof window === "undefined") return undefined;
     let cancelled = false;
     const run = async () => {
+      const params = new URLSearchParams(window.location.search || "");
+      const forceCachePurge = params.get(CACHE_PURGE_QUERY_PARAM) === "1";
+      const isSamsungRuntime =
+        typeof navigator !== "undefined" &&
+        /SamsungBrowser/i.test(navigator.userAgent || "");
+      if (isSamsungRuntime || forceCachePurge) {
+        await purgeRuntimeMediaCache({ force: forceCachePurge });
+      }
+      const shouldPreloadSfx = !isSfxMutedRef.current;
       const resolvedAmbientTracks = await loadAmbientTrackList();
       if (cancelled) return;
       if (
@@ -3954,9 +4310,14 @@ export default function App() {
         ambientTracksRef.current = resolvedAmbientTracks;
         setAmbientTracks(resolvedAmbientTracks);
       }
-      const ambientManifest = buildFileManifest(resolvedAmbientTracks || []);
+      // Samsung: avoid preloading all ambient tracks into memory buffers.
+      const ambientManifest = isSamsungRuntime
+        ? []
+        : buildFileManifest(resolvedAmbientTracks || []);
+      const sfxManifest = buildSfxManifest(REGISTERED_SFX_MANIFEST);
       const bootManifest = dedupeManifest([
-        ...BOOT_ASSET_MANIFEST,
+        ...BOOT_ASSET_MANIFEST_BASE,
+        ...sfxManifest,
         ...ambientManifest,
       ]);
       AssetManager.setAudioSystemProvider(getAudioSystem);
@@ -3965,7 +4326,11 @@ export default function App() {
         normalizeSoundMasterVolume(soundMasterVolumeRef.current, SOUND_MASTER_VOLUME_DEFAULT)
       );
       AssetManager.registerManifest(bootManifest);
-      const total = bootManifest.length;
+      const total = bootManifest.filter((entry) => {
+        if (entry?.type !== "sfx") return true;
+        if (!shouldPreloadSfx) return false;
+        return entry.priority === "critical" || entry.priority === "high";
+      }).length;
       if (!total) {
         setBootProgress((prev) => ({ ...prev, total: 0, done: true, stage: "", key: "" }));
         return;
@@ -3998,16 +4363,19 @@ export default function App() {
       await AssetManager.preload({
         priority: "critical",
         onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "critical" }),
+        excludeTypes: shouldPreloadSfx ? [] : ["sfx"],
         concurrency: 4,
       });
       await AssetManager.preload({
         priority: "high",
         onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "high" }),
+        excludeTypes: shouldPreloadSfx ? [] : ["sfx"],
         concurrency: 4,
       });
       await AssetManager.preload({
         priority: "all",
         onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "low" }),
+        excludeTypes: ["sfx"],
         concurrency: 4,
       });
       const elapsed = performance.now() - startedAt;
@@ -4090,9 +4458,15 @@ export default function App() {
   };
   const resolveAmbientSrc = (src) => {
     if (!src) return "";
-    return getFileUrl(makeFileKey(src));
+    const cached = getFileUrl(makeFileKey(src));
+    if (cached) return cached;
+    return typeof src === "string" ? src : "";
   };
   const [highlightPlayers, setHighlightPlayers] = useState([]);
+  const [resultsPathPreview, setResultsPathPreview] = useState(null);
+  const resultsPathGradientIdRef = useRef(
+    `results-path-gradient-${Math.random().toString(36).slice(2)}`
+  );
   const listItemRefs = useRef(new Map());
   const wordListFlipPrevRectsRef = useRef(new Map());
   const wordListFlipPendingRef = useRef(false);
@@ -4115,6 +4489,12 @@ export default function App() {
   const resultsSlideOutTimerRef = useRef(null);
   const resultsSlideInTimerRef = useRef(null);
   const [resultsReorderTick, setResultsReorderTick] = useState(0);
+  const [mobileRoundIntroStage, setMobileRoundIntroStage] = useState("idle");
+  const [mobileRoundIntroCountdown, setMobileRoundIntroCountdown] = useState(null);
+  const [mobileRoundIntroRoundLabel, setMobileRoundIntroRoundLabel] = useState("");
+  const [mobileRoundIntroRoundTypeLabel, setMobileRoundIntroRoundTypeLabel] = useState("");
+  const [mobileRoundIntroHideTiles, setMobileRoundIntroHideTiles] = useState(false);
+  const [mobileResultsOutroFadeActive, setMobileResultsOutroFadeActive] = useState(false);
   const [finalePage, setFinalePage] = useState(0);
   const finaleScrollRef = useRef(null);
   const finaleTouchRef = useRef({ startX: null, startY: null });
@@ -4130,12 +4510,6 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [roundId, setRoundId] = useState(null);
-  const [devPerfStats, setDevPerfStats] = useState(() => ({
-    longTasks: 0,
-    lastLongTaskMs: 0,
-    lastLongTaskAt: null,
-    lastSolveAllAt: null,
-  }));
   const roundStartSoundRef = useRef(null);
   const tickRef = useRef(tick);
   const tickIntervalRef = useRef(null);
@@ -4179,9 +4553,11 @@ export default function App() {
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSoundMenuOpen, setIsSoundMenuOpen] = useState(false);
+  const settingsCloseTimerRef = useRef(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [supportModalSection, setSupportModalSection] = useState("support");
   const [isAccountLinkOpen, setIsAccountLinkOpen] = useState(false);
   const [accountLinkInput, setAccountLinkInput] = useState("");
   const [accountLinkError, setAccountLinkError] = useState("");
@@ -4292,6 +4668,7 @@ export default function App() {
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
   const breakKindRef = useRef(breakKind);
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
+  const [desktopResultsSummaryExpanded, setDesktopResultsSummaryExpanded] = useState(true);
   const [specialHint, setSpecialHint] = useState(null); // { kind, pattern, length, cells }
   const [targetHintScheduleMs, setTargetHintScheduleMs] = useState([]);
   const [specialSolvedOverlay, setSpecialSolvedOverlay] = useState(null); // { nick, word, kind }
@@ -4302,6 +4679,17 @@ export default function App() {
     loading: false,
     ok: false,
     definition: "",
+    lemma: "",
+    lemmaLabel: "",
+    lemmaGuess: false,
+    participleLabel: "",
+    participleBase: "",
+    participleGuess: false,
+    inflectionLabel: "",
+    inflectionBase: "",
+    inflectionGuess: false,
+    matchedTitle: "",
+    phraseGuess: false,
     source: "",
     url: "",
   });
@@ -4335,6 +4723,11 @@ export default function App() {
     tutorialVersion: null,
   });
   const [resultsTeamDelta, setResultsTeamDelta] = useState({ red: 0, blue: 0 });
+  const tournamentDuelDeltaRef = useRef({
+    tournamentId: null,
+    red: 0,
+    blue: 0,
+  });
   const [duelRerollBusyBucket, setDuelRerollBusyBucket] = useState(null);
   const [duelPopupState, setDuelPopupState] = useState({
     mode: null, // team | tutorial | objectives
@@ -4456,6 +4849,7 @@ export default function App() {
     roundStartPendingRef.current = null;
     roundStartRetryRef.current = false;
     roundStartSoundRef.current = null;
+    stopRoundStartSound({ fadeMs: 80 });
     pendingRoundEndRef.current = null;
     pendingBreakStartRef.current = null;
     implodeFallbackRef.current = false;
@@ -4498,6 +4892,14 @@ export default function App() {
       weeklyArrowBumpTimerRef.current = null;
     }
     stopImplodePhase();
+    stopMobileRoundIntro({ unlockInput: false });
+    roundIntroServerWindowRef.current = {
+      roundId: null,
+      startsAt: null,
+      introMs: 0,
+      status: "running",
+    };
+    roundIntroStartedForRoundRef.current = null;
     setImplodeActive(false);
     clearResultsSlideTimers();
     clearWordListFlipArtifacts();
@@ -4552,11 +4954,28 @@ export default function App() {
     onRoundEnded: null,
     onBreakStarted: null,
   });
+  const phaseLoopTestEnabled = React.useMemo(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = new URLSearchParams(window.location.search || "").get(
+        DEV_PHASE_LOOP_QUERY_PARAM
+      );
+      if (!raw) return false;
+      const normalized = String(raw).trim().toLowerCase();
+      return normalized === "1" || normalized === "true" || normalized === "on";
+    } catch (_) {
+      return false;
+    }
+  }, []);
+  const phaseLoopTestEnabledRef = useRef(phaseLoopTestEnabled);
+  const phaseLoopTimerRef = useRef(null);
+  const phaseLoopRoundCounterRef = useRef(0);
   const isLoggedInRef = useRef(false);
   const appViewRef = useRef(appView);
   const isDailyPlayRef = useRef(isDailyPlay);
   const nicknameRef = useRef(nickname);
   const phaseRef = useRef(phase);
+  const previousPhaseRef = useRef(phase);
   const currentRoomIdRef = useRef(currentRoomId);
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
@@ -4567,7 +4986,21 @@ export default function App() {
   const rankingQueueTimerRef = useRef(null);
   const rankingQueuedRef = useRef(null);
   const rankingLastApplyAtRef = useRef(0);
+  const rankingLastSignatureRef = useRef("");
+  const playersQueueTimerRef = useRef(null);
+  const playersQueuedRef = useRef(null);
+  const playersLastApplyAtRef = useRef(0);
+  const playersLastSignatureRef = useRef("");
+  const clearPhaseLoopTimer = React.useCallback(() => {
+    if (phaseLoopTimerRef.current) {
+      clearTimeout(phaseLoopTimerRef.current);
+      phaseLoopTimerRef.current = null;
+    }
+  }, []);
 
+  useEffect(() => {
+    phaseLoopTestEnabledRef.current = phaseLoopTestEnabled;
+  }, [phaseLoopTestEnabled]);
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn;
   }, [isLoggedIn]);
@@ -4577,6 +5010,7 @@ export default function App() {
   useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
+  useEffect(() => () => clearPhaseLoopTimer(), [clearPhaseLoopTimer]);
   useEffect(() => {
     isDailyPlayRef.current = isDailyPlay;
   }, [isDailyPlay]);
@@ -4597,6 +5031,12 @@ export default function App() {
     phaseRef.current = phase;
   }, [phase]);
   useEffect(() => {
+    rankingLastSignatureRef.current = buildRankingSignature(provisionalRanking);
+  }, [provisionalRanking]);
+  useEffect(() => {
+    playersLastSignatureRef.current = buildPlayersSignature(players);
+  }, [players]);
+  useEffect(() => {
     chatTabRef.current = chatTab === "system" ? "system" : "messages";
     if (chatTab === "system") {
       setIsDesktopEmojiPickerOpen(false);
@@ -4605,17 +5045,6 @@ export default function App() {
   useEffect(() => {
     isChatClosingRef.current = isChatClosing;
   }, [isChatClosing]);
-  useEffect(() => {
-    if (!DEV_MODE) return;
-    if (phase === "playing") {
-      setDevPerfStats((prev) => ({
-        ...prev,
-        longTasks: 0,
-        lastLongTaskMs: 0,
-        lastLongTaskAt: null,
-      }));
-    }
-  }, [phase]);
   useEffect(() => {
     inputLockedRef.current = inputLocked;
   }, [inputLocked]);
@@ -4637,6 +5066,20 @@ export default function App() {
   useEffect(() => {
     isSfxMutedRef.current = isSfxMuted;
     AssetManager.setMuted(isSfxMuted);
+  }, [isSfxMuted]);
+  useEffect(() => {
+    if (isSfxMuted) return;
+    const warmEssentialSfx = async () => {
+      try {
+        await AssetManager.preload({
+          priority: "high",
+          includeTypes: ["sfx"],
+          excludeTypes: ["image", "file"],
+          concurrency: 2,
+        });
+      } catch (_) {}
+    };
+    warmEssentialSfx();
   }, [isSfxMuted]);
   useEffect(() => {
     isAmbientMutedRef.current = isAmbientMuted;
@@ -4718,6 +5161,31 @@ export default function App() {
   useEffect(() => {
     roundIdRef.current = roundId;
   }, [roundId]);
+  useEffect(() => {
+    desktopColumnFractionsRef.current = desktopColumnFractions;
+  });
+  useEffect(() => {
+    const key = String(installId || "").trim();
+    if (!key) return;
+    const persisted = readDesktopColumnFractionsForInstall(key);
+    const normalized = normalizeDesktopColumnFractions(persisted);
+    desktopColumnFractionsRef.current = normalized;
+    desktopColumnFractionsPersistSignatureRef.current = JSON.stringify(normalized);
+    desktopColumnFractionsHydratedInstallIdRef.current = key;
+    setDesktopColumnFractions((prev) =>
+      areDesktopFractionsEqual(prev, normalized) ? prev : normalized
+    );
+  }, [installId]);
+  useEffect(() => {
+    const key = String(installId || "").trim();
+    if (!key) return;
+    if (desktopColumnFractionsHydratedInstallIdRef.current !== key) return;
+    const normalized = normalizeDesktopColumnFractions(desktopColumnFractionsRef.current);
+    const signature = JSON.stringify(normalized);
+    if (desktopColumnFractionsPersistSignatureRef.current === signature) return;
+    writeDesktopColumnFractionsForInstall(key, normalized);
+    desktopColumnFractionsPersistSignatureRef.current = signature;
+  });
   useEffect(() => {
     return () => {
       if (rankingQueueTimerRef.current) {
@@ -4816,6 +5284,7 @@ export default function App() {
     source: "",
     url: "",
     fromWordInfo: false,
+    preferLongDefinition: false,
   });
   const [wordInfoModal, setWordInfoModal] = useState({
     open: false,
@@ -4910,11 +5379,24 @@ export default function App() {
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
+  const mobileGameViewportLockRef = useRef({ width: 0, height: 0 });
   const chatDesktopListRef = useRef(null);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
   const isChatClosingRef = useRef(isChatClosing);
   const isMobileLayoutRef = useRef(isMobileLayout);
+  const mobileRoundIntroTokenRef = useRef(0);
+  const mobileRoundIntroTimersRef = useRef([]);
+  const mobileRoundIntroSuppressRoundStartRef = useRef(false);
+  const roundIntroServerWindowRef = useRef({
+    roundId: null,
+    startsAt: null,
+    introMs: 0,
+    status: "running",
+  });
+  const roundIntroStartedForRoundRef = useRef(null);
+  const clearTileIntroAnimationFnRef = useRef(() => {});
+  const triggerTileIntroAnimationFnRef = useRef(() => 0);
   const chatTabRef = useRef(chatTab === "system" ? "system" : "messages");
   const isHomeChatOpenRef = useRef(false);
   const lobbyPresenceRef = useRef(new Set());
@@ -4939,6 +5421,7 @@ export default function App() {
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
+  const bigScoreLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
   const chatScrollLockRef = useRef(0);
@@ -4954,6 +5437,47 @@ export default function App() {
   const intentionalDisconnectRef = useRef(false);
   const isBackgroundedRef = useRef(false);
   const foregroundAttemptRef = useRef(0);
+  const isSamsungBrowserRef = useRef(false);
+  const samsungDiagEnabledRef = useRef(false);
+  const samsungDiagSourceRef = useRef("off");
+  const samsungDiagRef = useRef({
+    seq: 0,
+    events: [],
+    counters: {
+      touchStart: 0,
+      touchMove: 0,
+      touchEnd: 0,
+      queueDragMove: 0,
+      queueDragCoalesced: 0,
+      socketPlayersUpdate: 0,
+      socketRankingUpdate: 0,
+      rafFired: 0,
+      rafLagged: 0,
+      rafGlobalJank: 0,
+      rafGlobalStall: 0,
+      rafNoPending: 0,
+      rafNotDragging: 0,
+      tileHitMiss: 0,
+      longTask: 0,
+      eventLoopStall: 0,
+      jsError: 0,
+      unhandledRejection: 0,
+    },
+    touchRate: {
+      startAt: 0,
+      count: 0,
+      peakPerSec: 0,
+      lastHighAt: 0,
+    },
+    lastFlushAt: 0,
+    lastSnapshot: null,
+  });
+  const samsungSafeModeRef = useRef(false);
+  const samsungSafeModeSourceRef = useRef("off");
+  const perfLogLastAtRef = useRef(0);
+  const dragMoveRafRef = useRef(null);
+  const dragPendingPointRef = useRef(null);
+  const lastTouchMoveSampleRef = useRef({ x: null, y: null, at: 0 });
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
@@ -4979,12 +5503,32 @@ export default function App() {
 
   // drag souris
   const draggingRef = useRef(false);
+  const mainGridDesktopRef = useRef(null);
   const playColumnRef = useRef(null);
   const countdownRef = useRef(null);
   const previewRef = useRef(null);
+  const desktopColumnResizeRef = useRef({
+    active: false,
+    moveHandler: null,
+    upHandler: null,
+    bodyCursor: "",
+    bodyUserSelect: "",
+  });
+  const [desktopColumnFractions, setDesktopColumnFractions] = useState(() =>
+    normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS)
+  );
+  const desktopColumnFractionsRef = useRef(desktopColumnFractions);
+  const desktopColumnFractionsHydratedInstallIdRef = useRef("");
+  const desktopColumnFractionsPersistSignatureRef = useRef("");
+  const [desktopColumnResizeActiveIndex, setDesktopColumnResizeActiveIndex] = useState(null);
+  const [desktopViewportResizeInProgress, setDesktopViewportResizeInProgress] = useState(false);
+  const desktopViewportResizeTimerRef = useRef(null);
+  const [desktopGridMetrics, setDesktopGridMetrics] = useState({ width: 0, gapPx: 24 });
   const [playColumnHeight, setPlayColumnHeight] = useState(null);
   const [countdownHeight, setCountdownHeight] = useState(0);
   const [previewHeight, setPreviewHeight] = useState(0);
+  const [desktopResultsDrawerLayout, setDesktopResultsDrawerLayout] = useState(null);
+  const [desktopMainGridHeight, setDesktopMainGridHeight] = useState(null);
 
   function createSoftClipCurve(amount = 1.25, samples = 1024) {
     const key = `${amount}|${samples}`;
@@ -5096,6 +5640,7 @@ export default function App() {
       audioVoiceRef.current.activeVoices = 0;
       audioVoiceRef.current.lastPlayed = new Map();
       audioVoiceRef.current.drops = 0;
+      audioVoiceRef.current.lastPruneAt = 0;
     }
     const ctx = audioCtxRef.current;
     if (!audioSystemRef.current || audioSystemRef.current.ctx !== ctx) {
@@ -5163,13 +5708,46 @@ export default function App() {
     );
   }
 
+  function pruneAudioCooldownState(now) {
+    const state = audioVoiceRef.current;
+    const currentNow = Number.isFinite(now)
+      ? now
+      : typeof performance !== "undefined" && performance.now
+      ? performance.now()
+      : Date.now();
+    if (currentNow - (state.lastPruneAt || 0) < AUDIO_COOLDOWN_PRUNE_MS) return;
+    state.lastPruneAt = currentNow;
+    const cutoff = currentNow - AUDIO_COOLDOWN_PRUNE_MS;
+    const map = state.lastPlayed;
+    if (!(map instanceof Map) || map.size === 0) {
+      AssetManager.compactAudioState?.({ nowMs: Date.now() });
+      return;
+    }
+
+    map.forEach((lastAt, key) => {
+      if (!Number.isFinite(lastAt) || lastAt < cutoff) {
+        map.delete(key);
+      }
+    });
+    if (map.size > AUDIO_COOLDOWN_MAX_KEYS) {
+      const latest = Array.from(map.entries())
+        .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+        .slice(0, AUDIO_COOLDOWN_MAX_KEYS);
+      state.lastPlayed = new Map(latest);
+    }
+    AssetManager.compactAudioState?.({ nowMs: Date.now() });
+  }
+
   function shouldPlay(soundKey, cooldownMs, { ignorePolyphony = false } = {}) {
     const state = audioVoiceRef.current;
     const now =
       typeof performance !== "undefined" && performance.now
         ? performance.now()
         : Date.now();
-    const minInterval =
+    pruneAudioCooldownState(now);
+    const maxVoices = AUDIO_POLYPHONY_LIMIT;
+    if (state.maxVoices !== maxVoices) state.maxVoices = maxVoices;
+    let minInterval =
       Number.isFinite(cooldownMs) && cooldownMs >= 0
         ? cooldownMs
         : AUDIO_COOLDOWNS_MS[soundKey] ?? 0;
@@ -5206,7 +5784,16 @@ export default function App() {
 
   function playOneShotAudio(
     assetKey,
-    { volume, cooldownKey, cooldownMs, eqKey, pitch, onBlocked, ignorePolyphony } = {}
+    {
+      volume,
+      cooldownKey,
+      cooldownMs,
+      eqKey,
+      pitch,
+      onBlocked,
+      ignorePolyphony,
+      allowQueue = true,
+    } = {}
   ) {
     if (isSfxMuted) return;
     const key = cooldownKey || eqKey || assetKey;
@@ -5222,6 +5809,7 @@ export default function App() {
       eqKey: eqKey || key,
       gain: settings.volume ?? 1,
       rate,
+      allowQueue,
     });
     if (!handle) {
       if (typeof onBlocked === "function") onBlocked();
@@ -5235,7 +5823,7 @@ export default function App() {
     return handle;
   }
 
-  function playSfxHandle(assetKey, { eqKey, gain, rate, voiceKey } = {}) {
+  function playSfxHandle(assetKey, { eqKey, gain, rate, voiceKey, allowQueue = true } = {}) {
     if (isSfxMuted) return null;
     const key = voiceKey || eqKey || assetKey;
     const settings = resolveSoundSettings(eqKey || key, {
@@ -5247,6 +5835,7 @@ export default function App() {
       eqKey: eqKey || key,
       gain: settings.volume ?? 1,
       rate: effectiveRate,
+      allowQueue,
     });
     const buffer = AssetManager.getSfxBuffer(assetKey);
     if (handle && buffer) {
@@ -5337,7 +5926,7 @@ export default function App() {
   function ensureAmbientAudio() {
     if (ambientMusicRef.current.audio) return ambientMusicRef.current.audio;
     const audio = new Audio();
-    audio.preload = "auto";
+    audio.preload = isSamsungBrowserRef.current ? "metadata" : "auto";
     audio.loop = false;
     audio.volume = 0;
     audio.addEventListener("ended", () => {
@@ -5554,6 +6143,12 @@ export default function App() {
         try {
           audio.pause();
           audio.currentTime = 0;
+          if (isSamsungBrowserRef.current) {
+            audio.muted = true;
+            audio.src = "";
+            audio.removeAttribute?.("src");
+            audio.load?.();
+          }
         } catch (_) {}
       }, Math.max(0, fadeMs) + 60);
     }
@@ -5561,6 +6156,10 @@ export default function App() {
 
   function stopBlackHoleAudio({ fadeMs = 220 } = {}) {
     blackHoleSyncTokenRef.current += 1;
+    AssetManager.cancelQueuedSfx?.(SFX_KEYS.blackHole);
+    AssetManager.cancelQueuedSfx?.(SFX_KEYS.chebabeu);
+    AssetManager.cancelQueuedSfx?.(SFX_KEYS.clavier);
+    AssetManager.cancelQueuedSfx?.(SFX_KEYS.souris);
     if (blackHoleSourisLoopRef.current.intervalId) {
       clearInterval(blackHoleSourisLoopRef.current.intervalId);
       blackHoleSourisLoopRef.current.intervalId = null;
@@ -5736,7 +6335,7 @@ export default function App() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [isMobileLayout, appView, phase, isLoggedIn]);
 
   useEffect(() => {
     const el = countdownRef.current;
@@ -5751,7 +6350,7 @@ export default function App() {
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [isMobileLayout, appView, phase, isLoggedIn]);
 
   useEffect(() => {
     const el = previewRef.current;
@@ -5766,7 +6365,7 @@ export default function App() {
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [isMobileLayout, appView, phase, isLoggedIn]);
 
   useEffect(() => {
     document.body.classList.toggle("theme-dark", darkMode);
@@ -5841,9 +6440,99 @@ export default function App() {
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     const ua = navigator.userAgent || "";
+    const brands =
+      Array.isArray(navigator.userAgentData?.brands) && navigator.userAgentData.brands.length
+        ? navigator.userAgentData.brands.map((entry) => String(entry?.brand || "")).join(" ")
+        : "";
+    const isSamsungBrowser = /SamsungBrowser/i.test(ua) || /Samsung Internet/i.test(brands);
+    const isSamsungWebView =
+      isAndroidWebViewUserAgent(ua) && isLikelySamsungDeviceUserAgent(ua);
+    const isSamsung = isSamsungBrowser || isSamsungWebView;
+    isSamsungBrowserRef.current = isSamsungBrowser;
     isChromiumMobileRef.current =
       /Android/i.test(ua) &&
       /(Chrome|CriOS|EdgA|SamsungBrowser)/i.test(ua);
+    if (isSamsung && typeof window !== "undefined") {
+      const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
+      const bypassSessionGuard = DEV_MODE || isLocalHost;
+      let shouldShowSamsungWarning = bypassSessionGuard;
+      if (!bypassSessionGuard) {
+        shouldShowSamsungWarning = true;
+        try {
+          shouldShowSamsungWarning =
+            window.sessionStorage.getItem(SAMSUNG_BROWSER_WARNING_SESSION_KEY) !== "1";
+        } catch (_) {}
+      }
+      if (shouldShowSamsungWarning && typeof window.alert === "function") {
+        window.setTimeout(() => {
+          window.alert(
+            "Runtime Samsung detecte (Samsung Internet ou WebView Samsung).\n\nPour reduire les plantages, changez le navigateur par defaut:\n1) Parametres\n2) Applications\n3) Choisir les applications par defaut\n4) Application navigateur\n5) Selectionnez Chrome, Firefox ou Edge.\n\nImportant: apres ce changement, relancez completement le jeu.\n\nPour sauvegarder la progression et recuperer votre compte apres changement du navigateur par defaut:\n- Copiez votre code dans Reglages > A propos > Lier un code\n- Puis collez ce meme code dans ce meme menu une fois le navigateur change."
+          );
+        }, 0);
+        try {
+          window.sessionStorage.setItem(SAMSUNG_BROWSER_WARNING_SESSION_KEY, "1");
+        } catch (_) {}
+      }
+    }
+    let source = "disabled";
+    let forcedDiag = null;
+    let diagSource = "auto-off";
+    const localHost =
+      typeof window !== "undefined"
+        ? /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""))
+        : false;
+    const forceDevLocalDiagnostics = DEV_MODE || localHost;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(SAMSUNG_SAFE_MODE_STORAGE_KEY);
+      } catch (_) {}
+
+      try {
+        const rawDiag = new URLSearchParams(window.location.search).get(SAMSUNG_DIAG_QUERY_PARAM);
+        if (/^(1|true|on)$/i.test(String(rawDiag || ""))) {
+          forcedDiag = true;
+          diagSource = "query";
+        } else if (/^(0|false|off)$/i.test(String(rawDiag || ""))) {
+          forcedDiag = false;
+          diagSource = "query";
+        }
+      } catch (_) {}
+      if (forcedDiag === null) {
+        try {
+          const savedDiag = localStorage.getItem(SAMSUNG_DIAG_STORAGE_KEY);
+          if (/^(1|true|on)$/i.test(String(savedDiag || ""))) {
+            forcedDiag = true;
+            diagSource = "storage";
+          } else if (/^(0|false|off)$/i.test(String(savedDiag || ""))) {
+            forcedDiag = false;
+            diagSource = "storage";
+          }
+        } catch (_) {}
+        if (forcedDiag === null && forceDevLocalDiagnostics) {
+          forcedDiag = true;
+          diagSource = "dev-local";
+        }
+      } else {
+        try {
+          localStorage.setItem(SAMSUNG_DIAG_STORAGE_KEY, forcedDiag ? "1" : "0");
+        } catch (_) {}
+      }
+    }
+    samsungSafeModeRef.current = false;
+    samsungSafeModeSourceRef.current = source;
+    samsungDiagEnabledRef.current = forcedDiag === null ? false : !!forcedDiag;
+    samsungDiagSourceRef.current = forcedDiag === null ? "auto-off" : diagSource;
+    if (samsungDiagEnabledRef.current) {
+      pushSamsungDiagEvent(
+        "diag-enabled",
+        {
+          source: samsungDiagSourceRef.current,
+          isSamsung,
+          safeMode: samsungSafeModeRef.current,
+        },
+        { consoleLevel: "warn", flush: true }
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -5854,6 +6543,94 @@ export default function App() {
       canVibrateRef.current = false;
       setCanVibrate(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!samsungDiagEnabledRef.current) return;
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        flushSamsungDiagSnapshot("visibility-hidden");
+      } else if (document.visibilityState === "visible") {
+        pushSamsungDiagEvent("visibility-visible");
+      }
+    };
+    const onPageHide = () => {
+      flushSamsungDiagSnapshot("pagehide");
+    };
+    const onBeforeUnload = () => {
+      flushSamsungDiagSnapshot("beforeunload");
+    };
+    const onError = (event) => {
+      bumpSamsungDiagCounter("jsError");
+      pushSamsungDiagEvent(
+        "window-error",
+        {
+          message: String(event?.message || ""),
+          source: String(event?.filename || ""),
+          line: Number(event?.lineno) || null,
+          col: Number(event?.colno) || null,
+        },
+        { consoleLevel: "error", flush: true }
+      );
+    };
+    const onUnhandledRejection = (event) => {
+      bumpSamsungDiagCounter("unhandledRejection");
+      const reason = event?.reason;
+      let fallbackText = "";
+      if (!fallbackText) {
+        try {
+          fallbackText = JSON.stringify(reason || null);
+        } catch (_) {
+          fallbackText = String(reason || "");
+        }
+      }
+      const message =
+        typeof reason === "string"
+          ? reason
+          : reason?.message || reason?.stack || fallbackText;
+      pushSamsungDiagEvent(
+        "unhandled-rejection",
+        { message: String(message || "") },
+        { consoleLevel: "error", flush: true }
+      );
+    };
+
+    const flushTimer = window.setInterval(() => {
+      flushSamsungDiagSnapshot("heartbeat");
+    }, SAMSUNG_DIAG_FLUSH_INTERVAL_MS);
+
+    window.__gobbleSamsungDiagDump = (reason = "manual") =>
+      flushSamsungDiagSnapshot(String(reason || "manual"), { consoleLevel: "warn" });
+    window.__gobbleSamsungDiagRead = () =>
+      samsungDiagRef.current?.lastSnapshot || buildSamsungDiagSnapshot("manual-read");
+
+    pushSamsungDiagEvent("diag-hooks-ready", {
+      source: samsungDiagSourceRef.current || "unknown",
+    });
+    flushSamsungDiagSnapshot("diag-init");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      window.clearInterval(flushTimer);
+      flushSamsungDiagSnapshot("diag-cleanup");
+      try {
+        delete window.__gobbleSamsungDiagDump;
+      } catch (_) {}
+      try {
+        delete window.__gobbleSamsungDiagRead;
+      } catch (_) {}
+    };
   }, []);
 
   useEffect(() => {
@@ -5874,13 +6651,28 @@ export default function App() {
     window.addEventListener("orientationchange", update);
     const vv = window.visualViewport;
     vv?.addEventListener("resize", update);
-    vv?.addEventListener("scroll", update);
     return () => {
       window.removeEventListener("resize", update);
       window.removeEventListener("orientationchange", update);
       vv?.removeEventListener("resize", update);
-      vv?.removeEventListener("scroll", update);
       if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isSamsungBrowserRef.current) return;
+    const preventSamsungGestureDuringDrag = (event) => {
+      if (!draggingRef.current) return;
+      if (event?.cancelable) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("touchmove", preventSamsungGestureDuringDrag, {
+      passive: false,
+    });
+    return () => {
+      window.removeEventListener("touchmove", preventSamsungGestureDuringDrag);
     };
   }, []);
 
@@ -5891,6 +6683,75 @@ export default function App() {
     if (!orientation || typeof orientation.lock !== "function") return;
     orientation.lock("portrait").catch(() => {});
   }, [isMobileLayout]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const shouldLockViewport =
+      isMobileLayout &&
+      (phase === "playing" || phase === "results") &&
+      !isChatOpenMobile &&
+      !isChatClosing;
+    if (!shouldLockViewport) {
+      mobileGameViewportLockRef.current = { width: 0, height: 0 };
+      return;
+    }
+
+    let rafId = null;
+    const updateViewportLock = () => {
+      const widthCandidates = [window.innerWidth, document.documentElement?.clientWidth].filter(
+        (v) => Number.isFinite(v) && v > 0
+      );
+      const heightCandidates = [window.innerHeight, document.documentElement?.clientHeight].filter(
+        (v) => Number.isFinite(v) && v > 0
+      );
+      const measuredWidth = widthCandidates.length ? Math.min(...widthCandidates) : 0;
+      const measuredHeight = heightCandidates.length ? Math.min(...heightCandidates) : 0;
+      if (!(measuredWidth > 0) || !(measuredHeight > 0)) return;
+
+      const prev = mobileGameViewportLockRef.current || { width: 0, height: 0 };
+      const prevWidth = Number(prev.width) || 0;
+      const prevHeight = Number(prev.height) || 0;
+      const widthDelta = Math.abs(measuredWidth - prevWidth);
+
+      // Orientation or major viewport changes: recapture lock from scratch.
+      if (!(prevWidth > 0) || !(prevHeight > 0) || widthDelta > 64) {
+        mobileGameViewportLockRef.current = {
+          width: Math.round(measuredWidth),
+          height: Math.round(measuredHeight),
+        };
+        return;
+      }
+
+      // Keep a stable height while Safari toolbars animate (only shrink if needed).
+      const nextHeight = Math.min(prevHeight, Math.round(measuredHeight));
+      if (nextHeight !== prevHeight) {
+        mobileGameViewportLockRef.current = {
+          width: prevWidth,
+          height: nextHeight,
+        };
+      }
+    };
+
+    const scheduleViewportLockUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateViewportLock();
+      });
+    };
+
+    updateViewportLock();
+    window.addEventListener("resize", scheduleViewportLockUpdate);
+    window.addEventListener("orientationchange", scheduleViewportLockUpdate);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", scheduleViewportLockUpdate);
+    return () => {
+      window.removeEventListener("resize", scheduleViewportLockUpdate);
+      window.removeEventListener("orientationchange", scheduleViewportLockUpdate);
+      vv?.removeEventListener("resize", scheduleViewportLockUpdate);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, [isMobileLayout, phase, isChatOpenMobile, isChatClosing]);
 
   useEffect(() => {
     isChatOpenMobileRef.current = isChatOpenMobile;
@@ -6204,7 +7065,16 @@ export default function App() {
 
     const computeMobileLayoutNow = () => {
       if (isChatOpenMobileRef.current) return;
+      const lockedGameViewportHeight =
+        !isChatOpenMobileRef.current && !isChatClosingRef.current
+          ? Number(mobileGameViewportLockRef.current?.height) || 0
+          : 0;
+      const lockedGameViewportWidth =
+        !isChatOpenMobileRef.current && !isChatClosingRef.current
+          ? Number(mobileGameViewportLockRef.current?.width) || 0
+          : 0;
       const viewportHeightCandidates = [
+        lockedGameViewportHeight,
         window.innerHeight,
         document.documentElement?.clientHeight,
       ].filter((v) => Number.isFinite(v) && v > 0);
@@ -6213,6 +7083,7 @@ export default function App() {
         : 0;
 
       const viewportWidthCandidates = [
+        lockedGameViewportWidth,
         window.innerWidth,
         document.documentElement?.clientWidth,
       ].filter((v) => Number.isFinite(v) && v > 0);
@@ -6405,13 +7276,13 @@ export default function App() {
 
     scheduleComputeMobileLayout();
     window.addEventListener("resize", scheduleComputeMobileLayout);
-    window.addEventListener("scroll", scheduleComputeMobileLayout, { passive: true });
+    window.addEventListener("orientationchange", scheduleComputeMobileLayout);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("resize", scheduleComputeMobileLayout);
-      window.removeEventListener("scroll", scheduleComputeMobileLayout);
+      window.removeEventListener("orientationchange", scheduleComputeMobileLayout);
       if (safeAreaProbeRef.current && safeAreaProbeRef.current.parentNode) {
         safeAreaProbeRef.current.parentNode.removeChild(safeAreaProbeRef.current);
         safeAreaProbeRef.current = null;
@@ -6443,11 +7314,9 @@ export default function App() {
     observer.observe(headerEl);
     const vv = window.visualViewport;
     vv?.addEventListener("resize", updateHeight);
-    vv?.addEventListener("scroll", updateHeight);
     return () => {
       observer.disconnect();
       vv?.removeEventListener("resize", updateHeight);
-      vv?.removeEventListener("scroll", updateHeight);
     };
   }, [isMobileLayout, isFullscreen, getHeaderOffsetPx]);
 
@@ -6520,12 +7389,16 @@ export default function App() {
         gameViewportFreezeHeightRef.current > 0
           ? gameViewportFreezeHeightRef.current
           : 0;
+      const lockedGameHeight =
+        !isChatOpenMobileRef.current && !isChatClosingRef.current
+          ? Number(mobileGameViewportLockRef.current?.height) || 0
+          : 0;
 
       // Quand le chat est ouvert, on fige le fond (layout viewport) et on laisse
       // uniquement le tiroir chat s'adapter au clavier via visualViewport.
       const candidates = frozen
         ? [frozen]
-        : [window.innerHeight, document.documentElement?.clientHeight];
+        : [lockedGameHeight, window.innerHeight, document.documentElement?.clientHeight];
 
       const filtered = candidates.filter((v) => Number.isFinite(v) && v > 0);
       const h = filtered.length ? Math.min(...filtered) : 0;
@@ -6606,6 +7479,7 @@ export default function App() {
         id: tournamentId,
         weeklyStats: weeklyStatsSnapshotRef.current || null,
         rankingMap: null,
+        rankingRound: null,
       };
       baseline = tournamentBaselineRef.current;
     }
@@ -6667,9 +7541,17 @@ export default function App() {
   function playTileStepSound(step) {
     if (!soundTileStepEnabled) return;
     if (!Number.isFinite(step)) return;
-    const index = Math.max(1, Math.min(INCREMENTAL_SOUND_COUNT, Math.floor(step) + 1));
-    const assetKey = INCREMENTAL_SFX_KEYS[index - 1];
-    playOneShotAudio(assetKey, { cooldownKey: "tileStep", eqKey: "tileStep" });
+    const semitoneOffset =
+      Math.max(0, Math.min(INCREMENTAL_SOUND_COUNT - 1, Math.floor(step))) -
+      INCREMENTAL_BASE_NOTE_INDEX;
+    const pitch = Math.pow(2, semitoneOffset / 12);
+    playOneShotAudio(INCREMENTAL_BASE_SFX_KEY, {
+      cooldownKey: "tileStep",
+      eqKey: "tileStep",
+      pitch,
+      // Les steps doivent rester audibles en rafale rapide.
+      ignorePolyphony: true,
+    });
   }
 
   function stopRoundEndTickSound({ fadeMs = 120 } = {}) {
@@ -6678,6 +7560,35 @@ export default function App() {
     if (fadeMs > 0) handle.fadeOut?.(fadeMs);
     else handle.stop?.();
     roundEndTickHandleRef.current = null;
+  }
+
+  function stopRoundStartSound({ fadeMs = 120 } = {}) {
+    if (roundStartStopTimerRef.current) {
+      clearTimeout(roundStartStopTimerRef.current);
+      roundStartStopTimerRef.current = null;
+    }
+    const handle = roundStartHandleRef.current;
+    if (!handle) {
+      roundStartSoundUntilRef.current = 0;
+      return;
+    }
+    if (fadeMs > 0) handle.fadeOut?.(fadeMs);
+    else handle.stop?.();
+    roundStartHandleRef.current = null;
+    roundStartSoundUntilRef.current = 0;
+  }
+
+  function stopIntroCountdownSound({ fadeMs = 120 } = {}) {
+    if (introCountdownStopTimerRef.current) {
+      clearTimeout(introCountdownStopTimerRef.current);
+      introCountdownStopTimerRef.current = null;
+    }
+    AssetManager.cancelQueuedSfx?.(SFX_KEYS.tictoc);
+    const handle = introCountdownHandleRef.current;
+    if (!handle) return;
+    if (fadeMs > 0) handle.fadeOut?.(fadeMs);
+    else handle.stop?.();
+    introCountdownHandleRef.current = null;
   }
 
   // Petit "tic tac" pour la fin de manche (fichier)
@@ -6696,14 +7607,62 @@ export default function App() {
   }
 
   // "Tic tac" avant le début de manche (compte à rebours)
-  function playCountdownTickSound() {
+  function playCountdownTickSound(value = null, introToken = null) {
     if (!soundTimerEnabled) return;
     if (isSfxMuted) return;
     if (!isLoggedInRef.current) return;
-    playOneShotAudio(SFX_KEYS.tictoc, {
+    if (Number.isFinite(value) && Number(value) !== MOBILE_ROUND_INTRO_COUNTDOWN_FROM) {
+      return;
+    }
+    const roundKey = roundIdRef.current || null;
+    if (roundKey && introCountdownPlayedRoundRef.current === roundKey) {
+      return;
+    }
+    if (isMobileLayoutRef.current) {
+      const roundId = roundIdRef.current || null;
+      const now =
+        typeof performance !== "undefined" && performance.now
+          ? performance.now()
+          : Date.now();
+      const guard =
+        introCountdownTickGuardRef.current || { at: 0, token: 0, value: null, roundId: null };
+      const delta = now - (Number(guard.at) || 0);
+      const sameRoundValue =
+        value != null && roundId && guard.roundId === roundId && guard.value === value;
+      const sameToken = introToken != null && guard.token === introToken;
+      const sameValue = value != null && guard.value === value;
+      if (
+        (sameRoundValue && delta < 3200) ||
+        (sameToken && sameValue && delta < 900) ||
+        delta < 220
+      ) {
+        return;
+      }
+      introCountdownTickGuardRef.current = {
+        at: now,
+        token: introToken != null ? introToken : guard.token || 0,
+        value: value != null ? value : null,
+        roundId,
+      };
+    }
+    stopIntroCountdownSound({ fadeMs: 0 });
+    const handle = playOneShotAudio(SFX_KEYS.tictoc, {
       cooldownKey: "countdownTick",
       eqKey: "countdownTick",
+      allowQueue: false,
     });
+    if (!handle) return;
+    introCountdownHandleRef.current = handle;
+    if (roundKey) {
+      introCountdownPlayedRoundRef.current = roundKey;
+    }
+    introCountdownStopTimerRef.current = setTimeout(() => {
+      if (introCountdownHandleRef.current === handle) {
+        handle.fadeOut?.(120);
+        introCountdownHandleRef.current = null;
+      }
+      introCountdownStopTimerRef.current = null;
+    }, 3000);
   }
 
   function playSwipeSound() {
@@ -6750,9 +7709,16 @@ export default function App() {
     if (isSfxMuted) return;
     if (phaseRef.current !== "playing") return;
     if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    playOneShotAudio(SFX_KEYS.roundStart, {
+    const now =
+      typeof performance !== "undefined" && performance.now
+        ? performance.now()
+        : Date.now();
+    if (now < (roundStartSoundUntilRef.current || 0) - 20) return;
+    stopRoundStartSound({ fadeMs: 0 });
+    const handle = playOneShotAudio(SFX_KEYS.roundStart, {
       cooldownKey: "roundStart",
       eqKey: "roundStart",
+      allowQueue: false,
       onBlocked: () => {
         const roundKey = roundIdRef.current || null;
         if (!roundKey) return;
@@ -6760,7 +7726,206 @@ export default function App() {
         scheduleRoundStartRetry(roundKey);
       },
     });
+    if (!handle) return;
+    const maxDurationMs = 3000;
+    roundStartHandleRef.current = handle;
+    roundStartSoundUntilRef.current = now + maxDurationMs;
+    roundStartStopTimerRef.current = setTimeout(() => {
+      if (roundStartHandleRef.current === handle) {
+        handle.fadeOut?.(120);
+        roundStartHandleRef.current = null;
+      }
+      roundStartSoundUntilRef.current = 0;
+      roundStartStopTimerRef.current = null;
+    }, maxDurationMs);
   }
+
+  const clearMobileRoundIntroTimers = React.useCallback(() => {
+    mobileRoundIntroTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    mobileRoundIntroTimersRef.current = [];
+  }, []);
+
+  const stopMobileRoundIntro = React.useCallback(
+    ({ unlockInput = true, keepRoundStartSuppressed = false } = {}) => {
+      mobileRoundIntroTokenRef.current += 1;
+      clearMobileRoundIntroTimers();
+      clearTileIntroAnimationFnRef.current?.();
+      stopIntroCountdownSound({ fadeMs: 80 });
+      introCountdownTickGuardRef.current = { at: 0, token: 0, value: null, roundId: null };
+      setMobileRoundIntroStage("idle");
+      setMobileRoundIntroCountdown(null);
+      setMobileRoundIntroHideTiles(false);
+      if (!keepRoundStartSuppressed) {
+        mobileRoundIntroSuppressRoundStartRef.current = false;
+      }
+      if (unlockInput) {
+        setInputLocked(false);
+        inputLockedRef.current = false;
+      }
+    },
+    [clearMobileRoundIntroTimers]
+  );
+
+  const startMobileRoundIntro = React.useCallback(() => {
+    const roundKey = roundIdRef.current || null;
+    if (roundKey) {
+      roundIntroStartedForRoundRef.current = roundKey;
+    }
+    const introWindow = roundIntroServerWindowRef.current || {};
+    const nowServerMs = getNowServerMs();
+    const serverStartsAt = Number.isFinite(introWindow.startsAt)
+      ? Number(introWindow.startsAt)
+      : null;
+    const introMsFallback = Number.isFinite(introWindow.introMs)
+      ? Math.max(0, Number(introWindow.introMs))
+      : 0;
+    const targetStartAt = Number.isFinite(serverStartsAt)
+      ? serverStartsAt
+      : nowServerMs + introMsFallback;
+    const hasTimedIntro =
+      Number.isFinite(targetStartAt) && targetStartAt > nowServerMs + 80;
+    if (!hasTimedIntro) {
+      stopMobileRoundIntro({ unlockInput: true, keepRoundStartSuppressed: false });
+      return;
+    }
+
+    const token = mobileRoundIntroTokenRef.current + 1;
+    mobileRoundIntroTokenRef.current = token;
+    clearMobileRoundIntroTimers();
+    clearTileIntroAnimationFnRef.current?.();
+    mobileRoundIntroSuppressRoundStartRef.current = true;
+    setInputLocked(true);
+    inputLockedRef.current = true;
+    const roundNow =
+      Number.isFinite(tournament?.round) && tournament.round > 0
+        ? tournament.round
+        : Number.isFinite(tournament?.nextRound) && tournament.nextRound > 0
+        ? tournament.nextRound
+        : null;
+    const roundTotal =
+      Number.isFinite(tournament?.totalRounds) && tournament.totalRounds > 0
+        ? tournament.totalRounds
+        : null;
+    const roundLabel =
+      roundNow && roundTotal
+        ? `MANCHE ${roundNow}/${roundTotal}`
+        : roundNow
+        ? `MANCHE ${roundNow}`
+        : "MANCHE";
+    const specialLabel = specialRound?.isSpecial
+      ? `MANCHE SPECIALE : ${String(getSpecialRoundDisplayLabel(specialRound)).toUpperCase()}`
+      : "manche classique";
+
+    setMobileRoundIntroRoundLabel(roundLabel);
+    setMobileRoundIntroRoundTypeLabel(specialLabel);
+    setMobileRoundIntroCountdown(null);
+    setMobileRoundIntroHideTiles(true);
+    setMobileRoundIntroStage(isMobileLayoutRef.current ? "intro_fade_in" : "title");
+
+    const isStale = () => mobileRoundIntroTokenRef.current !== token;
+    const scheduleStep = (callback, delayMs) => {
+      const timerId = setTimeout(() => {
+        mobileRoundIntroTimersRef.current = mobileRoundIntroTimersRef.current.filter(
+          (id) => id !== timerId
+        );
+        callback();
+      }, Math.max(0, delayMs));
+      mobileRoundIntroTimersRef.current.push(timerId);
+    };
+    const finishIntro = () => {
+      if (isStale()) return;
+      setMobileRoundIntroCountdown(MOBILE_ROUND_INTRO_GO_LABEL);
+      setInputLocked(false);
+      inputLockedRef.current = false;
+      if (roundIdRef.current) {
+        roundStartSoundRef.current = roundIdRef.current;
+      }
+      playRoundStartSound();
+      scheduleStep(() => {
+        if (isStale()) return;
+        stopMobileRoundIntro({
+          unlockInput: false,
+          keepRoundStartSuppressed: false,
+        });
+      }, MOBILE_ROUND_INTRO_GO_TOTAL_MS);
+    };
+    const runCountdownPhase = () => {
+      if (isStale()) return;
+      const nowMs = getNowServerMs();
+      const remainingMsToStart = Math.max(0, targetStartAt - nowMs);
+      if (remainingMsToStart <= 120) {
+        finishIntro();
+        return;
+      }
+      const maxCountdownMs = MOBILE_ROUND_INTRO_COUNTDOWN_TOTAL_MS;
+      const waitBeforeCountdownMs =
+        remainingMsToStart > maxCountdownMs ? remainingMsToStart - maxCountdownMs : 0;
+      const countdownWindowMs = Math.min(
+        maxCountdownMs,
+        Math.max(420, remainingMsToStart - waitBeforeCountdownMs)
+      );
+      const stepMs = Math.max(
+        150,
+        countdownWindowMs / Math.max(1, MOBILE_ROUND_INTRO_COUNTDOWN_FROM)
+      );
+      const sequence = [3, 2, 1, 0];
+      const runSequenceAt = (index) => {
+        if (isStale()) return;
+        const value = sequence[index] ?? 0;
+        setMobileRoundIntroCountdown(value);
+        if (value > 0) {
+          playCountdownTickSound(value, token);
+        }
+        if (index >= sequence.length - 1) {
+          finishIntro();
+          return;
+        }
+        scheduleStep(() => runSequenceAt(index + 1), stepMs);
+      };
+      if (waitBeforeCountdownMs > 0) {
+        scheduleStep(() => runSequenceAt(0), waitBeforeCountdownMs);
+      } else {
+        runSequenceAt(0);
+      }
+    };
+
+    scheduleStep(() => {
+      if (isStale()) return;
+      scheduleStep(() => {
+        if (isStale()) return;
+        setMobileRoundIntroStage("title");
+        scheduleStep(() => {
+          if (isStale()) return;
+          setMobileRoundIntroStage("title_fade_out");
+          scheduleStep(() => {
+            if (isStale()) return;
+            flushSync(() => {
+              setMobileRoundIntroStage("grid_intro");
+              setMobileRoundIntroHideTiles(false);
+            });
+            const startTileIntro = () => {
+              if (isStale()) return;
+              const tileIntroMs = triggerTileIntroAnimationFnRef.current?.() || 0;
+              scheduleStep(() => {
+                if (isStale()) return;
+                setMobileRoundIntroStage("countdown");
+                runCountdownPhase();
+              }, Math.max(0, tileIntroMs + MOBILE_ROUND_INTRO_TILE_HOLD_MS));
+            };
+            startTileIntro();
+          }, MOBILE_ROUND_INTRO_TITLE_FADE_MS);
+        }, MOBILE_ROUND_INTRO_TITLE_HOLD_MS);
+      }, isMobileLayoutRef.current ? MOBILE_ROUND_INTRO_INTRO_FADE_IN_MS : 0);
+    }, 0);
+  }, [
+    clearMobileRoundIntroTimers,
+    tournament,
+    specialRound,
+    playCountdownTickSound,
+    playRoundStartSound,
+    roundId,
+    stopMobileRoundIntro,
+  ]);
 
   // Palette de sons par paliers de score (plus mélodique)
   function playScoreSound(points) {
@@ -6769,7 +7934,8 @@ export default function App() {
     if (!soundValidationEnabled) return;
     if (isSfxMuted) return;
     const safePoints = Number.isFinite(points) ? Math.max(0, points) : 0;
-    if (safePoints === 2) {
+    if (safePoints <= 2) {
+      if (safePoints < 1) return;
       // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
       playOneShotAudio(SCORE_LOW_KEY, {
         cooldownKey: "score",
@@ -6785,7 +7951,6 @@ export default function App() {
       });
       return;
     }
-    if (safePoints < 3) return;
     const bandIndex =
       SCORE_SOUND_BANDS.findIndex(
         (entry) => safePoints >= entry.min && safePoints <= entry.max
@@ -6793,18 +7958,35 @@ export default function App() {
     const scoreKey = SCORE_SFX_KEYS[bandIndex] || SCORE_SFX_KEYS[0];
     const pianoKey = SCORE2_SFX_KEYS[bandIndex] || SCORE2_SFX_KEYS[0];
     // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
-    playOneShotAudio(scoreKey, {
+    const primaryHandle = playOneShotAudio(scoreKey, {
       cooldownKey: "score",
       cooldownMs: 0,
       eqKey: "score",
       ignorePolyphony: true,
     });
-    playOneShotAudio(pianoKey, {
+    const pianoHandle = playOneShotAudio(pianoKey, {
       cooldownKey: "score2",
       cooldownMs: 0,
       eqKey: "score2",
       ignorePolyphony: true,
     });
+    // Fallback robuste: si une variation n'est pas encore prête, jouer la base préchargée.
+    if (!primaryHandle) {
+      playOneShotAudio(SCORE_LOW_KEY, {
+        cooldownKey: "score",
+        cooldownMs: 0,
+        eqKey: "score",
+        ignorePolyphony: true,
+      });
+    }
+    if (!pianoHandle) {
+      playOneShotAudio(SCORE2_LOW_KEY, {
+        cooldownKey: "score2",
+        cooldownMs: 0,
+        eqKey: "score2",
+        ignorePolyphony: true,
+      });
+    }
   }
 
 
@@ -6903,8 +8085,12 @@ export default function App() {
   }
 
   function triggerBigScoreFlash(pts) {
-    setBigScoreFlash({ pts, id: Date.now() });
-    setTimeout(() => setBigScoreFlash(null), 950);
+    const now = Date.now();
+    if (now - bigScoreLastRef.current < 420) return;
+    bigScoreLastRef.current = now;
+    const durationMs = 950;
+    setBigScoreFlash({ pts, id: now, durationMs, lite: false });
+    setTimeout(() => setBigScoreFlash(null), durationMs);
   }
 
   function triggerGridShake() {
@@ -6927,9 +8113,12 @@ export default function App() {
     setTimeout(() => setGridShake(false), 520);
   }
 
-  function triggerPraiseFlash(text, { kind = "blue", shakeGrid = false } = {}) {
+  function triggerPraiseFlash(
+    text,
+    { kind = "blue", shakeGrid = false, force = false } = {}
+  ) {
     const now = Date.now();
-    if (now - praiseLastRef.current < 420) return;
+    if (!force && now - praiseLastRef.current < 420) return;
     praiseLastRef.current = now;
     const angle = Math.random() * Math.PI * 2;
     const minDist = isMobileLayout ? 90 : 140;
@@ -6937,8 +8126,10 @@ export default function App() {
     const dist = minDist + Math.random() * (maxDist - minDist);
     const dx = Math.round(Math.cos(angle) * dist);
     const dy = Math.round(Math.sin(angle) * dist);
-    const scale = Number(((1.0 + Math.random() * 0.5) * 1.6).toFixed(2));
-    if (kind === "gobble") {
+    const scaleBase = 1.6;
+    const scaleRange = 0.5;
+    const scale = Number(((1.0 + Math.random() * scaleRange) * scaleBase).toFixed(2));
+    if (kind === "gobble" || kind === "doubleGobble") {
       lastGobbleAtRef.current = now;
       const durationMs = Math.round(2200 + Math.random() * 400);
       triggerConfettiBurst("gobble");
@@ -7069,6 +8260,17 @@ export default function App() {
         loading: false,
         ok: false,
         definition: "",
+        lemma: "",
+        lemmaLabel: "",
+        lemmaGuess: false,
+        participleLabel: "",
+        participleBase: "",
+        participleGuess: false,
+        inflectionLabel: "",
+        inflectionBase: "",
+        inflectionGuess: false,
+        matchedTitle: "",
+        phraseGuess: false,
         source: "",
         url: "",
       });
@@ -7093,6 +8295,25 @@ export default function App() {
         loading: false,
         ok: true,
         definition: cachedDefinition,
+        lemma: targetSummary.lemma || targetSummary.definitionLemma || "",
+        lemmaLabel: targetSummary.lemmaLabel || targetSummary.definitionLemmaLabel || "",
+        lemmaGuess: !!(targetSummary.lemmaGuess || targetSummary.definitionLemmaGuess),
+        participleLabel:
+          targetSummary.participleLabel || targetSummary.definitionParticipleLabel || "",
+        participleBase:
+          targetSummary.participleBase || targetSummary.definitionParticipleBase || "",
+        participleGuess: !!(
+          targetSummary.participleGuess || targetSummary.definitionParticipleGuess
+        ),
+        inflectionLabel:
+          targetSummary.inflectionLabel || targetSummary.definitionInflectionLabel || "",
+        inflectionBase:
+          targetSummary.inflectionBase || targetSummary.definitionInflectionBase || "",
+        inflectionGuess: !!(
+          targetSummary.inflectionGuess || targetSummary.definitionInflectionGuess
+        ),
+        matchedTitle: targetSummary.matchedTitle || targetSummary.definitionMatchedTitle || "",
+        phraseGuess: !!(targetSummary.phraseGuess || targetSummary.definitionPhraseGuess),
         source: targetSummary.definitionSource || "",
         url: targetSummary.definitionUrl || "",
       });
@@ -7105,6 +8326,17 @@ export default function App() {
       loading: true,
       ok: false,
       definition: "",
+      lemma: "",
+      lemmaLabel: "",
+      lemmaGuess: false,
+      participleLabel: "",
+      participleBase: "",
+      participleGuess: false,
+      inflectionLabel: "",
+      inflectionBase: "",
+      inflectionGuess: false,
+      matchedTitle: "",
+      phraseGuess: false,
       source: "",
       url: "",
     });
@@ -7140,6 +8372,17 @@ export default function App() {
             loading: false,
             ok,
             definition: definitionText,
+            lemma: data.lemma || "",
+            lemmaLabel: data.lemmaLabel || "",
+            lemmaGuess: !!data.lemmaGuess,
+            participleLabel: data.participleLabel || "",
+            participleBase: data.participleBase || "",
+            participleGuess: !!data.participleGuess,
+            inflectionLabel: data.inflectionLabel || "",
+            inflectionBase: data.inflectionBase || "",
+            inflectionGuess: !!data.inflectionGuess,
+            matchedTitle: data.matchedTitle || "",
+            phraseGuess: !!data.phraseGuess,
             source: data.source || "",
             url: data.url || "",
           });
@@ -7167,13 +8410,45 @@ export default function App() {
     if (phase !== "playing") return;
     if (!roundId) return;
     if (roundStartSoundRef.current === roundId) return;
+    if (mobileRoundIntroSuppressRoundStartRef.current) return;
     roundStartSoundRef.current = roundId;
     if (!audioUnlockedRef.current) {
       roundStartPendingRef.current = roundId;
       return;
     }
     playRoundStartSound();
-  }, [phase, roundId]);
+  }, [phase, roundId, mobileRoundIntroStage]);
+
+  useEffect(() => {
+    const prevPhase = previousPhaseRef.current;
+    previousPhaseRef.current = phase;
+
+    if (phase === "playing" && roundId) {
+      const introWindow = roundIntroServerWindowRef.current || {};
+      const introRoundId = introWindow.roundId || null;
+      const introStartsAt = Number.isFinite(introWindow.startsAt)
+        ? Number(introWindow.startsAt)
+        : null;
+      const introStatus = String(introWindow.status || "");
+      const hasPendingIntro =
+        introRoundId &&
+        introRoundId === roundId &&
+        introStatus === "intro" &&
+        Number.isFinite(introStartsAt) &&
+        introStartsAt > getNowServerMs() + 80;
+      if (hasPendingIntro && roundIntroStartedForRoundRef.current !== roundId) {
+        startMobileRoundIntro();
+        return;
+      }
+      if ((prevPhase === "results" || prevPhase === "lobby") && !hasPendingIntro) {
+        roundIntroStartedForRoundRef.current = roundId;
+      }
+    }
+
+    if (phase !== "playing" && mobileRoundIntroStage !== "idle") {
+      stopMobileRoundIntro({ unlockInput: false });
+    }
+  }, [phase, roundId, mobileRoundIntroStage, startMobileRoundIntro, stopMobileRoundIntro]);
 
   useEffect(() => {
     if (phase !== "playing") {
@@ -7195,6 +8470,11 @@ export default function App() {
   useEffect(() => {
     if (phase === "playing") return;
     stopRoundEndTickSound({ fadeMs: 80 });
+    stopIntroCountdownSound({ fadeMs: 80 });
+  }, [phase]);
+  useEffect(() => {
+    if (phase === "playing") return;
+    stopRoundStartSound({ fadeMs: 80 });
   }, [phase]);
 
   useEffect(() => {
@@ -7219,25 +8499,13 @@ export default function App() {
   }, [phase, isAmbientMuted, isLoggedIn, isDailyView]);
 
   useEffect(() => {
-    const shouldReset =
-      phase === "playing" ||
-      breakKind === "tournament_end" ||
-      typeof breakCountdown !== "number" ||
-      breakCountdown > 10 ||
-      breakCountdown <= 0;
-    if (shouldReset) {
-      countdownTickPlayedRef.current = false;
-      return;
-    }
-    if (!countdownTickPlayedRef.current) {
-      countdownTickPlayedRef.current = true;
-      playCountdownTickSound();
-    }
+    countdownTickPlayedRef.current = false;
   }, [breakCountdown, phase, breakKind]);
 
   useEffect(() => {
     if (phase !== "playing") {
       setAnalysis(null);
+      setHighlightPath([]);
       setHighlightPlayers([]);
     }
   }, [phase]);
@@ -7635,6 +8903,92 @@ export default function App() {
     });
   }, [gridRotationTurns]);
 
+  const clearTileIntroAnimation = React.useCallback(() => {
+    if (tileIntroTimerRef.current) {
+      clearTimeout(tileIntroTimerRef.current);
+      tileIntroTimerRef.current = null;
+    }
+    tileRefs.current.forEach((el) => {
+      if (!el) return;
+      el.classList.remove("tile-intro");
+      el.style.removeProperty("--intro-x");
+      el.style.removeProperty("--intro-y");
+      el.style.removeProperty("--intro-rot");
+      el.style.removeProperty("--intro-delay");
+      el.style.removeProperty("--intro-dur");
+      el.style.removeProperty("--intro-scale-start");
+    });
+  }, []);
+
+  const triggerTileIntroAnimation = React.useCallback(() => {
+    const gridEl = gridRef.current;
+    if (!gridEl || typeof window === "undefined") return 0;
+    const viewportWidth = Math.max(1, window.innerWidth || 1);
+    const viewportHeight = Math.max(1, window.innerHeight || 1);
+    const margin = Math.max(90, Math.round(Math.min(viewportWidth, viewportHeight) * 0.16));
+    let maxTotalMs = 0;
+
+    clearTileIntroAnimation();
+
+    tileRefs.current.forEach((el) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const tileCenterX = rect.left + rect.width / 2;
+      const tileCenterY = rect.top + rect.height / 2;
+      const side = Math.floor(Math.random() * 4);
+      const randX = Math.random() * viewportWidth;
+      const randY = Math.random() * viewportHeight;
+      const sourceX =
+        side === 0
+          ? -margin
+          : side === 1
+          ? viewportWidth + margin
+          : randX;
+      const sourceY =
+        side === 2
+          ? -margin
+          : side === 3
+          ? viewportHeight + margin
+          : randY;
+      const dx = sourceX - tileCenterX;
+      const dy = sourceY - tileCenterY;
+      const dist = Math.hypot(dx, dy);
+      const distNorm = Math.min(1.4, dist / Math.max(1, Math.hypot(viewportWidth, viewportHeight)));
+      const rot = (Math.random() * 2 - 1) * (420 + 360 * distNorm);
+      const delay = Math.max(0, distNorm * 0.08 + Math.random() * 0.04);
+      const duration = 0.72 + distNorm * 0.28 + Math.random() * 0.08;
+      const scaleStart = 1.65 + distNorm * 0.52 + Math.random() * 0.16;
+
+      el.style.setProperty("--intro-x", `${dx}px`);
+      el.style.setProperty("--intro-y", `${dy}px`);
+      el.style.setProperty("--intro-rot", `${rot}deg`);
+      el.style.setProperty("--intro-delay", `${delay}s`);
+      el.style.setProperty("--intro-dur", `${duration}s`);
+      el.style.setProperty("--intro-scale-start", `${scaleStart}`);
+      el.classList.remove("tile-intro");
+      void el.offsetWidth;
+      el.classList.add("tile-intro");
+      maxTotalMs = Math.max(maxTotalMs, (delay + duration) * 1000);
+    });
+
+    if (maxTotalMs > 0) {
+      if (tileIntroTimerRef.current) clearTimeout(tileIntroTimerRef.current);
+      tileIntroTimerRef.current = setTimeout(() => {
+        clearTileIntroAnimation();
+      }, Math.ceil(maxTotalMs + 120));
+    }
+    return Math.max(0, Math.ceil(maxTotalMs));
+  }, [clearTileIntroAnimation]);
+
+  useEffect(() => {
+    clearTileIntroAnimationFnRef.current = clearTileIntroAnimation;
+  }, [clearTileIntroAnimation]);
+
+  useEffect(() => {
+    triggerTileIntroAnimationFnRef.current = triggerTileIntroAnimation;
+  }, [triggerTileIntroAnimation]);
+
   const clearImplodeAnimation = React.useCallback(() => {
     if (implodeTimerRef.current) {
       clearTimeout(implodeTimerRef.current);
@@ -7859,6 +9213,13 @@ export default function App() {
                 nick: e.nick,
                 score: e.points,
                 gobbles: e.gobbles ?? null,
+                roundScoreSum: Number(e.roundScoreSum) || 0,
+                tieBreakRoundScore: Number(e.tieBreakRoundScore) || Number(e.roundScoreSum) || 0,
+                tieBreakBy:
+                  typeof e.tieBreakBy === "string" && e.tieBreakBy
+                    ? e.tieBreakBy
+                    : null,
+                tieGroupSize: Number(e.tieGroupSize) || 0,
                 delta,
                 isBot: !!e.isBot,
                 isDailyChampion: !!e.isDailyChampion,
@@ -7898,6 +9259,24 @@ export default function App() {
           const gobblePoints = Number(duelUpdate?.gobblePointsAdded) || 0;
           roundTeamDelta[team] += objectivePoints + gobblePoints;
         });
+      }
+      const endedTournamentId = String(
+        tournamentPayload?.id || tournamentRef.current?.id || ""
+      ).trim();
+      if (endedTournamentId) {
+        const prevTournamentDelta = tournamentDuelDeltaRef.current;
+        const sameTournament = prevTournamentDelta.tournamentId === endedTournamentId;
+        const baseRed = sameTournament
+          ? Math.max(0, Number(prevTournamentDelta.red) || 0)
+          : 0;
+        const baseBlue = sameTournament
+          ? Math.max(0, Number(prevTournamentDelta.blue) || 0)
+          : 0;
+        tournamentDuelDeltaRef.current = {
+          tournamentId: endedTournamentId,
+          red: baseRed + Math.max(0, Number(roundTeamDelta.red) || 0),
+          blue: baseBlue + Math.max(0, Number(roundTeamDelta.blue) || 0),
+        };
       }
       setResultsTeamDelta(roundTeamDelta);
       const selfNickNow = nicknameRef.current.trim();
@@ -8058,6 +9437,7 @@ export default function App() {
         gridEl.style.opacity = "0";
       }
 
+      let stopAuxNow = null;
       if (!isSfxMuted) {
         const syncToken = ++blackHoleSyncTokenRef.current;
         const stopAux = (fadeMs = 260) => {
@@ -8083,6 +9463,7 @@ export default function App() {
             blackHoleClavierHandleRef.current = null;
           }
         };
+        stopAuxNow = stopAux;
 
         if (blackHoleHandleRef.current) {
           blackHoleHandleRef.current.stop?.();
@@ -8217,6 +9598,8 @@ export default function App() {
         } catch (_) {}
         fxOverlay.remove();
       }
+      // Le clavier doit toujours se couper (fade) à la fin visuelle du blackhole.
+      stopAuxNow?.(280);
 
       const pendingBreak = pendingBreakStartRef.current;
       if (pendingBreak && processBreakStartedRef.current) {
@@ -8285,6 +9668,12 @@ export default function App() {
       stopImplodePhase();
     };
   }, [stopImplodePhase]);
+
+  useEffect(() => {
+    return () => {
+      clearTileIntroAnimation();
+    };
+  }, [clearTileIntroAnimation]);
 
   function maybeAnnounceBestWord(nick, word, pts) {
     if (typeof pts !== "number") return;
@@ -8391,6 +9780,191 @@ export default function App() {
 
   function clearGridHitboxCache() {
     gridHitboxRef.current = null;
+    dragGridMetricsRef.current = null;
+  }
+
+  function getSamsungDiagNowMs() {
+    if (typeof performance !== "undefined" && typeof performance.now === "function") {
+      return performance.now();
+    }
+    return Date.now();
+  }
+
+  function isSamsungDiagActive() {
+    return !!samsungDiagEnabledRef.current;
+  }
+
+  function bumpSamsungDiagCounter(counter, delta = 1) {
+    if (!isSamsungDiagActive()) return;
+    if (!counter) return;
+    const diag = samsungDiagRef.current;
+    if (!diag?.counters || !Object.prototype.hasOwnProperty.call(diag.counters, counter)) return;
+    const base = Number(diag.counters[counter]) || 0;
+    diag.counters[counter] = base + delta;
+  }
+
+  function buildSamsungDiagSnapshot(reason = "heartbeat", extra = null) {
+    const diag = samsungDiagRef.current || {};
+    const metrics = dragGridMetricsRef.current || gridHitboxRef.current;
+    const voiceState = audioVoiceRef.current || {};
+    const tickValue = tickRef.current;
+    const wordLen = Array.isArray(currentTilesRef.current) ? currentTilesRef.current.length : 0;
+    const payload = {
+      at: new Date().toISOString(),
+      reason,
+      source: samsungDiagSourceRef.current || "unknown",
+      samsungBrowser: !!isSamsungBrowserRef.current,
+      samsungSafeMode: !!samsungSafeModeRef.current,
+      phase: phaseRef.current,
+      tick: Number.isFinite(tickValue) ? tickValue : null,
+      drag: !!draggingRef.current,
+      dragRafPending: dragMoveRafRef.current != null,
+      dragPointPending: !!dragPendingPointRef.current,
+      wordLen,
+      touchRate: {
+        peakPerSec: Math.round(diag?.touchRate?.peakPerSec || 0),
+        inWindow: Number(diag?.touchRate?.count) || 0,
+      },
+      counters: { ...(diag?.counters || {}) },
+      grid: metrics
+        ? {
+            size: metrics.size,
+            cellWidth: Math.round(metrics.cellWidth || 0),
+            cellHeight: Math.round(metrics.cellHeight || 0),
+            colGap: Math.round(metrics.colGap || 0),
+            rowGap: Math.round(metrics.rowGap || 0),
+          }
+        : null,
+      audio: {
+        activeVoices: Number.isFinite(voiceState.activeVoices) ? voiceState.activeVoices : null,
+        maxVoices: Number.isFinite(voiceState.maxVoices) ? voiceState.maxVoices : null,
+        drops: Number.isFinite(voiceState.drops) ? voiceState.drops : null,
+        cooldownKeys:
+          voiceState.lastPlayed instanceof Map ? voiceState.lastPlayed.size : null,
+      },
+      assetAudio: AssetManager.getAudioDebugStats?.() || null,
+      recent: Array.isArray(diag?.events) ? diag.events.slice(-18) : [],
+    };
+    if (extra && typeof extra === "object") {
+      payload.extra = extra;
+    }
+    return payload;
+  }
+
+  function flushSamsungDiagSnapshot(reason = "heartbeat", { consoleLevel = "", extra = null } = {}) {
+    if (!isSamsungDiagActive()) return null;
+    const diag = samsungDiagRef.current;
+    const now = Date.now();
+    const forceConsole = consoleLevel === "warn" || consoleLevel === "error";
+    if (!forceConsole && now - (diag.lastFlushAt || 0) < 1200) return diag.lastSnapshot || null;
+    diag.lastFlushAt = now;
+    const snapshot = buildSamsungDiagSnapshot(reason, extra);
+    diag.lastSnapshot = snapshot;
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(SAMSUNG_DIAG_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot));
+      }
+    } catch (_) {}
+    if (typeof window !== "undefined") {
+      window.__gobbleSamsungDiagLast = snapshot;
+    }
+    if (consoleLevel === "error") {
+      try {
+        console.error("[perf][samsung][diag]", reason, JSON.stringify(snapshot));
+      } catch (_) {
+        console.error("[perf][samsung][diag]", reason, snapshot);
+      }
+    } else if (consoleLevel === "warn") {
+      try {
+        console.warn("[perf][samsung][diag]", reason, JSON.stringify(snapshot));
+      } catch (_) {
+        console.warn("[perf][samsung][diag]", reason, snapshot);
+      }
+    } else if (reason === "heartbeat" && samsungDiagSourceRef.current === "query") {
+      try {
+        console.info("[perf][samsung][diag]", reason, JSON.stringify(snapshot));
+      } catch (_) {
+        console.info("[perf][samsung][diag]", reason, snapshot);
+      }
+    }
+    return snapshot;
+  }
+
+  function pushSamsungDiagEvent(event, payload = null, { consoleLevel = "", flush = false } = {}) {
+    if (!isSamsungDiagActive()) return;
+    const diag = samsungDiagRef.current;
+    const entry = {
+      seq: (diag.seq || 0) + 1,
+      at: new Date().toISOString(),
+      t: Math.round(getSamsungDiagNowMs()),
+      event,
+    };
+    if (payload && typeof payload === "object") {
+      entry.payload = payload;
+    }
+    diag.seq = entry.seq;
+    diag.events.push(entry);
+    if (diag.events.length > SAMSUNG_DIAG_RING_LIMIT) {
+      diag.events.splice(0, diag.events.length - SAMSUNG_DIAG_RING_LIMIT);
+    }
+    if (consoleLevel === "error") {
+      try {
+        console.error("[perf][samsung][diag-event]", event, JSON.stringify(payload || {}));
+      } catch (_) {
+        console.error("[perf][samsung][diag-event]", event, payload || {});
+      }
+    } else if (consoleLevel === "warn") {
+      try {
+        console.warn("[perf][samsung][diag-event]", event, JSON.stringify(payload || {}));
+      } catch (_) {
+        console.warn("[perf][samsung][diag-event]", event, payload || {});
+      }
+    }
+    if (flush) {
+      flushSamsungDiagSnapshot(event, {
+        consoleLevel: consoleLevel || "warn",
+        extra: payload && typeof payload === "object" ? payload : null,
+      });
+    }
+  }
+
+  function noteSamsungTouchMoveRate() {
+    if (!isSamsungDiagActive()) return;
+    const now = getSamsungDiagNowMs();
+    const diag = samsungDiagRef.current;
+    const bucket = diag.touchRate;
+    if (now - (bucket.startAt || 0) > SAMSUNG_DIAG_TOUCH_RATE_WINDOW_MS) {
+      bucket.startAt = now;
+      bucket.count = 0;
+    }
+    bucket.count += 1;
+    const elapsed = Math.max(1, now - bucket.startAt);
+    if (
+      bucket.count < SAMSUNG_DIAG_TOUCH_RATE_MIN_SAMPLES ||
+      elapsed < SAMSUNG_DIAG_TOUCH_RATE_MIN_ELAPSED_MS
+    ) {
+      return;
+    }
+    const perSec = (bucket.count * 1000) / elapsed;
+    if (perSec > bucket.peakPerSec) {
+      bucket.peakPerSec = perSec;
+    }
+    if (
+      perSec >= SAMSUNG_DIAG_HIGH_TOUCH_RATE_PER_SEC &&
+      now - (bucket.lastHighAt || 0) > 1800
+    ) {
+      bucket.lastHighAt = now;
+      pushSamsungDiagEvent(
+        "touch-rate-high",
+        {
+          perSec: Math.round(perSec),
+          drag: !!draggingRef.current,
+          rafPending: dragMoveRafRef.current != null,
+          pointPending: !!dragPendingPointRef.current,
+        },
+        { consoleLevel: "warn", flush: true }
+      );
+    }
   }
 
   function resolveGridAxisIndex(pos, start, cellSize, gapSize, count, useTolerance = true) {
@@ -8498,8 +10072,14 @@ export default function App() {
   }
 
   function getTileIndexFromPoint(x, y, useTolerance = true) {
-    const metrics = getGridHitboxMetrics();
-    if (!metrics) return null;
+    const metrics =
+      draggingRef.current && dragGridMetricsRef.current
+        ? dragGridMetricsRef.current
+        : getGridHitboxMetrics();
+    if (!metrics) {
+      bumpSamsungDiagCounter("tileHitMiss");
+      return null;
+    }
     const col = resolveGridAxisIndex(
       x,
       metrics.contentLeft,
@@ -8516,10 +10096,37 @@ export default function App() {
       metrics.size,
       useTolerance
     );
-    if (row == null || col == null) return null;
+    if (row == null || col == null) {
+      bumpSamsungDiagCounter("tileHitMiss");
+      return null;
+    }
     const displayIndex = row * metrics.size + col;
     if (displayIndex < 0 || displayIndex >= metrics.size * metrics.size) return null;
     return mapDisplayToBoardIndex(displayIndex, metrics.size, gridRotationTurns);
+  }
+
+  function getTileGeometryByBoardIndex(index) {
+    const metrics =
+      draggingRef.current && dragGridMetricsRef.current
+        ? dragGridMetricsRef.current
+        : getGridHitboxMetrics();
+    if (!metrics) return null;
+    if (!Number.isInteger(index) || index < 0 || index >= metrics.size * metrics.size) return null;
+    const displayIndex = rotateIndexByTurns(index, metrics.size, gridRotationTurns);
+    const row = Math.floor(displayIndex / metrics.size);
+    const col = displayIndex % metrics.size;
+    const left = metrics.contentLeft + col * (metrics.cellWidth + metrics.colGap);
+    const top = metrics.contentTop + row * (metrics.cellHeight + metrics.rowGap);
+    const width = metrics.cellWidth;
+    const height = metrics.cellHeight;
+    return {
+      left,
+      top,
+      width,
+      height,
+      cx: left + width / 2,
+      cy: top + height / 2,
+    };
   }
 
   useEffect(() => {
@@ -8669,12 +10276,8 @@ export default function App() {
     let observer = null;
     try {
       observer = new PerformanceObserver((list) => {
-        let count = 0;
-        let maxDuration = 0;
         list.getEntries().forEach((entry) => {
           if (entry.duration < 50) return;
-          count += 1;
-          maxDuration = Math.max(maxDuration, entry.duration);
           const phase = phaseRef.current;
           const tickValue = tickRef.current;
           if (phase === "playing" && typeof tickValue === "number" && tickValue <= 10) {
@@ -8687,15 +10290,6 @@ export default function App() {
             );
           }
         });
-        if (count > 0) {
-          const now = Date.now();
-          setDevPerfStats((prev) => ({
-            ...prev,
-            longTasks: prev.longTasks + count,
-            lastLongTaskMs: Math.round(maxDuration),
-            lastLongTaskAt: now,
-          }));
-        }
       });
       observer.observe({ entryTypes: ["longtask"] });
     } catch (_) {}
@@ -8707,7 +10301,149 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof performance === "undefined") return;
+    if (!isSamsungBrowserRef.current && !isSamsungDiagActive()) return;
+
+    const MIN_LOG_INTERVAL_MS = 1500;
+    const maybeLogPerf = (event, payload = {}) => {
+      const now = Date.now();
+      if (now - perfLogLastAtRef.current < MIN_LOG_INTERVAL_MS) return;
+      perfLogLastAtRef.current = now;
+      const voiceState = audioVoiceRef.current || {};
+      const assetAudio = AssetManager.getAudioDebugStats?.() || null;
+      const tickValue = tickRef.current;
+      const currentWordLen = Array.isArray(currentTilesRef.current)
+        ? currentTilesRef.current.length
+        : 0;
+      const meta = {
+        phase: phaseRef.current,
+        tick: Number.isFinite(tickValue) ? tickValue : null,
+        drag: !!draggingRef.current,
+        wordLen: currentWordLen,
+        samsungSafeMode: !!samsungSafeModeRef.current,
+        samsungSafeModeSource: samsungSafeModeSourceRef.current || "unknown",
+        audioVoices: Number.isFinite(voiceState.activeVoices) ? voiceState.activeVoices : null,
+        audioMaxVoices: Number.isFinite(voiceState.maxVoices) ? voiceState.maxVoices : null,
+        audioDrops: Number.isFinite(voiceState.drops) ? voiceState.drops : null,
+        audioCooldownKeys:
+          voiceState.lastPlayed instanceof Map ? voiceState.lastPlayed.size : null,
+        assetAudio,
+        ...payload,
+      };
+      try {
+        console.warn("[perf][samsung]", event, JSON.stringify(meta));
+      } catch (_) {
+        console.warn("[perf][samsung]", event, meta);
+      }
+      if (isSamsungDiagActive()) {
+        if (event === "longtask") {
+          bumpSamsungDiagCounter("longTask", Math.max(1, Number(payload?.count) || 1));
+        } else if (event === "event-loop-stall") {
+          bumpSamsungDiagCounter("eventLoopStall");
+        }
+        const shouldWarn =
+          event === "event-loop-stall" ||
+          event === "longtask" ||
+          event === "audio-cooldown-growth";
+        pushSamsungDiagEvent(
+          `perf-${event}`,
+          {
+            tick: meta.tick,
+            phase: meta.phase,
+            drag: meta.drag,
+            wordLen: meta.wordLen,
+            ...payload,
+          },
+          shouldWarn ? { consoleLevel: "warn" } : {}
+        );
+        if (shouldWarn) {
+          flushSamsungDiagSnapshot(`perf-${event}`, {
+            consoleLevel: "warn",
+            extra: payload,
+          });
+        }
+      }
+    };
+
+    let observer = null;
+    if (typeof PerformanceObserver !== "undefined") {
+      try {
+        observer = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          let count = 0;
+          let maxMs = 0;
+          for (let i = 0; i < entries.length; i += 1) {
+            const duration = entries[i]?.duration || 0;
+            if (duration < 80) continue;
+            count += 1;
+            if (duration > maxMs) maxMs = duration;
+          }
+          if (count > 0) {
+            maybeLogPerf("longtask", {
+              count,
+              maxMs: Math.round(maxMs),
+            });
+          }
+        });
+        observer.observe({ entryTypes: ["longtask"] });
+      } catch (_) {}
+    }
+
+    let lastTick = performance.now();
+    let lastFrameTs = performance.now();
+    let rafGapId = null;
+    const rafGapLoop = (ts) => {
+      const prev = lastFrameTs;
+      lastFrameTs = ts;
+      const delta = ts - prev;
+      if (delta >= 120) {
+        bumpSamsungDiagCounter("rafGlobalJank");
+        if (delta >= 700) {
+          bumpSamsungDiagCounter("rafGlobalStall");
+        }
+        if (delta >= 220) {
+          maybeLogPerf("raf-gap", { gapMs: Math.round(delta) });
+        }
+      }
+      rafGapId = window.requestAnimationFrame(rafGapLoop);
+    };
+    rafGapId = window.requestAnimationFrame(rafGapLoop);
+    const stallTimer = window.setInterval(() => {
+      const now = performance.now();
+      const drift = now - lastTick - 1000;
+      lastTick = now;
+      if (drift >= 250) {
+        maybeLogPerf("event-loop-stall", { driftMs: Math.round(drift) });
+      }
+    }, 1000);
+    const compactTimer = window.setInterval(() => {
+      try {
+        AssetManager.compactAudioState?.({ nowMs: Date.now() });
+      } catch (_) {}
+      const cooldownSize =
+        audioVoiceRef.current?.lastPlayed instanceof Map
+          ? audioVoiceRef.current.lastPlayed.size
+          : 0;
+      if (cooldownSize > Math.floor(AUDIO_COOLDOWN_MAX_KEYS * 0.8)) {
+        maybeLogPerf("audio-cooldown-growth", { cooldownSize });
+      }
+    }, 5000);
+
+    return () => {
+      if (rafGapId != null) {
+        window.cancelAnimationFrame(rafGapId);
+      }
+      window.clearInterval(stallTimer);
+      window.clearInterval(compactTimer);
+      try {
+        observer?.disconnect();
+      } catch (_) {}
+    };
+  }, []);
+
+  useEffect(() => {
     const shouldHandleLiveRoundSocketEvents = () => {
+      if (phaseLoopTestEnabledRef.current) return false;
       if (!isLoggedInRef.current) return false;
       const view = appViewRef.current;
       // Les events des mini-tournois ne doivent jamais s'appliquer dans les vues daily/front.
@@ -8720,6 +10456,9 @@ export default function App() {
       grid,
       durationMs,
       endsAt,
+      startsAt = null,
+      introMs = 0,
+      status: roundStatus = "running",
       gridSize: payloadSize,
       special = null,
       gridQuality = null,
@@ -8801,7 +10540,12 @@ export default function App() {
         special,
         gridQuality,
         nextSpecial || null,
-        targetHintScheduleMs
+        targetHintScheduleMs,
+        {
+          startsAt,
+          introMs,
+          status: roundStatus,
+        }
       );
     }
 
@@ -8860,14 +10604,8 @@ export default function App() {
 
     function onPlayersUpdate(list = []) {
       const sanitized = Array.isArray(list) ? list : [];
-      setPlayers(sanitized);
-      const current = new Set(
-        sanitized
-          .filter((p) => p && !p.isBot && !isSystemAuthor(p.nick))
-          .map((p) => p.nick)
-          .filter(Boolean)
-      );
-      prevPlayersRef.current = current;
+      bumpSamsungDiagCounter("socketPlayersUpdate");
+      queuePlayersUpdate(sanitized);
     }
 
     function onRankingUpdate({ roomId: incomingRoomId, roundId: rid, ranking = [] } = {}) {
@@ -8875,6 +10613,7 @@ export default function App() {
       const activeRoundId = roundIdRef.current;
       if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
       if (activeRoundId && rid && rid !== activeRoundId) return;
+      bumpSamsungDiagCounter("socketRankingUpdate");
       queueRankingUpdate(ranking);
     }
 
@@ -9056,6 +10795,7 @@ export default function App() {
         setTargetSummary(null);
         setBreakKind(null);
         setTournamentFinaleHoldUntil(null);
+        tournamentDuelDeltaRef.current = { tournamentId: null, red: 0, blue: 0 };
         setSpecialHint(null);
         setSpecialSolvedOverlay(null);
         setFoundTargetThisRound(false);
@@ -9457,15 +11197,79 @@ export default function App() {
       rankingQueueTimerRef.current = null;
     }
     rankingQueuedRef.current = null;
+    if (playersQueueTimerRef.current) {
+      clearTimeout(playersQueueTimerRef.current);
+      playersQueueTimerRef.current = null;
+    }
+    playersQueuedRef.current = null;
   }
 
   function applyRankingUpdateNow(nextRanking = []) {
+    const safe = Array.isArray(nextRanking) ? nextRanking : [];
+    const nextSig = buildRankingSignature(safe);
+    if (nextSig && nextSig === rankingLastSignatureRef.current) return;
+    rankingLastSignatureRef.current = nextSig;
     rankingLastApplyAtRef.current = Date.now();
-    setProvisionalRanking(Array.isArray(nextRanking) ? nextRanking : []);
+    setProvisionalRanking(safe);
+  }
+
+  function applyPlayersUpdateNow(nextPlayers = []) {
+    const safe = Array.isArray(nextPlayers) ? nextPlayers : [];
+    const nextSig = buildPlayersSignature(safe);
+    if (nextSig && nextSig === playersLastSignatureRef.current) return;
+    playersLastSignatureRef.current = nextSig;
+    playersLastApplyAtRef.current = Date.now();
+    setPlayers(safe);
+    const current = new Set(
+      safe
+        .filter((p) => p && !p.isBot && !isSystemAuthor(p.nick))
+        .map((p) => p.nick)
+        .filter(Boolean)
+    );
+    prevPlayersRef.current = current;
+  }
+
+  function queuePlayersUpdate(nextPlayers = [], { force = false } = {}) {
+    const safePlayers = Array.isArray(nextPlayers) ? nextPlayers : [];
+    const nextSig = buildPlayersSignature(safePlayers);
+    if (!force && nextSig && nextSig === playersLastSignatureRef.current) return;
+    if (force) {
+      if (playersQueueTimerRef.current) {
+        clearTimeout(playersQueueTimerRef.current);
+        playersQueueTimerRef.current = null;
+      }
+      playersQueuedRef.current = null;
+      applyPlayersUpdateNow(safePlayers);
+      return;
+    }
+    playersQueuedRef.current = safePlayers;
+    const minInterval = isSamsungBrowserRef.current
+      ? SAMSUNG_PLAYERS_UI_UPDATE_MIN_MS
+      : PLAYERS_UI_UPDATE_MIN_MS;
+    const now = Date.now();
+    const elapsed = now - (playersLastApplyAtRef.current || 0);
+    if (!playersQueueTimerRef.current && elapsed >= minInterval) {
+      const immediate = playersQueuedRef.current;
+      playersQueuedRef.current = null;
+      applyPlayersUpdateNow(immediate || []);
+      return;
+    }
+    if (playersQueueTimerRef.current) return;
+    const delayMs = Math.max(0, minInterval - elapsed);
+    playersQueueTimerRef.current = setTimeout(() => {
+      playersQueueTimerRef.current = null;
+      const pending = playersQueuedRef.current;
+      playersQueuedRef.current = null;
+      if (pending) {
+        applyPlayersUpdateNow(pending);
+      }
+    }, delayMs);
   }
 
   function queueRankingUpdate(nextRanking = [], { force = false } = {}) {
     const safeRanking = Array.isArray(nextRanking) ? nextRanking : [];
+    const nextSig = buildRankingSignature(safeRanking);
+    if (!force && nextSig && nextSig === rankingLastSignatureRef.current) return;
     if (force) {
       clearQueuedRankingUpdate();
       applyRankingUpdateNow(safeRanking);
@@ -9473,16 +11277,19 @@ export default function App() {
     }
 
     rankingQueuedRef.current = safeRanking;
+    const minInterval = isSamsungBrowserRef.current
+      ? SAMSUNG_RANKING_UI_UPDATE_MIN_MS
+      : RANKING_UI_UPDATE_MIN_MS;
     const now = Date.now();
     const elapsed = now - (rankingLastApplyAtRef.current || 0);
-    if (!rankingQueueTimerRef.current && elapsed >= RANKING_UI_UPDATE_MIN_MS) {
+    if (!rankingQueueTimerRef.current && elapsed >= minInterval) {
       const immediate = rankingQueuedRef.current;
       rankingQueuedRef.current = null;
       applyRankingUpdateNow(immediate || []);
       return;
     }
     if (rankingQueueTimerRef.current) return;
-    const delayMs = Math.max(0, RANKING_UI_UPDATE_MIN_MS - elapsed);
+    const delayMs = Math.max(0, minInterval - elapsed);
     rankingQueueTimerRef.current = setTimeout(() => {
       rankingQueueTimerRef.current = null;
       const pending = rankingQueuedRef.current;
@@ -12022,6 +13829,36 @@ export default function App() {
     return () => clearInterval(id);
   }, [nextStartAt]);
 
+  useEffect(() => {
+    if (
+      !isMobileLayout ||
+      phase !== "results" ||
+      breakKind === "tournament_end"
+    ) {
+      setMobileResultsOutroFadeActive(false);
+      return;
+    }
+    if (!Number.isFinite(nextStartAt)) {
+      const fallbackCountdown = Number.isFinite(breakCountdown)
+        ? Math.max(0, Number(breakCountdown))
+        : null;
+      setMobileResultsOutroFadeActive(fallbackCountdown !== null && fallbackCountdown <= 1);
+      return;
+    }
+    const nowServerMs = getNowServerMs();
+    const msUntilStart = Math.max(0, Number(nextStartAt) - nowServerMs);
+    if (msUntilStart <= MOBILE_ROUND_INTRO_RESULTS_FADE_MS + 20) {
+      setMobileResultsOutroFadeActive(true);
+      return;
+    }
+    setMobileResultsOutroFadeActive(false);
+    const delayMs = Math.max(0, msUntilStart - MOBILE_ROUND_INTRO_RESULTS_FADE_MS);
+    const timerId = setTimeout(() => {
+      setMobileResultsOutroFadeActive(true);
+    }, delayMs);
+    return () => clearTimeout(timerId);
+  }, [isMobileLayout, phase, breakKind, nextStartAt, breakCountdown]);
+
   function handleForeground(reason = "foreground") {
     const now = Date.now();
     if (now - foregroundAttemptRef.current < 800) return;
@@ -12326,10 +14163,9 @@ export default function App() {
     specialInfo = null,
     gridQuality = null,
     nextSpecial = null,
-    incomingTargetHintScheduleMs = []
+    incomingTargetHintScheduleMs = [],
+    roundLifecycle = null
   ) {
-    setInputLocked(false);
-    inputLockedRef.current = false;
     const derivedSize =
       incomingGridSize ||
       Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
@@ -12403,6 +14239,37 @@ export default function App() {
     const initialTick = endsAt
       ? Math.max(0, Math.round((endsAt - getNowServerMs()) / 1000))
       : maxDuration;
+    const roundKey = newRoundId || null;
+    const startsAtMs = Number.isFinite(roundLifecycle?.startsAt)
+      ? Math.max(0, Number(roundLifecycle.startsAt))
+      : Number.isFinite(endsAt) && Number.isFinite(durationMs)
+      ? Math.max(0, Number(endsAt) - Math.max(1, Math.round(Number(durationMs))))
+      : null;
+    const introMs = Number.isFinite(roundLifecycle?.introMs)
+      ? Math.max(0, Math.round(Number(roundLifecycle.introMs)))
+      : 0;
+    const roundStatus =
+      typeof roundLifecycle?.status === "string" ? roundLifecycle.status : "running";
+    roundIntroServerWindowRef.current = {
+      roundId: roundKey,
+      startsAt: startsAtMs,
+      introMs,
+      status: roundStatus,
+    };
+    const nowServerMs = getNowServerMs();
+    const hasPendingIntro =
+      roundStatus === "intro" &&
+      Number.isFinite(startsAtMs) &&
+      startsAtMs > nowServerMs + 80;
+    mobileRoundIntroSuppressRoundStartRef.current = hasPendingIntro;
+    setInputLocked(hasPendingIntro);
+    inputLockedRef.current = hasPendingIntro;
+    setMobileRoundIntroHideTiles(hasPendingIntro);
+    if (!hasPendingIntro) {
+      roundIntroStartedForRoundRef.current = roundKey;
+    } else if (roundIntroStartedForRoundRef.current !== roundKey) {
+      roundIntroStartedForRoundRef.current = null;
+    }
     setTick(Math.min(maxDuration, initialTick));
     setRoundId(newRoundId || null);
     setServerEndsAt(endsAt || null);
@@ -12423,6 +14290,89 @@ export default function App() {
   useEffect(() => {
     startGameFromServerRef.current = startGameFromServer;
   });
+
+  useEffect(() => {
+    const shouldRunLoop =
+      phaseLoopTestEnabled && isLoggedIn && !isDailyView && appView === "live";
+    if (!shouldRunLoop) {
+      clearPhaseLoopTimer();
+      return;
+    }
+
+    let cancelled = false;
+    phaseLoopRoundCounterRef.current = 0;
+    stopImplodePhase();
+
+    const schedule = (fn, delayMs) => {
+      clearPhaseLoopTimer();
+      phaseLoopTimerRef.current = setTimeout(() => {
+        phaseLoopTimerRef.current = null;
+        if (cancelled) return;
+        fn();
+      }, Math.max(0, Math.round(delayMs)));
+    };
+
+    const enterResultsPhase = () => {
+      if (cancelled) return;
+      setInputLocked(false);
+      inputLockedRef.current = false;
+      setServerStatus("break");
+      setPhase("results");
+      setBreakKind("phase_loop");
+      setNextStartAt(Date.now() + DEV_PHASE_LOOP_RESULTS_MS);
+      setServerEndsAt(null);
+      setServerRoundDurationMs(null);
+      setRoundId(null);
+      schedule(startIntroAndPlayingPhase, DEV_PHASE_LOOP_RESULTS_MS);
+    };
+
+    const startIntroAndPlayingPhase = () => {
+      if (cancelled) return;
+      const sourceRoomId = currentRoomIdRef.current || roomId;
+      const loopGridSize = getGridSizeForRoom(sourceRoomId) || gridSize || 4;
+      const loopGrid = generateGrid(loopGridSize);
+      const nowServerMs = getNowServerMs();
+      const startsAt = nowServerMs + DEV_PHASE_LOOP_INTRO_MS;
+      const endsAt = startsAt + DEV_PHASE_LOOP_PLAYING_MS + DEV_PHASE_LOOP_PLAYING_GUARD_MS;
+      phaseLoopRoundCounterRef.current += 1;
+      setBreakKind(null);
+      setNextStartAt(null);
+      startGameFromServerRef.current?.(
+        loopGrid,
+        `phase-loop-${phaseLoopRoundCounterRef.current}-${Date.now()}`,
+        endsAt - startsAt,
+        endsAt,
+        sourceRoomId,
+        loopGridSize,
+        null,
+        null,
+        null,
+        [],
+        {
+          startsAt,
+          introMs: DEV_PHASE_LOOP_INTRO_MS,
+          status: "intro",
+        }
+      );
+      schedule(enterResultsPhase, DEV_PHASE_LOOP_INTRO_MS + DEV_PHASE_LOOP_PLAYING_MS);
+    };
+
+    enterResultsPhase();
+
+    return () => {
+      cancelled = true;
+      clearPhaseLoopTimer();
+    };
+  }, [
+    phaseLoopTestEnabled,
+    isLoggedIn,
+    isDailyView,
+    appView,
+    roomId,
+    gridSize,
+    clearPhaseLoopTimer,
+    stopImplodePhase,
+  ]);
 
   function cancelAllWordsCompute() {
     const job = allWordsComputeRef.current;
@@ -12452,10 +14402,6 @@ export default function App() {
         phase: phaseRef.current,
         size: sourceBoard.length,
       });
-      setDevPerfStats((prev) => ({
-        ...prev,
-        lastSolveAllAt: Date.now(),
-      }));
     }
     const filtered = filterDictionary(dictionary, sourceBoard);
     const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
@@ -12964,10 +14910,11 @@ export default function App() {
     closeReportDialog();
   }
 
-  function openDefinition(term, { fromWordInfo = false } = {}) {
+  function openDefinition(term, { fromWordInfo = false, preferLongDefinition = false } = {}) {
     const clean = String(term || "").trim();
     if (!clean) return;
     const originFromWordInfo = !!fromWordInfo;
+    const useLongDefinition = !!preferLongDefinition;
     if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION) {
       completeGuidedResultsTutorial();
     }
@@ -13002,6 +14949,7 @@ export default function App() {
       url: "",
       ok: false,
       fromWordInfo: originFromWordInfo,
+      preferLongDefinition: useLongDefinition,
     });
 
     const tried = new Set();
@@ -13009,7 +14957,13 @@ export default function App() {
     if (baseKey) tried.add(baseKey);
 
     const fetchDefinition = (word) => {
-      fetch(`/api/define?word=${encodeURIComponent(word)}`)
+      const params = new URLSearchParams();
+      params.set("word", word);
+      if (useLongDefinition) {
+        params.set("full", "1");
+        params.set("nocache", "1");
+      }
+      fetch(`/api/define?${params.toString()}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (requestId !== definitionRequestIdRef.current) return;
@@ -13047,6 +15001,7 @@ export default function App() {
             url: data.url || "",
             ok,
             fromWordInfo: originFromWordInfo,
+            preferLongDefinition: useLongDefinition,
           });
         })
         .catch(() => {
@@ -13153,12 +15108,14 @@ export default function App() {
         Number.isFinite(maxPts) &&
         stats.pts === maxPts;
       const hasLongest = Number.isFinite(stats.len) && maxLen > 0 && stats.len === maxLen;
-      const gobbleActive = isSpeedRound ? hasLongest : hasBestScore || hasLongest;
+      const gobbleCount = (hasBestScore ? 1 : 0) + (hasLongest ? 1 : 0);
+      const gobbleActive = isSpeedRound ? hasLongest : gobbleCount > 0;
       list.push({
         word,
         pts: scoreAllowed && Number.isFinite(stats.pts) ? stats.pts : null,
         len: Number.isFinite(stats.len) ? stats.len : 0,
         isGobble: !!gobbleActive,
+        gobbleCount,
       });
     });
     list.sort((a, b) => {
@@ -13226,10 +15183,14 @@ export default function App() {
             const word = String(item?.word || "").trim();
             const gobbleMeta =
               typeof gobbleCandidates?.get === "function" ? gobbleCandidates.get(word) : null;
+            const gobbleCount = gobbleMeta
+              ? (gobbleMeta.best ? 1 : 0) + (gobbleMeta.long ? 1 : 0)
+              : 0;
             return {
               word,
               pts: Number.isFinite(item?.pts) ? item.pts : null,
-              isGobble: !!gobbleMeta,
+              isGobble: gobbleCount > 0,
+              gobbleCount,
             };
           })
         : [],
@@ -13733,6 +15694,66 @@ export default function App() {
     }
   }
 
+  function resetDragMovePipeline() {
+    if (dragMoveRafRef.current != null) {
+      pushSamsungDiagEvent("drag-raf-cancelled");
+    }
+    if (dragMoveRafRef.current != null && typeof window !== "undefined") {
+      window.cancelAnimationFrame(dragMoveRafRef.current);
+    }
+    if (dragPendingPointRef.current) {
+      pushSamsungDiagEvent("drag-pending-cleared");
+    }
+    dragMoveRafRef.current = null;
+    dragPendingPointRef.current = null;
+    lastTouchMoveSampleRef.current = { x: null, y: null, at: 0 };
+  }
+
+  function queueDragMove(clientX, clientY, useTolerance) {
+    if (!draggingRef.current) return;
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
+    bumpSamsungDiagCounter("queueDragMove");
+    dragPendingPointRef.current = {
+      clientX,
+      clientY,
+      useTolerance,
+      queuedAt: getSamsungDiagNowMs(),
+    };
+    if (dragMoveRafRef.current != null) {
+      bumpSamsungDiagCounter("queueDragCoalesced");
+      return;
+    }
+    dragMoveRafRef.current = requestAnimationFrame(() => {
+      bumpSamsungDiagCounter("rafFired");
+      dragMoveRafRef.current = null;
+      if (!draggingRef.current) {
+        bumpSamsungDiagCounter("rafNotDragging");
+        return;
+      }
+      const pending = dragPendingPointRef.current;
+      dragPendingPointRef.current = null;
+      if (!pending) {
+        bumpSamsungDiagCounter("rafNoPending");
+        return;
+      }
+      const lagMs = Math.round(getSamsungDiagNowMs() - (pending.queuedAt || 0));
+      if (lagMs >= 100) {
+        bumpSamsungDiagCounter("rafLagged");
+        pushSamsungDiagEvent("drag-raf-lag", { lagMs, drag: true });
+      }
+      const idx = getTileIndexFromPoint(
+        pending.clientX,
+        pending.clientY,
+        pending.useTolerance
+      );
+      if (idx == null) {
+        bumpSamsungDiagCounter("tileHitMiss");
+        return;
+      }
+      handleMouseEnter(idx, pending);
+    });
+  }
+
     function error(msg) {
     setStatusMessageWithHold(msg);
     setShake(false);
@@ -13763,10 +15784,11 @@ export default function App() {
    */
   function handleMouseDown(index, mode = "mouse") {
     if (phase !== "playing" || inputLocked) return;
-    clearGridHitboxCache();
-    buildGridHitboxMetrics();
+    resetDragMovePipeline();
+    dragGridMetricsRef.current = buildGridHitboxMetrics() || getGridHitboxMetrics();
     setActiveArea("game");
     draggingRef.current = true;
+    pushSamsungDiagEvent("drag-start", { mode, index });
     setLastInputMode(mode);
     clearStatusMessage();
 
@@ -13799,15 +15821,12 @@ export default function App() {
       if (prevPath.length >= 2 && index === prevIndex) {
         // Safe zone: only allow backtrack when pointer is close to the previous tile center.
         if (lastInputMode === "touch" || lastInputMode === "mouse") {
-          const el = tileRefs.current[index];
-          if (el && e) {
-            const rect = el.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const dx = (e.clientX ?? cx) - cx;
-            const dy = (e.clientY ?? cy) - cy;
+          const geom = getTileGeometryByBoardIndex(index);
+          if (geom && e) {
+            const dx = (e.clientX ?? geom.cx) - geom.cx;
+            const dy = (e.clientY ?? geom.cy) - geom.cy;
             const dist = Math.hypot(dx, dy);
-            const safeRadius = Math.min(rect.width, rect.height) * 0.38;
+            const safeRadius = Math.min(geom.width, geom.height) * 0.38;
             if (dist > safeRadius) return prevPath;
           }
         }
@@ -13830,15 +15849,12 @@ export default function App() {
       if (prevPath.includes(index)) return prevPath;
 
       {
-        const el = tileRefs.current[index];
-        if (el && e) {
-          const rect = el.getBoundingClientRect();
-          const cx = rect.left + rect.width / 2;
-          const cy = rect.top + rect.height / 2;
-          const dx = (e.clientX ?? cx) - cx;
-          const dy = (e.clientY ?? cy) - cy;
+        const geom = getTileGeometryByBoardIndex(index);
+        if (geom && e) {
+          const dx = (e.clientX ?? geom.cx) - geom.cx;
+          const dy = (e.clientY ?? geom.cy) - geom.cy;
           const dist = Math.hypot(dx, dy);
-          const safeRadius = Math.min(rect.width, rect.height) * 0.5; // si plus petit, moins permissif
+          const safeRadius = Math.min(geom.width, geom.height) * 0.5; // si plus petit, moins permissif
           if (dist > safeRadius) return prevPath;
         }
       }
@@ -13853,16 +15869,12 @@ export default function App() {
       const isOrthogonal = Math.abs(dr) + Math.abs(dc) === 1;
 
       if (isOrthogonal) {
-        const el = tileRefs.current[index];
-        if (el && e) {
-          const rect = el.getBoundingClientRect();
-          const cx = rect.left + rect.width / 2;
-          const cy = rect.top + rect.height / 2;
-
-          const dx = e.clientX - cx;
-          const dy = e.clientY - cy;
-          const halfW = rect.width / 2;
-          const halfH = rect.height / 2;
+        const geom = getTileGeometryByBoardIndex(index);
+        if (geom && e) {
+          const dx = e.clientX - geom.cx;
+          const dy = e.clientY - geom.cy;
+          const halfW = geom.width / 2;
+          const halfH = geom.height / 2;
 
           const nx = dx / halfW;
           const ny = dy / halfH;
@@ -13904,7 +15916,9 @@ return [...prevPath, index];
   function handleMouseUp() {
     if (!draggingRef.current) return;
     draggingRef.current = false;
-    clearGridHitboxCache();
+    dragGridMetricsRef.current = null;
+    pushSamsungDiagEvent("drag-stop", { mode: "mouse" });
+    resetDragMovePipeline();
     submit();
   }
 
@@ -13912,10 +15926,12 @@ function handleTouchStart(e, index) {
   if (phase !== "playing" || inputLocked) return;
   if (!e.touches || e.touches.length === 0) return;
 
-  clearGridHitboxCache();
-  buildGridHitboxMetrics();
+  bumpSamsungDiagCounter("touchStart");
+  resetDragMovePipeline();
+  dragGridMetricsRef.current = buildGridHitboxMetrics() || getGridHitboxMetrics();
   setActiveArea("game");
   draggingRef.current = true;
+  pushSamsungDiagEvent("drag-start", { mode: "touch", index });
   setLastInputMode("touch");
   clearStatusMessage();
 
@@ -13925,35 +15941,66 @@ function handleTouchStart(e, index) {
   setCurrentTiles([letter]);
   currentTilesRef.current = [letter];
   setHighlightPath([index]);
+  const startTouch = e.touches[0];
+  lastTouchMoveSampleRef.current = {
+    x: Number.isFinite(startTouch?.clientX) ? startTouch.clientX : null,
+    y: Number.isFinite(startTouch?.clientY) ? startTouch.clientY : null,
+    at: getSamsungDiagNowMs(),
+  };
 }
 
 function handleTouchMove(e) {
   if (!draggingRef.current) return;
   if (!e.touches || e.touches.length === 0) return;
-  if (e.cancelable) e.preventDefault();
 
+  bumpSamsungDiagCounter("touchMove");
+  noteSamsungTouchMoveRate();
   const touch = e.touches[0];
-  const idx = getTileIndexFromPoint(touch.clientX, touch.clientY, true);
-  if (idx == null) return;
-
-  // on ne passe plus l???event souris, on laisse juste la logique de chemin faire son job
-  handleMouseEnter(idx, touch);
+  const now = getSamsungDiagNowMs();
+  const prev = lastTouchMoveSampleRef.current || {};
+  const x = Number.isFinite(touch?.clientX) ? touch.clientX : null;
+  const y = Number.isFinite(touch?.clientY) ? touch.clientY : null;
+  if (x == null || y == null) return;
+  if (isSamsungBrowserRef.current && Number.isFinite(prev.at) && prev.at > 0) {
+    const dt = now - prev.at;
+    const dx = x - (Number.isFinite(prev.x) ? prev.x : x);
+    const dy = y - (Number.isFinite(prev.y) ? prev.y : y);
+    const dist = Math.hypot(dx, dy);
+    if (
+      dt < SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS &&
+      dist < SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX
+    ) {
+      return;
+    }
+  }
+  lastTouchMoveSampleRef.current = { x, y, at: now };
+  queueDragMove(x, y, true);
 }
 
 function handleMouseMove(e) {
   if (!draggingRef.current) return;
   if (!e || typeof e.clientX !== "number" || typeof e.clientY !== "number") return;
-  const idx = getTileIndexFromPoint(e.clientX, e.clientY, false);
-  if (idx == null) return;
-  handleMouseEnter(idx, e);
+  queueDragMove(e.clientX, e.clientY, false);
 }
 
-function handleTouchEnd() {
+function handleTouchEnd(e) {
   if (!draggingRef.current) return;
+  bumpSamsungDiagCounter("touchEnd");
   draggingRef.current = false;
-  clearGridHitboxCache();
+  dragGridMetricsRef.current = null;
+  pushSamsungDiagEvent("drag-stop", { mode: "touch" });
+  flushSamsungDiagSnapshot("touch-end");
+  resetDragMovePipeline();
   submit();
 }
+
+  useEffect(() => {
+    return () => {
+      dragGridMetricsRef.current = null;
+      flushSamsungDiagSnapshot("drag-cleanup");
+      resetDragMovePipeline();
+    };
+  }, []);
 
   function touchSubmissionState() {
     setSubmissionTick((tick) => tick + 1);
@@ -14096,7 +16143,11 @@ function handleTouchEnd() {
         if (isGobbleNow) {
           if (isDoubleGobbleNow) playDoubleGobbleVoice();
           else playGobbleVoice();
-          triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
+          triggerPraiseFlash(isDoubleGobbleNow ? "DOUBLE GOBBLE !" : "GOBBLE !", {
+            kind: isDoubleGobbleNow ? "doubleGobble" : "gobble",
+            shakeGrid: true,
+            force: isDoubleGobbleNow,
+          });
           triggerConfettiBurst("gobble");
         } else if (safePts > 29) {
           triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
@@ -14302,7 +16353,11 @@ function handleTouchEnd() {
     if (isGobbleNow) {
       if (isDoubleGobbleNow) playDoubleGobbleVoice();
       else playGobbleVoice();
-      triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
+      triggerPraiseFlash(isDoubleGobbleNow ? "DOUBLE GOBBLE !" : "GOBBLE !", {
+        kind: isDoubleGobbleNow ? "doubleGobble" : "gobble",
+        shakeGrid: true,
+        force: isDoubleGobbleNow,
+      });
       triggerConfettiBurst("gobble");
     } else if (pts > 29) {
       triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
@@ -14394,8 +16449,13 @@ function handleTouchEnd() {
 
   function analyzeWord(word) {
     if (!word) return;
+    const normWord = normalizeWord(word);
+    const solvedPath =
+      solutionsRef.current.get(normWord) || solutionsRef.current.get(word);
     const path =
-      solutionsRef.current.get(word) || findBestPathForWord(board, word, specialScoreConfig);
+      (Array.isArray(solvedPath) && solvedPath.length > 0
+        ? solvedPath
+        : findBestPathForWord(board, normWord, specialScoreConfig)) || null;
     if (!path || path.length === 0) {
       setAnalysis(null);
       setHighlightPath([]);
@@ -14403,12 +16463,12 @@ function handleTouchEnd() {
       return;
     }
     const bonuses = summarizeBonuses(path, board);
-    const pts = computeScore(word, path, board, specialScoreConfig);
+    const pts = computeScore(normWord, path, board, specialScoreConfig);
     const matchedPlayers = finalResults
-      .filter((res) => Array.isArray(res.words) && res.words.some((w) => normalizeWord(w) === normalizeWord(word)))
+      .filter((res) => Array.isArray(res.words) && res.words.some((w) => normalizeWord(w) === normWord))
       .map((res) => res.nick);
     setAnalysis({ word, pts, bonuses });
-    setHighlightPath([]); // ne pas afficher le chemin en fin de partie
+    setHighlightPath(path);
     setHighlightPlayers(matchedPlayers);
   }
 
@@ -14553,7 +16613,85 @@ function handleTouchEnd() {
     }
   }
 
+  const showResultsWordPath =
+    phase === "results" && !isMobileLayout && analysis?.word && highlightPath.length > 0;
   const usedSet = phase === "playing" ? new Set(highlightPath) : new Set();
+  const computeResultsPathPreview = React.useCallback(() => {
+    if (!showResultsWordPath) return null;
+    const gridEl = gridRef.current;
+    if (!(gridEl instanceof HTMLElement)) return null;
+    const gridRect = gridEl.getBoundingClientRect?.();
+    if (!gridRect || gridRect.width <= 0 || gridRect.height <= 0) return null;
+    const points = highlightPath
+      .map((boardIndex) => {
+        const tileEl = tileRefs.current[boardIndex];
+        if (!(tileEl instanceof HTMLElement)) return null;
+        const tileRect = tileEl.getBoundingClientRect?.();
+        if (!tileRect || tileRect.width <= 0 || tileRect.height <= 0) return null;
+        return {
+          x: tileRect.left - gridRect.left + tileRect.width / 2,
+          y: tileRect.top - gridRect.top + tileRect.height / 2,
+        };
+      })
+      .filter(Boolean);
+    if (!points.length) return null;
+    const prevPoint =
+      points.length > 1 ? points[points.length - 2] : points[points.length - 1];
+    const endPoint = points[points.length - 1];
+    const endAngleDeg =
+      points.length > 1
+        ? (Math.atan2(endPoint.y - prevPoint.y, endPoint.x - prevPoint.x) * 180) / Math.PI
+        : 0;
+    return {
+      width: gridRect.width,
+      height: gridRect.height,
+      points,
+      endAngleDeg,
+    };
+  }, [highlightPath, showResultsWordPath]);
+  useLayoutEffect(() => {
+    if (!showResultsWordPath) {
+      setResultsPathPreview(null);
+      return;
+    }
+    let rafId = null;
+    const updatePreview = () => {
+      setResultsPathPreview(computeResultsPathPreview());
+    };
+    const scheduleUpdate = () => {
+      if (rafId != null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(rafId);
+      }
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        rafId = window.requestAnimationFrame(() => {
+          rafId = null;
+          updatePreview();
+        });
+      } else {
+        updatePreview();
+      }
+    };
+    scheduleUpdate();
+    let observer = null;
+    if (typeof window !== "undefined" && typeof ResizeObserver !== "undefined" && gridRef.current) {
+      observer = new ResizeObserver(() => scheduleUpdate());
+      observer.observe(gridRef.current);
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", scheduleUpdate);
+      window.addEventListener("scroll", scheduleUpdate, true);
+    }
+    return () => {
+      if (rafId != null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(rafId);
+      }
+      if (observer) observer.disconnect();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", scheduleUpdate);
+        window.removeEventListener("scroll", scheduleUpdate, true);
+      }
+    };
+  }, [computeResultsPathPreview, showResultsWordPath]);
   const hintCellSet = React.useMemo(() => {
     if (specialHint?.kind !== "target_long" || !specialHint?.cells?.length) {
       return new Set();
@@ -15230,6 +17368,45 @@ function handleTouchEnd() {
     const roundBlueDelta = Math.max(0, Number(resultsTeamDelta?.blue) || 0);
     const roundRedDeltaClass = darkMode ? "text-red-300" : "text-red-700";
     const roundBlueDeltaClass = darkMode ? "text-blue-300" : "text-blue-700";
+    const bestWordFinders = Array.isArray(endStats?.bestWord?.finders)
+      ? endStats.bestWord.finders
+      : [];
+    const longestWordFinders = Array.isArray(endStats?.longestWord?.finders)
+      ? endStats.longestWord.finders
+      : [];
+    const possibleBestWords = Array.isArray(endStats?.possibleBestWords)
+      ? endStats.possibleBestWords
+      : [];
+    const possibleLongestGobbleWords = Array.isArray(endStats?.possibleLongestGobbleWords)
+      ? endStats.possibleLongestGobbleWords
+      : [];
+    const longestWordGobbleDisplayCount =
+      Number(endStats?.longestWord?.longGobbleCount) > 0
+        ? Number(endStats?.longestWord?.gobbleCount) || 0
+        : 0;
+    const renderGobbleBadgeCluster = (count, keyPrefix = "gobble") => {
+      const safeCount = Math.max(0, Math.trunc(Number(count) || 0));
+      if (!safeCount) return null;
+      return (
+        <span className="inline-flex items-center gap-0.5">
+          {Array.from({ length: safeCount }).map((_, idx) =>
+            gobbleBadgeUrl ? (
+              <img
+                key={`${keyPrefix}-${idx}`}
+                src={gobbleBadgeUrl}
+                alt="G"
+                className="block h-3 w-auto"
+                style={{ imageRendering: "auto" }}
+              />
+            ) : (
+              <span key={`${keyPrefix}-${idx}`} className={darkMode ? "text-white" : "text-black"}>
+                G
+              </span>
+            )
+          )}
+        </span>
+      );
+    };
 
     return (
       <div
@@ -15295,9 +17472,21 @@ function handleTouchEnd() {
                   Meilleur mot
                 </span>
                 <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
-                  <span className="font-bold break-all text-xs sm:text-sm">
+                  <button
+                    type="button"
+                    className={`font-bold break-all text-xs sm:text-sm underline-offset-2 hover:underline ${
+                      darkMode ? "text-slate-100" : "text-slate-900"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDefinition(endStats.bestWord.word);
+                    }}
+                    aria-label={`Voir la définition de ${endStats.bestWord.word}`}
+                    title={`Voir la définition de ${endStats.bestWord.word}`}
+                  >
                     {endStats.bestWord.word}
-                  </span>
+                  </button>
+                  {renderGobbleBadgeCluster(endStats.bestWord.gobbleCount, "best-word-gobble")}
                   {endStats.bestWord.word && (
                     <button
                       type="button"
@@ -15334,9 +17523,56 @@ function handleTouchEnd() {
                   </span>
                 </span>
               </div>
-              <div className="flex justify-start">
-                <span className={`${compactPillClass} break-all`}>{endStats.bestWord.nick}</span>
+              <div className="flex flex-wrap items-center gap-1">
+                {(bestWordFinders.length ? bestWordFinders : [{ nick: endStats.bestWord.nick }]).map(
+                  (finder, idx) => (
+                    <span
+                      key={`best-finder-${finder?.nick || "player"}-${idx}`}
+                      className={`${compactPillClass} break-all`}
+                    >
+                      {finder?.nick || "Joueur"}
+                    </span>
+                  )
+                )}
               </div>
+              {possibleBestWords.length ? (
+                <div
+                  className={`text-[10px] leading-tight flex flex-wrap items-center gap-1 ${
+                    darkMode ? "text-amber-200" : "text-amber-800"
+                  }`}
+                >
+                  <span className="font-semibold">Gobbles possibles :</span>
+                  {possibleBestWords.slice(0, 8).map((entry, idx) => (
+                    <span
+                      key={`best-possible-${entry?.word || "word"}-${idx}`}
+                      className="inline-flex items-center gap-1"
+                    >
+                      {entry?.word ? (
+                        <button
+                          type="button"
+                          className={`font-bold underline-offset-2 hover:underline ${
+                            darkMode ? "text-amber-100" : "text-amber-900"
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDefinition(entry.word);
+                          }}
+                          aria-label={`Voir la définition de ${entry.word}`}
+                          title={`Voir la définition de ${entry.word}`}
+                        >
+                          {entry.word}
+                        </button>
+                      ) : (
+                        <span className="font-bold">?</span>
+                      )}
+                      {renderGobbleBadgeCluster(entry?.gobbleCount || 1, `best-possible-g-${idx}`)}
+                    </span>
+                  ))}
+                  {possibleBestWords.length > 8 ? (
+                    <span className="opacity-80">+{possibleBestWords.length - 8}</span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
           {endStats.longestWord && (
@@ -15346,9 +17582,22 @@ function handleTouchEnd() {
                   Mot le plus long
                 </span>
                 <span className="flex items-center gap-1.5 text-right justify-end flex-nowrap">
-                  <span className="font-bold text-xs sm:text-sm" style={longestWordStyle}>
+                  <button
+                    type="button"
+                    className={`font-bold text-xs sm:text-sm underline-offset-2 hover:underline ${
+                      darkMode ? "text-slate-100" : "text-slate-900"
+                    }`}
+                    style={longestWordStyle}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDefinition(endStats.longestWord.word);
+                    }}
+                    aria-label={`Voir la définition de ${endStats.longestWord.word}`}
+                    title={`Voir la définition de ${endStats.longestWord.word}`}
+                  >
                     {endStats.longestWord.word}
-                  </span>
+                  </button>
+                  {renderGobbleBadgeCluster(longestWordGobbleDisplayCount, "longest-word-gobble")}
                   {endStats.longestWord.word && (
                     <button
                       type="button"
@@ -15385,9 +17634,56 @@ function handleTouchEnd() {
                   </span>
                 </span>
               </div>
-              <div className="flex justify-start items-center gap-2">
-                <span className={`${compactPillClass} break-all`}>{endStats.longestWord.nick}</span>
+              <div className="flex flex-wrap items-center gap-1">
+                {(longestWordFinders.length
+                  ? longestWordFinders
+                  : [{ nick: endStats.longestWord.nick }]).map((finder, idx) => (
+                  <span
+                    key={`longest-finder-${finder?.nick || "player"}-${idx}`}
+                    className={`${compactPillClass} break-all`}
+                  >
+                    {finder?.nick || "Joueur"}
+                  </span>
+                ))}
               </div>
+              {possibleLongestGobbleWords.length ? (
+                <div
+                  className={`text-[10px] leading-tight flex flex-wrap items-center gap-1 ${
+                    darkMode ? "text-amber-200" : "text-amber-800"
+                  }`}
+                >
+                  <span className="font-semibold">Gobbles possibles :</span>
+                  {possibleLongestGobbleWords.slice(0, 8).map((entry, idx) => (
+                    <span
+                      key={`long-possible-${entry?.word || "word"}-${idx}`}
+                      className="inline-flex items-center gap-1"
+                    >
+                      {entry?.word ? (
+                        <button
+                          type="button"
+                          className={`font-bold underline-offset-2 hover:underline ${
+                            darkMode ? "text-amber-100" : "text-amber-900"
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDefinition(entry.word);
+                          }}
+                          aria-label={`Voir la définition de ${entry.word}`}
+                          title={`Voir la définition de ${entry.word}`}
+                        >
+                          {entry.word}
+                        </button>
+                      ) : (
+                        <span className="font-bold">?</span>
+                      )}
+                      {renderGobbleBadgeCluster(entry?.gobbleCount || 1, `long-possible-g-${idx}`)}
+                    </span>
+                  ))}
+                  {possibleLongestGobbleWords.length > 8 ? (
+                    <span className="opacity-80">+{possibleLongestGobbleWords.length - 8}</span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
           {endStats.mostWords && (
@@ -15409,6 +17705,25 @@ function handleTouchEnd() {
       </div>
     );
   };
+  const targetDefinitionHint =
+    targetDefinition.phraseGuess && targetDefinition.matchedTitle
+      ? `Définition trouvée pour ${targetDefinition.matchedTitle} (lié à '${targetDefinition.word}')`
+      : targetDefinition.lemmaGuess && targetDefinition.lemma
+      ? targetDefinition.lemmaLabel
+        ? `${targetDefinition.lemmaLabel} ${targetDefinition.lemma}`
+        : `Forme conjuguée probable - définition de ${targetDefinition.lemma}`
+      : targetDefinition.participleGuess &&
+        targetDefinition.participleLabel &&
+        targetDefinition.participleBase
+      ? `${targetDefinition.participleLabel} ${targetDefinition.participleBase}`
+      : targetDefinition.inflectionGuess &&
+        targetDefinition.inflectionLabel &&
+        targetDefinition.inflectionBase
+      ? `${targetDefinition.inflectionLabel} ${targetDefinition.inflectionBase}`
+      : "";
+  const targetDefinitionHintIsLemma = !!(
+    targetDefinition.lemmaGuess && targetDefinition.lemma
+  );
   const renderTargetSummaryCard = (className = "", withBg = true) => {
     if (!isTargetRound || !targetSummary) return null;
     const themeClasses = darkMode
@@ -15542,6 +17857,21 @@ function handleTouchEnd() {
             {Number.isFinite(targetScore) ? ` · ${formatNumber(targetScore)} pts` : ""}
           </div>
         ) : null}
+        {targetDefinitionHint ? (
+          <div
+            className={`text-center text-[11px] sm:text-xs font-semibold ${
+              targetDefinitionHintIsLemma
+                ? darkMode
+                  ? "text-emerald-300"
+                  : "text-emerald-700"
+                : darkMode
+                ? "text-slate-300"
+                : "text-slate-600"
+            }`}
+          >
+            {targetDefinitionHint}
+          </div>
+        ) : null}
         <div className="text-center text-xs sm:text-sm text-slate-500 dark:text-slate-300 leading-snug">
           {targetDefinition.loading ? (
             <span>Définition en cours...</span>
@@ -15551,6 +17881,291 @@ function handleTouchEnd() {
             <span>Définition indisponible</span>
           )}
         </div>
+      </div>
+    );
+  };
+  const renderDesktopResultsDockPanel = () => {
+    const panelClass = darkMode
+      ? "bg-slate-950 border-slate-700 text-slate-100"
+      : "bg-white border-slate-300 text-slate-900";
+    const mutedClass = darkMode ? "text-slate-300" : "text-slate-600";
+    const finderPillClass = darkMode
+      ? "inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] font-semibold"
+      : "inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-semibold";
+    const roundRedDelta = Math.max(0, Number(resultsTeamDelta?.red) || 0);
+    const roundBlueDelta = Math.max(0, Number(resultsTeamDelta?.blue) || 0);
+    const roundRedDeltaClass = darkMode ? "text-red-300" : "text-red-700";
+    const roundBlueDeltaClass = darkMode ? "text-blue-300" : "text-blue-700";
+    const renderGobbleBadgeCluster = (count, keyPrefix = "dock-gobble") => {
+      const safeCount = Math.max(0, Math.trunc(Number(count) || 0));
+      if (!safeCount) return null;
+      return (
+        <span className="inline-flex items-center gap-0.5">
+          {Array.from({ length: safeCount }).map((_, idx) =>
+            gobbleBadgeUrl ? (
+              <img
+                key={`${keyPrefix}-${idx}`}
+                src={gobbleBadgeUrl}
+                alt="G"
+                className="block h-3 w-auto"
+                style={{ imageRendering: "auto" }}
+              />
+            ) : (
+              <span key={`${keyPrefix}-${idx}`} className={darkMode ? "text-white" : "text-black"}>
+                G
+              </span>
+            )
+          )}
+        </span>
+      );
+    };
+
+    if (isTargetRound) {
+      if (!targetSummary) return null;
+      const rawWord = typeof targetSummary.word === "string" ? targetSummary.word : "";
+      const cleanWord = rawWord.trim();
+      const word = cleanWord ? cleanWord.toUpperCase() : "?";
+      const normWord = cleanWord ? normalizeWord(cleanWord) : "";
+      const wordLength = normWord ? normWord.length : 0;
+      const targetScore =
+        specialRound?.type === "target_score" && normWord && board && board.length
+          ? (() => {
+              const path = findBestPathForWord(board, normWord, specialScoreConfig);
+              if (!path) return null;
+              return computeScore(normWord, path, board, specialScoreConfig);
+            })()
+          : null;
+      return (
+        <div className={`rounded-2xl border p-3 shadow-lg ${panelClass}`}>
+          <div className="text-center text-[11px] uppercase tracking-[0.2em] font-extrabold mb-1">
+            Bilan cible
+          </div>
+          <div className="text-center text-xl sm:text-2xl font-black tracking-tight">{word}</div>
+          <div className={`text-center text-xs font-semibold mt-1 ${mutedClass}`}>
+            {wordLength ? `${wordLength} lettres` : "Longueur inconnue"}
+            {Number.isFinite(targetScore) ? ` · ${formatNumber(targetScore)} pts` : ""}
+          </div>
+          {targetDefinitionHint ? (
+            <div
+              className={`mt-1 text-center text-[11px] font-semibold ${
+                targetDefinitionHintIsLemma
+                  ? darkMode
+                    ? "text-emerald-300"
+                    : "text-emerald-700"
+                  : mutedClass
+              }`}
+            >
+              {targetDefinitionHint}
+            </div>
+          ) : null}
+          <div className={`mt-1 text-center text-xs leading-snug ${mutedClass}`}>
+            {targetDefinition.loading ? (
+              <span>Définition en cours...</span>
+            ) : targetDefinition.ok && targetDefinition.definition ? (
+              <span>{targetDefinition.definition}</span>
+            ) : (
+              <span>Définition indisponible</span>
+            )}
+          </div>
+          <div className="mt-2 text-center">
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs font-semibold ${
+                darkMode
+                  ? "bg-slate-800 border-slate-600 text-slate-100"
+                  : "bg-white border-gray-300 text-gray-700"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (cleanWord) openDefinition(cleanWord, { preferLongDefinition: true });
+              }}
+            >
+              Définition complète
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!endStats) return null;
+    const bestFinders = Array.isArray(endStats?.bestWord?.finders)
+      ? endStats.bestWord.finders
+      : [];
+    const longestFinders = Array.isArray(endStats?.longestWord?.finders)
+      ? endStats.longestWord.finders
+      : [];
+    const possibleBestWords = Array.isArray(endStats?.possibleBestWords)
+      ? endStats.possibleBestWords
+      : [];
+    const possibleLongestGobbleWords = Array.isArray(endStats?.possibleLongestGobbleWords)
+      ? endStats.possibleLongestGobbleWords
+      : [];
+    const longestWordGobbleDisplayCount =
+      Number(endStats?.longestWord?.longGobbleCount) > 0
+        ? Number(endStats?.longestWord?.gobbleCount) || 0
+        : 0;
+    const selfNickForResults = nicknameRef.current.trim();
+    const selfResultEntry =
+      selfNickForResults && Array.isArray(finalResults)
+        ? finalResults.find((entry) => entry.nick === selfNickForResults)
+        : null;
+    const showOfflineLabel = !selfResultEntry;
+
+    return (
+      <div className={`rounded-2xl border p-3 shadow-lg space-y-2 ${panelClass}`}>
+        <div className="text-center text-[11px] uppercase tracking-[0.2em] font-extrabold">
+          Bilan manche
+        </div>
+        <div
+          className={`rounded-lg border px-2 py-1 ${
+            darkMode
+              ? "bg-slate-900 border-slate-700 text-slate-100"
+              : "bg-slate-50 border-slate-200 text-slate-800"
+          }`}
+        >
+          <div className="text-center text-lg font-black tabular-nums leading-none">
+            <span className={`${roundRedDeltaClass} text-[11px] align-middle`}>+{roundRedDelta}</span>{" "}
+            <span className="text-red-500">🔴 {duelRedScore}</span>{" "}
+            <span className="opacity-55 text-sm align-middle">VS</span>{" "}
+            <span className="text-blue-500">{duelBlueScore} 🔵</span>{" "}
+            <span className={`${roundBlueDeltaClass} text-[11px] align-middle`}>+{roundBlueDelta}</span>
+          </div>
+        </div>
+        {showOfflineLabel ? (
+          <div className="text-center text-[11px] text-amber-500">
+            Vous étiez hors ligne sur cette manche.
+          </div>
+        ) : null}
+        {!isSpeedRound && endStats.bestWord ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-3">
+              <span className={`text-[11px] font-semibold ${mutedClass}`}>Meilleur mot</span>
+              <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
+                <button
+                  type="button"
+                  className={`font-bold text-xs sm:text-sm underline-offset-2 hover:underline ${
+                    darkMode ? "text-slate-100" : "text-slate-900"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDefinition(endStats.bestWord.word);
+                  }}
+                  aria-label={`Voir la définition de ${endStats.bestWord.word}`}
+                  title={`Voir la définition de ${endStats.bestWord.word}`}
+                >
+                  {endStats.bestWord.word}
+                </button>
+                {renderGobbleBadgeCluster(endStats.bestWord.gobbleCount, "dock-best-main")}
+                <span className={`text-[10px] ${mutedClass}`}>({endStats.bestWord.pts} pts)</span>
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {(bestFinders.length ? bestFinders : [{ nick: endStats.bestWord.nick }]).map((finder, idx) => (
+                <span key={`dock-best-finder-${finder?.nick || "player"}-${idx}`} className={finderPillClass}>
+                  {finder?.nick || "Joueur"}
+                </span>
+              ))}
+            </div>
+            {possibleBestWords.length ? (
+              <div className={`text-[10px] leading-tight flex flex-wrap items-center gap-1 ${mutedClass}`}>
+                <span className="font-semibold">Gobbles possibles :</span>
+                {possibleBestWords.slice(0, 8).map((entry, idx) => (
+                  <span
+                    key={`dock-best-possible-${entry?.word || "word"}-${idx}`}
+                    className="inline-flex items-center gap-1"
+                  >
+                    {entry?.word ? (
+                      <button
+                        type="button"
+                        className={`font-bold underline-offset-2 hover:underline ${
+                          darkMode ? "text-amber-100" : "text-amber-900"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDefinition(entry.word);
+                        }}
+                        aria-label={`Voir la définition de ${entry.word}`}
+                        title={`Voir la définition de ${entry.word}`}
+                      >
+                        {entry.word}
+                      </button>
+                    ) : (
+                      <span className="font-bold">?</span>
+                    )}
+                    {renderGobbleBadgeCluster(entry?.gobbleCount || 1, `dock-best-possible-g-${idx}`)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {endStats.longestWord ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-3">
+              <span className={`text-[11px] font-semibold ${mutedClass}`}>Mot le plus long</span>
+              <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
+                <button
+                  type="button"
+                  className={`font-bold text-xs sm:text-sm underline-offset-2 hover:underline ${
+                    darkMode ? "text-slate-100" : "text-slate-900"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDefinition(endStats.longestWord.word);
+                  }}
+                  aria-label={`Voir la définition de ${endStats.longestWord.word}`}
+                  title={`Voir la définition de ${endStats.longestWord.word}`}
+                >
+                  {endStats.longestWord.word}
+                </button>
+                {renderGobbleBadgeCluster(longestWordGobbleDisplayCount, "dock-long-main")}
+                <span className={`text-[10px] ${mutedClass}`}>
+                  ({endStats.longestWord.len} lettres)
+                </span>
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {(longestFinders.length ? longestFinders : [{ nick: endStats.longestWord.nick }]).map(
+                (finder, idx) => (
+                  <span key={`dock-long-finder-${finder?.nick || "player"}-${idx}`} className={finderPillClass}>
+                    {finder?.nick || "Joueur"}
+                  </span>
+                )
+              )}
+            </div>
+            {possibleLongestGobbleWords.length ? (
+              <div className={`text-[10px] leading-tight flex flex-wrap items-center gap-1 ${mutedClass}`}>
+                <span className="font-semibold">Gobbles possibles :</span>
+                {possibleLongestGobbleWords.slice(0, 8).map((entry, idx) => (
+                  <span
+                    key={`dock-long-possible-${entry?.word || "word"}-${idx}`}
+                    className="inline-flex items-center gap-1"
+                  >
+                    {entry?.word ? (
+                      <button
+                        type="button"
+                        className={`font-bold underline-offset-2 hover:underline ${
+                          darkMode ? "text-amber-100" : "text-amber-900"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDefinition(entry.word);
+                        }}
+                        aria-label={`Voir la définition de ${entry.word}`}
+                        title={`Voir la définition de ${entry.word}`}
+                      >
+                        {entry.word}
+                      </button>
+                    ) : (
+                      <span className="font-bold">?</span>
+                    )}
+                    {renderGobbleBadgeCluster(entry?.gobbleCount || 1, `dock-long-possible-g-${idx}`)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -15824,6 +18439,11 @@ function handleTouchEnd() {
     setResultsSlidePhase("idle");
     resultsDraggingRef.current = false;
   }, [phase]);
+  useEffect(() => {
+    if (phase === "results" && !isMobileLayout) {
+      setDesktopResultsSummaryExpanded(true);
+    }
+  }, [phase, isMobileLayout]);
   function buildRankingWindow(list, you, maxTop = 5, context = 2, maxItems = 12) {
     if (list.length <= maxItems) return list;
     const youIdx = list.findIndex((r) => r.nick === you);
@@ -15892,6 +18512,8 @@ function handleTouchEnd() {
   }, [isMobileLayout, phase, isTargetRound, mobileResultsPage, showAllWords, displayList]);
   useEffect(() => {
     if (phase !== "playing" || !specialRound?.isSpecial) return;
+    if (inputLocked) return;
+    if (isMobileLayout && mobileRoundIntroStage !== "idle") return;
     if (!installId) return;
     const seenTypes = specialTutorialSeen?.types || {};
     if (seenTypes[specialRound.type]) return;
@@ -15905,6 +18527,9 @@ function handleTouchEnd() {
     specialTutorialSeen,
     installId,
     isSpecialTutorialOpen,
+    inputLocked,
+    isMobileLayout,
+    mobileRoundIntroStage,
   ]);
   useEffect(() => {
     if (phase === "playing" && specialRound?.isSpecial) return;
@@ -15987,55 +18612,604 @@ function handleTouchEnd() {
   );
 
   const endStats = React.useMemo(() => {
-    if (!finalResults || finalResults.length === 0) return null;
-    if (!board || board.length === 0) return null;
+    if (!Array.isArray(finalResults) || finalResults.length === 0) return null;
+    if (!Array.isArray(board) || board.length === 0) return null;
 
-    const winner = [...finalResults].sort((a, b) => b.score - a.score)[0];
-    let bestWord = null; // { nick, word, pts }
-    let longestWord = null; // { nick, word, len }
-    let mostWords = null; // { nick, count }
-    const getWordTs = (entry, norm) => {
+    const isSpeedRoundNow = specialRound?.type === "speed";
+    const allowScoreGobble = !isSpeedRoundNow;
+    const winner = [...finalResults].sort((a, b) => (b?.score || 0) - (a?.score || 0))[0];
+
+    const solverEntriesByNorm = new Map();
+    (Array.isArray(allWords) ? allWords : []).forEach((entry) => {
+      const rawWord = String(entry?.word || "").trim();
+      const norm = normalizeWord(rawWord);
+      if (!norm) return;
+      const pts = Number.isFinite(entry?.pts) ? entry.pts : null;
+      const current = solverEntriesByNorm.get(norm);
+      if (!current || (Number.isFinite(pts) && pts > (current.pts ?? -Infinity))) {
+        solverEntriesByNorm.set(norm, {
+          word: rawWord || norm,
+          norm,
+          pts,
+          len: norm.length,
+        });
+      }
+    });
+
+    const maxPossiblePtsFromSolver = allowScoreGobble
+      ? Array.from(solverEntriesByNorm.values()).reduce((max, entry) => {
+          if (!Number.isFinite(entry?.pts)) return max;
+          return Math.max(max, entry.pts);
+        }, 0)
+      : 0;
+    const maxPossibleLenFromSolver = Array.from(solverEntriesByNorm.values()).reduce((max, entry) => {
+      if (!Number.isFinite(entry?.len)) return max;
+      return Math.max(max, entry.len);
+    }, 0);
+    const maxPossiblePts = allowScoreGobble
+      ? Number.isFinite(roundStats?.maxPts) && roundStats.maxPts > 0
+        ? roundStats.maxPts
+        : maxPossiblePtsFromSolver > 0
+        ? maxPossiblePtsFromSolver
+        : null
+      : null;
+    const maxPossibleLen =
+      Number.isFinite(roundStats?.maxLen) && roundStats.maxLen > 0
+        ? roundStats.maxLen
+        : maxPossibleLenFromSolver > 0
+        ? maxPossibleLenFromSolver
+        : null;
+
+    const wordStatsCache = new Map();
+    const getWordTime = (entry, norm) => {
       const map = entry?.wordTimes;
       if (!map || typeof map !== "object") return null;
-      const ts = map[norm];
-      return Number.isFinite(ts) ? ts : null;
+      const direct = map[norm];
+      if (Number.isFinite(direct)) return direct;
+      const matchKey = Object.keys(map).find((key) => normalizeWord(key) === norm);
+      if (!matchKey) return null;
+      const fallback = map[matchKey];
+      return Number.isFinite(fallback) ? fallback : null;
+    };
+    const getWordStats = (rawWord, normWord) => {
+      const norm = normWord || normalizeWord(rawWord);
+      if (!norm) return { pts: null, len: 0 };
+      if (wordStatsCache.has(norm)) return wordStatsCache.get(norm);
+      const fromSolver = solverEntriesByNorm.get(norm);
+      if (fromSolver && Number.isFinite(fromSolver?.pts)) {
+        const cached = { pts: fromSolver.pts, len: norm.length };
+        wordStatsCache.set(norm, cached);
+        return cached;
+      }
+      const path = findBestPathForWord(board, norm, specialScoreConfig);
+      if (!path || path.length === 0) {
+        const fallback = { pts: null, len: norm.length };
+        wordStatsCache.set(norm, fallback);
+        return fallback;
+      }
+      const computed = {
+        pts: computeScore(norm, path, board, specialScoreConfig),
+        len: norm.length,
+      };
+      wordStatsCache.set(norm, computed);
+      return computed;
+    };
+    const collectFinders = (norm) => {
+      if (!norm) return [];
+      const finders = [];
+      finalResults.forEach((entry) => {
+        const nick = String(entry?.nick || "").trim();
+        if (!nick) return;
+        const words = Array.isArray(entry?.words) ? entry.words : [];
+        const found = words.some((raw) => normalizeWord(raw) === norm);
+        if (!found) return;
+        finders.push({
+          nick,
+          timeMs: getWordTime(entry, norm),
+        });
+      });
+      finders.sort((a, b) => {
+        const aFinite = Number.isFinite(a?.timeMs);
+        const bFinite = Number.isFinite(b?.timeMs);
+        if (aFinite && bFinite && a.timeMs !== b.timeMs) return a.timeMs - b.timeMs;
+        if (aFinite && !bFinite) return -1;
+        if (!aFinite && bFinite) return 1;
+        return String(a?.nick || "").localeCompare(String(b?.nick || ""), "fr", {
+          sensitivity: "base",
+        });
+      });
+      return finders;
     };
 
-    for (const entry of finalResults) {
-      const words = Array.isArray(entry.words) ? entry.words : [];
-      if (!mostWords || words.length > mostWords.count) {
-        mostWords = { nick: entry.nick, count: words.length };
-      }
+    let bestWord = null; // { nick, word, norm, pts, ts, rankTs }
+    let longestWord = null; // { nick, word, norm, len, ts, rankTs }
+    let mostWords = null; // { nick, count }
 
-      for (const raw of words) {
+    for (const entry of finalResults) {
+      const words = Array.isArray(entry?.words) ? entry.words : [];
+      if (!mostWords || words.length > mostWords.count) {
+        mostWords = { nick: entry?.nick, count: words.length };
+      }
+      const seenByPlayer = new Set();
+      for (const rawWord of words) {
+        const raw = String(rawWord || "").trim();
         const norm = normalizeWord(raw);
-        const path = findBestPathForWord(board, norm, specialScoreConfig);
-        if (!path) continue;
-        const pts = computeScore(norm, path, board, specialScoreConfig);
-        const wordTs = getWordTs(entry, norm);
-        if (
-          !bestWord ||
-          pts > bestWord.pts ||
-          (pts === bestWord.pts &&
-            wordTs != null &&
-            (!Number.isFinite(bestWord.ts) || wordTs < bestWord.ts))
-        ) {
-          bestWord = { nick: entry.nick, word: raw, pts, ts: wordTs };
+        if (!norm || seenByPlayer.has(norm)) continue;
+        seenByPlayer.add(norm);
+        const stats = getWordStats(raw, norm);
+        const wordTs = getWordTime(entry, norm);
+        const rankTs = Number.isFinite(wordTs) ? wordTs : Number.POSITIVE_INFINITY;
+
+        if (Number.isFinite(stats?.pts)) {
+          const shouldReplaceBest =
+            !bestWord ||
+            stats.pts > bestWord.pts ||
+            (stats.pts === bestWord.pts &&
+              (rankTs < bestWord.rankTs ||
+                (rankTs === bestWord.rankTs &&
+                  raw.localeCompare(String(bestWord.word || ""), "fr", {
+                    sensitivity: "base",
+                  }) < 0)));
+          if (shouldReplaceBest) {
+            bestWord = {
+              nick: entry?.nick,
+              word: raw,
+              norm,
+              pts: stats.pts,
+              len: stats.len,
+              ts: Number.isFinite(wordTs) ? wordTs : null,
+              rankTs,
+            };
+          }
         }
-        if (
+
+        const shouldReplaceLongest =
           !longestWord ||
-          norm.length > longestWord.len ||
-          (norm.length === longestWord.len &&
-            wordTs != null &&
-            (!Number.isFinite(longestWord.ts) || wordTs < longestWord.ts))
-        ) {
-          longestWord = { nick: entry.nick, word: raw, len: norm.length, ts: wordTs };
+          stats.len > longestWord.len ||
+          (stats.len === longestWord.len &&
+            (rankTs < longestWord.rankTs ||
+              (rankTs === longestWord.rankTs &&
+                raw.localeCompare(String(longestWord.word || ""), "fr", {
+                  sensitivity: "base",
+                }) < 0)));
+        if (shouldReplaceLongest) {
+          longestWord = {
+            nick: entry?.nick,
+            word: raw,
+            norm,
+            len: stats.len,
+            pts: stats.pts,
+            ts: Number.isFinite(wordTs) ? wordTs : null,
+            rankTs,
+          };
         }
       }
     }
 
-    return { winner, bestWord, longestWord, mostWords };
-  }, [finalResults, board]);
+    const scoreGobbleNormSet = new Set();
+    const longGobbleNormSet = new Set();
+    const possibleScoreWords = [];
+    const possibleLongestWords = [];
+
+    if (allowScoreGobble && Number.isFinite(maxPossiblePts) && maxPossiblePts > 0) {
+      solverEntriesByNorm.forEach((entry) => {
+        if (!Number.isFinite(entry?.pts) || entry.pts !== maxPossiblePts) return;
+        scoreGobbleNormSet.add(entry.norm);
+        possibleScoreWords.push(entry);
+      });
+      if (
+        !possibleScoreWords.length &&
+        bestWord &&
+        Number.isFinite(bestWord?.pts) &&
+        bestWord.pts === maxPossiblePts
+      ) {
+        scoreGobbleNormSet.add(bestWord.norm);
+        possibleScoreWords.push({
+          word: bestWord.word,
+          norm: bestWord.norm,
+          pts: bestWord.pts,
+          len: bestWord.len,
+        });
+      }
+    }
+
+    if (Number.isFinite(maxPossibleLen) && maxPossibleLen > 0) {
+      solverEntriesByNorm.forEach((entry) => {
+        if (!Number.isFinite(entry?.len) || entry.len !== maxPossibleLen) return;
+        longGobbleNormSet.add(entry.norm);
+        possibleLongestWords.push(entry);
+      });
+      if (
+        !possibleLongestWords.length &&
+        longestWord &&
+        Number.isFinite(longestWord?.len) &&
+        longestWord.len === maxPossibleLen
+      ) {
+        longGobbleNormSet.add(longestWord.norm);
+        possibleLongestWords.push({
+          word: longestWord.word,
+          norm: longestWord.norm,
+          pts: longestWord.pts,
+          len: longestWord.len,
+        });
+      }
+    }
+
+    const compareWordEntries = (a, b) =>
+      String(a?.word || "").localeCompare(String(b?.word || ""), "fr", {
+        sensitivity: "base",
+      });
+    possibleScoreWords.sort(compareWordEntries);
+    possibleLongestWords.sort(compareWordEntries);
+
+    const getScoreGobbleCount = (norm) =>
+      norm && allowScoreGobble && scoreGobbleNormSet.has(norm) ? 1 : 0;
+    const getLongGobbleCount = (norm) =>
+      norm && longGobbleNormSet.has(norm) ? 1 : 0;
+    const getGobbleCount = (norm) => getScoreGobbleCount(norm) + getLongGobbleCount(norm);
+
+    const bestWordFinders = bestWord ? collectFinders(bestWord.norm) : [];
+    const longestWordFinders = longestWord ? collectFinders(longestWord.norm) : [];
+
+    const bestWordHasScoreGobble =
+      !!bestWord && allowScoreGobble && getGobbleCount(bestWord.norm) > 0 && scoreGobbleNormSet.has(bestWord.norm);
+    const longestWordHasLengthGobble =
+      !!longestWord && getGobbleCount(longestWord.norm) > 0 && longGobbleNormSet.has(longestWord.norm);
+
+    const possibleBestWords =
+      bestWord &&
+      allowScoreGobble &&
+      Number.isFinite(maxPossiblePts) &&
+      maxPossiblePts > 0 &&
+      !bestWordHasScoreGobble
+        ? possibleScoreWords
+            .filter((entry) => entry.norm !== bestWord.norm)
+            .map((entry) => ({ ...entry, gobbleCount: getGobbleCount(entry.norm) }))
+        : [];
+    const possibleLongestGobbleWords =
+      longestWord &&
+      Number.isFinite(maxPossibleLen) &&
+      maxPossibleLen > 0 &&
+      !longestWordHasLengthGobble
+        ? possibleLongestWords
+            .filter((entry) => entry.norm !== longestWord.norm)
+            .map((entry) => ({ ...entry, gobbleCount: getGobbleCount(entry.norm) }))
+        : [];
+
+    return {
+      winner,
+      bestWord: bestWord
+        ? {
+            nick: bestWord.nick,
+            word: bestWord.word,
+            pts: bestWord.pts,
+            ts: bestWord.ts,
+            len: bestWord.len,
+            finders: bestWordFinders,
+            scoreGobbleCount: getScoreGobbleCount(bestWord.norm),
+            longGobbleCount: getLongGobbleCount(bestWord.norm),
+            gobbleCount: getGobbleCount(bestWord.norm),
+          }
+        : null,
+      longestWord: longestWord
+        ? {
+            nick: longestWord.nick,
+            word: longestWord.word,
+            len: longestWord.len,
+            ts: longestWord.ts,
+            pts: longestWord.pts,
+            finders: longestWordFinders,
+            scoreGobbleCount: getScoreGobbleCount(longestWord.norm),
+            longGobbleCount: getLongGobbleCount(longestWord.norm),
+            gobbleCount: getGobbleCount(longestWord.norm),
+          }
+        : null,
+      mostWords,
+      maxPossiblePts,
+      maxPossibleLen,
+      possibleBestWords,
+      possibleLongestGobbleWords,
+    };
+  }, [
+    allWords,
+    board,
+    finalResults,
+    roundStats?.maxLen,
+    roundStats?.maxPts,
+    specialRound?.type,
+    specialScoreConfig,
+  ]);
+  const hasDesktopResultsSummary =
+    phase === "results" && !isMobileLayout && !!(isTargetRound ? targetSummary : endStats);
+
+  const stopDesktopColumnResize = React.useCallback(() => {
+    const resizeState = desktopColumnResizeRef.current;
+    if (resizeState.moveHandler) {
+      window.removeEventListener("pointermove", resizeState.moveHandler);
+      resizeState.moveHandler = null;
+    }
+    if (resizeState.upHandler) {
+      window.removeEventListener("pointerup", resizeState.upHandler);
+      window.removeEventListener("pointercancel", resizeState.upHandler);
+      resizeState.upHandler = null;
+    }
+    if (typeof document !== "undefined" && document.body) {
+      document.body.style.cursor = resizeState.bodyCursor || "";
+      document.body.style.userSelect = resizeState.bodyUserSelect || "";
+    }
+    resizeState.bodyCursor = "";
+    resizeState.bodyUserSelect = "";
+    resizeState.active = false;
+    setDesktopColumnResizeActiveIndex(null);
+  }, []);
+
+  const startDesktopColumnResize = React.useCallback(
+    (separatorIndex, event) => {
+      if (isMobileLayout || isDailyPlay) return;
+      const host = mainGridDesktopRef.current;
+      if (!(host instanceof HTMLElement)) return;
+      const maxSeparatorIndex = Math.max(0, desktopColumnFractionsRef.current.length - 2);
+      if (
+        !Number.isInteger(separatorIndex) ||
+        separatorIndex < 0 ||
+        separatorIndex > maxSeparatorIndex
+      ) {
+        return;
+      }
+      event.preventDefault?.();
+
+      stopDesktopColumnResize();
+
+      const rect = host.getBoundingClientRect();
+      const hostWidth = Math.max(0, rect.width || host.clientWidth || 0);
+      const computed = window.getComputedStyle(host);
+      const gapRaw = parseFloat(computed.columnGap || computed.gap || "0");
+      const gapPx = Number.isFinite(gapRaw) ? Math.max(0, gapRaw) : 0;
+      const baseFractions = normalizeDesktopColumnFractions(desktopColumnFractionsRef.current);
+      const contentWidth = Math.max(
+        1,
+        hostWidth - gapPx * Math.max(0, baseFractions.length - 1)
+      );
+      const baseWidths = baseFractions.map((fraction) => fraction * contentWidth);
+      const baseMinWidths = baseFractions.map((_, idx) =>
+        Math.max(120, Number(DESKTOP_COLUMN_MIN_WIDTHS_PX[idx]) || 120)
+      );
+      const minSum = baseMinWidths.reduce((acc, value) => acc + value, 0);
+      const minScale = minSum > contentWidth ? contentWidth / minSum : 1;
+      const minWidths = baseMinWidths.map((value) => value * minScale);
+      const startX = Number(event.clientX) || 0;
+      const leftStart = baseWidths[separatorIndex] || 0;
+      const rightStart = baseWidths[separatorIndex + 1] || 0;
+      const leftMin = minWidths[separatorIndex] || 120;
+      const rightMin = minWidths[separatorIndex + 1] || 120;
+      const maxLeftShift = leftStart - leftMin;
+      const maxRightShift = rightStart - rightMin;
+
+      const resizeState = desktopColumnResizeRef.current;
+      resizeState.active = true;
+      setDesktopColumnResizeActiveIndex(separatorIndex);
+      if (typeof document !== "undefined" && document.body) {
+        resizeState.bodyCursor = document.body.style.cursor || "";
+        resizeState.bodyUserSelect = document.body.style.userSelect || "";
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+      }
+
+      resizeState.moveHandler = (moveEvent) => {
+        if (!desktopColumnResizeRef.current.active) return;
+        const clientX = Number(moveEvent.clientX);
+        if (!Number.isFinite(clientX)) return;
+        const delta = clientX - startX;
+        const clampedDelta = clampValue(delta, -maxLeftShift, maxRightShift);
+        const leftNext = leftStart + clampedDelta;
+        const rightNext = rightStart - clampedDelta;
+        const nextWidths = [...baseWidths];
+        nextWidths[separatorIndex] = leftNext;
+        nextWidths[separatorIndex + 1] = rightNext;
+        const nextFractions = normalizeDesktopColumnFractions(
+          nextWidths.map((width) => width / contentWidth)
+        );
+        setDesktopColumnFractions((prev) =>
+          areDesktopFractionsEqual(prev, nextFractions) ? prev : nextFractions
+        );
+      };
+      resizeState.upHandler = () => {
+        stopDesktopColumnResize();
+      };
+
+      window.addEventListener("pointermove", resizeState.moveHandler);
+      window.addEventListener("pointerup", resizeState.upHandler);
+      window.addEventListener("pointercancel", resizeState.upHandler);
+    },
+    [isMobileLayout, isDailyPlay, stopDesktopColumnResize]
+  );
+
+  useEffect(() => () => stopDesktopColumnResize(), [stopDesktopColumnResize]);
+
+  useEffect(() => {
+    if (isMobileLayout || isDailyPlay || typeof window === "undefined") {
+      if (desktopViewportResizeTimerRef.current) {
+        clearTimeout(desktopViewportResizeTimerRef.current);
+        desktopViewportResizeTimerRef.current = null;
+      }
+      setDesktopViewportResizeInProgress(false);
+      return;
+    }
+
+    const markResizing = () => {
+      setDesktopViewportResizeInProgress(true);
+      if (desktopViewportResizeTimerRef.current) {
+        clearTimeout(desktopViewportResizeTimerRef.current);
+      }
+      desktopViewportResizeTimerRef.current = setTimeout(() => {
+        desktopViewportResizeTimerRef.current = null;
+        setDesktopViewportResizeInProgress(false);
+      }, 160);
+    };
+
+    const vv = window.visualViewport;
+    window.addEventListener("resize", markResizing);
+    vv?.addEventListener("resize", markResizing);
+
+    return () => {
+      window.removeEventListener("resize", markResizing);
+      vv?.removeEventListener("resize", markResizing);
+      if (desktopViewportResizeTimerRef.current) {
+        clearTimeout(desktopViewportResizeTimerRef.current);
+        desktopViewportResizeTimerRef.current = null;
+      }
+    };
+  }, [isMobileLayout, isDailyPlay]);
+
+  useLayoutEffect(() => {
+    if (isMobileLayout) {
+      setDesktopMainGridHeight(null);
+      setDesktopGridMetrics((prev) =>
+        prev.width === 0 && prev.gapPx === 24 ? prev : { width: 0, gapPx: 24 }
+      );
+      return;
+    }
+    if (typeof window === "undefined") return;
+
+    let rafId = null;
+    let observer = null;
+
+    const updateLayout = () => {
+      const host = mainGridDesktopRef.current;
+      if (!(host instanceof HTMLElement)) return;
+      const hostWidth = Math.max(0, host.getBoundingClientRect?.().width || host.clientWidth || 0);
+      const computed = window.getComputedStyle(host);
+      const gapRaw = parseFloat(computed.columnGap || computed.gap || "0");
+      const gapPx = Number.isFinite(gapRaw) ? Math.max(0, gapRaw) : 0;
+      setDesktopGridMetrics((prev) => {
+        if (Math.abs(prev.width - hostWidth) < 0.1 && Math.abs(prev.gapPx - gapPx) < 0.1) {
+          return prev;
+        }
+        return { width: hostWidth, gapPx };
+      });
+      const viewportHeight = Math.max(
+        0,
+        Math.round(window.innerHeight || document.documentElement?.clientHeight || 0)
+      );
+      if (viewportHeight <= 0) return;
+      const rect = host.getBoundingClientRect?.();
+      if (!rect) return;
+      const top = Math.max(0, Math.round(rect.top));
+      const available = viewportHeight - top - 16;
+      const nextHeight = Math.max(360, Math.round(available));
+      setDesktopMainGridHeight((prev) => {
+        if (Number.isFinite(prev) && Math.abs(prev - nextHeight) <= 1) return prev;
+        return nextHeight;
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateLayout();
+      });
+    };
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+    if (typeof ResizeObserver !== "undefined" && mainGridDesktopRef.current) {
+      observer = new ResizeObserver(() => scheduleUpdate());
+      observer.observe(mainGridDesktopRef.current);
+    }
+
+    return () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", scheduleUpdate);
+      if (observer) observer.disconnect();
+    };
+  }, [isMobileLayout, showHelp, connectionError, appView, phase, isLoggedIn]);
+
+  useLayoutEffect(() => {
+    if (!hasDesktopResultsSummary) {
+      setDesktopResultsDrawerLayout(null);
+      return;
+    }
+    if (typeof window === "undefined") return;
+
+    let rafId = null;
+    let observer = null;
+
+    const updateLayout = () => {
+      const host = mainGridDesktopRef.current;
+      const viewportHeight = Math.max(
+        0,
+        Math.round(window.innerHeight || document.documentElement?.clientHeight || 0)
+      );
+      const viewportWidth = Math.max(
+        0,
+        Math.round(window.innerWidth || document.documentElement?.clientWidth || 0)
+      );
+      if (viewportHeight <= 0 || viewportWidth <= 0) return;
+      if (!(host instanceof HTMLElement)) return;
+      const rect = host.getBoundingClientRect?.();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      const gap = 8;
+      const zoneBottom = clampValue(rect.bottom, 0, viewportHeight);
+      const bottomOffset = Math.max(gap, Math.round(viewportHeight - zoneBottom + gap));
+      const nextMaxWidth = clampValue(Math.round(rect.width * 0.52), 360, 820);
+      const rawCenterX = rect.left + rect.width / 2;
+      const clampedCenterX = clampValue(
+        Math.round(rawCenterX),
+        Math.round(nextMaxWidth / 2 + gap),
+        Math.round(viewportWidth - nextMaxWidth / 2 - gap)
+      );
+      const nextMaxHeight = Math.max(
+        220,
+        Math.min(
+          Math.round(rect.height * 0.74),
+          Math.max(220, Math.round(viewportHeight - bottomOffset - 44))
+        )
+      );
+      const next = {
+        bottom: bottomOffset,
+        centerX: clampedCenterX,
+        maxWidth: nextMaxWidth,
+        maxHeight: nextMaxHeight,
+      };
+      setDesktopResultsDrawerLayout((prev) => {
+        if (
+          prev &&
+          prev.bottom === next.bottom &&
+          prev.centerX === next.centerX &&
+          prev.maxWidth === next.maxWidth &&
+          prev.maxHeight === next.maxHeight
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateLayout();
+      });
+    };
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", scheduleUpdate, true);
+    if (typeof ResizeObserver !== "undefined" && mainGridDesktopRef.current) {
+      observer = new ResizeObserver(() => scheduleUpdate());
+      observer.observe(mainGridDesktopRef.current);
+    }
+
+    return () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", scheduleUpdate, true);
+      if (observer) observer.disconnect();
+    };
+  }, [hasDesktopResultsSummary]);
 
   const gobbleWordAwardsByNick = React.useMemo(() => {
     const map = new Map();
@@ -16330,18 +19504,50 @@ function handleTouchEnd() {
       const getRankingPoints = (entry) =>
         typeof entry.score === "number" ? entry.score : entry.points || 0;
       const getRankingGobbles = (entry) => Number(entry.gobbles) || 0;
-      const ranking = [...tournamentRanking]
+      const getRankingRoundScoreSum = (entry) =>
+        Number(entry.tieBreakRoundScore) || Number(entry.roundScoreSum) || 0;
+      const rankingCore = [...tournamentRanking]
         .sort((a, b) => {
           const diff = getRankingPoints(b) - getRankingPoints(a);
           if (diff !== 0) return diff;
           const gdiff = getRankingGobbles(b) - getRankingGobbles(a);
           if (gdiff !== 0) return gdiff;
+          const scoreTieDiff = getRankingRoundScoreSum(b) - getRankingRoundScoreSum(a);
+          if (scoreTieDiff !== 0) return scoreTieDiff;
           return (a.nick || "").localeCompare(b.nick || "");
-        })
+        });
+      const tieMetaByNick = new Map();
+      const groupsByPrimary = new Map();
+      rankingCore.forEach((entry) => {
+        const key = `${getRankingPoints(entry)}|${getRankingGobbles(entry)}`;
+        const group = groupsByPrimary.get(key) || [];
+        group.push(entry);
+        groupsByPrimary.set(key, group);
+      });
+      groupsByPrimary.forEach((group) => {
+        if (!Array.isArray(group) || group.length <= 1) return;
+        const uniqueRoundScores = new Set(group.map((entry) => getRankingRoundScoreSum(entry)));
+        const tieBreakBy = uniqueRoundScores.size > 1 ? "round_score_sum" : "alphabetical";
+        group.forEach((entry) => {
+          tieMetaByNick.set(entry.nick, {
+            tieBreakBy,
+            tieGroupSize: group.length,
+          });
+        });
+      });
+      const ranking = rankingCore
         .map((entry) => ({
           nick: entry.nick,
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
           gobbles: entry.gobbles ?? null,
+          roundScoreSum: getRankingRoundScoreSum(entry),
+          tieBreakRoundScore: getRankingRoundScoreSum(entry),
+          tieBreakBy:
+            (typeof entry.tieBreakBy === "string" && entry.tieBreakBy) ||
+            tieMetaByNick.get(entry.nick)?.tieBreakBy ||
+            null,
+          tieGroupSize:
+            Number(entry.tieGroupSize) || tieMetaByNick.get(entry.nick)?.tieGroupSize || 0,
           isBot: !!entry.isBot,
           isDailyChampion: !!entry.isDailyChampion,
         }));
@@ -16563,12 +19769,29 @@ function handleTouchEnd() {
     const dot = renderHumanDot(nick, entry);
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
     const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
-    if (!dot && !medalsInline && !crown) return null;
+    const tieBreakRoundScore = Number(entry?.tieBreakRoundScore);
+    const showTieBreakBadge =
+      entry?.tieBreakBy === "round_score_sum" &&
+      Number(entry?.tieGroupSize) > 1 &&
+      Number.isFinite(tieBreakRoundScore);
+    if (!dot && !medalsInline && !crown && !showTieBreakBadge) return null;
     return (
       <span className="inline-flex items-center gap-1 ml-1">
         {crown}
         {dot}
         {medalsInline}
+        {showTieBreakBadge ? (
+          <span
+            className={`inline-flex items-center rounded px-1 py-[1px] text-[9px] font-extrabold ${
+              darkMode ? "bg-amber-300/20 text-amber-200" : "bg-amber-100 text-amber-800"
+            }`}
+            title={`Départage ex aequo: somme des scores de manches (${formatNumber(
+              tieBreakRoundScore
+            )})`}
+          >
+            {`TB ${formatNumber(tieBreakRoundScore)}`}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -16633,7 +19856,7 @@ function handleTouchEnd() {
       : "border border-gray-300");
 
   const chatBlockClasses =
-    "bg-white/90 dark:bg-slate-900/80 rounded-xl p-4 w-full max-w-sm flex flex-col h-full " +
+    "bg-white/90 dark:bg-slate-900/80 rounded-xl p-4 w-full justify-self-stretch flex flex-col h-full " +
     (activeArea === "chat"
       ? "border-4 border-black"
       : "border border-gray-300");
@@ -16783,7 +20006,7 @@ function handleTouchEnd() {
   const computedGridWidth =
     tileSizePx * gridSize + tileGapPx * (gridSize - 1) + effectiveDesktopPaddingPx;
   const fontScale = 1;
-  const tileFontPx = Math.max(14, Math.min(32, tileSizePx * 0.48 * fontScale));
+  const tileFontPx = Math.max(14, Math.min(38, tileSizePx * 0.35 * fontScale));
   const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
   const countdownLabel = (() => {
     if (phase === "playing") {
@@ -16808,6 +20031,162 @@ function handleTouchEnd() {
   })();
 
   const countdownLines = [countdownLabel];
+  const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
+  const roundIntroGridRect =
+    mobileRoundIntroActive && gridRef.current?.getBoundingClientRect
+      ? gridRef.current.getBoundingClientRect()
+      : null;
+  const roundIntroSquareSidePx =
+    roundIntroGridRect &&
+    Number.isFinite(roundIntroGridRect.left) &&
+    Number.isFinite(roundIntroGridRect.top) &&
+    Number.isFinite(roundIntroGridRect.width) &&
+    Number.isFinite(roundIntroGridRect.height)
+      ? Math.max(0, Math.round(Math.min(roundIntroGridRect.width, roundIntroGridRect.height)))
+      : 0;
+  const roundIntroSquareStyle =
+    roundIntroSquareSidePx > 0
+      ? {
+          left: `${Math.round(
+            roundIntroGridRect.left + (roundIntroGridRect.width - roundIntroSquareSidePx) / 2
+          )}px`,
+          top: `${Math.round(
+            roundIntroGridRect.top + (roundIntroGridRect.height - roundIntroSquareSidePx) / 2
+          )}px`,
+          width: `${roundIntroSquareSidePx}px`,
+          height: `${roundIntroSquareSidePx}px`,
+        }
+      : null;
+  const roundIntroCountdownFontPx = roundIntroSquareSidePx
+    ? clampValue(Math.round(roundIntroSquareSidePx * 0.45), 104, 260)
+    : 180;
+  const roundIntroGoFontPx = roundIntroSquareSidePx
+    ? clampValue(Math.round(roundIntroSquareSidePx * 0.19), 28, 108)
+    : 72;
+  const roundIntroGoldGradient =
+    "linear-gradient(180deg, #6f4300 0%, #f0b81e 16%, #fff4b5 30%, #d48a05 46%, #fff2aa 63%, #b16d00 80%, #fff8cf 100%)";
+  const roundIntroUseMobileTextTuning = isMobileLayout;
+  const roundIntroTitleGoldTextStyle = {
+    backgroundImage: roundIntroGoldGradient,
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
+    WebkitTextFillColor: "transparent",
+    WebkitTextStroke: roundIntroUseMobileTextTuning
+      ? "0px transparent"
+      : "1px rgba(100,55,0,0.42)",
+    textShadow:
+      roundIntroUseMobileTextTuning
+        ? "0 1px 0 rgba(255,244,194,0.42), 0 2px 8px rgba(0,0,0,0.38)"
+        : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
+    position: "relative",
+    animation: "goldPulse 2.2s ease-in-out infinite",
+  };
+  const roundIntroCountdownGoldTextStyle = {
+    backgroundImage: roundIntroGoldGradient,
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
+    WebkitTextFillColor: "transparent",
+    WebkitTextStroke: roundIntroUseMobileTextTuning
+      ? "0px transparent"
+      : "1px rgba(100,55,0,0.42)",
+    textShadow:
+      roundIntroUseMobileTextTuning
+        ? "0 1px 0 rgba(255,244,194,0.46), 0 3px 10px rgba(0,0,0,0.42), 0 0 10px rgba(255,210,85,0.2)"
+        : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
+    position: "relative",
+    filter: roundIntroUseMobileTextTuning
+      ? "drop-shadow(0 0 4px rgba(255,210,80,0.14))"
+      : "drop-shadow(0 0 8px rgba(255,210,80,0.18))",
+    opacity: 0.92,
+  };
+  const mobileRoundIntroShowsBackdrop =
+    isMobileLayout &&
+    (mobileRoundIntroStage === "results_fade_out" ||
+      mobileRoundIntroStage === "intro_fade_in");
+  const mobileRoundIntroBackdropClass =
+    mobileRoundIntroStage === "results_fade_out"
+      ? "mobile-round-intro-fade-to-black"
+      : mobileRoundIntroStage === "intro_fade_in"
+      ? "mobile-round-intro-fade-from-black"
+      : "mobile-round-intro-backdrop";
+  const mobileRoundIntroShowsTitle =
+    mobileRoundIntroStage === "title" || mobileRoundIntroStage === "title_fade_out";
+  const mobileRoundIntroShowsCountdown = mobileRoundIntroStage === "countdown";
+  const mobileRoundIntroCountdownIsGo =
+    typeof mobileRoundIntroCountdown === "string" &&
+    mobileRoundIntroCountdown.trim().toUpperCase() === MOBILE_ROUND_INTRO_GO_LABEL;
+  const mobileRoundIntroIsSpecial = String(mobileRoundIntroRoundTypeLabel || "")
+    .toUpperCase()
+    .startsWith("MANCHE SPECIALE");
+  const mobileResultsPhaseFadeOverlay =
+    isMobileLayout && phase === "results" && mobileResultsOutroFadeActive ? (
+      <div className="fixed inset-0 z-[20044] pointer-events-none select-none">
+        <div className="absolute inset-0 bg-black mobile-round-intro-fade-to-black" />
+      </div>
+    ) : null;
+  const mobileRoundIntroOverlay = mobileRoundIntroActive ? (
+    <div className="fixed inset-0 z-[20045] pointer-events-none select-none">
+      {mobileRoundIntroShowsBackdrop ? (
+        <div className={`absolute inset-0 bg-black ${mobileRoundIntroBackdropClass}`} />
+      ) : null}
+      {mobileRoundIntroShowsTitle && roundIntroSquareStyle ? (
+        <div
+          className="fixed flex flex-col items-center justify-center rounded-2xl border-2 bg-black/82 px-4 py-5 text-center"
+          style={{
+            ...roundIntroSquareStyle,
+            borderColor: "rgba(196,128,52,0.78)",
+            opacity: mobileRoundIntroStage === "title_fade_out" ? 0 : 1,
+            transition: `opacity ${MOBILE_ROUND_INTRO_TITLE_FADE_MS}ms ease-out`,
+            boxShadow:
+              "0 24px 70px rgba(0,0,0,0.72), inset 0 0 26px rgba(244,182,88,0.12)",
+          }}
+        >
+          <div
+            className="text-[clamp(14px,1.3vw,19px)] font-black tracking-[0.22em]"
+            style={roundIntroTitleGoldTextStyle}
+          >
+            {mobileRoundIntroRoundLabel || "MANCHE"}
+          </div>
+          <div
+            className={`mt-3 text-[clamp(15px,1.5vw,23px)] font-black tracking-[0.08em] uppercase ${
+              mobileRoundIntroIsSpecial ? "" : ""
+            }`}
+            style={{
+              ...roundIntroTitleGoldTextStyle,
+              opacity: mobileRoundIntroIsSpecial ? 0.95 : 0.9,
+            }}
+          >
+            {mobileRoundIntroRoundTypeLabel || "manche classique"}
+          </div>
+        </div>
+      ) : null}
+      {mobileRoundIntroShowsCountdown && roundIntroSquareStyle ? (
+        <div
+          className="fixed flex items-center justify-center"
+          style={roundIntroSquareStyle}
+        >
+          <span
+            key={`intro-count-${mobileRoundIntroCountdown ?? "x"}`}
+            className={`font-black tabular-nums leading-none text-amber-300 ${
+              mobileRoundIntroCountdownIsGo
+                ? "round-intro-go-fade whitespace-nowrap tracking-[0.03em]"
+                : "round-intro-countdown-pop"
+            }`}
+            style={{
+              ...roundIntroCountdownGoldTextStyle,
+              fontSize: `${
+                mobileRoundIntroCountdownIsGo ? roundIntroGoFontPx : roundIntroCountdownFontPx
+              }px`,
+            }}
+          >
+            {mobileRoundIntroCountdown == null ? "" : String(mobileRoundIntroCountdown)}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
 
   const tournamentFinaleGateAt = (() => {
     const times = [];
@@ -18250,7 +21629,9 @@ function handleTouchEnd() {
             <div
               role="dialog"
               aria-modal="true"
-              className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
+              className={`w-full ${
+                definitionModal.preferLongDefinition ? "max-w-xl" : "max-w-sm"
+              } rounded-xl border p-4 shadow-xl max-h-[82vh] flex flex-col ${
                 definitionModal.fromWordInfo
                   ? darkMode
                     ? "bg-slate-900 text-slate-100 border-slate-600"
@@ -18277,7 +21658,13 @@ function handleTouchEnd() {
                   {definitionHint}
                 </div>
               ) : null}
-              <div className="mt-3 text-sm">
+              <div
+                className={`mt-3 text-sm ${
+                  definitionModal.preferLongDefinition
+                    ? "overflow-y-auto pr-1 min-h-0 flex-1 custom-scrollbar custom-scrollbar-gray"
+                    : ""
+                }`}
+              >
                 {definitionModal.loading ? (
                   <span>Chargement...</span>
                 ) : definitionModal.ok && definitionModal.definition ? (
@@ -18920,6 +22307,13 @@ function handleTouchEnd() {
     setSoundGobbleEnabled(next);
     setSoundInvalidErrorEnabled(next);
   }, []);
+  const toggleSoundQuick = React.useCallback(
+    (event) => {
+      requestAudioUnlock(event);
+      setAllSoundEnabled(!allSoundOn);
+    },
+    [allSoundOn, setAllSoundEnabled]
+  );
   const tileLetterColorSelected =
     LETTER_COLOR_MAP[tileLetterColorPreset] || LETTER_COLOR_MAP[DEFAULT_THEME_PRESET.letterColor];
   const gobblarsBadgeUrl = getImageUrl(IMAGE_KEYS.gobblarsBadge) || "/Gobblars.png";
@@ -19418,6 +22812,46 @@ function handleTouchEnd() {
   const closeSoundMenu = React.useCallback(() => {
     setIsSoundMenuOpen(false);
   }, []);
+  useEffect(() => {
+    if (!isSettingsOpen && settingsCloseTimerRef.current) {
+      clearTimeout(settingsCloseTimerRef.current);
+      settingsCloseTimerRef.current = null;
+    }
+  }, [isSettingsOpen]);
+  useEffect(() => {
+    return () => {
+      if (settingsCloseTimerRef.current) {
+        clearTimeout(settingsCloseTimerRef.current);
+        settingsCloseTimerRef.current = null;
+      }
+    };
+  }, []);
+  const closeSettingsMenu = React.useCallback(
+    ({ animatePanels = false } = {}) => {
+      playCloseSound();
+      if (settingsCloseTimerRef.current) {
+        clearTimeout(settingsCloseTimerRef.current);
+        settingsCloseTimerRef.current = null;
+      }
+      const shouldAnimatePanels =
+        animatePanels && (isThemeMenuOpen || isSoundMenuOpen);
+      if (shouldAnimatePanels) {
+        if (isThemeMenuOpen) {
+          closeThemeMenu();
+        }
+        if (isSoundMenuOpen) {
+          closeSoundMenu();
+        }
+        settingsCloseTimerRef.current = window.setTimeout(() => {
+          settingsCloseTimerRef.current = null;
+          setIsSettingsOpen(false);
+        }, 320);
+        return;
+      }
+      setIsSettingsOpen(false);
+    },
+    [closeSoundMenu, closeThemeMenu, isSoundMenuOpen, isThemeMenuOpen]
+  );
   fetchThemeProfileRef.current = fetchThemeProfile;
   const requestThemeResetDefault = React.useCallback(() => {
     const defaults = normalizeThemePreset({
@@ -19643,16 +23077,29 @@ function handleTouchEnd() {
     themeLastChangedCategory === "darkMode"
       ? "Mode clair/sombre"
       : THEME_PICKER_LABELS[themeLastChangedCategory] || "Dernier changement";
+  const toggleDarkModeQuick = React.useCallback(() => {
+    const nextDarkMode = !themeDraftSafe.darkMode;
+    const nextTheme = normalizeThemePreset({
+      ...themeDraftSafe,
+      darkMode: nextDarkMode,
+    });
+    setThemeLastChangedCategory("darkMode");
+    setThemeDraft(nextTheme);
+    setThemeApplied((prev) =>
+      normalizeThemePreset({
+        ...prev,
+        darkMode: nextDarkMode,
+      })
+    );
+    applyThemeVisualState(nextTheme);
+  }, [applyThemeVisualState, themeDraftSafe]);
   const settingsMenuView = isSettingsOpen ? (
     <div className="fixed inset-0 z-[20000] flex items-start justify-end p-4">
       <style>{slideStyles}</style>
       <button
         type="button"
         className="absolute inset-0 bg-black/45"
-        onClick={() => {
-          playCloseSound();
-          setIsSettingsOpen(false);
-        }}
+        onClick={() => closeSettingsMenu({ animatePanels: true })}
         aria-label="Fermer les parametres"
       />
       <div
@@ -19672,8 +23119,7 @@ function handleTouchEnd() {
                 : "bg-white border-slate-200 text-slate-700"
             }`}
             onClick={() => {
-              playCloseSound();
-              setIsSettingsOpen(false);
+              closeSettingsMenu({ animatePanels: true });
             }}
             aria-label="Fermer"
           >
@@ -19838,6 +23284,24 @@ function handleTouchEnd() {
             </span>
             <span className="text-[10px] font-semibold opacity-70">
               {canVibrate ? (isVibrationEnabled ? "On" : "Off") : "--"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSettingsOpen(false);
+              setShowHelp(true);
+            }}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              darkMode
+                ? "bg-transparent border-white/15 text-slate-100"
+                : "bg-transparent border-slate-200 text-slate-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
+                Aide rapide
+              </span>
             </span>
           </button>
           <button
@@ -20151,6 +23615,7 @@ function handleTouchEnd() {
                     phase="playing"
                     specialIndicatorPreset={themeDraftSafe.specialIndicator}
                     specialSolvedOverlay={false}
+                    introHideTiles={false}
                     defaultTileBaseClass={defaultTileBaseClass}
                     tilePointsVisible={tilePointsVisible}
                     tileRefs={themePreviewTileRefs}
@@ -20692,6 +24157,7 @@ function handleTouchEnd() {
             onClick={() => {
               setIsAboutOpen(false);
               setIsSupportOpen(false);
+              setSupportModalSection("support");
             }}
             aria-label="Fermer à propos"
           />
@@ -20717,6 +24183,7 @@ function handleTouchEnd() {
                 onClick={() => {
                   setIsAboutOpen(false);
                   setIsSupportOpen(false);
+                  setSupportModalSection("support");
                 }}
                 aria-label="Fermer"
               >
@@ -20762,7 +24229,10 @@ function handleTouchEnd() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsSupportOpen(true)}
+                onClick={() => {
+                  setSupportModalSection("support");
+                  setIsSupportOpen(true);
+                }}
                 className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
                   darkMode
                     ? "bg-slate-800/90 border-white/15 text-slate-100"
@@ -20780,7 +24250,10 @@ function handleTouchEnd() {
           <button
             type="button"
             className="absolute inset-0 bg-black/55"
-            onClick={() => setIsSupportOpen(false)}
+            onClick={() => {
+              setIsSupportOpen(false);
+              setSupportModalSection("support");
+            }}
             aria-label="Fermer soutien Gobble"
           />
           <div
@@ -20808,36 +24281,97 @@ function handleTouchEnd() {
                     ? "bg-slate-900 border-white/10 text-slate-100"
                     : "bg-white border-slate-200 text-slate-700"
                 }`}
-                onClick={() => setIsSupportOpen(false)}
+                onClick={() => {
+                  setIsSupportOpen(false);
+                  setSupportModalSection("support");
+                }}
                 aria-label="Fermer"
               >
                 <span className="text-base leading-none">×</span>
               </button>
             </div>
             <div className="px-4 py-4 space-y-3 text-[13px] leading-6">
-              <p>
-                Gobble est un jeu libre, sans pub et sans revenu, que j'ai patiemment créé de A à Z.
-              </p>
-              <p>
-                Contrairement à bien des jeux : Pas de pubs. Pas de tracking. Pas de profilage. Pas de cookies,
-                pas de “consentement” à 12 boutons.
-              </p>
-              <p>
-                Si le jeu te plaît et que tu veux me remercier, ou juste m'aider à maintenir le nom de domaine et
-                l'hébergement, voici un lien !
-              </p>
-              <p>Des bisous et bon jeu ! :)</p>
-              <p className="font-semibold">
-                (Il n'y a AUCUNE obligation, tu peux bien sûr jouer sans jamais donner !)
-              </p>
-              <a
-                href="https://paypal.me/gobblefr"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center justify-center w-full rounded-lg border border-emerald-500 bg-emerald-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-emerald-500"
+              <div
+                className={`inline-flex rounded-full border p-1 ${
+                  darkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-100"
+                }`}
               >
-                Ouvrir le lien PayPal
-              </a>
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                    supportModalSection === "support"
+                      ? "bg-emerald-600 text-white"
+                      : darkMode
+                      ? "text-slate-200"
+                      : "text-slate-700"
+                  }`}
+                  onClick={() => setSupportModalSection("support")}
+                >
+                  Soutenir
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+                    supportModalSection === "thanks"
+                      ? "bg-emerald-600 text-white"
+                      : darkMode
+                      ? "text-slate-200"
+                      : "text-slate-700"
+                  }`}
+                  onClick={() => setSupportModalSection("thanks")}
+                >
+                  Remerciements
+                </button>
+              </div>
+              {supportModalSection === "thanks" ? (
+                <div className="space-y-2">
+                  <p className="font-semibold">Un grand merci au(x) donateur(s) <span aria-hidden="true">❤️</span> :</p>
+                  {SUPPORT_DONORS.length ? (
+                    <ul className="space-y-1">
+                      {SUPPORT_DONORS.map((donor) => (
+                        <li
+                          key={donor.id || donor.name}
+                          className={`rounded-lg border px-3 py-2 font-semibold ${
+                            darkMode
+                              ? "bg-slate-900/70 border-white/10"
+                              : "bg-slate-50 border-slate-200"
+                          }`}
+                        >
+                          {donor.name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="opacity-80">Aucun nom pour le moment.</p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p>
+                    Gobble est un jeu libre, sans pub et sans revenu, que j'ai patiemment créé de A à Z.
+                  </p>
+                  <p>
+                    Contrairement à bien des jeux : Pas de pubs. Pas de tracking. Pas de profilage. Pas de cookies,
+                    pas de “consentement” à 12 boutons.
+                  </p>
+                  <p>
+                    Si le jeu te plaît et que tu veux me remercier, ou juste m'aider à maintenir le nom de domaine
+                    et l'hébergement, voici un lien !
+                  </p>
+                  <p>Des bisous et bon jeu ! :)</p>
+                  <p className="font-semibold">
+                    (Il n'y a AUCUNE obligation, tu peux bien sûr jouer sans jamais donner !)
+                  </p>
+                  <a
+                    href="https://paypal.me/gobblefr"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center justify-center w-full rounded-lg border border-emerald-500 bg-emerald-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-emerald-500"
+                  >
+                    Ouvrir le lien PayPal
+                  </a>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -20885,6 +24419,46 @@ function handleTouchEnd() {
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 26/02/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
+                  général
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>nouvelle mécanique de début de manche, avec présentation plus claire de la manche à suivre, animation de placement des lettres et décompte en overlay sur la grille.</li>
+                  <li>passage de 120 à 150 mots minimum pour le calcul des grilles de manches normales (jamais ajusté depuis acceptation des mots de 2 lettres).</li>
+                  <li>correction de non affichage de "GG" en cas de double gobble pour les mots dans différentes listes de résultats, ainsi que le visuel dédié en animation sur la grille.</li>
+                  <li>ajout d'une rubrique "remerciements" dans le menu "soutenir Gobble", dans "à propos".</li>
+                  <li>remaniement du bilan de fin de partie : listing des joueurs ayant trouvé, affichage des gobbles possibles au cas où les meilleurs mots trouvés pendant la partie n'en seraient pas.</li>
+                  <li>détection d'utilisation de navigateur Samsung (problématique) + message d'alerte et de solution de contournement.</li>
+                  <li>optimisation/allègement de la partie son.</li>
+                  <li>ajustements divers du dictionnaire.</li>
+                  <li>restitution du nombre de gobbles trouvés lors des mini tournois.</li>
+                  <li>définition d'une règle de départage en cas d'égalité aux points ET en nombre de gobble en fin de tournoi : celui ayant fait le plus gros score sur la totalité du tournoi l'emporte.</li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
+                  version ordinateur uniquement
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>logique générale de l'interface adaptative revue. Tout est modifiable à souhait : largeur des colonnes, indépendamment les unes des autres. Des traits verticaux sont "attrapables" et décalables horizontalement.</li>
+                  <li>fenêtre bilan retravaillée en dock rétractable afin de ne pas masquer la grille en fin de partie. Même logique précédente des meilleurs mots trouvés, passage en cliquable pour définitions.</li>
+                  <li>lors du passage d'une souris sur la liste de mots, en plus d'afficher dans la liste des joueurs qui l'a trouvé, affichage du chemin à parcourir sur la grille pour valider le mot.</li>
+                  <li>tous les mots sont en outre cliquables pour aller chercher la définition via dictionnaire intégré.</li>
+                  <li>modification de l'écran de fin de mini tournoi avec des flèches permettant plus aisément de passer d'un écran de stats à un autre.</li>
+                  <li>réduction de taille des boutons de messages rapides du chat.</li>
+                  <li>restitution de l'animation de fermeture du volet thèmes lorsqu'on clique en dehors pour le refermer.</li>
+                  <li>correction de bug d'affichage de manche spéciale grille monstrueuse.</li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
+                  version téléphone uniquement
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>recentrage du compte à rebours en jeu, suppression de la mention "temps restant :" et de l'unité (secondes).</li>
+                  <li>verrouillage UI pour scroll indésirable sur iPhone (essai).</li>
+                </ul>
+              </div>
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 22/02/2026
@@ -21231,16 +24805,6 @@ function handleTouchEnd() {
       selfInstallId={installId}
     />
   );
-  const devNowMs = DEV_MODE ? Date.now() : 0;
-  const devLastLongTaskAge =
-    devPerfStats.lastLongTaskAt != null
-      ? Math.round((devNowMs - devPerfStats.lastLongTaskAt) / 1000)
-      : null;
-  const devLastSolveAllAge =
-    devPerfStats.lastSolveAllAt != null
-      ? Math.round((devNowMs - devPerfStats.lastSolveAllAt) / 1000)
-      : null;
-  const devPerfOverlay = null;
   const duelWeeklyTotals = duelStatus?.weekly?.totalsByTeam || { red: 0, blue: 0 };
   const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
   const duelBlueScore = Number(duelWeeklyTotals?.blue) || 0;
@@ -21401,7 +24965,6 @@ function handleTouchEnd() {
       {aboutModalView}
       {mobileChatLayer}
       {homeChatModalView}
-      {devPerfOverlay}
       <ToastStack toasts={toasts} darkMode={darkMode} />
     </>
   );
@@ -22411,8 +25974,12 @@ function handleTouchEnd() {
       ? "EXCELLENT"
       : "";
   const praiseImageSizePx = praiseImageSize;
-  const gobbleImageSrc = gobbleFlash ? getImageUrl(IMAGE_KEYS.bigwords.gobble) : "";
-  const gobbleImageAlt = "GOBBLE";
+  const gobbleImageKey =
+    gobbleFlash?.kind === "doubleGobble"
+      ? IMAGE_KEYS.bigwords.doubleGobble
+      : IMAGE_KEYS.bigwords.gobble;
+  const gobbleImageSrc = gobbleFlash ? getImageUrl(gobbleImageKey) || getImageUrl(IMAGE_KEYS.bigwords.gobble) : "";
+  const gobbleImageAlt = gobbleFlash?.kind === "doubleGobble" ? "DOUBLE GOBBLE" : "GOBBLE";
   const gobbleImageSizePx = gobbleImageSize;
   const praiseFlashColor =
     praiseFlash?.kind === "epic"
@@ -22444,11 +26011,12 @@ function handleTouchEnd() {
       : null;
   const praiseFlashHoleStyle = buildFlashHoleStyle(praiseFlashColor);
   const gobbleFlashHoleStyle = buildFlashHoleStyle(gobbleFlashColor);
+  const showPraiseFlashMask = true;
   const praiseOverlay =
     phase === "playing" && (praiseFlash || gobbleFlash) && typeof document !== "undefined"
       ? createPortal(
           <>
-            {gobbleFlash ? (
+            {gobbleFlash && showPraiseFlashMask ? (
               <div
                 key={`flash-gobble-${gobbleFlash.id}`}
                 className="praise-flash"
@@ -22467,8 +26035,12 @@ function handleTouchEnd() {
                 className="praise-pop praise-image-pop gobble-pop"
                 style={{
                   ...praisePositionStyle,
-                  ["--praise-x"]: `${Math.round(gobbleFlash.dx || 0)}px`,
-                  ["--praise-y"]: `${Math.round(gobbleFlash.dy || 0)}px`,
+                  ["--praise-x"]: `${Math.round(
+                    gobbleFlash.dx || 0
+                  )}px`,
+                  ["--praise-y"]: `${Math.round(
+                    gobbleFlash.dy || 0
+                  )}px`,
                   ["--praise-scale"]: gobbleFlash.scale || 1.6,
                   ["--praise-size"]: `${gobbleImageSizePx}px`,
                   ["--praise-duration"]: `${Math.max(
@@ -22489,24 +26061,30 @@ function handleTouchEnd() {
             ) : null}
             {praiseFlash ? (
               <>
-                <div
-                  key={`flash-${praiseFlash.id}`}
-                  className="praise-flash"
-                  style={{ ["--praise-flash-color"]: praiseFlashColor }}
-                >
-                  {praiseFlashHoleStyle ? (
-                    <div className="praise-flash-hole" style={praiseFlashHoleStyle} />
-                  ) : (
-                    <div className="praise-flash-full" />
-                  )}
-                </div>
+                {showPraiseFlashMask ? (
+                  <div
+                    key={`flash-${praiseFlash.id}`}
+                    className="praise-flash"
+                    style={{ ["--praise-flash-color"]: praiseFlashColor }}
+                  >
+                    {praiseFlashHoleStyle ? (
+                      <div className="praise-flash-hole" style={praiseFlashHoleStyle} />
+                    ) : (
+                      <div className="praise-flash-full" />
+                    )}
+                  </div>
+                ) : null}
                 <div
                   key={praiseFlash.id}
                   className="praise-pop praise-image-pop"
                   style={{
                     ...praisePositionStyle,
-                    ["--praise-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
-                    ["--praise-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
+                    ["--praise-x"]: `${Math.round(
+                      praiseFlash.dx || 0
+                    )}px`,
+                    ["--praise-y"]: `${Math.round(
+                      praiseFlash.dy || 0
+                    )}px`,
                     ["--praise-scale"]: praiseFlash.scale || 1.6,
                     ["--praise-size"]: `${praiseImageSizePx}px`,
                     ["--praise-duration"]: `${Math.max(
@@ -22527,6 +26105,53 @@ function handleTouchEnd() {
               </>
             ) : null}
           </>,
+          document.body
+        )
+      : null;
+  const desktopResultsSummaryDrawer =
+    hasDesktopResultsSummary &&
+    desktopResultsDrawerLayout &&
+    typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed z-[12040] pointer-events-none"
+            style={{
+              left: `${desktopResultsDrawerLayout.centerX}px`,
+              bottom: `${desktopResultsDrawerLayout.bottom}px`,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <div
+              className="relative pointer-events-auto transition-transform duration-300"
+              style={{
+                width: `min(92vw, ${desktopResultsDrawerLayout.maxWidth}px)`,
+                transform: desktopResultsSummaryExpanded
+                  ? "translateY(0)"
+                  : "translateY(calc(100% - 28px))",
+              }}
+            >
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  aria-expanded={desktopResultsSummaryExpanded}
+                  className={`h-7 px-4 rounded-t-xl border border-b-0 text-[11px] font-extrabold tracking-wide ${
+                    darkMode
+                      ? "bg-slate-950 border-slate-700 text-slate-100"
+                      : "bg-white border-slate-300 text-slate-700"
+                  }`}
+                  onClick={() => setDesktopResultsSummaryExpanded((prev) => !prev)}
+                >
+                  BILAN
+                </button>
+              </div>
+              <div
+                className="mt-0.5 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                style={{ maxHeight: `${desktopResultsDrawerLayout.maxHeight}px` }}
+              >
+                {renderDesktopResultsDockPanel()}
+              </div>
+            </div>
+          </div>,
           document.body
         )
       : null;
@@ -22567,13 +26192,35 @@ function handleTouchEnd() {
       return {
         nick: e.nick,
         score: typeof e.points === "number" ? e.points : e.score || 0,
+        gobbles: typeof e.gobbles === "number" ? e.gobbles : 0,
+        roundScoreSum: Number(e.roundScoreSum) || 0,
+        tieBreakRoundScore:
+          Number(e.tieBreakRoundScore) || Number(e.roundScoreSum) || 0,
+        tieBreakBy:
+          typeof e.tieBreakBy === "string" && e.tieBreakBy
+            ? e.tieBreakBy
+            : null,
+        tieGroupSize: Number(e.tieGroupSize) || 0,
         delta,
         isDailyChampion: !!e.isDailyChampion,
       };
     });
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
+    const finaleTournamentId = String(
+      tournament?.id || tournamentRef.current?.id || ""
+    ).trim();
+    const duelTournamentDelta =
+      finaleTournamentId &&
+      tournamentDuelDeltaRef.current?.tournamentId === finaleTournamentId
+        ? {
+            red: Math.max(0, Number(tournamentDuelDeltaRef.current.red) || 0),
+            blue: Math.max(0, Number(tournamentDuelDeltaRef.current.blue) || 0),
+          }
+        : { red: 0, blue: 0 };
     const finaleBoards = FINALE_WEEKLY_BOARDS;
+    const finalePagesCount = 1 + finaleBoards.length;
+    const finaleCanNavigate = !isMobileLayout && finalePagesCount > 1;
     const { height: finaleViewportHeight } = getViewportSize();
     const finaleSafeHeight = Math.max(0, finaleViewportHeight || 0);
     const finalePaddingY = isMobileLayout ? 12 : 24;
@@ -22591,7 +26238,15 @@ function handleTouchEnd() {
       0,
       finaleSafeHeight - finalePaddingY * 2 - finaleHeaderHeight - finaleDotsHeight
     );
-    const finaleShellClass = "relative z-10 max-w-6xl mx-auto px-4";
+    const finaleShellClass = isMobileLayout
+      ? "relative z-10 max-w-6xl mx-auto px-4"
+      : "relative z-10 max-w-[1680px] mx-auto px-4";
+    const finaleColumnsClass = isMobileLayout
+      ? "min-h-0 h-full flex flex-col gap-3"
+      : "min-h-0 h-full flex items-stretch gap-3";
+    const finaleMainColumnClass = isMobileLayout
+      ? "flex flex-col min-h-0 h-full gap-3"
+      : "min-h-0 h-full flex flex-col gap-3 flex-1 min-w-0 max-w-[1080px] mx-auto";
     const finaleShellStyle = {
       minHeight: "100svh",
       height: finaleSafeHeight ? `${finaleSafeHeight}px` : "100svh",
@@ -22605,6 +26260,17 @@ function handleTouchEnd() {
     const finaleDotsStyle = { height: `${finaleDotsHeight}px` };
     const finaleSlideCardStyle = { height: "100%", minHeight: 0 };
     const finaleCardPaddingClass = isMobileLayout ? "p-3" : "p-4";
+    const finaleSettingsButtonClass = isMobileLayout
+      ? `fixed top-3 right-3 z-[20012] h-10 w-10 rounded-full border flex items-center justify-center transition ${
+          darkMode
+            ? "bg-slate-800/90 border-white/10 text-slate-100 hover:bg-slate-700/90"
+            : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+        }`
+      : `fixed top-3 left-1/2 -translate-x-1/2 z-[20012] h-10 w-10 rounded-full border flex items-center justify-center transition ${
+          darkMode
+            ? "bg-slate-800/90 border-white/10 text-slate-100 hover:bg-slate-700/90"
+            : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+        }`;
     return (
       <>
         <div
@@ -22615,20 +26281,19 @@ function handleTouchEnd() {
           }`}
         >
           <style>{slideStyles}</style>
-          <button
-            type="button"
-            className={`fixed top-3 right-3 z-[20012] h-10 w-10 rounded-full border flex items-center justify-center transition ${
-              darkMode
-                ? "bg-slate-800/90 border-white/10 text-slate-100 hover:bg-slate-700/90"
-                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-            }`}
-            onClick={() => setIsSettingsOpen(true)}
-            aria-label="Ouvrir les paramètres"
-          >
-            <span className="material-symbols-outlined text-[24px] leading-none">settings</span>
-          </button>
+          {!isSettingsOpen && (
+            <button
+              type="button"
+              className={finaleSettingsButtonClass}
+              onClick={() => setIsSettingsOpen(true)}
+              aria-label="Ouvrir les paramètres"
+            >
+              <span className="material-symbols-outlined text-[24px] leading-none">settings</span>
+            </button>
+          )}
           <div className={finaleShellClass} style={finaleShellStyle}>
-            <div className="flex flex-col min-h-0 h-full gap-3">
+            <div className={finaleColumnsClass}>
+              <div className={finaleMainColumnClass}>
               <div className="text-center flex flex-col justify-center" style={finaleHeaderStyle}>
                 <div className="text-sm font-semibold tracking-widest opacity-80">
                   FIN DU MINI-TOURNOI
@@ -22641,6 +26306,25 @@ function handleTouchEnd() {
                     ? `Nouveau tournoi dans : ${bc}s`
                     : "Nouveau tournoi imminent..."}
                 </div>
+                <div
+                  className={`mt-2 mx-auto w-full max-w-[820px] rounded-xl border px-3 py-2 ${
+                    darkMode
+                      ? "bg-slate-900/65 border-white/10 text-slate-100"
+                      : "bg-white/90 border-slate-200 text-slate-800"
+                  }`}
+                >
+                  <div className="text-center text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em] opacity-85">
+                    Duel mini-tournoi
+                  </div>
+                  <div className="mt-1 text-center text-lg sm:text-xl font-black tabular-nums leading-none">
+                    <span className="text-red-500">🔴 {duelRedScore}</span>{" "}
+                    <span className="opacity-60">VS</span>{" "}
+                    <span className="text-blue-500">{duelBlueScore} 🔵</span>
+                  </div>
+                  <div className="mt-1 text-center text-[11px] sm:text-xs font-bold tabular-nums text-emerald-500">
+                    🔴 +{formatNumber(duelTournamentDelta.red)} · 🔵 +{formatNumber(duelTournamentDelta.blue)}
+                  </div>
+                </div>
               </div>
 
               <div
@@ -22648,120 +26332,168 @@ function handleTouchEnd() {
                 style={finaleCarouselStyle}
               >
                 <div
-                  ref={finaleScrollRef}
-                  className="flex w-full h-full min-h-0"
-                  style={{
-                    transform: `translateX(calc(${finalePage * -100}%))`,
-                    transition: "transform 0.25s ease-out",
-                  }}
-                  onTouchStart={handleFinaleTouchStart}
-                  onTouchMove={handleFinaleTouchMove}
-                  onTouchEnd={handleFinaleTouchEnd}
-                  onTouchCancel={handleFinaleTouchEnd}
+                  className={`h-full min-h-0 ${
+                    finaleCanNavigate ? "grid grid-cols-[92px_minmax(0,1fr)_92px] gap-0 items-stretch" : ""
+                  }`}
                 >
-                  <div className="w-full shrink-0 h-full">
-                    <div
-                      className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
-                      style={finaleSlideCardStyle}
-                    >
-                      <div className="flex items-baseline justify-between gap-2 mb-1">
-                        <div className="font-extrabold">Classement general</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                          Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
-                        </div>
-                      </div>
-                      <div className="min-h-0 flex-1">
-                        <RankingWidgetMobile
-                          fullRanking={finaleRanking}
-                          selfNick={selfNick}
-                          darkMode={darkMode}
-                          expanded={true}
-                          animateRank={false}
-                          showWheel={false}
-                          flatStyle={true}
-                          fitHeight={true}
-                          assetVersion={assetVersion}
-                          gobbleWordAwardsByNick={gobbleAwardsForLive}
-                          renderNickSuffix={(nick, entry) =>
-                            renderNickSuffix(nick, entry, tournamentFinaleMedals)
-                          }
-                          renderAfterRank={renderRankDelta}
-                        />
-                      </div>
+                  {finaleCanNavigate ? (
+                    <div className="h-full min-h-0 flex items-center justify-center">
+                      <button
+                        type="button"
+                        className={`z-20 h-14 w-14 rounded-full border flex items-center justify-center shadow-xl transition ${
+                          darkMode
+                            ? "bg-slate-900/85 border-white/20 text-slate-100 hover:bg-slate-800/90 disabled:opacity-40"
+                            : "bg-white/90 border-slate-300 text-slate-700 hover:bg-white disabled:opacity-40"
+                        }`}
+                        onClick={() => shiftFinalePage(-1)}
+                        disabled={finalePage <= 0}
+                        aria-label="Page précédente"
+                        title="Page précédente"
+                      >
+                        <span className="material-symbols-outlined text-[34px] leading-none">
+                          chevron_left
+                        </span>
+                      </button>
                     </div>
-                  </div>
-                  {finaleBoards.map((boardMeta) => {
-                    const entries = dedupeWeeklyEntries(
-                      boardMeta.key,
-                      weeklyBoardData[boardMeta.key],
-                      weeklyLimit
-                    );
-                    const baselineEntries = dedupeWeeklyEntries(
-                      boardMeta.key,
-                      finaleBaselineBoards[boardMeta.key],
-                      weeklyLimit
-                    );
-                    const hasChanges = hasWeeklyChanges(
-                      boardMeta.key,
-                      entries,
-                      finaleBaselineRankMaps[boardMeta.key],
-                      finaleBaselineValueMaps[boardMeta.key]
-                    );
-                    return (
-                      <div key={boardMeta.key} className="w-full shrink-0 h-full">
+                  ) : null}
+                  <div className="h-full min-h-0 overflow-hidden">
+                    <div
+                      ref={finaleScrollRef}
+                      className="flex w-full h-full min-h-0"
+                      style={{
+                        transform: `translateX(calc(${finalePage * -100}%))`,
+                        transition: "transform 0.25s ease-out",
+                      }}
+                      onTouchStart={handleFinaleTouchStart}
+                      onTouchMove={handleFinaleTouchMove}
+                      onTouchEnd={handleFinaleTouchEnd}
+                      onTouchCancel={handleFinaleTouchEnd}
+                    >
+                      <div className="w-full shrink-0 h-full">
                         <div
                           className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
                           style={finaleSlideCardStyle}
                         >
                           <div className="flex items-baseline justify-between gap-2 mb-1">
-                            <div className="font-extrabold">
-                              Classement hebdo - {boardMeta.label}
-                            </div>
+                            <div className="font-extrabold">Classement general</div>
                             <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                              {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                              Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
                             </div>
                           </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-300 mb-1">
-                            {boardMeta.subtitle || ""}
-                          </div>
-                          {!hasChanges && baselineEntries.length > 0 ? (
-                            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-300 mb-1">
-                              Aucun changement
-                            </div>
-                          ) : null}
                           <div className="min-h-0 flex-1">
-                            {weeklyStatsLoading ? (
-                              <div className="h-full flex items-center justify-center text-sm opacity-70">
-                                Chargement...
-                              </div>
-                            ) : weeklyStatsError ? (
-                              <div className="h-full flex items-center justify-center text-sm text-red-400">
-                                Erreur ({weeklyStatsError})
-                              </div>
-                            ) : entries.length > 0 ? (
-                              <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                                {entries.map((entry, entryIdx) =>
-                                  renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
-                                    showVocabIcon: boardMeta.key === "vocab",
-                                    baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
-                                    baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
-                                    showChanges: hasChanges,
-                                  })
-                                )}
-                              </div>
-                            ) : (
-                              <div className="h-full flex items-center justify-center text-sm opacity-70">
-                                Pas encore de stats cette semaine.
-                              </div>
-                            )}
+                            <RankingWidgetMobile
+                              fullRanking={finaleRanking}
+                              selfNick={selfNick}
+                              darkMode={darkMode}
+                              expanded={true}
+                              animateRank={false}
+                              showWheel={false}
+                              flatStyle={true}
+                              fitHeight={true}
+                              assetVersion={assetVersion}
+                              gobbleWordAwardsByNick={gobbleAwardsForLive}
+                              renderNickSuffix={(nick, entry) =>
+                                renderNickSuffix(nick, entry, tournamentFinaleMedals)
+                              }
+                              renderAfterRank={renderRankDelta}
+                            />
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
+                      {finaleBoards.map((boardMeta) => {
+                        const entries = dedupeWeeklyEntries(
+                          boardMeta.key,
+                          weeklyBoardData[boardMeta.key],
+                          weeklyLimit
+                        );
+                        const baselineEntries = dedupeWeeklyEntries(
+                          boardMeta.key,
+                          finaleBaselineBoards[boardMeta.key],
+                          weeklyLimit
+                        );
+                        const hasChanges = hasWeeklyChanges(
+                          boardMeta.key,
+                          entries,
+                          finaleBaselineRankMaps[boardMeta.key],
+                          finaleBaselineValueMaps[boardMeta.key]
+                        );
+                        return (
+                          <div key={boardMeta.key} className="w-full shrink-0 h-full">
+                            <div
+                              className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
+                              style={finaleSlideCardStyle}
+                            >
+                              <div className="flex items-baseline justify-between gap-2 mb-1">
+                                <div className="font-extrabold">
+                                  Classement hebdo - {boardMeta.label}
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
+                                  {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+                                </div>
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-300 mb-1">
+                                {boardMeta.subtitle || ""}
+                              </div>
+                              {!hasChanges && baselineEntries.length > 0 ? (
+                                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-300 mb-1">
+                                  Aucun changement
+                                </div>
+                              ) : null}
+                              <div className="min-h-0 flex-1">
+                                {weeklyStatsLoading ? (
+                                  <div className="h-full flex items-center justify-center text-sm opacity-70">
+                                    Chargement...
+                                  </div>
+                                ) : weeklyStatsError ? (
+                                  <div className="h-full flex items-center justify-center text-sm text-red-400">
+                                    Erreur ({weeklyStatsError})
+                                  </div>
+                                ) : entries.length > 0 ? (
+                                  <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                                    {entries.map((entry, entryIdx) =>
+                                      renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
+                                        showVocabIcon: boardMeta.key === "vocab",
+                                        baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
+                                        baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
+                                        showChanges: hasChanges,
+                                      })
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center text-sm opacity-70">
+                                    Pas encore de stats cette semaine.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {finaleCanNavigate ? (
+                    <div className="h-full min-h-0 flex items-center justify-center">
+                      <button
+                        type="button"
+                        className={`z-20 h-14 w-14 rounded-full border flex items-center justify-center shadow-xl transition ${
+                          darkMode
+                            ? "bg-slate-900/85 border-white/20 text-slate-100 hover:bg-slate-800/90 disabled:opacity-40"
+                            : "bg-white/90 border-slate-300 text-slate-700 hover:bg-white disabled:opacity-40"
+                        }`}
+                        onClick={() => shiftFinalePage(1)}
+                        disabled={finalePage >= finalePagesCount - 1}
+                        aria-label="Page suivante"
+                        title="Page suivante"
+                      >
+                        <span className="material-symbols-outlined text-[34px] leading-none">
+                          chevron_right
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex items-center justify-center gap-2" style={finaleDotsStyle}>
-                  {Array.from({ length: 1 + finaleBoards.length }, (_, idx) => {
+                  {Array.from({ length: finalePagesCount }, (_, idx) => {
                     const active = finalePage === idx;
                     return (
                       <button
@@ -22786,9 +26518,9 @@ function handleTouchEnd() {
                   })}
                 </div>
               </div>
-            </div>
+              </div>
             {!isMobileLayout ? (
-              <div className="absolute left-full ml-3 top-0 h-full w-[340px] min-h-0">
+              <div className="w-[340px] xl:w-[360px] shrink-0 min-h-0 h-full">
                 <div className="bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl p-4 shadow-xl flex flex-col min-h-0 h-full">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="font-bold text-center">Chat</h2>
@@ -22946,14 +26678,14 @@ function handleTouchEnd() {
 
                 {safeChatTab !== "system" ? (
                   <>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-2 flex flex-nowrap items-center gap-1.5">
                       {QUICK_REPLIES.map((txt, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => submitChat(null, txt)}
                           disabled={chatInputDisabled}
-                          className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-1.5 py-0.5 text-[11px] leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {txt}
                         </button>
@@ -23000,6 +26732,7 @@ function handleTouchEnd() {
                 </div>
               </div>
             ) : null}
+            </div>
           </div>
         </div>
         {settingsMenuView}
@@ -23024,7 +26757,17 @@ function handleTouchEnd() {
     const compactRank =
       compactRankingList.find((entry) => entry.nick === selfNick)?.rank ?? livePosition;
     const compactScore = typeof score === "number" ? score : null;
-    const { width: viewportWidth, height: viewportHeight } = getViewportSize();
+    const { width: viewportWidthRaw, height: viewportHeightRaw } = getViewportSize();
+    const lockedGameViewportWidth =
+      !isChatOpenMobile && !isChatClosing
+        ? Number(mobileGameViewportLockRef.current?.width) || 0
+        : 0;
+    const lockedGameViewportHeight =
+      !isChatOpenMobile && !isChatClosing
+        ? Number(mobileGameViewportLockRef.current?.height) || 0
+        : 0;
+    const viewportWidth = lockedGameViewportWidth || viewportWidthRaw;
+    const viewportHeight = lockedGameViewportHeight || viewportHeightRaw;
     const minViewportDim = Math.max(0, Math.min(viewportWidth, viewportHeight));
     const gridMaxFromViewport = Math.max(
       200,
@@ -23045,6 +26788,7 @@ function handleTouchEnd() {
       typeof window !== "undefined"
         ? (useVisualViewport
             ? [
+                lockedGameViewportHeight,
                 mobileLayoutSizing.viewportHeight,
                 ((isChatOpenMobile || isChatClosing) &&
                 gameViewportFreezeHeightRef.current > 0
@@ -23057,6 +26801,7 @@ function handleTouchEnd() {
             : lockedChatHeight
             ? [lockedChatHeight]
             : [
+                lockedGameViewportHeight,
                 ((isChatOpenMobile || isChatClosing) &&
                 gameViewportFreezeHeightRef.current > 0
                   ? gameViewportFreezeHeightRef.current
@@ -23172,6 +26917,7 @@ function handleTouchEnd() {
             phase={phase}
             specialIndicatorPreset={specialIndicatorPreset}
             specialSolvedOverlay={specialSolvedOverlay}
+            introHideTiles={mobileRoundIntroHideTiles}
             defaultTileBaseClass={defaultTileBaseClass}
             tilePointsVisible={tilePointsVisible}
             tileRefs={tileRefs}
@@ -23183,6 +26929,8 @@ function handleTouchEnd() {
           />
         </div>
       </div>
+      {mobileResultsPhaseFadeOverlay}
+      {mobileRoundIntroOverlay}
       {praiseOverlay}
       {chatOverlays}
     </>
@@ -23197,10 +26945,20 @@ function handleTouchEnd() {
         : finalRanking || []
       : rankingSource || [];
     const mobileAnnouncements = mixedFeed.slice(-8);
+    const lockedGameViewportWidth =
+      !isChatOpenMobile && !isChatClosing
+        ? Number(mobileGameViewportLockRef.current?.width) || 0
+        : 0;
+    const lockedGameViewportHeight =
+      !isChatOpenMobile && !isChatClosing
+        ? Number(mobileGameViewportLockRef.current?.height) || 0
+        : 0;
     const fallbackViewportWidth =
+      lockedGameViewportWidth ||
       mobileLayoutSizing.viewportWidth ||
       (typeof window !== "undefined" ? window.innerWidth : 360);
     const fallbackBodyHeight =
+      lockedGameViewportHeight ||
       mobileLayoutSizing.bodyHeight ||
       (typeof window !== "undefined" ? window.innerHeight * 0.6 : 520);
     const mobileGridSide = Math.round(
@@ -23274,6 +27032,7 @@ function handleTouchEnd() {
       typeof window !== "undefined"
         ? (useVisualViewport
             ? [
+                lockedGameViewportHeight,
                 mobileLayoutSizing.viewportHeight,
                 window.innerHeight,
                 typeof document !== "undefined"
@@ -23283,6 +27042,7 @@ function handleTouchEnd() {
             : lockedChatHeight
             ? [lockedChatHeight]
             : [
+                lockedGameViewportHeight,
                 window.innerHeight,
                 typeof document !== "undefined"
                   ? document.documentElement?.clientHeight
@@ -23479,6 +27239,9 @@ function handleTouchEnd() {
         : showResultsDots
         ? "mt-1"
         : "mt-2";
+      const mobileResultsSummaryStyle = !isChatOpenMobile
+        ? { marginBottom: "calc(clamp(92px, 24vw, 142px) + env(safe-area-inset-bottom))" }
+        : undefined;
       const resultsDots = showResultsDots ? (
         <div className="flex items-center justify-center gap-1.5 py-1">
           {resultsPages.map((page, idx) => {
@@ -23530,6 +27293,10 @@ function handleTouchEnd() {
             isFinaleBanner={isFinaleBanner}
             isTargetRound={isTargetRound}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onToggleSound={toggleSoundQuick}
+            onToggleDarkMode={toggleDarkModeQuick}
+            soundEnabled={allSoundOn}
+            playingSeconds={phase === "playing" ? Math.max(0, Number(tick) || 0) : null}
             playerTeam={duelTeam}
             phase={phase}
             roomLabelSeparator=" - "
@@ -23648,13 +27415,28 @@ function handleTouchEnd() {
                                   onMouseEnter={() => analyzeWord(entry.word)}
                                   onMouseLeave={() => {
                                     setAnalysis(null);
+                                    setHighlightPath([]);
                                     setHighlightPlayers([]);
                                   }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (entry.word) openWordInfoModal(entry.word);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (entry.word) openWordInfoModal(entry.word);
+                                    }
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`Voir les détails de ${entry.word}`}
                                   ref={(el) => {
                                     if (el) listItemRefs.current.set(entry.word, el);
                                     else listItemRefs.current.delete(entry.word);
                                   }}
-                                  className={`rounded px-1 flex items-center justify-between gap-2 transition ${
+                                  className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
                                     selected ? "bg-blue-50 text-blue-800" : "hover:bg-gray-100"
                                   } ${isGuidedWordTarget ? "guide-highlight guide-blink" : ""}`}
                                   style={{
@@ -23804,15 +27586,14 @@ function handleTouchEnd() {
 
             {resultsDots}
             {(isTargetRound ? targetSummary : endStats) && (
-              <div className={summaryWrapperClass}>
-                {isTargetRound
-                  ? renderTargetSummaryCard("w-full")
-                  : renderEndStatsCard("w-full")}
+              <div className={summaryWrapperClass} style={mobileResultsSummaryStyle}>
+                {renderDesktopResultsDockPanel()}
               </div>
             )}
           </div>
 
         </div>
+        {mobileResultsPhaseFadeOverlay}
         {praiseOverlay}
         {chatOverlays}
       </>
@@ -23841,6 +27622,10 @@ function handleTouchEnd() {
           isFinaleBanner={isFinaleBanner}
           isTargetRound={isTargetRound}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onToggleSound={toggleSoundQuick}
+          onToggleDarkMode={toggleDarkModeQuick}
+          soundEnabled={allSoundOn}
+          playingSeconds={phase === "playing" ? Math.max(0, Number(tick) || 0) : null}
           playerTeam={duelTeam}
           phase={phase}
           roomLabelSeparator=" - "
@@ -23852,7 +27637,7 @@ function handleTouchEnd() {
               : null
           }
           setShowHelp={setShowHelp}
-          showHelpButton={true}
+          showHelpButton={false}
           showRoundStats={true}
           tournament={tournament}
         />
@@ -24119,6 +27904,7 @@ function handleTouchEnd() {
               phase={phase}
               specialIndicatorPreset={specialIndicatorPreset}
               specialSolvedOverlay={specialSolvedOverlay}
+              introHideTiles={mobileRoundIntroHideTiles}
               defaultTileBaseClass={defaultTileBaseClass}
               tilePointsVisible={tilePointsVisible}
               tileRefs={tileRefs}
@@ -24147,6 +27933,8 @@ function handleTouchEnd() {
           </div>
         </div>
       </div>
+      {mobileResultsPhaseFadeOverlay}
+      {mobileRoundIntroOverlay}
       {praiseOverlay}
       {chatOverlays}
     </>
@@ -24154,9 +27942,58 @@ function handleTouchEnd() {
   }
 
   
+  const desktopGridHeightPx =
+    !isMobileLayout && Number.isFinite(desktopMainGridHeight)
+      ? Math.max(360, Math.round(desktopMainGridHeight))
+      : null;
+  const desktopResizeEnabled = !isMobileLayout && !isDailyPlay;
+  const desktopColumnFractionsSafe = normalizeDesktopColumnFractions(desktopColumnFractions);
+  const desktopGridTemplateColumns = desktopResizeEnabled
+    ? desktopColumnFractionsSafe
+        .map((fraction) => `${Math.max(0.0001, fraction).toFixed(6)}fr`)
+        .join(" ")
+    : GRID_COL_TEMPLATE;
+  const desktopColumnSplitterPositions = (() => {
+    if (!desktopResizeEnabled) return [];
+    const hostWidth = Math.max(0, Number(desktopGridMetrics.width) || 0);
+    if (hostWidth <= 0) return [];
+    const gapPx = Math.max(0, Number(desktopGridMetrics.gapPx) || 0);
+    const columnCount = desktopColumnFractionsSafe.length;
+    if (columnCount < 2) return [];
+    const contentWidth = hostWidth - gapPx * (columnCount - 1);
+    if (!(contentWidth > 0)) return [];
+    const widths = desktopColumnFractionsSafe.map((fraction) => fraction * contentWidth);
+    const positions = [];
+    let offset = 0;
+    for (let i = 0; i < widths.length - 1; i += 1) {
+      offset += widths[i];
+      positions.push(offset + gapPx * i + gapPx / 2);
+    }
+    return positions;
+  })();
+  const desktopMainGridStyle = isMobileLayout
+    ? {}
+    : {
+        height: desktopGridHeightPx ? `${desktopGridHeightPx}px` : MAIN_GRID_HEIGHT,
+        minHeight: desktopGridHeightPx ? `${desktopGridHeightPx}px` : "360px",
+        maxHeight: desktopGridHeightPx ? `${desktopGridHeightPx}px` : MAIN_GRID_HEIGHT,
+        gridTemplateColumns: desktopGridTemplateColumns,
+      };
+  const desktopColumnHeightStyle =
+    !isMobileLayout && desktopGridHeightPx
+      ? {
+          height: `${desktopGridHeightPx}px`,
+          maxHeight: `${desktopGridHeightPx}px`,
+          minHeight: `${desktopGridHeightPx}px`,
+        }
+      : COLUMN_HEIGHT_STYLE;
+  const desktopWordsScrollMaxHeight =
+    !isMobileLayout && desktopGridHeightPx
+      ? `${Math.max(220, desktopGridHeightPx - 230)}px`
+      : WORDS_SCROLL_MAX_HEIGHT;
   return (
     <>
-      <div className="p-6 max-w-[1600px] mx-auto">
+      <div className="w-full px-6 pt-6 pb-4">
         <style>{slideStyles}</style>
       <div className="topbar mb-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 bg-white border rounded-xl px-3 py-2 shadow-sm">
@@ -24189,26 +28026,27 @@ function handleTouchEnd() {
 
           <div className="flex-1" />
 
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-sm sm:text-base font-extrabold text-center">
-                  {countdownLines.map((line, idx) => (
-                    <span
-                      key={`${line}-${idx}`}
-                      className={`block ${
-                        /^\d+$/.test(line)
-                          ? "text-xl font-black leading-none"
-                          : String(line).startsWith("MANCHE SPECIALE")
-                          ? "text-[0.65rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-                          : ""
-                      }`}
-                    >
-                      {line}
-                    </span>
-                  ))}
-                </div>
-          </div>
-
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={toggleDarkModeQuick}
+              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+              title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+              aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+            >
+              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
+                {darkMode ? "light_mode" : "dark_mode"}
+              </span>
+            </button>
+            <button
+              onClick={toggleSoundQuick}
+              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+              title={allSoundOn ? "Couper le son" : "Activer le son"}
+              aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
+            >
+              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
+                {allSoundOn ? "volume_up" : "volume_off"}
+              </span>
+            </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
@@ -24217,16 +28055,6 @@ function handleTouchEnd() {
                 settings
               </span>
               <span className="sr-only">Parametres</span>
-            </button>
-            <button
-              onClick={() => setShowHelp((v) => !v)}
-              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              <span className="sr-only">Aide</span>
             </button>
           </div>
         </div>
@@ -24251,18 +28079,11 @@ function handleTouchEnd() {
       )}
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
+      <div className="relative">
       <div
-                className="main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
-        style={
-          isMobileLayout
-            ? {}
-            : {
-                height: MAIN_GRID_HEIGHT,
-                minHeight: "520px",
-                maxHeight: MAIN_GRID_HEIGHT,
-                gridTemplateColumns: GRID_COL_TEMPLATE,
-              }
-        }
+        ref={mainGridDesktopRef}
+        className="main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+        style={desktopMainGridStyle}
       >
       
         {/* Colonne 1 : Joueurs */}
@@ -24271,7 +28092,7 @@ function handleTouchEnd() {
                     style={
             isMobileLayout
               ? { ...lightPanelStyle, minHeight: 0, overflow: "visible" }
-              : { ...lightPanelStyle, ...COLUMN_HEIGHT_STYLE, overflow: "hidden" }
+              : { ...lightPanelStyle, ...desktopColumnHeightStyle, overflow: "hidden" }
           }
 
         >
@@ -24503,7 +28324,7 @@ function handleTouchEnd() {
                     style={
             isMobileLayout
               ? { minHeight: 0, overflow: "visible" }
-              : { ...COLUMN_HEIGHT_STYLE, overflow: "hidden" }
+              : { ...desktopColumnHeightStyle, overflow: "hidden" }
           }
 
         >
@@ -24539,17 +28360,6 @@ function handleTouchEnd() {
             }
           >
 
-            {phase === "results" && !isMobileLayout && (isTargetRound ? targetSummary : endStats) && (
-              <div
-                className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${
-                  darkMode ? "bg-[#0b1020]/85" : "bg-white/80"
-                }`}
-              >
-                {isTargetRound
-                  ? renderTargetSummaryCard("w-full max-w-sm bg-transparent", false)
-                  : renderEndStatsCard("w-full max-w-sm bg-transparent", false)}
-              </div>
-            )}
             {phase === "playing" && specialSolvedOverlay && (
               <div
                 className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${
@@ -24574,8 +28384,8 @@ function handleTouchEnd() {
               ref={gridRef}
               className={
                 (isMobileLayout
-                  ? "grid bg-white border rounded-xl px-2 py-2 w-full"
-                  : "grid p-4 bg-white border rounded-xl w-fit mx-auto") +
+                  ? "relative grid bg-white border rounded-xl px-2 py-2 w-full"
+                  : "relative grid p-4 bg-white border rounded-xl w-fit mx-auto") +
                 (gridShake ? " shake" : "")
               }
               style={{
@@ -24603,6 +28413,127 @@ function handleTouchEnd() {
               onMouseMove={handleMouseMove}
               onTouchMove={handleTouchMove}
             >
+              {showResultsWordPath &&
+              resultsPathPreview?.points?.length &&
+              Number.isFinite(resultsPathPreview?.width) &&
+              Number.isFinite(resultsPathPreview?.height) ? (
+                <svg
+                  className="pointer-events-none absolute inset-0 z-20"
+                  viewBox={`0 0 ${resultsPathPreview.width} ${resultsPathPreview.height}`}
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient
+                      id={resultsPathGradientIdRef.current}
+                      gradientUnits="userSpaceOnUse"
+                      x1={resultsPathPreview.points[0]?.x || 0}
+                      y1={resultsPathPreview.points[0]?.y || 0}
+                      x2={
+                        resultsPathPreview.points[resultsPathPreview.points.length - 1]?.x || 0
+                      }
+                      y2={
+                        resultsPathPreview.points[resultsPathPreview.points.length - 1]?.y || 0
+                      }
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={
+                          !isMobileLayout
+                            ? "rgba(22, 101, 52, 0.92)"
+                            : darkMode
+                            ? "#34d399"
+                            : "#2563eb"
+                        }
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={
+                          !isMobileLayout
+                            ? "rgba(110, 231, 183, 0.34)"
+                            : darkMode
+                            ? "#f59e0b"
+                            : "#ef4444"
+                        }
+                      />
+                    </linearGradient>
+                  </defs>
+                  {resultsPathPreview.points.length > 1 ? (
+                    <>
+                      <polyline
+                        points={resultsPathPreview.points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                        fill="none"
+                        stroke={
+                          !isMobileLayout
+                            ? "rgba(2, 44, 34, 0.14)"
+                            : darkMode
+                            ? "rgba(15,23,42,0.58)"
+                            : "rgba(15,23,42,0.22)"
+                        }
+                        strokeWidth={!isMobileLayout ? "22" : "8"}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <polyline
+                        points={resultsPathPreview.points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                        fill="none"
+                        stroke={`url(#${resultsPathGradientIdRef.current})`}
+                        strokeWidth={!isMobileLayout ? "14" : "4.5"}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </>
+                  ) : null}
+                  <circle
+                    cx={resultsPathPreview.points[0]?.x || 0}
+                    cy={resultsPathPreview.points[0]?.y || 0}
+                    r={!isMobileLayout ? "11.5" : "6"}
+                    fill={
+                      !isMobileLayout
+                        ? "rgba(22, 163, 74, 0.5)"
+                        : darkMode
+                        ? "#22d3ee"
+                        : "#1d4ed8"
+                    }
+                    stroke={
+                      !isMobileLayout
+                        ? "rgba(167, 243, 208, 0.88)"
+                        : darkMode
+                        ? "#082f49"
+                        : "#bfdbfe"
+                    }
+                    strokeWidth={!isMobileLayout ? "3.5" : "2"}
+                  />
+                  {resultsPathPreview.points.length > 1 ? (
+                    <g
+                      transform={`translate(${
+                        resultsPathPreview.points[resultsPathPreview.points.length - 1]?.x || 0
+                      } ${resultsPathPreview.points[resultsPathPreview.points.length - 1]?.y || 0}) rotate(${
+                        resultsPathPreview.endAngleDeg || 0
+                      })`}
+                    >
+                      <polygon
+                        points={!isMobileLayout ? "-22,-13 0,0 -22,13 -13,0" : "-12,-7 0,0 -12,7 -8,0"}
+                        fill={
+                          !isMobileLayout
+                            ? "rgba(16, 185, 129, 0.52)"
+                            : darkMode
+                            ? "#f59e0b"
+                            : "#dc2626"
+                        }
+                        stroke={
+                          !isMobileLayout
+                            ? "rgba(167, 243, 208, 0.88)"
+                            : darkMode
+                            ? "#451a03"
+                            : "#fee2e2"
+                        }
+                        strokeWidth={!isMobileLayout ? "2.4" : "1.5"}
+                      />
+                    </g>
+                  ) : null}
+                </svg>
+              ) : null}
 
 
 
@@ -24661,6 +28592,7 @@ function handleTouchEnd() {
     highlightClass,
     hintClass,
     hintOutlineClass,
+    mobileRoundIntroHideTiles ? "opacity-0 pointer-events-none" : "",
   ]
     .filter(Boolean)
     .join(" ")}
@@ -24720,7 +28652,15 @@ function handleTouchEnd() {
             {bigScoreFlash && (
               <div
                 className="big-score-burst"
-                style={{ top: 6, right: 8 }}
+                style={{
+                  top: 6,
+                  right: 8,
+                  animationDuration: `${Math.max(
+                    420,
+                    Math.min(1200, Number(bigScoreFlash?.durationMs) || 950)
+                  )}ms`,
+                  boxShadow: bigScoreFlash?.lite ? "0 6px 14px rgba(245, 158, 11, 0.24)" : undefined,
+                }}
               >
                 +{bigScoreFlash.pts}
               </div>
@@ -24735,7 +28675,7 @@ function handleTouchEnd() {
                   shake ? "shake" : ""
                 }`}
               >
-                  {phase !== "playing" ? (
+                  {phase !== "playing" && isMobileLayout ? (
     <span className="text-gray-800 dark:text-white">
       {countdownLines.map((line, idx) => (
         <span
@@ -24808,23 +28748,27 @@ function handleTouchEnd() {
        {/* Colonne 3 : Score et résultats */}
         <div
           className="card bg-white border rounded-xl p-4 w-full flex flex-col overflow-hidden min-h-0 order-3"
-          style={{ ...lightPanelStyle, ...COLUMN_HEIGHT_STYLE }}
+          style={{ ...lightPanelStyle, ...desktopColumnHeightStyle }}
         >
           {/* bloc score */}
           <div className="bg-white border rounded-xl p-3 w-full space-y-2 mb-4 shrink-0 relative overflow-hidden">
             <div className="text-lg font-bold text-center">Score total : {score}</div>
             {specialRound?.isSpecial && (
               <div className="text-center text-xs font-semibold text-orange-700">
-                <div>
-                  {specialRound.label}{" "}
-                  {specialRound.type === "speed"
-                    ? `mots fixes ${specialRound.fixedWordScore} pts`
-                    : specialRound.type === "monstrous"
-                    ? "grille monstrueuse en vue"
-                    : specialRound.type === "bonus_letter"
-                    ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
-                    : "objectif : 1 seul mot"}
-                </div>
+                {specialRound.type === "monstrous" ? (
+                  <div className="font-extrabold uppercase tracking-[0.12em] text-amber-500">
+                    GRILLE MONSTRUEUSE
+                  </div>
+                ) : (
+                  <div>
+                    {specialRound.label}{" "}
+                    {specialRound.type === "speed"
+                      ? `mots fixes ${specialRound.fixedWordScore} pts`
+                      : specialRound.type === "bonus_letter"
+                      ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
+                      : "objectif : 1 seul mot"}
+                  </div>
+                )}
               </div>
             )}
             <div className="text-center text-sm text-gray-600">
@@ -24902,7 +28846,10 @@ function handleTouchEnd() {
                   {showAllWords && allWords.length === 0 ? "Aucun mot (solveur non lancé)" : "Aucun mot trouvé."}
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto pr-2" style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}>
+                <div
+                  className="flex-1 min-h-0 overflow-y-auto pr-2"
+                  style={{ maxHeight: desktopWordsScrollMaxHeight }}
+                >
                   <ul className="relative flex flex-col text-sm">
                     {displayList.map((entry) => {
                       const selected = analysis?.word === entry.word;
@@ -24938,8 +28885,23 @@ function handleTouchEnd() {
                           onMouseEnter={() => analyzeWord(entry.word)}
                           onMouseLeave={() => {
                             setAnalysis(null);
+                            setHighlightPath([]);
                             setHighlightPlayers([]);
                           }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (entry.word) openDefinition(entry.word);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (entry.word) openDefinition(entry.word);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Voir la définition de ${entry.word}`}
                           ref={(el) => {
                             if (el) listItemRefs.current.set(entry.word, el);
                             else listItemRefs.current.delete(entry.word);
@@ -25044,7 +29006,7 @@ function handleTouchEnd() {
         {!isDailyPlay && (
           <div
           className={`${chatBlockClasses} card w-full min-h-0 order-4`}
-          style={{ ...COLUMN_HEIGHT_STYLE, overflow: "hidden" }}
+          style={{ ...desktopColumnHeightStyle, overflow: "hidden" }}
           onClick={() => {
             setActiveArea("chat");
             if (chatInputRef.current) {
@@ -25211,14 +29173,14 @@ function handleTouchEnd() {
 
           {safeChatTab !== "system" ? (
             <>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-nowrap items-center gap-1.5">
                 {QUICK_REPLIES.map((txt, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => submitChat(null, txt)}
                     disabled={chatInputDisabled}
-                    className="px-2 py-1 text-sm rounded-full border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-1.5 py-0.5 text-[11px] leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {txt}
                   </button>
@@ -25304,7 +29266,42 @@ function handleTouchEnd() {
         </div>
         )}
       </div>
+      {desktopResizeEnabled &&
+        !desktopViewportResizeInProgress &&
+        desktopColumnSplitterPositions.map((leftPx, separatorIndex) => {
+          const isActive = desktopColumnResizeActiveIndex === separatorIndex;
+          return (
+            <div
+              key={`desktop-col-resizer-${separatorIndex}`}
+              className="pointer-events-none absolute inset-y-0 z-[70] flex items-center justify-center"
+              style={{ left: `${leftPx}px`, transform: "translateX(-50%)" }}
+            >
+              <button
+                type="button"
+                className="group pointer-events-auto flex h-full w-6 touch-none cursor-col-resize items-center justify-center"
+                onPointerDown={(event) => startDesktopColumnResize(separatorIndex, event)}
+                aria-label={`Redimensionner les colonnes ${separatorIndex + 1} et ${
+                  separatorIndex + 2
+                }`}
+                title="Glisser pour redimensionner"
+              >
+                <span
+                  className={`h-[92%] w-[3px] rounded-full transition-colors ${
+                    isActive
+                      ? "bg-amber-500/95"
+                      : darkMode
+                      ? "bg-slate-500/70 group-hover:bg-amber-300/80"
+                      : "bg-slate-300/90 group-hover:bg-amber-500/85"
+                  }`}
+                />
+              </button>
+            </div>
+          );
+        })}
       </div>
+      </div>
+      {desktopResultsSummaryDrawer}
+      {mobileRoundIntroOverlay}
       {praiseOverlay}
       {chatOverlays}
     </>

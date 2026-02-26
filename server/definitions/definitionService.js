@@ -40,6 +40,8 @@ const cache = new Map();
 const inflight = new Map();
 const fetchQueue = [];
 let activeFetches = 0;
+const DEFAULT_DEFINITION_MAX_LEN = 600;
+const FULL_DEFINITION_MAX_LEN = 2200;
 
 function debugLog(message) {
   if (!DEBUG) return;
@@ -72,7 +74,7 @@ function normalizeNfc(value) {
   return value.normalize("NFC");
 }
 
-function clipDefinition(rawText, maxLen = 600) {
+function clipDefinition(rawText, maxLen = DEFAULT_DEFINITION_MAX_LEN) {
   const text = String(rawText || "").trim();
   if (!text) return "";
   const sanitized = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -90,6 +92,12 @@ function clipDefinition(rawText, maxLen = 600) {
     cut = cut.replace(/\s+\S*$/, "");
   }
   return normalizeNfc(`${cut.trimEnd()}...`);
+}
+
+function resolveDefinitionMaxLen(options = {}) {
+  const raw = Number(options?.definitionMaxLen);
+  if (!Number.isFinite(raw)) return DEFAULT_DEFINITION_MAX_LEN;
+  return Math.max(120, Math.min(FULL_DEFINITION_MAX_LEN, Math.round(raw)));
 }
 
 function normalizeLookup(value) {
@@ -138,6 +146,23 @@ function looksLikeProperNoun(summary, rawWord, source) {
   if (!word) return false;
   const lowerWord = normalizeForTextMatch(word);
   if (!lowerWord) return false;
+  const title = String(summary.title || "").trim();
+  if (title) {
+    const firstTitleChar = title.charAt(0);
+    const titleStartsWithUpper =
+      firstTitleChar &&
+      firstTitleChar === firstTitleChar.toLocaleUpperCase("fr") &&
+      firstTitleChar !== firstTitleChar.toLocaleLowerCase("fr");
+    const inputIsLowerCase = word === word.toLocaleLowerCase("fr");
+    if (
+      titleStartsWithUpper &&
+      inputIsLowerCase &&
+      normalizeLookup(title) === normalizeLookup(word) &&
+      !COMMON_GRAMMAR_PATTERNS.some((re) => re.test(text))
+    ) {
+      return true;
+    }
+  }
   if (text.startsWith(`${lowerWord} est `)) return true;
   if (text.startsWith(`${lowerWord} est une `)) return true;
   if (text.startsWith(`${lowerWord} est un `)) return true;
@@ -204,12 +229,20 @@ function pickDisplayWord(rawWord, accentCandidates) {
   if (!raw) return null;
   if (!Array.isArray(accentCandidates) || accentCandidates.length === 0) return null;
   const normRaw = normalizeLookup(raw);
+  const rawLower = raw.toLowerCase();
+  const isLikelyCatalanFutureAccent = (candidate) => {
+    const candidateLower = String(candidate || "").toLowerCase();
+    if (!rawLower.endsWith("ra")) return false;
+    if (!candidateLower.endsWith("rà")) return false;
+    return normalizeLookup(candidateLower) === normRaw;
+  };
   const match = accentCandidates.find(
     (candidate) =>
       candidate &&
       candidate !== raw &&
       normalizeLookup(candidate) === normRaw &&
-      hasDiacritics(candidate)
+      hasDiacritics(candidate) &&
+      !isLikelyCatalanFutureAccent(candidate)
   );
   return match ? normalizeNfc(match) : null;
 }
@@ -253,17 +286,42 @@ async function fetchOpensearchTitles(baseUrl, term, limit = 5, options) {
     .map((t) => normalizeNfc(t.trim()));
 }
 
+async function fetchSearchTitles(baseUrl, term, limit = 20, options) {
+  const url = `${baseUrl}/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
+    term
+  )}&srlimit=${limit}&srnamespace=0&format=json`;
+  const data = await fetchJson(url, options);
+  const entries = Array.isArray(data?.query?.search) ? data.query.search : [];
+  const titles = [];
+  for (const entry of entries) {
+    const title = normalizeNfc(String(entry?.title || "").trim());
+    if (!title) continue;
+    if (!titles.includes(title)) titles.push(title);
+  }
+  return titles;
+}
+
 async function fetchAccentCandidates(word, options) {
   const raw = String(word || "").trim();
   if (!raw || hasDiacritics(raw)) return [];
-  const titles = await fetchOpensearchTitles(
+  const normWord = normalizeLookup(raw);
+  const opensearchTitles = await fetchOpensearchTitles(
     "https://fr.wiktionary.org",
     raw,
-    5,
+    10,
     options
   );
+  const initialMatches = opensearchTitles.filter((title) => normalizeLookup(title) === normWord);
+  const hasAccentedInitialMatch = initialMatches.some((title) => hasDiacritics(title));
+  const searchTitles = hasAccentedInitialMatch
+    ? []
+    : await fetchSearchTitles("https://fr.wiktionary.org", raw, 20, options);
+  const titles = [];
+  for (const title of [...opensearchTitles, ...searchTitles]) {
+    if (!title) continue;
+    if (!titles.includes(title)) titles.push(title);
+  }
   if (!titles || titles.length === 0) return [];
-  const normWord = normalizeLookup(raw);
   const matches = titles.filter((title) => normalizeLookup(title) === normWord);
   if (!matches.length) return [];
   matches.sort((a, b) => {
@@ -465,7 +523,7 @@ function extractFormOfHint(extract) {
 async function fetchSummary(baseUrl, title, options) {
   const url = `${baseUrl}/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
   const data = await fetchJson(url, options);
-  const extract = clipDefinition(data?.extract || "");
+  const extract = clipDefinition(data?.extract || "", resolveDefinitionMaxLen(options));
   if (!extract) return null;
   const urlOut =
     data?.content_urls?.desktop?.page ||
@@ -480,10 +538,51 @@ async function fetchSummary(baseUrl, title, options) {
   };
 }
 
-function extractWiktionaryDefinition(wikitext) {
+function extractWiktionaryDefinition(wikitext, maxLen = DEFAULT_DEFINITION_MAX_LEN) {
   if (!wikitext) return "";
+  const isLikelyLanguageCode = (value) => /^[a-z]{2,3}$/i.test(value || "");
+  const pickTemplateLexeme = (params) => {
+    if (!Array.isArray(params)) return "";
+    for (const raw of params) {
+      const value = String(raw || "").trim();
+      if (!value) continue;
+      if (value.includes("=")) continue;
+      if (isLikelyLanguageCode(value)) continue;
+      if (/^\d+$/.test(value)) continue;
+      return value;
+    }
+    return "";
+  };
+  const replaceInlineTemplate = (templateBody) => {
+    const body = String(templateBody || "").trim();
+    if (!body) return "";
+    const parts = body.split("|").map((part) => part.trim());
+    if (!parts.length) return "";
+    const name = normalizeForFormOf(parts[0]);
+    const params = parts.slice(1);
+    if (!name) return "";
+    if (
+      name === "lien" ||
+      name === "l" ||
+      name === "m" ||
+      name === "f" ||
+      name === "mf" ||
+      name.startsWith("forme")
+    ) {
+      return pickTemplateLexeme(params);
+    }
+    if (
+      name.includes("orthographe") ||
+      name.includes("graphie") ||
+      name.includes("variante")
+    ) {
+      return pickTemplateLexeme(params);
+    }
+    return "";
+  };
   const lines = String(wikitext).split(/\r?\n/);
   let inFrench = false;
+  const entries = [];
   for (const line of lines) {
     if (/^==\s*\{\{langue\|fr\}\}\s*==/i.test(line)) {
       inFrench = true;
@@ -494,29 +593,55 @@ function extractWiktionaryDefinition(wikitext) {
     const match = line.match(/^#(?![#*:])\s*(.+)/);
     if (!match) continue;
     let text = match[1];
-    text = text.replace(/\{\{[^}]+\}\}/g, "");
+    text = text.replace(/\{\{([^{}]+)\}\}/g, (_, templateBody) =>
+      replaceInlineTemplate(templateBody)
+    );
     text = text.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2");
     text = text.replace(/\[\[([^\]]+)\]\]/g, "$1");
     text = text.replace(/'''+/g, "").replace(/''/g, "");
     text = text.replace(/\s+/g, " ").trim();
-    if (text) return clipDefinition(text, 450);
+    if (text && !entries.includes(text)) {
+      entries.push(text);
+    }
   }
-  return "";
+  if (!entries.length) return "";
+  if (maxLen <= DEFAULT_DEFINITION_MAX_LEN) {
+    return clipDefinition(entries[0], maxLen);
+  }
+  return clipDefinition(entries.slice(0, 8).join(" • "), maxLen);
+}
+
+function isLikelyBrokenFormSummary(extract) {
+  const raw = String(extract || "").trim();
+  if (!raw) return false;
+  const normalized = normalizeForFormOf(raw);
+  if (!normalized) return false;
+  const looksForm =
+    /\b(feminin|masculin|pluriel|singulier|forme|participe|conjugaison)\b/.test(normalized);
+  if (!looksForm) return false;
+  return /\bde$/.test(normalized);
 }
 
 async function fetchWiktionaryDefinition(title, options) {
   const summary = await fetchSummary("https://fr.wiktionary.org", title, options);
-  if (summary && summary.extract) return summary;
+  const summaryExtract = String(summary?.extract || "").trim();
+  const maxLen = resolveDefinitionMaxLen(options);
+  const preferExtended = maxLen > DEFAULT_DEFINITION_MAX_LEN;
+  const needsParseFallback =
+    !summaryExtract || isLikelyBrokenFormSummary(summaryExtract) || preferExtended;
+  if (summary && summary.extract && !needsParseFallback) return summary;
   const url = `https://fr.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(
     title
   )}&prop=wikitext&format=json`;
   const data = await fetchJson(url, options);
   const wikitext = data?.parse?.wikitext?.["*"];
-  const extract = extractWiktionaryDefinition(wikitext);
-  if (!extract) return null;
+  const extract = extractWiktionaryDefinition(wikitext, maxLen);
+  if (!extract) return summary && summary.extract ? summary : null;
+  const finalExtract =
+    summaryExtract && summaryExtract.length > extract.length ? summaryExtract : extract;
   return {
     title: normalizeNfc(data?.parse?.title || title),
-    extract,
+    extract: finalExtract,
     url: `https://fr.wiktionary.org/wiki/${encodeURIComponent(title)}`,
   };
 }
@@ -619,8 +744,9 @@ async function lookupDefinitionForWord(term, options = {}) {
   }
   return null;
 }
-function extractDictionaryApiDefinition(payload) {
+function extractDictionaryApiDefinition(payload, maxLen = DEFAULT_DEFINITION_MAX_LEN) {
   if (!Array.isArray(payload)) return null;
+  const collected = [];
   for (const entry of payload) {
     const meanings = Array.isArray(entry?.meanings) ? entry.meanings : [];
     for (const meaning of meanings) {
@@ -632,14 +758,25 @@ function extractDictionaryApiDefinition(payload) {
       for (const def of defs) {
         const text = String(def?.definition || "").trim();
         if (text) {
-          const clipped = clipDefinition(text);
+          const clipped = clipDefinition(text, maxLen);
           if (clipped && PROPER_NOUN_PATTERNS.some((re) => re.test(normalizeForTextMatch(clipped)))) {
             continue;
           }
-          return clipped;
+          if (maxLen <= DEFAULT_DEFINITION_MAX_LEN) {
+            return clipped;
+          }
+          if (clipped && !collected.includes(clipped)) {
+            collected.push(clipped);
+            if (collected.length >= 8) {
+              return clipDefinition(collected.join(" • "), maxLen);
+            }
+          }
         }
       }
     }
+  }
+  if (collected.length) {
+    return clipDefinition(collected.join(" • "), maxLen);
   }
   return null;
 }
@@ -649,7 +786,7 @@ async function fetchDictionaryApi(word, options) {
     word
   )}`;
   const data = await fetchJson(url, options);
-  const definition = extractDictionaryApiDefinition(data);
+  const definition = extractDictionaryApiDefinition(data, resolveDefinitionMaxLen(options));
   if (!definition) return null;
   return definition;
 }
@@ -905,7 +1042,7 @@ function buildAcidPhrases(word, inflections) {
 function buildPayload(word, summary, source) {
   if (!summary) return null;
   if (looksLikeProperNoun(summary, word, source)) return null;
-  const definition = clipDefinition(summary.extract || "");
+  const definition = normalizeNfc(String(summary.extract || "").replace(/\s+/g, " ").trim());
   if (!definition) return null;
   return {
     ok: true,
@@ -928,13 +1065,21 @@ export function clearDefinitionCache(word) {
   cache.delete(key);
 }
 
-export async function getDefinition(rawWord, { timeoutMs = 2500, skipCache = false } = {}) {
+export async function getDefinition(
+  rawWord,
+  { timeoutMs = 2500, skipCache = false, definitionMaxLen = DEFAULT_DEFINITION_MAX_LEN } = {}
+) {
   const input = String(rawWord || "").trim();
   if (!input) return { ok: false, word: "", error: "missing_word" };
   const normalized = normalizeWord(input);
   if (!normalized) return { ok: false, word: input, error: "bad_word" };
+  const effectiveDefinitionMaxLen = resolveDefinitionMaxLen({ definitionMaxLen });
 
-  const cacheKey = getCacheKey(input);
+  const baseCacheKey = getCacheKey(input);
+  const cacheKey =
+    effectiveDefinitionMaxLen === DEFAULT_DEFINITION_MAX_LEN
+      ? baseCacheKey
+      : `${baseCacheKey}|len:${effectiveDefinitionMaxLen}`;
   if (!skipCache) {
     const cached = getCacheEntry(cacheKey);
     if (cached) {
@@ -957,7 +1102,7 @@ export async function getDefinition(rawWord, { timeoutMs = 2500, skipCache = fal
     let formOfSummary = null;
     let displayWord = null;
     const suggestions = [];
-    const options = { timeoutMs };
+    const options = { timeoutMs, definitionMaxLen: effectiveDefinitionMaxLen };
 
     try {
       const baseCandidates = buildDefineCandidates(input);

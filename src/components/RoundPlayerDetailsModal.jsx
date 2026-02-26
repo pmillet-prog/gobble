@@ -210,10 +210,15 @@ export default function RoundPlayerDetailsModal({
     foundWordsList.forEach((entry) => {
       const word = String(entry?.word || "").trim();
       if (!word) return;
+      const gobbleCount = Math.max(
+        0,
+        Math.trunc(Number(entry?.gobbleCount) || (entry?.isGobble ? 1 : 0))
+      );
       map.set(word, {
         word,
         userPts: Number.isFinite(entry?.pts) ? entry.pts : null,
-        isGobble: !!entry?.isGobble,
+        isGobble: gobbleCount > 0,
+        gobbleCount,
       });
     });
     return map;
@@ -223,10 +228,15 @@ export default function RoundPlayerDetailsModal({
     fullWordPool.forEach((entry) => {
       const word = String(entry?.word || "").trim();
       if (!word) return;
+      const gobbleCount = Math.max(
+        0,
+        Math.trunc(Number(entry?.gobbleCount) || (entry?.isGobble ? 1 : 0))
+      );
       map.set(word, {
         word,
         bestPts: Number.isFinite(entry?.pts) ? entry.pts : null,
-        isGobble: !!entry?.isGobble,
+        isGobble: gobbleCount > 0,
+        gobbleCount,
       });
     });
     foundWordsMap.forEach((meta, word) => {
@@ -235,6 +245,10 @@ export default function RoundPlayerDetailsModal({
           word,
           bestPts: Number.isFinite(meta?.userPts) ? meta.userPts : null,
           isGobble: !!meta?.isGobble,
+          gobbleCount: Math.max(
+            0,
+            Math.trunc(Number(meta?.gobbleCount) || (meta?.isGobble ? 1 : 0))
+          ),
         });
       }
     });
@@ -247,6 +261,15 @@ export default function RoundPlayerDetailsModal({
         userPts: foundMeta?.userPts ?? null,
         bestPts: entry.bestPts,
         isGobble: !!(entry?.isGobble || foundMeta?.isGobble),
+        gobbleCount: Math.max(
+          0,
+          Math.trunc(
+            Math.max(
+              Number(entry?.gobbleCount) || (entry?.isGobble ? 1 : 0),
+              Number(foundMeta?.gobbleCount) || (foundMeta?.isGobble ? 1 : 0)
+            )
+          )
+        ),
       };
     });
     list.sort((a, b) => {
@@ -345,11 +368,15 @@ export default function RoundPlayerDetailsModal({
       const len = String(entry?.word || "").trim().length;
       const isBest = !isSpeedRound && Number.isFinite(entry?.bestPts) && entry.bestPts === gobbleMaxPts;
       const isLong = len > 0 && len === gobbleMaxLen;
-      if (!isBest && !isLong && !entry?.isGobble) return;
+      const explicitCount = Math.max(
+        0,
+        Math.trunc(Number(entry?.gobbleCount) || (entry?.isGobble ? 1 : 0))
+      );
+      if (!isBest && !isLong && explicitCount <= 0) return;
       map.set(entry.word, {
         best: isBest,
         long: isLong,
-        explicit: !!entry?.isGobble,
+        explicitCount,
       });
     });
     return map;
@@ -359,7 +386,8 @@ export default function RoundPlayerDetailsModal({
     (word) => {
       const meta = gobbleCandidates.get(word);
       if (!meta) return null;
-      const count = meta.explicit ? 1 : (meta.best ? 1 : 0) + (meta.long ? 1 : 0);
+      const computedCount = (meta.best ? 1 : 0) + (meta.long ? 1 : 0);
+      const count = Math.max(0, Number(meta.explicitCount) || 0, computedCount);
       if (!count) return null;
       return (
         <span className="inline-flex items-center gap-0.5">

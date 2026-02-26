@@ -11,6 +11,10 @@ const DEFAULT_PRIORITY_ORDER = {
   high: 1,
   low: 2,
 };
+const AUDIO_STATE_COOLDOWN_TTL_MS = 60_000;
+const AUDIO_STATE_MAX_COOLDOWN_KEYS = 256;
+const AUDIO_STATE_PENDING_TTL_MS = 10_000;
+const AUDIO_STATE_MAX_MISS_KEYS = 96;
 
 const state = {
   manifest: new Map(),
@@ -18,6 +22,7 @@ const state = {
   sfxBuffers: new Map(),
   pendingSfx: new Map(),
   decodingSfx: new Map(),
+  loadingSfx: new Map(),
   pendingPlaysByKey: new Map(),
   playQueue: [],
   flushScheduled: false,
@@ -56,6 +61,8 @@ const state = {
     originalFetch: null,
     manifestUrls: new Set(),
     manifestPaths: new Set(),
+    manifestUrlToKeys: new Map(),
+    manifestPathToKeys: new Map(),
   },
   devLog: {
     imageFailures: new Set(),
@@ -193,9 +200,46 @@ function uniqueList(list) {
   return out;
 }
 
+function addKeyToIndexMap(map, indexKey, assetKey) {
+  if (!map || !indexKey || !assetKey) return;
+  const list = map.get(indexKey) || new Set();
+  list.add(assetKey);
+  map.set(indexKey, list);
+}
+
+function shouldBlockDevFetch(url) {
+  const abs = toAbsoluteUrl(url);
+  const path = toPathname(url);
+  if (!abs && !path) return false;
+  const keys = new Set();
+  const byAbs = state.devGuard.manifestUrlToKeys.get(abs);
+  if (byAbs) {
+    byAbs.forEach((key) => keys.add(key));
+  }
+  const byPath = state.devGuard.manifestPathToKeys.get(path);
+  if (byPath) {
+    byPath.forEach((key) => keys.add(key));
+  }
+  if (!keys.size) return false;
+  // Only flag network fetches for assets that are already resident in memory.
+  for (const key of keys) {
+    const entry = state.manifest.get(key);
+    if (entry && isLoaded(entry)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function normalizePriority(priority) {
   if (priority === "critical" || priority === "high" || priority === "low") return priority;
   return "low";
+}
+
+function normalizeAssetType(type) {
+  const value = String(type || "").trim().toLowerCase();
+  if (value === "image" || value === "sfx" || value === "file") return value;
+  return "";
 }
 
 function priorityRank(priority) {
@@ -235,6 +279,7 @@ function resetAudioForNewContext() {
   state.eqBuses.clear();
   state.nextStartTime.clear();
   state.decodingSfx.clear();
+  state.loadingSfx.clear();
   state.pendingPlaysByKey.clear();
 }
 
@@ -625,6 +670,87 @@ function queuePlay(key, options) {
   }
 }
 
+function compactAudioState({
+  nowMs = Date.now(),
+  cooldownTtlMs = AUDIO_STATE_COOLDOWN_TTL_MS,
+  maxCooldownKeys = AUDIO_STATE_MAX_COOLDOWN_KEYS,
+  pendingTtlMs = AUDIO_STATE_PENDING_TTL_MS,
+  maxMissKeys = AUDIO_STATE_MAX_MISS_KEYS,
+} = {}) {
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const cooldownCutoff = now - Math.max(1, Number(cooldownTtlMs) || AUDIO_STATE_COOLDOWN_TTL_MS);
+  const pendingCutoff = now - Math.max(1, Number(pendingTtlMs) || AUDIO_STATE_PENDING_TTL_MS);
+
+  if (state.lastPlayed instanceof Map && state.lastPlayed.size > 0) {
+    state.lastPlayed.forEach((lastAt, key) => {
+      if (!Number.isFinite(lastAt) || lastAt < cooldownCutoff) {
+        state.lastPlayed.delete(key);
+      }
+    });
+    if (state.lastPlayed.size > maxCooldownKeys) {
+      const latest = Array.from(state.lastPlayed.entries())
+        .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+        .slice(0, maxCooldownKeys);
+      state.lastPlayed = new Map(latest);
+    }
+  }
+
+  if (state.pendingPlaysByKey instanceof Map && state.pendingPlaysByKey.size > 0) {
+    state.pendingPlaysByKey.forEach((list, key) => {
+      if (!Array.isArray(list) || list.length === 0) {
+        state.pendingPlaysByKey.delete(key);
+        return;
+      }
+      const filtered = list.filter((item) => Number.isFinite(item?.at) && item.at >= pendingCutoff);
+      if (filtered.length > 0) {
+        state.pendingPlaysByKey.set(key, filtered);
+      } else {
+        state.pendingPlaysByKey.delete(key);
+      }
+    });
+  }
+
+  const maxMisses = Math.max(8, Number(maxMissKeys) || AUDIO_STATE_MAX_MISS_KEYS);
+  if (state.sfxMisses instanceof Map && state.sfxMisses.size > maxMisses) {
+    const top = Array.from(state.sfxMisses.entries())
+      .sort((a, b) => (Number(b[1]?.total) || 0) - (Number(a[1]?.total) || 0))
+      .slice(0, maxMisses);
+    state.sfxMisses = new Map(top);
+  }
+}
+
+function getAudioDebugStats() {
+  let pendingPlays = 0;
+  if (state.pendingPlaysByKey instanceof Map) {
+    state.pendingPlaysByKey.forEach((list) => {
+      pendingPlays += Array.isArray(list) ? list.length : 0;
+    });
+  }
+  return {
+    ctxState: state.ctx?.state || null,
+    decodedBuffers: state.sfxBuffers.size,
+    pendingBuffers: state.pendingSfx.size,
+    loadingBuffers: state.loadingSfx.size,
+    pendingPlays,
+    playQueue: Array.isArray(state.playQueue) ? state.playQueue.length : 0,
+    cooldownKeys: state.lastPlayed.size,
+    missKeys: state.sfxMisses.size,
+  };
+}
+
+function dropPendingPlaysForKey(key) {
+  if (!key) return;
+  state.pendingPlaysByKey.delete(key);
+}
+
+export function cancelQueuedSfx(key) {
+  if (!key) return;
+  dropPendingPlaysForKey(key);
+  if (Array.isArray(state.playQueue) && state.playQueue.length > 0) {
+    state.playQueue = state.playQueue.filter((item) => item?.key !== key);
+  }
+}
+
 function queuePendingPlay(key, options) {
   if (!key) return;
   const list = state.pendingPlaysByKey.get(key) || [];
@@ -643,6 +769,29 @@ function flushPendingPlaysForKey(key) {
   list.forEach((item) => {
     playSfx(item.key, { ...(item.options || {}), __fromQueue: true });
   });
+}
+
+async function ensureSfxEntryLoaded(key) {
+  if (!key) return false;
+  if (state.sfxBuffers.has(key) || state.pendingSfx.has(key)) return true;
+  const inflight = state.loadingSfx.get(key);
+  if (inflight) return inflight;
+  const entry = state.manifest.get(key);
+  if (!entry || entry.type !== "sfx") return false;
+
+  const job = (async () => {
+    const loaded = await preloadSfx(entry);
+    if (!loaded) return false;
+    const ctx = ensureAudioContext({ force: false });
+    if (ctx && state.pendingSfx.has(key)) {
+      await decodeOnePendingKey(ctx, key);
+    }
+    return state.sfxBuffers.has(key) || state.pendingSfx.has(key);
+  })().finally(() => {
+    state.loadingSfx.delete(key);
+  });
+  state.loadingSfx.set(key, job);
+  return job;
 }
 
 function flushPlayQueue() {
@@ -696,15 +845,11 @@ function ensureDevFetchGuard() {
   state.devGuard.fetchWrapped = true;
   const guard = async (input, init) => {
     const url = typeof input === "string" ? input : input?.url;
-    if (state.devGuard.readyAll && url) {
-      const abs = toAbsoluteUrl(url);
-      const path = toPathname(url);
-      if (state.devGuard.manifestUrls.has(abs) || state.devGuard.manifestPaths.has(path)) {
-        const message = `[asset] forbidden fetch after preload(all): ${url}`;
-        console.error(message);
-        if (state.devGuard.strict) {
-          throw new Error(message);
-        }
+    if (state.devGuard.readyAll && url && shouldBlockDevFetch(url)) {
+      const message = `[asset] forbidden fetch after preload(all): ${url}`;
+      console.error(message);
+      if (state.devGuard.strict) {
+        throw new Error(message);
       }
     }
     const target = typeof window !== "undefined" ? window : undefined;
@@ -721,8 +866,14 @@ function registerDevGuardCandidates(entry) {
   candidates.forEach((candidate) => {
     const abs = toAbsoluteUrl(candidate);
     const path = toPathname(candidate);
-    if (abs) state.devGuard.manifestUrls.add(abs);
-    if (path) state.devGuard.manifestPaths.add(path);
+    if (abs) {
+      state.devGuard.manifestUrls.add(abs);
+      addKeyToIndexMap(state.devGuard.manifestUrlToKeys, abs, entry.key);
+    }
+    if (path) {
+      state.devGuard.manifestPaths.add(path);
+      addKeyToIndexMap(state.devGuard.manifestPathToKeys, path, entry.key);
+    }
   });
 }
 
@@ -757,10 +908,26 @@ export async function preload({
   priority = "all",
   onProgress,
   concurrency = 4,
+  includeTypes = null,
+  excludeTypes = null,
 } = {}) {
   const entries = Array.from(state.manifest.values());
   const filtered = selectByPriority(entries, priority === "all" ? "low" : priority);
-  const queue = filtered.filter((entry) => !isLoaded(entry));
+  const includeSet =
+    Array.isArray(includeTypes) && includeTypes.length
+      ? new Set(includeTypes.map((type) => normalizeAssetType(type)).filter(Boolean))
+      : null;
+  const excludeSet =
+    Array.isArray(excludeTypes) && excludeTypes.length
+      ? new Set(excludeTypes.map((type) => normalizeAssetType(type)).filter(Boolean))
+      : null;
+  const queue = filtered.filter((entry) => {
+    if (isLoaded(entry)) return false;
+    const type = normalizeAssetType(entry?.type);
+    if (includeSet && !includeSet.has(type)) return false;
+    if (excludeSet && excludeSet.has(type)) return false;
+    return true;
+  });
   const total = queue.length;
   let loaded = 0;
   const notify = (payload) => {
@@ -880,7 +1047,15 @@ export async function unlockAudio() {
 
 export function playSfx(
   key,
-  { eqKey, gain = 1, rate = 1, cooldownKey, cooldownMs, __fromQueue = false } = {}
+  {
+    eqKey,
+    gain = 1,
+    rate = 1,
+    cooldownKey,
+    cooldownMs,
+    allowQueue = true,
+    __fromQueue = false,
+  } = {}
 ) {
   if (!key) return null;
   if (state.muted) {
@@ -915,7 +1090,9 @@ export function playSfx(
       state.devLog.sfxPlayMisses.add(`${key}:ctx`);
       console.warn(`[asset] sfx blocked (no ctx): ${key}`);
     }
-    if (!__fromQueue) queuePlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs });
+    if (!__fromQueue && allowQueue) {
+      queuePlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs, allowQueue });
+    }
     return null;
   }
   if (ctx.state === "suspended") {
@@ -926,7 +1103,9 @@ export function playSfx(
       state.devLog.sfxPlayMisses.add(`${key}:suspended`);
       console.warn(`[asset] sfx blocked (suspended): ${key}`);
     }
-    if (!__fromQueue) queuePlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs });
+    if (!__fromQueue && allowQueue) {
+      queuePlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs, allowQueue });
+    }
     return null;
   }
   let buffer = state.sfxBuffers.get(key);
@@ -937,8 +1116,8 @@ export function playSfx(
       state.devLog.sfxPlayMisses.add(`${key}:pending`);
       console.warn(`[asset] sfx pending decode: ${key}`);
     }
-    if (!__fromQueue) {
-      queuePendingPlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs });
+    if (!__fromQueue && allowQueue) {
+      queuePendingPlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs, allowQueue });
       decodeOnePendingKey(ctx, key)
         .then(() => flushPendingPlaysForKey(key))
         .catch(() => {});
@@ -951,6 +1130,33 @@ export function playSfx(
     if (DEV_MODE && !state.devLog.sfxPlayMisses.has(`${key}:missing`)) {
       state.devLog.sfxPlayMisses.add(`${key}:missing`);
       console.warn(`[asset] sfx missing buffer: ${key}`);
+    }
+    if (!__fromQueue && allowQueue && entry?.type === "sfx") {
+      queuePendingPlay(key, { eqKey, gain, rate, cooldownKey, cooldownMs, allowQueue });
+      ensureSfxEntryLoaded(key)
+        .then((ready) => {
+          if (!ready) {
+            dropPendingPlaysForKey(key);
+            return;
+          }
+          const ctx = ensureAudioContext({ force: false });
+          if (ctx && state.pendingSfx.has(key)) {
+            decodeOnePendingKey(ctx, key)
+              .then(() => flushPendingPlaysForKey(key))
+              .catch(() => {
+                dropPendingPlaysForKey(key);
+              });
+            return;
+          }
+          if (!ctx && state.pendingSfx.has(key)) {
+            // Keep queued plays until unlockAudio() decodes this key.
+            return;
+          }
+          flushPendingPlaysForKey(key);
+        })
+        .catch(() => {
+          dropPendingPlaysForKey(key);
+        });
     }
     return null;
   }
@@ -1037,6 +1243,7 @@ export function dispose() {
   state.sfxBuffers.clear();
   state.pendingSfx.clear();
   state.decodingSfx.clear();
+  state.loadingSfx.clear();
   state.pendingPlaysByKey.clear();
   state.files.clear();
   state.fileUrls.clear();
@@ -1056,6 +1263,11 @@ export function dispose() {
   state.sfxMisses.clear();
   state.sfxMissesByReason.clear();
   state.lastMissLogAt = 0;
+  state.devGuard.manifestUrls.clear();
+  state.devGuard.manifestPaths.clear();
+  state.devGuard.manifestUrlToKeys.clear();
+  state.devGuard.manifestPathToKeys.clear();
+  state.devGuard.readyAll = false;
 }
 
 const AssetManager = {
@@ -1072,6 +1284,9 @@ const AssetManager = {
   setMuted,
   setMasterVolume,
   setAudioSystemProvider,
+  cancelQueuedSfx,
+  compactAudioState,
+  getAudioDebugStats,
   dispose,
 };
 

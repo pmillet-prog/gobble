@@ -784,8 +784,8 @@ function RankingWidgetMobile({
             : "text-white"
           : isHighlighted
           ? darkMode
-            ? "text-amber-200"
-            : "text-amber-700"
+            ? "text-emerald-100"
+            : "text-emerald-900"
           : extendedOtherColor;
         const rowBg = isPalier
           ? palierBg
@@ -795,8 +795,8 @@ function RankingWidgetMobile({
             : "bg-slate-900/80"
           : isHighlighted
           ? darkMode
-            ? "bg-amber-900/30"
-            : "bg-amber-50"
+            ? "bg-emerald-500/25"
+            : "bg-emerald-100"
           : "";
         const recordBadges = getRecordBadgesForNick(entry?.nick);
         const recordBadgeItems = Array.isArray(recordBadges) ? recordBadges : [];
@@ -1194,8 +1194,8 @@ function RankingWidgetMobile({
                 ? selfTextColor
                 : isHighlighted
                 ? darkMode
-                  ? "text-amber-200"
-                  : "text-amber-700"
+                  ? "text-emerald-100"
+                  : "text-emerald-900"
                 : normalTextColor;
               const lineBg = isPalier
                 ? palierBg
@@ -1205,8 +1205,8 @@ function RankingWidgetMobile({
                   : "bg-blue-50"
                 : isHighlighted
                 ? darkMode
-                  ? "bg-amber-900/30"
-                  : "bg-amber-50"
+                  ? "bg-emerald-500/25"
+                  : "bg-emerald-100"
                 : "";
 
               const rightClasses =

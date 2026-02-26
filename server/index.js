@@ -220,10 +220,15 @@ app.get("/api/define", async (req, res) => {
   }
 
   const skipCache = String(req.query?.nocache || "") === "1";
+  const wantFullDefinition = String(req.query?.full || "") === "1";
   if (skipCache) {
     clearDefinitionCache(word);
   }
-  const payload = await getDefinition(word, { timeoutMs: 2500, skipCache });
+  const payload = await getDefinition(word, {
+    timeoutMs: wantFullDefinition ? 3500 : 2500,
+    skipCache,
+    definitionMaxLen: wantFullDefinition ? 2200 : 600,
+  });
   return res.json(payload);
 });
 
@@ -852,13 +857,16 @@ app.get("/api/players", async (req, res) => {
     serverNow: now,
     roundNumber: currentRound?.roundNumber ?? null,
     roundEndsAt: currentRound?.endsAt ?? null,
+    roundStartsAt: currentRound?.startsAt ?? null,
+    roundIntroMs: currentRound?.introMs ?? 0,
+    roundStatus: currentRound?.status ?? null,
     roundDurationMs: currentRound?.durationMs ?? room.config?.durationMs ?? DEFAULT_ROUND_DURATION_MS,
     tournamentRound: currentRound?.tournamentRound ?? room.tournament?.currentRound ?? null,
     tournamentTotalRounds: room.tournament?.totalRounds ?? TOURNAMENT_TOTAL_ROUNDS,
     breakKind: breakState?.breakKind ?? null,
     breakEndsAt: breakState?.nextStartAt ?? null,
     breakDurationMs: room.config?.breakMs ?? DEFAULT_BREAK_DURATION_MS,
-    isRoundRunning: currentRound?.status === "running",
+    isRoundRunning: isRoundActive(currentRound),
   };
   return res.json({
     ok: true,
@@ -913,12 +921,13 @@ lagMonitor.unref?.();
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_BREAK_DURATION_MS = 60 * 1000; // 60 secondes
 const TARGET_BREAK_DURATION_MS = 30 * 1000; // 30 secondes pour manches cibles
+const ROUND_INTRO_DURATION_MS = 6900; // Intro visuelle avant manche jouable (3..0 + arrivée des tuiles)
 const MAX_CHAT_HISTORY = 200;
 const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
-const MIN_WORDS_BY_SIZE = { 4: 120, 5 : 100 }; 
+const MIN_WORDS_BY_SIZE = { 4: 150, 5: 150 };
 const SPECIAL_ROUND_EVERY = 5;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
@@ -1524,7 +1533,7 @@ function createTournamentState(roomConfig) {
     currentRound: 0,
     totalRounds: TOURNAMENT_TOTAL_ROUNDS,
     specials: buildTournamentSpecials(roomConfig),
-    totals: new Map(), // nick -> { points, gobbles }
+    totals: new Map(), // nick -> { points, gobbles, roundScoreSum }
     lastAwarded: new Map(), // nick -> { points, gobbles }
     prevPositions: new Map(), // nick -> position
     records: {
@@ -1839,6 +1848,10 @@ function hasPlayerActivity(data) {
   return wordsCount > 0 || score > 0;
 }
 
+function isRoundActive(round) {
+  return !!round && (round.status === "running" || round.status === "intro");
+}
+
 function buildRoundStartedPayload(room) {
   const round = room?.currentRound;
   if (!round) return null;
@@ -1859,6 +1872,14 @@ function buildRoundStartedPayload(room) {
     gridSize: room.config.gridSize,
     durationMs: round.durationMs,
     endsAt: round.endsAt,
+    startsAt:
+      Number.isFinite(round.startsAt)
+        ? round.startsAt
+        : Number.isFinite(round.endsAt) && Number.isFinite(round.durationMs)
+        ? round.endsAt - round.durationMs
+        : null,
+    introMs: Number.isFinite(round.introMs) ? Math.max(0, round.introMs) : 0,
+    status: round.status || "running",
     targetLength: round.targetLength || null,
     targetHintScheduleMs: Array.isArray(round.targetHintScheduleMs)
       ? round.targetHintScheduleMs
@@ -1935,19 +1956,13 @@ function buildLiveRanking(room, roundId) {
 function buildSessionSnapshot(room, player) {
   if (!room || !player) return null;
   const round = room.currentRound;
-  const phase =
-    round?.status === "running"
-      ? "playing"
-      : room.breakState
-      ? "results"
-      : "lobby";
-  const currentRoundPayload = round?.status === "running"
-    ? buildRoundStartedPayload(room)
-    : null;
+  const hasActiveRound = isRoundActive(round);
+  const phase = hasActiveRound ? "playing" : room.breakState ? "results" : "lobby";
+  const currentRoundPayload = hasActiveRound ? buildRoundStartedPayload(room) : null;
   let score = 0;
   let words = [];
   let participated = false;
-  if (round?.status === "running") {
+  if (hasActiveRound) {
     const roundSubs = room.submissions.get(round.id) || null;
     const playerRound = roundSubs ? roundSubs.get(player.nick) : null;
     score = playerRound?.score || 0;
@@ -1976,10 +1991,7 @@ function buildSessionSnapshot(room, player) {
     phase,
     player: playerState,
     currentRound: currentRoundPayload,
-    ranking:
-      round?.status === "running" && round?.id
-        ? buildLiveRanking(room, round.id)
-        : [],
+    ranking: hasActiveRound && round?.id ? buildLiveRanking(room, round.id) : [],
     breakState: buildBreakSnapshot(room),
     lastRoundResults: room.lastRoundResults || null,
   };
@@ -2475,6 +2487,12 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   if (!room) return { ok: false, error: "invalid_room" };
   if (!room.currentRound || room.currentRound.id !== roundId) {
     return { ok: false, error: "round_invalid" };
+  }
+  if (room.currentRound.status !== "running") {
+    return { ok: false, error: "round_not_started" };
+  }
+  if (Number.isFinite(room.currentRound.endsAt) && Date.now() >= room.currentRound.endsAt) {
+    return { ok: false, error: "round_ended" };
   }
 
   const playerEntry = nick ? findPlayerByNick(room, nick) : null;
@@ -3387,6 +3405,9 @@ async function startRoundForRoom(room) {
     planUsed?.type === "target_long" || planUsed?.type === "target_score"
       ? 90 * 1000
       : room.config.durationMs;
+  const roundIntroMs = Math.max(0, ROUND_INTRO_DURATION_MS);
+  const roundStartsAt = now + roundIntroMs;
+  const roundEndsAt = roundStartsAt + roundDurationMs;
 
   if (botManager?.refreshPresenceForRoom) {
     botManager.refreshPresenceForRoom(room);
@@ -3395,9 +3416,11 @@ async function startRoundForRoom(room) {
   room.currentRound = {
     id: roundId,
     grid,
-    endsAt: now + roundDurationMs,
+    startsAt: roundStartsAt,
+    endsAt: roundEndsAt,
     durationMs: roundDurationMs,
-    status: "running",
+    introMs: roundIntroMs,
+    status: roundIntroMs > 0 ? "intro" : "running",
     timers: [],
     special: planUsed,
     quality,
@@ -3481,49 +3504,24 @@ async function startRoundForRoom(room) {
     roundId,
     planUsed?.label || ""
   );
-
-  io.to(room.id).emit("roundStarted", {
-    roomId: room.id,
-    roundId,
-    grid,
-    gridSize: room.config.gridSize,
-    durationMs: room.currentRound.durationMs,
-    endsAt: room.currentRound.endsAt,
-    targetLength: room.currentRound.targetLength || null,
-    targetHintScheduleMs: Array.isArray(room.currentRound.targetHintScheduleMs)
-      ? room.currentRound.targetHintScheduleMs
-      : [],
-    special: planUsed?.isSpecial ? planUsed : null,
-    gridQuality: quality
-      ? {
-          words: quality.words ?? 0,
-          maxLen: quality.maxLen ?? 0,
-          maxPts:
-            planUsed?.type === "bonus_letter"
-              ? room.bestPossibleStats.maxPts || 0
-              : planUsed?.fixedWordScore || quality.maxPts || 0,
-          totalPts: quality.totalPts ?? 0,
-          possibleScore:
-            planUsed?.type === "bonus_letter"
-              ? room.bestPossibleStats.totalPts || quality.possibleScore || quality.totalPts || 0
-              : quality.possibleScore ?? quality.totalPts ?? 0,
-          longWords: quality.longWords ?? 0,
-        }
-      : null,
-    roundNumber,
-    tournament: {
-      id: room.tournament.id,
-      round: tournamentRound,
-      totalRounds: room.tournament.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
-      isFinalRound: tournamentRound === (room.tournament.totalRounds || TOURNAMENT_TOTAL_ROUNDS),
-      nextRound: nextTournamentRound,
-      nextStartsNewTournament:
-        tournamentRound === (room.tournament.totalRounds || TOURNAMENT_TOTAL_ROUNDS),
-    },
-    nextSpecial: nextPlan?.isSpecial ? nextPlan : null,
-  });
+  const roundStartedPayload = buildRoundStartedPayload(room);
+  if (roundStartedPayload) {
+    io.to(room.id).emit("roundStarted", roundStartedPayload);
+  }
 
   broadcastProvisionalRanking(room, { force: true });
+
+  if (roundIntroMs > 0) {
+    const roundActivationId = roundId;
+    room.currentRound.timers.push(
+      setTimeout(() => {
+        if (!room.currentRound || room.currentRound.id !== roundActivationId) return;
+        if (room.currentRound.status === "running") return;
+        room.currentRound.status = "running";
+        broadcastProvisionalRanking(room, { force: true });
+      }, roundIntroMs)
+    );
+  }
 
   // IMPORTANT: doit venir APRES "roundStarted", car le client purge son flux a la reception.
   if (
@@ -3607,7 +3605,7 @@ async function startRoundForRoom(room) {
     };
 
     if (hintScheduleMs.length > 0) {
-      room.currentRound.timers.push(setTimeout(emitHint, hintScheduleMs[0]));
+      room.currentRound.timers.push(setTimeout(emitHint, roundIntroMs + hintScheduleMs[0]));
     }
 
     for (let i = 1; i < hintScheduleMs.length; i += 1) {
@@ -3625,7 +3623,7 @@ async function startRoundForRoom(room) {
           group.forEach((idx) => revealed.add(idx));
           room.currentRound.targetRevealed = revealed;
           emitHint();
-        }, tMs)
+        }, roundIntroMs + tMs)
       );
     }
   }
@@ -3634,8 +3632,9 @@ async function startRoundForRoom(room) {
     const botKickoffRoundId = roundId;
     const kickoff = setTimeout(() => {
       if (!room.currentRound || room.currentRound.id !== botKickoffRoundId) return;
+      if (room.currentRound.status !== "running") return;
       botManager.onRoundStart(room);
-    }, 1500);
+    }, roundIntroMs + 1500);
     room.currentRound.timers.push(kickoff);
   }
 
@@ -3644,7 +3643,7 @@ async function startRoundForRoom(room) {
       type: "timer",
       text: "Il ne reste plus que 30 secondes !",
     });
-  }, Math.max(0, roundDurationMs - 30 * 1000));
+  }, Math.max(0, roundIntroMs + roundDurationMs - 30 * 1000));
 
   room.finalFightScheduled = setTimeout(() => {
     const ranking = getFullRanking(room);
@@ -3661,19 +3660,25 @@ async function startRoundForRoom(room) {
         });
       }
     }
-  }, Math.max(0, roundDurationMs - 20 * 1000));
+  }, Math.max(0, roundIntroMs + roundDurationMs - 20 * 1000));
 
   room.currentRound.timers.push(
     setTimeout(() => {
       endRoundForRoom(room).catch((err) =>
         console.warn("endRoundForRoom failed", err)
       );
-    }, roundDurationMs)
+    }, roundIntroMs + roundDurationMs)
   );
 }
 
 async function endRoundForRoom(room) {
-  if (!room || !room.currentRound || room.currentRound.status !== "running") return;
+  if (
+    !room ||
+    !room.currentRound ||
+    (room.currentRound.status !== "running" && room.currentRound.status !== "intro")
+  ) {
+    return;
+  }
   clearPendingRankingBroadcast(room);
   if (room.currentRound.timers) {
     room.currentRound.timers.forEach((t) => clearTimeout(t));
@@ -3864,7 +3869,17 @@ async function endRoundForRoom(room) {
     const pointsMultiplier = isFinalRound ? 2 : 1;
     targetPointsMultiplier = pointsMultiplier;
     for (const entry of results) {
-      if (!t.totals.has(entry.nick)) t.totals.set(entry.nick, { points: 0, gobbles: 0 });
+      const prev = t.totals.get(entry.nick) || {
+        points: 0,
+        gobbles: 0,
+        roundScoreSum: 0,
+      };
+      const roundScore = Math.max(0, Number(entry?.score) || 0);
+      t.totals.set(entry.nick, {
+        points: prev.points || 0,
+        gobbles: prev.gobbles || 0,
+        roundScoreSum: (prev.roundScoreSum || 0) + roundScore,
+      });
     }
 
     if (isTargetRound) {
@@ -3885,8 +3900,12 @@ async function endRoundForRoom(room) {
         const totalEarned = basePts;
         roundAwarded.set(nick, { points: basePts, gobbles, total: totalEarned });
         t.lastAwarded.set(nick, { points: basePts, gobbles });
-        const prev = t.totals.get(nick) || { points: 0, gobbles: 0 };
-        t.totals.set(nick, { points: (prev.points || 0) + basePts, gobbles: prev.gobbles || 0 });
+        const prev = t.totals.get(nick) || { points: 0, gobbles: 0, roundScoreSum: 0 };
+        t.totals.set(nick, {
+          points: (prev.points || 0) + basePts,
+          gobbles: prev.gobbles || 0,
+          roundScoreSum: prev.roundScoreSum || 0,
+        });
       }
     } else {
       let pos = 1;
@@ -3906,10 +3925,11 @@ async function endRoundForRoom(room) {
           roundAwarded.set(entry.nick, { points: basePts, gobbles, total: totalEarned });
           t.lastAwarded.set(entry.nick, { points: basePts, gobbles });
 
-          const prev = t.totals.get(entry.nick) || { points: 0, gobbles: 0 };
+          const prev = t.totals.get(entry.nick) || { points: 0, gobbles: 0, roundScoreSum: 0 };
           t.totals.set(entry.nick, {
             points: (prev.points || 0) + basePts,
             gobbles: (prev.gobbles || 0) + gobbles,
+            roundScoreSum: prev.roundScoreSum || 0,
           });
         }
 
@@ -4010,10 +4030,11 @@ async function endRoundForRoom(room) {
 
   let totalRanking = [];
   if (t && tournamentId && t.id === tournamentId) {
-    totalRanking = Array.from(t.totals.entries())
+    const rankingCore = Array.from(t.totals.entries())
       .map(([nick, data]) => {
         const basePoints = data?.points || 0;
         const gobbles = data?.gobbles || 0;
+        const roundScoreSum = data?.roundScoreSum || 0;
         const points = basePoints + gobbles;
         const installId = getInstallIdForNick(room, nick);
         return {
@@ -4021,6 +4042,7 @@ async function endRoundForRoom(room) {
           points,
           basePoints,
           gobbles,
+          roundScoreSum,
           team: getTeamForInstallCached(installId),
           isBot: isBotNick(room, nick),
           isDailyChampion: isDailyChampionInstallId(installId),
@@ -4031,13 +4053,45 @@ async function endRoundForRoom(room) {
         if (diff !== 0) return diff;
         const gdiff = (b.gobbles || 0) - (a.gobbles || 0);
         if (gdiff !== 0) return gdiff;
+        const scoreTieDiff = (b.roundScoreSum || 0) - (a.roundScoreSum || 0);
+        if (scoreTieDiff !== 0) return scoreTieDiff;
         return (a.nick || "").localeCompare(b.nick || "");
-      })
+      });
+    const tieMetaByNick = new Map();
+    const groupsByPrimary = new Map();
+    rankingCore.forEach((entry) => {
+      const key = `${Number(entry?.points) || 0}|${Number(entry?.gobbles) || 0}`;
+      const group = groupsByPrimary.get(key) || [];
+      group.push(entry);
+      groupsByPrimary.set(key, group);
+    });
+    groupsByPrimary.forEach((group) => {
+      if (!Array.isArray(group) || group.length <= 1) return;
+      const uniqueRoundScores = new Set(
+        group.map((entry) => Number(entry?.roundScoreSum) || 0)
+      );
+      const tieBreakBy = uniqueRoundScores.size > 1 ? "round_score_sum" : "alphabetical";
+      group.forEach((entry) => {
+        tieMetaByNick.set(entry.nick, {
+          tieGroupSize: group.length,
+          tieBreakBy,
+        });
+      });
+    });
+    totalRanking = rankingCore
       .map((entry, idx) => {
         const posNow = idx + 1;
         const prevPos = t.prevPositions.get(entry.nick);
         const delta = typeof prevPos === "number" ? prevPos - posNow : 0;
-        return { ...entry, pos: posNow, delta };
+        const tieMeta = tieMetaByNick.get(entry.nick) || null;
+        return {
+          ...entry,
+          pos: posNow,
+          delta,
+          tieGroupSize: tieMeta?.tieGroupSize || 0,
+          tieBreakBy: tieMeta?.tieBreakBy || null,
+          tieBreakRoundScore: Number(entry?.roundScoreSum) || 0,
+        };
       });
 
     t.prevPositions = new Map(totalRanking.map((e) => [e.nick, e.pos]));
@@ -4144,7 +4198,11 @@ async function endRoundForRoom(room) {
         ? Object.fromEntries(
             Array.from(t.totals.entries()).map(([nick, data]) => [
               nick,
-              { points: data?.points || 0, gobbles: data?.gobbles || 0 },
+              {
+                points: data?.points || 0,
+                gobbles: data?.gobbles || 0,
+                roundScoreSum: data?.roundScoreSum || 0,
+              },
             ])
           )
         : {},
@@ -4391,60 +4449,13 @@ io.on("connection", (socket) => {
     emitRoomsStats();
     socket.emit("chat:history", room.chatMessages);
 
-    if (room.currentRound && room.currentRound.status === "running") {
+    if (room.currentRound && isRoundActive(room.currentRound)) {
       ensurePlayerInRound(room, trimmed);
-      const currentQuality = room.currentRound.quality;
 
-      const totalRounds = room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
-      const currentTournamentRound = room.currentRound.tournamentRound || 1;
-      const nextTournamentRound =
-        currentTournamentRound >= totalRounds ? 1 : currentTournamentRound + 1;
-      const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
-
-      socket.emit("roundStarted", {
-        roomId: room.id,
-        roundId: room.currentRound.id,
-        grid: room.currentRound.grid,
-        gridSize: room.config.gridSize,
-        durationMs: room.currentRound.durationMs,
-        endsAt: room.currentRound.endsAt,
-        targetLength: room.currentRound.targetLength || null,
-        targetHintScheduleMs: Array.isArray(room.currentRound.targetHintScheduleMs)
-          ? room.currentRound.targetHintScheduleMs
-          : [],
-        special: room.currentRound.special?.isSpecial ? room.currentRound.special : null,
-        gridQuality: currentQuality
-          ? {
-              words: currentQuality.words ?? 0,
-              maxLen: currentQuality.maxLen ?? 0,
-              maxPts:
-                room.currentRound.special?.type === "bonus_letter"
-                  ? room.bestPossibleStats?.maxPts || currentQuality.maxPts || 0
-                  : room.currentRound.special?.fixedWordScore ||
-                    currentQuality.maxPts ||
-                    0,
-              totalPts: currentQuality.totalPts ?? 0,
-              possibleScore:
-                room.currentRound.special?.type === "bonus_letter"
-                  ? room.bestPossibleStats?.totalPts ||
-                    currentQuality.possibleScore ||
-                    currentQuality.totalPts ||
-                    0
-                  : currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
-              longWords: currentQuality.longWords ?? 0,
-            }
-          : null,
-        roundNumber: room.currentRound.roundNumber,
-        tournament: {
-          id: room.tournament?.id || null,
-          round: currentTournamentRound,
-          totalRounds,
-          isFinalRound: currentTournamentRound === totalRounds,
-          nextRound: nextTournamentRound,
-          nextStartsNewTournament: currentTournamentRound === totalRounds,
-        },
-        nextSpecial: nextPlan?.isSpecial ? nextPlan : null,
-      });
+      const roundStartedPayload = buildRoundStartedPayload(room);
+      if (roundStartedPayload) {
+        socket.emit("roundStarted", roundStartedPayload);
+      }
 
       // Si on rejoint en cours de manche "cible", renvoyer l'etat courant de l'indice
       // (sinon le joueur ne verra le pattern qu'au hint suivant).
@@ -4452,8 +4463,9 @@ io.on("connection", (socket) => {
       const isTargetRound = specialType === "target_long" || specialType === "target_score";
       if (isTargetRound && typeof room.currentRound.targetWord === "string" && room.currentRound.targetWord) {
         const startedAt =
-          (room.currentRound.endsAt || Date.now()) -
-          (room.currentRound.durationMs || room.config.durationMs || 0);
+          (Number.isFinite(room.currentRound.startsAt) ? room.currentRound.startsAt : null) ||
+          ((room.currentRound.endsAt || Date.now()) -
+            (room.currentRound.durationMs || room.config.durationMs || 0));
         const elapsed = Date.now() - startedAt;
         const targetHintScheduleMs =
           Array.isArray(room.currentRound.targetHintScheduleMs) &&

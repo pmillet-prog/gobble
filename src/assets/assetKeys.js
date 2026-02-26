@@ -4,6 +4,7 @@ export const IMAGE_KEYS = {
   gobblarsBadge: "img_gobblars_badge",
   bigwords: {
     gobble: "img_bigwords_gobble",
+    doubleGobble: "img_bigwords_double_gobble",
     epique: "img_bigwords_epique",
     enorme: "img_bigwords_enorme",
     excellent: "img_bigwords_excellent",

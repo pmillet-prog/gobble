@@ -1502,7 +1502,7 @@ const NICK_MAX_LEN = 25;
 const RESERVATION_MS = 3 * 60 * 1000; // pseudo réservé après déco
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 5;
-const MIN_WORDS_BY_SIZE = { 4: 120, 5 : 100 }; 
+const MIN_WORDS_BY_SIZE = { 4: 150, 5: 150 };
 const MAX_QUALITY_ATTEMPTS = 50;
 const SPECIAL_ROUND_EVERY = 5;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
@@ -4101,7 +4101,6 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 rooms.forEach((room) => startRoundForRoom(room));
-
 
 
 
