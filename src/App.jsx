@@ -5381,6 +5381,8 @@ export default function App() {
   const gameViewportFreezeHeightRef = useRef(0);
   const mobileGameViewportLockRef = useRef({ width: 0, height: 0 });
   const chatDesktopListRef = useRef(null);
+  const chatDesktopAutoScrollRafRef = useRef(null);
+  const chatDesktopAutoScrollTimersRef = useRef([]);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
   const isChatClosingRef = useRef(isChatClosing);
@@ -7005,16 +7007,74 @@ export default function App() {
     };
   }, [isMobileLayout, chatMessages.length]);
 
+  const clearDesktopChatAutoScroll = React.useCallback(() => {
+    if (typeof window !== "undefined" && chatDesktopAutoScrollRafRef.current != null) {
+      window.cancelAnimationFrame(chatDesktopAutoScrollRafRef.current);
+    }
+    chatDesktopAutoScrollRafRef.current = null;
+    chatDesktopAutoScrollTimersRef.current.forEach((id) => clearTimeout(id));
+    chatDesktopAutoScrollTimersRef.current = [];
+  }, []);
+
+  const scheduleDesktopChatAutoScroll = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (isMobileLayoutRef.current) return;
+    const scrollToBottom = () => {
+      const listEl = chatDesktopListRef.current;
+      if (!listEl) return;
+      const target = Math.max(0, listEl.scrollHeight - listEl.clientHeight);
+      listEl.scrollTop = target;
+    };
+    clearDesktopChatAutoScroll();
+    scrollToBottom();
+    const raf1 = window.requestAnimationFrame(() => {
+      scrollToBottom();
+      const raf2 = window.requestAnimationFrame(scrollToBottom);
+      chatDesktopAutoScrollRafRef.current = raf2;
+    });
+    chatDesktopAutoScrollRafRef.current = raf1;
+    [80, 180, 320].forEach((delayMs) => {
+      const id = setTimeout(scrollToBottom, delayMs);
+      chatDesktopAutoScrollTimersRef.current.push(id);
+    });
+  }, [clearDesktopChatAutoScroll]);
+
+  useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (isMobileLayout) return;
     const el = chatDesktopListRef.current;
     if (!el) return;
-    const rafId = window.requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
+    const safeTab = chatTab === "system" ? "system" : "messages";
+    const blockedSet = new Set(
+      Array.isArray(blockedInstallIds) ? blockedInstallIds : []
+    );
+    const activeMessages = (Array.isArray(chatMessages) ? chatMessages : []).filter((msg) => {
+      const authorInstallId = typeof msg?.installId === "string" ? msg.installId : "";
+      if (authorInstallId && blockedSet.has(authorInstallId)) return false;
+      const isSystem = isSystemChatMessage(msg);
+      return safeTab === "system" ? isSystem : !isSystem;
     });
-    return () => window.cancelAnimationFrame(rafId);
-  }, [isMobileLayout, chatTab, chatMessages.length, blockedInstallIds.length]);
+    if (!activeMessages.length) return;
+    scheduleDesktopChatAutoScroll();
+  }, [isMobileLayout, chatTab, chatMessages, blockedInstallIds, scheduleDesktopChatAutoScroll]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isMobileLayout) return;
+    if (isDailyPlay) return;
+    const listEl = chatDesktopListRef.current;
+    if (!listEl) return;
+    scheduleDesktopChatAutoScroll();
+  }, [
+    isMobileLayout,
+    isDailyPlay,
+    isLoggedIn,
+    phase,
+    appView,
+    scheduleDesktopChatAutoScroll,
+  ]);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -10620,11 +10680,13 @@ export default function App() {
     function onChatHistory(history = []) {
       if (!Array.isArray(history)) return;
       setChatMessages((prev) => capChatMessagesByType([...prev, ...history]));
+      scheduleDesktopChatAutoScroll();
     }
 
     function onChatNew(msg) {
       if (!msg || typeof msg !== "object") return;
       setChatMessages((prev) => capChatMessagesByType([...prev, msg]));
+      scheduleDesktopChatAutoScroll();
       if (isSystemChatMessage(msg)) return;
 
       const authorInstallId =
@@ -14285,6 +14347,19 @@ export default function App() {
     setServerStatus("running");
     setConnectionError("");
     setPhase("playing");
+    if (!isMobileLayoutRef.current) {
+      setActiveArea("game");
+      const chatEl = chatInputRef.current;
+      if (
+        chatEl &&
+        typeof document !== "undefined" &&
+        document.activeElement === chatEl
+      ) {
+        try {
+          chatEl.blur();
+        } catch (_) {}
+      }
+    }
   }
 
   useEffect(() => {
@@ -15415,10 +15490,9 @@ export default function App() {
     setCurrentTiles((prev) => {
       const next = [...prev, label];
       currentTilesRef.current = next;
-      if (next.length === 1) {
-        tileStepRef.current = 0;
-        playTileStepSound(0);
-      }
+      const step = Math.max(0, next.length - 1);
+      tileStepRef.current = step;
+      playTileStepSound(step);
 
       const raw = normalizeWord(next.join(""));
       if (!raw) return prev;
@@ -16383,7 +16457,7 @@ function handleTouchEnd(e) {
   }
 
   function submit()  {
-  if (inputLocked) return;
+  if (inputLockedRef.current) return;
   if (typeof window !== "undefined") {
     window.scrollTo(0, 0);
   }
@@ -19771,6 +19845,7 @@ function handleTouchEnd(e) {
     const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
     const tieBreakRoundScore = Number(entry?.tieBreakRoundScore);
     const showTieBreakBadge =
+      entry?.showTieBreakBadge === true &&
       entry?.tieBreakBy === "round_score_sum" &&
       Number(entry?.tieGroupSize) > 1 &&
       Number.isFinite(tieBreakRoundScore);
@@ -26201,6 +26276,7 @@ function handleTouchEnd(e) {
             ? e.tieBreakBy
             : null,
         tieGroupSize: Number(e.tieGroupSize) || 0,
+        showTieBreakBadge: true,
         delta,
         isDailyChampion: !!e.isDailyChampion,
       };
@@ -29076,7 +29152,7 @@ function handleTouchEnd(e) {
           <div
             ref={chatDesktopListRef}
             className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
-            style={{ overscrollBehavior: "contain" }}
+            style={{ overscrollBehavior: "contain", overflowAnchor: "none" }}
           >
             {visibleMessages.length === 0 ? (
               <div className="text-sm text-slate-400 text-center mt-4">
