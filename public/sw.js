@@ -1,4 +1,4 @@
-const SW_VERSION = "v4";
+const SW_VERSION = "v5";
 const CACHE_PREFIX = "gobble-cache";
 const MEDIA_CACHE = `${CACHE_PREFIX}-media-${SW_VERSION}`;
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${SW_VERSION}`;
