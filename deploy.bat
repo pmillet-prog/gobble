@@ -22,7 +22,7 @@ if !errorlevel! == 0 (
   )
 )
 
-git push
+git push origin HEAD:main
 if !errorlevel! neq 0 (
   echo ERREUR: git push a echoue
   pause
