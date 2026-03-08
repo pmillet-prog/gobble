@@ -11,6 +11,7 @@ import { randomUUID } from "crypto";
 
 import {
   generateGrid,
+  MOVABLE_BONUS_KEYS,
   scoreWordOnGrid,
   scoreWordOnGridWithPath,
   solveGrid,
@@ -71,6 +72,8 @@ import {
 } from "./stats/dailyMedalsService.js";
 import {
   addDaysToDateId,
+  DAILY_MONSTROUS_MODE,
+  DAILY_SPECIAL_MODE,
   ensureDaily,
   getDailyBoard,
   getDailyHistory,
@@ -324,8 +327,14 @@ function sanitizeDailyNick(raw) {
   return trimmed.slice(0, DAILY_NICK_MAX_LEN);
 }
 
-async function runDailyStartFlow({ installId, pseudo }) {
-  const result = await startDailyAttempt(null, installId, pseudo);
+function sanitizeDailyMode(raw) {
+  return String(raw || "").trim() === DAILY_SPECIAL_MODE
+    ? DAILY_SPECIAL_MODE
+    : DAILY_MONSTROUS_MODE;
+}
+
+async function runDailyStartFlow({ installId, pseudo, dailyMode }) {
+  const result = await startDailyAttempt(null, installId, pseudo, { dailyMode });
   if (!result?.ok) return result;
   await refreshInstallDuelCache(installId);
   const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
@@ -337,6 +346,9 @@ async function runDailySubmitFlow({
   installId,
   pseudo,
   foundWords,
+  wordSubmissions,
+  specialPlacements,
+  dailyMode,
   durationMs,
 }) {
   const result = await submitDailyResult({
@@ -344,6 +356,9 @@ async function runDailySubmitFlow({
     installId,
     pseudo,
     foundWords,
+    wordSubmissions,
+    specialPlacements,
+    dailyMode,
     durationMs,
     dictionary,
   });
@@ -432,10 +447,11 @@ app.get("/api/daily/history", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
   const rawDays = Number(req.query?.days);
+  const installId = normalizeInstallId(req.query?.installId);
   const days = Number.isFinite(rawDays)
     ? Math.min(30, Math.max(1, Math.round(rawDays)))
     : 7;
-  const payload = await getDailyHistory({ days });
+  const payload = await getDailyHistory({ days, installId, dictionary });
   const safeDays = Array.isArray(payload?.days) ? payload.days : [];
   const enrichedDays = [];
   for (const day of safeDays) {
@@ -464,11 +480,12 @@ app.post("/api/daily/start", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const installId = normalizeInstallId(req.body?.installId);
   const pseudo = sanitizeDailyNick(req.body?.pseudo || "");
+  const dailyMode = sanitizeDailyMode(req.body?.dailyMode);
   if (!installId || !pseudo) {
     res.status(400);
     return res.json({ ok: false, error: "bad_request" });
   }
-  const result = await runDailyStartFlow({ installId, pseudo });
+  const result = await runDailyStartFlow({ installId, pseudo, dailyMode });
   if (!result.ok) {
     if (result.error === "already_played") {
       res.status(409);
@@ -489,6 +506,7 @@ app.post("/api/daily/submit", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const installId = normalizeInstallId(req.body?.installId);
   const pseudo = sanitizeDailyNick(req.body?.pseudo || "");
+  const dailyMode = sanitizeDailyMode(req.body?.dailyMode);
   if (!installId || !pseudo) {
     res.status(400);
     return res.json({ ok: false, error: "bad_request" });
@@ -498,6 +516,9 @@ app.post("/api/daily/submit", async (req, res) => {
     installId,
     pseudo,
     foundWords: req.body?.foundWords,
+    wordSubmissions: req.body?.wordSubmissions,
+    specialPlacements: req.body?.specialPlacements,
+    dailyMode,
     durationMs: req.body?.durationMs,
   });
   if (!result.ok) {
@@ -925,6 +946,19 @@ const ROUND_INTRO_DURATION_MS = 6900; // Intro visuelle avant manche jouable (3.
 const MAX_CHAT_HISTORY = 200;
 const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
+const CHAT_REPLY_TEXT_MAX_LEN = 280;
+const CHAT_MESSAGE_TEXT_MAX_LEN = 300;
+const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
+const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
+  "👍",
+  "❤️",
+  "😂",
+  "😮",
+  "😢",
+  "🔥",
+  "👏",
+  "🎉",
+]);
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
 const MIN_WORDS_BY_SIZE = { 4: 150, 5: 150 };
@@ -981,6 +1015,8 @@ const TARGET_HINT_SCORE_DEFAULT_SECONDS =
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
+const SELF_SPECIAL_3_WORDS_TYPE = "self_specials_3_words";
+const SELF_SPECIAL_3_WORDS_WORD_TARGET = 3;
 // Dev-only: force alternance "meilleur mot" / "mot le plus long" pour tests.
 // Active via env GOBBLE_FORCE_TARGET_SPECIALS=1/true/on ou NODE_ENV=development.
 const FORCE_TARGET_SPECIALS_LOCAL = (() => {
@@ -1511,11 +1547,26 @@ function buildBonusLetterTournamentPlan(tournamentRound, roomConfig) {
   };
 }
 
+function buildSelfSpecial3WordsTournamentPlan(tournamentRound, roomConfig) {
+  const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
+  return {
+    ...base,
+    isSpecial: true,
+    type: SELF_SPECIAL_3_WORDS_TYPE,
+    label: "3 mots",
+    description:
+      "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+    disableBonuses: true,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+  };
+}
+
 function buildTournamentSpecials(roomConfig) {
   const specials = new Map();
   const factories = [
     (round) => buildSpeedTournamentPlan(round, roomConfig),
     (round) => buildMonstrousTournamentPlan(round, roomConfig),
+    (round) => buildSelfSpecial3WordsTournamentPlan(round, roomConfig),
     (round) => buildTargetLongTournamentPlan(round, roomConfig),
     (round) => buildTargetScoreTournamentPlan(round, roomConfig),
     (round) => buildBonusLetterTournamentPlan(round, roomConfig),
@@ -1576,6 +1627,9 @@ function buildSpecialWarning(plan) {
   }
   if (plan.type === "monstrous") {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (grosse grille à mots longs)`;
+  }
+  if (plan.type === SELF_SPECIAL_3_WORDS_TYPE) {
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (3 mots, tuiles de départ différentes)`;
   }
   return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label}`;
 }
@@ -1862,6 +1916,7 @@ function buildRoundStartedPayload(room) {
   const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
   const currentQuality = round.quality;
   const isBonusLetterRound = round.special?.type === "bonus_letter";
+  const isSpecial3WordsRound = round.special?.type === "self_specials_3_words";
   const bonusBestPts = Number(room?.bestPossibleStats?.maxPts) || 0;
   const bonusPossibleScore = Number(room?.bestPossibleStats?.totalPts) || 0;
 
@@ -1892,6 +1947,11 @@ function buildRoundStartedPayload(room) {
           maxPts:
             isBonusLetterRound
               ? bonusBestPts || currentQuality.maxPts || 0
+              : isSpecial3WordsRound
+              ? Number(currentQuality?.special3Words?.maxPts) ||
+                Number(room?.bestPossibleStats?.maxPts) ||
+                currentQuality.maxPts ||
+                0
               : round.special?.fixedWordScore || currentQuality.maxPts || 0,
           totalPts: currentQuality.totalPts ?? 0,
           possibleScore:
@@ -1962,12 +2022,30 @@ function buildSessionSnapshot(room, player) {
   let score = 0;
   let words = [];
   let participated = false;
+  let special3Words = null;
   if (hasActiveRound) {
     const roundSubs = room.submissions.get(round.id) || null;
     const playerRound = roundSubs ? roundSubs.get(player.nick) : null;
     score = playerRound?.score || 0;
     words = Array.from(playerRound?.words || []);
     participated = hasPlayerActivity(playerRound);
+    if (playerRound?.specialWordSlots || playerRound?.specialPlacements) {
+      special3Words = {
+        wordSlots: Array.isArray(playerRound?.specialWordSlots)
+          ? playerRound.specialWordSlots.map((slot) => ({
+              id: slot?.id ?? null,
+              word: slot?.word || "",
+              display: slot?.display || "",
+              path: Array.isArray(slot?.path) ? slot.path : [],
+              pts: Number.isFinite(slot?.pts) ? slot.pts : null,
+            }))
+          : [],
+        specialPlacements:
+          playerRound?.specialPlacements && typeof playerRound.specialPlacements === "object"
+            ? playerRound.specialPlacements
+            : {},
+      };
+    }
   } else if (room.lastRoundResults?.payload?.results) {
     const entry = room.lastRoundResults.payload.results.find((r) => r.nick === player.nick);
     if (entry) {
@@ -1984,6 +2062,7 @@ function buildSessionSnapshot(room, player) {
     participated,
     team: getTeamForInstallCached(player.installId),
     isDailyChampion: isDailyChampionInstallId(player.installId),
+    special3Words,
   };
 
   return {
@@ -2167,6 +2246,191 @@ async function refreshConnectedPlayersDuelCache() {
   }
 }
 
+function normalizeChatReactionEmoji(raw) {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value) return "";
+  return CHAT_REACTION_ALLOWED_EMOJIS.has(value) ? value : "";
+}
+
+function normalizeChatReactions(rawReactions) {
+  if (!rawReactions || typeof rawReactions !== "object" || Array.isArray(rawReactions)) {
+    return {};
+  }
+  const normalized = {};
+  for (const [rawEmoji, rawUsers] of Object.entries(rawReactions)) {
+    const emoji = normalizeChatReactionEmoji(rawEmoji);
+    if (!emoji) continue;
+    const usersArray = Array.isArray(rawUsers) ? rawUsers : [];
+    const seenInstallIds = new Set();
+    const users = [];
+    for (const user of usersArray) {
+      const installId = normalizeInstallId(user?.installId);
+      if (!installId || seenInstallIds.has(installId)) continue;
+      const nick = typeof user?.nick === "string" ? user.nick.trim().slice(0, NICK_MAX_LEN) : "";
+      seenInstallIds.add(installId);
+      users.push({
+        installId,
+        nick: nick || "Anonyme",
+      });
+      if (users.length >= CHAT_REACTION_MAX_USERS_PER_EMOJI) break;
+    }
+    if (users.length > 0) normalized[emoji] = users;
+  }
+  return normalized;
+}
+
+function isSystemChatEntry(entry) {
+  return (
+    entry?.type === "system" ||
+    entry?.channel === "system" ||
+    String(entry?.nick || entry?.author || "").trim().toLowerCase() === "système" ||
+    String(entry?.nick || entry?.author || "").trim().toLowerCase() === "systeme" ||
+    String(entry?.nick || entry?.author || "").trim().toLowerCase() === "system"
+  );
+}
+
+function buildChatReplyPreviewFromMessage(message) {
+  if (!message || typeof message !== "object") return null;
+  const id = typeof message.id === "string" ? message.id.trim() : "";
+  if (!id) return null;
+  const nick = String(message.nick || message.author || "Anonyme")
+    .trim()
+    .slice(0, NICK_MAX_LEN);
+  const text = String(message.text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, CHAT_REPLY_TEXT_MAX_LEN);
+  if (!text) return null;
+  return {
+    id,
+    nick: nick || "Anonyme",
+    installId: normalizeInstallId(message.installId) || null,
+    text,
+    t: Number(message.t) || Date.now(),
+  };
+}
+
+function resolveReplyPreviewFromPayload(room, rawReplyTo) {
+  if (!room || !rawReplyTo || typeof rawReplyTo !== "object") return null;
+  const targetId = typeof rawReplyTo.id === "string" ? rawReplyTo.id.trim() : "";
+  if (!targetId) return null;
+  const source = Array.isArray(room.chatMessages)
+    ? room.chatMessages.find((entry) => entry?.id === targetId)
+    : null;
+  if (!source || isSystemChatEntry(source)) return null;
+  return buildChatReplyPreviewFromMessage(source);
+}
+
+function updateChatMessageReactions(room, { messageId, emoji, installId, nick }) {
+  if (!room || typeof messageId !== "string" || !messageId.trim()) {
+    return { ok: false, error: "invalid_message_id" };
+  }
+  const targetId = messageId.trim();
+  const selectedEmoji = normalizeChatReactionEmoji(emoji);
+  if (!selectedEmoji) {
+    return { ok: false, error: "invalid_emoji" };
+  }
+  const safeInstallId = normalizeInstallId(installId);
+  if (!safeInstallId) {
+    return { ok: false, error: "invalid_install_id" };
+  }
+  const safeNick = typeof nick === "string" ? nick.trim().slice(0, NICK_MAX_LEN) : "";
+  const list = Array.isArray(room.chatMessages) ? room.chatMessages : [];
+  const target = list.find((entry) => entry?.id === targetId);
+  if (!target || isSystemChatEntry(target)) {
+    return { ok: false, error: "message_not_found" };
+  }
+
+  const reactions = normalizeChatReactions(target.reactions);
+  let hadSameReaction = false;
+  Object.keys(reactions).forEach((reactionEmoji) => {
+    const before = reactions[reactionEmoji];
+    const filtered = before.filter((user) => user.installId !== safeInstallId);
+    if (reactionEmoji === selectedEmoji && filtered.length !== before.length) {
+      hadSameReaction = true;
+    }
+    if (filtered.length) reactions[reactionEmoji] = filtered;
+    else delete reactions[reactionEmoji];
+  });
+
+  if (!hadSameReaction) {
+    const users = Array.isArray(reactions[selectedEmoji]) ? reactions[selectedEmoji] : [];
+    users.push({
+      installId: safeInstallId,
+      nick: safeNick || "Anonyme",
+    });
+    reactions[selectedEmoji] = users.slice(-CHAT_REACTION_MAX_USERS_PER_EMOJI);
+  }
+
+  const normalized = normalizeChatReactions(reactions);
+  const hasReactions = Object.keys(normalized).length > 0;
+  if (hasReactions) target.reactions = normalized;
+  else delete target.reactions;
+  target.reactionsUpdatedAt = Date.now();
+
+  return {
+    ok: true,
+    message: target,
+    reactions: hasReactions ? normalized : {},
+  };
+}
+
+function updateChatMessageText(room, { messageId, installId, text }) {
+  if (!room || typeof messageId !== "string" || !messageId.trim()) {
+    return { ok: false, error: "invalid_message_id" };
+  }
+  const targetId = messageId.trim();
+  const safeInstallId = normalizeInstallId(installId);
+  if (!safeInstallId) {
+    return { ok: false, error: "invalid_install_id" };
+  }
+  const trimmedText = typeof text === "string" ? text.trim() : "";
+  if (!trimmedText) {
+    return { ok: false, error: "empty_text" };
+  }
+  if (trimmedText.length > CHAT_MESSAGE_TEXT_MAX_LEN) {
+    return { ok: false, error: "text_too_long" };
+  }
+
+  const list = Array.isArray(room.chatMessages) ? room.chatMessages : [];
+  const target = list.find((entry) => entry?.id === targetId);
+  if (!target || isSystemChatEntry(target)) {
+    return { ok: false, error: "message_not_found" };
+  }
+  if (normalizeInstallId(target.installId) !== safeInstallId) {
+    return { ok: false, error: "forbidden" };
+  }
+  target.text = trimmedText;
+  target.editedAt = Date.now();
+  return { ok: true, message: target };
+}
+
+function deleteChatMessage(room, { messageId, installId }) {
+  if (!room || typeof messageId !== "string" || !messageId.trim()) {
+    return { ok: false, error: "invalid_message_id" };
+  }
+  const targetId = messageId.trim();
+  const safeInstallId = normalizeInstallId(installId);
+  if (!safeInstallId) {
+    return { ok: false, error: "invalid_install_id" };
+  }
+  const list = Array.isArray(room.chatMessages) ? room.chatMessages : [];
+  const targetIndex = list.findIndex((entry) => entry?.id === targetId);
+  if (targetIndex < 0) {
+    return { ok: false, error: "message_not_found" };
+  }
+  const target = list[targetIndex];
+  if (!target || isSystemChatEntry(target)) {
+    return { ok: false, error: "message_not_found" };
+  }
+  if (normalizeInstallId(target.installId) !== safeInstallId) {
+    return { ok: false, error: "forbidden" };
+  }
+  list.splice(targetIndex, 1);
+  room.chatMessages = list;
+  return { ok: true, messageId: targetId, deletedAt: Date.now() };
+}
+
 function pushChatMessage(room, message) {
   if (!room || !message || typeof message !== "object") return;
   const prevMessages = Array.isArray(room.chatMessages) ? room.chatMessages : [];
@@ -2187,12 +2451,7 @@ function pushChatMessage(room, message) {
   const system = [];
   for (let i = deduped.length - 1; i >= 0; i -= 1) {
     const entry = deduped[i];
-    const isSystem =
-      entry?.type === "system" ||
-      entry?.channel === "system" ||
-      String(entry?.nick || entry?.author || "").trim().toLowerCase() === "système" ||
-      String(entry?.nick || entry?.author || "").trim().toLowerCase() === "systeme" ||
-      String(entry?.nick || entry?.author || "").trim().toLowerCase() === "system";
+    const isSystem = isSystemChatEntry(entry);
     if (isSystem) {
       if (system.length < MAX_SYSTEM_CHAT_HISTORY) system.push(entry);
       continue;
@@ -2335,6 +2594,65 @@ function getSpecialScoreConfig(round) {
     };
   }
   return null;
+}
+
+function normalizeSpecial3Placements(rawPlacements, totalCells) {
+  const placements = {};
+  const occupied = new Set();
+  const source =
+    rawPlacements && typeof rawPlacements === "object" && !Array.isArray(rawPlacements)
+      ? rawPlacements
+      : {};
+  for (const bonus of MOVABLE_BONUS_KEYS) {
+    const rawIdx = source?.[bonus];
+    const idx =
+      Number.isInteger(rawIdx)
+        ? rawIdx
+        : typeof rawIdx === "string" && /^-?\d+$/.test(rawIdx)
+        ? Number(rawIdx)
+        : NaN;
+    if (!Number.isInteger(idx)) continue;
+    if (idx < 0 || idx >= totalCells) continue;
+    if (occupied.has(idx)) continue;
+    occupied.add(idx);
+    placements[bonus] = idx;
+  }
+  return placements;
+}
+
+function applySpecial3Placements(grid, placements) {
+  const base = Array.isArray(grid)
+    ? grid.map((cell) => ({
+        letter: cell?.letter || "?",
+        bonus: null,
+      }))
+    : [];
+  const safePlacements = normalizeSpecial3Placements(placements, base.length);
+  for (const bonus of MOVABLE_BONUS_KEYS) {
+    const idx = safePlacements[bonus];
+    if (!Number.isInteger(idx) || !base[idx]) continue;
+    base[idx] = { ...base[idx], bonus };
+  }
+  return { board: base, placements: safePlacements };
+}
+
+function normalizeSpecial3WordSlots(rawSlots) {
+  if (!Array.isArray(rawSlots)) return [];
+  return rawSlots.slice(0, SELF_SPECIAL_3_WORDS_WORD_TARGET).map((slot, idx) => ({
+    id: idx,
+    word: normalizeWord(String(slot?.word || "")),
+    display: String(slot?.display || slot?.word || "").trim(),
+    path: Array.isArray(slot?.path)
+      ? slot.path
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0)
+      : [],
+  }));
+}
+
+function getSpecial3WordStartTile(path) {
+  const first = Array.isArray(path) ? Number(path[0]) : NaN;
+  return Number.isInteger(first) && first >= 0 ? first : null;
 }
 
 function computeWordScoreForRound(round, norm, path, defaultPts) {
@@ -2512,6 +2830,9 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
 
   const roundSpecialType = room.currentRound?.special?.type;
   const isTargetRound = roundSpecialType === "target_long" || roundSpecialType === "target_score";
+  if (roundSpecialType === SELF_SPECIAL_3_WORDS_TYPE) {
+    return { ok: false, error: "special3_use_state_sync" };
+  }
   if (roundSpecialType === "target_long" || roundSpecialType === "target_score") {
     if (room.currentRound?.targetFoundAt?.has?.(resolvedNick)) {
       return { ok: false, error: "already_found" };
@@ -2871,6 +3192,134 @@ function submitWordForNick(room, { roundId, word, path, nick }) {
   return { ok: true, score: data.score, wordScore: wordPts };
 }
 
+function updateSpecial3WordsState(room, { roundId, nick, wordSlots, specialPlacements }) {
+  if (!room) return { ok: false, error: "invalid_room" };
+  if (!room.currentRound || room.currentRound.id !== roundId) {
+    return { ok: false, error: "round_invalid" };
+  }
+  if (room.currentRound.status !== "running") {
+    return { ok: false, error: "round_not_started" };
+  }
+  if (room.currentRound?.special?.type !== SELF_SPECIAL_3_WORDS_TYPE) {
+    return { ok: false, error: "invalid_special_round" };
+  }
+
+  const playerEntry = nick ? findPlayerByNick(room, nick) : null;
+  const resolvedNick = playerEntry?.player?.nick || nick;
+  if (!resolvedNick) {
+    return { ok: false, error: "not_logged_in" };
+  }
+
+  const roundSubs = room.submissions.get(roundId);
+  if (!roundSubs) {
+    return { ok: false, error: "no_round_subs" };
+  }
+
+  let data = roundSubs.get(resolvedNick);
+  if (!data) {
+    data = { words: new Set(), score: 0, wordTimes: new Map() };
+    roundSubs.set(resolvedNick, data);
+  }
+
+  const normalizedSlots = normalizeSpecial3WordSlots(wordSlots);
+  const { board: scoringBoard, placements } = applySpecial3Placements(
+    room.currentRound.grid,
+    specialPlacements
+  );
+  const existingTimes = data.wordTimes instanceof Map ? data.wordTimes : new Map();
+  const nextTimes = new Map();
+  const usedWords = new Set();
+  const usedStartTiles = new Set();
+  const validatedSlots = [];
+  let score = 0;
+  let warning = null;
+
+  for (const slot of normalizedSlots) {
+    const word = slot.word;
+    if (!word) {
+      validatedSlots.push({ ...slot, word: "", display: "", path: [], pts: null });
+      continue;
+    }
+    if (usedWords.has(word)) {
+      warning = warning || "duplicate_word";
+      validatedSlots.push({ ...slot, word: "", display: "", path: [], pts: null });
+      continue;
+    }
+    const startTile = getSpecial3WordStartTile(slot.path);
+    if (startTile != null && usedStartTiles.has(startTile)) {
+      warning = warning || "duplicate_start_tile";
+      validatedSlots.push({ ...slot, word: "", display: "", path: [], pts: null });
+      continue;
+    }
+    const scored =
+      Array.isArray(slot.path) && slot.path.length > 0
+        ? scoreWordOnGridWithPath(word, scoringBoard, slot.path, null)
+        : null;
+    if (!scored) {
+      warning = warning || "invalid_word";
+      validatedSlots.push({ ...slot, word: "", display: "", path: [], pts: null });
+      continue;
+    }
+    usedWords.add(word);
+    if (startTile != null) usedStartTiles.add(startTile);
+    nextTimes.set(word, existingTimes.get(word) || Date.now());
+    score += scored.pts || 0;
+    validatedSlots.push({
+      ...slot,
+      word,
+      display: String(slot.display || word).trim() || word.toUpperCase(),
+      path: Array.isArray(scored.path) ? [...scored.path] : [],
+      pts: scored.pts || 0,
+    });
+  }
+
+  while (validatedSlots.length < SELF_SPECIAL_3_WORDS_WORD_TARGET) {
+    validatedSlots.push({
+      id: validatedSlots.length,
+      word: "",
+      display: "",
+      path: [],
+      pts: null,
+    });
+  }
+
+  data.words = new Set(validatedSlots.map((slot) => slot.word).filter(Boolean));
+  data.wordTimes = nextTimes;
+  data.score = score;
+  data.specialPlacements = placements;
+  data.specialWordSlots = validatedSlots.map((slot) => ({
+    id: slot.id,
+    word: slot.word,
+    display: slot.display,
+    path: Array.isArray(slot.path) ? [...slot.path] : [],
+    pts: Number.isFinite(slot.pts) ? slot.pts : null,
+  }));
+
+  const liveResults = [];
+  for (const [entryNick, entryData] of roundSubs.entries()) {
+    liveResults.push({
+      nick: entryNick,
+      words: Array.from(entryData?.words || []),
+      specialPlacements:
+        entryData?.specialPlacements && typeof entryData.specialPlacements === "object"
+          ? entryData.specialPlacements
+          : null,
+    });
+  }
+  recomputeRoundGobblesFromResults(room, liveResults);
+
+  broadcastProvisionalRanking(room);
+
+  return {
+    ok: true,
+    score,
+    words: Array.from(data.words),
+    specialPlacements: placements,
+    wordSlots: data.specialWordSlots,
+    warning,
+  };
+}
+
 function analyzeGridQuality(grid, minWords = 0, opts = {}) {
   if (!dictionary) {
     return {
@@ -3025,6 +3474,7 @@ function computeRoundWordLeaders(round, results) {
   const board = round.grid;
   if (!board || board.length === 0) return null;
   const scoreConfig = getSpecialScoreConfig(round);
+  const specialType = round?.special?.type;
 
   let bestPts = -Infinity;
   let bestWord = null;
@@ -3035,8 +3485,12 @@ function computeRoundWordLeaders(round, results) {
 
   for (const entry of results) {
     const words = Array.isArray(entry.words) ? entry.words : [];
+    const scoringBoard =
+      specialType === SELF_SPECIAL_3_WORDS_TYPE
+        ? applySpecial3Placements(board, entry?.specialPlacements).board
+        : board;
     for (const raw of words) {
-      const scored = scoreWordOnGrid(raw, board, scoreConfig);
+      const scored = scoreWordOnGrid(raw, scoringBoard, scoreConfig);
       if (!scored) continue;
       const pts = computeWordScoreForRound(round, scored.norm, scored.path, scored.pts);
       const wordTs =
@@ -3112,11 +3566,15 @@ function recomputeRoundGobblesFromResults(room, results) {
     if (!nick) continue;
     const words = Array.isArray(entry?.words) ? entry.words : [];
     if (!words.length) continue;
+    const scoringBoard =
+      specialType === SELF_SPECIAL_3_WORDS_TYPE
+        ? applySpecial3Placements(board, entry?.specialPlacements).board
+        : board;
 
     let hasScoreGobble = false;
     let hasLenGobble = false;
     for (const raw of words) {
-      const scored = scoreWordOnGrid(raw, board, scoreConfig);
+      const scored = scoreWordOnGrid(raw, scoringBoard, scoreConfig);
       if (!scored) continue;
       const pts = computeWordScoreForRound(
         room.currentRound,
@@ -3401,10 +3859,7 @@ async function startRoundForRoom(room) {
   const quality = prepared?.quality || null;
   const now = Date.now();
   const roundId = now;
-  const roundDurationMs =
-    planUsed?.type === "target_long" || planUsed?.type === "target_score"
-      ? 90 * 1000
-      : room.config.durationMs;
+  const roundDurationMs = planUsed?.isSpecial ? 90 * 1000 : room.config.durationMs;
   const roundIntroMs = Math.max(0, ROUND_INTRO_DURATION_MS);
   const roundStartsAt = now + roundIntroMs;
   const roundEndsAt = roundStartsAt + roundDurationMs;
@@ -3464,6 +3919,12 @@ async function startRoundForRoom(room) {
       : { maxLen: 0, maxPts: 0, totalPts: 0 };
     if (planUsed?.fixedWordScore) {
       bestPossibleStats.maxPts = planUsed.fixedWordScore;
+    }
+    if (planUsed?.type === "self_specials_3_words") {
+      const special3MaxPts = Number(quality?.special3Words?.maxPts);
+      if (Number.isFinite(special3MaxPts) && special3MaxPts > 0) {
+        bestPossibleStats.maxPts = special3MaxPts;
+      }
     }
     if (planUsed?.type === "bonus_letter" && planUsed?.bonusLetter && dictionary) {
       const scoreConfig = getSpecialScoreConfigFromPlan(planUsed);
@@ -3542,6 +4003,8 @@ async function startRoundForRoom(room) {
         ? `MANCHE SPECIALE : ${planUsed.label} - tous les mots valent ${planUsed.fixedWordScore} pts`
         : planUsed.type === "monstrous"
         ? `MANCHE SPECIALE : ${planUsed.label} - gros potentiel de points et de mots longs`
+        : planUsed.type === SELF_SPECIAL_3_WORDS_TYPE
+        ? `MANCHE SPECIALE : ${planUsed.label} - place les bonus et garde 3 mots avec des tuiles de départ différentes`
         : planUsed.type === "target_long"
         ? `MANCHE SPECIALE : ${planUsed.label} - objectif: trouver le mot le plus long`
         : planUsed.type === "target_score"
@@ -3736,6 +4199,11 @@ async function endRoundForRoom(room) {
       score: data.score,
       words: rawWords,
       wordTimes,
+      specialPlacements:
+        data?.specialPlacements && typeof data.specialPlacements === "object"
+          ? data.specialPlacements
+          : null,
+      specialWordSlots: Array.isArray(data?.specialWordSlots) ? data.specialWordSlots : null,
       uniqueWords,
       newVocabWords: [],
       installId: player?.installId || null,
@@ -4583,6 +5051,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
+    const replyTo = isPayloadObject ? resolveReplyPreviewFromPayload(room, payload.replyTo) : null;
     const message = {
       id: randomUUID(),
       t: Date.now(),
@@ -4593,8 +5062,200 @@ io.on("connection", (socket) => {
       team: getTeamForInstallCached(installId),
       isDailyChampion: isDailyChampionInstallId(installId),
     };
+    if (replyTo) {
+      message.replyTo = replyTo;
+    }
     pushChatMessage(room, message);
     cb?.({ ok: true });
+  });
+
+  socket.on("chat:react", (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    if (!payload || typeof payload !== "object") {
+      cb?.({ ok: false, error: "invalid_payload" });
+      return;
+    }
+    const roomIdFromPayload =
+      typeof payload.roomId === "string" && payload.roomId.trim() ? payload.roomId.trim() : null;
+    const room = getRoom(
+      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
+    );
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const messageId = typeof payload.messageId === "string" ? payload.messageId.trim() : "";
+    const emoji = normalizeChatReactionEmoji(payload.emoji);
+    if (!messageId || !emoji) {
+      cb?.({ ok: false, error: "invalid_payload" });
+      return;
+    }
+
+    const player = room.players.get(socket.id);
+    const lobbyNick = typeof payload.nick === "string" ? payload.nick.trim() : "";
+    const isLobbyPayload = !player && payload?.lobby === true;
+    const authorNick = (player?.nick || lobbyNick || socket.data?.chatNick || "").trim();
+    if (!authorNick) {
+      cb?.({ ok: false, error: "empty_nick" });
+      return;
+    }
+    if (authorNick.length > NICK_MAX_LEN) {
+      cb?.({ ok: false, error: "nick_too_long" });
+      return;
+    }
+    const installId = normalizeInstallId(
+      player?.installId ||
+        socket.data?.installId ||
+        payload.installId ||
+        socket.data?.chatInstallId
+    );
+    if (!installId) {
+      cb?.({ ok: false, error: "invalid_install_id" });
+      return;
+    }
+    if (isInstallIdMuted(installId)) {
+      cb?.({ ok: false, error: "muted" });
+      return;
+    }
+    if (isLobbyPayload) {
+      socket.data.chatInstallId = installId;
+      socket.data.chatNick = authorNick;
+      socket.data.chatRoomId = room.id;
+      socket.join(room.id);
+    } else if (!player && !socket.data?.chatInstallId) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+
+    const result = updateChatMessageReactions(room, {
+      messageId,
+      emoji,
+      installId,
+      nick: authorNick,
+    });
+    if (!result.ok) {
+      cb?.({ ok: false, error: result.error || "reaction_failed" });
+      return;
+    }
+
+    io.to(room.id).emit("chat:message_reaction", {
+      roomId: room.id,
+      messageId,
+      reactions: result.reactions,
+      updatedAt: result.message?.reactionsUpdatedAt || Date.now(),
+    });
+    cb?.({ ok: true, reactions: result.reactions });
+  });
+
+  socket.on("chat:edit", (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    if (!payload || typeof payload !== "object") {
+      cb?.({ ok: false, error: "invalid_payload" });
+      return;
+    }
+    const roomIdFromPayload =
+      typeof payload.roomId === "string" && payload.roomId.trim() ? payload.roomId.trim() : null;
+    const room = getRoom(
+      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
+    );
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const player = room.players.get(socket.id);
+    const isLobbyPayload = !player && payload?.lobby === true;
+    const installId = normalizeInstallId(
+      player?.installId ||
+        socket.data?.installId ||
+        payload.installId ||
+        socket.data?.chatInstallId
+    );
+    if (!installId) {
+      cb?.({ ok: false, error: "invalid_install_id" });
+      return;
+    }
+    if (isLobbyPayload) {
+      socket.data.chatInstallId = installId;
+      socket.data.chatRoomId = room.id;
+      socket.join(room.id);
+    } else if (!player && !socket.data?.chatInstallId) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const result = updateChatMessageText(room, {
+      messageId: payload.messageId,
+      installId,
+      text: payload.text,
+    });
+    if (!result.ok) {
+      cb?.({ ok: false, error: result.error || "edit_failed" });
+      return;
+    }
+    io.to(room.id).emit("chat:message_update", {
+      roomId: room.id,
+      message: result.message,
+    });
+    cb?.({ ok: true, message: result.message });
+  });
+
+  socket.on("chat:delete", (payload, cb) => {
+    if (typeof payload === "function") {
+      cb = payload;
+      payload = null;
+    }
+    if (!payload || typeof payload !== "object") {
+      cb?.({ ok: false, error: "invalid_payload" });
+      return;
+    }
+    const roomIdFromPayload =
+      typeof payload.roomId === "string" && payload.roomId.trim() ? payload.roomId.trim() : null;
+    const room = getRoom(
+      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
+    );
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const player = room.players.get(socket.id);
+    const isLobbyPayload = !player && payload?.lobby === true;
+    const installId = normalizeInstallId(
+      player?.installId ||
+        socket.data?.installId ||
+        payload.installId ||
+        socket.data?.chatInstallId
+    );
+    if (!installId) {
+      cb?.({ ok: false, error: "invalid_install_id" });
+      return;
+    }
+    if (isLobbyPayload) {
+      socket.data.chatInstallId = installId;
+      socket.data.chatRoomId = room.id;
+      socket.join(room.id);
+    } else if (!player && !socket.data?.chatInstallId) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const result = deleteChatMessage(room, {
+      messageId: payload.messageId,
+      installId,
+    });
+    if (!result.ok) {
+      cb?.({ ok: false, error: result.error || "delete_failed" });
+      return;
+    }
+    io.to(room.id).emit("chat:message_delete", {
+      roomId: room.id,
+      messageId: result.messageId,
+      deletedAt: result.deletedAt,
+    });
+    cb?.({ ok: true, messageId: result.messageId });
   });
 
   socket.on("chat:subscribe", (payload, cb) => {
@@ -4720,11 +5381,12 @@ io.on("connection", (socket) => {
     try {
       const installId = normalizeInstallId(payload?.installId || socket.data?.installId);
       const pseudo = sanitizeDailyNick(payload?.pseudo || socket.data?.nick || "");
+      const dailyMode = sanitizeDailyMode(payload?.dailyMode);
       if (!installId || !pseudo) {
         cb?.({ ok: false, error: "bad_request" });
         return;
       }
-      const result = await runDailyStartFlow({ installId, pseudo });
+      const result = await runDailyStartFlow({ installId, pseudo, dailyMode });
       if (!result || typeof result !== "object") {
         cb?.({ ok: false, error: "internal" });
         return;
@@ -4740,6 +5402,7 @@ io.on("connection", (socket) => {
     try {
       const installId = normalizeInstallId(payload?.installId || socket.data?.installId);
       const pseudo = sanitizeDailyNick(payload?.pseudo || socket.data?.nick || "");
+      const dailyMode = sanitizeDailyMode(payload?.dailyMode);
       if (!installId || !pseudo) {
         cb?.({ ok: false, error: "bad_request" });
         return;
@@ -4749,6 +5412,9 @@ io.on("connection", (socket) => {
         installId,
         pseudo,
         foundWords: payload?.foundWords,
+        wordSubmissions: payload?.wordSubmissions,
+        specialPlacements: payload?.specialPlacements,
+        dailyMode,
         durationMs: payload?.durationMs,
       });
       if (!result || typeof result !== "object") {
@@ -4760,6 +5426,22 @@ io.on("connection", (socket) => {
       console.warn("daily:submit socket failed", err);
       cb?.({ ok: false, error: "internal" });
     }
+  });
+
+  socket.on("special3Words:update", (payload, cb) => {
+    const room = getRoom(socket.roomId);
+    const player = room?.players.get(socket.id);
+    if (!room || !player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const result = updateSpecial3WordsState(room, {
+      roundId: payload?.roundId,
+      nick: player?.nick,
+      wordSlots: payload?.wordSlots,
+      specialPlacements: payload?.specialPlacements,
+    });
+    cb?.(result);
   });
 
   socket.on("submitWord", ({ roundId, word, path }, cb) => {
@@ -4889,6 +5571,7 @@ botManager = createBotManager({
   solveGrid,
   ensurePlayerInRound,
   submitWordForNick,
+  submitSpecial3WordsState: updateSpecial3WordsState,
   emitPlayers,
   emitMedals,
   broadcastProvisionalRanking,

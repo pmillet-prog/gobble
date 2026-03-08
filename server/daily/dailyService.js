@@ -2,7 +2,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { spawn } from "child_process";
-import { normalizeWord, solveGrid } from "../../shared/gameLogic.js";
+import {
+  applySeededBonuses,
+  findBestMovableBonusWord,
+  MOVABLE_BONUS_KEYS,
+  normalizeWord,
+  scoreWordOnGrid,
+  scoreWordOnGridWithPath,
+  solveGrid,
+} from "../../shared/gameLogic.js";
+import { buildDailyModeGrid, getGridLettersKey } from "./dailyGeneration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,12 +23,20 @@ const DAILY_DIR = path.join(DATA_DIR, "daily");
 const MIN_PALIER_SCORE = 2000;
 const PALIER_STEP = 500;
 const LOCK_STALE_MS = 2 * 60 * 60 * 1000;
+const DAILY_RETENTION_DAYS = 180;
+export const DAILY_SPECIAL_MODE = "self_specials_3_words";
+export const DAILY_MONSTROUS_MODE = "monstrous_grid";
+const DAILY_SPECIAL_BONUS_KEYS = Object.freeze(["L2", "L3", "M2", "M3"]);
+const DAILY_SPECIAL_WORD_TARGET = 3;
 
 const gridCache = new Map();
 const resultsCache = new Map();
 const activeGenerators = new Set();
 let championCache = null;
 let lastChampionDateId = null;
+let lastRetentionSweepDateId = null;
+let retentionSweepPromise = null;
+let dailyDictionaryCache = null;
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -74,6 +91,58 @@ async function ensureDailyDir() {
   await fs.mkdir(DAILY_DIR, { recursive: true });
 }
 
+function extractDailyStorageDateId(fileName) {
+  const match = String(fileName || "").match(
+    /^(?:daily|results)-(\d{4}-\d{2}-\d{2})\.json$|^\.gen-(\d{4}-\d{2}-\d{2})\.lock$/
+  );
+  return match?.[1] || match?.[2] || null;
+}
+
+async function sweepExpiredDailyStorage(todayDateId = getParisDateId()) {
+  const cutoffDateId = addDaysToDateId(todayDateId, -DAILY_RETENTION_DAYS);
+  let names = [];
+  try {
+    names = await fs.readdir(DAILY_DIR);
+  } catch (_) {
+    lastRetentionSweepDateId = todayDateId;
+    return;
+  }
+
+  await Promise.all(
+    names.map(async (name) => {
+      const dateId = extractDailyStorageDateId(name);
+      if (!dateId || dateId >= cutoffDateId) return;
+      const filePath = path.join(DAILY_DIR, name);
+      try {
+        await fs.unlink(filePath);
+      } catch (_) {
+        return;
+      }
+      if (name.startsWith("daily-")) {
+        gridCache.delete(dateId);
+      } else if (name.startsWith("results-")) {
+        resultsCache.delete(dateId);
+      } else if (name.startsWith(".gen-")) {
+        activeGenerators.delete(dateId);
+      }
+    })
+  );
+
+  lastRetentionSweepDateId = todayDateId;
+}
+
+async function ensureDailyStorage() {
+  await ensureDailyDir();
+  const todayDateId = getParisDateId();
+  if (lastRetentionSweepDateId === todayDateId) return;
+  if (!retentionSweepPromise) {
+    retentionSweepPromise = sweepExpiredDailyStorage(todayDateId).finally(() => {
+      retentionSweepPromise = null;
+    });
+  }
+  await retentionSweepPromise;
+}
+
 async function readJsonFile(filePath) {
   try {
     const raw = await fs.readFile(filePath, "utf8");
@@ -82,6 +151,22 @@ async function readJsonFile(filePath) {
   } catch (_) {
     return null;
   }
+}
+
+async function loadDailyDictionary() {
+  if (dailyDictionaryCache) return dailyDictionaryCache;
+  try {
+    const raw = await fs.readFile(path.join(__dirname, "../../public/dico.txt"), "utf8");
+    dailyDictionaryCache = new Set(
+      raw
+        .split(/\r?\n/)
+        .map((word) => normalizeWord(word.trim()))
+        .filter(Boolean)
+    );
+  } catch (_) {
+    dailyDictionaryCache = null;
+  }
+  return dailyDictionaryCache;
 }
 
 async function atomicWriteJson(filePath, payload) {
@@ -107,6 +192,7 @@ async function getFileStat(filePath) {
 }
 
 async function loadDailyGrid(dateId) {
+  await ensureDailyStorage();
   const filePath = dailyGridPath(dateId);
   const cached = gridCache.get(dateId);
   const stat = await getFileStat(filePath);
@@ -119,11 +205,16 @@ async function loadDailyGrid(dateId) {
   }
   const data = await readJsonFile(filePath);
   if (!data) return null;
+  const migrated = await migrateLegacyDailyGridIfNeeded(dateId, data);
+  if (migrated !== data) {
+    return migrated;
+  }
   gridCache.set(dateId, { data, mtimeMs: stat.mtimeMs });
   return data;
 }
 
 async function loadDailyResults(dateId) {
+  await ensureDailyStorage();
   const filePath = dailyResultsPath(dateId);
   const cached = resultsCache.get(dateId);
   const stat = await getFileStat(filePath);
@@ -146,7 +237,7 @@ async function loadDailyResults(dateId) {
 
 async function saveDailyResults(dateId, payload) {
   const filePath = dailyResultsPath(dateId);
-  await ensureDailyDir();
+  await ensureDailyStorage();
   await atomicWriteJson(filePath, payload);
   const stat = await getFileStat(filePath);
   if (stat) {
@@ -186,6 +277,236 @@ function buildPalierEntries(maxScore) {
   return entries;
 }
 
+function cloneGridWithoutBonuses(grid) {
+  if (!Array.isArray(grid)) return [];
+  return grid.map((cell) => ({
+    letter: cell?.letter || "?",
+    bonus: null,
+  }));
+}
+
+function cloneGridWithBonuses(grid) {
+  if (!Array.isArray(grid)) return [];
+  return grid.map((cell) => ({
+    letter: cell?.letter || "?",
+    bonus: cell?.bonus || null,
+  }));
+}
+
+function hasAnyGridBonus(grid) {
+  return Array.isArray(grid) && grid.some((cell) => typeof cell?.bonus === "string" && cell.bonus);
+}
+
+function summarizeSolvedGrid(solved) {
+  let maxLen = 0;
+  let maxPts = 0;
+  let totalPts = 0;
+  let longWords = 0;
+  for (const [word, data] of solved.entries()) {
+    const len = word.length;
+    const pts = Number(data?.pts) || 0;
+    if (len > maxLen) maxLen = len;
+    if (pts > maxPts) maxPts = pts;
+    totalPts += pts;
+    if (len >= 8) longWords += 1;
+  }
+  return {
+    words: solved.size,
+    maxLen,
+    maxPts,
+    totalPts,
+    longWords,
+  };
+}
+
+async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
+  if (!payload || typeof payload !== "object") return payload;
+  if (!Array.isArray(payload.grid) || payload.grid.length === 0) return payload;
+  const needsMonstrousBonusRepair =
+    !hasAnyGridBonus(payload.grid) && Number.isFinite(payload.seed);
+  const needsSpecialGrid = !Array.isArray(payload.specialGrid) || payload.specialGrid.length === 0;
+  if (!needsMonstrousBonusRepair && !needsSpecialGrid) return payload;
+
+  const migratedGrid = needsMonstrousBonusRepair
+    ? applySeededBonuses(payload.grid, payload.seed, MOVABLE_BONUS_KEYS)
+    : cloneGridWithBonuses(payload.grid);
+  const dictionary = await loadDailyDictionary();
+  let gridQuality =
+    payload.gridQuality && typeof payload.gridQuality === "object"
+      ? { ...payload.gridQuality }
+      : {};
+  if (dictionary && dictionary.size > 0) {
+    const monstrousSolved = solveGrid(migratedGrid, dictionary);
+    const baseGrid = cloneGridWithoutBonuses(migratedGrid);
+    const bestMovableBonus =
+      monstrousSolved.size > 0 ? findBestMovableBonusWord(baseGrid, monstrousSolved.keys()) : null;
+    gridQuality = {
+      ...gridQuality,
+      ...summarizeSolvedGrid(monstrousSolved),
+      special3Words: bestMovableBonus
+        ? {
+            maxPts: Number(bestMovableBonus.pts) || 0,
+            bestWord: bestMovableBonus.word || null,
+            bestPath: Array.isArray(bestMovableBonus.path) ? bestMovableBonus.path : [],
+            bestPlacements:
+              bestMovableBonus.placements && typeof bestMovableBonus.placements === "object"
+                ? bestMovableBonus.placements
+                : null,
+          }
+        : null,
+    };
+  }
+
+  let specialEntry = null;
+  if (needsSpecialGrid && dictionary && dictionary.size > 0) {
+    try {
+      specialEntry = buildDailyModeGrid(dateId, DAILY_SPECIAL_MODE, dictionary, {
+        avoidGridKey: getGridLettersKey(cloneGridWithoutBonuses(migratedGrid)),
+      });
+    } catch (_) {
+      specialEntry = null;
+    }
+  }
+
+  const migrated = {
+    ...payload,
+    grid: migratedGrid,
+    gridQuality,
+    specialSeed: specialEntry?.seed ?? payload.specialSeed ?? null,
+    specialGridSize: specialEntry?.gridSize ?? payload.specialGridSize ?? payload.gridSize ?? 4,
+    specialGrid: specialEntry?.grid ?? payload.specialGrid ?? null,
+    specialWordCount: specialEntry?.wordCount ?? payload.specialWordCount ?? null,
+    specialLongestWordLen:
+      specialEntry?.longestWordLen ?? payload.specialLongestWordLen ?? null,
+    specialGridQuality: specialEntry?.gridQuality ?? payload.specialGridQuality ?? null,
+  };
+
+  try {
+    const filePath = dailyGridPath(dateId);
+    await atomicWriteJson(filePath, migrated);
+    const stat = await getFileStat(filePath);
+    if (stat) {
+      gridCache.set(dateId, { data: migrated, mtimeMs: stat.mtimeMs });
+    }
+  } catch (_) {}
+
+  return migrated;
+}
+
+function normalizeDailyMode(rawMode) {
+  return String(rawMode || "").trim() === DAILY_SPECIAL_MODE
+    ? DAILY_SPECIAL_MODE
+    : DAILY_MONSTROUS_MODE;
+}
+
+function getDailyModeGridEntry(payload, mode = DAILY_MONSTROUS_MODE) {
+  const safeMode = normalizeDailyMode(mode);
+  if (safeMode === DAILY_SPECIAL_MODE) {
+    if (Array.isArray(payload?.specialGrid) && payload.specialGrid.length > 0) {
+      return {
+        seed: payload?.specialSeed ?? payload?.seed ?? null,
+        gridSize: payload?.specialGridSize ?? payload?.gridSize ?? 4,
+        grid: payload.specialGrid,
+        wordCount: payload?.specialWordCount ?? null,
+        longestWordLen: payload?.specialLongestWordLen ?? null,
+        gridQuality: payload?.specialGridQuality ?? null,
+      };
+    }
+  }
+  return {
+    seed: payload?.seed ?? null,
+    gridSize: payload?.gridSize ?? 4,
+    grid: Array.isArray(payload?.grid) ? payload.grid : [],
+    wordCount: payload?.wordCount ?? null,
+    longestWordLen: payload?.longestWordLen ?? null,
+    gridQuality: payload?.gridQuality ?? null,
+  };
+}
+
+function hasDailyModeGrid(payload, mode = DAILY_MONSTROUS_MODE) {
+  const entry = getDailyModeGridEntry(payload, mode);
+  return Array.isArray(entry?.grid) && entry.grid.length > 0;
+}
+
+function normalizeDailySpecialPlacements(rawPlacements, totalCells) {
+  const placements = {};
+  const occupied = new Set();
+  const source =
+    rawPlacements && typeof rawPlacements === "object" && !Array.isArray(rawPlacements)
+      ? rawPlacements
+      : {};
+  for (const bonus of DAILY_SPECIAL_BONUS_KEYS) {
+    const idx = Number(source?.[bonus]);
+    if (!Number.isInteger(idx)) continue;
+    if (idx < 0 || idx >= totalCells) continue;
+    if (occupied.has(idx)) continue;
+    occupied.add(idx);
+    placements[bonus] = idx;
+  }
+  return placements;
+}
+
+function applyDailySpecialPlacements(grid, placements) {
+  const base = cloneGridWithoutBonuses(grid);
+  const total = base.length;
+  const safePlacements = normalizeDailySpecialPlacements(placements, total);
+  for (const bonus of DAILY_SPECIAL_BONUS_KEYS) {
+    const idx = safePlacements[bonus];
+    if (!Number.isInteger(idx) || !base[idx]) continue;
+    base[idx] = { ...base[idx], bonus };
+  }
+  return { board: base, placements: safePlacements };
+}
+
+function normalizeDailyWordSubmissions(raw, limit = DAILY_SPECIAL_WORD_TARGET) {
+  if (!Array.isArray(raw)) return [];
+  const hasExplicitLimit = Number.isFinite(limit);
+  const safeLimit = hasExplicitLimit
+    ? Math.max(1, Math.round(limit || DAILY_SPECIAL_WORD_TARGET))
+    : Number.POSITIVE_INFINITY;
+  const out = [];
+  for (let i = 0; i < raw.length && out.length < safeLimit; i += 1) {
+    const entry = raw[i];
+    if (!entry || typeof entry !== "object") continue;
+    const word = normalizeWord(String(entry.word || ""));
+    if (!word || word.length < 2) continue;
+    const path = Array.isArray(entry.path)
+      ? entry.path
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0)
+      : null;
+    out.push({ word, path });
+  }
+  return out;
+}
+
+function normalizeDailyStoredWords(raw) {
+  if (!Array.isArray(raw)) return [];
+  return Array.from(
+    new Set(
+      raw
+        .map((word) => normalizeWord(String(word || "")))
+        .filter((word) => word && word.length >= 2)
+    )
+  );
+}
+
+function getDailySpecialWordStartTile(path) {
+  const first = Array.isArray(path) ? Number(path[0]) : NaN;
+  return Number.isInteger(first) && first >= 0 ? first : null;
+}
+
+function buildDailyHistoryWordPool(gridEntry, dictionary) {
+  if (!dictionary || dictionary.size === 0) return [];
+  if (!gridEntry || !Array.isArray(gridEntry?.grid) || gridEntry.grid.length === 0) return [];
+  const solved = solveGrid(cloneGridWithoutBonuses(gridEntry.grid), dictionary);
+  return Array.from(solved.keys()).sort((a, b) => {
+    const lenDiff = String(b || "").length - String(a || "").length;
+    if (lenDiff !== 0) return lenDiff;
+    return String(a || "").localeCompare(String(b || ""), "fr", { sensitivity: "base" });
+  });
+}
+
 function computeDailyGobbles({ bestWordPts, longestWordLen }, maxWordPts, maxWordLen) {
   let gobbles = 0;
   if (
@@ -207,30 +528,71 @@ function computeDailyGobbles({ bestWordPts, longestWordLen }, maxWordPts, maxWor
   return gobbles;
 }
 
-function buildDailyBoardEntries(results, { maxWordPts = null, maxWordLen = null } = {}) {
+function resolveDailyModeThresholds(mode, thresholdsByMode = {}) {
+  const safeMode = normalizeDailyMode(mode);
+  const baseThresholds = thresholdsByMode?.[safeMode] || {};
+  return {
+    maxWordPts:
+      safeMode === DAILY_SPECIAL_MODE && Number.isFinite(baseThresholds.maxWordPtsSpecial)
+        ? baseThresholds.maxWordPtsSpecial
+        : baseThresholds.maxWordPts,
+    maxWordLen: baseThresholds.maxWordLen,
+  };
+}
+
+function getDailyGridThresholds(gridEntry = null) {
+  const gridQuality = gridEntry?.gridQuality || null;
+  const maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
+  const maxWordLen = Number.isFinite(gridQuality?.maxLen)
+    ? gridQuality.maxLen
+    : Number.isFinite(gridEntry?.longestWordLen)
+    ? gridEntry.longestWordLen
+    : null;
+  const maxWordPtsSpecial = Number.isFinite(gridQuality?.special3Words?.maxPts)
+    ? gridQuality.special3Words.maxPts
+    : null;
+  return { maxWordPts, maxWordLen, maxWordPtsSpecial };
+}
+
+function getDailyThresholdsByMode(payload = null) {
+  return {
+    [DAILY_MONSTROUS_MODE]: getDailyGridThresholds(
+      getDailyModeGridEntry(payload, DAILY_MONSTROUS_MODE)
+    ),
+    [DAILY_SPECIAL_MODE]: getDailyGridThresholds(
+      getDailyModeGridEntry(payload, DAILY_SPECIAL_MODE)
+    ),
+  };
+}
+
+function buildDailyBoardEntries(results, thresholdsByMode = {}) {
   const sorted = sortResults(results);
   const maxScore = sorted.length ? Number(sorted[0]?.score) || 0 : 0;
   const palierEntries = buildPalierEntries(maxScore);
-  const playerEntries = sorted.map((entry) => ({
-    nick: entry.pseudo || entry.nick || "Joueur",
-    score: Number(entry.score) || 0,
-    wordsCount: Number.isFinite(entry.wordCount) ? entry.wordCount : null,
-    installId: entry.installId || null,
-    submittedAt: entry.submittedAt || null,
-    gobbles: Number.isFinite(entry.gobbles)
-      ? entry.gobbles
-      : computeDailyGobbles(
-          {
-            bestWordPts: Number.isFinite(entry.bestWordPts) ? entry.bestWordPts : null,
-            longestWordLen: Number.isFinite(entry.longestWordLen)
-              ? entry.longestWordLen
-              : null,
-          },
-          maxWordPts,
-          maxWordLen
-        ),
-    isPalier: false,
-  }));
+  const playerEntries = sorted.map((entry) => {
+    const modeThresholds = resolveDailyModeThresholds(entry?.mode, thresholdsByMode);
+    return {
+      nick: entry.pseudo || entry.nick || "Joueur",
+      score: Number(entry.score) || 0,
+      wordsCount: Number.isFinite(entry.wordCount) ? entry.wordCount : null,
+      installId: entry.installId || null,
+      submittedAt: entry.submittedAt || null,
+      mode: normalizeDailyMode(entry?.mode),
+      gobbles: Number.isFinite(entry.gobbles)
+        ? entry.gobbles
+        : computeDailyGobbles(
+            {
+              bestWordPts: Number.isFinite(entry.bestWordPts) ? entry.bestWordPts : null,
+              longestWordLen: Number.isFinite(entry.longestWordLen)
+                ? entry.longestWordLen
+                : null,
+            },
+            modeThresholds.maxWordPts,
+            modeThresholds.maxWordLen
+          ),
+      isPalier: false,
+    };
+  });
   const merged = [...playerEntries, ...palierEntries];
   merged.sort((a, b) => {
     const diff = (b?.score || 0) - (a?.score || 0);
@@ -308,37 +670,69 @@ function spawnDailyGenerator(dateId) {
 
 export async function getDailyStatus(dateId, installId) {
   const safeDateId = dateId || getParisDateId();
-  const grid = await loadDailyGrid(safeDateId);
-  const ready = !!grid && Array.isArray(grid?.grid) && grid.grid.length > 0;
+  const gridPayload = await loadDailyGrid(safeDateId);
+  const ready =
+    !!gridPayload &&
+    hasDailyModeGrid(gridPayload, DAILY_MONSTROUS_MODE) &&
+    hasDailyModeGrid(gridPayload, DAILY_SPECIAL_MODE);
   let hasPlayed = false;
+  let hasPlayedMonstrous = false;
+  let hasPlayedSpecial = false;
   let myResult = null;
+  let myMonstrousResult = null;
+  let mySpecialResult = null;
   if (installId) {
     const resultsPayload = await loadDailyResults(safeDateId);
     const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
-    myResult = results.find((entry) => entry.installId === installId) || null;
+    myMonstrousResult =
+      results.find(
+        (entry) =>
+          entry.installId === installId &&
+          normalizeDailyMode(entry?.mode) === DAILY_MONSTROUS_MODE
+      ) || null;
+    mySpecialResult =
+      results.find(
+        (entry) =>
+          entry.installId === installId &&
+          normalizeDailyMode(entry?.mode) === DAILY_SPECIAL_MODE
+      ) || null;
+    myResult = myMonstrousResult;
     const attempts = resultsPayload?.attempts || {};
-    hasPlayed = !!myResult || !!attempts?.[installId];
+    const myAttempt = attempts?.[installId] || null;
+    const attemptMode = normalizeDailyMode(myAttempt?.mode);
+    hasPlayedMonstrous =
+      !!myMonstrousResult || (!!myAttempt && attemptMode === DAILY_MONSTROUS_MODE);
+    hasPlayedSpecial =
+      !!mySpecialResult || (!!myAttempt && attemptMode === DAILY_SPECIAL_MODE);
+    hasPlayed = hasPlayedMonstrous;
   }
-  return { dateId: safeDateId, ready, hasPlayed, myResult, champion: championCache };
+  return {
+    dateId: safeDateId,
+    ready,
+    hasPlayed,
+    hasPlayedMonstrous,
+    hasPlayedSpecial,
+    myResult,
+    myMonstrousResult,
+    mySpecialResult,
+    champion: championCache,
+  };
 }
 
 export async function getDailyBoard(dateId) {
   const safeDateId = dateId || getParisDateId();
-  const grid = await loadDailyGrid(safeDateId);
-  const gridQuality = grid?.gridQuality || null;
-  const maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
-  const maxWordLen = Number.isFinite(gridQuality?.maxLen)
-    ? gridQuality.maxLen
-    : Number.isFinite(grid?.longestWordLen)
-    ? grid.longestWordLen
-    : null;
-  const ready = !!grid && Array.isArray(grid?.grid) && grid.grid.length > 0;
+  const gridPayload = await loadDailyGrid(safeDateId);
+  const thresholdsByMode = getDailyThresholdsByMode(gridPayload);
+  const ready =
+    !!gridPayload &&
+    hasDailyModeGrid(gridPayload, DAILY_MONSTROUS_MODE) &&
+    hasDailyModeGrid(gridPayload, DAILY_SPECIAL_MODE);
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
   return {
     dateId: safeDateId,
     ready,
-    entries: buildDailyBoardEntries(results, { maxWordPts, maxWordLen }),
+    entries: buildDailyBoardEntries(results, thresholdsByMode),
     totalPlayers: results.length,
   };
 }
@@ -351,6 +745,7 @@ export async function getDailyResultsSnapshot(dateId) {
     dateId: safeDateId,
     results: sortResults(results).map((entry) => ({
       installId: entry?.installId || null,
+      mode: normalizeDailyMode(entry?.mode),
       nick: entry?.pseudo || entry?.nick || "Joueur",
       score: Number(entry?.score) || 0,
       wordCount: Number.isFinite(entry?.wordCount) ? entry.wordCount : null,
@@ -360,38 +755,50 @@ export async function getDailyResultsSnapshot(dateId) {
   };
 }
 
-function buildDailyTopEntries(results, limit = 10, { maxWordPts = null, maxWordLen = null } = {}) {
-  const entries = buildDailyBoardEntries(results, { maxWordPts, maxWordLen }).filter(
-    (entry) => !entry?.isPalier
-  );
-  return entries.slice(0, Math.max(1, limit));
-}
-
-export async function getDailyHistory({ days = 7 } = {}) {
+export async function getDailyHistory({ days = 7, installId = null, dictionary = null } = {}) {
   const safeDays = Math.min(30, Math.max(1, Math.round(days || 7)));
   const todayId = getParisDateId();
   const history = [];
   const crownsMap = new Map();
+  const safeInstallId = String(installId || "").trim() || null;
 
   for (let offset = 0; offset < safeDays; offset += 1) {
     const dateId = addDaysToDateId(todayId, -offset);
-    const grid = await loadDailyGrid(dateId);
-    const gridQuality = grid?.gridQuality || null;
-    const maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
-    const maxWordLen = Number.isFinite(gridQuality?.maxLen)
-      ? gridQuality.maxLen
-      : Number.isFinite(grid?.longestWordLen)
-      ? grid.longestWordLen
-      : null;
+    const gridPayload = await loadDailyGrid(dateId);
+    const thresholdsByMode = getDailyThresholdsByMode(gridPayload);
     const resultsPayload = await loadDailyResults(dateId);
     const results = Array.isArray(resultsPayload?.results) ? resultsPayload.results : [];
-    const topEntries = buildDailyTopEntries(results, 10, { maxWordPts, maxWordLen });
+    const boardEntries = buildDailyBoardEntries(results, thresholdsByMode).filter(
+      (entry) => !entry?.isPalier
+    );
+    const myResults = safeInstallId
+      ? results.filter((entry) => entry?.installId === safeInstallId)
+      : [];
+    const myWordsByMode = {
+      [DAILY_MONSTROUS_MODE]: normalizeDailyStoredWords(
+        myResults.find((entry) => normalizeDailyMode(entry?.mode) === DAILY_MONSTROUS_MODE)?.words
+      ),
+      [DAILY_SPECIAL_MODE]: normalizeDailyStoredWords(
+        myResults.find((entry) => normalizeDailyMode(entry?.mode) === DAILY_SPECIAL_MODE)?.words
+      ),
+    };
     history.push({
       dateId,
-      entries: topEntries,
+      entries: boardEntries,
       totalPlayers: results.length,
+      findableWordsByMode: {
+        [DAILY_MONSTROUS_MODE]: buildDailyHistoryWordPool(
+          getDailyModeGridEntry(gridPayload, DAILY_MONSTROUS_MODE),
+          dictionary
+        ),
+        [DAILY_SPECIAL_MODE]: buildDailyHistoryWordPool(
+          getDailyModeGridEntry(gridPayload, DAILY_SPECIAL_MODE),
+          dictionary
+        ),
+      },
+      myWordsByMode,
     });
-    const winner = topEntries[0];
+    const winner = boardEntries[0];
     const winnerNick = winner?.nick;
     if (winnerNick) {
       const current = crownsMap.get(winnerNick) || { nick: winnerNick, crowns: 0 };
@@ -409,41 +816,60 @@ export async function getDailyHistory({ days = 7 } = {}) {
   return { days: history, crownTotals };
 }
 
-export async function startDailyAttempt(dateId, installId, pseudo) {
+export async function startDailyAttempt(
+  dateId,
+  installId,
+  pseudo,
+  { dailyMode = null } = {}
+) {
   const safeDateId = dateId || getParisDateId();
-  const grid = await loadDailyGrid(safeDateId);
-  if (!grid) {
+  const safeMode = normalizeDailyMode(dailyMode);
+  const gridPayload = await loadDailyGrid(safeDateId);
+  if (!gridPayload) {
     return { ok: false, error: "not_ready", dateId: safeDateId };
   }
-  if (!Array.isArray(grid?.grid) || grid.grid.length === 0) {
+  const gridEntry = getDailyModeGridEntry(gridPayload, safeMode);
+  if (!Array.isArray(gridEntry?.grid) || gridEntry.grid.length === 0) {
     return { ok: false, error: "bad_grid", dateId: safeDateId };
   }
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
-  if (results.find((entry) => entry.installId === installId)) {
+  if (
+    results.find(
+      (entry) =>
+        entry.installId === installId && normalizeDailyMode(entry?.mode) === safeMode
+    )
+  ) {
     return { ok: false, error: "already_played", dateId: safeDateId };
   }
   const attempts = resultsPayload.attempts || {};
-  if (attempts[installId]) {
+  if (attempts[installId] && normalizeDailyMode(attempts[installId]?.mode) === safeMode) {
     return { ok: false, error: "already_played", dateId: safeDateId };
   }
   attempts[installId] = {
     pseudo: String(pseudo || "").trim().slice(0, 32),
     startedAt: Date.now(),
+    mode: safeMode,
   };
   await saveDailyResults(safeDateId, {
     dateId: safeDateId,
     results,
     attempts,
   });
+  const playGrid =
+    safeMode === DAILY_SPECIAL_MODE
+      ? cloneGridWithoutBonuses(gridEntry.grid)
+      : cloneGridWithBonuses(gridEntry.grid);
   return {
     ok: true,
     dateId: safeDateId,
-    grid: grid.grid,
-    gridSize: grid.gridSize || 4,
-    seed: grid.seed,
-    gridQuality: grid.gridQuality || null,
-    durationMs: grid.durationMs || null,
+    mode: safeMode,
+    specialTiles: DAILY_SPECIAL_BONUS_KEYS,
+    grid: playGrid,
+    gridSize: gridEntry.gridSize || 4,
+    seed: gridEntry.seed,
+    gridQuality: gridEntry.gridQuality || null,
+    durationMs: gridPayload.durationMs || null,
   };
 }
 
@@ -452,44 +878,51 @@ export async function submitDailyResult({
   installId,
   pseudo,
   foundWords,
+  wordSubmissions,
+  specialPlacements,
+  dailyMode,
   durationMs,
   dictionary,
 }) {
   const safeDateId = dateId || getParisDateId();
-  const grid = await loadDailyGrid(safeDateId);
-  if (!grid) return { ok: false, error: "not_ready", dateId: safeDateId };
-  if (!Array.isArray(grid?.grid) || grid.grid.length === 0) {
+  const safeMode = normalizeDailyMode(dailyMode);
+  const gridPayload = await loadDailyGrid(safeDateId);
+  if (!gridPayload) return { ok: false, error: "not_ready", dateId: safeDateId };
+  const gridEntry = getDailyModeGridEntry(gridPayload, safeMode);
+  if (!Array.isArray(gridEntry?.grid) || gridEntry.grid.length === 0) {
     return { ok: false, error: "bad_grid", dateId: safeDateId };
   }
   const resultsPayload = await loadDailyResults(safeDateId);
   const results = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
-  if (results.find((entry) => entry.installId === installId)) {
+  const existingIndex = results.findIndex(
+    (entry) =>
+      entry.installId === installId && normalizeDailyMode(entry?.mode) === safeMode
+  );
+  if (existingIndex >= 0) {
     return { ok: false, error: "already_played", dateId: safeDateId };
   }
   if (!dictionary || dictionary.size === 0) {
     return { ok: false, error: "no_dictionary", dateId: safeDateId };
   }
 
-  const wordsRaw = Array.isArray(foundWords) ? foundWords : [];
-  const uniqueWords = Array.from(
-    new Set(
-      wordsRaw
-        .map((word) => normalizeWord(String(word || "")))
-        .filter((word) => word && word.length >= 3)
-    )
+  const baseGrid = cloneGridWithBonuses(gridEntry.grid);
+  const scoringGrid =
+    safeMode === DAILY_SPECIAL_MODE
+      ? applyDailySpecialPlacements(cloneGridWithoutBonuses(baseGrid), specialPlacements).board
+      : baseGrid;
+  const solved = solveGrid(scoringGrid, dictionary);
+  const submittedWords = normalizeDailyWordSubmissions(
+    wordSubmissions,
+    safeMode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_WORD_TARGET : null
   );
-  const solved = solveGrid(grid.grid, dictionary);
   let score = 0;
   let wordCount = 0;
   let longestWordLen = 0;
   let bestWordPts = 0;
-  const gridQuality = grid?.gridQuality || null;
-  let maxWordPts = Number.isFinite(gridQuality?.maxPts) ? gridQuality.maxPts : null;
-  let maxWordLen = Number.isFinite(gridQuality?.maxLen)
-    ? gridQuality.maxLen
-    : Number.isFinite(grid?.longestWordLen)
-    ? grid.longestWordLen
-    : null;
+  const validatedWords = [];
+  const thresholdsByMode = getDailyThresholdsByMode(gridPayload);
+  let { maxWordPts, maxWordLen, maxWordPtsSpecial } =
+    thresholdsByMode[safeMode] || getDailyGridThresholds(gridEntry);
   if (!Number.isFinite(maxWordPts) || !Number.isFinite(maxWordLen)) {
     let fallbackMaxPts = 0;
     let fallbackMaxLen = 0;
@@ -502,29 +935,98 @@ export async function submitDailyResult({
     if (!Number.isFinite(maxWordPts)) maxWordPts = fallbackMaxPts;
     if (!Number.isFinite(maxWordLen)) maxWordLen = fallbackMaxLen;
   }
-  for (const word of uniqueWords) {
-    const data = solved.get(word);
-    if (!data) continue;
-    score += data.pts || 0;
-    wordCount += 1;
-    if ((data?.pts || 0) > bestWordPts) bestWordPts = data?.pts || 0;
-    if (word.length > longestWordLen) longestWordLen = word.length;
+  if (submittedWords.length > 0) {
+    const seen = new Set();
+    const seenStartTiles = new Set();
+    for (const item of submittedWords) {
+      const word = item.word;
+      if (!word || seen.has(word)) continue;
+      const submittedStartTile = getDailySpecialWordStartTile(item.path);
+      if (
+        safeMode === DAILY_SPECIAL_MODE &&
+        submittedStartTile != null &&
+        seenStartTiles.has(submittedStartTile)
+      ) {
+        continue;
+      }
+      if (!dictionary.has(word)) continue;
+      const scored =
+        Array.isArray(item.path) && item.path.length > 0
+          ? scoreWordOnGridWithPath(word, scoringGrid, item.path, null)
+          : scoreWordOnGrid(word, scoringGrid, null);
+      if (!scored) continue;
+      const scoredStartTile = getDailySpecialWordStartTile(scored.path);
+      if (
+        safeMode === DAILY_SPECIAL_MODE &&
+        scoredStartTile != null &&
+        seenStartTiles.has(scoredStartTile)
+      ) {
+        continue;
+      }
+      seen.add(word);
+      if (safeMode === DAILY_SPECIAL_MODE && scoredStartTile != null) {
+        seenStartTiles.add(scoredStartTile);
+      }
+      validatedWords.push(word);
+      score += scored.pts || 0;
+      wordCount += 1;
+      if ((scored?.pts || 0) > bestWordPts) bestWordPts = scored?.pts || 0;
+      if (word.length > longestWordLen) longestWordLen = word.length;
+    }
+  } else {
+    const wordsRaw = Array.isArray(foundWords) ? foundWords : [];
+    const uniqueWords = Array.from(
+      new Set(
+        wordsRaw
+          .map((word) => normalizeWord(String(word || "")))
+        .filter((word) => word && word.length >= 2)
+      )
+    );
+    const seenStartTiles = new Set();
+    for (const word of uniqueWords) {
+      const data = solved.get(word);
+      if (!data) continue;
+      const startTile = getDailySpecialWordStartTile(data.path);
+      if (
+        safeMode === DAILY_SPECIAL_MODE &&
+        startTile != null &&
+        seenStartTiles.has(startTile)
+      ) {
+        continue;
+      }
+      if (safeMode === DAILY_SPECIAL_MODE && startTile != null) {
+        seenStartTiles.add(startTile);
+      }
+      validatedWords.push(word);
+      score += data.pts || 0;
+      wordCount += 1;
+      if ((data?.pts || 0) > bestWordPts) bestWordPts = data?.pts || 0;
+      if (word.length > longestWordLen) longestWordLen = word.length;
+    }
   }
+  const modeThresholds = resolveDailyModeThresholds(safeMode, {
+    maxWordPts,
+    maxWordLen,
+    maxWordPtsSpecial,
+  });
   const gobbles = computeDailyGobbles(
     { bestWordPts, longestWordLen },
-    maxWordPts,
-    maxWordLen
+    modeThresholds.maxWordPts,
+    modeThresholds.maxWordLen
   );
 
   const submittedAt = Date.now();
   const entry = {
     installId,
     pseudo: String(pseudo || "").trim().slice(0, 32),
+    mode: safeMode,
     score,
     wordCount,
     longestWordLen,
     bestWordPts,
     gobbles,
+    words: validatedWords,
+    wordSubmissions: submittedWords,
     durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : null,
     submittedAt,
   };
@@ -544,10 +1046,12 @@ export async function submitDailyResult({
   return {
     ok: true,
     dateId: safeDateId,
+    mode: safeMode,
     score,
+    gobbles,
     rank: rank >= 0 ? rank + 1 : null,
     totalPlayers: sorted.length,
-    board: buildDailyBoardEntries(results, { maxWordPts, maxWordLen }),
+    board: buildDailyBoardEntries(results, thresholdsByMode),
   };
 }
 

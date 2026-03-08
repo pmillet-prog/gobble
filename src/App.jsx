@@ -39,6 +39,7 @@ import {
   findBestPathForWord,
   neighbors,
   normalizeWord,
+  scoreWordOnGridWithPath,
   solveAll,
   summarizeBonuses,
   tileScore,
@@ -57,12 +58,22 @@ const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const FINAL_ROUND_RESULTS_SECONDS = 20;
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
+const DAILY_SPECIAL_MODE = "self_specials_3_words";
+const DAILY_MONSTROUS_MODE = "monstrous_grid";
+const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
+const DAILY_SPECIAL_WORD_TARGET = 3;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
 const MAIN_GRID_HEIGHT = "max(360px, calc(100vh - 180px))";
-const KEYBOARD_INSET_THRESHOLD_PX = 80;
-const CHAT_SHEET_HEIGHT_RATIO = 0.8;
+const CHAT_DRAWER_FIXED_HEIGHT_RATIO = 0.58;
+const CHAT_DRAWER_MIN_HEIGHT_PX = 320;
+const CHAT_DRAWER_MAX_HEIGHT_PX = 560;
+const CHAT_DRAWER_TOP_GAP_PX = 14;
+const CHAT_DRAWER_DEVICE_CALIBRATION_STORAGE_KEY = "gobbleChatDrawerCalibration:v1";
+const CHAT_DRAWER_CALIBRATION_MIN_RATIO = 0.42;
+const CHAT_DRAWER_CALIBRATION_MAX_RATIO = 0.78;
+const CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX = 120;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
@@ -71,6 +82,9 @@ const COLUMN_HEIGHT_STYLE = {
 const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
 const DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 0.85, 1.05];
 const DESKTOP_COLUMN_MIN_WIDTHS_PX = [220, 340, 260, 260];
+const DAILY_DESKTOP_COLUMN_TEMPLATE = "1.05fr 1.6fr 1.6fr";
+const DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 1.6];
+const DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX = [220, 340, 380];
 const DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX = "gobble_desktop_cols_v1";
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
@@ -688,6 +702,14 @@ function hasCoarsePointer() {
   );
 }
 
+function hasFinePointer() {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return (
+    window.matchMedia("(pointer: fine)").matches ||
+    window.matchMedia("(any-pointer: fine)").matches
+  );
+}
+
 function computeIsMobileLayout() {
   if (typeof window === "undefined") return false;
   const { width, height } = getViewportSize();
@@ -697,7 +719,8 @@ function computeIsMobileLayout() {
     hasCoarsePointer() ||
     "ontouchstart" in window ||
     (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
-  const isTouchCompact = isTouch && minDim <= TOUCH_LAYOUT_MAX_MIN_DIM;
+  const isHybridDesktop = hasFinePointer() && width >= 900;
+  const isTouchCompact = isTouch && !isHybridDesktop && minDim <= TOUCH_LAYOUT_MAX_MIN_DIM;
   return isNarrow || isTouchCompact;
 }
 
@@ -711,8 +734,10 @@ function computeIsUltraCompact() {
     hasCoarsePointer() ||
     "ontouchstart" in window ||
     (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+  const isHybridDesktop = hasFinePointer() && width >= 900;
   return (
     isTouch &&
+    !isHybridDesktop &&
     minDim <= ULTRA_COMPACT_MAX_MIN_DIM &&
     aspect > 0 &&
     aspect <= 1.35
@@ -764,16 +789,20 @@ function clampValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function normalizeDesktopColumnFractions(rawFractions) {
-  const source = Array.isArray(rawFractions) ? rawFractions : DESKTOP_COLUMN_DEFAULT_FRACTIONS;
-  const safe = DESKTOP_COLUMN_DEFAULT_FRACTIONS.map((fallback, idx) => {
+function normalizeDesktopColumnFractions(rawFractions, defaultFractions = DESKTOP_COLUMN_DEFAULT_FRACTIONS) {
+  const safeDefaults =
+    Array.isArray(defaultFractions) && defaultFractions.length > 0
+      ? defaultFractions
+      : DESKTOP_COLUMN_DEFAULT_FRACTIONS;
+  const source = Array.isArray(rawFractions) ? rawFractions : safeDefaults;
+  const safe = safeDefaults.map((fallback, idx) => {
     const value = Number(source[idx]);
     if (!Number.isFinite(value) || value <= 0) return fallback;
     return value;
   });
   const sum = safe.reduce((acc, value) => acc + value, 0);
   if (!Number.isFinite(sum) || sum <= 0) {
-    return [...DESKTOP_COLUMN_DEFAULT_FRACTIONS];
+    return [...safeDefaults];
   }
   return safe.map((value) => value / sum);
 }
@@ -786,30 +815,82 @@ function areDesktopFractionsEqual(a, b, epsilon = 0.0005) {
   return true;
 }
 
-function readDesktopColumnFractionsForInstall(installId) {
+function readDesktopColumnFractionsForInstall(installId, storageScope, defaultFractions) {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+    return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
   }
   const key = String(installId || "").trim();
-  if (!key) return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+  const scope = String(storageScope || "live").trim() || "live";
+  if (!key) return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
   try {
-    const raw = localStorage.getItem(`${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${key}`);
-    if (!raw) return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+    const raw = localStorage.getItem(`${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${scope}:${key}`);
+    if (!raw) return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
     const parsed = JSON.parse(raw);
-    return normalizeDesktopColumnFractions(parsed);
+    return normalizeDesktopColumnFractions(parsed, defaultFractions);
   } catch (_) {
-    return normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS);
+    return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
   }
 }
 
-function writeDesktopColumnFractionsForInstall(installId, fractions) {
+function writeDesktopColumnFractionsForInstall(installId, storageScope, fractions, defaultFractions) {
   if (typeof localStorage === "undefined") return;
   const key = String(installId || "").trim();
+  const scope = String(storageScope || "live").trim() || "live";
   if (!key) return;
   try {
     localStorage.setItem(
-      `${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${key}`,
-      JSON.stringify(normalizeDesktopColumnFractions(fractions))
+      `${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${scope}:${key}`,
+      JSON.stringify(normalizeDesktopColumnFractions(fractions, defaultFractions))
+    );
+  } catch (_) {}
+}
+
+function getChatDrawerOrientationKey() {
+  if (typeof window === "undefined") return "portrait";
+  const width = Number(window.innerWidth) || 0;
+  const height = Number(window.innerHeight) || 0;
+  return width > height ? "landscape" : "portrait";
+}
+
+function readStoredChatDrawerCalibration() {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return null;
+  }
+  try {
+    const raw = localStorage.getItem(CHAT_DRAWER_DEVICE_CALIBRATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const ratio = Number(parsed?.ratio);
+    const heightPx = Number(parsed?.heightPx);
+    const orientation = String(parsed?.orientation || "").trim() || "portrait";
+    if (!Number.isFinite(ratio) || ratio <= 0) return null;
+    if (!Number.isFinite(heightPx) || heightPx <= 0) return null;
+    return {
+      ratio: clampValue(ratio, CHAT_DRAWER_CALIBRATION_MIN_RATIO, CHAT_DRAWER_CALIBRATION_MAX_RATIO),
+      heightPx: Math.max(1, Math.round(heightPx)),
+      orientation,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeStoredChatDrawerCalibration(calibration) {
+  if (typeof localStorage === "undefined") return;
+  const ratio = Number(calibration?.ratio);
+  const heightPx = Number(calibration?.heightPx);
+  const orientation = String(calibration?.orientation || "").trim() || "portrait";
+  if (!Number.isFinite(ratio) || ratio <= 0) return;
+  if (!Number.isFinite(heightPx) || heightPx <= 0) return;
+  try {
+    localStorage.setItem(
+      CHAT_DRAWER_DEVICE_CALIBRATION_STORAGE_KEY,
+      JSON.stringify({
+        ratio: clampValue(ratio, CHAT_DRAWER_CALIBRATION_MIN_RATIO, CHAT_DRAWER_CALIBRATION_MAX_RATIO),
+        heightPx: Math.max(1, Math.round(heightPx)),
+        orientation,
+        updatedAt: Date.now(),
+      })
     );
   } catch (_) {}
 }
@@ -873,6 +954,93 @@ function normalizeBonusLabel(bonus) {
   if (bonus === "W2") return "M2";
   if (bonus === "W3") return "M3";
   return bonus;
+}
+
+function createDailySpecialPlacements() {
+  return { L2: null, L3: null, M2: null, M3: null };
+}
+
+function createDailyWordSlots() {
+  return Array.from({ length: DAILY_SPECIAL_WORD_TARGET }, (_, idx) => ({
+    id: idx,
+    word: "",
+    display: "",
+    path: [],
+  }));
+}
+
+function getDailySpecialWordStartTile(path) {
+  const first = Array.isArray(path) ? Number(path[0]) : NaN;
+  return Number.isInteger(first) && first >= 0 ? first : null;
+}
+
+function getDailySpecialWordBlockedReason(word, path, slots, targetSlot) {
+  const normalized = normalizeWord(String(word || ""));
+  if (!normalized || normalized.length < 2) return "";
+  const startTile = getDailySpecialWordStartTile(path);
+  if (startTile == null) return "";
+  const list = Array.isArray(slots) ? slots : [];
+  const hasSameStartTile = list.some(
+    (slot, idx) =>
+      idx !== targetSlot && getDailySpecialWordStartTile(slot?.path) === startTile
+  );
+  return hasSameStartTile ? "Première tuile déjà utilisée" : "";
+}
+
+function stripBoardBonuses(board) {
+  if (!Array.isArray(board)) return [];
+  return board.map((cell) => ({
+    ...(cell || {}),
+    bonus: null,
+  }));
+}
+
+function applyDailySpecialPlacements(board, placements) {
+  const base = stripBoardBonuses(board);
+  const occupied = new Set();
+  DAILY_SPECIAL_BONUSES.forEach((bonus) => {
+    const rawPlacement = placements?.[bonus];
+    const idx = Number.isInteger(rawPlacement) ? rawPlacement : null;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= base.length) return;
+    if (occupied.has(idx) || !base[idx]) return;
+    occupied.add(idx);
+    base[idx] = { ...base[idx], bonus };
+  });
+  return base;
+}
+
+function getEffectiveDailySpecialPlacements(basePlacements, dragState, boardLength) {
+  const next = {
+    ...(basePlacements && typeof basePlacements === "object" ? basePlacements : {}),
+  };
+  if (!dragState || typeof dragState !== "object") return next;
+  const bonusKey = typeof dragState.bonusKey === "string" ? dragState.bonusKey : "";
+  if (!bonusKey) return next;
+  const hoverIndex = Number.isInteger(dragState.hoverIndex) ? dragState.hoverIndex : null;
+  next[bonusKey] = null;
+  const canPlaceOnGrid =
+    Number.isInteger(hoverIndex) &&
+    hoverIndex >= 0 &&
+    hoverIndex < (Number.isFinite(boardLength) ? boardLength : 0);
+  if (!canPlaceOnGrid) return next;
+  DAILY_SPECIAL_BONUSES.forEach((otherBonus) => {
+    if (otherBonus === bonusKey) return;
+    if (Number.isInteger(next?.[otherBonus]) && next[otherBonus] === hoverIndex) {
+      next[otherBonus] = null;
+    }
+  });
+  next[bonusKey] = hoverIndex;
+  return next;
+}
+
+function areStringArraysEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 function getBonusBadgeClass(displayBonus) {
@@ -1024,6 +1192,11 @@ function formatChatMessageTime(message) {
   } catch (_) {
     return "";
   }
+}
+
+function isEditedChatMessage(message) {
+  const editedAt = Number(message?.editedAt);
+  return Number.isFinite(editedAt) && editedAt > 0;
 }
 
 const BONUS_CLASSES = {
@@ -2527,6 +2700,38 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
   background: rgba(16, 185, 129, 0.22) !important;
 }
 
+.daily-special-start-lock {
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.18)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.42) 0 4px,
+      rgba(15, 23, 42, 0) 4px 9px
+    );
+  box-shadow:
+    inset 0 0 0 2px rgba(15, 23, 42, 0.26),
+    inset 0 0 0 999px rgba(255, 255, 255, 0.08);
+  opacity: 1;
+}
+
+body.theme-dark .daily-special-start-lock {
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0.16)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(226, 232, 240, 0.42) 0 4px,
+      rgba(226, 232, 240, 0) 4px 9px
+    );
+  box-shadow:
+    inset 0 0 0 2px rgba(226, 232, 240, 0.26),
+    inset 0 0 0 999px rgba(15, 23, 42, 0.08);
+}
+
 .tile-hint-outline {
   position: relative;
   outline: 4px solid rgba(16, 185, 129, 0.9);
@@ -3256,13 +3461,14 @@ const CHAT_SYSTEM_HISTORY_MAX = 100;
 const CHAT_BUFFER_MAX = CHAT_MESSAGES_HISTORY_MAX + CHAT_SYSTEM_HISTORY_MAX;
 const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
-const MIN_CHAT_OPACITY = 0.22;
+const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
 const BIG_SCORE_THRESHOLD = 100;
 const CHAT_MIN_DELAY = 600;
-const CHAT_DRAWER_ANIM_MS = 260;
+const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
 const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "👏", "❤️", "😂"];
+const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "👏", "🎉"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
@@ -3526,8 +3732,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-02-26";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-02-26T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-03-08";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-03-08T00:00:00+01:00");
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -3813,6 +4019,131 @@ function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
   return installIdCreatedAtTs < PATCH_NOTES_RELEASE_TS;
 }
 
+function normalizeChatReplyPreview(rawReply) {
+  if (!rawReply || typeof rawReply !== "object") return null;
+  const id = typeof rawReply.id === "string" ? rawReply.id.trim() : "";
+  if (!id) return null;
+  const installId =
+    typeof rawReply.installId === "string" && rawReply.installId.trim()
+      ? rawReply.installId.trim()
+      : null;
+  const nick = String(rawReply.nick || rawReply.author || "Anonyme")
+    .trim()
+    .slice(0, 40);
+  const text = String(rawReply.text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+  if (!text) return null;
+  const t = Number(rawReply.t ?? rawReply.ts ?? rawReply.timestamp ?? rawReply.createdAt);
+  return {
+    id,
+    installId,
+    nick: nick || "Anonyme",
+    text,
+    t: Number.isFinite(t) && t > 0 ? t : Date.now(),
+  };
+}
+
+function normalizeChatReactions(rawReactions) {
+  if (!rawReactions || typeof rawReactions !== "object" || Array.isArray(rawReactions)) {
+    return {};
+  }
+  const out = {};
+  for (const [rawEmoji, rawUsers] of Object.entries(rawReactions)) {
+    const emoji = typeof rawEmoji === "string" ? rawEmoji.trim() : "";
+    if (!emoji) continue;
+    const users = [];
+    const seen = new Set();
+    for (const rawUser of Array.isArray(rawUsers) ? rawUsers : []) {
+      const installId =
+        typeof rawUser?.installId === "string" ? rawUser.installId.trim() : "";
+      if (!installId || seen.has(installId)) continue;
+      seen.add(installId);
+      const nick = typeof rawUser?.nick === "string" ? rawUser.nick.trim().slice(0, 40) : "";
+      users.push({
+        installId,
+        nick: nick || "Anonyme",
+      });
+    }
+    if (users.length) out[emoji] = users;
+  }
+  return out;
+}
+
+function normalizeChatMessageShape(rawMessage) {
+  if (!rawMessage || typeof rawMessage !== "object") return null;
+  const message = { ...rawMessage };
+  const replyTo = normalizeChatReplyPreview(rawMessage.replyTo);
+  if (replyTo) message.replyTo = replyTo;
+  else delete message.replyTo;
+  const reactions = normalizeChatReactions(rawMessage.reactions);
+  if (Object.keys(reactions).length) message.reactions = reactions;
+  else delete message.reactions;
+  return message;
+}
+
+function getChatMessageReplyPreview(message) {
+  if (!message || typeof message !== "object") return null;
+  return normalizeChatReplyPreview(message.replyTo);
+}
+
+function getChatMessageReactionEntries(message) {
+  const reactions = normalizeChatReactions(message?.reactions);
+  return Object.entries(reactions)
+    .map(([emoji, users]) => ({
+      emoji,
+      users: Array.isArray(users) ? users : [],
+      count: Array.isArray(users) ? users.length : 0,
+    }))
+    .filter((entry) => entry.count > 0);
+}
+
+function patchChatMessageById(messages, updatedMessage) {
+  const normalized = normalizeChatMessageShape(updatedMessage);
+  if (!normalized?.id) return messages;
+  let changed = false;
+  const next = (Array.isArray(messages) ? messages : []).map((entry) => {
+    if (!entry || entry.id !== normalized.id) return entry;
+    changed = true;
+    return {
+      ...entry,
+      ...normalized,
+    };
+  });
+  return changed ? next : messages;
+}
+
+function removeChatMessageById(messages, messageId) {
+  const targetId = typeof messageId === "string" ? messageId.trim() : "";
+  if (!targetId) return messages;
+  const list = Array.isArray(messages) ? messages : [];
+  const next = list.filter((entry) => entry?.id !== targetId);
+  return next.length === list.length ? messages : next;
+}
+
+function patchChatMessageReactions(messages, patch) {
+  const messageId = typeof patch?.messageId === "string" ? patch.messageId.trim() : "";
+  if (!messageId) return messages;
+  const normalizedReactions = normalizeChatReactions(patch?.reactions);
+  let changed = false;
+  const next = (Array.isArray(messages) ? messages : []).map((entry) => {
+    if (!entry || entry.id !== messageId) return entry;
+    changed = true;
+    const updated = { ...entry };
+    if (Object.keys(normalizedReactions).length) updated.reactions = normalizedReactions;
+    else delete updated.reactions;
+    if (patch?.updatedAt) {
+      const ts = Number(patch.updatedAt);
+      if (Number.isFinite(ts) && ts > 0) {
+        updated.reactionsUpdatedAt = ts;
+      }
+    }
+    return updated;
+  });
+  return changed ? next : messages;
+}
+
 function getChatMessageSortTime(message) {
   const tsCandidate =
     message?.t ??
@@ -3828,14 +4159,15 @@ function dedupeChatMessages(messages) {
   const seen = new Set();
   const out = [];
   for (const raw of Array.isArray(messages) ? messages : []) {
-    if (!raw || typeof raw !== "object") continue;
-    const id = typeof raw.id === "string" ? raw.id : "";
+    const normalized = normalizeChatMessageShape(raw);
+    if (!normalized) continue;
+    const id = typeof normalized.id === "string" ? normalized.id : "";
     const key = id
       ? `id:${id}`
-      : `fallback:${getChatMessageSortTime(raw)}:${raw.nick || raw.author || ""}:${raw.text || ""}`;
+      : `fallback:${getChatMessageSortTime(normalized)}:${normalized.nick || normalized.author || ""}:${normalized.text || ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(raw);
+    out.push(normalized);
   }
   return out;
 }
@@ -3981,6 +4313,7 @@ function getSpecialRoundDisplayLabel(specialInfo) {
   }
   if (specialInfo.type === "speed") return "Jeu rapide";
   if (specialInfo.type === "monstrous") return "Grille monstrueuse";
+  if (specialInfo.type === DAILY_SPECIAL_MODE) return "3 mots";
   if (specialInfo.type === "target_long") return "Mot le plus long";
   if (specialInfo.type === "target_score") return "Meilleur mot";
   if (specialInfo.type === "bonus_letter") return "Lettre en or";
@@ -4630,6 +4963,8 @@ export default function App() {
   });
   const [chatViewportHeight, setChatViewportHeight] = useState(0);
   const chatBaselineHeightRef = useRef(0);
+  const chatDrawerCalibrationRef = useRef(readStoredChatDrawerCalibration());
+  const chatDrawerSessionCalibrationRef = useRef(chatDrawerCalibrationRef.current);
   const [chatKeyboardInsetPx, setChatKeyboardInsetPx] = useState(0);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
   const [isChatClosing, setIsChatClosing] = useState(false);
@@ -4705,8 +5040,12 @@ export default function App() {
     loading: false,
     ready: false,
     hasPlayed: false,
+    hasPlayedMonstrous: false,
+    hasPlayedSpecial: false,
     dateId: null,
     myResult: null,
+    myMonstrousResult: null,
+    mySpecialResult: null,
     champion: null,
     error: "",
   });
@@ -4753,12 +5092,27 @@ export default function App() {
   const [dailyHistoryError, setDailyHistoryError] = useState("");
   const [dailyHistoryIndex, setDailyHistoryIndex] = useState(0);
   const [dailyRankingView, setDailyRankingView] = useState("today");
+  const [dailySection, setDailySection] = useState("overview");
   const dailyHistoryScrollRef = useRef(null);
   const [dailyResult, setDailyResult] = useState(null);
   const [dailyStartError, setDailyStartError] = useState("");
   const [dailySubmitError, setDailySubmitError] = useState("");
+  const [dailyLaunchDialog, setDailyLaunchDialog] = useState(null);
+  const [dailyPlayMode, setDailyPlayMode] = useState(DAILY_SPECIAL_MODE);
+  const [dailySpecialPlacements, setDailySpecialPlacements] = useState(() =>
+    createDailySpecialPlacements()
+  );
+  const [dailyWordSlots, setDailyWordSlots] = useState(() => createDailyWordSlots());
+  const [dailyActiveSlot, setDailyActiveSlot] = useState(0);
+  const [dailyInvalidSlot, setDailyInvalidSlot] = useState(null);
+  const [dailyInvalidPulseKey, setDailyInvalidPulseKey] = useState(0);
+  const [dailySpecialDrag, setDailySpecialDrag] = useState(null);
+  const [dailyLockPulseKey, setDailyLockPulseKey] = useState(0);
+  const dailySpecialDragRef = useRef(null);
+  const dailyTictocPlayedRef = useRef(false);
   const dailySessionRef = useRef({ dateId: null, startedAt: null });
   const dailySubmitRef = useRef({ inFlight: false });
+  const dailySpecialTutorialPauseStartedAtRef = useRef(null);
   const [tutorialSeenInstallId, setTutorialSeenInstallId] = useState(() => {
     try {
       return localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) || "";
@@ -4793,10 +5147,34 @@ export default function App() {
   });
   const [specialTutorialPlan, setSpecialTutorialPlan] = useState(null);
   const [isSpecialTutorialOpen, setIsSpecialTutorialOpen] = useState(false);
+  const [specialTutorialStepIndex, setSpecialTutorialStepIndex] = useState(0);
   const shouldShowTutorial =
     tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
+  const isDailySpecialMode =
+    isDailyPlay && (dailyPlayMode === DAILY_SPECIAL_MODE || !dailyPlayMode);
+  const isLiveSpecial3WordsMode =
+    !isDailyPlay && phase === "playing" && specialRound?.type === DAILY_SPECIAL_MODE;
+  const isSpecial3WordsMode = isDailySpecialMode || isLiveSpecial3WordsMode;
+  const desktopColumnDefaultFractions = isDailyPlay
+    ? DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS
+    : DESKTOP_COLUMN_DEFAULT_FRACTIONS;
+  const desktopColumnMinWidthsPx = isDailyPlay
+    ? DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX
+    : DESKTOP_COLUMN_MIN_WIDTHS_PX;
+  const desktopColumnStorageScope = isDailyPlay ? "daily_v2" : "live";
+  const isDailySpecial3TutorialActive =
+    phase === "playing" &&
+    isDailyPlay &&
+    dailyPlayMode === DAILY_SPECIAL_MODE &&
+    isSpecialTutorialOpen &&
+    specialTutorialPlan?.type === DAILY_SPECIAL_MODE;
+  const isSpecial3TutorialInteractiveActive =
+    phase === "playing" &&
+    isSpecialTutorialOpen &&
+    specialTutorialPlan?.type === DAILY_SPECIAL_MODE &&
+    (isSpecial3WordsMode || specialRound?.type === DAILY_SPECIAL_MODE);
   const completeGuidedResultsTutorial = React.useCallback(() => {
     if (!installId) return;
     try {
@@ -5040,6 +5418,8 @@ export default function App() {
     chatTabRef.current = chatTab === "system" ? "system" : "messages";
     if (chatTab === "system") {
       setIsDesktopEmojiPickerOpen(false);
+      setDesktopChatReactionPicker((prev) => (prev.open ? { ...prev, open: false } : prev));
+      setDesktopChatReactionDetails((prev) => (prev.open ? { ...prev, open: false } : prev));
     }
   }, [chatTab]);
   useEffect(() => {
@@ -5167,25 +5547,42 @@ export default function App() {
   useEffect(() => {
     const key = String(installId || "").trim();
     if (!key) return;
-    const persisted = readDesktopColumnFractionsForInstall(key);
-    const normalized = normalizeDesktopColumnFractions(persisted);
+    const persisted = readDesktopColumnFractionsForInstall(
+      key,
+      desktopColumnStorageScope,
+      desktopColumnDefaultFractions
+    );
+    const normalized = normalizeDesktopColumnFractions(
+      persisted,
+      desktopColumnDefaultFractions
+    );
     desktopColumnFractionsRef.current = normalized;
     desktopColumnFractionsPersistSignatureRef.current = JSON.stringify(normalized);
-    desktopColumnFractionsHydratedInstallIdRef.current = key;
+    desktopColumnFractionsHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
     setDesktopColumnFractions((prev) =>
       areDesktopFractionsEqual(prev, normalized) ? prev : normalized
     );
-  }, [installId]);
+  }, [installId, desktopColumnDefaultFractions, desktopColumnStorageScope]);
   useEffect(() => {
     const key = String(installId || "").trim();
     if (!key) return;
-    if (desktopColumnFractionsHydratedInstallIdRef.current !== key) return;
-    const normalized = normalizeDesktopColumnFractions(desktopColumnFractionsRef.current);
+    if (desktopColumnFractionsHydratedInstallIdRef.current !== `${desktopColumnStorageScope}:${key}`) {
+      return;
+    }
+    const normalized = normalizeDesktopColumnFractions(
+      desktopColumnFractionsRef.current,
+      desktopColumnDefaultFractions
+    );
     const signature = JSON.stringify(normalized);
     if (desktopColumnFractionsPersistSignatureRef.current === signature) return;
-    writeDesktopColumnFractionsForInstall(key, normalized);
+    writeDesktopColumnFractionsForInstall(
+      key,
+      desktopColumnStorageScope,
+      normalized,
+      desktopColumnDefaultFractions
+    );
     desktopColumnFractionsPersistSignatureRef.current = signature;
-  });
+  }, [installId, desktopColumnDefaultFractions, desktopColumnStorageScope]);
   useEffect(() => {
     return () => {
       if (rankingQueueTimerRef.current) {
@@ -5225,6 +5622,22 @@ export default function App() {
   // Chat
   const [chatMessages, setChatMessages] = useState(() => readStoredChatMessages());
   const [chatInput, setChatInput] = useState("");
+  const [chatReplyTarget, setChatReplyTarget] = useState(null);
+  const [chatEditTarget, setChatEditTarget] = useState(null);
+  const [desktopChatReactionPicker, setDesktopChatReactionPicker] = useState({
+    open: false,
+    left: 0,
+    top: 0,
+    messageId: null,
+  });
+  const [desktopChatReactionDetails, setDesktopChatReactionDetails] = useState({
+    open: false,
+    left: 0,
+    top: 0,
+    messageId: null,
+    emoji: "",
+    users: [],
+  });
   const [isDesktopEmojiPickerOpen, setIsDesktopEmojiPickerOpen] = useState(false);
   const [blockedInstallIds, setBlockedInstallIds] = useState(() => {
     try {
@@ -5263,6 +5676,12 @@ export default function App() {
       );
     } catch (_) {}
   }, [chatMessages]);
+  useEffect(() => {
+    chatReplyTargetRef.current = chatReplyTarget;
+  }, [chatReplyTarget]);
+  useEffect(() => {
+    chatEditTargetRef.current = chatEditTarget;
+  }, [chatEditTarget]);
   const [definitionModal, setDefinitionModal] = useState({
     open: false,
     loading: false,
@@ -5356,6 +5775,7 @@ export default function App() {
   const currentTilesRef = useRef([]);
   const acceptedRef = useRef([]);
   const acceptedScoresRef = useRef(new Map());
+  const dailyAcceptedPathsRef = useRef(new Map());
   const submissionStatusRef = useRef(new Map());
   const pendingWordsRef = useRef(new Set());
   const pendingQueueRef = useRef([]);
@@ -5381,8 +5801,10 @@ export default function App() {
   const gameViewportFreezeHeightRef = useRef(0);
   const mobileGameViewportLockRef = useRef({ width: 0, height: 0 });
   const chatDesktopListRef = useRef(null);
+  const chatDesktopStickToBottomRef = useRef(true);
   const chatDesktopAutoScrollRafRef = useRef(null);
   const chatDesktopAutoScrollTimersRef = useRef([]);
+  const desktopReactionDetailsCloseTimerRef = useRef(null);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
   const isChatClosingRef = useRef(isChatClosing);
@@ -5415,6 +5837,8 @@ export default function App() {
   const solutionsRef = useRef(new Map());
   const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
   const chatLastSentRef = useRef(0);
+  const chatReplyTargetRef = useRef(null);
+  const chatEditTargetRef = useRef(null);
   const lastKeyboardInsetRef = useRef(0);
   const toastTimersRef = useRef(new Map());
   const gobblarToastDelayTimersRef = useRef(new Set());
@@ -5502,6 +5926,100 @@ export default function App() {
     specialRound?.type === "bonus_letter" ? normalizeLetterKey(specialRound.bonusLetter) : null;
   const bonusLetterScore =
     specialRound?.type === "bonus_letter" ? (specialRound.bonusLetterScore ?? 20) : null;
+  const dailyBoardForScore = React.useMemo(() => {
+    if (!isSpecial3WordsMode) return board;
+    const effectivePlacements = getEffectiveDailySpecialPlacements(
+      dailySpecialPlacements,
+      dailySpecialDrag,
+      Array.isArray(board) ? board.length : 0
+    );
+    return applyDailySpecialPlacements(board, effectivePlacements);
+  }, [isSpecial3WordsMode, board, dailySpecialPlacements, dailySpecialDrag]);
+  const dailyWordSlotsScored = React.useMemo(() => {
+    if (!isSpecial3WordsMode) return [];
+    return (Array.isArray(dailyWordSlots) ? dailyWordSlots : []).map((slot) => {
+      const word = String(slot?.word || "").trim();
+      const path = Array.isArray(slot?.path) ? slot.path : [];
+      if (!word || !path.length) {
+        return { ...slot, pts: null };
+      }
+      return {
+        ...slot,
+        pts: computeScore(word, path, dailyBoardForScore, specialScoreConfig),
+      };
+    });
+  }, [isSpecial3WordsMode, dailyWordSlots, dailyBoardForScore, specialScoreConfig]);
+  const special3LockedStartTileSet = React.useMemo(() => {
+    const used = new Set();
+    if (!isSpecial3WordsMode) return used;
+    dailyWordSlotsScored.forEach((slot) => {
+      const startTile = getDailySpecialWordStartTile(slot?.path);
+      if (startTile != null) used.add(startTile);
+    });
+    return used;
+  }, [isSpecial3WordsMode, dailyWordSlotsScored]);
+  const dailyAcceptedWords = React.useMemo(() => {
+    if (!isSpecial3WordsMode) return [];
+    return dailyWordSlotsScored
+      .map((slot) => String(slot?.word || "").trim())
+      .filter(Boolean);
+  }, [isSpecial3WordsMode, dailyWordSlotsScored]);
+  const dailyTotalScore = React.useMemo(() => {
+    if (!isSpecial3WordsMode) return 0;
+    return dailyWordSlotsScored.reduce((sum, slot) => sum + (Number(slot?.pts) || 0), 0);
+  }, [isSpecial3WordsMode, dailyWordSlotsScored]);
+
+  useEffect(() => {
+    if (!isSpecial3WordsMode) return;
+    setScore(dailyTotalScore);
+    setAccepted((prev) => {
+      if (areStringArraysEqual(prev, dailyAcceptedWords)) {
+        acceptedRef.current = prev;
+        return prev;
+      }
+      acceptedRef.current = dailyAcceptedWords;
+      return dailyAcceptedWords;
+    });
+    const scoreMap = new Map();
+    dailyWordSlotsScored.forEach((slot) => {
+      const word = String(slot?.word || "").trim();
+      if (!word || !Number.isFinite(slot?.pts)) return;
+      scoreMap.set(word, slot.pts);
+    });
+    acceptedScoresRef.current = scoreMap;
+  }, [isSpecial3WordsMode, dailyAcceptedWords, dailyTotalScore, dailyWordSlotsScored]);
+
+  useEffect(() => {
+    if (!isSpecial3WordsMode) {
+      setDailyPlayMode(DAILY_SPECIAL_MODE);
+      setDailySpecialPlacements(createDailySpecialPlacements());
+      setDailyWordSlots(createDailyWordSlots());
+      setDailyActiveSlot(0);
+      setDailyInvalidSlot(null);
+      setDailySpecialDrag(null);
+      dailySpecialDragRef.current = null;
+      dailyTictocPlayedRef.current = false;
+    }
+  }, [isSpecial3WordsMode]);
+
+  useEffect(() => {
+    if (!isSpecial3WordsMode || phase !== "playing") {
+      dailyTictocPlayedRef.current = false;
+      return;
+    }
+    if (typeof tick !== "number") return;
+    if (tick > 5) {
+      dailyTictocPlayedRef.current = false;
+      return;
+    }
+    if (tick === 5 && !dailyTictocPlayedRef.current) {
+      dailyTictocPlayedRef.current = true;
+      playOneShotAudio(SFX_KEYS.tictoc, {
+        cooldownKey: "dailyTictoc",
+        eqKey: "countdownTick",
+      });
+    }
+  }, [isSpecial3WordsMode, phase, tick]);
 
   // drag souris
   const draggingRef = useRef(false);
@@ -5509,6 +6027,11 @@ export default function App() {
   const playColumnRef = useRef(null);
   const countdownRef = useRef(null);
   const previewRef = useRef(null);
+  const mobileSpecial3TutorialHostRef = useRef(null);
+  const mobileSpecial3FirstSlotRef = useRef(null);
+  const mobileSpecial3SecondSlotRef = useRef(null);
+  const mobileSpecial3GridWrapRef = useRef(null);
+  const mobileSpecial3BonusTrayRef = useRef(null);
   const desktopColumnResizeRef = useRef({
     active: false,
     moveHandler: null,
@@ -5517,7 +6040,7 @@ export default function App() {
     bodyUserSelect: "",
   });
   const [desktopColumnFractions, setDesktopColumnFractions] = useState(() =>
-    normalizeDesktopColumnFractions(DESKTOP_COLUMN_DEFAULT_FRACTIONS)
+    normalizeDesktopColumnFractions(desktopColumnDefaultFractions, desktopColumnDefaultFractions)
   );
   const desktopColumnFractionsRef = useRef(desktopColumnFractions);
   const desktopColumnFractionsHydratedInstallIdRef = useRef("");
@@ -5531,6 +6054,8 @@ export default function App() {
   const [previewHeight, setPreviewHeight] = useState(0);
   const [desktopResultsDrawerLayout, setDesktopResultsDrawerLayout] = useState(null);
   const [desktopMainGridHeight, setDesktopMainGridHeight] = useState(null);
+  const [mobileSpecial3Step2OverlayStyle, setMobileSpecial3Step2OverlayStyle] = useState(null);
+  const [mobileSpecial3Step1GhostStyle, setMobileSpecial3Step1GhostStyle] = useState(null);
 
   function createSoftClipCurve(amount = 1.25, samples = 1024) {
     const key = `${amount}|${samples}`;
@@ -6768,26 +7293,6 @@ export default function App() {
       setMobileChatUnreadCount(0);
     }
     setActiveArea("chat");
-
-    if (typeof window === "undefined") return;
-    const focusChatInput = () => {
-      const el = chatInputRef.current;
-      if (!el) return;
-      try {
-        el.focus({ preventScroll: true });
-      } catch (_) {
-        el.focus();
-      }
-    };
-
-    const delay = isMobileLayout
-      ? Math.min(140, Math.max(60, CHAT_DRAWER_ANIM_MS - 120))
-      : Math.max(0, CHAT_DRAWER_ANIM_MS - 60);
-    const t = window.setTimeout(focusChatInput, delay);
-
-    return () => {
-      window.clearTimeout(t);
-    };
   }, [isChatOpenMobile, isMobileLayout, chatTab]);
 
   useEffect(() => {
@@ -6825,6 +7330,7 @@ export default function App() {
     if (typeof window === "undefined") return;
 
     if (!isChatOpenMobile) {
+      chatBaselineHeightRef.current = 0;
       setChatViewportHeight(0);
       setChatKeyboardInsetPx(0);
       return;
@@ -6834,15 +7340,19 @@ export default function App() {
 
     const baseHeight =
       chatBodyLockHeightRef.current ||
+      chatBaselineHeightRef.current ||
       Math.round(window.innerHeight || vv?.height || 0);
+    chatBaselineHeightRef.current = baseHeight;
     setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
 
     const updateInset = () => {
       if (suppressChatResizeRef.current) return;
       const nextHeight =
         chatBodyLockHeightRef.current ||
+        chatBaselineHeightRef.current ||
         Math.round(window.innerHeight || vv?.height || 0);
       if (nextHeight > 0) {
+        chatBaselineHeightRef.current = nextHeight;
         setChatViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
       }
       const nextInset =
@@ -6861,6 +7371,35 @@ export default function App() {
       } else {
         lastKeyboardInsetRef.current = 0;
       }
+      if (!chatDrawerCalibrationRef.current && nextHeight > 0) {
+        const keyboardThresholdPx = Math.max(
+          CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX,
+          Math.round(nextHeight * 0.12)
+        );
+        if (nextInset >= keyboardThresholdPx) {
+          const topInsetPx = isFullscreen ? mobileHeaderOffsetPx : 0;
+          const ceilingPx = Math.max(
+            220,
+            Math.round(nextHeight - topInsetPx - CHAT_DRAWER_TOP_GAP_PX)
+          );
+          const observedHeightPx = clampValue(
+            Math.round(nextHeight - nextInset - topInsetPx),
+            Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, ceilingPx),
+            Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, ceilingPx)
+          );
+          const nextCalibration = {
+            ratio: clampValue(
+              observedHeightPx / nextHeight,
+              CHAT_DRAWER_CALIBRATION_MIN_RATIO,
+              CHAT_DRAWER_CALIBRATION_MAX_RATIO
+            ),
+            heightPx: observedHeightPx,
+            orientation: getChatDrawerOrientationKey(),
+          };
+          chatDrawerCalibrationRef.current = nextCalibration;
+          writeStoredChatDrawerCalibration(nextCalibration);
+        }
+      }
       setChatKeyboardInsetPx((prev) => (prev === nextInset ? prev : nextInset));
     };
 
@@ -6877,23 +7416,7 @@ export default function App() {
       window.removeEventListener("focusin", updateInset, true);
       window.removeEventListener("focusout", updateInset, true);
     };
-  }, [isChatOpenMobile]);
-
-  useEffect(() => {
-    if (!isMobileLayout || !isChatOpenMobile || isChatClosing) return;
-    if (activeArea !== "chat") return;
-    const t = window.setTimeout(() => {
-      const el = chatInputRef.current;
-      if (!el) return;
-      if (typeof document !== "undefined" && document.activeElement === el) return;
-      try {
-        el.focus({ preventScroll: true });
-      } catch (_) {
-        el.focus();
-      }
-    }, 40);
-    return () => window.clearTimeout(t);
-  }, [isMobileLayout, isChatOpenMobile, isChatClosing, activeArea]);
+  }, [isChatOpenMobile, isFullscreen, mobileHeaderOffsetPx]);
 
   useEffect(() => {
     if (!isChatRulesOpen) return;
@@ -7016,14 +7539,31 @@ export default function App() {
     chatDesktopAutoScrollTimersRef.current = [];
   }, []);
 
-  const scheduleDesktopChatAutoScroll = React.useCallback(() => {
+  const isDesktopChatNearBottom = React.useCallback((listEl) => {
+    if (!listEl) return true;
+    const remaining = listEl.scrollHeight - listEl.clientHeight - listEl.scrollTop;
+    return remaining <= DESKTOP_CHAT_BOTTOM_EPSILON_PX;
+  }, []);
+
+  const handleDesktopChatScroll = React.useCallback(
+    (event) => {
+      const listEl = event?.currentTarget || chatDesktopListRef.current;
+      chatDesktopStickToBottomRef.current = isDesktopChatNearBottom(listEl);
+    },
+    [isDesktopChatNearBottom]
+  );
+
+  const scheduleDesktopChatAutoScroll = React.useCallback((options = {}) => {
     if (typeof window === "undefined") return;
     if (isMobileLayoutRef.current) return;
+    const force = !!options?.force;
+    if (!force && !chatDesktopStickToBottomRef.current) return;
     const scrollToBottom = () => {
       const listEl = chatDesktopListRef.current;
       if (!listEl) return;
       const target = Math.max(0, listEl.scrollHeight - listEl.clientHeight);
       listEl.scrollTop = target;
+      chatDesktopStickToBottomRef.current = true;
     };
     clearDesktopChatAutoScroll();
     scrollToBottom();
@@ -7039,13 +7579,27 @@ export default function App() {
     });
   }, [clearDesktopChatAutoScroll]);
 
+  const ensureDesktopChatBottomVisible = React.useCallback(() => {
+    scheduleDesktopChatAutoScroll();
+  }, [scheduleDesktopChatAutoScroll]);
+
   useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
+  useEffect(
+    () => () => {
+      if (desktopReactionDetailsCloseTimerRef.current) {
+        clearTimeout(desktopReactionDetailsCloseTimerRef.current);
+        desktopReactionDetailsCloseTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (isMobileLayout) return;
     const el = chatDesktopListRef.current;
     if (!el) return;
+    chatDesktopStickToBottomRef.current = isDesktopChatNearBottom(el);
     const safeTab = chatTab === "system" ? "system" : "messages";
     const blockedSet = new Set(
       Array.isArray(blockedInstallIds) ? blockedInstallIds : []
@@ -7058,7 +7612,14 @@ export default function App() {
     });
     if (!activeMessages.length) return;
     scheduleDesktopChatAutoScroll();
-  }, [isMobileLayout, chatTab, chatMessages, blockedInstallIds, scheduleDesktopChatAutoScroll]);
+  }, [
+    isMobileLayout,
+    chatTab,
+    chatMessages,
+    blockedInstallIds,
+    isDesktopChatNearBottom,
+    scheduleDesktopChatAutoScroll,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -7066,7 +7627,7 @@ export default function App() {
     if (isDailyPlay) return;
     const listEl = chatDesktopListRef.current;
     if (!listEl) return;
-    scheduleDesktopChatAutoScroll();
+    scheduleDesktopChatAutoScroll({ force: true });
   }, [
     isMobileLayout,
     isDailyPlay,
@@ -7075,6 +7636,13 @@ export default function App() {
     appView,
     scheduleDesktopChatAutoScroll,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isMobileLayout) return;
+    chatDesktopStickToBottomRef.current = true;
+    scheduleDesktopChatAutoScroll({ force: true });
+  }, [isMobileLayout, chatTab, scheduleDesktopChatAutoScroll]);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -10574,6 +11142,14 @@ export default function App() {
       setSpecialSolvedOverlay(null);
       setFoundTargetThisRound(false);
       setFoundTargetWord("");
+      if (special?.type === DAILY_SPECIAL_MODE) {
+        setDailySpecialPlacements(createDailySpecialPlacements());
+        setDailyWordSlots(createDailyWordSlots());
+        setDailyActiveSlot(0);
+        setDailyInvalidSlot(null);
+        setDailySpecialDrag(null);
+        dailySpecialDragRef.current = null;
+      }
       if (Number.isFinite(endsAt) && Number.isFinite(durationMs)) {
         roundStartAtRef.current = Math.max(0, endsAt - durationMs);
       } else {
@@ -10679,20 +11255,25 @@ export default function App() {
 
     function onChatHistory(history = []) {
       if (!Array.isArray(history)) return;
-      setChatMessages((prev) => capChatMessagesByType([...prev, ...history]));
+      const normalizedHistory = history
+        .map((entry) => normalizeChatMessageShape(entry))
+        .filter(Boolean);
+      if (!normalizedHistory.length) return;
+      setChatMessages((prev) => capChatMessagesByType([...prev, ...normalizedHistory]));
       scheduleDesktopChatAutoScroll();
     }
 
     function onChatNew(msg) {
-      if (!msg || typeof msg !== "object") return;
-      setChatMessages((prev) => capChatMessagesByType([...prev, msg]));
+      const normalizedMessage = normalizeChatMessageShape(msg);
+      if (!normalizedMessage) return;
+      setChatMessages((prev) => capChatMessagesByType([...prev, normalizedMessage]));
       scheduleDesktopChatAutoScroll();
-      if (isSystemChatMessage(msg)) return;
+      if (isSystemChatMessage(normalizedMessage)) return;
 
       const authorInstallId =
-        typeof msg.installId === "string" ? msg.installId : "";
+        typeof normalizedMessage.installId === "string" ? normalizedMessage.installId : "";
       if (authorInstallId && authorInstallId === installId) return;
-      const author = (msg.author || msg.nick || "").trim();
+      const author = (normalizedMessage.author || normalizedMessage.nick || "").trim();
       const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
       const currentTab = chatTabRef.current === "system" ? "system" : "messages";
@@ -10717,6 +11298,39 @@ export default function App() {
           setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
         }
       }
+    }
+
+    function onChatReactionUpdate(patch) {
+      setChatMessages((prev) => patchChatMessageReactions(prev, patch));
+    }
+
+    function onChatMessageUpdate(payload) {
+      const updatedMessage = payload?.message;
+      if (!updatedMessage || typeof updatedMessage !== "object") return;
+      setChatMessages((prev) =>
+        capChatMessagesByType(patchChatMessageById(prev, updatedMessage))
+      );
+      const updatedId =
+        typeof updatedMessage.id === "string" ? updatedMessage.id.trim() : "";
+      if (updatedId && chatEditTargetRef.current?.id === updatedId) {
+        setChatEditTarget(null);
+      }
+      scheduleDesktopChatAutoScroll();
+    }
+
+    function onChatMessageDelete(payload) {
+      const deletedId =
+        typeof payload?.messageId === "string" ? payload.messageId.trim() : "";
+      if (!deletedId) return;
+      setChatMessages((prev) => capChatMessagesByType(removeChatMessageById(prev, deletedId)));
+      if (chatEditTargetRef.current?.id === deletedId) {
+        setChatEditTarget(null);
+        setChatInput("");
+      }
+      if (chatReplyTargetRef.current?.id === deletedId) {
+        setChatReplyTarget(null);
+      }
+      scheduleDesktopChatAutoScroll();
     }
 
     function appendAnnouncements(entries) {
@@ -11025,6 +11639,9 @@ export default function App() {
     socket.on("rankingUpdate", onRankingUpdate);
     socket.on("chat:history", onChatHistory);
     socket.on("chatMessage", onChatNew);
+    socket.on("chat:message_reaction", onChatReactionUpdate);
+    socket.on("chat:message_update", onChatMessageUpdate);
+    socket.on("chat:message_delete", onChatMessageDelete);
     socket.on("announcement", onAnnouncement);
     socket.on("announcements", onAnnouncements);
     socket.on("medalsUpdate", onMedalsUpdate);
@@ -11044,6 +11661,9 @@ export default function App() {
       socket.off("rankingUpdate", onRankingUpdate);
       socket.off("chat:history", onChatHistory);
       socket.off("chatMessage", onChatNew);
+      socket.off("chat:message_reaction", onChatReactionUpdate);
+      socket.off("chat:message_update", onChatMessageUpdate);
+      socket.off("chat:message_delete", onChatMessageDelete);
       socket.off("announcement", onAnnouncement);
       socket.off("announcements", onAnnouncements);
       socket.off("medalsUpdate", onMedalsUpdate);
@@ -11089,6 +11709,12 @@ export default function App() {
         });
       });
     } else if (phase === "playing") {
+      if (isDailySpecial3TutorialActive) {
+        return () => {
+          if (id) clearInterval(id);
+          if (tickIntervalRef.current === id) tickIntervalRef.current = null;
+        };
+      }
       const maxDuration =
         Number.isFinite(serverRoundDurationMs)
           ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
@@ -11122,7 +11748,14 @@ export default function App() {
       if (id) clearInterval(id);
       if (tickIntervalRef.current === id) tickIntervalRef.current = null;
     };
-  }, [phase, serverEndsAt, serverRoundDurationMs, currentRoomId, roomId]);
+  }, [
+    phase,
+    serverEndsAt,
+    serverRoundDurationMs,
+    currentRoomId,
+    roomId,
+    isDailySpecial3TutorialActive,
+  ]);
 
   useEffect(() => {
     if (phase !== "results") return;
@@ -11688,8 +12321,12 @@ export default function App() {
           loading: false,
           ready: !!data?.ready,
           hasPlayed: !!data?.hasPlayed,
+          hasPlayedMonstrous: !!data?.hasPlayedMonstrous,
+          hasPlayedSpecial: !!data?.hasPlayedSpecial,
           dateId: data?.dateId || null,
           myResult: data?.myResult || null,
+          myMonstrousResult: data?.myMonstrousResult || null,
+          mySpecialResult: data?.mySpecialResult || null,
           champion: data?.champion || null,
           error: "",
         });
@@ -11978,7 +12615,10 @@ export default function App() {
     if (dailyHistoryLoading) return;
     setDailyHistoryLoading(true);
     setDailyHistoryError("");
-    fetch(`/api/daily/history?days=${encodeURIComponent(days)}`, {
+    const params = new URLSearchParams();
+    params.set("days", String(days));
+    if (installId) params.set("installId", installId);
+    fetch(`/api/daily/history?${params.toString()}`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
     })
@@ -12054,6 +12694,8 @@ export default function App() {
     setDailyStartError("");
     setDailySubmitError("");
     setDailyResult(null);
+    setDailySection(DAILY_OVERVIEW_SECTION);
+    setDailyLaunchDialog(null);
     setAppView("daily");
     fetchDailyStatus();
     fetchDailyBoard();
@@ -12204,20 +12846,26 @@ export default function App() {
     return "ENET_UNKNOWN";
   }
 
-  async function startDailyGame(e) {
+  async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     requestAudioUnlock(e);
     const pseudo = String(nickname || "").trim();
     if (!pseudo) {
       setDailyStartError("Pseudo requis");
       return;
     }
+    const modeToStart = requestedMode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
     setDailyStartError(null);
     setDailySubmitError("");
-    const payload = { installId, pseudo };
+    const payload = { installId, pseudo, dailyMode: modeToStart };
     const applyDailyStartSuccess = (data) => {
       if (!data?.grid || !Array.isArray(data.grid)) {
         throw new Error("bad_grid");
       }
+      const modeFromServer =
+        typeof data?.mode === "string" && data.mode.trim() ? data.mode.trim() : modeToStart;
+      const mode = modeFromServer === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+      const gridForPlay =
+        mode === DAILY_SPECIAL_MODE ? stripBoardBonuses(data.grid) : data.grid;
       if (data?.duel && typeof data.duel === "object") {
         setDuelStatus({
           loading: false,
@@ -12237,9 +12885,25 @@ export default function App() {
         startedAt: Date.now(),
       };
       setDailyResult(null);
+      setDailyPlayMode(mode);
+      setDailySection(mode);
+      setDailySpecialPlacements(createDailySpecialPlacements());
+      setDailyWordSlots(createDailyWordSlots());
+      setDailyActiveSlot(0);
+      setDailyInvalidSlot(null);
+      setDailySpecialDrag(null);
+      dailySpecialDragRef.current = null;
+      dailyTictocPlayedRef.current = false;
+      // Assure que le thème est bien appliqué au moment du basculement vers la vue de jeu daily.
+      applyThemeVisualState(themeAppliedSafe);
       setAppView("daily_play");
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => {
+          applyThemeVisualState(themeAppliedSafe);
+        });
+      }
       startGameFromServerRef.current?.(
-        data.grid,
+        gridForPlay,
         null,
         data.durationMs || null,
         null,
@@ -12278,7 +12942,11 @@ export default function App() {
       }
       if (!res.ok) {
         if (data?.error === "already_played") {
-          setDailyStartError("Deja joue");
+          setDailyStartError(
+            modeToStart === DAILY_MONSTROUS_MODE
+              ? "Grille monstrueuse déjà jouée"
+              : "Déjà joué"
+          );
           fetchDailyStatus();
           fetchDailyBoard();
           return;
@@ -12323,7 +12991,11 @@ export default function App() {
           if (socketData.ok === false) {
             const socketError = String(socketData.error || "error");
             if (socketError === "already_played") {
-              setDailyStartError("Deja joue");
+              setDailyStartError(
+                modeToStart === DAILY_MONSTROUS_MODE
+                  ? "Grille monstrueuse déjà jouée"
+                  : "Déjà joué"
+              );
             } else if (socketError === "bad_grid") {
               setDailyStartError("E_DAILY_BAD_GRID");
             } else if (socketError === "not_ready") {
@@ -12368,11 +13040,34 @@ export default function App() {
     const session = dailySessionRef.current;
     const dateId = session?.dateId || dailyStatus?.dateId || null;
     const durationMs = session?.startedAt ? Date.now() - session.startedAt : null;
+    const wordSubmissions = isDailySpecialMode
+      ? (Array.isArray(dailyWordSlots) ? dailyWordSlots : [])
+          .map((slot) => ({
+            word: String(slot?.word || "").trim(),
+            path: Array.isArray(slot?.path) ? slot.path : [],
+          }))
+          .filter((slot) => slot.word && slot.path.length > 0)
+      : (Array.isArray(acceptedRef.current) ? acceptedRef.current : [])
+          .map((word) => {
+            const entry = dailyAcceptedPathsRef.current.get(word);
+            const fallbackPath =
+              Array.isArray(entry?.path) && entry.path.length > 0
+                ? entry.path
+                : findBestPathForWord(board, word, specialScoreConfig) || [];
+            return {
+              word: String(entry?.word || word || "").trim(),
+              path: Array.isArray(fallbackPath) ? fallbackPath : [],
+            };
+          })
+          .filter((entry) => entry.word && entry.path.length > 0);
     const payload = {
       dateId,
       installId,
       pseudo: String(nickname || "").trim() || "Joueur",
       foundWords: acceptedRef.current || accepted,
+      wordSubmissions,
+      specialPlacements: isDailySpecialMode ? dailySpecialPlacements : null,
+      dailyMode: isDailySpecialMode ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE,
       clientScore: score,
       durationMs,
     };
@@ -12393,6 +13088,7 @@ export default function App() {
       }
       setDailyResult({
         dateId: data?.dateId || dateId,
+        mode: dailyPlayMode,
         score: Number.isFinite(data?.score) ? data.score : score,
         rank: Number.isFinite(data?.rank) ? data.rank : null,
         totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
@@ -12409,12 +13105,31 @@ export default function App() {
       }
       setDailyStatus((prev) => ({
         ...prev,
-        hasPlayed: true,
+        hasPlayed: dailyPlayMode !== DAILY_SPECIAL_MODE,
+        hasPlayedMonstrous:
+          dailyPlayMode === DAILY_SPECIAL_MODE ? prev?.hasPlayedMonstrous : true,
+        hasPlayedSpecial: dailyPlayMode === DAILY_SPECIAL_MODE ? true : prev?.hasPlayedSpecial,
         myResult: {
           score: Number.isFinite(data?.score) ? data.score : score,
           rank: Number.isFinite(data?.rank) ? data.rank : null,
           submittedAt: Date.now(),
         },
+        myMonstrousResult:
+          dailyPlayMode === DAILY_MONSTROUS_MODE
+            ? {
+                score: Number.isFinite(data?.score) ? data.score : score,
+                rank: Number.isFinite(data?.rank) ? data.rank : null,
+                submittedAt: Date.now(),
+              }
+            : prev?.myMonstrousResult || null,
+        mySpecialResult:
+          dailyPlayMode === DAILY_SPECIAL_MODE
+            ? {
+                score: Number.isFinite(data?.score) ? data.score : score,
+                rank: Number.isFinite(data?.rank) ? data.rank : null,
+                submittedAt: Date.now(),
+              }
+            : prev?.mySpecialResult || null,
       }));
       void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
       setAppView("daily_results");
@@ -12452,13 +13167,29 @@ export default function App() {
       }
       applyDailySubmitSuccess(data);
     } catch (err) {
-      const msg = err?.message === "already_played" ? "Deja joue" : "Erreur";
+      const msg = err?.message === "already_played" ? "Déjà joué" : "Erreur";
       setDailySubmitError(msg);
       fetchDailyStatus();
       fetchDailyBoard();
     } finally {
       dailySubmitRef.current.inFlight = false;
     }
+  }
+
+  function openDailyLaunchDialog(mode) {
+    const safeMode = mode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+    setDailyLaunchDialog({ mode: safeMode });
+  }
+
+  function closeDailyLaunchDialog() {
+    setDailyLaunchDialog(null);
+  }
+
+  function confirmDailyLaunch(e) {
+    const mode = dailyLaunchDialog?.mode;
+    setDailyLaunchDialog(null);
+    if (!mode) return;
+    void startDailyGame(mode, e);
   }
 
   function requestVocabCount() {
@@ -13171,6 +13902,24 @@ export default function App() {
 
     if (phase === "playing" && currentRound?.grid && Array.isArray(currentRound.grid)) {
       roundHandlersRef.current.onRoundStarted?.(currentRound);
+      if (currentRound?.special?.type === DAILY_SPECIAL_MODE || playerState?.special3Words) {
+        setDailySpecialPlacements(
+          playerState?.special3Words?.specialPlacements &&
+            typeof playerState.special3Words.specialPlacements === "object"
+            ? playerState.special3Words.specialPlacements
+            : createDailySpecialPlacements()
+        );
+        setDailyWordSlots(
+          Array.isArray(playerState?.special3Words?.wordSlots)
+            ? playerState.special3Words.wordSlots.map((slot, idx) => ({
+                id: Number.isFinite(slot?.id) ? slot.id : idx,
+                word: String(slot?.word || "").trim(),
+                display: String(slot?.display || slot?.word || "").trim(),
+                path: Array.isArray(slot?.path) ? slot.path : [],
+              }))
+            : createDailyWordSlots()
+        );
+      }
       if (Array.isArray(snapshot.ranking)) {
         setProvisionalRanking(snapshot.ranking);
       }
@@ -13188,13 +13937,20 @@ export default function App() {
               disableBonuses: true,
             }
           : null;
+      dailyAcceptedPathsRef.current = new Map();
       if (currentRound.grid && words.length) {
         words.forEach((word) => {
           const path = findBestPathForWord(currentRound.grid, word, scoreConfig);
           if (path) {
             scores.set(word, computeScore(word, path, currentRound.grid, scoreConfig));
+            dailyAcceptedPathsRef.current.set(word, {
+              word,
+              path: Array.isArray(path) ? [...path] : [],
+            });
           }
         });
+      } else {
+        dailyAcceptedPathsRef.current = new Map();
       }
       acceptedScoresRef.current = scores;
       setScore(Number(playerState?.score) || 0);
@@ -13248,15 +14004,21 @@ export default function App() {
               }
             : null;
         const scores = new Map();
+        dailyAcceptedPathsRef.current = new Map();
         words.forEach((word) => {
           const path = findBestPathForWord(lastRound.round.grid, word, scoreConfig);
           if (path) {
             scores.set(word, computeScore(word, path, lastRound.round.grid, scoreConfig));
+            dailyAcceptedPathsRef.current.set(word, {
+              word,
+              path: Array.isArray(path) ? [...path] : [],
+            });
           }
         });
         acceptedScoresRef.current = scores;
       } else {
         acceptedScoresRef.current = new Map();
+        dailyAcceptedPathsRef.current = new Map();
       }
       setScore(Number(playerState?.score) || 0);
       submissionStatusRef.current.clear();
@@ -14249,6 +15011,7 @@ export default function App() {
     bestGridMaxLenRef.current = 0;
     setAccepted([]);
     acceptedScoresRef.current = new Map();
+    dailyAcceptedPathsRef.current = new Map();
     acceptedRef.current = [];
     resetSubmissionQueue();
     setAllWords([]);
@@ -14569,6 +15332,7 @@ export default function App() {
     bestGridMaxLenRef.current = 0;
     setAccepted([]);
     acceptedScoresRef.current = new Map();
+    dailyAcceptedPathsRef.current = new Map();
     acceptedRef.current = [];
     resetSubmissionQueue();
     setAllWords([]);
@@ -14752,6 +15516,7 @@ export default function App() {
       window.innerHeight || document.documentElement?.clientHeight || 0
     );
     if (baseHeight > 0) {
+      chatBaselineHeightRef.current = baseHeight;
       chatBodyLockHeightRef.current = baseHeight;
       setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
     }
@@ -14766,6 +15531,7 @@ export default function App() {
     setIsChatClosing(false);
     setChatTab("messages");
     setMobileChatUnreadCount(0);
+    chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
     captureChatViewportBaseline();
 
     // Figer la hauteur du jeu (layout viewport) pour que le fond ne "réponde" pas au clavier.
@@ -14794,6 +15560,8 @@ export default function App() {
       } catch (_) {}
     }
     setChatTab("messages");
+    chatBaselineHeightRef.current = 0;
+    chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
     chatBodyLockHeightRef.current = 0;
     gameViewportFreezeHeightRef.current = 0;
     chatCloseTimerRef.current = window.setTimeout(() => {
@@ -14891,6 +15659,114 @@ export default function App() {
     setUserMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
   }
 
+  function closeDesktopChatReactionPicker() {
+    setDesktopChatReactionPicker((prev) => (prev.open ? { ...prev, open: false } : prev));
+  }
+
+  function clearDesktopReactionDetailsCloseTimer() {
+    if (desktopReactionDetailsCloseTimerRef.current) {
+      clearTimeout(desktopReactionDetailsCloseTimerRef.current);
+      desktopReactionDetailsCloseTimerRef.current = null;
+    }
+  }
+
+  function closeDesktopChatReactionDetails() {
+    clearDesktopReactionDetailsCloseTimer();
+    setDesktopChatReactionDetails((prev) => (prev.open ? { ...prev, open: false } : prev));
+  }
+
+  function scheduleCloseDesktopChatReactionDetails(delayMs = 130) {
+    clearDesktopReactionDetailsCloseTimer();
+    desktopReactionDetailsCloseTimerRef.current = setTimeout(() => {
+      desktopReactionDetailsCloseTimerRef.current = null;
+      setDesktopChatReactionDetails((prev) => (prev.open ? { ...prev, open: false } : prev));
+    }, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function openDesktopChatReactionDetails(e, message, reactionEntry) {
+    if (!message || typeof message !== "object") return;
+    if (isSystemChatMessage(message)) return;
+    const users = Array.isArray(reactionEntry?.users) ? reactionEntry.users : [];
+    if (!users.length) return;
+    const emoji = typeof reactionEntry?.emoji === "string" ? reactionEntry.emoji.trim() : "";
+    if (!emoji) return;
+    if (e?.stopPropagation) e.stopPropagation();
+    clearDesktopReactionDetailsCloseTimer();
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    const viewportWidth = window.innerWidth || 360;
+    const viewportHeight = window.innerHeight || 640;
+    const popupWidth = 230;
+    const popupHeight = Math.min(260, 66 + users.length * 30);
+    const padding = 8;
+    const anchorX =
+      Number.isFinite(rect?.left) && Number.isFinite(rect?.width)
+        ? rect.left + rect.width / 2
+        : Number(e?.clientX) || padding;
+    const anchorTop =
+      Number.isFinite(rect?.top) ? rect.top : Number(e?.clientY) || padding;
+    const anchorBottom =
+      Number.isFinite(rect?.bottom) ? rect.bottom : anchorTop + 18;
+    const left = Math.min(
+      Math.max(padding, Math.round(anchorX - popupWidth / 2)),
+      Math.max(padding, viewportWidth - popupWidth - padding)
+    );
+    const preferredTop = Math.round(anchorTop - popupHeight - 10);
+    const top =
+      preferredTop >= padding
+        ? preferredTop
+        : Math.min(
+            Math.max(padding, Math.round(anchorBottom + 8)),
+            Math.max(padding, viewportHeight - popupHeight - padding)
+          );
+    setDesktopChatReactionDetails({
+      open: true,
+      left,
+      top,
+      messageId,
+      emoji,
+      users,
+    });
+  }
+
+  function openDesktopChatReactionPicker(e, message) {
+    if (!message || typeof message !== "object") return;
+    if (isSystemChatMessage(message)) return;
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
+    closeDesktopChatReactionDetails();
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    if (!messageId) return;
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    const viewportWidth = window.innerWidth || 360;
+    const viewportHeight = window.innerHeight || 640;
+    const pickerWidth = 274;
+    const pickerHeight = 52;
+    const padding = 8;
+    const anchorX =
+      Number.isFinite(rect?.left) && Number.isFinite(rect?.width)
+        ? rect.left + rect.width / 2
+        : Number(e?.clientX) || padding;
+    const anchorY =
+      Number.isFinite(rect?.top) && Number.isFinite(rect?.height)
+        ? rect.top
+        : Number(e?.clientY) || padding;
+    const left = Math.min(
+      Math.max(padding, Math.round(anchorX - pickerWidth / 2)),
+      Math.max(padding, viewportWidth - pickerWidth - padding)
+    );
+    const top = Math.min(
+      Math.max(padding, Math.round(anchorY - pickerHeight - 10)),
+      Math.max(padding, viewportHeight - pickerHeight - padding)
+    );
+    setDesktopChatReactionPicker({
+      open: true,
+      left,
+      top,
+      messageId,
+    });
+  }
+
   function openUserMenu(e, { nick, installId: targetInstallId, messageId = null }) {
     const key = normalizeInstallId(targetInstallId);
     if (!key || key === installId) return;
@@ -14902,17 +15778,24 @@ export default function App() {
     const menuWidth = 180;
     const menuHeight = 120;
     const padding = 8;
-    const baseLeft = rect?.left ?? padding;
-    const baseTop = rect?.bottom ?? padding;
+    const anchorCenterX =
+      Number.isFinite(rect?.left) && Number.isFinite(rect?.width)
+        ? rect.left + rect.width / 2
+        : padding;
+    const anchorCenterY =
+      Number.isFinite(rect?.top) && Number.isFinite(rect?.height)
+        ? rect.top + rect.height / 2
+        : padding;
+    const baseLeft = anchorCenterX - menuWidth / 2;
+    const baseTop = anchorCenterY - menuHeight / 2;
     let left = Math.min(
       Math.max(padding, Math.round(baseLeft)),
       Math.max(padding, viewportWidth - menuWidth - padding)
     );
-    let top = Math.round(baseTop + 6);
-    if (top + menuHeight > viewportHeight - padding) {
-      const fallbackTop = rect?.top ?? top;
-      top = Math.max(padding, Math.round(fallbackTop - menuHeight - 6));
-    }
+    let top = Math.min(
+      Math.max(padding, Math.round(baseTop)),
+      Math.max(padding, viewportHeight - menuHeight - padding)
+    );
     setUserMenu({
       open: true,
       left,
@@ -15122,7 +16005,8 @@ export default function App() {
       : null;
     if (!entry || !Array.isArray(entry.words)) return [];
     const isSpeedRound = specialRound?.type === "speed";
-    const scoreAllowed = !isSpeedRound && !isTargetRound;
+    const isSpecial3Round = specialRound?.type === DAILY_SPECIAL_MODE;
+    const scoreAllowed = !isSpeedRound && !isTargetRound && !isSpecial3Round;
     const scoreCache = new Map();
     const getStats = (rawWord) => {
       const word = String(rawWord || "").trim();
@@ -15415,16 +16299,14 @@ export default function App() {
       Number.isFinite(clickPoint.clientX) &&
       Number.isFinite(clickPoint.clientY);
     const anchorRect =
-      anchorFromElement
-        ? anchorFromElement
-        : hasPoint
+      hasPoint
         ? {
             left: clickPoint.clientX,
             top: clickPoint.clientY,
             width: 0,
             height: 0,
           }
-        : null;
+        : anchorFromElement || null;
     const payload = buildRoundPlayerModalPayload(nick, anchorRect);
     if (!payload) return;
     roundPlayerAnchorElementRef.current =
@@ -15841,7 +16723,7 @@ export default function App() {
     if (isInvalidDico) {
       playInvalidWordSound();
     } else if (isTooShort) {
-      playShortWordSound();
+      // Pas de son pour un mot de moins de 2 lettres.
     } else if (isDuplicate) {
       playAlreadyPlayedSound();
     } else {
@@ -16126,7 +17008,7 @@ function handleTouchEnd(e) {
       if (reason === "not_target") {
         setStatusMessageWithHold("Pas le mot cible", 1400);
       } else if (reason === "already_found") {
-        setStatusMessageWithHold("Deja trouve", 1200);
+        setStatusMessageWithHold("Déjà trouvé", 1200);
         playAlreadyPlayedSound();
       }
       markRejectedWord(word, reason || "error");
@@ -16386,9 +17268,18 @@ function handleTouchEnd(e) {
     const pts = computeScore(raw, path, board, specialScoreConfig);
     const displayStr = display || raw.toUpperCase();
     const now = Date.now();
+    const normalizedPath = Array.isArray(path)
+      ? path
+          .map((idx) => Number(idx))
+          .filter((idx) => Number.isInteger(idx) && idx >= 0)
+      : [];
 
     setScore((s) => s + pts);
     acceptedScoresRef.current.set(raw, pts);
+    dailyAcceptedPathsRef.current.set(raw, {
+      word: raw,
+      path: normalizedPath,
+    });
     pushWordHistory(raw);
 
     const wordBonuses = summarizeBonuses(path, board);
@@ -16456,10 +17347,185 @@ function handleTouchEnd(e) {
     clearSelection();
   }
 
+  function getDailyActiveSlotIndex(slots, preferredIndex = 0) {
+    const list = Array.isArray(slots) ? slots : [];
+    const safePreferred = clampValue(
+      Number.isFinite(preferredIndex) ? preferredIndex : 0,
+      0,
+      Math.max(0, DAILY_SPECIAL_WORD_TARGET - 1)
+    );
+    if (list[safePreferred] && !list[safePreferred].word) {
+      return safePreferred;
+    }
+    const firstEmpty = list.findIndex((slot) => !String(slot?.word || "").trim());
+    return firstEmpty >= 0 ? firstEmpty : safePreferred;
+  }
+
+  function markDailySlotInvalid(slotIndex, message = "INVALIDE") {
+    setDailyInvalidSlot(slotIndex);
+    setDailyInvalidPulseKey((prev) => prev + 1);
+    playOneShotAudio(SFX_KEYS.invalidWord, {
+      cooldownKey: "dailyInvalid",
+      eqKey: "invalidWord",
+    });
+    setStatusMessageWithHold(message, 900);
+    clearSelection();
+  }
+
+  function syncLiveSpecial3WordsState(nextSlots = dailyWordSlots, nextPlacements = dailySpecialPlacements) {
+    if (!isLiveSpecial3WordsMode || !socket.connected || !roundIdRef.current) return;
+    const payload = {
+      roundId: roundIdRef.current,
+      wordSlots: (Array.isArray(nextSlots) ? nextSlots : []).map((slot, idx) => ({
+        id: Number.isFinite(slot?.id) ? slot.id : idx,
+        word: String(slot?.word || "").trim(),
+        display: String(slot?.display || slot?.word || "").trim(),
+        path: Array.isArray(slot?.path) ? slot.path : [],
+      })),
+      specialPlacements: nextPlacements && typeof nextPlacements === "object" ? nextPlacements : {},
+    };
+    socket.emit("special3Words:update", payload, (res) => {
+      if (!res || res.ok === false) return;
+      if (Array.isArray(res.wordSlots)) {
+        setDailyWordSlots((prev) => {
+          const next = res.wordSlots.map((slot, idx) => ({
+            id: Number.isFinite(slot?.id) ? slot.id : idx,
+            word: String(slot?.word || "").trim(),
+            display: String(slot?.display || slot?.word || "").trim(),
+            path: Array.isArray(slot?.path) ? slot.path : [],
+            pts: Number.isFinite(slot?.pts) ? slot.pts : null,
+          }));
+          return areStringArraysEqual(
+            next.map((slot) => slot.word),
+            (Array.isArray(prev) ? prev : []).map((slot) => String(slot?.word || "").trim())
+          )
+            ? prev
+            : next;
+        });
+      }
+      if (res.specialPlacements && typeof res.specialPlacements === "object") {
+        setDailySpecialPlacements((prev) => {
+          const next = res.specialPlacements;
+          const prevKey = JSON.stringify(prev || {});
+          const nextKey = JSON.stringify(next || {});
+          return prevKey === nextKey ? prev : next;
+        });
+      }
+    });
+  }
+
+  function submitDailySpecialWord() {
+    const slots = Array.isArray(dailyWordSlots) ? dailyWordSlots : createDailyWordSlots();
+    let targetSlot = getDailyActiveSlotIndex(slots, dailyActiveSlot);
+    if (targetSlot < 0) targetSlot = 0;
+    if (slots.every((slot) => String(slot?.word || "").trim())) {
+      return error("3 mots déjà validés");
+    }
+
+    const display = currentTilesRef.current.join("");
+    const raw = normalizeWord(display);
+    if (!raw || raw.length < 2) {
+      markDailySlotInvalid(targetSlot, "Mot trop court");
+      return;
+    }
+    if (!dictionary || !dictionary.has(raw)) {
+      markDailySlotInvalid(targetSlot, "INVALIDE");
+      return;
+    }
+    const alreadyUsed = slots.some((slot, idx) => idx !== targetSlot && slot?.word === raw);
+    if (alreadyUsed) {
+      markDailySlotInvalid(targetSlot, "Déjà saisi");
+      return;
+    }
+    const scoringBoard = applyDailySpecialPlacements(board, dailySpecialPlacements);
+    let path;
+    const touchContext =
+      lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
+    const usesManualPath = touchContext || lastInputMode === "mouse";
+    if (usesManualPath) {
+      path = highlightPath;
+      if (!path || path.length === 0) {
+        markDailySlotInvalid(targetSlot, "Mot absent de la grille");
+        return;
+      }
+    } else {
+      path = findBestPathForWord(scoringBoard, raw, specialScoreConfig);
+      if (!path || path.length === 0) {
+        markDailySlotInvalid(targetSlot, "Mot absent de la grille");
+        return;
+      }
+      setHighlightPath(path);
+    }
+    const normalizedPath = path
+      .map((idx) => Number(idx))
+      .filter((idx) => Number.isInteger(idx) && idx >= 0);
+    if (!normalizedPath.length || normalizedPath.length !== path.length) {
+      markDailySlotInvalid(targetSlot, "Chemin invalide");
+      return;
+    }
+    const blockedReason = getDailySpecialWordBlockedReason(
+      raw,
+      normalizedPath,
+      slots,
+      targetSlot
+    );
+    if (blockedReason) {
+      markDailySlotInvalid(targetSlot, blockedReason);
+      return;
+    }
+
+    const scored = scoreWordOnGridWithPath(raw, scoringBoard, normalizedPath, specialScoreConfig);
+    if (!scored) {
+      markDailySlotInvalid(targetSlot, "Mot absent de la grille");
+      return;
+    }
+    const pts = scored.pts || 0;
+    const wordLen = normalizeWord(display || raw || "").length || 0;
+    const special3MaxPossibleLen =
+      Number.isFinite(roundStats?.maxLen) && roundStats.maxLen > 0
+        ? Number(roundStats.maxLen)
+        : bestGridMaxLenRef.current || 0;
+    const isSpecial3LenGobbleNow =
+      special3MaxPossibleLen > 0 && wordLen > 0 && wordLen === special3MaxPossibleLen;
+    const nextSlots = slots.map((slot) => ({ ...slot }));
+    if (!nextSlots[targetSlot]) {
+      nextSlots[targetSlot] = { id: targetSlot, word: "", display: "", path: [] };
+    }
+    nextSlots[targetSlot] = {
+      ...nextSlots[targetSlot],
+      word: raw,
+      display: (display || raw).toUpperCase(),
+      path: normalizedPath,
+    };
+    const nextSlot = getDailyActiveSlotIndex(nextSlots, targetSlot + 1);
+    setDailyWordSlots(nextSlots);
+    setDailyActiveSlot(nextSlot);
+    setDailyInvalidSlot((prev) => (prev === targetSlot ? null : prev));
+    if (isLiveSpecial3WordsMode) {
+      syncLiveSpecial3WordsState(nextSlots, dailySpecialPlacements);
+    }
+    playScoreSound(pts);
+    if (isSpecial3LenGobbleNow) {
+      playGobbleVoice();
+      triggerPraiseFlash("GOBBLE !", {
+        kind: "gobble",
+        shakeGrid: true,
+      });
+      triggerConfettiBurst("gobble");
+    }
+    setStatusMessageWithHold(`+${pts} pts`, 700);
+    clearSelection();
+  }
+
   function submit()  {
   if (inputLockedRef.current) return;
   if (typeof window !== "undefined") {
     window.scrollTo(0, 0);
+  }
+
+  if (isSpecial3WordsMode) {
+    submitDailySpecialWord();
+    return;
   }
 
   if (foundTargetThisRound) {
@@ -16495,11 +17561,16 @@ function handleTouchEnd(e) {
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
+      const scored =
+        Array.isArray(path) && path.length > 0
+          ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
+          : null;
+      if (!scored) return error("Mot absent de la grille");
       const optimisticPts = isTargetRoundNow
         ? 0
         : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
         ? specialRound.fixedWordScore
-        : computeScore(raw, path, board, specialScoreConfig);
+        : scored.pts;
 
       enqueuePendingWord(raw, {
         display: display || raw.toUpperCase(),
@@ -16517,8 +17588,302 @@ function handleTouchEnd(e) {
     }
 
     // Mode solo local : on garde le scoring existant
-    applyLocalWordScoring({ raw, display, path });
+    const scored =
+      Array.isArray(path) && path.length > 0
+        ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
+        : null;
+    if (!scored) return error("Mot absent de la grille");
+
+    applyLocalWordScoring({ raw, display, path: scored.path });
   }
+
+  function clearDailyWordSlot(slotIndex) {
+    const safeIndex = clampValue(
+      Number(slotIndex),
+      0,
+      Math.max(0, DAILY_SPECIAL_WORD_TARGET - 1)
+    );
+    setDailyWordSlots((prev) => {
+      const next = Array.isArray(prev) ? prev.map((slot) => ({ ...slot })) : createDailyWordSlots();
+      if (!next[safeIndex]) {
+        next[safeIndex] = { id: safeIndex, word: "", display: "", path: [] };
+      } else {
+        next[safeIndex] = {
+          ...next[safeIndex],
+          word: "",
+          display: "",
+          path: [],
+        };
+      }
+      if (isLiveSpecial3WordsMode) {
+        syncLiveSpecial3WordsState(next, dailySpecialPlacements);
+      }
+      return next;
+    });
+    setDailyActiveSlot(safeIndex);
+    setDailyInvalidSlot(null);
+    clearSelection();
+  }
+
+  function animateDailySpecialLock(tileIndex) {
+    if (!Number.isInteger(tileIndex) || tileIndex < 0) return;
+    const tileEl = tileRefs.current?.[tileIndex];
+    if (!tileEl) return;
+    try {
+      if (typeof tileEl.animate === "function") {
+        tileEl.animate(
+          [
+            {
+              transform: "scale(1)",
+              boxShadow: "0 0 0 0 rgba(16,185,129,0)",
+              filter: "brightness(1)",
+            },
+            {
+              transform: "scale(1.11)",
+              boxShadow: "0 0 0 10px rgba(16,185,129,0.34)",
+              filter: "brightness(1.1)",
+            },
+            {
+              transform: "scale(0.97)",
+              boxShadow: "0 0 0 4px rgba(16,185,129,0.2)",
+              filter: "brightness(1.03)",
+            },
+            {
+              transform: "scale(1)",
+              boxShadow: "0 0 0 0 rgba(16,185,129,0)",
+              filter: "brightness(1)",
+            },
+          ],
+          {
+            duration: 360,
+            easing: "cubic-bezier(0.22,1,0.36,1)",
+          }
+        );
+        return;
+      }
+      tileEl.classList.remove("daily-special-lock");
+      void tileEl.offsetWidth;
+      tileEl.classList.add("daily-special-lock");
+      setTimeout(() => {
+        tileEl.classList.remove("daily-special-lock");
+      }, 380);
+    } catch (_) {}
+  }
+
+  function playDailySpecialLockValidationSound() {
+    if (!soundValidationEnabled || isSfxMuted) return;
+    const soundKey = "dailySpecialLockValidation";
+    if (!shouldPlay(soundKey, 55, { ignorePolyphony: true })) return;
+    const system = getAudioSystem();
+    if (!system) return;
+    const { ctx } = system;
+    const start = () => {
+      if (ctx.state !== "running") return;
+      const now = ctx.currentTime + 0.008;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(humanizeGain(0.95, 0.8), now);
+      const fxNodes = connectSfxChain(
+        ctx,
+        system,
+        master,
+        {
+          filter: {
+            type: "bandpass",
+            base: 1100,
+            peak: 2800,
+            q: 1.1,
+            attack: 0.01,
+            release: 0.16,
+          },
+          saturation: 0.8,
+          panRange: 0.06,
+          reverbSend: 0.08,
+        },
+        now
+      );
+      const nodes = [master, ...fxNodes];
+      let lastStop = now;
+      let lastOsc = null;
+      const notes = [
+        { freq: 720, offset: 0, attack: 0.004, hold: 0.045, release: 0.07, gain: 0.11, type: "triangle" },
+        { freq: 1080, offset: 0.052, attack: 0.003, hold: 0.055, release: 0.1, gain: 0.125, type: "sine" },
+      ];
+      notes.forEach((note) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t0 = now + note.offset;
+        osc.type = note.type;
+        osc.frequency.setValueAtTime(humanizeFreq(note.freq, 3), t0);
+        const endTime = withEnvelope(
+          gain,
+          t0,
+          note.attack,
+          humanizeGain(note.gain, 0.7),
+          note.hold,
+          note.release
+        );
+        const stopTime = endTime + 0.025;
+        osc.connect(gain);
+        gain.connect(master);
+        nodes.push(osc, gain);
+        if (stopTime > lastStop) lastStop = stopTime;
+        lastOsc = osc;
+        try {
+          osc.start(t0);
+          osc.stop(stopTime);
+        } catch (_) {}
+      });
+      const clickOsc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      const clickAt = now + 0.01;
+      clickOsc.type = "square";
+      clickOsc.frequency.setValueAtTime(humanizeFreq(1900, 5), clickAt);
+      const clickEnd = withEnvelope(clickGain, clickAt, 0.0015, humanizeGain(0.03, 0.5), 0.004, 0.02);
+      const clickStop = clickEnd + 0.01;
+      clickOsc.connect(clickGain);
+      clickGain.connect(master);
+      nodes.push(clickOsc, clickGain);
+      if (clickStop > lastStop) lastStop = clickStop;
+      try {
+        clickOsc.start(clickAt);
+        clickOsc.stop(clickStop);
+      } catch (_) {}
+      const finalStopTime = lastStop;
+      const cleanup = startVoiceCount(soundKey, finalStopTime - ctx.currentTime + 0.08);
+      const finalize = scheduleNodeCleanup(ctx, finalStopTime + 0.05, nodes, cleanup);
+      if (lastOsc) {
+        lastOsc.onended = finalize;
+      } else {
+        setTimeout(finalize, Math.max(30, Math.round((finalStopTime - ctx.currentTime) * 1000)));
+      }
+    };
+    ctx.resume().then(start).catch(start);
+  }
+
+  function findGridIndexFromPoint(clientX, clientY) {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+    const refs = tileRefs.current || [];
+    for (let idx = 0; idx < refs.length; idx += 1) {
+      const el = refs[idx];
+      const rect = el?.getBoundingClientRect?.();
+      if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top)) continue;
+      if (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      ) {
+        return idx;
+      }
+    }
+    return null;
+  }
+
+  function beginDailySpecialDrag(e, bonusKey) {
+    if (!isSpecial3WordsMode || phase !== "playing") return;
+    if (!DAILY_SPECIAL_BONUSES.includes(bonusKey)) return;
+    requestAudioUnlock(e);
+    const pointer = e?.nativeEvent || e;
+    const x = Number(pointer?.clientX);
+    const y = Number(pointer?.clientY);
+    const previousIndex = Number.isInteger(dailySpecialPlacements?.[bonusKey])
+      ? dailySpecialPlacements[bonusKey]
+      : null;
+    const nextDrag = {
+      bonusKey,
+      x: Number.isFinite(x) ? x : null,
+      y: Number.isFinite(y) ? y : null,
+      hoverIndex:
+        Number.isFinite(x) && Number.isFinite(y) ? findGridIndexFromPoint(x, y) : null,
+      previousIndex,
+    };
+    dailySpecialDragRef.current = nextDrag;
+    setDailySpecialDrag(nextDrag);
+    setDailySpecialPlacements((prev) => ({
+      ...prev,
+      [bonusKey]: null,
+    }));
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
+  }
+
+  useEffect(() => {
+    if (!dailySpecialDrag) return undefined;
+    const onPointerMove = (evt) => {
+      const drag = dailySpecialDragRef.current;
+      if (!drag) return;
+      const x = Number(evt?.clientX);
+      const y = Number(evt?.clientY);
+      const hoverIndex =
+        Number.isFinite(x) && Number.isFinite(y) ? findGridIndexFromPoint(x, y) : null;
+      const next = {
+        ...drag,
+        x: Number.isFinite(x) ? x : drag.x,
+        y: Number.isFinite(y) ? y : drag.y,
+        hoverIndex,
+      };
+      dailySpecialDragRef.current = next;
+      setDailySpecialDrag(next);
+    };
+    const onPointerUp = (evt) => {
+      const drag = dailySpecialDragRef.current;
+      dailySpecialDragRef.current = null;
+      setDailySpecialDrag(null);
+      if (!drag) return;
+      const x = Number(evt?.clientX);
+      const y = Number(evt?.clientY);
+      const targetIndex =
+        Number.isFinite(x) && Number.isFinite(y)
+          ? findGridIndexFromPoint(x, y)
+          : Number.isInteger(drag.hoverIndex)
+          ? drag.hoverIndex
+          : null;
+      setDailySpecialPlacements((prev) => {
+        const next = { ...prev };
+        const canPlaceOnGrid =
+          Number.isInteger(targetIndex) &&
+          targetIndex >= 0 &&
+          targetIndex < (Array.isArray(board) ? board.length : 0);
+        if (canPlaceOnGrid) {
+          const overriddenBonus = DAILY_SPECIAL_BONUSES.find(
+            (bonus) =>
+              bonus !== drag.bonusKey &&
+              Number.isInteger(next?.[bonus]) &&
+              next[bonus] === targetIndex
+          );
+          if (overriddenBonus) {
+            next[overriddenBonus] = null;
+          }
+          next[drag.bonusKey] = targetIndex;
+          playDailySpecialLockValidationSound();
+          animateDailySpecialLock(targetIndex);
+          setDailyLockPulseKey((prevPulse) => prevPulse + 1);
+          if (isLiveSpecial3WordsMode) {
+            syncLiveSpecial3WordsState(dailyWordSlots, next);
+          }
+          return next;
+        }
+        if (Number.isInteger(drag.previousIndex)) {
+          next[drag.bonusKey] = drag.previousIndex;
+        } else {
+          next[drag.bonusKey] = null;
+        }
+        if (isLiveSpecial3WordsMode) {
+          syncLiveSpecial3WordsState(dailyWordSlots, next);
+        }
+        return next;
+      });
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [dailySpecialDrag, board, isSpecial3WordsMode, isLiveSpecial3WordsMode, dailyWordSlots, dailySpecialPlacements]);
 
 
   function analyzeWord(word) {
@@ -16594,6 +17959,133 @@ function handleTouchEnd(e) {
     } catch (_) {}
   }
 
+  function setChatReplyTargetFromMessage(message) {
+    if (!message || typeof message !== "object") return;
+    if (isSystemChatMessage(message)) return;
+    const replyTo = normalizeChatReplyPreview({
+      id: message.id,
+      nick: message.nick || message.author || "Anonyme",
+      installId: message.installId || null,
+      text: message.text || "",
+      t: message.t ?? message.ts ?? message.timestamp ?? message.createdAt,
+    });
+    if (!replyTo) return;
+    if (safeChatTab !== "messages") {
+      setChatTab("messages");
+    }
+    setChatEditTarget(null);
+    setChatReplyTarget(replyTo);
+    setActiveArea("chat");
+    try {
+      chatInputRef.current?.focus();
+    } catch (_) {}
+  }
+
+  function clearChatReplyTarget() {
+    setChatReplyTarget(null);
+  }
+
+  function beginChatEditFromMessage(message) {
+    if (!message || typeof message !== "object") return;
+    if (isSystemChatMessage(message)) return;
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    const authorInstallId =
+      typeof message.installId === "string" ? message.installId.trim() : "";
+    if (!messageId || !authorInstallId || authorInstallId !== installId) return;
+    const text = String(message.text || "");
+    setChatReplyTarget(null);
+    setChatEditTarget({ id: messageId, text });
+    setChatInput(text);
+    setActiveArea("chat");
+    try {
+      chatInputRef.current?.focus();
+    } catch (_) {}
+  }
+
+  function clearChatEditTarget() {
+    setChatEditTarget(null);
+  }
+
+  function deleteOwnChatMessage(message) {
+    if (!message || typeof message !== "object") return;
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    const authorInstallId =
+      typeof message.installId === "string" ? message.installId.trim() : "";
+    if (!messageId || !authorInstallId || authorInstallId !== installId) return;
+    if (!socket.connected) {
+      setConnectionError("Connecte-toi au serveur pour supprimer un message.");
+      return;
+    }
+    const payload = {
+      messageId,
+      roomId: roomIdRef.current || getDefaultRoomId(),
+    };
+    if (!isLoggedInRef.current) {
+      const nickForLobby = (nicknameRef.current || nickname || "").trim();
+      if (!nickForLobby) {
+        setConnectionError("Choisis un pseudo pour discuter.");
+        return;
+      }
+      payload.nick = nickForLobby;
+      payload.installId = installId;
+      payload.lobby = true;
+    }
+    socket.emit("chat:delete", payload, (res) => {
+      if (res?.ok) return;
+      if (res?.error === "forbidden") {
+        showToast("Suppression refusée");
+      } else {
+        showToast("Suppression impossible");
+      }
+    });
+  }
+
+  function sendChatReaction(messageId, emoji) {
+    const safeMessageId = typeof messageId === "string" ? messageId.trim() : "";
+    const safeEmoji = typeof emoji === "string" ? emoji.trim() : "";
+    if (!safeMessageId || !safeEmoji) return;
+    if (!chatRulesAccepted) {
+      setIsChatRulesOpen(true);
+      return;
+    }
+    if (!socket.connected) {
+      if (!isLoggedInRef.current) {
+        subscribeLobbyChat();
+        setConnectionError("Connexion au serveur...");
+      } else {
+        setConnectionError("Connecte-toi au serveur pour réagir.");
+      }
+      return;
+    }
+
+    const payload = {
+      messageId: safeMessageId,
+      emoji: safeEmoji,
+      roomId: roomIdRef.current || getDefaultRoomId(),
+    };
+    if (!isLoggedInRef.current) {
+      const nickForLobby = (nicknameRef.current || nickname || "").trim();
+      if (!nickForLobby) {
+        setConnectionError("Choisis un pseudo pour discuter.");
+        return;
+      }
+      payload.nick = nickForLobby;
+      payload.installId = installId;
+      payload.lobby = true;
+    }
+
+    socket.emit("chat:react", payload, (res) => {
+      if (res?.ok) return;
+      if (res?.error === "muted") {
+        showToast("Chat temporairement bloqué");
+      } else if (res?.error === "empty_nick") {
+        setConnectionError("Choisis un pseudo pour discuter.");
+      } else if (res?.error === "message_not_found") {
+        showToast("Message introuvable");
+      }
+    });
+  }
+
   function autoResizeDesktopChatInput(el = chatInputRef.current) {
     const node = el;
     if (!node || node.tagName !== "TEXTAREA") return;
@@ -16630,8 +18122,29 @@ function handleTouchEnd(e) {
     if (now - chatLastSentRef.current < CHAT_MIN_DELAY) return;
     chatLastSentRef.current = now;
 
+    const activeEdit = chatEditTargetRef.current;
+    const editMessageId = typeof activeEdit?.id === "string" ? activeEdit.id.trim() : "";
+    const replyToPayload = editMessageId
+      ? null
+      : normalizeChatReplyPreview(chatReplyTargetRef.current);
     let payload = text;
-    if (!isLoggedInRef.current) {
+    if (editMessageId) {
+      payload = {
+        messageId: editMessageId,
+        text,
+        roomId: roomIdRef.current || getDefaultRoomId(),
+      };
+      if (!isLoggedInRef.current) {
+        const nickForLobby = (nicknameRef.current || nickname || "").trim();
+        if (!nickForLobby) {
+          setConnectionError("Choisis un pseudo pour discuter.");
+          return;
+        }
+        payload.nick = nickForLobby;
+        payload.installId = installId;
+        payload.lobby = true;
+      }
+    } else if (!isLoggedInRef.current) {
       const nickForLobby = (nicknameRef.current || nickname || "").trim();
       if (!nickForLobby) {
         setConnectionError("Choisis un pseudo pour discuter.");
@@ -16644,9 +18157,19 @@ function handleTouchEnd(e) {
         installId,
         lobby: true,
       };
+      if (replyToPayload) {
+        payload.replyTo = replyToPayload;
+      }
+    } else if (replyToPayload) {
+      payload = {
+        text,
+        replyTo: replyToPayload,
+      };
     }
 
-    socket.emit("chat:send", payload, (res) => {
+    const replyTargetIdAtSend = replyToPayload?.id || "";
+    const eventName = editMessageId ? "chat:edit" : "chat:send";
+    socket.emit(eventName, payload, (res) => {
       if (!res?.ok) {
         if (res?.error === "muted") {
           showToast("Chat temporairement bloqué");
@@ -16657,10 +18180,18 @@ function handleTouchEnd(e) {
         }
       } else {
         setConnectionError("");
+        if (editMessageId && chatEditTargetRef.current?.id === editMessageId) {
+          setChatEditTarget(null);
+        }
+        if (replyTargetIdAtSend && chatReplyTargetRef.current?.id === replyTargetIdAtSend) {
+          setChatReplyTarget(null);
+        }
       }
     });
 
-    pushChatHistory(text);
+    if (!editMessageId) {
+      pushChatHistory(text);
+    }
     if (!forcedText) setChatInput("");
   }
 
@@ -16837,6 +18368,36 @@ function handleTouchEnd(e) {
   const previewScale = liveWord
     ? clampValue(11 / Math.max(1, liveWord.length), 0.6, 1)
     : 1;
+  const safeDailySlotIndex = clampValue(
+    Number.isFinite(dailyActiveSlot) ? dailyActiveSlot : 0,
+    0,
+    Math.max(0, DAILY_SPECIAL_WORD_TARGET - 1)
+  );
+  const dailyLiveWordNorm = normalizeWord(liveWord || "");
+  const dailyLiveWordBlockedReason = getDailySpecialWordBlockedReason(
+    dailyLiveWordNorm,
+    highlightPath,
+    dailyWordSlots,
+    safeDailySlotIndex
+  );
+  const dailyLiveWordValid =
+    isSpecial3WordsMode &&
+    phase === "playing" &&
+    !!dailyLiveWordNorm &&
+    dailyLiveWordNorm.length >= 2 &&
+    !!dictionary &&
+    dictionary.has(dailyLiveWordNorm) &&
+    !dailyLiveWordBlockedReason &&
+    Array.isArray(highlightPath) &&
+    highlightPath.length > 0;
+  const dailyLiveWordScore = dailyLiveWordValid
+    ? computeScore(
+        dailyLiveWordNorm,
+        highlightPath,
+        isSpecial3WordsMode ? dailyBoardForScore : board,
+        specialScoreConfig
+      )
+    : null;
   const previewTotals = React.useMemo(() => {
     if (isTargetHintRound) {
       return { totalWords: null, totalScore: null };
@@ -16854,7 +18415,16 @@ function handleTouchEnd(e) {
     }
     return { totalWords, totalScore };
   }, [roundStats, allWords, isTargetHintRound]);
-  const currentBonuses = summarizeBonuses(highlightPath, board);
+  const boardForRender = isSpecial3WordsMode ? dailyBoardForScore : board;
+  const special3Slots = isSpecial3WordsMode
+    ? dailyWordSlotsScored.length
+      ? dailyWordSlotsScored
+      : createDailyWordSlots()
+    : [];
+  const special3ActiveSlotIndex = isSpecial3WordsMode
+    ? getDailyActiveSlotIndex(special3Slots, safeDailySlotIndex)
+    : 0;
+  const currentBonuses = summarizeBonuses(highlightPath, boardForRender);
   const wordMultiplier =
     Math.pow(2, currentBonuses.M2 || 0) * Math.pow(3, currentBonuses.M3 || 0);
   const showBonuses =
@@ -17291,9 +18861,20 @@ function handleTouchEnd(e) {
       reason: entry.reason,
     });
   });
+  const suppressWordListScores = specialRound?.type === DAILY_SPECIAL_MODE;
+  const compareWordsByLengthAlpha = (a, b) => {
+    const lenDiff =
+      normalizeWord(String(b?.word || "")).length - normalizeWord(String(a?.word || "")).length;
+    if (lenDiff !== 0) return lenDiff;
+    return String(a?.word || "").localeCompare(String(b?.word || ""), "fr", {
+      sensitivity: "base",
+    });
+  };
   const scoreForSort = (entry) =>
     typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
-  foundList.sort((a, b) => scoreForSort(b) - scoreForSort(a));
+  foundList.sort((a, b) =>
+    suppressWordListScores ? compareWordsByLengthAlpha(a, b) : scoreForSort(b) - scoreForSort(a)
+  );
   const baseList = allWords.length > 0 ? allWords : foundList;
   const displayList = baseList.map((entry) => ({
     word: entry.word,
@@ -17317,8 +18898,12 @@ function handleTouchEnd(e) {
           : entry.bestPts
         : speedWordScore,
   }));
+  if (suppressWordListScores) {
+    displayList.sort(compareWordsByLengthAlpha);
+  }
   const gobbleBadgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
   const isSpeedRoundForResults = specialRound?.type === "speed";
+  const isSpecial3RoundForResults = specialRound?.type === DAILY_SPECIAL_MODE;
   const gobbleMaxPts = isSpeedRoundForResults
     ? 0
     : displayList.reduce((max, entry) => {
@@ -17335,6 +18920,7 @@ function handleTouchEnd(e) {
     displayList.forEach((entry) => {
       const len = normalizeWord(entry.word || "").length;
       const isBest =
+        !isSpecial3RoundForResults &&
         !isSpeedRoundForResults &&
         Number.isFinite(entry.bestPts) &&
         entry.bestPts === gobbleMaxPts;
@@ -17343,6 +18929,21 @@ function handleTouchEnd(e) {
       gobbleCandidates.set(entry.word, { best: isBest, long: isLong });
     });
   }
+  const special3LongestWordLen =
+    isSpecial3WordsMode && Number.isFinite(roundStats?.maxLen) ? Number(roundStats.maxLen) : 0;
+  const renderSpecial3LengthGobbleBadge = (word) => {
+    if (!gobbleBadgeUrl || !special3LongestWordLen || !word) return null;
+    const len = normalizeWord(String(word || "")).length;
+    if (len <= 0 || len !== special3LongestWordLen) return null;
+    return (
+      <img
+        src={gobbleBadgeUrl}
+        alt="G"
+        className="block h-3.5 w-auto"
+        style={{ imageRendering: "auto" }}
+      />
+    );
+  };
   const renderGobbleCandidate = (word) => {
     const meta = gobbleCandidates.get(word);
     if (!meta) return null;
@@ -17406,6 +19007,7 @@ function handleTouchEnd(e) {
       if (!upcomingSpecial?.isSpecial) return null;
       if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
+      if (upcomingSpecial.type === DAILY_SPECIAL_MODE) return "3 MOTS";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
@@ -17812,6 +19414,7 @@ function handleTouchEnd(e) {
       if (!upcomingSpecial?.isSpecial) return null;
       if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
+      if (upcomingSpecial.type === DAILY_SPECIAL_MODE) return "3 MOTS";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
@@ -18415,7 +20018,17 @@ function handleTouchEnd(e) {
   const dailyEntries = dailyEntriesRaw.filter((entry) => !entry?.isPalier);
   const dailyWidgetEntries = isMobileLayout ? dailyEntriesRaw : dailyEntries;
   const dailyRankingSource = React.useMemo(() => {
-    const base = Array.isArray(dailyWidgetEntries) ? dailyWidgetEntries : [];
+    const allEntries = Array.isArray(dailyWidgetEntries) ? dailyWidgetEntries : [];
+    const currentDailyMode =
+      dailyPlayMode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+    const base = isDailyPlay
+      ? allEntries.filter((entry) => {
+          if (entry?.isPalier) return true;
+          const entryMode =
+            entry?.mode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+          return entryMode === currentDailyMode;
+        })
+      : allEntries;
     if (!isDailyPlay || !selfNick || !Number.isFinite(score)) return base;
     const hasSelf = base.some(
       (entry) => entry && !entry.isPalier && entry.nick === selfNick
@@ -18427,6 +20040,7 @@ function handleTouchEnd(e) {
       wordsCount: Number.isFinite(accepted?.length) ? accepted.length : null,
       installId: installId || null,
       team: duelStatus?.team || null,
+      mode: currentDailyMode,
       isPalier: false,
       playerKey: installId ? `install:${installId}` : `nick:${selfNick}`,
     };
@@ -18440,7 +20054,16 @@ function handleTouchEnd(e) {
       return String(a?.nick || "").localeCompare(String(b?.nick || ""));
     });
     return merged;
-  }, [dailyWidgetEntries, isDailyPlay, selfNick, score, accepted?.length, installId, duelStatus?.team]);
+  }, [
+    dailyWidgetEntries,
+    isDailyPlay,
+    dailyPlayMode,
+    selfNick,
+    score,
+    accepted?.length,
+    installId,
+    duelStatus?.team,
+  ]);
   const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
 
   useLayoutEffect(() => {
@@ -18593,6 +20216,7 @@ function handleTouchEnd(e) {
     if (seenTypes[specialRound.type]) return;
     if (isSpecialTutorialOpen) return;
     setSpecialTutorialPlan(specialRound);
+    setSpecialTutorialStepIndex(0);
     setIsSpecialTutorialOpen(true);
   }, [
     phase,
@@ -18606,14 +20230,148 @@ function handleTouchEnd(e) {
     mobileRoundIntroStage,
   ]);
   useEffect(() => {
-    if (phase === "playing" && specialRound?.isSpecial) return;
+    if (phase === "playing" && (specialRound?.isSpecial || (isDailyPlay && dailyPlayMode === DAILY_SPECIAL_MODE))) {
+      return;
+    }
     if (isSpecialTutorialOpen) {
       setIsSpecialTutorialOpen(false);
     }
     if (specialTutorialPlan) {
       setSpecialTutorialPlan(null);
     }
-  }, [phase, specialRound, isSpecialTutorialOpen, specialTutorialPlan]);
+  }, [phase, specialRound, isSpecialTutorialOpen, specialTutorialPlan, isDailyPlay, dailyPlayMode]);
+  useEffect(() => {
+    if (!isDailyPlay || dailyPlayMode !== DAILY_SPECIAL_MODE) return;
+    if (!installId) return;
+    const seenTypes = specialTutorialSeen?.types || {};
+    if (seenTypes[DAILY_SPECIAL_MODE]) return;
+    if (isSpecialTutorialOpen) return;
+    setSpecialTutorialPlan({
+      isSpecial: true,
+      type: DAILY_SPECIAL_MODE,
+      label: "3 mots",
+      tutorialContext: "daily",
+    });
+    setSpecialTutorialStepIndex(0);
+    setIsSpecialTutorialOpen(true);
+  }, [isDailyPlay, dailyPlayMode, installId, specialTutorialSeen, isSpecialTutorialOpen]);
+  useEffect(() => {
+    const shouldPause = isDailySpecial3TutorialActive;
+    if (shouldPause) {
+      if (!Number.isFinite(dailySpecialTutorialPauseStartedAtRef.current)) {
+        dailySpecialTutorialPauseStartedAtRef.current = getNowServerMs();
+      }
+      return;
+    }
+    const pausedAt = dailySpecialTutorialPauseStartedAtRef.current;
+    if (!Number.isFinite(pausedAt)) return;
+    dailySpecialTutorialPauseStartedAtRef.current = null;
+    const pauseMs = Math.max(0, getNowServerMs() - pausedAt);
+    if (pauseMs <= 0) return;
+    setServerEndsAt((prev) => (Number.isFinite(prev) ? prev + pauseMs : prev));
+    if (Number.isFinite(dailySessionRef.current?.startedAt)) {
+      dailySessionRef.current = {
+        ...dailySessionRef.current,
+        startedAt: dailySessionRef.current.startedAt + pauseMs,
+      };
+    }
+  }, [isDailySpecial3TutorialActive]);
+  useEffect(() => {
+    if (!isSpecial3TutorialInteractiveActive) return;
+    if (specialTutorialStepIndex !== 0) return;
+    const hasPlacedBonus = DAILY_SPECIAL_BONUSES.some((bonusKey) =>
+      Number.isInteger(dailySpecialPlacements?.[bonusKey])
+    );
+    if (hasPlacedBonus) {
+      setSpecialTutorialStepIndex(1);
+    }
+  }, [isSpecial3TutorialInteractiveActive, specialTutorialStepIndex, dailySpecialPlacements]);
+  useEffect(() => {
+    if (!isSpecial3TutorialInteractiveActive) return;
+    if (specialTutorialStepIndex !== 1) return;
+    const hasValidatedWord = special3Slots.some((slot) => String(slot?.word || "").trim());
+    if (hasValidatedWord) {
+      setSpecialTutorialStepIndex(2);
+    }
+  }, [isSpecial3TutorialInteractiveActive, specialTutorialStepIndex, special3Slots]);
+  useEffect(() => {
+    if (!(isMobileLayout && isSpecial3TutorialInteractiveActive && specialTutorialStepIndex === 1)) {
+      setMobileSpecial3Step2OverlayStyle(null);
+      return;
+    }
+    let rafId = null;
+    const measure = () => {
+      const hostRect = mobileSpecial3TutorialHostRef.current?.getBoundingClientRect?.();
+      const secondSlotRect = mobileSpecial3SecondSlotRef.current?.getBoundingClientRect?.();
+      const gridRect = mobileSpecial3GridWrapRef.current?.getBoundingClientRect?.();
+      if (!hostRect || !secondSlotRect || !gridRect) return;
+      const top = Math.max(0, Math.round(secondSlotRect.top - hostRect.top));
+      const bottom = Math.max(0, Math.round(hostRect.bottom - gridRect.top + 4));
+      if (top >= hostRect.height - bottom) return;
+      setMobileSpecial3Step2OverlayStyle((prev) => {
+        const next = { top: `${top}px`, bottom: `${bottom}px` };
+        return prev?.top === next.top && prev?.bottom === next.bottom ? prev : next;
+      });
+    };
+    const scheduleMeasure = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [
+    isMobileLayout,
+    isSpecial3TutorialInteractiveActive,
+    specialTutorialStepIndex,
+    liveWord,
+    dailyWordSlotsScored,
+  ]);
+  useEffect(() => {
+    if (!(isMobileLayout && isSpecial3TutorialInteractiveActive && specialTutorialStepIndex === 0)) {
+      setMobileSpecial3Step1GhostStyle(null);
+      return;
+    }
+    let rafId = null;
+    const measure = () => {
+      const hostRect = mobileSpecial3TutorialHostRef.current?.getBoundingClientRect?.();
+      const gridRect = mobileSpecial3GridWrapRef.current?.getBoundingClientRect?.();
+      const bonusRect = mobileSpecial3BonusTrayRef.current?.getBoundingClientRect?.();
+      if (!hostRect || !gridRect || !bonusRect) return;
+      const startX = bonusRect.left + bonusRect.width * 0.2 - hostRect.left;
+      const startY = bonusRect.top + bonusRect.height * 0.5 - hostRect.top;
+      const endX = gridRect.left + gridRect.width * 0.52 - hostRect.left;
+      const endY = gridRect.top + gridRect.height * 0.46 - hostRect.top;
+      setMobileSpecial3Step1GhostStyle((prev) => {
+        const next = {
+          left: `${Math.round(startX)}px`,
+          top: `${Math.round(startY)}px`,
+          "--special3-ghost-dx": `${Math.round(endX - startX)}px`,
+          "--special3-ghost-dy": `${Math.round(endY - startY)}px`,
+        };
+        return prev &&
+          prev.left === next.left &&
+          prev.top === next.top &&
+          prev["--special3-ghost-dx"] === next["--special3-ghost-dx"] &&
+          prev["--special3-ghost-dy"] === next["--special3-ghost-dy"]
+          ? prev
+          : next;
+      });
+    };
+    const scheduleMeasure = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [isMobileLayout, isSpecial3TutorialInteractiveActive, specialTutorialStepIndex]);
   useEffect(() => {
     if (!guidedResultsEligible || !installId) return;
     if (guidedResultsSeenInstallId === installId) return;
@@ -19019,7 +20777,7 @@ function handleTouchEnd(e) {
 
   const startDesktopColumnResize = React.useCallback(
     (separatorIndex, event) => {
-      if (isMobileLayout || isDailyPlay) return;
+      if (isMobileLayout) return;
       const host = mainGridDesktopRef.current;
       if (!(host instanceof HTMLElement)) return;
       const maxSeparatorIndex = Math.max(0, desktopColumnFractionsRef.current.length - 2);
@@ -19039,14 +20797,17 @@ function handleTouchEnd(e) {
       const computed = window.getComputedStyle(host);
       const gapRaw = parseFloat(computed.columnGap || computed.gap || "0");
       const gapPx = Number.isFinite(gapRaw) ? Math.max(0, gapRaw) : 0;
-      const baseFractions = normalizeDesktopColumnFractions(desktopColumnFractionsRef.current);
+      const baseFractions = normalizeDesktopColumnFractions(
+        desktopColumnFractionsRef.current,
+        desktopColumnDefaultFractions
+      );
       const contentWidth = Math.max(
         1,
         hostWidth - gapPx * Math.max(0, baseFractions.length - 1)
       );
       const baseWidths = baseFractions.map((fraction) => fraction * contentWidth);
       const baseMinWidths = baseFractions.map((_, idx) =>
-        Math.max(120, Number(DESKTOP_COLUMN_MIN_WIDTHS_PX[idx]) || 120)
+        Math.max(120, Number(desktopColumnMinWidthsPx[idx]) || 120)
       );
       const minSum = baseMinWidths.reduce((acc, value) => acc + value, 0);
       const minScale = minSum > contentWidth ? contentWidth / minSum : 1;
@@ -19081,7 +20842,8 @@ function handleTouchEnd(e) {
         nextWidths[separatorIndex] = leftNext;
         nextWidths[separatorIndex + 1] = rightNext;
         const nextFractions = normalizeDesktopColumnFractions(
-          nextWidths.map((width) => width / contentWidth)
+          nextWidths.map((width) => width / contentWidth),
+          desktopColumnDefaultFractions
         );
         setDesktopColumnFractions((prev) =>
           areDesktopFractionsEqual(prev, nextFractions) ? prev : nextFractions
@@ -19095,13 +20857,13 @@ function handleTouchEnd(e) {
       window.addEventListener("pointerup", resizeState.upHandler);
       window.addEventListener("pointercancel", resizeState.upHandler);
     },
-    [isMobileLayout, isDailyPlay, stopDesktopColumnResize]
+    [isMobileLayout, desktopColumnDefaultFractions, desktopColumnMinWidthsPx, stopDesktopColumnResize]
   );
 
   useEffect(() => () => stopDesktopColumnResize(), [stopDesktopColumnResize]);
 
   useEffect(() => {
-    if (isMobileLayout || isDailyPlay || typeof window === "undefined") {
+    if (isMobileLayout || typeof window === "undefined") {
       if (desktopViewportResizeTimerRef.current) {
         clearTimeout(desktopViewportResizeTimerRef.current);
         desktopViewportResizeTimerRef.current = null;
@@ -19133,7 +20895,7 @@ function handleTouchEnd(e) {
         desktopViewportResizeTimerRef.current = null;
       }
     };
-  }, [isMobileLayout, isDailyPlay]);
+  }, [isMobileLayout]);
 
   useLayoutEffect(() => {
     if (isMobileLayout) {
@@ -19942,79 +21704,54 @@ function handleTouchEnd(e) {
     (tournament?.round &&
       tournament?.totalRounds &&
       tournament.round === tournament.totalRounds);
-  const visualViewport =
-    typeof window !== "undefined" ? window.visualViewport : null;
-  const visualViewportHeight =
-    visualViewport && Number.isFinite(visualViewport.height)
-      ? Math.round(visualViewport.height)
-      : 0;
-  const visualViewportOffsetTop =
-    visualViewport && Number.isFinite(visualViewport.offsetTop)
-      ? Math.max(0, Math.round(visualViewport.offsetTop))
-      : 0;
   const chatTopInsetPx = isFullscreen ? mobileHeaderOffsetPx : 0;
-  const useVisualViewportForChat = visualViewportHeight > 0;
-  const keyboardInsetReservePx =
-    useVisualViewportForChat && isChatOpenMobile && chatKeyboardInsetPx === 0
-      ? lastKeyboardInsetRef.current
-      : 0;
-  const visualViewportHeightForChat = useVisualViewportForChat
-    ? Math.max(0, visualViewportHeight - keyboardInsetReservePx)
-    : 0;
-  const safeTopPx = getSafeTopPx();
-
-  // Surface affichable : hauteur - clavier.
-  const chatFallbackBaseHeight = Math.round(
+  const chatDrawerBaseHeightPx = Math.round(
     chatBodyLockHeightRef.current ||
       chatViewportHeight ||
       window.innerHeight ||
       document.documentElement?.clientHeight ||
-      visualViewportHeight ||
       0
   );
-  const keyboardOpenByVv =
-    useVisualViewportForChat &&
-    chatFallbackBaseHeight > 0 &&
-    Math.abs(chatFallbackBaseHeight - visualViewportHeight) >
-      KEYBOARD_INSET_THRESHOLD_PX;
-  const visualViewportTopEffective = useVisualViewportForChat
-    ? isFullscreen && keyboardOpenByVv
-      ? Math.max(visualViewportOffsetTop, safeTopPx)
-      : visualViewportOffsetTop
-    : 0;
-  const chatViewportTopInsetPx = useVisualViewportForChat
-    ? Math.max(0, chatTopInsetPx - visualViewportTopEffective)
-    : chatTopInsetPx;
-
-  const chatAvailableHeightForViewport = useVisualViewportForChat
-    ? Math.max(0, visualViewportHeightForChat - chatViewportTopInsetPx)
-    : Math.max(0, Math.round(chatFallbackBaseHeight - chatTopInsetPx));
-  const chatViewportTop = useVisualViewportForChat
-    ? Math.max(0, visualViewportTopEffective + chatViewportTopInsetPx)
-    : Math.max(0, chatTopInsetPx);
-
-  const chatViewportStyle =
-    chatAvailableHeightForViewport > 0
-      ? {
-          top: `${chatViewportTop}px`,
-          height: `${chatAvailableHeightForViewport}px`,
-          bottom: "auto",
-        }
-      : chatTopInsetPx
-      ? { top: `${Math.max(0, chatTopInsetPx)}px` }
-      : undefined;
-  const globalChatOverlayStyle =
-    !useVisualViewportForChat && chatKeyboardInsetPx > 0
-      ? { paddingBottom: `${Math.round(chatKeyboardInsetPx)}px` }
-      : undefined;
-  const globalChatSheetHeightPx =
-    chatAvailableHeightForViewport > 0
-      ? clampValue(
-          Math.round(chatAvailableHeightForViewport * CHAT_SHEET_HEIGHT_RATIO),
-          260,
-          chatAvailableHeightForViewport
+  const chatDrawerHeightCeilingPx =
+    chatDrawerBaseHeightPx > 0
+      ? Math.max(
+          220,
+          Math.round(chatDrawerBaseHeightPx - chatTopInsetPx - CHAT_DRAWER_TOP_GAP_PX)
         )
       : 0;
+  const chatDrawerCalibration =
+    isChatOpenMobile || isChatClosing
+      ? chatDrawerSessionCalibrationRef.current
+      : chatDrawerCalibrationRef.current;
+  const chatDrawerCalibrationMatchesOrientation =
+    !!chatDrawerCalibration &&
+    String(chatDrawerCalibration.orientation || "portrait") === getChatDrawerOrientationKey();
+  const calibratedChatSheetHeightPx =
+    chatDrawerHeightCeilingPx > 0 && chatDrawerCalibrationMatchesOrientation
+      ? clampValue(
+          Number.isFinite(chatDrawerCalibration?.ratio)
+            ? Math.round(chatDrawerBaseHeightPx * chatDrawerCalibration.ratio)
+            : Number.isFinite(chatDrawerCalibration?.heightPx)
+            ? Math.round(chatDrawerCalibration.heightPx)
+            : 0,
+          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerHeightCeilingPx),
+          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerHeightCeilingPx)
+        )
+      : 0;
+  const globalChatSheetHeightPx =
+    chatDrawerHeightCeilingPx > 0
+      ? calibratedChatSheetHeightPx ||
+        clampValue(
+          Math.round(chatDrawerBaseHeightPx * CHAT_DRAWER_FIXED_HEIGHT_RATIO),
+          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerHeightCeilingPx),
+          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerHeightCeilingPx)
+        )
+      : 0;
+  const chatViewportStyle = chatTopInsetPx
+    ? { paddingTop: `${Math.max(0, chatTopInsetPx)}px` }
+    : undefined;
+  const globalChatOverlayStyle = undefined;
+  const keyboardInsetReservePx = 0;
   const globalChatSheetStyle = globalChatSheetHeightPx
     ? {
         height: `${globalChatSheetHeightPx}px`,
@@ -20083,6 +21820,165 @@ function handleTouchEnd(e) {
   const fontScale = 1;
   const tileFontPx = Math.max(14, Math.min(38, tileSizePx * 0.35 * fontScale));
   const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
+  const special3PreviewIsSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
+  const renderSpecial3PreviewTiles = (wordValue, keyPrefix, pathValue = []) => {
+    const value = String(wordValue || "");
+    if (!value) return null;
+    const safePath = Array.isArray(pathValue) ? pathValue : [];
+    const canUsePath =
+      safePath.length > 0 &&
+      Array.isArray(boardForRender) &&
+      safePath.every((idx) => Number.isInteger(idx) && idx >= 0 && idx < boardForRender.length);
+    const tiles = canUsePath
+      ? safePath.map((boardIndex, idx) => {
+          const cell = boardForRender[boardIndex] || {};
+          return {
+            id: `path-${idx}-${boardIndex}`,
+            letter: String(cell.letter || ""),
+            boardIndex,
+            bonus: normalizeBonusLabel(cell.bonus),
+          };
+        })
+      : value.split("").map((ch, idx) => ({
+          id: `txt-${idx}-${ch}`,
+          letter: ch,
+          boardIndex: idx,
+          bonus: null,
+        }));
+    const useFillIndicator = specialIndicatorPreset === "fill";
+    const useRingIndicator = specialIndicatorPreset === "ring";
+    const useBadgeIndicator = specialIndicatorPreset === "badge";
+    return (
+      <div className="min-h-[28px] flex items-center">
+        <AutoScaleInline minScale={0.42} className="gap-1">
+          {tiles.map((tile, idx) => {
+            const angle = ((idx * 17 + tiles.length * 13) % 11) - 5;
+            const displayBonus = tile.bonus;
+            const tileBaseClass =
+              useFillIndicator && displayBonus ? BONUS_CLASSES[displayBonus] : defaultTileBaseClass;
+            const letterRingClass =
+              useRingIndicator && displayBonus ? getBonusLetterRingClass(displayBonus) : "";
+            const textureStyle =
+              getTileColorTextureStyle(
+                Number.isInteger(tile.boardIndex) ? tile.boardIndex : idx,
+                gridSize,
+                tileColorPreset
+              ) || {};
+            return (
+              <span
+                key={`${keyPrefix}-${tile.id}`}
+                className={[
+                  "tile-cell relative inline-flex items-center justify-center rounded-md px-1.5 h-7 min-w-[28px] text-sm font-black select-none",
+                  tileMaterialClass,
+                  tileBaseClass,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{
+                  transform: `rotate(${angle}deg)`,
+                  pointerEvents: "none",
+                  ...textureStyle,
+                }}
+              >
+                <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
+                {useBadgeIndicator && displayBonus ? (
+                  <span
+                    className={`absolute top-0 right-0 text-[0.55rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                      displayBonus
+                    )}`}
+                    style={{
+                      transform: special3PreviewIsSquareMaterial
+                        ? "translate(-8%, 8%)"
+                        : "translate(10%, -10%)",
+                    }}
+                  >
+                    {displayBonus}
+                  </span>
+                ) : null}
+              </span>
+            );
+          })}
+        </AutoScaleInline>
+      </div>
+    );
+  };
+  const renderSpecial3BonusChipButton = (bonusKey, { keyPrefix = "special3", sizeClass = "h-12 min-w-12 px-3", pulse = false } = {}) => {
+    const placedIndex = Number.isInteger(dailySpecialPlacements?.[bonusKey])
+      ? dailySpecialPlacements[bonusKey]
+      : null;
+    const useFillIndicator = specialIndicatorPreset === "fill";
+    const useRingIndicator = specialIndicatorPreset === "ring";
+    const useBadgeIndicator = specialIndicatorPreset === "badge";
+    const baseClass = useFillIndicator ? BONUS_CLASSES[bonusKey] : defaultTileBaseClass;
+    const ringClass = useRingIndicator ? getBonusLetterRingClass(bonusKey) : "";
+    return (
+      <button
+        key={`${keyPrefix}-${bonusKey}-${dailyLockPulseKey}`}
+        type="button"
+        className={[
+          "relative rounded-xl border shadow-sm select-none touch-none",
+          "flex items-center justify-center font-black text-sm",
+          tileMaterialClass,
+          baseClass,
+          sizeClass,
+          placedIndex != null ? "ring-2 ring-emerald-400/80" : "",
+          pulse ? "special3-tutorial-pulse" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        onPointerDown={(e) => beginDailySpecialDrag(e, bonusKey)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        aria-label={`Tuile ${bonusKey}`}
+      >
+        <span className={`tile-letter ${ringClass}`.trim()}>{bonusKey}</span>
+        {useBadgeIndicator ? (
+          <span
+            className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+              bonusKey
+            )}`}
+            style={{
+              transform: special3PreviewIsSquareMaterial
+                ? "translate(-8%, 8%)"
+                : "translate(10%, -10%)",
+            }}
+          >
+            {bonusKey}
+          </span>
+        ) : null}
+        {placedIndex != null ? (
+          <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center">
+            ✓
+          </span>
+        ) : null}
+      </button>
+    );
+  };
+  const special3DragGhostStyle =
+    dailySpecialDrag &&
+    Number.isFinite(dailySpecialDrag.x) &&
+    Number.isFinite(dailySpecialDrag.y)
+      ? {
+          position: "fixed",
+          left: `${Math.round(dailySpecialDrag.x)}px`,
+          top: `${Math.round(dailySpecialDrag.y)}px`,
+          transform: "translate(-50%, -50%)",
+          zIndex: 140,
+        }
+      : null;
+  const special3DragGhost =
+    special3DragGhostStyle && dailySpecialDrag?.bonusKey ? (
+      <div style={special3DragGhostStyle} className="pointer-events-none">
+        <div className={isMobileLayout ? "opacity-75 scale-[2]" : "opacity-75 scale-[1.03]"}>
+          {renderSpecial3BonusChipButton(dailySpecialDrag.bonusKey, {
+            keyPrefix: "drag-ghost-special3",
+            sizeClass: "h-12 min-w-12 px-3",
+          })}
+        </div>
+      </div>
+    ) : null;
   const countdownLabel = (() => {
     if (phase === "playing") {
       const sec = Math.max(0, tick || 0);
@@ -20391,90 +22287,182 @@ function handleTouchEnd(e) {
     </div>
   ) : null;
 
-  const userMenuView = userMenu.open ? (
-    <div className="fixed inset-0 z-[20060]" onClick={closeUserMenu}>
-      <div
-        className={`fixed min-w-[170px] rounded-lg border px-2 py-2 text-xs shadow-lg ${
-          darkMode
-            ? "bg-slate-900 text-slate-100 border-slate-700"
-            : "bg-white text-slate-900 border-slate-200"
-        }`}
-        style={{ left: `${userMenu.left}px`, top: `${userMenu.top}px` }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-1 pb-1 text-[11px] font-semibold opacity-70">
-          {userMenu.nick}
-        </div>
-        <button
-          type="button"
-          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
-            darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
-          }`}
-          onClick={() => {
-            blockInstallId(userMenu.installId, userMenu.nick);
-            closeUserMenu();
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+  const userMenuView =
+    userMenu.open && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[20060]" onClick={closeUserMenu}>
+            <div
+              className={`fixed min-w-[170px] rounded-lg border px-2 py-2 text-xs shadow-lg ${
+                darkMode
+                  ? "bg-slate-900 text-slate-100 border-slate-700"
+                  : "bg-white text-slate-900 border-slate-200"
+              }`}
+              style={{ left: `${userMenu.left}px`, top: `${userMenu.top}px` }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-1 pb-1 text-[11px] font-semibold opacity-70">
+                {userMenu.nick}
+              </div>
+              <button
+                type="button"
+                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+                  darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                }`}
+                onClick={() => {
+                  blockInstallId(userMenu.installId, userMenu.nick);
+                  closeUserMenu();
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <line x1="5" y1="19" x2="19" y2="5" />
+                </svg>
+                Bloquer
+              </button>
+              <button
+                type="button"
+                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+                  darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                }`}
+                onClick={() => {
+                  openReportDialog({
+                    installId: userMenu.installId,
+                    nick: userMenu.nick,
+                    messageId: userMenu.messageId,
+                  });
+                  closeUserMenu();
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 5v16" />
+                  <path d="M4 5h12l-2 4 2 4H4" />
+                </svg>
+                Signaler
+              </button>
+              <button
+                type="button"
+                className={`w-full mt-1 px-2 py-1 rounded-md text-[11px] font-semibold ${
+                  darkMode
+                    ? "text-slate-300 hover:text-slate-100"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                onClick={closeUserMenu}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+  const desktopChatReactionPickerView =
+    desktopChatReactionPicker.open && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[20060]" onClick={closeDesktopChatReactionPicker}>
+            <div
+              className={`fixed rounded-full border px-2 py-1 shadow-lg ${
+                darkMode
+                  ? "bg-slate-900 text-slate-100 border-slate-700"
+                  : "bg-white text-slate-900 border-slate-200"
+              }`}
+              style={{
+                left: `${desktopChatReactionPicker.left}px`,
+                top: `${desktopChatReactionPicker.top}px`,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1">
+                {CHAT_REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={`desktop-react-${emoji}`}
+                    type="button"
+                    className={`h-9 w-9 rounded-full text-xl leading-none flex items-center justify-center ${
+                      darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                    }`}
+                    onClick={() => {
+                      if (desktopChatReactionPicker.messageId) {
+                        sendChatReaction(desktopChatReactionPicker.messageId, emoji);
+                      }
+                      closeDesktopChatReactionPicker();
+                    }}
+                    aria-label={`Réagir avec ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+  const desktopChatReactionDetailsView =
+    desktopChatReactionDetails.open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className={`fixed z-[20065] w-[230px] rounded-xl border p-2 shadow-xl ${
+              darkMode
+                ? "bg-slate-900 border-slate-700 text-slate-100"
+                : "bg-white border-slate-200 text-slate-900"
+            }`}
+            style={{
+              left: `${desktopChatReactionDetails.left}px`,
+              top: `${desktopChatReactionDetails.top}px`,
+            }}
+            onMouseEnter={() => clearDesktopReactionDetailsCloseTimer()}
+            onMouseLeave={() => scheduleCloseDesktopChatReactionDetails(90)}
           >
-            <circle cx="12" cy="12" r="9" />
-            <line x1="5" y1="19" x2="19" y2="5" />
-          </svg>
-          Bloquer
-        </button>
-        <button
-          type="button"
-          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
-            darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
-          }`}
-          onClick={() => {
-            openReportDialog({
-              installId: userMenu.installId,
-              nick: userMenu.nick,
-              messageId: userMenu.messageId,
-            });
-            closeUserMenu();
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M4 5v16" />
-            <path d="M4 5h12l-2 4 2 4H4" />
-          </svg>
-          Signaler
-        </button>
-        <button
-          type="button"
-          className={`w-full mt-1 px-2 py-1 rounded-md text-[11px] font-semibold ${
-            darkMode
-              ? "text-slate-300 hover:text-slate-100"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-          onClick={closeUserMenu}
-        >
-          Annuler
-        </button>
-      </div>
-    </div>
-  ) : null;
+            <div className="mb-1 text-xs font-bold">
+              {desktopChatReactionDetails.emoji} Réactions (
+              {desktopChatReactionDetails.users.length})
+            </div>
+            <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+              {desktopChatReactionDetails.users.map((user) => {
+                const isMe =
+                  String(user?.installId || "").trim() === String(installId || "").trim();
+                return (
+                  <div
+                    key={`${desktopChatReactionDetails.messageId || "msg"}:${desktopChatReactionDetails.emoji}:${user.installId}`}
+                    className={`rounded-md px-2 py-1 text-xs ${
+                      isMe
+                        ? darkMode
+                          ? "bg-blue-600/25 text-blue-100"
+                          : "bg-blue-100 text-blue-700"
+                        : darkMode
+                        ? "bg-slate-800 text-slate-100"
+                        : "bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {user.nick}
+                    {isMe ? " (toi)" : ""}
+                  </div>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   const reportModal = reportDialog.open ? (
     <div
@@ -21942,7 +23930,10 @@ function handleTouchEnd(e) {
       targetBoardEntries={roundPlayerModal.targetBoardEntries}
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
-      showWordScores={specialRound?.type !== "speed"}
+      isSpecial3Round={specialRound?.type === DAILY_SPECIAL_MODE}
+      showWordScores={
+        specialRound?.type !== "speed" && specialRound?.type !== DAILY_SPECIAL_MODE
+      }
       playerRank={playerRank}
       playerRankTotal={playerRankTotal}
       canGoPrev={canGoPrev}
@@ -22161,14 +24152,44 @@ function handleTouchEnd(e) {
   const monstrousMinLongLen = specialTutorialPlan?.minLongWordLen ?? null;
   const monstrousMinLongCount = specialTutorialPlan?.minLongWordCount ?? null;
   const monstrousMinTotalScore = specialTutorialPlan?.minTotalScore ?? null;
-  const specialTutorialContent = (() => {
+  const specialTutorialSteps = (() => {
     if (!specialTutorialType) return null;
+    if (specialTutorialType === DAILY_SPECIAL_MODE) {
+      return [
+        {
+          lead: "Glisse les 4 tuiles spéciales sur la grille quand tu veux.",
+          bullets: [
+            "Tu peux placer L2, L3, M2 et M3 où tu veux.",
+            "Elles ne sont pas verrouillées : tu peux les repositionner autant de fois que nécessaire.",
+            "Tu peux commencer par les bonus, ou d'abord valider des mots : liberté totale.",
+          ],
+          demoKind: "special3_drag",
+        },
+        {
+          lead: "Valide jusqu'à 3 mots seulement.",
+          bullets: [
+            "Chaque mot doit exister dans la grille avec les placements actuels.",
+            "Tu peux saisir les mots d'abord, puis poser les bonus ensuite.",
+            "Une fois saisi, tu peux encore déplacer les tuiles spéciales pour tout recalculer.",
+          ],
+          demoKind: "special3_slots",
+        },
+        {
+          lead: "Les 3 mots doivent partir de tuiles différentes.",
+          bullets: [
+            "Une tuile de départ déjà utilisée est hachurée sur la grille.",
+            "Tu peux réutiliser la même lettre si elle vient d'une autre case.",
+          ],
+          demoKind: "special3_start_tile",
+        },
+      ];
+    }
     if (specialTutorialType === "target_long" || specialTutorialType === "target_score") {
       const goalLabel =
         specialTutorialType === "target_long"
           ? "le mot le plus long"
           : "le mot qui rapporte le plus de points";
-      return {
+      return [{
         lead: `Manche spéciale ${specialTutorialLabel} : ici, pas besoin de s'acharner à trouver plein de mots, il n'y en a qu'un seul !`,
         bullets: [
           `Objectif : trouver ${goalLabel}.`,
@@ -22177,16 +24198,16 @@ function handleTouchEnd(e) {
         ],
         showTargetDemo: true,
         targetIsScore: specialTutorialType === "target_score",
-      };
+      }];
     }
     if (specialTutorialType === "speed") {
-      return {
+      return [{
         lead: `Tous les mots valent ${specialTutorialFixedScore} points.`,
         bullets: [
           "Privilégie les petits mots rapides pour marquer un maximum.",
           "Un gobble \"mot le plus long\" s'y cache quand même.",
         ],
-      };
+      }];
     }
     if (specialTutorialType === "monstrous") {
       const bullets = [
@@ -22195,31 +24216,203 @@ function handleTouchEnd(e) {
           : null,
         monstrousMinTotalScore ? `Potentiel total d'au moins ${monstrousMinTotalScore} points.` : null,
       ].filter(Boolean);
-      return {
+      return [{
         lead: "Grille monstrueuse : une grille riche en mots longs.",
         bullets,
-      };
+      }];
     }
     if (specialTutorialType === "bonus_letter") {
-      return {
+      return [{
         lead: `Lettre en or : ${specialTutorialBonusLetter ? specialTutorialBonusLetter.toUpperCase() : "?"} vaut ${specialTutorialBonusScore} points.`,
         bullets: ["Les autres lettres gardent leur valeur habituelle."],
-      };
+      }];
     }
-    return {
+    return [{
       lead: `Manche spéciale ${specialTutorialLabel}.`,
       bullets: [],
-    };
+    }];
   })();
+  const specialTutorialContent = Array.isArray(specialTutorialSteps)
+    ? specialTutorialSteps[
+        clampValue(specialTutorialStepIndex, 0, Math.max(0, specialTutorialSteps.length - 1))
+      ] || null
+    : null;
+  const isInGameSpecial3Tutorial = isSpecial3TutorialInteractiveActive;
+  const special3TutorialStep = isInGameSpecial3Tutorial
+    ? clampValue(specialTutorialStepIndex, 0, Math.max(0, (specialTutorialSteps?.length || 1) - 1))
+    : -1;
+  const specialTutorialIsFirstStep = specialTutorialStepIndex <= 0;
+  const specialTutorialIsLastStep =
+    !Array.isArray(specialTutorialSteps) ||
+    specialTutorialStepIndex >= Math.max(0, specialTutorialSteps.length - 1);
   const closeSpecialTutorial = React.useCallback(() => {
     setIsSpecialTutorialOpen(false);
+    setSpecialTutorialStepIndex(0);
     if (specialTutorialPlan?.type) {
       markSpecialTutorialSeen(specialTutorialPlan.type);
     }
     setSpecialTutorialPlan(null);
   }, [markSpecialTutorialSeen, specialTutorialPlan]);
   const specialTutorialDemo =
-    specialTutorialContent?.showTargetDemo && specialTutorialPlan ? (
+    specialTutorialType === DAILY_SPECIAL_MODE && specialTutorialContent?.demoKind ? (
+      <div
+        className={`mt-4 rounded-xl border p-3 ${
+          darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white/90 border-slate-200"
+        }`}
+      >
+        <style>{`
+@keyframes special3TutorialArrow {
+  0%, 100% { transform: translateX(0); opacity: 0.55; }
+  50% { transform: translateX(10px); opacity: 1; }
+}
+@keyframes special3TutorialGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.12); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+`}</style>
+        {specialTutorialContent.demoKind === "special3_drag" ? (
+          <div className="flex items-center justify-center gap-3">
+            <div
+              className={`rounded-2xl border-2 border-dashed p-3 ${
+                darkMode ? "border-amber-400/70 bg-slate-800/70" : "border-amber-400 bg-amber-50"
+              }`}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                {["L2", "L3", "M2", "M3"].map((bonusKey) => {
+                  const bonusStyle = SPECIAL_TUTORIAL_BONUS_TILE_STYLES[bonusKey];
+                  return (
+                    <div
+                      key={`special3-demo-bonus-${bonusKey}`}
+                      className="relative flex h-11 w-11 items-center justify-center rounded-xl border-2 text-[11px] font-black"
+                      style={{
+                        background: bonusStyle?.bg,
+                        borderColor: bonusStyle?.border,
+                        color: bonusStyle?.text,
+                        animation: "special3TutorialGlow 1.8s ease-in-out infinite",
+                      }}
+                    >
+                      {bonusKey}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div
+              className={`text-3xl font-black ${darkMode ? "text-amber-300" : "text-amber-500"}`}
+              style={{ animation: "special3TutorialArrow 1.4s ease-in-out infinite" }}
+            >
+              →
+            </div>
+            <div
+              className="grid rounded-xl p-2"
+              style={{
+                gridTemplateColumns: "repeat(4, 38px)",
+                gridTemplateRows: "repeat(4, 38px)",
+                gap: "6px",
+              }}
+            >
+              {Array.from({ length: 16 }).map((_, idx) => {
+                const highlighted = idx === 5 || idx === 6 || idx === 10;
+                return (
+                  <div
+                    key={`special3-demo-grid-${idx}`}
+                    className={`rounded-lg border flex items-center justify-center text-xs font-black ${
+                      darkMode ? "bg-slate-800/70 border-slate-600" : "bg-slate-100 border-slate-300"
+                    }`}
+                    style={
+                      highlighted
+                        ? {
+                            boxShadow: "inset 0 0 0 2px rgba(245, 158, 11, 0.95)",
+                            background: darkMode ? "rgba(120, 53, 15, 0.45)" : "rgba(254, 215, 170, 0.85)",
+                          }
+                        : undefined
+                    }
+                  >
+                    {highlighted ? "+" : ""}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+        {specialTutorialContent.demoKind === "special3_slots" ? (
+          <div className="space-y-3">
+            <div className="grid gap-2">
+              {[1, 2, 3].map((slotNo) => (
+                <div
+                  key={`special3-demo-slot-${slotNo}`}
+                  className={`rounded-xl border-2 border-dashed px-3 py-2 ${
+                    darkMode ? "border-amber-400/70 bg-slate-800/70" : "border-amber-400 bg-amber-50"
+                  }`}
+                >
+                  <div className="text-[11px] font-semibold opacity-70">Mot {slotNo}</div>
+                  <div className="mt-1 text-sm font-black tracking-wide">
+                    {slotNo === 1 ? "TABLE" : slotNo === 2 ? "BANC" : "RIVE"}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-3 text-center">
+              <div className={`text-xs font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                mots d'abord
+              </div>
+              <div
+                className={`text-2xl font-black ${darkMode ? "text-amber-300" : "text-amber-500"}`}
+                style={{ animation: "special3TutorialArrow 1.4s ease-in-out infinite" }}
+              >
+                ↔
+              </div>
+              <div className={`text-xs font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                bonus d'abord
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {specialTutorialContent.demoKind === "special3_start_tile" ? (
+          <div
+            className="grid place-content-center"
+            style={{
+              gridTemplateColumns: "repeat(4, 40px)",
+              gridTemplateRows: "repeat(4, 40px)",
+              gap: "6px",
+            }}
+          >
+            {Array.from({ length: 16 }).map((_, idx) => {
+              const isUsedStart = idx === 1;
+              const isOtherStart = idx === 6 || idx === 10;
+              return (
+                <div
+                  key={`special3-demo-start-${idx}`}
+                  className={`relative rounded-lg border flex items-center justify-center text-xs font-black ${
+                    darkMode ? "bg-slate-800/70 border-slate-600" : "bg-slate-100 border-slate-300"
+                  }`}
+                  style={
+                    isOtherStart
+                      ? {
+                          boxShadow: "inset 0 0 0 2px rgba(245, 158, 11, 0.95)",
+                        }
+                      : undefined
+                  }
+                >
+                  {isUsedStart ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-[2px] rounded-[8px]"
+                      style={{
+                        background:
+                          "repeating-linear-gradient(135deg, rgba(15,23,42,0.42) 0 4px, rgba(15,23,42,0) 4px 9px)",
+                        boxShadow: "inset 0 0 0 2px rgba(15,23,42,0.26)",
+                      }}
+                    />
+                  ) : null}
+                  <span className="relative z-[1]">{isUsedStart ? "A" : isOtherStart ? "A" : ""}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    ) : specialTutorialContent?.showTargetDemo && specialTutorialPlan ? (
       <div
         className={`mt-4 rounded-xl border p-3 ${
           darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white/90 border-slate-200"
@@ -22302,8 +24495,280 @@ function handleTouchEnd(e) {
         </div>
       </div>
     ) : null;
+  const special3GuideIcon =
+    special3TutorialStep === 0
+      ? "swipe_vertical"
+      : special3TutorialStep === 1
+      ? "gesture_select"
+      : "rule";
+  const special3GuideTitle =
+    special3TutorialStep === 0
+      ? "Fais glisser une tuile spéciale sur la grille"
+      : special3TutorialStep === 1
+      ? "Trace puis valide un premier mot"
+      : "Chaque mot doit partir d'une autre tuile";
+  const special3GuideBody =
+    special3TutorialStep === 0
+      ? "Les tuiles spéciales restent déplaçables: commence par en poser une où tu veux."
+      : special3TutorialStep === 1
+      ? "Tu peux valider les mots avant les bonus, ou déplacer les bonus ensuite. Liberté totale."
+      : "Les tuiles de départ déjà utilisées se hachurent. Tu peux supprimer n'importe quel mot déjà validé pour en tracer un autre. Bonne chance !";
+  const special3GuideTitleMobile =
+    special3TutorialStep === 0
+      ? "Fais glisser une tuile spéciale sur la grille"
+      : special3TutorialStep === 1
+      ? "Trace puis valide un premier mot"
+      : "Chaque mot doit partir d'une autre tuile";
+  const special3GuideBodyMobile =
+    special3TutorialStep === 0
+      ? "Les tuiles spéciales restent déplaçables: commence par en poser une où tu veux."
+      : special3TutorialStep === 1
+      ? "Tu peux valider les mots avant les bonus, ou déplacer les bonus ensuite. Liberté totale."
+      : "Les tuiles de départ déjà utilisées se hachurent. Tu peux supprimer n'importe quel mot déjà validé pour en tracer un autre. Bonne chance !";
+  const special3GuideCardTitle = isMobileLayout ? special3GuideTitleMobile : special3GuideTitle;
+  const special3GuideCardBody = isMobileLayout ? special3GuideBodyMobile : special3GuideBody;
+  const special3ShowGlobalTutorialCard =
+    !((isMobileLayout && special3TutorialStep === 1) || (!isMobileLayout && special3TutorialStep === 1));
+  const special3InGameTutorialCard =
+    isInGameSpecial3Tutorial && specialTutorialContent && special3ShowGlobalTutorialCard ? (
+      <>
+        <style>{`
+          .special3-tutorial-focus {
+            box-shadow:
+              0 0 0 3px rgba(251, 191, 36, 0.35),
+              inset 0 0 0 2px rgba(251, 191, 36, 0.55);
+          }
+          .special3-tutorial-ghost {
+            animation: special3TutorialGhostMove 1.8s ease-in-out infinite;
+          }
+          .special3-tutorial-pulse {
+            animation: specialHintTile 1.8s ease-in-out infinite;
+          }
+          .special3-tutorial-mobile-ghost {
+            animation: special3TutorialMobileGhostMove 1.8s ease-in-out infinite;
+          }
+          .special3-tutorial-arrow {
+            animation: special3TutorialArrowBob 1.1s ease-in-out infinite;
+          }
+          @keyframes special3TutorialArrowBob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(5px); }
+          }
+          @keyframes special3TutorialMobileGhostMove {
+            0% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0;
+            }
+            18% {
+              opacity: 0.92;
+            }
+            70% {
+              transform: translate(var(--special3-ghost-dx, 0px), var(--special3-ghost-dy, 0px)) scale(1.06);
+              opacity: 0.96;
+            }
+            100% {
+              transform: translate(var(--special3-ghost-dx, 0px), var(--special3-ghost-dy, 0px)) scale(1.02);
+              opacity: 0;
+            }
+          }
+        `}</style>
+        <div
+          className={`z-[80] pointer-events-none ${
+            isMobileLayout ? "fixed inset-x-3 top-3" : "absolute inset-x-3 top-3"
+          }`}
+        >
+          <div
+            className={`pointer-events-auto rounded-2xl border shadow-xl ${
+              isMobileLayout ? "px-3 py-2" : "px-4 py-3"
+            } ${
+              darkMode
+                ? "border-amber-300 bg-amber-500 text-slate-950"
+                : "border-amber-300 bg-amber-500 text-slate-900"
+            }`}
+          >
+            <div className={`flex items-start ${isMobileLayout ? "gap-2" : "gap-3"}`}>
+              <span className={`material-symbols-outlined mt-0.5 ${isMobileLayout ? "text-[18px]" : "text-[24px]"}`}>
+                {special3GuideIcon}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-3">
+                  <div className={`font-extrabold tracking-widest uppercase opacity-75 ${isMobileLayout ? "text-[10px]" : "text-[11px]"}`}>
+                    Tutoriel 3 mots
+                  </div>
+                  {Array.isArray(specialTutorialSteps) && specialTutorialSteps.length > 1 ? (
+                    <div className={`font-semibold opacity-75 ${isMobileLayout ? "text-[10px]" : "text-[11px]"}`}>
+                      {specialTutorialStepIndex + 1}/{specialTutorialSteps.length}
+                    </div>
+                  ) : null}
+                </div>
+                <div className={`mt-1 font-bold leading-tight ${isMobileLayout ? "text-[13px]" : "text-[15px]"}`}>
+                  {special3GuideCardTitle}
+                </div>
+                <div className={`mt-1 leading-snug opacity-85 ${isMobileLayout ? "text-[11px]" : "text-[13px]"}`}>
+                  {special3GuideCardBody}
+                </div>
+                {special3TutorialStep === 0 ? (
+                  <div className="mt-2 flex items-center gap-2 text-[12px] font-semibold opacity-85">
+                    <span className="material-symbols-outlined text-[18px] special3-tutorial-arrow">
+                      arrow_downward
+                    </span>
+                    <span>Le tuto continue dès qu'une tuile spéciale est posée.</span>
+                  </div>
+                ) : null}
+                {!isMobileLayout && special3TutorialStep === 1 ? (
+                  <div className="mt-2 text-[12px] font-semibold opacity-85">
+                    Le tuto continue dès qu'un premier mot est validé.
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className={`rounded-full border font-semibold ${
+                  isMobileLayout ? "px-2.5 py-1 text-[11px]" : "px-3 py-1 text-[12px]"
+                } ${
+                  darkMode
+                    ? "border-amber-200/70 bg-amber-400 text-slate-950"
+                    : "border-amber-200 bg-amber-400 text-slate-900"
+                }`}
+                onClick={() => {
+                  if (special3TutorialStep < 2) {
+                    setSpecialTutorialStepIndex(2);
+                    return;
+                  }
+                  closeSpecialTutorial();
+                }}
+              >
+                {special3TutorialStep < 2 ? "Passer" : "Compris"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    ) : null;
+  const special3MobileStep2TutorialOverlay =
+    isMobileLayout &&
+    isInGameSpecial3Tutorial &&
+    special3TutorialStep === 1 &&
+    mobileSpecial3Step2OverlayStyle ? (
+      <div
+        className="absolute inset-x-0 z-[82] pointer-events-none"
+        style={mobileSpecial3Step2OverlayStyle}
+      >
+        <div
+          className={`pointer-events-auto rounded-2xl border px-3 py-2 shadow-xl ${
+            darkMode
+              ? "border-amber-300 bg-amber-500 text-slate-950"
+              : "border-amber-300 bg-amber-500 text-slate-900"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <span className="material-symbols-outlined text-[18px] mt-0.5">
+              gesture_select
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-extrabold tracking-widest uppercase opacity-75">
+                Tutoriel 3 mots
+              </div>
+              <div className="mt-1 text-[13px] font-bold leading-tight">
+                {special3GuideTitle}
+              </div>
+              <div className="mt-1 text-[11px] leading-snug opacity-85">
+                {special3GuideBody}
+              </div>
+              <div className="mt-2 text-[11px] font-semibold opacity-85">
+                Le tuto continue dès qu'un premier mot est validé.
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                darkMode
+                  ? "border-amber-200/70 bg-amber-400 text-slate-950"
+                  : "border-amber-200 bg-amber-400 text-slate-900"
+              }`}
+              onClick={() => setSpecialTutorialStepIndex(2)}
+            >
+              Passer
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+  const special3DesktopStep2TutorialOverlay =
+    !isMobileLayout &&
+    isInGameSpecial3Tutorial &&
+    special3TutorialStep === 1 ? (
+      <div className="absolute inset-0 z-[82] pointer-events-none">
+        <div
+          className={`pointer-events-auto h-full rounded-2xl border px-4 py-3 shadow-xl ${
+            darkMode
+              ? "border-amber-300 bg-amber-500 text-slate-950"
+              : "border-amber-300 bg-amber-500 text-slate-900"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-[24px] mt-0.5">
+              gesture_select
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[11px] font-extrabold tracking-widest uppercase opacity-75">
+                  Tutoriel 3 mots
+                </div>
+                {Array.isArray(specialTutorialSteps) && specialTutorialSteps.length > 1 ? (
+                  <div className="text-[11px] font-semibold opacity-75">
+                    {specialTutorialStepIndex + 1}/{specialTutorialSteps.length}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-1 text-[15px] font-bold leading-tight">
+                {special3GuideTitle}
+              </div>
+              <div className="mt-1 text-[13px] leading-snug opacity-85">
+                {special3GuideBody}
+              </div>
+              <div className="mt-2 text-[12px] font-semibold opacity-85">
+                Le tuto continue dès qu'un premier mot est validé.
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${
+                darkMode
+                  ? "border-amber-200/70 bg-amber-400 text-slate-950"
+                  : "border-amber-200 bg-amber-400 text-slate-900"
+              }`}
+              onClick={() => setSpecialTutorialStepIndex(2)}
+            >
+              Passer
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+  const special3MobileStep1Ghost =
+    isMobileLayout &&
+    isInGameSpecial3Tutorial &&
+    special3TutorialStep === 0 &&
+    mobileSpecial3Step1GhostStyle ? (
+      <div
+        className="absolute z-[81] pointer-events-none"
+        style={mobileSpecial3Step1GhostStyle}
+      >
+        <div className="special3-tutorial-mobile-ghost opacity-75">
+          {renderSpecial3BonusChipButton("M3", {
+            keyPrefix: "tutorial-mobile-special3-ghost",
+            sizeClass: "h-14 min-w-14 px-3",
+          })}
+        </div>
+      </div>
+    ) : null;
   const specialTutorialOverlay =
-    isSpecialTutorialOpen && specialTutorialPlan && specialTutorialContent && typeof document !== "undefined"
+    specialTutorialType !== DAILY_SPECIAL_MODE &&
+    isSpecialTutorialOpen &&
+    specialTutorialPlan &&
+    specialTutorialContent &&
+    typeof document !== "undefined"
       ? createPortal(
           <div className="fixed inset-0 z-[13080] flex items-center justify-center px-4 py-6">
             <div
@@ -22321,7 +24786,14 @@ function handleTouchEnd(e) {
               <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
                 Manche spéciale
               </div>
-              <div className="mt-1 text-lg font-black">{specialTutorialLabel}</div>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <div className="text-lg font-black">{specialTutorialLabel}</div>
+                {Array.isArray(specialTutorialSteps) && specialTutorialSteps.length > 1 ? (
+                  <div className={`text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-500"}`}>
+                    {specialTutorialStepIndex + 1}/{specialTutorialSteps.length}
+                  </div>
+                ) : null}
+              </div>
               <p className={`mt-2 text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
                 {specialTutorialContent.lead}
               </p>
@@ -22333,15 +24805,38 @@ function handleTouchEnd(e) {
                 </ul>
               ) : null}
               {specialTutorialDemo}
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold ${
+                    specialTutorialIsFirstStep
+                      ? "opacity-0 pointer-events-none"
+                      : darkMode
+                      ? "bg-slate-800 hover:bg-slate-700"
+                      : "bg-slate-100 hover:bg-slate-200"
+                  }`}
+                  onClick={() =>
+                    setSpecialTutorialStepIndex((prev) => Math.max(0, prev - 1))
+                  }
+                >
+                  Précédent
+                </button>
                 <button
                   type="button"
                   className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
                     darkMode ? "bg-amber-500 hover:bg-amber-400" : "bg-amber-500 hover:bg-amber-400"
                   }`}
-                  onClick={closeSpecialTutorial}
+                  onClick={() => {
+                    if (!specialTutorialIsLastStep) {
+                      setSpecialTutorialStepIndex((prev) =>
+                        Math.min((specialTutorialSteps?.length || 1) - 1, prev + 1)
+                      );
+                      return;
+                    }
+                    closeSpecialTutorial();
+                  }}
                 >
-                  Compris !
+                  {specialTutorialIsLastStep ? "Compris !" : "Suivant"}
                 </button>
               </div>
             </div>
@@ -22675,7 +25170,7 @@ function handleTouchEnd(e) {
       { id: "letterColor", kind: "picker", title: "Couleur des lettres" },
       { id: "background", kind: "picker", title: "Fond / papier peint" },
       { id: "material", kind: "picker", title: "Formes" },
-      { id: "specialIndicator", kind: "picker", title: "Indicateur spéciale" },
+      { id: "specialIndicator", kind: "picker", title: "Indicateur spécial" },
       { id: "tilePoints", kind: "toggle", title: "Score sur tuile" },
     ],
     []
@@ -23115,6 +25610,17 @@ function handleTouchEnd(e) {
     setThemeDraft(themeAppliedSafe);
     applyThemeVisualState(themeAppliedSafe);
   }, [applyThemeVisualState, isSettingsOpen, themeAppliedSafe]);
+  useEffect(() => {
+    if (isSettingsOpen) return;
+    if (appView !== "daily_play") return;
+    // Force une synchro visuelle à l'entrée de la grille du jour (tous modes).
+    applyThemeVisualState(themeAppliedSafe);
+  }, [
+    appView,
+    applyThemeVisualState,
+    isSettingsOpen,
+    themeAppliedSafe,
+  ]);
   const themeSingleActionLabel = themeSingleApplyMeta.totalCost > 0 ? "Acheter" : "Appliquer";
   const themeFullActionLabel = themeFullApplyMeta.totalCost > 0 ? "Acheter le thème" : "Appliquer";
   const themeCategoryLabel = React.useCallback(
@@ -24496,6 +27002,86 @@ function handleTouchEnd(e) {
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 08/03/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
+                  général
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    introduction d'une nouvelle grille du jour qui est aussi une manche spéciale
+                    pouvant être tirée au sort pour les manches 2 et 4 des mini-tournois: les
+                    manches 3 mots. Vous placez les tuiles spéciales (mot compte double, triple,
+                    etc.) et chaque mot doit partir d'une tuile de départ différente (pour éviter
+                    les conjugaisons intempestives). Didacticiel dédié ajouté.
+                  </li>
+                  <li>
+                    les grilles du jour précédentes restent avec les mêmes règles de génération
+                    (au moins un mot de 12 lettres), et sont renommées en grille monstrueuse.
+                  </li>
+                  <li>refonte du menu "grilles du jour" en conséquence.</li>
+                  <li>
+                    ajout des listes de mots trouvables dans les grilles du jour précédentes
+                    (test) dans l'historique.
+                  </li>
+                  <li>
+                    passage de toutes les manches spéciales à 90 secondes (seules 2 étaient
+                    réglées sur 120 secondes).
+                  </li>
+                  <li>refonte du chat (détails par plateforme ci-dessous).</li>
+                  <li>
+                    correction d'un problème sur les grilles du jour: certains mots pouvaient être
+                    validés localement mais refusés côté serveur, ce qui créait des écarts de score
+                    et de décompte de mots entre la partie et les résultats.
+                  </li>
+                  <li>suppression du son d'erreur pour des validations d'une seule lettre.</li>
+                  <li>restitution des indicateurs de tuiles spéciales sur le thème par défaut.</li>
+                  <li>
+                    changement de logique de répartition des équipes pour les duels hebdomadaires:
+                    maintenant basée uniquement sur les contributions des semaines précédentes.
+                  </li>
+                  <li>
+                    réduction de 10 secondes des phases de résultats inter-manches, hors manches
+                    cibles.
+                  </li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
+                  ordinateur
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    refonte du chat: survol des messages des autres utilisateurs pour afficher les
+                    boutons "réagir" et "répondre". Sur ses propres messages, survol pour afficher
+                    "modifier" et "supprimer".
+                  </li>
+                  <li>modification de la logique d'autoscroll du chat.</li>
+                  <li>suppression de l'effet visuel de disparition des messages chat plus anciens.</li>
+                  <li>correction orthographique d'un menu thème (indicateur spécial).</li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
+                  téléphone
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    refonte du chat sur mobile: ouverture en tiroir depuis le haut avec calcul de
+                    la hauteur du clavier au premier déploiement pour s'y aligner ensuite.
+                  </li>
+                  <li>
+                    possibilité, par appui long, de réagir via émoticônes aux messages des autres
+                    utilisateurs.
+                  </li>
+                  <li>
+                    possibilité, par swipe de gauche à droite sur les messages des autres
+                    utilisateurs, d'y répondre en les citant.
+                  </li>
+                  <li>
+                    possibilité, par appui long sur ses propres messages, de les éditer ou de les
+                    supprimer.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 26/02/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
@@ -24817,8 +27403,16 @@ function handleTouchEnd(e) {
         chatInputType={chatInputType}
         chatInputDisabled={chatInputDisabled}
         chatInputPlaceholder={chatInputPlaceholder}
+        chatEditTarget={chatEditTarget}
+        chatReplyTarget={chatReplyTarget}
         chatTab={chatTab}
         onChangeChatTab={setChatTab}
+        onClearChatEdit={clearChatEditTarget}
+        onClearChatReply={clearChatReplyTarget}
+        onDeleteOwnMessage={deleteOwnChatMessage}
+        onEditOwnMessage={beginChatEditFromMessage}
+        onSelectChatReply={setChatReplyTargetFromMessage}
+        onReactToMessage={sendChatReaction}
         messagesUnreadCount={chatMessagesUnreadCount}
         systemCount={chatSystemCount}
         onChatInputFocus={handleChatInputFocus}
@@ -24848,8 +27442,9 @@ function handleTouchEnd(e) {
         setChatInput={setChatInput}
         setIsChatOpenMobile={closeChatPanel}
         submitChat={submitChat}
-        showLauncherButton={isLoggedIn}
+        showLauncherButton={isLoggedIn && !isSpecial3WordsMode}
         visibleMessages={visibleMessages}
+        reactionEmojis={CHAT_REACTION_EMOJIS}
       />
     ) : null;
   const homeChatVisibleMessages = React.useMemo(() => {
@@ -24876,6 +27471,10 @@ function handleTouchEnd(e) {
       onSubmit={() => submitChat(null)}
       chatInputDisabled={chatInputDisabled}
       chatInputPlaceholder={chatInputPlaceholder}
+      chatEditTarget={chatEditTarget}
+      onClearChatEdit={clearChatEditTarget}
+      chatReplyTarget={chatReplyTarget}
+      onClearChatReply={clearChatReplyTarget}
       selfNick={selfNick}
       selfInstallId={installId}
     />
@@ -25027,6 +27626,8 @@ function handleTouchEnd(e) {
       {duelPopupOverlay}
       {playersOverlay}
       {userMenuView}
+      {desktopChatReactionPickerView}
+      {desktopChatReactionDetailsView}
       {reportModal}
       {chatRulesModal}
       {definitionModalView}
@@ -25056,14 +27657,73 @@ function handleTouchEnd(e) {
     resumeSnapshot?.phase === "playing"
       ? "Manche en cours"
       : resumeSnapshot?.phase === "results"
-      ? "Resultats"
+      ? "Résultats"
       : "Accueil";
   const resumeRoundLabel =
     resumeSnapshot?.currentRound?.tournament?.round ||
     resumeSnapshot?.lastRoundResults?.payload?.tournament?.round ||
     null;
 
-  const dailyMyResult = dailyStatus?.myResult || dailyResult;
+  const DAILY_OVERVIEW_SECTION = "overview";
+  const DAILY_FUTURE_SECTION = "future";
+  const getDailySectionMeta = (section) => {
+    if (section === DAILY_MONSTROUS_MODE) {
+      return {
+        key: DAILY_MONSTROUS_MODE,
+        label: "Grille monstrueuse",
+        shortLabel: "Monstrueuse",
+        accentClass: "from-blue-500 via-cyan-500 to-sky-600",
+        buttonClass: "bg-blue-600 hover:bg-blue-500 text-white",
+        description: "La grille principale du jour, riche en volume et en gros scores.",
+      };
+    }
+    if (section === DAILY_SPECIAL_MODE) {
+      return {
+        key: DAILY_SPECIAL_MODE,
+        label: "3 mots",
+        shortLabel: "3 mots",
+        accentClass: "from-emerald-500 via-green-500 to-lime-500",
+        buttonClass: "bg-emerald-600 hover:bg-emerald-500 text-white",
+        description: "Trois cartouches, peu d'essais, lecture rapide de la grille.",
+      };
+    }
+    if (section === DAILY_FUTURE_SECTION) {
+      return {
+        key: DAILY_FUTURE_SECTION,
+        label: "Grille à venir",
+        shortLabel: "À venir",
+        accentClass: "from-amber-400 via-orange-400 to-rose-500",
+        buttonClass: "bg-amber-500 hover:bg-amber-400 text-slate-900",
+        description: "Nouveau format daily réservé pour la prochaine mise à jour.",
+      };
+    }
+    return {
+      key: DAILY_OVERVIEW_SECTION,
+      label: "Général",
+      shortLabel: "Général",
+      accentClass: "from-slate-500 via-slate-600 to-slate-800",
+      buttonClass: "bg-slate-700 hover:bg-slate-600 text-white",
+      description: isMobileLayout
+        ? "Toutes les grilles du jour confondues."
+        : "Toutes les grilles du jour confondues, pour garder une vue d'ensemble.",
+    };
+  };
+  const getDailyModeResult = (mode) => {
+    if (mode === DAILY_MONSTROUS_MODE) {
+      return dailyStatus?.myMonstrousResult ||
+        (dailyResult?.mode === DAILY_MONSTROUS_MODE ? dailyResult : null);
+    }
+    if (mode === DAILY_SPECIAL_MODE) {
+      return dailyStatus?.mySpecialResult ||
+        (dailyResult?.mode === DAILY_SPECIAL_MODE ? dailyResult : null);
+    }
+    return null;
+  };
+  const selectedDailySectionMeta = getDailySectionMeta(dailySection);
+  const dailyMyResult =
+    dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE
+      ? getDailyModeResult(dailySection)
+      : null;
   const dailyBattle =
     (dailyBoard?.battle && typeof dailyBoard.battle === "object" ? dailyBoard.battle : null) ||
     (duelStatus?.dailyBattle && typeof duelStatus.dailyBattle === "object"
@@ -25071,6 +27731,15 @@ function handleTouchEnd(e) {
       : null);
   const dailyBattleRedBalanced = Number(dailyBattle?.totalsBalancedByTeam?.red) || 0;
   const dailyBattleBlueBalanced = Number(dailyBattle?.totalsBalancedByTeam?.blue) || 0;
+  const dailyBattleIgnoredInstallIds = new Set(
+    Array.isArray(dailyBattle?.ignoredInstallIds)
+      ? dailyBattle.ignoredInstallIds.map((value) => normalizeInstallId(value)).filter(Boolean)
+      : []
+  );
+  const dailyBattleCountedPlayersByTeam =
+    dailyBattle?.countedPlayersByTeam && typeof dailyBattle.countedPlayersByTeam === "object"
+      ? dailyBattle.countedPlayersByTeam
+      : { red: 0, blue: 0 };
   const dailyScoreLabel =
     dailyMyResult && Number.isFinite(dailyMyResult.score) ? dailyMyResult.score : null;
   const dailyRankLabel =
@@ -25094,27 +27763,136 @@ function handleTouchEnd(e) {
     : dailyHistoryDaysRaw
   ).sort((a, b) => String(b?.dateId || "").localeCompare(String(a?.dateId || "")));
   const dailyHistoryPages = [...dailyHistoryDays.map((entry) => ({ type: "day", ...entry }))];
-  const dailyHistoryPageCount = dailyHistoryPages.length;
   const dailyEntrySort = (a, b) => {
     const scoreDiff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
     if (scoreDiff !== 0) return scoreDiff;
     return String(a?.nick || "").localeCompare(String(b?.nick || ""));
   };
-  const dailyTodayRedEntries = dailyEntries
+  const aggregateDailyOverviewEntries = (entries) => {
+    const list = Array.isArray(entries) ? entries : [];
+    const grouped = new Map();
+    list.forEach((entry, idx) => {
+      if (!entry || typeof entry !== "object") return;
+      const normalizedInstallId = normalizeInstallId(entry?.installId);
+      const team = entry?.team === "red" || entry?.team === "blue" ? entry.team : "";
+      const nickKey = String(entry?.nick || "").trim().toLowerCase();
+      const key = normalizedInstallId
+        ? `id:${normalizedInstallId}`
+        : `nick:${team}:${nickKey || `anonymous-${idx}`}`;
+      const score = Number.isFinite(entry?.score) ? Number(entry.score) : 0;
+      const gobbles = Number.isFinite(entry?.gobbles) ? Number(entry.gobbles) : 0;
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, {
+          ...entry,
+          score,
+          gobbles,
+          wordsCount: null,
+          playerKey: entry?.playerKey || key,
+        });
+        return;
+      }
+      existing.score = (Number(existing.score) || 0) + score;
+      existing.gobbles = (Number(existing.gobbles) || 0) + gobbles;
+      existing.wordsCount = null;
+      if (!existing.installId && entry?.installId) existing.installId = entry.installId;
+      if (!existing.nick && entry?.nick) existing.nick = entry.nick;
+    });
+    return Array.from(grouped.values()).sort(dailyEntrySort);
+  };
+  const filterDailyEntriesBySection = (entries, section) => {
+    const list = Array.isArray(entries) ? entries : [];
+    if (section === DAILY_MONSTROUS_MODE || section === DAILY_SPECIAL_MODE) {
+      return list.filter((entry) => entry?.mode === section).sort(dailyEntrySort);
+    }
+    if (section === DAILY_FUTURE_SECTION) {
+      return [];
+    }
+    return aggregateDailyOverviewEntries(list);
+  };
+  const filteredDailyEntries = filterDailyEntriesBySection(dailyEntries, dailySection);
+  const filteredDailyHistoryPages =
+    dailySection === DAILY_FUTURE_SECTION
+      ? []
+      : dailyHistoryPages
+          .map((page) => ({
+            ...page,
+            entries: filterDailyEntriesBySection(page?.entries, dailySection),
+            findableWords:
+              dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE
+                ? Array.isArray(page?.findableWordsByMode?.[dailySection])
+                  ? page.findableWordsByMode[dailySection]
+                  : []
+                : Array.isArray(page?.findableWords)
+                ? page.findableWords
+                : [],
+            myWords:
+              dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE
+                ? Array.isArray(page?.myWordsByMode?.[dailySection])
+                  ? page.myWordsByMode[dailySection]
+                  : []
+                : [],
+          }))
+          .filter((page) =>
+            dailySection === DAILY_OVERVIEW_SECTION
+              ? true
+              : Array.isArray(page?.entries) && page.entries.length > 0
+          );
+  const dailyHistoryPageCount = filteredDailyHistoryPages.length;
+  const dailyTodayRedEntries = filteredDailyEntries
     .filter((entry) => entry?.team === "red")
     .sort(dailyEntrySort);
-  const dailyTodayBlueEntries = dailyEntries
+  const dailyTodayBlueEntries = filteredDailyEntries
     .filter((entry) => entry?.team === "blue")
     .sort(dailyEntrySort);
+  const dailySections = [
+    { key: DAILY_OVERVIEW_SECTION, playable: false, available: true },
+    {
+      key: DAILY_MONSTROUS_MODE,
+      playable: true,
+      available: !!dailyStatus.ready,
+      played: !!dailyStatus.hasPlayedMonstrous,
+      result: getDailyModeResult(DAILY_MONSTROUS_MODE),
+    },
+    {
+      key: DAILY_SPECIAL_MODE,
+      playable: true,
+      available: !!dailyStatus.ready,
+      played: !!dailyStatus.hasPlayedSpecial,
+      result: getDailyModeResult(DAILY_SPECIAL_MODE),
+    },
+    {
+      key: DAILY_FUTURE_SECTION,
+      playable: false,
+      available: false,
+      played: false,
+      result: null,
+    },
+  ];
+  const selectedDailySectionState =
+    dailySections.find((entry) => entry.key === dailySection) || dailySections[0];
+  const selectedDailyEntriesCount = filteredDailyEntries.length;
+  const overallDailyResultsSummary = [
+    getDailyModeResult(DAILY_MONSTROUS_MODE)
+      ? `Monstrueuse : ${getDailyModeResult(DAILY_MONSTROUS_MODE).score || 0} pts`
+      : null,
+    getDailyModeResult(DAILY_SPECIAL_MODE)
+      ? `3 mots : ${getDailyModeResult(DAILY_SPECIAL_MODE).score || 0} pts`
+      : null,
+  ].filter(Boolean);
 
-  const renderDailyBoardList = (maxHeightClass = "max-h-[360px]") => (
+  const renderDailyBoardList = (
+    entries = filteredDailyEntries,
+    maxHeightClass = "max-h-[360px]",
+    emptyLabel = "Aucun score pour le moment."
+  ) => (
     <div
       className={`rounded-xl border px-3 py-2 ${maxHeightClass} overflow-auto ${
         darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
       }`}
     >
-      {dailyEntries.length ? (
-        dailyEntries.map((entry, idx) => {
+      {entries.length ? (
+        entries.map((entry, idx) => {
           const isPalier = !!entry?.isPalier;
           const label = entry?.rightLabel
             ? entry.rightLabel
@@ -25156,59 +27934,182 @@ function handleTouchEnd(e) {
           );
         })
       ) : (
-        <div className="text-xs opacity-70 py-6 text-center">Aucun score pour le moment.</div>
+        <div className="text-xs opacity-70 py-6 text-center">{emptyLabel}</div>
       )}
     </div>
   );
-  const renderDailyTeamColumn = (entries, team, maxHeightClass = "max-h-[46vh] sm:max-h-[520px]") => (
-    <div
-      className={`rounded-xl border px-3 py-2 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
-        darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
-      }`}
-    >
-      {entries.length ? (
-        entries.map((entry, idx) => {
-          const label = Number.isFinite(entry?.score)
-            ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${entry.score} pts`
-            : "-";
-          const gobbleBadge = renderGobbleBadge(entry?.gobbles);
-          const isSelfDaily =
-            (entry?.installId && installId && entry.installId === installId) ||
-            (entry?.nick && selfNick && entry.nick === selfNick);
-          return (
-            <div
-              key={entry?.playerKey || entry?.installId || `${entry?.nick}-${idx}`}
-              className={`py-1.5 text-sm border-b last:border-b-0 ${
-                darkMode ? "border-white/5" : "border-slate-100"
-              } ${
-                isSelfDaily
-                  ? darkMode
-                    ? "bg-emerald-900/30 text-emerald-100"
-                    : "bg-emerald-50 text-emerald-800"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
-                  {idx + 1}
-                </span>
-                <span className="min-w-0 truncate text-[11px] sm:text-xs font-semibold flex items-center gap-1">
-                  {entry?.nick || "Joueur"}
-                  {renderHumanDot(entry?.nick, { ...entry, team })}
-                  {gobbleBadge}
-                </span>
-              </div>
-              <div className="pl-6 text-[10px] font-semibold opacity-80 leading-tight">
-                {label}
-              </div>
+  const renderDailyBattleList = (maxHeightClass = "max-h-[46vh] sm:max-h-[520px]") => {
+    const redCountedCap = Math.max(0, Number(dailyBattleCountedPlayersByTeam?.red) || 0);
+    const blueCountedCap = Math.max(0, Number(dailyBattleCountedPlayersByTeam?.blue) || 0);
+    const requestedGlobalCountedCap = Math.max(0, Math.min(redCountedCap, blueCountedCap));
+    const sections = [
+      {
+        team: "red",
+        title: "Rouges",
+        titleClass: "text-red-500",
+        entries: dailyTodayRedEntries,
+      },
+      {
+        team: "blue",
+        title: "Bleus",
+        titleClass: "text-blue-500",
+        entries: dailyTodayBlueEntries,
+      },
+    ];
+    const sectionRowsBase = sections.map((section) => {
+      const totalCount = Array.isArray(section.entries) ? section.entries.length : 0;
+      const parsedRows = section.entries.map((entry, idx) => {
+        const label = Number.isFinite(entry?.score) ? `${entry.score} pts` : "-";
+        const gobbleBadge = renderGobbleBadge(entry?.gobbles);
+        const normalizedInstallId = normalizeInstallId(entry?.installId);
+        const isIgnored =
+          normalizedInstallId && dailyBattleIgnoredInstallIds.has(normalizedInstallId);
+        const isSelfDaily =
+          (entry?.installId && installId && entry.installId === installId) ||
+          (entry?.nick && selfNick && entry.nick === selfNick);
+        return {
+          entry,
+          idx,
+          label,
+          gobbleBadge,
+          isIgnored,
+          isSelfDaily,
+        };
+      });
+      return {
+        ...section,
+        totalCount,
+        parsedRows,
+        eligibleCount: parsedRows.filter((row) => !row.isIgnored).length,
+      };
+    });
+    const globalCountedCap = Math.max(
+      0,
+      Math.min(requestedGlobalCountedCap, ...sectionRowsBase.map((section) => section.eligibleCount))
+    );
+    const sectionsWithRows = sectionRowsBase.map((section) => {
+      let eligibleRank = 0;
+      const parsedRows = section.parsedRows.map((row) => {
+        if (row.isIgnored) return { ...row, isCounted: false };
+        eligibleRank += 1;
+        return { ...row, isCounted: eligibleRank <= globalCountedCap };
+      });
+      return {
+        ...section,
+        parsedRows,
+        countedRows: parsedRows.filter((row) => row.isCounted),
+        otherRows: parsedRows.filter((row) => !row.isCounted),
+      };
+    });
+    const hasAnyRows = sectionsWithRows.some((section) => section.totalCount > 0);
+    const hasCountedRows = sectionsWithRows.some((section) => section.countedRows.length > 0);
+
+    const renderDailyBattleRow = (row, team, options = {}) => {
+      const { insideCountedFrame = false } = options;
+      const rowKey = row.entry?.playerKey || row.entry?.installId || `${row.entry?.nick}-${row.idx}`;
+      return (
+        <div
+          key={rowKey}
+          className={`px-2 py-2 text-sm ${
+            insideCountedFrame
+              ? `border-b last:border-b-0 ${darkMode ? "border-white/10" : "border-slate-200"}`
+              : `rounded-lg border ${
+                  darkMode ? "border-white/5 bg-slate-900/40" : "border-slate-100 bg-white"
+                }`
+          } ${
+            row.isSelfDaily
+              ? darkMode
+                ? "bg-emerald-900/30 text-emerald-100"
+                : "bg-emerald-50 text-emerald-800"
+              : ""
+          } ${row.isIgnored ? "opacity-60" : ""}`}
+        >
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70 shrink-0">
+                {row.idx + 1}
+              </span>
+              <span className="min-w-0 truncate text-[11px] sm:text-xs font-semibold flex items-center gap-1">
+                {row.entry?.nick || "Joueur"}
+                {renderHumanDot(row.entry?.nick, { ...row.entry, team })}
+                {row.gobbleBadge}
+              </span>
             </div>
-          );
-        })
-      ) : (
-        <div className="text-xs opacity-70 py-6 text-center">Aucun score pour le moment.</div>
-      )}
-    </div>
-  );
+            <div className="pl-7 text-[10px] font-semibold opacity-80 leading-tight break-words">
+              {row.label}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div
+        className={`rounded-xl px-3 py-2 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
+          isMobileLayout
+            ? darkMode
+              ? "bg-slate-900/50"
+              : "bg-white"
+            : darkMode
+            ? "border border-white/10 bg-slate-900/50"
+            : "border border-slate-200 bg-white"
+        }`}
+      >
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 items-start">
+            {sectionsWithRows.map((section) => {
+              return (
+                <div key={`daily-battle-section-${section.team}`} className="space-y-1.5 min-w-0">
+                  <div className="flex flex-col items-center gap-0.5 text-center">
+                    <div className={`text-xs font-black uppercase tracking-[0.14em] ${section.titleClass}`}>
+                      {section.title}
+                    </div>
+                    <div className="text-[11px] font-semibold opacity-70">
+                      {section.countedRows.length}/{section.totalCount} comptés
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {hasAnyRows ? (
+            <>
+              {hasCountedRows ? (
+                <div
+                  className={`rounded-lg border overflow-hidden px-2 py-2 ${
+                    darkMode ? "border-amber-300/80 bg-slate-900/25" : "border-slate-700 bg-white"
+                  }`}
+                >
+                  <div className="grid grid-cols-2 gap-3 items-start">
+                    {sectionsWithRows.map((section) => (
+                      <div key={`daily-battle-counted-${section.team}`} className="space-y-0 min-w-0">
+                        {section.countedRows.map((row) =>
+                          renderDailyBattleRow(row, section.team, { insideCountedFrame: true })
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-3 items-start">
+                {sectionsWithRows.map((section) => (
+                  <div key={`daily-battle-other-${section.team}`} className="space-y-1.5 min-w-0">
+                    {section.otherRows.length ? (
+                      section.otherRows.map((row) => renderDailyBattleRow(row, section.team))
+                    ) : section.totalCount === 0 ? (
+                      <div className="text-xs opacity-70 py-3 text-center">Aucun score pour le moment.</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-xs opacity-70 py-3 text-center">Aucun score pour le moment.</div>
+          )}
+        </div>
+      </div>
+    );
+  };
   const renderDuelContributorsColumn = (entries, team, maxHeightClass = "max-h-[360px]") => (
     <div
       className={`rounded-xl border px-2 py-1.5 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
@@ -25253,25 +28154,119 @@ function handleTouchEnd(e) {
     </div>
   );
   const renderDailyTodaySplit = (maxHeightClass = "max-h-[46vh] sm:max-h-[520px]") => (
-    <div className="space-y-2">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-        <div className="text-red-500 text-center truncate text-xl sm:text-2xl font-black tabular-nums">
-          {dailyBattleRedBalanced}
+    (() => {
+      const fillHeight = String(maxHeightClass || "").includes("h-full");
+      const listHeightClass = fillHeight ? "h-full min-h-0" : maxHeightClass;
+      return (
+        <div className={fillHeight ? "h-full min-h-0 flex flex-col gap-2" : "space-y-2"}>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <div className="text-red-500 text-center truncate text-xl sm:text-2xl font-black tabular-nums">
+              {dailyBattleRedBalanced}
+            </div>
+            <div className="opacity-70 text-xs">VS</div>
+            <div className="text-blue-500 text-center truncate text-xl sm:text-2xl font-black tabular-nums">
+              {dailyBattleBlueBalanced}
+            </div>
+          </div>
+          <div className={fillHeight ? "flex-1 min-h-0" : ""}>
+            {renderDailyBattleList(listHeightClass)}
+          </div>
         </div>
-        <div className="opacity-70 text-xs">VS</div>
-        <div className="text-blue-500 text-center truncate text-xl sm:text-2xl font-black tabular-nums">
-          {dailyBattleBlueBalanced}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 items-start gap-0">
-        {renderDailyTeamColumn(dailyTodayRedEntries, "red", maxHeightClass)}
-        {renderDailyTeamColumn(dailyTodayBlueEntries, "blue", maxHeightClass)}
-      </div>
-    </div>
+      );
+    })()
   );
-  const renderDailyHistorySlider = (panelHeightClass = "max-h-[320px]") =>
-    dailyHistoryPageCount > 0 ? (
+  const dailyHistoryFoundDotStyle = {
+    width: "0.4rem",
+    height: "0.4rem",
+    borderRadius: "9999px",
+    backgroundColor: darkMode ? "#f8fafc" : "#0f172a",
+    flexShrink: 0,
+  };
+  const renderDailyHistoryWords = (page) => {
+    if (dailySection !== DAILY_MONSTROUS_MODE && dailySection !== DAILY_SPECIAL_MODE) return null;
+    const words = Array.isArray(page?.findableWords) ? page.findableWords : [];
+    const selfEntry = Array.isArray(page?.entries)
+      ? page.entries.find((entry) => entry?.installId && installId && entry.installId === installId)
+      : null;
+    if (!words.length) {
+      return (
+        <div className="text-xs opacity-70 py-3 text-center">
+          Liste des mots indisponible pour cette grille.
+        </div>
+      );
+    }
+    const foundSet = new Set(
+      (Array.isArray(page?.myWords) ? page.myWords : [])
+        .map((word) => String(word || "").trim())
+        .filter(Boolean)
+    );
+    const highlightUnavailable =
+      !!selfEntry && (Number(selfEntry?.wordsCount) || 0) > 0 && foundSet.size === 0;
+    return (
       <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold">Mots trouvables</div>
+          <div className="text-[11px] opacity-70">{words.length}</div>
+        </div>
+        {highlightUnavailable ? (
+          <div className="text-[11px] opacity-70">
+            Mise en surbrillance indisponible pour cette ancienne grille.
+          </div>
+        ) : null}
+        <div className="max-h-[240px] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+          <ul className="relative flex flex-col text-sm">
+            {words.map((word) => {
+              const isFound = foundSet.has(word);
+              return (
+                <li
+                  key={`daily-history-word-${page?.dateId || "day"}-${word}`}
+                  className={`rounded px-1 flex items-center justify-between gap-2 transition ${
+                    darkMode ? "hover:bg-slate-800/70" : "hover:bg-gray-100"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 text-left min-w-0"
+                    onClick={() => openDefinition(word)}
+                    aria-label={`Voir la définition de ${word}`}
+                    title="Voir la définition"
+                  >
+                    <span
+                      style={{
+                        ...dailyHistoryFoundDotStyle,
+                        opacity: isFound ? 1 : 0,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span
+                      className={`min-w-0 truncate ${
+                        isFound
+                          ? "font-semibold"
+                          : darkMode
+                          ? "text-slate-300"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      {word}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    );
+  };
+  const renderDailyHistorySlider = (pages = filteredDailyHistoryPages, panelHeightClass = "max-h-[320px]") =>
+    dailyHistoryPageCount > 0 ? (
+      <div
+        className={
+          String(panelHeightClass || "").includes("h-full")
+            ? "h-full min-h-0 flex flex-col gap-2"
+            : "space-y-2"
+        }
+      >
         <div className="text-sm font-semibold">Historique</div>
         {dailyHistoryLoading ? (
           <div className="text-xs opacity-70">Chargement...</div>
@@ -25281,7 +28276,9 @@ function handleTouchEnd(e) {
           <>
             <div
               ref={dailyHistoryScrollRef}
-              className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+              className={`flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 ${
+                String(panelHeightClass || "").includes("h-full") ? "flex-1 min-h-0" : ""
+              }`}
               onScroll={(e) => {
                 const el = e.currentTarget;
                 const width = el.clientWidth || 1;
@@ -25289,87 +28286,134 @@ function handleTouchEnd(e) {
                 if (page !== dailyHistoryIndex) setDailyHistoryIndex(page);
               }}
             >
-              {dailyHistoryPages.map((page, idx) => (
-                <div key={`daily-history-${page.type}-${idx}`} className="w-full shrink-0 snap-start">
+              {pages.map((page, idx) => (
+                <div
+                  key={`daily-history-${page.type}-${idx}`}
+                  className={`w-full shrink-0 snap-start ${
+                    String(panelHeightClass || "").includes("h-full") ? "h-full min-h-0" : ""
+                  }`}
+                >
                   <div
                     className={`rounded-xl border px-3 py-3 ${
                       darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+                    } ${
+                      String(panelHeightClass || "").includes("h-full")
+                        ? "h-full min-h-0 flex flex-col"
+                        : ""
                     }`}
                   >
                     {page.type === "day" ? (
                       <>
                         <div className="flex items-baseline justify-between gap-2 mb-2">
                           <div className="text-sm font-bold">Date : {page.dateId}</div>
-                          {Number.isFinite(page.totalPlayers) ? (
+                          {Number.isFinite(
+                            dailySection === DAILY_OVERVIEW_SECTION
+                              ? page.totalPlayers
+                              : Array.isArray(page.entries)
+                              ? page.entries.length
+                              : null
+                          ) ? (
                             <div className="text-[11px] opacity-70">
-                              {page.totalPlayers} joueurs
+                              {dailySection === DAILY_OVERVIEW_SECTION
+                                ? page.totalPlayers
+                                : Array.isArray(page.entries)
+                                ? page.entries.length
+                                : 0}{" "}
+                              joueurs
                             </div>
                           ) : null}
                         </div>
-                        {page?.battle ? (
-                          <div className="mb-2 space-y-1">
-                            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                              <span className="text-red-500 text-center truncate text-lg sm:text-xl font-black tabular-nums">
-                                {Number(page?.battle?.totalsBalancedByTeam?.red) || 0}
-                              </span>
-                              <span className="opacity-70 text-[11px]">VS</span>
-                              <span className="text-blue-500 text-center truncate text-lg sm:text-xl font-black tabular-nums">
-                                {Number(page?.battle?.totalsBalancedByTeam?.blue) || 0}
-                              </span>
+                        <div
+                          className={`${
+                            String(panelHeightClass || "").includes("h-full")
+                              ? "flex-1 min-h-0"
+                              : panelHeightClass
+                          } overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1 space-y-3`}
+                        >
+                          {dailySection === DAILY_OVERVIEW_SECTION && page?.battle ? (
+                            <div className="space-y-1">
+                              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                                <span className="text-red-500 text-center truncate text-lg sm:text-xl font-black tabular-nums">
+                                  {Number(page?.battle?.totalsBalancedByTeam?.red) || 0}
+                                </span>
+                                <span className="opacity-70 text-[11px]">VS</span>
+                                <span className="text-blue-500 text-center truncate text-lg sm:text-xl font-black tabular-nums">
+                                  {Number(page?.battle?.totalsBalancedByTeam?.blue) || 0}
+                                </span>
+                              </div>
+                              {page?.battle?.winnerTeam === "red" ? (
+                                <div className="text-xs text-center">
+                                  <span className="font-bold text-red-500">ROUGES</span>{" "}
+                                  <span className="opacity-80">gagnent !</span>
+                                </div>
+                              ) : page?.battle?.winnerTeam === "blue" ? (
+                                <div className="text-xs text-center">
+                                  <span className="font-bold text-blue-500">BLEUS</span>{" "}
+                                  <span className="opacity-80">gagnent !</span>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-center opacity-70">Match nul</div>
+                              )}
+                              <div className="text-[11px] text-center opacity-70">
+                                {Number(page?.battle?.countedPlayersByTeam?.red) || 0} rouges vs{" "}
+                                {Number(page?.battle?.countedPlayersByTeam?.blue) || 0} bleus comptabilisés
+                              </div>
                             </div>
-                            {page?.battle?.winnerTeam === "red" ? (
-                              <div className="text-xs text-center">
-                                <span className="font-bold text-red-500">ROUGES</span>{" "}
-                                <span className="opacity-80">gagnent !</span>
+                          ) : null}
+                          {dailySection === DAILY_OVERVIEW_SECTION ? (
+                            !page?.battle ? (
+                              <div className="text-xs opacity-70 py-6 text-center">
+                                Résumé duel indisponible pour ce jour.
                               </div>
-                            ) : page?.battle?.winnerTeam === "blue" ? (
-                              <div className="text-xs text-center">
-                                <span className="font-bold text-blue-500">BLEUS</span>{" "}
-                                <span className="opacity-80">gagnent !</span>
-                              </div>
-                            ) : (
-                              <div className="text-xs text-center opacity-70">Match nul</div>
-                            )}
-                          </div>
-                        ) : null}
-                        {Array.isArray(page.entries) && page.entries.length > 0 ? (
-                          <div className={`${panelHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}>
-                            {page.entries.map((entry, entryIdx) => {
-                              const label = Number.isFinite(entry?.score)
-                                ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${
-                                    entry.score
-                                  } pts`
-                                : "-";
-                              const gobbleBadge = renderGobbleBadge(entry?.gobbles);
-                              return (
-                                <div
-                                  key={entry?.installId || `${entry?.nick}-${entryIdx}`}
-                                  className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
-                                    darkMode ? "border-white/5" : "border-slate-100"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
-                                      {entryIdx + 1}
-                                    </span>
-                                    <span className="truncate font-semibold flex items-center gap-1">
-                                      {entry?.nick || "Joueur"}
-                                      {renderHumanDot(entry?.nick, entry)}
-                                      {gobbleBadge}
+                            ) : null
+                          ) : Array.isArray(page.entries) && page.entries.length > 0 ? (
+                            <div>
+                              {page.entries.map((entry, entryIdx) => {
+                                const label = Number.isFinite(entry?.score)
+                                  ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${
+                                      entry.score
+                                    } pts`
+                                  : "-";
+                                const gobbleBadge = renderGobbleBadge(entry?.gobbles);
+                                return (
+                                  <div
+                                    key={entry?.installId || `${entry?.nick}-${entryIdx}`}
+                                    className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
+                                      darkMode ? "border-white/5" : "border-slate-100"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
+                                        {entryIdx + 1}
+                                      </span>
+                                      <span className="truncate font-semibold flex items-center gap-1">
+                                        {entry?.nick || "Joueur"}
+                                        {renderHumanDot(entry?.nick, entry)}
+                                        {gobbleBadge}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold opacity-80 shrink-0">
+                                      {label}
                                     </span>
                                   </div>
-                                  <span className="text-[11px] font-semibold opacity-80 shrink-0">
-                                    {label}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="text-xs opacity-70 py-6 text-center">
-                            Aucun score pour ce jour.
-                          </div>
-                        )}
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-xs opacity-70 py-6 text-center">
+                              Aucun score pour ce jour.
+                            </div>
+                          )}
+                          {dailySection !== DAILY_OVERVIEW_SECTION ? (
+                            <div
+                              className={`pt-3 border-t ${
+                                darkMode ? "border-white/10" : "border-slate-200"
+                              }`}
+                            >
+                              {renderDailyHistoryWords(page)}
+                            </div>
+                          ) : null}
+                        </div>
                       </>
                     ) : (
                       <>
@@ -25377,7 +28421,13 @@ function handleTouchEnd(e) {
                           <div className="text-sm font-bold">Total couronnes</div>
                         </div>
                         {Array.isArray(page.crownTotals) && page.crownTotals.length > 0 ? (
-                          <div className={`${panelHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}>
+                          <div
+                            className={`${
+                              String(panelHeightClass || "").includes("h-full")
+                                ? "flex-1 min-h-0"
+                                : panelHeightClass
+                            } overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1`}
+                          >
                             {page.crownTotals.map((entry, entryIdx) => (
                               <div
                                 key={`${entry.nick}-${entryIdx}`}
@@ -25411,9 +28461,9 @@ function handleTouchEnd(e) {
                 </div>
               ))}
             </div>
-            {dailyHistoryPageCount > 1 ? (
+            {pages.length > 1 ? (
               <div className="flex items-center justify-center gap-2">
-                {dailyHistoryPages.map((_, idx) => {
+                {pages.map((_, idx) => {
                   const active = idx === dailyHistoryIndex;
                   const dotColor = active
                     ? darkMode
@@ -25447,8 +28497,73 @@ function handleTouchEnd(e) {
         )}
       </div>
     ) : null;
+  const dailyLaunchDialogView = dailyLaunchDialog ? (
+    <div className="fixed inset-0 z-[20140] flex items-center justify-center px-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+        onClick={closeDailyLaunchDialog}
+        aria-label="Fermer la confirmation de grille du jour"
+      />
+      <div
+        className={`relative w-full max-w-md overflow-hidden rounded-[28px] border shadow-2xl ${
+          darkMode
+            ? "border-white/10 bg-slate-900 text-slate-100"
+            : "border-slate-200 bg-white text-slate-900"
+        }`}
+      >
+        <div className={`h-2 w-full bg-gradient-to-r ${selectedDailySectionMeta.accentClass}`} />
+        <div className="p-5 space-y-4">
+          <div className="space-y-1">
+            <div className="text-[11px] uppercase tracking-[0.22em] font-black opacity-60">
+              Grilles du jour
+            </div>
+            <div className="text-2xl font-black leading-tight">
+              Lancer {getDailySectionMeta(dailyLaunchDialog.mode).label}
+            </div>
+            <div className="text-sm opacity-80">
+              Assurez-vous d'avoir une connexion stable avant de lancer la grille.
+            </div>
+          </div>
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              darkMode
+                ? "border-amber-400/25 bg-amber-500/10 text-amber-100"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            Une fois lancée, la tentative compte pour le duel hebdomadaire indépendamment du live.
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${
+                darkMode
+                  ? "border border-white/10 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                  : "border border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200"
+              }`}
+              onClick={closeDailyLaunchDialog}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${getDailySectionMeta(
+                dailyLaunchDialog.mode
+              ).buttonClass}`}
+              onClick={confirmDailyLaunch}
+            >
+              Jouer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (!isLoggedIn && appView === "daily") {
+    const dailyTodayHeightClass = isMobileLayout ? "h-full min-h-0" : "max-h-[46vh] sm:max-h-[520px]";
+    const dailyHistoryHeightClass = isMobileLayout ? "h-full min-h-0" : "max-h-[520px]";
     return (
       <>
         {bootOverlay}
@@ -25456,15 +28571,22 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         {homeChatModalView}
+        {dailyLaunchDialogView}
         <div
-          className={`min-h-screen flex items-center justify-center px-4 ${
+          className={`${
+            isMobileLayout
+              ? "h-[100svh] min-h-[100svh] overflow-hidden flex items-stretch justify-center px-2 py-2"
+              : "min-h-screen flex items-center justify-center px-4"
+          } ${
             darkMode
               ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
               : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
           }`}
         >
           <div
-            className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 ${
+            className={`w-full max-w-2xl rounded-2xl shadow-2xl ${
+              isMobileLayout ? "h-full min-h-0 flex flex-col p-3 gap-2 overflow-hidden" : "p-4 sm:p-6 space-y-4"
+            } ${
               darkMode
                 ? "bg-slate-900/70 border border-white/10"
                 : "bg-white/90 border border-slate-200"
@@ -25472,7 +28594,7 @@ function handleTouchEnd(e) {
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-2xl font-black tracking-tight">Grille du jour</div>
+                <div className="text-2xl font-black tracking-tight">Grilles du jour</div>
                 <div className="text-xs opacity-70">
                   {dailyStatus?.dateId ? `Date : ${dailyStatus.dateId}` : "Chargement..."}
                 </div>
@@ -25490,90 +28612,215 @@ function handleTouchEnd(e) {
               </button>
             </div>
 
-            <div className="text-xs font-semibold text-amber-500">
-              L'equipe qui gagne la grille du jour remporte 200 points pour le duel hebdomadaire.
-            </div>
-
-            {!dailyBoard.ready && (
-              <div className="text-sm font-semibold text-amber-500">
-                Grille en preparation...
-              </div>
-            )}
-            {dailyStatus.error && (
-              <div className="text-xs text-red-500">Erreur daily ({dailyStatus.error})</div>
-            )}
-            {dailyBoard.error && (
-              <div className="text-xs text-red-500">Erreur classement ({dailyBoard.error})</div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  dailyRankingView === "today"
-                    ? darkMode
-                      ? "bg-blue-500 text-white"
-                      : "bg-blue-600 text-white"
-                    : darkMode
-                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
-                    : "bg-white border border-slate-200 text-slate-700"
-                }`}
-                onClick={() => setDailyRankingView("today")}
-              >
-                Classement du jour
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  dailyRankingView === "history"
-                    ? darkMode
-                      ? "bg-blue-500 text-white"
-                      : "bg-blue-600 text-white"
-                    : darkMode
-                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
-                    : "bg-white border border-slate-200 text-slate-700"
-                }`}
-                onClick={() => setDailyRankingView("history")}
-                disabled={dailyHistoryPageCount === 0}
-              >
-                Historique
-              </button>
-            </div>
-
-            {dailyRankingView === "today"
-              ? renderDailyTodaySplit("max-h-[46vh] sm:max-h-[520px]")
-              : renderDailyHistorySlider("max-h-[520px]") || (
-                  <div className="text-xs opacity-70 py-6 text-center">
-                    Aucun historique disponible.
+            <div className={isMobileLayout ? "flex-1 min-h-0 flex flex-col gap-2" : "space-y-4"}>
+            <div
+              className={`rounded-2xl border p-3 sm:p-4 space-y-3 ${
+                darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-[0.22em] font-black opacity-60">
+                    {isMobileLayout ? "Duel" : "Duel hebdomadaire"}
                   </div>
-                )}
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                  dailyStatus.ready && !dailyStatus.hasPlayed
-                    ? "bg-blue-600 hover:bg-blue-500 text-white"
-                    : "bg-slate-400/60 text-white cursor-not-allowed"
-                }`}
-                onClick={startDailyGame}
-                disabled={!dailyStatus.ready || dailyStatus.hasPlayed}
-              >
-                Jouer
-              </button>
-              {dailyStartError && (
-                <span className="ml-2 text-[11px] font-bold text-red-400">
-                  {dailyStartError}
-                </span>
-              )}
+                  {isMobileLayout ? (
+                    <div className="text-sm font-black">200 points de duel à remporter aujourd'hui.</div>
+                  ) : (
+                    <>
+                      <div className="text-sm sm:text-base font-black">
+                        Les grilles du jour comptent pour le duel, indépendamment du live.
+                      </div>
+                      <div className="opacity-75 text-sm">
+                        L'équipe gagnante du jour empoche 200 points de duel. Même un score modeste reste
+                        utile pour pousser ton camp.
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="grid grid-cols-[auto_auto_auto] items-center justify-center gap-2 text-sm font-black self-center sm:self-start mx-auto">
+                  <span className="text-red-500 tabular-nums">{dailyBattleRedBalanced}</span>
+                  <span className="opacity-60">VS</span>
+                  <span className="text-blue-500 tabular-nums">{dailyBattleBlueBalanced}</span>
+                </div>
+              </div>
+              {!isMobileLayout && overallDailyResultsSummary.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {overallDailyResultsSummary.map((item) => (
+                    <span
+                      key={item}
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                        darkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
-            {dailyStatus.hasPlayed && (
-              <div className="text-sm font-semibold">
-                Deja joue{dailyScoreLabel != null ? ` : ${dailyScoreLabel} pts` : ""}
-                {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
+            {!dailyBoard.ready ? (
+              <div className="text-sm font-semibold text-amber-500">Grilles en préparation...</div>
+            ) : null}
+            {dailyStatus.error ? (
+              <div className="text-xs text-red-500">Erreur daily ({dailyStatus.error})</div>
+            ) : null}
+            {dailyBoard.error ? (
+              <div className="text-xs text-red-500">Erreur classement ({dailyBoard.error})</div>
+            ) : null}
+
+            <div className="grid grid-cols-4 gap-2">
+              {dailySections.map((section) => {
+                const meta = getDailySectionMeta(section.key);
+                const active = dailySection === section.key;
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    className={`min-w-0 px-2 py-2 rounded-xl font-semibold transition ${
+                      active
+                        ? darkMode
+                          ? "bg-white text-slate-900"
+                          : "bg-slate-900 text-white"
+                        : darkMode
+                          ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                          : "bg-white border border-slate-200 text-slate-700"
+                    } ${isMobileLayout ? "text-[10px] leading-tight tracking-[-0.01em]" : "text-xs"}`}
+                    onClick={() => {
+                      setDailySection(section.key);
+                      setDailyHistoryIndex(0);
+                    }}
+                  >
+                    <span className="block truncate">{meta.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={`overflow-hidden rounded-2xl border ${
+                darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+              } ${isMobileLayout ? "flex-1 min-h-0 flex flex-col" : ""}`}
+            >
+              <div className={`h-1.5 w-full bg-gradient-to-r ${selectedDailySectionMeta.accentClass}`} />
+              <div className={isMobileLayout ? "p-3 flex-1 min-h-0 flex flex-col gap-3" : "p-4 space-y-4"}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <div className="text-xl font-black">{selectedDailySectionMeta.label}</div>
+                    <div className="text-sm opacity-75">{selectedDailySectionMeta.description}</div>
+                    {dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE ? (
+                      <div className="text-xs font-semibold opacity-80">
+                        {!isMobileLayout && dailySection === DAILY_SPECIAL_MODE
+                          ? "—"
+                          : dailyScoreLabel != null
+                          ? `${dailyScoreLabel} pts`
+                          : "Pas encore de score"}
+                        {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
+                        {selectedDailyEntriesCount ? ` · ${selectedDailyEntriesCount} joueurs` : ""}
+                      </div>
+                    ) : dailySection === DAILY_OVERVIEW_SECTION ? (
+                      !isMobileLayout ? (
+                        <div className="text-xs font-semibold opacity-80">
+                          Classement global et historique de toutes les grilles du jour.
+                        </div>
+                      ) : null
+                    ) : (
+                      <div className="text-xs font-semibold opacity-80">
+                        Cette rubrique est réservée à une prochaine grille daily.
+                      </div>
+                    )}
+                    {dailyStartError ? (
+                      <div className="text-[11px] font-bold text-red-400">{dailyStartError}</div>
+                    ) : null}
+                  </div>
+                  {dailySection !== DAILY_OVERVIEW_SECTION && dailySection !== DAILY_FUTURE_SECTION ? (
+                    <div className="w-full md:w-auto md:min-w-[180px]">
+                      <button
+                        type="button"
+                        className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                          !selectedDailySectionState.playable ||
+                          !selectedDailySectionState.available ||
+                          ((dailySection === DAILY_MONSTROUS_MODE ||
+                            dailySection === DAILY_SPECIAL_MODE) &&
+                            selectedDailySectionState.played)
+                            ? "bg-slate-400/60 text-white cursor-not-allowed"
+                            : selectedDailySectionMeta.buttonClass
+                        }`}
+                        disabled={
+                          !selectedDailySectionState.playable ||
+                          !selectedDailySectionState.available ||
+                          ((dailySection === DAILY_MONSTROUS_MODE ||
+                            dailySection === DAILY_SPECIAL_MODE) &&
+                            selectedDailySectionState.played)
+                        }
+                        onClick={() => openDailyLaunchDialog(dailySection)}
+                      >
+                        {(dailySection === DAILY_MONSTROUS_MODE ||
+                          dailySection === DAILY_SPECIAL_MODE) &&
+                        selectedDailySectionState.played
+                          ? "Déjà jouée"
+                          : "Jouer"}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      dailyRankingView === "today"
+                        ? darkMode
+                          ? "bg-blue-500 text-white"
+                          : "bg-blue-600 text-white"
+                        : darkMode
+                        ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                        : "bg-white border border-slate-200 text-slate-700"
+                    }`}
+                    onClick={() => setDailyRankingView("today")}
+                  >
+                    Classement
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      dailyRankingView === "history"
+                        ? darkMode
+                          ? "bg-blue-500 text-white"
+                          : "bg-blue-600 text-white"
+                        : darkMode
+                        ? "bg-slate-800/80 border border-white/10 text-slate-100"
+                        : "bg-white border border-slate-200 text-slate-700"
+                    }`}
+                    onClick={() => setDailyRankingView("history")}
+                    disabled={dailyHistoryPageCount === 0}
+                  >
+                    Historique
+                  </button>
+                </div>
+
+                <div className={isMobileLayout ? "min-h-0 flex-1" : ""}>
+                  {dailyRankingView === "today" ? (
+                    dailySection === DAILY_OVERVIEW_SECTION ? (
+                      renderDailyTodaySplit(dailyTodayHeightClass)
+                    ) : dailySection === DAILY_FUTURE_SECTION ? (
+                      <div className="text-xs opacity-70 py-8 text-center">
+                        Classement à venir dès que la nouvelle grille sera en ligne.
+                      </div>
+                    ) : (
+                      renderDailyBoardList(filteredDailyEntries, dailyTodayHeightClass)
+                    )
+                  ) : (
+                    renderDailyHistorySlider(filteredDailyHistoryPages, dailyHistoryHeightClass) || (
+                      <div className="text-xs opacity-70 py-6 text-center">
+                        Aucun historique disponible.
+                      </div>
+                    )
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+            </div>
           </div>
         </div>
         {chatOverlays}
@@ -25604,7 +28851,7 @@ function handleTouchEnd(e) {
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-2xl font-black tracking-tight">Resultat daily</div>
+                <div className="text-2xl font-black tracking-tight">Résultat grille du jour</div>
                 <div className="text-xs opacity-70">
                   {dailyResult?.dateId ? `Date : ${dailyResult.dateId}` : ""}
                 </div>
@@ -25961,7 +29208,7 @@ function handleTouchEnd(e) {
               onClick={openDailyHome}
               disabled={isConnecting}
             >
-              Grille du jour
+              Grilles du jour
             </button>
             <button
               type="button"
@@ -26657,32 +29904,24 @@ function handleTouchEnd(e) {
                 </div>
                 {renderBlockedListPanel()}
                 <div
-                  className="flex-1 min-h-0 border rounded px-2 py-1 bg-white text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
+                  ref={chatDesktopListRef}
+                  className="flex-1 min-h-0 border rounded px-2 py-1 pb-4 bg-white text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
                   style={{ overscrollBehavior: "contain" }}
+                  onScroll={handleDesktopChatScroll}
                 >
                   {visibleMessages.length === 0 ? (
                     <div className="text-sm text-slate-400 text-center mt-4">
                       {safeChatTab === "system"
-                        ? "Aucun log de connexion/deconnexion."
+                        ? "Aucun log de connexion/déconnexion."
                         : "Aucun message pour l'instant."}
                     </div>
                   ) : null}
-                  {visibleMessages.map((msg, idx) => {
-                    const count = visibleMessages.length;
-                    const rankFromBottom = count - 1 - idx;
-                    let opacity = 1;
-
-                    if (rankFromBottom >= chatFullVisibleLines) {
-                      const extra = rankFromBottom - (chatFullVisibleLines - 1);
-                      const maxExtra = chatVisibleLimit - chatFullVisibleLines;
-                      const t = maxExtra > 0 ? Math.min(extra / maxExtra, 1) : 1;
-                      opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
-                    }
-
+                  {visibleMessages.map((msg) => {
                     const author = (msg.nick || msg.author || "Anonyme").trim();
                     const authorInstallId =
                       typeof msg.installId === "string" ? msg.installId : "";
                     const messageTime = formatChatMessageTime(msg);
+                    const isEdited = isEditedChatMessage(msg);
                     const systemAuthor = author || "Système";
                     const isYou = authorInstallId
                       ? authorInstallId === installId
@@ -26691,69 +29930,261 @@ function handleTouchEnd(e) {
                     const isLast = msg.id === lastMessageId;
                     const canOpenMenu =
                       !isSystem && authorInstallId && authorInstallId !== installId;
+                    const replyPreview = getChatMessageReplyPreview(msg);
+                    const reactionEntries = getChatMessageReactionEntries(msg);
+                    const replyTargetsSelf = !!(
+                      replyPreview &&
+                      ((replyPreview.installId &&
+                        String(replyPreview.installId).trim() === String(installId || "").trim()) ||
+                        (!replyPreview.installId &&
+                          String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
+                    );
 
-                    return (
-                      <div
-                        key={msg.id}
-                        data-chat-row
-                        className={`w-full transition-opacity duration-300 ${
-                          isLast ? "slide-fade-in" : ""
-                        }`}
-                        style={{ opacity }}
-                      >
-                        {isSystem ? (
+	              return (
+	                <div
+	                  key={msg.id}
+	                  data-chat-row
+	                        className={`w-full transition-opacity duration-300 ${
+	                          isLast ? "slide-fade-in" : ""
+	                        }`}
+	                >
+	                  {isSystem ? (
                           <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
                             <div className="flex items-baseline gap-1 flex-wrap">
                               <span className="font-semibold">{systemAuthor}:</span>
-                              {messageTime ? (
-                                <span className="text-[10px] leading-none opacity-70">
-                                  {messageTime}
-                                </span>
-                              ) : null}
-                              <span>{msg.text}</span>
-                            </div>
+	                              {messageTime ? (
+	                                <span className="text-[10px] leading-none opacity-70">
+	                                  {messageTime}
+	                                </span>
+	                              ) : null}
+                                {isEdited ? (
+                                  <span className="text-[10px] leading-none opacity-60">(modifié)</span>
+                                ) : null}
+	                              <span>{msg.text}</span>
+	                            </div>
                           </div>
-                        ) : (
-                          <div
-                            className={[
-                              "w-full px-1 py-0.5 text-sm",
-                              isYou ? "bg-blue-50" : "bg-white",
-                            ].join(" ")}
-                          >
-                            <div className="flex items-baseline gap-1.5 flex-wrap">
-                              {canOpenMenu ? (
-                                <button
-                                  type="button"
-                                  className="font-semibold text-black hover:underline"
-                                  onClick={(e) =>
-                                    openUserMenu(e, {
-                                      nick: author,
+	                        ) : (
+                          <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
+	                          <div
+	                            className={[
+	                              "group/chatmsg max-w-[88%] px-2 py-1 text-sm rounded-lg",
+                                isYou
+                                  ? darkMode
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-blue-600 text-white"
+                                  : darkMode
+                                  ? "bg-slate-800 text-slate-100 border border-slate-700"
+                                  : "bg-slate-100 text-slate-900 border border-slate-200",
+	                            ].join(" ")}
+                              onMouseEnter={ensureDesktopChatBottomVisible}
+                              onFocus={ensureDesktopChatBottomVisible}
+	                          >
+                            {replyPreview ? (
+                              <div
+	                                className={`mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
+	                                  replyTargetsSelf
+	                                    ? "border-blue-500 bg-blue-50 text-slate-700"
+	                                    : darkMode
+                                      ? "border-slate-600 bg-slate-700/80 text-slate-200"
+                                      : "border-slate-300 bg-slate-50 text-slate-700"
+	                                }`}
+	                              >
+                                <div className="font-semibold">{replyPreview.nick}</div>
+                                <div
+                                  style={{
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 3,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  {replyPreview.text}
+                                </div>
+                              </div>
+                            ) : null}
+	                            <div className="flex items-baseline gap-1.5 flex-wrap">
+	                              {canOpenMenu ? (
+	                                <button
+	                                  type="button"
+	                                  className={`font-semibold hover:underline ${
+	                                    isYou
+	                                      ? "text-white"
+                                      : darkMode
+                                      ? "text-slate-100"
+                                      : "text-black"
+                                  }`}
+	                                  onClick={(e) =>
+	                                    openUserMenu(e, {
+	                                      nick: author,
                                       installId: authorInstallId,
                                       messageId: msg.id,
                                     })
                                   }
+	                                >
+	                                  {author} :
+	                                </button>
+	                              ) : (
+	                                <span
+                                    className={`font-semibold ${
+                                      isYou
+                                        ? "text-white"
+                                        : darkMode
+                                        ? "text-slate-100"
+                                        : "text-black"
+                                    }`}
+                                  >
+                                    {author} :
+                                  </span>
+	                              )}
+	                              {messageTime ? (
+	                                <span
+                                    className={`text-[10px] leading-none ${
+                                      isYou
+                                        ? "text-white/80"
+                                        : darkMode
+                                        ? "text-slate-400"
+                                        : "text-slate-500"
+                                    }`}
+                                  >
+	                                  {messageTime}
+	                                </span>
+	                              ) : null}
+	                              <span
+                                  className={
+                                    isYou
+                                      ? "text-white"
+                                      : darkMode
+                                      ? "text-slate-100"
+                                      : "text-black"
+                                  }
                                 >
-                                  {author} :
-                                </button>
-                              ) : (
-                                <span className="font-semibold text-black">{author} :</span>
-                              )}
-                              {messageTime ? (
-                                <span className="text-[10px] leading-none text-slate-500">
-                                  {messageTime}
+                                  {msg.text}
                                 </span>
-                              ) : null}
-                              <span className="text-black">{msg.text}</span>
-                            </div>
+	                            </div>
+                            {!isYou ? (
+                              <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                                <button
+                                  type="button"
+                                  className="text-[10px] font-semibold text-blue-600 hover:underline"
+                                  onClick={() => setChatReplyTargetFromMessage(msg)}
+                                >
+                                  Répondre
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-[10px] font-semibold text-slate-600 hover:underline"
+                                  onClick={(event) => openDesktopChatReactionPicker(event, msg)}
+                                >
+                                  Réagir
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                                <button
+                                  type="button"
+                                  className="text-[10px] font-semibold text-amber-600 hover:underline"
+                                  onClick={() => beginChatEditFromMessage(msg)}
+                                >
+                                  Modifier
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-[10px] font-semibold text-rose-600 hover:underline"
+                                  onClick={() => deleteOwnChatMessage(msg)}
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            )}
+	                            {reactionEntries.length ? (
+	                              <div className="mt-1 flex flex-wrap gap-1">
+	                                {reactionEntries.map((entry) => (
+                                    <button
+                                      key={`${msg.id || "msg"}:${entry.emoji}`}
+                                      type="button"
+                                      className="h-5 rounded-full border border-slate-300 bg-white px-2 text-[10px] inline-flex items-center gap-1 text-slate-700"
+                                      onMouseEnter={(event) =>
+                                        openDesktopChatReactionDetails(event, msg, entry)
+                                      }
+                                      onMouseLeave={() => scheduleCloseDesktopChatReactionDetails()}
+                                      onClick={(event) =>
+                                        openDesktopChatReactionDetails(event, msg, entry)
+                                      }
+                                    >
+                                      <span>{entry.emoji}</span>
+                                      <span>{entry.count}</span>
+                                    </button>
+                                ))}
+	                              </div>
+	                            ) : null}
+	                          </div>
                           </div>
-                        )}
-                      </div>
-                    );
+	                        )}
+	                      </div>
+	                    );
                   })}
                 </div>
 
                 {safeChatTab !== "system" ? (
                   <>
+                    {chatEditTarget ? (
+                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold">Modification du message</div>
+                            <div
+                              className="text-[11px]"
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {chatEditTarget.text || ""}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="h-6 w-6 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-600 shrink-0"
+                            onClick={clearChatEditTarget}
+                            aria-label="Annuler la modification"
+                          >
+                            x
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {chatReplyTarget ? (
+                      <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold">
+                              Réponse à {chatReplyTarget.nick || "Anonyme"}
+                            </div>
+                            <div
+                              className="text-[11px]"
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {chatReplyTarget.text || ""}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="h-6 w-6 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-600 shrink-0"
+                            onClick={clearChatReplyTarget}
+                            aria-label="Annuler la réponse"
+                          >
+                            x
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="mt-2 flex flex-nowrap items-center gap-1.5">
                       {QUICK_REPLIES.map((txt, idx) => (
                         <button
@@ -26826,7 +30257,7 @@ function handleTouchEnd(e) {
   // === Mise en page mobile dédiée pendant la manche ===
   // ??cran unique : classement + prévisualisation du mot + grille en bas + bouton de chat
   const useUltraCompactLayout = isUltraCompact;
-  if (isMobileLayout && useUltraCompactLayout && phase === "playing") {
+  if (isMobileLayout && useUltraCompactLayout && phase === "playing" && !isSpecial3WordsMode) {
     const compactRankingList = rankingSource;
     const compactTotal =
       compactRankingList.length || (Array.isArray(players) ? players.length : 0) || null;
@@ -27002,6 +30433,7 @@ function handleTouchEnd(e) {
             tileScore={tileScore}
             tick={tick}
             usedSet={usedSet}
+            specialStartTileSet={special3LockedStartTileSet}
           />
         </div>
       </div>
@@ -27010,6 +30442,900 @@ function handleTouchEnd(e) {
       {praiseOverlay}
       {chatOverlays}
     </>
+    );
+  }
+
+  if (isMobileLayout && phase === "playing" && isSpecial3WordsMode) {
+    const lockedGameViewportWidth =
+      !isChatOpenMobile && !isChatClosing
+        ? Number(mobileGameViewportLockRef.current?.width) || 0
+        : 0;
+    const lockedGameViewportHeight =
+      !isChatOpenMobile && !isChatClosing
+        ? Number(mobileGameViewportLockRef.current?.height) || 0
+        : 0;
+    const fallbackViewportWidth =
+      lockedGameViewportWidth ||
+      mobileLayoutSizing.viewportWidth ||
+      (typeof window !== "undefined" ? window.innerWidth : 360);
+    const mobileGridSide = Math.round(
+      Math.max(
+        180,
+        (
+          mobileLayoutSizing.gridSide ||
+          Math.max(200, Math.min(fallbackViewportWidth - 24, MOBILE_GRID_MAX_WIDTH))
+        ) * 0.9
+      )
+    );
+    const special3BodyHeight = Math.max(
+      mobileGridSide,
+      Math.round(
+        mobileLayoutSizing.bodyHeight ||
+          (mobileGridSide > 0 ? mobileGridSide * 1.7 : 0)
+      )
+    );
+    const special3BodyRatio =
+      mobileGridSide > 0 ? special3BodyHeight / Math.max(1, mobileGridSide) : 1.7;
+    const special3Roominess = clampValue((special3BodyRatio - 1.46) / 0.42, 0, 1);
+    const mixSpecial3Size = (compactValue, roomyValue) =>
+      compactValue + (roomyValue - compactValue) * special3Roominess;
+    const special3SidePadPx = Math.round(mixSpecial3Size(10, 12));
+    const special3TopPadPx = Math.round(mixSpecial3Size(4, 6));
+    const special3BottomPadPx = Math.round(mixSpecial3Size(6, 8));
+    const special3SectionGapPx = Math.round(mixSpecial3Size(6, 8));
+    const special3SlotGapPx = Math.round(mixSpecial3Size(4, 6));
+    const special3MetaFontPx = Math.round(mixSpecial3Size(10, 11));
+    const special3SettingsButtonSide = Math.round(mixSpecial3Size(28, 32));
+    const special3SettingsIconPx = Math.round(mixSpecial3Size(18, 20));
+    const special3TimerFontPx = Math.round(
+      clampValue(mobileGridSide * mixSpecial3Size(0.082, 0.104), 28, 44)
+    );
+    const special3TimerTopMarginPx = Math.round(mixSpecial3Size(2, 4));
+    const special3ChatButtonSide = Math.round(
+      clampValue(mobileGridSide * mixSpecial3Size(0.102, 0.124), 38, 50)
+    );
+    const special3ChatBadgeSide = Math.round(mixSpecial3Size(16, 18));
+    const special3SecondsFontPx = Math.round(mixSpecial3Size(10, 11));
+    const special3ProgressHeightPx = Math.round(mixSpecial3Size(5, 8));
+    const special3ProgressTopMarginPx = Math.round(mixSpecial3Size(6, 8));
+    const special3SlotPadY = Math.round(mixSpecial3Size(4, 6));
+    const special3SlotPadX = Math.round(mixSpecial3Size(8, 10));
+    const special3SlotDeleteSide = Math.round(mixSpecial3Size(22, 24));
+    const special3SlotPlaceholderFontPx = Math.round(mixSpecial3Size(11, 12));
+    const special3SlotScoreFontPx = Math.round(mixSpecial3Size(11, 12));
+    const special3SlotScoreMinWidthPx = Math.round(mixSpecial3Size(60, 72));
+    const special3SlotTotalFontPx = Math.round(mixSpecial3Size(13, 14));
+    const special3ActionFontPx = Math.round(mixSpecial3Size(12, 13));
+    const special3ActionPadYPx = Math.round(mixSpecial3Size(6, 8));
+    const special3BonusTrayPadY = Math.round(mixSpecial3Size(3, 5));
+    const special3BonusTrayPadX = Math.round(mixSpecial3Size(8, 10));
+    const special3BonusChipSide = Math.round(
+      clampValue(mobileGridSide * mixSpecial3Size(0.108, 0.138), 42, 58)
+    );
+    const special3BonusChipFontPx = Math.round(
+      clampValue(special3BonusChipSide * 0.28, 12, 16)
+    );
+    const special3BonusChipRadiusPx = Math.round(mixSpecial3Size(12, 16));
+    const special3BonusCheckSide = Math.round(mixSpecial3Size(16, 20));
+    const special3BonusCheckFontPx = Math.round(mixSpecial3Size(9, 10));
+    const special3PreviewTileBaseHeightPx = Math.round(mixSpecial3Size(20, 24));
+    const special3PreviewTileBaseFontPx = Math.round(mixSpecial3Size(11, 13));
+    const special3PreviewBadgeFontPx = Math.round(mixSpecial3Size(7, 8));
+    const special3BonusTrayBaseHeightPx = Math.round(
+      special3BonusChipSide + Math.max(2, special3BonusTrayPadY)
+    );
+    const special3BonusTrayMaxHeightPx = Math.round(special3BonusTrayBaseHeightPx * 2.1);
+    const special3HeaderRowHeightPx = Math.max(
+      special3SettingsButtonSide,
+      special3ChatButtonSide,
+      special3TimerFontPx,
+      Math.round(special3MetaFontPx * 2.2)
+    );
+    const special3HeaderBlockHeightPx =
+      special3TopPadPx +
+      special3HeaderRowHeightPx +
+      special3ProgressTopMarginPx +
+      special3ProgressHeightPx +
+      Math.max(4, special3TopPadPx - 1);
+    const special3ActionHeightPx = isDailyPlay
+      ? Math.round(special3ActionPadYPx * 2 + special3ActionFontPx * 1.25)
+      : 0;
+    const special3DesiredSlotsMinHeightPx = Math.round(
+      clampValue(mobileGridSide * 0.34, 112, 156)
+    );
+    const special3HostEstimatedHeightPx = Math.max(
+      0,
+      special3BodyHeight - special3HeaderBlockHeightPx
+    );
+    const special3BottomFixedMinHeightPx =
+      mobileGridSide +
+      special3BonusTrayBaseHeightPx +
+      special3ActionHeightPx +
+      special3SectionGapPx * (isDailyPlay ? 2 : 1);
+    const special3BonusExtraPx = Math.max(
+      0,
+      special3HostEstimatedHeightPx -
+        special3BottomFixedMinHeightPx -
+        special3DesiredSlotsMinHeightPx
+    );
+    const special3BonusTrayHeightPx = Math.round(
+      clampValue(
+        special3BonusTrayBaseHeightPx + special3BonusExtraPx * 0.44,
+        special3BonusTrayBaseHeightPx,
+        special3BonusTrayMaxHeightPx
+      )
+    );
+    const special3BonusChipExtraPx = Math.max(
+      0,
+      special3BonusTrayHeightPx - special3BonusTrayBaseHeightPx
+    );
+    const special3BonusChipMaxByTrayPx = Math.max(
+      special3BonusChipSide,
+      special3BonusTrayHeightPx - special3BonusTrayPadY * 2
+    );
+    const special3BonusChipMaxByWidthPx = Math.floor(
+      (mobileGridSide -
+        special3BonusTrayPadX * 2 -
+        special3SlotGapPx * Math.max(DAILY_SPECIAL_BONUSES.length - 1, 0)) /
+        Math.max(DAILY_SPECIAL_BONUSES.length, 1)
+    );
+    const special3BonusChipRenderSidePx = Math.round(
+      clampValue(
+        special3BonusChipSide + special3BonusChipExtraPx * 0.18,
+        special3BonusChipSide,
+        Math.min(
+          special3BonusChipMaxByTrayPx,
+          special3BonusChipMaxByWidthPx,
+          Math.round(special3BonusChipSide * 1.22)
+        )
+      )
+    );
+    const special3BonusChipRenderFontPx = Math.round(
+      clampValue(special3BonusChipRenderSidePx * 0.28, 12, 20)
+    );
+    const special3BonusChipRenderRadiusPx = Math.round(
+      clampValue(special3BonusChipRenderSidePx * 0.28, 12, 18)
+    );
+    const special3BonusCheckRenderSidePx = Math.round(
+      clampValue(special3BonusChipRenderSidePx * 0.34, 16, 24)
+    );
+    const special3BonusCheckRenderFontPx = Math.round(
+      clampValue(special3BonusCheckRenderSidePx * 0.52, 9, 12)
+    );
+    const special3ValidationBlockMinHeightPx = Math.max(
+      special3DesiredSlotsMinHeightPx,
+      special3PreviewTileBaseHeightPx * 3 + special3SlotGapPx * 3 + special3SlotPadY * 8
+    );
+    const special3EstimatedValidationHeightPx = Math.max(
+      special3ValidationBlockMinHeightPx,
+      special3HostEstimatedHeightPx -
+        mobileGridSide -
+        special3BonusTrayHeightPx -
+        special3ActionHeightPx -
+        special3SectionGapPx * (isDailyPlay ? 2 : 1)
+    );
+    const special3PreviewTileHeightPx = Math.round(
+      clampValue(
+        ((special3EstimatedValidationHeightPx -
+          special3SlotGapPx * 2 -
+          special3SlotPadY * 6 -
+          special3SlotTotalFontPx * 1.4) /
+          3) *
+          0.56,
+        special3PreviewTileBaseHeightPx,
+        30
+      )
+    );
+    const special3PreviewTileFontPx = Math.round(
+      clampValue(
+        special3PreviewTileBaseFontPx + (special3PreviewTileHeightPx - special3PreviewTileBaseHeightPx) * 0.24,
+        special3PreviewTileBaseFontPx,
+        15
+      )
+    );
+    const special3SlotRowMinHeightPx = Math.round(
+      clampValue(
+        (special3ValidationBlockMinHeightPx -
+          special3SlotGapPx * 2 -
+          special3SlotPadY * 2 -
+          special3SlotTotalFontPx * 1.4) /
+          3,
+        special3PreviewTileBaseHeightPx + special3SlotPadY * 2,
+        54
+      )
+    );
+    const mobileGapPx = "clamp(6px, 2.4vw, 14px)";
+    const mobileTileFontPx = Math.max(
+      18,
+      Math.min(
+        32,
+        Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.35)
+      )
+    );
+    const useVisualViewport = !(isChatOpenMobile || isChatClosing);
+    const lockedChatHeight = chatBodyLockHeightRef.current || null;
+    const mobileViewportHeightCandidates =
+      typeof window !== "undefined"
+        ? (useVisualViewport
+            ? [
+                lockedGameViewportHeight,
+                mobileLayoutSizing.viewportHeight,
+                window.innerHeight,
+                typeof document !== "undefined"
+                  ? document.documentElement?.clientHeight
+                  : null,
+              ]
+            : lockedChatHeight
+            ? [lockedChatHeight]
+            : [
+                lockedGameViewportHeight,
+                window.innerHeight,
+                typeof document !== "undefined"
+                  ? document.documentElement?.clientHeight
+                  : null,
+              ]
+          ).filter((v) => Number.isFinite(v) && v > 0)
+        : [];
+    const mobileViewportHeight = mobileViewportHeightCandidates.length
+      ? Math.min(...mobileViewportHeightCandidates)
+      : 0;
+    const fullscreenTopPadding = isFullscreen
+      ? `${Math.round(mobileHeaderOffsetPx || 0)}px`
+      : "env(safe-area-inset-top)";
+    const mobileViewportContainerStyle =
+      mobileViewportHeight > 0
+        ? {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            width: "100%",
+            minHeight: `${Math.round(mobileViewportHeight)}px`,
+            height: `${Math.round(mobileViewportHeight)}px`,
+            maxHeight: `${Math.round(mobileViewportHeight)}px`,
+            overflow: "hidden",
+            overscrollBehavior: "none",
+            paddingTop: fullscreenTopPadding,
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }
+        : {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            width: "100%",
+            minHeight: "100vh",
+            height: "100dvh",
+            maxHeight: "100dvh",
+            overflow: "hidden",
+            overscrollBehavior: "none",
+            paddingTop: fullscreenTopPadding,
+            paddingBottom: "env(safe-area-inset-bottom)",
+          };
+    const maxDurationSec = Number.isFinite(serverRoundDurationMs)
+      ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
+      : 90;
+    const remainingSec = Math.max(0, Number(tick) || 0);
+    const progressRatio = clampValue(remainingSec / maxDurationSec, 0, 1);
+    const slots = dailyWordSlotsScored.length
+      ? dailyWordSlotsScored
+      : createDailyWordSlots();
+    const filledCount = slots.filter((slot) => String(slot?.word || "").trim()).length;
+    const activeSlotResolved = getDailyActiveSlotIndex(slots, safeDailySlotIndex);
+    const previewIsSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
+    const renderWordPreviewTiles = (wordValue, keyPrefix, pathValue = []) => {
+      const value = String(wordValue || "");
+      if (!value) return null;
+      const safePath = Array.isArray(pathValue) ? pathValue : [];
+      const canUsePath =
+        safePath.length > 0 &&
+        Array.isArray(boardForRender) &&
+        safePath.every((idx) => Number.isInteger(idx) && idx >= 0 && idx < boardForRender.length);
+      const tiles = canUsePath
+        ? safePath.map((boardIndex, idx) => {
+            const cell = boardForRender[boardIndex] || {};
+            return {
+              id: `path-${idx}-${boardIndex}`,
+              letter: String(cell.letter || ""),
+              boardIndex,
+              bonus: normalizeBonusLabel(cell.bonus),
+            };
+          })
+        : value.split("").map((ch, idx) => ({
+            id: `txt-${idx}-${ch}`,
+            letter: ch,
+            boardIndex: idx,
+            bonus: null,
+          }));
+      const useFillIndicator = specialIndicatorPreset === "fill";
+      const useRingIndicator = specialIndicatorPreset === "ring";
+      const useBadgeIndicator = specialIndicatorPreset === "badge";
+      return (
+        <div
+          className="flex items-center overflow-hidden"
+          style={{ minHeight: 0, maxHeight: "100%" }}
+        >
+          <AutoScaleInline minScale={0.42} className="gap-1">
+            {tiles.map((tile, idx) => {
+              const angle = ((idx * 17 + tiles.length * 13) % 11) - 5;
+              const displayBonus = tile.bonus;
+              const tileBaseClass =
+                useFillIndicator && displayBonus ? BONUS_CLASSES[displayBonus] : defaultTileBaseClass;
+              const letterRingClass =
+                useRingIndicator && displayBonus ? getBonusLetterRingClass(displayBonus) : "";
+              const textureStyle =
+                getTileColorTextureStyle(
+                  Number.isInteger(tile.boardIndex) ? tile.boardIndex : idx,
+                  gridSize,
+                  tileColorPreset
+                ) || {};
+              return (
+                <span
+                  key={`${keyPrefix}-${tile.id}`}
+                  className={[
+                    "tile-cell relative inline-flex items-center justify-center rounded-md px-1.5 font-black select-none",
+                    tileMaterialClass,
+                    tileBaseClass,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={{
+                    height: `${special3PreviewTileHeightPx}px`,
+                    minWidth: `${special3PreviewTileHeightPx}px`,
+                    maxHeight: "100%",
+                    fontSize: `${special3PreviewTileFontPx}px`,
+                    transform: `rotate(${angle}deg)`,
+                    pointerEvents: "none",
+                    ...textureStyle,
+                  }}
+                >
+                  <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
+                  {useBadgeIndicator && displayBonus ? (
+                    <span
+                      className={`absolute top-0 right-0 text-[0.55rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                        displayBonus
+                      )}`}
+                      style={{
+                        fontSize: `${special3PreviewBadgeFontPx}px`,
+                        transform: previewIsSquareMaterial
+                          ? "translate(-8%, 8%)"
+                          : "translate(10%, -10%)",
+                      }}
+                    >
+                      {displayBonus}
+                    </span>
+                  ) : null}
+                </span>
+              );
+            })}
+          </AutoScaleInline>
+        </div>
+      );
+    };
+    const renderSpecialChip = (bonusKey) => {
+      const placedIndex = Number.isInteger(dailySpecialPlacements?.[bonusKey])
+        ? dailySpecialPlacements[bonusKey]
+        : null;
+      const useFillIndicator = specialIndicatorPreset === "fill";
+      const useRingIndicator = specialIndicatorPreset === "ring";
+      const useBadgeIndicator = specialIndicatorPreset === "badge";
+      const baseClass = useFillIndicator
+        ? BONUS_CLASSES[bonusKey]
+        : defaultTileBaseClass;
+      const ringClass = useRingIndicator
+        ? getBonusLetterRingClass(bonusKey)
+        : "";
+      return (
+        <button
+          key={`daily-special-${bonusKey}-${dailyLockPulseKey}`}
+          type="button"
+          className={[
+            "relative border shadow-sm select-none touch-none",
+            "flex items-center justify-center font-black",
+            tileMaterialClass,
+            baseClass,
+            placedIndex != null ? "ring-2 ring-emerald-400/80" : "",
+            special3TutorialStep === 0 ? "special3-tutorial-pulse" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onPointerDown={(e) => beginDailySpecialDrag(e, bonusKey)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          aria-label={`Tuile ${bonusKey}`}
+          style={{
+            height: `${special3BonusChipRenderSidePx}px`,
+            width: `${special3BonusChipRenderSidePx}px`,
+            minWidth: `${special3BonusChipRenderSidePx}px`,
+            borderRadius: `${special3BonusChipRenderRadiusPx}px`,
+            fontSize: `${special3BonusChipRenderFontPx}px`,
+          }}
+        >
+          <span className={`tile-letter ${ringClass}`.trim()}>{bonusKey}</span>
+          {useBadgeIndicator ? (
+            <span
+              className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                bonusKey
+              )}`}
+              style={{
+                fontSize: `${special3PreviewBadgeFontPx}px`,
+                transform: "translate(10%, -10%)",
+              }}
+            >
+              {bonusKey}
+            </span>
+          ) : null}
+          {placedIndex != null ? (
+            <span
+              className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-500 text-white font-black flex items-center justify-center"
+              style={{
+                height: `${special3BonusCheckRenderSidePx}px`,
+                minWidth: `${special3BonusCheckRenderSidePx}px`,
+                fontSize: `${special3BonusCheckRenderFontPx}px`,
+              }}
+            >
+              ✓
+            </span>
+          ) : null}
+        </button>
+      );
+    };
+
+    return (
+      <>
+        <div
+          className={`flex flex-col ${
+            darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
+          }`}
+          style={mobileViewportContainerStyle}
+        >
+          <style>{slideStyles}</style>
+          <style>{`
+            @keyframes dailyInvalidShake {
+              0%, 100% { transform: translateX(0); }
+              20% { transform: translateX(-4px); }
+              40% { transform: translateX(4px); }
+              60% { transform: translateX(-3px); }
+              80% { transform: translateX(3px); }
+            }
+            .daily-invalid-shake {
+              animation: dailyInvalidShake 320ms ease-in-out;
+            }
+            .daily-special-lock {
+              animation: specialHintTile 320ms ease-in-out;
+            }
+            .special3-tutorial-focus {
+              box-shadow:
+                0 0 0 3px rgba(251, 191, 36, 0.35),
+                inset 0 0 0 2px rgba(251, 191, 36, 0.55);
+            }
+            .special3-tutorial-ghost {
+              animation: special3TutorialGhostMove 1.8s ease-in-out infinite;
+            }
+            .special3-tutorial-pulse {
+              animation: specialHintTile 1.8s ease-in-out infinite;
+            }
+            @keyframes special3TutorialGhostMove {
+              0% { transform: translate(-42px, 84px) scale(0.92); opacity: 0; }
+              18% { opacity: 0.95; }
+              60% { transform: translate(0px, 0px) scale(1); opacity: 0.95; }
+              100% { transform: translate(8px, -18px) scale(0.96); opacity: 0; }
+            }
+          `}</style>
+          <div
+            style={{
+              paddingLeft: `${special3SidePadPx}px`,
+              paddingRight: `${special3SidePadPx}px`,
+              paddingTop: `${special3TopPadPx}px`,
+              paddingBottom: `${Math.max(4, special3TopPadPx - 1)}px`,
+            }}
+          >
+            <div
+              className="grid items-center gap-2"
+              style={{
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
+                fontSize: `${special3MetaFontPx}px`,
+              }}
+            >
+              <span className="min-w-0 truncate font-semibold opacity-80 justify-self-start">
+                {`${filledCount}/${DAILY_SPECIAL_WORD_TARGET} mots validés`}
+              </span>
+              <div
+                className="text-center font-black tabular-nums leading-none justify-self-center"
+                style={{
+                  fontSize: `${special3TimerFontPx}px`,
+                  marginTop: `${special3TimerTopMarginPx}px`,
+                }}
+              >
+                {remainingSec}
+              </div>
+              <div className="flex items-center justify-self-end justify-end gap-1.5">
+                <button
+                  onClick={toggleSoundQuick}
+                  className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+                  type="button"
+                  title={allSoundOn ? "Couper le son" : "Activer le son"}
+                  aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
+                  style={{
+                    height: `${special3SettingsButtonSide}px`,
+                    width: `${special3SettingsButtonSide}px`,
+                  }}
+                >
+                  <span
+                    className="material-symbols-outlined leading-none"
+                    aria-hidden="true"
+                    style={{ fontSize: `${special3SettingsIconPx}px` }}
+                  >
+                    {allSoundOn ? "volume_up" : "volume_off"}
+                  </span>
+                </button>
+                <button
+                  onClick={toggleDarkModeQuick}
+                  className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+                  type="button"
+                  title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+                  aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+                  style={{
+                    height: `${special3SettingsButtonSide}px`,
+                    width: `${special3SettingsButtonSide}px`,
+                  }}
+                >
+                  <span
+                    className="material-symbols-outlined leading-none"
+                    aria-hidden="true"
+                    style={{ fontSize: `${special3SettingsIconPx}px` }}
+                  >
+                    {darkMode ? "light_mode" : "dark_mode"}
+                  </span>
+                </button>
+                {isLoggedIn ? (
+                  <button
+                    type="button"
+                    onClick={() => requestOpenChat()}
+                    aria-label="Ouvrir le chat"
+                    className="relative inline-flex items-center justify-center"
+                    style={{
+                      height: `${special3ChatButtonSide}px`,
+                      width: `${special3ChatButtonSide}px`,
+                    }}
+                  >
+                    <img
+                      src="/buttons/chat.png"
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full object-contain drop-shadow-md"
+                      draggable="false"
+                    />
+                    {mobileChatUnreadCount > 0 ? (
+                      <span
+                        className="absolute px-1 rounded-full bg-red-600 font-extrabold text-white flex items-center justify-center shadow-md"
+                        style={{
+                          minWidth: `${special3ChatBadgeSide}px`,
+                          height: `${special3ChatBadgeSide}px`,
+                          fontSize: `${Math.max(9, special3ChatBadgeSide - 8)}px`,
+                          top: "8%",
+                          right: "4%",
+                          transform: "translate(32%, -24%)",
+                        }}
+                      >
+                        {mobileChatUnreadCount >= 10 ? "9+" : String(mobileChatUnreadCount)}
+                      </span>
+                    ) : null}
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
+                  type="button"
+                  aria-label="Paramètres"
+                  style={{
+                    height: `${special3SettingsButtonSide}px`,
+                    width: `${special3SettingsButtonSide}px`,
+                  }}
+                >
+                  <span
+                    className="material-symbols-outlined leading-none"
+                    aria-hidden="true"
+                    style={{ fontSize: `${special3SettingsIconPx}px` }}
+                  >
+                    settings
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div
+              className={`rounded-full overflow-hidden ${
+                darkMode ? "bg-slate-800" : "bg-slate-200"
+              }`}
+              style={{
+                marginTop: `${special3ProgressTopMarginPx}px`,
+                height: `${special3ProgressHeightPx}px`,
+              }}
+            >
+              <div
+                className="h-full origin-right transition-transform duration-300 bg-amber-500"
+                style={{ transform: `scaleX(${progressRatio})` }}
+              />
+            </div>
+          </div>
+
+          <div
+            ref={mobileSpecial3TutorialHostRef}
+            className="relative flex-1 min-h-0 flex flex-col overflow-hidden"
+            style={{
+              gap: `${special3SectionGapPx}px`,
+              paddingLeft: `${special3SidePadPx}px`,
+              paddingRight: `${special3SidePadPx}px`,
+              paddingBottom: `${special3BottomPadPx}px`,
+            }}
+          >
+            <div
+              className="min-h-0 flex-1 overflow-hidden"
+              style={{ minHeight: `${special3ValidationBlockMinHeightPx}px` }}
+            >
+            <div
+              className={`h-full rounded-xl border flex flex-col overflow-hidden ${
+                darkMode ? "border-slate-700 bg-slate-900/90" : "border-slate-200 bg-white/90"
+              } ${special3TutorialStep === 1 ? "special3-tutorial-focus" : ""}`}
+              style={{
+                gap: `${special3SlotGapPx}px`,
+                paddingLeft: `${special3SlotPadX}px`,
+                paddingRight: `${special3SlotPadX}px`,
+                paddingTop: `${special3SlotPadY}px`,
+                paddingBottom: `${special3SlotPadY}px`,
+              }}
+            >
+              {slots.map((slot, idx) => {
+                const slotWord = String(slot?.word || "").trim();
+                const isActiveSlot = idx === activeSlotResolved;
+                const showLiveWord = isActiveSlot && !slotWord && !!liveWord;
+                const displayWord = showLiveWord
+                  ? String(liveWord || "").toUpperCase()
+                  : String(slot?.display || slotWord || "").toUpperCase();
+                const displayPath = showLiveWord
+                  ? highlightPath
+                  : Array.isArray(slot?.path)
+                  ? slot.path
+                  : [];
+                const liveInvalid = showLiveWord && !dailyLiveWordValid;
+                const scoreLabel = slotWord
+                  ? Number.isFinite(slot?.pts)
+                    ? `${formatNumber(slot.pts)} pts`
+                    : "0 pt"
+                  : showLiveWord
+                  ? dailyLiveWordValid
+                    ? `${formatNumber(dailyLiveWordScore || 0)} pts`
+                    : dailyLiveWordBlockedReason || "INVALIDE"
+                  : "—";
+                const rowIsInvalid = dailyInvalidSlot === idx && dailyInvalidPulseKey > 0;
+                return (
+                  <div
+                    key={`daily-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
+                    ref={
+                      idx === 0
+                        ? mobileSpecial3FirstSlotRef
+                        : idx === 1
+                        ? mobileSpecial3SecondSlotRef
+                        : undefined
+                    }
+                    className={[
+                      "grid grid-cols-[1fr,auto] items-center rounded-lg border",
+                      isActiveSlot
+                        ? darkMode
+                          ? "border-amber-400/70 bg-slate-800/60"
+                          : "border-amber-400 bg-amber-50"
+                        : darkMode
+                        ? "border-slate-700 bg-slate-900/50"
+                        : "border-slate-200 bg-white",
+                      rowIsInvalid ? "daily-invalid-shake" : "",
+                    ].join(" ")}
+                    style={{
+                      flex: "1 1 0",
+                      minHeight: `${special3SlotRowMinHeightPx}px`,
+                      overflow: "hidden",
+                      columnGap: `${special3SlotGapPx}px`,
+                      paddingLeft: `${special3SlotPadX}px`,
+                      paddingRight: `${special3SlotPadX}px`,
+                      paddingTop: `${special3SlotPadY}px`,
+                      paddingBottom: `${special3SlotPadY}px`,
+                    }}
+                    onClick={() => {
+                      if (!slotWord) setDailyActiveSlot(idx);
+                    }}
+                  >
+                    <div className="min-w-0 overflow-hidden flex items-center">
+                      {displayWord ? (
+                        renderWordPreviewTiles(displayWord, `daily-capsule-${idx}`, displayPath)
+                      ) : (
+                        <div
+                          className="flex items-center font-semibold opacity-60"
+                          style={{
+                            minHeight: `${special3PreviewTileHeightPx}px`,
+                            fontSize: `${special3SlotPlaceholderFontPx}px`,
+                          }}
+                        >
+                          Mot {idx + 1}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {slotWord ? (
+                        <button
+                          type="button"
+                          className={`px-1 rounded-full border font-black ${
+                            darkMode
+                              ? "bg-slate-800 border-slate-600 text-slate-200"
+                              : "bg-white border-slate-300 text-slate-700"
+                          }`}
+                          style={{
+                            height: `${special3SlotDeleteSide}px`,
+                            minWidth: `${special3SlotDeleteSide}px`,
+                            fontSize: `${special3SlotScoreFontPx}px`,
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearDailyWordSlot(idx);
+                          }}
+                        >
+                          x
+                        </button>
+                      ) : null}
+                      <span
+                        className={`text-right font-black ${
+                          liveInvalid ? "text-red-500" : ""
+                        }`}
+                        style={{
+                          minWidth: `${special3SlotScoreMinWidthPx}px`,
+                          fontSize: `${special3SlotScoreFontPx}px`,
+                        }}
+                      >
+                        <span className="inline-flex items-center justify-end gap-1">
+                          <span>{scoreLabel}</span>
+                          {slotWord
+                            ? renderSpecial3LengthGobbleBadge(slotWord)
+                            : showLiveWord && dailyLiveWordValid
+                            ? renderSpecial3LengthGobbleBadge(dailyLiveWordNorm)
+                            : null}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div
+                className={`grid items-center ${
+                  isDailyPlay ? "grid-cols-[minmax(0,1fr),auto]" : "grid-cols-[1fr]"
+                }`}
+                style={{
+                  flexShrink: 0,
+                  columnGap: `${special3SlotGapPx}px`,
+                  paddingTop: `${Math.max(2, Math.round(special3SlotGapPx / 2))}px`,
+                  fontSize: `${special3SlotTotalFontPx}px`,
+                }}
+              >
+                {isDailyPlay ? (
+                  <button
+                    type="button"
+                    className={`justify-self-start rounded-xl px-3 font-black shadow-sm transition ${
+                      darkMode
+                        ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+                        : "bg-emerald-500 text-white hover:bg-emerald-600"
+                    }`}
+                    style={{
+                      width: "48%",
+                      minWidth: 0,
+                      paddingTop: `${special3ActionPadYPx}px`,
+                      paddingBottom: `${special3ActionPadYPx}px`,
+                      fontSize: `${special3ActionFontPx}px`,
+                    }}
+                    onClick={() => {
+                      void submitDailyScore();
+                    }}
+                  >
+                    Valider
+                  </button>
+                ) : null}
+                <div className={isDailyPlay ? "text-right font-black min-w-0" : "text-right font-black"}>
+                  Total : {formatNumber(dailyTotalScore)} pts
+                </div>
+              </div>
+            </div>
+            </div>
+
+            <div
+              className="shrink-0 flex flex-col"
+              style={{ gap: `${special3SectionGapPx}px` }}
+            >
+              <div className="shrink-0 flex items-center justify-center">
+                <div
+                  ref={mobileSpecial3GridWrapRef}
+                  className={`relative w-full ${
+                    special3TutorialStep === 0 ? "special3-tutorial-focus rounded-2xl" : ""
+                  }`}
+                >
+                  <MobileGrid
+                    board={boardForRender}
+                    BONUS_CLASSES={BONUS_CLASSES}
+                    bonusLetterKey={bonusLetterKey}
+                    bonusLetterScore={bonusLetterScore}
+                    darkMode={darkMode}
+                    gridRef={gridRef}
+                    gridShake={gridShake}
+                    gridSize={gridSize}
+                    implodeActive={implodeActive}
+                    gridRotationTurns={gridRotationTurns}
+                    handleMouseDown={handleMouseDown}
+                    handleMouseMove={handleMouseMove}
+                    handleMouseUp={handleMouseUp}
+                    handleTouchEnd={handleTouchEnd}
+                    handleTouchMove={handleTouchMove}
+                    handleTouchStart={handleTouchStart}
+                    hintCellSet={hintCellSet}
+                    hintOutlineCellSet={hintOutlineCellSet}
+                    isMobileLayout={isMobileLayout}
+                    lightGridSurfaceStyle={lightGridSurfaceStyle}
+                    MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
+                    mobileGapPx={mobileGapPx}
+                    mobileGridSide={mobileGridSide}
+                    mobileTileFontPx={mobileTileFontPx}
+                    normalizeBonusLabel={normalizeBonusLabel}
+                    normalizeLetterKey={normalizeLetterKey}
+                    phase={phase}
+                    specialIndicatorPreset={specialIndicatorPreset}
+                    specialSolvedOverlay={specialSolvedOverlay}
+                    introHideTiles={mobileRoundIntroHideTiles}
+                    defaultTileBaseClass={defaultTileBaseClass}
+                    tilePointsVisible={tilePointsVisible}
+                    tileRefs={tileRefs}
+                    tileMaterialClass={tileMaterialClass}
+                    tileColorPreset={tileColorPreset}
+                    tileScore={tileScore}
+                    tick={tick}
+                    usedSet={usedSet}
+                    specialStartTileSet={special3LockedStartTileSet}
+                  />
+                </div>
+              </div>
+              <div
+                ref={mobileSpecial3BonusTrayRef}
+                className={`shrink-0 rounded-xl border shadow-sm ${
+                  darkMode ? "border-slate-700 bg-slate-900/90" : "border-slate-200 bg-white/90"
+                } ${
+                  special3TutorialStep === 0 || special3TutorialStep === 1
+                    ? "special3-tutorial-focus"
+                    : ""
+                }`}
+                style={{
+                  minHeight: `${special3BonusTrayBaseHeightPx}px`,
+                  height: `${special3BonusTrayHeightPx}px`,
+                  maxHeight: `${special3BonusTrayMaxHeightPx}px`,
+                  paddingLeft: `${special3BonusTrayPadX}px`,
+                  paddingRight: `${special3BonusTrayPadX}px`,
+                  paddingTop: `${special3BonusTrayPadY}px`,
+                  paddingBottom: `${special3BonusTrayPadY}px`,
+                }}
+              >
+                <div
+                  className="h-full flex items-center justify-center"
+                  style={{ gap: `${special3SlotGapPx}px` }}
+                >
+                  {DAILY_SPECIAL_BONUSES.map((bonusKey) => renderSpecialChip(bonusKey))}
+                </div>
+              </div>
+            </div>
+            {special3MobileStep1Ghost}
+            {special3MobileStep2TutorialOverlay}
+          </div>
+          {special3DragGhost}
+          {special3InGameTutorialCard}
+        </div>
+        {mobileResultsPhaseFadeOverlay}
+        {mobileRoundIntroOverlay}
+        {praiseOverlay}
+        {chatOverlays}
+      </>
     );
   }
 
@@ -27165,27 +31491,6 @@ function handleTouchEnd(e) {
             paddingBottom: "env(safe-area-inset-bottom)",
           };
 
-    const chatAvailableHeight = useVisualViewportForChat
-      ? Math.max(0, visualViewportHeightForChat - chatViewportTopInsetPx)
-      : Math.max(0, Math.round(chatViewportHeightEffective - chatTopInsetPx));
-    const chatOverlayStyle =
-      !useVisualViewportForChat && chatKeyboardInsetPx > 0
-        ? { paddingBottom: `${Math.round(chatKeyboardInsetPx)}px` }
-        : undefined;
-    const chatSheetHeightPx =
-      chatAvailableHeight > 0
-        ? clampValue(
-            Math.round(chatAvailableHeight * CHAT_SHEET_HEIGHT_RATIO),
-            260,
-            chatAvailableHeight
-          )
-        : 0;
-    const chatSheetStyle = chatSheetHeightPx
-      ? {
-          height: `${chatSheetHeightPx}px`,
-          maxHeight: `${chatSheetHeightPx}px`,
-        }
-      : undefined;
     if (isResults) {
       const resultsPages = isTargetRound
         ? ["round", "total", "vocab"]
@@ -27463,6 +31768,7 @@ function handleTouchEnd(e) {
                               const bestPts = entry.bestPts;
                               const userPts = entry.userPts;
                               const showOpt =
+                                !suppressWordListScores &&
                                 isFound &&
                                 typeof bestPts === "number" &&
                                 typeof userPts === "number" &&
@@ -27563,7 +31869,7 @@ function handleTouchEnd(e) {
                                     </span>
                                   </button>
                                   <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                                    {typeof userPts === "number" && isFound && (
+                                    {!suppressWordListScores && typeof userPts === "number" && isFound && (
                                       <span
                                         className={`font-extrabold ${
                                           darkMode ? "text-slate-100" : "text-slate-800"
@@ -27586,7 +31892,7 @@ function handleTouchEnd(e) {
                                         refusé
                                       </span>
                                     )}
-                                    {!isFound && typeof bestPts === "number" && (
+                                    {!suppressWordListScores && !isFound && typeof bestPts === "number" && (
                                       <span className="text-slate-500 opacity-75">
                                         ({bestPts} pts)
                                       </span>
@@ -27752,6 +32058,7 @@ function handleTouchEnd(e) {
                 <li>Lettre bonus : une lettre rapporte plus de points.</li>
                 <li>Rapidite : tous les mots valent 11 points.</li>
                 <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
+                <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
                 <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
               </ul>
               <div className="mt-3 text-[12px] font-semibold">Support</div>
@@ -27951,7 +32258,7 @@ function handleTouchEnd(e) {
           />
           <div className="flex-1 min-h-0 flex flex-col gap-1">
             <MobileGrid
-              board={board}
+              board={boardForRender}
               BONUS_CLASSES={BONUS_CLASSES}
               bonusLetterKey={bonusLetterKey}
               bonusLetterScore={bonusLetterScore}
@@ -27989,6 +32296,7 @@ function handleTouchEnd(e) {
               tileScore={tileScore}
               tick={tick}
               usedSet={usedSet}
+              specialStartTileSet={special3LockedStartTileSet}
             />
             <div
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
@@ -28022,12 +32330,17 @@ function handleTouchEnd(e) {
     !isMobileLayout && Number.isFinite(desktopMainGridHeight)
       ? Math.max(360, Math.round(desktopMainGridHeight))
       : null;
-  const desktopResizeEnabled = !isMobileLayout && !isDailyPlay;
-  const desktopColumnFractionsSafe = normalizeDesktopColumnFractions(desktopColumnFractions);
+  const desktopResizeEnabled = !isMobileLayout;
+  const desktopColumnFractionsSafe = normalizeDesktopColumnFractions(
+    desktopColumnFractions,
+    desktopColumnDefaultFractions
+  );
   const desktopGridTemplateColumns = desktopResizeEnabled
     ? desktopColumnFractionsSafe
         .map((fraction) => `${Math.max(0.0001, fraction).toFixed(6)}fr`)
         .join(" ")
+    : isDailyPlay
+    ? DAILY_DESKTOP_COLUMN_TEMPLATE
     : GRID_COL_TEMPLATE;
   const desktopColumnSplitterPositions = (() => {
     if (!desktopResizeEnabled) return [];
@@ -28158,7 +32471,9 @@ function handleTouchEnd(e) {
       <div className="relative">
       <div
         ref={mainGridDesktopRef}
-        className="main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+        className={`main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 ${
+          isDailyPlay ? "md:grid-cols-3 xl:grid-cols-3" : "md:grid-cols-3 xl:grid-cols-4"
+        }`}
         style={desktopMainGridStyle}
       >
       
@@ -28462,6 +32777,7 @@ function handleTouchEnd(e) {
                 (isMobileLayout
                   ? "relative grid bg-white border rounded-xl px-2 py-2 w-full"
                   : "relative grid p-4 bg-white border rounded-xl w-fit mx-auto") +
+                (isInGameSpecial3Tutorial && special3TutorialStep === 0 ? " special3-tutorial-focus" : "") +
                 (gridShake ? " shake" : "")
               }
               style={{
@@ -28610,16 +32926,13 @@ function handleTouchEnd(e) {
                   ) : null}
                 </svg>
               ) : null}
-
-
-
-              {board.map((_, displayIndex) => {
+              {boardForRender.map((_, displayIndex) => {
                 const boardIndex = mapDisplayToBoardIndex(
                   displayIndex,
                   gridSize,
                   gridRotationTurns
                 );
-                const cell = board[boardIndex] || { letter: "?", bonus: null };
+                const cell = boardForRender[boardIndex] || { letter: "?", bonus: null };
                 const { letter, bonus } = cell;
                 const displayBonus = normalizeBonusLabel(bonus);
                 const isUsed = usedSet.has(boardIndex);
@@ -28650,6 +32963,7 @@ function handleTouchEnd(e) {
                   useBadgeIndicator &&
                   displayBonus &&
                   !bonusLetterKey;
+                const isSpecialStartTileLocked = special3LockedStartTileSet.has(boardIndex);
 
                 return (
                   <button
@@ -28668,6 +32982,7 @@ function handleTouchEnd(e) {
     highlightClass,
     hintClass,
     hintOutlineClass,
+    isSpecialStartTileLocked ? "daily-special-start-used" : "",
     mobileRoundIntroHideTiles ? "opacity-0 pointer-events-none" : "",
   ]
     .filter(Boolean)
@@ -28681,13 +32996,16 @@ function handleTouchEnd(e) {
     ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
   }}
 >
+  {isSpecialStartTileLocked ? (
+    <span aria-hidden="true" className="daily-special-start-lock" />
+  ) : null}
   <span className={`tile-letter ${letterRingClass}`.trim()}>
     {letter}
   </span>
   {tilePointsVisible && letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
   {showBonusBadge && (
     <span
-      className={`absolute top-0 right-0 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+      className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
         displayBonus
       )}`}
       style={{
@@ -28704,10 +33022,16 @@ function handleTouchEnd(e) {
                 );
               })}
             </div>
+            {!isMobileLayout ? special3DragGhost : null}
+            {!isMobileLayout ? special3InGameTutorialCard : null}
           </div>
 
-          <div
-            className={`${gameBlockClasses} relative overflow-hidden`}
+            <div
+              className={`${gameBlockClasses} relative overflow-hidden ${
+                !isMobileLayout && isSpecial3WordsMode && (special3TutorialStep === 0 || special3TutorialStep === 1)
+                  ? "special3-tutorial-focus"
+                : ""
+            }`}
             ref={previewRef}
             style={
               computedGridWidth
@@ -28751,7 +33075,17 @@ function handleTouchEnd(e) {
                   shake ? "shake" : ""
                 }`}
               >
-                  {phase !== "playing" && isMobileLayout ? (
+                  {!isMobileLayout && isSpecial3WordsMode ? (
+    <div className="flex flex-wrap items-center justify-center gap-2 py-1">
+      {DAILY_SPECIAL_BONUSES.map((bonusKey) =>
+        renderSpecial3BonusChipButton(bonusKey, {
+          keyPrefix: "desktop-preview-special3",
+          sizeClass: "h-10 min-w-10 px-3",
+          pulse: special3TutorialStep === 0,
+        })
+      )}
+    </div>
+  ) : phase !== "playing" && isMobileLayout ? (
     <span className="text-gray-800 dark:text-white">
       {countdownLines.map((line, idx) => (
         <span
@@ -28817,6 +33151,7 @@ function handleTouchEnd(e) {
                 </span>
                 <span className="sr-only">Rotation 90 deg</span>
               </button>
+              {!isMobileLayout ? special3DesktopStep2TutorialOverlay : null}
             </div>
           </div>
         </div>
@@ -28829,18 +33164,20 @@ function handleTouchEnd(e) {
           {/* bloc score */}
           <div className="bg-white border rounded-xl p-3 w-full space-y-2 mb-4 shrink-0 relative overflow-hidden">
             <div className="text-lg font-bold text-center">Score total : {score}</div>
-            {specialRound?.isSpecial && (
+            {(specialRound?.isSpecial || isSpecial3WordsMode) && (
               <div className="text-center text-xs font-semibold text-orange-700">
-                {specialRound.type === "monstrous" ? (
+                {specialRound?.type === "monstrous" ? (
                   <div className="font-extrabold uppercase tracking-[0.12em] text-amber-500">
                     GRILLE MONSTRUEUSE
                   </div>
                 ) : (
                   <div>
-                    {specialRound.label}{" "}
-                    {specialRound.type === "speed"
+                    {isSpecial3WordsMode ? "" : `${specialRound?.label || "Manche spéciale"} `}
+                    {specialRound?.type === "speed"
                       ? `mots fixes ${specialRound.fixedWordScore} pts`
-                      : specialRound.type === "bonus_letter"
+                      : isSpecial3WordsMode
+                      ? "3 mots, tuiles de départ différentes"
+                      : specialRound?.type === "bonus_letter"
                       ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                       : "objectif : 1 seul mot"}
                   </div>
@@ -28859,7 +33196,118 @@ function handleTouchEnd(e) {
             </div>
           </div>
 
-          {phase === "playing" ? (
+          {phase === "playing" && isSpecial3WordsMode ? (
+            <div className="relative flex flex-col flex-1 min-h-0 gap-3">
+              <div className="text-xs font-semibold text-center text-orange-700">
+                Place les bonus sur la grille, puis garde 3 mots avec des tuiles de départ différentes.
+              </div>
+              <div
+                className={`rounded-xl border p-3 space-y-2 bg-white/90 ${
+                  special3TutorialStep >= 1 ? "special3-tutorial-focus" : ""
+                }`}
+              >
+                {special3Slots.map((slot, idx) => {
+                  const slotWord = String(slot?.word || "").trim();
+                  const isActiveSlot = idx === special3ActiveSlotIndex;
+                  const showLiveWord = isActiveSlot && !slotWord && !!liveWord;
+                  const displayWord = showLiveWord
+                    ? String(liveWord || "").toUpperCase()
+                    : String(slot?.display || slotWord || "").toUpperCase();
+                  const displayPath = showLiveWord
+                    ? highlightPath
+                    : Array.isArray(slot?.path)
+                    ? slot.path
+                    : [];
+                  const liveInvalid = showLiveWord && !dailyLiveWordValid;
+                  const scoreLabel = slotWord
+                    ? Number.isFinite(slot?.pts)
+                      ? `${formatNumber(slot.pts)} pts`
+                      : "0 pt"
+                    : showLiveWord
+                    ? dailyLiveWordValid
+                      ? `${formatNumber(dailyLiveWordScore || 0)} pts`
+                      : dailyLiveWordBlockedReason || "INVALIDE"
+                    : "—";
+                  const rowIsInvalid = dailyInvalidSlot === idx && dailyInvalidPulseKey > 0;
+                  return (
+                    <div
+                      key={`live-special3-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
+                      className={[
+                        "grid grid-cols-[1fr,auto] items-center gap-2 rounded-lg border px-2 py-2",
+                        isActiveSlot
+                          ? darkMode
+                            ? "border-amber-400/70 bg-slate-800/60"
+                            : "border-amber-400 bg-amber-50"
+                          : darkMode
+                          ? "border-slate-700 bg-slate-900/50"
+                          : "border-slate-200 bg-white",
+                        rowIsInvalid ? "daily-invalid-shake" : "",
+                      ].join(" ")}
+                    >
+                      <button
+                        type="button"
+                        className="text-left min-w-0"
+                        onClick={() => {
+                          if (!slotWord) setDailyActiveSlot(idx);
+                        }}
+                      >
+                        <div className="text-[11px] uppercase tracking-wide opacity-60">Mot {idx + 1}</div>
+                        <div className="mt-1 min-h-[28px]">
+                          {displayWord ? (
+                            renderSpecial3PreviewTiles(displayWord, `desktop-special3-slot-${idx}`, displayPath)
+                          ) : (
+                            <div className="h-7 flex items-center text-sm font-black opacity-50">—</div>
+                          )}
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {slotWord ? (
+                          <button
+                            type="button"
+                            className="h-6 min-w-6 px-1 rounded-full border text-xs font-black"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearDailyWordSlot(idx);
+                            }}
+                          >
+                            x
+                          </button>
+                        ) : null}
+                        <span className={`text-xs font-black min-w-[72px] text-right ${liveInvalid ? "text-red-500" : ""}`}>
+                          <span className="inline-flex items-center justify-end gap-1">
+                            <span>{scoreLabel}</span>
+                            {slotWord
+                              ? renderSpecial3LengthGobbleBadge(slotWord)
+                              : showLiveWord && dailyLiveWordValid
+                              ? renderSpecial3LengthGobbleBadge(dailyLiveWordNorm)
+                              : null}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="pt-1 text-right text-sm font-black">
+                  Total : {formatNumber(dailyTotalScore)} pts
+                </div>
+              </div>
+              {isDailyPlay ? (
+                <button
+                  type="button"
+                  className={`w-full rounded-xl px-3 py-2 text-sm font-black shadow-sm transition ${
+                    darkMode
+                      ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+                      : "bg-emerald-500 text-white hover:bg-emerald-600"
+                  }`}
+                  onClick={() => {
+                    void submitDailyScore();
+                  }}
+                >
+                  Valider
+                </button>
+              ) : null}
+            </div>
+          ) : phase === "playing" ? (
             <div className="flex flex-col flex-1 min-h-0">
               <LiveFeed items={mixedFeed} darkMode={darkMode} maxHeight="100%" />
             </div>
@@ -28936,6 +33384,7 @@ function handleTouchEnd(e) {
                       const bestPts = entry.bestPts;
                       const userPts = entry.userPts;
                       const showOpt =
+                        !suppressWordListScores &&
                         isFound &&
                         typeof bestPts === "number" &&
                         typeof userPts === "number" &&
@@ -29030,7 +33479,7 @@ function handleTouchEnd(e) {
                             </span>
                           </span>
                           <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                            {typeof userPts === "number" && isFound && (
+                            {!suppressWordListScores && typeof userPts === "number" && isFound && (
                               <span
                                 className={`font-extrabold ${
                                   darkMode ? "text-slate-100" : "text-slate-800"
@@ -29053,7 +33502,7 @@ function handleTouchEnd(e) {
                                 refusé
                               </span>
                             )}
-                            {!isFound && typeof bestPts === "number" && (
+                            {!suppressWordListScores && !isFound && typeof bestPts === "number" && (
                               <span className="text-slate-500 opacity-75">
                                 ({bestPts} pts)
                               </span>
@@ -29151,33 +33600,23 @@ function handleTouchEnd(e) {
 
           <div
             ref={chatDesktopListRef}
-            className="chat-messages flex-1 border rounded px-2 py-1 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
+            className="chat-messages flex-1 border rounded px-2 py-1 pb-4 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
             style={{ overscrollBehavior: "contain", overflowAnchor: "none" }}
+            onScroll={handleDesktopChatScroll}
           >
             {visibleMessages.length === 0 ? (
               <div className="text-sm text-slate-400 text-center mt-4">
                 {safeChatTab === "system"
-                  ? "Aucun log de connexion/deconnexion."
+                  ? "Aucun log de connexion/déconnexion."
                   : "Aucun message pour l'instant."}
               </div>
             ) : null}
-            {visibleMessages.map((msg, idx) => {
-              // idx = 0 (en haut) -> plus ancien, idx = dernier -> plus r?cent
-              const count = visibleMessages.length;
-              const rankFromBottom = count - 1 - idx; // 0 = tout en bas (le plus r?cent)
-              let opacity = 1;
-
-              if (rankFromBottom >= chatFullVisibleLines) {
-                const extra = rankFromBottom - (chatFullVisibleLines - 1);
-                const maxExtra = chatVisibleLimit - chatFullVisibleLines;
-                const t = maxExtra > 0 ? Math.min(extra / maxExtra, 1) : 1;
-                opacity = 1 - t * (1 - MIN_CHAT_OPACITY);
-              }
-
+            {visibleMessages.map((msg) => {
               const author = (msg.nick || msg.author || "Anonyme").trim();
               const authorInstallId =
                 typeof msg.installId === "string" ? msg.installId : "";
               const messageTime = formatChatMessageTime(msg);
+              const isEdited = isEditedChatMessage(msg);
               const systemAuthor = author || "Système";
               const isYou = authorInstallId
                 ? authorInstallId === installId
@@ -29186,6 +33625,15 @@ function handleTouchEnd(e) {
               const isLast = msg.id === lastMessageId;
               const canOpenMenu =
                 !isSystem && authorInstallId && authorInstallId !== installId;
+              const replyPreview = getChatMessageReplyPreview(msg);
+              const reactionEntries = getChatMessageReactionEntries(msg);
+              const replyTargetsSelf = !!(
+                replyPreview &&
+                ((replyPreview.installId &&
+                  String(replyPreview.installId).trim() === String(installId || "").trim()) ||
+                  (!replyPreview.installId &&
+                    String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
+              );
 
               return (
                 <div
@@ -29194,7 +33642,6 @@ function handleTouchEnd(e) {
                   className={`w-full transition-opacity duration-300 ${
                     isLast ? "slide-fade-in" : ""
                   }`}
-                  style={{ opacity }}
                 >
                   {isSystem ? (
                     <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
@@ -29205,50 +33652,234 @@ function handleTouchEnd(e) {
                             {messageTime}
                           </span>
                         ) : null}
+                        {isEdited ? (
+                          <span className="text-[10px] leading-none opacity-60">(modifié)</span>
+                        ) : null}
                         <span>{msg.text}</span>
                       </div>
                     </div>
-                  ) : (
-                    <div
-                      className={[
-                        "w-full px-1 py-0.5 text-sm",
-                        isYou ? "bg-blue-50" : "bg-white",
-                      ].join(" ")}
-                    >
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        {canOpenMenu ? (
-                          <button
-                            type="button"
-                            className="font-semibold text-black hover:underline"
-                            onClick={(e) =>
-                              openUserMenu(e, {
-                                nick: author,
+	                  ) : (
+                    <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
+	                    <div
+	                      className={[
+	                        "group/chatmsg max-w-[88%] px-2 py-1 text-sm rounded-lg",
+                          isYou
+                            ? darkMode
+                              ? "bg-blue-500 text-white"
+                              : "bg-blue-600 text-white"
+                            : darkMode
+                            ? "bg-slate-800 text-slate-100 border border-slate-700"
+                            : "bg-slate-100 text-slate-900 border border-slate-200",
+	                      ].join(" ")}
+                        onMouseEnter={ensureDesktopChatBottomVisible}
+                        onFocus={ensureDesktopChatBottomVisible}
+	                    >
+                      {replyPreview ? (
+	                        <div
+	                          className={`mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
+	                            replyTargetsSelf
+	                              ? "border-blue-500 bg-blue-50 text-slate-700"
+	                              : darkMode
+                                ? "border-slate-600 bg-slate-700/80 text-slate-200"
+                                : "border-slate-300 bg-slate-50 text-slate-700"
+	                          }`}
+	                        >
+                          <div className="font-semibold">{replyPreview.nick}</div>
+                          <div
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {replyPreview.text}
+                          </div>
+                        </div>
+                      ) : null}
+	                      <div className="flex items-baseline gap-1.5 flex-wrap">
+	                        {canOpenMenu ? (
+	                          <button
+	                            type="button"
+	                            className={`font-semibold hover:underline ${
+                                isYou
+                                  ? "text-white"
+                                  : darkMode
+                                  ? "text-slate-100"
+                                  : "text-black"
+                              }`}
+	                            onClick={(e) =>
+	                              openUserMenu(e, {
+	                                nick: author,
                                 installId: authorInstallId,
                                 messageId: msg.id,
                               })
                             }
+	                          >
+	                            {author} :
+	                          </button>
+	                        ) : (
+	                          <span
+                              className={`font-semibold ${
+                                isYou
+                                  ? "text-white"
+                                  : darkMode
+                                  ? "text-slate-100"
+                                  : "text-black"
+                              }`}
+                            >
+                              {author} :
+                            </span>
+	                        )}
+	                        {messageTime ? (
+	                          <span
+                              className={`text-[10px] leading-none ${
+                                isYou
+                                  ? "text-white/80"
+                                  : darkMode
+                                  ? "text-slate-400"
+                                  : "text-slate-500"
+                              }`}
+                            >
+	                            {messageTime}
+	                          </span>
+	                        ) : null}
+	                        <span
+                            className={
+                              isYou
+                                ? "text-white"
+                                : darkMode
+                                ? "text-slate-100"
+                                : "text-black"
+                            }
                           >
-                            {author} :
-                          </button>
-                        ) : (
-                          <span className="font-semibold text-black">{author} :</span>
-                        )}
-                        {messageTime ? (
-                          <span className="text-[10px] leading-none text-slate-500">
-                            {messageTime}
+                            {msg.text}
                           </span>
-                        ) : null}
-                        <span className="text-black">{msg.text}</span>
-                      </div>
+	                      </div>
+                      {!isYou ? (
+                        <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-blue-600 hover:underline"
+                            onClick={() => setChatReplyTargetFromMessage(msg)}
+                          >
+                            Répondre
+                          </button>
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-slate-600 hover:underline"
+                            onClick={(event) => openDesktopChatReactionPicker(event, msg)}
+                          >
+                            Réagir
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-amber-600 hover:underline"
+                            onClick={() => beginChatEditFromMessage(msg)}
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-rose-600 hover:underline"
+                            onClick={() => deleteOwnChatMessage(msg)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
+	                      {reactionEntries.length ? (
+	                        <div className="mt-1 flex flex-wrap gap-1">
+	                          {reactionEntries.map((entry) => (
+                              <button
+                                key={`${msg.id || "msg"}:${entry.emoji}`}
+                                type="button"
+                                className="h-5 rounded-full border border-slate-300 bg-white px-2 text-[10px] inline-flex items-center gap-1 text-slate-700"
+                                onMouseEnter={(event) =>
+                                  openDesktopChatReactionDetails(event, msg, entry)
+                                }
+                                onMouseLeave={() => scheduleCloseDesktopChatReactionDetails()}
+                                onClick={(event) =>
+                                  openDesktopChatReactionDetails(event, msg, entry)
+                                }
+                              >
+                                <span>{entry.emoji}</span>
+                                <span>{entry.count}</span>
+                              </button>
+                          ))}
+	                        </div>
+	                      ) : null}
+	                    </div>
                     </div>
-                  )}
-                </div>
-              );
+	                  )}
+	                </div>
+	              );
             })}
           </div>
 
           {safeChatTab !== "system" ? (
             <>
+              {chatEditTarget ? (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold">Modification du message</div>
+                      <div
+                        className="text-[11px]"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {chatEditTarget.text || ""}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="h-6 w-6 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-600 shrink-0"
+                      onClick={clearChatEditTarget}
+                      aria-label="Annuler la modification"
+                    >
+                      x
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {chatReplyTarget ? (
+                <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold">
+                        Réponse à {chatReplyTarget.nick || "Anonyme"}
+                      </div>
+                      <div
+                        className="text-[11px]"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {chatReplyTarget.text || ""}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="h-6 w-6 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-600 shrink-0"
+                      onClick={clearChatReplyTarget}
+                      aria-label="Annuler la réponse"
+                    >
+                      x
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-2 flex flex-nowrap items-center gap-1.5">
                 {QUICK_REPLIES.map((txt, idx) => (
                   <button
