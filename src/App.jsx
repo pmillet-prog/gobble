@@ -3734,6 +3734,7 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
 }
 const PATCH_NOTES_VERSION = "2026-03-08";
 const PATCH_NOTES_RELEASE_TS = Date.parse("2026-03-08T00:00:00+01:00");
+const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -4321,6 +4322,12 @@ function getSpecialRoundDisplayLabel(specialInfo) {
 }
 
 export default function App() {
+  useEffect(() => {
+    try {
+      console.info("[Gobble build]", FRONT_BUILD_TAG);
+    } catch (_) {}
+  }, []);
+
   const initialRoomId = getDefaultRoomId();
   const initialGridSize = getGridSizeForRoom(initialRoomId);
   const [roomId, setRoomId] = useState(initialRoomId);
