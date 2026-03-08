@@ -3,15 +3,12 @@ import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { spawn } from "child_process";
 import {
-  applySeededBonuses,
-  findBestMovableBonusWord,
-  MOVABLE_BONUS_KEYS,
+  LETTER_BAG,
   normalizeWord,
   scoreWordOnGrid,
   scoreWordOnGridWithPath,
   solveGrid,
 } from "../../shared/gameLogic.js";
-import { buildDailyModeGrid, getGridLettersKey } from "./dailyGeneration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +24,14 @@ const DAILY_RETENTION_DAYS = 180;
 export const DAILY_SPECIAL_MODE = "self_specials_3_words";
 export const DAILY_MONSTROUS_MODE = "monstrous_grid";
 const DAILY_SPECIAL_BONUS_KEYS = Object.freeze(["L2", "L3", "M2", "M3"]);
+const MOVABLE_BONUS_KEYS = Object.freeze(["L2", "L3", "M2", "M3"]);
 const DAILY_SPECIAL_WORD_TARGET = 3;
+const DAILY_GRID_SIZE = 4;
+const DAILY_MONSTROUS_MIN_WORDS = 200;
+const DAILY_MONSTROUS_MIN_LONG_LEN = 12;
+const DAILY_SPECIAL_MIN_WORDS = 140;
+const DAILY_SPECIAL_MIN_LONG_LEN = 8;
+const DAILY_SPECIAL_MIN_LONG_COUNT = 3;
 
 const gridCache = new Map();
 const resultsCache = new Map();
@@ -317,6 +321,129 @@ function summarizeSolvedGrid(solved) {
     totalPts,
     longWords,
   };
+}
+
+function hashString(input) {
+  const str = String(input ?? "");
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function rand() {
+    a += 0x6d2b79f5;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomLetterFromBag(rand) {
+  const letter = LETTER_BAG[Math.floor(rand() * LETTER_BAG.length)];
+  return letter === "Q" ? "Qu" : letter;
+}
+
+function generateGridFromSeed(seed, size = DAILY_GRID_SIZE) {
+  const rand = mulberry32(seed);
+  const total = size * size;
+  return Array(total)
+    .fill(null)
+    .map(() => ({ letter: randomLetterFromBag(rand), bonus: null }));
+}
+
+function getGridLettersKey(grid) {
+  return cloneGridWithoutBonuses(grid)
+    .map((cell) => String(cell?.letter || "").toLowerCase())
+    .join("|");
+}
+
+function applySeededBonuses(grid, seed, bonusKeys = MOVABLE_BONUS_KEYS) {
+  const base = cloneGridWithoutBonuses(grid);
+  const total = base.length;
+  if (total === 0) return base;
+  const rand = mulberry32(Number(seed) || 0);
+  const indices = [...Array(total).keys()];
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  const keys = Array.isArray(bonusKeys) && bonusKeys.length ? bonusKeys : MOVABLE_BONUS_KEYS;
+  keys.forEach((bonus, idx) => {
+    const target = indices[idx % total];
+    base[target] = { ...base[target], bonus };
+  });
+  return base;
+}
+
+function findBestMovableBonusWord(board, wordsIterable) {
+  const words = Array.from(wordsIterable || []);
+  let best = null;
+  for (const word of words) {
+    const scored = scoreWordOnGrid(word, board, null);
+    if (!scored || !Array.isArray(scored.path) || scored.path.length === 0) continue;
+    const candidate = {
+      word,
+      pts: Number(scored.pts) || 0,
+      path: scored.path,
+      placements: {},
+    };
+    for (let i = 0; i < DAILY_SPECIAL_BONUS_KEYS.length && i < scored.path.length; i += 1) {
+      candidate.placements[DAILY_SPECIAL_BONUS_KEYS[i]] = scored.path[i];
+    }
+    if (
+      !best ||
+      candidate.pts > best.pts ||
+      (candidate.pts === best.pts && String(candidate.word).length > String(best.word).length)
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function buildDailyModeGrid(dateId, mode, dictionary, { avoidGridKey = null } = {}) {
+  const safeMode = String(mode || "").trim() === DAILY_SPECIAL_MODE
+    ? DAILY_SPECIAL_MODE
+    : DAILY_MONSTROUS_MODE;
+  const baseSeed = hashString(`${dateId}:${safeMode}`);
+  for (let attempt = 0; attempt < 3000; attempt += 1) {
+    const seed = baseSeed + attempt;
+    let grid = generateGridFromSeed(seed, DAILY_GRID_SIZE);
+    if (safeMode === DAILY_MONSTROUS_MODE) {
+      grid = applySeededBonuses(grid, seed, MOVABLE_BONUS_KEYS);
+    }
+    const lettersKey = getGridLettersKey(grid);
+    if (avoidGridKey && lettersKey === avoidGridKey) continue;
+    const scoringGrid = safeMode === DAILY_SPECIAL_MODE ? cloneGridWithoutBonuses(grid) : grid;
+    const solved = solveGrid(scoringGrid, dictionary);
+    const quality = summarizeSolvedGrid(solved);
+    const words = Number(quality.words) || 0;
+    const maxLen = Number(quality.maxLen) || 0;
+    const longWords = Number(quality.longWords) || 0;
+    const valid =
+      safeMode === DAILY_SPECIAL_MODE
+        ? words >= DAILY_SPECIAL_MIN_WORDS &&
+          maxLen >= DAILY_SPECIAL_MIN_LONG_LEN &&
+          longWords >= DAILY_SPECIAL_MIN_LONG_COUNT
+        : words >= DAILY_MONSTROUS_MIN_WORDS && maxLen >= DAILY_MONSTROUS_MIN_LONG_LEN;
+    if (!valid) continue;
+    return {
+      mode: safeMode,
+      seed,
+      gridSize: DAILY_GRID_SIZE,
+      grid,
+      wordCount: words,
+      longestWordLen: maxLen,
+      gridQuality: quality,
+    };
+  }
+  throw new Error(`daily_${safeMode}_generation_failed`);
 }
 
 async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
