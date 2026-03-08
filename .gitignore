@@ -1,6 +1,7 @@
 node_modules/
 server/node_modules/
 dist/
+.tmp/
 .env
 *.log
 server/data-runtime/
