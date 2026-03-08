@@ -5,6 +5,7 @@
 // Constantes
 // -----------------
 export const SIZE = 4;
+export const MOVABLE_BONUS_KEYS = Object.freeze(["L2", "L3", "M2", "M3"]);
 
 export const LETTER_BAG =
   "EEEEEEAAAAAAIIIIIIOOOOONNNNNRRRRRTTTTTLLLLSSSSSSSUUUUDDDDGGBBCCMMFPPHVWYKJXQZ";
