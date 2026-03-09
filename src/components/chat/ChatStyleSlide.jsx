@@ -4,7 +4,6 @@ import ChatContent from "./ChatContent";
 export default function ChatStyleSlide(props) {
   const {
     darkMode,
-    hasKeyboardInset,
     isChatOpenMobile,
     isChatClosing,
     chatAnimationMs,
@@ -16,10 +15,35 @@ export default function ChatStyleSlide(props) {
   } = props;
 
   const isChatVisible = isChatOpenMobile || isChatClosing;
-  if (!isChatVisible) return null;
-
   const isOpen = isChatOpenMobile && !isChatClosing;
   const durationMs = Number.isFinite(chatAnimationMs) ? chatAnimationMs : 220;
+  const [isRenderedOpen, setIsRenderedOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isChatVisible) {
+      setIsRenderedOpen(false);
+      return undefined;
+    }
+    if (!isOpen) {
+      setIsRenderedOpen(false);
+      return undefined;
+    }
+    let raf1 = null;
+    let raf2 = null;
+    setIsRenderedOpen(false);
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        setIsRenderedOpen(true);
+      });
+    });
+    return () => {
+      if (raf1 !== null) window.cancelAnimationFrame(raf1);
+      if (raf2 !== null) window.cancelAnimationFrame(raf2);
+    };
+  }, [isChatVisible, isOpen]);
+
+  if (!isChatVisible) return null;
+
   const closeChat = () => {
     if (typeof onCloseSound === "function") {
       onCloseSound();
@@ -29,28 +53,27 @@ export default function ChatStyleSlide(props) {
 
   return (
     <div
-      className={`fixed left-0 right-0 top-0 z-[20050] flex items-end justify-center ${
-        hasKeyboardInset ? "" : "chat-safe-bottom"
-      }`}
+      className="fixed inset-0 z-[20050] flex items-start justify-center overflow-hidden"
       style={{
         ...(chatViewportStyle || {}),
         ...(chatOverlayStyle || {}),
+        overscrollBehavior: "none",
       }}
     >
       <button
         type="button"
         className="absolute inset-0 bg-black/40 transition-opacity"
         style={{
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
+          opacity: isRenderedOpen ? 1 : 0,
+          pointerEvents: isRenderedOpen ? "auto" : "none",
           transitionDuration: `${durationMs}ms`,
         }}
         onClick={closeChat}
         aria-label="Fermer le chat"
       />
-      <div className="w-full relative">
+      <div className="relative w-full pointer-events-none">
         <div
-          className={`w-full rounded-t-2xl border-t flex flex-col ${
+          className={`pointer-events-auto w-full rounded-b-[28px] border-x border-b flex flex-col shadow-2xl ${
             darkMode
               ? "bg-slate-900/90 text-slate-100 border-slate-700"
               : "bg-white/90 text-slate-900 border-slate-200"
@@ -59,9 +82,10 @@ export default function ChatStyleSlide(props) {
             ...(chatSheetStyle || {}),
             transitionProperty: "transform, opacity",
             transitionDuration: `${durationMs}ms`,
-            transitionTimingFunction: "ease",
-            transform: isOpen ? "translateY(0)" : "translateY(100%)",
-            opacity: isOpen ? 1 : 0.96,
+            transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+            transform: isRenderedOpen ? "translateY(0)" : "translateY(calc(-100% - 24px))",
+            opacity: isRenderedOpen ? 1 : 0.94,
+            willChange: "transform, opacity",
           }}
         >
           <ChatContent {...props} isOpen={isOpen} closeChat={closeChat} />
