@@ -66,7 +66,7 @@ function MobileGrid({
     if (displayBonus === "L3") return "bg-blue-700 text-white";
     if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
     if (displayBonus === "M3") return "bg-red-600 text-white";
-    if (displayBonus === "M2") return "bg-amber-500 text-slate-900";
+    if (displayBonus === "M2") return "bg-[#ffbfb4] border border-[#f87171] text-slate-900";
     return "bg-slate-600 text-white";
   };
   const getBonusLetterRingClass = (displayBonus) => {
@@ -160,7 +160,7 @@ function MobileGrid({
               : "";
           const showBonusBadge =
             !isBonusLetterTile &&
-            useBadgeIndicator &&
+            (useFillIndicator || useBadgeIndicator) &&
             displayBonus &&
             !bonusLetterKey;
           const isSpecialStartTileLocked = specialStartTileSet?.has?.(boardIndex);

@@ -1047,7 +1047,7 @@ function getBonusBadgeClass(displayBonus) {
   if (displayBonus === "L3") return "bg-blue-700 text-white";
   if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
   if (displayBonus === "M3") return "bg-red-600 text-white";
-  if (displayBonus === "M2") return "bg-amber-500 text-slate-900";
+  if (displayBonus === "M2") return "bg-[#ffbfb4] border border-[#f87171] text-slate-900";
   return "bg-slate-600 text-white";
 }
 
@@ -7222,9 +7222,7 @@ export default function App() {
     if (typeof window === "undefined") return;
     const shouldLockViewport =
       isMobileLayout &&
-      (phase === "playing" || phase === "results") &&
-      !isChatOpenMobile &&
-      !isChatClosing;
+      (phase === "playing" || phase === "results");
     if (!shouldLockViewport) {
       mobileGameViewportLockRef.current = { width: 0, height: 0 };
       return;
@@ -7232,6 +7230,7 @@ export default function App() {
 
     let rafId = null;
     const updateViewportLock = () => {
+      if (isChatOpenMobileRef.current || isChatClosingRef.current) return;
       const widthCandidates = [window.innerWidth, document.documentElement?.clientWidth].filter(
         (v) => Number.isFinite(v) && v > 0
       );
@@ -7701,13 +7700,9 @@ export default function App() {
     const computeMobileLayoutNow = () => {
       if (isChatOpenMobileRef.current) return;
       const lockedGameViewportHeight =
-        !isChatOpenMobileRef.current && !isChatClosingRef.current
-          ? Number(mobileGameViewportLockRef.current?.height) || 0
-          : 0;
+        Number(mobileGameViewportLockRef.current?.height) || 0;
       const lockedGameViewportWidth =
-        !isChatOpenMobileRef.current && !isChatClosingRef.current
-          ? Number(mobileGameViewportLockRef.current?.width) || 0
-          : 0;
+        Number(mobileGameViewportLockRef.current?.width) || 0;
       const viewportHeightCandidates = [
         lockedGameViewportHeight,
         window.innerHeight,
@@ -8025,9 +8020,7 @@ export default function App() {
           ? gameViewportFreezeHeightRef.current
           : 0;
       const lockedGameHeight =
-        !isChatOpenMobileRef.current && !isChatClosingRef.current
-          ? Number(mobileGameViewportLockRef.current?.height) || 0
-          : 0;
+        Number(mobileGameViewportLockRef.current?.height) || 0;
 
       // Quand le chat est ouvert, on fige le fond (layout viewport) et on laisse
       // uniquement le tiroir chat s'adapter au clavier via visualViewport.
@@ -21888,7 +21881,7 @@ function handleTouchEnd(e) {
                 }}
               >
                 <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
-                {useBadgeIndicator && displayBonus ? (
+                {displayBonus && (useFillIndicator || useBadgeIndicator) ? (
                   <span
                     className={`absolute top-0 right-0 text-[0.55rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
                       displayBonus
@@ -21941,7 +21934,7 @@ function handleTouchEnd(e) {
         aria-label={`Tuile ${bonusKey}`}
       >
         <span className={`tile-letter ${ringClass}`.trim()}>{bonusKey}</span>
-        {useBadgeIndicator ? (
+        {useFillIndicator || useBadgeIndicator ? (
           <span
             className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
               bonusKey
@@ -26255,7 +26248,7 @@ function handleTouchEnd(e) {
                           {tilePointsVisible ? (
                             <span className="tile-points">{tileScore({ letter: cell.letter })}</span>
                           ) : null}
-                          {themePreviewUseBadge && displayBonus ? (
+                          {displayBonus && (themePreviewUseFill || themePreviewUseBadge) ? (
                             <span
                               className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
                                 displayBonus
@@ -30273,13 +30266,9 @@ function handleTouchEnd(e) {
     const compactScore = typeof score === "number" ? score : null;
     const { width: viewportWidthRaw, height: viewportHeightRaw } = getViewportSize();
     const lockedGameViewportWidth =
-      !isChatOpenMobile && !isChatClosing
-        ? Number(mobileGameViewportLockRef.current?.width) || 0
-        : 0;
+      Number(mobileGameViewportLockRef.current?.width) || 0;
     const lockedGameViewportHeight =
-      !isChatOpenMobile && !isChatClosing
-        ? Number(mobileGameViewportLockRef.current?.height) || 0
-        : 0;
+      Number(mobileGameViewportLockRef.current?.height) || 0;
     const viewportWidth = lockedGameViewportWidth || viewportWidthRaw;
     const viewportHeight = lockedGameViewportHeight || viewportHeightRaw;
     const minViewportDim = Math.max(0, Math.min(viewportWidth, viewportHeight));
@@ -30454,13 +30443,9 @@ function handleTouchEnd(e) {
 
   if (isMobileLayout && phase === "playing" && isSpecial3WordsMode) {
     const lockedGameViewportWidth =
-      !isChatOpenMobile && !isChatClosing
-        ? Number(mobileGameViewportLockRef.current?.width) || 0
-        : 0;
+      Number(mobileGameViewportLockRef.current?.width) || 0;
     const lockedGameViewportHeight =
-      !isChatOpenMobile && !isChatClosing
-        ? Number(mobileGameViewportLockRef.current?.height) || 0
-        : 0;
+      Number(mobileGameViewportLockRef.current?.height) || 0;
     const fallbackViewportWidth =
       lockedGameViewportWidth ||
       mobileLayoutSizing.viewportWidth ||
@@ -30797,7 +30782,7 @@ function handleTouchEnd(e) {
                   }}
                 >
                   <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
-                  {useBadgeIndicator && displayBonus ? (
+                  {displayBonus && (useFillIndicator || useBadgeIndicator) ? (
                     <span
                       className={`absolute top-0 right-0 text-[0.55rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
                         displayBonus
@@ -30861,7 +30846,7 @@ function handleTouchEnd(e) {
           }}
         >
           <span className={`tile-letter ${ringClass}`.trim()}>{bonusKey}</span>
-          {useBadgeIndicator ? (
+          {useFillIndicator || useBadgeIndicator ? (
             <span
               className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
                 bonusKey
@@ -31355,13 +31340,9 @@ function handleTouchEnd(e) {
       : rankingSource || [];
     const mobileAnnouncements = mixedFeed.slice(-8);
     const lockedGameViewportWidth =
-      !isChatOpenMobile && !isChatClosing
-        ? Number(mobileGameViewportLockRef.current?.width) || 0
-        : 0;
+      Number(mobileGameViewportLockRef.current?.width) || 0;
     const lockedGameViewportHeight =
-      !isChatOpenMobile && !isChatClosing
-        ? Number(mobileGameViewportLockRef.current?.height) || 0
-        : 0;
+      Number(mobileGameViewportLockRef.current?.height) || 0;
     const fallbackViewportWidth =
       lockedGameViewportWidth ||
       mobileLayoutSizing.viewportWidth ||
@@ -33010,7 +32991,7 @@ function handleTouchEnd(e) {
     {letter}
   </span>
   {tilePointsVisible && letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
-  {showBonusBadge && (
+  {displayBonus && (useFillIndicator || showBonusBadge) && (
     <span
       className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
         displayBonus

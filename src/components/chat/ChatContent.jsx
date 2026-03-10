@@ -5,6 +5,8 @@ const LONG_PRESS_MS = 420;
 const SWIPE_REPLY_TRIGGER_PX = 72;
 const SWIPE_REPLY_MAX_PX = 96;
 const GESTURE_MOVE_CANCEL_PX = 10;
+const POST_GESTURE_CLICK_SUPPRESS_MS = 380;
+const FLOATING_MENU_CLOSE_GUARD_MS = 320;
 
 function setCompositeRef(targetRef, value) {
   if (typeof targetRef === "function") {
@@ -128,6 +130,12 @@ function clampToViewport(x, y, { marginX = 88, marginY = 92 } = {}) {
   };
 }
 
+function isFloatingMenuCloseAllowed(menuState) {
+  const openedAt = Number(menuState?.openedAt) || 0;
+  if (!(openedAt > 0)) return true;
+  return Date.now() - openedAt >= FLOATING_MENU_CLOSE_GUARD_MS;
+}
+
 const THREE_LINE_CLAMP_STYLE = {
   display: "-webkit-box",
   WebkitLineClamp: 3,
@@ -191,7 +199,7 @@ export default function ChatContent({
   const longPressTimerRef = useRef(null);
   const pointerStateRef = useRef(null);
   const suppressClickRef = useRef(false);
-  const lastTouchEventTsRef = useRef(0);
+  const suppressClickUntilRef = useRef(0);
   const [swipePreview, setSwipePreview] = React.useState(null);
   const [reactionPicker, setReactionPicker] = React.useState(null);
   const [reactionDetails, setReactionDetails] = React.useState(null);
@@ -223,6 +231,10 @@ export default function ChatContent({
     longPressTimerRef.current = null;
   }, []);
 
+  const isClickSuppressed = React.useCallback(() => {
+    return suppressClickRef.current || Date.now() < suppressClickUntilRef.current;
+  }, []);
+
   const resetPointerGesture = React.useCallback(() => {
     clearLongPressTimer();
     releaseCapturedPointer(pointerStateRef.current);
@@ -233,6 +245,7 @@ export default function ChatContent({
   const abortPointerGesture = React.useCallback(() => {
     resetPointerGesture();
     suppressClickRef.current = false;
+    suppressClickUntilRef.current = 0;
   }, [resetPointerGesture]);
 
   useEffect(() => {
@@ -327,32 +340,8 @@ export default function ChatContent({
     }
   };
 
-  const shouldIgnorePointerEvent = React.useCallback(() => {
-    return Date.now() - lastTouchEventTsRef.current < 1200;
-  }, []);
-
-  const buildTouchProxyEvent = React.useCallback((event) => {
-    const touch =
-      (event?.changedTouches && event.changedTouches[0]) ||
-      (event?.targetTouches && event.targetTouches[0]) ||
-      (event?.touches && event.touches[0]) ||
-      null;
-    if (!touch) return null;
-    return {
-      pointerId: Number.isInteger(touch.identifier) ? touch.identifier : 1,
-      pointerType: "touch",
-      button: 0,
-      clientX: Number(touch.clientX) || 0,
-      clientY: Number(touch.clientY) || 0,
-      currentTarget: event.currentTarget,
-      target: event.target,
-      preventDefault: () => event.preventDefault(),
-    };
-  }, []);
-
   const handleMessagePointerDown = React.useCallback(
     (event, message, isSystem, isOwn) => {
-      if (shouldIgnorePointerEvent()) return;
       if (isSystem || isSystemTab) return;
       if (!message?.id) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -411,6 +400,7 @@ export default function ChatContent({
             message,
             x: point.x,
             y: point.y,
+            openedAt: Date.now(),
           });
         } else {
           const centeredX =
@@ -421,6 +411,7 @@ export default function ChatContent({
             messageId: message.id,
             x: centeredX,
             y: point.y,
+            openedAt: Date.now(),
           });
         }
         if (navigator?.vibrate) {
@@ -431,17 +422,15 @@ export default function ChatContent({
         releaseCapturedPointer(active);
         pointerStateRef.current = null;
         clearLongPressTimer();
-        window.setTimeout(() => {
-          suppressClickRef.current = false;
-        }, 0);
+        suppressClickUntilRef.current = Date.now() + POST_GESTURE_CLICK_SUPPRESS_MS;
+        suppressClickRef.current = false;
       }, LONG_PRESS_MS);
     },
-    [abortPointerGesture, clearLongPressTimer, isSystemTab, shouldIgnorePointerEvent]
+    [abortPointerGesture, clearLongPressTimer, isSystemTab]
   );
 
   const handleMessagePointerMove = React.useCallback(
     (event, message) => {
-      if (shouldIgnorePointerEvent()) return;
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== event.pointerId) return;
       if (state.messageId !== message?.id) {
@@ -468,12 +457,11 @@ export default function ChatContent({
       setSwipePreview({ messageId: message.id, dx: clampedDx });
       event.preventDefault();
     },
-    [abortPointerGesture, clearLongPressTimer, shouldIgnorePointerEvent]
+    [abortPointerGesture, clearLongPressTimer]
   );
 
   const handleMessagePointerUp = React.useCallback(
     (event, message) => {
-      if (shouldIgnorePointerEvent()) return;
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== event.pointerId) return;
       if (state.messageId !== message?.id) {
@@ -488,26 +476,24 @@ export default function ChatContent({
         state.horizontalSwipe &&
         state.lastDx >= SWIPE_REPLY_TRIGGER_PX;
       if (shouldReply) {
-        suppressClickRef.current = true;
         onSelectChatReply?.(message);
       }
       if (state.longPressTriggered || shouldReply) {
-        window.setTimeout(() => {
-          suppressClickRef.current = false;
-        }, 0);
+        suppressClickUntilRef.current = Date.now() + POST_GESTURE_CLICK_SUPPRESS_MS;
+        suppressClickRef.current = false;
       } else {
         suppressClickRef.current = false;
+        suppressClickUntilRef.current = 0;
       }
       releaseCapturedPointer(state);
       pointerStateRef.current = null;
       setSwipePreview(null);
     },
-    [abortPointerGesture, clearLongPressTimer, onSelectChatReply, shouldIgnorePointerEvent]
+    [abortPointerGesture, clearLongPressTimer, onSelectChatReply]
   );
 
   const handleMessagePointerCancel = React.useCallback(
     (event, message) => {
-      if (shouldIgnorePointerEvent()) return;
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== event.pointerId) return;
       if (state.messageId !== message?.id) {
@@ -517,47 +503,7 @@ export default function ChatContent({
       suppressClickRef.current = false;
       resetPointerGesture();
     },
-    [abortPointerGesture, resetPointerGesture, shouldIgnorePointerEvent]
-  );
-
-  const handleMessageTouchStart = React.useCallback(
-    (event, message, isSystem, isOwn) => {
-      lastTouchEventTsRef.current = Date.now();
-      const proxyEvent = buildTouchProxyEvent(event);
-      if (!proxyEvent) return;
-      handleMessagePointerDown(proxyEvent, message, isSystem, isOwn);
-    },
-    [buildTouchProxyEvent, handleMessagePointerDown]
-  );
-
-  const handleMessageTouchMove = React.useCallback(
-    (event, message) => {
-      lastTouchEventTsRef.current = Date.now();
-      const proxyEvent = buildTouchProxyEvent(event);
-      if (!proxyEvent) return;
-      handleMessagePointerMove(proxyEvent, message);
-    },
-    [buildTouchProxyEvent, handleMessagePointerMove]
-  );
-
-  const handleMessageTouchEnd = React.useCallback(
-    (event, message) => {
-      lastTouchEventTsRef.current = Date.now();
-      const proxyEvent = buildTouchProxyEvent(event);
-      if (!proxyEvent) return;
-      handleMessagePointerUp(proxyEvent, message);
-    },
-    [buildTouchProxyEvent, handleMessagePointerUp]
-  );
-
-  const handleMessageTouchCancel = React.useCallback(
-    (event, message) => {
-      lastTouchEventTsRef.current = Date.now();
-      const proxyEvent = buildTouchProxyEvent(event);
-      if (!proxyEvent) return;
-      handleMessagePointerCancel(proxyEvent, message);
-    },
-    [buildTouchProxyEvent, handleMessagePointerCancel]
+    [abortPointerGesture, resetPointerGesture]
   );
 
   useEffect(() => {
@@ -706,10 +652,16 @@ export default function ChatContent({
               : "bg-white/80 border-slate-200 text-slate-900"
           }`}
           style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
-          onClick={() => {
+          onClick={(event) => {
+            if (isClickSuppressed()) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
             if (reactionPicker) setReactionPicker(null);
             if (ownMessageMenu) setOwnMessageMenu(null);
             suppressClickRef.current = false;
+            suppressClickUntilRef.current = 0;
             resetPointerGesture();
           }}
         >
@@ -767,19 +719,25 @@ export default function ChatContent({
                   style={
                     isSystem
                       ? undefined
-                      : { transform: `translateX(${dx}px)`, touchAction: "pan-y" }
+                      : {
+                          transform: `translateX(${dx}px)`,
+                          touchAction: "pan-y",
+                          userSelect: "none",
+                          WebkitUserSelect: "none",
+                          WebkitTouchCallout: "none",
+                        }
                   }
                   onPointerDown={(event) => handleMessagePointerDown(event, msg, isSystem, isOwn)}
                   onPointerMove={(event) => handleMessagePointerMove(event, msg)}
                   onPointerUp={(event) => handleMessagePointerUp(event, msg)}
                   onPointerCancel={(event) => handleMessagePointerCancel(event, msg)}
-                  onTouchStart={(event) => handleMessageTouchStart(event, msg, isSystem, isOwn)}
-                  onTouchMove={(event) => handleMessageTouchMove(event, msg)}
-                  onTouchEnd={(event) => handleMessageTouchEnd(event, msg)}
-                  onTouchCancel={(event) => handleMessageTouchCancel(event, msg)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                  }}
                   onClickCapture={(event) => {
-                    if (!suppressClickRef.current) return;
+                    if (!isClickSuppressed()) return;
                     suppressClickRef.current = false;
+                    suppressClickUntilRef.current = 0;
                     event.preventDefault();
                     event.stopPropagation();
                   }}
@@ -1001,6 +959,7 @@ export default function ChatContent({
             <div
               className="fixed inset-0 z-[20130]"
               onClick={() => {
+                if (!isFloatingMenuCloseAllowed(ownMessageMenu)) return;
                 setOwnMessageMenu(null);
               }}
             >
@@ -1079,6 +1038,7 @@ export default function ChatContent({
             <div
               className="fixed inset-0 z-[20130]"
               onClick={() => {
+                if (!isFloatingMenuCloseAllowed(reactionPicker)) return;
                 setReactionPicker(null);
               }}
             >
