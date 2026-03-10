@@ -191,6 +191,7 @@ export default function ChatContent({
   const longPressTimerRef = useRef(null);
   const pointerStateRef = useRef(null);
   const suppressClickRef = useRef(false);
+  const lastTouchEventTsRef = useRef(0);
   const [swipePreview, setSwipePreview] = React.useState(null);
   const [reactionPicker, setReactionPicker] = React.useState(null);
   const [reactionDetails, setReactionDetails] = React.useState(null);
@@ -326,8 +327,32 @@ export default function ChatContent({
     }
   };
 
+  const shouldIgnorePointerEvent = React.useCallback(() => {
+    return Date.now() - lastTouchEventTsRef.current < 1200;
+  }, []);
+
+  const buildTouchProxyEvent = React.useCallback((event) => {
+    const touch =
+      (event?.changedTouches && event.changedTouches[0]) ||
+      (event?.targetTouches && event.targetTouches[0]) ||
+      (event?.touches && event.touches[0]) ||
+      null;
+    if (!touch) return null;
+    return {
+      pointerId: Number.isInteger(touch.identifier) ? touch.identifier : 1,
+      pointerType: "touch",
+      button: 0,
+      clientX: Number(touch.clientX) || 0,
+      clientY: Number(touch.clientY) || 0,
+      currentTarget: event.currentTarget,
+      target: event.target,
+      preventDefault: () => event.preventDefault(),
+    };
+  }, []);
+
   const handleMessagePointerDown = React.useCallback(
     (event, message, isSystem, isOwn) => {
+      if (shouldIgnorePointerEvent()) return;
       if (isSystem || isSystemTab) return;
       if (!message?.id) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -411,11 +436,12 @@ export default function ChatContent({
         }, 0);
       }, LONG_PRESS_MS);
     },
-    [abortPointerGesture, clearLongPressTimer, isSystemTab]
+    [abortPointerGesture, clearLongPressTimer, isSystemTab, shouldIgnorePointerEvent]
   );
 
   const handleMessagePointerMove = React.useCallback(
     (event, message) => {
+      if (shouldIgnorePointerEvent()) return;
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== event.pointerId) return;
       if (state.messageId !== message?.id) {
@@ -442,11 +468,12 @@ export default function ChatContent({
       setSwipePreview({ messageId: message.id, dx: clampedDx });
       event.preventDefault();
     },
-    [abortPointerGesture, clearLongPressTimer]
+    [abortPointerGesture, clearLongPressTimer, shouldIgnorePointerEvent]
   );
 
   const handleMessagePointerUp = React.useCallback(
     (event, message) => {
+      if (shouldIgnorePointerEvent()) return;
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== event.pointerId) return;
       if (state.messageId !== message?.id) {
@@ -475,11 +502,12 @@ export default function ChatContent({
       pointerStateRef.current = null;
       setSwipePreview(null);
     },
-    [abortPointerGesture, clearLongPressTimer, onSelectChatReply]
+    [abortPointerGesture, clearLongPressTimer, onSelectChatReply, shouldIgnorePointerEvent]
   );
 
   const handleMessagePointerCancel = React.useCallback(
     (event, message) => {
+      if (shouldIgnorePointerEvent()) return;
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== event.pointerId) return;
       if (state.messageId !== message?.id) {
@@ -489,7 +517,47 @@ export default function ChatContent({
       suppressClickRef.current = false;
       resetPointerGesture();
     },
-    [abortPointerGesture, resetPointerGesture]
+    [abortPointerGesture, resetPointerGesture, shouldIgnorePointerEvent]
+  );
+
+  const handleMessageTouchStart = React.useCallback(
+    (event, message, isSystem, isOwn) => {
+      lastTouchEventTsRef.current = Date.now();
+      const proxyEvent = buildTouchProxyEvent(event);
+      if (!proxyEvent) return;
+      handleMessagePointerDown(proxyEvent, message, isSystem, isOwn);
+    },
+    [buildTouchProxyEvent, handleMessagePointerDown]
+  );
+
+  const handleMessageTouchMove = React.useCallback(
+    (event, message) => {
+      lastTouchEventTsRef.current = Date.now();
+      const proxyEvent = buildTouchProxyEvent(event);
+      if (!proxyEvent) return;
+      handleMessagePointerMove(proxyEvent, message);
+    },
+    [buildTouchProxyEvent, handleMessagePointerMove]
+  );
+
+  const handleMessageTouchEnd = React.useCallback(
+    (event, message) => {
+      lastTouchEventTsRef.current = Date.now();
+      const proxyEvent = buildTouchProxyEvent(event);
+      if (!proxyEvent) return;
+      handleMessagePointerUp(proxyEvent, message);
+    },
+    [buildTouchProxyEvent, handleMessagePointerUp]
+  );
+
+  const handleMessageTouchCancel = React.useCallback(
+    (event, message) => {
+      lastTouchEventTsRef.current = Date.now();
+      const proxyEvent = buildTouchProxyEvent(event);
+      if (!proxyEvent) return;
+      handleMessagePointerCancel(proxyEvent, message);
+    },
+    [buildTouchProxyEvent, handleMessagePointerCancel]
   );
 
   useEffect(() => {
@@ -705,6 +773,10 @@ export default function ChatContent({
                   onPointerMove={(event) => handleMessagePointerMove(event, msg)}
                   onPointerUp={(event) => handleMessagePointerUp(event, msg)}
                   onPointerCancel={(event) => handleMessagePointerCancel(event, msg)}
+                  onTouchStart={(event) => handleMessageTouchStart(event, msg, isSystem, isOwn)}
+                  onTouchMove={(event) => handleMessageTouchMove(event, msg)}
+                  onTouchEnd={(event) => handleMessageTouchEnd(event, msg)}
+                  onTouchCancel={(event) => handleMessageTouchCancel(event, msg)}
                   onClickCapture={(event) => {
                     if (!suppressClickRef.current) return;
                     suppressClickRef.current = false;

@@ -39,6 +39,7 @@ function MobileGrid({
   tileScore,
   tick,
   usedSet,
+  specialStartTileSet,
 }) {
   const normalizeRotationTurns = (turns) => {
     if (!Number.isFinite(turns)) return 0;
@@ -162,6 +163,7 @@ function MobileGrid({
             useBadgeIndicator &&
             displayBonus &&
             !bonusLetterKey;
+          const isSpecialStartTileLocked = specialStartTileSet?.has?.(boardIndex);
 
           return (
             <button
@@ -183,6 +185,7 @@ function MobileGrid({
                 highlightClass,
                 hintClass,
                 hintOutlineClass,
+                isSpecialStartTileLocked ? "daily-special-start-used" : "",
                 introHideTiles ? "opacity-0 pointer-events-none" : "",
               ]
                 .filter(Boolean)
@@ -201,13 +204,16 @@ function MobileGrid({
                     }
               }
             >
+              {isSpecialStartTileLocked ? (
+                <span aria-hidden="true" className="daily-special-start-lock" />
+              ) : null}
               <span className={`tile-letter ${letterRingClass}`.trim()}>{letter}</span>
               {tilePointsVisible && letterPts > 0 ? (
                 <span className="tile-points">{letterPts}</span>
               ) : null}
               {showBonusBadge && (
                 <span
-                  className={`absolute top-0 right-0 text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                  className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
                     displayBonus
                   )}`}
                   style={{

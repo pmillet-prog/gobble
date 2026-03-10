@@ -1305,16 +1305,26 @@ async function applyObjectiveEvent(installId, dateId, eventType, payload = {}) {
 }
 
 function buildDailyBattlePayload(dateId, entries, teamByInstallId = {}) {
-  const players = [];
+  const playersByInstallId = new Map();
   for (const entry of entries || []) {
     if (!entry || entry.isPalier) continue;
     const installId = normalizeInstallId(entry.installId);
     if (!installId) continue;
     const score = Number(entry.score) || 0;
-    const team = teamByInstallId[installId];
+    const explicitTeam = entry?.team;
+    const team = TEAM_VALUES.includes(explicitTeam) ? explicitTeam : teamByInstallId[installId];
     if (!TEAM_VALUES.includes(team)) continue;
-    players.push({ installId, score, team });
+    const existing = playersByInstallId.get(installId);
+    if (!existing) {
+      playersByInstallId.set(installId, { installId, score, team });
+      continue;
+    }
+    existing.score += score;
+    if (!TEAM_VALUES.includes(existing.team) && TEAM_VALUES.includes(team)) {
+      existing.team = team;
+    }
   }
+  const players = Array.from(playersByInstallId.values());
 
   const redPlayers = players.filter((p) => p.team === "red");
   const bluePlayers = players.filter((p) => p.team === "blue");
