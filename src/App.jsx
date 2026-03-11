@@ -12731,8 +12731,8 @@ export default function App() {
       .then(async (res) => {
         const text = await res.text();
         const data = text ? JSON.parse(text) : null;
-        if (!res.ok && !data?.ready) {
-          throw new Error(data?.error || `http_${res.status || "error"}`);
+        if (!data || typeof data !== "object") {
+          throw new Error(`http_${res.status || "error"}`);
         }
         return data;
       })

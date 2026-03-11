@@ -437,9 +437,6 @@ app.get("/api/daily/board", async (req, res) => {
   if (payload?.ready && entries.length > 0) {
     battle = await recordDailyBattleFromEntries(safeDateId, entries);
   }
-  if (!payload.ready) {
-    res.status(503);
-  }
   res.json({ ...payload, entries, battle });
 });
 
