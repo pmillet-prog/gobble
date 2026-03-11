@@ -100,6 +100,43 @@ export function generateGrid(size = SIZE) {
   return base;
 }
 
+export function cloneGridWithoutBonuses(grid) {
+  if (!Array.isArray(grid)) return [];
+  return grid.map((cell) => ({
+    letter: cell?.letter ?? "",
+    bonus: null,
+  }));
+}
+
+function mulberry32(seed) {
+  let a = Number(seed) >>> 0;
+  return function rand() {
+    a += 0x6d2b79f5;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function applySeededBonuses(grid, seed, bonusKeys = MOVABLE_BONUS_KEYS) {
+  const base = cloneGridWithoutBonuses(grid);
+  const total = base.length;
+  if (total === 0) return base;
+  const rand = mulberry32(Number(seed) || 0);
+  const indices = [...Array(total).keys()];
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  const keys = Array.isArray(bonusKeys) && bonusKeys.length ? bonusKeys : MOVABLE_BONUS_KEYS;
+  keys.forEach((bonus, idx) => {
+    const target = indices[idx % total];
+    base[target] = { ...base[target], bonus };
+  });
+  return base;
+}
+
 // -----------------
 // Scoring
 // -----------------
@@ -310,5 +347,31 @@ export function scoreWordOnGridWithPath(rawWord, board, path, special = null) {
   if (!pathMatchesWord(board, norm, path)) return null;
   const pts = computeScore(norm, path, board, special);
   return { norm, path, pts };
+}
+
+export function findBestMovableBonusWord(board, wordsIterable) {
+  const words = Array.from(wordsIterable || []);
+  let best = null;
+  for (const word of words) {
+    const scored = scoreWordOnGrid(word, board, null);
+    if (!scored || !Array.isArray(scored.path) || scored.path.length === 0) continue;
+    const candidate = {
+      word,
+      pts: Number(scored.pts) || 0,
+      path: scored.path,
+      placements: {},
+    };
+    for (let i = 0; i < MOVABLE_BONUS_KEYS.length && i < scored.path.length; i += 1) {
+      candidate.placements[MOVABLE_BONUS_KEYS[i]] = scored.path[i];
+    }
+    if (
+      !best ||
+      candidate.pts > best.pts ||
+      (candidate.pts === best.pts && String(candidate.word).length > String(best.word).length)
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
 }
 
