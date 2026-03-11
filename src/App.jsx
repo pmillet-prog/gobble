@@ -19134,6 +19134,52 @@ function handleTouchEnd(e) {
     const compactPillClass = darkMode
       ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-gray-100 text-[11px] sm:text-xs"
       : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-800 text-[11px] sm:text-xs";
+    const special3Leader = endStats.special3Leader;
+    const renderSpecial3LeaderSummary = (compact = false) => {
+      if (!isSpecial3RoundForResults || !special3Leader) return null;
+      const pillClass = compactPillClass;
+      return (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
+              Meilleure combinaison 3 mots
+            </span>
+            <span className={`${resultLabelClass} text-[10px] whitespace-nowrap`}>
+              {special3Leader.score} pts
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className={`${pillClass} break-all`}>{special3Leader.nick || "Joueur"}</span>
+          </div>
+          <div className="space-y-1.5">
+            {special3Leader.slots.map((slot, idx) => (
+              <div
+                key={`results-special3-leader-${slot.id}-${idx}`}
+                className={`rounded-lg border px-2 py-1.5 ${
+                  darkMode
+                    ? "bg-slate-800/70 border-slate-700"
+                    : "bg-slate-50 border-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    {renderSpecial3PreviewTiles(
+                      slot.display,
+                      `results-special3-leader-${idx}`,
+                      slot.path,
+                      special3Leader.board
+                    )}
+                  </div>
+                  <span className={`${resultLabelClass} text-[11px] font-bold whitespace-nowrap`}>
+                    {Number.isFinite(slot.pts) ? `${slot.pts} pts` : "--"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
     const roundRedDelta = Math.max(0, Number(resultsTeamDelta?.red) || 0);
     const roundBlueDelta = Math.max(0, Number(resultsTeamDelta?.blue) || 0);
     const roundRedDeltaClass = darkMode ? "text-red-300" : "text-red-700";
@@ -19235,7 +19281,8 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
         <div className="space-y-2">
-          {!isSpeedRound && endStats.bestWord && (
+          {renderSpecial3LeaderSummary(false)}
+          {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord && (
             <div className="space-y-0.5">
               <div className="flex items-center justify-between gap-3">
                 <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
@@ -19690,6 +19737,49 @@ function handleTouchEnd(e) {
         </span>
       );
     };
+    const special3Leader = endStats?.special3Leader || null;
+    const renderDockSpecial3LeaderSummary = () => {
+      if (!isSpecial3RoundForResults || !special3Leader) return null;
+      return (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <span className={`text-[11px] font-semibold ${mutedClass}`}>
+              Meilleure combinaison 3 mots
+            </span>
+            <span className={`text-[10px] ${mutedClass}`}>{special3Leader.score} pts</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className={`${finderPillClass} break-all`}>{special3Leader.nick || "Joueur"}</span>
+          </div>
+          <div className="space-y-1.5">
+            {special3Leader.slots.map((slot, idx) => (
+              <div
+                key={`dock-special3-leader-${slot.id}-${idx}`}
+                className={`rounded-lg border px-2 py-1.5 ${
+                  darkMode
+                    ? "bg-slate-900 border-slate-700 text-slate-100"
+                    : "bg-slate-50 border-slate-200 text-slate-800"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    {renderSpecial3PreviewTiles(
+                      slot.display,
+                      `dock-special3-leader-${idx}`,
+                      slot.path,
+                      special3Leader.board
+                    )}
+                  </div>
+                  <span className={`text-[11px] font-bold whitespace-nowrap ${mutedClass}`}>
+                    {Number.isFinite(slot.pts) ? `${slot.pts} pts` : "--"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
 
     if (isTargetRound) {
       if (!targetSummary) return null;
@@ -19807,7 +19897,8 @@ function handleTouchEnd(e) {
             Vous étiez hors ligne sur cette manche.
           </div>
         ) : null}
-        {!isSpeedRound && endStats.bestWord ? (
+        {renderDockSpecial3LeaderSummary()}
+        {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord ? (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Meilleur mot</span>
@@ -20802,8 +20893,47 @@ function handleTouchEnd(e) {
             .map((entry) => ({ ...entry, gobbleCount: getGobbleCount(entry.norm) }))
         : [];
 
+    const special3Leader =
+      specialRound?.type === DAILY_SPECIAL_MODE && winner
+        ? (() => {
+            const placements =
+              winner?.specialPlacements && typeof winner.specialPlacements === "object"
+                ? winner.specialPlacements
+                : {};
+            const scoringBoard = applyDailySpecialPlacements(board, placements);
+            const slots = (Array.isArray(winner?.specialWordSlots) ? winner.specialWordSlots : [])
+              .map((slot, idx) => {
+                const word = String(slot?.word || "").trim();
+                if (!word) return null;
+                const path = Array.isArray(slot?.path) ? slot.path : [];
+                const pts =
+                  Number.isFinite(slot?.pts) && slot.pts >= 0
+                    ? Number(slot.pts)
+                    : path.length
+                    ? computeScore(word, path, scoringBoard, null)
+                    : null;
+                return {
+                  id: Number.isFinite(slot?.id) ? slot.id : idx,
+                  word,
+                  display: String(slot?.display || word).trim() || word,
+                  path,
+                  pts,
+                };
+              })
+              .filter(Boolean);
+            if (!slots.length) return null;
+            return {
+              nick: winner.nick,
+              score: Number(winner?.score) || 0,
+              board: scoringBoard,
+              slots,
+            };
+          })()
+        : null;
+
     return {
       winner,
+      special3Leader,
       bestWord: bestWord
         ? {
             nick: bestWord.nick,
@@ -21915,17 +22045,19 @@ function handleTouchEnd(e) {
   const tileFontPx = Math.max(14, Math.min(38, tileSizePx * 0.35 * fontScale));
   const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
   const special3PreviewIsSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
-  const renderSpecial3PreviewTiles = (wordValue, keyPrefix, pathValue = []) => {
+  const renderSpecial3PreviewTiles = (wordValue, keyPrefix, pathValue = [], boardSource = null) => {
     const value = String(wordValue || "");
     if (!value) return null;
     const safePath = Array.isArray(pathValue) ? pathValue : [];
+    const previewBoard =
+      Array.isArray(boardSource) && boardSource.length > 0 ? boardSource : boardForRender;
     const canUsePath =
       safePath.length > 0 &&
-      Array.isArray(boardForRender) &&
-      safePath.every((idx) => Number.isInteger(idx) && idx >= 0 && idx < boardForRender.length);
+      Array.isArray(previewBoard) &&
+      safePath.every((idx) => Number.isInteger(idx) && idx >= 0 && idx < previewBoard.length);
     const tiles = canUsePath
       ? safePath.map((boardIndex, idx) => {
-          const cell = boardForRender[boardIndex] || {};
+          const cell = previewBoard[boardIndex] || {};
           return {
             id: `path-${idx}-${boardIndex}`,
             letter: String(cell.letter || ""),
