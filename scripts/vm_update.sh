@@ -16,9 +16,37 @@ if [ -e "$DATA_RUNTIME_PATH" ] && [ ! -L "$DATA_RUNTIME_PATH" ]; then
 fi
 ln -sfn "$RUNTIME_DIR" "$DATA_RUNTIME_PATH"
 
-# IMPORTANT: weekly legacy file is tracked by git and can override runtime; delete it every deploy.
-rm -f "$REPO_DIR/server/data/weekly-stats.json" 2>/dev/null || true
 export GOBBLE_DATA_DIR="$RUNTIME_DIR"
+
+REPO_DATA_DIR="$REPO_DIR/server/data"
+mkdir -p "$REPO_DATA_DIR"
+
+migrate_runtime_file() {
+  local name="$1"
+  local source="$REPO_DATA_DIR/$name"
+  local target="$RUNTIME_DIR/$name"
+  if [ -e "$source" ] && [ ! -L "$source" ]; then
+    if [ ! -e "$target" ]; then
+      mv "$source" "$target"
+    else
+      rm -rf "$source"
+    fi
+  fi
+  ln -sfn "$target" "$source"
+}
+
+DAILY_SOURCE="$REPO_DATA_DIR/daily"
+DAILY_TARGET="$RUNTIME_DIR/daily"
+mkdir -p "$DAILY_TARGET"
+if [ -e "$DAILY_SOURCE" ] && [ ! -L "$DAILY_SOURCE" ]; then
+  cp -a "$DAILY_SOURCE/." "$DAILY_TARGET"/
+  rm -rf "$DAILY_SOURCE"
+fi
+ln -sfn "$DAILY_TARGET" "$DAILY_SOURCE"
+
+migrate_runtime_file "weekly-stats.json"
+migrate_runtime_file "team-duel.json"
+migrate_runtime_file "install-aliases.json"
 
 DB_SOURCE="$REPO_DIR/server/data/gobble.db"
 DB_TARGET="$RUNTIME_DIR/gobble.db"
