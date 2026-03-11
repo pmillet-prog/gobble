@@ -2,15 +2,12 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
-import { normalizeWord, solveGrid, LETTER_BAG } from "../shared/gameLogic.js";
+
+import { normalizeWord } from "../shared/gameLogic.js";
+import { buildDailyPayload } from "../server/daily/dailyGeneration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const MIN_WORDS = 200;
-const MIN_LONG_LEN = 12;
-const GRID_SIZE = 4;
-const DAILY_DURATION_MS = 2 * 60 * 1000;
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -44,50 +41,6 @@ function parseArgs(argv) {
     }
   }
   return args;
-}
-
-function hashString(input) {
-  const str = String(input ?? "");
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function rand() {
-    a += 0x6d2b79f5;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function randomLetterFromBag(rand) {
-  const letter = LETTER_BAG[Math.floor(rand() * LETTER_BAG.length)];
-  return letter === "Q" ? "Qu" : letter;
-}
-
-function generateGridFromSeed(seed, size = GRID_SIZE) {
-  const rand = mulberry32(seed);
-  const total = size * size;
-  const base = Array(total)
-    .fill(null)
-    .map(() => ({ letter: randomLetterFromBag(rand), bonus: null }));
-  const indices = [...Array(total).keys()];
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-  const bonuses = ["L2", "L3", "M2", "M3"];
-  bonuses.forEach((bonus, idx) => {
-    base[indices[idx]].bonus = bonus;
-  });
-  return base;
 }
 
 async function readDictionary() {
@@ -145,56 +98,11 @@ async function main() {
     process.exit(1);
   }
 
-  const baseSeed = hashString(dateId);
-  let attempt = 0;
-  while (true) {
-    const seed = baseSeed + attempt;
-    const grid = generateGridFromSeed(seed, GRID_SIZE);
-    const solved = solveGrid(grid, dictionary);
-    const wordCount = solved.size;
-    let maxLen = 0;
-    let maxPts = 0;
-    let totalPts = 0;
-    let longWords = 0;
-    for (const [word, data] of solved.entries()) {
-      const len = word.length;
-      const pts = data?.pts || 0;
-      if (len > maxLen) maxLen = len;
-      if (pts > maxPts) maxPts = pts;
-      totalPts += pts;
-      if (len >= MIN_LONG_LEN) longWords += 1;
-    }
-
-    if (wordCount >= MIN_WORDS && maxLen >= MIN_LONG_LEN) {
-      const payload = {
-        dateId,
-        seed,
-        gridSize: GRID_SIZE,
-        grid,
-        durationMs: DAILY_DURATION_MS,
-        generatedAt: Date.now(),
-        wordCount,
-        longestWordLen: maxLen,
-        gridQuality: {
-          words: wordCount,
-          maxLen,
-          maxPts,
-          totalPts,
-          longWords,
-        },
-      };
-      await atomicWriteJson(outputPath, payload);
-      console.log(
-        `daily grid ready date=${dateId} words=${wordCount} maxLen=${maxLen} seed=${seed}`
-      );
-      return;
-    }
-
-    attempt += 1;
-    if (attempt % 50 === 0) {
-      console.log(`daily grid search date=${dateId} attempts=${attempt}`);
-    }
-  }
+  const payload = buildDailyPayload(dateId, dictionary);
+  await atomicWriteJson(outputPath, payload);
+  console.log(
+    `daily grid ready date=${dateId} monstrousWords=${payload.wordCount} specialWords=${payload.specialWordCount}`
+  );
 }
 
 main().catch((err) => {
