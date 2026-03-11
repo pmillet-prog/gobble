@@ -937,8 +937,8 @@ const lagMonitor = setInterval(() => {
 lagMonitor.unref?.();
 
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
-const DEFAULT_BREAK_DURATION_MS = 60 * 1000; // 60 secondes
-const TARGET_BREAK_DURATION_MS = 30 * 1000; // 30 secondes pour manches cibles
+const DEFAULT_BREAK_DURATION_MS = 45 * 1000; // 60s - 15s hors manches cibles
+const TARGET_BREAK_DURATION_MS = 30 * 1000; // manches cibles déjà plus courtes
 const ROUND_INTRO_DURATION_MS = 6900; // Intro visuelle avant manche jouable (3..0 + arrivée des tuiles)
 const MAX_CHAT_HISTORY = 200;
 const MAX_SYSTEM_CHAT_HISTORY = 100;

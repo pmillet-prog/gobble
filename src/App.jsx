@@ -22107,19 +22107,18 @@ function handleTouchEnd(e) {
                 }}
               >
                 <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
-                {displayBonus && (useFillIndicator || useBadgeIndicator) ? (
+                {displayBonus && useBadgeIndicator ? (
                   <span
-                    className={`absolute top-0 right-0 text-[0.55rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                    className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full shadow ${getBonusBadgeClass(
                       displayBonus
                     )}`}
+                    aria-hidden="true"
                     style={{
                       transform: special3PreviewIsSquareMaterial
-                        ? "translate(-8%, 8%)"
-                        : "translate(10%, -10%)",
+                        ? "translate(-25%, 25%)"
+                        : "translate(25%, -25%)",
                     }}
-                  >
-                    {displayBonus}
-                  </span>
+                  />
                 ) : null}
               </span>
             );
@@ -31009,20 +31008,20 @@ function handleTouchEnd(e) {
                   }}
                 >
                   <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
-                  {displayBonus && (useFillIndicator || useBadgeIndicator) ? (
+                  {displayBonus && useBadgeIndicator ? (
                     <span
-                      className={`absolute top-0 right-0 text-[0.55rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
+                      className={`absolute top-0 right-0 rounded-full shadow ${getBonusBadgeClass(
                         displayBonus
                       )}`}
+                      aria-hidden="true"
                       style={{
-                        fontSize: `${special3PreviewBadgeFontPx}px`,
+                        width: `${Math.max(8, Math.round(special3PreviewTileHeightPx * 0.28))}px`,
+                        height: `${Math.max(8, Math.round(special3PreviewTileHeightPx * 0.28))}px`,
                         transform: previewIsSquareMaterial
-                          ? "translate(-8%, 8%)"
-                          : "translate(10%, -10%)",
+                          ? "translate(-25%, 25%)"
+                          : "translate(25%, -25%)",
                       }}
-                    >
-                      {displayBonus}
-                    </span>
+                    />
                   ) : null}
                 </span>
               );
