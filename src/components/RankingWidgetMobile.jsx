@@ -339,6 +339,7 @@ function RankingWidgetMobile({
   recordBadgesByNick = null,
   gobbleWordAwardsByNick = null,
   onPlayerNickClick = null,
+  onPlayerNickHover = null,
   isPlayerNickClickable = null,
   className = "",
   assetVersion,
@@ -691,6 +692,7 @@ function RankingWidgetMobile({
 
   const flatList = (
     <div
+      onMouseLeave={() => onPlayerNickHover?.(null)}
       className={
         "text-[11px] rounded-xl border h-full min-h-0 overflow-y-auto pr-1 " +
         extendedBg +
@@ -778,25 +780,25 @@ function RankingWidgetMobile({
         const palierBg = darkMode ? "bg-amber-900/30" : "bg-amber-50";
         const rowColor = isPalier
           ? palierText
-          : isSelf
-          ? darkMode
-            ? "text-slate-900"
-            : "text-white"
           : isHighlighted
           ? darkMode
             ? "text-emerald-100"
             : "text-emerald-900"
+          : isSelf
+          ? darkMode
+            ? "text-slate-900"
+            : "text-white"
           : extendedOtherColor;
         const rowBg = isPalier
           ? palierBg
-          : isSelf
-          ? darkMode
-            ? "bg-slate-100/90"
-            : "bg-slate-900/80"
           : isHighlighted
           ? darkMode
             ? "bg-emerald-500/25"
             : "bg-emerald-100"
+          : isSelf
+          ? darkMode
+            ? "bg-slate-100/90"
+            : "bg-slate-900/80"
           : "";
         const recordBadges = getRecordBadgesForNick(entry?.nick);
         const recordBadgeItems = Array.isArray(recordBadges) ? recordBadges : [];
@@ -834,6 +836,7 @@ function RankingWidgetMobile({
             data-round-player-nick={nickClickable ? anchorNick : undefined}
             role={nickClickable ? "button" : undefined}
             tabIndex={nickClickable ? 0 : undefined}
+            onMouseEnter={() => onPlayerNickHover?.(entry?.nick || null)}
             onClick={nickClickable ? (event) => handleOpenPlayerDetails(event, event.currentTarget) : undefined}
             onKeyDown={
               nickClickable
@@ -1190,23 +1193,23 @@ function RankingWidgetMobile({
               const palierBg = darkMode ? "bg-amber-900/30" : "bg-amber-50";
               const lineColor = isPalier
                 ? palierText
-                : isSelfLine
-                ? selfTextColor
                 : isHighlighted
                 ? darkMode
                   ? "text-emerald-100"
                   : "text-emerald-900"
+                : isSelfLine
+                ? selfTextColor
                 : normalTextColor;
               const lineBg = isPalier
                 ? palierBg
-                : isSelfLine
-                ? darkMode
-                  ? "bg-slate-800/60"
-                  : "bg-blue-50"
                 : isHighlighted
                 ? darkMode
                   ? "bg-emerald-500/25"
                   : "bg-emerald-100"
+                : isSelfLine
+                ? darkMode
+                  ? "bg-slate-800/60"
+                  : "bg-blue-50"
                 : "";
 
               const rightClasses =
@@ -1238,6 +1241,15 @@ function RankingWidgetMobile({
                       rightClasses
                     }
                     style={rightStyle}
+                    onMouseEnter={() =>
+                      onPlayerNickHover?.(
+                        row.type === "empty"
+                          ? null
+                          : row.entry
+                          ? row.entry.nick
+                          : displayNick || null
+                      )
+                    }
                   >
                       <span className="flex-1 min-w-0 flex items-baseline gap-1">
                         <span className="truncate">{row.type === "empty" ? "" : displayNick}</span>

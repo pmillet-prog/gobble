@@ -22,12 +22,6 @@ const TARGET_SCORE_MIN_PTS = 100;
 const BONUS_LETTER_MIN_WORDS = 30;
 const BONUS_LETTER_SCORE = 20;
 const TARGET_LONG_LENGTH_BUCKETS = [8, 9, 10, "11plus"];
-const TARGET_LONG_FALLBACK_BY_BUCKET = {
-  8: [9, 10, "11plus"],
-  9: [10, 8, "11plus"],
-  10: [9, 8, "11plus"],
-  "11plus": [10, 9, 8],
-};
 
 let dictionary = null;
 try {
@@ -131,17 +125,6 @@ function pickTargetLongFromSolvedByBucket(solved, bucket) {
     return pickTargetFromSolved(solved, "target_long", { minLongLen: TARGET_LONG_MIN_LEN });
   }
   return pickTargetLongForExactMaxLen(solved, bucket);
-}
-
-function pickTargetLongFallbackFromSolved(solved, primaryBucket) {
-  const fallbackOrder = TARGET_LONG_FALLBACK_BY_BUCKET[primaryBucket] || [];
-  for (const bucket of fallbackOrder) {
-    const pick = pickTargetLongFromSolvedByBucket(solved, bucket);
-    if (pick?.word) {
-      return { ...pick, bucket };
-    }
-  }
-  return null;
 }
 
 function pickTargetFromSolved(solved, type, opts = {}) {
@@ -259,9 +242,6 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     let targetWord = null;
     let targetLength = null;
     let targetPath = null;
-    let fallbackTargetWord = null;
-    let fallbackTargetLength = null;
-    let fallbackTargetPath = null;
     let bonusLetter = null;
 
     if (
@@ -274,17 +254,6 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
           targetWord = target.word;
           targetLength = target.length || target.word.length;
           targetPath = Array.isArray(target.path) ? target.path : null;
-        } else {
-          const relaxedLongest = pickTargetFromSolved(solved, roundPlan.type, { minLongLen: 0 });
-          const fallbackByBucket = isTargetLong11PlusMode
-            ? null
-            : pickTargetLongFallbackFromSolved(solved, targetLongBucket);
-          const fallbackTarget = fallbackByBucket?.word ? fallbackByBucket : relaxedLongest;
-          if (fallbackTarget?.word) {
-            fallbackTargetWord = fallbackTarget.word;
-            fallbackTargetLength = fallbackTarget.length || fallbackTarget.word.length;
-            fallbackTargetPath = Array.isArray(fallbackTarget.path) ? fallbackTarget.path : null;
-          }
         }
       } else {
         const target = pickTargetFromSolved(solved, roundPlan.type, null);
@@ -324,17 +293,8 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       targetLength,
       targetPath,
     };
-    const fallbackCandidateOverride =
-      isTargetLong && !targetWord && fallbackTargetWord
-        ? {
-            ...candidate,
-            targetWord: fallbackTargetWord,
-            targetLength: fallbackTargetLength,
-            targetPath: fallbackTargetPath,
-          }
-        : candidate;
-    if (!isTargetLong || targetWord || fallbackTargetWord) {
-      fallbackCandidate = fallbackCandidateOverride;
+    if (!isTargetLong || targetWord) {
+      fallbackCandidate = candidate;
     }
     if (needsBonusLetter && !planForRound?.bonusLetter) {
       continue;

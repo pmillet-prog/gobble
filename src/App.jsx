@@ -4145,6 +4145,28 @@ function patchChatMessageReactions(messages, patch) {
   return changed ? next : messages;
 }
 
+function findNewReactionEmojiFromOthers(prevMessage, patchReactions, selfInstallId) {
+  if (!prevMessage || typeof prevMessage !== "object") return "";
+  const previousReactions = normalizeChatReactions(prevMessage.reactions);
+  const nextReactions = normalizeChatReactions(patchReactions);
+  const selfId = typeof selfInstallId === "string" ? selfInstallId.trim() : "";
+  for (const [emoji, users] of Object.entries(nextReactions)) {
+    const previousUsers = new Set(
+      (Array.isArray(previousReactions[emoji]) ? previousReactions[emoji] : [])
+        .map((user) => (typeof user?.installId === "string" ? user.installId.trim() : ""))
+        .filter(Boolean)
+    );
+    const addedByOthers = (Array.isArray(users) ? users : []).some((user) => {
+      const userInstallId =
+        typeof user?.installId === "string" ? user.installId.trim() : "";
+      if (!userInstallId || previousUsers.has(userInstallId)) return false;
+      return !selfId || userInstallId !== selfId;
+    });
+    if (addedByOthers) return emoji;
+  }
+  return "";
+}
+
 function getChatMessageSortTime(message) {
   const tsCandidate =
     message?.t ??
@@ -4772,6 +4794,7 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | duel | live
   const [analysis, setAnalysis] = useState(null);
+  const [hoveredResultsNick, setHoveredResultsNick] = useState("");
   const missingImageRef = useRef(new Set());
   const assetVersion = bootProgress?.done ? 1 : 0;
   const getImageUrl = (key) => {
@@ -4977,6 +5000,8 @@ export default function App() {
   const [isChatClosing, setIsChatClosing] = useState(false);
   const chatCloseTimerRef = useRef(null);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
+  const [mobileChatReactionToasts, setMobileChatReactionToasts] = useState([]);
+  const mobileChatReactionToastTimersRef = useRef([]);
   const [homeChatUnreadCount, setHomeChatUnreadCount] = useState(0);
   const [isHomeChatOpen, setIsHomeChatOpen] = useState(false);
   const [chatTab, setChatTab] = useState("messages");
@@ -5035,6 +5060,10 @@ export default function App() {
     source: "",
     url: "",
   });
+  useEffect(() => {
+    if (phase === "results" && !isMobileLayout) return;
+    setHoveredResultsNick("");
+  }, [phase, isMobileLayout]);
   const [installId] = useState(() => getOrCreateInstallId());
   const [installIdCreatedAtTs] = useState(() => getInstallIdCreatedAtTs());
   const [broadcastNotice, setBroadcastNotice] = useState({
@@ -7596,6 +7625,8 @@ export default function App() {
         clearTimeout(desktopReactionDetailsCloseTimerRef.current);
         desktopReactionDetailsCloseTimerRef.current = null;
       }
+      mobileChatReactionToastTimersRef.current.forEach((id) => clearTimeout(id));
+      mobileChatReactionToastTimersRef.current = [];
     },
     []
   );
@@ -11301,7 +11332,41 @@ export default function App() {
     }
 
     function onChatReactionUpdate(patch) {
-      setChatMessages((prev) => patchChatMessageReactions(prev, patch));
+      const messageId = typeof patch?.messageId === "string" ? patch.messageId.trim() : "";
+      const selfInstallId = typeof installId === "string" ? installId.trim() : "";
+      const selfNickNow = String(nicknameRef.current || "")
+        .trim()
+        .toLowerCase();
+      let toastEmoji = "";
+      setChatMessages((prev) => {
+        const previousMessages = Array.isArray(prev) ? prev : [];
+        if (messageId) {
+          const previousMessage =
+            previousMessages.find((entry) => entry?.id === messageId) || null;
+          const authorInstallId =
+            typeof previousMessage?.installId === "string"
+              ? previousMessage.installId.trim()
+              : "";
+          const authorNick = String(previousMessage?.nick || previousMessage?.author || "")
+            .trim()
+            .toLowerCase();
+          const isOwnMessage =
+            (authorInstallId && selfInstallId && authorInstallId === selfInstallId) ||
+            (!authorInstallId && selfNickNow && authorNick === selfNickNow);
+          if (isOwnMessage) {
+            toastEmoji = findNewReactionEmojiFromOthers(
+              previousMessage,
+              patch?.reactions,
+              selfInstallId
+            );
+          }
+        }
+        return patchChatMessageReactions(previousMessages, patch);
+      });
+      if (toastEmoji && isMobileLayoutRef.current) {
+        enqueueMobileChatReactionToast(toastEmoji);
+      }
+      scheduleDesktopChatAutoScroll();
     }
 
     function onChatMessageUpdate(payload) {
@@ -15626,6 +15691,20 @@ export default function App() {
     }
   }
 
+  function enqueueMobileChatReactionToast(emoji) {
+    const safeEmoji = typeof emoji === "string" ? emoji.trim() : "";
+    if (!safeEmoji) return;
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setMobileChatReactionToasts((prev) => [...prev, { id, emoji: safeEmoji }].slice(-3));
+    const timerId = setTimeout(() => {
+      setMobileChatReactionToasts((prev) => prev.filter((entry) => entry.id !== id));
+      mobileChatReactionToastTimersRef.current = mobileChatReactionToastTimersRef.current.filter(
+        (entry) => entry !== timerId
+      );
+    }, 1800);
+    mobileChatReactionToastTimersRef.current.push(timerId);
+  }
+
   function openHomeChat() {
     setHomeChatUnreadCount(0);
     if (isMobileLayout) {
@@ -16491,7 +16570,7 @@ export default function App() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeArea, phase, board, dictionary]);
+  }, [activeArea, phase, board, dictionary, submit]);
 
   function playDefeatTone(freqs = [280, 220], soundKey = "error") {
     if (isSfxMuted) return;
@@ -18840,6 +18919,7 @@ function handleTouchEnd(e) {
   );
   const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
   const isSpeedRound = specialRound?.type === "speed";
+  const roundTilePointsVisible = tilePointsVisible && !isSpeedRound;
   const speedWordScore = isSpeedRound
     ? specialRound?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
     : null;
@@ -18901,6 +18981,20 @@ function handleTouchEnd(e) {
   if (suppressWordListScores) {
     displayList.sort(compareWordsByLengthAlpha);
   }
+  const hoveredResultsWordSet = React.useMemo(() => {
+    const nickKey = String(hoveredResultsNick || "").trim().toLowerCase();
+    if (!nickKey || !Array.isArray(finalResults)) return new Set();
+    const row = finalResults.find(
+      (entry) => String(entry?.nick || "").trim().toLowerCase() === nickKey
+    );
+    const words = Array.isArray(row?.words) ? row.words : [];
+    const next = new Set();
+    words.forEach((rawWord) => {
+      const norm = normalizeWord(rawWord);
+      if (norm) next.add(norm);
+    });
+    return next;
+  }, [finalResults, hoveredResultsNick]);
   const gobbleBadgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
   const isSpeedRoundForResults = specialRound?.type === "speed";
   const isSpecial3RoundForResults = specialRound?.type === DAILY_SPECIAL_MODE;
@@ -27428,6 +27522,7 @@ function handleTouchEnd(e) {
         isChatOpenMobile={isChatOpenMobile}
         isChatClosing={isChatClosing}
         mobileChatUnreadCount={mobileChatUnreadCount}
+        mobileReactionToasts={mobileChatReactionToasts}
         blockedCount={blockedCount}
         blockedEntries={blockedEntries}
         onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
@@ -30422,7 +30517,7 @@ function handleTouchEnd(e) {
             specialSolvedOverlay={specialSolvedOverlay}
             introHideTiles={mobileRoundIntroHideTiles}
             defaultTileBaseClass={defaultTileBaseClass}
-            tilePointsVisible={tilePointsVisible}
+            tilePointsVisible={roundTilePointsVisible}
             tileRefs={tileRefs}
             tileMaterialClass={tileMaterialClass}
             tileColorPreset={tileColorPreset}
@@ -31279,7 +31374,7 @@ function handleTouchEnd(e) {
                     specialSolvedOverlay={specialSolvedOverlay}
                     introHideTiles={mobileRoundIntroHideTiles}
                     defaultTileBaseClass={defaultTileBaseClass}
-                    tilePointsVisible={tilePointsVisible}
+                    tilePointsVisible={roundTilePointsVisible}
                     tileRefs={tileRefs}
                     tileMaterialClass={tileMaterialClass}
                     tileColorPreset={tileColorPreset}
@@ -31608,9 +31703,9 @@ function handleTouchEnd(e) {
         : showResultsDots
         ? "mt-1"
         : "mt-2";
-      const mobileResultsSummaryStyle = !isChatOpenMobile
-        ? { marginBottom: "calc(clamp(92px, 24vw, 142px) + env(safe-area-inset-bottom))" }
-        : undefined;
+      const mobileResultsSummaryStyle = {
+        marginBottom: "calc(clamp(92px, 24vw, 142px) + env(safe-area-inset-bottom))",
+      };
       const resultsDots = showResultsDots ? (
         <div className="flex items-center justify-center gap-1.5 py-1">
           {resultsPages.map((page, idx) => {
@@ -31672,6 +31767,59 @@ function handleTouchEnd(e) {
             showHelpButton={false}
             tournament={tournament}
           />
+          {showHelp && typeof document !== "undefined"
+            ? createPortal(
+                <div
+                  className="fixed inset-0 z-[20150] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
+                  onClick={() => setShowHelp(false)}
+                >
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
+                      darkMode
+                        ? "bg-slate-900/90 text-slate-100 border-slate-700"
+                        : "bg-white/90 text-slate-900 border-slate-200"
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
+                      Aide rapide
+                    </div>
+                    <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
+                    <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                      <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
+                      <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
+                      <li>Entree valide le mot, Backspace efface.</li>
+                    </ul>
+                    <div className="mt-3 text-[12px] font-semibold">Bareme</div>
+                    <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                      <li>Score = somme des lettres + bonus de longueur.</li>
+                      <li>Bonus L2/L3 multiplient la lettre.</li>
+                      <li>Bonus M2/M3 multiplient le mot.</li>
+                    </ul>
+                    <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
+                    <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                      <li>Lettre bonus : une lettre rapporte plus de points.</li>
+                      <li>Rapidite : tous les mots valent 11 points.</li>
+                      <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
+                      <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
+                      <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
+                    </ul>
+                    <div className="mt-3 text-[12px] font-semibold">Support</div>
+                    <p className="mt-1 text-[11px]">
+                      <a
+                        href="mailto:support@gobble.fr"
+                        className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
+                      >
+                        support@gobble.fr
+                      </a>
+                    </p>
+                  </div>
+                </div>,
+                document.body
+              )
+            : null}
           <div
             className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
             style={{
@@ -32011,56 +32159,59 @@ function handleTouchEnd(e) {
           showRoundStats={true}
           tournament={tournament}
         />
-        {showHelp && (
-          <div
-            className="fixed inset-0 z-[9996] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
-            onClick={() => setShowHelp(false)}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
-                darkMode
-                  ? "bg-slate-900/90 text-slate-100 border-slate-700"
-                  : "bg-white/90 text-slate-900 border-slate-200"
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
-                Aide rapide
-              </div>
-              <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
-              <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
-                <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
-                <li>Entree valide le mot, Backspace efface.</li>
-              </ul>
-              <div className="mt-3 text-[12px] font-semibold">Bareme</div>
-              <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                <li>Score = somme des lettres + bonus de longueur.</li>
-                <li>Bonus L2/L3 multiplient la lettre.</li>
-                <li>Bonus M2/M3 multiplient le mot.</li>
-              </ul>
-              <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
-              <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                <li>Lettre bonus : une lettre rapporte plus de points.</li>
-                <li>Rapidite : tous les mots valent 11 points.</li>
-                <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
-                <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
-                <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
-              </ul>
-              <div className="mt-3 text-[12px] font-semibold">Support</div>
-              <p className="mt-1 text-[11px]">
-                <a
-                  href="mailto:support@gobble.fr"
-                  className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
+        {showHelp && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                className="fixed inset-0 z-[20150] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
+                onClick={() => setShowHelp(false)}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
+                    darkMode
+                      ? "bg-slate-900/90 text-slate-100 border-slate-700"
+                      : "bg-white/90 text-slate-900 border-slate-200"
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  support@gobble.fr
-                </a>
-              </p>
-            </div>
-          </div>
-        )}
+                  <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
+                    Aide rapide
+                  </div>
+                  <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
+                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                    <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
+                    <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
+                    <li>Entree valide le mot, Backspace efface.</li>
+                  </ul>
+                  <div className="mt-3 text-[12px] font-semibold">Bareme</div>
+                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                    <li>Score = somme des lettres + bonus de longueur.</li>
+                    <li>Bonus L2/L3 multiplient la lettre.</li>
+                    <li>Bonus M2/M3 multiplient le mot.</li>
+                  </ul>
+                  <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
+                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
+                    <li>Lettre bonus : une lettre rapporte plus de points.</li>
+                    <li>Rapidite : tous les mots valent 11 points.</li>
+                    <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
+                    <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
+                    <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
+                  </ul>
+                  <div className="mt-3 text-[12px] font-semibold">Support</div>
+                  <p className="mt-1 text-[11px]">
+                    <a
+                      href="mailto:support@gobble.fr"
+                      className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
+                    >
+                      support@gobble.fr
+                    </a>
+                  </p>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
 
         {/* Contenu principal mobile : classement + apercu mot + grille */}
         <div
@@ -32277,7 +32428,7 @@ function handleTouchEnd(e) {
               specialSolvedOverlay={specialSolvedOverlay}
               introHideTiles={mobileRoundIntroHideTiles}
               defaultTileBaseClass={defaultTileBaseClass}
-              tilePointsVisible={tilePointsVisible}
+              tilePointsVisible={roundTilePointsVisible}
               tileRefs={tileRefs}
               tileMaterialClass={tileMaterialClass}
               tileColorPreset={tileColorPreset}
@@ -32443,17 +32594,50 @@ function handleTouchEnd(e) {
         </div>
       )}
 
-      {showHelp && (
-        <div className="mb-4 bg-white border rounded-xl p-3 text-sm text-gray-700">
-          <div className="font-bold mb-1">Aide rapide</div>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
-            <li>Entrée valide le mot, Backspace efface.</li>
-            <li>Tab alterne entre saisie et chat (focus automatique).</li>
-            <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
-          </ul>
-        </div>
-      )}
+      {showHelp && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[20150] flex items-center justify-center bg-black/45 px-4 py-6"
+              onClick={() => setShowHelp(false)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                className={`w-full max-w-lg rounded-2xl border px-4 py-3 shadow-xl ${
+                  darkMode
+                    ? "bg-slate-900/95 text-slate-100 border-slate-700"
+                    : "bg-white text-slate-900 border-slate-200"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-bold mb-1">Aide rapide</div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`h-8 min-w-8 rounded-full border px-2 text-sm font-bold ${
+                      darkMode
+                        ? "border-slate-600 bg-slate-800 text-slate-100"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                    onClick={() => setShowHelp(false)}
+                    aria-label="Fermer l'aide rapide"
+                  >
+                    x
+                  </button>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
+                  <li>Entrée valide le mot, Backspace efface.</li>
+                  <li>Tab alterne entre saisie et chat (focus automatique).</li>
+                  <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
+                </ul>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
       <div className="relative">
@@ -32634,6 +32818,7 @@ function handleTouchEnd(e) {
           gobbleWordAwardsByNick={gobbleAwardsForLive}
           renderNickSuffix={renderNickSuffix}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
+          onPlayerNickHover={!isMobileLayout ? setHoveredResultsNick : null}
           recordBadgesByNick={
             resultsRankingMode === "round" ? recordBadgesByNickForRound : null
           }
@@ -32990,7 +33175,7 @@ function handleTouchEnd(e) {
   <span className={`tile-letter ${letterRingClass}`.trim()}>
     {letter}
   </span>
-  {tilePointsVisible && letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
+  {roundTilePointsVisible && letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
   {displayBonus && (useFillIndicator || showBonusBadge) && (
     <span
       className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
@@ -33190,7 +33375,11 @@ function handleTouchEnd(e) {
                 Place les bonus sur la grille, puis garde 3 mots avec des tuiles de départ différentes.
               </div>
               <div
-                className={`rounded-xl border p-3 space-y-2 bg-white/90 ${
+                className={`rounded-xl border p-3 space-y-2 ${
+                  darkMode
+                    ? "bg-slate-900/90 border-slate-700"
+                    : "bg-white/90 border-slate-200"
+                } ${
                   special3TutorialStep >= 1 ? "special3-tutorial-focus" : ""
                 }`}
               >
@@ -33369,6 +33558,9 @@ function handleTouchEnd(e) {
                       const isPending = status === "pending";
                       const isRejected = status === "rejected";
                       const isFound = entry.isFound || isPending;
+                      const isFoundByHoveredPlayer = hoveredResultsWordSet.has(
+                        normalizeWord(entry.word)
+                      );
                       const bestPts = entry.bestPts;
                       const userPts = entry.userPts;
                       const showOpt =
@@ -33422,6 +33614,10 @@ function handleTouchEnd(e) {
                           className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
                             selected
                               ? "bg-blue-50 text-blue-800"
+                              : isFoundByHoveredPlayer
+                              ? darkMode
+                                ? "bg-emerald-900/25 text-emerald-100"
+                                : "bg-emerald-50 text-emerald-900"
                               : "hover:bg-gray-100"
                           }`}
                           style={{

@@ -224,6 +224,22 @@ export default function ChatContent({
     const text = String(last.text || "");
     return `fallback:${ts || 0}:${author}:${text}`;
   }, [visibleMessages]);
+  const visibleMessagesLayoutKey = React.useMemo(() => {
+    if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {
+      return "empty";
+    }
+    return visibleMessages
+      .map((msg, idx) => {
+        const id = typeof msg?.id === "string" && msg.id ? msg.id : `row-${idx}`;
+        const updatedAt = Number(msg?.reactionsUpdatedAt) || 0;
+        const reactionCount = getMessageReactions(msg).reduce(
+          (sum, entry) => sum + (Number(entry?.count) || 0),
+          0
+        );
+        return `${id}:${updatedAt}:${reactionCount}`;
+      })
+      .join("|");
+  }, [visibleMessages]);
 
   const clearLongPressTimer = React.useCallback(() => {
     if (!longPressTimerRef.current) return;
@@ -287,7 +303,14 @@ export default function ChatContent({
       if (timeout1 !== null) window.clearTimeout(timeout1);
       if (timeout2 !== null) window.clearTimeout(timeout2);
     };
-  }, [isOpen, chatTab, lastVisibleMessageKey, chatKeyboardInsetPx, keyboardInsetReservePx]);
+  }, [
+    isOpen,
+    chatTab,
+    lastVisibleMessageKey,
+    visibleMessagesLayoutKey,
+    chatKeyboardInsetPx,
+    keyboardInsetReservePx,
+  ]);
 
   useEffect(() => {
     const el = localTextareaRef.current;
@@ -651,7 +674,22 @@ export default function ChatContent({
               ? "bg-slate-900/70 border-slate-700 text-slate-100"
               : "bg-white/80 border-slate-200 text-slate-900"
           }`}
-          style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+          style={{
+            overscrollBehavior: "contain",
+            touchAction: "pan-y",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
+          onSelectStart={(event) => {
+            event.preventDefault();
+          }}
+          onDragStart={(event) => {
+            event.preventDefault();
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+          }}
           onClick={(event) => {
             if (isClickSuppressed()) {
               event.preventDefault();
@@ -732,6 +770,12 @@ export default function ChatContent({
                   onPointerUp={(event) => handleMessagePointerUp(event, msg)}
                   onPointerCancel={(event) => handleMessagePointerCancel(event, msg)}
                   onContextMenu={(event) => {
+                    event.preventDefault();
+                  }}
+                  onSelectStart={(event) => {
+                    event.preventDefault();
+                  }}
+                  onDragStart={(event) => {
                     event.preventDefault();
                   }}
                   onClickCapture={(event) => {
