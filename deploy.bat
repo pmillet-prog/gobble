@@ -30,7 +30,7 @@ if !errorlevel! neq 0 (
 )
 
 echo === 2) VM: pull + build + restart ===
-ssh freebox@192.168.1.84 "cd ~/gobble_git && git fetch origin && git reset --hard origin/main && git clean -fd -e server/data-runtime/ -e server/data/gobble.db && bash scripts/vm_update.sh"
+ssh freebox@192.168.1.84 "cd ~/gobble_git && git fetch origin && git reset --hard origin/main && git clean -fd -e server/data/ -e server/data-runtime/ && bash scripts/vm_update.sh"
 
 
 if !errorlevel! neq 0 (
