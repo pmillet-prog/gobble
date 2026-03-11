@@ -449,9 +449,17 @@ function buildDailyModeGrid(dateId, mode, dictionary, { avoidGridKey = null } = 
 async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
   if (!payload || typeof payload !== "object") return payload;
   if (!Array.isArray(payload.grid) || payload.grid.length === 0) return payload;
+  const monstrousLettersKey = getGridLettersKey(cloneGridWithoutBonuses(payload.grid));
+  const specialLettersKey =
+    Array.isArray(payload.specialGrid) && payload.specialGrid.length > 0
+      ? getGridLettersKey(cloneGridWithoutBonuses(payload.specialGrid))
+      : null;
   const needsMonstrousBonusRepair =
     !hasAnyGridBonus(payload.grid) && Number.isFinite(payload.seed);
-  const needsSpecialGrid = !Array.isArray(payload.specialGrid) || payload.specialGrid.length === 0;
+  const needsSpecialGrid =
+    !Array.isArray(payload.specialGrid) ||
+    payload.specialGrid.length === 0 ||
+    specialLettersKey === monstrousLettersKey;
   if (!needsMonstrousBonusRepair && !needsSpecialGrid) return payload;
 
   const migratedGrid = needsMonstrousBonusRepair
@@ -539,6 +547,14 @@ function getDailyModeGridEntry(payload, mode = DAILY_MONSTROUS_MODE) {
         gridQuality: payload?.specialGridQuality ?? null,
       };
     }
+    return {
+      seed: payload?.specialSeed ?? null,
+      gridSize: payload?.specialGridSize ?? payload?.gridSize ?? 4,
+      grid: [],
+      wordCount: payload?.specialWordCount ?? null,
+      longestWordLen: payload?.specialLongestWordLen ?? null,
+      gridQuality: payload?.specialGridQuality ?? null,
+    };
   }
   return {
     seed: payload?.seed ?? null,
@@ -797,6 +813,7 @@ function spawnDailyGenerator(dateId) {
 
 export async function getDailyStatus(dateId, installId) {
   const safeDateId = dateId || getParisDateId();
+  await ensureDaily(safeDateId);
   const gridPayload = await loadDailyGrid(safeDateId);
   const ready =
     !!gridPayload &&
@@ -848,6 +865,7 @@ export async function getDailyStatus(dateId, installId) {
 
 export async function getDailyBoard(dateId) {
   const safeDateId = dateId || getParisDateId();
+  await ensureDaily(safeDateId);
   const gridPayload = await loadDailyGrid(safeDateId);
   const thresholdsByMode = getDailyThresholdsByMode(gridPayload);
   const ready =
