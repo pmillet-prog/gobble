@@ -319,21 +319,6 @@ export default function ChatContent({
     el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
   }, [chatInput, chatTab, isOpen, isSystemTab]);
 
-  useEffect(() => {
-    if (!isOpen || isSystemTab) return undefined;
-    let rafId = null;
-    const syncBottom = () => {
-      const listEl = messagesListRef.current;
-      if (listEl) {
-        listEl.scrollTop = listEl.scrollHeight;
-      }
-    };
-    rafId = window.requestAnimationFrame(syncBottom);
-    return () => {
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-    };
-  }, [chatInput, isOpen, isSystemTab]);
-
   useEffect(
     () => () => {
       clearLongPressTimer();

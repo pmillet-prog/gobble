@@ -106,6 +106,7 @@ import {
   getBroadcastAdminState,
   setBroadcastMessage,
 } from "./admin/broadcastService.js";
+import { createAuthRouter } from "./auth/authRouter.js";
 
 const computePool = createComputePool();
 void initVocabularyService().catch((err) =>
@@ -123,6 +124,13 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.set("trust proxy", true);
+app.use(
+  "/api/auth",
+  createAuthRouter({
+    normalizeInstallIdRaw,
+    resolveCanonicalInstallId,
+  })
+);
 
 const BOT_NICK_SET = new Set(
   [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
@@ -964,7 +972,7 @@ const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
 const MONSTROUS_MIN_TOTAL_SCORE = { 4: 4000, 5: 6000 };
 const MONSTROUS_EXTRA_MIN_WORDS = 50;
-const MONSTROUS_MIN_LONG_WORD_LEN = 8;
+const MONSTROUS_MIN_LONG_WORD_LEN = 10;
 const MONSTROUS_MIN_LONG_WORD_COUNT = 3;
 const SPECIAL_QUALITY_ATTEMPTS = 220;
 const MONSTROUS_QUALITY_ATTEMPTS = 320;
@@ -1014,6 +1022,8 @@ const BONUS_LETTER_MIN_WORDS = 30;
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
 const SELF_SPECIAL_3_WORDS_TYPE = "self_specials_3_words";
 const SELF_SPECIAL_3_WORDS_WORD_TARGET = 3;
+const FORCE_SELF_SPECIAL_3_WORDS_ALL_ROUNDS = false;
+const FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS = false;
 // Dev-only: force alternance "meilleur mot" / "mot le plus long" pour tests.
 // Active via env GOBBLE_FORCE_TARGET_SPECIALS=1/true/on ou NODE_ENV=development.
 const FORCE_TARGET_SPECIALS_LOCAL = (() => {
@@ -1027,6 +1037,12 @@ const FORCE_TARGET_SPECIALS_LOCAL = (() => {
 
 if (FORCE_TARGET_SPECIALS_LOCAL) {
   console.log("[dev] Forçage des manches spéciales activé (target_long/target_score).");
+}
+if (FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS) {
+  console.log("[temp] Toutes les manches spéciales live sont forcées en mode 3 mots.");
+}
+if (FORCE_SELF_SPECIAL_3_WORDS_ALL_ROUNDS) {
+  console.log("[temp] Toutes les manches live sont forcées en mode 3 mots.");
 }
 
 const ROOM_CONFIGS = {
@@ -1417,6 +1433,10 @@ function getRoundPlan(roundNumber, roomConfig) {
     minWords: roomConfig?.minWords || 0,
   };
 
+  if (FORCE_SELF_SPECIAL_3_WORDS_ALL_ROUNDS) {
+    return buildSelfSpecial3WordsRoundPlan(roundNumber, roomConfig);
+  }
+
   if (FORCE_TARGET_SPECIALS_LOCAL) {
     const useLong = roundNumber % 2 === 0;
     return useLong
@@ -1425,6 +1445,18 @@ function getRoundPlan(roundNumber, roomConfig) {
   }
 
   if (roundNumber > 0 && roundNumber % SPECIAL_ROUND_EVERY === 0) {
+    if (FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS) {
+      return {
+        ...base,
+        isSpecial: true,
+        type: SELF_SPECIAL_3_WORDS_TYPE,
+        label: "3 mots",
+        description:
+          "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+        disableBonuses: true,
+        qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+      };
+    }
     const specialIndex = Math.floor(roundNumber / SPECIAL_ROUND_EVERY) - 1;
     const speedTurn = specialIndex % 2 === 0;
     if (speedTurn) {
@@ -1558,8 +1590,30 @@ function buildSelfSpecial3WordsTournamentPlan(tournamentRound, roomConfig) {
   };
 }
 
+function buildSelfSpecial3WordsRoundPlan(roundNumber, roomConfig) {
+  const size = roomConfig?.gridSize || 4;
+  return {
+    roundNumber,
+    gridSize: size,
+    isSpecial: true,
+    type: SELF_SPECIAL_3_WORDS_TYPE,
+    label: "3 mots",
+    description:
+      "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+    minWords: roomConfig?.minWords || 0,
+    disableBonuses: true,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+  };
+}
+
 function buildTournamentSpecials(roomConfig) {
   const specials = new Map();
+  if (FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS) {
+    for (const round of TOURNAMENT_SPECIAL_ROUNDS) {
+      specials.set(round, buildSelfSpecial3WordsTournamentPlan(round, roomConfig));
+    }
+    return specials;
+  }
   const factories = [
     (round) => buildSpeedTournamentPlan(round, roomConfig),
     (round) => buildMonstrousTournamentPlan(round, roomConfig),
@@ -1597,6 +1651,9 @@ function resetTournament(room) {
 }
 
 function getTournamentRoundPlan(room, tournamentRound) {
+  if (FORCE_SELF_SPECIAL_3_WORDS_ALL_ROUNDS) {
+    return buildSelfSpecial3WordsTournamentPlan(tournamentRound, room.config);
+  }
   if (FORCE_TARGET_SPECIALS_LOCAL) {
     const useLong = tournamentRound % 2 === 0;
     return useLong

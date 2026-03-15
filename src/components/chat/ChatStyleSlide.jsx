@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import ChatContent from "./ChatContent";
 
 export default function ChatStyleSlide(props) {
@@ -51,7 +52,9 @@ export default function ChatStyleSlide(props) {
     setIsChatOpenMobile?.(false);
   };
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-[20050] flex items-start justify-center overflow-hidden"
       style={{
@@ -91,6 +94,7 @@ export default function ChatStyleSlide(props) {
           <ChatContent {...props} isOpen={isOpen} closeChat={closeChat} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

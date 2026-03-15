@@ -101,8 +101,8 @@ const OBJECTIVE_POOLS = {
     {
       id: "medium_len_7_words_50",
       typeKey: "word_len",
-      title: "Trouver 50 mots de 7+ lettres",
-      target: 50,
+      title: "Trouver 10 mots de 7+ lettres",
+      target: 10,
       minWordLength: 7,
       event: "word_len_at_least",
     },
@@ -131,8 +131,8 @@ const OBJECTIVE_POOLS = {
     {
       id: "medium_word_50_x30",
       typeKey: "word_pts_50",
-      title: "Valider 30 mots > 50 pts",
-      target: 30,
+      title: "Valider 20 mots > 50 pts",
+      target: 20,
       minWordPoints: 50,
       event: "word_points_gt",
     },
@@ -162,8 +162,8 @@ const OBJECTIVE_POOLS = {
     {
       id: "hard_word_100_x50",
       typeKey: "word_pts_100",
-      title: "Trouver 50 mots >= 100 pts",
-      target: 50,
+      title: "Trouver 20 mots >= 100 pts",
+      target: 20,
       minWordPoints: 100,
       event: "word_points_gte",
     },
@@ -185,8 +185,8 @@ const OBJECTIVE_POOLS = {
     {
       id: "hard_len_8_words_50",
       typeKey: "word_len",
-      title: "Trouver 50 mots de 8+ lettres",
-      target: 50,
+      title: "Trouver 20 mots de 8+ lettres",
+      target: 20,
       minWordLength: 8,
       event: "word_len_at_least",
     },

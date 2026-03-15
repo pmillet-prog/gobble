@@ -14,9 +14,9 @@ export default function BroadcastNoticePopup({
   const ctaUrl = typeof message.ctaUrl === "string" ? message.ctaUrl.trim() : "";
 
   return createPortal(
-    <div className="fixed inset-0 z-[12050] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[12050] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-4">
       <div
-        className={`w-full max-w-md rounded-2xl border p-4 space-y-3 ${
+        className={`w-full max-w-2xl max-h-[min(88vh,900px)] overflow-hidden rounded-2xl border p-4 space-y-3 ${
           darkMode
             ? "bg-slate-900/95 border-white/10 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
@@ -24,7 +24,9 @@ export default function BroadcastNoticePopup({
       >
         {title ? <div className="text-lg font-black">{title}</div> : null}
         {body ? (
-          <div className="text-sm whitespace-pre-wrap leading-relaxed opacity-90">{body}</div>
+          <div className="max-h-[min(60vh,640px)] overflow-y-auto pr-2 text-sm whitespace-pre-wrap leading-relaxed opacity-90">
+            {body}
+          </div>
         ) : null}
         <div className="flex items-center justify-end gap-2">
           <button
@@ -60,4 +62,3 @@ export default function BroadcastNoticePopup({
     document.body
   );
 }
-

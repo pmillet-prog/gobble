@@ -17,7 +17,7 @@ import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
-import ChatWidget from "./components/chat/ChatWidget.jsx";
+import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
@@ -27,8 +27,15 @@ import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
+import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
+import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
+import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
+import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
+import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
+import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPlaying.jsx";
 import RoundPlayerDetailsModal from "./components/RoundPlayerDetailsModal.jsx";
 import HomeChatModal from "./components/HomeChatModal.jsx";
+import AuthDialog from "./components/AuthDialog.jsx";
 import {
   readDuelObjectiveAnimationsState,
   writeDuelObjectiveAnimationsState,
@@ -86,6 +93,18 @@ const DAILY_DESKTOP_COLUMN_TEMPLATE = "1.05fr 1.6fr 1.6fr";
 const DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 1.6];
 const DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX = [220, 340, 380];
 const DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX = "gobble_desktop_cols_v1";
+const DESKTOP_COLUMN_ORDER_STORAGE_PREFIX = "gobble_desktop_order_v1";
+const LIVE_DESKTOP_COLUMN_DEFS = [
+  { id: "players", defaultFraction: 1.05, minWidthPx: 220 },
+  { id: "grid", defaultFraction: 1.6, minWidthPx: 340 },
+  { id: "side", defaultFraction: 0.85, minWidthPx: 260 },
+  { id: "chat", defaultFraction: 1.05, minWidthPx: 260 },
+];
+const DAILY_DESKTOP_COLUMN_DEFS = [
+  { id: "players", defaultFraction: 1.05, minWidthPx: 220 },
+  { id: "grid", defaultFraction: 1.6, minWidthPx: 340 },
+  { id: "side", defaultFraction: 1.6, minWidthPx: 380 },
+];
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
 const MOBILE_LAYOUT_MAX_WIDTH = 520;
@@ -214,11 +233,22 @@ const INCREMENTAL_BASE_NOTE_NUMBER = 9;
 const INCREMENTAL_BASE_NOTE_INDEX = INCREMENTAL_BASE_NOTE_NUMBER - 1;
 const INCREMENTAL_SOUND_BASE_PATH = `${SOUND_ROOT}/game/incremental/09.wav`;
 const INCREMENTAL_BASE_SFX_KEY = makeIncrementalSfxKey("09");
+const CHAT_DESKTOP_FONT_SCALE_DEFAULT = 1;
+const CHAT_DESKTOP_FONT_SCALE_MIN = 0.85;
+const CHAT_DESKTOP_FONT_SCALE_MAX = 1.45;
+const CHAT_DESKTOP_FONT_SCALE_STEP = 0.05;
 
 function normalizeSoundMasterVolume(raw, fallback = SOUND_MASTER_VOLUME_DEFAULT) {
   const value = Number(raw);
   if (!Number.isFinite(value)) return fallback;
   return Math.max(0, Math.min(1, value));
+}
+
+function normalizeChatDesktopFontScale(raw, fallback = CHAT_DESKTOP_FONT_SCALE_DEFAULT) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return fallback;
+  const clamped = Math.max(CHAT_DESKTOP_FONT_SCALE_MIN, Math.min(CHAT_DESKTOP_FONT_SCALE_MAX, value));
+  return Math.round(clamped / CHAT_DESKTOP_FONT_SCALE_STEP) * CHAT_DESKTOP_FONT_SCALE_STEP;
 }
 const SCORE_SOUND_BANDS = [
   { min: 3, max: 5, src: `${SOUND_ROOT}/game/scores/03.wav` },
@@ -776,6 +806,12 @@ function isLikelySamsungDeviceUserAgent(ua) {
   return /SM-[A-Z0-9]+/i.test(value) || /SAMSUNG/i.test(value);
 }
 
+function isFirefoxMobileUserAgent(ua) {
+  const value = String(ua || "");
+  if (!/(Firefox|FxiOS)/i.test(value)) return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(value);
+}
+
 function getDefaultRoomId() {
   if (typeof window !== "undefined") {
     const isMobile = computeIsMobileLayout();
@@ -813,6 +849,55 @@ function areDesktopFractionsEqual(a, b, epsilon = 0.0005) {
     if (Math.abs((Number(a[i]) || 0) - (Number(b[i]) || 0)) > epsilon) return false;
   }
   return true;
+}
+
+function normalizeDesktopColumnOrder(rawOrder, defs = LIVE_DESKTOP_COLUMN_DEFS) {
+  const safeDefs = Array.isArray(defs) && defs.length ? defs : LIVE_DESKTOP_COLUMN_DEFS;
+  const allowed = safeDefs.map((entry) => String(entry?.id || "").trim()).filter(Boolean);
+  const requested = Array.isArray(rawOrder) ? rawOrder : [];
+  const seen = new Set();
+  const next = [];
+  for (const rawId of requested) {
+    const id = String(rawId || "").trim();
+    if (!id || seen.has(id) || !allowed.includes(id)) continue;
+    seen.add(id);
+    next.push(id);
+  }
+  for (const id of allowed) {
+    if (seen.has(id)) continue;
+    next.push(id);
+  }
+  return next;
+}
+
+function readDesktopColumnOrderForInstall(installId, storageScope, defs) {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return normalizeDesktopColumnOrder(null, defs);
+  }
+  const key = String(installId || "").trim();
+  const scope = String(storageScope || "live").trim() || "live";
+  if (!key) return normalizeDesktopColumnOrder(null, defs);
+  try {
+    const raw = localStorage.getItem(`${DESKTOP_COLUMN_ORDER_STORAGE_PREFIX}:${scope}:${key}`);
+    if (!raw) return normalizeDesktopColumnOrder(null, defs);
+    const parsed = JSON.parse(raw);
+    return normalizeDesktopColumnOrder(parsed, defs);
+  } catch (_) {
+    return normalizeDesktopColumnOrder(null, defs);
+  }
+}
+
+function writeDesktopColumnOrderForInstall(installId, storageScope, order, defs) {
+  if (typeof localStorage === "undefined") return;
+  const key = String(installId || "").trim();
+  const scope = String(storageScope || "live").trim() || "live";
+  if (!key) return;
+  try {
+    localStorage.setItem(
+      `${DESKTOP_COLUMN_ORDER_STORAGE_PREFIX}:${scope}:${key}`,
+      JSON.stringify(normalizeDesktopColumnOrder(order, defs))
+    );
+  } catch (_) {}
 }
 
 function readDesktopColumnFractionsForInstall(installId, storageScope, defaultFractions) {
@@ -3467,8 +3552,8 @@ const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
-const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "👏", "❤️", "😂"];
-const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "👏", "🎉"];
+const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "🙏", "😢", "❤️", "😂"];
+const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "🎉"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
@@ -3481,6 +3566,14 @@ const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
+const AUTH_STATUS_ENDPOINT = "/api/auth/status";
+const AUTH_MODAL_MODES = {
+  LOGIN: "login",
+  REGISTER: "register",
+  CLAIM_LEGACY: "claim-legacy",
+  FORGOT_PASSWORD: "forgot-password",
+  CHANGE_PASSWORD: "change-password",
+};
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
 const THEME_UNLOCK_COST_DEFAULT = 500;
@@ -3732,8 +3825,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-03-08";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-03-08T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-03-15";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-03-15T00:00:00+01:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
@@ -3901,6 +3994,27 @@ const REPORT_REASONS = [
   "Infos perso",
   "Autre",
 ];
+const CHAT_LEGACY_EMOTICON_RULES = [
+  { regex: /(^|[\s([{<'"])(?:<3)(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "❤️" },
+  { regex: /(^|[\s([{<'"])(?::'\()(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😢" },
+  { regex: /(^|[\s([{<'"])(?::-\)|:\))(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "🙂" },
+  { regex: /(^|[\s([{<'"])(?:;-\)|;\))(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😉" },
+  { regex: /(^|[\s([{<'"])(?::-?D|X-?D|x-?D)(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😄" },
+  { regex: /(^|[\s([{<'"])(?::-?[Pp]|;-?[Pp])(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😛" },
+  { regex: /(^|[\s([{<'"])(?::-\(|:\()(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "🙁" },
+  { regex: /(^|[\s([{<'"])(?::-?[Oo])(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😮" },
+  { regex: /(^|[\s([{<'"])(?::-[\\/]|:[\\/])(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😕" },
+];
+
+function normalizeLegacyChatEmoticons(raw) {
+  let text = typeof raw === "string" ? raw : String(raw ?? "");
+  if (!text) return "";
+  for (const rule of CHAT_LEGACY_EMOTICON_RULES) {
+    text = text.replace(rule.regex, (_, prefix = "") => `${prefix}${rule.emoji}`);
+  }
+  return text;
+}
+
 function generateInstallId() {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -4003,6 +4117,23 @@ function getInstallIdCreatedAtTs() {
   }
 }
 
+function createEmptyAuthForm(overrides = {}) {
+  return {
+    username: "",
+    password: "",
+    confirmPassword: "",
+    email: "",
+    currentPassword: "",
+    ...overrides,
+  };
+}
+
+function normalizeAuthUsernameInput(raw) {
+  return String(raw || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function getPatchNotesSeenStorageKey(installId, version = PATCH_NOTES_VERSION) {
   const safeInstallId = typeof installId === "string" ? installId.trim() : "";
   if (!safeInstallId) return "";
@@ -4031,7 +4162,7 @@ function normalizeChatReplyPreview(rawReply) {
   const nick = String(rawReply.nick || rawReply.author || "Anonyme")
     .trim()
     .slice(0, 40);
-  const text = String(rawReply.text || "")
+  const text = normalizeLegacyChatEmoticons(String(rawReply.text || ""))
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 280);
@@ -4075,6 +4206,9 @@ function normalizeChatReactions(rawReactions) {
 function normalizeChatMessageShape(rawMessage) {
   if (!rawMessage || typeof rawMessage !== "object") return null;
   const message = { ...rawMessage };
+  if (typeof rawMessage.text === "string") {
+    message.text = normalizeLegacyChatEmoticons(rawMessage.text);
+  }
   const replyTo = normalizeChatReplyPreview(rawMessage.replyTo);
   if (replyTo) message.replyTo = replyTo;
   else delete message.replyTo;
@@ -4412,6 +4546,10 @@ export default function App() {
     lastLogAt: 0,
     lastPruneAt: 0,
   });
+  const combinedScoreBufferCacheRef = useRef({
+    ctx: null,
+    buffers: new Map(),
+  });
   const blackHoleHandleRef = useRef(null);
   const blackHoleChebHandleRef = useRef(null);
   const blackHoleClavierHandleRef = useRef(null);
@@ -4490,6 +4628,10 @@ export default function App() {
     initialSettings.soundMasterVolume,
     SOUND_MASTER_VOLUME_DEFAULT
   );
+  const initialChatDesktopFontScale = normalizeChatDesktopFontScale(
+    initialSettings.chatDesktopFontScale,
+    CHAT_DESKTOP_FONT_SCALE_DEFAULT
+  );
   const initialAnySfxCategoryEnabled =
     initialValidationSoundEnabled ||
     initialTileStepSoundEnabled ||
@@ -4520,6 +4662,9 @@ export default function App() {
     typeof initialSettings.vibration === "boolean" ? initialSettings.vibration : true
   );
   const [soundMasterVolume, setSoundMasterVolume] = useState(() => initialMasterVolume);
+  const [chatDesktopFontScale, setChatDesktopFontScale] = useState(
+    () => initialChatDesktopFontScale
+  );
   const soundMasterVolumeRef = useRef(soundMasterVolume);
   const isVibrationEnabledRef = useRef(isVibrationEnabled);
   const [canVibrate, setCanVibrate] = useState(false);
@@ -4870,6 +5015,18 @@ export default function App() {
       return "";
     }
   });
+  const [authState, setAuthState] = useState({
+    loading: true,
+    status: "loading",
+    user: null,
+    legacyProfile: null,
+  });
+  const [authModalMode, setAuthModalMode] = useState(null);
+  const [authForm, setAuthForm] = useState(() => createEmptyAuthForm());
+  const [authError, setAuthError] = useState("");
+  const [authInfo, setAuthInfo] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [accountNotice, setAccountNotice] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [roundId, setRoundId] = useState(null);
@@ -5064,8 +5221,12 @@ export default function App() {
     if (phase === "results" && !isMobileLayout) return;
     setHoveredResultsNick("");
   }, [phase, isMobileLayout]);
-  const [installId] = useState(() => getOrCreateInstallId());
+  const [deviceInstallId] = useState(() => getOrCreateInstallId());
   const [installIdCreatedAtTs] = useState(() => getInstallIdCreatedAtTs());
+  const installId = authState.user?.primaryInstallId || deviceInstallId;
+  const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
+  const isAuthStatusPending = authState.loading || authState.status === "loading";
+  const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
   const [broadcastNotice, setBroadcastNotice] = useState({
     loading: false,
     message: null,
@@ -5193,12 +5354,13 @@ export default function App() {
   const isLiveSpecial3WordsMode =
     !isDailyPlay && phase === "playing" && specialRound?.type === DAILY_SPECIAL_MODE;
   const isSpecial3WordsMode = isDailySpecialMode || isLiveSpecial3WordsMode;
-  const desktopColumnDefaultFractions = isDailyPlay
-    ? DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS
-    : DESKTOP_COLUMN_DEFAULT_FRACTIONS;
-  const desktopColumnMinWidthsPx = isDailyPlay
-    ? DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX
-    : DESKTOP_COLUMN_MIN_WIDTHS_PX;
+  const desktopColumnBaseDefs = isDailyPlay
+    ? DAILY_DESKTOP_COLUMN_DEFS
+    : LIVE_DESKTOP_COLUMN_DEFS;
+  const desktopColumnDefaultOrder = desktopColumnBaseDefs.map((entry) => entry.id);
+  const desktopColumnBaseDefaultFractions = desktopColumnBaseDefs.map(
+    (entry) => entry.defaultFraction
+  );
   const desktopColumnStorageScope = isDailyPlay ? "daily_v2" : "live";
   const isDailySpecial3TutorialActive =
     phase === "playing" &&
@@ -5519,6 +5681,15 @@ export default function App() {
   useEffect(() => {
     isVibrationEnabledRef.current = isVibrationEnabled;
   }, [isVibrationEnabled]);
+  const desktopChatFontPx = Math.round(14 * chatDesktopFontScale * 10) / 10;
+  const desktopChatMetaFontPx = Math.round(11 * chatDesktopFontScale * 10) / 10;
+  const desktopChatMicroFontPx = Math.round(10 * chatDesktopFontScale * 10) / 10;
+  const desktopChatInputFontPx = Math.round(14 * chatDesktopFontScale * 10) / 10;
+  const desktopChatQuickReplyFontPx = Math.round(11 * chatDesktopFontScale * 10) / 10;
+  const desktopChatLineHeightPx = Math.round(desktopChatFontPx * 1.38 * 10) / 10;
+  const desktopChatMetaLineHeightPx = Math.round(desktopChatMetaFontPx * 1.4 * 10) / 10;
+  const desktopChatInputLineHeightPx = Math.round(desktopChatInputFontPx * 1.4 * 10) / 10;
+  const desktopChatScaleLabel = `${Math.round(chatDesktopFontScale * 100)}%`;
   useEffect(() => {
     if (typeof localStorage === "undefined") return;
     try {
@@ -5538,6 +5709,10 @@ export default function App() {
           soundMasterVolume: normalizeSoundMasterVolume(
             soundMasterVolume,
             SOUND_MASTER_VOLUME_DEFAULT
+          ),
+          chatDesktopFontScale: normalizeChatDesktopFontScale(
+            chatDesktopFontScale,
+            CHAT_DESKTOP_FONT_SCALE_DEFAULT
           ),
           vibration: isVibrationEnabled,
           tileLetterFont: persistedTheme.font,
@@ -5564,6 +5739,7 @@ export default function App() {
     soundGobbleEnabled,
     soundInvalidErrorEnabled,
     soundMasterVolume,
+    chatDesktopFontScale,
     isVibrationEnabled,
     tilePointsVisible,
     themeUnlocks,
@@ -5577,48 +5753,6 @@ export default function App() {
   useEffect(() => {
     roundIdRef.current = roundId;
   }, [roundId]);
-  useEffect(() => {
-    desktopColumnFractionsRef.current = desktopColumnFractions;
-  });
-  useEffect(() => {
-    const key = String(installId || "").trim();
-    if (!key) return;
-    const persisted = readDesktopColumnFractionsForInstall(
-      key,
-      desktopColumnStorageScope,
-      desktopColumnDefaultFractions
-    );
-    const normalized = normalizeDesktopColumnFractions(
-      persisted,
-      desktopColumnDefaultFractions
-    );
-    desktopColumnFractionsRef.current = normalized;
-    desktopColumnFractionsPersistSignatureRef.current = JSON.stringify(normalized);
-    desktopColumnFractionsHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
-    setDesktopColumnFractions((prev) =>
-      areDesktopFractionsEqual(prev, normalized) ? prev : normalized
-    );
-  }, [installId, desktopColumnDefaultFractions, desktopColumnStorageScope]);
-  useEffect(() => {
-    const key = String(installId || "").trim();
-    if (!key) return;
-    if (desktopColumnFractionsHydratedInstallIdRef.current !== `${desktopColumnStorageScope}:${key}`) {
-      return;
-    }
-    const normalized = normalizeDesktopColumnFractions(
-      desktopColumnFractionsRef.current,
-      desktopColumnDefaultFractions
-    );
-    const signature = JSON.stringify(normalized);
-    if (desktopColumnFractionsPersistSignatureRef.current === signature) return;
-    writeDesktopColumnFractionsForInstall(
-      key,
-      desktopColumnStorageScope,
-      normalized,
-      desktopColumnDefaultFractions
-    );
-    desktopColumnFractionsPersistSignatureRef.current = signature;
-  }, [installId, desktopColumnDefaultFractions, desktopColumnStorageScope]);
   useEffect(() => {
     return () => {
       if (rankingQueueTimerRef.current) {
@@ -5840,6 +5974,7 @@ export default function App() {
   const chatDesktopStickToBottomRef = useRef(true);
   const chatDesktopAutoScrollRafRef = useRef(null);
   const chatDesktopAutoScrollTimersRef = useRef([]);
+  const pendingDesktopChatFontScaleScrollRef = useRef(false);
   const desktopReactionDetailsCloseTimerRef = useRef(null);
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
@@ -6039,23 +6174,23 @@ export default function App() {
   }, [isSpecial3WordsMode]);
 
   useEffect(() => {
-    if (!isSpecial3WordsMode || phase !== "playing") {
+    if (!isLiveSpecial3WordsMode || phase !== "playing") {
       dailyTictocPlayedRef.current = false;
       return;
     }
     if (typeof tick !== "number") return;
-    if (tick > 5) {
+    if (tick > 3) {
       dailyTictocPlayedRef.current = false;
       return;
     }
-    if (tick === 5 && !dailyTictocPlayedRef.current) {
+    if (tick === 3 && !dailyTictocPlayedRef.current) {
       dailyTictocPlayedRef.current = true;
       playOneShotAudio(SFX_KEYS.tictoc, {
         cooldownKey: "dailyTictoc",
         eqKey: "countdownTick",
       });
     }
-  }, [isSpecial3WordsMode, phase, tick]);
+  }, [isLiveSpecial3WordsMode, phase, tick]);
 
   // drag souris
   const draggingRef = useRef(false);
@@ -6075,16 +6210,466 @@ export default function App() {
     bodyCursor: "",
     bodyUserSelect: "",
   });
-  const [desktopColumnFractions, setDesktopColumnFractions] = useState(() =>
-    normalizeDesktopColumnFractions(desktopColumnDefaultFractions, desktopColumnDefaultFractions)
+  const [desktopColumnOrder, setDesktopColumnOrder] = useState(() =>
+    normalizeDesktopColumnOrder(desktopColumnDefaultOrder, desktopColumnBaseDefs)
   );
+  const [desktopColumnDragId, setDesktopColumnDragId] = useState(null);
+  const [desktopColumnHandleLayout, setDesktopColumnHandleLayout] = useState([]);
+  const [desktopColumnFractions, setDesktopColumnFractions] = useState(() =>
+    normalizeDesktopColumnFractions(
+      desktopColumnBaseDefaultFractions,
+      desktopColumnBaseDefaultFractions
+    )
+  );
+  const desktopColumnOrderHydratedInstallIdRef = useRef("");
+  const desktopColumnOrderPersistSignatureRef = useRef("");
+  const desktopColumnOrderRef = useRef(desktopColumnOrder);
+  const desktopColumnNodeMapRef = useRef(new Map());
+  const desktopColumnGhostNodeRef = useRef(null);
+  const desktopColumnGhostOffsetRef = useRef({ x: 0, y: 0 });
+  const desktopColumnPointerDragRef = useRef({
+    active: false,
+    pointerId: null,
+    lastClientX: null,
+    lastSwapDirection: null,
+    lastSwapClientX: null,
+    moveHandler: null,
+    upHandler: null,
+  });
   const desktopColumnFractionsRef = useRef(desktopColumnFractions);
   const desktopColumnFractionsHydratedInstallIdRef = useRef("");
   const desktopColumnFractionsPersistSignatureRef = useRef("");
   const [desktopColumnResizeActiveIndex, setDesktopColumnResizeActiveIndex] = useState(null);
   const [desktopViewportResizeInProgress, setDesktopViewportResizeInProgress] = useState(false);
   const desktopViewportResizeTimerRef = useRef(null);
+  const desktopColumnOrderSafe = React.useMemo(
+    () => normalizeDesktopColumnOrder(desktopColumnOrder, desktopColumnBaseDefs),
+    [desktopColumnOrder, desktopColumnBaseDefs]
+  );
+  const desktopColumnDefsByOrder = React.useMemo(
+    () =>
+      desktopColumnOrderSafe
+        .map((id) => desktopColumnBaseDefs.find((entry) => entry.id === id))
+        .filter(Boolean),
+    [desktopColumnOrderSafe, desktopColumnBaseDefs]
+  );
+  const desktopColumnDefaultFractions = React.useMemo(
+    () => desktopColumnDefsByOrder.map((entry) => entry.defaultFraction),
+    [desktopColumnDefsByOrder]
+  );
+  const desktopColumnMinWidthsPx = React.useMemo(
+    () => desktopColumnDefsByOrder.map((entry) => entry.minWidthPx),
+    [desktopColumnDefsByOrder]
+  );
+  const desktopColumnOrderIndexById = React.useMemo(
+    () => new Map(desktopColumnOrderSafe.map((id, idx) => [id, idx + 1])),
+    [desktopColumnOrderSafe]
+  );
+  const desktopColumnHandleLabels = React.useMemo(
+    () =>
+      new Map([
+        ["players", "joueurs"],
+        ["grid", "grille"],
+        ["side", "score et résultats"],
+        ["chat", "chat"],
+      ]),
+    []
+  );
+  const areDesktopColumnOrdersEqual = React.useCallback((left, right) => {
+    if (left === right) return true;
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+      if (left[index] !== right[index]) return false;
+    }
+    return true;
+  }, []);
+  const areDesktopHandleLayoutsEqual = React.useCallback((left, right) => {
+    if (left === right) return true;
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+      const a = left[index];
+      const b = right[index];
+      if (
+        !a ||
+        !b ||
+        a.id !== b.id ||
+        a.label !== b.label ||
+        Math.abs((a.left || 0) - (b.left || 0)) > 0.5 ||
+        Math.abs((a.top || 0) - (b.top || 0)) > 0.5
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }, []);
+  const setDesktopColumnNode = React.useCallback((columnId, node) => {
+    const id = String(columnId || "").trim();
+    if (!id) return;
+    if (node) desktopColumnNodeMapRef.current.set(id, node);
+    else desktopColumnNodeMapRef.current.delete(id);
+  }, []);
+  const clearDesktopColumnDragState = React.useCallback(() => {
+    const dragState = desktopColumnPointerDragRef.current;
+    if (dragState.moveHandler) {
+      window.removeEventListener("pointermove", dragState.moveHandler);
+      dragState.moveHandler = null;
+    }
+    if (dragState.upHandler) {
+      window.removeEventListener("pointerup", dragState.upHandler);
+      window.removeEventListener("pointercancel", dragState.upHandler);
+      dragState.upHandler = null;
+    }
+    if (typeof document !== "undefined" && document.body) {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    }
+    dragState.active = false;
+    dragState.pointerId = null;
+    dragState.lastClientX = null;
+    dragState.lastSwapDirection = null;
+    dragState.lastSwapClientX = null;
+    if (desktopColumnGhostNodeRef.current?.parentNode) {
+      desktopColumnGhostNodeRef.current.parentNode.removeChild(desktopColumnGhostNodeRef.current);
+    }
+    desktopColumnGhostNodeRef.current = null;
+    setDesktopColumnDragId(null);
+  }, []);
+  const computeDesktopColumnOrderForPointer = React.useCallback(
+    (dragId, clientX, movingLeft) => {
+      const sourceId = String(dragId || "").trim();
+      if (!sourceId) {
+        return normalizeDesktopColumnOrder(desktopColumnOrderRef.current, desktopColumnBaseDefs);
+      }
+      const current = normalizeDesktopColumnOrder(desktopColumnOrderRef.current, desktopColumnBaseDefs);
+      const sourceIndex = current.indexOf(sourceId);
+      if (sourceIndex < 0) {
+        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+      }
+      const sourceRect = desktopColumnNodeMapRef.current.get(sourceId)?.getBoundingClientRect?.();
+      if (
+        !sourceRect ||
+        !Number.isFinite(sourceRect.left) ||
+        !Number.isFinite(sourceRect.right)
+      ) {
+        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+      }
+      if (movingLeft) {
+        if (sourceIndex <= 0) return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+        const previousId = current[sourceIndex - 1];
+        const previousRect =
+          desktopColumnNodeMapRef.current.get(previousId)?.getBoundingClientRect?.();
+        if (
+          !previousRect ||
+          !Number.isFinite(previousRect.right) ||
+          !Number.isFinite(previousRect.left)
+        ) {
+          return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+        }
+        const separatorX = (previousRect.right + sourceRect.left) / 2;
+        if (clientX >= separatorX) {
+          return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+        }
+        const next = [...current];
+        next[sourceIndex - 1] = sourceId;
+        next[sourceIndex] = previousId;
+        return normalizeDesktopColumnOrder(next, desktopColumnBaseDefs);
+      }
+      if (sourceIndex >= current.length - 1) {
+        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+      }
+      const nextId = current[sourceIndex + 1];
+      const nextRect = desktopColumnNodeMapRef.current.get(nextId)?.getBoundingClientRect?.();
+      if (!nextRect || !Number.isFinite(nextRect.left) || !Number.isFinite(nextRect.right)) {
+        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+      }
+      const separatorX = (sourceRect.right + nextRect.left) / 2;
+      if (clientX <= separatorX) {
+        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
+      }
+      const next = [...current];
+      next[sourceIndex] = nextId;
+      next[sourceIndex + 1] = sourceId;
+      return normalizeDesktopColumnOrder(next, desktopColumnBaseDefs);
+    },
+    [desktopColumnBaseDefs]
+  );
+  const handleDesktopColumnPointerDown = React.useCallback(
+    (event, columnId, label) => {
+      if (isMobileLayoutRef.current) return;
+      if (event.button !== 0) return;
+      const id = String(columnId || "").trim();
+      if (!id) return;
+      const node = desktopColumnNodeMapRef.current.get(id);
+      const rect = node?.getBoundingClientRect?.();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      clearDesktopColumnDragState();
+      if (typeof document !== "undefined" && document.body) {
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = "grabbing";
+      }
+      const ghostNode =
+        typeof document !== "undefined" ? node.cloneNode(true) : null;
+      if (ghostNode instanceof HTMLElement && typeof document !== "undefined") {
+        ghostNode.setAttribute("aria-hidden", "true");
+        ghostNode.style.position = "fixed";
+        ghostNode.style.left = "0";
+        ghostNode.style.top = "0";
+        ghostNode.style.width = `${rect.width}px`;
+        ghostNode.style.height = `${rect.height}px`;
+        ghostNode.style.margin = "0";
+        ghostNode.style.pointerEvents = "none";
+        ghostNode.style.zIndex = "120";
+        ghostNode.style.overflow = "hidden";
+        ghostNode.style.opacity = "0.92";
+        ghostNode.style.boxShadow = "0 24px 54px rgba(15, 23, 42, 0.28)";
+        ghostNode.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) rotate(1deg)`;
+        ghostNode.style.willChange = "transform";
+        ghostNode.style.borderColor = "rgba(59,130,246,0.72)";
+        ghostNode.style.transition = "none";
+        document.body.appendChild(ghostNode);
+        desktopColumnGhostNodeRef.current = ghostNode;
+      }
+      desktopColumnGhostOffsetRef.current = {
+        x: Math.max(0, event.clientX - rect.left),
+        y: Math.max(0, event.clientY - rect.top),
+      };
+      setDesktopColumnDragId(id);
+      const dragState = desktopColumnPointerDragRef.current;
+      dragState.active = true;
+      dragState.pointerId = event.pointerId;
+      dragState.lastClientX = Number.isFinite(event.clientX) ? event.clientX : null;
+      dragState.lastSwapDirection = null;
+      dragState.lastSwapClientX = null;
+      dragState.moveHandler = (moveEvent) => {
+        if (!desktopColumnPointerDragRef.current.active) return;
+        const clientX = Number(moveEvent.clientX);
+        const clientY = Number(moveEvent.clientY);
+        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
+        const previousClientX = desktopColumnPointerDragRef.current.lastClientX;
+        const deltaX = Number.isFinite(previousClientX) ? clientX - previousClientX : 0;
+        const movingLeft =
+          Number.isFinite(previousClientX) && deltaX < -0.5;
+        const movingRight =
+          Number.isFinite(previousClientX) && deltaX > 0.5;
+        desktopColumnPointerDragRef.current.lastClientX = clientX;
+        const ghost = desktopColumnGhostNodeRef.current;
+        if (ghost) {
+          ghost.style.transform = `translate3d(${
+            clientX - desktopColumnGhostOffsetRef.current.x
+          }px, ${clientY - desktopColumnGhostOffsetRef.current.y}px, 0) rotate(1deg)`;
+        }
+        if (!movingLeft && !movingRight) return;
+        const direction = movingLeft ? "left" : "right";
+        const lastSwapDirection = desktopColumnPointerDragRef.current.lastSwapDirection;
+        const lastSwapClientX = desktopColumnPointerDragRef.current.lastSwapClientX;
+        if (
+          lastSwapDirection &&
+          lastSwapDirection !== direction &&
+          Number.isFinite(lastSwapClientX) &&
+          Math.abs(clientX - lastSwapClientX) < 14
+        ) {
+          return;
+        }
+        const currentOrder = normalizeDesktopColumnOrder(
+          desktopColumnOrderRef.current,
+          desktopColumnBaseDefs
+        );
+        const nextOrder = computeDesktopColumnOrderForPointer(id, clientX, movingLeft);
+        const didSwap = !areDesktopColumnOrdersEqual(currentOrder, nextOrder);
+        if (didSwap) {
+          desktopColumnOrderRef.current = nextOrder;
+          desktopColumnPointerDragRef.current.lastSwapDirection = direction;
+          desktopColumnPointerDragRef.current.lastSwapClientX = clientX;
+        }
+        setDesktopColumnOrder((prev) => {
+          const normalizedPrev = normalizeDesktopColumnOrder(prev, desktopColumnBaseDefs);
+          return areDesktopColumnOrdersEqual(normalizedPrev, nextOrder) ? prev : nextOrder;
+        });
+      };
+      dragState.upHandler = () => {
+        clearDesktopColumnDragState();
+      };
+      window.addEventListener("pointermove", dragState.moveHandler);
+      window.addEventListener("pointerup", dragState.upHandler);
+      window.addEventListener("pointercancel", dragState.upHandler);
+    },
+    [
+      areDesktopColumnOrdersEqual,
+      clearDesktopColumnDragState,
+      computeDesktopColumnOrderForPointer,
+      desktopColumnBaseDefs,
+    ]
+  );
+  const renderDesktopColumnHandle = React.useCallback(
+    (columnId, label) => {
+      if (isMobileLayout) return null;
+      const isDragging = desktopColumnDragId === columnId;
+      return (
+        <button
+          type="button"
+          onPointerDown={(event) => handleDesktopColumnPointerDown(event, columnId, label)}
+          className={`pointer-events-auto inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border px-2 shadow-sm transition ${
+            isDragging
+              ? "border-blue-500/80 bg-blue-600/85 text-white"
+              : darkMode
+              ? "border-slate-600/80 bg-slate-900/72 text-slate-100 hover:bg-slate-800/85"
+              : "border-slate-300/85 bg-white/72 text-slate-600 hover:bg-white/88"
+          }`}
+          aria-label={`Déplacer la colonne ${label}`}
+          title={`Déplacer la colonne ${label}`}
+        >
+          <span className="flex flex-col gap-[3px]" aria-hidden="true">
+            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
+            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
+            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
+          </span>
+        </button>
+      );
+    },
+    [
+      darkMode,
+      desktopColumnDragId,
+      handleDesktopColumnPointerDown,
+      isMobileLayout,
+    ]
+  );
   const [desktopGridMetrics, setDesktopGridMetrics] = useState({ width: 0, gapPx: 24 });
+  useEffect(() => {
+    desktopColumnOrderRef.current = desktopColumnOrderSafe;
+  }, [desktopColumnOrderSafe]);
+  useLayoutEffect(() => {
+    if (isMobileLayout || typeof window === "undefined") {
+      setDesktopColumnHandleLayout((prev) => (prev.length ? [] : prev));
+      return undefined;
+    }
+    let rafId = 0;
+    const measure = () => {
+      const next = desktopColumnOrderSafe
+        .map((id) => {
+          const node = desktopColumnNodeMapRef.current.get(id);
+          const rect = node?.getBoundingClientRect?.();
+          if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+          return {
+            id,
+            label: desktopColumnHandleLabels.get(id) || id,
+            left: rect.left + rect.width / 2,
+            top: rect.top,
+          };
+        })
+        .filter(Boolean);
+      setDesktopColumnHandleLayout((prev) =>
+        areDesktopHandleLayoutsEqual(prev, next) ? prev : next
+      );
+    };
+    const scheduleMeasure = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleMeasure) : null;
+    if (mainGridDesktopRef.current) observer?.observe(mainGridDesktopRef.current);
+    desktopColumnOrderSafe.forEach((id) => {
+      const node = desktopColumnNodeMapRef.current.get(id);
+      if (node) observer?.observe(node);
+    });
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+    window.addEventListener("scroll", scheduleMeasure, true);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      observer?.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
+      window.removeEventListener("scroll", scheduleMeasure, true);
+    };
+  }, [
+    areDesktopHandleLayoutsEqual,
+    desktopColumnHandleLabels,
+    desktopColumnOrderSafe,
+    isMobileLayout,
+  ]);
+  useEffect(() => {
+    if (!isMobileLayout) return undefined;
+    clearDesktopColumnDragState();
+    return undefined;
+  }, [clearDesktopColumnDragState, isMobileLayout]);
+  useEffect(() => () => clearDesktopColumnDragState(), [clearDesktopColumnDragState]);
+  useEffect(() => {
+    const key = String(installId || "").trim();
+    if (!key) return;
+    const persisted = readDesktopColumnOrderForInstall(
+      key,
+      desktopColumnStorageScope,
+      desktopColumnBaseDefs
+    );
+    const normalized = normalizeDesktopColumnOrder(persisted, desktopColumnBaseDefs);
+    desktopColumnOrderPersistSignatureRef.current = JSON.stringify(normalized);
+    desktopColumnOrderHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
+    setDesktopColumnOrder((prev) => {
+      const prevNormalized = normalizeDesktopColumnOrder(prev, desktopColumnBaseDefs);
+      return JSON.stringify(prevNormalized) === JSON.stringify(normalized) ? prev : normalized;
+    });
+  }, [installId, desktopColumnBaseDefs, desktopColumnStorageScope]);
+  useEffect(() => {
+    const key = String(installId || "").trim();
+    if (!key) return;
+    if (desktopColumnOrderHydratedInstallIdRef.current !== `${desktopColumnStorageScope}:${key}`) {
+      return;
+    }
+    const normalized = normalizeDesktopColumnOrder(desktopColumnOrder, desktopColumnBaseDefs);
+    const signature = JSON.stringify(normalized);
+    if (desktopColumnOrderPersistSignatureRef.current === signature) return;
+    writeDesktopColumnOrderForInstall(
+      key,
+      desktopColumnStorageScope,
+      normalized,
+      desktopColumnBaseDefs
+    );
+    desktopColumnOrderPersistSignatureRef.current = signature;
+  }, [installId, desktopColumnOrder, desktopColumnBaseDefs, desktopColumnStorageScope]);
+  useEffect(() => {
+    desktopColumnFractionsRef.current = desktopColumnFractions;
+  }, [desktopColumnFractions]);
+  useEffect(() => {
+    const key = String(installId || "").trim();
+    if (!key) return;
+    const persisted = readDesktopColumnFractionsForInstall(
+      key,
+      desktopColumnStorageScope,
+      desktopColumnDefaultFractions
+    );
+    const normalized = normalizeDesktopColumnFractions(
+      persisted,
+      desktopColumnDefaultFractions
+    );
+    desktopColumnFractionsRef.current = normalized;
+    desktopColumnFractionsPersistSignatureRef.current = JSON.stringify(normalized);
+    desktopColumnFractionsHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
+    setDesktopColumnFractions((prev) =>
+      areDesktopFractionsEqual(prev, normalized) ? prev : normalized
+    );
+  }, [installId, desktopColumnDefaultFractions, desktopColumnStorageScope]);
+  useEffect(() => {
+    const key = String(installId || "").trim();
+    if (!key) return;
+    if (desktopColumnFractionsHydratedInstallIdRef.current !== `${desktopColumnStorageScope}:${key}`) {
+      return;
+    }
+    const normalized = normalizeDesktopColumnFractions(
+      desktopColumnFractionsRef.current,
+      desktopColumnDefaultFractions
+    );
+    const signature = JSON.stringify(normalized);
+    if (desktopColumnFractionsPersistSignatureRef.current === signature) return;
+    writeDesktopColumnFractionsForInstall(
+      key,
+      desktopColumnStorageScope,
+      normalized,
+      desktopColumnDefaultFractions
+    );
+    desktopColumnFractionsPersistSignatureRef.current = signature;
+  }, [installId, desktopColumnFractions, desktopColumnDefaultFractions, desktopColumnStorageScope]);
   const [playColumnHeight, setPlayColumnHeight] = useState(null);
   const [countdownHeight, setCountdownHeight] = useState(0);
   const [previewHeight, setPreviewHeight] = useState(0);
@@ -6406,6 +6991,104 @@ export default function App() {
       startVoiceCount(key, duration);
     }
     return handle;
+  }
+
+  function shouldUseCombinedScoreSfx() {
+    return !!isMobileLayout;
+  }
+
+  function getCombinedScoreBuffer(primaryKey, pianoKey) {
+    const system = getAudioSystem();
+    if (!system?.ctx || !primaryKey || !pianoKey) return null;
+    const ctx = system.ctx;
+    const cache = combinedScoreBufferCacheRef.current;
+    if (cache.ctx !== ctx) {
+      cache.ctx = ctx;
+      cache.buffers = new Map();
+    }
+    const cacheKey = `${primaryKey}|${pianoKey}`;
+    if (cache.buffers.has(cacheKey)) return cache.buffers.get(cacheKey) || null;
+
+    const primaryBuffer = AssetManager.getSfxBuffer(primaryKey);
+    const pianoBuffer = AssetManager.getSfxBuffer(pianoKey);
+    if (!primaryBuffer || !pianoBuffer) return null;
+
+    const primarySettings = resolveSoundSettings("score");
+    const pianoSettings = resolveSoundSettings("score2");
+    const primaryRate = Math.max(
+      0.01,
+      (primarySettings.pitch ?? 1) * (primarySettings.stretch ?? 1)
+    );
+    const pianoRate = Math.max(
+      0.01,
+      (pianoSettings.pitch ?? 1) * (pianoSettings.stretch ?? 1)
+    );
+    const primaryGain = Number.isFinite(primarySettings.volume) ? primarySettings.volume : 1;
+    const pianoGain = Number.isFinite(pianoSettings.volume) ? pianoSettings.volume : 1;
+    const channelCount = Math.max(
+      1,
+      primaryBuffer.numberOfChannels || 1,
+      pianoBuffer.numberOfChannels || 1
+    );
+    const outDuration = Math.max(
+      primaryBuffer.duration / primaryRate,
+      pianoBuffer.duration / pianoRate
+    );
+    const outLength = Math.max(1, Math.ceil(outDuration * ctx.sampleRate));
+    const mixed = ctx.createBuffer(channelCount, outLength, ctx.sampleRate);
+
+    const mixLayer = (buffer, rate, gain) => {
+      const srcRateScale = (buffer.sampleRate || ctx.sampleRate) / ctx.sampleRate;
+      for (let ch = 0; ch < channelCount; ch += 1) {
+        const srcData = buffer.getChannelData(Math.min(ch, buffer.numberOfChannels - 1));
+        const dstData = mixed.getChannelData(ch);
+        for (let i = 0; i < outLength; i += 1) {
+          const srcPos = i * rate * srcRateScale;
+          const baseIndex = Math.floor(srcPos);
+          if (baseIndex >= srcData.length) break;
+          const nextIndex = Math.min(srcData.length - 1, baseIndex + 1);
+          const frac = srcPos - baseIndex;
+          const sample = srcData[baseIndex] + (srcData[nextIndex] - srcData[baseIndex]) * frac;
+          dstData[i] += sample * gain;
+        }
+      }
+    };
+
+    mixLayer(primaryBuffer, primaryRate, primaryGain);
+    mixLayer(pianoBuffer, pianoRate, pianoGain);
+
+    for (let ch = 0; ch < channelCount; ch += 1) {
+      const data = mixed.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 1) {
+        data[i] = clampValue(data[i], -1, 1);
+      }
+    }
+
+    cache.buffers.set(cacheKey, mixed);
+    return mixed;
+  }
+
+  function playCombinedScoreSound(primaryKey, pianoKey) {
+    const system = getAudioSystem();
+    if (!system?.ctx || !system.busIn) return false;
+    const buffer = getCombinedScoreBuffer(primaryKey, pianoKey);
+    if (!buffer) return false;
+    const source = system.ctx.createBufferSource();
+    const gainNode = system.ctx.createGain();
+    source.buffer = buffer;
+    gainNode.gain.value = 1;
+    source.connect(gainNode);
+    gainNode.connect(system.busIn);
+    source.onended = () => {
+      try {
+        source.disconnect();
+      } catch (_) {}
+      try {
+        gainNode.disconnect();
+      } catch (_) {}
+    };
+    source.start();
+    return true;
   }
 
   function fadeAudioVolume(audio, targetVolume, durationMs = 800) {
@@ -7313,7 +7996,7 @@ export default function App() {
       vv?.removeEventListener("resize", scheduleViewportLockUpdate);
       if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
-  }, [isMobileLayout, phase, isChatOpenMobile, isChatClosing]);
+  }, [isMobileLayout, isChatOpenMobile, isChatClosing]);
 
   useEffect(() => {
     isChatOpenMobileRef.current = isChatOpenMobile;
@@ -7614,9 +8297,33 @@ export default function App() {
     });
   }, [clearDesktopChatAutoScroll]);
 
-  const ensureDesktopChatBottomVisible = React.useCallback(() => {
-    scheduleDesktopChatAutoScroll();
-  }, [scheduleDesktopChatAutoScroll]);
+  const handleChatDesktopFontScaleChange = React.useCallback((nextValue) => {
+    pendingDesktopChatFontScaleScrollRef.current = true;
+    chatDesktopStickToBottomRef.current = true;
+    setChatDesktopFontScale(
+      normalizeChatDesktopFontScale(nextValue, CHAT_DESKTOP_FONT_SCALE_DEFAULT)
+    );
+  }, []);
+
+  useEffect(() => {
+    if (isMobileLayout) return;
+    if (!pendingDesktopChatFontScaleScrollRef.current) return;
+    pendingDesktopChatFontScaleScrollRef.current = false;
+    scheduleDesktopChatAutoScroll({ force: true });
+  }, [chatDesktopFontScale, isMobileLayout, scheduleDesktopChatAutoScroll]);
+
+  const setChatDesktopListNode = React.useCallback(
+    (node) => {
+      chatDesktopListRef.current = node;
+      if (!node || typeof window === "undefined" || isMobileLayoutRef.current) return;
+      chatDesktopStickToBottomRef.current = true;
+      window.requestAnimationFrame(() => {
+        if (chatDesktopListRef.current !== node) return;
+        scheduleDesktopChatAutoScroll({ force: true });
+      });
+    },
+    [scheduleDesktopChatAutoScroll]
+  );
 
   useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
   useEffect(
@@ -8595,6 +9302,9 @@ export default function App() {
     const safePoints = Number.isFinite(points) ? Math.max(0, points) : 0;
     if (safePoints <= 2) {
       if (safePoints < 1) return;
+      if (shouldUseCombinedScoreSfx() && playCombinedScoreSound(SCORE_LOW_KEY, SCORE2_LOW_KEY)) {
+        return;
+      }
       // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
       playOneShotAudio(SCORE_LOW_KEY, {
         cooldownKey: "score",
@@ -8616,6 +9326,9 @@ export default function App() {
       ) || 0;
     const scoreKey = SCORE_SFX_KEYS[bandIndex] || SCORE_SFX_KEYS[0];
     const pianoKey = SCORE2_SFX_KEYS[bandIndex] || SCORE2_SFX_KEYS[0];
+    if (shouldUseCombinedScoreSfx() && playCombinedScoreSound(scoreKey, pianoKey)) {
+      return;
+    }
     // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
     const primaryHandle = playOneShotAudio(scoreKey, {
       cooldownKey: "score",
@@ -8808,6 +9521,10 @@ export default function App() {
   function triggerConfettiBurst(kind = "target") {
     if (typeof window === "undefined") return;
     const burstToken = ++confettiBurstTokenRef.current;
+    const isMobileFirefox =
+      isMobileLayoutRef.current &&
+      typeof navigator !== "undefined" &&
+      isFirefoxMobileUserAgent(navigator.userAgent || "");
 
     const rect = gridRef.current?.getBoundingClientRect?.();
     const origin = rect
@@ -8868,6 +9585,18 @@ export default function App() {
         shapes: ["circle"],
         colors: ["#ffffff"],
         ticks: 220,
+      });
+      return;
+    }
+
+    if (isMobileFirefox) {
+      fire(0.12, {
+        spread: 72,
+        startVelocity: 26,
+        scalar: 0.85,
+        shapes: ["circle"],
+        colors: ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"],
+        ticks: 90,
       });
       return;
     }
@@ -11753,6 +12482,7 @@ export default function App() {
     }
 
     const finalizeRound = () => {
+      tryAutoSubmitCurrentWordAtRoundEnd();
       playOutroThenResultsRef.current?.(null, { fallback: true });
     };
 
@@ -12816,6 +13546,341 @@ export default function App() {
     };
   }
 
+  function formatAuthError(errorCode) {
+    switch (String(errorCode || "")) {
+      case "username_required":
+        return "Pseudo requis.";
+      case "username_too_short":
+        return "3 caractères minimum.";
+      case "username_too_long":
+        return "25 caractères max.";
+      case "username_taken":
+      case "username_reserved":
+        return "Ce pseudo est déjà utilisé.";
+      case "password_required":
+        return "Mot de passe requis.";
+      case "password_too_short":
+        return "3 caractères minimum.";
+      case "password_too_long":
+        return "Mot de passe trop long.";
+      case "invalid_credentials":
+        return "Pseudo ou mot de passe incorrect.";
+      case "invalid_current_password":
+        return "Mot de passe actuel incorrect.";
+      case "email_invalid":
+        return "Adresse email invalide.";
+      case "legacy_claim_required":
+        return "Ton profil historique a été reconnu. Sécurise-le d'abord.";
+      case "legacy_profile_not_found":
+        return "Profil historique introuvable.";
+      case "legacy_profile_already_claimed":
+        return "Ce profil est déjà sécurisé.";
+      case "device_linked_to_other_account":
+        return "Cet appareil est déjà lié à un autre compte.";
+      case "too_many_attempts":
+        return "Réessaie dans quelques secondes.";
+      case "auth_required":
+        return "Connecte-toi pour continuer.";
+      case "install_id_required":
+        return "Identifiant appareil manquant.";
+      default:
+        return "Une erreur est survenue.";
+    }
+  }
+
+  async function postAuthJson(url, payload = null, { method = "POST" } = {}) {
+    const res = await fetch(url, {
+      method,
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        ...(payload !== null ? { "Content-Type": "application/json" } : {}),
+      },
+      body: payload !== null ? JSON.stringify(payload) : undefined,
+    });
+    const parsed = await readJsonResponseLoose(res);
+    return {
+      ok: !!(res.ok && parsed?.data && typeof parsed.data === "object" && parsed.data.ok !== false),
+      status: res.status,
+      data: parsed?.data && typeof parsed.data === "object" ? parsed.data : null,
+    };
+  }
+
+  function buildAuthFormForMode(mode) {
+    const defaultUsername =
+      mode === AUTH_MODAL_MODES.CLAIM_LEGACY
+        ? legacyProfileUsername
+        : normalizeAuthUsernameInput(
+            authState.user?.usernameDisplay || authState.legacyProfile?.usernameDisplay || nickname || ""
+          );
+    return createEmptyAuthForm({
+      username: defaultUsername,
+      email: authState.user?.email || "",
+    });
+  }
+
+  function openAuthDialog(mode) {
+    setAuthModalMode(mode);
+    setAuthError("");
+    setAuthInfo("");
+    setAuthForm(buildAuthFormForMode(mode));
+  }
+
+  function closeAuthDialog() {
+    if (authSubmitting) return;
+    setAuthModalMode(null);
+    setAuthError("");
+    setAuthInfo("");
+  }
+
+  async function refreshAuthStatus({ silent = false } = {}) {
+    if (!silent) {
+      setAuthState((prev) => ({ ...prev, loading: true }));
+    }
+    try {
+      const response = await postAuthJson(AUTH_STATUS_ENDPOINT, { installId: deviceInstallId });
+      const payload = response.data || {};
+      if (response.ok && payload.status === "authenticated" && payload.user) {
+        setAuthState({
+          loading: false,
+          status: "authenticated",
+          user: payload.user,
+          legacyProfile: null,
+        });
+        return payload;
+      }
+      if (response.ok && payload.status === "legacy_profile_found" && payload.legacyProfile) {
+        setAuthState({
+          loading: false,
+          status: "legacy_profile_found",
+          user: null,
+          legacyProfile: payload.legacyProfile,
+        });
+        return payload;
+      }
+      if (response.ok && payload.status === "login_required") {
+        setAuthState({
+          loading: false,
+          status: "login_required",
+          user: payload.user || null,
+          legacyProfile: null,
+        });
+        return payload;
+      }
+      setAuthState({
+        loading: false,
+        status: "no_account",
+        user: null,
+        legacyProfile: null,
+      });
+      return payload;
+    } catch (_) {
+      setAuthState((prev) => ({
+        loading: false,
+        status: prev?.status && prev.status !== "loading" ? prev.status : "no_account",
+        user: prev?.user || null,
+        legacyProfile: prev?.legacyProfile || null,
+      }));
+      return null;
+    }
+  }
+
+  function ensureAuthenticated({ source = "action" } = {}) {
+    if (isAuthStatusPending) {
+      const message = "Vérification du profil...";
+      setAccountNotice(message);
+      if (source === "live") {
+        setLoginError(message);
+      } else if (source === "daily") {
+        setDailyStartError(message);
+      }
+      return false;
+    }
+    if (isAccountAuthenticated) {
+      if (authState.user?.mustResetPassword) {
+        setAccountNotice("");
+        openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
+        return false;
+      }
+      return true;
+    }
+    const nextMode =
+      authState.status === "legacy_profile_found"
+        ? AUTH_MODAL_MODES.CLAIM_LEGACY
+        : authState.status === "login_required"
+        ? AUTH_MODAL_MODES.LOGIN
+        : AUTH_MODAL_MODES.REGISTER;
+    openAuthDialog(nextMode);
+    if (source === "live") {
+      setLoginError("Connecte-toi pour continuer.");
+    } else if (source === "daily") {
+      setDailyStartError("Connecte-toi pour continuer.");
+    }
+    return false;
+  }
+
+  async function submitAuthDialog() {
+    if (!authModalMode) return;
+    const username = normalizeAuthUsernameInput(authForm.username);
+    const password = String(authForm.password || "");
+    const confirmPassword = String(authForm.confirmPassword || "");
+    const currentPassword = String(authForm.currentPassword || "");
+    const email = String(authForm.email || "").trim();
+
+    if (
+      (authModalMode === AUTH_MODAL_MODES.REGISTER ||
+        authModalMode === AUTH_MODAL_MODES.CLAIM_LEGACY ||
+        authModalMode === AUTH_MODAL_MODES.CHANGE_PASSWORD) &&
+      password !== confirmPassword
+    ) {
+      setAuthError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+
+    setAuthSubmitting(true);
+    setAuthError("");
+    setAuthInfo("");
+    setAccountNotice("");
+
+    try {
+      let response = null;
+      if (authModalMode === AUTH_MODAL_MODES.LOGIN) {
+        response = await postAuthJson("/api/auth/login", {
+          username,
+          password,
+          installId: deviceInstallId,
+        });
+      } else if (authModalMode === AUTH_MODAL_MODES.REGISTER) {
+        response = await postAuthJson("/api/auth/register", {
+          username,
+          password,
+          email: email || null,
+          installId: deviceInstallId,
+        });
+      } else if (authModalMode === AUTH_MODAL_MODES.CLAIM_LEGACY) {
+        response = await postAuthJson("/api/auth/claim-legacy", {
+          installId: deviceInstallId,
+          password,
+          email: email || null,
+        });
+      } else if (authModalMode === AUTH_MODAL_MODES.CHANGE_PASSWORD) {
+        response = await postAuthJson("/api/auth/change-password", {
+          currentPassword,
+          newPassword: password,
+        });
+      }
+
+      const payload = response?.data || {};
+      if (!response?.ok) {
+        const mappedError = formatAuthError(payload?.error);
+        setAuthError(mappedError);
+        if (payload?.error === "legacy_claim_required") {
+          await refreshAuthStatus({ silent: true });
+          setAuthModalMode(AUTH_MODAL_MODES.CLAIM_LEGACY);
+          setAuthForm(buildAuthFormForMode(AUTH_MODAL_MODES.CLAIM_LEGACY));
+        }
+        return;
+      }
+
+      if (authModalMode === AUTH_MODAL_MODES.CHANGE_PASSWORD) {
+        const nextUser = payload?.user || authState.user;
+        setAuthState({
+          loading: false,
+          status: "authenticated",
+          user: nextUser,
+          legacyProfile: null,
+        });
+        setAccountNotice("Mot de passe mis à jour.");
+        setAuthModalMode(null);
+        setAuthForm(createEmptyAuthForm());
+        return;
+      }
+
+      if (payload?.user) {
+        setAuthState({
+          loading: false,
+          status: "authenticated",
+          user: payload.user,
+          legacyProfile: null,
+        });
+        setNickname(payload.user.usernameDisplay || "");
+        try {
+          localStorage.setItem("boggle_nick", payload.user.usernameDisplay || "");
+        } catch (_) {}
+      }
+      setAuthModalMode(null);
+      setAuthForm(createEmptyAuthForm());
+      setAccountNotice(
+        authModalMode === AUTH_MODAL_MODES.CLAIM_LEGACY
+          ? "Profil sécurisé."
+          : authModalMode === AUTH_MODAL_MODES.REGISTER
+          ? "Compte créé."
+          : "Connexion réussie."
+      );
+    } catch (_) {
+      setAuthError("Impossible de joindre le serveur.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  async function handleAccountLogout() {
+    try {
+      await postAuthJson("/api/auth/logout", {});
+    } catch (_) {}
+    if (isLoggedIn) {
+      returnToLobby();
+    }
+    setAuthState({
+      loading: false,
+      status: "no_account",
+      user: null,
+      legacyProfile: null,
+    });
+    setAccountNotice("Déconnecté.");
+    closeAuthDialog();
+  }
+
+  useEffect(() => {
+    void refreshAuthStatus();
+  }, [deviceInstallId]);
+
+  useEffect(() => {
+    if (
+      authState.status !== "legacy_profile_found" ||
+      !authState.legacyProfile ||
+      (authModalMode !== AUTH_MODAL_MODES.REGISTER && authModalMode !== AUTH_MODAL_MODES.LOGIN)
+    ) {
+      return;
+    }
+    setAuthError("");
+    setAuthInfo("");
+    setAuthModalMode(AUTH_MODAL_MODES.CLAIM_LEGACY);
+    setAuthForm(buildAuthFormForMode(AUTH_MODAL_MODES.CLAIM_LEGACY));
+  }, [
+    authModalMode,
+    authState.legacyProfile,
+    authState.status,
+  ]);
+
+  useEffect(() => {
+    const accountUsername = String(authState.user?.usernameDisplay || "").trim();
+    if (!isAccountAuthenticated || !accountUsername) return;
+    if (isLoggedIn) return;
+    if (nickname !== accountUsername) {
+      setNickname(accountUsername);
+    }
+    try {
+      localStorage.setItem("boggle_nick", accountUsername);
+    } catch (_) {}
+  }, [authState.user?.usernameDisplay, isAccountAuthenticated, isLoggedIn, nickname]);
+
+  useEffect(() => {
+    if (!isAccountAuthenticated || !authState.user?.mustResetPassword) return;
+    if (authModalMode === AUTH_MODAL_MODES.CHANGE_PASSWORD) return;
+    openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
+  }, [authModalMode, authState.user?.mustResetPassword, isAccountAuthenticated]);
+
   function emitSocketAck(eventName, payload, { timeoutMs = 6500 } = {}) {
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -12913,6 +13978,9 @@ export default function App() {
 
   async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     requestAudioUnlock(e);
+    if (!ensureAuthenticated({ source: "daily" })) {
+      return;
+    }
     const pseudo = String(nickname || "").trim();
     if (!pseudo) {
       setDailyStartError("Pseudo requis");
@@ -14895,6 +15963,9 @@ export default function App() {
 
   function handleLogin(e) {
     if (e) e.preventDefault();
+    if (!ensureAuthenticated({ source: "live" })) {
+      return;
+    }
     const nick = nickname.trim();
     if (!nick) {
       setLoginError("Choisis un pseudo");
@@ -15532,9 +16603,7 @@ export default function App() {
     chatHistoryIndexRef.current = idx;
     const nextValue = idx === -1 ? "" : hist[idx] || "";
     setChatInput(nextValue);
-    if (chatInputRef.current) {
-      chatInputRef.current.focus();
-    }
+    focusChatInput();
   }
 
   function normalizeInstallId(raw) {
@@ -16499,8 +17568,21 @@ export default function App() {
    */
   useEffect(() => {
     function onKey(e) {
+      const target = e.target;
+      const targetElement = target instanceof HTMLElement ? target : null;
+      const authDialogOpen = !!authModalMode;
+      const authDialogFocused =
+        !!targetElement?.closest?.("[data-auth-dialog='true']") ||
+        !!(
+          document.activeElement instanceof HTMLElement &&
+          document.activeElement.closest?.("[data-auth-dialog='true']")
+        );
+
       // Tab : bascule jeu <-> chat
       if (e.key === "Tab") {
+        if (authDialogOpen || authDialogFocused) {
+          return;
+        }
         e.preventDefault();
 
         setActiveArea((prev) => {
@@ -16508,9 +17590,7 @@ export default function App() {
 
           if (next === "chat") {
             setTimeout(() => {
-              if (chatInputRef.current) {
-                chatInputRef.current.focus();
-              }
+              focusChatInput();
             }, 0);
           } else {
             if (document.activeElement instanceof HTMLElement) {
@@ -16529,12 +17609,12 @@ export default function App() {
       if (phase !== "playing") return;
       if (inputLockedRef.current) return;
 
-      const target = e.target;
-      const tag = target.tagName;
+      const tag = target?.tagName;
       if (
         tag === "INPUT" ||
         tag === "TEXTAREA" ||
-        target.isContentEditable
+        tag === "SELECT" ||
+        target?.isContentEditable
       ) {
         return;
       }
@@ -16570,7 +17650,7 @@ export default function App() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeArea, phase, board, dictionary, submit]);
+  }, [activeArea, authModalMode, phase, board, dictionary, submit]);
 
   function playDefeatTone(freqs = [280, 220], soundKey = "error") {
     if (isSfxMuted) return;
@@ -17184,17 +18264,19 @@ function handleTouchEnd(e) {
             force: isDoubleGobbleNow,
           });
           triggerConfettiBurst("gobble");
-        } else if (safePts > 29) {
-          triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
-        } else if (safePts > 19) {
-          triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
-        } else if (safePts > 9) {
-          triggerPraiseFlash("FABULEUX !", { kind: "purple" });
-        } else if (safePts > 5) {
-          triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
-        }
-        if (safePts >= BIG_SCORE_THRESHOLD) {
-          triggerBigScoreFlash(safePts);
+        } else if (!isSpeedRound) {
+          if (safePts > 29) {
+            triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
+          } else if (safePts > 19) {
+            triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
+          } else if (safePts > 9) {
+            triggerPraiseFlash("FABULEUX !", { kind: "purple" });
+          } else if (safePts > 5) {
+            triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
+          }
+          if (safePts >= BIG_SCORE_THRESHOLD) {
+            triggerBigScoreFlash(safePts);
+          }
         }
       }
     }
@@ -17403,17 +18485,19 @@ function handleTouchEnd(e) {
         force: isDoubleGobbleNow,
       });
       triggerConfettiBurst("gobble");
-    } else if (pts > 29) {
-      triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
-    } else if (pts > 19) {
-      triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
-    } else if (pts > 9) {
-      triggerPraiseFlash("FABULEUX !", { kind: "purple" });
-    } else if (pts > 5) {
-      triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
-    }
-    if (pts >= BIG_SCORE_THRESHOLD) {
-      triggerBigScoreFlash(pts);
+    } else if (!isSpeedRound) {
+      if (pts > 29) {
+        triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
+      } else if (pts > 19) {
+        triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
+      } else if (pts > 9) {
+        triggerPraiseFlash("FABULEUX !", { kind: "purple" });
+      } else if (pts > 5) {
+        triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
+      }
+      if (pts >= BIG_SCORE_THRESHOLD) {
+        triggerBigScoreFlash(pts);
+      }
     }
 
     setAccepted((prev) => {
@@ -17674,6 +18758,74 @@ function handleTouchEnd(e) {
     if (!scored) return error("Mot absent de la grille");
 
     applyLocalWordScoring({ raw, display, path: scored.path });
+  }
+
+  function tryAutoSubmitCurrentWordAtRoundEnd() {
+    if (isSpecial3WordsMode) return false;
+    if (foundTargetThisRound) return false;
+
+    const display = currentTilesRef.current.join("");
+    const raw = normalizeWord(display);
+    if (!raw || raw.length < 2) return false;
+    if (!dictionary || !dictionary.has(raw)) return false;
+    if (acceptedRef.current.includes(raw)) return false;
+    if (pendingWordsRef.current.has(raw)) return false;
+    if (submissionStatusRef.current.get(raw)?.status === "rejected") return false;
+
+    let path;
+    const touchContext =
+      lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
+    const usesManualPath = touchContext || lastInputMode === "mouse";
+
+    if (usesManualPath) {
+      path = highlightPath;
+      if (!Array.isArray(path) || path.length === 0) return false;
+    } else {
+      path = findBestPathForWord(board, raw, specialScoreConfig);
+      if (!path) return false;
+      setHighlightPath(path);
+    }
+
+    draggingRef.current = false;
+    dragGridMetricsRef.current = null;
+    resetDragMovePipeline();
+
+    if (roundId && socket.connected && isLoggedIn) {
+      const isTargetRoundNow =
+        specialRound?.type === "target_long" || specialRound?.type === "target_score";
+      const scored =
+        Array.isArray(path) && path.length > 0
+          ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
+          : null;
+      if (!scored) return false;
+      const optimisticPts = isTargetRoundNow
+        ? 0
+        : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
+        ? specialRound.fixedWordScore
+        : scored.pts;
+
+      enqueuePendingWord(raw, {
+        display: display || raw.toUpperCase(),
+        path,
+        optimisticPts,
+      });
+      scheduleBatchFlush({ immediate: true });
+      clearSelection();
+      return true;
+    }
+
+    if (roundId && (!socket.connected || !isLoggedIn)) {
+      return false;
+    }
+
+    const scored =
+      Array.isArray(path) && path.length > 0
+        ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
+        : null;
+    if (!scored) return false;
+
+    applyLocalWordScoring({ raw, display, path: scored.path });
+    return true;
   }
 
   function clearDailyWordSlot(slotIndex) {
@@ -18033,9 +19185,24 @@ function handleTouchEnd(e) {
       return /\s$/.test(base) ? `${base}${value}` : `${base} ${value}`;
     });
     setActiveArea("chat");
+    focusChatInput();
+  }
+
+  function focusChatInput(options = {}) {
+    const el = chatInputRef.current;
+    if (!el) return;
+    const preventScroll = options.preventScroll !== false;
     try {
-      chatInputRef.current?.focus();
-    } catch (_) {}
+      if (preventScroll) {
+        el.focus({ preventScroll: true });
+        return;
+      }
+      el.focus();
+    } catch (_) {
+      try {
+        el.focus();
+      } catch (_) {}
+    }
   }
 
   function setChatReplyTargetFromMessage(message) {
@@ -18055,9 +19222,7 @@ function handleTouchEnd(e) {
     setChatEditTarget(null);
     setChatReplyTarget(replyTo);
     setActiveArea("chat");
-    try {
-      chatInputRef.current?.focus();
-    } catch (_) {}
+    focusChatInput();
   }
 
   function clearChatReplyTarget() {
@@ -18076,9 +19241,7 @@ function handleTouchEnd(e) {
     setChatEditTarget({ id: messageId, text });
     setChatInput(text);
     setActiveArea("chat");
-    try {
-      chatInputRef.current?.focus();
-    } catch (_) {}
+    focusChatInput();
   }
 
   function clearChatEditTarget() {
@@ -18180,11 +19343,11 @@ function handleTouchEnd(e) {
 
   function submitChat(e, forcedText = null) {
     if (e) e.preventDefault();
-    const text = (forcedText ?? chatInput).trim();
-    if (!text) return;
+    const text = normalizeLegacyChatEmoticons(forcedText ?? chatInput).trim();
+    if (!text) return false;
     if (!chatRulesAccepted) {
       setIsChatRulesOpen(true);
-      return;
+      return false;
     }
 
     if (!socket.connected) {
@@ -18194,11 +19357,11 @@ function handleTouchEnd(e) {
       } else {
         setConnectionError("Connecte-toi au serveur pour envoyer un message.");
       }
-      return;
+      return false;
     }
 
     const now = Date.now();
-    if (now - chatLastSentRef.current < CHAT_MIN_DELAY) return;
+    if (now - chatLastSentRef.current < CHAT_MIN_DELAY) return false;
     chatLastSentRef.current = now;
 
     const activeEdit = chatEditTargetRef.current;
@@ -18217,7 +19380,7 @@ function handleTouchEnd(e) {
         const nickForLobby = (nicknameRef.current || nickname || "").trim();
         if (!nickForLobby) {
           setConnectionError("Choisis un pseudo pour discuter.");
-          return;
+          return false;
         }
         payload.nick = nickForLobby;
         payload.installId = installId;
@@ -18227,7 +19390,7 @@ function handleTouchEnd(e) {
       const nickForLobby = (nicknameRef.current || nickname || "").trim();
       if (!nickForLobby) {
         setConnectionError("Choisis un pseudo pour discuter.");
-        return;
+        return false;
       }
       payload = {
         text,
@@ -18272,6 +19435,7 @@ function handleTouchEnd(e) {
       pushChatHistory(text);
     }
     if (!forcedText) setChatInput("");
+    return true;
   }
 
   function handleChatInputFocus() {
@@ -22045,9 +23209,18 @@ function handleTouchEnd(e) {
   const tileFontPx = Math.max(14, Math.min(38, tileSizePx * 0.35 * fontScale));
   const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
   const special3PreviewIsSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
-  const renderSpecial3PreviewTiles = (wordValue, keyPrefix, pathValue = [], boardSource = null) => {
+  const renderSpecial3PreviewTiles = (
+    wordValue,
+    keyPrefix,
+    pathValue = [],
+    boardSource = null,
+    options = {}
+  ) => {
     const value = String(wordValue || "");
     if (!value) return null;
+    const align = options?.align === "left" ? "left" : "center";
+    const disableRotation = !!options?.disableRotation;
+    const edgePadding = !!options?.edgePadding;
     const safePath = Array.isArray(pathValue) ? pathValue : [];
     const previewBoard =
       Array.isArray(boardSource) && boardSource.length > 0 ? boardSource : boardForRender;
@@ -22075,10 +23248,14 @@ function handleTouchEnd(e) {
     const useRingIndicator = specialIndicatorPreset === "ring";
     const useBadgeIndicator = specialIndicatorPreset === "badge";
     return (
-      <div className="min-h-[28px] flex items-center">
-        <AutoScaleInline minScale={0.42} className="gap-1">
+      <div className="min-h-[28px] min-w-0 overflow-hidden flex items-center">
+        <AutoScaleInline
+          minScale={0.42}
+          align={align}
+          className={`gap-1 max-w-full ${edgePadding ? "px-1" : ""}`}
+        >
           {tiles.map((tile, idx) => {
-            const angle = ((idx * 17 + tiles.length * 13) % 11) - 5;
+            const angle = disableRotation ? 0 : ((idx * 17 + tiles.length * 13) % 11) - 5;
             const displayBonus = tile.bonus;
             const tileBaseClass =
               useFillIndicator && displayBonus ? BONUS_CLASSES[displayBonus] : defaultTileBaseClass;
@@ -22228,161 +23405,24 @@ function handleTouchEnd(e) {
 
   const countdownLines = [countdownLabel];
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
-  const roundIntroGridRect =
-    mobileRoundIntroActive && gridRef.current?.getBoundingClientRect
-      ? gridRef.current.getBoundingClientRect()
-      : null;
-  const roundIntroSquareSidePx =
-    roundIntroGridRect &&
-    Number.isFinite(roundIntroGridRect.left) &&
-    Number.isFinite(roundIntroGridRect.top) &&
-    Number.isFinite(roundIntroGridRect.width) &&
-    Number.isFinite(roundIntroGridRect.height)
-      ? Math.max(0, Math.round(Math.min(roundIntroGridRect.width, roundIntroGridRect.height)))
-      : 0;
-  const roundIntroSquareStyle =
-    roundIntroSquareSidePx > 0
-      ? {
-          left: `${Math.round(
-            roundIntroGridRect.left + (roundIntroGridRect.width - roundIntroSquareSidePx) / 2
-          )}px`,
-          top: `${Math.round(
-            roundIntroGridRect.top + (roundIntroGridRect.height - roundIntroSquareSidePx) / 2
-          )}px`,
-          width: `${roundIntroSquareSidePx}px`,
-          height: `${roundIntroSquareSidePx}px`,
-        }
-      : null;
-  const roundIntroCountdownFontPx = roundIntroSquareSidePx
-    ? clampValue(Math.round(roundIntroSquareSidePx * 0.45), 104, 260)
-    : 180;
-  const roundIntroGoFontPx = roundIntroSquareSidePx
-    ? clampValue(Math.round(roundIntroSquareSidePx * 0.19), 28, 108)
-    : 72;
-  const roundIntroGoldGradient =
-    "linear-gradient(180deg, #6f4300 0%, #f0b81e 16%, #fff4b5 30%, #d48a05 46%, #fff2aa 63%, #b16d00 80%, #fff8cf 100%)";
-  const roundIntroUseMobileTextTuning = isMobileLayout;
-  const roundIntroTitleGoldTextStyle = {
-    backgroundImage: roundIntroGoldGradient,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    color: "transparent",
-    WebkitTextFillColor: "transparent",
-    WebkitTextStroke: roundIntroUseMobileTextTuning
-      ? "0px transparent"
-      : "1px rgba(100,55,0,0.42)",
-    textShadow:
-      roundIntroUseMobileTextTuning
-        ? "0 1px 0 rgba(255,244,194,0.42), 0 2px 8px rgba(0,0,0,0.38)"
-        : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
-    position: "relative",
-    animation: "goldPulse 2.2s ease-in-out infinite",
-  };
-  const roundIntroCountdownGoldTextStyle = {
-    backgroundImage: roundIntroGoldGradient,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    color: "transparent",
-    WebkitTextFillColor: "transparent",
-    WebkitTextStroke: roundIntroUseMobileTextTuning
-      ? "0px transparent"
-      : "1px rgba(100,55,0,0.42)",
-    textShadow:
-      roundIntroUseMobileTextTuning
-        ? "0 1px 0 rgba(255,244,194,0.46), 0 3px 10px rgba(0,0,0,0.42), 0 0 10px rgba(255,210,85,0.2)"
-        : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
-    position: "relative",
-    filter: roundIntroUseMobileTextTuning
-      ? "drop-shadow(0 0 4px rgba(255,210,80,0.14))"
-      : "drop-shadow(0 0 8px rgba(255,210,80,0.18))",
-    opacity: 0.92,
-  };
-  const mobileRoundIntroShowsBackdrop =
-    isMobileLayout &&
-    (mobileRoundIntroStage === "results_fade_out" ||
-      mobileRoundIntroStage === "intro_fade_in");
-  const mobileRoundIntroBackdropClass =
-    mobileRoundIntroStage === "results_fade_out"
-      ? "mobile-round-intro-fade-to-black"
-      : mobileRoundIntroStage === "intro_fade_in"
-      ? "mobile-round-intro-fade-from-black"
-      : "mobile-round-intro-backdrop";
-  const mobileRoundIntroShowsTitle =
-    mobileRoundIntroStage === "title" || mobileRoundIntroStage === "title_fade_out";
-  const mobileRoundIntroShowsCountdown = mobileRoundIntroStage === "countdown";
-  const mobileRoundIntroCountdownIsGo =
-    typeof mobileRoundIntroCountdown === "string" &&
-    mobileRoundIntroCountdown.trim().toUpperCase() === MOBILE_ROUND_INTRO_GO_LABEL;
-  const mobileRoundIntroIsSpecial = String(mobileRoundIntroRoundTypeLabel || "")
-    .toUpperCase()
-    .startsWith("MANCHE SPECIALE");
   const mobileResultsPhaseFadeOverlay =
     isMobileLayout && phase === "results" && mobileResultsOutroFadeActive ? (
       <div className="fixed inset-0 z-[20044] pointer-events-none select-none">
         <div className="absolute inset-0 bg-black mobile-round-intro-fade-to-black" />
       </div>
     ) : null;
-  const mobileRoundIntroOverlay = mobileRoundIntroActive ? (
-    <div className="fixed inset-0 z-[20045] pointer-events-none select-none">
-      {mobileRoundIntroShowsBackdrop ? (
-        <div className={`absolute inset-0 bg-black ${mobileRoundIntroBackdropClass}`} />
-      ) : null}
-      {mobileRoundIntroShowsTitle && roundIntroSquareStyle ? (
-        <div
-          className="fixed flex flex-col items-center justify-center rounded-2xl border-2 bg-black/82 px-4 py-5 text-center"
-          style={{
-            ...roundIntroSquareStyle,
-            borderColor: "rgba(196,128,52,0.78)",
-            opacity: mobileRoundIntroStage === "title_fade_out" ? 0 : 1,
-            transition: `opacity ${MOBILE_ROUND_INTRO_TITLE_FADE_MS}ms ease-out`,
-            boxShadow:
-              "0 24px 70px rgba(0,0,0,0.72), inset 0 0 26px rgba(244,182,88,0.12)",
-          }}
-        >
-          <div
-            className="text-[clamp(14px,1.3vw,19px)] font-black tracking-[0.22em]"
-            style={roundIntroTitleGoldTextStyle}
-          >
-            {mobileRoundIntroRoundLabel || "MANCHE"}
-          </div>
-          <div
-            className={`mt-3 text-[clamp(15px,1.5vw,23px)] font-black tracking-[0.08em] uppercase ${
-              mobileRoundIntroIsSpecial ? "" : ""
-            }`}
-            style={{
-              ...roundIntroTitleGoldTextStyle,
-              opacity: mobileRoundIntroIsSpecial ? 0.95 : 0.9,
-            }}
-          >
-            {mobileRoundIntroRoundTypeLabel || "manche classique"}
-          </div>
-        </div>
-      ) : null}
-      {mobileRoundIntroShowsCountdown && roundIntroSquareStyle ? (
-        <div
-          className="fixed flex items-center justify-center"
-          style={roundIntroSquareStyle}
-        >
-          <span
-            key={`intro-count-${mobileRoundIntroCountdown ?? "x"}`}
-            className={`font-black tabular-nums leading-none text-amber-300 ${
-              mobileRoundIntroCountdownIsGo
-                ? "round-intro-go-fade whitespace-nowrap tracking-[0.03em]"
-                : "round-intro-countdown-pop"
-            }`}
-            style={{
-              ...roundIntroCountdownGoldTextStyle,
-              fontSize: `${
-                mobileRoundIntroCountdownIsGo ? roundIntroGoFontPx : roundIntroCountdownFontPx
-              }px`,
-            }}
-          >
-            {mobileRoundIntroCountdown == null ? "" : String(mobileRoundIntroCountdown)}
-          </span>
-        </div>
-      ) : null}
-    </div>
-  ) : null;
+  const mobileRoundIntroOverlay = (
+    <MobileRoundIntroOverlay
+      countdown={mobileRoundIntroCountdown}
+      goLabel={MOBILE_ROUND_INTRO_GO_LABEL}
+      gridRef={gridRef}
+      isMobileLayout={isMobileLayout}
+      roundLabel={mobileRoundIntroRoundLabel}
+      roundTypeLabel={mobileRoundIntroRoundTypeLabel}
+      stage={mobileRoundIntroStage}
+      titleFadeMs={MOBILE_ROUND_INTRO_TITLE_FADE_MS}
+    />
+  );
 
   const tournamentFinaleGateAt = (() => {
     const times = [];
@@ -25076,6 +26116,27 @@ function handleTouchEnd(e) {
       onComplete={completeTutorial}
     />
   );
+  const authDialogView = (
+    <AuthDialog
+      open={!!authModalMode}
+      mode={authModalMode}
+      darkMode={darkMode}
+      form={authForm}
+      error={authError}
+      info={authInfo}
+      loading={authSubmitting}
+      mustResetPassword={!!authState.user?.mustResetPassword}
+      onClose={closeAuthDialog}
+      onSubmit={submitAuthDialog}
+      onFieldChange={(field, value) =>
+        setAuthForm((prev) => ({
+          ...prev,
+          [field]: field === "username" ? normalizeAuthUsernameInput(value) : value,
+        }))
+      }
+      onModeChange={(mode) => openAuthDialog(mode)}
+    />
+  );
   const ambientOn = !isAmbientMuted;
   const allSoundOn =
     ambientOn &&
@@ -25933,6 +26994,104 @@ function handleTouchEnd(e) {
           </button>
         </div>
         <div className="flex flex-col gap-2 text-sm">
+          <div
+            className={`rounded-xl border px-3 py-3 ${
+              darkMode
+                ? "border-white/10 bg-slate-800/80 text-slate-100"
+                : "border-slate-200 bg-slate-50 text-slate-900"
+            }`}
+          >
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-blue-500">
+              Compte
+            </div>
+            <div className="mt-1 text-sm font-semibold">
+              {isAccountAuthenticated
+                ? authState.user?.usernameDisplay || "Connecté"
+                : isAuthStatusPending
+                ? "Vérification..."
+                : authState.status === "legacy_profile_found"
+                ? legacyProfileUsername || "Profil historique reconnu"
+                : "Non connecté"}
+            </div>
+            <div className={`mt-1 text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+              {isAccountAuthenticated
+                ? "Session persistante active."
+                : isAuthStatusPending
+                ? "Recherche d'un profil existant sur cet appareil."
+                : authState.status === "legacy_profile_found"
+                ? "Ton profil a été reconnu. Sécurise-le pour conserver ton identité."
+                : "Connexion / inscription avec pseudo et mot de passe."}
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {isAccountAuthenticated ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
+                      darkMode
+                        ? "border-white/10 bg-slate-900 text-slate-100"
+                        : "border-slate-200 bg-white text-slate-700"
+                    }`}
+                  >
+                    Changer le mot de passe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAccountLogout}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
+                      darkMode
+                        ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                        : "border-rose-200 bg-rose-50 text-rose-700"
+                    }`}
+                  >
+                    Déconnexion
+                  </button>
+                </>
+              ) : isAuthStatusPending ? (
+                <button
+                  type="button"
+                  disabled
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
+                    darkMode
+                      ? "border-white/10 bg-slate-900 text-slate-500"
+                      : "border-slate-200 bg-white text-slate-400"
+                  }`}
+                >
+                  Vérification du profil...
+                </button>
+              ) : authState.status === "legacy_profile_found" ? (
+                <button
+                  type="button"
+                  onClick={() => openAuthDialog(AUTH_MODAL_MODES.CLAIM_LEGACY)}
+                  className="w-full rounded-lg bg-blue-600 px-3 py-2 text-left text-sm font-semibold text-white"
+                >
+                  Sécuriser mon profil
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openAuthDialog(AUTH_MODAL_MODES.REGISTER)}
+                    className="w-full rounded-lg bg-blue-600 px-3 py-2 text-left text-sm font-semibold text-white"
+                  >
+                    Créer un compte
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAuthDialog(AUTH_MODAL_MODES.LOGIN)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
+                      darkMode
+                        ? "border-white/10 bg-slate-900 text-slate-100"
+                        : "border-slate-200 bg-white text-slate-700"
+                    }`}
+                  >
+                    Se connecter
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
           <button
             type="button"
             onClick={openThemeMenu}
@@ -27227,6 +28386,87 @@ function handleTouchEnd(e) {
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 15/03/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  général
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    Transition progressive du jeu en un système de compte.
+                    <div className="mt-1 space-y-1 pl-4">
+                      <div>
+                        dans un premier temps, les installID (liés aux appareils et navigateurs) vont être convertis en user_id. Concrètement, si l’installID est reconnu, le jeu va vous inviter à simplement sécuriser le compte/pseudo à l’aide d’un mot de passe qui fera le lien entre les deux systèmes.
+                      </div>
+                      <div>
+                        Dans un avenir proche tout le jeu ne reposera plus que sur user_id.
+                      </div>
+                      <div>
+                        le mail est facultatif mais recommandé au cas où vous oublieriez votre mot de passe
+                      </div>
+                      <div>
+                        Le but étant de garder sa progression ou jouer sur des appareils différents sans avoir à passer par la manip de lien du compte avec un code compliqué.
+                      </div>
+                    </div>
+                  </li>
+                  <li>
+                    Quand le timer d’une manche tombe à zéro, les mots en cours de validation sont automatiquement validés si toutefois ils sont corrects et non joués. (jusqu’ici ils passaient à la trappe)
+                  </li>
+                  <li>
+                    Ajustement des missions du jour (des missions difficulté moyenne et difficile était trop laborieuses)
+                  </li>
+                  <li>
+                    Améliorations diverses du chat sur mobile et ordinateur :
+                    <div className="mt-1 space-y-1 pl-4">
+                      <div>modification des émoticônes proposées</div>
+                      <div>boutons modifier/réagir/répondre/supprimer toujours affichés sur ordinateur</div>
+                      <div>correction d’autoscroll</div>
+                      <div>consolidation du comportement « overlay » du chat sur mobile pour éviter les bugs lors de changement de phases de jeu</div>
+                    </div>
+                  </li>
+                  <li>
+                    Correction mineure d’un mauvais timing sonore lors de la fin des manches 3 mots.
+                  </li>
+                  <li>
+                    Ajustement de la génération des grilles monstrueuses, à la fois pour les grilles journalières et les manches spéciales :
+                    <div className="mt-1 space-y-1 pl-4">
+                      <div>pour journalière, retour à un long mot garanti (minimum 11 lettres), un bug récent les avaient passées à 8 lettres mini.</div>
+                      <div>pour la version live, minimum 10 lettres</div>
+                      <div>score mini 4000 nombre de mots mini 200 pour les deux</div>
+                    </div>
+                  </li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  ordinateur
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    Nouvelle possibilité d’agencer l’interface comme on veut, en intervertissant les colonnes à l’aide de poignée dédiée
+                  </li>
+                  <li>
+                    Correction mineure pour la manche 3 mots dans le mode live : si la troisième colonne était réduite au max en largeur, la preview des mots pouvaient « manger » des lettres
+                  </li>
+                  <li>
+                    Conversion automatique en émoticônes des raccourci usuels ( :) :p XD etc.)
+                  </li>
+                  <li>
+                    ajout d’un slider pour le chat, permettant de régler la taille de police utilisée pour les messages
+                  </li>
+                  <li>
+                    modification du visuel du chrono pendant les phases de jeu pour + de clarté
+                  </li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  téléphone
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    Optimisation du jeu pour limiter les lenteurs en extrayant des blocs du fichier de code principal et en les convertissant en modules. (chat, animations bigscore etc.)
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 08/03/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75">
@@ -27620,59 +28860,60 @@ function handleTouchEnd(e) {
     </>
   );
 
-  const mobileChatLayer =
-    isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home")) ? (
-      <ChatWidget
-        chatInput={chatInput}
-        chatInputRef={chatInputRef}
-        chatInputType={chatInputType}
-        chatInputDisabled={chatInputDisabled}
-        chatInputPlaceholder={chatInputPlaceholder}
-        chatEditTarget={chatEditTarget}
-        chatReplyTarget={chatReplyTarget}
-        chatTab={chatTab}
-        onChangeChatTab={setChatTab}
-        onClearChatEdit={clearChatEditTarget}
-        onClearChatReply={clearChatReplyTarget}
-        onDeleteOwnMessage={deleteOwnChatMessage}
-        onEditOwnMessage={beginChatEditFromMessage}
-        onSelectChatReply={setChatReplyTargetFromMessage}
-        onReactToMessage={sendChatReaction}
-        messagesUnreadCount={chatMessagesUnreadCount}
-        systemCount={chatSystemCount}
-        onChatInputFocus={handleChatInputFocus}
-        chatOverlayStyle={globalChatOverlayStyle}
-        chatViewportStyle={chatViewportStyle}
-        chatSheetStyle={globalChatSheetStyle}
-        chatAnimationMs={CHAT_DRAWER_ANIM_MS}
-        cycleChatHistory={cycleChatHistory}
-        darkMode={darkMode}
-        hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
-        chatKeyboardInsetPx={chatKeyboardInsetPx}
-        keyboardInsetReservePx={keyboardInsetReservePx}
-        isChatOpenMobile={isChatOpenMobile}
-        isChatClosing={isChatClosing}
-        mobileChatUnreadCount={mobileChatUnreadCount}
-        mobileReactionToasts={mobileChatReactionToasts}
-        blockedCount={blockedCount}
-        blockedEntries={blockedEntries}
-        onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-        onUnblockInstallId={unblockInstallId}
-        onOpenChat={requestOpenChat}
-        onOpenRules={() => setIsChatRulesOpen(true)}
-        onCloseSound={playCloseSound}
-        onOpenUserMenu={openUserMenu}
-        showBlockedList={showBlockedList}
-        selfNick={selfNick}
-        selfInstallId={installId}
-        setChatInput={setChatInput}
-        setIsChatOpenMobile={closeChatPanel}
-        submitChat={submitChat}
-        showLauncherButton={isLoggedIn && !isSpecial3WordsMode}
-        visibleMessages={visibleMessages}
-        reactionEmojis={CHAT_REACTION_EMOJIS}
-      />
-    ) : null;
+  const mobileChatLayer = (
+    <MobileChatLayer
+      appView={appView}
+      blockedCount={blockedCount}
+      blockedEntries={blockedEntries}
+      chatAnimationMs={CHAT_DRAWER_ANIM_MS}
+      chatEditTarget={chatEditTarget}
+      chatInput={chatInput}
+      chatInputDisabled={chatInputDisabled}
+      chatInputPlaceholder={chatInputPlaceholder}
+      chatInputRef={chatInputRef}
+      chatInputType={chatInputType}
+      chatKeyboardInsetPx={chatKeyboardInsetPx}
+      chatMessagesUnreadCount={chatMessagesUnreadCount}
+      chatOverlayStyle={globalChatOverlayStyle}
+      chatReplyTarget={chatReplyTarget}
+      chatSheetStyle={globalChatSheetStyle}
+      chatSystemCount={chatSystemCount}
+      chatTab={chatTab}
+      chatViewportStyle={chatViewportStyle}
+      closeChatPanel={closeChatPanel}
+      cycleChatHistory={cycleChatHistory}
+      darkMode={darkMode}
+      installId={installId}
+      isChatClosing={isChatClosing}
+      isChatOpenMobile={isChatOpenMobile}
+      isLoggedIn={isLoggedIn}
+      isMobileLayout={isMobileLayout}
+      isSpecial3WordsMode={isSpecial3WordsMode}
+      keyboardInsetReservePx={keyboardInsetReservePx}
+      mobileChatReactionToasts={mobileChatReactionToasts}
+      mobileChatUnreadCount={mobileChatUnreadCount}
+      onChangeChatTab={setChatTab}
+      onChatInputFocus={handleChatInputFocus}
+      onClearChatEdit={clearChatEditTarget}
+      onClearChatReply={clearChatReplyTarget}
+      onCloseSound={playCloseSound}
+      onDeleteOwnMessage={deleteOwnChatMessage}
+      onEditOwnMessage={beginChatEditFromMessage}
+      onOpenChat={requestOpenChat}
+      onOpenRules={() => setIsChatRulesOpen(true)}
+      onOpenUserMenu={openUserMenu}
+      onReactToMessage={sendChatReaction}
+      onSelectChatReply={setChatReplyTargetFromMessage}
+      onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
+      onUnblockInstallId={unblockInstallId}
+      reactionEmojis={CHAT_REACTION_EMOJIS}
+      selfNick={selfNick}
+      setChatInput={setChatInput}
+      showBlockedList={showBlockedList}
+      submitChat={submitChat}
+      visibleMessages={visibleMessages}
+    />
+  );
   const homeChatVisibleMessages = React.useMemo(() => {
     const source = safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
     const cap =
@@ -27734,7 +28975,7 @@ function handleTouchEnd(e) {
       return false;
     }
   }, [broadcastSeenStorageKey, broadcastSeenNonce]);
-  const isHomeLobbyView = !isLoggedIn && phase === "lobby" && appView === "home";
+  const isHomeLobbyView = !isLoggedIn && appView === "home";
   const shouldShowBroadcastPopup =
     isHomeLobbyView &&
     !duelPopupState?.mode &&
@@ -27862,14 +29103,15 @@ function handleTouchEnd(e) {
       {recordModalView}
       {vocabOverlayView}
       {tutorialOverlay}
+      {authDialogView}
       {specialTutorialOverlay}
       {settingsMenuView}
       {aboutModalView}
-      {mobileChatLayer}
       {homeChatModalView}
       <ToastStack toasts={toasts} darkMode={darkMode} />
     </>
   );
+  const suppressLiveChatMotion = isMobileLayout && (isChatOpenMobile || isChatClosing);
   if (shouldShowBootOverlay) {
     return bootOverlay;
   }
@@ -28794,6 +30036,7 @@ function handleTouchEnd(e) {
       <>
         {bootOverlay}
         {tutorialOverlay}
+        {authDialogView}
         {settingsMenuView}
         {aboutModalView}
         {homeChatModalView}
@@ -29059,6 +30302,7 @@ function handleTouchEnd(e) {
       <>
         {bootOverlay}
         {tutorialOverlay}
+        {authDialogView}
         {settingsMenuView}
         {aboutModalView}
         <div
@@ -29128,6 +30372,7 @@ function handleTouchEnd(e) {
         {playersOverlay}
         {definitionModalView}
         {tutorialOverlay}
+        {authDialogView}
         {settingsMenuView}
         {aboutModalView}
         <div
@@ -29222,6 +30467,7 @@ function handleTouchEnd(e) {
         {playersOverlay}
         {definitionModalView}
         {tutorialOverlay}
+        {authDialogView}
         {settingsMenuView}
         {aboutModalView}
         <div
@@ -29248,6 +30494,7 @@ function handleTouchEnd(e) {
         {playersOverlay}
         {definitionModalView}
         {tutorialOverlay}
+        {authDialogView}
         {settingsMenuView}
         {aboutModalView}
         <div
@@ -29401,25 +30648,130 @@ function handleTouchEnd(e) {
               darkMode ? "bg-slate-800/70 border-white/10" : "bg-white border-slate-200"
             }`}
           >
-            <label className="text-sm font-semibold">
-              Pseudo
-              <input
-                type="text"
-                autoComplete="off"
-                className="mt-1 w-full px-3 py-2 rounded-lg bg-white text-slate-900 outline-none border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/60 ios-input"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                disabled={isConnecting}
-                maxLength={25}
-              />
-            </label>
-            <button
-              type="submit"
-              className="mt-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition disabled:opacity-60"
-              disabled={isConnecting}
-            >
-              {isConnecting ? "Connexion..." : "Entrer dans la partie"}
-            </button>
+            {accountNotice ? (
+              <div
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  darkMode
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {accountNotice}
+              </div>
+            ) : null}
+            {isAccountAuthenticated ? (
+              <>
+                <label className="text-sm font-semibold">
+                  Compte
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white text-slate-900 outline-none border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/60 ios-input"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    disabled
+                    maxLength={25}
+                  />
+                </label>
+                {authState.user?.mustResetPassword ? (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs ${
+                      darkMode
+                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                        : "border-amber-200 bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    Ton mot de passe doit être renouvelé avant de continuer.
+                  </div>
+                ) : null}
+                <button
+                  type="submit"
+                  className="mt-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition disabled:opacity-60"
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? "Connexion..." : "Entrer dans la partie"}
+                </button>
+              </>
+            ) : (
+              <>
+                <div
+                  className={`rounded-lg border px-3 py-3 ${
+                    darkMode
+                      ? "border-white/10 bg-slate-900/70 text-slate-100"
+                      : "border-slate-200 bg-slate-50 text-slate-900"
+                  }`}
+                >
+                  <div className="text-sm font-semibold">
+                    {isAuthStatusPending
+                      ? "Vérification du profil"
+                      : authState.status === "legacy_profile_found"
+                      ? "Profil historique reconnu"
+                      : authState.status === "login_required"
+                      ? "Compte reconnu"
+                      : "Compte requis"}
+                  </div>
+                  <div className={`mt-1 text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                    {isAuthStatusPending
+                      ? "Recherche d'un profil existant sur cet appareil."
+                      : authState.status === "legacy_profile_found"
+                      ? "Ton profil a été reconnu. Choisis un mot de passe pour le sécuriser."
+                      : authState.status === "login_required"
+                      ? "Connecte-toi pour retrouver ton profil."
+                      : "Crée ton compte pour conserver ton profil sur plusieurs appareils."}
+                  </div>
+                  {legacyProfileUsername ? (
+                    <div className={`mt-2 text-xs font-semibold ${darkMode ? "text-blue-300" : "text-blue-700"}`}>
+                      Pseudo réservé : {legacyProfileUsername}
+                    </div>
+                  ) : null}
+                  {authState.status === "login_required" && authState.user?.usernameDisplay ? (
+                    <div className={`mt-2 text-xs font-semibold ${darkMode ? "text-blue-300" : "text-blue-700"}`}>
+                      Compte : {authState.user.usernameDisplay}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-1 flex flex-col gap-2">
+                  {isAuthStatusPending ? (
+                    <button
+                      type="button"
+                      disabled
+                      className={`px-4 py-3 rounded-lg text-sm font-semibold transition ${
+                        darkMode
+                          ? "border border-white/10 bg-slate-900 text-slate-500"
+                          : "border border-slate-200 bg-white text-slate-400"
+                      }`}
+                    >
+                      Vérification du profil...
+                    </button>
+                  ) : authState.status === "legacy_profile_found" ? (
+                    <button
+                      type="button"
+                      className="px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition text-white"
+                      onClick={() => openAuthDialog(AUTH_MODAL_MODES.CLAIM_LEGACY)}
+                    >
+                      Sécuriser mon profil
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition text-white"
+                        onClick={() => openAuthDialog(AUTH_MODAL_MODES.REGISTER)}
+                      >
+                        Créer un compte
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-500/80 hover:bg-blue-500 text-white shadow-sm"
+                        onClick={() => openAuthDialog(AUTH_MODAL_MODES.LOGIN)}
+                      >
+                        Se connecter
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
             <button
               type="button"
               className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-blue-500 hover:bg-blue-400 text-white shadow-sm"
@@ -29487,175 +30839,16 @@ function handleTouchEnd(e) {
     );
   }
 
-  const praiseRect = !isMobileLayout
-    ? gridRef.current?.getBoundingClientRect?.()
-    : null;
-  const flashRect = gridRef.current?.getBoundingClientRect?.() || null;
-  const praisePositionStyle =
-    praiseRect && Number.isFinite(praiseRect.left) && Number.isFinite(praiseRect.top)
-      ? {
-          left: `${Math.round(praiseRect.left + praiseRect.width / 2)}px`,
-          top: `${Math.round(praiseRect.top + praiseRect.height * 0.45)}px`,
-        }
-      : undefined;
-  const gobbleImageSize = isMobileLayout ? 260 : 340;
-  const praiseImageSize = isMobileLayout ? 220 : 300;
-  const praiseImageKey =
-    praiseFlash?.kind === "epic"
-      ? IMAGE_KEYS.bigwords.epique
-      : praiseFlash?.kind === "gold"
-      ? IMAGE_KEYS.bigwords.enorme
-      : praiseFlash?.kind === "purple"
-      ? IMAGE_KEYS.bigwords.fabuleux
-      : praiseFlash?.kind === "blue"
-      ? IMAGE_KEYS.bigwords.excellent
-      : "";
-  const praiseImageSrc = praiseImageKey ? getImageUrl(praiseImageKey) : "";
-  const praiseImageAlt =
-    praiseFlash?.kind === "epic"
-      ? "EPIQUE"
-      : praiseFlash?.kind === "gold"
-      ? "ENORME"
-      : praiseFlash?.kind === "purple"
-      ? "FABULEUX"
-      : praiseFlash?.kind === "blue"
-      ? "EXCELLENT"
-      : "";
-  const praiseImageSizePx = praiseImageSize;
-  const gobbleImageKey =
-    gobbleFlash?.kind === "doubleGobble"
-      ? IMAGE_KEYS.bigwords.doubleGobble
-      : IMAGE_KEYS.bigwords.gobble;
-  const gobbleImageSrc = gobbleFlash ? getImageUrl(gobbleImageKey) || getImageUrl(IMAGE_KEYS.bigwords.gobble) : "";
-  const gobbleImageAlt = gobbleFlash?.kind === "doubleGobble" ? "DOUBLE GOBBLE" : "GOBBLE";
-  const gobbleImageSizePx = gobbleImageSize;
-  const praiseFlashColor =
-    praiseFlash?.kind === "epic"
-      ? "rgba(244, 114, 182, 0.55)"
-      : praiseFlash?.kind === "gold"
-      ? "rgba(255, 92, 36, 0.55)"
-      : praiseFlash?.kind === "purple"
-      ? "rgba(168, 85, 247, 0.55)"
-      : praiseFlash?.kind === "blue"
-      ? "rgba(34, 197, 94, 0.55)"
-      : "transparent";
-  const gobbleFlashColor = gobbleFlash ? "rgba(255, 200, 64, 0.55)" : "transparent";
-  const flashPadding = isMobileLayout ? 8 : 12;
-  const flashRadiusBase = isMobileLayout ? 18 : 22;
-  const buildFlashHoleStyle = (color) =>
-    flashRect &&
-    Number.isFinite(flashRect.left) &&
-    Number.isFinite(flashRect.top) &&
-    Number.isFinite(flashRect.width) &&
-    Number.isFinite(flashRect.height)
-      ? {
-          left: `${Math.max(0, Math.round(flashRect.left - flashPadding))}px`,
-          top: `${Math.max(0, Math.round(flashRect.top - flashPadding))}px`,
-          width: `${Math.max(0, Math.round(flashRect.width + flashPadding * 2))}px`,
-          height: `${Math.max(0, Math.round(flashRect.height + flashPadding * 2))}px`,
-          ["--praise-flash-color"]: color,
-          ["--praise-flash-radius"]: `${flashRadiusBase}px`,
-        }
-      : null;
-  const praiseFlashHoleStyle = buildFlashHoleStyle(praiseFlashColor);
-  const gobbleFlashHoleStyle = buildFlashHoleStyle(gobbleFlashColor);
-  const showPraiseFlashMask = true;
-  const praiseOverlay =
-    phase === "playing" && (praiseFlash || gobbleFlash) && typeof document !== "undefined"
-      ? createPortal(
-          <>
-            {gobbleFlash && showPraiseFlashMask ? (
-              <div
-                key={`flash-gobble-${gobbleFlash.id}`}
-                className="praise-flash"
-                style={{ ["--praise-flash-color"]: gobbleFlashColor }}
-              >
-                {gobbleFlashHoleStyle ? (
-                  <div className="praise-flash-hole" style={gobbleFlashHoleStyle} />
-                ) : (
-                  <div className="praise-flash-full" />
-                )}
-              </div>
-            ) : null}
-            {gobbleFlash ? (
-              <div
-                key={gobbleFlash.id}
-                className="praise-pop praise-image-pop gobble-pop"
-                style={{
-                  ...praisePositionStyle,
-                  ["--praise-x"]: `${Math.round(
-                    gobbleFlash.dx || 0
-                  )}px`,
-                  ["--praise-y"]: `${Math.round(
-                    gobbleFlash.dy || 0
-                  )}px`,
-                  ["--praise-scale"]: gobbleFlash.scale || 1.6,
-                  ["--praise-size"]: `${gobbleImageSizePx}px`,
-                  ["--praise-duration"]: `${Math.max(
-                    1600,
-                    Math.min(3000, gobbleFlash.durationMs || 2200)
-                  )}ms`,
-                }}
-              >
-                {gobbleImageSrc ? (
-                  <img
-                    src={gobbleImageSrc}
-                    alt={gobbleImageAlt}
-                    className="praise-image"
-                    draggable={false}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-            {praiseFlash ? (
-              <>
-                {showPraiseFlashMask ? (
-                  <div
-                    key={`flash-${praiseFlash.id}`}
-                    className="praise-flash"
-                    style={{ ["--praise-flash-color"]: praiseFlashColor }}
-                  >
-                    {praiseFlashHoleStyle ? (
-                      <div className="praise-flash-hole" style={praiseFlashHoleStyle} />
-                    ) : (
-                      <div className="praise-flash-full" />
-                    )}
-                  </div>
-                ) : null}
-                <div
-                  key={praiseFlash.id}
-                  className="praise-pop praise-image-pop"
-                  style={{
-                    ...praisePositionStyle,
-                    ["--praise-x"]: `${Math.round(
-                      praiseFlash.dx || 0
-                    )}px`,
-                    ["--praise-y"]: `${Math.round(
-                      praiseFlash.dy || 0
-                    )}px`,
-                    ["--praise-scale"]: praiseFlash.scale || 1.6,
-                    ["--praise-size"]: `${praiseImageSizePx}px`,
-                    ["--praise-duration"]: `${Math.max(
-                      1200,
-                      Math.min(2600, praiseFlash.durationMs || 1500)
-                    )}ms`,
-                  }}
-                >
-                  {praiseImageSrc ? (
-                    <img
-                      src={praiseImageSrc}
-                      alt={praiseImageAlt}
-                      className="praise-image"
-                      draggable={false}
-                    />
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-          </>,
-          document.body
-        )
-      : null;
+  const praiseOverlay = (
+    <GameCelebrationOverlay
+      assetsReady={!!bootProgress?.done}
+      gobbleFlash={gobbleFlash}
+      gridRef={gridRef}
+      isMobileLayout={isMobileLayout}
+      phase={phase}
+      praiseFlash={praiseFlash}
+    />
+  );
   const desktopResultsSummaryDrawer =
     hasDesktopResultsSummary &&
     desktopResultsDrawerLayout &&
@@ -29809,6 +31002,107 @@ function handleTouchEnd(e) {
     const finaleDotsStyle = { height: `${finaleDotsHeight}px` };
     const finaleSlideCardStyle = { height: "100%", minHeight: 0 };
     const finaleCardPaddingClass = isMobileLayout ? "p-3" : "p-4";
+    const renderFinaleRankingCard = () => (
+      <div
+        className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
+        style={finaleSlideCardStyle}
+      >
+        <div className="flex items-baseline justify-between gap-2 mb-1">
+          <div className="font-extrabold">Classement general</div>
+          <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
+            Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
+          </div>
+        </div>
+        <div className="min-h-0 flex-1">
+          <RankingWidgetMobile
+            fullRanking={finaleRanking}
+            selfNick={selfNick}
+            darkMode={darkMode}
+            expanded={true}
+            animateRank={false}
+            showWheel={false}
+            flatStyle={true}
+            fitHeight={true}
+            assetVersion={assetVersion}
+            gobbleWordAwardsByNick={gobbleAwardsForLive}
+            renderNickSuffix={(nick, entry) =>
+              renderNickSuffix(nick, entry, tournamentFinaleMedals)
+            }
+            renderAfterRank={renderRankDelta}
+          />
+        </div>
+      </div>
+    );
+    const renderFinaleWeeklyCard = (boardMeta) => {
+      if (!boardMeta) return null;
+      const entries = dedupeWeeklyEntries(
+        boardMeta.key,
+        weeklyBoardData[boardMeta.key],
+        weeklyLimit
+      );
+      const baselineEntries = dedupeWeeklyEntries(
+        boardMeta.key,
+        finaleBaselineBoards[boardMeta.key],
+        weeklyLimit
+      );
+      const hasChanges = hasWeeklyChanges(
+        boardMeta.key,
+        entries,
+        finaleBaselineRankMaps[boardMeta.key],
+        finaleBaselineValueMaps[boardMeta.key]
+      );
+      return (
+        <div
+          className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
+          style={finaleSlideCardStyle}
+        >
+          <div className="flex items-baseline justify-between gap-2 mb-1">
+            <div className="font-extrabold">Classement hebdo - {boardMeta.label}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
+              {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-300 mb-1">
+            {boardMeta.subtitle || ""}
+          </div>
+          {!hasChanges && baselineEntries.length > 0 ? (
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-300 mb-1">
+              Aucun changement
+            </div>
+          ) : null}
+          <div className="min-h-0 flex-1">
+            {weeklyStatsLoading ? (
+              <div className="h-full flex items-center justify-center text-sm opacity-70">
+                Chargement...
+              </div>
+            ) : weeklyStatsError ? (
+              <div className="h-full flex items-center justify-center text-sm text-red-400">
+                Erreur ({weeklyStatsError})
+              </div>
+            ) : entries.length > 0 ? (
+              <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+                {entries.map((entry, entryIdx) =>
+                  renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
+                    showVocabIcon: boardMeta.key === "vocab",
+                    baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
+                    baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
+                    showChanges: hasChanges,
+                  })
+                )}
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm opacity-70">
+                Pas encore de stats cette semaine.
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+    const renderActiveFinalePage = () => {
+      if (finalePage <= 0) return renderFinaleRankingCard();
+      return renderFinaleWeeklyCard(finaleBoards[finalePage - 1] || null);
+    };
     const finaleSettingsButtonClass = isMobileLayout
       ? `fixed top-3 right-3 z-[20012] h-10 w-10 rounded-full border flex items-center justify-center transition ${
           darkMode
@@ -29906,119 +31200,37 @@ function handleTouchEnd(e) {
                     </div>
                   ) : null}
                   <div className="h-full min-h-0 overflow-hidden">
-                    <div
-                      ref={finaleScrollRef}
-                      className="flex w-full h-full min-h-0"
-                      style={{
-                        transform: `translateX(calc(${finalePage * -100}%))`,
-                        transition: "transform 0.25s ease-out",
-                      }}
-                      onTouchStart={handleFinaleTouchStart}
-                      onTouchMove={handleFinaleTouchMove}
-                      onTouchEnd={handleFinaleTouchEnd}
-                      onTouchCancel={handleFinaleTouchEnd}
-                    >
-                      <div className="w-full shrink-0 h-full">
-                        <div
-                          className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
-                          style={finaleSlideCardStyle}
-                        >
-                          <div className="flex items-baseline justify-between gap-2 mb-1">
-                            <div className="font-extrabold">Classement general</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                              Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
-                            </div>
-                          </div>
-                          <div className="min-h-0 flex-1">
-                            <RankingWidgetMobile
-                              fullRanking={finaleRanking}
-                              selfNick={selfNick}
-                              darkMode={darkMode}
-                              expanded={true}
-                              animateRank={false}
-                              showWheel={false}
-                              flatStyle={true}
-                              fitHeight={true}
-                              assetVersion={assetVersion}
-                              gobbleWordAwardsByNick={gobbleAwardsForLive}
-                              renderNickSuffix={(nick, entry) =>
-                                renderNickSuffix(nick, entry, tournamentFinaleMedals)
-                              }
-                              renderAfterRank={renderRankDelta}
-                            />
-                          </div>
-                        </div>
+                    {isMobileLayout ? (
+                      <div
+                        className="h-full min-h-0"
+                        onTouchStart={handleFinaleTouchStart}
+                        onTouchMove={handleFinaleTouchMove}
+                        onTouchEnd={handleFinaleTouchEnd}
+                        onTouchCancel={handleFinaleTouchEnd}
+                      >
+                        {renderActiveFinalePage()}
                       </div>
-                      {finaleBoards.map((boardMeta) => {
-                        const entries = dedupeWeeklyEntries(
-                          boardMeta.key,
-                          weeklyBoardData[boardMeta.key],
-                          weeklyLimit
-                        );
-                        const baselineEntries = dedupeWeeklyEntries(
-                          boardMeta.key,
-                          finaleBaselineBoards[boardMeta.key],
-                          weeklyLimit
-                        );
-                        const hasChanges = hasWeeklyChanges(
-                          boardMeta.key,
-                          entries,
-                          finaleBaselineRankMaps[boardMeta.key],
-                          finaleBaselineValueMaps[boardMeta.key]
-                        );
-                        return (
+                    ) : (
+                      <div
+                        ref={finaleScrollRef}
+                        className="flex w-full h-full min-h-0"
+                        style={{
+                          transform: `translateX(calc(${finalePage * -100}%))`,
+                          transition: "transform 0.25s ease-out",
+                        }}
+                        onTouchStart={handleFinaleTouchStart}
+                        onTouchMove={handleFinaleTouchMove}
+                        onTouchEnd={handleFinaleTouchEnd}
+                        onTouchCancel={handleFinaleTouchEnd}
+                      >
+                        <div className="w-full shrink-0 h-full">{renderFinaleRankingCard()}</div>
+                        {finaleBoards.map((boardMeta) => (
                           <div key={boardMeta.key} className="w-full shrink-0 h-full">
-                            <div
-                              className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
-                              style={finaleSlideCardStyle}
-                            >
-                              <div className="flex items-baseline justify-between gap-2 mb-1">
-                                <div className="font-extrabold">
-                                  Classement hebdo - {boardMeta.label}
-                                </div>
-                                <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                                  {weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"}
-                                </div>
-                              </div>
-                              <div className="text-[11px] text-slate-500 dark:text-slate-300 mb-1">
-                                {boardMeta.subtitle || ""}
-                              </div>
-                              {!hasChanges && baselineEntries.length > 0 ? (
-                                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-300 mb-1">
-                                  Aucun changement
-                                </div>
-                              ) : null}
-                              <div className="min-h-0 flex-1">
-                                {weeklyStatsLoading ? (
-                                  <div className="h-full flex items-center justify-center text-sm opacity-70">
-                                    Chargement...
-                                  </div>
-                                ) : weeklyStatsError ? (
-                                  <div className="h-full flex items-center justify-center text-sm text-red-400">
-                                    Erreur ({weeklyStatsError})
-                                  </div>
-                                ) : entries.length > 0 ? (
-                                  <div className="h-full overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                                    {entries.map((entry, entryIdx) =>
-                                      renderFinaleWeeklyRow(boardMeta.key, entry, entryIdx, {
-                                        showVocabIcon: boardMeta.key === "vocab",
-                                        baselineRankMap: finaleBaselineRankMaps[boardMeta.key],
-                                        baselineValueMap: finaleBaselineValueMaps[boardMeta.key],
-                                        showChanges: hasChanges,
-                                      })
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="h-full flex items-center justify-center text-sm opacity-70">
-                                    Pas encore de stats cette semaine.
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                            {renderFinaleWeeklyCard(boardMeta)}
                           </div>
-                        );
-                      })}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {finaleCanNavigate ? (
                     <div className="h-full min-h-0 flex items-center justify-center">
@@ -30094,7 +31306,7 @@ function handleTouchEnd(e) {
                     </button>
                   </div>
                 </div>
-                <div className="mb-2">
+                <div className="mb-2 flex items-center justify-between gap-3">
                   <div
                     className={`inline-flex rounded-full border p-1 ${
                       darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
@@ -30127,10 +31339,38 @@ function handleTouchEnd(e) {
                       Système
                     </button>
                   </div>
+                  <label
+                    className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-2 py-1 ${
+                      darkMode
+                        ? "border-white/10 bg-slate-800/70 text-slate-100"
+                        : "border-slate-200 bg-slate-100 text-slate-700"
+                    }`}
+                    title={`Taille du chat : ${desktopChatScaleLabel}`}
+                  >
+                    <span
+                      className="font-extrabold text-base leading-none shrink-0"
+                      style={{
+                        fontFamily: "\"GobblePerfectPen\", \"KGPerfectPenmanship\", cursive",
+                      }}
+                      aria-hidden="true"
+                    >
+                      Aa
+                    </span>
+                    <input
+                      type="range"
+                      min={CHAT_DESKTOP_FONT_SCALE_MIN}
+                      max={CHAT_DESKTOP_FONT_SCALE_MAX}
+                      step={CHAT_DESKTOP_FONT_SCALE_STEP}
+                      value={chatDesktopFontScale}
+                      onChange={(e) => handleChatDesktopFontScaleChange(e.target.value)}
+                      className="w-24 accent-blue-600"
+                      aria-label="Taille de la police du chat"
+                    />
+                  </label>
                 </div>
                 {renderBlockedListPanel()}
                 <div
-                  ref={chatDesktopListRef}
+                  ref={setChatDesktopListNode}
                   className="flex-1 min-h-0 border rounded px-2 py-1 pb-4 bg-white text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
                   style={{ overscrollBehavior: "contain" }}
                   onScroll={handleDesktopChatScroll}
@@ -30174,17 +31414,17 @@ function handleTouchEnd(e) {
 	                          isLast ? "slide-fade-in" : ""
 	                        }`}
 	                >
-	                  {isSystem ? (
-                          <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
+                  {isSystem ? (
+                          <div className="w-full px-1 py-0.5 italic text-orange-700" style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}>
                             <div className="flex items-baseline gap-1 flex-wrap">
                               <span className="font-semibold">{systemAuthor}:</span>
 	                              {messageTime ? (
-	                                <span className="text-[10px] leading-none opacity-70">
+	                                <span className="leading-none opacity-70" style={{ fontSize: `${desktopChatMicroFontPx}px` }}>
 	                                  {messageTime}
 	                                </span>
 	                              ) : null}
                                 {isEdited ? (
-                                  <span className="text-[10px] leading-none opacity-60">(modifié)</span>
+                                  <span className="leading-none opacity-60" style={{ fontSize: `${desktopChatMicroFontPx}px` }}>(modifié)</span>
                                 ) : null}
 	                              <span>{msg.text}</span>
 	                            </div>
@@ -30193,27 +31433,27 @@ function handleTouchEnd(e) {
                           <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
 	                          <div
 	                            className={[
-	                              "group/chatmsg max-w-[88%] px-2 py-1 text-sm rounded-lg",
+	                              "group/chatmsg max-w-[88%] px-2 py-1 rounded-lg",
                                 isYou
                                   ? darkMode
                                     ? "bg-blue-500 text-white"
                                     : "bg-blue-600 text-white"
-                                  : darkMode
-                                  ? "bg-slate-800 text-slate-100 border border-slate-700"
-                                  : "bg-slate-100 text-slate-900 border border-slate-200",
+	                                  : darkMode
+	                                  ? "bg-slate-800 text-slate-100 border border-slate-700"
+	                                  : "bg-slate-100 text-slate-900 border border-slate-200",
 	                            ].join(" ")}
-                              onMouseEnter={ensureDesktopChatBottomVisible}
-                              onFocus={ensureDesktopChatBottomVisible}
+                              style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}
 	                          >
                             {replyPreview ? (
                               <div
-	                                className={`mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
+	                                className={`mb-1 rounded-md border-l-4 px-2 py-1 ${
 	                                  replyTargetsSelf
 	                                    ? "border-blue-500 bg-blue-50 text-slate-700"
 	                                    : darkMode
                                       ? "border-slate-600 bg-slate-700/80 text-slate-200"
-                                      : "border-slate-300 bg-slate-50 text-slate-700"
+	                                      : "border-slate-300 bg-slate-50 text-slate-700"
 	                                }`}
+                                  style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}
 	                              >
                                 <div className="font-semibold">{replyPreview.nick}</div>
                                 <div
@@ -30288,7 +31528,7 @@ function handleTouchEnd(e) {
                                 </span>
 	                            </div>
                             {!isYou ? (
-                              <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                              <div className="mt-1 flex items-center gap-2">
                                 <button
                                   type="button"
                                   className="text-[10px] font-semibold text-blue-600 hover:underline"
@@ -30305,7 +31545,7 @@ function handleTouchEnd(e) {
                                 </button>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                              <div className="mt-1 flex items-center gap-2">
                                 <button
                                   type="button"
                                   className="text-[10px] font-semibold text-amber-600 hover:underline"
@@ -30354,13 +31594,14 @@ function handleTouchEnd(e) {
                 {safeChatTab !== "system" ? (
                   <>
                     {chatEditTarget ? (
-                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700">
+                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700" style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-semibold">Modification du message</div>
+                            <div className="font-semibold">Modification du message</div>
                             <div
-                              className="text-[11px]"
                               style={{
+                                fontSize: `${desktopChatMetaFontPx}px`,
+                                lineHeight: `${desktopChatMetaLineHeightPx}px`,
                                 display: "-webkit-box",
                                 WebkitLineClamp: 3,
                                 WebkitBoxOrient: "vertical",
@@ -30382,15 +31623,16 @@ function handleTouchEnd(e) {
                       </div>
                     ) : null}
                     {chatReplyTarget ? (
-                      <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700">
+                      <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700" style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-semibold">
+                            <div className="font-semibold">
                               Réponse à {chatReplyTarget.nick || "Anonyme"}
                             </div>
                             <div
-                              className="text-[11px]"
                               style={{
+                                fontSize: `${desktopChatMetaFontPx}px`,
+                                lineHeight: `${desktopChatMetaLineHeightPx}px`,
                                 display: "-webkit-box",
                                 WebkitLineClamp: 3,
                                 WebkitBoxOrient: "vertical",
@@ -30418,7 +31660,8 @@ function handleTouchEnd(e) {
                           type="button"
                           onClick={() => submitChat(null, txt)}
                           disabled={chatInputDisabled}
-                          className="px-1.5 py-0.5 text-[11px] leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-1.5 py-0.5 leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ fontSize: `${desktopChatQuickReplyFontPx}px` }}
                         >
                           {txt}
                         </button>
@@ -30445,7 +31688,8 @@ function handleTouchEnd(e) {
                         onFocus={handleChatInputFocus}
                         readOnly={chatInputDisabled}
                         aria-disabled={chatInputDisabled}
-                        className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input"
+                        className="flex-1 border rounded px-3 py-2 ios-input chat-input"
+                        style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
                         placeholder={chatInputPlaceholder}
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
@@ -30453,7 +31697,8 @@ function handleTouchEnd(e) {
                       />
                       <button
                         type="button"
-                        className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                        className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+                        style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
                         disabled={!chatInput.trim() || chatInputDisabled}
                         onClick={() => submitChat(null)}
                       >
@@ -30586,84 +31831,65 @@ function handleTouchEnd(e) {
 
     return (
       <>
-        <div
-          className={`flex flex-col ${
-            darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-          }`}
-          style={mobileViewportContainerStyle}
-        >
-        <style>{slideStyles}</style>
-        <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
-          <span className="truncate">
-            {compactRank ? `#${compactRank}` : "#?"}
-            {compactTotal ? `/${compactTotal}` : ""}
-            {compactScore !== null ? ` · ${compactScore}` : ""}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="px-1 py-0.5 rounded-md border text-[9px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-              type="button"
-            >
-              <span className="material-icons-outlined text-[12px] leading-none" aria-hidden="true">
-                settings
-              </span>
-              <span className="sr-only">Parametres</span>
-            </button>
-          </div>
-          <span className="tabular-nums">
-            {compactCountdownValue ? `${compactCountdownValue}s` : ""}
-          </span>
-        </div>
-        <div className="flex-1 flex items-center justify-center px-2 pb-3">
-          <MobileGrid
-            board={board}
-            BONUS_CLASSES={BONUS_CLASSES}
-            bonusLetterKey={bonusLetterKey}
-            bonusLetterScore={bonusLetterScore}
-            darkMode={darkMode}
-            gridRef={gridRef}
-            gridShake={gridShake}
-            gridSize={gridSize}
-            gridRotationTurns={gridRotationTurns}
-            implodeActive={implodeActive}
-            handleMouseDown={handleMouseDown}
-            handleMouseMove={handleMouseMove}
-            handleMouseUp={handleMouseUp}
-            handleTouchEnd={handleTouchEnd}
-            handleTouchMove={handleTouchMove}
-            handleTouchStart={handleTouchStart}
-            hintCellSet={hintCellSet}
-            hintOutlineCellSet={hintOutlineCellSet}
-            isMobileLayout={isMobileLayout}
-            lightGridSurfaceStyle={lightGridSurfaceStyle}
-            MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
-            mobileGapPx={mobileGapPx}
-            mobileGridSide={mobileGridSide}
-            mobileTileFontPx={mobileTileFontPx}
-            normalizeBonusLabel={normalizeBonusLabel}
-            normalizeLetterKey={normalizeLetterKey}
-            phase={phase}
-            specialIndicatorPreset={specialIndicatorPreset}
-            specialSolvedOverlay={specialSolvedOverlay}
-            introHideTiles={mobileRoundIntroHideTiles}
-            defaultTileBaseClass={defaultTileBaseClass}
-            tilePointsVisible={roundTilePointsVisible}
-            tileRefs={tileRefs}
-            tileMaterialClass={tileMaterialClass}
-            tileColorPreset={tileColorPreset}
-            tileScore={tileScore}
-            tick={tick}
-            usedSet={usedSet}
-            specialStartTileSet={special3LockedStartTileSet}
-          />
-        </div>
-      </div>
-      {mobileResultsPhaseFadeOverlay}
-      {mobileRoundIntroOverlay}
-      {praiseOverlay}
-      {chatOverlays}
-    </>
+        <MobileUltraCompactPlaying
+          chatOverlays={chatOverlays}
+          compactCountdownValue={compactCountdownValue}
+          compactRank={compactRank}
+          compactScore={compactScore}
+          compactTotal={compactTotal}
+          darkMode={darkMode}
+          mobileGridProps={{
+          board,
+          BONUS_CLASSES,
+          bonusLetterKey,
+          bonusLetterScore,
+          darkMode,
+          gridRef,
+          gridShake,
+          gridSize,
+          gridRotationTurns,
+          implodeActive,
+          handleMouseDown,
+          handleMouseMove,
+          handleMouseUp,
+          handleTouchEnd,
+          handleTouchMove,
+          handleTouchStart,
+          hintCellSet,
+          hintOutlineCellSet,
+          isMobileLayout,
+          lightGridSurfaceStyle,
+          MOBILE_LAYOUT_MAX_WIDTH: MOBILE_GRID_MAX_WIDTH,
+          mobileGapPx,
+          mobileGridSide,
+          mobileTileFontPx,
+          normalizeBonusLabel,
+          normalizeLetterKey,
+          phase,
+          specialIndicatorPreset,
+          specialSolvedOverlay,
+          introHideTiles: mobileRoundIntroHideTiles,
+          defaultTileBaseClass,
+          tilePointsVisible: roundTilePointsVisible,
+          tileRefs,
+          tileMaterialClass,
+          tileColorPreset,
+          tileScore,
+          tick,
+          usedSet,
+          specialStartTileSet: special3LockedStartTileSet,
+        }}
+          mobileResultsPhaseFadeOverlay={
+            suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
+          }
+          mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
+          mobileViewportContainerStyle={mobileViewportContainerStyle}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          praiseOverlay={praiseOverlay}
+          slideStyles={slideStyles}
+        />
+        {mobileChatLayer}
+      </>
     );
   }
 
@@ -31103,456 +32329,131 @@ function handleTouchEnd(e) {
 
     return (
       <>
-        <div
-          className={`flex flex-col ${
-            darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-          }`}
-          style={mobileViewportContainerStyle}
-        >
-          <style>{slideStyles}</style>
-          <style>{`
-            @keyframes dailyInvalidShake {
-              0%, 100% { transform: translateX(0); }
-              20% { transform: translateX(-4px); }
-              40% { transform: translateX(4px); }
-              60% { transform: translateX(-3px); }
-              80% { transform: translateX(3px); }
-            }
-            .daily-invalid-shake {
-              animation: dailyInvalidShake 320ms ease-in-out;
-            }
-            .daily-special-lock {
-              animation: specialHintTile 320ms ease-in-out;
-            }
-            .special3-tutorial-focus {
-              box-shadow:
-                0 0 0 3px rgba(251, 191, 36, 0.35),
-                inset 0 0 0 2px rgba(251, 191, 36, 0.55);
-            }
-            .special3-tutorial-ghost {
-              animation: special3TutorialGhostMove 1.8s ease-in-out infinite;
-            }
-            .special3-tutorial-pulse {
-              animation: specialHintTile 1.8s ease-in-out infinite;
-            }
-            @keyframes special3TutorialGhostMove {
-              0% { transform: translate(-42px, 84px) scale(0.92); opacity: 0; }
-              18% { opacity: 0.95; }
-              60% { transform: translate(0px, 0px) scale(1); opacity: 0.95; }
-              100% { transform: translate(8px, -18px) scale(0.96); opacity: 0; }
-            }
-          `}</style>
-          <div
-            style={{
-              paddingLeft: `${special3SidePadPx}px`,
-              paddingRight: `${special3SidePadPx}px`,
-              paddingTop: `${special3TopPadPx}px`,
-              paddingBottom: `${Math.max(4, special3TopPadPx - 1)}px`,
-            }}
-          >
-            <div
-              className="grid items-center gap-2"
-              style={{
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
-                fontSize: `${special3MetaFontPx}px`,
-              }}
-            >
-              <span className="min-w-0 truncate font-semibold opacity-80 justify-self-start">
-                {`${filledCount}/${DAILY_SPECIAL_WORD_TARGET} mots validés`}
-              </span>
-              <div
-                className="text-center font-black tabular-nums leading-none justify-self-center"
-                style={{
-                  fontSize: `${special3TimerFontPx}px`,
-                  marginTop: `${special3TimerTopMarginPx}px`,
-                }}
-              >
-                {remainingSec}
-              </div>
-              <div className="flex items-center justify-self-end justify-end gap-1.5">
-                <button
-                  onClick={toggleSoundQuick}
-                  className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                  title={allSoundOn ? "Couper le son" : "Activer le son"}
-                  aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
-                  style={{
-                    height: `${special3SettingsButtonSide}px`,
-                    width: `${special3SettingsButtonSide}px`,
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined leading-none"
-                    aria-hidden="true"
-                    style={{ fontSize: `${special3SettingsIconPx}px` }}
-                  >
-                    {allSoundOn ? "volume_up" : "volume_off"}
-                  </span>
-                </button>
-                <button
-                  onClick={toggleDarkModeQuick}
-                  className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                  title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-                  aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-                  style={{
-                    height: `${special3SettingsButtonSide}px`,
-                    width: `${special3SettingsButtonSide}px`,
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined leading-none"
-                    aria-hidden="true"
-                    style={{ fontSize: `${special3SettingsIconPx}px` }}
-                  >
-                    {darkMode ? "light_mode" : "dark_mode"}
-                  </span>
-                </button>
-                {isLoggedIn ? (
-                  <button
-                    type="button"
-                    onClick={() => requestOpenChat()}
-                    aria-label="Ouvrir le chat"
-                    className="relative inline-flex items-center justify-center"
-                    style={{
-                      height: `${special3ChatButtonSide}px`,
-                      width: `${special3ChatButtonSide}px`,
-                    }}
-                  >
-                    <img
-                      src="/buttons/chat.png"
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full object-contain drop-shadow-md"
-                      draggable="false"
-                    />
-                    {mobileChatUnreadCount > 0 ? (
-                      <span
-                        className="absolute px-1 rounded-full bg-red-600 font-extrabold text-white flex items-center justify-center shadow-md"
-                        style={{
-                          minWidth: `${special3ChatBadgeSide}px`,
-                          height: `${special3ChatBadgeSide}px`,
-                          fontSize: `${Math.max(9, special3ChatBadgeSide - 8)}px`,
-                          top: "8%",
-                          right: "4%",
-                          transform: "translate(32%, -24%)",
-                        }}
-                      >
-                        {mobileChatUnreadCount >= 10 ? "9+" : String(mobileChatUnreadCount)}
-                      </span>
-                    ) : null}
-                  </button>
-                ) : null}
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                  type="button"
-                  aria-label="Paramètres"
-                  style={{
-                    height: `${special3SettingsButtonSide}px`,
-                    width: `${special3SettingsButtonSide}px`,
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined leading-none"
-                    aria-hidden="true"
-                    style={{ fontSize: `${special3SettingsIconPx}px` }}
-                  >
-                    settings
-                  </span>
-                </button>
-              </div>
-            </div>
-            <div
-              className={`rounded-full overflow-hidden ${
-                darkMode ? "bg-slate-800" : "bg-slate-200"
-              }`}
-              style={{
-                marginTop: `${special3ProgressTopMarginPx}px`,
-                height: `${special3ProgressHeightPx}px`,
-              }}
-            >
-              <div
-                className="h-full origin-right transition-transform duration-300 bg-amber-500"
-                style={{ transform: `scaleX(${progressRatio})` }}
-              />
-            </div>
-          </div>
-
-          <div
-            ref={mobileSpecial3TutorialHostRef}
-            className="relative flex-1 min-h-0 flex flex-col overflow-hidden"
-            style={{
-              gap: `${special3SectionGapPx}px`,
-              paddingLeft: `${special3SidePadPx}px`,
-              paddingRight: `${special3SidePadPx}px`,
-              paddingBottom: `${special3BottomPadPx}px`,
-            }}
-          >
-            <div
-              className="min-h-0 flex-1 overflow-hidden"
-              style={{ minHeight: `${special3ValidationBlockMinHeightPx}px` }}
-            >
-            <div
-              className={`h-full rounded-xl border flex flex-col overflow-hidden ${
-                darkMode ? "border-slate-700 bg-slate-900/90" : "border-slate-200 bg-white/90"
-              } ${special3TutorialStep === 1 ? "special3-tutorial-focus" : ""}`}
-              style={{
-                gap: `${special3SlotGapPx}px`,
-                paddingLeft: `${special3SlotPadX}px`,
-                paddingRight: `${special3SlotPadX}px`,
-                paddingTop: `${special3SlotPadY}px`,
-                paddingBottom: `${special3SlotPadY}px`,
-              }}
-            >
-              {slots.map((slot, idx) => {
-                const slotWord = String(slot?.word || "").trim();
-                const isActiveSlot = idx === activeSlotResolved;
-                const showLiveWord = isActiveSlot && !slotWord && !!liveWord;
-                const displayWord = showLiveWord
-                  ? String(liveWord || "").toUpperCase()
-                  : String(slot?.display || slotWord || "").toUpperCase();
-                const displayPath = showLiveWord
-                  ? highlightPath
-                  : Array.isArray(slot?.path)
-                  ? slot.path
-                  : [];
-                const liveInvalid = showLiveWord && !dailyLiveWordValid;
-                const scoreLabel = slotWord
-                  ? Number.isFinite(slot?.pts)
-                    ? `${formatNumber(slot.pts)} pts`
-                    : "0 pt"
-                  : showLiveWord
-                  ? dailyLiveWordValid
-                    ? `${formatNumber(dailyLiveWordScore || 0)} pts`
-                    : dailyLiveWordBlockedReason || "INVALIDE"
-                  : "—";
-                const rowIsInvalid = dailyInvalidSlot === idx && dailyInvalidPulseKey > 0;
-                return (
-                  <div
-                    key={`daily-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
-                    ref={
-                      idx === 0
-                        ? mobileSpecial3FirstSlotRef
-                        : idx === 1
-                        ? mobileSpecial3SecondSlotRef
-                        : undefined
-                    }
-                    className={[
-                      "grid grid-cols-[1fr,auto] items-center rounded-lg border",
-                      isActiveSlot
-                        ? darkMode
-                          ? "border-amber-400/70 bg-slate-800/60"
-                          : "border-amber-400 bg-amber-50"
-                        : darkMode
-                        ? "border-slate-700 bg-slate-900/50"
-                        : "border-slate-200 bg-white",
-                      rowIsInvalid ? "daily-invalid-shake" : "",
-                    ].join(" ")}
-                    style={{
-                      flex: "1 1 0",
-                      minHeight: `${special3SlotRowMinHeightPx}px`,
-                      overflow: "hidden",
-                      columnGap: `${special3SlotGapPx}px`,
-                      paddingLeft: `${special3SlotPadX}px`,
-                      paddingRight: `${special3SlotPadX}px`,
-                      paddingTop: `${special3SlotPadY}px`,
-                      paddingBottom: `${special3SlotPadY}px`,
-                    }}
-                    onClick={() => {
-                      if (!slotWord) setDailyActiveSlot(idx);
-                    }}
-                  >
-                    <div className="min-w-0 overflow-hidden flex items-center">
-                      {displayWord ? (
-                        renderWordPreviewTiles(displayWord, `daily-capsule-${idx}`, displayPath)
-                      ) : (
-                        <div
-                          className="flex items-center font-semibold opacity-60"
-                          style={{
-                            minHeight: `${special3PreviewTileHeightPx}px`,
-                            fontSize: `${special3SlotPlaceholderFontPx}px`,
-                          }}
-                        >
-                          Mot {idx + 1}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {slotWord ? (
-                        <button
-                          type="button"
-                          className={`px-1 rounded-full border font-black ${
-                            darkMode
-                              ? "bg-slate-800 border-slate-600 text-slate-200"
-                              : "bg-white border-slate-300 text-slate-700"
-                          }`}
-                          style={{
-                            height: `${special3SlotDeleteSide}px`,
-                            minWidth: `${special3SlotDeleteSide}px`,
-                            fontSize: `${special3SlotScoreFontPx}px`,
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearDailyWordSlot(idx);
-                          }}
-                        >
-                          x
-                        </button>
-                      ) : null}
-                      <span
-                        className={`text-right font-black ${
-                          liveInvalid ? "text-red-500" : ""
-                        }`}
-                        style={{
-                          minWidth: `${special3SlotScoreMinWidthPx}px`,
-                          fontSize: `${special3SlotScoreFontPx}px`,
-                        }}
-                      >
-                        <span className="inline-flex items-center justify-end gap-1">
-                          <span>{scoreLabel}</span>
-                          {slotWord
-                            ? renderSpecial3LengthGobbleBadge(slotWord)
-                            : showLiveWord && dailyLiveWordValid
-                            ? renderSpecial3LengthGobbleBadge(dailyLiveWordNorm)
-                            : null}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-              <div
-                className={`grid items-center ${
-                  isDailyPlay ? "grid-cols-[minmax(0,1fr),auto]" : "grid-cols-[1fr]"
-                }`}
-                style={{
-                  flexShrink: 0,
-                  columnGap: `${special3SlotGapPx}px`,
-                  paddingTop: `${Math.max(2, Math.round(special3SlotGapPx / 2))}px`,
-                  fontSize: `${special3SlotTotalFontPx}px`,
-                }}
-              >
-                {isDailyPlay ? (
-                  <button
-                    type="button"
-                    className={`justify-self-start rounded-xl px-3 font-black shadow-sm transition ${
-                      darkMode
-                        ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
-                        : "bg-emerald-500 text-white hover:bg-emerald-600"
-                    }`}
-                    style={{
-                      width: "48%",
-                      minWidth: 0,
-                      paddingTop: `${special3ActionPadYPx}px`,
-                      paddingBottom: `${special3ActionPadYPx}px`,
-                      fontSize: `${special3ActionFontPx}px`,
-                    }}
-                    onClick={() => {
-                      void submitDailyScore();
-                    }}
-                  >
-                    Valider
-                  </button>
-                ) : null}
-                <div className={isDailyPlay ? "text-right font-black min-w-0" : "text-right font-black"}>
-                  Total : {formatNumber(dailyTotalScore)} pts
-                </div>
-              </div>
-            </div>
-            </div>
-
-            <div
-              className="shrink-0 flex flex-col"
-              style={{ gap: `${special3SectionGapPx}px` }}
-            >
-              <div className="shrink-0 flex items-center justify-center">
-                <div
-                  ref={mobileSpecial3GridWrapRef}
-                  className={`relative w-full ${
-                    special3TutorialStep === 0 ? "special3-tutorial-focus rounded-2xl" : ""
-                  }`}
-                >
-                  <MobileGrid
-                    board={boardForRender}
-                    BONUS_CLASSES={BONUS_CLASSES}
-                    bonusLetterKey={bonusLetterKey}
-                    bonusLetterScore={bonusLetterScore}
-                    darkMode={darkMode}
-                    gridRef={gridRef}
-                    gridShake={gridShake}
-                    gridSize={gridSize}
-                    implodeActive={implodeActive}
-                    gridRotationTurns={gridRotationTurns}
-                    handleMouseDown={handleMouseDown}
-                    handleMouseMove={handleMouseMove}
-                    handleMouseUp={handleMouseUp}
-                    handleTouchEnd={handleTouchEnd}
-                    handleTouchMove={handleTouchMove}
-                    handleTouchStart={handleTouchStart}
-                    hintCellSet={hintCellSet}
-                    hintOutlineCellSet={hintOutlineCellSet}
-                    isMobileLayout={isMobileLayout}
-                    lightGridSurfaceStyle={lightGridSurfaceStyle}
-                    MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
-                    mobileGapPx={mobileGapPx}
-                    mobileGridSide={mobileGridSide}
-                    mobileTileFontPx={mobileTileFontPx}
-                    normalizeBonusLabel={normalizeBonusLabel}
-                    normalizeLetterKey={normalizeLetterKey}
-                    phase={phase}
-                    specialIndicatorPreset={specialIndicatorPreset}
-                    specialSolvedOverlay={specialSolvedOverlay}
-                    introHideTiles={mobileRoundIntroHideTiles}
-                    defaultTileBaseClass={defaultTileBaseClass}
-                    tilePointsVisible={roundTilePointsVisible}
-                    tileRefs={tileRefs}
-                    tileMaterialClass={tileMaterialClass}
-                    tileColorPreset={tileColorPreset}
-                    tileScore={tileScore}
-                    tick={tick}
-                    usedSet={usedSet}
-                    specialStartTileSet={special3LockedStartTileSet}
-                  />
-                </div>
-              </div>
-              <div
-                ref={mobileSpecial3BonusTrayRef}
-                className={`shrink-0 rounded-xl border shadow-sm ${
-                  darkMode ? "border-slate-700 bg-slate-900/90" : "border-slate-200 bg-white/90"
-                } ${
-                  special3TutorialStep === 0 || special3TutorialStep === 1
-                    ? "special3-tutorial-focus"
-                    : ""
-                }`}
-                style={{
-                  minHeight: `${special3BonusTrayBaseHeightPx}px`,
-                  height: `${special3BonusTrayHeightPx}px`,
-                  maxHeight: `${special3BonusTrayMaxHeightPx}px`,
-                  paddingLeft: `${special3BonusTrayPadX}px`,
-                  paddingRight: `${special3BonusTrayPadX}px`,
-                  paddingTop: `${special3BonusTrayPadY}px`,
-                  paddingBottom: `${special3BonusTrayPadY}px`,
-                }}
-              >
-                <div
-                  className="h-full flex items-center justify-center"
-                  style={{ gap: `${special3SlotGapPx}px` }}
-                >
-                  {DAILY_SPECIAL_BONUSES.map((bonusKey) => renderSpecialChip(bonusKey))}
-                </div>
-              </div>
-            </div>
-            {special3MobileStep1Ghost}
-            {special3MobileStep2TutorialOverlay}
-          </div>
-          {special3DragGhost}
-          {special3InGameTutorialCard}
-        </div>
-        {mobileResultsPhaseFadeOverlay}
-        {mobileRoundIntroOverlay}
-        {praiseOverlay}
-        {chatOverlays}
+        <MobileSpecial3Playing
+          DAILY_SPECIAL_BONUSES={DAILY_SPECIAL_BONUSES}
+          DAILY_SPECIAL_WORD_TARGET={DAILY_SPECIAL_WORD_TARGET}
+          activeSlotResolved={activeSlotResolved}
+          allSoundOn={allSoundOn}
+          chatOverlays={chatOverlays}
+          clearDailyWordSlot={clearDailyWordSlot}
+          dailyInvalidPulseKey={dailyInvalidPulseKey}
+          dailyInvalidSlot={dailyInvalidSlot}
+          dailyLiveWordBlockedReason={dailyLiveWordBlockedReason}
+          dailyLiveWordNorm={dailyLiveWordNorm}
+          dailyLiveWordScore={dailyLiveWordScore}
+          dailyLiveWordValid={dailyLiveWordValid}
+          dailyTotalScore={dailyTotalScore}
+          darkMode={darkMode}
+          filledCount={filledCount}
+          formatNumber={formatNumber}
+          highlightPath={highlightPath}
+          isDailyPlay={isDailyPlay}
+          isLoggedIn={isLoggedIn}
+          liveWord={liveWord}
+          mobileChatUnreadCount={mobileChatUnreadCount}
+          mobileGridProps={{
+          board: boardForRender,
+          BONUS_CLASSES,
+          bonusLetterKey,
+          bonusLetterScore,
+          darkMode,
+          gridRef,
+          gridShake,
+          gridSize,
+          implodeActive,
+          gridRotationTurns,
+          handleMouseDown,
+          handleMouseMove,
+          handleMouseUp,
+          handleTouchEnd,
+          handleTouchMove,
+          handleTouchStart,
+          hintCellSet,
+          hintOutlineCellSet,
+          isMobileLayout,
+          lightGridSurfaceStyle,
+          MOBILE_LAYOUT_MAX_WIDTH: MOBILE_GRID_MAX_WIDTH,
+          mobileGapPx,
+          mobileGridSide,
+          mobileTileFontPx,
+          normalizeBonusLabel,
+          normalizeLetterKey,
+          phase,
+          specialIndicatorPreset,
+          specialSolvedOverlay,
+          introHideTiles: mobileRoundIntroHideTiles,
+          defaultTileBaseClass,
+          tilePointsVisible: roundTilePointsVisible,
+          tileRefs,
+          tileMaterialClass,
+          tileColorPreset,
+          tileScore,
+          tick,
+          usedSet,
+          specialStartTileSet: special3LockedStartTileSet,
+        }}
+          mobileResultsPhaseFadeOverlay={
+            suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
+          }
+          mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
+          mobileSpecial3BonusTrayRef={mobileSpecial3BonusTrayRef}
+          mobileSpecial3FirstSlotRef={mobileSpecial3FirstSlotRef}
+          mobileSpecial3GridWrapRef={mobileSpecial3GridWrapRef}
+          mobileSpecial3SecondSlotRef={mobileSpecial3SecondSlotRef}
+          mobileSpecial3TutorialHostRef={mobileSpecial3TutorialHostRef}
+          mobileViewportContainerStyle={mobileViewportContainerStyle}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          praiseOverlay={praiseOverlay}
+          progressRatio={progressRatio}
+          remainingSec={remainingSec}
+          renderSpecial3LengthGobbleBadge={renderSpecial3LengthGobbleBadge}
+          renderSpecialChip={renderSpecialChip}
+          renderWordPreviewTiles={renderWordPreviewTiles}
+          requestOpenChat={requestOpenChat}
+          setDailyActiveSlot={setDailyActiveSlot}
+          slideStyles={slideStyles}
+          slots={slots}
+          special3ActionFontPx={special3ActionFontPx}
+          special3ActionPadYPx={special3ActionPadYPx}
+          special3BonusTrayBaseHeightPx={special3BonusTrayBaseHeightPx}
+          special3BonusTrayHeightPx={special3BonusTrayHeightPx}
+          special3BonusTrayMaxHeightPx={special3BonusTrayMaxHeightPx}
+          special3BonusTrayPadX={special3BonusTrayPadX}
+          special3BonusTrayPadY={special3BonusTrayPadY}
+          special3BottomPadPx={special3BottomPadPx}
+          special3ChatBadgeSide={special3ChatBadgeSide}
+          special3ChatButtonSide={special3ChatButtonSide}
+          special3DragGhost={special3DragGhost}
+          special3InGameTutorialCard={special3InGameTutorialCard}
+          special3MetaFontPx={special3MetaFontPx}
+          special3MobileStep1Ghost={special3MobileStep1Ghost}
+          special3MobileStep2TutorialOverlay={special3MobileStep2TutorialOverlay}
+          special3PreviewTileHeightPx={special3PreviewTileHeightPx}
+          special3ProgressHeightPx={special3ProgressHeightPx}
+          special3ProgressTopMarginPx={special3ProgressTopMarginPx}
+          special3SectionGapPx={special3SectionGapPx}
+          special3SettingsButtonSide={special3SettingsButtonSide}
+          special3SettingsIconPx={special3SettingsIconPx}
+          special3SidePadPx={special3SidePadPx}
+          special3SlotDeleteSide={special3SlotDeleteSide}
+          special3SlotGapPx={special3SlotGapPx}
+          special3SlotPadX={special3SlotPadX}
+          special3SlotPadY={special3SlotPadY}
+          special3SlotPlaceholderFontPx={special3SlotPlaceholderFontPx}
+          special3SlotRowMinHeightPx={special3SlotRowMinHeightPx}
+          special3SlotScoreFontPx={special3SlotScoreFontPx}
+          special3SlotScoreMinWidthPx={special3SlotScoreMinWidthPx}
+          special3SlotTotalFontPx={special3SlotTotalFontPx}
+          special3TimerFontPx={special3TimerFontPx}
+          special3TimerTopMarginPx={special3TimerTopMarginPx}
+          special3TopPadPx={special3TopPadPx}
+          special3TutorialStep={special3TutorialStep}
+          special3ValidationBlockMinHeightPx={special3ValidationBlockMinHeightPx}
+          submitDailyScore={submitDailyScore}
+          toggleDarkModeQuick={toggleDarkModeQuick}
+          toggleSoundQuick={toggleSoundQuick}
+        />
+        {mobileChatLayer}
       </>
     );
   }
@@ -31872,725 +32773,202 @@ function handleTouchEnd(e) {
       ) : null;
       return (
         <>
-          <div
-            className={`flex flex-col ${
-              darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-            }`}
-            style={mobileViewportContainerStyle}
-          >
-          <style>{slideStyles}</style>
-          <MobileHeader
+          <MobileResultsScreen
+            WORDS_SCROLL_MAX_HEIGHT={WORDS_SCROLL_MAX_HEIGHT}
+            DARK_WORD_INACTIVE={DARK_WORD_INACTIVE}
+            SwapFadeTextComponent={SwapFadeText}
             activeRoom={activeRoom}
+            allSoundOn={allSoundOn}
+            analysis={analysis}
+            assetVersion={assetVersion}
+            chatOverlays={chatOverlays}
             countdownLines={countdownLines}
             darkMode={darkMode}
+            displayList={displayList}
+            duelTeam={duelTeam}
+            endStats={endStats}
+            foundDotStyle={foundDotStyle}
+            getRoundRecordsForPlayer={getRoundRecordsForPlayer}
+            gobbleAwardsForLive={gobbleAwardsForLive}
             gridSize={gridSize}
-            headerRef={mobileHeaderRef}
+            guidedPseudoOverlay={guidedPseudoOverlay}
+            guidedSwipeOverlay={guidedSwipeOverlay}
+            guidedWordOverlay={guidedWordOverlay}
+            handleResultsTouchEnd={handleResultsTouchEnd}
+            handleResultsTouchMove={handleResultsTouchMove}
+            handleResultsTouchStart={handleResultsTouchStart}
             isFinaleBanner={isFinaleBanner}
+            isSpeedRound={isSpeedRound}
             isTargetRound={isTargetRound}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onToggleSound={toggleSoundQuick}
-            onToggleDarkMode={toggleDarkModeQuick}
-            soundEnabled={allSoundOn}
-            playingSeconds={phase === "playing" ? Math.max(0, Number(tick) || 0) : null}
-            playerTeam={duelTeam}
-            phase={phase}
-            roomLabelSeparator=" - "
-            showHelpButton={false}
-            tournament={tournament}
-          />
-          {showHelp && typeof document !== "undefined"
-            ? createPortal(
-                <div
-                  className="fixed inset-0 z-[20150] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
-                  onClick={() => setShowHelp(false)}
-                >
-                  <div
-                    role="dialog"
-                    aria-modal="true"
-                    className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
-                      darkMode
-                        ? "bg-slate-900/90 text-slate-100 border-slate-700"
-                        : "bg-white/90 text-slate-900 border-slate-200"
-                    }`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
-                      Aide rapide
-                    </div>
-                    <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
-                    <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                      <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
-                      <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
-                      <li>Entree valide le mot, Backspace efface.</li>
-                    </ul>
-                    <div className="mt-3 text-[12px] font-semibold">Bareme</div>
-                    <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                      <li>Score = somme des lettres + bonus de longueur.</li>
-                      <li>Bonus L2/L3 multiplient la lettre.</li>
-                      <li>Bonus M2/M3 multiplient le mot.</li>
-                    </ul>
-                    <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
-                    <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                      <li>Lettre bonus : une lettre rapporte plus de points.</li>
-                      <li>Rapidite : tous les mots valent 11 points.</li>
-                      <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
-                      <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
-                      <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
-                    </ul>
-                    <div className="mt-3 text-[12px] font-semibold">Support</div>
-                    <p className="mt-1 text-[11px]">
-                      <a
-                        href="mailto:support@gobble.fr"
-                        className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
-                      >
-                        support@gobble.fr
-                      </a>
-                    </p>
-                  </div>
-                </div>,
-                document.body
-              )
-            : null}
-          <div
-            className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
-            style={{
-              ...mobileBodyHeightStyle,
-              paddingTop: mobileBodyPaddingTop,
+            listItemRefs={listItemRefs}
+            mobileBodyHeightStyle={mobileBodyHeightStyle}
+            mobileBodyPaddingTop={mobileBodyPaddingTop}
+            mobileHeaderRef={mobileHeaderRef}
+            mobileResultsPhaseFadeOverlay={
+              suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
+            }
+            mobileResultsSummaryStyle={mobileResultsSummaryStyle}
+            mobileViewportContainerStyle={mobileViewportContainerStyle}
+            onAnalyzeWord={analyzeWord}
+            onClearAnalysis={() => {
+              setAnalysis(null);
+              setHighlightPath([]);
+              setHighlightPlayers([]);
             }}
-          >
-            <div
-              className={resultsCardClassName}
-              style={resultsCardStyle}
-              onTouchStart={handleResultsTouchStart}
-              onTouchMove={handleResultsTouchMove}
-              onTouchEnd={handleResultsTouchEnd}
-              onTouchCancel={handleResultsTouchEnd}
-            >
-              {guidedPseudoOverlay}
-              {guidedSwipeOverlay}
-              {guidedWordOverlay}
-              <div className="relative flex-1 min-h-0 overflow-hidden z-10">
-                <div className={`flex flex-col gap-2 h-full results-fade-layer ${resultsFadeClass}`}>
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="font-semibold">
-                      {resultsHeaderLabel}
-                      {!showResultsWords && resultsHeaderSuffix ? (
-                        <SwapFadeText value={resultsHeaderSuffix} className="ml-1" />
-                      ) : null}
-                    </div>
-                    {!showResultsWords &&
-                      tournament?.round &&
-                      tournament?.totalRounds && (
-                        <span className="text-slate-500 dark:text-slate-300 whitespace-nowrap">
-                          {tournament.round === tournament.totalRounds ? (
-                            <>Manche finale</>
-                          ) : (
-                            <>
-                              Manche {tournament.round}/{tournament.totalRounds}
-                            </>
-                          )}
-                        </span>
-                      )}
-                    {showResultsWords ? (
-                      <SwapFadeText
-                        value={resultsWordsTitle}
-                        className="text-slate-500 dark:text-slate-300 whitespace-nowrap"
-                      />
-                    ) : null}
-                  </div>
-
-                  {showOfflineResultsLabel ? (
-                    <div className="text-[11px] text-amber-500">
-                      Vous etiez hors ligne sur cette manche.
-                    </div>
-                  ) : null}
-
-                  {showVocabPage ? (
-                    renderVocabPanel({ panelClassName: "flex-1 min-h-0 pt-2" })
-                  ) : showResultsWords && !isTargetRound ? (
-                    <div className="flex flex-col gap-2 flex-1 min-h-0">
-                      {wordsEmpty ? (
-                        <div className="text-xs text-slate-500 dark:text-slate-300">
-                          {resultsPageKey === "all"
-                            ? "Aucun mot (solveur non lanc\u00e9)"
-                            : "Aucun mot trouv\u00e9."}
-                        </div>
-                      ) : null}
-                      <div
-                        className="flex-1 min-h-0 overflow-y-auto pr-1"
-                        style={{ maxHeight: WORDS_SCROLL_MAX_HEIGHT }}
-                      >
-                        {displayList.length === 0 ? (
-                          <div className="flex items-center justify-center h-full text-xs text-slate-400">
-                            Aucun mot trouv\u00e9.
-                          </div>
-                        ) : (
-                          <ul className="relative flex flex-col text-sm">
-                            {displayList.map((entry) => {
-                              const selected = analysis?.word === entry.word;
-                              const status = entry.status;
-                              const isPending = status === "pending";
-                              const isRejected = status === "rejected";
-                              const isFound = entry.isFound || isPending;
-                              const bestPts = entry.bestPts;
-                              const userPts = entry.userPts;
-                              const showOpt =
-                                !suppressWordListScores &&
-                                isFound &&
-                                typeof bestPts === "number" &&
-                                typeof userPts === "number" &&
-                                bestPts !== userPts &&
-                                !isPending &&
-                                !isRejected &&
-                                !isSpeedRound;
-                              const isTrouvable = !isFound && !isRejected;
-                              const visible = showAllWords || isFound || isRejected;
-                              const wordClassName = isRejected
-                                ? darkMode
-                                  ? "font-semibold text-red-300 line-through"
-                                  : "font-semibold text-red-600 line-through"
-                                : isPending
-                                ? darkMode
-                                  ? "font-semibold text-slate-300 opacity-70"
-                                  : "font-semibold text-gray-500 opacity-70"
-                                : isFound
-                                ? "font-semibold"
-                                : "text-gray-600";
-                              const isGuidedWordTarget =
-                                showGuidedWordHint && entry.word === guidedWordTarget;
-                              return (
-                                <li
-                                  key={entry.word}
-                                  onMouseEnter={() => analyzeWord(entry.word)}
-                                  onMouseLeave={() => {
-                                    setAnalysis(null);
-                                    setHighlightPath([]);
-                                    setHighlightPlayers([]);
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (entry.word) openWordInfoModal(entry.word);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === " ") {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      if (entry.word) openWordInfoModal(entry.word);
-                                    }
-                                  }}
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-label={`Voir les détails de ${entry.word}`}
-                                  ref={(el) => {
-                                    if (el) listItemRefs.current.set(entry.word, el);
-                                    else listItemRefs.current.delete(entry.word);
-                                  }}
-                                  className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
-                                    selected ? "bg-blue-50 text-blue-800" : "hover:bg-gray-100"
-                                  } ${isGuidedWordTarget ? "guide-highlight guide-blink" : ""}`}
-                                  style={{
-                                    transitionDuration: "220ms",
-                                    transitionProperty: isTrouvable
-                                      ? "opacity, max-height"
-                                      : "opacity, transform, max-height",
-                                    opacity: visible ? 1 : 0,
-                                    transform:
-                                      isTrouvable || visible
-                                        ? "translateY(0)"
-                                        : "translateY(-8px)",
-                                    maxHeight: visible ? "48px" : "0px",
-                                    paddingTop: visible ? "2px" : "0px",
-                                    paddingBottom: visible ? "2px" : "0px",
-                                    overflow:
-                                      isGuidedWordTarget && visible ? "visible" : "hidden",
-                                    pointerEvents: visible ? "auto" : "none",
-                                    position: "relative",
-                                    color:
-                                      !isFound && !isPending && darkMode
-                                        ? DARK_WORD_INACTIVE
-                                        : undefined,
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    className="flex items-center gap-2 text-left w-1/2 min-w-0"
-                                    onClick={() => openWordInfoModal(entry.word)}
-                                  >
-                                    {isFound ? (
-                                      <span
-                                        style={{
-                                          ...foundDotStyle,
-                                          opacity: isPending ? 0.4 : 1,
-                                        }}
-                                        aria-hidden="true"
-                                      />
-                                    ) : (
-                                      <span
-                                        style={{ ...foundDotStyle, opacity: 0 }}
-                                        aria-hidden="true"
-                                      />
-                                    )}
-                                    <span className="flex items-center gap-1 min-w-0">
-                                      <span className={wordClassName}>{entry.word}</span>
-                                      {renderGobbleCandidate(entry.word)}
-                                    </span>
-                                  </button>
-                                  <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                                    {!suppressWordListScores && typeof userPts === "number" && isFound && (
-                                      <span
-                                        className={`font-extrabold ${
-                                          darkMode ? "text-slate-100" : "text-slate-800"
-                                        }`}
-                                      >
-                                        +{userPts} pts
-                                      </span>
-                                    )}
-                                    {isPending && (
-                                      <span className="text-[0.65rem] text-gray-400">
-                                        envoi...
-                                      </span>
-                                    )}
-                                    {isRejected && (
-                                      <span
-                                        className={`text-[0.65rem] ${
-                                          darkMode ? "text-red-300" : "text-red-600"
-                                        }`}
-                                      >
-                                        refusé
-                                      </span>
-                                    )}
-                                    {!suppressWordListScores && !isFound && typeof bestPts === "number" && (
-                                      <span className="text-slate-500 opacity-75">
-                                        ({bestPts} pts)
-                                      </span>
-                                    )}
-                                    {showOpt && (
-                                      <span
-                                        className={`text-[0.65rem] ${
-                                          darkMode ? "text-red-300" : "text-red-600"
-                                        }`}
-                                      >
-                                        (opt: {bestPts} pts)
-                                      </span>
-                                    )}
-                                  </span>
-                                  {isGuidedWordTarget ? (
-                                    <span className="sr-only">
-                                      Cliquez sur ce mot pour savoir qui l'a trouvé.
-                                    </span>
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 flex-1 min-h-0">
-                      <div className="flex-1 min-h-0 overflow-hidden">
-                        <RankingWidgetMobile
-                          fullRanking={resultsRankingList}
-                          selfNick={selfNick}
-                          darkMode={darkMode}
-                          expanded={true}
-                          animateRank={false}
-                          animateReorderTick={resultsReorderTick}
-                          showWheel={false}
-                          flatStyle={true}
-                          showRoundAward={true}
-                          assetVersion={assetVersion}
-                          gobbleWordAwardsByNick={gobbleAwardsForLive}
-                          renderNickSuffix={renderNickSuffix}
-                          renderAfterRank={
-                            resultsRankingModeForMobile === "total" ? renderRankDelta : null
-                          }
-                          recordBadgesByNick={
-                            resultsRankingModeForMobile === "round"
-                              ? recordBadgesByNickForRound
-                              : null
-                          }
-                          onPlayerNickClick={
-                            resultsRankingModeForMobile === "round"
-                              ? openRoundPlayerModal
-                              : null
-                          }
-                          isPlayerNickClickable={
-                            resultsRankingModeForMobile === "round"
-                              ? (rankingEntry) => {
-                                  if (!isTargetRound) return true;
-                                  const nick = String(rankingEntry?.nick || "").trim();
-                                  if (!nick) return false;
-                                  return getRoundRecordsForPlayer(nick).length > 0;
-                                }
-                              : null
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {resultsDots}
-            {(isTargetRound ? targetSummary : endStats) && (
-              <div className={summaryWrapperClass} style={mobileResultsSummaryStyle}>
-                {renderDesktopResultsDockPanel()}
-              </div>
-            )}
-          </div>
-
-        </div>
-        {mobileResultsPhaseFadeOverlay}
-        {praiseOverlay}
-        {chatOverlays}
-      </>
-    );
+            onGoToResultsPage={goToResultsPage}
+            onOpenRoundPlayerModal={openRoundPlayerModal}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenWordInfoModal={openWordInfoModal}
+            onSetShowHelp={setShowHelp}
+            onToggleDarkMode={toggleDarkModeQuick}
+            onToggleSound={toggleSoundQuick}
+            praiseOverlay={praiseOverlay}
+            recordBadgesByNickForRound={recordBadgesByNickForRound}
+            renderDesktopResultsDockPanel={renderDesktopResultsDockPanel}
+            renderGobbleCandidate={renderGobbleCandidate}
+            renderNickSuffix={renderNickSuffix}
+            renderRankDelta={renderRankDelta}
+            renderVocabPanel={renderVocabPanel}
+            resultsCardClassName={resultsCardClassName}
+            resultsCardStyle={resultsCardStyle}
+            resultsDots={resultsDots}
+            resultsFadeClass={resultsFadeClass}
+            resultsHeaderLabel={resultsHeaderLabel}
+            resultsHeaderSuffix={resultsHeaderSuffix}
+            resultsPageKey={resultsPageKey}
+            resultsRankingList={resultsRankingList}
+            resultsRankingModeForMobile={resultsRankingModeForMobile}
+            resultsReorderTick={resultsReorderTick}
+            resultsWordsTitle={resultsWordsTitle}
+            selfNick={selfNick}
+            showAllWords={showAllWords}
+            showHelp={showHelp}
+            showOfflineResultsLabel={showOfflineResultsLabel}
+            showResultsWords={showResultsWords}
+            showVocabPage={showVocabPage}
+            slideStyles={slideStyles}
+            summaryWrapperClass={summaryWrapperClass}
+            suppressWordListScores={suppressWordListScores}
+            targetSummary={targetSummary}
+            tick={tick}
+            tournament={tournament}
+            visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
+            wordsEmpty={wordsEmpty}
+          />
+          {mobileChatLayer}
+        </>
+      );
     }
 
    return (
     <>
-      <div
-        className={`flex flex-col ${
-          darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
-        }`}
-        style={mobileViewportContainerStyle}
-      >
-   
-
-        <style>{slideStyles}</style>
-
-        {/* En-tête compact : titre, salon, score et boutons rapides */}
-        <MobileHeader
-          activeRoom={activeRoom}
-          countdownLines={countdownLines}
-          darkMode={darkMode}
-          gridSize={gridSize}
-          headerRef={mobileHeaderRef}
-          isFinaleBanner={isFinaleBanner}
-          isTargetRound={isTargetRound}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onToggleSound={toggleSoundQuick}
-          onToggleDarkMode={toggleDarkModeQuick}
-          soundEnabled={allSoundOn}
-          playingSeconds={phase === "playing" ? Math.max(0, Number(tick) || 0) : null}
-          playerTeam={duelTeam}
-          phase={phase}
-          roomLabelSeparator=" - "
-          roundStatsText={
-            phase === "playing" && roundStats && !isTargetRound
-              ? `${roundStats.words ?? "?"} mots - ${
-                  formatNumber(roundStats.totalPts ?? roundStats.maxPts ?? 0) || "?"
-                } pts`
-              : null
-          }
-          setShowHelp={setShowHelp}
-          showHelpButton={false}
-          showRoundStats={true}
-          tournament={tournament}
-        />
-        {showHelp && typeof document !== "undefined"
-          ? createPortal(
-              <div
-                className="fixed inset-0 z-[20150] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
-                onClick={() => setShowHelp(false)}
-              >
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
-                    darkMode
-                      ? "bg-slate-900/90 text-slate-100 border-slate-700"
-                      : "bg-white/90 text-slate-900 border-slate-200"
-                  }`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
-                    Aide rapide
-                  </div>
-                  <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
-                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                    <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
-                    <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
-                    <li>Entree valide le mot, Backspace efface.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] font-semibold">Bareme</div>
-                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                    <li>Score = somme des lettres + bonus de longueur.</li>
-                    <li>Bonus L2/L3 multiplient la lettre.</li>
-                    <li>Bonus M2/M3 multiplient le mot.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
-                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                    <li>Lettre bonus : une lettre rapporte plus de points.</li>
-                    <li>Rapidite : tous les mots valent 11 points.</li>
-                    <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
-                    <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
-                    <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] font-semibold">Support</div>
-                  <p className="mt-1 text-[11px]">
-                    <a
-                      href="mailto:support@gobble.fr"
-                      className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
-                    >
-                      support@gobble.fr
-                    </a>
-                  </p>
-                </div>
-              </div>,
-              document.body
-            )
-          : null}
-
-        {/* Contenu principal mobile : classement + apercu mot + grille */}
-        <div
-          className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
-          style={{
-            ...mobileBodyHeightStyle,
-            paddingTop: mobileBodyPaddingTop,
-          }}
-        >
-          {phase === "playing" && isTargetRound ? (
-            <div
-              ref={mobileRankingRef}
-              className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
-              style={
-                specialBlockHeight > 0
-                  ? {
-                      height: `${specialBlockHeight}px`,
-                      maxHeight: `${specialBlockHeight}px`,
-                      minHeight: 0,
-                      paddingTop: `${specialPadY}px`,
-                      paddingBottom: `${specialPadY}px`,
-                    }
-                  : { paddingTop: `${specialPadY}px`, paddingBottom: `${specialPadY}px` }
-              }
-            >
-              <div
-                className="font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300"
-                style={{ fontSize: `${specialTitleFont}px` }}
-              >
-                {specialRound?.type === "target_long"
-                  ? "TROUVE LE PLUS LONG MOT"
-                  : specialRound?.type === "target_score"
-                  ? "TROUVE LE MEILLEUR MOT"
-                  : "MANCHE SPECIALE"}
-              </div>
-              <div
-                className="mt-2 text-center font-black tracking-widest tabular-nums"
-                style={{ fontSize: `${specialWordFont}px` }}
-              >
-                {specialHintDisplay ? (
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <span>{specialHintDisplay}</span>
-                    {showSolvedTargetLoupe && (
-                      <button
-                        type="button"
-                        className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
-                          darkMode
-                            ? "bg-slate-800 border-slate-600 text-slate-100"
-                            : "bg-white border-gray-300 text-gray-700"
-                        } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDefinition(solvedTargetWord);
-                        }}
-                        aria-label="Voir la dGinition"
-                        title="Voir la dGinition"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <circle cx="11" cy="11" r="7" />
-                          <line x1="16.65" y1="16.65" x2="21" y2="21" />
-                        </svg>
-                      </button>
-                    )}
-                  </span>
-                ) : (
-                  <span
-                    className="tracking-normal opacity-80"
-                    style={{ fontSize: `${Math.max(11, Math.round(13 * specialScale))}px` }}
-                  >
-                    MOT MYSTÈRE
-                  </span>
-                )}
-              </div>
-              {specialRound?.type === "target_score" ? (
-                <div
-                  className="mt-1 font-semibold opacity-80 text-center"
-                  style={{ fontSize: `${specialMetaFont}px` }}
-                >
-                  {Number.isFinite(targetScoreMax) && targetScoreMax > 0
-                    ? `${formatNumber(targetScoreMax)} pts`
-                    : "-- pts"}
-                </div>
-              ) : null}
-              {specialHint?.length ? (
-                <div
-                  className="mt-1 font-semibold opacity-70 text-center"
-                  style={{ fontSize: `${specialMetaFont}px` }}
-                >
-                  {specialHint.length} lettres
-                </div>
-              ) : null}
-              <div
-                className="mt-1 font-semibold opacity-80 text-center"
-                style={{ fontSize: `${specialMetaFont}px` }}
-              >
-                {nextHintLabel}
-              </div>
-              {phase === "playing" && !isDailyPlay && !isTargetRound ? (
-                <button
-                  type="button"
-                  className={`absolute bottom-2 right-2 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
-                    darkMode
-                      ? "bg-slate-900/70 text-white border border-white/10"
-                      : "bg-white/80 text-slate-900 border border-slate-200"
-                  }`}
-                  onClick={() => openPlayersOverlaySnapshot(fullRanking)}
-                >
-                  Liste des joueurs
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <div
-              ref={mobileRankingRef}
-              className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
-              style={
-                mobileLayoutSizing.rankingHeight > 0
-                  ? {
-                      height: `${Math.round(mobileLayoutSizing.rankingHeight)}px`,
-                      maxHeight: `${Math.round(mobileLayoutSizing.rankingHeight)}px`,
-                      minHeight: 0,
-                    }
-                  : undefined
-              }
-            >
-              {phase === "playing" && !isDailyPlay && !isTargetRound ? (
-                <button
-                  type="button"
-                  className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
-                    darkMode
-                      ? "bg-slate-900/70 text-white border border-white/10"
-                      : "bg-white/80 text-slate-900 border border-slate-200"
-                  }`}
-                  onClick={() => openPlayersOverlaySnapshot(fullRanking)}
-                >
-                  Liste des joueurs
-                </button>
-              ) : null}
-              <RankingWidgetMobile
-                fullRanking={fullRanking}
-                selfNick={selfNick}
-                darkMode={darkMode}
-                expanded={false}
-                flatStyle={true}
-                highlightedPlayers={highlightPlayers}
-                fitHeight={true}
-                assetVersion={assetVersion}
-                gobbleWordAwardsByNick={gobbleAwardsForLive}
-                renderNickSuffix={renderNickSuffix}
-                className="h-full"
-              />
-            </div>
-          )}
-
-          <MobileWordPreview
-            countdownLines={countdownLines}
-            currentDisplay={currentDisplay}
-            darkMode={darkMode}
-            liveWord={liveWord}
-            onRotateGrid={rotateGridClockwise}
-            phase={phase}
-            previewBlockHeight={previewBlockHeight}
-            previewGapPx={previewGapPx}
-            previewTileBaseStyle={previewTileBaseStyle}
-            previewStats={{
-              show: showPreviewStats,
-              wordsFoundLabel,
-              totalWordsLabel,
-              scoreLabel,
-              totalScoreLabel,
-            }}
-            shake={shake}
-          />
-          <div className="flex-1 min-h-0 flex flex-col gap-1">
-            <MobileGrid
-              board={boardForRender}
-              BONUS_CLASSES={BONUS_CLASSES}
-              bonusLetterKey={bonusLetterKey}
-              bonusLetterScore={bonusLetterScore}
-              darkMode={darkMode}
-              gridRef={gridRef}
-              gridShake={gridShake}
-              gridSize={gridSize}
-              implodeActive={implodeActive}
-              gridRotationTurns={gridRotationTurns}
-              handleMouseDown={handleMouseDown}
-              handleMouseMove={handleMouseMove}
-              handleMouseUp={handleMouseUp}
-              handleTouchEnd={handleTouchEnd}
-              handleTouchMove={handleTouchMove}
-              handleTouchStart={handleTouchStart}
-              hintCellSet={hintCellSet}
-              hintOutlineCellSet={hintOutlineCellSet}
-              isMobileLayout={isMobileLayout}
-              lightGridSurfaceStyle={lightGridSurfaceStyle}
-              MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
-              mobileGapPx={mobileGapPx}
-              mobileGridSide={mobileGridSide}
-              mobileTileFontPx={mobileTileFontPx}
-              normalizeBonusLabel={normalizeBonusLabel}
-              normalizeLetterKey={normalizeLetterKey}
-              phase={phase}
-              specialIndicatorPreset={specialIndicatorPreset}
-              specialSolvedOverlay={specialSolvedOverlay}
-              introHideTiles={mobileRoundIntroHideTiles}
-              defaultTileBaseClass={defaultTileBaseClass}
-              tilePointsVisible={roundTilePointsVisible}
-              tileRefs={tileRefs}
-              tileMaterialClass={tileMaterialClass}
-              tileColorPreset={tileColorPreset}
-              tileScore={tileScore}
-              tick={tick}
-              usedSet={usedSet}
-              specialStartTileSet={special3LockedStartTileSet}
-            />
-            <div
-              className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
-              style={{
-                minHeight: `${liveFeedMinHeight}px`,
-                flexBasis: `${liveFeedMinHeight}px`,
-              }}
-            >
-              <LiveFeed
-                items={mobileAnnouncements}
-                darkMode={darkMode}
-                maxHeight="100%"
-                wrapAroundBottomRight={!isChatOpenMobile}
-                wrapAroundWidth="clamp(44px, 11vw, 68px)"
-                wrapAroundHeight="clamp(44px, 11vw, 68px)"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      {mobileResultsPhaseFadeOverlay}
-      {mobileRoundIntroOverlay}
-      {praiseOverlay}
-      {chatOverlays}
+      <MobileStandardPlaying
+        MOBILE_GRID_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
+        BONUS_CLASSES={BONUS_CLASSES}
+        activeRoom={activeRoom}
+        allSoundOn={allSoundOn}
+        assetVersion={assetVersion}
+        boardForRender={boardForRender}
+        bonusLetterKey={bonusLetterKey}
+        bonusLetterScore={bonusLetterScore}
+        chatOverlays={chatOverlays}
+        countdownLines={countdownLines}
+        currentDisplay={currentDisplay}
+        darkMode={darkMode}
+        defaultTileBaseClass={defaultTileBaseClass}
+        duelTeam={duelTeam}
+        formatNumber={formatNumber}
+        fullRanking={fullRanking}
+        gobbleAwardsForLive={gobbleAwardsForLive}
+        gridRef={gridRef}
+        gridRotationTurns={gridRotationTurns}
+        gridShake={gridShake}
+        gridSize={gridSize}
+        handleMouseDown={handleMouseDown}
+        handleMouseMove={handleMouseMove}
+        handleMouseUp={handleMouseUp}
+        handleTouchEnd={handleTouchEnd}
+        handleTouchMove={handleTouchMove}
+        handleTouchStart={handleTouchStart}
+        highlightPlayers={highlightPlayers}
+        hintCellSet={hintCellSet}
+        hintOutlineCellSet={hintOutlineCellSet}
+        implodeActive={implodeActive}
+        isChatOpenMobile={isChatOpenMobile}
+        isDailyPlay={isDailyPlay}
+        isFinaleBanner={isFinaleBanner}
+        isMobileLayout={isMobileLayout}
+        isTargetRound={isTargetRound}
+        lightGridSurfaceStyle={lightGridSurfaceStyle}
+        liveFeedMinHeight={liveFeedMinHeight}
+        liveWord={liveWord}
+        mobileAnnouncements={mobileAnnouncements}
+        mobileBodyHeightStyle={mobileBodyHeightStyle}
+        mobileBodyPaddingTop={mobileBodyPaddingTop}
+        mobileGapPx={mobileGapPx}
+        mobileGridSide={mobileGridSide}
+        mobileHeaderRef={mobileHeaderRef}
+        mobileLayoutSizing={mobileLayoutSizing}
+        mobileRankingRef={mobileRankingRef}
+        mobileResultsPhaseFadeOverlay={
+          suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
+        }
+        mobileRoundIntroHideTiles={mobileRoundIntroHideTiles}
+        mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
+        mobileTileFontPx={mobileTileFontPx}
+        mobileViewportContainerStyle={mobileViewportContainerStyle}
+        nextHintLabel={nextHintLabel}
+        normalizeBonusLabel={normalizeBonusLabel}
+        normalizeLetterKey={normalizeLetterKey}
+        onOpenDefinition={openDefinition}
+        onOpenPlayersOverlaySnapshot={openPlayersOverlaySnapshot}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onRotateGrid={rotateGridClockwise}
+        onSetShowHelp={setShowHelp}
+        onToggleDarkMode={toggleDarkModeQuick}
+        onToggleSound={toggleSoundQuick}
+        phase={phase}
+        praiseOverlay={praiseOverlay}
+        previewBlockHeight={previewBlockHeight}
+        previewGapPx={previewGapPx}
+        previewTileBaseStyle={previewTileBaseStyle}
+        renderNickSuffix={renderNickSuffix}
+        roundStats={roundStats}
+        roundTilePointsVisible={roundTilePointsVisible}
+        scoreLabel={scoreLabel}
+        selfNick={selfNick}
+        shake={shake}
+        shouldDefinitionBlink={shouldDefinitionBlink}
+        showHelp={showHelp}
+        showPreviewStats={showPreviewStats}
+        showSolvedTargetLoupe={showSolvedTargetLoupe}
+        slideStyles={slideStyles}
+        solvedTargetWord={solvedTargetWord}
+        special3LockedStartTileSet={special3LockedStartTileSet}
+        specialBlockHeight={specialBlockHeight}
+        specialHint={specialHint}
+        specialHintDisplay={specialHintDisplay}
+        specialIndicatorPreset={specialIndicatorPreset}
+        specialMetaFont={specialMetaFont}
+        specialPadY={specialPadY}
+        specialRound={specialRound}
+        specialScale={specialScale}
+        specialSolvedOverlay={specialSolvedOverlay}
+        specialTitleFont={specialTitleFont}
+        specialWordFont={specialWordFont}
+        targetScoreMax={targetScoreMax}
+        tick={tick}
+        tileColorPreset={tileColorPreset}
+        tileMaterialClass={tileMaterialClass}
+        tileRefs={tileRefs}
+        tileScore={tileScore}
+        totalScoreLabel={totalScoreLabel}
+        totalWordsLabel={totalWordsLabel}
+        tournament={tournament}
+        usedSet={usedSet}
+        wordsFoundLabel={wordsFoundLabel}
+      />
+      {mobileChatLayer}
     </>
   );
   }
@@ -32771,7 +33149,7 @@ function handleTouchEnd(e) {
         : null}
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
-      <div className="relative">
+      <div className={`relative ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
       <div
         ref={mainGridDesktopRef}
         className={`main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 ${
@@ -32782,13 +33160,20 @@ function handleTouchEnd(e) {
       
         {/* Colonne 1 : Joueurs */}
         <div
-          className="card bg-white border rounded-xl p-4 w-full flex flex-col gap-3 min-h-0 order-2 md:order-1"
+          ref={(node) => setDesktopColumnNode("players", node)}
+          className={`card bg-white border rounded-xl p-4 w-full flex flex-col gap-3 min-h-0 order-2 md:order-1 relative transition-opacity duration-150 ${
+            desktopColumnDragId === "players" ? "opacity-25" : ""
+          }`}
                     style={
             isMobileLayout
               ? { ...lightPanelStyle, minHeight: 0, overflow: "visible" }
-              : { ...lightPanelStyle, ...desktopColumnHeightStyle, overflow: "hidden" }
+              : {
+                  ...lightPanelStyle,
+                  ...desktopColumnHeightStyle,
+                  overflow: "hidden",
+                  order: desktopColumnOrderIndexById.get("players") || 1,
+                }
           }
-
         >
           <div className="flex items-center justify-between">
             <h2 className="font-bold">
@@ -33014,29 +33399,55 @@ function handleTouchEnd(e) {
         </div>
         {/* Colonne 2 : Grille */}
         <div
-          ref={playColumnRef}
-          className="card bg-white border rounded-xl flex flex-col items-center space-y-6 w-full min-h-0 order-1 md:order-2 p-2"
+          ref={(node) => {
+            playColumnRef.current = node;
+            setDesktopColumnNode("grid", node);
+          }}
+          className={`card bg-white border rounded-xl flex flex-col items-center space-y-6 w-full min-h-0 order-1 md:order-2 p-2 relative transition-opacity duration-150 ${
+            desktopColumnDragId === "grid" ? "opacity-25" : ""
+          }`}
                     style={
             isMobileLayout
               ? { minHeight: 0, overflow: "visible" }
-              : { ...desktopColumnHeightStyle, overflow: "hidden" }
+              : {
+                  ...desktopColumnHeightStyle,
+                  overflow: "hidden",
+                  order: desktopColumnOrderIndexById.get("grid") || 2,
+                }
           }
-
         >
           {!isMobileLayout && (
-            <div className="w-full flex justify-center">
+            <div className={`w-full flex justify-center ${phase === "playing" ? "mb-3 pt-2" : ""}`}>
               <div
                 ref={countdownRef}
-                className={`text-center font-bold text-sm ${darkMode ? "text-slate-200" : "text-slate-700"}`}
+                className={`text-center font-bold ${darkMode ? "text-slate-200" : "text-slate-700"}`}
                 style={
                   computedGridWidth
                     ? { width: computedGridWidth, minWidth: computedGridWidth, maxWidth: computedGridWidth }
                     : undefined
                 }
               >
-                {countdownLines.map((line, idx) => (
-                  <div key={`${line}-${idx}`}>{line}</div>
-                ))}
+                {phase === "playing" ? (
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-70">
+                      Temps restant
+                    </div>
+                    <div
+                      className={`mt-1 font-black tabular-nums leading-none ${
+                        darkMode ? "text-slate-50" : "text-slate-800"
+                      }`}
+                      style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
+                    >
+                      {Math.max(0, Number(tick) || 0)}
+                    </div>
+                  </div>
+                ) : (
+                  countdownLines.map((line, idx) => (
+                    <div key={`${line}-${idx}`} className="text-sm">
+                      {line}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -33462,8 +33873,15 @@ function handleTouchEnd(e) {
 
        {/* Colonne 3 : Score et résultats */}
         <div
-          className="card bg-white border rounded-xl p-4 w-full flex flex-col overflow-hidden min-h-0 order-3"
-          style={{ ...lightPanelStyle, ...desktopColumnHeightStyle }}
+          ref={(node) => setDesktopColumnNode("side", node)}
+          className={`card bg-white border rounded-xl p-4 w-full flex flex-col overflow-hidden min-h-0 order-3 relative transition-opacity duration-150 ${
+            desktopColumnDragId === "side" ? "opacity-25" : ""
+          }`}
+          style={{
+            ...lightPanelStyle,
+            ...desktopColumnHeightStyle,
+            ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("side") || 3 }),
+          }}
         >
           {/* bloc score */}
           <div className="bg-white border rounded-xl p-3 w-full space-y-2 mb-4 shrink-0 relative overflow-hidden">
@@ -33527,6 +33945,13 @@ function handleTouchEnd(e) {
                     ? slot.path
                     : [];
                   const liveInvalid = showLiveWord && !dailyLiveWordValid;
+                  const numericScoreLabel = slotWord
+                    ? Number.isFinite(slot?.pts)
+                      ? formatNumber(slot.pts)
+                      : "0"
+                    : showLiveWord && dailyLiveWordValid
+                    ? formatNumber(dailyLiveWordScore || 0)
+                    : null;
                   const scoreLabel = slotWord
                     ? Number.isFinite(slot?.pts)
                       ? `${formatNumber(slot.pts)} pts`
@@ -33541,7 +33966,7 @@ function handleTouchEnd(e) {
                     <div
                       key={`live-special3-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
                       className={[
-                        "grid grid-cols-[1fr,auto] items-center gap-2 rounded-lg border px-2 py-2",
+                        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-2",
                         isActiveSlot
                           ? darkMode
                             ? "border-amber-400/70 bg-slate-800/60"
@@ -33554,21 +33979,42 @@ function handleTouchEnd(e) {
                     >
                       <button
                         type="button"
-                        className="text-left min-w-0"
+                        className="text-left min-w-0 overflow-hidden"
                         onClick={() => {
                           if (!slotWord) setDailyActiveSlot(idx);
                         }}
                       >
                         <div className="text-[11px] uppercase tracking-wide opacity-60">Mot {idx + 1}</div>
-                        <div className="mt-1 min-h-[28px]">
+                        <div className="mt-1 min-h-[28px] overflow-hidden">
                           {displayWord ? (
-                            renderSpecial3PreviewTiles(displayWord, `desktop-special3-slot-${idx}`, displayPath)
+                            renderSpecial3PreviewTiles(
+                              displayWord,
+                              `desktop-special3-slot-${idx}`,
+                              displayPath,
+                              null,
+                              { align: "left", disableRotation: true, edgePadding: true }
+                            )
                           ) : (
                             <div className="h-7 flex items-center text-sm font-black opacity-50">—</div>
                           )}
                         </div>
                       </button>
                       <div className="flex items-center gap-2">
+                        <span
+                          title={scoreLabel}
+                          className={`text-xs font-black ${liveInvalid ? "text-red-500" : ""}`}
+                        >
+                          <span className="inline-flex items-center justify-end gap-1">
+                            <span className={numericScoreLabel ? "inline-block min-w-[3ch] text-right tabular-nums" : ""}>
+                              {numericScoreLabel || scoreLabel}
+                            </span>
+                            {slotWord
+                              ? renderSpecial3LengthGobbleBadge(slotWord)
+                              : showLiveWord && dailyLiveWordValid
+                              ? renderSpecial3LengthGobbleBadge(dailyLiveWordNorm)
+                              : null}
+                          </span>
+                        </span>
                         {slotWord ? (
                           <button
                             type="button"
@@ -33581,16 +34027,6 @@ function handleTouchEnd(e) {
                             x
                           </button>
                         ) : null}
-                        <span className={`text-xs font-black min-w-[72px] text-right ${liveInvalid ? "text-red-500" : ""}`}>
-                          <span className="inline-flex items-center justify-end gap-1">
-                            <span>{scoreLabel}</span>
-                            {slotWord
-                              ? renderSpecial3LengthGobbleBadge(slotWord)
-                              : showLiveWord && dailyLiveWordValid
-                              ? renderSpecial3LengthGobbleBadge(dailyLiveWordNorm)
-                              : null}
-                          </span>
-                        </span>
                       </div>
                     </div>
                   );
@@ -33845,13 +34281,20 @@ function handleTouchEnd(e) {
         {/* Colonne 4 : Chat */}
         {!isDailyPlay && (
           <div
-          className={`${chatBlockClasses} card w-full min-h-0 order-4`}
-          style={{ ...desktopColumnHeightStyle, overflow: "hidden" }}
-          onClick={() => {
+          ref={(node) => setDesktopColumnNode("chat", node)}
+          className={`${chatBlockClasses} card w-full min-h-0 order-4 relative transition-opacity duration-150 ${
+            desktopColumnDragId === "chat" ? "opacity-25" : ""
+          }`}
+          style={{
+            ...desktopColumnHeightStyle,
+            overflow: "hidden",
+            ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("chat") || 4 }),
+          }}
+          onClick={(event) => {
             setActiveArea("chat");
-            if (chatInputRef.current) {
-              chatInputRef.current.focus();
-            }
+            const target = event.target instanceof HTMLElement ? event.target : null;
+            if (target?.closest("button, a, input, textarea, select, label")) return;
+            focusChatInput();
           }}
           >
           <div className="flex items-center justify-between mb-2">
@@ -33877,7 +34320,7 @@ function handleTouchEnd(e) {
             </button>
             </div>
           </div>
-          <div className="mb-2">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <div
               className={`inline-flex rounded-full border p-1 ${
                 darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
@@ -33910,11 +34353,39 @@ function handleTouchEnd(e) {
                 Système
               </button>
             </div>
+            <label
+              className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-2 py-1 ${
+                darkMode
+                  ? "border-white/10 bg-slate-800/70 text-slate-100"
+                  : "border-slate-200 bg-slate-100 text-slate-700"
+              }`}
+              title={`Taille du chat : ${desktopChatScaleLabel}`}
+            >
+              <span
+                className="font-extrabold text-base leading-none shrink-0"
+                style={{
+                  fontFamily: "\"GobblePerfectPen\", \"KGPerfectPenmanship\", cursive",
+                }}
+                aria-hidden="true"
+              >
+                Aa
+              </span>
+              <input
+                type="range"
+                min={CHAT_DESKTOP_FONT_SCALE_MIN}
+                max={CHAT_DESKTOP_FONT_SCALE_MAX}
+                step={CHAT_DESKTOP_FONT_SCALE_STEP}
+                value={chatDesktopFontScale}
+                onChange={(e) => handleChatDesktopFontScaleChange(e.target.value)}
+                className="w-24 accent-blue-600"
+                aria-label="Taille de la police du chat"
+              />
+            </label>
           </div>
           {renderBlockedListPanel()}
 
           <div
-            ref={chatDesktopListRef}
+            ref={setChatDesktopListNode}
             className="chat-messages flex-1 border rounded px-2 py-1 pb-4 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
             style={{ overscrollBehavior: "contain", overflowAnchor: "none" }}
             onScroll={handleDesktopChatScroll}
@@ -33959,46 +34430,46 @@ function handleTouchEnd(e) {
                   }`}
                 >
                   {isSystem ? (
-                    <div className="w-full px-1 py-0.5 text-sm italic text-orange-700">
+                    <div className="w-full px-1 py-0.5 italic text-orange-700" style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}>
                       <div className="flex items-baseline gap-1 flex-wrap">
                         <span className="font-semibold">{systemAuthor}:</span>
                         {messageTime ? (
-                          <span className="text-[10px] leading-none opacity-70">
+                          <span className="leading-none opacity-70" style={{ fontSize: `${desktopChatMicroFontPx}px` }}>
                             {messageTime}
                           </span>
                         ) : null}
                         {isEdited ? (
-                          <span className="text-[10px] leading-none opacity-60">(modifié)</span>
+                          <span className="leading-none opacity-60" style={{ fontSize: `${desktopChatMicroFontPx}px` }}>(modifié)</span>
                         ) : null}
                         <span>{msg.text}</span>
                       </div>
                     </div>
 	                  ) : (
                     <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
-	                    <div
-	                      className={[
-	                        "group/chatmsg max-w-[88%] px-2 py-1 text-sm rounded-lg",
-                          isYou
-                            ? darkMode
-                              ? "bg-blue-500 text-white"
+                          <div
+                            className={[
+                              "group/chatmsg max-w-[88%] px-2 py-1 rounded-lg",
+                              isYou
+                                ? darkMode
+                                  ? "bg-blue-500 text-white"
                               : "bg-blue-600 text-white"
                             : darkMode
                             ? "bg-slate-800 text-slate-100 border border-slate-700"
                             : "bg-slate-100 text-slate-900 border border-slate-200",
-	                      ].join(" ")}
-                        onMouseEnter={ensureDesktopChatBottomVisible}
-                        onFocus={ensureDesktopChatBottomVisible}
-	                    >
-                      {replyPreview ? (
-	                        <div
-	                          className={`mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
-	                            replyTargetsSelf
-	                              ? "border-blue-500 bg-blue-50 text-slate-700"
-	                              : darkMode
+                            ].join(" ")}
+                            style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}
+                          >
+                            {replyPreview ? (
+                              <div
+                                className={`mb-1 rounded-md border-l-4 px-2 py-1 ${
+                                  replyTargetsSelf
+                                    ? "border-blue-500 bg-blue-50 text-slate-700"
+                                    : darkMode
                                 ? "border-slate-600 bg-slate-700/80 text-slate-200"
                                 : "border-slate-300 bg-slate-50 text-slate-700"
-	                          }`}
-	                        >
+                                }`}
+                                style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}
+                              >
                           <div className="font-semibold">{replyPreview.nick}</div>
                           <div
                             style={{
@@ -34072,7 +34543,7 @@ function handleTouchEnd(e) {
                           </span>
 	                      </div>
                       {!isYou ? (
-                        <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                        <div className="mt-1 flex items-center gap-2">
                           <button
                             type="button"
                             className="text-[10px] font-semibold text-blue-600 hover:underline"
@@ -34089,7 +34560,7 @@ function handleTouchEnd(e) {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 overflow-hidden max-h-0 opacity-0 transition-all duration-150 group-hover/chatmsg:max-h-8 group-hover/chatmsg:opacity-100 group-focus-within/chatmsg:max-h-8 group-focus-within/chatmsg:opacity-100">
+                        <div className="mt-1 flex items-center gap-2">
                           <button
                             type="button"
                             className="text-[10px] font-semibold text-amber-600 hover:underline"
@@ -34138,13 +34609,14 @@ function handleTouchEnd(e) {
           {safeChatTab !== "system" ? (
             <>
               {chatEditTarget ? (
-                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700">
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700" style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-[11px] font-semibold">Modification du message</div>
+                      <div className="font-semibold">Modification du message</div>
                       <div
-                        className="text-[11px]"
                         style={{
+                          fontSize: `${desktopChatMetaFontPx}px`,
+                          lineHeight: `${desktopChatMetaLineHeightPx}px`,
                           display: "-webkit-box",
                           WebkitLineClamp: 3,
                           WebkitBoxOrient: "vertical",
@@ -34166,15 +34638,16 @@ function handleTouchEnd(e) {
                 </div>
               ) : null}
               {chatReplyTarget ? (
-                <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700">
+                <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700" style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-[11px] font-semibold">
+                      <div className="font-semibold">
                         Réponse à {chatReplyTarget.nick || "Anonyme"}
                       </div>
                       <div
-                        className="text-[11px]"
                         style={{
+                          fontSize: `${desktopChatMetaFontPx}px`,
+                          lineHeight: `${desktopChatMetaLineHeightPx}px`,
                           display: "-webkit-box",
                           WebkitLineClamp: 3,
                           WebkitBoxOrient: "vertical",
@@ -34202,7 +34675,8 @@ function handleTouchEnd(e) {
                     type="button"
                     onClick={() => submitChat(null, txt)}
                     disabled={chatInputDisabled}
-                    className="px-1.5 py-0.5 text-[11px] leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-1.5 py-0.5 leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ fontSize: `${desktopChatQuickReplyFontPx}px` }}
                   >
                     {txt}
                   </button>
@@ -34217,11 +34691,12 @@ function handleTouchEnd(e) {
                       type="button"
                       onClick={() => appendChatEmoji(emoji)}
                       disabled={chatInputDisabled}
-                      className={`h-8 w-8 rounded-md border text-base leading-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`h-8 w-8 rounded-md border leading-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
                         darkMode
                           ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
                           : "bg-white border-slate-300 hover:bg-slate-100"
                       }`}
+                      style={{ fontSize: `${Math.round(18 * chatDesktopFontScale)}px` }}
                       title={`Ajouter ${emoji}`}
                       aria-label={`Ajouter ${emoji}`}
                     >
@@ -34236,11 +34711,12 @@ function handleTouchEnd(e) {
                   type="button"
                   onClick={() => setIsDesktopEmojiPickerOpen((prev) => !prev)}
                   disabled={chatInputDisabled}
-                  className={`px-2 py-2 text-sm rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`px-2 py-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? "bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700"
                       : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
                   }`}
+                  style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
                   aria-label="Raccourci émoticônes"
                   title="Raccourci émoticônes"
                 >
@@ -34265,7 +34741,8 @@ function handleTouchEnd(e) {
                   onFocus={handleChatInputFocus}
                   readOnly={chatInputDisabled}
                   aria-disabled={chatInputDisabled}
-                  className="flex-1 min-w-0 border rounded px-3 py-2 text-sm ios-input chat-input resize-none min-h-[40px] max-h-[140px]"
+                  className="flex-1 min-w-0 border rounded px-3 py-2 ios-input chat-input resize-none min-h-[40px] max-h-[140px]"
+                  style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
                   placeholder={chatInputPlaceholder}
                   value={chatInput}
                   onChange={(e) => {
@@ -34276,7 +34753,8 @@ function handleTouchEnd(e) {
                 />
                 <button
                   type="button"
-                  className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                  className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+                  style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
                   disabled={!chatInput.trim() || chatInputDisabled}
                   onClick={() => submitChat(null)}
                 >
@@ -34322,6 +34800,24 @@ function handleTouchEnd(e) {
         })}
       </div>
       </div>
+      {!isMobileLayout &&
+      desktopColumnHandleLayout.length > 0 &&
+      typeof document !== "undefined"
+        ? createPortal(
+            <div className="pointer-events-none fixed inset-0 z-[115]" aria-hidden="true">
+              {desktopColumnHandleLayout.map((entry) => (
+                <div
+                  key={`desktop-column-handle-${entry.id}`}
+                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${entry.left}px`, top: `${entry.top}px` }}
+                >
+                  {renderDesktopColumnHandle(entry.id, entry.label)}
+                </div>
+              ))}
+            </div>,
+            document.body
+          )
+        : null}
       {desktopResultsSummaryDrawer}
       {mobileRoundIntroOverlay}
       {praiseOverlay}

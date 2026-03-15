@@ -38,6 +38,21 @@ assert.ok(
   "bots never exceed 140 planned words"
 );
 
+const cappedBot = {
+  nick: "Capped",
+  skill: 0.95,
+  maxWordsPerRound: 24,
+  minWordsPerRound: 8,
+  pointBias: 0.9,
+};
+const cappedWords = pickWordsForBot(solutions, cappedBot, {
+  rand: () => 0.99,
+});
+assert.ok(
+  cappedWords.length <= cappedBot.maxWordsPerRound,
+  "explicit bot maxWordsPerRound must remain a real cap"
+);
+
 const sleepingBot = { nick: "Sleepy", sleep: { startHour: 2, durationHours: 3 } };
 const awakeBot = { nick: "Awake", sleep: { startHour: 2, durationHours: 3 } };
 const asleepDate = new Date();

@@ -3,6 +3,7 @@ import React from "react";
 export default function AutoScaleInline({
   className = "",
   minScale = 0.62,
+  align = "center",
   children,
 }) {
   const viewportRef = React.useRef(null);
@@ -47,14 +48,18 @@ export default function AutoScaleInline({
     };
   }, [children, minScale]);
 
+  const justifyClass = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
+  const transformOrigin =
+    align === "left" ? "left top" : align === "right" ? "right top" : "center top";
+
   return (
-    <div ref={viewportRef} className="w-full overflow-hidden flex justify-center">
+    <div ref={viewportRef} className={`w-full overflow-hidden flex ${justifyClass}`}>
       <div
         ref={lineRef}
         className={`inline-flex items-center justify-center whitespace-nowrap ${className}`}
         style={{
           transform: `scale(${scale})`,
-          transformOrigin: "center top",
+          transformOrigin,
         }}
       >
         {children}
@@ -62,4 +67,3 @@ export default function AutoScaleInline({
     </div>
   );
 }
-

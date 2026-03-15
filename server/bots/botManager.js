@@ -38,10 +38,10 @@ const BOT_ROTATION_MINUTES = 60;
 
 // Modifiez librement ces listes : noms fixes, niveaux varies, fenetres de pause.
 export const BOT_ROSTER_4X4 = [
-  { nick: "Proutosaurus Rex", skill: 0.82, maxWordsPerRound: 92, minWordsPerRound: 35, pointBias: 0.85, pace: 0.9, sleep: { startHour: 2, durationHours: 2 } },
+  { nick: "Proutosaurus Rex", skill: 0.82, maxWordsPerRound: 88, minWordsPerRound: 35, pointBias: 0.85, pace: 0.9, sleep: { startHour: 2, durationHours: 2 } },
   { nick: "ProtoPanache", skill: 0.9, maxWordsPerRound: 96, minWordsPerRound: 38, pointBias: 0.88, pace: 1.05, sleep: { startHour: 4, durationHours: 3 } },
   { nick: "Crux", skill: 0.74, maxWordsPerRound: 82, minWordsPerRound: 30, pointBias: 0.78, pace: 1.05 },
-  { nick: "QuasarMots", skill: 0.88, maxWordsPerRound: 90, minWordsPerRound: 36, pointBias: 0.84, pace: 1.02, sleep: { startHour: 3, durationHours: 3 } },
+  { nick: "QuasarMots", skill: 0.88, maxWordsPerRound: 86, minWordsPerRound: 36, pointBias: 0.84, pace: 1.02, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Celie", skill: 0.66, maxWordsPerRound: 74, minWordsPerRound: 28, pointBias: 0.7, pace: 1.0, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Sylvie50", skill: 0.6, maxWordsPerRound: 71, minWordsPerRound: 25, pointBias: 0.65, pace: 0.95 },
   { nick: "Alcapouet", skill: 0.75, maxWordsPerRound: 69, minWordsPerRound: 22, pointBias: 0.55, pace: 1.1 },
@@ -359,7 +359,11 @@ export function pickWordsForBot(solutions, botProfile, opts = {}) {
     gridSize === 5
       ? Math.round(110 + skill * 90)
       : Math.round(70 + skill * 60);
-  let maxWords = Math.min(MAX_WORDS_PER_BOT_PER_ROUND, Math.max(profileMax, baseMax));
+  let maxWords = Math.min(
+    MAX_WORDS_PER_BOT_PER_ROUND,
+    profileMax > 0 ? profileMax : baseMax
+  );
+  maxWords = Math.max(minWords, maxWords);
   if (Number.isFinite(opts.maxWordsCap)) {
     maxWords = Math.min(maxWords, Math.max(0, Math.round(opts.maxWordsCap)));
   }
@@ -427,6 +431,7 @@ class BotManager {
     dictionary,
     ensurePlayerInRound,
     submitWordForNick,
+    submitSpecial3WordsState,
     emitPlayers,
     emitMedals,
     broadcastProvisionalRanking,
@@ -435,6 +440,7 @@ class BotManager {
     this.dictionary = dictionary;
     this.ensurePlayerInRound = ensurePlayerInRound;
     this.submitWordForNick = submitWordForNick;
+    this.submitSpecial3WordsState = submitSpecial3WordsState;
     this.emitPlayers = emitPlayers;
     this.emitMedals = emitMedals;
     this.broadcastProvisionalRanking = broadcastProvisionalRanking;
@@ -712,6 +718,10 @@ class BotManager {
         roundType: round?.special?.type || null,
         maxWordsCap,
       });
+      if (round?.special?.type === "self_specials_3_words") {
+        this.scheduleBotSpecial3Words(room, bot, words, timeBudget, solutions, rand);
+        continue;
+      }
       this.scheduleBotWords(room, bot, words, timeBudget);
     }
   }
@@ -782,6 +792,41 @@ class BotManager {
     }
   }
 
+  scheduleBotSpecial3Words(room, bot, words, timeBudget, solutions, rand = Math.random) {
+    if (!room.currentRound || !Array.isArray(words) || !words.length) return;
+    if (typeof this.submitSpecial3WordsState !== "function") return;
+
+    const round = room.currentRound;
+    const desiredSlots = clampInt(
+      Math.round(1 + clamp01(bot?.skill, 0.4) * 2 + rand() * 0.8),
+      1,
+      3
+    );
+    const selected = [];
+    const usedStartTiles = new Set();
+
+    for (const word of words) {
+      const path = solutions?.get(word)?.path;
+      if (!Array.isArray(path) || path.length === 0) continue;
+      const startTile = Number(path[0]);
+      if (!Number.isInteger(startTile) || usedStartTiles.has(startTile)) continue;
+      usedStartTiles.add(startTile);
+      selected.push({
+        id: selected.length,
+        word,
+        display: word.toUpperCase(),
+        path: [...path],
+      });
+      if (selected.length >= desiredSlots) break;
+    }
+
+    if (!selected.length) return;
+
+    const warmupDelay = 1800 + rand() * 2600;
+    const timer = setTimeout(() => this.playSpecial3Words(room, bot, selected), Math.max(0, Math.min(timeBudget, warmupDelay)));
+    this.registerTimer(room.id, timer);
+  }
+
   playWord(room, bot, word) {
     const round = room.currentRound;
     if (!round || Date.now() >= round.endsAt) return;
@@ -800,6 +845,25 @@ class BotManager {
 
     if (!res?.ok && res?.error !== "already_played") {
       console.debug(`[bots] ${bot.nick} -> ${res?.error || "reject"}`);
+    }
+  }
+
+  playSpecial3Words(room, bot, wordSlots) {
+    const round = room.currentRound;
+    if (!round || Date.now() >= round.endsAt) return;
+    if (round?.special?.type !== "self_specials_3_words") return;
+    if (typeof this.submitSpecial3WordsState !== "function") return;
+
+    this.ensurePlayerInRound(room, bot.nick);
+    const res = this.submitSpecial3WordsState(room, {
+      roundId: round.id,
+      nick: bot.nick,
+      wordSlots,
+      specialPlacements: {},
+    });
+
+    if (!res?.ok) {
+      console.debug(`[bots] ${bot.nick} -> ${res?.error || "special3_reject"}`);
     }
   }
 
