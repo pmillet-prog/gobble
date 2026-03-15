@@ -31713,6 +31713,7 @@ function handleTouchEnd(e) {
             </div>
           </div>
         </div>
+        {mobileChatLayer}
         {settingsMenuView}
         {aboutModalView}
         {praiseOverlay}
