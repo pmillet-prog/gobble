@@ -108,6 +108,10 @@ import {
 } from "./admin/broadcastService.js";
 import { createAuthRouter } from "./auth/authRouter.js";
 
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection", reason);
+});
+
 const computePool = createComputePool();
 void initVocabularyService().catch((err) =>
   console.warn("Vocabulary service init failed", err)
@@ -605,25 +609,31 @@ app.get("/api/theme/profile", async (req, res) => {
     res.status(400);
     return res.json({ ok: false, error: "bad_request" });
   }
-  await refreshInstallDuelCache(installId).catch(() => {});
-  const profile = await getGobblarProfile(installId);
-  if (!profile) {
+  try {
+    await refreshInstallDuelCache(installId).catch(() => {});
+    const profile = await getGobblarProfile(installId);
+    if (!profile) {
+      res.status(500);
+      return res.json({ ok: false, error: "profile_unavailable" });
+    }
+    return res.json({
+      ok: true,
+      installId,
+      balance: Number(profile.balance) || 0,
+      themeApplied: profile.themeApplied || {},
+      themeUnlocks: profile.themeUnlocks || {},
+      unlockCost: Number.isFinite(Number(profile.unlockCost))
+        ? Number(profile.unlockCost)
+        : THEME_UNLOCK_COST,
+      lockableCategories: Array.isArray(profile.lockableCategories)
+        ? profile.lockableCategories
+        : [],
+    });
+  } catch (err) {
+    console.warn("Theme profile route failed", err);
     res.status(500);
     return res.json({ ok: false, error: "profile_unavailable" });
   }
-  return res.json({
-    ok: true,
-    installId,
-    balance: Number(profile.balance) || 0,
-    themeApplied: profile.themeApplied || {},
-    themeUnlocks: profile.themeUnlocks || {},
-    unlockCost: Number.isFinite(Number(profile.unlockCost))
-      ? Number(profile.unlockCost)
-      : THEME_UNLOCK_COST,
-    lockableCategories: Array.isArray(profile.lockableCategories)
-      ? profile.lockableCategories
-      : [],
-  });
 });
 
 app.post("/api/theme/apply", async (req, res) => {
@@ -640,32 +650,38 @@ app.post("/api/theme/apply", async (req, res) => {
     req.body?.draftTheme && typeof req.body.draftTheme === "object"
       ? req.body.draftTheme
       : {};
-  const result = await applyThemeSelection({
-    installId,
-    mode,
-    category,
-    draftTheme,
-    unlockCost: THEME_UNLOCK_COST,
-  });
-  if (!result) {
+  try {
+    const result = await applyThemeSelection({
+      installId,
+      mode,
+      category,
+      draftTheme,
+      unlockCost: THEME_UNLOCK_COST,
+    });
+    if (!result) {
+      res.status(500);
+      return res.json({ ok: false, error: "theme_apply_failed" });
+    }
+    if (result.ok === false) {
+      res.status(409);
+      return res.json(result);
+    }
+    return res.json({
+      ok: true,
+      installId,
+      balance: Number(result.balance) || 0,
+      spent: Number(result.spent) || 0,
+      requiredUnlocks: Array.isArray(result.requiredUnlocks) ? result.requiredUnlocks : [],
+      changedCategories: Array.isArray(result.changedCategories) ? result.changedCategories : [],
+      themeApplied: result.themeApplied || {},
+      themeUnlocks: result.themeUnlocks || {},
+      unlockCost: THEME_UNLOCK_COST,
+    });
+  } catch (err) {
+    console.warn("Theme apply route failed", err);
     res.status(500);
     return res.json({ ok: false, error: "theme_apply_failed" });
   }
-  if (result.ok === false) {
-    res.status(409);
-    return res.json(result);
-  }
-  return res.json({
-    ok: true,
-    installId,
-    balance: Number(result.balance) || 0,
-    spent: Number(result.spent) || 0,
-    requiredUnlocks: Array.isArray(result.requiredUnlocks) ? result.requiredUnlocks : [],
-    changedCategories: Array.isArray(result.changedCategories) ? result.changedCategories : [],
-    themeApplied: result.themeApplied || {},
-    themeUnlocks: result.themeUnlocks || {},
-    unlockCost: THEME_UNLOCK_COST,
-  });
 });
 
 app.get("/api/duel/status", async (req, res) => {
@@ -961,9 +977,11 @@ const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "😮",
   "😢",
   "🔥",
+  "🙏",
   "👏",
   "🎉",
 ]);
+const LIVE_ROUND_END_GRACE_MS = 250;
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
 const MIN_WORDS_BY_SIZE = { 4: 150, 5: 150 };
@@ -2855,15 +2873,25 @@ function getObjectiveTeamPointsFromUpdates(updates) {
     );
 }
 
-function submitWordForNick(room, { roundId, word, path, nick }) {
+function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = null }) {
   if (!room) return { ok: false, error: "invalid_room" };
   if (!room.currentRound || room.currentRound.id !== roundId) {
     return { ok: false, error: "round_invalid" };
   }
-  if (room.currentRound.status !== "running") {
+  const now = Date.now();
+  const roundEndsAt = Number.isFinite(room.currentRound.endsAt) ? room.currentRound.endsAt : null;
+  const safeTraceStartedAt = Number.isFinite(traceStartedAt)
+    ? Math.max(0, Math.round(Number(traceStartedAt)))
+    : null;
+  const graceSubmissionAllowed =
+    Number.isFinite(roundEndsAt) &&
+    Number.isFinite(safeTraceStartedAt) &&
+    safeTraceStartedAt <= roundEndsAt &&
+    now <= roundEndsAt + LIVE_ROUND_END_GRACE_MS;
+  if (room.currentRound.status !== "running" && !graceSubmissionAllowed) {
     return { ok: false, error: "round_not_started" };
   }
-  if (Number.isFinite(room.currentRound.endsAt) && Date.now() >= room.currentRound.endsAt) {
+  if (Number.isFinite(roundEndsAt) && now >= roundEndsAt && !graceSubmissionAllowed) {
     return { ok: false, error: "round_ended" };
   }
 
@@ -4184,7 +4212,7 @@ async function startRoundForRoom(room) {
       endRoundForRoom(room).catch((err) =>
         console.warn("endRoundForRoom failed", err)
       );
-    }, roundIntroMs + roundDurationMs)
+    }, roundIntroMs + roundDurationMs + LIVE_ROUND_END_GRACE_MS)
   );
 }
 
@@ -5498,7 +5526,7 @@ io.on("connection", (socket) => {
     cb?.(result);
   });
 
-  socket.on("submitWord", ({ roundId, word, path }, cb) => {
+  socket.on("submitWord", ({ roundId, word, path, traceStartedAt = null }, cb) => {
     const room = getRoom(socket.roomId);
     const player = room?.players.get(socket.id);
     if (!room || !player) {
@@ -5510,6 +5538,7 @@ io.on("connection", (socket) => {
       word,
       path,
       nick: player?.nick,
+      traceStartedAt,
     });
     cb?.(result);
   });
@@ -5542,6 +5571,7 @@ io.on("connection", (socket) => {
         word: rawWord,
         path: item?.path,
         nick: player.nick,
+        traceStartedAt: item?.traceStartedAt,
       });
       const normalized = normalizeWord(rawWord) || rawWord;
       results.push({

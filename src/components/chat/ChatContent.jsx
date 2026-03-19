@@ -205,11 +205,15 @@ export default function ChatContent({
   const [reactionDetails, setReactionDetails] = React.useState(null);
   const [ownMessageMenu, setOwnMessageMenu] = React.useState(null);
   const safeReactionEmojis = React.useMemo(() => {
-    if (!Array.isArray(reactionEmojis)) return ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+    if (!Array.isArray(reactionEmojis)) {
+      return ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉"];
+    }
     const filtered = reactionEmojis
       .map((emoji) => (typeof emoji === "string" ? emoji.trim() : ""))
       .filter(Boolean);
-    return filtered.length ? filtered : ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+    return filtered.length
+      ? filtered
+      : ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉"];
   }, [reactionEmojis]);
   const lastVisibleMessageKey = React.useMemo(() => {
     if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {

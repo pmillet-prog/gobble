@@ -3553,7 +3553,7 @@ const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
 const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "🙏", "😢", "❤️", "😂"];
-const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "🎉"];
+const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
@@ -4516,6 +4516,7 @@ export default function App() {
   const tileRefs = useRef([]);
   const gridHitboxRef = useRef(null);
   const dragGridMetricsRef = useRef(null);
+  const activeTraceStartedAtRef = useRef(null);
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const outroInFlightRef = useRef(false);
@@ -10481,6 +10482,7 @@ export default function App() {
     setCurrentTiles([]);
     currentTilesRef.current = [];
     setHighlightPath([]);
+    activeTraceStartedAtRef.current = null;
   }, []);
 
   const startImplodePhase = React.useCallback(
@@ -17903,6 +17905,7 @@ export default function App() {
     dragGridMetricsRef.current = buildGridHitboxMetrics() || getGridHitboxMetrics();
     setActiveArea("game");
     draggingRef.current = true;
+    activeTraceStartedAtRef.current = getNowServerMs();
     pushSamsungDiagEvent("drag-start", { mode, index });
     setLastInputMode(mode);
     clearStatusMessage();
@@ -18046,6 +18049,7 @@ function handleTouchStart(e, index) {
   dragGridMetricsRef.current = buildGridHitboxMetrics() || getGridHitboxMetrics();
   setActiveArea("game");
   draggingRef.current = true;
+  activeTraceStartedAtRef.current = getNowServerMs();
   pushSamsungDiagEvent("drag-start", { mode: "touch", index });
   setLastInputMode("touch");
   clearStatusMessage();
@@ -18310,9 +18314,18 @@ function handleTouchEnd(e) {
         applyServerWordResult(word, { ok: false, reason: "invalid_word" });
         continue;
       }
-      socket.emit("submitWord", { roundId: roundIdValue, word, path }, (res) => {
-        applyServerWordResult(word, res);
-      });
+      socket.emit(
+        "submitWord",
+        {
+          roundId: roundIdValue,
+          word,
+          path,
+          traceStartedAt: meta.traceStartedAt ?? null,
+        },
+        (res) => {
+          applyServerWordResult(word, res);
+        }
+      );
     }
   }
 
@@ -18383,7 +18396,11 @@ function handleTouchEnd(e) {
         Array.isArray(meta.path) && meta.path.length > 0
           ? meta.path
           : findBestPathForWord(board, word, specialScoreConfig);
-      return { word, path };
+      return {
+        word,
+        path,
+        traceStartedAt: meta.traceStartedAt ?? null,
+      };
     });
     const payload = {
       roundId: activeRoundId,
@@ -18739,6 +18756,7 @@ function handleTouchEnd(e) {
         display: display || raw.toUpperCase(),
         path,
         optimisticPts,
+        traceStartedAt: usesManualPath ? activeTraceStartedAtRef.current : null,
       });
       clearSelection();
       return;
@@ -18808,6 +18826,7 @@ function handleTouchEnd(e) {
         display: display || raw.toUpperCase(),
         path,
         optimisticPts,
+        traceStartedAt: usesManualPath ? activeTraceStartedAtRef.current : null,
       });
       scheduleBatchFlush({ immediate: true });
       clearSelection();

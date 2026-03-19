@@ -285,59 +285,68 @@ function sanitizeUnlocksInput(rawUnlocks, rawTheme = DEFAULT_THEME) {
 
 async function getOrCreateProfileRow(installId) {
   if (!db || !installId) return null;
-  const existing = await db.get(
-    "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
-    installId
-  );
-  if (existing) return existing;
-  const now = Date.now();
-  const defaultThemeJson = JSON.stringify(DEFAULT_THEME);
-  const defaultUnlocksJson = JSON.stringify(sanitizeUnlocksInput({}, DEFAULT_THEME));
-  await db.run(
-    `INSERT OR IGNORE INTO gobblar_profiles
-     (installId, balance, themeApplied, themeUnlocks, updatedAt)
-     VALUES (?, ?, ?, ?, ?)`,
-    installId,
-    0,
-    defaultThemeJson,
-    defaultUnlocksJson,
-    now
-  );
-  const row = await db.get(
-    "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
-    installId
-  );
-  if (row) return row;
-  return {
-    installId,
-    balance: 0,
-    themeApplied: defaultThemeJson,
-    themeUnlocks: defaultUnlocksJson,
-    updatedAt: now,
-  };
-}
-
-async function getProfileParsed(installId) {
-  let row = await getOrCreateProfileRow(installId);
-  if (!row) return null;
-  const granted = await applyGlobalGrantOnce(row.installId);
-  if (granted) {
-    const refreshed = await db.get(
+  return runWithBusyRetry(async () => {
+    const existing = await db.get(
       "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
       installId
     );
-    if (refreshed) row = refreshed;
+    if (existing) return existing;
+    const now = Date.now();
+    const defaultThemeJson = JSON.stringify(DEFAULT_THEME);
+    const defaultUnlocksJson = JSON.stringify(sanitizeUnlocksInput({}, DEFAULT_THEME));
+    await db.run(
+      `INSERT OR IGNORE INTO gobblar_profiles
+       (installId, balance, themeApplied, themeUnlocks, updatedAt)
+       VALUES (?, ?, ?, ?, ?)`,
+      installId,
+      0,
+      defaultThemeJson,
+      defaultUnlocksJson,
+      now
+    );
+    const row = await db.get(
+      "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
+      installId
+    );
+    if (row) return row;
+    return {
+      installId,
+      balance: 0,
+      themeApplied: defaultThemeJson,
+      themeUnlocks: defaultUnlocksJson,
+      updatedAt: now,
+    };
+  });
+}
+
+async function getProfileParsed(installId) {
+  try {
+    let row = await getOrCreateProfileRow(installId);
+    if (!row) return null;
+    const granted = await applyGlobalGrantOnce(row.installId);
+    if (granted) {
+      const refreshed = await runWithBusyRetry(() =>
+        db.get(
+          "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
+          installId
+        )
+      );
+      if (refreshed) row = refreshed;
+    }
+    return {
+      installId: row.installId,
+      balance: Number(row.balance) || 0,
+      themeApplied: sanitizeThemeInput(safeJsonParse(row.themeApplied, DEFAULT_THEME)),
+      themeUnlocks: sanitizeUnlocksInput(
+        safeJsonParse(row.themeUnlocks, {}),
+        safeJsonParse(row.themeApplied, DEFAULT_THEME)
+      ),
+      updatedAt: Number(row.updatedAt) || 0,
+    };
+  } catch (err) {
+    console.warn("Gobblars profile read failed", err);
+    return null;
   }
-  return {
-    installId: row.installId,
-    balance: Number(row.balance) || 0,
-    themeApplied: sanitizeThemeInput(safeJsonParse(row.themeApplied, DEFAULT_THEME)),
-    themeUnlocks: sanitizeUnlocksInput(
-      safeJsonParse(row.themeUnlocks, {}),
-      safeJsonParse(row.themeApplied, DEFAULT_THEME)
-    ),
-    updatedAt: Number(row.updatedAt) || 0,
-  };
 }
 
 async function updateProfileRow(installId, { balance, themeApplied, themeUnlocks, now = Date.now() } = {}) {
@@ -385,25 +394,27 @@ async function applyGlobalGrantOnce(installId, amount = GLOBAL_GRANT_GOBBLARS_BO
   if (!db || !installId) return false;
   const safeAmount = Math.max(0, Math.trunc(Number(amount) || 0));
   if (!safeAmount) return false;
-  const ts = Date.now();
-  const insertRes = await db.run(
-    `INSERT OR IGNORE INTO gobblar_global_grants (installId, grantKey, amount, awardedAt)
-     VALUES (?, ?, ?, ?)`,
-    installId,
-    GLOBAL_GRANT_KEY,
-    safeAmount,
-    ts
-  );
-  const changed = Number(insertRes?.changes) || 0;
-  if (!changed) return false;
-  await db.run(
-    "UPDATE gobblar_profiles SET balance = balance + ?, updatedAt = ? WHERE installId = ?",
-    safeAmount,
-    ts,
-    installId
-  );
-  await insertLedgerEntry(installId, safeAmount, "global_bonus", { key: GLOBAL_GRANT_KEY }, ts);
-  return true;
+  return runWithBusyRetry(async () => {
+    const ts = Date.now();
+    const insertRes = await db.run(
+      `INSERT OR IGNORE INTO gobblar_global_grants (installId, grantKey, amount, awardedAt)
+       VALUES (?, ?, ?, ?)`,
+      installId,
+      GLOBAL_GRANT_KEY,
+      safeAmount,
+      ts
+    );
+    const changed = Number(insertRes?.changes) || 0;
+    if (!changed) return false;
+    await db.run(
+      "UPDATE gobblar_profiles SET balance = balance + ?, updatedAt = ? WHERE installId = ?",
+      safeAmount,
+      ts,
+      installId
+    );
+    await insertLedgerEntry(installId, safeAmount, "global_bonus", { key: GLOBAL_GRANT_KEY }, ts);
+    return true;
+  });
 }
 
 async function applyGlobalGrantToAllExistingProfilesOnce() {
