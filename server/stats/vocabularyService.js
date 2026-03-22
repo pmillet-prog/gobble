@@ -144,10 +144,61 @@ async function ensureDb() {
   return db;
 }
 
-export async function getKnownVocabWords(installId, words = []) {
-  if (!installId) return new Set();
+function normalizeInstallIdList(installIds = []) {
+  return Array.from(
+    new Set(
+      (Array.isArray(installIds) ? installIds : [installIds])
+        .map((installId) => (typeof installId === "string" ? installId.trim() : ""))
+        .filter(Boolean)
+    )
+  );
+}
+
+async function getKnownWordHashesForInstallIds(installIds = [], hashes = []) {
+  const safeInstallIds = normalizeInstallIdList(installIds);
+  if (!safeInstallIds.length || !Array.isArray(hashes) || !hashes.length) {
+    return new Set();
+  }
   const ready = await ensureDb();
   if (!ready) return new Set();
+  const knownHashes = new Set();
+  const installChunkSize = 100;
+  const hashChunkSize = 900;
+
+  try {
+    for (let installOffset = 0; installOffset < safeInstallIds.length; installOffset += installChunkSize) {
+      const installChunk = safeInstallIds.slice(installOffset, installOffset + installChunkSize);
+      const installPlaceholders = installChunk.map(() => "?").join(", ");
+      for (let hashOffset = 0; hashOffset < hashes.length; hashOffset += hashChunkSize) {
+        const hashChunk = hashes.slice(hashOffset, hashOffset + hashChunkSize);
+        const hashPlaceholders = hashChunk.map(() => "?").join(", ");
+        const rows = await db.all(
+          `SELECT DISTINCT wordHash
+           FROM vocab_words
+           WHERE installId IN (${installPlaceholders})
+             AND wordHash IN (${hashPlaceholders})`,
+          [...installChunk, ...hashChunk]
+        );
+        if (Array.isArray(rows)) {
+          rows.forEach((row) => {
+            if (row?.wordHash) knownHashes.add(row.wordHash);
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Vocabulary lookup failed", err);
+    return new Set();
+  }
+
+  return knownHashes;
+}
+
+export async function getKnownVocabWords(installId, words = []) {
+  return await getKnownVocabWordsForInstallIds([installId], words);
+}
+
+export async function getKnownVocabWordsForInstallIds(installIds = [], words = []) {
   const rawWords = Array.isArray(words) ? words : [];
   const normalizedWords = Array.from(
     new Set(
@@ -163,27 +214,7 @@ export async function getKnownVocabWords(installId, words = []) {
     hashToWord.set(hashWord(word), word);
   });
   const hashes = Array.from(hashToWord.keys());
-  const knownHashes = new Set();
-  const chunkSize = 900;
-
-  try {
-    for (let i = 0; i < hashes.length; i += chunkSize) {
-      const chunk = hashes.slice(i, i + chunkSize);
-      const placeholders = chunk.map(() => "?").join(", ");
-      const rows = await db.all(
-        `SELECT wordHash FROM vocab_words WHERE installId = ? AND wordHash IN (${placeholders})`,
-        [installId, ...chunk]
-      );
-      if (Array.isArray(rows)) {
-        rows.forEach((row) => {
-          if (row?.wordHash) knownHashes.add(row.wordHash);
-        });
-      }
-    }
-  } catch (err) {
-    console.warn("Vocabulary lookup failed", err);
-    return new Set();
-  }
+  const knownHashes = await getKnownWordHashesForInstallIds(installIds, hashes);
 
   const knownWords = new Set();
   knownHashes.forEach((hash) => {
@@ -277,15 +308,23 @@ export async function recordVocabularyBatch(entries = []) {
 }
 
 export async function getVocabularyCount(installId) {
-  if (!installId) return 0;
+  return await getVocabularyCountForInstallIds([installId]);
+}
+
+export async function getVocabularyCountForInstallIds(installIds = []) {
+  const safeInstallIds = normalizeInstallIdList(installIds);
+  if (!safeInstallIds.length) return 0;
   const ready = await ensureDb();
   if (!ready) return 0;
   try {
+    const placeholders = safeInstallIds.map(() => "?").join(", ");
     const row = await db.get(
-      "SELECT count FROM vocab_counts WHERE installId = ?",
-      installId
+      `SELECT COUNT(DISTINCT wordHash) AS count
+       FROM vocab_words
+       WHERE installId IN (${placeholders})`,
+      safeInstallIds
     );
-    return row?.count ?? 0;
+    return Number(row?.count) || 0;
   } catch (err) {
     console.warn("Vocabulary count failed", err);
     return 0;

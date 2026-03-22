@@ -124,6 +124,7 @@ function serializeUser(row) {
     createdAt: Number(row.created_at) || null,
     updatedAt: Number(row.updated_at) || null,
     lastLoginAt: Number(row.last_login_at) || null,
+    primaryInstallId: typeof row.primary_install_id === "string" ? row.primary_install_id.trim() : "",
     isLegacyConverted: !!row.is_legacy_converted,
     mustResetPassword: !!row.must_reset_password,
   };

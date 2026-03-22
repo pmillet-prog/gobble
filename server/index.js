@@ -45,10 +45,12 @@ import {
   initVocabularyService,
   recordVocabularyBatch,
   getVocabularyCount,
+  getVocabularyCountForInstallIds,
   getVocabularyLeaderboard,
   migrateVocabularyProfile,
   upsertVocabularyProfile,
   getKnownVocabWords,
+  getKnownVocabWordsForInstallIds,
 } from "./stats/vocabularyService.js";
 import {
   initTrophyService,
@@ -108,7 +110,7 @@ import {
   setBroadcastMessage,
 } from "./admin/broadcastService.js";
 import { createAuthRouter } from "./auth/authRouter.js";
-import { consumeSocketTicket, getSessionByToken, listDevicesForUser } from "./auth/authService.js";
+import { consumeSocketTicket, findUserById, getSessionByToken, listDevicesForUser } from "./auth/authService.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection", reason);
@@ -258,11 +260,22 @@ app.get("/api/stats/weekly", async (req, res) => {
   try {
     const payload = getWeeklyStats(topN);
     const boards = payload?.boards || {};
+    const canonicalizeVocabPlayerKey = (rawPlayerKey, rawInstallId = "") => {
+      const playerKey = typeof rawPlayerKey === "string" ? rawPlayerKey.trim() : "";
+      if (playerKey.startsWith("install:")) {
+        const installId = playerKey.slice("install:".length);
+        return getMedalKeyForInstallId(installId) || playerKey;
+      }
+      if (rawInstallId) {
+        return getMedalKeyForInstallId(rawInstallId) || `install:${rawInstallId}`;
+      }
+      return playerKey;
+    };
     const nickByPlayerKey = new Map();
     for (const value of Object.values(boards)) {
       if (!Array.isArray(value)) continue;
       for (const entry of value) {
-        const key = typeof entry?.playerKey === "string" ? entry.playerKey : "";
+        const key = canonicalizeVocabPlayerKey(entry?.playerKey, entry?.installId);
         const nick = typeof entry?.nick === "string" ? entry.nick.trim() : "";
         if (key && nick && !nickByPlayerKey.has(key)) {
           nickByPlayerKey.set(key, nick);
@@ -273,15 +286,16 @@ app.get("/api/stats/weekly", async (req, res) => {
     const vocabByKey = new Map();
     const vocabFromWeekly = Array.isArray(boards?.vocab) ? boards.vocab : [];
     for (const entry of vocabFromWeekly) {
-      const key =
-        (typeof entry?.playerKey === "string" && entry.playerKey) ||
-        (entry?.installId ? `install:${entry.installId}` : "");
+      const key = canonicalizeVocabPlayerKey(entry?.playerKey, entry?.installId);
       if (!key) continue;
-      vocabByKey.set(key, entry);
+      const current = vocabByKey.get(key);
+      if (!current || (Number(entry?.vocabCount) || 0) > (Number(current?.vocabCount) || 0)) {
+        vocabByKey.set(key, { ...entry, playerKey: key });
+      }
     }
     for (const entry of vocabularyFallback) {
       if (!entry?.installId) continue;
-      const key = `install:${entry.installId}`;
+      const key = canonicalizeVocabPlayerKey("", entry.installId);
       const resolvedNick =
         (typeof entry?.nick === "string" && entry.nick.trim()) || nickByPlayerKey.get(key) || "";
       const displayNick = resolvedNick || `Joueur-${String(entry.installId).slice(0, 6)}`;
@@ -1160,13 +1174,25 @@ function requireSocketPlayerIdentity(socket, cb) {
   return null;
 }
 
-const migratedUserIds = new Set();
+const migratedUserSignatures = new Map();
 const userMigrationPromises = new Map();
 
 async function ensureUserIdentityMigration(user) {
   const userId = Number(user?.id);
   if (!Number.isInteger(userId) || userId <= 0) return;
-  if (migratedUserIds.has(userId)) return;
+  const targetInstallId = buildUserPlayerId(userId);
+  if (!targetInstallId) return;
+  const primaryInstallId = normalizeInstallIdRaw(user?.primaryInstallId);
+  const devices = await listDevicesForUser(userId).catch(() => []);
+  const sourceInstallIds = Array.from(
+    new Set(
+      [primaryInstallId, ...(Array.isArray(devices) ? devices.map((entry) => entry?.installId) : [])]
+        .map((installId) => normalizeInstallIdRaw(installId))
+        .filter((installId) => installId && installId !== targetInstallId)
+    )
+  ).sort();
+  const migrationSignature = `${targetInstallId}|${sourceInstallIds.join(",")}`;
+  if (migratedUserSignatures.get(userId) === migrationSignature) return;
   const inFlight = userMigrationPromises.get(userId);
   if (inFlight) {
     await inFlight;
@@ -1174,16 +1200,6 @@ async function ensureUserIdentityMigration(user) {
   }
 
   const task = (async () => {
-    const targetInstallId = buildUserPlayerId(userId);
-    if (!targetInstallId) return;
-    const devices = await listDevicesForUser(userId).catch(() => []);
-    const sourceInstallIds = Array.from(
-      new Set(
-        (Array.isArray(devices) ? devices : [])
-          .map((entry) => normalizeInstallIdRaw(entry?.installId))
-          .filter((installId) => installId && installId !== targetInstallId)
-      )
-    );
     if (sourceInstallIds.length > 0) {
       await Promise.all([
         migrateVocabularyProfile(targetInstallId, sourceInstallIds),
@@ -1192,14 +1208,46 @@ async function ensureUserIdentityMigration(user) {
       ]).catch((err) => {
         console.warn(`identity migration failed user=${userId}`, err);
       });
+      sourceInstallIds.forEach((sourceInstallId) => {
+        linkInstallIds(sourceInstallId, targetInstallId);
+      });
     }
-    migratedUserIds.add(userId);
+    migratedUserSignatures.set(userId, migrationSignature);
   })().finally(() => {
     userMigrationPromises.delete(userId);
   });
 
   userMigrationPromises.set(userId, task);
   await task;
+}
+
+async function listIdentityInstallIds({
+  userId,
+  currentInstallId = "",
+  primaryInstallId = "",
+} = {}) {
+  const safeUserId = Number(userId);
+  const normalizedCurrentInstallId = normalizeInstallIdRaw(currentInstallId);
+  const fallbackIds = normalizedCurrentInstallId ? [normalizedCurrentInstallId] : [];
+  if (!Number.isInteger(safeUserId) || safeUserId <= 0) {
+    return fallbackIds;
+  }
+  let primary = normalizeInstallIdRaw(primaryInstallId);
+  if (!primary) {
+    const user = await findUserById(safeUserId).catch(() => null);
+    primary = normalizeInstallIdRaw(user?.primaryInstallId);
+  }
+  const devices = await listDevicesForUser(safeUserId).catch(() => []);
+  return Array.from(
+    new Set(
+      [
+        buildUserPlayerId(safeUserId),
+        normalizedCurrentInstallId,
+        primary,
+        ...(Array.isArray(devices) ? devices.map((entry) => normalizeInstallIdRaw(entry?.installId)) : []),
+      ].filter(Boolean)
+    )
+  );
 }
 
 function resolveCanonicalInstallId(rawInstallId, { maxDepth = 16 } = {}) {
@@ -4366,18 +4414,32 @@ async function endRoundForRoom(room) {
   const resultsByNick = new Map(results.map((entry) => [entry.nick, entry]));
   const vocabEntries = [];
   const vocabLookups = [];
+  const vocabInstallIdsByNick = new Map();
   for (const entry of results) {
     if (entry.isBot) continue;
+    const lookup = findPlayerByNick(room, entry.nick);
+    const player = lookup?.player || null;
     const installId = getInstallIdForNick(room, entry.nick);
     if (!installId) continue;
     const words = Array.isArray(entry.uniqueWords) ? entry.uniqueWords : [];
     if (!words.length) continue;
+    const vocabInstallIds =
+      Number.isInteger(Number(player?.userId)) && Number(player.userId) > 0
+        ? await listIdentityInstallIds({
+            userId: Number(player.userId),
+            currentInstallId: installId,
+          })
+        : [installId];
+    vocabInstallIdsByNick.set(entry.nick, vocabInstallIds);
     vocabEntries.push({ installId, words, ts: endedAt, nick: entry.nick });
-    vocabLookups.push({ installId, words, nick: entry.nick });
+    vocabLookups.push({ installId, installIds: vocabInstallIds, words, nick: entry.nick });
   }
   if (vocabLookups.length) {
     for (const lookup of vocabLookups) {
-      const knownWords = await getKnownVocabWords(lookup.installId, lookup.words);
+      const knownWords = await getKnownVocabWordsForInstallIds(
+        lookup.installIds?.length ? lookup.installIds : [lookup.installId],
+        lookup.words
+      );
       const newVocabWords = lookup.words.filter((word) => !knownWords.has(word));
       const resultEntry = resultsByNick.get(lookup.nick);
       if (resultEntry) {
@@ -4399,9 +4461,9 @@ async function endRoundForRoom(room) {
       if (!summary) continue;
       const playerKey = getMedalKeyForNickLookup(room, entry.nick);
       if (!playerKey) continue;
-      if (Number.isFinite(summary.total)) {
-        recordVocabCount(playerKey, entry.nick, summary.total, endedAt);
-      }
+      const vocabInstallIds = vocabInstallIdsByNick.get(entry.nick) || [entry.installId];
+      const totalCount = await getVocabularyCountForInstallIds(vocabInstallIds);
+      recordVocabCount(playerKey, entry.nick, totalCount, endedAt);
     }
   }
 
@@ -5492,7 +5554,15 @@ io.on("connection", (socket) => {
       return;
     }
     try {
-      const count = await getVocabularyCount(installId);
+      await ensureUserIdentityMigration(identity.user);
+      const installIds = await listIdentityInstallIds({
+        userId: identity.userId,
+        currentInstallId: installId,
+        primaryInstallId: identity.user?.primaryInstallId,
+      });
+      const count = await getVocabularyCountForInstallIds(
+        installIds.length ? installIds : [installId]
+      );
       cb?.({ count });
     } catch (err) {
       console.warn("getVocabCount failed", err);

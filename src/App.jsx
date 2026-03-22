@@ -5569,6 +5569,9 @@ export default function App() {
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
   const startGameFromServerRef = useRef(null);
+  const requestSessionResumeSnapshotRef = useRef(null);
+  const resumeLoginFromSessionRef = useRef(null);
+  const attemptSilentReconnectRef = useRef(null);
   const pingInFlightRef = useRef(false);
   const watchdogTimerRef = useRef(null);
   const watchdogFailureCountRef = useRef(0);
@@ -12227,17 +12230,23 @@ export default function App() {
         isLoggedInRef.current = false;
         setIsLoggedIn(false);
         setLoginError("Connexion au serveur impossible");
+        clearQueuedRankingUpdate();
+        setConnectionError("Connexion au serveur impossible");
+        setPlayers([]);
+        setProvisionalRanking([]);
+      } else {
+        setConnectionError("Reconnexion...");
       }
-      clearQueuedRankingUpdate();
-      setConnectionError("Connexion au serveur impossible");
-      setPlayers([]);
-      setProvisionalRanking([]);
       resumeLockRef.current = false;
       resumeLockAtRef.current = 0;
       reconnectAttemptRef.current = false;
     }
 
     function onConnect() {
+      if (disconnectGraceTimerRef.current) {
+        clearTimeout(disconnectGraceTimerRef.current);
+        disconnectGraceTimerRef.current = null;
+      }
       watchdogFailureCountRef.current = 0;
       batchUnsupportedRef.current = false;
       setConnectionError("");
@@ -12246,6 +12255,15 @@ export default function App() {
         if (isLoggedInRef.current) {
           showToast("Connexion rétablie", 2200);
         }
+      }
+      const shouldRestoreLiveSession =
+        (isLoggedInRef.current || autoResumeEnabledRef.current || hasSavedSession()) &&
+        appViewRef.current === "live";
+      if (shouldRestoreLiveSession && !resumeLockRef.current) {
+        setTimeout(() => {
+          if (!socket.connected) return;
+          resumeLoginFromSessionRef.current?.("socket_connect");
+        }, 0);
       }
       if (!isLoggedInRef.current) {
         const chatState = lobbyChatSubscriptionRef.current;
@@ -12307,12 +12325,17 @@ export default function App() {
         return;
       }
       if (!wasIntentional) {
+        disconnectGraceTimerRef.current = setTimeout(() => {
+          disconnectGraceTimerRef.current = null;
+          if (socket.connected || isBackgroundedRef.current) return;
+          hardReset();
+        }, DISCONNECT_GRACE_MS);
         setConnectionError("Reconnexion...");
         if (isLoggedInRef.current && !reconnectToastPendingRef.current) {
           reconnectToastPendingRef.current = true;
           showToast("Connexion perdue, reconnexion...", 2600);
         }
-        attemptSilentReconnect();
+        attemptSilentReconnectRef.current?.("disconnect");
       }
     }
 
@@ -15397,6 +15420,10 @@ export default function App() {
     void connectSocketWithAuth();
   }
 
+  useEffect(() => {
+    requestSessionResumeSnapshotRef.current = requestSessionResumeSnapshot;
+  });
+
   function resumeLoginFromSession(reason = "resume") {
     if (!isAccountAuthenticated) return;
     if (!hasSavedSession()) return;
@@ -15501,6 +15528,10 @@ export default function App() {
       void connectSocketWithAuth();
     }
   }
+
+  useEffect(() => {
+    resumeLoginFromSessionRef.current = resumeLoginFromSession;
+  });
 
   function setResultsRankingModeWithPulse(nextMode) {
     if (resultsRankingMode === nextMode) return;
@@ -15994,20 +16025,37 @@ export default function App() {
       return;
     }
     const canAutoResume = isLoggedInRef.current && !isDailyView;
+    const shouldRestoreSession =
+      canAutoResume ||
+      (!!hasSavedSession() && appViewRef.current === "live");
     const lastBackgroundTime = lastBackgroundTimeRef.current;
     const timeSinceBackground =
       lastBackgroundTime > 0 ? Date.now() - lastBackgroundTime : 0;
     const shouldForceReconnect = timeSinceBackground > 5000;
     if (shouldForceReconnect) {
       lastBackgroundTimeRef.current = 0;
-      if (!socket.connected) return;
+      if (!socket.connected) {
+        if (shouldRestoreSession) {
+          attemptSilentReconnect(`${reason}_post_bg`);
+        } else {
+          void connectSocketWithAuth();
+        }
+        return;
+      }
       runHealthCheck(`${reason}_post_bg`);
       return;
     }
     if (lastBackgroundTime) {
       lastBackgroundTimeRef.current = 0;
     }
-    if (!socket.connected) return;
+    if (!socket.connected) {
+      if (shouldRestoreSession) {
+        attemptSilentReconnect(reason);
+      } else {
+        void connectSocketWithAuth();
+      }
+      return;
+    }
     runHealthCheck(reason);
   }
 
@@ -16611,17 +16659,51 @@ export default function App() {
     allWordsComputeRef.current.kickoff = setTimeout(kickoff, kickoffDelay);
   }
 
-  function attemptSilentReconnect() {
+  function attemptSilentReconnect(reason = "reconnect") {
     if (reconnectAttemptRef.current) return;
     reconnectAttemptRef.current = true;
     setConnectionError("Reconnexion...");
-    if (!socket.connected) {
-      setConnectionError("Connexion perdue. Recharge la page.");
+    const finishAttempt = () => {
+      setTimeout(() => {
+        reconnectAttemptRef.current = false;
+      }, 3000);
+    };
+    const restoreSession = (connected) => {
+      if (!connected) {
+        setConnectionError("Connexion au serveur impossible");
+        return;
+      }
+      const shouldRestoreLive =
+        appViewRef.current === "live" &&
+        (isLoggedInRef.current || autoResumeEnabledRef.current || hasSavedSession());
+      if (shouldRestoreLive) {
+        resumeLoginFromSession(reason);
+        return;
+      }
+      if (hasSavedSession() || autoResumeEnabledRef.current) {
+        requestSessionResumeSnapshot(reason);
+      }
+    };
+    if (socket.connected) {
+      restoreSession(true);
+      finishAttempt();
+      return;
     }
-    setTimeout(() => {
-      reconnectAttemptRef.current = false;
-    }, 3000);
+    void connectSocketWithAuth()
+      .then((connected) => {
+        restoreSession(connected);
+      })
+      .catch(() => {
+        setConnectionError("Connexion au serveur impossible");
+      })
+      .finally(() => {
+        finishAttempt();
+      });
   }
+
+  useEffect(() => {
+    attemptSilentReconnectRef.current = attemptSilentReconnect;
+  });
 
   function startGame() {
     setInputLocked(false);
