@@ -369,6 +369,96 @@ export async function getVocabularySnapshot(installId) {
   }
 }
 
+export async function migrateVocabularyProfile(targetInstallId, sourceInstallIds = []) {
+  const ready = await ensureDb();
+  const target = typeof targetInstallId === "string" ? targetInstallId.trim() : "";
+  const sources = Array.from(
+    new Set(
+      (Array.isArray(sourceInstallIds) ? sourceInstallIds : [])
+        .map((installId) => (typeof installId === "string" ? installId.trim() : ""))
+        .filter((installId) => installId && installId !== target)
+    )
+  );
+  if (!ready || !target || sources.length === 0) {
+    return getVocabularySnapshot(target);
+  }
+
+  try {
+    await db.exec("BEGIN");
+    let bestNick = "";
+    let bestNickUpdatedAt = 0;
+
+    const targetProfile = await db.get(
+      "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
+      target
+    );
+    if (targetProfile?.nick) {
+      bestNick = String(targetProfile.nick).trim().slice(0, 25);
+      bestNickUpdatedAt = Number(targetProfile.updatedAt) || 0;
+    }
+
+    for (const source of sources) {
+      const sourceProfile = await db.get(
+        "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
+        source
+      );
+      const sourceNick = typeof sourceProfile?.nick === "string" ? sourceProfile.nick.trim().slice(0, 25) : "";
+      const sourceUpdatedAt = Number(sourceProfile?.updatedAt) || 0;
+      if (sourceNick && sourceUpdatedAt >= bestNickUpdatedAt) {
+        bestNick = sourceNick;
+        bestNickUpdatedAt = sourceUpdatedAt;
+      }
+
+      await db.run(
+        `INSERT OR IGNORE INTO vocab_words (installId, wordHash, firstSeenTs)
+         SELECT ?, wordHash, firstSeenTs
+         FROM vocab_words
+         WHERE installId = ?`,
+        target,
+        source
+      );
+      await db.run("DELETE FROM vocab_words WHERE installId = ?", source);
+      await db.run("DELETE FROM vocab_counts WHERE installId = ?", source);
+      await db.run("DELETE FROM vocab_profiles WHERE installId = ?", source);
+    }
+
+    const countRow = await db.get(
+      "SELECT COUNT(1) AS count FROM vocab_words WHERE installId = ?",
+      target
+    );
+    const totalCount = Number(countRow?.count) || 0;
+    const updatedAt = Math.max(Date.now(), bestNickUpdatedAt);
+    await db.run(
+      `INSERT INTO vocab_counts (installId, count, updatedAt)
+       VALUES (?, ?, ?)
+       ON CONFLICT(installId)
+       DO UPDATE SET count = excluded.count, updatedAt = excluded.updatedAt`,
+      target,
+      totalCount,
+      updatedAt
+    );
+    if (bestNick) {
+      await db.run(
+        `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+         VALUES (?, ?, ?)
+         ON CONFLICT(installId)
+         DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+        target,
+        bestNick,
+        updatedAt
+      );
+    }
+    await db.exec("COMMIT");
+  } catch (err) {
+    try {
+      await db.exec("ROLLBACK");
+    } catch (_) {}
+    console.warn("Vocabulary migration failed", err);
+  }
+
+  return getVocabularySnapshot(target);
+}
+
 export async function getVocabularyLeaderboard(limit = 50) {
   const ready = await ensureDb();
   if (!ready) return [];

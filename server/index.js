@@ -30,7 +30,7 @@ import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
 import {
   getWeekStartTs,
   getWeeklyStats,
-  getWeeklyNickForInstallId,
+  recordBestSpecial3Score,
   recordBestRoundScore,
   recordBestTargetTime,
   recordBestWord,
@@ -45,8 +45,8 @@ import {
   initVocabularyService,
   recordVocabularyBatch,
   getVocabularyCount,
-  getVocabularySnapshot,
   getVocabularyLeaderboard,
+  migrateVocabularyProfile,
   upsertVocabularyProfile,
   getKnownVocabWords,
 } from "./stats/vocabularyService.js";
@@ -54,6 +54,7 @@ import {
   initTrophyService,
   updateTrophiesForTournament,
   getTrophyStatus,
+  migrateTrophyProfile,
   getBotRatingFromStrength,
   K_BASE as TROPHY_K_BASE,
 } from "./stats/trophyService.js";
@@ -63,6 +64,7 @@ import {
   addGobblars,
   grantWeeklyWinnerGobblars,
   applyThemeSelection,
+  migrateGobblarProfile,
   THEME_UNLOCK_COST,
   WEEKLY_WIN_GOBBLARS_BONUS,
 } from "./stats/gobblarsService.js";
@@ -90,7 +92,6 @@ import {
   getObjectivesStatus,
   getParisWeekId as getDuelParisWeekId,
   getTeamForInstall,
-  getDuelNickForInstallId,
   getWeeklyDuelScore,
   isInstallCrowned,
   recordDailyBattleFromEntries,
@@ -107,6 +108,7 @@ import {
   setBroadcastMessage,
 } from "./admin/broadcastService.js";
 import { createAuthRouter } from "./auth/authRouter.js";
+import { consumeSocketTicket, getSessionByToken, listDevicesForUser } from "./auth/authService.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection", reason);
@@ -125,7 +127,7 @@ void initGobblarsService().catch((err) =>
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.set("trust proxy", true);
 app.use(
@@ -310,6 +312,7 @@ app.get("/api/stats/weekly", async (req, res) => {
       totalScore: filterBots(boards.totalScore),
       bestWord: filterBots(boards.bestWord),
       longestWord: filterBots(boards.longestWord),
+      bestSpecial3Score: filterBots(boards.bestSpecial3Score),
       bestRoundScore: filterBots(boards.bestRoundScore),
       bestTimeTargetLong: filterBots(boards.bestTimeTargetLong),
       bestTimeTargetScore: filterBots(boards.bestTimeTargetScore),
@@ -425,7 +428,8 @@ async function runDailySubmitFlow({
 app.get("/api/daily/status", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.query?.installId);
+  const identity = await getRequestPlayerIdentity(req);
+  const installId = identity?.installId || null;
   const payload = await getDailyStatus(null, installId || null);
   let duel = null;
   if (installId) {
@@ -456,7 +460,8 @@ app.get("/api/daily/history", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
   const rawDays = Number(req.query?.days);
-  const installId = normalizeInstallId(req.query?.installId);
+  const identity = await getRequestPlayerIdentity(req);
+  const installId = identity?.installId || null;
   const days = Number.isFinite(rawDays)
     ? Math.min(30, Math.max(1, Math.round(rawDays)))
     : 7;
@@ -487,7 +492,9 @@ app.get("/api/daily/history", async (req, res) => {
 app.post("/api/daily/start", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.body?.installId);
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   const pseudo = sanitizeDailyNick(req.body?.pseudo || "");
   const dailyMode = sanitizeDailyMode(req.body?.dailyMode);
   if (!installId || !pseudo) {
@@ -513,7 +520,9 @@ app.post("/api/daily/start", async (req, res) => {
 app.post("/api/daily/submit", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.body?.installId);
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   const pseudo = sanitizeDailyNick(req.body?.pseudo || "");
   const dailyMode = sanitizeDailyMode(req.body?.dailyMode);
   if (!installId || !pseudo) {
@@ -547,68 +556,12 @@ app.post("/api/daily/submit", async (req, res) => {
   return res.json(result);
 });
 
-app.post("/api/account/link-preview", async (req, res) => {
-  res.set("Content-Type", "application/json; charset=utf-8");
-  res.set("Cache-Control", "no-store");
-  const parsed = parseAccountLinkCode(req.body?.code);
-  if (!parsed?.ok || !parsed.installId) {
-    res.status(400);
-    return res.json({ ok: false, error: parsed?.error || "invalid_code" });
-  }
-  const installId = parsed.installId;
-  const vocab = await getVocabularySnapshot(installId);
-  const weeklyNick = getWeeklyNickForInstallId(installId);
-  const duelNick = getDuelNickForInstallId(installId);
-  const nick = vocab?.nick || duelNick || weeklyNick || "";
-  const lastActivityTs = Number(vocab?.updatedAt) || 0;
-  return res.json({
-    ok: true,
-    installId,
-    profile: {
-      nick: nick || null,
-      lastActivityTs: lastActivityTs > 0 ? lastActivityTs : null,
-      vocabCount: Number(vocab?.count) || 0,
-      vocabRank:
-        Number.isFinite(vocab?.rank) && Number(vocab.rank) > 0
-          ? Number(vocab.rank)
-          : null,
-      vocabTotalPlayers: Number(vocab?.totalPlayers) || 0,
-    },
-    found: !!nick || !!vocab?.exists || (Number(vocab?.count) || 0) > 0,
-  });
-});
-
-app.post("/api/account/link-apply", (req, res) => {
-  res.set("Content-Type", "application/json; charset=utf-8");
-  res.set("Cache-Control", "no-store");
-  const currentInstallId = normalizeInstallIdRaw(req.body?.currentInstallId);
-  const parsed = parseAccountLinkCode(req.body?.code);
-  if (!currentInstallId || !parsed?.ok || !parsed.installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
-  const targetInstallId = resolveCanonicalInstallId(parsed.installId);
-  if (!targetInstallId) {
-    res.status(400);
-    return res.json({ ok: false, error: "invalid_target_install_id" });
-  }
-  const linked = linkInstallIds(currentInstallId, targetInstallId);
-  const canonicalInstallId = resolveCanonicalInstallId(currentInstallId);
-  return res.json({
-    ok: true,
-    linked,
-    canonicalInstallId: canonicalInstallId || targetInstallId,
-  });
-});
-
 app.get("/api/theme/profile", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.query?.installId);
-  if (!installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   try {
     await refreshInstallDuelCache(installId).catch(() => {});
     const profile = await getGobblarProfile(installId);
@@ -639,11 +592,9 @@ app.get("/api/theme/profile", async (req, res) => {
 app.post("/api/theme/apply", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.body?.installId);
-  if (!installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   const mode = req.body?.mode === "single" ? "single" : "full";
   const category = typeof req.body?.category === "string" ? req.body.category : "";
   const draftTheme =
@@ -687,11 +638,9 @@ app.post("/api/theme/apply", async (req, res) => {
 app.get("/api/duel/status", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.query?.installId);
-  if (!installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   await refreshInstallDuelCache(installId);
   const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
   const payload = await getDuelStatus(installId, { dateId });
@@ -724,12 +673,10 @@ app.get("/api/duel/daily", async (req, res) => {
 app.get("/api/duel/objectives", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.query?.installId);
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
-  if (!installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
   const payload = await getObjectivesStatus(installId, dateId);
   return res.json(payload);
 });
@@ -737,13 +684,11 @@ app.get("/api/duel/objectives", async (req, res) => {
 app.post("/api/duel/objectives/reroll", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.body?.installId);
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   const dateId = typeof req.body?.dateId === "string" ? req.body.dateId : null;
   const bucket = typeof req.body?.bucket === "string" ? req.body.bucket : null;
-  if (!installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
   const payload = await rerollObjective({ installId, dateId, bucket });
   if (!payload?.ok) {
     res.status(409);
@@ -754,11 +699,9 @@ app.post("/api/duel/objectives/reroll", async (req, res) => {
 app.post("/api/duel/objectives/submit", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const installId = normalizeInstallId(req.body?.installId);
-  if (!installId) {
-    res.status(400);
-    return res.json({ ok: false, error: "bad_request" });
-  }
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const installId = identity.installId;
   const dateId = typeof req.body?.dateId === "string" ? req.body.dateId : null;
   const eventType = typeof req.body?.eventType === "string" ? req.body.eventType : "";
   let payload = { ok: false, error: "invalid_event" };
@@ -885,6 +828,7 @@ app.get("/api/players", async (req, res) => {
     .filter((p) => isPlayerConnected(p) || isBotToken(p?.token))
     .map((p) => ({
       nick: p?.nick || "",
+      userId: Number.isInteger(Number(p?.userId)) ? Number(p.userId) : null,
       installId: p?.installId || null,
       team: getTeamForInstallCached(p?.installId),
       isBot: isBotToken(p?.token),
@@ -943,9 +887,34 @@ app.get("*", (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: true,
+    credentials: true,
   },
   pingTimeout: 60000,
+});
+
+io.use(async (socket, next) => {
+  let auth = await getAuthFromCookieHeader(socket?.handshake?.headers?.cookie);
+  let authUser = auth?.user || null;
+  let authSession = auth?.session || null;
+  if (!authUser) {
+    const ticket =
+      socket?.handshake?.auth?.socketTicket ||
+      socket?.handshake?.auth?.ticket ||
+      socket?.handshake?.query?.socketTicket ||
+      socket?.handshake?.query?.ticket;
+    const ticketUser = await consumeSocketTicket(ticket);
+    if (ticketUser) {
+      authUser = ticketUser;
+      authSession = null;
+    }
+  }
+  socket.data.authUser = authUser;
+  socket.data.authSession = authSession;
+  if (authUser) {
+    await ensureUserIdentityMigration(authUser);
+  }
+  next();
 });
 
 const lagMonitor = setInterval(() => {
@@ -976,10 +945,13 @@ const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "😂",
   "😮",
   "😢",
+  "😡",
   "🔥",
   "🙏",
   "👏",
   "🎉",
+  "👋",
+  "😎",
 ]);
 const LIVE_ROUND_END_GRACE_MS = 250;
 const MIN_BIG_WORD = 50;
@@ -1092,7 +1064,7 @@ const REPORT_MUTE_THRESHOLD = 3;
 const REPORT_REASON_MAX_LEN = 160;
 const MUTE_DURATION_MS = 10 * 60 * 1000;
 const INSTALL_ID_MAX_LEN = 128;
-const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
+const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
@@ -1112,6 +1084,122 @@ function normalizeInstallIdRaw(raw) {
   const trimmed = raw.trim();
   if (!trimmed || trimmed.length > INSTALL_ID_MAX_LEN) return "";
   return trimmed;
+}
+
+function parseCookieHeader(rawCookieHeader) {
+  const out = {};
+  const input = String(rawCookieHeader || "");
+  if (!input) return out;
+  for (const part of input.split(";")) {
+    const [keyRaw, ...valueParts] = part.split("=");
+    const key = String(keyRaw || "").trim();
+    if (!key) continue;
+    const rawValue = valueParts.join("=").trim();
+    try {
+      out[key] = decodeURIComponent(rawValue);
+    } catch (_) {
+      out[key] = rawValue;
+    }
+  }
+  return out;
+}
+
+function buildUserPlayerId(userId) {
+  const safeUserId = Number(userId);
+  if (!Number.isInteger(safeUserId) || safeUserId <= 0) return "";
+  return String(safeUserId);
+}
+
+async function getAuthFromCookieHeader(rawCookieHeader) {
+  const cookies = parseCookieHeader(rawCookieHeader);
+  const token = String(cookies[AUTH_SESSION_COOKIE_NAME] || "").trim();
+  if (!token) return null;
+  try {
+    return await getSessionByToken(token);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function getRequestPlayerIdentity(req) {
+  const auth = await getAuthFromCookieHeader(req?.headers?.cookie);
+  const user = auth?.user || null;
+  const installId = buildUserPlayerId(user?.id);
+  if (!user || !installId) return null;
+  await ensureUserIdentityMigration(user);
+  return {
+    user,
+    userId: Number(user.id),
+    installId,
+  };
+}
+
+async function requireRequestPlayerIdentity(req, res) {
+  const identity = await getRequestPlayerIdentity(req);
+  if (identity) return identity;
+  res.status(401);
+  res.json({ ok: false, error: "auth_required" });
+  return null;
+}
+
+function getSocketPlayerIdentity(socket) {
+  const user = socket?.data?.authUser || null;
+  const installId = buildUserPlayerId(user?.id);
+  if (!user || !installId) return null;
+  return {
+    user,
+    userId: Number(user.id),
+    installId,
+  };
+}
+
+function requireSocketPlayerIdentity(socket, cb) {
+  const identity = getSocketPlayerIdentity(socket);
+  if (identity) return identity;
+  cb?.({ ok: false, error: "auth_required" });
+  return null;
+}
+
+const migratedUserIds = new Set();
+const userMigrationPromises = new Map();
+
+async function ensureUserIdentityMigration(user) {
+  const userId = Number(user?.id);
+  if (!Number.isInteger(userId) || userId <= 0) return;
+  if (migratedUserIds.has(userId)) return;
+  const inFlight = userMigrationPromises.get(userId);
+  if (inFlight) {
+    await inFlight;
+    return;
+  }
+
+  const task = (async () => {
+    const targetInstallId = buildUserPlayerId(userId);
+    if (!targetInstallId) return;
+    const devices = await listDevicesForUser(userId).catch(() => []);
+    const sourceInstallIds = Array.from(
+      new Set(
+        (Array.isArray(devices) ? devices : [])
+          .map((entry) => normalizeInstallIdRaw(entry?.installId))
+          .filter((installId) => installId && installId !== targetInstallId)
+      )
+    );
+    if (sourceInstallIds.length > 0) {
+      await Promise.all([
+        migrateVocabularyProfile(targetInstallId, sourceInstallIds),
+        migrateGobblarProfile(targetInstallId, sourceInstallIds),
+        migrateTrophyProfile(targetInstallId, sourceInstallIds),
+      ]).catch((err) => {
+        console.warn(`identity migration failed user=${userId}`, err);
+      });
+    }
+    migratedUserIds.add(userId);
+  })().finally(() => {
+    userMigrationPromises.delete(userId);
+  });
+
+  userMigrationPromises.set(userId, task);
+  await task;
 }
 
 function resolveCanonicalInstallId(rawInstallId, { maxDepth = 16 } = {}) {
@@ -1208,50 +1296,6 @@ function linkInstallIds(fromInstallId, targetInstallId) {
   duelInstallCache.clear();
   duelCacheRefreshAt.clear();
   return true;
-}
-
-function computeLinkCodeChecksum(raw) {
-  const input = String(raw || "");
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36).padStart(6, "0").slice(-6);
-}
-
-function decodeBase64Url(raw) {
-  const input = String(raw || "").replace(/-/g, "+").replace(/_/g, "/");
-  if (!input) return "";
-  const padded = input + "=".repeat((4 - (input.length % 4)) % 4);
-  try {
-    return Buffer.from(padded, "base64").toString("utf8");
-  } catch (_) {
-    return "";
-  }
-}
-
-function parseAccountLinkCode(rawCode) {
-  const raw = String(rawCode || "").trim();
-  if (!raw) return { ok: false, error: "empty_code" };
-  const compact = raw.replace(/[‐‑‒–—﹘﹣－]/g, "-").replace(/\s+/g, "");
-  const match = compact.match(/^([A-Za-z0-9]+)-([A-Za-z0-9_-]+)-([A-Za-z0-9]+)$/);
-  if (!match) return { ok: false, error: "invalid_format" };
-  const prefix = String(match[1] || "").toUpperCase();
-  if (prefix !== ACCOUNT_LINK_CODE_PREFIX) {
-    return { ok: false, error: "invalid_prefix" };
-  }
-  const payload = String(match[2] || "");
-  const checksum = String(match[3] || "").toLowerCase();
-  const expected = computeLinkCodeChecksum(payload);
-  if (checksum !== expected) {
-    return { ok: false, error: "invalid_checksum" };
-  }
-  const installId = normalizeInstallId(decodeBase64Url(payload));
-  if (!installId) {
-    return { ok: false, error: "invalid_install_id" };
-  }
-  return { ok: true, installId };
 }
 
 function getDuelCacheEntry(rawInstallId) {
@@ -1624,6 +1668,23 @@ function buildSelfSpecial3WordsRoundPlan(roundNumber, roomConfig) {
   };
 }
 
+function pickWeightedItem(items) {
+  const weightedItems = Array.isArray(items) ? items : [];
+  const totalWeight = weightedItems.reduce((sum, item) => {
+    const weight = Number(item?.weight);
+    return sum + (Number.isFinite(weight) && weight > 0 ? weight : 0);
+  }, 0);
+  if (!(totalWeight > 0)) return null;
+  let roll = Math.random() * totalWeight;
+  for (const item of weightedItems) {
+    const weight = Number(item?.weight);
+    if (!(Number.isFinite(weight) && weight > 0)) continue;
+    roll -= weight;
+    if (roll <= 0) return item?.value ?? null;
+  }
+  return weightedItems[weightedItems.length - 1]?.value ?? null;
+}
+
 function buildTournamentSpecials(roomConfig) {
   const specials = new Map();
   if (FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS) {
@@ -1632,16 +1693,17 @@ function buildTournamentSpecials(roomConfig) {
     }
     return specials;
   }
-  const factories = [
-    (round) => buildSpeedTournamentPlan(round, roomConfig),
-    (round) => buildMonstrousTournamentPlan(round, roomConfig),
-    (round) => buildSelfSpecial3WordsTournamentPlan(round, roomConfig),
-    (round) => buildTargetLongTournamentPlan(round, roomConfig),
-    (round) => buildTargetScoreTournamentPlan(round, roomConfig),
-    (round) => buildBonusLetterTournamentPlan(round, roomConfig),
+  const weightedFactories = [
+    { weight: 0.5, value: (round) => buildSpeedTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildMonstrousTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildSelfSpecial3WordsTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildTargetLongTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildTargetScoreTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildBonusLetterTournamentPlan(round, roomConfig) },
   ];
   for (const round of TOURNAMENT_SPECIAL_ROUNDS) {
-    const pick = factories[Math.floor(Math.random() * factories.length)];
+    const pick = pickWeightedItem(weightedFactories);
+    if (typeof pick !== "function") continue;
     specials.set(round, pick(round));
   }
   return specials;
@@ -1794,6 +1856,7 @@ function emitPlayers(room) {
       .map((p) => ({
         nick: p.nick,
         roomId: room.id,
+        userId: Number.isInteger(Number(p?.userId)) ? Number(p.userId) : null,
         installId: p.installId || null,
         team: getTeamForInstallCached(p.installId),
         isBot: isBotToken(p?.token),
@@ -2128,6 +2191,7 @@ function buildSessionSnapshot(room, player) {
   }
   const playerState = {
     nick: player.nick,
+    userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
     connected: isPlayerConnected(player),
     score,
     words,
@@ -2376,6 +2440,7 @@ function buildChatReplyPreviewFromMessage(message) {
   return {
     id,
     nick: nick || "Anonyme",
+    userId: Number.isInteger(Number(message?.userId)) ? Number(message.userId) : null,
     installId: normalizeInstallId(message.installId) || null,
     text,
     t: Number(message.t) || Date.now(),
@@ -4351,6 +4416,7 @@ async function endRoundForRoom(room) {
       : new Map();
   const targetFoundAt = room.currentRound.targetFoundAt || new Map();
   const targetScoreForWeekly = 1000;
+  const isSpecial3Round = room.currentRound?.special?.type === SELF_SPECIAL_3_WORDS_TYPE;
   const teamDuelUpdates = new Map();
   const duelDateId = getParisDateId(new Date(endedAt));
   for (const entry of results) {
@@ -4361,6 +4427,9 @@ async function endRoundForRoom(room) {
     const wordsCount = Array.isArray(entry.words) ? entry.words.length : 0;
     recordMostWordsInGame(playerKey, entry.nick, wordsCount, roundId, endedAt);
     recordBestRoundScore(playerKey, entry.nick, entry.score, roundId, endedAt);
+    if (isSpecial3Round) {
+      recordBestSpecial3Score(playerKey, entry.nick, entry.score, roundId, endedAt);
+    }
     const weeklyScoreToAdd = isTargetRound
       ? targetFoundAt.has(entry.nick)
         ? targetScoreForWeekly
@@ -4842,7 +4911,9 @@ io.on("connection", (socket) => {
       cb = payload;
       payload = null;
     }
-    const installId = normalizeInstallId(payload?.installId);
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const installId = identity.installId;
     const roomId = payload?.roomId;
     if (!installId || !roomId) {
       cb?.({ ok: false, available: false, error: "invalid_payload" });
@@ -4875,6 +4946,8 @@ io.on("connection", (socket) => {
       }
       player = {
         ...player,
+        userId: identity.userId,
+        installId,
         connected: true,
         lastSeenAt: now,
       };
@@ -4885,6 +4958,7 @@ io.on("connection", (socket) => {
         await refreshInstallDuelCache(installId);
       } catch (_) {}
       socket.data.installId = installId;
+      socket.data.userId = identity.userId;
       socket.data.nick = player.nick;
       socket.data.roomId = room.id;
       socket.roomId = room.id;
@@ -4898,11 +4972,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("login", async (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
     const nick = typeof payload === "string" ? payload : payload?.nick;
     const token = typeof payload === "object" ? payload?.clientId : null;
-    const installId = normalizeInstallId(
-      typeof payload === "object" ? payload?.installId || payload?.clientId : null
-    );
+    const installId = identity.installId;
     const requestedRoomId =
       typeof payload === "object" && payload?.roomId
         ? payload.roomId
@@ -4917,11 +4991,6 @@ io.on("connection", (socket) => {
     const trimmed = (nick || "").trim();
     if (!trimmed) {
       cb?.({ ok: false, error: "empty_nick" });
-      return;
-    }
-
-    if (!installId) {
-      cb?.({ ok: false, error: "invalid_install_id" });
       return;
     }
 
@@ -4962,6 +5031,7 @@ io.on("connection", (socket) => {
     room.players.set(socket.id, {
       nick: trimmed,
       token: token || null,
+      userId: identity.userId,
       installId,
       connected: true,
       lastSeenAt: now,
@@ -4972,6 +5042,7 @@ io.on("connection", (socket) => {
       await refreshInstallDuelCache(installId);
     } catch (_) {}
     socket.data.installId = installId;
+    socket.data.userId = identity.userId;
     socket.data.nick = trimmed;
     socket.data.roomId = room.id;
     socket.roomId = room.id;
@@ -5098,6 +5169,8 @@ io.on("connection", (socket) => {
       return;
     }
     const player = room.players.get(socket.id);
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
     const lobbyNick =
       isPayloadObject && typeof payload.nick === "string" ? payload.nick.trim() : "";
     const isLobbyPayload = !player && isPayloadObject && payload?.lobby === true;
@@ -5110,12 +5183,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "nick_too_long" });
       return;
     }
-    const installId = normalizeInstallId(
-      player?.installId ||
-        socket.data?.installId ||
-        (isPayloadObject ? payload.installId : "") ||
-        socket.data?.chatInstallId
-    );
+    const installId = identity.installId;
     if (!installId) {
       cb?.({ ok: false, error: "invalid_install_id" });
       return;
@@ -5139,6 +5207,7 @@ io.on("connection", (socket) => {
       t: Date.now(),
       roomId: room.id,
       nick: authorNick,
+      userId: identity.userId,
       installId,
       text: trimmed,
       team: getTeamForInstallCached(installId),
@@ -5177,6 +5246,8 @@ io.on("connection", (socket) => {
     }
 
     const player = room.players.get(socket.id);
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
     const lobbyNick = typeof payload.nick === "string" ? payload.nick.trim() : "";
     const isLobbyPayload = !player && payload?.lobby === true;
     const authorNick = (player?.nick || lobbyNick || socket.data?.chatNick || "").trim();
@@ -5188,12 +5259,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "nick_too_long" });
       return;
     }
-    const installId = normalizeInstallId(
-      player?.installId ||
-        socket.data?.installId ||
-        payload.installId ||
-        socket.data?.chatInstallId
-    );
+    const installId = identity.installId;
     if (!installId) {
       cb?.({ ok: false, error: "invalid_install_id" });
       return;
@@ -5251,13 +5317,10 @@ io.on("connection", (socket) => {
       return;
     }
     const player = room.players.get(socket.id);
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
     const isLobbyPayload = !player && payload?.lobby === true;
-    const installId = normalizeInstallId(
-      player?.installId ||
-        socket.data?.installId ||
-        payload.installId ||
-        socket.data?.chatInstallId
-    );
+    const installId = identity.installId;
     if (!installId) {
       cb?.({ ok: false, error: "invalid_install_id" });
       return;
@@ -5305,13 +5368,10 @@ io.on("connection", (socket) => {
       return;
     }
     const player = room.players.get(socket.id);
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
     const isLobbyPayload = !player && payload?.lobby === true;
-    const installId = normalizeInstallId(
-      player?.installId ||
-        socket.data?.installId ||
-        payload.installId ||
-        socket.data?.chatInstallId
-    );
+    const installId = identity.installId;
     if (!installId) {
       cb?.({ ok: false, error: "invalid_install_id" });
       return;
@@ -5364,7 +5424,9 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "invalid_room" });
       return;
     }
-    const reporterInstallId = normalizeInstallId(socket.data?.installId);
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const reporterInstallId = identity.installId;
     if (!reporterInstallId) {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
@@ -5422,9 +5484,9 @@ io.on("connection", (socket) => {
       cb = payload;
       payload = null;
     }
-    const socketInstallId = normalizeInstallId(socket.data?.installId);
-    const payloadInstallId = normalizeInstallId(payload?.installId);
-    const installId = socketInstallId || payloadInstallId;
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const installId = identity.installId;
     if (!installId) {
       cb?.({ count: 0 });
       return;
@@ -5443,9 +5505,9 @@ io.on("connection", (socket) => {
       cb = payload;
       payload = null;
     }
-    const socketInstallId = normalizeInstallId(socket.data?.installId);
-    const payloadInstallId = normalizeInstallId(payload?.installId);
-    const installId = socketInstallId || payloadInstallId;
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const installId = identity.installId;
     if (!installId) {
       cb?.({ ok: false, status: null });
       return;
@@ -5461,7 +5523,9 @@ io.on("connection", (socket) => {
 
   socket.on("daily:start", async (payload, cb) => {
     try {
-      const installId = normalizeInstallId(payload?.installId || socket.data?.installId);
+      const identity = requireSocketPlayerIdentity(socket, cb);
+      if (!identity) return;
+      const installId = identity.installId;
       const pseudo = sanitizeDailyNick(payload?.pseudo || socket.data?.nick || "");
       const dailyMode = sanitizeDailyMode(payload?.dailyMode);
       if (!installId || !pseudo) {
@@ -5482,7 +5546,9 @@ io.on("connection", (socket) => {
 
   socket.on("daily:submit", async (payload, cb) => {
     try {
-      const installId = normalizeInstallId(payload?.installId || socket.data?.installId);
+      const identity = requireSocketPlayerIdentity(socket, cb);
+      if (!identity) return;
+      const installId = identity.installId;
       const pseudo = sanitizeDailyNick(payload?.pseudo || socket.data?.nick || "");
       const dailyMode = sanitizeDailyMode(payload?.dailyMode);
       if (!installId || !pseudo) {

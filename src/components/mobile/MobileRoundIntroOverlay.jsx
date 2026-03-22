@@ -130,9 +130,13 @@ function MobileRoundIntroOverlay({
         height: squareStyle.height,
       }
     : null;
+  const overlayZIndex = showsBackdrop ? 20045 : 20040;
 
   return createPortal(
-    <div className="fixed inset-0 z-[20045] pointer-events-none select-none">
+    <div
+      className="fixed inset-0 pointer-events-none select-none"
+      style={{ zIndex: overlayZIndex }}
+    >
       {showsBackdrop ? <div className={`absolute inset-0 bg-black ${backdropClass}`} /> : null}
       {showsTitle && styleForRender ? (
         <div

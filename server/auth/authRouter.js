@@ -3,6 +3,7 @@ import {
   AUTH_SESSION_TTL_MS,
   authenticateUser,
   claimLegacyUser,
+  issueSocketTicket,
   createSession,
   createUser,
   ensureUserPrimaryInstallId,
@@ -71,7 +72,6 @@ function sessionPayload(user) {
     id: user.id,
     usernameDisplay: user.usernameDisplay,
     email: user.email,
-    primaryInstallId: user.primaryInstallId,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     lastLoginAt: user.lastLoginAt,
@@ -174,6 +174,7 @@ export function createAuthRouter({
   router.post("/status", async (req, res) => {
     res.set("Cache-Control", "no-store");
     const auth = await getAuthContext(req);
+    const rememberedUserId = Number(req.body?.rememberedUserId);
     const { rawInstallId, resolvedInstallId } = buildInstallPair(
       req.body?.installId,
       normalizeInstallIdRaw,
@@ -209,12 +210,25 @@ export function createAuthRouter({
       }
 
       const recognizedUsers = await listUsersByDeviceInstallId(rawInstallId, resolvedInstallId);
-      if (recognizedUsers.length === 1) {
+      const rememberedUser =
+        Number.isInteger(rememberedUserId) && rememberedUserId > 0
+          ? recognizedUsers.find((user) => Number(user?.id) === rememberedUserId) || null
+          : null;
+      const userToRestore =
+        recognizedUsers.length === 1 ? recognizedUsers[0] : rememberedUser;
+      if (userToRestore) {
+        const attached = await maybeAttachDeviceToUser({
+          user: userToRestore,
+          rawInstallId,
+          resolvedInstallId,
+        });
+        const session = await createSession(attached.user.id);
+        res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
         return res.json({
           ok: true,
-          status: "login_required",
-          authenticated: false,
-          user: sessionPayload(recognizedUsers[0]),
+          status: "authenticated",
+          authenticated: true,
+          user: sessionPayload(attached.user),
         });
       }
     }
@@ -427,6 +441,14 @@ export function createAuthRouter({
     }
     res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, "", req, { clear: true }));
     return res.json({ ok: true });
+  });
+
+  router.post("/socket-ticket", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const auth = await getAuthContext(req);
+    if (!requireAuth(auth, res, req)) return;
+    const ticket = await issueSocketTicket(auth.user.id);
+    return res.json({ ok: true, ticket });
   });
 
   router.get("/me", async (req, res) => {

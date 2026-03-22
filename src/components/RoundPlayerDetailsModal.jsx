@@ -37,6 +37,9 @@ function formatRecordValueLabel(record) {
     const len = Number.isFinite(record.len) ? ` (${record.len} lettres)` : "";
     return `Mot : ${record.word}${len}`;
   }
+  if (record.categoryKey === "bestSpecial3Score") {
+    return Number.isFinite(record.pts) ? `Score : ${record.pts} pts` : "";
+  }
   if (record.categoryKey === "mostWordsInGame") {
     return Number.isFinite(record.wordsCount)
       ? `Mots : ${record.wordsCount} par manche`

@@ -1298,6 +1298,7 @@ const WEEKLY_BOARDS = [
   { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus élevé" },
   { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
   { key: "bestRoundScore", label: "Score de manche", subtitle: "Total record" },
+  { key: "bestSpecial3Score", label: "3 mots", subtitle: "Live hebdo" },
   { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
   { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
   { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
@@ -1309,6 +1310,7 @@ const FINALE_WEEKLY_BOARDS = [
 const WEEKLY_RECORD_LABELS = {
   bestWord: "Meilleur mot",
   longestWord: "Mot le plus long",
+  bestSpecial3Score: "3 mots",
   mostWordsInGame: "Mots par manche",
   bestTimeTargetLong: "Temps mot long",
   bestTimeTargetScore: "Temps meilleur mot",
@@ -3316,9 +3318,14 @@ body.theme-dark textarea::placeholder {
 }
 
 @keyframes gobbleHold {
-  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
-  22% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 1; }
+  0% { transform: translate(-50%, -50%) scale(0.2); }
+  22% { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); }
+}
+
+@keyframes gobbleFadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 @keyframes gobbleShine {
@@ -3357,7 +3364,9 @@ body.theme-dark textarea::placeholder {
     drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
 }
 .gobble-pop {
-  animation: gobbleHold var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+  animation:
+    gobbleHold var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards,
+    gobbleFadeOut calc(var(--praise-duration, 2000ms) - 100ms) ease-out 100ms forwards;
 }
 .praise-flash {
   position: fixed;
@@ -3553,10 +3562,9 @@ const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
 const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "🙏", "😢", "❤️", "😂"];
-const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉"];
+const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🙏", "👏", "🎉", "👋", "😎"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
-const ACCOUNT_LINK_CODE_PREFIX = "GBL1";
 const MAX_INSTALL_ID_LEN = 128;
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const CHAT_MESSAGES_STORAGE_KEY = "gobble_chat_messages_v1";
@@ -3567,6 +3575,7 @@ const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
+const LAST_AUTH_USER_ID_STORAGE_KEY = "gobble_last_auth_user_id";
 const AUTH_MODAL_MODES = {
   LOGIN: "login",
   REGISTER: "register",
@@ -4024,69 +4033,18 @@ function generateInstallId() {
   return `iid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
-function normalizeInstallIdForLink(raw) {
-  if (typeof raw !== "string") return "";
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed.length > MAX_INSTALL_ID_LEN) return "";
-  return trimmed;
+function buildUserScopedInstallId(userId) {
+  const safeUserId = Number(userId);
+  if (!Number.isInteger(safeUserId) || safeUserId <= 0) return "";
+  return String(safeUserId);
 }
 
-function computeLinkCodeChecksum(raw) {
-  const input = String(raw || "");
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36).padStart(6, "0").slice(-6);
-}
-
-function encodeBase64Url(raw) {
-  const source = String(raw || "");
-  try {
-    if (typeof btoa === "function") {
-      return btoa(source).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-    }
-  } catch (_) {}
-  return "";
-}
-
-function decodeBase64Url(raw) {
-  const input = String(raw || "").replace(/-/g, "+").replace(/_/g, "/");
-  if (!input) return "";
-  const padded = input + "=".repeat((4 - (input.length % 4)) % 4);
-  try {
-    if (typeof atob === "function") {
-      return atob(padded);
-    }
-  } catch (_) {}
-  return "";
-}
-
-function buildAccountLinkCode(installId) {
-  const safeInstallId = normalizeInstallIdForLink(installId);
-  if (!safeInstallId) return "";
-  const payload = encodeBase64Url(safeInstallId);
-  if (!payload) return "";
-  const checksum = computeLinkCodeChecksum(payload);
-  return `${ACCOUNT_LINK_CODE_PREFIX}-${payload}-${checksum}`;
-}
-
-function parseAccountLinkCode(rawCode) {
-  const raw = String(rawCode || "").trim();
-  if (!raw) return { ok: false, error: "empty" };
-  const compact = raw.replace(/[‐‑‒–—﹘﹣－]/g, "-").replace(/\s+/g, "");
-  const match = compact.match(/^([A-Za-z0-9]+)-([A-Za-z0-9_-]+)-([A-Za-z0-9]+)$/);
-  if (!match) return { ok: false, error: "format" };
-  const prefix = String(match[1] || "").toUpperCase();
-  if (prefix !== ACCOUNT_LINK_CODE_PREFIX) return { ok: false, error: "prefix" };
-  const payload = String(match[2] || "");
-  const checksum = String(match[3] || "").toLowerCase();
-  const expected = computeLinkCodeChecksum(payload);
-  if (checksum !== expected) return { ok: false, error: "checksum" };
-  const decodedInstallId = normalizeInstallIdForLink(decodeBase64Url(payload));
-  if (!decodedInstallId) return { ok: false, error: "install_id" };
-  return { ok: true, installId: decodedInstallId };
+function normalizeStoredPlayerIdentityKey(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return "";
+  const match = /^user:(\d+)$/.exec(raw);
+  if (match) return match[1];
+  return raw;
 }
 
 function getOrCreateInstallId() {
@@ -4498,6 +4456,7 @@ export default function App() {
   );
   const [currentTiles, setCurrentTiles] = useState([]);
   const [highlightPath, setHighlightPath] = useState([]);
+  const highlightPathRef = useRef([]);
   const [dictionary, setDictionary] = useState(null);
   const [accepted, setAccepted] = useState([]);
   const [submissionTick, setSubmissionTick] = useState(0);
@@ -4536,6 +4495,7 @@ export default function App() {
   const gridRotateTimerRef = useRef(null);
   const [isGridRotating, setIsGridRotating] = useState(false);
   const [lastInputMode, setLastInputMode] = useState("keyboard");
+  const lastInputModeRef = useRef("keyboard");
   const audioCtxRef = useRef(null);
   const audioSystemRef = useRef(null);
   const audioUnlockedRef = useRef(false);
@@ -5028,6 +4988,7 @@ export default function App() {
   const [authInfo, setAuthInfo] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
+  const socketConnectPromiseRef = useRef(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [roundId, setRoundId] = useState(null);
@@ -5079,12 +5040,6 @@ export default function App() {
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [supportModalSection, setSupportModalSection] = useState("support");
-  const [isAccountLinkOpen, setIsAccountLinkOpen] = useState(false);
-  const [accountLinkInput, setAccountLinkInput] = useState("");
-  const [accountLinkError, setAccountLinkError] = useState("");
-  const [accountLinkInfo, setAccountLinkInfo] = useState("");
-  const [accountLinkChecking, setAccountLinkChecking] = useState(false);
-  const [accountLinkPreview, setAccountLinkPreview] = useState(null);
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
   const seasonTouchRef = useRef({
     startX: null,
@@ -5224,7 +5179,10 @@ export default function App() {
   }, [phase, isMobileLayout]);
   const [deviceInstallId] = useState(() => getOrCreateInstallId());
   const [installIdCreatedAtTs] = useState(() => getInstallIdCreatedAtTs());
-  const installId = authState.user?.primaryInstallId || deviceInstallId;
+  const authenticatedUserId = Number.isInteger(Number(authState.user?.id))
+    ? Number(authState.user.id)
+    : null;
+  const installId = authenticatedUserId ? buildUserScopedInstallId(authenticatedUserId) : "";
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
   const isAuthStatusPending = authState.loading || authState.status === "loading";
   const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
@@ -5313,7 +5271,7 @@ export default function App() {
   const dailySpecialTutorialPauseStartedAtRef = useRef(null);
   const [tutorialSeenInstallId, setTutorialSeenInstallId] = useState(() => {
     try {
-      return localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) || "";
+      return normalizeStoredPlayerIdentityKey(localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) || "");
     } catch (_) {
       return "";
     }
@@ -5322,7 +5280,9 @@ export default function App() {
   const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
   const [guidedResultsSeenInstallId, setGuidedResultsSeenInstallId] = useState(() => {
     try {
-      return localStorage.getItem(GUIDED_RESULTS_SEEN_STORAGE_KEY) || "";
+      return normalizeStoredPlayerIdentityKey(
+        localStorage.getItem(GUIDED_RESULTS_SEEN_STORAGE_KEY) || ""
+      );
     } catch (_) {
       return "";
     }
@@ -5333,7 +5293,7 @@ export default function App() {
       const raw = localStorage.getItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed && typeof parsed === "object") {
-        const installId = typeof parsed.installId === "string" ? parsed.installId : "";
+        const installId = normalizeStoredPlayerIdentityKey(parsed.installId);
         const types =
           parsed.types && typeof parsed.types === "object" && !Array.isArray(parsed.types)
             ? parsed.types
@@ -5346,8 +5306,13 @@ export default function App() {
   const [specialTutorialPlan, setSpecialTutorialPlan] = useState(null);
   const [isSpecialTutorialOpen, setIsSpecialTutorialOpen] = useState(false);
   const [specialTutorialStepIndex, setSpecialTutorialStepIndex] = useState(0);
-  const shouldShowTutorial =
-    tutorialSeenInstallId && installId ? tutorialSeenInstallId !== installId : true;
+  const normalizedLegacyInstallId = normalizeStoredPlayerIdentityKey(deviceInstallId);
+  const matchesCurrentPlayerIdentity = (value) => {
+    const normalized = normalizeStoredPlayerIdentityKey(value);
+    if (!normalized) return false;
+    return normalized === installId || normalized === normalizedLegacyInstallId;
+  };
+  const shouldShowTutorial = installId ? !matchesCurrentPlayerIdentity(tutorialSeenInstallId) : false;
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
   const isDailySpecialMode =
@@ -5386,7 +5351,7 @@ export default function App() {
     (type) => {
       if (!type) return;
       setSpecialTutorialSeen((prev) => {
-        const nextInstallId = installId || prev?.installId || "";
+        const nextInstallId = normalizeStoredPlayerIdentityKey(installId || prev?.installId || "");
         const nextTypes = { ...(prev?.types || {}) };
         nextTypes[type] = true;
         const next = { installId: nextInstallId, types: nextTypes };
@@ -5398,6 +5363,53 @@ export default function App() {
     },
     [installId]
   );
+  useEffect(() => {
+    if (!installId) return;
+    const legacyKeys = new Set([
+      normalizeStoredPlayerIdentityKey(deviceInstallId),
+    ]);
+    legacyKeys.delete("");
+    legacyKeys.delete(installId);
+    if (!legacyKeys.size) return;
+
+    const matchesLegacy = (value) =>
+      legacyKeys.has(normalizeStoredPlayerIdentityKey(value));
+
+    if (matchesLegacy(tutorialSeenInstallId) && tutorialSeenInstallId !== installId) {
+      try {
+        localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, installId);
+      } catch (_) {}
+      setTutorialSeenInstallId(installId);
+    }
+
+    if (matchesLegacy(guidedResultsSeenInstallId) && guidedResultsSeenInstallId !== installId) {
+      try {
+        localStorage.setItem(GUIDED_RESULTS_SEEN_STORAGE_KEY, installId);
+      } catch (_) {}
+      setGuidedResultsSeenInstallId(installId);
+    }
+
+    if (matchesLegacy(specialTutorialSeen?.installId) && specialTutorialSeen?.installId !== installId) {
+      setSpecialTutorialSeen((prev) => {
+        const next = { installId, types: { ...(prev?.types || {}) } };
+        try {
+          localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
+        } catch (_) {}
+        return next;
+      });
+    }
+
+    const savedSession = sessionRef.current || loadSessionFromStorage();
+    if (savedSession?.nick && savedSession?.roomId && matchesLegacy(savedSession.installId)) {
+      persistSession({ ...savedSession, installId });
+    }
+  }, [
+    installId,
+    deviceInstallId,
+    tutorialSeenInstallId,
+    guidedResultsSeenInstallId,
+    specialTutorialSeen?.installId,
+  ]);
 
   function clearCelebrationFx() {
     if (praiseTimerRef.current) {
@@ -5755,6 +5767,12 @@ export default function App() {
     roundIdRef.current = roundId;
   }, [roundId]);
   useEffect(() => {
+    highlightPathRef.current = Array.isArray(highlightPath) ? highlightPath : [];
+  }, [highlightPath]);
+  useEffect(() => {
+    lastInputModeRef.current = lastInputMode;
+  }, [lastInputMode]);
+  useEffect(() => {
     return () => {
       if (rankingQueueTimerRef.current) {
         clearTimeout(rankingQueueTimerRef.current);
@@ -5778,8 +5796,9 @@ export default function App() {
   useEffect(() => {
     if (!installId) return;
     setSpecialTutorialSeen((prev) => {
-      if (prev?.installId === installId) return prev;
-      const next = { installId, types: {} };
+      const previousInstallId = normalizeStoredPlayerIdentityKey(prev?.installId || "");
+      if (previousInstallId === installId) return prev;
+      const next = { installId, types: { ...(prev?.types || {}) } };
       try {
         localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
       } catch (_) {}
@@ -10482,6 +10501,7 @@ export default function App() {
     setCurrentTiles([]);
     currentTilesRef.current = [];
     setHighlightPath([]);
+    highlightPathRef.current = [];
     activeTraceStartedAtRef.current = null;
   }, []);
 
@@ -12484,8 +12504,16 @@ export default function App() {
     }
 
     const finalizeRound = () => {
-      tryAutoSubmitCurrentWordAtRoundEnd();
-      playOutroThenResultsRef.current?.(null, { fallback: true });
+      const completeFinalizeRound = () => {
+        tryAutoSubmitCurrentWordAtRoundEnd();
+        playOutroThenResultsRef.current?.(null, { fallback: true });
+      };
+      const hadPendingDragMove = flushPendingDragMove();
+      if (hadPendingDragMove && typeof window !== "undefined") {
+        window.setTimeout(completeFinalizeRound, 0);
+        return;
+      }
+      completeFinalizeRound();
     };
 
     const setIntervalSafe = (fn) => {
@@ -12644,7 +12672,10 @@ export default function App() {
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed?.nick || !parsed?.roomId || !parsed?.installId) return null;
-      return parsed;
+      return {
+        ...parsed,
+        installId: normalizeStoredPlayerIdentityKey(parsed.installId),
+      };
     } catch (_) {
       return null;
     }
@@ -12652,10 +12683,12 @@ export default function App() {
 
   function persistSession(session) {
     if (!session?.nick || !session?.roomId) return;
+    const nextInstallId = normalizeStoredPlayerIdentityKey(session.installId || installId);
+    if (!nextInstallId) return;
     const payload = {
       nick: String(session.nick || "").trim(),
       roomId: session.roomId,
-      installId: session.installId || installId,
+      installId: nextInstallId,
       lastLoginAt: Date.now(),
     };
     sessionRef.current = payload;
@@ -12887,6 +12920,8 @@ export default function App() {
         return Number(entry.pts) || 0;
       case "longestWord":
         return Number(entry.len) || 0;
+      case "bestSpecial3Score":
+        return Number(entry.pts) || 0;
       case "bestRoundScore":
         return Number(entry.pts) || 0;
       case "vocab":
@@ -12912,7 +12947,9 @@ export default function App() {
       const current = byPlayer.get(key);
       const value = getWeeklyValue(boardKey, entry);
       if (
-        (boardKey === "totalScore" || boardKey === "bestRoundScore") &&
+        (boardKey === "totalScore" ||
+          boardKey === "bestRoundScore" ||
+          boardKey === "bestSpecial3Score") &&
         (!Number.isFinite(value) || value <= 0)
       ) {
         continue;
@@ -13103,6 +13140,7 @@ export default function App() {
     const query = installId ? `?installId=${encodeURIComponent(installId)}` : "";
     fetch(`/api/daily/status${query}`, {
       cache: "no-store",
+      credentials: "include",
       headers: { Accept: "application/json" },
     })
       .then(async (res) => {
@@ -13207,6 +13245,7 @@ export default function App() {
     if (dateId) params.set("dateId", dateId);
     fetch(`/api/duel/status?${params.toString()}`, {
       cache: "no-store",
+      credentials: "include",
       headers: { Accept: "application/json" },
     })
       .then(async (res) => {
@@ -13245,6 +13284,7 @@ export default function App() {
     setDuelRerollBusyBucket(bucket);
     fetch("/api/duel/objectives/reroll", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ installId, bucket }),
     })
@@ -13417,6 +13457,7 @@ export default function App() {
     if (installId) params.set("installId", installId);
     fetch(`/api/daily/history?${params.toString()}`, {
       cache: "no-store",
+      credentials: "include",
       headers: { Accept: "application/json" },
     })
       .then(async (res) => {
@@ -13583,6 +13624,8 @@ export default function App() {
         return "Réessaie dans quelques secondes.";
       case "auth_required":
         return "Connecte-toi pour continuer.";
+      case "already_authenticated":
+        return "Compte déjà connecté.";
       case "install_id_required":
         return "Identifiant appareil manquant.";
       default:
@@ -13594,6 +13637,7 @@ export default function App() {
     const res = await fetch(url, {
       method,
       cache: "no-store",
+      credentials: "include",
       headers: {
         Accept: "application/json",
         ...(payload !== null ? { "Content-Type": "application/json" } : {}),
@@ -13606,6 +13650,68 @@ export default function App() {
       status: res.status,
       data: parsed?.data && typeof parsed.data === "object" ? parsed.data : null,
     };
+  }
+
+  async function connectSocketWithAuth() {
+    if (socket.connected) return true;
+    if (socketConnectPromiseRef.current) {
+      return await socketConnectPromiseRef.current;
+    }
+    const task = (async () => {
+      if (isAccountAuthenticated) {
+        let ticket = "";
+        try {
+          const ticketResponse = await postAuthJson("/api/auth/socket-ticket", {});
+          ticket = String(ticketResponse?.data?.ticket || "").trim();
+        } catch (_) {}
+        if (!ticket) {
+          const refreshed = await refreshAuthStatus({ silent: true });
+          if (refreshed?.status === "authenticated" && refreshed?.user) {
+            try {
+              const retryResponse = await postAuthJson("/api/auth/socket-ticket", {});
+              ticket = String(retryResponse?.data?.ticket || "").trim();
+            } catch (_) {}
+          }
+        }
+        if (!ticket) {
+          socket.auth = {};
+          setTimeout(() => {
+            if (typeof socket.emitReserved === "function") {
+              socket.emitReserved("connect_error", new Error("auth_required"));
+            }
+          }, 0);
+          return false;
+        }
+        socket.auth = { socketTicket: ticket };
+      } else {
+        socket.auth = {};
+      }
+      return await new Promise((resolve) => {
+        let settled = false;
+        const cleanup = () => {
+          socket.off("connect", onConnect);
+          socket.off("connect_error", onError);
+        };
+        const finish = (value) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(value);
+        };
+        const onConnect = () => finish(true);
+        const onError = () => finish(false);
+        socket.once("connect", onConnect);
+        socket.once("connect_error", onError);
+        socket.connect();
+        setTimeout(() => finish(socket.connected), 5000);
+      });
+    })();
+    socketConnectPromiseRef.current = task;
+    try {
+      return await task;
+    } finally {
+      socketConnectPromiseRef.current = null;
+    }
   }
 
   function buildAuthFormForMode(mode) {
@@ -13640,9 +13746,32 @@ export default function App() {
       setAuthState((prev) => ({ ...prev, loading: true }));
     }
     try {
-      const response = await postAuthJson(AUTH_STATUS_ENDPOINT, { installId: deviceInstallId });
+      let rememberedUserId = null;
+      try {
+        const rawRememberedUserId = localStorage.getItem(LAST_AUTH_USER_ID_STORAGE_KEY);
+        const parsedRememberedUserId = Number(rawRememberedUserId);
+        rememberedUserId =
+          Number.isInteger(parsedRememberedUserId) && parsedRememberedUserId > 0
+            ? parsedRememberedUserId
+            : null;
+        if (!rememberedUserId) {
+          const storedSession = loadSessionFromStorage();
+          const parsedSessionUserId = Number(storedSession?.installId);
+          if (Number.isInteger(parsedSessionUserId) && parsedSessionUserId > 0) {
+            rememberedUserId = parsedSessionUserId;
+            localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(parsedSessionUserId));
+          }
+        }
+      } catch (_) {}
+      const response = await postAuthJson(AUTH_STATUS_ENDPOINT, {
+        installId: deviceInstallId,
+        rememberedUserId,
+      });
       const payload = response.data || {};
       if (response.ok && payload.status === "authenticated" && payload.user) {
+        try {
+          localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
+        } catch (_) {}
         setAuthState({
           loading: false,
           status: "authenticated",
@@ -13661,6 +13790,11 @@ export default function App() {
         return payload;
       }
       if (response.ok && payload.status === "login_required") {
+        if (payload.user?.id) {
+          try {
+            localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
+          } catch (_) {}
+        }
         setAuthState({
           loading: false,
           status: "login_required",
@@ -13774,6 +13908,14 @@ export default function App() {
 
       const payload = response?.data || {};
       if (!response?.ok) {
+        if (payload?.error === "already_authenticated") {
+          const refreshed = await refreshAuthStatus({ silent: true });
+          if (refreshed?.status === "authenticated" && refreshed?.user) {
+            setAuthModalMode(null);
+            setAuthForm(createEmptyAuthForm());
+            return;
+          }
+        }
         const mappedError = formatAuthError(payload?.error);
         setAuthError(mappedError);
         if (payload?.error === "legacy_claim_required") {
@@ -13799,12 +13941,18 @@ export default function App() {
       }
 
       if (payload?.user) {
+        try {
+          localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
+        } catch (_) {}
         setAuthState({
           loading: false,
           status: "authenticated",
           user: payload.user,
           legacyProfile: null,
         });
+        if (socket.connected) {
+          socket.disconnect();
+        }
         setNickname(payload.user.usernameDisplay || "");
         try {
           localStorage.setItem("boggle_nick", payload.user.usernameDisplay || "");
@@ -13830,6 +13978,13 @@ export default function App() {
     try {
       await postAuthJson("/api/auth/logout", {});
     } catch (_) {}
+    try {
+      localStorage.removeItem(LAST_AUTH_USER_ID_STORAGE_KEY);
+    } catch (_) {}
+    socket.auth = {};
+    if (socket.connected) {
+      socket.disconnect();
+    }
     if (isLoggedIn) {
       returnToLobby();
     }
@@ -13846,6 +14001,13 @@ export default function App() {
   useEffect(() => {
     void refreshAuthStatus();
   }, [deviceInstallId]);
+
+  useEffect(() => {
+    if (!isAccountAuthenticated) return;
+    if (!socket.connected) return;
+    if (isLoggedInRef.current) return;
+    socket.disconnect();
+  }, [isAccountAuthenticated, authenticatedUserId]);
 
   useEffect(() => {
     if (
@@ -13945,7 +14107,7 @@ export default function App() {
 
       socket.once("connect", onConnect);
       socket.once("connect_error", onConnectError);
-      socket.connect();
+      void connectSocketWithAuth();
     });
   }
 
@@ -14059,6 +14221,7 @@ export default function App() {
         res = await fetch(`/api/daily/start${cacheBust}`, {
           method: "POST",
           cache: "no-store",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -14275,6 +14438,7 @@ export default function App() {
         const res = await fetch("/api/daily/submit", {
           method: "POST",
           cache: "no-store",
+          credentials: "include",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify(payload),
         });
@@ -14358,7 +14522,7 @@ export default function App() {
         };
         socket.once("connect", onConnect);
         socket.once("connect_error", onError);
-        socket.connect();
+        void connectSocketWithAuth();
       });
     }
 
@@ -14408,7 +14572,7 @@ export default function App() {
         };
         socket.once("connect", onConnect);
         socket.once("connect_error", onError);
-        socket.connect();
+        void connectSocketWithAuth();
       });
     }
 
@@ -15167,6 +15331,7 @@ export default function App() {
   }
 
   function requestSessionResumeSnapshot(reason = "probe") {
+    if (!isAccountAuthenticated) return;
     if (!hasSavedSession()) return;
     const session = sessionRef.current;
     const nick = session?.nick?.trim();
@@ -15199,6 +15364,11 @@ export default function App() {
             setResumeSnapshot(null);
             return;
           }
+          if (res?.error === "auth_required") {
+            clearSavedSession();
+            setResumeSnapshot(null);
+            return;
+          }
           if (res?.ok && res?.available && res?.snapshot) {
             setResumeSnapshot(res.snapshot);
             setCanResumeSession(true);
@@ -15224,10 +15394,11 @@ export default function App() {
     };
     socket.once("connect", onConnect);
     socket.once("connect_error", onError);
-    socket.connect();
+    void connectSocketWithAuth();
   }
 
   function resumeLoginFromSession(reason = "resume") {
+    if (!isAccountAuthenticated) return;
     if (!hasSavedSession()) return;
     const session = sessionRef.current;
     const nick = session?.nick?.trim();
@@ -15290,7 +15461,16 @@ export default function App() {
           if (!sameSession) {
             return;
           }
+          if (res?.error === "auth_required") {
+            clearSavedSession();
+            setConnectionError("Session live invalide. Recharge la page.");
+            setIsConnecting(false);
+            isLoggedInRef.current = false;
+            setIsLoggedIn(false);
+            return;
+          }
           if (!res?.ok || !res?.available || !res?.snapshot) {
+            clearSavedSession();
             setConnectionError("Session expiree");
             setIsConnecting(false);
             isLoggedInRef.current = false;
@@ -15318,7 +15498,7 @@ export default function App() {
     } else {
       socket.once("connect", doResume);
       socket.once("connect_error", onResumeError);
-      socket.connect();
+      void connectSocketWithAuth();
     }
   }
 
@@ -15363,32 +15543,15 @@ export default function App() {
       }
       setCanResumeSession(true);
       autoResumeEnabledRef.current = true;
-      requestSessionResumeSnapshot("boot");
     }
-    const onConnect = () => {
-      if (!hasSavedSession()) return;
-      if (isLoggedInRef.current) return;
-      requestSessionResumeSnapshot("socket_connect");
-    };
-    socket.on("connect", onConnect);
     return () => {
-      socket.off("connect", onConnect);
     };
-  }, []);
+  }, [isAccountAuthenticated, nickname]);
 
   useEffect(() => {
-    const onConnect = () => {
-      if (isDailyView) return;
-      if (!hasSavedSession()) return;
-      if (isLoggedInRef.current) return;
-      if (resumeLockRef.current) return;
-      resumeLoginFromSession("connect");
-    };
-    socket.on("connect", onConnect);
     return () => {
-      socket.off("connect", onConnect);
     };
-  }, [isDailyView]);
+  }, [isAccountAuthenticated, isDailyView]);
 
   useEffect(() => {
     const onConnect = () => {
@@ -15822,6 +15985,10 @@ export default function App() {
     const now = Date.now();
     if (now - foregroundAttemptRef.current < 800) return;
     foregroundAttemptRef.current = now;
+    if (!isAccountAuthenticated) {
+      lastBackgroundTimeRef.current = 0;
+      return;
+    }
     if (!hasSavedSession() && !isLoggedInRef.current) {
       lastBackgroundTimeRef.current = 0;
       return;
@@ -15833,32 +16000,14 @@ export default function App() {
     const shouldForceReconnect = timeSinceBackground > 5000;
     if (shouldForceReconnect) {
       lastBackgroundTimeRef.current = 0;
-      if (!socket.connected) {
-        if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
-        if (canAutoResume) {
-          resumeLoginFromSession(reason);
-        } else {
-          socket.connect();
-          requestSessionResumeSnapshot(reason);
-        }
-        return;
-      }
+      if (!socket.connected) return;
       runHealthCheck(`${reason}_post_bg`);
       return;
     }
     if (lastBackgroundTime) {
       lastBackgroundTimeRef.current = 0;
     }
-    if (!socket.connected) {
-      if (!autoResumeEnabledRef.current && !isLoggedInRef.current) return;
-      if (canAutoResume) {
-        resumeLoginFromSession(reason);
-      } else {
-        socket.connect();
-        requestSessionResumeSnapshot(reason);
-      }
-      return;
-    }
+    if (!socket.connected) return;
     runHealthCheck(reason);
   }
 
@@ -15884,7 +16033,7 @@ export default function App() {
     } catch (_) {}
     manualRefreshTimerRef.current = setTimeout(() => {
       manualRefreshTimerRef.current = null;
-      socket.connect();
+      void connectSocketWithAuth();
     }, 300);
   }
 
@@ -16003,10 +16152,16 @@ export default function App() {
       socket.emit("login", { nick, roomId, installId }, (res) => {
         finish();
         if (!res?.ok) {
-        if (res?.error === "pseudo_taken") {
-          setLoginError("Pseudo deja utilise");
-        } else if (res?.error === "nick_too_long") {
-          setLoginError("25 caracteres max");
+          if (res?.error === "pseudo_taken") {
+            setLoginError("Pseudo deja utilise");
+          } else if (res?.error === "nick_too_long") {
+            setLoginError("25 caracteres max");
+          } else if (res?.error === "auth_required") {
+            setLoginError("Connecte-toi à ton compte.");
+            if (socket.connected) {
+              socket.disconnect();
+            }
+            openAuthDialog(AUTH_MODAL_MODES.LOGIN);
           } else if (res?.error === "invalid_room") {
             setLoginError("Salle indisponible");
           } else if (res?.error === "invalid_install_id") {
@@ -16062,11 +16217,14 @@ export default function App() {
     if (socket.connected) {
       syncServerTime(attemptLogin);
     } else {
-      socket.once("connect", () => {
+      connectSocketWithAuth().then((connected) => {
+        if (!connected) {
+          onConnectError();
+          return;
+        }
         socket.off("connect_error", onConnectError);
         syncServerTime(attemptLogin);
       });
-      socket.connect();
     }
   }
 
@@ -16078,10 +16236,13 @@ export default function App() {
   function completeTutorial() {
     setIsTutorialOpen(false);
     setTutorialPendingLogin(false);
-    try {
-      localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, installId);
-    } catch (_) {}
-    setTutorialSeenInstallId(installId);
+    const nextInstallId = normalizeStoredPlayerIdentityKey(installId);
+    if (nextInstallId) {
+      try {
+        localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, nextInstallId);
+      } catch (_) {}
+      setTutorialSeenInstallId(nextInstallId);
+    }
     if (tutorialPendingLogin) {
       handleLogin();
     }
@@ -16155,6 +16316,12 @@ export default function App() {
     setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
+    if (specialInfo?.type !== "target_long" && specialInfo?.type !== "target_score") {
+      setSpecialHint(null);
+    }
+    setSpecialSolvedOverlay(null);
+    setFoundTargetThisRound(false);
+    setFoundTargetWord("");
     setTargetHintScheduleMs(
       Array.isArray(incomingTargetHintScheduleMs)
         ? incomingTargetHintScheduleMs.filter((value) => Number.isFinite(value) && value >= 0)
@@ -16194,19 +16361,27 @@ export default function App() {
     setFinalResults([]);
     clearQueuedRankingUpdate();
     setProvisionalRanking([]);
+    const normalizedDurationMs = Number.isFinite(durationMs)
+      ? Math.max(1, Math.round(durationMs))
+      : null;
     const maxDuration =
-      Number.isFinite(durationMs)
-        ? Math.max(1, Math.round(durationMs / 1000))
+      Number.isFinite(normalizedDurationMs)
+        ? Math.max(1, Math.round(normalizedDurationMs / 1000))
         : ROOM_OPTIONS[sourceRoomId || currentRoomId || roomId]?.duration ??
           DEFAULT_DURATION;
-    const initialTick = endsAt
-      ? Math.max(0, Math.round((endsAt - getNowServerMs()) / 1000))
+    const effectiveEndsAt = Number.isFinite(endsAt)
+      ? Number(endsAt)
+      : Number.isFinite(normalizedDurationMs)
+      ? getNowServerMs() + normalizedDurationMs
+      : null;
+    const initialTick = Number.isFinite(effectiveEndsAt)
+      ? Math.max(0, Math.round((effectiveEndsAt - getNowServerMs()) / 1000))
       : maxDuration;
     const roundKey = newRoundId || null;
     const startsAtMs = Number.isFinite(roundLifecycle?.startsAt)
       ? Math.max(0, Number(roundLifecycle.startsAt))
-      : Number.isFinite(endsAt) && Number.isFinite(durationMs)
-      ? Math.max(0, Number(endsAt) - Math.max(1, Math.round(Number(durationMs))))
+      : Number.isFinite(effectiveEndsAt) && Number.isFinite(normalizedDurationMs)
+      ? Math.max(0, effectiveEndsAt - normalizedDurationMs)
       : null;
     const introMs = Number.isFinite(roundLifecycle?.introMs)
       ? Math.max(0, Math.round(Number(roundLifecycle.introMs)))
@@ -16235,16 +16410,14 @@ export default function App() {
     }
     setTick(Math.min(maxDuration, initialTick));
     setRoundId(newRoundId || null);
-    setServerEndsAt(endsAt || null);
-    const roundEndAt = Number.isFinite(endsAt) ? endsAt : null;
+    setServerEndsAt(Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null);
+    const roundEndAt = Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null;
     const roundStartAt =
-      Number.isFinite(endsAt) && Number.isFinite(durationMs)
-        ? endsAt - Math.max(1, Math.round(durationMs))
+      Number.isFinite(effectiveEndsAt) && Number.isFinite(normalizedDurationMs)
+        ? effectiveEndsAt - normalizedDurationMs
         : null;
     lastRoundWindowRef.current = { startAt: roundStartAt, endAt: roundEndAt };
-    setServerRoundDurationMs(
-      Number.isFinite(durationMs) ? Math.max(1, Math.round(durationMs)) : null
-    );
+    setServerRoundDurationMs(normalizedDurationMs);
     setServerStatus("running");
     setConnectionError("");
     setPhase("playing");
@@ -16442,10 +16615,8 @@ export default function App() {
     if (reconnectAttemptRef.current) return;
     reconnectAttemptRef.current = true;
     setConnectionError("Reconnexion...");
-    if (isLoggedInRef.current && !isDailyView) {
-      resumeLoginFromSession("disconnect");
-    } else {
-      requestSessionResumeSnapshot("disconnect");
+    if (!socket.connected) {
+      setConnectionError("Connexion perdue. Recharge la page.");
     }
     setTimeout(() => {
       reconnectAttemptRef.current = false;
@@ -16476,6 +16647,10 @@ export default function App() {
     setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(null);
+    setSpecialHint(null);
+    setSpecialSolvedOverlay(null);
+    setFoundTargetThisRound(false);
+    setFoundTargetWord("");
     setTargetHintScheduleMs([]);
     setUpcomingSpecial(null);
     setRoundStats(null);
@@ -16487,12 +16662,15 @@ export default function App() {
     setFinalResults([]);
     clearQueuedRankingUpdate();
     setProvisionalRanking([]);
+    const localDurationSec = ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION;
+    const localDurationMs = Math.max(1, localDurationSec * 1000);
     setRoundId(null);
-    setServerEndsAt(null);
+    setServerEndsAt(getNowServerMs() + localDurationMs);
+    setServerRoundDurationMs(localDurationMs);
     setServerStatus("running");
     setNextStartAt(null);
     setBreakCountdown(null);
-    setTick(ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION);
+    setTick(localDurationSec);
     setPhase("playing");
   }
 
@@ -16559,6 +16737,8 @@ export default function App() {
     const path = findBestPathForWord(board, wordNorm, specialScoreConfig);
     if (!path || path.length === 0) return;
     const letters = path.map((idx) => board[idx].letter);
+    activeTraceStartedAtRef.current = getNowServerMs();
+    highlightPathRef.current = path;
     setCurrentTiles(letters);
     currentTilesRef.current = letters;
     setHighlightPath(path);
@@ -16749,7 +16929,7 @@ export default function App() {
     };
     socket.once("connect", onConnect);
     socket.once("connect_error", onError);
-    socket.connect();
+    void connectSocketWithAuth();
   }
 
   function requestOpenChat() {
@@ -17520,6 +17700,9 @@ export default function App() {
     clearStatusMessage();
 
     setCurrentTiles((prev) => {
+      if (!prev.length) {
+        activeTraceStartedAtRef.current = getNowServerMs();
+      }
       const next = [...prev, label];
       currentTilesRef.current = next;
       const step = Math.max(0, next.length - 1);
@@ -17530,8 +17713,13 @@ export default function App() {
       if (!raw) return prev;
 
       const path = findBestPathForWord(board, raw, specialScoreConfig);
-      if (path) setHighlightPath(path);
-      else setHighlightPath([]);
+      if (path) {
+        highlightPathRef.current = path;
+        setHighlightPath(path);
+      } else {
+        highlightPathRef.current = [];
+        setHighlightPath([]);
+      }
 
       return next;
     });
@@ -17549,17 +17737,25 @@ export default function App() {
         playTileStepSound(step);
       }
       if (!next.length) {
+        activeTraceStartedAtRef.current = null;
+        highlightPathRef.current = [];
         setHighlightPath([]);
         return next;
       }
       const raw = normalizeWord(next.join(""));
       if (!raw) {
+        highlightPathRef.current = [];
         setHighlightPath([]);
         return next;
       }
       const path = findBestPathForWord(board, raw, specialScoreConfig);
-      if (path) setHighlightPath(path);
-      else setHighlightPath([]);
+      if (path) {
+        highlightPathRef.current = path;
+        setHighlightPath(path);
+      } else {
+        highlightPathRef.current = [];
+        setHighlightPath([]);
+      }
       return next;
     });
   }
@@ -17625,26 +17821,31 @@ export default function App() {
 
       if (/^[a-z]$/.test(k)) {
         e.preventDefault();
+        lastInputModeRef.current = "keyboard";
         setLastInputMode("keyboard");
         addLetterFromKeyboard(k.toUpperCase());
       }
       if (k === "arrowup") {
         e.preventDefault();
+        lastInputModeRef.current = "keyboard";
         setLastInputMode("keyboard");
         cycleWordHistory(-1);
       }
       if (k === "arrowdown") {
         e.preventDefault();
+        lastInputModeRef.current = "keyboard";
         setLastInputMode("keyboard");
         cycleWordHistory(1);
       }
       if (k === "enter") {
         e.preventDefault();
+        lastInputModeRef.current = "keyboard";
         setLastInputMode("keyboard");
         submit();
       }
       if (k === "backspace") {
         e.preventDefault();
+        lastInputModeRef.current = "keyboard";
         setLastInputMode("keyboard");
         removeLastLetterFromKeyboard();
       }
@@ -17871,6 +18072,27 @@ export default function App() {
     });
   }
 
+  function flushPendingDragMove() {
+    if (dragMoveRafRef.current != null && typeof window !== "undefined") {
+      window.cancelAnimationFrame(dragMoveRafRef.current);
+      dragMoveRafRef.current = null;
+    }
+    const pending = dragPendingPointRef.current;
+    dragPendingPointRef.current = null;
+    if (!pending) return false;
+    const idx = getTileIndexFromPoint(
+      pending.clientX,
+      pending.clientY,
+      pending.useTolerance
+    );
+    if (idx == null) {
+      bumpSamsungDiagCounter("tileHitMiss");
+      return false;
+    }
+    handleMouseEnter(idx, pending);
+    return true;
+  }
+
     function error(msg) {
     setStatusMessageWithHold(msg);
     setShake(false);
@@ -17907,6 +18129,7 @@ export default function App() {
     draggingRef.current = true;
     activeTraceStartedAtRef.current = getNowServerMs();
     pushSamsungDiagEvent("drag-start", { mode, index });
+    lastInputModeRef.current = mode;
     setLastInputMode(mode);
     clearStatusMessage();
 
@@ -17916,6 +18139,7 @@ export default function App() {
 
     setCurrentTiles([letter]);
     currentTilesRef.current = [letter];
+    highlightPathRef.current = [index];
     setHighlightPath([index]);
   }
 
@@ -17930,6 +18154,7 @@ export default function App() {
         const letter = board[index].letter;
         setCurrentTiles([letter]);
         currentTilesRef.current = [letter];
+        highlightPathRef.current = [index];
         return [index];
       }
 
@@ -17949,6 +18174,7 @@ export default function App() {
           }
         }
         const nextPath = prevPath.slice(0, -1);
+        highlightPathRef.current = nextPath;
         setCurrentTiles((prevLetters) => {
           const newLetters = prevLetters.slice(0, -1);
           currentTilesRef.current = newLetters;
@@ -18026,17 +18252,24 @@ setCurrentTiles((prevLetters) => {
   return newLetters;
 });
 
-return [...prevPath, index];
+const nextPath = [...prevPath, index];
+highlightPathRef.current = nextPath;
+return nextPath;
 
     });
   }
 
   function handleMouseUp() {
     if (!draggingRef.current) return;
+    const hadPendingDragMove = flushPendingDragMove();
     draggingRef.current = false;
     dragGridMetricsRef.current = null;
     pushSamsungDiagEvent("drag-stop", { mode: "mouse" });
     resetDragMovePipeline();
+    if (hadPendingDragMove && typeof window !== "undefined") {
+      window.setTimeout(() => submit(), 0);
+      return;
+    }
     submit();
   }
 
@@ -18051,6 +18284,7 @@ function handleTouchStart(e, index) {
   draggingRef.current = true;
   activeTraceStartedAtRef.current = getNowServerMs();
   pushSamsungDiagEvent("drag-start", { mode: "touch", index });
+  lastInputModeRef.current = "touch";
   setLastInputMode("touch");
   clearStatusMessage();
 
@@ -18059,6 +18293,7 @@ function handleTouchStart(e, index) {
   playTileStepSound(0);
   setCurrentTiles([letter]);
   currentTilesRef.current = [letter];
+  highlightPathRef.current = [index];
   setHighlightPath([index]);
   const startTouch = e.touches[0];
   lastTouchMoveSampleRef.current = {
@@ -18105,11 +18340,16 @@ function handleMouseMove(e) {
 function handleTouchEnd(e) {
   if (!draggingRef.current) return;
   bumpSamsungDiagCounter("touchEnd");
+  const hadPendingDragMove = flushPendingDragMove();
   draggingRef.current = false;
   dragGridMetricsRef.current = null;
   pushSamsungDiagEvent("drag-stop", { mode: "touch" });
   flushSamsungDiagSnapshot("touch-end");
   resetDragMovePipeline();
+  if (hadPendingDragMove && typeof window !== "undefined") {
+    window.setTimeout(() => submit(), 0);
+    return;
+  }
   submit();
 }
 
@@ -18527,6 +18767,11 @@ function handleTouchEnd(e) {
     clearSelection();
   }
 
+  function getSubmissionTraceStartedAt() {
+    const traceStartedAt = Number(activeTraceStartedAtRef.current);
+    return Number.isFinite(traceStartedAt) ? Math.max(0, Math.round(traceStartedAt)) : null;
+  }
+
   function getDailyActiveSlotIndex(slots, preferredIndex = 0) {
     const list = Array.isArray(slots) ? slots : [];
     const safePreferred = clampValue(
@@ -18756,7 +19001,7 @@ function handleTouchEnd(e) {
         display: display || raw.toUpperCase(),
         path,
         optimisticPts,
-        traceStartedAt: usesManualPath ? activeTraceStartedAtRef.current : null,
+        traceStartedAt: getSubmissionTraceStartedAt(),
       });
       clearSelection();
       return;
@@ -18790,19 +19035,17 @@ function handleTouchEnd(e) {
     if (pendingWordsRef.current.has(raw)) return false;
     if (submissionStatusRef.current.get(raw)?.status === "rejected") return false;
 
-    let path;
-    const touchContext =
-      lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
-    const usesManualPath = touchContext || lastInputMode === "mouse";
-
-    if (usesManualPath) {
-      path = highlightPath;
-      if (!Array.isArray(path) || path.length === 0) return false;
-    } else {
-      path = findBestPathForWord(board, raw, specialScoreConfig);
-      if (!path) return false;
-      setHighlightPath(path);
+    const liveHighlightPath = Array.isArray(highlightPathRef.current)
+      ? highlightPathRef.current
+      : [];
+    let path = findBestPathForWord(board, raw, specialScoreConfig);
+    if ((!Array.isArray(path) || path.length === 0) && liveHighlightPath.length > 0) {
+      const liveScored = scoreWordOnGridWithPath(raw, board, liveHighlightPath, specialScoreConfig);
+      path = Array.isArray(liveScored?.path) && liveScored.path.length > 0 ? liveScored.path : null;
     }
+    if (!Array.isArray(path) || path.length === 0) return false;
+    highlightPathRef.current = path;
+    setHighlightPath(path);
 
     draggingRef.current = false;
     dragGridMetricsRef.current = null;
@@ -18826,7 +19069,7 @@ function handleTouchEnd(e) {
         display: display || raw.toUpperCase(),
         path,
         optimisticPts,
-        traceStartedAt: usesManualPath ? activeTraceStartedAtRef.current : null,
+        traceStartedAt: getSubmissionTraceStartedAt(),
       });
       scheduleBatchFlush({ immediate: true });
       clearSelection();
@@ -19161,6 +19404,12 @@ function handleTouchEnd(e) {
     setHighlightPlayers(matchedPlayers);
   }
 
+  function clearResultsWordAnalysis() {
+    setAnalysis(null);
+    setHighlightPath([]);
+    setHighlightPlayers([]);
+  }
+
   function getWordFinders(word) {
     if (!word || !Array.isArray(finalResults)) return [];
     const norm = normalizeWord(word);
@@ -19269,6 +19518,7 @@ function handleTouchEnd(e) {
 
   function deleteOwnChatMessage(message) {
     if (!message || typeof message !== "object") return;
+    if (!ensureAuthenticated({ source: "chat" })) return;
     const messageId = typeof message.id === "string" ? message.id.trim() : "";
     const authorInstallId =
       typeof message.installId === "string" ? message.installId.trim() : "";
@@ -19305,6 +19555,7 @@ function handleTouchEnd(e) {
     const safeMessageId = typeof messageId === "string" ? messageId.trim() : "";
     const safeEmoji = typeof emoji === "string" ? emoji.trim() : "";
     if (!safeMessageId || !safeEmoji) return;
+    if (!ensureAuthenticated({ source: "chat" })) return;
     if (!chatRulesAccepted) {
       setIsChatRulesOpen(true);
       return;
@@ -19364,6 +19615,7 @@ function handleTouchEnd(e) {
     if (e) e.preventDefault();
     const text = normalizeLegacyChatEmoticons(forcedText ?? chatInput).trim();
     if (!text) return false;
+    if (!ensureAuthenticated({ source: "chat" })) return false;
     if (!chatRulesAccepted) {
       setIsChatRulesOpen(true);
       return false;
@@ -19560,17 +19812,25 @@ function handleTouchEnd(e) {
     };
   }, [computeResultsPathPreview, showResultsWordPath]);
   const hintCellSet = React.useMemo(() => {
-    if (specialHint?.kind !== "target_long" || !specialHint?.cells?.length) {
+    if (
+      specialRound?.type !== "target_long" ||
+      specialHint?.kind !== "target_long" ||
+      !specialHint?.cells?.length
+    ) {
       return new Set();
     }
     return new Set(specialHint.cells.filter((idx) => Number.isInteger(idx)));
-  }, [specialHint]);
+  }, [specialHint, specialRound?.type]);
   const hintOutlineCellSet = React.useMemo(() => {
-    if (specialHint?.kind !== "target_score" || !specialHint?.cells?.length) {
+    if (
+      specialRound?.type !== "target_score" ||
+      specialHint?.kind !== "target_score" ||
+      !specialHint?.cells?.length
+    ) {
       return new Set();
     }
     return new Set(specialHint.cells.filter((idx) => Number.isInteger(idx)));
-  }, [specialHint]);
+  }, [specialHint, specialRound?.type]);
   const solvedTargetWord =
     foundTargetThisRound && typeof foundTargetWord === "string"
       ? foundTargetWord.trim()
@@ -20466,7 +20726,15 @@ function handleTouchEnd(e) {
         <div className="space-y-2">
           {renderSpecial3LeaderSummary(false)}
           {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord && (
-            <div className="space-y-0.5">
+            <div
+              className="space-y-0.5"
+              onMouseEnter={() => {
+                if (!isMobileLayout) analyzeWord(endStats.bestWord.word);
+              }}
+              onMouseLeave={() => {
+                if (!isMobileLayout) clearResultsWordAnalysis();
+              }}
+            >
               <div className="flex items-center justify-between gap-3">
                 <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
                   Meilleur mot
@@ -20576,7 +20844,15 @@ function handleTouchEnd(e) {
             </div>
           )}
           {endStats.longestWord && (
-            <div className="space-y-0.5">
+            <div
+              className="space-y-0.5"
+              onMouseEnter={() => {
+                if (!isMobileLayout) analyzeWord(endStats.longestWord.word);
+              }}
+              onMouseLeave={() => {
+                if (!isMobileLayout) clearResultsWordAnalysis();
+              }}
+            >
               <div className="flex items-center justify-between gap-3">
                 <span className={`${resultLabelClass} text-[11px] sm:text-xs font-semibold`}>
                   Mot le plus long
@@ -21082,7 +21358,15 @@ function handleTouchEnd(e) {
         ) : null}
         {renderDockSpecial3LeaderSummary()}
         {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord ? (
-          <div className="space-y-1">
+          <div
+            className="space-y-1"
+            onMouseEnter={() => {
+              if (!isMobileLayout) analyzeWord(endStats.bestWord.word);
+            }}
+            onMouseLeave={() => {
+              if (!isMobileLayout) clearResultsWordAnalysis();
+            }}
+          >
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Meilleur mot</span>
               <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
@@ -21145,7 +21429,15 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
         {endStats.longestWord ? (
-          <div className="space-y-1">
+          <div
+            className="space-y-1"
+            onMouseEnter={() => {
+              if (!isMobileLayout) analyzeWord(endStats.longestWord.word);
+            }}
+            onMouseLeave={() => {
+              if (!isMobileLayout) clearResultsWordAnalysis();
+            }}
+          >
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Mot le plus long</span>
               <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
@@ -21742,9 +22034,9 @@ function handleTouchEnd(e) {
   }, [isMobileLayout, isSpecial3TutorialInteractiveActive, specialTutorialStepIndex]);
   useEffect(() => {
     if (!guidedResultsEligible || !installId) return;
-    if (guidedResultsSeenInstallId === installId) return;
+    if (matchesCurrentPlayerIdentity(guidedResultsSeenInstallId)) return;
     setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.TAP_PSEUDO);
-  }, [guidedResultsEligible, guidedResultsSeenInstallId, installId]);
+  }, [guidedResultsEligible, guidedResultsSeenInstallId, installId, normalizedLegacyInstallId]);
   useEffect(() => {
     if (!guidedResultsEligible || !guidedResultsStep || !guidedResultsPageKey) return;
     if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_PSEUDO) return;
@@ -22553,6 +22845,30 @@ function handleTouchEnd(e) {
             rankTotal: weeklyStats?.topN ?? null,
             timeMs,
             word: weeklyEntry?.word || "",
+          });
+        }
+      }
+      return records;
+    }
+
+    if (specialRound?.type === DAILY_SPECIAL_MODE) {
+      for (const entry of finalResults) {
+        if (!entry?.nick || entry?.isBot) continue;
+        const weeklyEntry = findBoardEntry("bestSpecial3Score", entry.nick);
+        if (
+          weeklyEntry &&
+          withinRound(weeklyEntry.achievedAt) &&
+          Number.isFinite(weeklyEntry.pts) &&
+          weeklyEntry.pts === (Number(entry.score) || 0)
+        ) {
+          pushRecord({
+            section: "round",
+            categoryKey: "bestSpecial3Score",
+            categoryLabel: WEEKLY_RECORD_LABELS.bestSpecial3Score,
+            nick: entry.nick,
+            rank: findBoardRank("bestSpecial3Score", entry.nick),
+            rankTotal: weeklyStats?.topN ?? null,
+            pts: Number(entry.score) || 0,
           });
         }
       }
@@ -23664,7 +23980,7 @@ function handleTouchEnd(e) {
       ? createPortal(
           <div className="fixed inset-0 z-[20060]" onClick={closeDesktopChatReactionPicker}>
             <div
-              className={`fixed rounded-full border px-2 py-1 shadow-lg ${
+              className={`fixed rounded-2xl border px-2 py-2 shadow-lg ${
                 darkMode
                   ? "bg-slate-900 text-slate-100 border-slate-700"
                   : "bg-white text-slate-900 border-slate-200"
@@ -23675,7 +23991,7 @@ function handleTouchEnd(e) {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-1">
+              <div className="grid grid-cols-6 gap-1">
                 {CHAT_REACTION_EMOJIS.map((emoji) => (
                   <button
                     key={`desktop-react-${emoji}`}
@@ -23847,6 +24163,7 @@ function handleTouchEnd(e) {
     if (boardKey === "totalScore") return Number(entry.totalScore) || 0;
     if (boardKey === "bestWord") return Number(entry.pts) || 0;
     if (boardKey === "longestWord") return Number(entry.len) || 0;
+    if (boardKey === "bestSpecial3Score") return Number(entry.pts) || 0;
     if (boardKey === "bestRoundScore") return Number(entry.pts) || 0;
     if (boardKey === "vocab") return Number(entry.vocabCount) || 0;
     if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
@@ -23984,6 +24301,8 @@ function handleTouchEnd(e) {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "longestWord") {
       valueParts.push(`${formatNumber(entry.len) ?? 0} lettres`);
+    } else if (boardKey === "bestSpecial3Score") {
+      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "bestRoundScore") {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "vocab") {
@@ -24150,6 +24469,8 @@ function handleTouchEnd(e) {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "longestWord") {
       valueParts.push(`${formatNumber(entry.len) ?? 0} lettres`);
+    } else if (boardKey === "bestSpecial3Score") {
+      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "bestRoundScore") {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "vocab") {
@@ -26192,208 +26513,6 @@ function handleTouchEnd(e) {
   const tileLetterColorSelected =
     LETTER_COLOR_MAP[tileLetterColorPreset] || LETTER_COLOR_MAP[DEFAULT_THEME_PRESET.letterColor];
   const gobblarsBadgeUrl = getImageUrl(IMAGE_KEYS.gobblarsBadge) || "/Gobblars.png";
-  const accountLinkCode = React.useMemo(
-    () => buildAccountLinkCode(installId),
-    [installId]
-  );
-  const copyAccountLinkCode = async () => {
-    if (!accountLinkCode) {
-      setAccountLinkError("Code indisponible.");
-      setAccountLinkInfo("");
-      return;
-    }
-    const value = accountLinkCode;
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-      } else if (typeof document !== "undefined") {
-        const textarea = document.createElement("textarea");
-        textarea.value = value;
-        textarea.setAttribute("readonly", "");
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        const copied = document.execCommand("copy");
-        document.body.removeChild(textarea);
-        if (!copied) throw new Error("copy_failed");
-      }
-      setAccountLinkInfo("Code copié.");
-      setAccountLinkError("");
-    } catch (_) {
-      setAccountLinkError("Impossible de copier le code.");
-      setAccountLinkInfo("");
-    }
-  };
-  const formatAccountLinkActivity = (rawTs) => {
-    const ts = Number(rawTs);
-    if (!Number.isFinite(ts) || ts <= 0) return "Inconnue";
-    try {
-      return new Date(ts).toLocaleString("fr-FR", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-    } catch (_) {
-      return "Inconnue";
-    }
-  };
-  const formatAccountLinkValidationError = (errorCode) => {
-    switch (String(errorCode || "")) {
-      case "empty":
-      case "empty_code":
-        return "Entre un code.";
-      case "format":
-      case "invalid_format":
-        return "Code invalide (format).";
-      case "prefix":
-      case "invalid_prefix":
-        return "Code invalide (prefixe).";
-      case "checksum":
-      case "invalid_checksum":
-        return "Code invalide.";
-      case "install_id":
-      case "invalid_install_id":
-        return "Code invalide (identifiant).";
-      default:
-        return "Code invalide.";
-    }
-  };
-  const verifyAccountLinkCode = async () => {
-    const rawCode = String(accountLinkInput || "").trim();
-    if (!rawCode) {
-      setAccountLinkError("Entre un code.");
-      setAccountLinkInfo("");
-      setAccountLinkPreview(null);
-      return;
-    }
-    const normalizedCode = rawCode.replace(/[‐‑‒–—﹘﹣－]/g, "-");
-    const localParsed = parseAccountLinkCode(normalizedCode);
-    if (!localParsed?.ok || !localParsed.installId) {
-      setAccountLinkError(formatAccountLinkValidationError(localParsed?.error));
-      setAccountLinkInfo("");
-      setAccountLinkPreview(null);
-      return;
-    }
-    setAccountLinkChecking(true);
-    setAccountLinkError("");
-    setAccountLinkInfo("");
-    setAccountLinkPreview(null);
-    try {
-      const res = await fetch("/api/account/link-preview", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ code: normalizedCode }),
-      });
-      const parsed = await readJsonResponseLoose(res);
-      const payload = parsed?.data;
-      const serverAccepted = !!(res.ok && payload?.ok && payload?.installId);
-      const resolvedInstallId = serverAccepted ? payload.installId : localParsed.installId;
-      const profile =
-        serverAccepted && payload?.profile && typeof payload.profile === "object"
-          ? payload.profile
-          : {};
-      setAccountLinkPreview({
-        code: rawCode,
-        installId: resolvedInstallId,
-        nick: typeof profile.nick === "string" ? profile.nick : "",
-        lastActivityTs: Number(profile.lastActivityTs) || 0,
-        vocabCount: Number(profile.vocabCount) || 0,
-        vocabRank:
-          Number.isFinite(profile.vocabRank) && Number(profile.vocabRank) > 0
-            ? Number(profile.vocabRank)
-            : null,
-        vocabTotalPlayers: Number(profile.vocabTotalPlayers) || 0,
-        found: serverAccepted ? !!payload?.found : false,
-      });
-      setAccountLinkInfo(serverAccepted ? "Code valide." : "Code valide (apercu indisponible).");
-      setAccountLinkError("");
-    } catch (_) {
-      setAccountLinkPreview({
-        code: rawCode,
-        installId: localParsed.installId,
-        nick: "",
-        lastActivityTs: 0,
-        vocabCount: 0,
-        vocabRank: null,
-        vocabTotalPlayers: 0,
-        found: false,
-      });
-      setAccountLinkInfo("Code valide (apercu indisponible).");
-      setAccountLinkError("");
-    } finally {
-      setAccountLinkChecking(false);
-    }
-  };
-  const applyAccountLinkCode = async () => {
-    const rawCode = String(accountLinkInput || "").trim();
-    const normalizedCode = rawCode.replace(/[‐‑‒–—﹘﹣－]/g, "-");
-    const preview =
-      accountLinkPreview && accountLinkPreview.code === rawCode
-        ? accountLinkPreview
-        : null;
-    if (!preview?.installId) {
-      setAccountLinkError("Vérifie d'abord le code.");
-      setAccountLinkInfo("");
-      return;
-    }
-    let nextInstallId = preview.installId;
-    if (nextInstallId === installId) {
-      setAccountLinkInfo("Ce compte est déjà lié sur cet appareil.");
-      setAccountLinkError("");
-      return;
-    }
-    try {
-      let serverLinked = false;
-      try {
-        const res = await fetch("/api/account/link-apply", {
-          method: "POST",
-          cache: "no-store",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            currentInstallId: installId,
-            code: normalizedCode,
-          }),
-        });
-        const parsed = await readJsonResponseLoose(res);
-        const payload = parsed?.data;
-        if (res.ok && payload?.ok) {
-          serverLinked = true;
-          if (typeof payload?.canonicalInstallId === "string" && payload.canonicalInstallId.trim()) {
-            nextInstallId = payload.canonicalInstallId.trim();
-          }
-        }
-      } catch (_) {}
-      localStorage.setItem(INSTALL_ID_STORAGE_KEY, nextInstallId);
-      const existingCreatedAt = localStorage.getItem(INSTALL_ID_CREATED_AT_STORAGE_KEY);
-      if (!existingCreatedAt) {
-        localStorage.setItem(INSTALL_ID_CREATED_AT_STORAGE_KEY, String(Date.now()));
-      }
-      const currentSession = sessionRef.current;
-      if (currentSession?.nick && currentSession?.roomId) {
-        persistSession({
-          nick: currentSession.nick,
-          roomId: currentSession.roomId,
-          installId: nextInstallId,
-        });
-      }
-      setAccountLinkError("");
-      setAccountLinkInfo(
-        serverLinked
-          ? "Compte lié. Rechargement..."
-          : "Compte lié localement. Fusion serveur indisponible."
-      );
-      window.setTimeout(() => {
-        if (typeof window !== "undefined") {
-          window.location.reload();
-        }
-      }, 120);
-    } catch (_) {
-      setAccountLinkError("Impossible d'appliquer ce code.");
-      setAccountLinkInfo("");
-    }
-  };
   const themeDraftSafe = React.useMemo(() => normalizeThemePreset(themeDraft), [themeDraft]);
   const themeAppliedSafe = React.useMemo(() => normalizeThemePreset(themeApplied), [themeApplied]);
   const themePreviewBackgroundStyle = React.useMemo(() => {
@@ -26605,6 +26724,7 @@ function handleTouchEnd(e) {
           `/api/theme/profile?installId=${encodeURIComponent(installId)}`,
           {
             cache: "no-store",
+            credentials: "include",
             headers: { Accept: "application/json" },
           }
         );
@@ -26749,6 +26869,7 @@ function handleTouchEnd(e) {
         const res = await fetch("/api/theme/apply", {
           method: "POST",
           cache: "no-store",
+          credentials: "include",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({
             installId,
@@ -28196,24 +28317,6 @@ function handleTouchEnd(e) {
               <button
                 type="button"
                 onClick={() => {
-                  setIsAccountLinkOpen(true);
-                  setAccountLinkInput("");
-                  setAccountLinkError("");
-                  setAccountLinkInfo("");
-                  setAccountLinkPreview(null);
-                  setAccountLinkChecking(false);
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                  darkMode
-                    ? "bg-slate-800/90 border-white/15 text-slate-100"
-                    : "bg-slate-50 border-slate-200 text-slate-900"
-                }`}
-              >
-                Lier un compte
-              </button>
-              <button
-                type="button"
-                onClick={() => {
                   setSupportModalSection("support");
                   setIsSupportOpen(true);
                 }}
@@ -28405,32 +28508,38 @@ function handleTouchEnd(e) {
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 22/03/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  général
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>correction de divers problèmes de grilles du jour</li>
+                  <li>ajout d’un high score 3 mots</li>
+                  <li>ajout d’émoticônes en réaction aux messages</li>
+                  <li>chances de tomber sur des manches rapidité divisées par deux</li>
+                  <li>ajustement des bots trop forts</li>
+                  <li>correction d’autoscroll mobile quand on visualise les anciens messages</li>
+                  <li>transparence restituée sur les annonces big score, gobble et double gobble</li>
+                  <li>correction de validation automatique lorsque le timer tombe à zéro</li>
+                  <li>finalisation du passage au système de compte</li>
+                  <li>suppression du menu lier un compte, devenu obsolète</li>
+                </ul>
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  ordinateur
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>ajout du traçage et indication des joueurs ayant trouvé les mots</li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 15/03/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
                   général
                 </div>
                 <ul className="mt-1 list-disc pl-5 space-y-2">
-                  <li>
-                    Transition progressive du jeu en un système de compte.
-                    <div className="mt-1 space-y-1 pl-4">
-                      <div>
-                        dans un premier temps, les installID (liés aux appareils et navigateurs) vont être convertis en user_id. Concrètement, si l’installID est reconnu, le jeu va vous inviter à simplement sécuriser le compte/pseudo à l’aide d’un mot de passe qui fera le lien entre les deux systèmes.
-                      </div>
-                      <div>
-                        Dans un avenir proche tout le jeu ne reposera plus que sur user_id.
-                      </div>
-                      <div>
-                        le mail est facultatif mais recommandé au cas où vous oublieriez votre mot de passe
-                      </div>
-                      <div>
-                        Le but étant de garder sa progression ou jouer sur des appareils différents sans avoir à passer par la manip de lien du compte avec un code compliqué.
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    Quand le timer d’une manche tombe à zéro, les mots en cours de validation sont automatiquement validés si toutefois ils sont corrects et non joués. (jusqu’ici ils passaient à la trappe)
-                  </li>
                   <li>
                     Ajustement des missions du jour (des missions difficulté moyenne et difficile était trop laborieuses)
                   </li>
@@ -28715,162 +28824,6 @@ function handleTouchEnd(e) {
                   <li><span className="font-semibold">Medium (25 pts):</span> 500 mots, 50 mots 7+, 2 gobbles, 500 pts sur 5 manches, 3 mots avec Z/K/X/Y, 30 mots &gt;50 pts, 5 mots cibles.</li>
                   <li><span className="font-semibold">Hard (50 pts):</span> 10 mots cibles, 1000 mots, 50 mots &gt;=100 pts, 1000 pts sur 10 manches, 10 gobbles/jour, 50 mots 8+, 10 mots avec Z/K/X/Y.</li>
                 </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {isAccountLinkOpen ? (
-        <div className="fixed inset-0 z-[20020] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/55"
-            onClick={() => setIsAccountLinkOpen(false)}
-            aria-label="Fermer liaison compte"
-          />
-          <div
-            className={`relative w-full max-w-md rounded-2xl border shadow-2xl ${
-              darkMode
-                ? "bg-slate-950 border-white/20 text-slate-100"
-                : "bg-white border-slate-300 text-slate-900"
-            }`}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Lier un compte"
-          >
-            <div
-              className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
-                darkMode
-                  ? "border-white/10 bg-blue-300/10"
-                  : "border-slate-200 bg-blue-50"
-              }`}
-            >
-              <div>
-                <div className="text-sm font-extrabold tracking-wide">Lier un compte</div>
-                <div className="text-[12px] italic opacity-80">code de récupération</div>
-              </div>
-              <button
-                type="button"
-                className={`h-8 w-8 rounded-full border flex items-center justify-center ${
-                  darkMode
-                    ? "bg-slate-900 border-white/10 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
-                onClick={() => setIsAccountLinkOpen(false)}
-                aria-label="Fermer"
-              >
-                <span className="text-base leading-none">×</span>
-              </button>
-            </div>
-            <div className="px-4 py-4 space-y-3 text-[13px]">
-              <div className="opacity-90">
-                Envoie ce code depuis l'ancien appareil. Sur le nouvel appareil, colle le code puis valide.
-              </div>
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold uppercase tracking-wide opacity-75">
-                  Mon code
-                </div>
-                <div
-                  className={`rounded-lg border px-3 py-2 font-mono text-[12px] break-all ${
-                    darkMode
-                      ? "border-white/10 bg-slate-900/70 text-slate-100"
-                      : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  {accountLinkCode || "Code indisponible"}
-                </div>
-                <button
-                  type="button"
-                  onClick={copyAccountLinkCode}
-                  className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${
-                    darkMode
-                      ? "bg-slate-900 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-900"
-                  }`}
-                >
-                  Copier mon code
-                </button>
-              </div>
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold uppercase tracking-wide opacity-75">
-                  Code reçu
-                </div>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={accountLinkInput}
-                  onChange={(e) => {
-                    setAccountLinkInput(e.target.value);
-                    setAccountLinkError("");
-                    setAccountLinkInfo("");
-                    setAccountLinkPreview(null);
-                  }}
-                  className={`w-full rounded-lg border px-3 py-2 text-[13px] ios-input ${
-                    darkMode
-                      ? "bg-slate-900 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-900"
-                  }`}
-                  placeholder="GBL1-..."
-                  aria-label="Code de liaison"
-                />
-                <button
-                  type="button"
-                  onClick={verifyAccountLinkCode}
-                  disabled={!accountLinkInput.trim() || accountLinkChecking}
-                  className={`w-full rounded-lg border px-3 py-2 text-[12px] font-semibold ${
-                    darkMode
-                      ? "bg-slate-900 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-900"
-                  } disabled:opacity-50`}
-                >
-                  {accountLinkChecking ? "Vérification..." : "Vérifier le code"}
-                </button>
-                {accountLinkPreview ? (
-                  <div
-                    className={`rounded-lg border px-3 py-2 text-[12px] space-y-1 ${
-                      darkMode
-                        ? "border-white/10 bg-slate-900/70 text-slate-100"
-                        : "border-slate-200 bg-slate-50 text-slate-900"
-                    }`}
-                  >
-                    <div>
-                      <span className="font-semibold">Pseudo:</span>{" "}
-                      {accountLinkPreview.nick || "Inconnu"}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Dernière activité:</span>{" "}
-                      {formatAccountLinkActivity(accountLinkPreview.lastActivityTs)}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Vocabulaire:</span>{" "}
-                      {accountLinkPreview.vocabCount} mots
-                      {accountLinkPreview.vocabRank && accountLinkPreview.vocabTotalPlayers
-                        ? ` (rang #${accountLinkPreview.vocabRank}/${accountLinkPreview.vocabTotalPlayers})`
-                        : ""}
-                    </div>
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={applyAccountLinkCode}
-                  disabled={
-                    !accountLinkPreview ||
-                    accountLinkPreview.code !== String(accountLinkInput || "").trim()
-                  }
-                  className="w-full rounded-lg border border-blue-500 bg-blue-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                >
-                  Lier ce compte
-                </button>
-              </div>
-              {accountLinkError ? (
-                <div className="text-[12px] font-semibold text-red-500">{accountLinkError}</div>
-              ) : null}
-              {!accountLinkError && accountLinkInfo ? (
-                <div className="text-[12px] font-semibold text-emerald-500">{accountLinkInfo}</div>
-              ) : null}
-              <div className="text-[11px] opacity-70">
-                Attention: ce code donne accès au compte lié à cet identifiant.
               </div>
             </div>
           </div>
@@ -34175,11 +34128,7 @@ function handleTouchEnd(e) {
                         <li
                           key={entry.word}
                           onMouseEnter={() => analyzeWord(entry.word)}
-                          onMouseLeave={() => {
-                            setAnalysis(null);
-                            setHighlightPath([]);
-                            setHighlightPlayers([]);
-                          }}
+                          onMouseLeave={clearResultsWordAnalysis}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (entry.word) openDefinition(entry.word);

@@ -4,9 +4,7 @@
   "scripts": {
     "dev": "node scripts/generate-music-manifest.js && vite",
     "build": "node scripts/generate-music-manifest.js && node ./node_modules/vite/bin/vite.js build",
-    "preview": "vite preview",
-    "link:code": "node scripts/account-link-code.js",
-    "link:decode": "node scripts/account-link-code.js --decode"
+    "preview": "vite preview"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

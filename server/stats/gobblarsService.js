@@ -711,3 +711,90 @@ export async function applyThemeSelection({
     }
   });
 }
+
+export async function migrateGobblarProfile(targetInstallId, sourceInstallIds = []) {
+  const target = typeof targetInstallId === "string" ? targetInstallId.trim() : "";
+  const sources = Array.from(
+    new Set(
+      (Array.isArray(sourceInstallIds) ? sourceInstallIds : [])
+        .map((installId) => (typeof installId === "string" ? installId.trim() : ""))
+        .filter((installId) => installId && installId !== target)
+    )
+  );
+  if (!db || !target || sources.length === 0) {
+    return getGobblarProfile(target);
+  }
+
+  return runSerializedWrite(async () => {
+    try {
+      await runInImmediateTransaction(async () => {
+        const rows = await db.all(
+          `SELECT installId, balance, themeApplied, themeUnlocks, updatedAt
+           FROM gobblar_profiles
+           WHERE installId IN (${[target, ...sources].map(() => "?").join(",")})`,
+          target,
+          ...sources
+        );
+        let balance = 0;
+        let latestThemeTs = 0;
+        let mergedTheme = DEFAULT_THEME;
+        let mergedUnlocks = {};
+
+        for (const row of rows || []) {
+          balance += Math.max(0, Number(row?.balance) || 0);
+          const updatedAt = Number(row?.updatedAt) || 0;
+          const themeApplied = sanitizeThemeInput(safeJsonParse(row?.themeApplied, DEFAULT_THEME));
+          const themeUnlocks = sanitizeUnlocksInput(
+            safeJsonParse(row?.themeUnlocks, {}),
+            themeApplied
+          );
+          if (updatedAt >= latestThemeTs) {
+            latestThemeTs = updatedAt;
+            mergedTheme = themeApplied;
+          }
+          mergedUnlocks = { ...mergedUnlocks, ...themeUnlocks };
+        }
+
+        const now = Math.max(Date.now(), latestThemeTs);
+        await db.run(
+          `INSERT INTO gobblar_profiles (installId, balance, themeApplied, themeUnlocks, updatedAt)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(installId)
+           DO UPDATE SET balance = excluded.balance, themeApplied = excluded.themeApplied,
+             themeUnlocks = excluded.themeUnlocks, updatedAt = excluded.updatedAt`,
+          target,
+          balance,
+          JSON.stringify(sanitizeThemeInput(mergedTheme)),
+          JSON.stringify(sanitizeUnlocksInput(mergedUnlocks, mergedTheme)),
+          now
+        );
+
+        for (const source of sources) {
+          await db.run("UPDATE gobblar_ledger SET installId = ? WHERE installId = ?", target, source);
+          await db.run(
+            `INSERT OR IGNORE INTO gobblar_week_rewards (installId, weekId, source, amount, awardedAt)
+             SELECT ?, weekId, source, amount, awardedAt
+             FROM gobblar_week_rewards
+             WHERE installId = ?`,
+            target,
+            source
+          );
+          await db.run("DELETE FROM gobblar_week_rewards WHERE installId = ?", source);
+          await db.run(
+            `INSERT OR IGNORE INTO gobblar_global_grants (installId, grantKey, amount, awardedAt)
+             SELECT ?, grantKey, amount, awardedAt
+             FROM gobblar_global_grants
+             WHERE installId = ?`,
+            target,
+            source
+          );
+          await db.run("DELETE FROM gobblar_global_grants WHERE installId = ?", source);
+          await db.run("DELETE FROM gobblar_profiles WHERE installId = ?", source);
+        }
+      });
+    } catch (err) {
+      console.warn("Gobblars migration failed", err);
+    }
+    return getGobblarProfile(target);
+  });
+}

@@ -74,12 +74,11 @@ export default function AuthDialog({
   onFieldChange,
   onModeChange,
 }) {
-  if (!open || typeof document === "undefined") return null;
-
   const usernameInputRef = useRef(null);
   const currentPasswordInputRef = useRef(null);
   const passwordInputRef = useRef(null);
   const forgotPasswordButtonRef = useRef(null);
+  const canRender = !!open && typeof document !== "undefined";
 
   const title = renderTitle(mode, mustResetPassword);
   const lead = renderLead(mode, mustResetPassword);
@@ -93,7 +92,7 @@ export default function AuthDialog({
     mode === "register" || mode === "claim-legacy";
 
   useEffect(() => {
-    if (!open) return;
+    if (!canRender) return;
     const target =
       mode === "forgot-password"
         ? forgotPasswordButtonRef.current
@@ -104,7 +103,9 @@ export default function AuthDialog({
         : passwordInputRef.current;
     target?.focus?.();
     target?.select?.();
-  }, [mode, open, showCurrentPassword, showUsername, usernameLocked]);
+  }, [canRender, mode, showCurrentPassword, showUsername, usernameLocked]);
+
+  if (!canRender) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[21000] flex items-center justify-center px-4 py-6">

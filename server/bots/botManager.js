@@ -38,10 +38,10 @@ const BOT_ROTATION_MINUTES = 60;
 
 // Modifiez librement ces listes : noms fixes, niveaux varies, fenetres de pause.
 export const BOT_ROSTER_4X4 = [
-  { nick: "Proutosaurus Rex", skill: 0.82, maxWordsPerRound: 88, minWordsPerRound: 35, pointBias: 0.85, pace: 0.9, sleep: { startHour: 2, durationHours: 2 } },
-  { nick: "ProtoPanache", skill: 0.9, maxWordsPerRound: 96, minWordsPerRound: 38, pointBias: 0.88, pace: 1.05, sleep: { startHour: 4, durationHours: 3 } },
+  { nick: "Proutosaurus Rex", skill: 0.72, maxWordsPerRound: 72, minWordsPerRound: 28, pointBias: 0.72, pace: 0.84, sleep: { startHour: 2, durationHours: 2 } },
+  { nick: "ProtoPanache", skill: 0.78, maxWordsPerRound: 78, minWordsPerRound: 30, pointBias: 0.76, pace: 0.9, sleep: { startHour: 4, durationHours: 3 } },
   { nick: "Crux", skill: 0.74, maxWordsPerRound: 82, minWordsPerRound: 30, pointBias: 0.78, pace: 1.05 },
-  { nick: "QuasarMots", skill: 0.88, maxWordsPerRound: 86, minWordsPerRound: 36, pointBias: 0.84, pace: 1.02, sleep: { startHour: 3, durationHours: 3 } },
+  { nick: "QuasarMots", skill: 0.76, maxWordsPerRound: 74, minWordsPerRound: 29, pointBias: 0.72, pace: 0.88, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Celie", skill: 0.66, maxWordsPerRound: 74, minWordsPerRound: 28, pointBias: 0.7, pace: 1.0, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Sylvie50", skill: 0.6, maxWordsPerRound: 71, minWordsPerRound: 25, pointBias: 0.65, pace: 0.95 },
   { nick: "Alcapouet", skill: 0.75, maxWordsPerRound: 69, minWordsPerRound: 22, pointBias: 0.55, pace: 1.1 },

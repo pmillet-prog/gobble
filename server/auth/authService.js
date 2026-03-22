@@ -115,12 +115,12 @@ export async function verifyPassword(password, passwordHash) {
 
 function serializeUser(row) {
   if (!row) return null;
+  const userId = Number(row.id ?? row.user_id);
   return {
-    id: Number(row.id),
+    id: Number.isInteger(userId) && userId > 0 ? userId : null,
     usernameDisplay: row.username_display,
     usernameNormalized: row.username_normalized,
     email: row.email || null,
-    primaryInstallId: row.primary_install_id || null,
     createdAt: Number(row.created_at) || null,
     updatedAt: Number(row.updated_at) || null,
     lastLoginAt: Number(row.last_login_at) || null,
@@ -768,6 +768,40 @@ export async function markMustResetPassword(userId, { invalidateSessions = true 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const AUTH_SESSION_TTL_MS = SESSION_TTL_MS;
+
+const SOCKET_TICKET_TTL_MS = 60 * 1000;
+const socketTickets = new Map();
+
+function pruneExpiredSocketTickets() {
+  const now = nowTs();
+  for (const [ticket, entry] of socketTickets.entries()) {
+    if (!entry || Number(entry.expiresAt) <= now) {
+      socketTickets.delete(ticket);
+    }
+  }
+}
+
+export async function issueSocketTicket(userId) {
+  const safeUserId = Number(userId);
+  if (!Number.isInteger(safeUserId) || safeUserId <= 0) return "";
+  pruneExpiredSocketTickets();
+  const ticket = randomBytes(24).toString("hex");
+  socketTickets.set(ticket, {
+    userId: safeUserId,
+    expiresAt: nowTs() + SOCKET_TICKET_TTL_MS,
+  });
+  return ticket;
+}
+
+export async function consumeSocketTicket(rawTicket) {
+  pruneExpiredSocketTickets();
+  const ticket = String(rawTicket || "").trim();
+  if (!ticket) return null;
+  const entry = socketTickets.get(ticket);
+  socketTickets.delete(ticket);
+  if (!entry || Number(entry.expiresAt) <= nowTs()) return null;
+  return await findUserById(entry.userId);
+}
 
 export async function createSession(userId) {
   const ready = await ensureDb();

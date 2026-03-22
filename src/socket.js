@@ -4,28 +4,36 @@ import { io } from "socket.io-client";
 // URL WebSocket configurable :
 // - VITE_WS_URL si défini (prioritaire)
 // - sinon VITE_WS_HOST/VITE_WS_PORT
-// - sinon on pointe sur le même host que la page (443/https -> wss sans port explicite)
+// - sinon même origin que la page
 const envWsUrl = import.meta.env.VITE_WS_URL;
 const envWsHost = import.meta.env.VITE_WS_HOST;
 const envWsPort = import.meta.env.VITE_WS_PORT;
+const pageHostname = window.location.hostname || "";
+const isLocalNetworkHost =
+  pageHostname === "localhost" ||
+  pageHostname === "127.0.0.1" ||
+  pageHostname === "::1" ||
+  /^192\.168\./.test(pageHostname) ||
+  /^10\./.test(pageHostname) ||
+  /^172\.(1[6-9]|2\d|3[0-1])\./.test(pageHostname);
 
-const isHttps = window.location.protocol === "https:";
-const WS_PROTOCOL = isHttps ? "wss" : "ws";
-const WS_HOST = envWsHost || window.location.hostname;
-// Par défaut : 4000 en local HTTP, pas de port explicite en HTTPS
-const WS_PORT =
-  envWsPort !== undefined && envWsPort !== null
-    ? envWsPort
-    : isHttps
-    ? ""
-    : 4000; // en local/dev on garde 4000
-
-const WS_URL =
-  envWsUrl || `${WS_PROTOCOL}://${WS_HOST}${WS_PORT ? `:${WS_PORT}` : ""}`;
+const hasExplicitSocketTarget =
+  !!envWsUrl || !!envWsHost || (envWsPort !== undefined && envWsPort !== null && envWsPort !== "");
+const WS_URL = envWsUrl
+  || (hasExplicitSocketTarget
+    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${envWsHost || pageHostname}${envWsPort ? `:${envWsPort}` : ""}`
+    : window.location.origin);
+const forcePollingInLocalDev =
+  !hasExplicitSocketTarget &&
+  window.location.protocol === "http:" &&
+  isLocalNetworkHost;
 
 const socket = io(WS_URL, {
   autoConnect: false, // on se connecte après le login
-  transports: ["websocket", "polling"],
+  path: "/socket.io",
+  transports: forcePollingInLocalDev ? ["polling"] : ["websocket", "polling"],
+  upgrade: !forcePollingInLocalDev,
+  withCredentials: true,
   reconnectionDelay: 500,
   reconnectionDelayMax: 4000,
   timeout: 10000,

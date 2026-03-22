@@ -7,6 +7,7 @@ const SWIPE_REPLY_MAX_PX = 96;
 const GESTURE_MOVE_CANCEL_PX = 10;
 const POST_GESTURE_CLICK_SUPPRESS_MS = 380;
 const FLOATING_MENU_CLOSE_GUARD_MS = 320;
+const CHAT_BOTTOM_EPSILON_PX = 36;
 
 function setCompositeRef(targetRef, value) {
   if (typeof targetRef === "function") {
@@ -196,6 +197,9 @@ export default function ChatContent({
   const messagesEndRef = useRef(null);
   const messagesListRef = useRef(null);
   const localTextareaRef = useRef(null);
+  const autoScrollRafRef = useRef(null);
+  const autoScrollTimersRef = useRef([]);
+  const stickToBottomRef = useRef(true);
   const longPressTimerRef = useRef(null);
   const pointerStateRef = useRef(null);
   const suppressClickRef = useRef(false);
@@ -206,14 +210,14 @@ export default function ChatContent({
   const [ownMessageMenu, setOwnMessageMenu] = React.useState(null);
   const safeReactionEmojis = React.useMemo(() => {
     if (!Array.isArray(reactionEmojis)) {
-      return ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉"];
+      return ["👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🙏", "👏", "🎉", "👋", "😎"];
     }
     const filtered = reactionEmojis
       .map((emoji) => (typeof emoji === "string" ? emoji.trim() : ""))
       .filter(Boolean);
     return filtered.length
       ? filtered
-      : ["👍", "❤️", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉"];
+      : ["👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🙏", "👏", "🎉", "👋", "😎"];
   }, [reactionEmojis]);
   const lastVisibleMessageKey = React.useMemo(() => {
     if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {
@@ -268,6 +272,58 @@ export default function ChatContent({
     suppressClickUntilRef.current = 0;
   }, [resetPointerGesture]);
 
+  const clearAutoScroll = React.useCallback(() => {
+    if (typeof window !== "undefined" && autoScrollRafRef.current != null) {
+      window.cancelAnimationFrame(autoScrollRafRef.current);
+    }
+    autoScrollRafRef.current = null;
+    autoScrollTimersRef.current.forEach((id) => window.clearTimeout(id));
+    autoScrollTimersRef.current = [];
+  }, []);
+
+  const isNearBottom = React.useCallback((listEl) => {
+    if (!listEl) return true;
+    const remaining = listEl.scrollHeight - listEl.clientHeight - listEl.scrollTop;
+    return remaining <= CHAT_BOTTOM_EPSILON_PX;
+  }, []);
+
+  const handleMessagesScroll = React.useCallback(
+    (event) => {
+      const listEl = event?.currentTarget || messagesListRef.current;
+      stickToBottomRef.current = isNearBottom(listEl);
+    },
+    [isNearBottom]
+  );
+
+  const scheduleAutoScroll = React.useCallback(
+    ({ force = false } = {}) => {
+      if (typeof window === "undefined" || !isOpen) return;
+      if (!force && !stickToBottomRef.current) return;
+      const scrollToBottom = () => {
+        const listEl = messagesListRef.current;
+        if (listEl) {
+          listEl.scrollTop = listEl.scrollHeight;
+        } else {
+          messagesEndRef.current?.scrollIntoView({ block: "end" });
+        }
+        stickToBottomRef.current = true;
+      };
+
+      clearAutoScroll();
+      scrollToBottom();
+      const raf1 = window.requestAnimationFrame(() => {
+        scrollToBottom();
+        autoScrollRafRef.current = window.requestAnimationFrame(scrollToBottom);
+      });
+      autoScrollRafRef.current = raf1;
+      [80, 180].forEach((delayMs) => {
+        const id = window.setTimeout(scrollToBottom, delayMs);
+        autoScrollTimersRef.current.push(id);
+      });
+    },
+    [clearAutoScroll, isOpen]
+  );
+
   useEffect(() => {
     if (!isOpen) {
       setReactionPicker(null);
@@ -280,40 +336,23 @@ export default function ChatContent({
 
   useEffect(() => {
     if (!isOpen) return undefined;
-    let raf1 = null;
-    let raf2 = null;
-    let timeout1 = null;
-    let timeout2 = null;
-    const scrollToBottom = () => {
-      const listEl = messagesListRef.current;
-      if (listEl) {
-        listEl.scrollTop = listEl.scrollHeight;
-        return;
-      }
-      messagesEndRef.current?.scrollIntoView({ block: "end" });
-    };
+    stickToBottomRef.current = true;
+    scheduleAutoScroll({ force: true });
+    return clearAutoScroll;
+  }, [isOpen, chatTab, scheduleAutoScroll, clearAutoScroll]);
 
-    scrollToBottom();
-    raf1 = window.requestAnimationFrame(() => {
-      scrollToBottom();
-      raf2 = window.requestAnimationFrame(scrollToBottom);
-    });
-    timeout1 = window.setTimeout(scrollToBottom, 80);
-    timeout2 = window.setTimeout(scrollToBottom, 180);
-
-    return () => {
-      if (raf1 !== null) window.cancelAnimationFrame(raf1);
-      if (raf2 !== null) window.cancelAnimationFrame(raf2);
-      if (timeout1 !== null) window.clearTimeout(timeout1);
-      if (timeout2 !== null) window.clearTimeout(timeout2);
-    };
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    scheduleAutoScroll();
+    return clearAutoScroll;
   }, [
     isOpen,
-    chatTab,
     lastVisibleMessageKey,
     visibleMessagesLayoutKey,
     chatKeyboardInsetPx,
     keyboardInsetReservePx,
+    scheduleAutoScroll,
+    clearAutoScroll,
   ]);
 
   useEffect(() => {
@@ -326,8 +365,9 @@ export default function ChatContent({
   useEffect(
     () => () => {
       clearLongPressTimer();
+      clearAutoScroll();
     },
-    [clearLongPressTimer]
+    [clearLongPressTimer, clearAutoScroll]
   );
 
   const handleKeyDown = (e) => {
@@ -679,6 +719,7 @@ export default function ChatContent({
           onContextMenu={(event) => {
             event.preventDefault();
           }}
+          onScroll={handleMessagesScroll}
           onClick={(event) => {
             if (isClickSuppressed()) {
               event.preventDefault();
@@ -1075,20 +1116,38 @@ export default function ChatContent({
                 setReactionPicker(null);
               }}
             >
+              {(() => {
+                const isMobileViewport = typeof window !== "undefined" && window.innerWidth <= 768;
+                const sideInset = "max(10px, env(safe-area-inset-left), env(safe-area-inset-right))";
+                return (
               <div
-                className={`fixed -translate-x-1/2 -translate-y-full rounded-full border px-2 py-1 flex items-center gap-1 shadow-xl ${
+                className={`fixed -translate-x-1/2 -translate-y-full rounded-2xl border px-2 py-2 shadow-xl ${
                   darkMode
                     ? "bg-slate-800 border-slate-600 text-slate-100"
                     : "bg-white border-slate-200 text-slate-900"
                 }`}
-                style={{ left: `${reactionPicker.x}px`, top: `${reactionPicker.y}px` }}
+                style={
+                  isMobileViewport
+                    ? {
+                        left: sideInset,
+                        right: sideInset,
+                        top: `${reactionPicker.y}px`,
+                        transform: "translateY(-100%)",
+                        width: `calc(100vw - (${sideInset} * 2))`,
+                        maxWidth: "none",
+                      }
+                    : { left: `${reactionPicker.x}px`, top: `${reactionPicker.y}px` }
+                }
                 onClick={(event) => event.stopPropagation()}
               >
-                {safeReactionEmojis.map((emoji) => (
+                <div className={`grid grid-cols-6 ${isMobileViewport ? "gap-2" : "gap-1"}`}>
+                  {safeReactionEmojis.map((emoji) => (
                   <button
                     key={`chat-react-${emoji}`}
                     type="button"
-                    className={`h-9 w-9 rounded-full text-xl leading-none flex items-center justify-center ${
+                    className={`rounded-full text-xl leading-none flex items-center justify-center ${
+                      isMobileViewport ? "h-11 w-full" : "h-9 w-9"
+                    } ${
                       darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
                     }`}
                     onClick={() => {
@@ -1099,8 +1158,11 @@ export default function ChatContent({
                   >
                     {emoji}
                   </button>
-                ))}
+                  ))}
+                </div>
               </div>
+                );
+              })()}
             </div>,
             document.body
           )

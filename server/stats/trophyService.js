@@ -365,6 +365,87 @@ export async function updateTrophiesForTournament({
   return updates;
 }
 
+export async function migrateTrophyProfile(targetInstallId, sourceInstallIds = []) {
+  const target = typeof targetInstallId === "string" ? targetInstallId.trim() : "";
+  const sources = Array.from(
+    new Set(
+      (Array.isArray(sourceInstallIds) ? sourceInstallIds : [])
+        .map((installId) => (typeof installId === "string" ? installId.trim() : ""))
+        .filter((installId) => installId && installId !== target)
+    )
+  );
+  if (!db || !target || sources.length === 0) {
+    return getTrophyStatus(target);
+  }
+
+  try {
+    const rows = await db.all(
+      `SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor
+       FROM trophies
+       WHERE installId IN (${[target, ...sources].map(() => "?").join(",")})`,
+      target,
+      ...sources
+    );
+    const selected =
+      (rows || [])
+        .slice()
+        .sort((a, b) => (Number(b?.updatedAt) || 0) - (Number(a?.updatedAt) || 0))[0] || null;
+
+    await db.exec("BEGIN");
+    if (selected) {
+      const selectedTrophies = Number(selected?.trophies) || DEFAULT_TROPHIES;
+      await db.run(
+        `INSERT INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(installId)
+         DO UPDATE SET trophies = excluded.trophies, league = excluded.league, updatedAt = excluded.updatedAt,
+           shieldCount = excluded.shieldCount, shieldFloor = excluded.shieldFloor`,
+        target,
+        selectedTrophies,
+        selected?.league || getLeagueFromTrophies(selectedTrophies),
+        Number(selected?.updatedAt) || Date.now(),
+        Number(selected?.shieldCount) || 0,
+        Number.isFinite(Number(selected?.shieldFloor))
+          ? Number(selected.shieldFloor)
+          : getLeagueProgress(selectedTrophies).currentFloor
+      );
+    }
+
+    for (const source of sources) {
+      await db.run(
+        `INSERT OR IGNORE INTO trophy_history (installId, ts, delta, trophies, league, tournamentId)
+         SELECT ?, ts, delta, trophies, league, tournamentId
+         FROM trophy_history
+         WHERE installId = ?`,
+        target,
+        source
+      );
+      await db.run("DELETE FROM trophy_history WHERE installId = ?", source);
+      await db.run(
+        `INSERT INTO bot_encounters (installId, botId, dayKey, count, updatedAt)
+         SELECT ?, botId, dayKey, count, updatedAt
+         FROM bot_encounters
+         WHERE installId = ?
+         ON CONFLICT(installId, botId, dayKey)
+         DO UPDATE SET count = MAX(bot_encounters.count, excluded.count),
+           updatedAt = MAX(bot_encounters.updatedAt, excluded.updatedAt)`,
+        target,
+        source
+      );
+      await db.run("DELETE FROM bot_encounters WHERE installId = ?", source);
+      await db.run("DELETE FROM trophies WHERE installId = ?", source);
+    }
+    await db.exec("COMMIT");
+  } catch (err) {
+    try {
+      await db.exec("ROLLBACK");
+    } catch (_) {}
+    console.warn("Trophy migration failed", err);
+  }
+
+  return getTrophyStatus(target);
+}
+
 export function getBotRatingFromStrength(strength) {
   const s = clamp(Number.isFinite(strength) ? strength : 0, 0, 1);
   return Math.round(800 + 1200 * s);

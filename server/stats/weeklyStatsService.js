@@ -25,6 +25,7 @@ function buildWeekState(weekStartTs) {
     totalScore: new Map(),
     bestWord: new Map(),
     longestWord: new Map(),
+    bestSpecial3Score: new Map(),
     bestRoundScore: new Map(),
     bestTimeTargetLong: new Map(),
     bestTimeTargetScore: new Map(),
@@ -124,6 +125,7 @@ function serializeWeekState(week) {
     totalScore: serializeMap(week.totalScore),
     bestWord: serializeMap(week.bestWord),
     longestWord: serializeMap(week.longestWord),
+    bestSpecial3Score: serializeMap(week.bestSpecial3Score),
     bestRoundScore: serializeMap(week.bestRoundScore),
     bestTimeTargetLong: serializeMap(week.bestTimeTargetLong),
     bestTimeTargetScore: serializeMap(week.bestTimeTargetScore),
@@ -141,6 +143,7 @@ function reviveWeekState(parsed, fallbackWeekStartTs) {
     totalScore: reviveMap(parsed?.totalScore),
     bestWord: reviveMap(parsed?.bestWord),
     longestWord: reviveMap(parsed?.longestWord),
+    bestSpecial3Score: reviveMap(parsed?.bestSpecial3Score),
     bestRoundScore: reviveMap(parsed?.bestRoundScore),
     bestTimeTargetLong: reviveMap(parsed?.bestTimeTargetLong),
     bestTimeTargetScore: reviveMap(parsed?.bestTimeTargetScore),
@@ -165,6 +168,7 @@ function isWeekEmpty(week) {
     week.totalScore.size === 0 &&
     week.bestWord.size === 0 &&
     week.longestWord.size === 0 &&
+    week.bestSpecial3Score.size === 0 &&
     week.bestRoundScore.size === 0 &&
     week.bestTimeTargetLong.size === 0 &&
     week.bestTimeTargetScore.size === 0 &&
@@ -421,6 +425,15 @@ export function recordBestRoundScore(playerKey, nick, pts, roundId, achievedAt =
   scheduleSave();
 }
 
+export function recordBestSpecial3Score(playerKey, nick, pts, roundId, achievedAt = Date.now()) {
+  ensureCurrentWeek();
+  if (!playerKey || !nick || !Number.isFinite(pts)) return;
+  const current = state.bestSpecial3Score.get(playerKey) || null;
+  if (!shouldReplace(current, "pts", pts, achievedAt, false)) return;
+  state.bestSpecial3Score.set(playerKey, { nick, playerKey, pts, roundId, achievedAt });
+  scheduleSave();
+}
+
 export function recordMostWordsInGame(playerKey, nick, wordsCount, roundId, achievedAt = Date.now()) {
   ensureCurrentWeek();
   if (!playerKey || !nick || !Number.isFinite(wordsCount) || wordsCount <= 0) return;
@@ -536,6 +549,11 @@ export function getWeeklyStats(topN = TOP_N) {
       totalScore: sortEntries(Array.from(activeState.totalScore.values()), "totalScore", false).slice(0, topN),
       bestWord: sortEntries(Array.from(activeState.bestWord.values()), "pts", false).slice(0, topN),
       longestWord: sortEntries(Array.from(activeState.longestWord.values()), "len", false).slice(0, topN),
+      bestSpecial3Score: sortEntries(
+        Array.from(activeState.bestSpecial3Score.values()),
+        "pts",
+        false
+      ).slice(0, topN),
       bestRoundScore: sortEntries(Array.from(activeState.bestRoundScore.values()), "pts", false).slice(0, topN),
       bestTimeTargetLong: sortEntries(
         Array.from(activeState.bestTimeTargetLong.values()),
@@ -561,6 +579,7 @@ function findNickInWeekState(weekState, playerKey) {
     weekState.totalScore,
     weekState.bestWord,
     weekState.longestWord,
+    weekState.bestSpecial3Score,
     weekState.bestRoundScore,
     weekState.bestTimeTargetLong,
     weekState.bestTimeTargetScore,
