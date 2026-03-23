@@ -1201,13 +1201,18 @@ async function ensureUserIdentityMigration(user) {
 
   const task = (async () => {
     if (sourceInstallIds.length > 0) {
-      await Promise.all([
-        migrateVocabularyProfile(targetInstallId, sourceInstallIds),
-        migrateGobblarProfile(targetInstallId, sourceInstallIds),
-        migrateTrophyProfile(targetInstallId, sourceInstallIds),
-      ]).catch((err) => {
-        console.warn(`identity migration failed user=${userId}`, err);
-      });
+      const migrations = [
+        ["vocabulary", migrateVocabularyProfile],
+        ["gobblars", migrateGobblarProfile],
+        ["trophies", migrateTrophyProfile],
+      ];
+      for (const [label, migrate] of migrations) {
+        try {
+          await migrate(targetInstallId, sourceInstallIds);
+        } catch (err) {
+          console.warn(`identity ${label} migration failed user=${userId}`, err);
+        }
+      }
       sourceInstallIds.forEach((sourceInstallId) => {
         linkInstallIds(sourceInstallId, targetInstallId);
       });

@@ -23,9 +23,65 @@ const LEAGUES = [
 ];
 
 let db = null;
+let writeQueue = Promise.resolve();
+const SQLITE_BUSY_MAX_RETRIES = 10;
+const SQLITE_BUSY_RETRY_BASE_MS = 40;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function isSqliteBusyError(err) {
+  const code = String(err?.code || "").toUpperCase();
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    code === "SQLITE_BUSY" ||
+    msg.includes("database is locked") ||
+    msg.includes("sqlite_busy")
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (err) {
+      if (!isSqliteBusyError(err) || attempt >= retries) {
+        throw err;
+      }
+      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
+      await sleep(waitMs);
+    }
+  }
+}
+
+function runSerializedWrite(task) {
+  const execute = () => runWithBusyRetry(task);
+  const next = writeQueue.then(execute, execute);
+  writeQueue = next.catch(() => {});
+  return next;
+}
+
+async function runInImmediateTransaction(task) {
+  await db.exec("BEGIN IMMEDIATE");
+  let committed = false;
+  try {
+    const result = await task();
+    await db.exec("COMMIT");
+    committed = true;
+    return result;
+  } catch (err) {
+    if (!committed) {
+      try {
+        await db.exec("ROLLBACK");
+      } catch (_) {}
+    }
+    throw err;
+  }
 }
 
 function getDayKey(ts) {
@@ -113,39 +169,56 @@ export async function initTrophyService() {
 
 async function getOrCreateTrophyRow(installId) {
   if (!db || !installId) return null;
-  const row = await db.get(
-    "SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor FROM trophies WHERE installId = ?",
-    installId
+  const row = await runWithBusyRetry(() =>
+    db.get(
+      "SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor FROM trophies WHERE installId = ?",
+      installId
+    )
   );
   if (row) return row;
   const now = Date.now();
   const league = getLeagueFromTrophies(DEFAULT_TROPHIES);
-  await db.run(
-    "INSERT INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor) VALUES (?, ?, ?, ?, ?, ?)",
-    installId,
-    DEFAULT_TROPHIES,
-    league,
-    now,
-    0,
-    LEAGUES.find((l) => l.name === league)?.min ?? 0
-  );
-  return {
-    installId,
-    trophies: DEFAULT_TROPHIES,
-    league,
-    updatedAt: now,
-    shieldCount: 0,
-    shieldFloor: LEAGUES.find((l) => l.name === league)?.min ?? 0,
-  };
+  return runSerializedWrite(async () => {
+    const existing = await db.get(
+      "SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor FROM trophies WHERE installId = ?",
+      installId
+    );
+    if (existing) return existing;
+    await db.run(
+      "INSERT OR IGNORE INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor) VALUES (?, ?, ?, ?, ?, ?)",
+      installId,
+      DEFAULT_TROPHIES,
+      league,
+      now,
+      0,
+      LEAGUES.find((l) => l.name === league)?.min ?? 0
+    );
+    const created = await db.get(
+      "SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor FROM trophies WHERE installId = ?",
+      installId
+    );
+    return (
+      created || {
+        installId,
+        trophies: DEFAULT_TROPHIES,
+        league,
+        updatedAt: now,
+        shieldCount: 0,
+        shieldFloor: LEAGUES.find((l) => l.name === league)?.min ?? 0,
+      }
+    );
+  });
 }
 
 export async function getTrophyHistory(installId, limit = 10) {
   if (!db || !installId) return [];
   try {
-    const rows = await db.all(
-      "SELECT ts, delta, trophies, league, tournamentId FROM trophy_history WHERE installId = ? ORDER BY ts DESC LIMIT ?",
-      installId,
-      Math.max(1, Math.min(30, limit))
+    const rows = await runWithBusyRetry(() =>
+      db.all(
+        "SELECT ts, delta, trophies, league, tournamentId FROM trophy_history WHERE installId = ? ORDER BY ts DESC LIMIT ?",
+        installId,
+        Math.max(1, Math.min(30, limit))
+      )
     );
     return rows || [];
   } catch (err) {
@@ -223,13 +296,15 @@ export async function updateTrophiesForTournament({
     const installIds = humans.map((h) => h.installId);
     if (botIds.length && installIds.length) {
       const placeholders = botIds.map(() => "?").join(",");
-      const rows = await db.all(
-        `SELECT installId, botId, count FROM bot_encounters WHERE dayKey = ? AND botId IN (${placeholders}) AND installId IN (${installIds
-          .map(() => "?")
-          .join(",")})`,
-        dayKey,
-        ...botIds,
-        ...installIds
+      const rows = await runWithBusyRetry(() =>
+        db.all(
+          `SELECT installId, botId, count FROM bot_encounters WHERE dayKey = ? AND botId IN (${placeholders}) AND installId IN (${installIds
+            .map(() => "?")
+            .join(",")})`,
+          dayKey,
+          ...botIds,
+          ...installIds
+        )
       );
       for (const row of rows || []) {
         encounters.set(`${row.installId}|${row.botId}`, row.count || 0);
@@ -238,126 +313,124 @@ export async function updateTrophiesForTournament({
   }
 
   const updates = [];
-  await db.exec("BEGIN");
   try {
-    for (const human of humans) {
-      const row = statusMap.get(human.installId);
-      if (!row) continue;
-      const rating = Number.isFinite(row.trophies) ? row.trophies : DEFAULT_TROPHIES;
-      const rank = human.rank;
-      let sum = 0;
+    await runSerializedWrite(async () =>
+      runInImmediateTransaction(async () => {
+        for (const human of humans) {
+          const row = statusMap.get(human.installId);
+          if (!row) continue;
+          const rating = Number.isFinite(row.trophies) ? row.trophies : DEFAULT_TROPHIES;
+          const rank = human.rank;
+          let sum = 0;
 
-      for (const opp of participants) {
-        if (opp === human) continue;
-        const oppRating = Number.isFinite(opp.rating)
-          ? opp.rating
-          : opp.installId
-          ? (statusMap.get(opp.installId)?.trophies ?? DEFAULT_TROPHIES)
-          : DEFAULT_TROPHIES;
-        const s = compareRank(rank, opp.rank);
-        const expected = computeExpectedScore(rating, oppRating);
-        let contribution = s - expected;
-        if (opp.isBot && opp.botId) {
-          const key = `${human.installId}|${opp.botId}`;
-          const count = encounters.get(key) || 0;
-          const fatigue = 1 / Math.sqrt(1 + count);
-          contribution *= fatigue;
-        }
-        sum += contribution;
-      }
+          for (const opp of participants) {
+            if (opp === human) continue;
+            const oppRating = Number.isFinite(opp.rating)
+              ? opp.rating
+              : opp.installId
+              ? (statusMap.get(opp.installId)?.trophies ?? DEFAULT_TROPHIES)
+              : DEFAULT_TROPHIES;
+            const s = compareRank(rank, opp.rank);
+            const expected = computeExpectedScore(rating, oppRating);
+            let contribution = s - expected;
+            if (opp.isBot && opp.botId) {
+              const key = `${human.installId}|${opp.botId}`;
+              const count = encounters.get(key) || 0;
+              const fatigue = 1 / Math.sqrt(1 + count);
+              contribution *= fatigue;
+            }
+            sum += contribution;
+          }
 
-      const denom = Math.max(1, participants.length - 1);
-      let delta = Math.round(kEff * (sum / denom));
-      delta = clamp(delta, -MAX_DELTA, MAX_DELTA);
+          const denom = Math.max(1, participants.length - 1);
+          let delta = Math.round(kEff * (sum / denom));
+          delta = clamp(delta, -MAX_DELTA, MAX_DELTA);
 
-      const oldTrophies = rating;
-      let newTrophies = Math.max(0, oldTrophies + delta);
-      const oldProgress = getLeagueProgress(oldTrophies);
-      let shieldCount = row.shieldCount || 0;
-      let shieldFloor = Number.isFinite(row.shieldFloor)
-        ? row.shieldFloor
-        : oldProgress.currentFloor;
+          const oldTrophies = rating;
+          let newTrophies = Math.max(0, oldTrophies + delta);
+          const oldProgress = getLeagueProgress(oldTrophies);
+          let shieldCount = row.shieldCount || 0;
+          let shieldFloor = Number.isFinite(row.shieldFloor)
+            ? row.shieldFloor
+            : oldProgress.currentFloor;
 
-      if (shieldCount > 0 && newTrophies < shieldFloor) {
-        newTrophies = shieldFloor;
-        shieldCount = Math.max(0, shieldCount - 1);
-        delta = newTrophies - oldTrophies;
-      }
+          if (shieldCount > 0 && newTrophies < shieldFloor) {
+            newTrophies = shieldFloor;
+            shieldCount = Math.max(0, shieldCount - 1);
+            delta = newTrophies - oldTrophies;
+          }
 
-      const newLeague = getLeagueFromTrophies(newTrophies);
-      const newProgress = getLeagueProgress(newTrophies);
-      if (newProgress.currentFloor > oldProgress.currentFloor) {
-        shieldCount = 1;
-        shieldFloor = newProgress.currentFloor;
-      } else {
-        shieldFloor = newProgress.currentFloor;
-        if (newProgress.currentFloor < oldProgress.currentFloor) {
-          shieldCount = 0;
-        }
-      }
+          const newLeague = getLeagueFromTrophies(newTrophies);
+          const newProgress = getLeagueProgress(newTrophies);
+          if (newProgress.currentFloor > oldProgress.currentFloor) {
+            shieldCount = 1;
+            shieldFloor = newProgress.currentFloor;
+          } else {
+            shieldFloor = newProgress.currentFloor;
+            if (newProgress.currentFloor < oldProgress.currentFloor) {
+              shieldCount = 0;
+            }
+          }
 
-      const updatedAt = now;
-      await db.run(
-        `INSERT INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(installId)
-         DO UPDATE SET trophies = excluded.trophies, league = excluded.league, updatedAt = excluded.updatedAt,
-           shieldCount = excluded.shieldCount, shieldFloor = excluded.shieldFloor`,
-        human.installId,
-        newTrophies,
-        newLeague,
-        updatedAt,
-        shieldCount,
-        shieldFloor
-      );
-
-      await db.run(
-        "INSERT OR IGNORE INTO trophy_history (installId, ts, delta, trophies, league, tournamentId) VALUES (?, ?, ?, ?, ?, ?)",
-        human.installId,
-        updatedAt,
-        delta,
-        newTrophies,
-        newLeague,
-        tournamentId || null
-      );
-
-      updates.push({
-        installId: human.installId,
-        nick: human.nick || "",
-        oldTrophies,
-        newTrophies,
-        delta,
-        league: newLeague,
-        progress: getLeagueProgress(newTrophies),
-        shieldCount,
-        shieldFloor,
-        updatedAt,
-      });
-    }
-
-    if (bots.length > 0 && humans.length > 0) {
-      for (const human of humans) {
-        for (const bot of bots) {
-          if (!bot.botId) continue;
+          const updatedAt = now;
           await db.run(
-            `INSERT INTO bot_encounters (installId, botId, dayKey, count, updatedAt)
-             VALUES (?, ?, ?, 1, ?)
-             ON CONFLICT(installId, botId, dayKey)
-             DO UPDATE SET count = count + 1, updatedAt = excluded.updatedAt`,
+            `INSERT INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(installId)
+             DO UPDATE SET trophies = excluded.trophies, league = excluded.league, updatedAt = excluded.updatedAt,
+               shieldCount = excluded.shieldCount, shieldFloor = excluded.shieldFloor`,
             human.installId,
-            bot.botId,
-            dayKey,
-            now
+            newTrophies,
+            newLeague,
+            updatedAt,
+            shieldCount,
+            shieldFloor
           );
-        }
-      }
-    }
 
-    await db.exec("COMMIT");
+          await db.run(
+            "INSERT OR IGNORE INTO trophy_history (installId, ts, delta, trophies, league, tournamentId) VALUES (?, ?, ?, ?, ?, ?)",
+            human.installId,
+            updatedAt,
+            delta,
+            newTrophies,
+            newLeague,
+            tournamentId || null
+          );
+
+          updates.push({
+            installId: human.installId,
+            nick: human.nick || "",
+            oldTrophies,
+            newTrophies,
+            delta,
+            league: newLeague,
+            progress: getLeagueProgress(newTrophies),
+            shieldCount,
+            shieldFloor,
+            updatedAt,
+          });
+        }
+
+        if (bots.length > 0 && humans.length > 0) {
+          for (const human of humans) {
+            for (const bot of bots) {
+              if (!bot.botId) continue;
+              await db.run(
+                `INSERT INTO bot_encounters (installId, botId, dayKey, count, updatedAt)
+                 VALUES (?, ?, ?, 1, ?)
+                 ON CONFLICT(installId, botId, dayKey)
+                 DO UPDATE SET count = count + 1, updatedAt = excluded.updatedAt`,
+                human.installId,
+                bot.botId,
+                dayKey,
+                now
+              );
+            }
+          }
+        }
+      })
+    );
   } catch (err) {
-    try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
     console.warn("Trophy update failed", err);
     return [];
   }
@@ -379,67 +452,68 @@ export async function migrateTrophyProfile(targetInstallId, sourceInstallIds = [
   }
 
   try {
-    const rows = await db.all(
-      `SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor
-       FROM trophies
-       WHERE installId IN (${[target, ...sources].map(() => "?").join(",")})`,
-      target,
-      ...sources
+    const rows = await runWithBusyRetry(() =>
+      db.all(
+        `SELECT installId, trophies, league, updatedAt, shieldCount, shieldFloor
+         FROM trophies
+         WHERE installId IN (${[target, ...sources].map(() => "?").join(",")})`,
+        target,
+        ...sources
+      )
     );
     const selected =
       (rows || [])
         .slice()
         .sort((a, b) => (Number(b?.updatedAt) || 0) - (Number(a?.updatedAt) || 0))[0] || null;
 
-    await db.exec("BEGIN");
-    if (selected) {
-      const selectedTrophies = Number(selected?.trophies) || DEFAULT_TROPHIES;
-      await db.run(
-        `INSERT INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(installId)
-         DO UPDATE SET trophies = excluded.trophies, league = excluded.league, updatedAt = excluded.updatedAt,
-           shieldCount = excluded.shieldCount, shieldFloor = excluded.shieldFloor`,
-        target,
-        selectedTrophies,
-        selected?.league || getLeagueFromTrophies(selectedTrophies),
-        Number(selected?.updatedAt) || Date.now(),
-        Number(selected?.shieldCount) || 0,
-        Number.isFinite(Number(selected?.shieldFloor))
-          ? Number(selected.shieldFloor)
-          : getLeagueProgress(selectedTrophies).currentFloor
-      );
-    }
+    await runSerializedWrite(async () =>
+      runInImmediateTransaction(async () => {
+        if (selected) {
+          const selectedTrophies = Number(selected?.trophies) || DEFAULT_TROPHIES;
+          await db.run(
+            `INSERT INTO trophies (installId, trophies, league, updatedAt, shieldCount, shieldFloor)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(installId)
+             DO UPDATE SET trophies = excluded.trophies, league = excluded.league, updatedAt = excluded.updatedAt,
+               shieldCount = excluded.shieldCount, shieldFloor = excluded.shieldFloor`,
+            target,
+            selectedTrophies,
+            selected?.league || getLeagueFromTrophies(selectedTrophies),
+            Number(selected?.updatedAt) || Date.now(),
+            Number(selected?.shieldCount) || 0,
+            Number.isFinite(Number(selected?.shieldFloor))
+              ? Number(selected.shieldFloor)
+              : getLeagueProgress(selectedTrophies).currentFloor
+          );
+        }
 
-    for (const source of sources) {
-      await db.run(
-        `INSERT OR IGNORE INTO trophy_history (installId, ts, delta, trophies, league, tournamentId)
-         SELECT ?, ts, delta, trophies, league, tournamentId
-         FROM trophy_history
-         WHERE installId = ?`,
-        target,
-        source
-      );
-      await db.run("DELETE FROM trophy_history WHERE installId = ?", source);
-      await db.run(
-        `INSERT INTO bot_encounters (installId, botId, dayKey, count, updatedAt)
-         SELECT ?, botId, dayKey, count, updatedAt
-         FROM bot_encounters
-         WHERE installId = ?
-         ON CONFLICT(installId, botId, dayKey)
-         DO UPDATE SET count = MAX(bot_encounters.count, excluded.count),
-           updatedAt = MAX(bot_encounters.updatedAt, excluded.updatedAt)`,
-        target,
-        source
-      );
-      await db.run("DELETE FROM bot_encounters WHERE installId = ?", source);
-      await db.run("DELETE FROM trophies WHERE installId = ?", source);
-    }
-    await db.exec("COMMIT");
+        for (const source of sources) {
+          await db.run(
+            `INSERT OR IGNORE INTO trophy_history (installId, ts, delta, trophies, league, tournamentId)
+             SELECT ?, ts, delta, trophies, league, tournamentId
+             FROM trophy_history
+             WHERE installId = ?`,
+            target,
+            source
+          );
+          await db.run("DELETE FROM trophy_history WHERE installId = ?", source);
+          await db.run(
+            `INSERT INTO bot_encounters (installId, botId, dayKey, count, updatedAt)
+             SELECT ?, botId, dayKey, count, updatedAt
+             FROM bot_encounters
+             WHERE installId = ?
+             ON CONFLICT(installId, botId, dayKey)
+             DO UPDATE SET count = MAX(bot_encounters.count, excluded.count),
+               updatedAt = MAX(bot_encounters.updatedAt, excluded.updatedAt)`,
+            target,
+            source
+          );
+          await db.run("DELETE FROM bot_encounters WHERE installId = ?", source);
+          await db.run("DELETE FROM trophies WHERE installId = ?", source);
+        }
+      })
+    );
   } catch (err) {
-    try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
     console.warn("Trophy migration failed", err);
   }
 

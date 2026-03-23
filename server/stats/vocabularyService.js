@@ -16,9 +16,65 @@ const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
 
 let db = null;
 let initPromise = null;
+let writeQueue = Promise.resolve();
+const SQLITE_BUSY_MAX_RETRIES = 10;
+const SQLITE_BUSY_RETRY_BASE_MS = 40;
 
 function hashWord(word) {
   return createHash("sha1").update(word).digest("hex");
+}
+
+function isSqliteBusyError(err) {
+  const code = String(err?.code || "").toUpperCase();
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    code === "SQLITE_BUSY" ||
+    msg.includes("database is locked") ||
+    msg.includes("sqlite_busy")
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (err) {
+      if (!isSqliteBusyError(err) || attempt >= retries) {
+        throw err;
+      }
+      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
+      await sleep(waitMs);
+    }
+  }
+}
+
+function runSerializedWrite(task) {
+  const execute = () => runWithBusyRetry(task);
+  const next = writeQueue.then(execute, execute);
+  writeQueue = next.catch(() => {});
+  return next;
+}
+
+async function runInImmediateTransaction(task) {
+  await db.exec("BEGIN IMMEDIATE");
+  let committed = false;
+  try {
+    const result = await task();
+    await db.exec("COMMIT");
+    committed = true;
+    return result;
+  } catch (err) {
+    if (!committed) {
+      try {
+        await db.exec("ROLLBACK");
+      } catch (_) {}
+    }
+    throw err;
+  }
 }
 
 function extractInstallIdFromPlayerKey(playerKey) {
@@ -81,23 +137,22 @@ async function backfillVocabularyProfilesFromWeeklyStats() {
   }
   if (!profiles.size) return;
   try {
-    await db.exec("BEGIN");
-    for (const [installId, info] of profiles.entries()) {
-      await db.run(
-        `INSERT INTO vocab_profiles (installId, nick, updatedAt)
-         VALUES (?, ?, ?)
-         ON CONFLICT(installId)
-         DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
-        installId,
-        info.nick,
-        info.updatedAt
-      );
-    }
-    await db.exec("COMMIT");
+    await runSerializedWrite(async () =>
+      runInImmediateTransaction(async () => {
+        for (const [installId, info] of profiles.entries()) {
+          await db.run(
+            `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+             VALUES (?, ?, ?)
+             ON CONFLICT(installId)
+             DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+            installId,
+            info.nick,
+            info.updatedAt
+          );
+        }
+      })
+    );
   } catch (err) {
-    try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
     console.warn("Vocabulary profile backfill failed", err);
   }
 }
@@ -172,12 +227,14 @@ async function getKnownWordHashesForInstallIds(installIds = [], hashes = []) {
       for (let hashOffset = 0; hashOffset < hashes.length; hashOffset += hashChunkSize) {
         const hashChunk = hashes.slice(hashOffset, hashOffset + hashChunkSize);
         const hashPlaceholders = hashChunk.map(() => "?").join(", ");
-        const rows = await db.all(
-          `SELECT DISTINCT wordHash
-           FROM vocab_words
-           WHERE installId IN (${installPlaceholders})
-             AND wordHash IN (${hashPlaceholders})`,
-          [...installChunk, ...hashChunk]
+        const rows = await runWithBusyRetry(() =>
+          db.all(
+            `SELECT DISTINCT wordHash
+             FROM vocab_words
+             WHERE installId IN (${installPlaceholders})
+               AND wordHash IN (${hashPlaceholders})`,
+            [...installChunk, ...hashChunk]
+          )
         );
         if (Array.isArray(rows)) {
           rows.forEach((row) => {
@@ -237,62 +294,61 @@ export async function recordVocabularyBatch(entries = []) {
   const seenInstallIds = new Set();
 
   try {
-    await db.exec("BEGIN");
-    for (const entry of safeEntries) {
-      const installId = entry?.installId;
-      if (!installId) continue;
-      seenInstallIds.add(installId);
-      const ts = Number.isFinite(entry?.ts) ? entry.ts : now;
-      const nick = typeof entry?.nick === "string" ? entry.nick.trim().slice(0, 25) : "";
-      if (nick) {
-        await db.run(
-          `INSERT INTO vocab_profiles (installId, nick, updatedAt)
-           VALUES (?, ?, ?)
-           ON CONFLICT(installId)
-           DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
-          installId,
-          nick,
-          ts
-        );
-      }
-      const words = Array.isArray(entry?.words) ? entry.words : [];
-      const uniqueWords = new Set();
-      for (const raw of words) {
-        const normalized = normalizeWord(raw);
-        if (!normalized) continue;
-        uniqueWords.add(normalized);
-      }
-      for (const normalized of uniqueWords) {
-        const hash = hashWord(normalized);
-        const result = await db.run(
-          "INSERT OR IGNORE INTO vocab_words (installId, wordHash, firstSeenTs) VALUES (?, ?, ?)",
-          installId,
-          hash,
-          ts
-        );
-        if (result?.changes > 0) {
-          addedByInstall.set(installId, (addedByInstall.get(installId) || 0) + 1);
+    await runSerializedWrite(async () =>
+      runInImmediateTransaction(async () => {
+        for (const entry of safeEntries) {
+          const installId = entry?.installId;
+          if (!installId) continue;
+          seenInstallIds.add(installId);
+          const ts = Number.isFinite(entry?.ts) ? entry.ts : now;
+          const nick = typeof entry?.nick === "string" ? entry.nick.trim().slice(0, 25) : "";
+          if (nick) {
+            await db.run(
+              `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+               VALUES (?, ?, ?)
+               ON CONFLICT(installId)
+               DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+              installId,
+              nick,
+              ts
+            );
+          }
+          const words = Array.isArray(entry?.words) ? entry.words : [];
+          const uniqueWords = new Set();
+          for (const raw of words) {
+            const normalized = normalizeWord(raw);
+            if (!normalized) continue;
+            uniqueWords.add(normalized);
+          }
+          for (const normalized of uniqueWords) {
+            const hash = hashWord(normalized);
+            const result = await db.run(
+              "INSERT OR IGNORE INTO vocab_words (installId, wordHash, firstSeenTs) VALUES (?, ?, ?)",
+              installId,
+              hash,
+              ts
+            );
+            if (result?.changes > 0) {
+              addedByInstall.set(installId, (addedByInstall.get(installId) || 0) + 1);
+            }
+          }
         }
-      }
-    }
 
-    for (const [installId, added] of addedByInstall.entries()) {
-      if (added <= 0) continue;
-      await db.run(
-        `INSERT INTO vocab_counts (installId, count, updatedAt)
-         VALUES (?, ?, ?)
-         ON CONFLICT(installId)
-         DO UPDATE SET count = count + excluded.count, updatedAt = excluded.updatedAt`,
-        installId,
-        added,
-        now
-      );
-    }
-    await db.exec("COMMIT");
+        for (const [installId, added] of addedByInstall.entries()) {
+          if (added <= 0) continue;
+          await db.run(
+            `INSERT INTO vocab_counts (installId, count, updatedAt)
+             VALUES (?, ?, ?)
+             ON CONFLICT(installId)
+             DO UPDATE SET count = count + excluded.count, updatedAt = excluded.updatedAt`,
+            installId,
+            added,
+            now
+          );
+        }
+      })
+    );
   } catch (err) {
-    try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
     console.warn("Vocabulary batch failed", err);
     return {};
   }
@@ -318,11 +374,13 @@ export async function getVocabularyCountForInstallIds(installIds = []) {
   if (!ready) return 0;
   try {
     const placeholders = safeInstallIds.map(() => "?").join(", ");
-    const row = await db.get(
-      `SELECT COUNT(DISTINCT wordHash) AS count
-       FROM vocab_words
-       WHERE installId IN (${placeholders})`,
-      safeInstallIds
+    const row = await runWithBusyRetry(() =>
+      db.get(
+        `SELECT COUNT(DISTINCT wordHash) AS count
+         FROM vocab_words
+         WHERE installId IN (${placeholders})`,
+        safeInstallIds
+      )
     );
     return Number(row?.count) || 0;
   } catch (err) {
@@ -355,13 +413,17 @@ export async function getVocabularySnapshot(installId) {
     };
   }
   try {
-    const profile = await db.get(
-      "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
-      safeInstallId
+    const profile = await runWithBusyRetry(() =>
+      db.get(
+        "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
+        safeInstallId
+      )
     );
-    const countRow = await db.get(
-      "SELECT count, updatedAt FROM vocab_counts WHERE installId = ?",
-      safeInstallId
+    const countRow = await runWithBusyRetry(() =>
+      db.get(
+        "SELECT count, updatedAt FROM vocab_counts WHERE installId = ?",
+        safeInstallId
+      )
     );
     const count = Number(countRow?.count) || 0;
     const profileUpdatedAt = Number(profile?.updatedAt) || 0;
@@ -371,19 +433,25 @@ export async function getVocabularySnapshot(installId) {
     let rank = null;
     let totalPlayers = 0;
     if (count > 0) {
-      const higherRow = await db.get(
-        "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > ?",
-        count
+      const higherRow = await runWithBusyRetry(() =>
+        db.get(
+          "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > ?",
+          count
+        )
       );
-      const totalRow = await db.get(
-        "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > 0"
+      const totalRow = await runWithBusyRetry(() =>
+        db.get(
+          "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > 0"
+        )
       );
       const higher = Number(higherRow?.c) || 0;
       totalPlayers = Number(totalRow?.c) || 0;
       rank = higher + 1;
     } else {
-      const totalRow = await db.get(
-        "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > 0"
+      const totalRow = await runWithBusyRetry(() =>
+        db.get(
+          "SELECT COUNT(1) AS c FROM vocab_counts WHERE count > 0"
+        )
       );
       totalPlayers = Number(totalRow?.c) || 0;
     }
@@ -423,75 +491,75 @@ export async function migrateVocabularyProfile(targetInstallId, sourceInstallIds
   }
 
   try {
-    await db.exec("BEGIN");
-    let bestNick = "";
-    let bestNickUpdatedAt = 0;
+    await runSerializedWrite(async () =>
+      runInImmediateTransaction(async () => {
+        let bestNick = "";
+        let bestNickUpdatedAt = 0;
 
-    const targetProfile = await db.get(
-      "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
-      target
+        const targetProfile = await db.get(
+          "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
+          target
+        );
+        if (targetProfile?.nick) {
+          bestNick = String(targetProfile.nick).trim().slice(0, 25);
+          bestNickUpdatedAt = Number(targetProfile.updatedAt) || 0;
+        }
+
+        for (const source of sources) {
+          const sourceProfile = await db.get(
+            "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
+            source
+          );
+          const sourceNick =
+            typeof sourceProfile?.nick === "string" ? sourceProfile.nick.trim().slice(0, 25) : "";
+          const sourceUpdatedAt = Number(sourceProfile?.updatedAt) || 0;
+          if (sourceNick && sourceUpdatedAt >= bestNickUpdatedAt) {
+            bestNick = sourceNick;
+            bestNickUpdatedAt = sourceUpdatedAt;
+          }
+
+          await db.run(
+            `INSERT OR IGNORE INTO vocab_words (installId, wordHash, firstSeenTs)
+             SELECT ?, wordHash, firstSeenTs
+             FROM vocab_words
+             WHERE installId = ?`,
+            target,
+            source
+          );
+          await db.run("DELETE FROM vocab_words WHERE installId = ?", source);
+          await db.run("DELETE FROM vocab_counts WHERE installId = ?", source);
+          await db.run("DELETE FROM vocab_profiles WHERE installId = ?", source);
+        }
+
+        const countRow = await db.get(
+          "SELECT COUNT(1) AS count FROM vocab_words WHERE installId = ?",
+          target
+        );
+        const totalCount = Number(countRow?.count) || 0;
+        const updatedAt = Math.max(Date.now(), bestNickUpdatedAt);
+        await db.run(
+          `INSERT INTO vocab_counts (installId, count, updatedAt)
+           VALUES (?, ?, ?)
+           ON CONFLICT(installId)
+           DO UPDATE SET count = excluded.count, updatedAt = excluded.updatedAt`,
+          target,
+          totalCount,
+          updatedAt
+        );
+        if (bestNick) {
+          await db.run(
+            `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+             VALUES (?, ?, ?)
+             ON CONFLICT(installId)
+             DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+            target,
+            bestNick,
+            updatedAt
+          );
+        }
+      })
     );
-    if (targetProfile?.nick) {
-      bestNick = String(targetProfile.nick).trim().slice(0, 25);
-      bestNickUpdatedAt = Number(targetProfile.updatedAt) || 0;
-    }
-
-    for (const source of sources) {
-      const sourceProfile = await db.get(
-        "SELECT nick, updatedAt FROM vocab_profiles WHERE installId = ?",
-        source
-      );
-      const sourceNick = typeof sourceProfile?.nick === "string" ? sourceProfile.nick.trim().slice(0, 25) : "";
-      const sourceUpdatedAt = Number(sourceProfile?.updatedAt) || 0;
-      if (sourceNick && sourceUpdatedAt >= bestNickUpdatedAt) {
-        bestNick = sourceNick;
-        bestNickUpdatedAt = sourceUpdatedAt;
-      }
-
-      await db.run(
-        `INSERT OR IGNORE INTO vocab_words (installId, wordHash, firstSeenTs)
-         SELECT ?, wordHash, firstSeenTs
-         FROM vocab_words
-         WHERE installId = ?`,
-        target,
-        source
-      );
-      await db.run("DELETE FROM vocab_words WHERE installId = ?", source);
-      await db.run("DELETE FROM vocab_counts WHERE installId = ?", source);
-      await db.run("DELETE FROM vocab_profiles WHERE installId = ?", source);
-    }
-
-    const countRow = await db.get(
-      "SELECT COUNT(1) AS count FROM vocab_words WHERE installId = ?",
-      target
-    );
-    const totalCount = Number(countRow?.count) || 0;
-    const updatedAt = Math.max(Date.now(), bestNickUpdatedAt);
-    await db.run(
-      `INSERT INTO vocab_counts (installId, count, updatedAt)
-       VALUES (?, ?, ?)
-       ON CONFLICT(installId)
-       DO UPDATE SET count = excluded.count, updatedAt = excluded.updatedAt`,
-      target,
-      totalCount,
-      updatedAt
-    );
-    if (bestNick) {
-      await db.run(
-        `INSERT INTO vocab_profiles (installId, nick, updatedAt)
-         VALUES (?, ?, ?)
-         ON CONFLICT(installId)
-         DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
-        target,
-        bestNick,
-        updatedAt
-      );
-    }
-    await db.exec("COMMIT");
   } catch (err) {
-    try {
-      await db.exec("ROLLBACK");
-    } catch (_) {}
     console.warn("Vocabulary migration failed", err);
   }
 
@@ -503,13 +571,15 @@ export async function getVocabularyLeaderboard(limit = 50) {
   if (!ready) return [];
   const safeLimit = Math.min(500, Math.max(1, Math.round(limit || 50)));
   try {
-    const rows = await db.all(
-      `SELECT c.installId, c.count, c.updatedAt, p.nick
-       FROM vocab_counts c
-       LEFT JOIN vocab_profiles p ON p.installId = c.installId
-       ORDER BY c.count DESC, c.updatedAt ASC
-       LIMIT ?`,
-      safeLimit
+    const rows = await runWithBusyRetry(() =>
+      db.all(
+        `SELECT c.installId, c.count, c.updatedAt, p.nick
+         FROM vocab_counts c
+         LEFT JOIN vocab_profiles p ON p.installId = c.installId
+         ORDER BY c.count DESC, c.updatedAt ASC
+         LIMIT ?`,
+        safeLimit
+      )
     );
     if (!Array.isArray(rows)) return [];
     return rows
@@ -533,14 +603,16 @@ export async function upsertVocabularyProfile(installId, nick, updatedAt = Date.
   const ready = await ensureDb();
   if (!ready) return false;
   try {
-    await db.run(
-      `INSERT INTO vocab_profiles (installId, nick, updatedAt)
-       VALUES (?, ?, ?)
-       ON CONFLICT(installId)
-       DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
-      safeInstallId,
-      safeNick,
-      Number.isFinite(updatedAt) ? updatedAt : Date.now()
+    await runSerializedWrite(() =>
+      db.run(
+        `INSERT INTO vocab_profiles (installId, nick, updatedAt)
+         VALUES (?, ?, ?)
+         ON CONFLICT(installId)
+         DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
+        safeInstallId,
+        safeNick,
+        Number.isFinite(updatedAt) ? updatedAt : Date.now()
+      )
     );
     return true;
   } catch (err) {
