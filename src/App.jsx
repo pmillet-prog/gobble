@@ -21708,15 +21708,7 @@ function handleTouchEnd(e) {
         ) : null}
         {renderDockSpecial3LeaderSummary()}
         {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord ? (
-          <div
-            className="space-y-1"
-            onMouseEnter={() => {
-              if (!isMobileLayout) analyzeWord(endStats.bestWord.word);
-            }}
-            onMouseLeave={() => {
-              if (!isMobileLayout) clearResultsWordAnalysis();
-            }}
-          >
+          <div className="space-y-1">
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Meilleur mot</span>
               <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
@@ -21779,15 +21771,7 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
         {endStats.longestWord ? (
-          <div
-            className="space-y-1"
-            onMouseEnter={() => {
-              if (!isMobileLayout) analyzeWord(endStats.longestWord.word);
-            }}
-            onMouseLeave={() => {
-              if (!isMobileLayout) clearResultsWordAnalysis();
-            }}
-          >
+          <div className="space-y-1">
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Mot le plus long</span>
               <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">

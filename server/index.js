@@ -1129,6 +1129,7 @@ const clientCrashLogger = createAsyncFileLogger({ filePath: CLIENT_CRASHES_LOG_P
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
 const duelInstallCache = new Map(); // installId -> { weekId, team, crowned, updatedAt }
 const duelCacheRefreshAt = new Map(); // installId -> ts
+const duelWinnerGrantJobs = new Map(); // `${weekId}:${installId}` -> Promise | "done"
 const installAliasByInstallId = new Map();
 let duelWeekCacheKey = getDuelParisWeekId();
 
@@ -1401,6 +1402,7 @@ function linkInstallIds(fromInstallId, targetInstallId) {
   saveInstallAliases();
   duelInstallCache.clear();
   duelCacheRefreshAt.clear();
+  duelWinnerGrantJobs.clear();
   return true;
 }
 
@@ -1415,8 +1417,32 @@ function getDuelCacheEntry(rawInstallId) {
         duelInstallCache.delete(key);
       }
     }
+    for (const key of duelWinnerGrantJobs.keys()) {
+      if (!String(key).startsWith(`${currentWeek}:`)) {
+        duelWinnerGrantJobs.delete(key);
+      }
+    }
   }
   return duelInstallCache.get(installId) || null;
+}
+
+function scheduleWeeklyWinnerGobblarsGrant(rawInstallId, weekId) {
+  const installId = normalizeInstallId(rawInstallId);
+  const safeWeekId = String(weekId || "").trim();
+  if (!installId || !safeWeekId) return;
+  const jobKey = `${safeWeekId}:${installId}`;
+  const existing = duelWinnerGrantJobs.get(jobKey);
+  if (existing) return;
+  const job = grantWeeklyWinnerGobblars({
+    installId,
+    weekId: safeWeekId,
+    amount: WEEKLY_WIN_GOBBLARS_BONUS,
+  })
+    .catch(() => {})
+    .finally(() => {
+      duelWinnerGrantJobs.set(jobKey, "done");
+    });
+  duelWinnerGrantJobs.set(jobKey, job);
 }
 
 function isDailyChampionInstallId(raw) {
@@ -1446,11 +1472,7 @@ async function refreshInstallDuelCache(rawInstallId) {
   };
   duelInstallCache.set(installId, entry);
   if (entry.crowned && entry.weekId) {
-    void grantWeeklyWinnerGobblars({
-      installId,
-      weekId: entry.weekId,
-      amount: WEEKLY_WIN_GOBBLARS_BONUS,
-    }).catch(() => {});
+    scheduleWeeklyWinnerGobblarsGrant(installId, entry.weekId);
   }
   return entry;
 }
