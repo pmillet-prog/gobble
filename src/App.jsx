@@ -9654,22 +9654,6 @@ export default function App() {
 
   function triggerGridShake() {
     setGridShake(false);
-    if (typeof window !== "undefined") {
-      window.requestAnimationFrame(() => setGridShake(true));
-    } else {
-      setGridShake(true);
-    }
-    try {
-      if (
-        canVibrateRef.current &&
-        isVibrationEnabledRef.current &&
-        typeof navigator !== "undefined" &&
-        typeof navigator.vibrate === "function"
-      ) {
-        navigator.vibrate(50);
-      }
-    } catch (_) {}
-    setTimeout(() => setGridShake(false), 520);
   }
 
   function triggerPraiseFlash(
@@ -33184,7 +33168,7 @@ function handleTouchEnd(e) {
         gobbleAwardsForLive={gobbleAwardsForLive}
         gridRef={gridRef}
         gridRotationTurns={gridRotationTurns}
-        gridShake={gridShake}
+        gridShake={false}
         gridSize={gridSize}
         handleMouseDown={handleMouseDown}
         handleMouseMove={handleMouseMove}
