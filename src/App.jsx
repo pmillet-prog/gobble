@@ -8382,8 +8382,6 @@ export default function App() {
 
   useEffect(() => {
     if (!isMobileLayout) return;
-    setChatVisibleLimit(DEFAULT_CHAT_VISIBLE_LINES);
-    setChatFullVisibleLines(DEFAULT_CHAT_FULL_VISIBLE_LINES);
   }, [isMobileLayout]);
 
   // Safe-area top probe: avoids hardcoded fullscreen offsets.
