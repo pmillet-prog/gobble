@@ -110,7 +110,14 @@ import {
   setBroadcastMessage,
 } from "./admin/broadcastService.js";
 import { createAuthRouter } from "./auth/authRouter.js";
-import { consumeSocketTicket, findUserById, getSessionByToken, listDevicesForUser } from "./auth/authService.js";
+import {
+  consumeSocketTicket,
+  findUserById,
+  getSessionByToken,
+  getUserIdentityMigrationSignature,
+  listDevicesForUser,
+  setUserIdentityMigrationSignature,
+} from "./auth/authService.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection", reason);
@@ -139,6 +146,50 @@ app.use(
     resolveCanonicalInstallId,
   })
 );
+
+app.post("/api/client-crash", async (req, res) => {
+  try {
+    const rawReport = req?.body?.report && typeof req.body.report === "object" ? req.body.report : {};
+    const auth = await getAuthFromCookieHeader(req?.headers?.cookie);
+    const userId = Number(auth?.user?.id);
+    const entry = {
+      at: new Date().toISOString(),
+      manual: !!req?.body?.manual,
+      ip: normalizeIp(req.ip || req.headers?.["x-forwarded-for"] || ""),
+      userId: Number.isInteger(userId) && userId > 0 ? userId : null,
+      kind: sanitizeCrashText(String(rawReport?.kind || ""), 80),
+      message: sanitizeCrashText(String(rawReport?.message || ""), 1000),
+      stack: sanitizeCrashText(String(rawReport?.stack || ""), 12000),
+      componentStack: sanitizeCrashText(String(rawReport?.componentStack || ""), 12000),
+      source: sanitizeCrashText(String(rawReport?.source || ""), 400),
+      line: Number(rawReport?.line) || null,
+      col: Number(rawReport?.col) || null,
+      context:
+        rawReport?.context && typeof rawReport.context === "object"
+          ? {
+              url: sanitizeCrashText(String(rawReport.context.url || ""), 600),
+              userAgent: sanitizeCrashText(String(rawReport.context.userAgent || ""), 600),
+              language: sanitizeCrashText(String(rawReport.context.language || ""), 40),
+              theme: sanitizeCrashText(String(rawReport.context.theme || ""), 20),
+              build: sanitizeCrashText(String(rawReport.context.build || ""), 120),
+              viewport:
+                rawReport.context.viewport && typeof rawReport.context.viewport === "object"
+                  ? {
+                      width: Number(rawReport.context.viewport.width) || null,
+                      height: Number(rawReport.context.viewport.height) || null,
+                      dpr: Number(rawReport.context.viewport.dpr) || null,
+                    }
+                  : null,
+            }
+          : null,
+    };
+    appendClientCrashLog(entry);
+    res.json({ ok: true });
+  } catch (err) {
+    console.warn("client crash report failed", err);
+    res.status(500).json({ ok: false, error: "internal" });
+  }
+});
 
 const BOT_NICK_SET = new Set(
   [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
@@ -1073,6 +1124,7 @@ const DISABLED_ROOMS = new Set(["room-5x5"]);
 const LOG_DIR = path.join(__dirname, "logs");
 const CONNECTIONS_LOG_PATH = path.join(LOG_DIR, "connections.log");
 const REPORTS_LOG_PATH = path.join(LOG_DIR, "reports.jsonl");
+const CLIENT_CRASHES_LOG_PATH = path.join(LOG_DIR, "client-crashes.jsonl");
 const REPORT_WINDOW_MS = 10 * 60 * 1000;
 const REPORT_MUTE_THRESHOLD = 3;
 const REPORT_REASON_MAX_LEN = 160;
@@ -1087,6 +1139,7 @@ const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
 const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
+const clientCrashLogger = createAsyncFileLogger({ filePath: CLIENT_CRASHES_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
 const duelInstallCache = new Map(); // installId -> { weekId, team, crowned, updatedAt }
 const duelCacheRefreshAt = new Map(); // installId -> ts
@@ -1193,6 +1246,11 @@ async function ensureUserIdentityMigration(user) {
   ).sort();
   const migrationSignature = `${targetInstallId}|${sourceInstallIds.join(",")}`;
   if (migratedUserSignatures.get(userId) === migrationSignature) return;
+  const persistedSignature = await getUserIdentityMigrationSignature(userId).catch(() => "");
+  if (persistedSignature === migrationSignature) {
+    migratedUserSignatures.set(userId, migrationSignature);
+    return;
+  }
   const inFlight = userMigrationPromises.get(userId);
   if (inFlight) {
     await inFlight;
@@ -1200,6 +1258,7 @@ async function ensureUserIdentityMigration(user) {
   }
 
   const task = (async () => {
+    let hadFailure = false;
     if (sourceInstallIds.length > 0) {
       const migrations = [
         ["vocabulary", migrateVocabularyProfile],
@@ -1210,14 +1269,22 @@ async function ensureUserIdentityMigration(user) {
         try {
           await migrate(targetInstallId, sourceInstallIds);
         } catch (err) {
+          hadFailure = true;
           console.warn(`identity ${label} migration failed user=${userId}`, err);
         }
       }
-      sourceInstallIds.forEach((sourceInstallId) => {
-        linkInstallIds(sourceInstallId, targetInstallId);
-      });
+      if (!hadFailure) {
+        sourceInstallIds.forEach((sourceInstallId) => {
+          linkInstallIds(sourceInstallId, targetInstallId);
+        });
+      }
     }
-    migratedUserSignatures.set(userId, migrationSignature);
+    if (!hadFailure) {
+      await setUserIdentityMigrationSignature(userId, migrationSignature).catch((err) => {
+        console.warn(`identity migration signature save failed user=${userId}`, err);
+      });
+      migratedUserSignatures.set(userId, migrationSignature);
+    }
   })().finally(() => {
     userMigrationPromises.delete(userId);
   });
@@ -1455,6 +1522,19 @@ function muteInstallId(installId, now) {
 function appendReportLog(entry) {
   try {
     reportLogger.logLine(`${JSON.stringify(entry)}\n`);
+  } catch (_) {}
+}
+
+function sanitizeCrashText(raw, maxLen = 4000) {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  return trimmed.length <= maxLen ? trimmed : trimmed.slice(0, maxLen);
+}
+
+function appendClientCrashLog(entry) {
+  try {
+    clientCrashLogger.logLine(`${JSON.stringify(entry)}\n`);
   } catch (_) {}
 }
 

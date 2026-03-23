@@ -452,6 +452,36 @@ export async function listDevicesForUser(userId) {
   return Array.isArray(rows) ? rows : [];
 }
 
+export async function getUserIdentityMigrationSignature(userId) {
+  const ready = await ensureDb();
+  const safeUserId = Number(userId);
+  if (!Number.isInteger(safeUserId) || safeUserId <= 0) return "";
+  const row = await ready.get(
+    `SELECT migration_signature
+     FROM user_identity_migrations
+     WHERE user_id = ?`,
+    safeUserId
+  );
+  return typeof row?.migration_signature === "string" ? row.migration_signature : "";
+}
+
+export async function setUserIdentityMigrationSignature(userId, migrationSignature) {
+  const ready = await ensureDb();
+  const safeUserId = Number(userId);
+  const safeSignature = String(migrationSignature || "").trim();
+  if (!Number.isInteger(safeUserId) || safeUserId <= 0 || !safeSignature) return false;
+  await ready.run(
+    `INSERT INTO user_identity_migrations (user_id, migration_signature, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(user_id)
+     DO UPDATE SET migration_signature = excluded.migration_signature, updated_at = excluded.updated_at`,
+    safeUserId,
+    safeSignature,
+    nowTs()
+  );
+  return true;
+}
+
 export async function findLegacyReservationByInstallId(rawInstallId) {
   const ready = await ensureDb();
   const installId = String(rawInstallId || "").trim();

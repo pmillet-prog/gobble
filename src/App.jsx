@@ -3317,15 +3317,23 @@ body.theme-dark textarea::placeholder {
   100% { opacity: 0; }
 }
 
-@keyframes gobbleHold {
-  0% { transform: translate(-50%, -50%) scale(0.2); }
-  22% { transform: translate(-50%, -50%) scale(1); }
-  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); }
-}
-
-@keyframes gobbleFadeOut {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+@keyframes gobbleDriftFade {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 1;
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  95% {
+    transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale));
+    opacity: 0;
+  }
 }
 
 @keyframes gobbleShine {
@@ -3364,9 +3372,7 @@ body.theme-dark textarea::placeholder {
     drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
 }
 .gobble-pop {
-  animation:
-    gobbleHold var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards,
-    gobbleFadeOut calc(var(--praise-duration, 2000ms) - 100ms) ease-out 100ms forwards;
+  animation: gobbleDriftFade var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
 }
 .praise-flash {
   position: fixed;
@@ -4438,6 +4444,9 @@ function getSpecialRoundDisplayLabel(specialInfo) {
 export default function App() {
   useEffect(() => {
     try {
+      if (typeof window !== "undefined") {
+        window.__gobbleBuildTag = FRONT_BUILD_TAG;
+      }
       console.info("[Gobble build]", FRONT_BUILD_TAG);
     } catch (_) {}
   }, []);
@@ -5930,12 +5939,6 @@ export default function App() {
   const roundPlayerAnchorElementRef = useRef(null);
   const roundPlayerAnchorNickRef = useRef("");
   const [definitionBlink, setDefinitionBlink] = useState(false);
-  const [chatVisibleLimit, setChatVisibleLimit] = useState(
-    DEFAULT_CHAT_VISIBLE_LINES
-  );
-  const [chatFullVisibleLines, setChatFullVisibleLines] = useState(
-    DEFAULT_CHAT_FULL_VISIBLE_LINES
-  );
   const [vocabCount, setVocabCount] = useState(null);
   const [vocabRoundDelta, setVocabRoundDelta] = useState(null);
   const [vocabLoading, setVocabLoading] = useState(false);
@@ -6254,6 +6257,7 @@ export default function App() {
   const desktopColumnPointerDragRef = useRef({
     active: false,
     pointerId: null,
+    pointerTarget: null,
     lastClientX: null,
     lastSwapDirection: null,
     lastSwapClientX: null,
@@ -6348,7 +6352,17 @@ export default function App() {
       document.body.style.cursor = "";
     }
     dragState.active = false;
+    if (
+      dragState.pointerTarget &&
+      dragState.pointerId != null &&
+      typeof dragState.pointerTarget.releasePointerCapture === "function"
+    ) {
+      try {
+        dragState.pointerTarget.releasePointerCapture(dragState.pointerId);
+      } catch (_) {}
+    }
     dragState.pointerId = null;
+    dragState.pointerTarget = null;
     dragState.lastClientX = null;
     dragState.lastSwapDirection = null;
     dragState.lastSwapClientX = null;
@@ -6463,6 +6477,16 @@ export default function App() {
       const dragState = desktopColumnPointerDragRef.current;
       dragState.active = true;
       dragState.pointerId = event.pointerId;
+      dragState.pointerTarget = event.currentTarget || null;
+      if (
+        dragState.pointerTarget &&
+        dragState.pointerId != null &&
+        typeof dragState.pointerTarget.setPointerCapture === "function"
+      ) {
+        try {
+          dragState.pointerTarget.setPointerCapture(dragState.pointerId);
+        } catch (_) {}
+      }
       dragState.lastClientX = Number.isFinite(event.clientX) ? event.clientX : null;
       dragState.lastSwapDirection = null;
       dragState.lastSwapClientX = null;
@@ -6534,13 +6558,14 @@ export default function App() {
         <button
           type="button"
           onPointerDown={(event) => handleDesktopColumnPointerDown(event, columnId, label)}
-          className={`pointer-events-auto inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border px-2 shadow-sm transition ${
+          className={`pointer-events-auto touch-none inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border px-2 shadow-sm transition ${
             isDragging
               ? "border-blue-500/80 bg-blue-600/85 text-white"
               : darkMode
               ? "border-slate-600/80 bg-slate-900/72 text-slate-100 hover:bg-slate-800/85"
               : "border-slate-300/85 bg-white/72 text-slate-600 hover:bg-white/88"
           }`}
+          style={{ touchAction: "none" }}
           aria-label={`Déplacer la colonne ${label}`}
           title={`Déplacer la colonne ${label}`}
         >
@@ -8214,63 +8239,6 @@ export default function App() {
       closeRoundPlayerModal({ withSound: false });
     }
   }, [roundPlayerModal.open, phase]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayout) return;
-    const el = chatDesktopListRef.current;
-    if (!el) return;
-    let rafId = null;
-    const measure = () => {
-      const styles = window.getComputedStyle(el);
-      const paddingTop = parseFloat(styles.paddingTop || "0") || 0;
-      const paddingBottom = parseFloat(styles.paddingBottom || "0") || 0;
-      const containerHeight = Math.max(0, el.clientHeight - paddingTop - paddingBottom);
-      const rows = Array.from(el.querySelectorAll("[data-chat-row]"));
-      const sampleRows = rows.slice(-Math.min(rows.length, 6));
-      let rowHeight = 0;
-      let rowMargin = 0;
-      if (sampleRows.length > 0) {
-        rowHeight =
-          sampleRows.reduce((sum, row) => sum + row.getBoundingClientRect().height, 0) /
-          sampleRows.length;
-        const rowStyles = window.getComputedStyle(sampleRows[sampleRows.length - 1]);
-        rowMargin = parseFloat(rowStyles.marginTop || "0") || 0;
-      }
-      const block = rowHeight + rowMargin;
-      const nextVisible =
-        block > 0
-          ? clampValue(
-              Math.floor((containerHeight + rowMargin) / block),
-              CHAT_MIN_VISIBLE_LINES,
-              CHAT_MAX_VISIBLE_LINES
-            )
-          : DEFAULT_CHAT_VISIBLE_LINES;
-      const nextFull = Math.max(
-        3,
-        Math.min(nextVisible - 2, Math.round(nextVisible * 0.55))
-      );
-      setChatVisibleLimit(nextVisible);
-      setChatFullVisibleLines(nextFull);
-    };
-    const schedule = () => {
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        measure();
-      });
-    };
-    schedule();
-    const observer =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
-    observer?.observe(el);
-    window.addEventListener("resize", schedule);
-    return () => {
-      window.removeEventListener("resize", schedule);
-      observer?.disconnect();
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-    };
-  }, [isMobileLayout, chatMessages.length]);
 
   const clearDesktopChatAutoScroll = React.useCallback(() => {
     if (typeof window !== "undefined" && chatDesktopAutoScrollRafRef.current != null) {
@@ -13262,46 +13230,77 @@ export default function App() {
     setBroadcastSeenNonce((value) => value + 1);
   }
 
-  function fetchDuelStatus({ dateId = null } = {}) {
+  async function fetchDuelStatus({ dateId = null } = {}) {
     if (!installId) return;
     setDuelStatus((prev) => ({ ...prev, loading: true, error: "" }));
     const params = new URLSearchParams();
     params.set("installId", installId);
     if (dateId) params.set("dateId", dateId);
-    fetch(`/api/duel/status?${params.toString()}`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
-        if (!res.ok) {
-          throw new Error(data?.error || `http_${res.status || "error"}`);
+    try {
+      let data = null;
+      let errorCode = "erreur";
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const query = new URLSearchParams(params);
+        if (attempt > 0) {
+          query.set("r", String(Date.now()));
         }
-        return data;
-      })
-      .then((data) => {
-        setDuelStatus({
-          loading: false,
-          error: "",
-          dateId: data?.dateId || null,
-          weekId: data?.weekId || null,
-          team: data?.team || null,
-          crowned: !!data?.crowned,
-          weekly: data?.weekly || null,
-          objectives: data?.objectives || null,
-          dailyBattle: data?.dailyBattle || null,
-          tutorialVersion: data?.tutorialVersion || null,
+        const res = await fetch(`/api/duel/status?${query.toString()}`, {
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-store, no-cache, max-age=0",
+            Pragma: "no-cache",
+          },
         });
-      })
-      .catch(() => {
-        setDuelStatus((prev) => ({
-          ...prev,
-          loading: false,
-          error: "erreur",
-        }));
+        const parsed = await readJsonResponseLoose(res);
+        if (!res.ok) {
+          errorCode = String(parsed?.data?.error || `http_${res.status || "error"}`);
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 120));
+            continue;
+          }
+          throw new Error(errorCode);
+        }
+        if (!parsed.parseOk || !parsed.data || typeof parsed.data !== "object") {
+          errorCode = parsed.isLikelyHtml ? "bad_payload_html" : "bad_payload";
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 120));
+            continue;
+          }
+          throw new Error(errorCode);
+        }
+        data = parsed.data;
+        break;
+      }
+      if (!data || typeof data !== "object") {
+        throw new Error(errorCode);
+      }
+      setDuelStatus({
+        loading: false,
+        error: "",
+        dateId: data?.dateId || null,
+        weekId: data?.weekId || null,
+        team: data?.team || null,
+        crowned: !!data?.crowned,
+        weekly: data?.weekly || null,
+        objectives: data?.objectives || null,
+        dailyBattle: data?.dailyBattle || null,
+        tutorialVersion: data?.tutorialVersion || null,
       });
+    } catch (err) {
+      const code = String(err?.message || "erreur");
+      console.warn("[duel/status] fetch failed", {
+        code,
+        installId,
+        dateId: dateId || null,
+      });
+      setDuelStatus((prev) => ({
+        ...prev,
+        loading: false,
+        error: code,
+      }));
+    }
   }
 
   function rerollDuelObjective(bucket) {
@@ -30482,6 +30481,11 @@ function handleTouchEnd(e) {
                 </button>
               </div>
               <DuelWeeklyWidget darkMode={darkMode} redScore={duelRedScore} blueScore={duelBlueScore} />
+              {duelStatus?.error ? (
+                <div className={`text-center text-[11px] ${darkMode ? "text-amber-300" : "text-amber-700"}`}>
+                  Impossible de récupérer le duel sur cette machine ({duelStatus.error})
+                </div>
+              ) : null}
               <div
                 className={`rounded-xl border px-3 py-2 text-xs ${
                   darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
@@ -30891,6 +30895,11 @@ function handleTouchEnd(e) {
             showHint
             playerTeam={duelTeam}
           />
+          {duelStatus?.error ? (
+            <div className={`text-center text-[11px] ${darkMode ? "text-amber-300" : "text-amber-700"}`}>
+              Duel indisponible sur cette machine ({duelStatus.error})
+            </div>
+          ) : null}
           <div className="flex justify-center">
             <button
               type="button"
