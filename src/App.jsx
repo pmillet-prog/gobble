@@ -3317,23 +3317,10 @@ body.theme-dark textarea::placeholder {
   100% { opacity: 0; }
 }
 
-@keyframes gobbleDriftFade {
-  0% {
-    transform: translate(-50%, -50%) scale(0.2);
-    opacity: 1;
-  }
-  22% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  95% {
-    transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale));
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale));
-    opacity: 0;
-  }
+@keyframes gobbleHold {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+  22% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 1; }
 }
 
 @keyframes gobbleShine {
@@ -3372,7 +3359,7 @@ body.theme-dark textarea::placeholder {
     drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
 }
 .gobble-pop {
-  animation: gobbleDriftFade var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+  animation: gobbleHold var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
 }
 .praise-flash {
   position: fixed;
@@ -9708,14 +9695,12 @@ export default function App() {
       setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
       if (gobbleTimerRef.current) clearTimeout(gobbleTimerRef.current);
       gobbleTimerRef.current = setTimeout(() => setGobbleFlash(null), durationMs);
-      if (shakeGrid) triggerGridShake();
       return;
     }
     const durationMs = Math.round(1500 + Math.random() * 300);
     setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
     if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
     praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
-    if (shakeGrid) triggerGridShake();
   }
 
   function triggerConfettiBurst(kind = "target") {

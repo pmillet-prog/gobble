@@ -358,7 +358,8 @@ function MobileStandardPlaying(props) {
                 expanded={false}
                 flatStyle={true}
                 highlightedPlayers={highlightPlayers}
-                fitHeight={true}
+                fitHeight={false}
+                animateRank={false}
                 assetVersion={assetVersion}
                 gobbleWordAwardsByNick={gobbleAwardsForLive}
                 renderNickSuffix={renderNickSuffix}
