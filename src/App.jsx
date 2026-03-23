@@ -5571,6 +5571,7 @@ export default function App() {
   const startGameFromServerRef = useRef(null);
   const requestSessionResumeSnapshotRef = useRef(null);
   const resumeLoginFromSessionRef = useRef(null);
+  const bootResumeAttemptKeyRef = useRef("");
   const attemptSilentReconnectRef = useRef(null);
   const pingInFlightRef = useRef(false);
   const watchdogTimerRef = useRef(null);
@@ -12724,6 +12725,7 @@ export default function App() {
 
   function clearSavedSession() {
     sessionRef.current = null;
+    bootResumeAttemptKeyRef.current = "";
     setCanResumeSession(false);
     autoResumeEnabledRef.current = false;
     setResumePending(false);
@@ -15578,6 +15580,23 @@ export default function App() {
     return () => {
     };
   }, [isAccountAuthenticated, nickname]);
+
+  useEffect(() => {
+    if (!isAccountAuthenticated) return;
+    if (isDailyView) return;
+    if (isLoggedInRef.current || resumeLockRef.current || isConnecting) return;
+    const stored = sessionRef.current || loadSessionFromStorage();
+    const nick = String(stored?.nick || "").trim();
+    const roomToUse = String(stored?.roomId || "").trim();
+    const install = String(stored?.installId || "").trim();
+    if (!nick || !roomToUse || !install) return;
+    const attemptKey = `${authenticatedUserId || "anon"}|${nick}|${roomToUse}|${install}`;
+    if (bootResumeAttemptKeyRef.current === attemptKey) return;
+    bootResumeAttemptKeyRef.current = attemptKey;
+    setTimeout(() => {
+      resumeLoginFromSessionRef.current?.("boot");
+    }, 0);
+  }, [authenticatedUserId, isAccountAuthenticated, isConnecting, isDailyView]);
 
   useEffect(() => {
     return () => {

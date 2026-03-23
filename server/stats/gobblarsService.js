@@ -725,8 +725,8 @@ export async function migrateGobblarProfile(targetInstallId, sourceInstallIds = 
     return getGobblarProfile(target);
   }
 
-  return runSerializedWrite(async () => {
-    try {
+  try {
+    await runSerializedWrite(async () => {
       await runInImmediateTransaction(async () => {
         const rows = await db.all(
           `SELECT installId, balance, themeApplied, themeUnlocks, updatedAt
@@ -792,9 +792,9 @@ export async function migrateGobblarProfile(targetInstallId, sourceInstallIds = 
           await db.run("DELETE FROM gobblar_profiles WHERE installId = ?", source);
         }
       });
-    } catch (err) {
-      console.warn("Gobblars migration failed", err);
-    }
-    return getGobblarProfile(target);
-  });
+    });
+  } catch (err) {
+    console.warn("Gobblars migration failed", err);
+  }
+  return getGobblarProfile(target);
 }
