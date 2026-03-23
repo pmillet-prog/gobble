@@ -166,21 +166,7 @@ app.post("/api/client-crash", async (req, res) => {
       col: Number(rawReport?.col) || null,
       context:
         rawReport?.context && typeof rawReport.context === "object"
-          ? {
-              url: sanitizeCrashText(String(rawReport.context.url || ""), 600),
-              userAgent: sanitizeCrashText(String(rawReport.context.userAgent || ""), 600),
-              language: sanitizeCrashText(String(rawReport.context.language || ""), 40),
-              theme: sanitizeCrashText(String(rawReport.context.theme || ""), 20),
-              build: sanitizeCrashText(String(rawReport.context.build || ""), 120),
-              viewport:
-                rawReport.context.viewport && typeof rawReport.context.viewport === "object"
-                  ? {
-                      width: Number(rawReport.context.viewport.width) || null,
-                      height: Number(rawReport.context.viewport.height) || null,
-                      dpr: Number(rawReport.context.viewport.dpr) || null,
-                    }
-                  : null,
-            }
+          ? sanitizeCrashValue(rawReport.context)
           : null,
     };
     appendClientCrashLog(entry);
@@ -1530,6 +1516,28 @@ function sanitizeCrashText(raw, maxLen = 4000) {
   const trimmed = raw.trim();
   if (!trimmed) return "";
   return trimmed.length <= maxLen ? trimmed : trimmed.slice(0, maxLen);
+}
+
+function sanitizeCrashValue(raw, depth = 0) {
+  if (raw == null) return null;
+  if (typeof raw === "string") return sanitizeCrashText(raw, 4000);
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw === "boolean") return raw;
+  if (Array.isArray(raw)) {
+    if (depth >= 5) return [`[truncated:${raw.length}]`];
+    return raw.slice(0, 80).map((value) => sanitizeCrashValue(value, depth + 1));
+  }
+  if (typeof raw === "object") {
+    if (depth >= 5) return "[max-depth]";
+    const sanitized = {};
+    for (const [key, value] of Object.entries(raw).slice(0, 80)) {
+      const safeKey = sanitizeCrashText(String(key || ""), 120);
+      if (!safeKey) continue;
+      sanitized[safeKey] = sanitizeCrashValue(value, depth + 1);
+    }
+    return sanitized;
+  }
+  return sanitizeCrashText(String(raw), 1000);
 }
 
 function appendClientCrashLog(entry) {

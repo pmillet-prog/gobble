@@ -5141,6 +5141,19 @@ export default function App() {
     liveFeedMinHeight: 0,
     bodyHeight: 0,
   });
+  const areMobileLayoutSizingsEqual = React.useCallback((a, b) => {
+    if (!a || !b) return false;
+    return (
+      a.viewportWidth === b.viewportWidth &&
+      a.viewportHeight === b.viewportHeight &&
+      a.gridSide === b.gridSide &&
+      a.rankingHeight === b.rankingHeight &&
+      a.wordPreviewHeight === b.wordPreviewHeight &&
+      a.liveFeedHeight === b.liveFeedHeight &&
+      a.liveFeedMinHeight === b.liveFeedMinHeight &&
+      a.bodyHeight === b.bodyHeight
+    );
+  }, []);
   const [chatViewportHeight, setChatViewportHeight] = useState(0);
   const chatBaselineHeightRef = useRef(0);
   const chatDrawerCalibrationRef = useRef(readStoredChatDrawerCalibration());
@@ -8595,7 +8608,17 @@ export default function App() {
     let rafId = null;
     let timeoutId = null;
 
+    const commitMobileLayoutSizing = (nextLayout) => {
+      if (!nextLayout) return;
+      setMobileLayoutSizing((prev) =>
+        areMobileLayoutSizingsEqual(prev, nextLayout) ? prev : nextLayout
+      );
+    };
+
     const computeMobileLayoutNow = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
       if (isChatOpenMobileRef.current) return;
       const lockedGameViewportHeight =
         Number(mobileGameViewportLockRef.current?.height) || 0;
@@ -8618,6 +8641,7 @@ export default function App() {
       const viewportWidth = viewportWidthCandidates.length
         ? Math.min(...viewportWidthCandidates)
         : 0;
+      if (viewportHeight < 120 || viewportWidth < 120) return;
       if (!safeAreaProbeRef.current && typeof document !== "undefined") {
         const probe = document.createElement("div");
         probe.style.position = "absolute";
@@ -8676,6 +8700,7 @@ export default function App() {
           safeBottomPx -
           safeAreaBottomPx
       );
+      if (bodyHeight < 120) return;
 
       // marges/gaps principaux (px-3, pb-2 + espacements entre blocs)
       const verticalPadding = 4 + 8;
@@ -8736,12 +8761,12 @@ export default function App() {
         maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
       }
 
-      const gridSide = Math.max(100, availableWidth);
+      const gridSide = Math.max(100, Math.min(availableWidth, maxGridFromHeight));
 
       const remaining = Math.max(0, blocksBudget - gridSide);
 
       if (remaining <= 0) {
-        setMobileLayoutSizing({
+        commitMobileLayoutSizing({
           viewportWidth,
           viewportHeight,
           gridSide,
@@ -8782,7 +8807,7 @@ export default function App() {
       );
       const liveFeedHeight = reservedLiveFeed + leftover;
 
-      setMobileLayoutSizing({
+      commitMobileLayoutSizing({
         viewportWidth,
         viewportHeight,
         gridSide: gridSide || 0,
@@ -8805,12 +8830,19 @@ export default function App() {
     scheduleComputeMobileLayout();
     window.addEventListener("resize", scheduleComputeMobileLayout);
     window.addEventListener("orientationchange", scheduleComputeMobileLayout);
+    window.addEventListener("pageshow", scheduleComputeMobileLayout);
+    document?.addEventListener?.("visibilitychange", scheduleComputeMobileLayout);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", scheduleComputeMobileLayout);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("resize", scheduleComputeMobileLayout);
       window.removeEventListener("orientationchange", scheduleComputeMobileLayout);
+      window.removeEventListener("pageshow", scheduleComputeMobileLayout);
+      document?.removeEventListener?.("visibilitychange", scheduleComputeMobileLayout);
+      vv?.removeEventListener("resize", scheduleComputeMobileLayout);
       if (safeAreaProbeRef.current && safeAreaProbeRef.current.parentNode) {
         safeAreaProbeRef.current.parentNode.removeChild(safeAreaProbeRef.current);
         safeAreaProbeRef.current = null;
@@ -8820,7 +8852,15 @@ export default function App() {
         safeAreaTopProbeRef.current = null;
       }
     };
-  }, [isMobileLayout, phase, gridSize, showHelp, isFullscreen, getHeaderOffsetPx]);
+  }, [
+    areMobileLayoutSizingsEqual,
+    isMobileLayout,
+    phase,
+    gridSize,
+    showHelp,
+    isFullscreen,
+    getHeaderOffsetPx,
+  ]);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -20058,14 +20098,34 @@ function handleTouchEnd(e) {
       endAngleDeg,
     };
   }, [highlightPath, showResultsWordPath]);
+  const areResultsPathPreviewsEqual = React.useCallback((a, b) => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    if (a.width !== b.width || a.height !== b.height || a.endAngleDeg !== b.endAngleDeg) {
+      return false;
+    }
+    const aPoints = Array.isArray(a.points) ? a.points : [];
+    const bPoints = Array.isArray(b.points) ? b.points : [];
+    if (aPoints.length !== bPoints.length) return false;
+    for (let index = 0; index < aPoints.length; index += 1) {
+      const aPoint = aPoints[index];
+      const bPoint = bPoints[index];
+      if (!aPoint || !bPoint) return false;
+      if (aPoint.x !== bPoint.x || aPoint.y !== bPoint.y) return false;
+    }
+    return true;
+  }, []);
   useLayoutEffect(() => {
     if (!showResultsWordPath) {
-      setResultsPathPreview(null);
+      setResultsPathPreview((prev) => (prev == null ? prev : null));
       return;
     }
     let rafId = null;
     const updatePreview = () => {
-      setResultsPathPreview(computeResultsPathPreview());
+      const nextPreview = computeResultsPathPreview();
+      setResultsPathPreview((prev) =>
+        areResultsPathPreviewsEqual(prev, nextPreview) ? prev : nextPreview
+      );
     };
     const scheduleUpdate = () => {
       if (rafId != null && typeof window !== "undefined") {
@@ -20100,7 +20160,7 @@ function handleTouchEnd(e) {
         window.removeEventListener("scroll", scheduleUpdate, true);
       }
     };
-  }, [computeResultsPathPreview, showResultsWordPath]);
+  }, [areResultsPathPreviewsEqual, computeResultsPathPreview, showResultsWordPath]);
   const hintCellSet = React.useMemo(() => {
     if (
       specialRound?.type !== "target_long" ||
