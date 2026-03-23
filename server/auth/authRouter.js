@@ -175,6 +175,7 @@ export function createAuthRouter({
     res.set("Cache-Control", "no-store");
     const auth = await getAuthContext(req);
     const rememberedUserId = Number(req.body?.rememberedUserId);
+    const suppressRestore = req.body?.suppressRestore === true;
     const { rawInstallId, resolvedInstallId } = buildInstallPair(
       req.body?.installId,
       normalizeInstallIdRaw,
@@ -209,27 +210,29 @@ export function createAuthRouter({
         });
       }
 
-      const recognizedUsers = await listUsersByDeviceInstallId(rawInstallId, resolvedInstallId);
-      const rememberedUser =
-        Number.isInteger(rememberedUserId) && rememberedUserId > 0
-          ? recognizedUsers.find((user) => Number(user?.id) === rememberedUserId) || null
-          : null;
-      const userToRestore =
-        recognizedUsers.length === 1 ? recognizedUsers[0] : rememberedUser;
-      if (userToRestore) {
-        const attached = await maybeAttachDeviceToUser({
-          user: userToRestore,
-          rawInstallId,
-          resolvedInstallId,
-        });
-        const session = await createSession(attached.user.id);
-        res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
-        return res.json({
-          ok: true,
-          status: "authenticated",
-          authenticated: true,
-          user: sessionPayload(attached.user),
-        });
+      if (!suppressRestore) {
+        const recognizedUsers = await listUsersByDeviceInstallId(rawInstallId, resolvedInstallId);
+        const rememberedUser =
+          Number.isInteger(rememberedUserId) && rememberedUserId > 0
+            ? recognizedUsers.find((user) => Number(user?.id) === rememberedUserId) || null
+            : null;
+        const userToRestore =
+          recognizedUsers.length === 1 ? recognizedUsers[0] : rememberedUser;
+        if (userToRestore) {
+          const attached = await maybeAttachDeviceToUser({
+            user: userToRestore,
+            rawInstallId,
+            resolvedInstallId,
+          });
+          const session = await createSession(attached.user.id);
+          res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
+          return res.json({
+            ok: true,
+            status: "authenticated",
+            authenticated: true,
+            user: sessionPayload(attached.user),
+          });
+        }
       }
     }
 

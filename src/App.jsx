@@ -3582,6 +3582,7 @@ const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
 const LAST_AUTH_USER_ID_STORAGE_KEY = "gobble_last_auth_user_id";
+const AUTH_LOGOUT_SUPPRESS_STORAGE_KEY = "gobble_auth_logout_suppress_v1";
 const AUTH_MODAL_MODES = {
   LOGIN: "login",
   REGISTER: "register",
@@ -4079,6 +4080,33 @@ function getInstallIdCreatedAtTs() {
   } catch (_) {
     return null;
   }
+}
+
+function getAuthLogoutSuppressKey(installId) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  return safeInstallId ? `${AUTH_LOGOUT_SUPPRESS_STORAGE_KEY}:${safeInstallId}` : "";
+}
+
+function shouldSuppressAutoAuthRestore(installId) {
+  const storageKey = getAuthLogoutSuppressKey(installId);
+  if (!storageKey || typeof localStorage === "undefined") return false;
+  try {
+    return localStorage.getItem(storageKey) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function setSuppressAutoAuthRestore(installId, enabled) {
+  const storageKey = getAuthLogoutSuppressKey(installId);
+  if (!storageKey || typeof localStorage === "undefined") return;
+  try {
+    if (enabled) {
+      localStorage.setItem(storageKey, "1");
+    } else {
+      localStorage.removeItem(storageKey);
+    }
+  } catch (_) {}
 }
 
 function createEmptyAuthForm(overrides = {}) {
@@ -5968,6 +5996,148 @@ export default function App() {
   const [trophyHistory, setTrophyHistory] = useState([]);
   const [trophyLoading, setTrophyLoading] = useState(false);
   const [statsTab, setStatsTab] = useState("weekly");
+  const crashRuntimeSignatureRef = useRef("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const runtime = {
+      phase,
+      appView,
+      isMobileLayout,
+      isUltraCompact,
+      isFullscreen,
+      isLoggedIn,
+      isConnecting,
+      isDailyView,
+      isDailyPlay,
+      isChatOpenMobile,
+      isChatClosing,
+      isHomeChatOpen,
+      safeChatTab: chatTab === "system" ? "system" : "messages",
+      resultsRankingMode,
+      showAllWords,
+      showHelp,
+      canResumeSession,
+      resumePending,
+      authStatus: authState?.status || null,
+      isAccountAuthenticated,
+      accountUsername: authState?.user?.usernameDisplay || null,
+      accountMustResetPassword: !!authState?.user?.mustResetPassword,
+      connectionError: connectionError || "",
+      loginError: loginError || "",
+      weeklyStatsError: weeklyStatsError || "",
+      duelError: duelStatus?.error || "",
+      duelTeam: duelStatus?.team || null,
+      serverStatus: serverStatus || "",
+      socketConnected: !!socket.connected,
+      roundId: roundId || null,
+      roomId: roomId || null,
+      gridSize: Number(gridSize) || null,
+      score: Number.isFinite(score) ? score : null,
+      tick: Number.isFinite(tick) ? tick : null,
+      acceptedCount: Array.isArray(accepted) ? accepted.length : null,
+      allWordsCount: Array.isArray(allWords) ? allWords.length : null,
+      playersCount: Array.isArray(players) ? players.length : null,
+      provisionalRankingCount: Array.isArray(provisionalRanking) ? provisionalRanking.length : null,
+      finalResultsCount: Array.isArray(finalResults) ? finalResults.length : null,
+      announcementsCount: Array.isArray(announcements) ? announcements.length : null,
+      chatMessagesCount: Array.isArray(chatMessages) ? chatMessages.length : null,
+      blockedInstallIdsCount: Array.isArray(blockedInstallIds) ? blockedInstallIds.length : null,
+      mobileResultsPage: Number.isFinite(mobileResultsPage) ? mobileResultsPage : null,
+      specialRoundType: specialRound?.type || null,
+      specialRoundIsSpecial: !!specialRound?.isSpecial,
+      targetSummaryOpen: !!targetSummary,
+      vocabOverlayOpen: !!isVocabOverlayOpen,
+      vocabCount: Number.isFinite(vocabCount) ? vocabCount : null,
+      vocabRoundDelta: Number.isFinite(vocabRoundDelta) ? vocabRoundDelta : null,
+      specialTutorialOpen: !!isSpecialTutorialOpen,
+      guidedResultsStep: guidedResultsStep || null,
+      installId: typeof installId === "string" ? installId : null,
+      authenticatedUserId:
+        Number.isInteger(Number(authenticatedUserId)) && Number(authenticatedUserId) > 0
+          ? String(authenticatedUserId)
+          : null,
+    };
+    window.__gobbleCrashRuntime = runtime;
+    const runtimeSignature = JSON.stringify(runtime);
+    if (runtimeSignature !== crashRuntimeSignatureRef.current) {
+      crashRuntimeSignatureRef.current = runtimeSignature;
+      try {
+        const pushBreadcrumb = window.__pushGobbleCrashBreadcrumb;
+        if (typeof pushBreadcrumb === "function") {
+          pushBreadcrumb("app-state", {
+            phase: runtime.phase,
+            appView: runtime.appView,
+            roomId: runtime.roomId,
+            roundId: runtime.roundId,
+            resultsRankingMode: runtime.resultsRankingMode,
+            mobileResultsPage: runtime.mobileResultsPage,
+            showAllWords: runtime.showAllWords,
+            socketConnected: runtime.socketConnected,
+            isMobileLayout: runtime.isMobileLayout,
+            isAccountAuthenticated: runtime.isAccountAuthenticated,
+            authStatus: runtime.authStatus,
+            duelError: runtime.duelError,
+            connectionError: runtime.connectionError,
+          });
+        }
+      } catch (_) {}
+    }
+    return () => {
+      try {
+        delete window.__gobbleCrashRuntime;
+      } catch (_) {}
+    };
+  }, [
+    phase,
+    appView,
+    isMobileLayout,
+    isUltraCompact,
+    isFullscreen,
+    isLoggedIn,
+    isConnecting,
+    isDailyView,
+    isDailyPlay,
+    isChatOpenMobile,
+    isChatClosing,
+    isHomeChatOpen,
+    chatTab,
+    resultsRankingMode,
+    showAllWords,
+    showHelp,
+    canResumeSession,
+    resumePending,
+    authState,
+    isAccountAuthenticated,
+    connectionError,
+    loginError,
+    weeklyStatsError,
+    duelStatus,
+    serverStatus,
+    score,
+    tick,
+    accepted,
+    allWords,
+    players,
+    provisionalRanking,
+    finalResults,
+    announcements,
+    chatMessages,
+    blockedInstallIds,
+    roundId,
+    roomId,
+    gridSize,
+    mobileResultsPage,
+    specialRound,
+    targetSummary,
+    isVocabOverlayOpen,
+    vocabCount,
+    vocabRoundDelta,
+    isSpecialTutorialOpen,
+    guidedResultsStep,
+    installId,
+    authenticatedUserId,
+  ]);
 
   const currentTilesRef = useRef([]);
   const acceptedRef = useRef([]);
@@ -13230,6 +13400,14 @@ export default function App() {
 
   async function fetchDuelStatus({ dateId = null } = {}) {
     if (!installId) return;
+    if (!isAccountAuthenticated) {
+      setDuelStatus((prev) => ({
+        ...prev,
+        loading: false,
+        error: "",
+      }));
+      return;
+    }
     setDuelStatus((prev) => ({ ...prev, loading: true, error: "" }));
     const params = new URLSearchParams();
     params.set("installId", installId);
@@ -13293,6 +13471,14 @@ export default function App() {
         installId,
         dateId: dateId || null,
       });
+      if (code === "auth_required") {
+        setDuelStatus((prev) => ({
+          ...prev,
+          loading: false,
+          error: "",
+        }));
+        return;
+      }
       setDuelStatus((prev) => ({
         ...prev,
         loading: false,
@@ -13788,9 +13974,11 @@ export default function App() {
       const response = await postAuthJson(AUTH_STATUS_ENDPOINT, {
         installId: deviceInstallId,
         rememberedUserId,
+        suppressRestore: shouldSuppressAutoAuthRestore(deviceInstallId),
       });
       const payload = response.data || {};
       if (response.ok && payload.status === "authenticated" && payload.user) {
+        setSuppressAutoAuthRestore(deviceInstallId, false);
         try {
           localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
         } catch (_) {}
@@ -13812,6 +14000,7 @@ export default function App() {
         return payload;
       }
       if (response.ok && payload.status === "login_required") {
+        setSuppressAutoAuthRestore(deviceInstallId, false);
         if (payload.user?.id) {
           try {
             localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
@@ -13963,6 +14152,7 @@ export default function App() {
       }
 
       if (payload?.user) {
+        setSuppressAutoAuthRestore(deviceInstallId, false);
         try {
           localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
         } catch (_) {}
@@ -14000,9 +14190,11 @@ export default function App() {
     try {
       await postAuthJson("/api/auth/logout", {});
     } catch (_) {}
+    setSuppressAutoAuthRestore(deviceInstallId, true);
     try {
       localStorage.removeItem(LAST_AUTH_USER_ID_STORAGE_KEY);
     } catch (_) {}
+    clearSavedSession();
     socket.auth = {};
     if (socket.connected) {
       socket.disconnect();
@@ -15639,7 +15831,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!installId) return;
+    if (!installId || !isAccountAuthenticated) return;
     fetchDuelStatus();
     const timer = setInterval(() => {
       fetchDuelStatus();
@@ -15650,10 +15842,10 @@ export default function App() {
       clearInterval(timer);
       socket.off("connect", onConnect);
     };
-  }, [installId]);
+  }, [installId, isAccountAuthenticated]);
 
   useEffect(() => {
-    if (!installId) return;
+    if (!installId || !isAccountAuthenticated) return;
     const isLobbyView =
       phase === "lobby" &&
       appView !== "daily" &&
@@ -15688,7 +15880,7 @@ export default function App() {
       appView !== "duel";
     if (!isLobbyView) return;
     fetchDuelStatus();
-  }, [installId, phase, appView]);
+  }, [installId, phase, appView, isAccountAuthenticated]);
 
   useEffect(() => {
     const dateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
@@ -32204,9 +32396,9 @@ function handleTouchEnd(e) {
     const mobileViewportHeight = mobileViewportHeightCandidates.length
       ? Math.min(...mobileViewportHeightCandidates)
       : 0;
-    const fullscreenTopPadding = isFullscreen
-      ? `${Math.round(mobileHeaderOffsetPx || 0)}px`
-      : "env(safe-area-inset-top)";
+    // Do not feed the measured header bottom back into the fullscreen container padding:
+    // on some mobile browsers this creates a self-referential layout loop.
+    const fullscreenTopPadding = "env(safe-area-inset-top)";
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {
@@ -32653,9 +32845,9 @@ function handleTouchEnd(e) {
       : 0;
     const chatViewportHeightEffective =
       chatBodyLockHeightRef.current || chatViewportHeight || mobileViewportHeight;
-    const fullscreenTopPadding = isFullscreen
-      ? `${Math.round(mobileHeaderOffsetPx || 0)}px`
-      : "env(safe-area-inset-top)";
+    // Keep the viewport container anchored to the safe area only.
+    // Using the live header measurement here can make the header offset chase itself.
+    const fullscreenTopPadding = "env(safe-area-inset-top)";
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {

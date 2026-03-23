@@ -5,6 +5,7 @@ import AppCrashBoundary from "./components/AppCrashBoundary.jsx";
 import {
   buildCrashReport,
   persistCrashReport,
+  pushCrashBreadcrumb,
   sendCrashReport,
 } from "./utils/crashReporter.js";
 import "./index.css";
@@ -19,7 +20,50 @@ function persistGlobalCrash(kind, payload) {
 }
 
 if (typeof window !== "undefined") {
+  window.__pushGobbleCrashBreadcrumb = pushCrashBreadcrumb;
+  pushCrashBreadcrumb("boot", {
+    href: String(window.location?.href || ""),
+  });
+
+  let lastResizeAt = 0;
+  const onResize = () => {
+    const now = Date.now();
+    if (now - lastResizeAt < 1000) return;
+    lastResizeAt = now;
+    pushCrashBreadcrumb("resize", {
+      width: Number(window.innerWidth) || null,
+      height: Number(window.innerHeight) || null,
+      dpr: Number(window.devicePixelRatio) || null,
+    });
+  };
+  const onVisibility = () => {
+    pushCrashBreadcrumb("visibility", {
+      state: typeof document !== "undefined" ? document.visibilityState || null : null,
+    });
+  };
+  const onOnline = () => {
+    pushCrashBreadcrumb("network", { online: navigator.onLine !== false });
+  };
+  const onPageShow = () => {
+    pushCrashBreadcrumb("pageshow", {});
+  };
+  const onPageHide = () => {
+    pushCrashBreadcrumb("pagehide", {});
+  };
+  window.addEventListener("resize", onResize);
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOnline);
+  window.addEventListener("pageshow", onPageShow);
+  window.addEventListener("pagehide", onPageHide);
+  document.addEventListener("visibilitychange", onVisibility);
+
   window.addEventListener("error", (event) => {
+    pushCrashBreadcrumb("window-error", {
+      message: String(event?.message || ""),
+      source: String(event?.filename || ""),
+      line: Number(event?.lineno) || null,
+      col: Number(event?.colno) || null,
+    });
     persistGlobalCrash("window-error", {
       message: String(event?.message || ""),
       stack: String(event?.error?.stack || ""),
@@ -45,6 +89,7 @@ if (typeof window !== "undefined") {
         message = String(reason || "");
       }
     }
+    pushCrashBreadcrumb("unhandled-rejection", { message });
     persistGlobalCrash("unhandled-rejection", { message, stack });
   });
 }
