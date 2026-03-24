@@ -115,7 +115,8 @@ function LiveFeed({
       const h = el.clientHeight || 0;
       if (!h) return;
       const estimatedRows = Math.floor((h + GAP_ESTIMATE) / (ROW_ESTIMATE + GAP_ESTIMATE));
-      setMaxVisible(Math.max(4, estimatedRows || FALLBACK_VISIBLE));
+      const nextVisible = Math.max(4, estimatedRows || FALLBACK_VISIBLE);
+      setMaxVisible((prev) => (prev === nextVisible ? prev : nextVisible));
     };
 
     compute();

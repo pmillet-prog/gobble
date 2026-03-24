@@ -4,6 +4,7 @@ export default function AutoScaleInline({
   className = "",
   minScale = 0.62,
   align = "center",
+  measurePaddingPx = 0,
   children,
 }) {
   const viewportRef = React.useRef(null);
@@ -22,7 +23,9 @@ export default function AutoScaleInline({
         setScale(1);
         return;
       }
-      const ratio = viewportWidth / lineWidth;
+      const safeMeasurePadding = Math.max(0, Number(measurePaddingPx) || 0);
+      const effectiveViewportWidth = Math.max(0, viewportWidth - safeMeasurePadding * 2);
+      const ratio = effectiveViewportWidth / lineWidth;
       const nextScale = Number.isFinite(ratio)
         ? Math.max(Math.min(1, ratio), Math.max(0.45, Number(minScale) || 0.62))
         : 1;
@@ -46,7 +49,7 @@ export default function AutoScaleInline({
         window.removeEventListener("resize", recomputeScale);
       }
     };
-  }, [children, minScale]);
+  }, [children, measurePaddingPx, minScale]);
 
   const justifyClass = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
   const transformOrigin =

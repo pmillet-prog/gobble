@@ -394,8 +394,8 @@ function RankingWidgetMobile({
       if (!height) return;
       const baseHeight = BASE_ROW_PX * 5 + gapPx * 4;
       if (height >= baseHeight) {
-        setRowsCount(5);
-        setRowPx(BASE_ROW_PX);
+        setRowsCount((prev) => (prev === 5 ? prev : 5));
+        setRowPx((prev) => (prev === BASE_ROW_PX ? prev : BASE_ROW_PX));
         return;
       }
       let nextRows = 5;
@@ -403,9 +403,9 @@ function RankingWidgetMobile({
         nextRows = 3;
       }
       const totalGaps = gapPx * (nextRows - 1);
-      const next = Math.floor((height - totalGaps) / nextRows);
-      setRowsCount(nextRows);
-      setRowPx(clampValue(next, minRowPx, BASE_ROW_PX));
+      const next = clampValue(Math.floor((height - totalGaps) / nextRows), minRowPx, BASE_ROW_PX);
+      setRowsCount((prev) => (prev === nextRows ? prev : nextRows));
+      setRowPx((prev) => (prev === next ? prev : next));
     };
 
     compute();
@@ -508,9 +508,9 @@ function RankingWidgetMobile({
     if (youIdx === -1) return;
     const actualRank = youIdx + 1;
 
-    setTargetRank(actualRank);
+    setTargetRank((prev) => (prev === actualRank ? prev : actualRank));
     setDisplayRank((prev) => {
-      if (prev == null || !animateRank) return actualRank;
+      if (prev == null || !animateRank) return prev === actualRank ? prev : actualRank;
       return prev;
     });
   }, [safeRanking, me, animateRank]);
@@ -519,7 +519,6 @@ function RankingWidgetMobile({
   React.useEffect(() => {
     if (!animateRank) {
       pendingRankingRef.current = null;
-      setDisplayRanking(safeRanking);
       return;
     }
 
@@ -536,7 +535,9 @@ function RankingWidgetMobile({
   // Anime displayRank jusqu'… targetRank avec file d'attente pour ne pas casser la roue
   React.useEffect(() => {
     if (!animateRank) {
-      if (targetRank != null) setDisplayRank(targetRank);
+      if (targetRank != null) {
+        setDisplayRank((prev) => (prev === targetRank ? prev : targetRank));
+      }
       return;
     }
 
@@ -548,7 +549,7 @@ function RankingWidgetMobile({
     }
 
     if (displayRank == null || targetRank === displayRank) {
-      setDisplayRank(targetRank);
+      setDisplayRank((prev) => (prev === targetRank ? prev : targetRank));
       return;
     }
 

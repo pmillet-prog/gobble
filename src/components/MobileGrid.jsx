@@ -110,7 +110,7 @@ function MobileGrid({
         ref={gridRef}
         className={
           "grid relative bg-white border rounded-xl shadow-sm w-full p-3 box-border" +
-          (gridShake ? " shake" : "")
+          (gridShake ? " shake-soft" : "")
         }
         style={{
           gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
@@ -123,6 +123,10 @@ function MobileGrid({
             : "100%",
           maxHeight: mobileGridSide ? `${mobileGridSide}px` : undefined,
           aspectRatio: "1 / 1",
+          animation: gridShake
+            ? "shakeSoft 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97)"
+            : undefined,
+          willChange: gridShake ? "transform" : undefined,
           ...lightGridSurfaceStyle,
         }}
         onMouseUp={handleMouseUp}

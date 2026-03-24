@@ -28,6 +28,8 @@ import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
+import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
+import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
@@ -2743,6 +2745,13 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
   40%, 60% { transform: translateX(6px); }
 }
 
+@keyframes shakeSoft {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(1.5px); }
+  30%, 50%, 70% { transform: translateX(-2.5px); }
+  40%, 60% { transform: translateX(2.5px); }
+}
+
 .tile-btn {
   transition: transform 0.15s ease, box-shadow 0.18s ease;
 }
@@ -3091,6 +3100,11 @@ body.theme-dark .tile-points {
 
 .shake {
   animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  will-change: transform;
+}
+
+.shake-soft {
+  animation: shakeSoft 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97);
   will-change: transform;
 }
 
@@ -4033,6 +4047,18 @@ function buildUserScopedInstallId(userId) {
   return String(safeUserId);
 }
 
+function normalizeMeasuredPx(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return Math.round(num);
+}
+
+function isSameMeasuredPx(prev, next, epsilon = 1) {
+  const safePrev = normalizeMeasuredPx(prev);
+  const safeNext = normalizeMeasuredPx(next);
+  return Math.abs(safePrev - safeNext) <= epsilon;
+}
+
 function normalizeStoredPlayerIdentityKey(value) {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return "";
@@ -4575,6 +4601,7 @@ export default function App() {
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
   const gridRef = useRef(null);
+  const foregroundGridRestoreRafRef = useRef(null);
   const canVibrateRef = useRef(false);
   const initialSettingsRef = useRef(null);
   if (initialSettingsRef.current === null) {
@@ -4961,6 +4988,11 @@ export default function App() {
     `results-path-gradient-${Math.random().toString(36).slice(2)}`
   );
   const listItemRefs = useRef(new Map());
+  const desktopChatActionsRef = useRef({});
+  const desktopChatHelpersRef = useRef({});
+  const analyzeWordActionRef = useRef(null);
+  const clearResultsWordAnalysisRef = useRef(null);
+  const openDefinitionActionRef = useRef(null);
   const wordListFlipPrevRectsRef = useRef(new Map());
   const wordListFlipPendingRef = useRef(false);
   const wordListFlipRafIdsRef = useRef([]);
@@ -5457,9 +5489,19 @@ export default function App() {
       clearTimeout(gobbleTimerRef.current);
       gobbleTimerRef.current = null;
     }
+    if (gridShakeTimerRef.current) {
+      clearTimeout(gridShakeTimerRef.current);
+      gridShakeTimerRef.current = null;
+    }
+    try {
+      gridShakeAnimationRef.current?.cancel?.();
+    } catch (_) {}
+    gridShakeAnimationRef.current = null;
     confettiBurstTokenRef.current += 1;
     setPraiseFlash(null);
     setGobbleFlash(null);
+    setBigScoreFlash(null);
+    setGridShake(false);
     try {
       confetti.reset?.();
     } catch (_) {}
@@ -6141,7 +6183,9 @@ export default function App() {
 
   const currentTilesRef = useRef([]);
   const acceptedRef = useRef([]);
+  const acceptedWordSetRef = useRef(new Set());
   const acceptedScoresRef = useRef(new Map());
+  const acceptedBestPtsRef = useRef(new Map());
   const dailyAcceptedPathsRef = useRef(new Map());
   const submissionStatusRef = useRef(new Map());
   const pendingWordsRef = useRef(new Set());
@@ -6161,6 +6205,41 @@ export default function App() {
   const vocabOverlayLastTickRef = useRef(0);
   const vocabOverlayDeltaRef = useRef(null);
   const vocabOverlayCursorRef = useRef(null);
+
+  function clearAcceptedRuntimeCaches() {
+    acceptedRef.current = [];
+    acceptedWordSetRef.current = new Set();
+    acceptedScoresRef.current = new Map();
+    acceptedBestPtsRef.current = new Map();
+    dailyAcceptedPathsRef.current = new Map();
+  }
+
+  function syncAcceptedRuntimeCaches(words, { scoreMap = null, bestScoreMap = null } = {}) {
+    const safeWords = Array.isArray(words) ? words : [];
+    acceptedRef.current = safeWords;
+    acceptedWordSetRef.current = new Set(safeWords);
+    acceptedScoresRef.current = scoreMap instanceof Map ? scoreMap : new Map();
+    if (bestScoreMap instanceof Map) {
+      acceptedBestPtsRef.current = bestScoreMap;
+      return;
+    }
+    if (scoreMap instanceof Map) {
+      acceptedBestPtsRef.current = new Map(scoreMap);
+      return;
+    }
+    acceptedBestPtsRef.current = new Map();
+  }
+
+  function registerAcceptedWordRuntime(word, { score = null, bestPts = null } = {}) {
+    if (!word) return;
+    acceptedWordSetRef.current.add(word);
+    if (Number.isFinite(score)) {
+      acceptedScoresRef.current.set(word, score);
+    }
+    if (Number.isFinite(bestPts)) {
+      acceptedBestPtsRef.current.set(word, bestPts);
+    }
+  }
   const vocabOverlayWordsRef = useRef([]);
   const lastVocabFetchAtRef = useRef(0);
   const chatInputRef = useRef(null);
@@ -6212,6 +6291,10 @@ export default function App() {
   const gobblarToastDelayTimersRef = useRef(new Set());
   const praiseTimerRef = useRef(null);
   const gobbleTimerRef = useRef(null);
+  const gridShakeTimerRef = useRef(null);
+  const gridShakeAnimationRef = useRef(null);
+  const submissionTickRafRef = useRef(null);
+  const submissionTickPendingRef = useRef(false);
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
@@ -6343,9 +6426,11 @@ export default function App() {
     setAccepted((prev) => {
       if (areStringArraysEqual(prev, dailyAcceptedWords)) {
         acceptedRef.current = prev;
+        acceptedWordSetRef.current = new Set(prev);
         return prev;
       }
       acceptedRef.current = dailyAcceptedWords;
+      acceptedWordSetRef.current = new Set(dailyAcceptedWords);
       return dailyAcceptedWords;
     });
     const scoreMap = new Map();
@@ -6355,6 +6440,7 @@ export default function App() {
       scoreMap.set(word, slot.pts);
     });
     acceptedScoresRef.current = scoreMap;
+    acceptedBestPtsRef.current = new Map(scoreMap);
   }, [isSpecial3WordsMode, dailyAcceptedWords, dailyTotalScore, dailyWordSlotsScored]);
 
   useEffect(() => {
@@ -7776,14 +7862,25 @@ export default function App() {
     const el = playColumnRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
+    const commitGridWidth = (value) => {
+      const clamped = clampGridWidth(value);
+      if (!clamped) return;
+      setGridWidth((prev) => (isSameMeasuredPx(prev, clamped) ? prev : clamped));
+    };
+
+    const commitPlayColumnHeight = (value) => {
+      const nextHeight = normalizeMeasuredPx(value);
+      if (!nextHeight) return;
+      setPlayColumnHeight((prev) => (isSameMeasuredPx(prev, nextHeight) ? prev : nextHeight));
+    };
+
     // init immédiat (on enlève un petit padding interne pour coller au contenu)
     const initialWidth = el.getBoundingClientRect().width;
     const initialHeight = el.getBoundingClientRect().height;
     if (initialWidth) {
-      const clamped = clampGridWidth(initialWidth);
-      if (clamped) setGridWidth(clamped);
+      commitGridWidth(initialWidth);
     }
-    if (initialHeight) setPlayColumnHeight(initialHeight);
+    if (initialHeight) commitPlayColumnHeight(initialHeight);
 
     const observer = new ResizeObserver((entries) => {
       const target = entries[0]?.target;
@@ -7792,10 +7889,9 @@ export default function App() {
       const w = rect.width; // border-box width (incl. padding)
       const h = rect.height;
       if (w) {
-        const clamped = clampGridWidth(w);
-        if (clamped) setGridWidth(clamped);
+        commitGridWidth(w);
       }
-      if (h) setPlayColumnHeight(h);
+      if (h) commitPlayColumnHeight(h);
     });
 
     observer.observe(el);
@@ -7805,13 +7901,20 @@ export default function App() {
   useEffect(() => {
     const el = countdownRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
+
+    const commitCountdownHeight = (value) => {
+      const nextHeight = normalizeMeasuredPx(value);
+      if (!nextHeight) return;
+      setCountdownHeight((prev) => (isSameMeasuredPx(prev, nextHeight) ? prev : nextHeight));
+    };
+
     const initialHeight = el.getBoundingClientRect().height;
-    if (initialHeight) setCountdownHeight(initialHeight);
+    if (initialHeight) commitCountdownHeight(initialHeight);
     const observer = new ResizeObserver((entries) => {
       const target = entries[0]?.target;
       if (!target) return;
       const h = target.getBoundingClientRect().height;
-      if (h) setCountdownHeight(h);
+      if (h) commitCountdownHeight(h);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -7820,13 +7923,20 @@ export default function App() {
   useEffect(() => {
     const el = previewRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
+
+    const commitPreviewHeight = (value) => {
+      const nextHeight = normalizeMeasuredPx(value);
+      if (!nextHeight) return;
+      setPreviewHeight((prev) => (isSameMeasuredPx(prev, nextHeight) ? prev : nextHeight));
+    };
+
     const initialHeight = el.getBoundingClientRect().height;
-    if (initialHeight) setPreviewHeight(initialHeight);
+    if (initialHeight) commitPreviewHeight(initialHeight);
     const observer = new ResizeObserver((entries) => {
       const target = entries[0]?.target;
       if (!target) return;
       const h = target.getBoundingClientRect().height;
-      if (h) setPreviewHeight(h);
+      if (h) commitPreviewHeight(h);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -8485,6 +8595,11 @@ export default function App() {
       });
     },
     [scheduleDesktopChatAutoScroll]
+  );
+
+  const setDesktopChatColumnNode = React.useCallback(
+    (node) => setDesktopColumnNode("chat", node),
+    [setDesktopColumnNode]
   );
 
   useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
@@ -9653,7 +9768,64 @@ export default function App() {
   }
 
   function triggerGridShake() {
+    if (gridShakeTimerRef.current) {
+      clearTimeout(gridShakeTimerRef.current);
+      gridShakeTimerRef.current = null;
+    }
+    try {
+      gridShakeAnimationRef.current?.cancel?.();
+    } catch (_) {}
+    gridShakeAnimationRef.current = null;
     setGridShake(false);
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => setGridShake(true));
+    } else {
+      setGridShake(true);
+    }
+    try {
+      const gridEl = gridRef.current;
+      const mobileNow = !!isMobileLayoutRef.current;
+      if (!mobileNow && gridEl instanceof HTMLElement && typeof gridEl.animate === "function") {
+        const keyframes = [
+          { transform: "translateX(0px)" },
+          { transform: "translateX(-2px)" },
+          { transform: "translateX(4px)" },
+          { transform: "translateX(-6px)" },
+          { transform: "translateX(6px)" },
+          { transform: "translateX(-4px)" },
+          { transform: "translateX(0px)" },
+        ];
+        const animation = gridEl.animate(keyframes, {
+          duration: 340,
+          easing: "cubic-bezier(0.36, 0.07, 0.19, 0.97)",
+        });
+        gridShakeAnimationRef.current = animation;
+        animation.onfinish = () => {
+          if (gridShakeAnimationRef.current === animation) {
+            gridShakeAnimationRef.current = null;
+          }
+        };
+        animation.oncancel = () => {
+          if (gridShakeAnimationRef.current === animation) {
+            gridShakeAnimationRef.current = null;
+          }
+        };
+      }
+    } catch (_) {}
+    try {
+      if (
+        canVibrateRef.current &&
+        isVibrationEnabledRef.current &&
+        typeof navigator !== "undefined" &&
+        typeof navigator.vibrate === "function"
+      ) {
+        navigator.vibrate(50);
+      }
+    } catch (_) {}
+    gridShakeTimerRef.current = setTimeout(() => {
+      setGridShake(false);
+      gridShakeTimerRef.current = null;
+    }, 520);
   }
 
   function triggerPraiseFlash(
@@ -9679,12 +9851,14 @@ export default function App() {
       setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
       if (gobbleTimerRef.current) clearTimeout(gobbleTimerRef.current);
       gobbleTimerRef.current = setTimeout(() => setGobbleFlash(null), durationMs);
+      if (shakeGrid) triggerGridShake();
       return;
     }
     const durationMs = Math.round(1500 + Math.random() * 300);
     setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
     if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
     praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
+    if (shakeGrid) triggerGridShake();
   }
 
   function triggerConfettiBurst(kind = "target") {
@@ -12263,7 +12437,7 @@ export default function App() {
         }
         return patchChatMessageReactions(previousMessages, patch);
       });
-      if (toastEmoji && isMobileLayoutRef.current) {
+      if (toastEmoji) {
         enqueueMobileChatReactionToast(toastEmoji);
       }
       scheduleDesktopChatAutoScroll();
@@ -15449,7 +15623,6 @@ export default function App() {
         ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
         : [];
       setAccepted(words);
-      acceptedRef.current = words;
       const scores = new Map();
       const scoreConfig =
         currentRound.special?.type === "bonus_letter" && currentRound.special?.bonusLetter
@@ -15474,7 +15647,7 @@ export default function App() {
       } else {
         dailyAcceptedPathsRef.current = new Map();
       }
-      acceptedScoresRef.current = scores;
+      syncAcceptedRuntimeCaches(words, { scoreMap: scores });
       setScore(Number(playerState?.score) || 0);
       submissionStatusRef.current.clear();
       resetSubmissionQueue();
@@ -15515,7 +15688,6 @@ export default function App() {
         ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
         : [];
       setAccepted(words);
-      acceptedRef.current = words;
       if (lastRound.round?.grid && Array.isArray(lastRound.round.grid) && words.length) {
         const scoreConfig =
           lastRound.round.special?.type === "bonus_letter" && lastRound.round.special?.bonusLetter
@@ -15537,10 +15709,9 @@ export default function App() {
             });
           }
         });
-        acceptedScoresRef.current = scores;
+        syncAcceptedRuntimeCaches(words, { scoreMap: scores });
       } else {
-        acceptedScoresRef.current = new Map();
-        dailyAcceptedPathsRef.current = new Map();
+        syncAcceptedRuntimeCaches(words);
       }
       setScore(Number(playerState?.score) || 0);
       submissionStatusRef.current.clear();
@@ -16574,9 +16745,7 @@ export default function App() {
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
     setAccepted([]);
-    acceptedScoresRef.current = new Map();
-    dailyAcceptedPathsRef.current = new Map();
-    acceptedRef.current = [];
+    clearAcceptedRuntimeCaches();
     resetSubmissionQueue();
     setAllWords([]);
     setShowAllWords(false);
@@ -16939,9 +17108,7 @@ export default function App() {
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
     setAccepted([]);
-    acceptedScoresRef.current = new Map();
-    dailyAcceptedPathsRef.current = new Map();
-    acceptedRef.current = [];
+    clearAcceptedRuntimeCaches();
     resetSubmissionQueue();
     setAllWords([]);
     setShowAllWords(false);
@@ -18657,10 +18824,26 @@ function handleTouchEnd(e) {
       dragGridMetricsRef.current = null;
       flushSamsungDiagSnapshot("drag-cleanup");
       resetDragMovePipeline();
+      if (submissionTickRafRef.current != null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(submissionTickRafRef.current);
+        submissionTickRafRef.current = null;
+      }
+      submissionTickPendingRef.current = false;
     };
   }, []);
 
   function touchSubmissionState() {
+    if (submissionTickPendingRef.current) return;
+    submissionTickPendingRef.current = true;
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      submissionTickRafRef.current = window.requestAnimationFrame(() => {
+        submissionTickRafRef.current = null;
+        submissionTickPendingRef.current = false;
+        setSubmissionTick((tick) => tick + 1);
+      });
+      return;
+    }
+    submissionTickPendingRef.current = false;
     setSubmissionTick((tick) => tick + 1);
   }
 
@@ -18683,6 +18866,9 @@ function handleTouchEnd(e) {
   function markRejectedWord(word, reason = "") {
     if (!word) return;
     const meta = submissionStatusRef.current.get(word) || {};
+    if (meta.optimisticApplied) {
+      revertOptimisticWord(word, meta);
+    }
     submissionStatusRef.current.set(word, {
       ...meta,
       status: "rejected",
@@ -18699,6 +18885,29 @@ function handleTouchEnd(e) {
         touchSubmissionState();
       }
     }, cleanupDelay);
+  }
+
+  function revertOptimisticWord(word, meta = {}) {
+    if (!word) return;
+    const optimisticPts = Number.isFinite(meta?.optimisticPts) ? Number(meta.optimisticPts) : 0;
+    acceptedWordSetRef.current.delete(word);
+    acceptedScoresRef.current.delete(word);
+    acceptedBestPtsRef.current.delete(word);
+    dailyAcceptedPathsRef.current.delete(word);
+    setAccepted((prev) => {
+      const updated = Array.isArray(prev) ? prev.filter((entry) => entry !== word) : [];
+      acceptedRef.current = updated;
+      acceptedWordSetRef.current = new Set(updated);
+      return updated;
+    });
+    if (optimisticPts > 0) {
+      setScore((prev) => Math.max(0, prev - optimisticPts));
+    }
+    setLastWords((prev) =>
+      Array.isArray(prev)
+        ? prev.filter((entry) => normalizeWord(entry?.display || "") !== word)
+        : []
+    );
   }
 
   function applyServerWordResult(word, result) {
@@ -18743,16 +18952,49 @@ function handleTouchEnd(e) {
     const isTargetRoundNow =
       specialRound?.type === "target_long" || specialRound?.type === "target_score";
 
-    const alreadyAccepted = acceptedRef.current.includes(word);
+    const alreadyAccepted = acceptedWordSetRef.current.has(word);
     if (Number.isFinite(totalScore)) {
       setScore(totalScore);
     } else if (!alreadyAccepted && Number.isFinite(safePts)) {
       setScore((s) => s + safePts);
     }
 
-    if (Number.isFinite(pts)) {
-      acceptedScoresRef.current.set(word, pts);
+    const computedBestPts =
+      Array.isArray(path) && path.length > 0
+        ? computeScore(word, path, board, specialScoreConfig)
+        : safePts;
+    if (meta.optimisticApplied) {
+      const optimisticPts = Number.isFinite(meta?.optimisticPts) ? Number(meta.optimisticPts) : 0;
+      if (Number.isFinite(totalScore)) {
+        setScore(totalScore);
+      } else if (Number.isFinite(safePts) && safePts !== optimisticPts) {
+        setScore((prev) => Math.max(0, prev - optimisticPts + safePts));
+      }
+      registerAcceptedWordRuntime(word, {
+        score: Number.isFinite(pts) ? pts : null,
+        bestPts: computedBestPts,
+      });
+      setLastWords((prev) => {
+        if (!Array.isArray(prev) || prev.length === 0) return prev;
+        let updated = false;
+        const next = prev.map((entry) => {
+          if (updated) return entry;
+          if (normalizeWord(entry?.display || "") !== word) return entry;
+          updated = true;
+          return {
+            ...entry,
+            pts: safePts,
+            display,
+          };
+        });
+        return updated ? next : prev;
+      });
+      return;
     }
+    registerAcceptedWordRuntime(word, {
+      score: Number.isFinite(pts) ? pts : null,
+      bestPts: computedBestPts,
+    });
     pushWordHistory(word);
 
     if (!alreadyAccepted) {
@@ -18827,10 +19069,12 @@ function handleTouchEnd(e) {
     setAccepted((prev) => {
       if (prev.includes(word)) {
         acceptedRef.current = prev;
+        acceptedWordSetRef.current = new Set(prev);
         return prev;
       }
       const updated = [...prev, word];
       acceptedRef.current = updated;
+      acceptedWordSetRef.current = new Set(updated);
       return updated;
     });
 
@@ -18992,7 +19236,7 @@ function handleTouchEnd(e) {
       : [];
 
     setScore((s) => s + pts);
-    acceptedScoresRef.current.set(raw, pts);
+    registerAcceptedWordRuntime(raw, { score: pts, bestPts: pts });
     dailyAcceptedPathsRef.current.set(raw, {
       word: raw,
       path: normalizedPath,
@@ -19059,6 +19303,7 @@ function handleTouchEnd(e) {
     setAccepted((prev) => {
       const updated = [...prev, raw];
       acceptedRef.current = updated;
+      acceptedWordSetRef.current = new Set(updated);
       return updated;
     });
 
@@ -19271,13 +19516,27 @@ function handleTouchEnd(e) {
     const touchContext =
       lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
     const usesManualPath = touchContext || lastInputMode === "mouse";
+    const liveHighlightPath = Array.isArray(highlightPathRef.current)
+      ? highlightPathRef.current
+      : [];
+    const liveScored =
+      liveHighlightPath.length > 0
+        ? scoreWordOnGridWithPath(raw, board, liveHighlightPath, specialScoreConfig)
+        : null;
 
     if (usesManualPath) {
-      path = highlightPath;
+      path =
+        Array.isArray(liveScored?.path) && liveScored.path.length > 0
+          ? liveScored.path
+          : liveHighlightPath;
       if (!path || path.length === 0) return error("Mot absent de la grille");
     } else {
-      path = findBestPathForWord(board, raw, specialScoreConfig);
+      path =
+        Array.isArray(liveScored?.path) && liveScored.path.length > 0
+          ? liveScored.path
+          : findBestPathForWord(board, raw, specialScoreConfig);
       if (!path) return error("Mot absent de la grille");
+      highlightPathRef.current = path;
       setHighlightPath(path);
     }
 
@@ -19295,14 +19554,27 @@ function handleTouchEnd(e) {
         : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
         ? specialRound.fixedWordScore
         : scored.pts;
+      const canOptimisticallyApply = !isMobileLayoutRef.current && !isTargetRoundNow;
 
       enqueuePendingWord(raw, {
         display: display || raw.toUpperCase(),
         path,
         optimisticPts,
         traceStartedAt: getSubmissionTraceStartedAt(),
+        optimisticApplied: canOptimisticallyApply,
       });
-      clearSelection();
+      if (canOptimisticallyApply) {
+        applyLocalWordScoring({
+          raw,
+          display,
+          path: Array.isArray(scored?.path) && scored.path.length > 0 ? scored.path : path,
+        });
+      } else {
+        clearSelection();
+      }
+      if (!isMobileLayoutRef.current) {
+        scheduleBatchFlush({ immediate: true });
+      }
       return;
     }
 
@@ -19709,6 +19981,25 @@ function handleTouchEnd(e) {
     setHighlightPlayers([]);
   }
 
+  useEffect(() => {
+    analyzeWordActionRef.current = analyzeWord;
+    clearResultsWordAnalysisRef.current = clearResultsWordAnalysis;
+    openDefinitionActionRef.current = openDefinition;
+  });
+
+  const handleDesktopWordAnalyze = React.useCallback((word) => {
+    analyzeWordActionRef.current?.(word);
+  }, []);
+
+  const handleDesktopWordAnalysisClear = React.useCallback(() => {
+    clearResultsWordAnalysisRef.current?.();
+  }, []);
+
+  const handleDesktopWordDefinitionOpen = React.useCallback((word) => {
+    if (!word) return;
+    openDefinitionActionRef.current?.(word);
+  }, []);
+
   function getWordFinders(word) {
     if (!word || !Array.isArray(finalResults)) return [];
     const norm = normalizeWord(word);
@@ -20031,6 +20322,44 @@ function handleTouchEnd(e) {
     }
   }
 
+  desktopChatHelpersRef.current = {
+    formatChatUnreadSuffix,
+    formatChatMessageTime,
+    isEditedChatMessage,
+    isSystemAuthor,
+    getChatMessageReplyPreview,
+    getChatMessageReactionEntries,
+  };
+
+  desktopChatActionsRef.current = {
+    appendChatEmoji,
+    beginChatEditFromMessage,
+    changeChatDesktopFontScale: handleChatDesktopFontScaleChange,
+    clearChatEditTarget,
+    clearChatReplyTarget,
+    deleteOwnChatMessage,
+    focusChatInput,
+    handleChatInputFocus,
+    handleChatInputKeyDown,
+    handleDesktopChatScroll,
+    openChatRules: () => setIsChatRulesOpen(true),
+    openDesktopChatReactionDetails,
+    openDesktopChatReactionPicker,
+    openUserMenu,
+    scheduleCloseDesktopChatReactionDetails,
+    setActiveArea,
+    setChatInputValue: (value, target) => {
+      setChatInput(value);
+      autoResizeDesktopChatInput(target);
+    },
+    setChatReplyTargetFromMessage,
+    setChatTab,
+    submitChat,
+    toggleBlockedList: () => setShowBlockedList((prev) => !prev),
+    toggleDesktopEmojiPicker: () => setIsDesktopEmojiPickerOpen((prev) => !prev),
+    unblockInstallId,
+  };
+
   const showResultsWordPath =
     phase === "results" && !isMobileLayout && analysis?.word && highlightPath.length > 0;
   const usedSet = phase === "playing" ? new Set(highlightPath) : new Set();
@@ -20067,6 +20396,21 @@ function handleTouchEnd(e) {
       endAngleDeg,
     };
   }, [highlightPath, showResultsWordPath]);
+  const restoreDesktopGridVisibilityIfStuck = React.useCallback(() => {
+    if (isMobileLayout || phase !== "playing") return;
+    if (typeof window === "undefined") return;
+    const gridEl = gridRef.current;
+    if (!(gridEl instanceof HTMLElement)) return;
+    const inlineOpacity = `${gridEl.style.opacity || ""}`.trim();
+    const computedOpacity = Number.parseFloat(window.getComputedStyle(gridEl).opacity || "1");
+    const looksHidden =
+      inlineOpacity === "0" ||
+      inlineOpacity === "0.0" ||
+      (Number.isFinite(computedOpacity) && computedOpacity <= 0.05);
+    if (!looksHidden) return;
+    gridEl.style.opacity = "";
+    gridEl.style.transition = "";
+  }, [isMobileLayout, phase]);
   const areResultsPathPreviewsEqual = React.useCallback((a, b) => {
     if (a === b) return true;
     if (!a || !b) return false;
@@ -20130,6 +20474,36 @@ function handleTouchEnd(e) {
       }
     };
   }, [areResultsPathPreviewsEqual, computeResultsPathPreview, showResultsWordPath]);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const cancelPendingRestore = () => {
+      if (foregroundGridRestoreRafRef.current != null) {
+        window.cancelAnimationFrame(foregroundGridRestoreRafRef.current);
+        foregroundGridRestoreRafRef.current = null;
+      }
+    };
+    const scheduleRestore = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      cancelPendingRestore();
+      foregroundGridRestoreRafRef.current = window.requestAnimationFrame(() => {
+        foregroundGridRestoreRafRef.current = null;
+        restoreDesktopGridVisibilityIfStuck();
+      });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") scheduleRestore();
+    };
+    scheduleRestore();
+    window.addEventListener("focus", scheduleRestore);
+    window.addEventListener("pageshow", scheduleRestore);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", scheduleRestore);
+      window.removeEventListener("pageshow", scheduleRestore);
+      document.removeEventListener("visibilitychange", onVisibility);
+      cancelPendingRestore();
+    };
+  }, [restoreDesktopGridVisibilityIfStuck]);
   const hintCellSet = React.useMemo(() => {
     if (
       specialRound?.type !== "target_long" ||
@@ -20284,18 +20658,8 @@ function handleTouchEnd(e) {
     flexShrink: 0,
   };
   const highlightPlayersSet = new Set(highlightPlayers);
-  const bestPtsByFoundWord = React.useMemo(() => {
-    const map = new Map();
-    if (!accepted || accepted.length === 0) return map;
-    for (const word of accepted) {
-      const norm = normalizeWord(word);
-      const path = findBestPathForWord(board, norm, specialScoreConfig);
-      if (path) {
-        map.set(word, computeScore(norm, path, board, specialScoreConfig));
-      }
-    }
-    return map;
-  }, [accepted, board, specialScoreConfig]);
+  const acceptedWordSet = React.useMemo(() => new Set(accepted), [accepted]);
+  const bestPtsByFoundWord = acceptedBestPtsRef.current;
 
   const pendingWordEntries = React.useMemo(() => {
     const entries = [];
@@ -20679,30 +21043,36 @@ function handleTouchEnd(e) {
       </div>
     </div>
   );
-  const allWordsMap = new Map(allWords.map((w) => [w.word, w]));
+  const allWordsMap = React.useMemo(
+    () => new Map((Array.isArray(allWords) ? allWords : []).map((w) => [w.word, w])),
+    [allWords]
+  );
   const isSpeedRound = specialRound?.type === "speed";
   const roundTilePointsVisible = tilePointsVisible && !isSpeedRound;
   const speedWordScore = isSpeedRound
     ? specialRound?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
     : null;
-  const foundList = acceptedRef.current.map((word) => ({
-    word,
-    isFound: true,
-    status: "accepted",
-    userPts: acceptedScoresRef.current.get(word),
-    bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
-  }));
-  pendingWordEntries.forEach((entry) => {
-    if (acceptedRef.current.includes(entry.word)) return;
-    foundList.push({
-      word: entry.word,
-      isFound: entry.status !== "rejected",
-      status: entry.status,
-      userPts: entry.userPts,
-      bestPts: allWordsMap.get(entry.word)?.pts ?? bestPtsByFoundWord.get(entry.word),
-      reason: entry.reason,
+  const foundList = React.useMemo(() => {
+    const list = accepted.map((word) => ({
+      word,
+      isFound: true,
+      status: "accepted",
+      userPts: acceptedScoresRef.current.get(word),
+      bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
+    }));
+    pendingWordEntries.forEach((entry) => {
+      if (acceptedWordSet.has(entry.word)) return;
+      list.push({
+        word: entry.word,
+        isFound: entry.status !== "rejected",
+        status: entry.status,
+        userPts: entry.userPts,
+        bestPts: allWordsMap.get(entry.word)?.pts ?? bestPtsByFoundWord.get(entry.word),
+        reason: entry.reason,
+      });
     });
-  });
+    return list;
+  }, [accepted, acceptedWordSet, allWordsMap, bestPtsByFoundWord, pendingWordEntries]);
   const suppressWordListScores = specialRound?.type === DAILY_SPECIAL_MODE;
   const compareWordsByLengthAlpha = (a, b) => {
     const lenDiff =
@@ -20718,28 +21088,32 @@ function handleTouchEnd(e) {
     suppressWordListScores ? compareWordsByLengthAlpha(a, b) : scoreForSort(b) - scoreForSort(a)
   );
   const baseList = allWords.length > 0 ? allWords : foundList;
-  const displayList = baseList.map((entry) => ({
-    word: entry.word,
-    isFound: acceptedRef.current.includes(entry.word),
-    status: pendingStatusMap.get(entry.word)?.status || entry.status || "idle",
-    reason: pendingStatusMap.get(entry.word)?.reason || entry.reason || "",
-    userPts: (() => {
-      const raw =
-        pendingStatusMap.get(entry.word)?.userPts ??
-        acceptedScoresRef.current.get(entry.word);
-      if (speedWordScore == null) return raw;
-      const status = pendingStatusMap.get(entry.word)?.status || entry.status || "idle";
-      const isPending = status === "pending";
-      const isFound = acceptedRef.current.includes(entry.word) || isPending;
-      return isFound ? speedWordScore : raw;
-    })(),
-    bestPts:
-      speedWordScore == null
-        ? typeof entry.pts === "number"
-          ? entry.pts
-          : entry.bestPts
-        : speedWordScore,
-  }));
+  const displayList = React.useMemo(
+    () =>
+      baseList.map((entry) => ({
+        word: entry.word,
+        isFound: acceptedWordSet.has(entry.word),
+        status: pendingStatusMap.get(entry.word)?.status || entry.status || "idle",
+        reason: pendingStatusMap.get(entry.word)?.reason || entry.reason || "",
+        userPts: (() => {
+          const raw =
+            pendingStatusMap.get(entry.word)?.userPts ??
+            acceptedScoresRef.current.get(entry.word);
+          if (speedWordScore == null) return raw;
+          const status = pendingStatusMap.get(entry.word)?.status || entry.status || "idle";
+          const isPending = status === "pending";
+          const isFound = acceptedWordSet.has(entry.word) || isPending;
+          return isFound ? speedWordScore : raw;
+        })(),
+        bestPts:
+          speedWordScore == null
+            ? typeof entry.pts === "number"
+              ? entry.pts
+              : entry.bestPts
+            : speedWordScore,
+      })),
+    [acceptedWordSet, baseList, pendingStatusMap, speedWordScore]
+  );
   if (suppressWordListScores) {
     displayList.sort(compareWordsByLengthAlpha);
   }
@@ -20771,8 +21145,9 @@ function handleTouchEnd(e) {
     const len = normalizeWord(entry.word || "").length;
     return Math.max(max, len);
   }, 0);
-  const gobbleCandidates = new Map();
-  if (gobbleMaxPts > 0 || gobbleMaxLen > 0) {
+  const gobbleCandidates = React.useMemo(() => {
+    const map = new Map();
+    if (gobbleMaxPts <= 0 && gobbleMaxLen <= 0) return map;
     displayList.forEach((entry) => {
       const len = normalizeWord(entry.word || "").length;
       const isBest =
@@ -20782,9 +21157,16 @@ function handleTouchEnd(e) {
         entry.bestPts === gobbleMaxPts;
       const isLong = len > 0 && len === gobbleMaxLen;
       if (!isBest && !isLong) return;
-      gobbleCandidates.set(entry.word, { best: isBest, long: isLong });
+      map.set(entry.word, { best: isBest, long: isLong });
     });
-  }
+    return map;
+  }, [
+    displayList,
+    gobbleMaxLen,
+    gobbleMaxPts,
+    isSpecial3RoundForResults,
+    isSpeedRoundForResults,
+  ]);
   const special3LongestWordLen =
     isSpecial3WordsMode && Number.isFinite(roundStats?.maxLen) ? Number(roundStats.maxLen) : 0;
   const renderSpecial3LengthGobbleBadge = (word) => {
@@ -21677,7 +22059,15 @@ function handleTouchEnd(e) {
         ) : null}
         {renderDockSpecial3LeaderSummary()}
         {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord ? (
-          <div className="space-y-1">
+          <div
+            className="space-y-1"
+            onMouseEnter={() => {
+              if (!isMobileLayout) analyzeWord(endStats.bestWord.word);
+            }}
+            onMouseLeave={() => {
+              if (!isMobileLayout) clearResultsWordAnalysis();
+            }}
+          >
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Meilleur mot</span>
               <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
@@ -21720,6 +22110,12 @@ function handleTouchEnd(e) {
                         className={`font-bold underline-offset-2 hover:underline ${
                           darkMode ? "text-amber-100" : "text-amber-900"
                         }`}
+                        onMouseEnter={() => {
+                          if (!isMobileLayout) analyzeWord(entry.word);
+                        }}
+                        onMouseLeave={() => {
+                          if (!isMobileLayout) clearResultsWordAnalysis();
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           openDefinition(entry.word);
@@ -21740,7 +22136,15 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
         {endStats.longestWord ? (
-          <div className="space-y-1">
+          <div
+            className="space-y-1"
+            onMouseEnter={() => {
+              if (!isMobileLayout) analyzeWord(endStats.longestWord.word);
+            }}
+            onMouseLeave={() => {
+              if (!isMobileLayout) clearResultsWordAnalysis();
+            }}
+          >
             <div className="flex items-center justify-between gap-3">
               <span className={`text-[11px] font-semibold ${mutedClass}`}>Mot le plus long</span>
               <span className="flex items-center gap-1.5 text-right flex-wrap justify-end">
@@ -21787,6 +22191,12 @@ function handleTouchEnd(e) {
                         className={`font-bold underline-offset-2 hover:underline ${
                           darkMode ? "text-amber-100" : "text-amber-900"
                         }`}
+                        onMouseEnter={() => {
+                          if (!isMobileLayout) analyzeWord(entry.word);
+                        }}
+                        onMouseLeave={() => {
+                          if (!isMobileLayout) clearResultsWordAnalysis();
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           openDefinition(entry.word);
@@ -21976,7 +22386,10 @@ function handleTouchEnd(e) {
     }));
   }
 
-  const liveRankingSource = buildRanking();
+  const liveRankingSource = React.useMemo(
+    () => buildRanking(),
+    [provisionalRanking, players, score, selfNick, duelStatus?.team]
+  );
   const dailyEntriesRaw = Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : [];
   const dailyEntries = dailyEntriesRaw.filter((entry) => !entry?.isPalier);
   const dailyWidgetEntries = isMobileLayout ? dailyEntriesRaw : dailyEntries;
@@ -23886,11 +24299,12 @@ function handleTouchEnd(e) {
     const useRingIndicator = specialIndicatorPreset === "ring";
     const useBadgeIndicator = specialIndicatorPreset === "badge";
     return (
-      <div className="min-h-[28px] min-w-0 overflow-hidden flex items-center">
+      <div className="min-h-[28px] min-w-0 flex items-center">
         <AutoScaleInline
           minScale={0.42}
           align={align}
-          className={`gap-1 max-w-full ${edgePadding ? "px-1" : ""}`}
+          measurePaddingPx={edgePadding ? 10 : 4}
+          className={`gap-1 max-w-full ${edgePadding ? "px-1.5" : ""}`}
         >
           {tiles.map((tile, idx) => {
             const angle = disableRotation ? 0 : ((idx * 17 + tiles.length * 13) % 11) - 5;
@@ -33168,7 +33582,7 @@ function handleTouchEnd(e) {
         gobbleAwardsForLive={gobbleAwardsForLive}
         gridRef={gridRef}
         gridRotationTurns={gridRotationTurns}
-        gridShake={false}
+        gridShake={gridShake}
         gridSize={gridSize}
         handleMouseDown={handleMouseDown}
         handleMouseMove={handleMouseMove}
@@ -33314,6 +33728,14 @@ function handleTouchEnd(e) {
     !isMobileLayout && desktopGridHeightPx
       ? `${Math.max(220, desktopGridHeightPx - 230)}px`
       : WORDS_SCROLL_MAX_HEIGHT;
+  const desktopChatPanelClassName = `${chatBlockClasses} card w-full min-h-0 order-4 relative transition-opacity duration-150 ${
+    desktopColumnDragId === "chat" ? "opacity-25" : ""
+  }`;
+  const desktopChatPanelStyle = {
+    ...desktopColumnHeightStyle,
+    overflow: "hidden",
+    ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("chat") || 4 }),
+  };
   return (
     <>
       <div className="w-full px-6 pt-6 pb-4">
@@ -34395,657 +34817,70 @@ function handleTouchEnd(e) {
                   </div>
                 </div>
 
-              {displayList.length === 0 ? (
-                <div className="text-sm text-gray-500 shrink-0">
-                  {showAllWords && allWords.length === 0 ? "Aucun mot (solveur non lancé)" : "Aucun mot trouvé."}
-                </div>
-              ) : (
-                <div
-                  className="flex-1 min-h-0 overflow-y-auto pr-2"
-                  style={{ maxHeight: desktopWordsScrollMaxHeight }}
-                >
-                  <ul className="relative flex flex-col text-sm">
-                    {displayList.map((entry) => {
-                      const selected = analysis?.word === entry.word;
-                      const status = entry.status;
-                      const isPending = status === "pending";
-                      const isRejected = status === "rejected";
-                      const isFound = entry.isFound || isPending;
-                      const isFoundByHoveredPlayer = hoveredResultsWordSet.has(
-                        normalizeWord(entry.word)
-                      );
-                      const bestPts = entry.bestPts;
-                      const userPts = entry.userPts;
-                      const showOpt =
-                        !suppressWordListScores &&
-                        isFound &&
-                        typeof bestPts === "number" &&
-                        typeof userPts === "number" &&
-                        bestPts !== userPts &&
-                        !isPending &&
-                        !isRejected;
-                      const isTrouvable = !isFound && !isRejected;
-                      const visible = showAllWords || isFound || isRejected;
-                      const wordClassName = isRejected
-                        ? darkMode
-                          ? "font-semibold text-red-300 line-through"
-                          : "font-semibold text-red-600 line-through"
-                        : isPending
-                        ? darkMode
-                          ? "font-semibold text-slate-300 opacity-70"
-                          : "font-semibold text-gray-500 opacity-70"
-                        : isFound
-                        ? "font-semibold"
-                        : "text-gray-600";
-                      return (
-                        <li
-                          key={entry.word}
-                          onMouseEnter={() => analyzeWord(entry.word)}
-                          onMouseLeave={clearResultsWordAnalysis}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (entry.word) openDefinition(entry.word);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (entry.word) openDefinition(entry.word);
-                            }
-                          }}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Voir la définition de ${entry.word}`}
-                          ref={(el) => {
-                            if (el) listItemRefs.current.set(entry.word, el);
-                            else listItemRefs.current.delete(entry.word);
-                          }}
-                          className={`cursor-pointer rounded px-1 flex items-center justify-between gap-2 transition ${
-                            selected
-                              ? "bg-blue-50 text-blue-800"
-                              : isFoundByHoveredPlayer
-                              ? darkMode
-                                ? "bg-emerald-900/25 text-emerald-100"
-                                : "bg-emerald-50 text-emerald-900"
-                              : "hover:bg-gray-100"
-                          }`}
-                          style={{
-                            transitionDuration: "220ms",
-                            transitionProperty: isTrouvable
-                              ? "opacity, max-height"
-                              : "opacity, transform, max-height",
-                            opacity: visible ? 1 : 0,
-                            transform:
-                              isTrouvable || visible
-                                ? "translateY(0)"
-                                : "translateY(-8px)",
-                            maxHeight: visible ? "48px" : "0px",
-                            paddingTop: visible ? "2px" : "0px",
-                            paddingBottom: visible ? "2px" : "0px",
-                            overflow: "hidden",
-                            pointerEvents: visible ? "auto" : "none",
-                            position: "relative",
-                            color:
-                              !isFound && !isPending && darkMode
-                                ? DARK_WORD_INACTIVE
-                                : undefined,
-                          }}
-                        >
-                          <span className="flex items-center gap-2">
-                            {isFound ? (
-                              <span
-                                style={{
-                                  ...foundDotStyle,
-                                  opacity: isPending ? 0.4 : 1,
-                                }}
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <span
-                                style={{ ...foundDotStyle, opacity: 0 }}
-                                aria-hidden="true"
-                              />
-                            )}
-                            <span className="flex items-center gap-1 min-w-0">
-                              <span className={wordClassName}>{entry.word}</span>
-                              {renderGobbleCandidate(entry.word)}
-                            </span>
-                          </span>
-                          <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                            {!suppressWordListScores && typeof userPts === "number" && isFound && (
-                              <span
-                                className={`font-extrabold ${
-                                  darkMode ? "text-slate-100" : "text-slate-800"
-                                }`}
-                              >
-                                +{userPts} pts
-                              </span>
-                            )}
-                            {isPending && (
-                              <span className="text-[0.65rem] text-gray-400">
-                                envoi...
-                              </span>
-                            )}
-                            {isRejected && (
-                              <span
-                                className={`text-[0.65rem] ${
-                                  darkMode ? "text-red-300" : "text-red-600"
-                                }`}
-                              >
-                                refusé
-                              </span>
-                            )}
-                            {!suppressWordListScores && !isFound && typeof bestPts === "number" && (
-                              <span className="text-slate-500 opacity-75">
-                                ({bestPts} pts)
-                              </span>
-                            )}
-                            {showOpt && (
-                              <span
-                                className={`text-[0.65rem] ${
-                                  darkMode ? "text-red-300" : "text-red-600"
-                                }`}
-                              >
-                                (opt: {bestPts} pts)
-                              </span>
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
+              <DesktopResultsWordList
+                analysisWord={analysis?.word || ""}
+                allWordsCount={allWords.length}
+                darkMode={darkMode}
+                displayList={displayList}
+                gobbleBadgeUrl={gobbleBadgeUrl}
+                gobbleCandidates={gobbleCandidates}
+                hoveredResultsWordSet={hoveredResultsWordSet}
+                inactiveWordColor={DARK_WORD_INACTIVE}
+                listItemRefs={listItemRefs}
+                maxHeight={desktopWordsScrollMaxHeight}
+                onAnalyzeWord={handleDesktopWordAnalyze}
+                onClearAnalysis={handleDesktopWordAnalysisClear}
+                onOpenDefinition={handleDesktopWordDefinitionOpen}
+                showAllWords={showAllWords}
+                suppressWordListScores={suppressWordListScores}
+              />
             </div>
           )}
         </div>
 
         {/* Colonne 4 : Chat */}
         {!isDailyPlay && (
-          <div
-          ref={(node) => setDesktopColumnNode("chat", node)}
-          className={`${chatBlockClasses} card w-full min-h-0 order-4 relative transition-opacity duration-150 ${
-            desktopColumnDragId === "chat" ? "opacity-25" : ""
-          }`}
-          style={{
-            ...desktopColumnHeightStyle,
-            overflow: "hidden",
-            ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("chat") || 4 }),
-          }}
-          onClick={(event) => {
-            setActiveArea("chat");
-            const target = event.target instanceof HTMLElement ? event.target : null;
-            if (target?.closest("button, a, input, textarea, select, label")) return;
-            focusChatInput();
-          }}
-          >
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-center">Chat</h2>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className={`text-[11px] font-semibold ${
-                  darkMode ? "text-slate-300" : "text-slate-600"
-                }`}
-                onClick={() => setIsChatRulesOpen(true)}
-              >
-                Règles
-              </button>
-              <button
-              type="button"
-              className={`text-[11px] font-semibold ${
-                darkMode ? "text-amber-300" : "text-blue-600"
-              }`}
-              onClick={() => setShowBlockedList((prev) => !prev)}
-            >
-              Joueurs bloqués ({blockedCount})
-            </button>
-            </div>
-          </div>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div
-              className={`inline-flex rounded-full border p-1 ${
-                darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
-              }`}
-            >
-              <button
-                type="button"
-                className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
-                  safeChatTab === "messages"
-                    ? "bg-blue-600 text-white"
-                    : darkMode
-                    ? "text-slate-200"
-                    : "text-slate-700"
-                }`}
-                onClick={() => setChatTab("messages")}
-              >
-                Messages{formatChatUnreadSuffix(chatMessagesUnreadCount)}
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
-                  safeChatTab === "system"
-                    ? "bg-orange-500 text-white"
-                    : darkMode
-                    ? "text-slate-200"
-                    : "text-slate-700"
-                }`}
-                onClick={() => setChatTab("system")}
-              >
-                Système
-              </button>
-            </div>
-            <label
-              className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-2 py-1 ${
-                darkMode
-                  ? "border-white/10 bg-slate-800/70 text-slate-100"
-                  : "border-slate-200 bg-slate-100 text-slate-700"
-              }`}
-              title={`Taille du chat : ${desktopChatScaleLabel}`}
-            >
-              <span
-                className="font-extrabold text-base leading-none shrink-0"
-                style={{
-                  fontFamily: "\"GobblePerfectPen\", \"KGPerfectPenmanship\", cursive",
-                }}
-                aria-hidden="true"
-              >
-                Aa
-              </span>
-              <input
-                type="range"
-                min={CHAT_DESKTOP_FONT_SCALE_MIN}
-                max={CHAT_DESKTOP_FONT_SCALE_MAX}
-                step={CHAT_DESKTOP_FONT_SCALE_STEP}
-                value={chatDesktopFontScale}
-                onChange={(e) => handleChatDesktopFontScaleChange(e.target.value)}
-                className="w-24 accent-blue-600"
-                aria-label="Taille de la police du chat"
-              />
-            </label>
-          </div>
-          {renderBlockedListPanel()}
-
-          <div
-            ref={setChatDesktopListNode}
-            className="chat-messages flex-1 border rounded px-2 py-1 pb-4 bg-white/85 dark:bg-slate-900/75 text-xs space-y-1 flex flex-col overflow-y-auto custom-scrollbar custom-scrollbar-gray"
-            style={{ overscrollBehavior: "contain", overflowAnchor: "none" }}
-            onScroll={handleDesktopChatScroll}
-          >
-            {visibleMessages.length === 0 ? (
-              <div className="text-sm text-slate-400 text-center mt-4">
-                {safeChatTab === "system"
-                  ? "Aucun log de connexion/déconnexion."
-                  : "Aucun message pour l'instant."}
-              </div>
-            ) : null}
-            {visibleMessages.map((msg) => {
-              const author = (msg.nick || msg.author || "Anonyme").trim();
-              const authorInstallId =
-                typeof msg.installId === "string" ? msg.installId : "";
-              const messageTime = formatChatMessageTime(msg);
-              const isEdited = isEditedChatMessage(msg);
-              const systemAuthor = author || "Système";
-              const isYou = authorInstallId
-                ? authorInstallId === installId
-                : author === selfNick;
-              const isSystem = isSystemAuthor(author);
-              const isLast = msg.id === lastMessageId;
-              const canOpenMenu =
-                !isSystem && authorInstallId && authorInstallId !== installId;
-              const replyPreview = getChatMessageReplyPreview(msg);
-              const reactionEntries = getChatMessageReactionEntries(msg);
-              const replyTargetsSelf = !!(
-                replyPreview &&
-                ((replyPreview.installId &&
-                  String(replyPreview.installId).trim() === String(installId || "").trim()) ||
-                  (!replyPreview.installId &&
-                    String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
-              );
-
-              return (
-                <div
-                  key={msg.id}
-                  data-chat-row
-                  className={`w-full transition-opacity duration-300 ${
-                    isLast ? "slide-fade-in" : ""
-                  }`}
-                >
-                  {isSystem ? (
-                    <div className="w-full px-1 py-0.5 italic text-orange-700" style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}>
-                      <div className="flex items-baseline gap-1 flex-wrap">
-                        <span className="font-semibold">{systemAuthor}:</span>
-                        {messageTime ? (
-                          <span className="leading-none opacity-70" style={{ fontSize: `${desktopChatMicroFontPx}px` }}>
-                            {messageTime}
-                          </span>
-                        ) : null}
-                        {isEdited ? (
-                          <span className="leading-none opacity-60" style={{ fontSize: `${desktopChatMicroFontPx}px` }}>(modifié)</span>
-                        ) : null}
-                        <span>{msg.text}</span>
-                      </div>
-                    </div>
-	                  ) : (
-                    <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className={[
-                              "group/chatmsg max-w-[88%] px-2 py-1 rounded-lg",
-                              isYou
-                                ? darkMode
-                                  ? "bg-blue-500 text-white"
-                              : "bg-blue-600 text-white"
-                            : darkMode
-                            ? "bg-slate-800 text-slate-100 border border-slate-700"
-                            : "bg-slate-100 text-slate-900 border border-slate-200",
-                            ].join(" ")}
-                            style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}
-                          >
-                            {replyPreview ? (
-                              <div
-                                className={`mb-1 rounded-md border-l-4 px-2 py-1 ${
-                                  replyTargetsSelf
-                                    ? "border-blue-500 bg-blue-50 text-slate-700"
-                                    : darkMode
-                                ? "border-slate-600 bg-slate-700/80 text-slate-200"
-                                : "border-slate-300 bg-slate-50 text-slate-700"
-                                }`}
-                                style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}
-                              >
-                          <div className="font-semibold">{replyPreview.nick}</div>
-                          <div
-                            style={{
-                              display: "-webkit-box",
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {replyPreview.text}
-                          </div>
-                        </div>
-                      ) : null}
-	                      <div className="flex items-baseline gap-1.5 flex-wrap">
-	                        {canOpenMenu ? (
-	                          <button
-	                            type="button"
-	                            className={`font-semibold hover:underline ${
-                                isYou
-                                  ? "text-white"
-                                  : darkMode
-                                  ? "text-slate-100"
-                                  : "text-black"
-                              }`}
-	                            onClick={(e) =>
-	                              openUserMenu(e, {
-	                                nick: author,
-                                installId: authorInstallId,
-                                messageId: msg.id,
-                              })
-                            }
-	                          >
-	                            {author} :
-	                          </button>
-	                        ) : (
-	                          <span
-                              className={`font-semibold ${
-                                isYou
-                                  ? "text-white"
-                                  : darkMode
-                                  ? "text-slate-100"
-                                  : "text-black"
-                              }`}
-                            >
-                              {author} :
-                            </span>
-	                        )}
-	                        {messageTime ? (
-	                          <span
-                              className={`text-[10px] leading-none ${
-                                isYou
-                                  ? "text-white/80"
-                                  : darkMode
-                                  ? "text-slate-400"
-                                  : "text-slate-500"
-                              }`}
-                            >
-	                            {messageTime}
-	                          </span>
-	                        ) : null}
-	                        <span
-                            className={
-                              isYou
-                                ? "text-white"
-                                : darkMode
-                                ? "text-slate-100"
-                                : "text-black"
-                            }
-                          >
-                            {msg.text}
-                          </span>
-	                      </div>
-                      {!isYou ? (
-                        <div className="mt-1 flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="text-[10px] font-semibold text-blue-600 hover:underline"
-                            onClick={() => setChatReplyTargetFromMessage(msg)}
-                          >
-                            Répondre
-                          </button>
-                          <button
-                            type="button"
-                            className="text-[10px] font-semibold text-slate-600 hover:underline"
-                            onClick={(event) => openDesktopChatReactionPicker(event, msg)}
-                          >
-                            Réagir
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-1 flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="text-[10px] font-semibold text-amber-600 hover:underline"
-                            onClick={() => beginChatEditFromMessage(msg)}
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            type="button"
-                            className="text-[10px] font-semibold text-rose-600 hover:underline"
-                            onClick={() => deleteOwnChatMessage(msg)}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
-	                      {reactionEntries.length ? (
-	                        <div className="mt-1 flex flex-wrap gap-1">
-	                          {reactionEntries.map((entry) => (
-                              <button
-                                key={`${msg.id || "msg"}:${entry.emoji}`}
-                                type="button"
-                                className="h-5 rounded-full border border-slate-300 bg-white px-2 text-[10px] inline-flex items-center gap-1 text-slate-700"
-                                onMouseEnter={(event) =>
-                                  openDesktopChatReactionDetails(event, msg, entry)
-                                }
-                                onMouseLeave={() => scheduleCloseDesktopChatReactionDetails()}
-                                onClick={(event) =>
-                                  openDesktopChatReactionDetails(event, msg, entry)
-                                }
-                              >
-                                <span>{entry.emoji}</span>
-                                <span>{entry.count}</span>
-                              </button>
-                          ))}
-	                        </div>
-	                      ) : null}
-	                    </div>
-                    </div>
-	                  )}
-	                </div>
-	              );
-            })}
-          </div>
-
-          {safeChatTab !== "system" ? (
-            <>
-              {chatEditTarget ? (
-                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-slate-700" style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold">Modification du message</div>
-                      <div
-                        style={{
-                          fontSize: `${desktopChatMetaFontPx}px`,
-                          lineHeight: `${desktopChatMetaLineHeightPx}px`,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {chatEditTarget.text || ""}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="h-6 w-6 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-600 shrink-0"
-                      onClick={clearChatEditTarget}
-                      aria-label="Annuler la modification"
-                    >
-                      x
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              {chatReplyTarget ? (
-                <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-slate-700" style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold">
-                        Réponse à {chatReplyTarget.nick || "Anonyme"}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: `${desktopChatMetaFontPx}px`,
-                          lineHeight: `${desktopChatMetaLineHeightPx}px`,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {chatReplyTarget.text || ""}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="h-6 w-6 rounded-full border border-slate-300 bg-white text-xs font-bold text-slate-600 shrink-0"
-                      onClick={clearChatReplyTarget}
-                      aria-label="Annuler la réponse"
-                    >
-                      x
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <div className="mt-2 flex flex-nowrap items-center gap-1.5">
-                {QUICK_REPLIES.map((txt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => submitChat(null, txt)}
-                    disabled={chatInputDisabled}
-                    className="px-1.5 py-0.5 leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ fontSize: `${desktopChatQuickReplyFontPx}px` }}
-                  >
-                    {txt}
-                  </button>
-                ))}
-              </div>
-
-              {isDesktopEmojiPickerOpen ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {DESKTOP_CHAT_EMOJIS.map((emoji) => (
-                    <button
-                      key={`chat-emoji-${emoji}`}
-                      type="button"
-                      onClick={() => appendChatEmoji(emoji)}
-                      disabled={chatInputDisabled}
-                      className={`h-8 w-8 rounded-md border leading-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
-                        darkMode
-                          ? "bg-slate-800 border-slate-700 hover:bg-slate-700"
-                          : "bg-white border-slate-300 hover:bg-slate-100"
-                      }`}
-                      style={{ fontSize: `${Math.round(18 * chatDesktopFontScale)}px` }}
-                      title={`Ajouter ${emoji}`}
-                      aria-label={`Ajouter ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="mt-3 flex items-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDesktopEmojiPickerOpen((prev) => !prev)}
-                  disabled={chatInputDisabled}
-                  className={`px-2 py-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
-                    darkMode
-                      ? "bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700"
-                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                  }`}
-                  style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
-                  aria-label="Raccourci émoticônes"
-                  title="Raccourci émoticônes"
-                >
-                  🙂
-                </button>
-                <textarea
-                  ref={chatInputRef}
-                  rows={1}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  inputMode="text"
-                  enterKeyHint="send"
-                  data-form-type="other"
-                  data-lpignore="true"
-                  data-1p-ignore="true"
-                  data-bwignore="true"
-                  data-autofill="off"
-                  aria-autocomplete="none"
-                  aria-label="Message du chat"
-                  onFocus={handleChatInputFocus}
-                  readOnly={chatInputDisabled}
-                  aria-disabled={chatInputDisabled}
-                  className="flex-1 min-w-0 border rounded px-3 py-2 ios-input chat-input resize-none min-h-[40px] max-h-[140px]"
-                  style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
-                  placeholder={chatInputPlaceholder}
-                  value={chatInput}
-                  onChange={(e) => {
-                    setChatInput(e.target.value);
-                    autoResizeDesktopChatInput(e.currentTarget);
-                  }}
-                  onKeyDown={handleChatInputKeyDown}
-                />
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-                  style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
-                  disabled={!chatInput.trim() || chatInputDisabled}
-                  onClick={() => submitChat(null)}
-                >
-                  Envoyer
-                </button>
-              </div>
-            </>
-          ) : null}
-        </div>
+          <DesktopChatPanel
+            actionsRef={desktopChatActionsRef}
+            blockedCount={blockedCount}
+            blockedEntries={blockedEntries}
+            chatBlockClassName={desktopChatPanelClassName}
+            chatDesktopFontScale={chatDesktopFontScale}
+            chatEditTarget={chatEditTarget}
+            chatInput={chatInput}
+            chatInputDisabled={chatInputDisabled}
+            chatInputPlaceholder={chatInputPlaceholder}
+            chatInputRef={chatInputRef}
+            chatMessagesUnreadCount={chatMessagesUnreadCount}
+            chatReplyTarget={chatReplyTarget}
+            chatScaleMax={CHAT_DESKTOP_FONT_SCALE_MAX}
+            chatScaleMin={CHAT_DESKTOP_FONT_SCALE_MIN}
+            chatScaleStep={CHAT_DESKTOP_FONT_SCALE_STEP}
+            darkMode={darkMode}
+            desktopChatFontPx={desktopChatFontPx}
+            desktopChatInputFontPx={desktopChatInputFontPx}
+            desktopChatInputLineHeightPx={desktopChatInputLineHeightPx}
+            desktopChatLineHeightPx={desktopChatLineHeightPx}
+            desktopChatMetaFontPx={desktopChatMetaFontPx}
+            desktopChatMetaLineHeightPx={desktopChatMetaLineHeightPx}
+            desktopChatMicroFontPx={desktopChatMicroFontPx}
+            desktopChatQuickReplyFontPx={desktopChatQuickReplyFontPx}
+            desktopChatScaleLabel={desktopChatScaleLabel}
+            desktopChatStyle={desktopChatPanelStyle}
+            desktopChatTab={safeChatTab}
+            desktopEmojiList={DESKTOP_CHAT_EMOJIS}
+            helpersRef={desktopChatHelpersRef}
+            installId={installId}
+            isDesktopEmojiPickerOpen={isDesktopEmojiPickerOpen}
+            lastMessageId={lastMessageId}
+            listRef={setChatDesktopListNode}
+            mobileReactionToasts={mobileChatReactionToasts}
+            panelRef={setDesktopChatColumnNode}
+            quickReplies={QUICK_REPLIES}
+            selfNick={selfNick}
+            showBlockedList={showBlockedList}
+            visibleMessages={visibleMessages}
+          />
         )}
       </div>
       {desktopResizeEnabled &&
