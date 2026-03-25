@@ -11,10 +11,11 @@ export default function AutoScaleInline({
   const lineRef = React.useRef(null);
   const [scale, setScale] = React.useState(1);
 
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     const viewportEl = viewportRef.current;
     const lineEl = lineRef.current;
     if (!viewportEl || !lineEl) return undefined;
+    let rafId = null;
 
     const recomputeScale = () => {
       const viewportWidth = viewportEl.clientWidth || 0;
@@ -31,22 +32,35 @@ export default function AutoScaleInline({
         : 1;
       setScale((prev) => (Math.abs(prev - nextScale) > 0.01 ? nextScale : prev));
     };
+    const scheduleRecompute = () => {
+      if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+        recomputeScale();
+        return;
+      }
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        recomputeScale();
+      });
+    };
 
-    recomputeScale();
+    scheduleRecompute();
 
     let observer = null;
     if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(recomputeScale);
+      observer = new ResizeObserver(scheduleRecompute);
       observer.observe(viewportEl);
-      observer.observe(lineEl);
     } else if (typeof window !== "undefined") {
-      window.addEventListener("resize", recomputeScale);
+      window.addEventListener("resize", scheduleRecompute);
     }
 
     return () => {
       if (observer) observer.disconnect();
+      if (rafId != null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(rafId);
+      }
       if (typeof window !== "undefined") {
-        window.removeEventListener("resize", recomputeScale);
+        window.removeEventListener("resize", scheduleRecompute);
       }
     };
   }, [children, measurePaddingPx, minScale]);

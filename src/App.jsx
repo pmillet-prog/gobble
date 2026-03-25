@@ -4984,6 +4984,7 @@ export default function App() {
   };
   const [highlightPlayers, setHighlightPlayers] = useState([]);
   const [resultsPathPreview, setResultsPathPreview] = useState(null);
+  const resultsPathPreviewRef = useRef(null);
   const resultsPathGradientIdRef = useRef(
     `results-path-gradient-${Math.random().toString(36).slice(2)}`
   );
@@ -20428,23 +20429,56 @@ function handleTouchEnd(e) {
     }
     return true;
   }, []);
-  useLayoutEffect(() => {
+  const normalizeResultsPathPreview = React.useCallback((preview) => {
+    if (!preview) return null;
+    const roundMetric = (value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? Math.round(numeric) : 0;
+    };
+    const points = (Array.isArray(preview.points) ? preview.points : [])
+      .map((point) => {
+        if (!point) return null;
+        return {
+          x: roundMetric(point.x),
+          y: roundMetric(point.y),
+        };
+      })
+      .filter(Boolean);
+    if (!points.length) return null;
+    return {
+      width: roundMetric(preview.width),
+      height: roundMetric(preview.height),
+      points,
+      endAngleDeg: roundMetric(preview.endAngleDeg),
+    };
+  }, []);
+  useEffect(() => {
     if (!showResultsWordPath) {
+      resultsPathPreviewRef.current = null;
       setResultsPathPreview((prev) => (prev == null ? prev : null));
       return;
     }
+    if (typeof window === "undefined") return;
+    const gridEl = gridRef.current;
+    if (!(gridEl instanceof HTMLElement)) return;
     let rafId = null;
+    let destroyed = false;
+    let lastObservedWidth = -1;
+    let lastObservedHeight = -1;
     const updatePreview = () => {
-      const nextPreview = computeResultsPathPreview();
-      setResultsPathPreview((prev) =>
-        areResultsPathPreviewsEqual(prev, nextPreview) ? prev : nextPreview
-      );
+      if (destroyed) return;
+      const nextPreview = normalizeResultsPathPreview(computeResultsPathPreview());
+      const prevPreview = resultsPathPreviewRef.current;
+      if (areResultsPathPreviewsEqual(prevPreview, nextPreview)) return;
+      resultsPathPreviewRef.current = nextPreview;
+      setResultsPathPreview(nextPreview);
     };
     const scheduleUpdate = () => {
-      if (rafId != null && typeof window !== "undefined") {
+      if (destroyed) return;
+      if (rafId != null) {
         window.cancelAnimationFrame(rafId);
       }
-      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      if (typeof window.requestAnimationFrame === "function") {
         rafId = window.requestAnimationFrame(() => {
           rafId = null;
           updatePreview();
@@ -20455,25 +20489,33 @@ function handleTouchEnd(e) {
     };
     scheduleUpdate();
     let observer = null;
-    if (typeof window !== "undefined" && typeof ResizeObserver !== "undefined" && gridRef.current) {
-      observer = new ResizeObserver(() => scheduleUpdate());
-      observer.observe(gridRef.current);
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        const nextWidth = Math.round(entry?.contentRect?.width || gridEl.clientWidth || 0);
+        const nextHeight = Math.round(entry?.contentRect?.height || gridEl.clientHeight || 0);
+        if (nextWidth === lastObservedWidth && nextHeight === lastObservedHeight) return;
+        lastObservedWidth = nextWidth;
+        lastObservedHeight = nextHeight;
+        scheduleUpdate();
+      });
+      observer.observe(gridEl);
     }
-    if (typeof window !== "undefined") {
-      window.addEventListener("resize", scheduleUpdate);
-      window.addEventListener("scroll", scheduleUpdate, true);
-    }
+    window.addEventListener("resize", scheduleUpdate);
     return () => {
-      if (rafId != null && typeof window !== "undefined") {
+      destroyed = true;
+      if (rafId != null) {
         window.cancelAnimationFrame(rafId);
       }
       if (observer) observer.disconnect();
-      if (typeof window !== "undefined") {
-        window.removeEventListener("resize", scheduleUpdate);
-        window.removeEventListener("scroll", scheduleUpdate, true);
-      }
+      window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [areResultsPathPreviewsEqual, computeResultsPathPreview, showResultsWordPath]);
+  }, [
+    areResultsPathPreviewsEqual,
+    computeResultsPathPreview,
+    normalizeResultsPathPreview,
+    showResultsWordPath,
+  ]);
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const cancelPendingRestore = () => {
@@ -22754,18 +22796,20 @@ function handleTouchEnd(e) {
     setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.TAP_PSEUDO);
   }, [guidedResultsEligible, guidedResultsSeenInstallId, installId, normalizedLegacyInstallId]);
   useEffect(() => {
-    if (!guidedResultsEligible || !guidedResultsStep || !guidedResultsPageKey) return;
-    if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_PSEUDO) return;
+    if (!guidedResultsEligible || !guidedResultsPageKey) return;
     const targetStep = GUIDED_RESULTS_PAGE_TO_STEP[guidedResultsPageKey];
     if (!targetStep) return;
-    const currentIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(guidedResultsStep);
     const targetIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(targetStep);
     const maxAutoIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(GUIDED_RESULTS_STEPS.TAP_WORD);
-    if (currentIndex === -1 || targetIndex === -1) return;
-    if (currentIndex <= maxAutoIndex && targetIndex > currentIndex) {
-      setGuidedResultsStep(targetStep);
-    }
-  }, [guidedResultsEligible, guidedResultsStep, guidedResultsPageKey]);
+    if (targetIndex === -1) return;
+    setGuidedResultsStep((prev) => {
+      if (!prev || prev === GUIDED_RESULTS_STEPS.TAP_PSEUDO) return prev;
+      const currentIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(prev);
+      if (currentIndex === -1 || currentIndex > maxAutoIndex) return prev;
+      if (targetIndex <= currentIndex || prev === targetStep) return prev;
+      return targetStep;
+    });
+  }, [guidedResultsEligible, guidedResultsPageKey]);
   const formatTargetTime = (ms) => {
     if (!Number.isFinite(ms)) return "PAS TROUVÉ";
     const seconds = Math.max(0, ms) / 1000;

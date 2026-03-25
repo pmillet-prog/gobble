@@ -7,6 +7,22 @@ function clampValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function areRankingListsEquivalent(left, right) {
+  if (left === right) return true;
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    const a = left[i] || {};
+    const b = right[i] || {};
+    if ((a.playerKey || a.nick || i) !== (b.playerKey || b.nick || i)) return false;
+    if ((a.nick || "") !== (b.nick || "")) return false;
+    if ((a.score || 0) !== (b.score || 0)) return false;
+    if ((a.wordsCount ?? null) !== (b.wordsCount ?? null)) return false;
+    if (!!a.isPalier !== !!b.isPalier) return false;
+  }
+  return true;
+}
+
 function buildRightLabel(entry, scoreValue, wordsCount) {
   if (entry && typeof entry.rightLabel === "string") {
     return entry.rightLabel;
@@ -529,7 +545,7 @@ function RankingWidgetMobile({
     }
 
     pendingRankingRef.current = null;
-    setDisplayRanking(safeRanking);
+    setDisplayRanking((prev) => (areRankingListsEquivalent(prev, safeRanking) ? prev : safeRanking));
   }, [safeRanking, animateRank]);
 
   // Anime displayRank jusqu'… targetRank avec file d'attente pour ne pas casser la roue
