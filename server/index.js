@@ -297,11 +297,20 @@ app.get("/api/stats/weekly", async (req, res) => {
   try {
     const payload = getWeeklyStats(topN);
     const boards = payload?.boards || {};
+    const normalizeWeeklyNick = (rawNick) =>
+      typeof rawNick === "string" ? rawNick.trim().toLowerCase() : "";
+    const buildWeeklyNickKey = (rawNick) => {
+      const nick = normalizeWeeklyNick(rawNick);
+      return nick ? `nick:${nick}` : "";
+    };
     const canonicalizeVocabPlayerKey = (rawPlayerKey, rawInstallId = "") => {
       const playerKey = typeof rawPlayerKey === "string" ? rawPlayerKey.trim() : "";
       if (playerKey.startsWith("install:")) {
         const installId = playerKey.slice("install:".length);
         return getMedalKeyForInstallId(installId) || playerKey;
+      }
+      if (playerKey.startsWith("nick:")) {
+        return buildWeeklyNickKey(playerKey.slice("nick:".length)) || playerKey;
       }
       if (rawInstallId) {
         return getMedalKeyForInstallId(rawInstallId) || `install:${rawInstallId}`;
@@ -309,21 +318,38 @@ app.get("/api/stats/weekly", async (req, res) => {
       return playerKey;
     };
     const nickByPlayerKey = new Map();
+    const installKeyByNick = new Map();
     for (const value of Object.values(boards)) {
       if (!Array.isArray(value)) continue;
       for (const entry of value) {
         const key = canonicalizeVocabPlayerKey(entry?.playerKey, entry?.installId);
         const nick = typeof entry?.nick === "string" ? entry.nick.trim() : "";
+        const nickLower = normalizeWeeklyNick(entry?.nick);
         if (key && nick && !nickByPlayerKey.has(key)) {
           nickByPlayerKey.set(key, nick);
+        }
+        if (key.startsWith("install:") && nickLower && !installKeyByNick.has(nickLower)) {
+          installKeyByNick.set(nickLower, key);
         }
       }
     }
     const vocabularyFallback = await getVocabularyLeaderboard(payload?.topN || topN || 50);
+    for (const entry of vocabularyFallback) {
+      const key = canonicalizeVocabPlayerKey("", entry?.installId);
+      const nickLower = normalizeWeeklyNick(entry?.nick);
+      if (key.startsWith("install:") && nickLower && !installKeyByNick.has(nickLower)) {
+        installKeyByNick.set(nickLower, key);
+      }
+    }
     const vocabByKey = new Map();
     const vocabFromWeekly = Array.isArray(boards?.vocab) ? boards.vocab : [];
     for (const entry of vocabFromWeekly) {
-      const key = canonicalizeVocabPlayerKey(entry?.playerKey, entry?.installId);
+      const nickLower = normalizeWeeklyNick(entry?.nick);
+      const rawKey = canonicalizeVocabPlayerKey(entry?.playerKey, entry?.installId);
+      const key =
+        nickLower && (!rawKey || rawKey.startsWith("nick:")) && installKeyByNick.has(nickLower)
+          ? installKeyByNick.get(nickLower)
+          : rawKey || buildWeeklyNickKey(entry?.nick);
       if (!key) continue;
       const current = vocabByKey.get(key);
       if (!current || (Number(entry?.vocabCount) || 0) > (Number(current?.vocabCount) || 0)) {

@@ -293,7 +293,11 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       targetLength,
       targetPath,
     };
-    if (!isTargetLong || targetWord) {
+    const candidateHasRequiredTarget =
+      roundPlan?.type === "target_score" || roundPlan?.type === "target_long"
+        ? !!targetWord
+        : true;
+    if (candidateHasRequiredTarget) {
       fallbackCandidate = candidate;
     }
     if (needsBonusLetter && !planForRound?.bonusLetter) {
@@ -364,7 +368,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
         }
       }
     } else {
-      if (!bestCandidate || currentScore > bestScore) {
+      if (candidateHasRequiredTarget && (!bestCandidate || currentScore > bestScore)) {
         bestCandidate = candidate;
       }
 

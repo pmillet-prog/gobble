@@ -13283,11 +13283,23 @@ export default function App() {
 
   function dedupeWeeklyEntries(boardKey, entries, limit = 50) {
     if (!Array.isArray(entries)) return [];
+    const installKeyByNick = new Map();
+    if (boardKey === "vocab") {
+      for (const entry of entries) {
+        const playerKey = typeof entry?.playerKey === "string" ? entry.playerKey.trim() : "";
+        const nickKey = entry?.nick ? String(entry.nick).trim().toLowerCase() : "";
+        if (!playerKey.startsWith("install:") || !nickKey) continue;
+        if (!installKeyByNick.has(nickKey)) installKeyByNick.set(nickKey, playerKey);
+      }
+    }
     const byPlayer = new Map();
     for (const entry of entries) {
+      const nickKey = entry?.nick ? String(entry.nick).trim().toLowerCase() : null;
+      const rawKey = entry?.playerKey || nickKey;
       const key =
-        entry?.playerKey ||
-        (entry?.nick ? String(entry.nick).trim().toLowerCase() : null);
+        boardKey === "vocab" && nickKey && (!rawKey || String(rawKey).startsWith("nick:"))
+          ? installKeyByNick.get(nickKey) || rawKey
+          : rawKey;
       if (!key) continue;
       const current = byPlayer.get(key);
       const value = getWeeklyValue(boardKey, entry);
@@ -24928,7 +24940,7 @@ function handleTouchEnd(e) {
     if (boardKey === "bestRoundScore") return Number(entry.pts) || 0;
     if (boardKey === "vocab") return Number(entry.vocabCount) || 0;
     if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
-      return Number(entry.ms) || 0;
+      return Number.isFinite(Number(entry.ms)) ? Number(entry.ms) : null;
     }
     if (boardKey === "mostGobbles") return Number(entry.gobbles) || 0;
     return null;

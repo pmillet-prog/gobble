@@ -151,6 +151,18 @@ function shouldReplaceWeekly(current, valueKey, nextValue, achievedAt, asc = fal
   return (Number(achievedAt) || 0) < (Number(current?.achievedAt) || 0);
 }
 
+function isValidWeeklyTargetTimeEntry(entry) {
+  return !!(
+    entry &&
+    typeof entry === "object" &&
+    String(entry.playerKey || "").trim() &&
+    String(entry.nick || "").trim() &&
+    String(entry.word || "").trim() &&
+    Number.isFinite(Number(entry.ms)) &&
+    Number(entry.ms) >= 0
+  );
+}
+
 function mergeWeeklyBoardEntry(boardKey, current, incoming) {
   const next = { ...(current || {}) };
   const source = incoming || {};
@@ -213,6 +225,9 @@ function mergeWeeklyBoardEntry(boardKey, current, incoming) {
       : next;
   }
   if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
+    if (!isValidWeeklyTargetTimeEntry(source)) {
+      return current ? { ...current } : null;
+    }
     return shouldReplaceWeekly(next, "ms", Number(source?.ms) || 0, source?.achievedAt, true)
       ? { ...source }
       : next;
@@ -251,7 +266,9 @@ function rewriteWeeklyStatsPayload(payload, installIdMap, userByTargetInstallId)
         source.nick = user.usernameDisplay;
       }
       const current = merged[mappedPlayerKey] || null;
-      merged[mappedPlayerKey] = mergeWeeklyBoardEntry(boardKey, current, source);
+      const nextEntry = mergeWeeklyBoardEntry(boardKey, current, source);
+      if (!nextEntry) continue;
+      merged[mappedPlayerKey] = nextEntry;
       merged[mappedPlayerKey].playerKey = mappedPlayerKey;
       if (user?.usernameDisplay) {
         merged[mappedPlayerKey].nick = user.usernameDisplay;

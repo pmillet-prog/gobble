@@ -3052,7 +3052,11 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
             targetPath: fallbackTargetPath,
           }
         : candidate;
-    if (!isTargetLong || targetWord || fallbackTargetWord) {
+    const candidateHasRequiredTarget =
+      roundPlan?.type === "target_score"
+        ? !!targetWord
+        : !isTargetLong || !!targetWord || !!fallbackTargetWord;
+    if (candidateHasRequiredTarget) {
       fallbackCandidate = fallbackCandidateOverride;
     }
     if (needsBonusLetter && !planForRound?.bonusLetter) {
@@ -3113,7 +3117,7 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         }
       }
     } else {
-      if (!bestCandidate || currentScore > bestScore) {
+      if (candidateHasRequiredTarget && (!bestCandidate || currentScore > bestScore)) {
         bestCandidate = candidate;
       }
 
@@ -3127,6 +3131,14 @@ function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   if (!bestCandidate && fallbackCandidate) {
     console.warn(`[${room.id}] Grille speciale bonus_letter sans lettre valide apres ${maxAttemptsTotal} essais.`);
     bestCandidate = fallbackCandidate;
+  }
+
+  if (!bestCandidate) {
+    room.nextPreparedGrid = null;
+    console.warn(
+      `[${room.id}] Aucune grille valide preparee pour ${roundPlan?.type || "normal"} apres ${maxAttemptsTotal} essais.`
+    );
+    return null;
   }
 
   room.nextPreparedGrid = { ...bestCandidate, plan: bestCandidate?.plan || roundPlan, roundNumber };
@@ -3179,13 +3191,24 @@ function startRoundForRoom(room) {
 
   const tournamentPlan = getTournamentRoundPlan(room, tournamentRound);
   const cached = room.nextPreparedGrid?.roundNumber === roundNumber ? room.nextPreparedGrid : null;
-  const prepared = cached || prepareNextGrid(room, tournamentPlan, roundNumber);
+  let prepared = cached || prepareNextGrid(room, tournamentPlan, roundNumber);
   if (room.nextPreparedGrid?.roundNumber === roundNumber) {
     room.nextPreparedGrid = null;
   }
+  let planUsed = prepared?.plan || tournamentPlan;
+  if (
+    !prepared &&
+    (planUsed?.type === "target_long" ||
+      planUsed?.type === "target_score" ||
+      planUsed?.type === "bonus_letter")
+  ) {
+    console.warn(
+      `[${room.id}] Prepared grid missing for ${planUsed.type}; falling back to base plan.`
+    );
+    planUsed = buildBaseTournamentPlan(tournamentRound, room.config);
+  }
   const grid = prepared?.grid || generateGrid(room.config.gridSize);
   const quality = prepared?.quality;
-  const planUsed = prepared?.plan || tournamentPlan;
   const now = Date.now();
   const roundId = now;
   const roundDurationMs =
@@ -4101,9 +4124,6 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 rooms.forEach((room) => startRoundForRoom(room));
-
-
-
 
 
 

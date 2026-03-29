@@ -117,6 +117,66 @@ function serializeMap(map) {
   return Object.fromEntries(map.entries());
 }
 
+function normalizeTargetTimeEntry(entry, fallbackPlayerKey = "") {
+  if (!entry || typeof entry !== "object") return null;
+  const playerKey =
+    typeof entry.playerKey === "string" && entry.playerKey.trim()
+      ? entry.playerKey.trim()
+      : fallbackPlayerKey;
+  const nick = typeof entry.nick === "string" ? entry.nick.trim() : "";
+  const word = typeof entry.word === "string" ? entry.word.trim() : "";
+  const ms = Number(entry.ms);
+  if (!playerKey || !nick || !word || !Number.isFinite(ms) || ms < 0) {
+    return null;
+  }
+  return {
+    ...entry,
+    playerKey,
+    nick,
+    word,
+    ms: Math.round(ms),
+  };
+}
+
+function sanitizeTargetTimeMap(map) {
+  const next = new Map();
+  let changed = false;
+  for (const [key, entry] of map.entries()) {
+    const normalized = normalizeTargetTimeEntry(entry, key);
+    if (!normalized) {
+      changed = true;
+      continue;
+    }
+    if (
+      normalized !== entry ||
+      normalized.playerKey !== entry?.playerKey ||
+      normalized.nick !== entry?.nick ||
+      normalized.word !== entry?.word ||
+      normalized.ms !== entry?.ms
+    ) {
+      changed = true;
+    }
+    next.set(key, normalized);
+  }
+  return { map: next, changed };
+}
+
+function sanitizeWeekState(week) {
+  if (!week || typeof week !== "object") return false;
+  let changed = false;
+  const bestTimeTargetLong = sanitizeTargetTimeMap(week.bestTimeTargetLong || new Map());
+  const bestTimeTargetScore = sanitizeTargetTimeMap(week.bestTimeTargetScore || new Map());
+  if (bestTimeTargetLong.changed) {
+    week.bestTimeTargetLong = bestTimeTargetLong.map;
+    changed = true;
+  }
+  if (bestTimeTargetScore.changed) {
+    week.bestTimeTargetScore = bestTimeTargetScore.map;
+    changed = true;
+  }
+  return changed;
+}
+
 function serializeWeekState(week) {
   return {
     weekStartTs: week.weekStartTs,
@@ -296,6 +356,7 @@ async function markCorrupt(filePath) {
 }
 
 async function loadFromDisk() {
+  let sanitized = false;
   let selected = null;
   const primary = await readStatsFile(DATA_PATH);
   if (primary?.parsed) {
@@ -317,13 +378,16 @@ async function loadFromDisk() {
   if (selected?.parsed) {
     const parsed = selected.parsed;
     state = reviveWeekState(parsed, Number(parsed.weekStartTs) || getWeekStartTs());
+    sanitized = sanitizeWeekState(state) || sanitized;
     history = new Map();
     const rawHistory = parsed.history;
     if (rawHistory && typeof rawHistory === "object") {
       for (const [key, value] of Object.entries(rawHistory)) {
         const ts = Number(key) || Number(value?.weekStartTs) || 0;
         if (!ts) continue;
-        history.set(ts, reviveWeekState(value, ts));
+        const week = reviveWeekState(value, ts);
+        sanitized = sanitizeWeekState(week) || sanitized;
+        history.set(ts, week);
       }
     }
   } else {
@@ -336,6 +400,10 @@ async function loadFromDisk() {
   const loadedKeys = selected?.parsed ? Object.keys(selected.parsed).join(",") : "";
   console.log(`weeklyStats loaded from ${loadedPath} size=${loadedSize} keys=${loadedKeys}`);
   ensureCurrentWeek();
+  if (sanitized) {
+    console.warn("weeklyStats sanitized malformed target-time entries from disk");
+    scheduleSave();
+  }
 }
 
 function seedSamples() {
@@ -537,6 +605,12 @@ export function getWeeklyStats(topN = TOP_N) {
   const mostWords = Array.from(activeState.mostWordsInGame.values()).filter(
     (entry) => Number(entry?.wordsCount) > 0
   );
+  const bestTimeTargetLong = Array.from(activeState.bestTimeTargetLong.values()).filter(
+    (entry) => !!normalizeTargetTimeEntry(entry)
+  );
+  const bestTimeTargetScore = Array.from(activeState.bestTimeTargetScore.values()).filter(
+    (entry) => !!normalizeTargetTimeEntry(entry)
+  );
   return {
     weekStartTs,
     weekStartISO: new Date(weekStartTs).toISOString(),
@@ -555,16 +629,8 @@ export function getWeeklyStats(topN = TOP_N) {
         false
       ).slice(0, topN),
       bestRoundScore: sortEntries(Array.from(activeState.bestRoundScore.values()), "pts", false).slice(0, topN),
-      bestTimeTargetLong: sortEntries(
-        Array.from(activeState.bestTimeTargetLong.values()),
-        "ms",
-        true
-      ).slice(0, topN),
-      bestTimeTargetScore: sortEntries(
-        Array.from(activeState.bestTimeTargetScore.values()),
-        "ms",
-        true
-      ).slice(0, topN),
+      bestTimeTargetLong: sortEntries(bestTimeTargetLong, "ms", true).slice(0, topN),
+      bestTimeTargetScore: sortEntries(bestTimeTargetScore, "ms", true).slice(0, topN),
       vocab: sortEntries(Array.from(activeState.vocab.values()), "vocabCount", false).slice(0, topN),
       mostGobbles: sortEntries(Array.from(activeState.mostGobbles.values()), "gobbles", false).slice(0, topN),
     },
