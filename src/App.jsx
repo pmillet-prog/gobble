@@ -3334,7 +3334,8 @@ body.theme-dark textarea::placeholder {
 @keyframes gobbleHold {
   0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
   22% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 1; }
+  74% { transform: translate(-50%, -50%) translate(calc(var(--praise-x) * 0.78), calc(var(--praise-y) * 0.78)) scale(calc(var(--praise-scale) * 0.96)); opacity: 0.98; }
+  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 0; }
 }
 
 @keyframes gobbleShine {
@@ -14798,6 +14799,7 @@ export default function App() {
         dateId: data?.dateId || dateId,
         mode: dailyPlayMode,
         score: Number.isFinite(data?.score) ? data.score : score,
+        gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
         rank: Number.isFinite(data?.rank) ? data.rank : null,
         totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
       });
@@ -14819,6 +14821,7 @@ export default function App() {
         hasPlayedSpecial: dailyPlayMode === DAILY_SPECIAL_MODE ? true : prev?.hasPlayedSpecial,
         myResult: {
           score: Number.isFinite(data?.score) ? data.score : score,
+          gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
           rank: Number.isFinite(data?.rank) ? data.rank : null,
           submittedAt: Date.now(),
         },
@@ -14826,6 +14829,7 @@ export default function App() {
           dailyPlayMode === DAILY_MONSTROUS_MODE
             ? {
                 score: Number.isFinite(data?.score) ? data.score : score,
+                gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
                 rank: Number.isFinite(data?.rank) ? data.rank : null,
                 submittedAt: Date.now(),
               }
@@ -14834,6 +14838,7 @@ export default function App() {
           dailyPlayMode === DAILY_SPECIAL_MODE
             ? {
                 score: Number.isFinite(data?.score) ? data.score : score,
+                gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
                 rank: Number.isFinite(data?.rank) ? data.rank : null,
                 submittedAt: Date.now(),
               }
@@ -29953,10 +29958,6 @@ function handleTouchEnd(e) {
     dailyBattle?.countedPlayersByTeam && typeof dailyBattle.countedPlayersByTeam === "object"
       ? dailyBattle.countedPlayersByTeam
       : { red: 0, blue: 0 };
-  const dailyScoreLabel =
-    dailyMyResult && Number.isFinite(dailyMyResult.score) ? dailyMyResult.score : null;
-  const dailyRankLabel =
-    dailyMyResult && Number.isFinite(dailyMyResult.rank) ? dailyMyResult.rank : null;
   const todayDateId = dailyStatus?.dateId || dailyBoard?.dateId || null;
   const fakeDailyHistoryDays = buildFakeDailyHistoryDays(todayDateId);
   const dailyHistoryDaysRaw = (() => {
@@ -29979,8 +29980,38 @@ function handleTouchEnd(e) {
   const dailyEntrySort = (a, b) => {
     const scoreDiff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
     if (scoreDiff !== 0) return scoreDiff;
+    const gobbleDiff = (Number(b?.gobbles) || 0) - (Number(a?.gobbles) || 0);
+    if (gobbleDiff !== 0) return gobbleDiff;
+    const submittedDiff = (Number(a?.submittedAt) || 0) - (Number(b?.submittedAt) || 0);
+    if (submittedDiff !== 0) return submittedDiff;
     return String(a?.nick || "").localeCompare(String(b?.nick || ""));
   };
+  const formatDailyGobbleLabel = (gobbles) => {
+    const count = Number(gobbles) || 0;
+    if (count <= 0) return "";
+    return `${count} gobble${count > 1 ? "s" : ""}`;
+  };
+  const formatDailyEntryLabel = (
+    entry,
+    { includeWords = true, includeGobbles = false } = {}
+  ) => {
+    if (!Number.isFinite(entry?.score)) return "-";
+    const parts = [];
+    if (includeWords && Number.isFinite(entry?.wordsCount) && entry.wordsCount > 0) {
+      parts.push(`${entry.wordsCount} mots`);
+    }
+    parts.push(`${entry.score} pts`);
+    if (includeGobbles) {
+      const gobbleLabel = formatDailyGobbleLabel(entry?.gobbles);
+      if (gobbleLabel) parts.push(gobbleLabel);
+    }
+    return parts.join(" · ");
+  };
+  const dailyScoreLabel =
+    dailyMyResult && Number.isFinite(dailyMyResult.score) ? dailyMyResult.score : null;
+  const dailyGobblesLabel = formatDailyGobbleLabel(dailyMyResult?.gobbles);
+  const dailyRankLabel =
+    dailyMyResult && Number.isFinite(dailyMyResult.rank) ? dailyMyResult.rank : null;
   const aggregateDailyOverviewEntries = (entries) => {
     const list = Array.isArray(entries) ? entries : [];
     const grouped = new Map();
@@ -30109,9 +30140,7 @@ function handleTouchEnd(e) {
           const isPalier = !!entry?.isPalier;
           const label = entry?.rightLabel
             ? entry.rightLabel
-            : Number.isFinite(entry?.score)
-            ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${entry.score} pts`
-            : "-";
+            : formatDailyEntryLabel(entry, { includeWords: true, includeGobbles: true });
           const gobbleBadge = !isPalier ? renderGobbleBadge(entry?.gobbles) : null;
           const isSelfDaily =
             !isPalier &&
@@ -30521,14 +30550,18 @@ function handleTouchEnd(e) {
                           <div className="text-sm font-bold">Date : {page.dateId}</div>
                           {Number.isFinite(
                             dailySection === DAILY_OVERVIEW_SECTION
-                              ? page.totalPlayers
+                              ? Array.isArray(page?.entries)
+                                ? page.entries.length
+                                : page.totalPlayers
                               : Array.isArray(page.entries)
                               ? page.entries.length
                               : null
                           ) ? (
                             <div className="text-[11px] opacity-70">
                               {dailySection === DAILY_OVERVIEW_SECTION
-                                ? page.totalPlayers
+                                ? Array.isArray(page?.entries)
+                                  ? page.entries.length
+                                  : page.totalPlayers
                                 : Array.isArray(page.entries)
                                 ? page.entries.length
                                 : 0}{" "}
@@ -30574,19 +30607,67 @@ function handleTouchEnd(e) {
                             </div>
                           ) : null}
                           {dailySection === DAILY_OVERVIEW_SECTION ? (
-                            !page?.battle ? (
+                            Array.isArray(page?.entries) && page.entries.length > 0 ? (
+                              <div
+                                className={`rounded-lg border overflow-hidden ${
+                                  darkMode ? "border-white/10 bg-slate-950/20" : "border-slate-200 bg-white/70"
+                                }`}
+                              >
+                                <div
+                                  className={`px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] ${
+                                    darkMode ? "text-slate-300 border-b border-white/10" : "text-slate-600 border-b border-slate-200"
+                                  }`}
+                                >
+                                  Classement cumulé du jour
+                                </div>
+                                <div>
+                                  {page.entries.map((entry, entryIdx) => {
+                                    const label = formatDailyEntryLabel(entry, {
+                                      includeWords: false,
+                                      includeGobbles: true,
+                                    });
+                                    const gobbleBadge = renderGobbleBadge(entry?.gobbles);
+                                    return (
+                                      <div
+                                        key={entry?.playerKey || entry?.installId || `${entry?.nick}-${entryIdx}`}
+                                        className={`flex items-center justify-between gap-3 py-2 px-3 text-sm border-b last:border-b-0 ${
+                                          darkMode ? "border-white/5" : "border-slate-100"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
+                                            {entryIdx + 1}
+                                          </span>
+                                          <span className="truncate font-semibold flex items-center gap-1">
+                                            {entry?.nick || "Joueur"}
+                                            {renderHumanDot(entry?.nick, entry)}
+                                            {gobbleBadge}
+                                          </span>
+                                        </div>
+                                        <span className="text-[11px] font-semibold opacity-80 shrink-0">
+                                          {label}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : !page?.battle ? (
                               <div className="text-xs opacity-70 py-6 text-center">
                                 Résumé duel indisponible pour ce jour.
                               </div>
-                            ) : null
+                            ) : (
+                              <div className="text-xs opacity-70 py-6 text-center">
+                                Aucun score pour ce jour.
+                              </div>
+                            )
                           ) : Array.isArray(page.entries) && page.entries.length > 0 ? (
                             <div>
                               {page.entries.map((entry, entryIdx) => {
-                                const label = Number.isFinite(entry?.score)
-                                  ? `${entry.wordsCount != null ? `${entry.wordsCount} mots · ` : ""}${
-                                      entry.score
-                                    } pts`
-                                  : "-";
+                                const label = formatDailyEntryLabel(entry, {
+                                  includeWords: true,
+                                  includeGobbles: true,
+                                });
                                 const gobbleBadge = renderGobbleBadge(entry?.gobbles);
                                 return (
                                   <div
@@ -30927,7 +31008,7 @@ function handleTouchEnd(e) {
                         {!isMobileLayout && dailySection === DAILY_SPECIAL_MODE
                           ? "—"
                           : dailyScoreLabel != null
-                          ? `${dailyScoreLabel} pts`
+                          ? `${dailyScoreLabel} pts${dailyGobblesLabel ? ` · ${dailyGobblesLabel}` : ""}`
                           : "Pas encore de score"}
                         {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
                         {selectedDailyEntriesCount ? ` · ${selectedDailyEntriesCount} joueurs` : ""}
@@ -31085,7 +31166,9 @@ function handleTouchEnd(e) {
             </div>
 
             <div className="text-sm font-semibold">
-              {dailyScoreLabel != null ? `Score : ${dailyScoreLabel} pts` : "Score : -"}
+              {dailyScoreLabel != null
+                ? `Score : ${dailyScoreLabel} pts${dailyGobblesLabel ? ` · ${dailyGobblesLabel}` : ""}`
+                : "Score : -"}
               {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
               {dailyResult?.totalPlayers ? ` / ${dailyResult.totalPlayers}` : ""}
             </div>

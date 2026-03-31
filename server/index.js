@@ -1035,6 +1035,7 @@ const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
 const MIN_WORDS_BY_SIZE = { 4: 150, 5: 150 };
 const SPECIAL_ROUND_EVERY = 5;
+const LIVE_SPECIAL_ROUND_DURATION_MS = 120 * 1000;
 const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
 const SPEED_WORD_SCORE = 11;
 const MONSTROUS_MIN_TOTAL_SCORE = { 4: 4000, 5: 6000 };
@@ -4195,7 +4196,10 @@ async function startRoundForRoom(room) {
   const quality = prepared?.quality || null;
   const now = Date.now();
   const roundId = now;
-  const roundDurationMs = planUsed?.isSpecial ? 90 * 1000 : room.config.durationMs;
+  const roundDurationMs =
+    planUsed?.type === "speed" || planUsed?.type === "monstrous"
+      ? LIVE_SPECIAL_ROUND_DURATION_MS
+      : room.config.durationMs;
   const roundIntroMs = Math.max(0, ROUND_INTRO_DURATION_MS);
   const roundStartsAt = now + roundIntroMs;
   const roundEndsAt = roundStartsAt + roundDurationMs;
