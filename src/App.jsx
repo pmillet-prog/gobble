@@ -8238,18 +8238,17 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!isSamsungBrowserRef.current) return;
-    const preventSamsungGestureDuringDrag = (event) => {
+    const preventTouchScrollDuringDrag = (event) => {
       if (!draggingRef.current) return;
       if (event?.cancelable) {
         event.preventDefault();
       }
     };
-    window.addEventListener("touchmove", preventSamsungGestureDuringDrag, {
+    window.addEventListener("touchmove", preventTouchScrollDuringDrag, {
       passive: false,
     });
     return () => {
-      window.removeEventListener("touchmove", preventSamsungGestureDuringDrag);
+      window.removeEventListener("touchmove", preventTouchScrollDuringDrag);
     };
   }, []);
 
@@ -18760,6 +18759,7 @@ return nextPath;
 function handleTouchStart(e, index) {
   if (phase !== "playing" || inputLocked) return;
   if (!e.touches || e.touches.length === 0) return;
+  if (e?.cancelable) e.preventDefault();
 
   bumpSamsungDiagCounter("touchStart");
   resetDragMovePipeline();
@@ -18790,6 +18790,7 @@ function handleTouchStart(e, index) {
 function handleTouchMove(e) {
   if (!draggingRef.current) return;
   if (!e.touches || e.touches.length === 0) return;
+  if (e?.cancelable) e.preventDefault();
 
   bumpSamsungDiagCounter("touchMove");
   noteSamsungTouchMoveRate();
@@ -18823,6 +18824,7 @@ function handleMouseMove(e) {
 
 function handleTouchEnd(e) {
   if (!draggingRef.current) return;
+  if (e?.cancelable) e.preventDefault();
   bumpSamsungDiagCounter("touchEnd");
   const hadPendingDragMove = flushPendingDragMove();
   draggingRef.current = false;
@@ -34354,6 +34356,7 @@ function handleTouchEnd(e) {
                     : `${tileGapPx}px`,
                 padding: tileMaterialPreset === "square" ? "0px" : undefined,
                 touchAction: "none",
+                overscrollBehavior: "none",
                 ...(isMobileLayout
                   ? {}
                   : {
@@ -34554,6 +34557,9 @@ function handleTouchEnd(e) {
     width: "100%",
     aspectRatio: "1 / 1",
     willChange: "transform",
+    touchAction: "none",
+    WebkitUserSelect: "none",
+    WebkitTouchCallout: "none",
     fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
     ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
   }}

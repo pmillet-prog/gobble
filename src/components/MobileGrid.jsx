@@ -117,6 +117,7 @@ function MobileGrid({
           gap: isSquareMaterial ? "0px" : mobileGapPx,
           padding: isSquareMaterial ? "0px" : undefined,
           touchAction: "none",
+          overscrollBehavior: "none",
           width: "100%",
           maxWidth: mobileGridSide
             ? `${mobileGridSide}px`
@@ -200,10 +201,16 @@ function MobileGrid({
                       aspectRatio: "1 / 1",
                       fontSize: `${mobileTileFontPx}px`,
                       willChange: "transform",
+                      touchAction: "none",
+                      WebkitUserSelect: "none",
+                      WebkitTouchCallout: "none",
                       ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
                     }
                   : {
                       willChange: "transform",
+                      touchAction: "none",
+                      WebkitUserSelect: "none",
+                      WebkitTouchCallout: "none",
                       ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
                     }
               }
