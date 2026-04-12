@@ -20,7 +20,7 @@ import {
   findBestPathForWord,
   normalizeWord,
 } from "../shared/gameLogic.js";
-import { createBotManager, BOT_ROSTER_4X4, BOT_ROSTER_5X5 } from "./bots/botManager.js";
+import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
 import { getMetrics } from "./observability/metrics.js";
 import {
@@ -190,12 +190,10 @@ app.post("/api/client-crash", async (req, res) => {
 });
 
 const BOT_NICK_SET = new Set(
-  [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
-    .map((bot) => bot?.nick)
-    .filter(Boolean)
+  [...(BOT_ROSTER_4X4 || [])].map((bot) => bot?.nick).filter(Boolean)
 );
 const BOT_STRENGTH_BY_NICK = new Map(
-  [...(BOT_ROSTER_4X4 || []), ...(BOT_ROSTER_5X5 || [])]
+  [...(BOT_ROSTER_4X4 || [])]
     .filter((bot) => bot?.nick)
     .map((bot) => [bot.nick, bot.skill ?? 0])
 );
@@ -1101,13 +1099,13 @@ const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
 const LIVE_ROUND_END_GRACE_MS = 250;
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
-const MIN_WORDS_BY_SIZE = { 4: 150, 5: 150 };
+const DEFAULT_MIN_WORDS = 150;
 const SPECIAL_ROUND_EVERY = 5;
 const LIVE_SPECIAL_ROUND_DURATION_MS = 120 * 1000;
 const TARGET_SPECIAL_ROUND_DURATION_MS = 90 * 1000;
-const SPEED_MIN_WORDS = { 4: 300, 5: 400 };
+const SPEED_MIN_WORDS = 300;
 const SPEED_WORD_SCORE = 11;
-const MONSTROUS_MIN_TOTAL_SCORE = { 4: 4000, 5: 6000 };
+const MONSTROUS_MIN_TOTAL_SCORE = 4000;
 const MONSTROUS_EXTRA_MIN_WORDS = 50;
 const MONSTROUS_MIN_LONG_WORD_LEN = 10;
 const MONSTROUS_MIN_LONG_WORD_COUNT = 3;
@@ -1156,6 +1154,13 @@ const TARGET_HINT_SCORE_DEFAULT_SECONDS =
 
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
+const FUTURE_SPECIAL_BUFFER_TYPES = new Set([
+  "monstrous",
+  "fake_twins",
+  "target_long",
+  "target_score",
+  "bonus_letter",
+]);
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
 const SELF_SPECIAL_3_WORDS_TYPE = "self_specials_3_words";
 const SELF_SPECIAL_3_WORDS_WORD_TARGET = 3;
@@ -1193,18 +1198,9 @@ const ROOM_CONFIGS = {
     gridSize: 4,
     durationMs: DEFAULT_ROUND_DURATION_MS,
     breakMs: DEFAULT_BREAK_DURATION_MS,
-    minWords: MIN_WORDS_BY_SIZE[4],
-  },
-  "room-5x5": {
-    label: "Grille 5x5",
-    gridSize: 5,
-    durationMs: DEFAULT_ROUND_DURATION_MS,
-    breakMs: DEFAULT_BREAK_DURATION_MS,
-    minWords: MIN_WORDS_BY_SIZE[5],
+    minWords: DEFAULT_MIN_WORDS,
   },
 };
-
-const DISABLED_ROOMS = new Set(["room-5x5"]);
 
 
 
@@ -1748,10 +1744,9 @@ try {
 }
 
 function getRoundPlan(roundNumber, roomConfig) {
-  const size = roomConfig?.gridSize || 4;
   const base = {
     roundNumber,
-    gridSize: size,
+    gridSize: roomConfig?.gridSize || 4,
     isSpecial: false,
     type: "normal",
     label: "Manche classique",
@@ -1792,7 +1787,7 @@ function getRoundPlan(roundNumber, roomConfig) {
         type: "speed",
         label: "Manche rapidité",
         description: "Tous les mots valent 11 pts, on vise la rafale",
-        minWords: SPEED_MIN_WORDS[size] || SPEED_MIN_WORDS[4],
+        minWords: SPEED_MIN_WORDS,
         fixedWordScore: SPEED_WORD_SCORE,
         qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
       };
@@ -1804,7 +1799,7 @@ function getRoundPlan(roundNumber, roomConfig) {
       label: "Grille monstrueuse",
       description: "Grille chargée en mots très longs et gros score potentiel",
       minWords: (roomConfig?.minWords || 0) + MONSTROUS_EXTRA_MIN_WORDS,
-      minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
+      minTotalScore: MONSTROUS_MIN_TOTAL_SCORE,
       minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
       minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
       qualityAttempts: MONSTROUS_QUALITY_ATTEMPTS,
@@ -1832,14 +1827,13 @@ function buildBaseTournamentPlan(tournamentRound, roomConfig) {
 
 function buildSpeedTournamentPlan(tournamentRound, roomConfig) {
   const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
-  const size = base.gridSize || 4;
   return {
     ...base,
     isSpecial: true,
     type: "speed",
     label: "Manche rapidité",
     description: `Tous les mots valent ${SPEED_WORD_SCORE} pts, on vise la rafale`,
-    minWords: SPEED_MIN_WORDS[size] || SPEED_MIN_WORDS[4],
+    minWords: SPEED_MIN_WORDS,
     fixedWordScore: SPEED_WORD_SCORE,
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
@@ -1847,7 +1841,6 @@ function buildSpeedTournamentPlan(tournamentRound, roomConfig) {
 
 function buildMonstrousTournamentPlan(tournamentRound, roomConfig) {
   const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
-  const size = base.gridSize || 4;
   return {
     ...base,
     isSpecial: true,
@@ -1855,7 +1848,7 @@ function buildMonstrousTournamentPlan(tournamentRound, roomConfig) {
     label: "Grille monstrueuse",
     description: "Grille chargée en mots très longs et gros score potentiel",
     minWords: (roomConfig?.minWords || 0) + MONSTROUS_EXTRA_MIN_WORDS,
-    minTotalScore: MONSTROUS_MIN_TOTAL_SCORE[size] || MONSTROUS_MIN_TOTAL_SCORE[4],
+    minTotalScore: MONSTROUS_MIN_TOTAL_SCORE,
     minLongWordLen: MONSTROUS_MIN_LONG_WORD_LEN,
     minLongWordCount: MONSTROUS_MIN_LONG_WORD_COUNT,
     qualityAttempts: MONSTROUS_QUALITY_ATTEMPTS,
@@ -2007,6 +2000,9 @@ function createTournamentState(roomConfig) {
 
 function resetTournament(room) {
   room.tournament = createTournamentState(room.config);
+  room.bufferedPreparedGrid = null;
+  room.bufferedPreparedGridPromise = null;
+  room.bufferedPreparedGridPromiseMeta = null;
 }
 
 function getTournamentRoundPlan(room, tournamentRound) {
@@ -2076,6 +2072,11 @@ function createRoomState(roomId, config) {
     endSoonTimeout: null,
     lastRoundQuality: null,
     nextPreparedGrid: null,
+    nextPreparedGridPromise: null,
+    nextPreparedGridPromiseRoundNumber: null,
+    bufferedPreparedGrid: null,
+    bufferedPreparedGridPromise: null,
+    bufferedPreparedGridPromiseMeta: null,
     roundCounter: 0,
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
@@ -2092,7 +2093,6 @@ function createRoomState(roomId, config) {
 
 const rooms = new Map(
   Object.entries(ROOM_CONFIGS)
-    .filter(([roomId]) => !DISABLED_ROOMS.has(roomId))
     .map(([roomId, config]) => [roomId, createRoomState(roomId, config)])
 );
 rooms.forEach((room) => hydrateDailyMedals(room));
@@ -4116,6 +4116,151 @@ function shouldPrecomputePlan(plan) {
   return !!plan;
 }
 
+function getPreparedPlanCacheKey(plan) {
+  if (!plan) return "";
+  return JSON.stringify({
+    type: plan.type || "",
+    gridSize: plan.gridSize || 4,
+    minWords: plan.minWords || 0,
+    minTotalScore: plan.minTotalScore || 0,
+    minLongWordLen: plan.minLongWordLen || 0,
+    minLongWordCount: plan.minLongWordCount || 0,
+    minWordLength: plan.minWordLength || 0,
+    bonusLetter: plan.bonusLetter || "",
+    bonusLetterScore: plan.bonusLetterScore || 0,
+    fixedWordScore: plan.fixedWordScore || 0,
+    disableBonuses: !!plan.disableBonuses,
+  });
+}
+
+function hasPreparedOrPendingGrid(room, roundNumber) {
+  if (!room || !Number.isFinite(roundNumber)) return false;
+  return (
+    room.nextPreparedGrid?.roundNumber === roundNumber ||
+    (room.nextPreparedGridPromise &&
+      room.nextPreparedGridPromiseRoundNumber === roundNumber)
+  );
+}
+
+function matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId = null) {
+  const buffered = room?.bufferedPreparedGrid;
+  if (!buffered || !plan) return false;
+  const activeTournamentId = tournamentId || room?.tournament?.id || null;
+  return (
+    !!activeTournamentId &&
+    buffered.tournamentId === activeTournamentId &&
+    buffered.tournamentRound === tournamentRound &&
+    buffered.planKey === getPreparedPlanCacheKey(plan) &&
+    buffered.prepared?.grid?.length > 0
+  );
+}
+
+function cancelBufferedPreparedGrid(room) {
+  if (!room?.bufferedPreparedGridPromise) return;
+  computePool.cancelBufferedPrepare();
+  room.bufferedPreparedGridPromise = null;
+  room.bufferedPreparedGridPromiseMeta = null;
+}
+
+function takeBufferedPreparedGrid(room, tournamentRound, plan, roundNumber, tournamentId = null) {
+  if (!matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId)) {
+    return null;
+  }
+  const buffered = room.bufferedPreparedGrid;
+  room.bufferedPreparedGrid = null;
+  return {
+    ...(buffered.prepared || {}),
+    roundNumber,
+    plan: buffered.prepared?.plan || plan,
+  };
+}
+
+function findFutureBufferedSpecialTarget(room, afterTournamentRound) {
+  const total = room?.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
+  for (let round = Number(afterTournamentRound) + 1; round < total; round += 1) {
+    const plan = getTournamentRoundPlan(room, round);
+    if (!plan?.isSpecial) continue;
+    if (!FUTURE_SPECIAL_BUFFER_TYPES.has(plan.type)) continue;
+    return { tournamentRound: round, plan };
+  }
+  return null;
+}
+
+function ensureBufferedPreparedGrid(room, tournamentRound, plan) {
+  if (!room || !plan?.isSpecial) return;
+  const tournamentId = room?.tournament?.id || null;
+  if (!tournamentId) return;
+  if (matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId)) return;
+  const pendingMeta = room.bufferedPreparedGridPromiseMeta;
+  const planKey = getPreparedPlanCacheKey(plan);
+  if (
+    room.bufferedPreparedGridPromise &&
+    pendingMeta?.tournamentId === tournamentId &&
+    pendingMeta?.tournamentRound === tournamentRound &&
+    pendingMeta?.planKey === planKey
+  ) {
+    return;
+  }
+
+  cancelBufferedPreparedGrid(room);
+  room.bufferedPreparedGridPromiseMeta = {
+    tournamentId,
+    tournamentRound,
+    planKey,
+  };
+  const distanceFromCurrent = Math.max(
+    1,
+    tournamentRound - (room.tournament?.currentRound || 0)
+  );
+  const targetRoundNumber = (room.roundCounter || 0) + distanceFromCurrent;
+  let promise = null;
+  promise = computePool
+    .prepareBufferedGrid({
+      roomConfig: room.config,
+      roundPlan: plan,
+      roundNumber: targetRoundNumber,
+    })
+    .then((prepared) => {
+      const meta = room.bufferedPreparedGridPromiseMeta;
+      if (
+        !prepared?.grid?.length ||
+        !meta ||
+        meta.tournamentId !== tournamentId ||
+        meta.tournamentRound !== tournamentRound ||
+        meta.planKey !== planKey
+      ) {
+        return null;
+      }
+      room.bufferedPreparedGrid = {
+        tournamentId,
+        tournamentRound,
+        planKey,
+        prepared: {
+          ...prepared,
+          plan: prepared.plan || plan,
+        },
+      };
+      return room.bufferedPreparedGrid;
+    })
+    .catch((err) => {
+      if (err?.message === "buffer_prepare_cancelled") {
+        return null;
+      }
+      console.warn(
+        `[${room.id}] Failed to prepare buffered future special grid:`,
+        err?.message || err
+      );
+      return null;
+    })
+    .finally(() => {
+      if (room.bufferedPreparedGridPromise === promise) {
+        room.bufferedPreparedGridPromise = null;
+        room.bufferedPreparedGridPromiseMeta = null;
+      }
+    });
+  room.bufferedPreparedGridPromise = promise;
+}
+
 async function runBreakPrecomputeSequence(
   room,
   endedRoundSnapshot,
@@ -4127,35 +4272,57 @@ async function runBreakPrecomputeSequence(
   if (!room || !endedRoundSnapshot) return;
   const { grid, special } = endedRoundSnapshot;
   queueDefinitionPrefetch(room, results, targetSummary, endedRoundSnapshot);
+  const tasks = [];
+
   if (Array.isArray(grid) && grid.length > 0) {
-    try {
-      const scoreConfig = getSpecialScoreConfigFromPlan(special);
-      const analysis = await computePool.analyzeGrid({
-        grid,
-        roundPlan: special,
-        roomConfig: room.config,
-        scoreConfig,
-      });
-      room.lastRoundQuality = analysis?.quality || null;
-    } catch (err) {
-      console.warn(
-        `[${room.id}] Failed to analyze finished round:`,
-        err?.message || err
-      );
-    }
+    tasks.push(
+      (async () => {
+        try {
+          const scoreConfig = getSpecialScoreConfigFromPlan(special);
+          const analysis = await computePool.analyzeGrid({
+            grid,
+            roundPlan: special,
+            roomConfig: room.config,
+            scoreConfig,
+          });
+          room.lastRoundQuality = analysis?.quality || null;
+        } catch (err) {
+          console.warn(
+            `[${room.id}] Failed to analyze finished round:`,
+            err?.message || err
+          );
+        }
+      })()
+    );
   }
 
   if (
     shouldPrecomputePlan(nextPlan) &&
-    !(room.nextPreparedGrid && room.nextPreparedGrid.roundNumber === nextRoundNumber)
+    !hasPreparedOrPendingGrid(room, nextRoundNumber) &&
+    !matchesBufferedPreparedGrid(room, nextPlan?.roundNumber, nextPlan)
   ) {
-    try {
-      await prepareNextGrid(room, nextPlan, nextRoundNumber);
-    } catch (err) {
-      console.warn(
-        `[${room.id}] Failed to prepare next grid during break:`,
-        err?.message || err
-      );
+    tasks.push(
+      (async () => {
+        try {
+          await prepareNextGrid(room, nextPlan, nextRoundNumber);
+        } catch (err) {
+          console.warn(
+            `[${room.id}] Failed to prepare next grid during break:`,
+            err?.message || err
+          );
+        }
+      })()
+    );
+  }
+
+  if (tasks.length) {
+    await Promise.all(tasks);
+  }
+
+  if (nextPlan?.type === "normal") {
+    const futureTarget = findFutureBufferedSpecialTarget(room, nextPlan.roundNumber || 0);
+    if (futureTarget) {
+      ensureBufferedPreparedGrid(room, futureTarget.tournamentRound, futureTarget.plan);
     }
   }
 }
@@ -4233,35 +4400,56 @@ function pickBonusLetter(grid, solved, minWords) {
 async function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   const roundNumber = targetRoundNumber || (room.roundCounter || 0) + 1;
   const roundPlan = plan || getRoundPlan(roundNumber, room.config);
-
-  try {
-    const result = await computePool.prepareNextGrid({
-      roomConfig: room.config,
-      roundPlan,
-      roundNumber,
-    });
-    const prepared = result || null;
-    room.nextPreparedGrid = prepared
-      ? { ...prepared, plan: prepared.plan || roundPlan, roundNumber }
-      : null;
-
-    if (
-      prepared?.targetWord &&
-      (roundPlan.type === "target_long" || roundPlan.type === "target_score")
-    ) {
-      setTimeout(() => {
-        prefetchDefinitionForWord(prepared.targetWord);
-      }, 0);
-    }
-
+  if (room?.nextPreparedGrid?.roundNumber === roundNumber) {
     return room.nextPreparedGrid;
-  } catch (err) {
-    console.warn(
-      '[' + (room?.id || "room") + '] Failed to prepare grid in worker:',
-      err?.message || err
-    );
-    return null;
   }
+  if (
+    room?.nextPreparedGridPromise &&
+    room.nextPreparedGridPromiseRoundNumber === roundNumber
+  ) {
+    return room.nextPreparedGridPromise;
+  }
+
+  let pendingPromise = null;
+  pendingPromise = (async () => {
+    try {
+      const result = await computePool.prepareNextGrid({
+        roomConfig: room.config,
+        roundPlan,
+        roundNumber,
+      });
+      const prepared = result || null;
+      room.nextPreparedGrid = prepared
+        ? { ...prepared, plan: prepared.plan || roundPlan, roundNumber }
+        : null;
+
+      if (
+        prepared?.targetWord &&
+        (roundPlan.type === "target_long" || roundPlan.type === "target_score")
+      ) {
+        setTimeout(() => {
+          prefetchDefinitionForWord(prepared.targetWord);
+        }, 0);
+      }
+
+      return room.nextPreparedGrid;
+    } catch (err) {
+      console.warn(
+        '[' + (room?.id || "room") + '] Failed to prepare grid in worker:',
+        err?.message || err
+      );
+      return null;
+    } finally {
+      if (room?.nextPreparedGridPromise === pendingPromise) {
+        room.nextPreparedGridPromise = null;
+        room.nextPreparedGridPromiseRoundNumber = null;
+      }
+    }
+  })();
+
+  room.nextPreparedGridPromise = pendingPromise;
+  room.nextPreparedGridPromiseRoundNumber = roundNumber;
+  return pendingPromise;
 }
 
 
@@ -4281,6 +4469,7 @@ async function startRoundForRoom(room) {
   clearPendingRankingBroadcast(room);
   room.rankingLastSignature = null;
   room.breakState = null;
+  cancelBufferedPreparedGrid(room);
 
   if (room.currentRound?.timers) {
     room.currentRound.timers.forEach((t) => clearTimeout(t));
@@ -4306,6 +4495,18 @@ async function startRoundForRoom(room) {
   }
   let prepared = cached;
   let planUsed = prepared?.plan || tournamentPlan;
+  if (!prepared) {
+    prepared = takeBufferedPreparedGrid(
+      room,
+      tournamentRound,
+      tournamentPlan,
+      roundNumber,
+      room.tournament?.id || null
+    );
+    if (prepared?.plan) {
+      planUsed = prepared.plan;
+    }
+  }
   if (!prepared) {
     // Startup path: ensure the very first round also goes through worker quality/solver.
     prepared = await prepareNextGrid(room, planUsed, roundNumber);

@@ -26651,9 +26651,9 @@ function handleTouchEnd(e) {
     : null;
   const playersOverlay =
     isPlayersOverlayOpen && typeof document !== "undefined"
-      ? createPortal(
+        ? createPortal(
           <div
-            className="fixed inset-0 z-[12050] bg-black/60 backdrop-blur-sm flex items-center justify-center px-3 py-6"
+            className="fixed inset-0 z-[20160] bg-black/60 backdrop-blur-sm flex items-center justify-center px-3 py-6"
             onClick={closePlayersOverlay}
           >
             <div
