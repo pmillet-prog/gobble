@@ -22,7 +22,8 @@ const DATA_DIR = process.env.GOBBLE_DATA_DIR
 const DAILY_DIR = path.join(DATA_DIR, "daily");
 const MIN_PALIER_SCORE = 2000;
 const PALIER_STEP = 500;
-const LOCK_STALE_MS = 2 * 60 * 60 * 1000;
+const LOCK_STALE_MS = 20 * 60 * 1000;
+const LOCK_LEGACY_STALE_MS = 2 * 60 * 1000;
 const DAILY_RETENTION_DAYS = 180;
 export const DAILY_SPECIAL_MODE = "self_specials_3_words";
 export const DAILY_MONSTROUS_MODE = "monstrous_grid";
@@ -200,6 +201,45 @@ async function getFileStat(filePath) {
     return await fs.stat(filePath);
   } catch (_) {
     return null;
+  }
+}
+
+async function readDailyLockInfo(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    const text = String(raw || "").trim();
+    if (!text) return null;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object") {
+        return {
+          startedAt: Number(parsed.startedAt) || 0,
+          pid: Number.isInteger(Number(parsed.pid)) && Number(parsed.pid) > 0 ? Number(parsed.pid) : null,
+          dateId: typeof parsed.dateId === "string" ? parsed.dateId : null,
+          legacy: false,
+        };
+      }
+    } catch (_) {}
+    const legacyStartedAt = Number(text);
+    return {
+      startedAt: Number.isFinite(legacyStartedAt) && legacyStartedAt > 0 ? legacyStartedAt : 0,
+      pid: null,
+      dateId: null,
+      legacy: true,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function isProcessAlive(pid) {
+  const safePid = Number(pid);
+  if (!Number.isInteger(safePid) || safePid <= 0) return false;
+  try {
+    process.kill(safePid, 0);
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 
@@ -913,11 +953,24 @@ export async function ensureDaily(dateId) {
   const lockPath = dailyLockPath(dateId);
   const lockStat = await getFileStat(lockPath);
   if (lockStat) {
-    const ageMs = Date.now() - (lockStat.mtimeMs || 0);
-    if (ageMs < LOCK_STALE_MS) {
+    const lockInfo = await readDailyLockInfo(lockPath);
+    const startedAt =
+      Number(lockInfo?.startedAt) > 0 ? Number(lockInfo.startedAt) : Number(lockStat.mtimeMs) || 0;
+    const ageMs = Math.max(0, Date.now() - startedAt);
+    const pid = lockInfo?.pid || null;
+    const pidAlive = pid ? isProcessAlive(pid) : false;
+    const legacyLock = !!lockInfo?.legacy || !pid;
+    const shouldKeepLock =
+      (pidAlive && ageMs < LOCK_STALE_MS) || (legacyLock && ageMs < LOCK_LEGACY_STALE_MS);
+    if (shouldKeepLock) {
       return { ready: false };
     }
-    fs.unlink(lockPath).catch(() => {});
+    console.warn(
+      `[daily] clearing stale lock date=${dateId} ageMs=${ageMs} pid=${pid || "none"} alive=${
+        pidAlive ? "yes" : "no"
+      } legacy=${legacyLock ? "yes" : "no"}`
+    );
+    await fs.unlink(lockPath).catch(() => {});
   }
 
   spawnDailyGenerator(dateId);
@@ -929,13 +982,11 @@ function spawnDailyGenerator(dateId) {
   if (activeGenerators.has(dateId)) return;
   activeGenerators.add(dateId);
   const lockPath = dailyLockPath(dateId);
-  ensureDailyDir()
-    .then(() => fs.writeFile(lockPath, String(Date.now()), "utf8"))
-    .catch(() => {});
 
   const scriptPath = path.join(__dirname, "../../scripts/daily_gen.js");
   const nodeBin = process.execPath;
   const args = [scriptPath, "--date", dateId];
+  const startedAt = Date.now();
 
   let child = null;
   if (process.platform === "linux") {
@@ -951,6 +1002,20 @@ function spawnDailyGenerator(dateId) {
   if (!child) {
     child = spawn(nodeBin, args, { detached: true, stdio: "ignore" });
   }
+
+  ensureDailyDir()
+    .then(() =>
+      fs.writeFile(
+        lockPath,
+        JSON.stringify({
+          dateId,
+          startedAt,
+          pid: Number.isInteger(Number(child?.pid)) ? Number(child.pid) : null,
+        }),
+        "utf8"
+      )
+    )
+    .catch(() => {});
 
   child.on("exit", () => {
     activeGenerators.delete(dateId);
