@@ -25,6 +25,7 @@ function MobileStandardPlaying(props) {
     duelTeam = null,
     formatNumber = (value) => String(value ?? ""),
     fullRanking = [],
+    liveFeedBannerText = "",
     gobbleAwardsForLive = null,
     gridRef = null,
     gridRotationTurns = 0,
@@ -38,7 +39,11 @@ function MobileStandardPlaying(props) {
     handleTouchStart = null,
     highlightPlayers = [],
     hintCellSet = null,
+    hintCellOverlayStyleMap = null,
+    hintCellStyleMap = null,
     hintOutlineCellSet = null,
+    hintOutlineOverlayStyleMap = null,
+    hintOutlineStyleMap = null,
     implodeActive = false,
     isChatOpenMobile = false,
     isDailyPlay = false,
@@ -48,6 +53,7 @@ function MobileStandardPlaying(props) {
     lightGridSurfaceStyle = undefined,
     liveFeedMinHeight = 0,
     liveWord = "",
+    liveWordTiles = [],
     mobileAnnouncements = [],
     mobileBodyHeightStyle = undefined,
     mobileBodyPaddingTop = undefined,
@@ -188,6 +194,7 @@ function MobileStandardPlaying(props) {
                     <li>Rapidite : tous les mots valent 11 points.</li>
                     <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
                     <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
+                    <li>Faux jumeaux : une case vaut 2 lettres possibles, seuls les mots de 4+ lettres comptent.</li>
                     <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
                   </ul>
                   <div className="mt-3 text-[12px] font-semibold">Support</div>
@@ -373,6 +380,7 @@ function MobileStandardPlaying(props) {
             currentDisplay={currentDisplay}
             darkMode={darkMode}
             liveWord={liveWord}
+            liveWordTiles={liveWordTiles}
             onRotateGrid={onRotateGrid}
             phase={phase}
             previewBlockHeight={previewBlockHeight}
@@ -406,7 +414,11 @@ function MobileStandardPlaying(props) {
               handleTouchMove={handleTouchMove}
               handleTouchStart={handleTouchStart}
               hintCellSet={hintCellSet}
+              hintCellOverlayStyleMap={hintCellOverlayStyleMap}
+              hintCellStyleMap={hintCellStyleMap}
               hintOutlineCellSet={hintOutlineCellSet}
+              hintOutlineOverlayStyleMap={hintOutlineOverlayStyleMap}
+              hintOutlineStyleMap={hintOutlineStyleMap}
               isMobileLayout={isMobileLayout}
               lightGridSurfaceStyle={lightGridSurfaceStyle}
               MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
@@ -440,6 +452,7 @@ function MobileStandardPlaying(props) {
                 items={mobileAnnouncements}
                 darkMode={darkMode}
                 maxHeight="100%"
+                bannerText={liveFeedBannerText}
                 wrapAroundBottomRight={!isChatOpenMobile}
                 wrapAroundWidth="clamp(44px, 11vw, 68px)"
                 wrapAroundHeight="clamp(44px, 11vw, 68px)"

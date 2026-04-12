@@ -10,6 +10,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 
 import {
+  FAKE_TWINS_MIN_WORD_LENGTH,
+  FAKE_TWINS_TYPE,
   generateGrid,
   MOVABLE_BONUS_KEYS,
   scoreWordOnGrid,
@@ -71,10 +73,17 @@ import {
   WEEKLY_WIN_GOBBLARS_BONUS,
 } from "./stats/gobblarsService.js";
 import {
+  initWordVaultService,
+  listWordVaultEntriesForUser,
+  addWordVaultEntryForUser,
+  removeWordVaultEntryForUser,
+} from "./stats/wordVaultService.js";
+import {
   getDailyMedalsForRoom,
   persistDailyMedalsForRoom,
 } from "./stats/dailyMedalsService.js";
 import {
+  DAILY_FAKE_TWINS_MODE,
   addDaysToDateId,
   DAILY_MONSTROUS_MODE,
   DAILY_SPECIAL_MODE,
@@ -132,6 +141,9 @@ void initTrophyService().catch((err) =>
 );
 void initGobblarsService().catch((err) =>
   console.warn("Gobblars service init failed", err)
+);
+void initWordVaultService().catch((err) =>
+  console.warn("Word vault service init failed", err)
 );
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -216,14 +228,28 @@ function buildSolveCacheKey(grid, special) {
   for (const cell of grid) {
     const letter = cell?.letter ? String(cell.letter) : "";
     const bonus = cell?.bonus ? String(cell.bonus) : "";
-    cells.push(bonus ? `${letter}:${bonus}` : letter);
+    const altLetter = cell?.altLetter ? String(cell.altLetter) : "";
+    const specialType = cell?.specialType ? String(cell.specialType) : "";
+    cells.push([letter, bonus, altLetter, specialType].join(":"));
   }
   if (!special) return cells.join("|");
+  const specialType = special?.type ? String(special.type) : "";
   const bonusLetter = special?.bonusLetter ? normalizeLetterKey(special.bonusLetter) : "";
   const bonusLetterScore =
     Number.isFinite(special?.bonusLetterScore) ? special.bonusLetterScore : "";
   const disableBonuses = special?.disableBonuses ? 1 : 0;
-  return `${cells.join("|")}|${bonusLetter}|${bonusLetterScore}|${disableBonuses}`;
+  const minWordLength =
+    Number.isFinite(special?.minWordLength) && special.minWordLength > 0
+      ? Math.trunc(special.minWordLength)
+      : "";
+  return [
+    cells.join("|"),
+    specialType,
+    bonusLetter,
+    bonusLetterScore,
+    disableBonuses,
+    minWordLength,
+  ].join("|");
 }
 
 function solveGridCached(grid, dictionary, special = null) {
@@ -420,9 +446,10 @@ function sanitizeDailyNick(raw) {
 }
 
 function sanitizeDailyMode(raw) {
-  return String(raw || "").trim() === DAILY_SPECIAL_MODE
-    ? DAILY_SPECIAL_MODE
-    : DAILY_MONSTROUS_MODE;
+  const mode = String(raw || "").trim();
+  if (mode === DAILY_SPECIAL_MODE) return DAILY_SPECIAL_MODE;
+  if (mode === DAILY_FAKE_TWINS_MODE) return DAILY_FAKE_TWINS_MODE;
+  return DAILY_MONSTROUS_MODE;
 }
 
 async function runDailyStartFlow({ installId, pseudo, dailyMode }) {
@@ -814,6 +841,47 @@ app.post("/api/duel/objectives/submit", async (req, res) => {
   return res.json(payload);
 });
 
+app.get("/api/vault/words", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const items = await listWordVaultEntriesForUser(identity.userId);
+  return res.json({
+    ok: true,
+    items,
+    count: Array.isArray(items) ? items.length : 0,
+  });
+});
+
+app.post("/api/vault/words", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const result = await addWordVaultEntryForUser(identity.userId, req.body?.word);
+  if (!result?.ok) {
+    res.status(
+      result?.error === "word_required" || result?.error === "word_invalid" ? 400 : 500
+    );
+  }
+  return res.json(result);
+});
+
+app.delete("/api/vault/words", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "no-store");
+  const identity = await requireRequestPlayerIdentity(req, res);
+  if (!identity) return;
+  const result = await removeWordVaultEntryForUser(identity.userId, req.body?.word);
+  if (!result?.ok) {
+    res.status(
+      result?.error === "word_required" || result?.error === "word_invalid" ? 400 : 500
+    );
+  }
+  return res.json(result);
+});
+
 app.get("/api/broadcast/current", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
@@ -1091,6 +1159,8 @@ const BONUS_LETTER_MIN_WORDS = 30;
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
 const SELF_SPECIAL_3_WORDS_TYPE = "self_specials_3_words";
 const SELF_SPECIAL_3_WORDS_WORD_TARGET = 3;
+const FAKE_TWINS_LABEL = "Faux jumeaux";
+const FORCE_FAKE_TWINS_ALL_ROUNDS = false;
 const FORCE_SELF_SPECIAL_3_WORDS_ALL_ROUNDS = false;
 const FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS = false;
 // Dev-only: force alternance "meilleur mot" / "mot le plus long" pour tests.
@@ -1106,6 +1176,9 @@ const FORCE_TARGET_SPECIALS_LOCAL = (() => {
 
 if (FORCE_TARGET_SPECIALS_LOCAL) {
   console.log("[dev] Forçage des manches spéciales activé (target_long/target_score).");
+}
+if (FORCE_FAKE_TWINS_ALL_ROUNDS) {
+  console.log("[temp] Toutes les manches live sont forcées en mode Faux jumeaux.");
 }
 if (FORCE_SELF_SPECIAL_3_WORDS_ALL_SPECIALS) {
   console.log("[temp] Toutes les manches spéciales live sont forcées en mode 3 mots.");
@@ -1829,6 +1902,20 @@ function buildBonusLetterTournamentPlan(tournamentRound, roomConfig) {
   };
 }
 
+function buildFakeTwinsTournamentPlan(tournamentRound, roomConfig) {
+  const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
+  return {
+    ...base,
+    isSpecial: true,
+    type: FAKE_TWINS_TYPE,
+    label: FAKE_TWINS_LABEL,
+    description:
+      "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Seuls les mots de 4 lettres ou plus sont valides",
+    minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+  };
+}
+
 function buildSelfSpecial3WordsTournamentPlan(tournamentRound, roomConfig) {
   const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
   return {
@@ -1891,6 +1978,7 @@ function buildTournamentSpecials(roomConfig) {
     { weight: 1, value: (round) => buildTargetLongTournamentPlan(round, roomConfig) },
     { weight: 1, value: (round) => buildTargetScoreTournamentPlan(round, roomConfig) },
     { weight: 1, value: (round) => buildBonusLetterTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildFakeTwinsTournamentPlan(round, roomConfig) },
   ];
   for (const round of TOURNAMENT_SPECIAL_ROUNDS) {
     const pick = pickWeightedItem(weightedFactories);
@@ -1922,6 +2010,9 @@ function resetTournament(room) {
 }
 
 function getTournamentRoundPlan(room, tournamentRound) {
+  if (FORCE_FAKE_TWINS_ALL_ROUNDS) {
+    return buildFakeTwinsTournamentPlan(tournamentRound, room.config);
+  }
   if (FORCE_SELF_SPECIAL_3_WORDS_ALL_ROUNDS) {
     return buildSelfSpecial3WordsTournamentPlan(tournamentRound, room.config);
   }
@@ -1955,6 +2046,9 @@ function buildSpecialWarning(plan) {
   }
   if (plan.type === SELF_SPECIAL_3_WORDS_TYPE) {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (3 mots, tuiles de départ différentes)`;
+  }
+  if (plan.type === FAKE_TWINS_TYPE) {
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (une case vaut 2 lettres, mots de 4+ lettres)`;
   }
   return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label}`;
 }
@@ -2285,6 +2379,7 @@ function buildRoundStartedPayload(room) {
               ? bonusPossibleScore || currentQuality.possibleScore || currentQuality.totalPts || 0
               : currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
           longWords: currentQuality.longWords ?? 0,
+          fakeTwinWords: currentQuality.fakeTwinWords ?? 0,
         }
       : null,
     roundNumber: round.roundNumber,
@@ -2408,7 +2503,7 @@ function ensurePlayerInRound(room, nick) {
   const roundSubs = room.submissions.get(room.currentRound.id);
   if (!roundSubs) return;
   if (!roundSubs.has(nick)) {
-    roundSubs.set(nick, { words: new Set(), score: 0, wordTimes: new Map() });
+    roundSubs.set(nick, { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() });
   }
 }
 
@@ -2909,6 +3004,12 @@ function getSpecialScoreConfigFromPlan(plan) {
       disableBonuses: true,
     };
   }
+  if (plan?.type === FAKE_TWINS_TYPE) {
+    return {
+      type: FAKE_TWINS_TYPE,
+      minWordLength: plan?.minWordLength || FAKE_TWINS_MIN_WORD_LENGTH,
+    };
+  }
   return null;
 }
 
@@ -2919,6 +3020,12 @@ function getSpecialScoreConfig(round) {
       bonusLetter: plan.bonusLetter,
       bonusLetterScore: plan.bonusLetterScore || BONUS_LETTER_SCORE,
       disableBonuses: true,
+    };
+  }
+  if (plan?.type === FAKE_TWINS_TYPE) {
+    return {
+      type: FAKE_TWINS_TYPE,
+      minWordLength: plan?.minWordLength || FAKE_TWINS_MIN_WORD_LENGTH,
     };
   }
   return null;
@@ -3038,6 +3145,13 @@ function resolveTargetHintCells(room, revealed) {
     if (Number.isInteger(cellIndex)) cells.push(cellIndex);
   }
   return cells;
+}
+
+function normalizeTargetRevealIndices(revealed) {
+  if (!Array.isArray(revealed) || revealed.length === 0) return [];
+  return revealed
+    .filter((idx) => Number.isInteger(idx) && idx >= 0)
+    .sort((a, b) => a - b);
 }
 
 function expandTargetRevealed(word, revealed) {
@@ -3162,7 +3276,12 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   }
 
   const normInput = normalizeWord(word);
-  if (!normInput || normInput.length < 2) {
+  const scoreConfig = getSpecialScoreConfig(room.currentRound);
+  const minWordLength =
+    Number.isFinite(scoreConfig?.minWordLength) && scoreConfig.minWordLength > 0
+      ? Math.trunc(scoreConfig.minWordLength)
+      : 2;
+  if (!normInput || normInput.length < minWordLength) {
     return { ok: false, error: "invalid_word" };
   }
 
@@ -3194,7 +3313,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
     normInput,
     room.currentRound.grid,
     safePath,
-    getSpecialScoreConfig(room.currentRound)
+    scoreConfig
   );
   if (!scored) return { ok: false, error: "invalid_word" };
 
@@ -3209,7 +3328,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   let data = roundSubs.get(resolvedNick);
   if (!data) {
-    data = { words: new Set(), score: 0, wordTimes: new Map() };
+    data = { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() };
     roundSubs.set(resolvedNick, data);
   }
 
@@ -3219,7 +3338,9 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   data.words.add(norm);
   if (!data.wordTimes) data.wordTimes = new Map();
+  if (!(data.wordMeta instanceof Map)) data.wordMeta = new Map();
   if (!data.wordTimes.has(norm)) data.wordTimes.set(norm, Date.now());
+  data.wordMeta.set(norm, { usedFakeTwins: !!scored?.usedFakeTwins });
   data.score += wordPts;
 
   const playerObj = playerEntry?.player || null;
@@ -3332,7 +3453,12 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   }
 
   if (isTargetRound) {
-    return { ok: true, score: data.score, wordScore: wordPts };
+    return {
+      ok: true,
+      score: data.score,
+      wordScore: wordPts,
+      usedFakeTwins: !!scored?.usedFakeTwins,
+    };
   }
 
   if (!isBotPlayer && playerInstallId) {
@@ -3527,7 +3653,12 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   broadcastProvisionalRanking(room);
 
-  return { ok: true, score: data.score, wordScore: wordPts };
+  return {
+    ok: true,
+    score: data.score,
+    wordScore: wordPts,
+    usedFakeTwins: !!scored?.usedFakeTwins,
+  };
 }
 
 function updateSpecial3WordsState(room, { roundId, nick, wordSlots, specialPlacements }) {
@@ -3555,7 +3686,7 @@ function updateSpecial3WordsState(room, { roundId, nick, wordSlots, specialPlace
 
   let data = roundSubs.get(resolvedNick);
   if (!data) {
-    data = { words: new Set(), score: 0, wordTimes: new Map() };
+    data = { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() };
     roundSubs.set(resolvedNick, data);
   }
 
@@ -3976,7 +4107,8 @@ function planNeedsPreparedGrid(plan) {
   return (
     plan?.type === "target_long" ||
     plan?.type === "target_score" ||
-    plan?.type === "bonus_letter"
+    plan?.type === "bonus_letter" ||
+    plan?.type === FAKE_TWINS_TYPE
   );
 }
 
@@ -4241,7 +4373,7 @@ async function startRoundForRoom(room) {
   const roundSubs = new Map();
   for (const p of room.players.values()) {
     if (!isPlayerConnected(p) && !isBotToken(p?.token)) continue;
-    roundSubs.set(p.nick, { words: new Set(), score: 0, wordTimes: new Map() });
+    roundSubs.set(p.nick, { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() });
   }
   room.submissions.set(roundId, roundSubs);
   pruneRoomState(room);
@@ -4348,6 +4480,8 @@ async function startRoundForRoom(room) {
         ? `MANCHE SPECIALE : ${planUsed.label} - gros potentiel de points et de mots longs`
         : planUsed.type === SELF_SPECIAL_3_WORDS_TYPE
         ? `MANCHE SPECIALE : ${planUsed.label} - place les bonus et garde 3 mots avec des tuiles de départ différentes`
+        : planUsed.type === FAKE_TWINS_TYPE
+        ? `MANCHE SPECIALE : ${planUsed.label} - une case vaut 2 lettres, seuls les mots de 4 lettres ou plus sont valides`
         : planUsed.type === "target_long"
         ? `MANCHE SPECIALE : ${planUsed.label} - objectif: trouver le mot le plus long`
         : planUsed.type === "target_score"
@@ -4399,7 +4533,8 @@ async function startRoundForRoom(room) {
       const pattern = chars
         .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
-      const revealCells = resolveTargetHintCells(room, Array.from(expanded));
+      const revealWordIndices = normalizeTargetRevealIndices(Array.from(expanded));
+      const revealCells = resolveTargetHintCells(room, revealWordIndices);
       io.to(room.id).emit("specialHint", {
         roomId: room.id,
         roundId,
@@ -4407,6 +4542,7 @@ async function startRoundForRoom(room) {
         length: chars.length,
         pattern,
         revealCells,
+        revealWordIndices,
       });
     };
 
@@ -4515,7 +4651,7 @@ async function endRoundForRoom(room) {
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
     if (!connected) continue;
     if (!roundSubs.has(player.nick)) {
-      roundSubs.set(player.nick, { words: new Set(), score: 0, wordTimes: new Map() });
+      roundSubs.set(player.nick, { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() });
     }
   }
 
@@ -4541,6 +4677,8 @@ async function endRoundForRoom(room) {
       nick,
       score: data.score,
       words: rawWords,
+      wordMeta:
+        data.wordMeta instanceof Map ? Object.fromEntries(data.wordMeta.entries()) : {},
       wordTimes,
       specialPlacements:
         data?.specialPlacements && typeof data.specialPlacements === "object"
@@ -5322,13 +5460,15 @@ io.on("connection", (socket) => {
       const pattern = chars
         .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
         .join(" ");
+      const revealWordIndices = normalizeTargetRevealIndices(Array.from(expanded));
       socket.emit("specialHint", {
         roomId: room.id,
         roundId: room.currentRound.id,
         kind: specialType,
         length: chars.length,
         pattern,
-        revealCells: resolveTargetHintCells(room, Array.from(expanded)),
+        revealCells: resolveTargetHintCells(room, revealWordIndices),
+        revealWordIndices,
       });
     }
       }

@@ -38,11 +38,17 @@ import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPla
 import RoundPlayerDetailsModal from "./components/RoundPlayerDetailsModal.jsx";
 import HomeChatModal from "./components/HomeChatModal.jsx";
 import AuthDialog from "./components/AuthDialog.jsx";
+import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
+import GridTileLetter from "./components/GridTileLetter.jsx";
+import WordVaultPage from "./components/WordVaultPage.jsx";
+import useWordVault from "./utils/useWordVault";
 import {
   readDuelObjectiveAnimationsState,
   writeDuelObjectiveAnimationsState,
 } from "./utils/duelObjectiveAnimationsStorage";
 import {
+  FAKE_TWINS_MIN_WORD_LENGTH,
+  FAKE_TWINS_TYPE,
   computeScore,
   filterDictionary,
   findBestPathForWord,
@@ -69,6 +75,7 @@ const FINAL_ROUND_RESULTS_SECONDS = 20;
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 const DAILY_SPECIAL_MODE = "self_specials_3_words";
 const DAILY_MONSTROUS_MODE = "monstrous_grid";
+const DAILY_FAKE_TWINS_MODE = "fake_twins_grid";
 const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
 const DAILY_SPECIAL_WORD_TARGET = 3;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
@@ -1241,6 +1248,107 @@ function buildCompletedTargetPattern(pattern, word) {
 function buildTargetBlankPattern(length) {
   if (!Number.isFinite(length) || length <= 0) return "";
   return Array.from({ length }).map(() => "_").join(" ");
+}
+
+function interpolateColorChannel(start, end, ratio) {
+  const safeRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+  return Math.round(start + (end - start) * safeRatio);
+}
+
+function buildTargetHintEntries(cells, wordIndices) {
+  const entries = [];
+  const seen = new Set();
+  const safeCells = Array.isArray(cells) ? cells : [];
+  const safeWordIndices = Array.isArray(wordIndices) ? wordIndices : [];
+  for (let i = 0; i < safeCells.length; i += 1) {
+    const boardIndex = safeCells[i];
+    const wordIndex = safeWordIndices[i];
+    if (!Number.isInteger(boardIndex) || boardIndex < 0 || seen.has(boardIndex)) continue;
+    seen.add(boardIndex);
+    entries.push({
+      boardIndex,
+      wordIndex: Number.isInteger(wordIndex) && wordIndex >= 0 ? wordIndex : null,
+    });
+  }
+  return entries;
+}
+
+function buildTargetHintStyleMap(cells, wordIndices, wordLength) {
+  const entries = buildTargetHintEntries(cells, wordIndices);
+  if (!entries.length) return new Map();
+  const map = new Map();
+  const lastWordIndex = Math.max(
+    1,
+    Number.isFinite(wordLength) && wordLength > 1
+      ? Math.trunc(wordLength) - 1
+      : entries.reduce((max, entry) => Math.max(max, entry.wordIndex ?? 0), 0)
+  );
+  for (const entry of entries) {
+    const boardIndex = entry.boardIndex;
+    const ratio =
+      entry.wordIndex == null ? 0 : Math.max(0, Math.min(1, entry.wordIndex / lastWordIndex));
+    const red = interpolateColorChannel(6, 92, ratio);
+    const green = interpolateColorChannel(116, 214, ratio);
+    const blue = interpolateColorChannel(60, 170, ratio);
+    const fillAlpha = 0.34 - ratio * 0.14;
+    const fillEdgeAlpha = 0.48 - ratio * 0.16;
+    const insetAlpha = 0.62 - ratio * 0.18;
+    const outlineAlpha = 0.98 - ratio * 0.14;
+    const glowAlpha = 0.56 - ratio * 0.18;
+    map.set(boardIndex, {
+      "--tile-hint-rgb": `${red}, ${green}, ${blue}`,
+      "--tile-hint-fill-alpha": fillAlpha.toFixed(3),
+      "--tile-hint-fill-edge-alpha": fillEdgeAlpha.toFixed(3),
+      "--tile-hint-inset-alpha": insetAlpha.toFixed(3),
+      "--tile-hint-outline-alpha": outlineAlpha.toFixed(3),
+      "--tile-hint-glow-alpha": glowAlpha.toFixed(3),
+    });
+  }
+  return map;
+}
+
+function buildTargetHintOverlayStyleMap(cells, wordIndices, wordLength, variant = "fill") {
+  const entries = buildTargetHintEntries(cells, wordIndices);
+  if (!entries.length) return new Map();
+  const map = new Map();
+  const lastWordIndex = Math.max(
+    1,
+    Number.isFinite(wordLength) && wordLength > 1
+      ? Math.trunc(wordLength) - 1
+      : entries.reduce((max, entry) => Math.max(max, entry.wordIndex ?? 0), 0)
+  );
+  for (const entry of entries) {
+    const boardIndex = entry.boardIndex;
+    const ratio =
+      entry.wordIndex == null ? 0 : Math.max(0, Math.min(1, entry.wordIndex / lastWordIndex));
+    const red = interpolateColorChannel(8, 118, ratio);
+    const green = interpolateColorChannel(126, 228, ratio);
+    const blue = interpolateColorChannel(64, 176, ratio);
+    const strongAlpha = 0.66 - ratio * 0.3;
+    const midAlpha = 0.36 - ratio * 0.16;
+    const glowAlpha = 0.46 - ratio * 0.16;
+    const style =
+      variant === "outline"
+        ? {
+            background:
+              `linear-gradient(135deg, rgba(${red}, ${green}, ${blue}, ${strongAlpha * 0.42}) 0%, ` +
+              `rgba(${red}, ${green}, ${blue}, ${midAlpha * 0.2}) 58%, rgba(255, 255, 255, 0.12) 100%)`,
+            boxShadow:
+              `inset 0 0 0 3px rgba(${red}, ${green}, ${blue}, ${0.98 - ratio * 0.12}), ` +
+              `0 0 16px 3px rgba(${red}, ${green}, ${blue}, ${glowAlpha})`,
+          }
+        : {
+            background:
+              `linear-gradient(135deg, rgba(${red}, ${green}, ${blue}, ${strongAlpha}) 0%, ` +
+              `rgba(${red}, ${green}, ${blue}, ${midAlpha}) 50%, rgba(255, 255, 255, 0.22) 100%)`,
+            boxShadow:
+              `0 0 0 3px rgba(${red}, ${green}, ${blue}, ${0.5 - ratio * 0.12}), ` +
+              `inset 0 0 0 2px rgba(${red}, ${green}, ${blue}, ${0.78 - ratio * 0.18}), ` +
+              `inset 0 10px 16px rgba(255, 255, 255, ${0.16 - ratio * 0.05})`,
+          };
+    map.set(boardIndex, style);
+  }
+  return map;
 }
 
 function isSystemAuthor(rawAuthor) {
@@ -2791,9 +2899,15 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
 
 .tile-hint {
   box-shadow:
-    0 0 0 3px rgba(16, 185, 129, 0.35),
-    inset 0 0 0 2px rgba(16, 185, 129, 0.45);
-  background: rgba(16, 185, 129, 0.22) !important;
+    0 0 0 3px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-fill-edge-alpha, 0.35)),
+    inset 0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-inset-alpha, 0.45));
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-fill-edge-alpha, 0.35)) 0%,
+      rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-fill-alpha, 0.22)) 44%,
+      rgba(255, 255, 255, 0.18) 100%
+    ) !important;
 }
 
 .daily-special-start-lock {
@@ -2830,7 +2944,7 @@ body.theme-dark .daily-special-start-lock {
 
 .tile-hint-outline {
   position: relative;
-  outline: 4px solid rgba(16, 185, 129, 0.9);
+  outline: 4px solid rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-outline-alpha, 0.9));
   outline-offset: -4px;
 }
 
@@ -2841,8 +2955,8 @@ body.theme-dark .daily-special-start-lock {
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 0 2px rgba(16, 185, 129, 0.95),
-    0 0 12px 2px rgba(16, 185, 129, 0.45);
+    0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-outline-alpha, 0.95)),
+    0 0 12px 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-glow-alpha, 0.45));
   animation: tileHintOutlineGlow 1.4s ease-in-out infinite;
 }
 
@@ -2850,14 +2964,14 @@ body.theme-dark .daily-special-start-lock {
   0%,
   100% {
     box-shadow:
-      0 0 0 2px rgba(16, 185, 129, 0.95),
-      0 0 12px 2px rgba(16, 185, 129, 0.4);
+      0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-outline-alpha, 0.95)),
+      0 0 12px 2px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) * 0.9));
   }
   50% {
     box-shadow:
-      0 0 0 3px rgba(16, 185, 129, 1),
-      0 0 18px 4px rgba(16, 185, 129, 0.65),
-      0 0 30px 10px rgba(16, 185, 129, 0.35);
+      0 0 0 3px rgba(var(--tile-hint-rgb, 16, 185, 129), 1),
+      0 0 18px 4px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) + 0.18)),
+      0 0 30px 10px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) * 0.68));
   }
 }
 
@@ -2868,20 +2982,26 @@ body.theme-dark .daily-special-start-lock {
 }
 
 body.theme-dark .tile-hint-outline {
-  outline-color: rgba(52, 211, 153, 0.98);
+  outline-color: rgba(var(--tile-hint-rgb, 52, 211, 153), 0.98);
 }
 
 body.theme-dark .tile-hint-outline::after {
   box-shadow:
-    0 0 0 2px rgba(52, 211, 153, 0.95),
-    0 0 14px 3px rgba(16, 185, 129, 0.6);
+    0 0 0 2px rgba(var(--tile-hint-rgb, 52, 211, 153), 0.95),
+    0 0 14px 3px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) + 0.12));
 }
 
 body.theme-dark .tile-hint {
   box-shadow:
-    0 0 0 3px rgba(16, 185, 129, 0.7),
-    inset 0 0 0 2px rgba(16, 185, 129, 0.7);
-  background: rgba(167, 243, 208, 0.85) !important;
+    0 0 0 3px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-fill-edge-alpha, 0.35) + 0.2)),
+    inset 0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-inset-alpha, 0.45) + 0.12));
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-fill-edge-alpha, 0.35) + 0.24)) 0%,
+      rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-fill-alpha, 0.22) + 0.18)) 44%,
+      rgba(226, 232, 240, 0.26) 100%
+    ) !important;
 }
 
 .tile-letter {
@@ -2897,6 +3017,54 @@ body.theme-dark .tile-hint {
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.85),
     0 3px 10px rgba(0, 0, 0, 0.22);
+}
+
+.tile-letter-fake-twins {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.02em;
+  font-size: min(
+    calc(var(--tile-letter-size-scale, 1) * var(--tile-font-preset-size, 1) * 0.92em),
+    1.22em
+  );
+  letter-spacing: -0.06em;
+}
+
+.tile-letter-fake-twins-main,
+.tile-letter-fake-twins-alt {
+  line-height: 1;
+}
+
+.tile-letter-fake-twins-sep {
+  opacity: 0.7;
+  font-size: 0.78em;
+}
+
+.fake-twins-tile {
+  box-shadow:
+    inset 0 0 0 1px rgba(16, 185, 129, 0.08),
+    0 0 0 2px rgba(16, 185, 129, 0.86),
+    0 0 0 4px rgba(16, 185, 129, 0.18),
+    0 8px 18px rgba(15, 23, 42, 0.1);
+}
+
+.fake-twins-tile::before {
+  content: none;
+}
+
+.fake-twins-badge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: rgba(236, 253, 245, 0.95);
+  color: #047857;
+  font-size: 0.54rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.12em;
 }
 
 body[data-tile-font-preset="classic"] .tile-letter {
@@ -2959,6 +3127,24 @@ body[data-tile-font-preset="kgp"] .tile-letter:not(.theme-letter-ring) {
 
 body.theme-dark .tile-letter {
   /* on garde la couleur d'origine des lettres en mode sombre */
+}
+
+body.theme-dark .fake-twins-tile {
+  box-shadow:
+    inset 0 0 0 1px rgba(52, 211, 153, 0.1),
+    0 0 0 2px rgba(52, 211, 153, 0.92),
+    0 0 0 4px rgba(16, 185, 129, 0.3),
+    0 10px 24px rgba(2, 6, 23, 0.34);
+}
+
+body.theme-dark .fake-twins-tile::before {
+  content: none;
+}
+
+body.theme-dark .fake-twins-badge {
+  border-color: rgba(52, 211, 153, 0.34);
+  background: rgba(6, 78, 59, 0.92);
+  color: #d1fae5;
 }
 
 .tile-used .tile-letter {
@@ -3843,8 +4029,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-03-15";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-03-15T00:00:00+01:00");
+const PATCH_NOTES_VERSION = "2026-04-12";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-04-12T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
@@ -4140,10 +4326,19 @@ function normalizeAuthUsernameInput(raw) {
     .trim();
 }
 
-function getPatchNotesSeenStorageKey(installId, version = PATCH_NOTES_VERSION) {
+function getPatchNotesSeenAudienceKey(userId, installId) {
+  const safeUserId = Number(userId);
+  if (Number.isInteger(safeUserId) && safeUserId > 0) {
+    return `user:${safeUserId}`;
+  }
   const safeInstallId = typeof installId === "string" ? installId.trim() : "";
-  if (!safeInstallId) return "";
-  return `${PATCH_NOTES_SEEN_STORAGE_PREFIX}:${version}:${safeInstallId}`;
+  return safeInstallId ? `install:${safeInstallId}` : "";
+}
+
+function getPatchNotesSeenStorageKey(audienceKey, version = PATCH_NOTES_VERSION) {
+  const safeAudienceKey = typeof audienceKey === "string" ? audienceKey.trim() : "";
+  if (!safeAudienceKey) return "";
+  return `${PATCH_NOTES_SEEN_STORAGE_PREFIX}:${version}:${safeAudienceKey}`;
 }
 
 function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
@@ -4477,10 +4672,24 @@ function getSpecialRoundDisplayLabel(specialInfo) {
   if (specialInfo.type === "speed") return "Jeu rapide";
   if (specialInfo.type === "monstrous") return "Grille monstrueuse";
   if (specialInfo.type === DAILY_SPECIAL_MODE) return "3 mots";
+  if (specialInfo.type === FAKE_TWINS_TYPE || specialInfo.type === DAILY_FAKE_TWINS_MODE) {
+    return "Faux jumeaux";
+  }
   if (specialInfo.type === "target_long") return "Mot le plus long";
   if (specialInfo.type === "target_score") return "Meilleur mot";
   if (specialInfo.type === "bonus_letter") return "Lettre en or";
   return "Manche speciale";
+}
+
+function getSpecialRoundDescription(specialInfo) {
+  if (!specialInfo || typeof specialInfo !== "object") return "";
+  if (typeof specialInfo.description === "string" && specialInfo.description.trim()) {
+    return specialInfo.description.trim();
+  }
+  if (specialInfo.type === FAKE_TWINS_TYPE || specialInfo.type === DAILY_FAKE_TWINS_MODE) {
+    return "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Seuls les mots de 4 lettres ou plus sont valides.";
+  }
+  return "";
 }
 
 export default function App() {
@@ -4950,7 +5159,7 @@ export default function App() {
     };
   }, [bootProgress?.done]);
   const [showHelp, setShowHelp] = useState(false);
-  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | duel | live
+  const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | duel | vault | live
   const [analysis, setAnalysis] = useState(null);
   const [hoveredResultsNick, setHoveredResultsNick] = useState("");
   const missingImageRef = useRef(new Set());
@@ -5020,6 +5229,7 @@ export default function App() {
   const [mobileRoundIntroCountdown, setMobileRoundIntroCountdown] = useState(null);
   const [mobileRoundIntroRoundLabel, setMobileRoundIntroRoundLabel] = useState("");
   const [mobileRoundIntroRoundTypeLabel, setMobileRoundIntroRoundTypeLabel] = useState("");
+  const [mobileRoundIntroRoundDescription, setMobileRoundIntroRoundDescription] = useState("");
   const [mobileRoundIntroHideTiles, setMobileRoundIntroHideTiles] = useState(false);
   const [mobileResultsOutroFadeActive, setMobileResultsOutroFadeActive] = useState(false);
   const [finalePage, setFinalePage] = useState(0);
@@ -5257,6 +5467,26 @@ export default function App() {
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
   const isAuthStatusPending = authState.loading || authState.status === "loading";
   const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
+  const {
+    wordVault,
+    wordVaultActionPending,
+    isWordInVault,
+    fetchWordVault,
+    openWordVaultPage,
+    setWordVaultSortMode,
+    addWordToVault,
+    removeWordFromVault,
+  } = useWordVault({
+    isAccountAuthenticated,
+    authenticatedUserId,
+    appView,
+    setAppView,
+    refreshAuthStatus,
+    ensureAuthenticated,
+    postAuthJson,
+    readJsonResponseLoose,
+    showToast,
+  });
   const [broadcastNotice, setBroadcastNotice] = useState({
     loading: false,
     message: null,
@@ -5269,10 +5499,12 @@ export default function App() {
     hasPlayed: false,
     hasPlayedMonstrous: false,
     hasPlayedSpecial: false,
+    hasPlayedFakeTwins: false,
     dateId: null,
     myResult: null,
     myMonstrousResult: null,
     mySpecialResult: null,
+    myFakeTwinsResult: null,
     champion: null,
     error: "",
   });
@@ -5978,6 +6210,7 @@ export default function App() {
     source: "",
     url: "",
     fromWordInfo: false,
+    fromVault: false,
     preferLongDefinition: false,
   });
   const [wordInfoModal, setWordInfoModal] = useState({
@@ -6188,6 +6421,7 @@ export default function App() {
   const acceptedWordSetRef = useRef(new Set());
   const acceptedScoresRef = useRef(new Map());
   const acceptedBestPtsRef = useRef(new Map());
+  const acceptedWordMetaRef = useRef(new Map());
   const dailyAcceptedPathsRef = useRef(new Map());
   const submissionStatusRef = useRef(new Map());
   const pendingWordsRef = useRef(new Set());
@@ -6213,14 +6447,19 @@ export default function App() {
     acceptedWordSetRef.current = new Set();
     acceptedScoresRef.current = new Map();
     acceptedBestPtsRef.current = new Map();
+    acceptedWordMetaRef.current = new Map();
     dailyAcceptedPathsRef.current = new Map();
   }
 
-  function syncAcceptedRuntimeCaches(words, { scoreMap = null, bestScoreMap = null } = {}) {
+  function syncAcceptedRuntimeCaches(
+    words,
+    { scoreMap = null, bestScoreMap = null, metaMap = null } = {}
+  ) {
     const safeWords = Array.isArray(words) ? words : [];
     acceptedRef.current = safeWords;
     acceptedWordSetRef.current = new Set(safeWords);
     acceptedScoresRef.current = scoreMap instanceof Map ? scoreMap : new Map();
+    acceptedWordMetaRef.current = metaMap instanceof Map ? metaMap : new Map();
     if (bestScoreMap instanceof Map) {
       acceptedBestPtsRef.current = bestScoreMap;
       return;
@@ -6232,7 +6471,10 @@ export default function App() {
     acceptedBestPtsRef.current = new Map();
   }
 
-  function registerAcceptedWordRuntime(word, { score = null, bestPts = null } = {}) {
+  function registerAcceptedWordRuntime(
+    word,
+    { score = null, bestPts = null, usedFakeTwins = false } = {}
+  ) {
     if (!word) return;
     acceptedWordSetRef.current.add(word);
     if (Number.isFinite(score)) {
@@ -6240,6 +6482,11 @@ export default function App() {
     }
     if (Number.isFinite(bestPts)) {
       acceptedBestPtsRef.current.set(word, bestPts);
+    }
+    if (usedFakeTwins) {
+      acceptedWordMetaRef.current.set(word, { usedFakeTwins: true });
+    } else if (!acceptedWordMetaRef.current.has(word)) {
+      acceptedWordMetaRef.current.set(word, { usedFakeTwins: false });
     }
   }
   const vocabOverlayWordsRef = useRef([]);
@@ -6373,8 +6620,17 @@ export default function App() {
         disableBonuses: true,
       };
     }
+    if (
+      specialRound?.type === FAKE_TWINS_TYPE ||
+      (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE)
+    ) {
+      return {
+        type: FAKE_TWINS_TYPE,
+        minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+      };
+    }
     return null;
-  }, [specialRound]);
+  }, [dailyPlayMode, isDailyPlay, specialRound]);
   const bonusLetterKey =
     specialRound?.type === "bonus_letter" ? normalizeLetterKey(specialRound.bonusLetter) : null;
   const bonusLetterScore =
@@ -6447,7 +6703,9 @@ export default function App() {
 
   useEffect(() => {
     if (!isSpecial3WordsMode) {
-      setDailyPlayMode(DAILY_SPECIAL_MODE);
+      if (!isDailyPlay) {
+        setDailyPlayMode(DAILY_SPECIAL_MODE);
+      }
       setDailySpecialPlacements(createDailySpecialPlacements());
       setDailyWordSlots(createDailyWordSlots());
       setDailyActiveSlot(0);
@@ -6456,7 +6714,7 @@ export default function App() {
       dailySpecialDragRef.current = null;
       dailyTictocPlayedRef.current = false;
     }
-  }, [isSpecial3WordsMode]);
+  }, [isDailyPlay, isSpecial3WordsMode]);
 
   useEffect(() => {
     if (!isLiveSpecial3WordsMode || phase !== "playing") {
@@ -8512,8 +8770,9 @@ export default function App() {
 
   useEffect(() => {
     if (!definitionModal.open) return;
+    if (appView !== "live") return;
     if (phase === "lobby" && !isWeeklyOpen) closeDefinition();
-  }, [definitionModal.open, phase, roundId, isWeeklyOpen]);
+  }, [definitionModal.open, phase, roundId, isWeeklyOpen, appView]);
   useEffect(() => {
     if (!roundPlayerModal.open) return;
     if (phase !== "results") {
@@ -9484,9 +9743,13 @@ export default function App() {
     const specialLabel = specialRound?.isSpecial
       ? `MANCHE SPECIALE : ${String(getSpecialRoundDisplayLabel(specialRound)).toUpperCase()}`
       : "manche classique";
+    const specialDescription = specialRound?.isSpecial
+      ? getSpecialRoundDescription(specialRound)
+      : "";
 
     setMobileRoundIntroRoundLabel(roundLabel);
     setMobileRoundIntroRoundTypeLabel(specialLabel);
+    setMobileRoundIntroRoundDescription(specialDescription);
     setMobileRoundIntroCountdown(null);
     setMobileRoundIntroHideTiles(true);
     setMobileRoundIntroStage(isMobileLayoutRef.current ? "intro_fade_in" : "title");
@@ -12241,6 +12504,7 @@ export default function App() {
           pattern: "",
           length: targetLength,
           cells: [],
+          wordIndices: [],
         });
       } else {
         setSpecialHint(null);
@@ -12680,6 +12944,10 @@ export default function App() {
         cells:
           allowCells && Array.isArray(payload.revealCells)
             ? payload.revealCells.filter((idx) => Number.isInteger(idx))
+            : [],
+        wordIndices:
+          allowCells && Array.isArray(payload.revealWordIndices)
+            ? payload.revealWordIndices.filter((idx) => Number.isInteger(idx) && idx >= 0)
             : [],
       }));
     }
@@ -13515,10 +13783,12 @@ export default function App() {
           hasPlayed: !!data?.hasPlayed,
           hasPlayedMonstrous: !!data?.hasPlayedMonstrous,
           hasPlayedSpecial: !!data?.hasPlayedSpecial,
+          hasPlayedFakeTwins: !!data?.hasPlayedFakeTwins,
           dateId: data?.dateId || null,
           myResult: data?.myResult || null,
           myMonstrousResult: data?.myMonstrousResult || null,
           mySpecialResult: data?.mySpecialResult || null,
+          myFakeTwinsResult: data?.myFakeTwinsResult || null,
           champion: data?.champion || null,
           error: "",
         });
@@ -13594,7 +13864,7 @@ export default function App() {
     setBroadcastSeenNonce((value) => value + 1);
   }
 
-  async function fetchDuelStatus({ dateId = null } = {}) {
+  async function fetchDuelStatus({ dateId = null, retryAuth = true } = {}) {
     if (!installId) return;
     if (!isAccountAuthenticated) {
       setDuelStatus((prev) => ({
@@ -13660,6 +13930,11 @@ export default function App() {
         dailyBattle: data?.dailyBattle || null,
         tutorialVersion: data?.tutorialVersion || null,
       });
+      setAccountNotice((prev) =>
+        prev === "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur."
+          ? ""
+          : prev
+      );
     } catch (err) {
       const code = String(err?.message || "erreur");
       console.warn("[duel/status] fetch failed", {
@@ -13668,11 +13943,19 @@ export default function App() {
         dateId: dateId || null,
       });
       if (code === "auth_required") {
+        if (retryAuth) {
+          const refreshed = await refreshAuthStatus({ silent: true });
+          if (refreshed?.status === "authenticated" && refreshed?.user) {
+            await fetchDuelStatus({ dateId, retryAuth: false });
+            return;
+          }
+        }
         setDuelStatus((prev) => ({
           ...prev,
           loading: false,
-          error: "",
+          error: "auth_required",
         }));
+        setAccountNotice("Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.");
         return;
       }
       setDuelStatus((prev) => ({
@@ -14560,7 +14843,12 @@ export default function App() {
       setDailyStartError("Pseudo requis");
       return;
     }
-    const modeToStart = requestedMode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+    const modeToStart =
+      requestedMode === DAILY_SPECIAL_MODE
+        ? DAILY_SPECIAL_MODE
+        : requestedMode === DAILY_FAKE_TWINS_MODE
+        ? DAILY_FAKE_TWINS_MODE
+        : DAILY_MONSTROUS_MODE;
     setDailyStartError(null);
     setDailySubmitError("");
     const payload = { installId, pseudo, dailyMode: modeToStart };
@@ -14570,7 +14858,12 @@ export default function App() {
       }
       const modeFromServer =
         typeof data?.mode === "string" && data.mode.trim() ? data.mode.trim() : modeToStart;
-      const mode = modeFromServer === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+      const mode =
+        modeFromServer === DAILY_SPECIAL_MODE
+          ? DAILY_SPECIAL_MODE
+          : modeFromServer === DAILY_FAKE_TWINS_MODE
+          ? DAILY_FAKE_TWINS_MODE
+          : DAILY_MONSTROUS_MODE;
       const gridForPlay =
         mode === DAILY_SPECIAL_MODE ? stripBoardBonuses(data.grid) : data.grid;
       if (data?.duel && typeof data.duel === "object") {
@@ -14653,6 +14946,8 @@ export default function App() {
           setDailyStartError(
             modeToStart === DAILY_MONSTROUS_MODE
               ? "Grille monstrueuse déjà jouée"
+              : modeToStart === DAILY_FAKE_TWINS_MODE
+              ? "Faux jumeaux déjà joué"
               : "Déjà joué"
           );
           fetchDailyStatus();
@@ -14702,6 +14997,8 @@ export default function App() {
               setDailyStartError(
                 modeToStart === DAILY_MONSTROUS_MODE
                   ? "Grille monstrueuse déjà jouée"
+                  : modeToStart === DAILY_FAKE_TWINS_MODE
+                  ? "Faux jumeaux déjà joué"
                   : "Déjà joué"
               );
             } else if (socketError === "bad_grid") {
@@ -14775,7 +15072,7 @@ export default function App() {
       foundWords: acceptedRef.current || accepted,
       wordSubmissions,
       specialPlacements: isDailySpecialMode ? dailySpecialPlacements : null,
-      dailyMode: isDailySpecialMode ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE,
+      dailyMode: isDailySpecialMode ? DAILY_SPECIAL_MODE : dailyPlayMode,
       clientScore: score,
       durationMs,
     };
@@ -14814,10 +15111,12 @@ export default function App() {
       }
       setDailyStatus((prev) => ({
         ...prev,
-        hasPlayed: dailyPlayMode !== DAILY_SPECIAL_MODE,
+        hasPlayed: dailyPlayMode === DAILY_MONSTROUS_MODE ? true : prev?.hasPlayed,
         hasPlayedMonstrous:
-          dailyPlayMode === DAILY_SPECIAL_MODE ? prev?.hasPlayedMonstrous : true,
+          dailyPlayMode === DAILY_MONSTROUS_MODE ? true : prev?.hasPlayedMonstrous,
         hasPlayedSpecial: dailyPlayMode === DAILY_SPECIAL_MODE ? true : prev?.hasPlayedSpecial,
+        hasPlayedFakeTwins:
+          dailyPlayMode === DAILY_FAKE_TWINS_MODE ? true : prev?.hasPlayedFakeTwins,
         myResult: {
           score: Number.isFinite(data?.score) ? data.score : score,
           gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
@@ -14842,6 +15141,15 @@ export default function App() {
                 submittedAt: Date.now(),
               }
             : prev?.mySpecialResult || null,
+        myFakeTwinsResult:
+          dailyPlayMode === DAILY_FAKE_TWINS_MODE
+            ? {
+                score: Number.isFinite(data?.score) ? data.score : score,
+                gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
+                rank: Number.isFinite(data?.rank) ? data.rank : null,
+                submittedAt: Date.now(),
+              }
+            : prev?.myFakeTwinsResult || null,
       }));
       void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
       setAppView("daily_results");
@@ -14890,7 +15198,12 @@ export default function App() {
   }
 
   function openDailyLaunchDialog(mode) {
-    const safeMode = mode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+    const safeMode =
+      mode === DAILY_SPECIAL_MODE
+        ? DAILY_SPECIAL_MODE
+        : mode === DAILY_FAKE_TWINS_MODE
+        ? DAILY_FAKE_TWINS_MODE
+        : DAILY_MONSTROUS_MODE;
     setDailyLaunchDialog({ mode: safeMode });
   }
 
@@ -15692,6 +16005,7 @@ export default function App() {
             maxPts: lastRound.round.gridQuality.maxPts ?? null,
             maxLen: lastRound.round.gridQuality.maxLen ?? null,
             longWords: lastRound.round.gridQuality.longWords ?? null,
+            fakeTwinWords: lastRound.round.gridQuality.fakeTwinWords ?? null,
           };
           setRoundStats(stats);
           bestGridMaxRef.current = stats?.maxPts ?? 0;
@@ -16049,11 +16363,14 @@ export default function App() {
       appView !== "daily_play" &&
       appView !== "daily_results" &&
       appView !== "stats" &&
-      appView !== "duel";
+      appView !== "duel" &&
+      appView !== "vault";
     if (!isLobbyView) return;
     if (shouldShowTutorial) return;
     if (!isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs)) return;
-    const seenStorageKey = getPatchNotesSeenStorageKey(installId);
+    const seenStorageKey = getPatchNotesSeenStorageKey(
+      getPatchNotesSeenAudienceKey(authenticatedUserId, installId)
+    );
     if (!seenStorageKey) return;
     let alreadySeen = false;
     try {
@@ -16064,7 +16381,14 @@ export default function App() {
     try {
       localStorage.setItem(seenStorageKey, "1");
     } catch (_) {}
-  }, [installId, installIdCreatedAtTs, shouldShowTutorial, phase, appView]);
+  }, [
+    authenticatedUserId,
+    installId,
+    installIdCreatedAtTs,
+    shouldShowTutorial,
+    phase,
+    appView,
+  ]);
 
   useEffect(() => {
     if (!installId) return;
@@ -16074,7 +16398,8 @@ export default function App() {
       appView !== "daily_play" &&
       appView !== "daily_results" &&
       appView !== "stats" &&
-      appView !== "duel";
+      appView !== "duel" &&
+      appView !== "vault";
     if (!isLobbyView) return;
     fetchDuelStatus();
   }, [installId, phase, appView, isAccountAuthenticated]);
@@ -16114,7 +16439,8 @@ export default function App() {
       appView !== "daily_play" &&
       appView !== "daily_results" &&
       appView !== "stats" &&
-      appView !== "duel";
+      appView !== "duel" &&
+      appView !== "vault";
     if (!isLobbyView) return;
     if (duelPopupState?.mode) return;
     const weekStorageKey = `gobble_duel_week_seen:${installId}`;
@@ -16172,7 +16498,8 @@ export default function App() {
       appView !== "daily_play" &&
       appView !== "daily_results" &&
       appView !== "stats" &&
-      appView !== "duel";
+      appView !== "duel" &&
+      appView !== "vault";
     if (isLobbyView) return;
     if (duelPopupState?.mode) {
       setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
@@ -16800,6 +17127,7 @@ export default function App() {
             maxPts: gridQuality.maxPts ?? null,
             maxLen: gridQuality.maxLen ?? null,
             longWords: gridQuality.longWords ?? null,
+            fakeTwinWords: gridQuality.fakeTwinWords ?? null,
           }
         : null;
     setRoundStats(stats);
@@ -17003,14 +17331,18 @@ export default function App() {
         size: sourceBoard.length,
       });
     }
-    const filtered = filterDictionary(dictionary, sourceBoard);
+    const filtered = filterDictionary(dictionary, sourceBoard, specialScoreConfig);
     const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
     solutionsRef.current = solved;
 
-    const all = [...solved.entries()].map(([word, path]) => ({
+    const all = [...solved.entries()].map(([word, meta]) => ({
       word,
-      pts: computeScore(word, path, sourceBoard, specialScoreConfig),
-      path,
+      pts:
+        Number.isFinite(meta?.pts)
+          ? meta.pts
+          : computeScore(word, meta?.path || [], sourceBoard, specialScoreConfig),
+      path: Array.isArray(meta?.path) ? meta.path : [],
+      usedFakeTwins: !!meta?.usedFakeTwins,
     }));
 
     all.sort((a, b) => b.pts - a.pts);
@@ -17681,7 +18013,10 @@ export default function App() {
     closeReportDialog();
   }
 
-  function openDefinition(term, { fromWordInfo = false, preferLongDefinition = false } = {}) {
+  function openDefinition(
+    term,
+    { fromWordInfo = false, preferLongDefinition = false, fromVault = false } = {}
+  ) {
     const clean = String(term || "").trim();
     if (!clean) return;
     const originFromWordInfo = !!fromWordInfo;
@@ -17720,6 +18055,7 @@ export default function App() {
       url: "",
       ok: false,
       fromWordInfo: originFromWordInfo,
+      fromVault: !!fromVault,
       preferLongDefinition: useLongDefinition,
     });
 
@@ -17772,6 +18108,7 @@ export default function App() {
             url: data.url || "",
             ok,
             fromWordInfo: originFromWordInfo,
+            fromVault: !!fromVault,
             preferLongDefinition: useLongDefinition,
           });
         })
@@ -17786,6 +18123,22 @@ export default function App() {
 
   function closeDefinition() {
     setDefinitionModal((prev) => ({ ...prev, open: false }));
+  }
+
+  async function handleDefinitionVaultAction() {
+    const word = typeof definitionModal?.word === "string" ? definitionModal.word.trim() : "";
+    if (!word || wordVaultActionPending) return;
+    if (definitionModal?.fromVault) {
+      const removed = await removeWordFromVault(word);
+      if (removed) {
+        setDefinitionModal((prev) => ({
+          ...prev,
+          fromVault: false,
+        }));
+      }
+      return;
+    }
+    await addWordToVault(word);
   }
 
   function openRecordModal(record) {
@@ -17819,6 +18172,8 @@ export default function App() {
     if (!entry || !Array.isArray(entry.words)) return [];
     const isSpeedRound = specialRound?.type === "speed";
     const isSpecial3Round = specialRound?.type === DAILY_SPECIAL_MODE;
+    const wordMetaByNorm =
+      entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
     const scoreAllowed = !isSpeedRound && !isTargetRound && !isSpecial3Round;
     const scoreCache = new Map();
     const getStats = (rawWord) => {
@@ -17888,6 +18243,10 @@ export default function App() {
         len: Number.isFinite(stats.len) ? stats.len : 0,
         isGobble: !!gobbleActive,
         gobbleCount,
+        usedFakeTwins:
+          !!wordMetaByNorm?.[normalizeWord(word)]?.usedFakeTwins ||
+          !!allWordsMap.get(normalizeWord(word))?.usedFakeTwins ||
+          !!allWordsMap.get(word)?.usedFakeTwins,
       });
     });
     list.sort((a, b) => {
@@ -17963,6 +18322,7 @@ export default function App() {
               pts: Number.isFinite(item?.pts) ? item.pts : null,
               isGobble: gobbleCount > 0,
               gobbleCount,
+              usedFakeTwins: !!item?.usedFakeTwins,
             };
           })
         : [],
@@ -18195,7 +18555,7 @@ export default function App() {
       const raw = normalizeWord(next.join(""));
       if (!raw) return prev;
 
-      const path = findBestPathForWord(board, raw, specialScoreConfig);
+      const path = findBestPathForWord(board, raw, getPathPreviewScoreConfig());
       if (path) {
         highlightPathRef.current = path;
         setHighlightPath(path);
@@ -18231,7 +18591,7 @@ export default function App() {
         setHighlightPath([]);
         return next;
       }
-      const path = findBestPathForWord(board, raw, specialScoreConfig);
+      const path = findBestPathForWord(board, raw, getPathPreviewScoreConfig());
       if (path) {
         highlightPathRef.current = path;
         setHighlightPath(path);
@@ -18913,6 +19273,7 @@ function handleTouchEnd(e) {
     acceptedWordSetRef.current.delete(word);
     acceptedScoresRef.current.delete(word);
     acceptedBestPtsRef.current.delete(word);
+    acceptedWordMetaRef.current.delete(word);
     dailyAcceptedPathsRef.current.delete(word);
     setAccepted((prev) => {
       const updated = Array.isArray(prev) ? prev.filter((entry) => entry !== word) : [];
@@ -18946,16 +19307,16 @@ function handleTouchEnd(e) {
       return;
     }
 
-    submissionStatusRef.current.delete(word);
-    pendingWordsRef.current.delete(word);
-    touchSubmissionState();
-
     const pts =
       Number.isFinite(result?.points)
         ? result.points
         : Number.isFinite(result?.wordScore)
         ? result.wordScore
         : meta.optimisticPts;
+    const usedFakeTwins =
+      !!result?.usedFakeTwins ||
+      !!meta?.usedFakeTwins ||
+      !!allWordsMap.get(word)?.usedFakeTwins;
     const totalScore =
       Number.isFinite(result?.totalScore)
         ? result.totalScore
@@ -18973,6 +19334,15 @@ function handleTouchEnd(e) {
       specialRound?.type === "target_long" || specialRound?.type === "target_score";
 
     const alreadyAccepted = acceptedWordSetRef.current.has(word);
+    submissionStatusRef.current.set(word, {
+      ...meta,
+      status: "accepted",
+      reason: "",
+      usedFakeTwins,
+      ts: meta.ts || Date.now(),
+    });
+    pendingWordsRef.current.delete(word);
+    touchSubmissionState();
     if (Number.isFinite(totalScore)) {
       setScore(totalScore);
     } else if (!alreadyAccepted && Number.isFinite(safePts)) {
@@ -18993,6 +19363,7 @@ function handleTouchEnd(e) {
       registerAcceptedWordRuntime(word, {
         score: Number.isFinite(pts) ? pts : null,
         bestPts: computedBestPts,
+        usedFakeTwins,
       });
       setLastWords((prev) => {
         if (!Array.isArray(prev) || prev.length === 0) return prev;
@@ -19005,15 +19376,24 @@ function handleTouchEnd(e) {
             ...entry,
             pts: safePts,
             display,
+            usedFakeTwins,
           };
         });
         return updated ? next : prev;
       });
+      setTimeout(() => {
+        const current = submissionStatusRef.current.get(word);
+        if (current?.status === "accepted") {
+          submissionStatusRef.current.delete(word);
+          touchSubmissionState();
+        }
+      }, 0);
       return;
     }
     registerAcceptedWordRuntime(word, {
       score: Number.isFinite(pts) ? pts : null,
       bestPts: computedBestPts,
+      usedFakeTwins,
     });
     pushWordHistory(word);
 
@@ -19030,6 +19410,7 @@ function handleTouchEnd(e) {
             pts: safePts,
             label: feedLabel,
             bonuses: wordBonuses,
+            usedFakeTwins,
           },
           ...prev,
         ];
@@ -19101,6 +19482,13 @@ function handleTouchEnd(e) {
     if (!alreadyAccepted) {
       setStatusMessageWithHold(isTargetRoundNow ? "Trouv\u00e9 !" : `+${safePts} pts`);
     }
+    setTimeout(() => {
+      const current = submissionStatusRef.current.get(word);
+      if (current?.status === "accepted") {
+        submissionStatusRef.current.delete(word);
+        touchSubmissionState();
+      }
+    }, 0);
   }
 
   function sendFallbackWords(words, roundIdValue) {
@@ -19245,7 +19633,7 @@ function handleTouchEnd(e) {
     scheduleBatchFlush();
   }
 
-  function applyLocalWordScoring({ raw, display, path }) {
+  function applyLocalWordScoring({ raw, display, path, usedFakeTwins = false }) {
     const pts = computeScore(raw, path, board, specialScoreConfig);
     const displayStr = display || raw.toUpperCase();
     const now = Date.now();
@@ -19256,7 +19644,7 @@ function handleTouchEnd(e) {
       : [];
 
     setScore((s) => s + pts);
-    registerAcceptedWordRuntime(raw, { score: pts, bestPts: pts });
+    registerAcceptedWordRuntime(raw, { score: pts, bestPts: pts, usedFakeTwins });
     dailyAcceptedPathsRef.current.set(raw, {
       word: raw,
       path: normalizedPath,
@@ -19274,7 +19662,15 @@ function handleTouchEnd(e) {
     setLastWords((prev) => {
       const feedLabel = isTargetRoundNow ? "gobble" : null;
       const next = [
-        { id: now, ts: now, display: displayStr, pts, label: feedLabel, bonuses: wordBonuses },
+        {
+          id: now,
+          ts: now,
+          display: displayStr,
+          pts,
+          label: feedLabel,
+          bonuses: wordBonuses,
+          usedFakeTwins: !!usedFakeTwins,
+        },
         ...prev,
       ];
       return next.slice(0, 24);
@@ -19334,6 +19730,105 @@ function handleTouchEnd(e) {
   function getSubmissionTraceStartedAt() {
     const traceStartedAt = Number(activeTraceStartedAtRef.current);
     return Number.isFinite(traceStartedAt) ? Math.max(0, Math.round(traceStartedAt)) : null;
+  }
+
+  function getPathPreviewScoreConfig() {
+    if (
+      specialScoreConfig?.type === FAKE_TWINS_TYPE &&
+      Number.isFinite(specialScoreConfig?.minWordLength) &&
+      specialScoreConfig.minWordLength > 2
+    ) {
+      return {
+        ...specialScoreConfig,
+        minWordLength: 2,
+      };
+    }
+    return specialScoreConfig;
+  }
+
+  function getLivePreviewLabelForCell(cell) {
+    const letter = String(cell?.letter || "").trim();
+    const altLetter = String(cell?.altLetter || "").trim();
+    if (
+      specialScoreConfig?.type === FAKE_TWINS_TYPE &&
+      cell?.specialType === FAKE_TWINS_TYPE &&
+      letter &&
+      altLetter &&
+      normalizeWord(altLetter) !== normalizeWord(letter)
+    ) {
+      return `${letter}/${altLetter}`;
+    }
+    return letter;
+  }
+
+  function buildPathWordCandidates(path) {
+    if (!Array.isArray(path) || path.length === 0) return [];
+    let candidates = [{ raw: "", display: "", usedFakeTwins: false }];
+    for (const idx of path) {
+      const cell = board?.[idx];
+      if (!cell) return [];
+      const primaryDisplay = String(cell?.letter || "").trim();
+      const primaryRaw = normalizeWord(primaryDisplay);
+      if (!primaryRaw) return [];
+      const options = [{ raw: primaryRaw, display: primaryDisplay, usedFakeTwins: false }];
+      const altDisplay = String(cell?.altLetter || "").trim();
+      const altRaw = normalizeWord(altDisplay);
+      if (
+        specialScoreConfig?.type === FAKE_TWINS_TYPE &&
+        cell?.specialType === FAKE_TWINS_TYPE &&
+        altRaw &&
+        altRaw !== primaryRaw
+      ) {
+        options.push({ raw: altRaw, display: altDisplay, usedFakeTwins: true });
+      }
+      const next = [];
+      for (const candidate of candidates) {
+        for (const option of options) {
+          next.push({
+            raw: `${candidate.raw}${option.raw}`,
+            display: `${candidate.display}${option.display}`,
+            usedFakeTwins: candidate.usedFakeTwins || option.usedFakeTwins,
+          });
+        }
+      }
+      const deduped = new Map();
+      next.forEach((candidate) => {
+        const key = `${candidate.raw}|${candidate.display}|${candidate.usedFakeTwins ? 1 : 0}`;
+        if (!deduped.has(key)) deduped.set(key, candidate);
+      });
+      candidates = Array.from(deduped.values());
+    }
+    return candidates;
+  }
+
+  function resolveSubmissionCandidateFromPath(path, preferredDisplay = "") {
+    if (!Array.isArray(path) || path.length === 0) return null;
+    const preferredRaw = normalizeWord(preferredDisplay || "");
+    const candidates = buildPathWordCandidates(path)
+      .filter((candidate) => candidate?.raw)
+      .map((candidate) => ({
+        ...candidate,
+        scored:
+          dictionary && dictionary.has(candidate.raw)
+            ? scoreWordOnGridWithPath(candidate.raw, board, path, specialScoreConfig)
+            : null,
+      }))
+      .filter((candidate) => candidate?.scored);
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => {
+      const aPreferred = a.raw === preferredRaw ? 1 : 0;
+      const bPreferred = b.raw === preferredRaw ? 1 : 0;
+      if (aPreferred !== bPreferred) return bPreferred - aPreferred;
+      const aPrimary = a.usedFakeTwins ? 0 : 1;
+      const bPrimary = b.usedFakeTwins ? 0 : 1;
+      if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+      const ptsDiff = (Number(b?.scored?.pts) || 0) - (Number(a?.scored?.pts) || 0);
+      if (ptsDiff !== 0) return ptsDiff;
+      return String(a.raw || "").localeCompare(String(b.raw || ""), "fr", {
+        sensitivity: "base",
+      });
+    });
+    return candidates[0] || null;
   }
 
   function getDailyActiveSlotIndex(slots, preferredIndex = 0) {
@@ -19522,16 +20017,19 @@ function handleTouchEnd(e) {
   }
     
     const display = currentTilesRef.current.join("");
-    const raw = normalizeWord(display);
+    const preferredRaw = normalizeWord(display);
+    const minimumWordLength =
+      Number.isFinite(specialScoreConfig?.minWordLength) && specialScoreConfig.minWordLength > 0
+        ? Math.trunc(specialScoreConfig.minWordLength)
+        : 2;
 
-    if (!raw || raw.length < 2) return error("Mot trop court");
-    if (!dictionary || !dictionary.has(raw)) return error("Absent du dico");
-    if (acceptedRef.current.includes(raw)) return error("D\u00e9j\u00e0 trouv\u00e9");
-    if (pendingWordsRef.current.has(raw)) return error("D\u00e9j\u00e0 envoy\u00e9");
-    if (submissionStatusRef.current.get(raw)?.status === "rejected") {
-      return error("D\u00e9j\u00e0 tent\u00e9");
+    if (!preferredRaw || preferredRaw.length < minimumWordLength) {
+      return error(
+        minimumWordLength > 2
+          ? `Mot trop court (${minimumWordLength} lettres min)`
+          : "Mot trop court"
+      );
     }
-
     let path;
     const touchContext =
       lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
@@ -19541,7 +20039,7 @@ function handleTouchEnd(e) {
       : [];
     const liveScored =
       liveHighlightPath.length > 0
-        ? scoreWordOnGridWithPath(raw, board, liveHighlightPath, specialScoreConfig)
+        ? scoreWordOnGridWithPath(preferredRaw, board, liveHighlightPath, specialScoreConfig)
         : null;
 
     if (usesManualPath) {
@@ -19554,21 +20052,51 @@ function handleTouchEnd(e) {
       path =
         Array.isArray(liveScored?.path) && liveScored.path.length > 0
           ? liveScored.path
-          : findBestPathForWord(board, raw, specialScoreConfig);
+          : findBestPathForWord(board, preferredRaw, specialScoreConfig);
       if (!path) return error("Mot absent de la grille");
       highlightPathRef.current = path;
       setHighlightPath(path);
+    }
+
+    const resolvedCandidate = resolveSubmissionCandidateFromPath(path, display);
+    if (!resolvedCandidate) {
+      if (!dictionary || !dictionary.has(preferredRaw)) return error("Absent du dico");
+      return error("Mot absent de la grille");
+    }
+    const raw = resolvedCandidate.raw;
+    if (!usesManualPath) {
+      const bestResolvedPath = findBestPathForWord(board, raw, specialScoreConfig);
+      if (Array.isArray(bestResolvedPath) && bestResolvedPath.length > 0) {
+        path = bestResolvedPath;
+        highlightPathRef.current = bestResolvedPath;
+        setHighlightPath(bestResolvedPath);
+      }
+    }
+    const scored =
+      usesManualPath &&
+      resolvedCandidate.scored &&
+      Array.isArray(resolvedCandidate.scored.path) &&
+      resolvedCandidate.scored.path.length > 0
+        ? resolvedCandidate.scored
+        : Array.isArray(path) && path.length > 0
+        ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
+        : null;
+    if (!scored) return error("Mot absent de la grille");
+    path = Array.isArray(scored.path) && scored.path.length > 0 ? scored.path : path;
+    const resolvedDisplay = String(
+      resolvedCandidate.display || display || raw || ""
+    ).toUpperCase();
+
+    if (acceptedRef.current.includes(raw)) return error("Déjà trouvé");
+    if (pendingWordsRef.current.has(raw)) return error("Déjà envoyé");
+    if (submissionStatusRef.current.get(raw)?.status === "rejected") {
+      return error("Déjà tenté");
     }
 
     // Mode en ligne : envoi optimiste + batch
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const scored =
-        Array.isArray(path) && path.length > 0
-          ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
-          : null;
-      if (!scored) return error("Mot absent de la grille");
       const optimisticPts = isTargetRoundNow
         ? 0
         : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
@@ -19577,17 +20105,19 @@ function handleTouchEnd(e) {
       const canOptimisticallyApply = !isMobileLayoutRef.current && !isTargetRoundNow;
 
       enqueuePendingWord(raw, {
-        display: display || raw.toUpperCase(),
+        display: resolvedDisplay,
         path,
         optimisticPts,
+        usedFakeTwins: !!scored?.usedFakeTwins,
         traceStartedAt: getSubmissionTraceStartedAt(),
         optimisticApplied: canOptimisticallyApply,
       });
       if (canOptimisticallyApply) {
         applyLocalWordScoring({
           raw,
-          display,
+          display: resolvedDisplay,
           path: Array.isArray(scored?.path) && scored.path.length > 0 ? scored.path : path,
+          usedFakeTwins: !!scored?.usedFakeTwins,
         });
       } else {
         clearSelection();
@@ -19605,13 +20135,12 @@ function handleTouchEnd(e) {
     }
 
     // Mode solo local : on garde le scoring existant
-    const scored =
-      Array.isArray(path) && path.length > 0
-        ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
-        : null;
-    if (!scored) return error("Mot absent de la grille");
-
-    applyLocalWordScoring({ raw, display, path: scored.path });
+    applyLocalWordScoring({
+      raw,
+      display: resolvedDisplay,
+      path: scored.path,
+      usedFakeTwins: !!scored?.usedFakeTwins,
+    });
   }
 
   function tryAutoSubmitCurrentWordAtRoundEnd() {
@@ -19619,22 +20148,46 @@ function handleTouchEnd(e) {
     if (foundTargetThisRound) return false;
 
     const display = currentTilesRef.current.join("");
-    const raw = normalizeWord(display);
-    if (!raw || raw.length < 2) return false;
-    if (!dictionary || !dictionary.has(raw)) return false;
-    if (acceptedRef.current.includes(raw)) return false;
-    if (pendingWordsRef.current.has(raw)) return false;
-    if (submissionStatusRef.current.get(raw)?.status === "rejected") return false;
+    const preferredRaw = normalizeWord(display);
+    const minimumWordLength =
+      Number.isFinite(specialScoreConfig?.minWordLength) && specialScoreConfig.minWordLength > 0
+        ? Math.trunc(specialScoreConfig.minWordLength)
+        : 2;
+    if (!preferredRaw || preferredRaw.length < minimumWordLength) return false;
 
     const liveHighlightPath = Array.isArray(highlightPathRef.current)
       ? highlightPathRef.current
       : [];
-    let path = findBestPathForWord(board, raw, specialScoreConfig);
+    let path = findBestPathForWord(board, preferredRaw, specialScoreConfig);
     if ((!Array.isArray(path) || path.length === 0) && liveHighlightPath.length > 0) {
-      const liveScored = scoreWordOnGridWithPath(raw, board, liveHighlightPath, specialScoreConfig);
+      const liveScored = scoreWordOnGridWithPath(
+        preferredRaw,
+        board,
+        liveHighlightPath,
+        specialScoreConfig
+      );
       path = Array.isArray(liveScored?.path) && liveScored.path.length > 0 ? liveScored.path : null;
     }
     if (!Array.isArray(path) || path.length === 0) return false;
+    const resolvedCandidate = resolveSubmissionCandidateFromPath(path, display);
+    if (!resolvedCandidate) return false;
+    const raw = resolvedCandidate.raw;
+    const bestResolvedPath = findBestPathForWord(board, raw, specialScoreConfig);
+    if (Array.isArray(bestResolvedPath) && bestResolvedPath.length > 0) {
+      path = bestResolvedPath;
+    }
+    const scored =
+      Array.isArray(path) && path.length > 0
+        ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
+        : null;
+    if (!scored) return false;
+    if (acceptedRef.current.includes(raw)) return false;
+    if (pendingWordsRef.current.has(raw)) return false;
+    if (submissionStatusRef.current.get(raw)?.status === "rejected") return false;
+    path = Array.isArray(scored.path) && scored.path.length > 0 ? scored.path : path;
+    const resolvedDisplay = String(
+      resolvedCandidate.display || display || raw || ""
+    ).toUpperCase();
     highlightPathRef.current = path;
     setHighlightPath(path);
 
@@ -19645,11 +20198,6 @@ function handleTouchEnd(e) {
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const scored =
-        Array.isArray(path) && path.length > 0
-          ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
-          : null;
-      if (!scored) return false;
       const optimisticPts = isTargetRoundNow
         ? 0
         : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
@@ -19657,9 +20205,10 @@ function handleTouchEnd(e) {
         : scored.pts;
 
       enqueuePendingWord(raw, {
-        display: display || raw.toUpperCase(),
+        display: resolvedDisplay,
         path,
         optimisticPts,
+        usedFakeTwins: !!scored?.usedFakeTwins,
         traceStartedAt: getSubmissionTraceStartedAt(),
       });
       scheduleBatchFlush({ immediate: true });
@@ -19671,13 +20220,12 @@ function handleTouchEnd(e) {
       return false;
     }
 
-    const scored =
-      Array.isArray(path) && path.length > 0
-        ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
-        : null;
-    if (!scored) return false;
-
-    applyLocalWordScoring({ raw, display, path: scored.path });
+    applyLocalWordScoring({
+      raw,
+      display: resolvedDisplay,
+      path: scored.path,
+      usedFakeTwins: !!scored?.usedFakeTwins,
+    });
     return true;
   }
 
@@ -19973,11 +20521,13 @@ function handleTouchEnd(e) {
   function analyzeWord(word) {
     if (!word) return;
     const normWord = normalizeWord(word);
-    const solvedPath =
+    const solvedEntry =
       solutionsRef.current.get(normWord) || solutionsRef.current.get(word);
     const path =
-      (Array.isArray(solvedPath) && solvedPath.length > 0
-        ? solvedPath
+      (Array.isArray(solvedEntry?.path) && solvedEntry.path.length > 0
+        ? solvedEntry.path
+        : Array.isArray(solvedEntry) && solvedEntry.length > 0
+        ? solvedEntry
         : findBestPathForWord(board, normWord, specialScoreConfig)) || null;
     if (!path || path.length === 0) {
       setAnalysis(null);
@@ -20575,6 +21125,35 @@ function handleTouchEnd(e) {
     }
     return new Set(specialHint.cells.filter((idx) => Number.isInteger(idx)));
   }, [specialHint, specialRound?.type]);
+  const hintCellStyleMap = React.useMemo(() => {
+    if (
+      specialRound?.type !== "target_long" ||
+      specialHint?.kind !== "target_long" ||
+      !specialHint?.cells?.length
+    ) {
+      return new Map();
+    }
+    return buildTargetHintStyleMap(
+      specialHint.cells,
+      specialHint.wordIndices,
+      specialHint.length
+    );
+  }, [specialHint, specialRound?.type]);
+  const hintCellOverlayStyleMap = React.useMemo(() => {
+    if (
+      specialRound?.type !== "target_long" ||
+      specialHint?.kind !== "target_long" ||
+      !specialHint?.cells?.length
+    ) {
+      return new Map();
+    }
+    return buildTargetHintOverlayStyleMap(
+      specialHint.cells,
+      specialHint.wordIndices,
+      specialHint.length,
+      "fill"
+    );
+  }, [specialHint, specialRound?.type]);
   const hintOutlineCellSet = React.useMemo(() => {
     if (
       specialRound?.type !== "target_score" ||
@@ -20584,6 +21163,35 @@ function handleTouchEnd(e) {
       return new Set();
     }
     return new Set(specialHint.cells.filter((idx) => Number.isInteger(idx)));
+  }, [specialHint, specialRound?.type]);
+  const hintOutlineStyleMap = React.useMemo(() => {
+    if (
+      specialRound?.type !== "target_score" ||
+      specialHint?.kind !== "target_score" ||
+      !specialHint?.cells?.length
+    ) {
+      return new Map();
+    }
+    return buildTargetHintStyleMap(
+      specialHint.cells,
+      specialHint.wordIndices,
+      specialHint.length
+    );
+  }, [specialHint, specialRound?.type]);
+  const hintOutlineOverlayStyleMap = React.useMemo(() => {
+    if (
+      specialRound?.type !== "target_score" ||
+      specialHint?.kind !== "target_score" ||
+      !specialHint?.cells?.length
+    ) {
+      return new Map();
+    }
+    return buildTargetHintOverlayStyleMap(
+      specialHint.cells,
+      specialHint.wordIndices,
+      specialHint.length,
+      "outline"
+    );
   }, [specialHint, specialRound?.type]);
   const solvedTargetWord =
     foundTargetThisRound && typeof foundTargetWord === "string"
@@ -20637,12 +21245,26 @@ function handleTouchEnd(e) {
   const currentDisplay = statusHoldText;
         // Mot en cours d'écriture : on prend l'état, et si jamais
   // il est vide on tombe sur la ref (utile pour certains cas tactile)
+  const livePreviewPath =
+    Array.isArray(highlightPath) && highlightPath.length > 0
+      ? highlightPath
+      : Array.isArray(highlightPathRef.current)
+      ? highlightPathRef.current
+      : [];
+  const liveWordTiles =
+    livePreviewPath.length > 0
+      ? livePreviewPath
+          .map((idx) => getLivePreviewLabelForCell(board?.[idx]))
+          .filter((chunk) => String(chunk || "").trim())
+      : currentTiles.length > 0
+      ? currentTiles
+      : currentTilesRef.current;
   const liveWord =
     currentTiles.length > 0
       ? currentTiles.join("")
       : currentTilesRef.current.join("");
-  const previewScale = liveWord
-    ? clampValue(11 / Math.max(1, liveWord.length), 0.6, 1)
+  const previewScale = liveWordTiles.length
+    ? clampValue(11 / Math.max(1, liveWordTiles.join("").length), 0.6, 1)
     : 1;
   const safeDailySlotIndex = clampValue(
     Number.isFinite(dailyActiveSlot) ? dailyActiveSlot : 0,
@@ -20725,12 +21347,13 @@ function handleTouchEnd(e) {
   const pendingWordEntries = React.useMemo(() => {
     const entries = [];
     submissionStatusRef.current.forEach((meta, word) => {
-      if (!meta || meta.status === "accepted") return;
+      if (!meta) return;
       entries.push({
         word,
         status: meta.status || "pending",
         userPts: meta.optimisticPts,
         reason: meta.reason || "",
+        usedFakeTwins: !!meta.usedFakeTwins,
         ts: meta.ts || 0,
       });
     });
@@ -20750,6 +21373,48 @@ function handleTouchEnd(e) {
   const foundWordsCount = accepted.length + pendingCount;
   const wordsFoundLabel = formatNumber(foundWordsCount) ?? "0";
   const scoreLabel = formatNumber(score) ?? "0";
+  const localCountedFakeTwinsWords = React.useMemo(() => {
+    const words = new Set();
+    accepted.forEach((word) => {
+      if (acceptedWordMetaRef.current.get(word)?.usedFakeTwins) {
+        words.add(word);
+      }
+    });
+    submissionStatusRef.current.forEach((meta, word) => {
+      if (!meta || meta.status === "rejected" || !meta.usedFakeTwins) return;
+      words.add(word);
+    });
+    return words;
+  }, [accepted, submissionTick]);
+  const fakeTwinsRemainingLabel = React.useMemo(() => {
+    const isFakeTwinsMode =
+      specialRound?.type === FAKE_TWINS_TYPE ||
+      (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
+    if (!isFakeTwinsMode) return "";
+    if (!Array.isArray(allWords) || allWords.length === 0) {
+      if (Number.isFinite(roundStats?.fakeTwinWords)) {
+        const remaining = Math.max(
+          0,
+          Number(roundStats.fakeTwinWords) - localCountedFakeTwinsWords.size
+        );
+        return `${formatNumber(remaining) ?? remaining} mots utilisent A/B`;
+      }
+      return "";
+    }
+    const remaining = (Array.isArray(allWords) ? allWords : []).filter((entry) => {
+      if (!entry?.usedFakeTwins || !entry?.word) return false;
+      return !localCountedFakeTwinsWords.has(entry.word);
+    }).length;
+    return `${formatNumber(remaining) ?? remaining} mots utilisent A/B`;
+  }, [
+    allWords,
+    formatNumber,
+    isDailyPlay,
+    localCountedFakeTwinsWords,
+    dailyPlayMode,
+    roundStats?.fakeTwinWords,
+    specialRound?.type,
+  ]);
   const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
     ? formatNumber(previewTotals.totalWords)
     : "?";
@@ -21120,6 +21785,9 @@ function handleTouchEnd(e) {
       status: "accepted",
       userPts: acceptedScoresRef.current.get(word),
       bestPts: allWordsMap.get(word)?.pts ?? bestPtsByFoundWord.get(word),
+      usedFakeTwins:
+        !!acceptedWordMetaRef.current.get(word)?.usedFakeTwins ||
+        !!allWordsMap.get(word)?.usedFakeTwins,
     }));
     pendingWordEntries.forEach((entry) => {
       if (acceptedWordSet.has(entry.word)) return;
@@ -21130,6 +21798,10 @@ function handleTouchEnd(e) {
         userPts: entry.userPts,
         bestPts: allWordsMap.get(entry.word)?.pts ?? bestPtsByFoundWord.get(entry.word),
         reason: entry.reason,
+        usedFakeTwins:
+          !!entry?.usedFakeTwins ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.usedFakeTwins ||
+          !!allWordsMap.get(entry.word)?.usedFakeTwins,
       });
     });
     return list;
@@ -21156,6 +21828,11 @@ function handleTouchEnd(e) {
         isFound: acceptedWordSet.has(entry.word),
         status: pendingStatusMap.get(entry.word)?.status || entry.status || "idle",
         reason: pendingStatusMap.get(entry.word)?.reason || entry.reason || "",
+        usedFakeTwins:
+          !!pendingStatusMap.get(entry.word)?.usedFakeTwins ||
+          !!entry?.usedFakeTwins ||
+          !!allWordsMap.get(entry.word)?.usedFakeTwins ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.usedFakeTwins,
         userPts: (() => {
           const raw =
             pendingStatusMap.get(entry.word)?.userPts ??
@@ -21307,6 +21984,7 @@ function handleTouchEnd(e) {
       if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
       if (upcomingSpecial.type === DAILY_SPECIAL_MODE) return "3 MOTS";
+      if (upcomingSpecial.type === FAKE_TWINS_TYPE) return "FAUX JUMEAUX";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
@@ -21777,6 +22455,7 @@ function handleTouchEnd(e) {
       if (upcomingSpecial.type === "speed") return "JEU RAPIDE";
       if (upcomingSpecial.type === "monstrous") return "GRILLE MONSTRUEUSE";
       if (upcomingSpecial.type === DAILY_SPECIAL_MODE) return "3 MOTS";
+      if (upcomingSpecial.type === FAKE_TWINS_TYPE) return "FAUX JUMEAUX";
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
@@ -22457,12 +23136,20 @@ function handleTouchEnd(e) {
   const dailyRankingSource = React.useMemo(() => {
     const allEntries = Array.isArray(dailyWidgetEntries) ? dailyWidgetEntries : [];
     const currentDailyMode =
-      dailyPlayMode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+      dailyPlayMode === DAILY_SPECIAL_MODE
+        ? DAILY_SPECIAL_MODE
+        : dailyPlayMode === DAILY_FAKE_TWINS_MODE
+        ? DAILY_FAKE_TWINS_MODE
+        : DAILY_MONSTROUS_MODE;
     const base = isDailyPlay
       ? allEntries.filter((entry) => {
           if (entry?.isPalier) return true;
           const entryMode =
-            entry?.mode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_MODE : DAILY_MONSTROUS_MODE;
+            entry?.mode === DAILY_SPECIAL_MODE
+              ? DAILY_SPECIAL_MODE
+              : entry?.mode === DAILY_FAKE_TWINS_MODE
+              ? DAILY_FAKE_TWINS_MODE
+              : DAILY_MONSTROUS_MODE;
           return entryMode === currentDailyMode;
         })
       : allEntries;
@@ -24398,7 +25085,7 @@ function handleTouchEnd(e) {
                   ...textureStyle,
                 }}
               >
-                <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
+                <GridTileLetter cell={tile} className={letterRingClass} />
                 {displayBonus && useBadgeIndicator ? (
                   <span
                     className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full shadow ${getBonusBadgeClass(
@@ -24529,10 +25216,12 @@ function handleTouchEnd(e) {
   const mobileRoundIntroOverlay = (
     <MobileRoundIntroOverlay
       countdown={mobileRoundIntroCountdown}
+      darkMode={darkMode}
       goLabel={MOBILE_ROUND_INTRO_GO_LABEL}
       gridRef={gridRef}
       isMobileLayout={isMobileLayout}
       roundLabel={mobileRoundIntroRoundLabel}
+      roundDescription={mobileRoundIntroRoundDescription}
       roundTypeLabel={mobileRoundIntroRoundTypeLabel}
       stage={mobileRoundIntroStage}
       titleFadeMs={MOBILE_ROUND_INTRO_TITLE_FADE_MS}
@@ -26065,6 +26754,9 @@ function handleTouchEnd(e) {
       ? `${definitionModal.inflectionLabel} ${definitionModal.inflectionBase}`
       : "";
   const isLemmaHint = !!(definitionModal.lemmaGuess && definitionModal.lemma);
+  const definitionVaultWord = String(definitionModal.word || "").trim();
+  const definitionWordInVault = isAccountAuthenticated && isWordInVault(definitionVaultWord);
+  const definitionVaultShowsSavedState = !definitionModal.fromVault && definitionWordInVault;
 
   const definitionModalView =
     definitionModal.open && typeof document !== "undefined"
@@ -26121,7 +26813,7 @@ function handleTouchEnd(e) {
                   <span>Définition non disponible</span>
                 )}
               </div>
-              <div className="mt-3 flex items-center justify-between text-xs">
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs">
                 {definitionModal.ok &&
                 (definitionModal.url || definitionModal.source) ? (
                   definitionModal.url ? (
@@ -26164,20 +26856,29 @@ function handleTouchEnd(e) {
                     Rechercher sur Google
                   </a>
                 )}
-                <button
-                  type="button"
-                  className={`px-2 py-1 rounded border text-[11px] ${
-                    darkMode
-                      ? "bg-slate-800 border-slate-600 text-slate-100"
-                      : "bg-gray-50 border-gray-200 text-slate-900"
-                  }`}
-                  onClick={() => {
-                    playCloseSound();
-                    closeDefinition();
-                  }}
-                >
-                  Fermer
-                </button>
+                <div className="flex items-center gap-2">
+                  <DefinitionVaultButton
+                    darkMode={darkMode}
+                    fromVault={definitionModal.fromVault}
+                    wordInVault={definitionVaultShowsSavedState}
+                    pending={wordVaultActionPending}
+                    onClick={handleDefinitionVaultAction}
+                  />
+                  <button
+                    type="button"
+                    className={`px-2 py-1 rounded border text-[11px] ${
+                      darkMode
+                        ? "bg-slate-800 border-slate-600 text-slate-100"
+                        : "bg-gray-50 border-gray-200 text-slate-900"
+                    }`}
+                    onClick={() => {
+                      playCloseSound();
+                      closeDefinition();
+                    }}
+                  >
+                    Fermer
+                  </button>
+                </div>
               </div>
             </div>
           </div>,
@@ -26610,6 +27311,15 @@ function handleTouchEnd(e) {
       return [{
         lead: `Lettre en or : ${specialTutorialBonusLetter ? specialTutorialBonusLetter.toUpperCase() : "?"} vaut ${specialTutorialBonusScore} points.`,
         bullets: ["Les autres lettres gardent leur valeur habituelle."],
+      }];
+    }
+    if (specialTutorialType === FAKE_TWINS_TYPE || specialTutorialType === DAILY_FAKE_TWINS_MODE) {
+      return [{
+        lead: "Une case de la grille peut valoir l'une ou l'autre de deux lettres.",
+        bullets: [
+          "Un mot est valide si cette case peut être lue avec l'une ou l'autre lettre.",
+          "Seuls les mots de 4 lettres ou plus sont valides.",
+        ],
       }];
     }
     return [{
@@ -27881,7 +28591,7 @@ function handleTouchEnd(e) {
     applyThemeVisualState(nextTheme);
   }, [applyThemeVisualState, themeDraftSafe]);
   const settingsMenuView = isSettingsOpen ? (
-    <div className="fixed inset-0 z-[20000] flex items-start justify-end p-4">
+    <div className="fixed inset-0 z-[20090] flex items-start justify-end p-4">
       <style>{slideStyles}</style>
       <button
         type="button"
@@ -28548,9 +29258,9 @@ function handleTouchEnd(e) {
                           }}
                           aria-hidden="true"
                         >
-                          <span className={`tile-letter ${letterRingClass}`.trim()}>{cell.letter}</span>
+                          <GridTileLetter cell={cell} className={letterRingClass} />
                           {tilePointsVisible ? (
-                            <span className="tile-points">{tileScore({ letter: cell.letter })}</span>
+                            <span className="tile-points">{tileScore(cell)}</span>
                           ) : null}
                           {displayBonus && (themePreviewUseFill || themePreviewUseBadge) ? (
                             <span
@@ -29288,6 +29998,40 @@ function handleTouchEnd(e) {
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 12/04/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  général
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    introduction d’une nouvelle manche spéciale « faux jumeaux », avec une lettre
+                    double. attention ! pour cette manche, seuls les mots de 4 lettres ou plus
+                    sont acceptés. une grille du jour faux jumeaux est également mise en place.
+                    les mots utilisant l’une ou l’autre des lettres jumelles rapportent 20 points
+                    bonus.
+                  </li>
+                  <li>
+                    ajout du coffre-fort accessible depuis la page d’accueil. il est possible de
+                    trier les mots de trois façons : date d’ajout, alphabétiquement ou par
+                    longueur de mot. tout mot est ajoutable au coffre-fort depuis l’écran de
+                    définition d’un mot. une fois dans le coffre-fort, il est possible d’aller en
+                    chercher la définition en cliquant dessus.
+                  </li>
+                  <li>
+                    passage de l’ensemble des grilles du jour à 120 secondes (contre 90
+                    précédemment)
+                  </li>
+                  <li>ajout d’un dégradé sur les indices des manches cibles</li>
+                  <li>tentative de correction de non-synchronisation du compte</li>
+                  <li>
+                    correction de l’écran d’annonce de manche qui s’affichait par dessus le menu
+                    réglages
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 22/03/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
@@ -29907,6 +30651,16 @@ function handleTouchEnd(e) {
         description: "Trois cartouches, peu d'essais, lecture rapide de la grille.",
       };
     }
+    if (section === DAILY_FAKE_TWINS_MODE) {
+      return {
+        key: DAILY_FAKE_TWINS_MODE,
+        label: "Faux jumeaux",
+        shortLabel: "Faux jumeaux",
+        accentClass: "from-teal-500 via-emerald-500 to-green-600",
+        buttonClass: "bg-teal-600 hover:bg-teal-500 text-white",
+        description: "Une case vaut deux lettres possibles, avec un minimum de 4 lettres.",
+      };
+    }
     if (section === DAILY_FUTURE_SECTION) {
       return {
         key: DAILY_FUTURE_SECTION,
@@ -29937,11 +30691,17 @@ function handleTouchEnd(e) {
       return dailyStatus?.mySpecialResult ||
         (dailyResult?.mode === DAILY_SPECIAL_MODE ? dailyResult : null);
     }
+    if (mode === DAILY_FAKE_TWINS_MODE) {
+      return dailyStatus?.myFakeTwinsResult ||
+        (dailyResult?.mode === DAILY_FAKE_TWINS_MODE ? dailyResult : null);
+    }
     return null;
   };
   const selectedDailySectionMeta = getDailySectionMeta(dailySection);
   const dailyMyResult =
-    dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE
+    dailySection === DAILY_MONSTROUS_MODE ||
+    dailySection === DAILY_SPECIAL_MODE ||
+    dailySection === DAILY_FAKE_TWINS_MODE
       ? getDailyModeResult(dailySection)
       : null;
   const dailyBattle =
@@ -30048,7 +30808,11 @@ function handleTouchEnd(e) {
   };
   const filterDailyEntriesBySection = (entries, section) => {
     const list = Array.isArray(entries) ? entries : [];
-    if (section === DAILY_MONSTROUS_MODE || section === DAILY_SPECIAL_MODE) {
+    if (
+      section === DAILY_MONSTROUS_MODE ||
+      section === DAILY_SPECIAL_MODE ||
+      section === DAILY_FAKE_TWINS_MODE
+    ) {
       return list.filter((entry) => entry?.mode === section).sort(dailyEntrySort);
     }
     if (section === DAILY_FUTURE_SECTION) {
@@ -30065,7 +30829,9 @@ function handleTouchEnd(e) {
             ...page,
             entries: filterDailyEntriesBySection(page?.entries, dailySection),
             findableWords:
-              dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE
+              dailySection === DAILY_MONSTROUS_MODE ||
+              dailySection === DAILY_SPECIAL_MODE ||
+              dailySection === DAILY_FAKE_TWINS_MODE
                 ? Array.isArray(page?.findableWordsByMode?.[dailySection])
                   ? page.findableWordsByMode[dailySection]
                   : []
@@ -30073,7 +30839,9 @@ function handleTouchEnd(e) {
                 ? page.findableWords
                 : [],
             myWords:
-              dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE
+              dailySection === DAILY_MONSTROUS_MODE ||
+              dailySection === DAILY_SPECIAL_MODE ||
+              dailySection === DAILY_FAKE_TWINS_MODE
                 ? Array.isArray(page?.myWordsByMode?.[dailySection])
                   ? page.myWordsByMode[dailySection]
                   : []
@@ -30108,11 +30876,11 @@ function handleTouchEnd(e) {
       result: getDailyModeResult(DAILY_SPECIAL_MODE),
     },
     {
-      key: DAILY_FUTURE_SECTION,
-      playable: false,
-      available: false,
-      played: false,
-      result: null,
+      key: DAILY_FAKE_TWINS_MODE,
+      playable: true,
+      available: !!dailyStatus.ready,
+      played: !!dailyStatus.hasPlayedFakeTwins,
+      result: getDailyModeResult(DAILY_FAKE_TWINS_MODE),
     },
   ];
   const selectedDailySectionState =
@@ -30124,6 +30892,9 @@ function handleTouchEnd(e) {
       : null,
     getDailyModeResult(DAILY_SPECIAL_MODE)
       ? `3 mots : ${getDailyModeResult(DAILY_SPECIAL_MODE).score || 0} pts`
+      : null,
+    getDailyModeResult(DAILY_FAKE_TWINS_MODE)
+      ? `Faux jumeaux : ${getDailyModeResult(DAILY_FAKE_TWINS_MODE).score || 0} pts`
       : null,
   ].filter(Boolean);
 
@@ -30427,7 +31198,13 @@ function handleTouchEnd(e) {
     flexShrink: 0,
   };
   const renderDailyHistoryWords = (page) => {
-    if (dailySection !== DAILY_MONSTROUS_MODE && dailySection !== DAILY_SPECIAL_MODE) return null;
+    if (
+      dailySection !== DAILY_MONSTROUS_MODE &&
+      dailySection !== DAILY_SPECIAL_MODE &&
+      dailySection !== DAILY_FAKE_TWINS_MODE
+    ) {
+      return null;
+    }
     const words = Array.isArray(page?.findableWords) ? page.findableWords : [];
     const selfEntry = Array.isArray(page?.entries)
       ? page.entries.find((entry) => entry?.installId && installId && entry.installId === installId)
@@ -31005,7 +31782,9 @@ function handleTouchEnd(e) {
                   <div className="space-y-1">
                     <div className="text-xl font-black">{selectedDailySectionMeta.label}</div>
                     <div className="text-sm opacity-75">{selectedDailySectionMeta.description}</div>
-                    {dailySection === DAILY_MONSTROUS_MODE || dailySection === DAILY_SPECIAL_MODE ? (
+                    {dailySection === DAILY_MONSTROUS_MODE ||
+                    dailySection === DAILY_SPECIAL_MODE ||
+                    dailySection === DAILY_FAKE_TWINS_MODE ? (
                       <div className="text-xs font-semibold opacity-80">
                         {!isMobileLayout && dailySection === DAILY_SPECIAL_MODE
                           ? "—"
@@ -31038,7 +31817,8 @@ function handleTouchEnd(e) {
                           !selectedDailySectionState.playable ||
                           !selectedDailySectionState.available ||
                           ((dailySection === DAILY_MONSTROUS_MODE ||
-                            dailySection === DAILY_SPECIAL_MODE) &&
+                            dailySection === DAILY_SPECIAL_MODE ||
+                            dailySection === DAILY_FAKE_TWINS_MODE) &&
                             selectedDailySectionState.played)
                             ? "bg-slate-400/60 text-white cursor-not-allowed"
                             : selectedDailySectionMeta.buttonClass
@@ -31047,13 +31827,15 @@ function handleTouchEnd(e) {
                           !selectedDailySectionState.playable ||
                           !selectedDailySectionState.available ||
                           ((dailySection === DAILY_MONSTROUS_MODE ||
-                            dailySection === DAILY_SPECIAL_MODE) &&
+                            dailySection === DAILY_SPECIAL_MODE ||
+                            dailySection === DAILY_FAKE_TWINS_MODE) &&
                             selectedDailySectionState.played)
                         }
                         onClick={() => openDailyLaunchDialog(dailySection)}
                       >
                         {(dailySection === DAILY_MONSTROUS_MODE ||
-                          dailySection === DAILY_SPECIAL_MODE) &&
+                          dailySection === DAILY_SPECIAL_MODE ||
+                          dailySection === DAILY_FAKE_TWINS_MODE) &&
                         selectedDailySectionState.played
                           ? "Déjà jouée"
                           : "Jouer"}
@@ -31291,6 +32073,31 @@ function handleTouchEnd(e) {
             </div>
           </div>
         </div>
+      </>
+    );
+  }
+
+  if (!isLoggedIn && appView === "vault") {
+    return (
+      <>
+        {bootOverlay}
+        {playersOverlay}
+        {definitionModalView}
+        {tutorialOverlay}
+        {authDialogView}
+        {settingsMenuView}
+        {aboutModalView}
+        <WordVaultPage
+          darkMode={darkMode}
+          loading={wordVault.loading}
+          error={wordVault.error}
+          words={wordVault.words}
+          sortMode={wordVault.sortMode}
+          onSortChange={setWordVaultSortMode}
+          onOpenWord={(word) => openDefinition(word, { fromVault: true, preferLongDefinition: true })}
+          onRetry={() => fetchWordVault()}
+          onClose={() => setAppView("home")}
+        />
       </>
     );
   }
@@ -31622,6 +32429,14 @@ function handleTouchEnd(e) {
               disabled={isConnecting}
             >
               Grilles du jour
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm"
+              onClick={openWordVaultPage}
+              disabled={isConnecting}
+            >
+              Coffre fort
             </button>
             <button
               type="button"
@@ -32053,22 +32868,13 @@ function handleTouchEnd(e) {
                     ) : (
                       <div
                         ref={finaleScrollRef}
-                        className="flex w-full h-full min-h-0"
-                        style={{
-                          transform: `translateX(calc(${finalePage * -100}%))`,
-                          transition: "transform 0.25s ease-out",
-                        }}
+                        className="w-full h-full min-h-0"
                         onTouchStart={handleFinaleTouchStart}
                         onTouchMove={handleFinaleTouchMove}
                         onTouchEnd={handleFinaleTouchEnd}
                         onTouchCancel={handleFinaleTouchEnd}
                       >
-                        <div className="w-full shrink-0 h-full">{renderFinaleRankingCard()}</div>
-                        {finaleBoards.map((boardMeta) => (
-                          <div key={boardMeta.key} className="w-full shrink-0 h-full">
-                            {renderFinaleWeeklyCard(boardMeta)}
-                          </div>
-                        ))}
+                        {renderActiveFinalePage()}
                       </div>
                     )}
                   </div>
@@ -33074,7 +33880,7 @@ function handleTouchEnd(e) {
                     ...textureStyle,
                   }}
                 >
-                  <span className={`tile-letter ${letterRingClass}`.trim()}>{tile.letter || "?"}</span>
+                  <GridTileLetter cell={tile} className={letterRingClass} />
                   {displayBonus && useBadgeIndicator ? (
                     <span
                       className={`absolute top-0 right-0 rounded-full shadow ${getBonusBadgeClass(
@@ -33733,7 +34539,11 @@ function handleTouchEnd(e) {
         handleTouchStart={handleTouchStart}
         highlightPlayers={highlightPlayers}
         hintCellSet={hintCellSet}
+        hintCellOverlayStyleMap={hintCellOverlayStyleMap}
+        hintCellStyleMap={hintCellStyleMap}
         hintOutlineCellSet={hintOutlineCellSet}
+        hintOutlineOverlayStyleMap={hintOutlineOverlayStyleMap}
+        hintOutlineStyleMap={hintOutlineStyleMap}
         implodeActive={implodeActive}
         isChatOpenMobile={isChatOpenMobile}
         isDailyPlay={isDailyPlay}
@@ -33742,7 +34552,9 @@ function handleTouchEnd(e) {
         isTargetRound={isTargetRound}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         liveFeedMinHeight={liveFeedMinHeight}
+        liveFeedBannerText={fakeTwinsRemainingLabel}
         liveWord={liveWord}
+        liveWordTiles={liveWordTiles}
         mobileAnnouncements={mobileAnnouncements}
         mobileBodyHeightStyle={mobileBodyHeightStyle}
         mobileBodyPaddingTop={mobileBodyPaddingTop}
@@ -34519,6 +35331,14 @@ function handleTouchEnd(e) {
                 const highlightClass = isUsed ? "tile-used" : "";
                 const hintClass = isHint ? "tile-hint" : "";
                 const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
+                const hintStyle =
+                  (isHint ? hintCellStyleMap.get(boardIndex) : null) ||
+                  (isHintOutline ? hintOutlineStyleMap.get(boardIndex) : null) ||
+                  null;
+                const hintOverlayStyle =
+                  (isHint ? hintCellOverlayStyleMap.get(boardIndex) : null) ||
+                  (isHintOutline ? hintOutlineOverlayStyleMap.get(boardIndex) : null) ||
+                  null;
                 const letterRingClass =
                   !isBonusLetterTile && useRingIndicator && displayBonus
                     ? getBonusLetterRingClass(displayBonus)
@@ -34529,6 +35349,7 @@ function handleTouchEnd(e) {
                   displayBonus &&
                   !bonusLetterKey;
                 const isSpecialStartTileLocked = special3LockedStartTileSet.has(boardIndex);
+                const isFakeTwinsTile = cell?.specialType === FAKE_TWINS_TYPE && cell?.altLetter;
 
                 return (
                   <button
@@ -34547,6 +35368,7 @@ function handleTouchEnd(e) {
     highlightClass,
     hintClass,
     hintOutlineClass,
+    isFakeTwinsTile ? "fake-twins-tile" : "",
     isSpecialStartTileLocked ? "daily-special-start-used" : "",
     mobileRoundIntroHideTiles ? "opacity-0 pointer-events-none" : "",
   ]
@@ -34561,16 +35383,22 @@ function handleTouchEnd(e) {
     WebkitUserSelect: "none",
     WebkitTouchCallout: "none",
     fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
+    ...(hintStyle || {}),
     ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
   }}
 >
   {isSpecialStartTileLocked ? (
     <span aria-hidden="true" className="daily-special-start-lock" />
   ) : null}
-  <span className={`tile-letter ${letterRingClass}`.trim()}>
-    {letter}
-  </span>
-  {roundTilePointsVisible && letterPts > 0 ? <span className="tile-points">{letterPts}</span> : null}
+  {hintOverlayStyle ? (
+    <span
+      aria-hidden="true"
+      className="absolute inset-0 pointer-events-none"
+      style={{ borderRadius: "inherit", ...hintOverlayStyle }}
+    />
+  ) : null}
+  <GridTileLetter cell={cell} className={`relative z-[1] ${letterRingClass}`.trim()} />
+  {roundTilePointsVisible && letterPts > 0 ? <span className="tile-points z-[1]">{letterPts}</span> : null}
   {displayBonus && (useFillIndicator || showBonusBadge) && (
     <span
       className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
@@ -34670,14 +35498,14 @@ function handleTouchEnd(e) {
         </span>
       ))}
     </span>
-  ) : liveWord ? (
+  ) : liveWordTiles.length ? (
     <div
       className="flex justify-center items-center gap-1 max-w-full overflow-visible"
       style={{ transform: `scale(${previewScale})`, transformOrigin: "center" }}
     >
-      {liveWord.split("").map((ch, idx) => {
+      {liveWordTiles.map((ch, idx) => {
         // rotation déterministe légère, entre -5° et +5°
-        const angle = ((idx * 17 + liveWord.length * 13) % 11) - 5;
+        const angle = ((idx * 17 + liveWordTiles.length * 13) % 11) - 5;
         return (
           <div
             key={idx}
@@ -34750,8 +35578,10 @@ function handleTouchEnd(e) {
                     {isSpecial3WordsMode ? "" : `${specialRound?.label || "Manche spéciale"} `}
                     {specialRound?.type === "speed"
                       ? `mots fixes ${specialRound.fixedWordScore} pts`
-                      : isSpecial3WordsMode
+                    : isSpecial3WordsMode
                       ? "3 mots, tuiles de départ différentes"
+                      : specialRound?.type === FAKE_TWINS_TYPE
+                      ? "une case vaut 2 lettres, mots de 4 lettres min"
                       : specialRound?.type === "bonus_letter"
                       ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                       : "objectif : 1 seul mot"}
@@ -34906,7 +35736,12 @@ function handleTouchEnd(e) {
             </div>
           ) : phase === "playing" ? (
             <div className="flex flex-col flex-1 min-h-0">
-              <LiveFeed items={mixedFeed} darkMode={darkMode} maxHeight="100%" />
+              <LiveFeed
+                items={mixedFeed}
+                darkMode={darkMode}
+                maxHeight="100%"
+                bannerText={fakeTwinsRemainingLabel}
+              />
             </div>
           ) : isTargetRound ? (
             <div className="flex flex-col flex-1 min-h-0" />

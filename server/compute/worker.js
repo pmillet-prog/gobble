@@ -3,7 +3,14 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { parentPort } from "worker_threads";
 
-import { generateGrid, solveGrid, normalizeWord } from "../../shared/gameLogic.js";
+import {
+  buildFakeTwinsGrid,
+  FAKE_TWINS_MIN_WORD_LENGTH,
+  FAKE_TWINS_TYPE,
+  generateGrid,
+  normalizeWord,
+  solveGrid,
+} from "../../shared/gameLogic.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,6 +83,7 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
   let maxPts = 0;
   let totalPts = 0;
   let longWords = 0;
+  let fakeTwinWords = 0;
   const minLongWordLen = Math.max(0, opts?.minLongWordLen || 0);
 
   if (hasSolved) {
@@ -88,6 +96,9 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
       if (minLongWordLen > 0 && len >= minLongWordLen) {
         longWords++;
       }
+      if (data?.usedFakeTwins) {
+        fakeTwinWords++;
+      }
     }
   }
 
@@ -98,6 +109,7 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
     maxPts,
     totalPts,
     longWords,
+    fakeTwinWords,
   };
 }
 
@@ -178,8 +190,11 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     roundPlan?.qualityAttempts || roomConfig?.qualityAttempts || MAX_QUALITY_ATTEMPTS
   );
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
+  const needsFakeTwins = roundPlan?.type === FAKE_TWINS_TYPE;
   const maxAttemptsBase = needsBonusLetter
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
+    : needsFakeTwins
+    ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS)
     : maxAttempts;
   const maxAttemptsTotal =
     roundPlan?.type === "target_long"
@@ -187,7 +202,12 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       : maxAttemptsBase;
   const size = roomConfig?.gridSize || 4;
   const effectiveMinWords = dictionary ? minWords : 0;
-  const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
+  const qualityOpts = {
+    minLongWordLen:
+      roundPlan?.type === FAKE_TWINS_TYPE
+        ? FAKE_TWINS_MIN_WORD_LENGTH
+        : roundPlan?.minLongWordLen || 0,
+  };
   const isTargetLong = roundPlan?.type === "target_long";
   const targetLongBucket = isTargetLong ? pickTargetLongLengthBucket() : null;
   const isTargetLong11PlusMode = isTargetLong && targetLongBucket === "11plus";
@@ -212,7 +232,20 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       grid = grid.map((cell) => ({ ...cell, bonus: null }));
     }
 
-    const solved = dictionary ? solveGrid(grid, dictionary) : null;
+    let solved = null;
+    let fakeTwinsCandidate = null;
+    if (dictionary && needsFakeTwins) {
+      fakeTwinsCandidate = buildFakeTwinsGrid(grid, dictionary, {
+        maxCellCandidates: 6,
+        maxAltLetters: 6,
+      });
+      if (fakeTwinsCandidate?.grid?.length) {
+        grid = fakeTwinsCandidate.grid;
+      }
+      solved = fakeTwinsCandidate?.solved || null;
+    } else {
+      solved = dictionary ? solveGrid(grid, dictionary) : null;
+    }
     const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
     quality.possibleScore = roundPlan?.fixedWordScore
       ? (quality.words || 0) * roundPlan.fixedWordScore
@@ -233,9 +266,16 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     } else if (
       roundPlan?.type === "target_long" ||
       roundPlan?.type === "target_score" ||
-      roundPlan?.type === "bonus_letter"
+      roundPlan?.type === "bonus_letter" ||
+      roundPlan?.type === FAKE_TWINS_TYPE
     ) {
       ok = ok && !!dictionary;
+    }
+    if (needsFakeTwins) {
+      ok =
+        ok &&
+        Number.isInteger(fakeTwinsCandidate?.twinIndex) &&
+        Number(quality?.fakeTwinWords) > 0;
     }
     quality.ok = ok;
 
@@ -281,6 +321,13 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
         }
       : {
           ...roundPlan,
+          ...(needsFakeTwins && Number.isInteger(fakeTwinsCandidate?.twinIndex)
+            ? {
+                minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+                twinIndex: fakeTwinsCandidate.twinIndex,
+                altLetter: fakeTwinsCandidate.altLetter || null,
+              }
+            : null),
           ...(isTargetLong ? { targetLongBucket } : null),
         };
 
@@ -294,7 +341,9 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       targetPath,
     };
     const candidateHasRequiredTarget =
-      roundPlan?.type === "target_score" || roundPlan?.type === "target_long"
+      roundPlan?.type === FAKE_TWINS_TYPE
+        ? Number.isInteger(fakeTwinsCandidate?.twinIndex) && !!fakeTwinsCandidate?.altLetter
+        : roundPlan?.type === "target_score" || roundPlan?.type === "target_long"
         ? !!targetWord
         : true;
     if (candidateHasRequiredTarget) {

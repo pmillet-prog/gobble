@@ -1,5 +1,6 @@
 import React from "react";
 import { normalizeWord } from "./gameLogic";
+import WordPointsLabel from "./WordPointsLabel.jsx";
 
 function DesktopResultsWordList({
   analysisWord = "",
@@ -102,6 +103,12 @@ function DesktopResultsWordList({
             : isFound
             ? "font-semibold"
             : "text-gray-600";
+          const fakeTwinsWordClassName =
+            entry?.usedFakeTwins && !isRejected
+              ? darkMode
+                ? "text-blue-300"
+                : "text-blue-600"
+              : "";
 
           return (
             <li
@@ -165,15 +172,21 @@ function DesktopResultsWordList({
                   <span style={{ ...foundDotStyle, opacity: 0 }} aria-hidden="true" />
                 )}
                 <span className="flex items-center gap-1 min-w-0">
-                  <span className={wordClassName}>{entry.word}</span>
+                  <span className={`${wordClassName} ${fakeTwinsWordClassName}`.trim()}>
+                    {entry.word}
+                  </span>
                   {renderGobbleCandidate(entry.word)}
                 </span>
               </span>
               <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                 {!suppressWordListScores && typeof userPts === "number" && isFound && (
-                  <span className={`font-extrabold ${darkMode ? "text-slate-100" : "text-slate-800"}`}>
-                    +{userPts} pts
-                  </span>
+                  <WordPointsLabel
+                    pts={userPts}
+                    mode="found"
+                    usedFakeTwins={!!entry?.usedFakeTwins}
+                    darkMode={darkMode}
+                    className={`font-extrabold ${darkMode ? "text-slate-100" : "text-slate-800"}`}
+                  />
                 )}
                 {isPending && <span className="text-[0.65rem] text-gray-400">envoi...</span>}
                 {isRejected && (
@@ -182,12 +195,22 @@ function DesktopResultsWordList({
                   </span>
                 )}
                 {!suppressWordListScores && !isFound && typeof bestPts === "number" && (
-                  <span className="text-slate-500 opacity-75">({bestPts} pts)</span>
+                  <WordPointsLabel
+                    pts={bestPts}
+                    mode="best"
+                    usedFakeTwins={!!entry?.usedFakeTwins}
+                    darkMode={darkMode}
+                    className="text-slate-500 opacity-75"
+                  />
                 )}
                 {showOpt && (
-                  <span className={`text-[0.65rem] ${darkMode ? "text-red-300" : "text-red-600"}`}>
-                    (opt: {bestPts} pts)
-                  </span>
+                  <WordPointsLabel
+                    pts={bestPts}
+                    mode="opt"
+                    usedFakeTwins={!!entry?.usedFakeTwins}
+                    darkMode={darkMode}
+                    className={`text-[0.65rem] ${darkMode ? "text-red-300" : "text-red-600"}`}
+                  />
                 )}
               </span>
             </li>

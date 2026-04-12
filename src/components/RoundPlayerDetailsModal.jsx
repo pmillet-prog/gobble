@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import WordPointsLabel from "./WordPointsLabel.jsx";
 
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 const DARK_WORD_INACTIVE = "#e2e8f0";
@@ -222,6 +223,7 @@ export default function RoundPlayerDetailsModal({
         userPts: Number.isFinite(entry?.pts) ? entry.pts : null,
         isGobble: gobbleCount > 0,
         gobbleCount,
+        usedFakeTwins: !!entry?.usedFakeTwins,
       });
     });
     return map;
@@ -240,6 +242,7 @@ export default function RoundPlayerDetailsModal({
         bestPts: Number.isFinite(entry?.pts) ? entry.pts : null,
         isGobble: gobbleCount > 0,
         gobbleCount,
+        usedFakeTwins: !!entry?.usedFakeTwins,
       });
     });
     foundWordsMap.forEach((meta, word) => {
@@ -252,6 +255,7 @@ export default function RoundPlayerDetailsModal({
             0,
             Math.trunc(Number(meta?.gobbleCount) || (meta?.isGobble ? 1 : 0))
           ),
+          usedFakeTwins: !!meta?.usedFakeTwins,
         });
       }
     });
@@ -264,6 +268,7 @@ export default function RoundPlayerDetailsModal({
         userPts: foundMeta?.userPts ?? null,
         bestPts: entry.bestPts,
         isGobble: !!(entry?.isGobble || foundMeta?.isGobble),
+        usedFakeTwins: !!(entry?.usedFakeTwins || foundMeta?.usedFakeTwins),
         gobbleCount: Math.max(
           0,
           Math.trunc(
@@ -736,6 +741,12 @@ export default function RoundPlayerDetailsModal({
                         : isFound
                         ? "font-semibold"
                         : "text-gray-600";
+                      const fakeTwinsWordClassName =
+                        entry?.usedFakeTwins && !isRejected
+                          ? darkMode
+                            ? "text-blue-300"
+                            : "text-blue-600"
+                          : "";
                       return (
                         <li
                           key={entry.word}
@@ -786,19 +797,23 @@ export default function RoundPlayerDetailsModal({
                               />
                             )}
                             <span className="flex items-center gap-1 min-w-0">
-                              <span className={wordClassName}>{entry.word}</span>
+                              <span className={`${wordClassName} ${fakeTwinsWordClassName}`.trim()}>
+                                {entry.word}
+                              </span>
                               {renderGobbleCandidate(entry.word)}
                             </span>
                           </button>
                           <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                             {showWordScores && typeof userPts === "number" && isFound && (
-                              <span
+                              <WordPointsLabel
+                                pts={userPts}
+                                mode="found"
+                                usedFakeTwins={!!entry?.usedFakeTwins}
+                                darkMode={darkMode}
                                 className={`font-extrabold ${
                                   darkMode ? "text-slate-100" : "text-slate-800"
                                 }`}
-                              >
-                                +{userPts} pts
-                              </span>
+                              />
                             )}
                             {isPending && (
                               <span className="text-[0.65rem] text-gray-400">envoi...</span>
@@ -813,16 +828,24 @@ export default function RoundPlayerDetailsModal({
                               </span>
                             )}
                             {showWordScores && !isFound && typeof bestPts === "number" && (
-                              <span className="text-slate-500 opacity-75">({bestPts} pts)</span>
+                              <WordPointsLabel
+                                pts={bestPts}
+                                mode="best"
+                                usedFakeTwins={!!entry?.usedFakeTwins}
+                                darkMode={darkMode}
+                                className="text-slate-500 opacity-75"
+                              />
                             )}
                             {showOpt && (
-                              <span
+                              <WordPointsLabel
+                                pts={bestPts}
+                                mode="opt"
+                                usedFakeTwins={!!entry?.usedFakeTwins}
+                                darkMode={darkMode}
                                 className={`text-[0.65rem] ${
                                   darkMode ? "text-red-300" : "text-red-600"
                                 }`}
-                              >
-                                (opt: {bestPts} pts)
-                              </span>
+                              />
                             )}
                           </span>
                         </li>

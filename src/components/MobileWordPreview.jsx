@@ -7,6 +7,7 @@ export default function MobileWordPreview({
   currentDisplay,
   darkMode,
   liveWord,
+  liveWordTiles = [],
   onRotateGrid,
   phase,
   previewBlockHeight,
@@ -30,8 +31,14 @@ export default function MobileWordPreview({
     12,
     Math.max(9, Math.round(previewHeight * 0.26))
   );
-  const previewScale = liveWord
-    ? Math.min(1, Math.max(0.6, 11 / Math.max(1, liveWord.length)))
+  const previewChunks =
+    Array.isArray(liveWordTiles) && liveWordTiles.length
+      ? liveWordTiles
+      : liveWord
+      ? liveWord.split("")
+      : [];
+  const previewScale = previewChunks.length
+    ? Math.min(1, Math.max(0.6, 11 / Math.max(1, previewChunks.join("").length)))
     : 1;
   const canRotate = typeof onRotateGrid === "function";
   const showStats = Boolean(previewStats?.show);
@@ -77,7 +84,7 @@ export default function MobileWordPreview({
               </span>
             ))}
           </span>
-        ) : liveWord ? (
+        ) : previewChunks.length ? (
           <div
             className="flex justify-center items-center max-w-full overflow-visible"
             style={{
@@ -86,8 +93,8 @@ export default function MobileWordPreview({
               transformOrigin: "center",
             }}
           >
-            {liveWord.split("").map((ch, idx) => {
-              const angle = ((idx * 17 + liveWord.length * 13) % 11) - 5;
+            {previewChunks.map((ch, idx) => {
+              const angle = ((idx * 17 + previewChunks.length * 13) % 11) - 5;
               return (
                 <div
                   key={idx}

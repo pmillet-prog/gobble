@@ -7,10 +7,12 @@ function clampValue(value, min, max) {
 
 function MobileRoundIntroOverlay({
   countdown = null,
+  darkMode = false,
   goLabel = "PARTEZ !",
   gridRef = null,
   isMobileLayout = false,
   roundLabel = "",
+  roundDescription = "",
   roundTypeLabel = "",
   stage = "idle",
   titleFadeMs = 180,
@@ -85,9 +87,16 @@ function MobileRoundIntroOverlay({
     backgroundClip: "text",
     color: "transparent",
     WebkitTextFillColor: "transparent",
-    WebkitTextStroke: useMobileTextTuning ? "0px transparent" : "1px rgba(100,55,0,0.42)",
+    WebkitTextStroke:
+      !darkMode && useMobileTextTuning
+        ? "0.85px rgba(0,0,0,0.88)"
+        : useMobileTextTuning
+        ? "0px transparent"
+        : "1px rgba(100,55,0,0.42)",
     textShadow: useMobileTextTuning
-      ? "0 1px 0 rgba(255,244,194,0.42), 0 2px 8px rgba(0,0,0,0.38)"
+      ? !darkMode
+        ? "0 1px 0 rgba(255,244,194,0.36), 0 2px 8px rgba(0,0,0,0.44)"
+        : "0 1px 0 rgba(255,244,194,0.42), 0 2px 8px rgba(0,0,0,0.38)"
       : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
     position: "relative",
     animation: "goldPulse 2.2s ease-in-out infinite",
@@ -98,9 +107,16 @@ function MobileRoundIntroOverlay({
     backgroundClip: "text",
     color: "transparent",
     WebkitTextFillColor: "transparent",
-    WebkitTextStroke: useMobileTextTuning ? "0px transparent" : "1px rgba(100,55,0,0.42)",
+    WebkitTextStroke:
+      !darkMode && useMobileTextTuning
+        ? "1px rgba(0,0,0,0.92)"
+        : useMobileTextTuning
+        ? "0px transparent"
+        : "1px rgba(100,55,0,0.42)",
     textShadow: useMobileTextTuning
-      ? "0 1px 0 rgba(255,244,194,0.46), 0 3px 10px rgba(0,0,0,0.42), 0 0 10px rgba(255,210,85,0.2)"
+      ? !darkMode
+        ? "0 1px 0 rgba(255,244,194,0.4), 0 3px 10px rgba(0,0,0,0.46), 0 0 10px rgba(255,210,85,0.18)"
+        : "0 1px 0 rgba(255,244,194,0.46), 0 3px 10px rgba(0,0,0,0.42), 0 0 10px rgba(255,210,85,0.2)"
       : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
     position: "relative",
     filter: useMobileTextTuning
@@ -166,6 +182,11 @@ function MobileRoundIntroOverlay({
           >
             {roundTypeLabel || "manche classique"}
           </div>
+          {roundDescription ? (
+            <div className="mt-3 max-w-[92%] text-[11px] font-semibold leading-snug text-white/82">
+              {roundDescription}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {showsCountdown && styleForRender ? (

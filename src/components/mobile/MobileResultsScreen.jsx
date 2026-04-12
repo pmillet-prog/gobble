@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 import MobileHeader from "../MobileHeader.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
+import WordPointsLabel from "../WordPointsLabel.jsx";
 
 function MobileResultsScreen(props) {
   const {
@@ -268,6 +269,12 @@ function MobileResultsScreen(props) {
                               : isFound
                               ? "font-semibold"
                               : "text-gray-600";
+                            const fakeTwinsWordClassName =
+                              entry?.usedFakeTwins && !isRejected
+                                ? darkMode
+                                  ? "text-blue-300"
+                                  : "text-blue-600"
+                                : "";
                             const isGuidedWordTarget =
                               visibleWordGuidance && entry.word === visibleWordGuidance;
                             return (
@@ -340,7 +347,11 @@ function MobileResultsScreen(props) {
                                     />
                                   )}
                                   <span className="flex items-center gap-1 min-w-0">
-                                    <span className={wordClassName}>{entry.word}</span>
+                                    <span
+                                      className={`${wordClassName} ${fakeTwinsWordClassName}`.trim()}
+                                    >
+                                      {entry.word}
+                                    </span>
                                     {renderGobbleCandidate?.(entry.word)}
                                   </span>
                                 </button>
@@ -348,13 +359,15 @@ function MobileResultsScreen(props) {
                                   {!suppressWordListScores &&
                                   typeof userPts === "number" &&
                                   isFound ? (
-                                    <span
+                                    <WordPointsLabel
+                                      pts={userPts}
+                                      mode="found"
+                                      usedFakeTwins={!!entry?.usedFakeTwins}
+                                      darkMode={darkMode}
                                       className={`font-extrabold ${
                                         darkMode ? "text-slate-100" : "text-slate-800"
                                       }`}
-                                    >
-                                      +{userPts} pts
-                                    </span>
+                                    />
                                   ) : null}
                                   {isPending ? (
                                     <span className="text-[0.65rem] text-gray-400">envoi...</span>
@@ -371,18 +384,24 @@ function MobileResultsScreen(props) {
                                   {!suppressWordListScores &&
                                   !isFound &&
                                   typeof bestPts === "number" ? (
-                                    <span className="text-slate-500 opacity-75">
-                                      ({bestPts} pts)
-                                    </span>
+                                    <WordPointsLabel
+                                      pts={bestPts}
+                                      mode="best"
+                                      usedFakeTwins={!!entry?.usedFakeTwins}
+                                      darkMode={darkMode}
+                                      className="text-slate-500 opacity-75"
+                                    />
                                   ) : null}
                                   {showOpt ? (
-                                    <span
+                                    <WordPointsLabel
+                                      pts={bestPts}
+                                      mode="opt"
+                                      usedFakeTwins={!!entry?.usedFakeTwins}
+                                      darkMode={darkMode}
                                       className={`text-[0.65rem] ${
                                         darkMode ? "text-red-300" : "text-red-600"
                                       }`}
-                                    >
-                                      (opt: {bestPts} pts)
-                                    </span>
+                                    />
                                   ) : null}
                                 </span>
                                 {isGuidedWordTarget ? (

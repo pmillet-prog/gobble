@@ -82,6 +82,7 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
       display: w.display || "",
       pts: w.pts,
       label: w.label || null,
+      usedFakeTwins: !!w.usedFakeTwins,
     };
   });
 
@@ -101,6 +102,7 @@ function LiveFeed({
   wrapAroundBottomRight = false,
   wrapAroundWidth = "clamp(48px, 12vw, 72px)",
   wrapAroundHeight = "clamp(48px, 12vw, 72px)",
+  bannerText = "",
 }) {
   const color = darkMode ? "text-slate-200" : "text-slate-800";
   const listRef = useRef(null);
@@ -201,6 +203,17 @@ function LiveFeed({
       <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Flux live
       </div>
+      {bannerText ? (
+        <div
+          className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold leading-tight ${
+            darkMode
+              ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+              : "border-emerald-500/15 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {bannerText}
+        </div>
+      ) : null}
       <div ref={listRef} className="flex-1 min-h-0 overflow-hidden relative">
         {wrapAroundBottomRight ? (
           <div
@@ -227,7 +240,17 @@ function LiveFeed({
                 key={key}
                 className="text-[11px] leading-tight italic flex items-center justify-between gap-2 mb-1"
               >
-                <span className="font-semibold not-italic truncate">{item.display.toUpperCase()}</span>
+                <span
+                  className={`font-semibold not-italic truncate ${
+                    item.usedFakeTwins
+                      ? darkMode
+                        ? "text-blue-300"
+                        : "text-blue-600"
+                      : ""
+                  }`}
+                >
+                  {item.display.toUpperCase()}
+                </span>
                 {item.label ? (
                   <span className="text-orange-700 dark:text-amber-300 font-extrabold whitespace-nowrap">
                     {item.label}

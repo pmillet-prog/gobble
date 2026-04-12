@@ -1,4 +1,5 @@
 import React from "react";
+import GridTileLetter from "./GridTileLetter.jsx";
 
 function MobileGrid({
   board,
@@ -17,7 +18,11 @@ function MobileGrid({
   handleTouchMove,
   handleTouchStart,
   hintCellSet,
+  hintCellOverlayStyleMap,
+  hintCellStyleMap,
   hintOutlineCellSet,
+  hintOutlineOverlayStyleMap,
+  hintOutlineStyleMap,
   implodeActive,
   isMobileLayout,
   lightGridSurfaceStyle,
@@ -159,6 +164,14 @@ function MobileGrid({
           const highlightClass = isUsed ? "tile-used" : "";
           const hintClass = isHint ? "tile-hint" : "";
           const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
+          const hintStyle =
+            (isHint ? hintCellStyleMap?.get?.(boardIndex) : null) ||
+            (isHintOutline ? hintOutlineStyleMap?.get?.(boardIndex) : null) ||
+            null;
+          const hintOverlayStyle =
+            (isHint ? hintCellOverlayStyleMap?.get?.(boardIndex) : null) ||
+            (isHintOutline ? hintOutlineOverlayStyleMap?.get?.(boardIndex) : null) ||
+            null;
           const letterRingClass =
             !isBonusLetterTile && useRingIndicator && displayBonus
               ? getBonusLetterRingClass(displayBonus)
@@ -169,6 +182,7 @@ function MobileGrid({
             displayBonus &&
             !bonusLetterKey;
           const isSpecialStartTileLocked = specialStartTileSet?.has?.(boardIndex);
+          const isFakeTwinsTile = cell?.specialType === "fake_twins" && cell?.altLetter;
 
           return (
             <button
@@ -190,6 +204,7 @@ function MobileGrid({
                 highlightClass,
                 hintClass,
                 hintOutlineClass,
+                isFakeTwinsTile ? "fake-twins-tile" : "",
                 isSpecialStartTileLocked ? "daily-special-start-used" : "",
                 introHideTiles ? "opacity-0 pointer-events-none" : "",
               ]
@@ -204,6 +219,7 @@ function MobileGrid({
                       touchAction: "none",
                       WebkitUserSelect: "none",
                       WebkitTouchCallout: "none",
+                      ...(hintStyle || {}),
                       ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
                     }
                   : {
@@ -211,6 +227,7 @@ function MobileGrid({
                       touchAction: "none",
                       WebkitUserSelect: "none",
                       WebkitTouchCallout: "none",
+                      ...(hintStyle || {}),
                       ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
                     }
               }
@@ -218,9 +235,16 @@ function MobileGrid({
               {isSpecialStartTileLocked ? (
                 <span aria-hidden="true" className="daily-special-start-lock" />
               ) : null}
-              <span className={`tile-letter ${letterRingClass}`.trim()}>{letter}</span>
+              {hintOverlayStyle ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ borderRadius: "inherit", ...hintOverlayStyle }}
+                />
+              ) : null}
+              <GridTileLetter cell={cell} className={`relative z-[1] ${letterRingClass}`.trim()} />
               {tilePointsVisible && letterPts > 0 ? (
-                <span className="tile-points">{letterPts}</span>
+                <span className="tile-points z-[1]">{letterPts}</span>
               ) : null}
               {showBonusBadge && (
                 <span
