@@ -24,7 +24,7 @@ const DAILY_SPECIAL_MIN_LONG_LEN = 8;
 const DAILY_FAKE_TWINS_MIN_WORDS = 120;
 const DAILY_FAKE_TWINS_MIN_LONG_LEN = 8;
 const DAILY_FAKE_TWINS_MIN_SPECIAL_WORDS = 8;
-const MAX_GENERATION_ATTEMPTS = 200000;
+const MAX_GENERATION_ATTEMPTS = 4000;
 
 function hashString(input) {
   const str = String(input ?? "");

@@ -6096,8 +6096,12 @@ rooms.forEach((room) =>
 
 const dailyToday = getParisDateId();
 void ensureDaily(dailyToday);
-void ensureDaily(addDaysToDateId(dailyToday, 1));
 void refreshConnectedPlayersDuelCache();
+
+setTimeout(() => {
+  const tomorrow = addDaysToDateId(getParisDateId(), 1);
+  void ensureDaily(tomorrow);
+}, 90 * 1000).unref?.();
 
 const DAILY_MAINTENANCE_MS = 5 * 60 * 1000;
 const dailyMaintenanceTimer = setInterval(() => {
