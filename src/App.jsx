@@ -3771,6 +3771,8 @@ const SESSION_STORAGE_KEY = "gobble_session_v1";
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
 const LAST_AUTH_USER_ID_STORAGE_KEY = "gobble_last_auth_user_id";
 const AUTH_LOGOUT_SUPPRESS_STORAGE_KEY = "gobble_auth_logout_suppress_v1";
+const ACCOUNT_SESSION_UNAVAILABLE_MESSAGE =
+  "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.";
 const AUTH_MODAL_MODES = {
   LOGIN: "login",
   REGISTER: "register",
@@ -13931,7 +13933,7 @@ export default function App() {
         tutorialVersion: data?.tutorialVersion || null,
       });
       setAccountNotice((prev) =>
-        prev === "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur."
+        prev === ACCOUNT_SESSION_UNAVAILABLE_MESSAGE
           ? ""
           : prev
       );
@@ -13955,7 +13957,7 @@ export default function App() {
           loading: false,
           error: "auth_required",
         }));
-        setAccountNotice("Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.");
+        setAccountNotice(ACCOUNT_SESSION_UNAVAILABLE_MESSAGE);
         return;
       }
       setDuelStatus((prev) => ({
@@ -14428,28 +14430,33 @@ export default function App() {
     setAuthInfo("");
   }
 
-  async function refreshAuthStatus({ silent = false } = {}) {
+  async function refreshAuthStatus({ silent = false, rememberedUserIdOverride = null } = {}) {
     if (!silent) {
       setAuthState((prev) => ({ ...prev, loading: true }));
     }
     try {
-      let rememberedUserId = null;
-      try {
-        const rawRememberedUserId = localStorage.getItem(LAST_AUTH_USER_ID_STORAGE_KEY);
-        const parsedRememberedUserId = Number(rawRememberedUserId);
-        rememberedUserId =
-          Number.isInteger(parsedRememberedUserId) && parsedRememberedUserId > 0
-            ? parsedRememberedUserId
-            : null;
-        if (!rememberedUserId) {
-          const storedSession = loadSessionFromStorage();
-          const parsedSessionUserId = Number(storedSession?.installId);
-          if (Number.isInteger(parsedSessionUserId) && parsedSessionUserId > 0) {
-            rememberedUserId = parsedSessionUserId;
-            localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(parsedSessionUserId));
+      let rememberedUserId =
+        Number.isInteger(Number(rememberedUserIdOverride)) && Number(rememberedUserIdOverride) > 0
+          ? Number(rememberedUserIdOverride)
+          : null;
+      if (!rememberedUserId) {
+        try {
+          const rawRememberedUserId = localStorage.getItem(LAST_AUTH_USER_ID_STORAGE_KEY);
+          const parsedRememberedUserId = Number(rawRememberedUserId);
+          rememberedUserId =
+            Number.isInteger(parsedRememberedUserId) && parsedRememberedUserId > 0
+              ? parsedRememberedUserId
+              : null;
+          if (!rememberedUserId) {
+            const storedSession = loadSessionFromStorage();
+            const parsedSessionUserId = Number(storedSession?.installId);
+            if (Number.isInteger(parsedSessionUserId) && parsedSessionUserId > 0) {
+              rememberedUserId = parsedSessionUserId;
+              localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(parsedSessionUserId));
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
       const response = await postAuthJson(AUTH_STATUS_ENDPOINT, {
         installId: deviceInstallId,
         rememberedUserId,
@@ -14632,21 +14639,33 @@ export default function App() {
 
       if (payload?.user) {
         setSuppressAutoAuthRestore(deviceInstallId, false);
+        const safeUserId = Number(payload.user.id);
         try {
           localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
         } catch (_) {}
+        const refreshed = await refreshAuthStatus({
+          silent: true,
+          rememberedUserIdOverride:
+            Number.isInteger(safeUserId) && safeUserId > 0 ? safeUserId : null,
+        });
+        if (refreshed && (refreshed.status !== "authenticated" || !refreshed.user)) {
+          setAccountNotice(ACCOUNT_SESSION_UNAVAILABLE_MESSAGE);
+          setAuthError("Session compte indisponible. Vérifie les cookies du navigateur.");
+          return;
+        }
+        const nextUser = refreshed?.user || payload.user;
         setAuthState({
           loading: false,
           status: "authenticated",
-          user: payload.user,
+          user: nextUser,
           legacyProfile: null,
         });
         if (socket.connected) {
           socket.disconnect();
         }
-        setNickname(payload.user.usernameDisplay || "");
+        setNickname(nextUser.usernameDisplay || "");
         try {
-          localStorage.setItem("boggle_nick", payload.user.usernameDisplay || "");
+          localStorage.setItem("boggle_nick", nextUser.usernameDisplay || "");
         } catch (_) {}
       }
       setAuthModalMode(null);
@@ -28198,7 +28217,7 @@ function handleTouchEnd(e) {
     applyThemeVisualState(themeAppliedSafe);
   }, [applyThemeVisualState, themeAppliedSafe]);
   const fetchThemeProfile = React.useCallback(
-    async ({ silent = false, announceGain = false, force = false } = {}) => {
+    async ({ silent = false, announceGain = false, force = false, retryAuth = true } = {}) => {
       if (!installId) return null;
       const fetchState = themeProfileFetchStateRef.current;
       const now = Date.now();
@@ -28210,61 +28229,83 @@ function handleTouchEnd(e) {
       fetchState.lastAt = now;
       if (!silent) setThemeLoading(true);
       try {
-        const res = await fetch(
-          `/api/theme/profile?installId=${encodeURIComponent(installId)}`,
-          {
+        for (let attempt = 0; attempt < (retryAuth ? 2 : 1); attempt += 1) {
+          const query = new URLSearchParams();
+          query.set("installId", installId);
+          if (attempt > 0) {
+            query.set("r", String(Date.now()));
+          }
+          const res = await fetch(`/api/theme/profile?${query.toString()}`, {
             cache: "no-store",
             credentials: "include",
             headers: { Accept: "application/json" },
-          }
-        );
-        const parsed = await readJsonResponseLoose(res);
-        const payload = parsed?.data;
-        if (!res.ok || !payload?.ok) return null;
-        const nextUnlocks = normalizeThemeUnlocks(
-          payload.themeUnlocks || {},
-          payload.themeApplied || {}
-        );
-        const nextThemeFromServer = coerceThemeToLegacyNativeDefault(
-          payload.themeApplied || {},
-          nextUnlocks
-        );
-        const nextTheme = normalizeThemePreset({
-          ...nextThemeFromServer,
-          // La preference localement appliquee (clair/sombre) reste prioritaire.
-          darkMode: !!darkMode,
-          // Champ local (non persisté serveur pour l'instant): on preserve.
-          gridSurface: themeAppliedSafe.gridSurface,
-        });
-        const nextBalance = Math.max(0, Number(payload.balance) || 0);
-        const prevBalance = Number(gobblarsKnownBalanceRef.current);
-        if (
-          announceGain &&
-          Number.isFinite(prevBalance) &&
-          nextBalance > prevBalance
-        ) {
-          const gain = nextBalance - prevBalance;
-          showToastRef.current?.(`+${gain} Gobblars`, 2600, {
-            iconSrc: gobblarsBadgeUrl,
-            iconAlt: "Gobblars",
           });
+          const parsed = await readJsonResponseLoose(res);
+          const payload = parsed?.data;
+          if (res.ok && payload?.ok) {
+            const nextUnlocks = normalizeThemeUnlocks(
+              payload.themeUnlocks || {},
+              payload.themeApplied || {}
+            );
+            const nextThemeFromServer = coerceThemeToLegacyNativeDefault(
+              payload.themeApplied || {},
+              nextUnlocks
+            );
+            const nextTheme = normalizeThemePreset({
+              ...nextThemeFromServer,
+              // La preference localement appliquee (clair/sombre) reste prioritaire.
+              darkMode: !!darkMode,
+              // Champ local (non persisté serveur pour l'instant): on preserve.
+              gridSurface: themeAppliedSafe.gridSurface,
+            });
+            const nextBalance = Math.max(0, Number(payload.balance) || 0);
+            const prevBalance = Number(gobblarsKnownBalanceRef.current);
+            if (
+              announceGain &&
+              Number.isFinite(prevBalance) &&
+              nextBalance > prevBalance
+            ) {
+              const gain = nextBalance - prevBalance;
+              showToastRef.current?.(`+${gain} Gobblars`, 2600, {
+                iconSrc: gobblarsBadgeUrl,
+                iconAlt: "Gobblars",
+              });
+            }
+            gobblarsKnownBalanceRef.current = nextBalance;
+            setGobblarsBalance(nextBalance);
+            const parsedUnlockCost = Number(payload.unlockCost);
+            setThemeUnlockCost(
+              Math.max(
+                0,
+                Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST_DEFAULT
+              )
+            );
+            setThemeUnlocks(nextUnlocks);
+            if (isThemeMenuOpen) {
+              setThemeApplied(nextTheme);
+            } else {
+              applyThemePresetToLocalState(nextTheme, { syncDraft: true });
+            }
+            setAccountNotice((prev) =>
+              prev === ACCOUNT_SESSION_UNAVAILABLE_MESSAGE ? "" : prev
+            );
+            return payload;
+          }
+          const errorCode = String(
+            payload?.error || (parsed?.isLikelyHtml ? "bad_payload_html" : `http_${res.status || "error"}`)
+          );
+          if (errorCode === "auth_required" && retryAuth && attempt === 0) {
+            const refreshed = await refreshAuthStatus({ silent: true });
+            if (refreshed?.status === "authenticated" && refreshed?.user) {
+              continue;
+            }
+          }
+          if (errorCode === "auth_required") {
+            setAccountNotice(ACCOUNT_SESSION_UNAVAILABLE_MESSAGE);
+          }
+          return null;
         }
-        gobblarsKnownBalanceRef.current = nextBalance;
-        setGobblarsBalance(nextBalance);
-        const parsedUnlockCost = Number(payload.unlockCost);
-        setThemeUnlockCost(
-          Math.max(
-            0,
-            Number.isFinite(parsedUnlockCost) ? parsedUnlockCost : THEME_UNLOCK_COST_DEFAULT
-          )
-        );
-        setThemeUnlocks(nextUnlocks);
-        if (isThemeMenuOpen) {
-          setThemeApplied(nextTheme);
-        } else {
-          applyThemePresetToLocalState(nextTheme, { syncDraft: true });
-        }
-        return payload;
+        return null;
       } catch (_) {
         return null;
       } finally {
@@ -28278,6 +28319,7 @@ function handleTouchEnd(e) {
       gobblarsBadgeUrl,
       installId,
       isThemeMenuOpen,
+      refreshAuthStatus,
       themeAppliedSafe.gridSurface,
     ]
   );
