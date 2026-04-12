@@ -53,8 +53,23 @@ function isSecureRequest(req) {
   return !isLocalhost && (req.secure || forwardedProto === "https");
 }
 
+function getCookieDomain(req) {
+  const host = String(req.headers.host || "")
+    .toLowerCase()
+    .split(":")[0]
+    .trim();
+  if (host === "gobble.fr" || host === "www.gobble.fr") {
+    return "gobble.fr";
+  }
+  return "";
+}
+
 function serializeCookie(name, value, req, { maxAgeMs = AUTH_SESSION_TTL_MS, clear = false } = {}) {
   const parts = [`${name}=${clear ? "" : encodeURIComponent(value)}`, "Path=/", "HttpOnly", "SameSite=Lax"];
+  const domain = getCookieDomain(req);
+  if (domain) {
+    parts.push(`Domain=${domain}`);
+  }
   if (isSecureRequest(req)) parts.push("Secure");
   if (clear) {
     parts.push("Max-Age=0");
@@ -183,6 +198,9 @@ export function createAuthRouter({
     );
 
     if (auth.user) {
+      if (auth.token) {
+        res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, auth.token, req));
+      }
       const linked = await maybeAttachDeviceToUser({
         user: auth.user,
         rawInstallId,
