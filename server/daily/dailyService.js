@@ -41,6 +41,7 @@ const DAILY_SPECIAL_MIN_LONG_COUNT = 3;
 const DAILY_FAKE_TWINS_MIN_WORDS = 120;
 const DAILY_FAKE_TWINS_MIN_LONG_LEN = 8;
 const DAILY_FAKE_TWINS_MIN_SPECIAL_WORDS = 8;
+const DAILY_GENERATION_MAX_ATTEMPTS = 4000;
 
 const gridCache = new Map();
 const resultsCache = new Map();
@@ -462,13 +463,14 @@ function findBestMovableBonusWord(board, wordsIterable) {
 function buildDailyModeGrid(dateId, mode, dictionary, { avoidGridKey = null } = {}) {
   const safeMode = normalizeDailyMode(mode);
   const baseSeed = hashString(`${dateId}:${safeMode}`);
-  for (let attempt = 0; attempt < 3000; attempt += 1) {
+  for (let attempt = 0; attempt < DAILY_GENERATION_MAX_ATTEMPTS; attempt += 1) {
     const seed = baseSeed + attempt;
     let grid = generateGridFromSeed(seed, DAILY_GRID_SIZE);
     if (safeMode === DAILY_MONSTROUS_MODE) {
       grid = applySeededBonuses(grid, seed, MOVABLE_BONUS_KEYS);
     }
     if (safeMode === DAILY_FAKE_TWINS_MODE) {
+      grid = applySeededBonuses(grid, seed, MOVABLE_BONUS_KEYS);
       const fakeTwins = buildFakeTwinsGrid(grid, dictionary, {
         maxCellCandidates: 6,
         maxAltLetters: 6,
@@ -517,6 +519,69 @@ function buildDailyModeGrid(dateId, mode, dictionary, { avoidGridKey = null } = 
     };
   }
   throw new Error(`daily_${safeMode}_generation_failed`);
+}
+
+function buildFallbackFakeTwinsEntry(dateId, payload, dictionary) {
+  if (!dictionary || dictionary.size === 0) return null;
+  const candidateSources = [];
+  if (Array.isArray(payload?.specialGrid) && payload.specialGrid.length > 0) {
+    candidateSources.push({
+      grid: payload.specialGrid,
+      seed: payload?.specialSeed ?? null,
+    });
+  }
+  if (Array.isArray(payload?.grid) && payload.grid.length > 0) {
+    candidateSources.push({
+      grid: payload.grid,
+      seed: payload?.seed ?? null,
+    });
+  }
+
+  for (const source of candidateSources) {
+    const baseGrid = cloneGridWithoutBonuses(source.grid);
+    const bonusSeed =
+      Number.isFinite(Number(payload?.fakeTwinsSeed))
+        ? Number(payload.fakeTwinsSeed)
+        : Number.isFinite(Number(source.seed))
+        ? Number(source.seed)
+        : hashString(`${dateId}:${DAILY_FAKE_TWINS_MODE}:fallback`);
+    const bonusGrid = applySeededBonuses(baseGrid, bonusSeed, MOVABLE_BONUS_KEYS);
+    const fakeTwins = buildFakeTwinsGrid(bonusGrid, dictionary, {
+      maxCellCandidates: 6,
+      maxAltLetters: 6,
+    });
+    if (!Array.isArray(fakeTwins?.grid) || !Number.isInteger(fakeTwins?.twinIndex)) {
+      continue;
+    }
+    const solved = fakeTwins?.solved || solveGrid(fakeTwins.grid, dictionary, {
+      type: FAKE_TWINS_TYPE,
+      minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+    });
+    const quality = summarizeSolvedGrid(solved);
+    const fakeTwinWords = Array.from(solved.values()).filter((entry) => entry?.usedFakeTwins).length;
+    if (
+      (Number(quality.words) || 0) < DAILY_FAKE_TWINS_MIN_WORDS ||
+      (Number(quality.maxLen) || 0) < DAILY_FAKE_TWINS_MIN_LONG_LEN ||
+      fakeTwinWords < DAILY_FAKE_TWINS_MIN_SPECIAL_WORDS
+    ) {
+      continue;
+    }
+    return {
+      mode: DAILY_FAKE_TWINS_MODE,
+      seed: bonusSeed,
+      gridSize: DAILY_GRID_SIZE,
+      grid: fakeTwins.grid,
+      wordCount: quality.words,
+      longestWordLen: quality.maxLen,
+      gridQuality: {
+        ...quality,
+        fakeTwinWords,
+        twinIndex: fakeTwins.twinIndex,
+        altLetter: fakeTwins.altLetter,
+      },
+    };
+  }
+  return null;
 }
 
 async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
@@ -605,7 +670,10 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
         avoidGridKey: getGridLettersKey(cloneGridWithoutBonuses(migratedGrid)),
       });
     } catch (_) {
-      fakeTwinsEntry = null;
+      fakeTwinsEntry = buildFallbackFakeTwinsEntry(dateId, payload, dictionary);
+    }
+    if (!fakeTwinsEntry) {
+      console.warn(`[daily] unable to complete fake_twins grid for ${dateId}`);
     }
   }
   const migratedFakeTwinsGrid =
@@ -666,6 +734,11 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
     if (stat) {
       gridCache.set(dateId, { data: migrated, mtimeMs: stat.mtimeMs });
     }
+    console.log(
+      `[daily] migrated ${dateId} special=${specialEntry ? "yes" : "no"} fake_twins=${
+        fakeTwinsEntry ? "yes" : Array.isArray(migrated.fakeTwinsGrid) && migrated.fakeTwinsGrid.length > 0 ? "kept" : "no"
+      }`
+    );
   } catch (_) {}
 
   return migrated;
