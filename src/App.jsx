@@ -8957,10 +8957,6 @@ export default function App() {
   );
 
   useEffect(() => {
-    clearMobileChatReactionToasts();
-  }, [appView]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     if (isMobileLayout) return;
     const el = chatDesktopListRef.current;
@@ -14313,6 +14309,7 @@ export default function App() {
     setDailyResult(null);
     setDailySection(DAILY_OVERVIEW_SECTION);
     setDailyLaunchDialog(null);
+    clearMobileChatReactionToasts();
     setAppView("daily");
     fetchDailyStatus();
     fetchDailyBoard();
@@ -16270,6 +16267,7 @@ export default function App() {
           }
           persistSession({ nick, roomId: roomToUse, installId: install });
           lastLoginPayloadRef.current = { nick, roomId: roomToUse };
+          clearMobileChatReactionToasts();
           appViewRef.current = "live";
           setAppView("live");
           isLoggedInRef.current = true;
@@ -17025,6 +17023,7 @@ export default function App() {
         setGridSize(nextSize);
         setBoard(Array(nextSize * nextSize).fill({ letter: "?", bonus: null }));
         setResumeSnapshot(null);
+        clearMobileChatReactionToasts();
         appViewRef.current = "live";
         setAppView("live");
         isLoggedInRef.current = true;
