@@ -370,6 +370,7 @@ function MobileStandardPlaying(props) {
                 assetVersion={assetVersion}
                 gobbleWordAwardsByNick={gobbleAwardsForLive}
                 renderNickSuffix={renderNickSuffix}
+                showGobbleWordAwards={false}
                 className="h-full"
               />
             </div>

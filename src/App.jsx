@@ -18,6 +18,7 @@ import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
 import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
+import ChatReactionToastLayer from "./components/chat/ChatReactionToastLayer.jsx";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
@@ -3756,7 +3757,7 @@ const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
 const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "🙏", "😢", "❤️", "😂"];
-const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🙏", "👏", "🎉", "👋", "😎"];
+const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const MAX_INSTALL_ID_LEN = 128;
@@ -3769,8 +3770,6 @@ const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
-const LAST_AUTH_USER_ID_STORAGE_KEY = "gobble_last_auth_user_id";
-const AUTH_LOGOUT_SUPPRESS_STORAGE_KEY = "gobble_auth_logout_suppress_v1";
 const ACCOUNT_SESSION_UNAVAILABLE_MESSAGE =
   "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.";
 const AUTH_MODAL_MODES = {
@@ -4284,33 +4283,6 @@ function getInstallIdCreatedAtTs() {
   }
 }
 
-function getAuthLogoutSuppressKey(installId) {
-  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
-  return safeInstallId ? `${AUTH_LOGOUT_SUPPRESS_STORAGE_KEY}:${safeInstallId}` : "";
-}
-
-function shouldSuppressAutoAuthRestore(installId) {
-  const storageKey = getAuthLogoutSuppressKey(installId);
-  if (!storageKey || typeof localStorage === "undefined") return false;
-  try {
-    return localStorage.getItem(storageKey) === "1";
-  } catch (_) {
-    return false;
-  }
-}
-
-function setSuppressAutoAuthRestore(installId, enabled) {
-  const storageKey = getAuthLogoutSuppressKey(installId);
-  if (!storageKey || typeof localStorage === "undefined") return;
-  try {
-    if (enabled) {
-      localStorage.setItem(storageKey, "1");
-    } else {
-      localStorage.removeItem(storageKey);
-    }
-  } catch (_) {}
-}
-
 function createEmptyAuthForm(overrides = {}) {
   return {
     username: "",
@@ -4482,8 +4454,8 @@ function patchChatMessageReactions(messages, patch) {
   return changed ? next : messages;
 }
 
-function findNewReactionEmojiFromOthers(prevMessage, patchReactions, selfInstallId) {
-  if (!prevMessage || typeof prevMessage !== "object") return "";
+function findNewReactionFromOthers(prevMessage, patchReactions, selfInstallId) {
+  if (!prevMessage || typeof prevMessage !== "object") return null;
   const previousReactions = normalizeChatReactions(prevMessage.reactions);
   const nextReactions = normalizeChatReactions(patchReactions);
   const selfId = typeof selfInstallId === "string" ? selfInstallId.trim() : "";
@@ -4493,15 +4465,119 @@ function findNewReactionEmojiFromOthers(prevMessage, patchReactions, selfInstall
         .map((user) => (typeof user?.installId === "string" ? user.installId.trim() : ""))
         .filter(Boolean)
     );
-    const addedByOthers = (Array.isArray(users) ? users : []).some((user) => {
+    const addedByOtherUser = (Array.isArray(users) ? users : []).find((user) => {
       const userInstallId =
         typeof user?.installId === "string" ? user.installId.trim() : "";
       if (!userInstallId || previousUsers.has(userInstallId)) return false;
       return !selfId || userInstallId !== selfId;
     });
-    if (addedByOthers) return emoji;
+    if (addedByOtherUser) {
+      const nick =
+        typeof addedByOtherUser?.nick === "string" ? addedByOtherUser.nick.trim() : "";
+      return {
+        emoji,
+        actorNick: nick || "Quelqu'un",
+      };
+    }
   }
-  return "";
+  return null;
+}
+
+function intersectViewportRects(a, b) {
+  if (!a || !b) return null;
+  const left = Math.max(Number(a.left) || 0, Number(b.left) || 0);
+  const top = Math.max(Number(a.top) || 0, Number(b.top) || 0);
+  const right = Math.min(Number(a.right) || 0, Number(b.right) || 0);
+  const bottom = Math.min(Number(a.bottom) || 0, Number(b.bottom) || 0);
+  if (!(right > left && bottom > top)) return null;
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top,
+  };
+}
+
+function getVisibleChatElementRect(element) {
+  if (typeof window === "undefined" || !(element instanceof HTMLElement)) return null;
+  const rawRect = element.getBoundingClientRect();
+  if (!(rawRect.width > 0 && rawRect.height > 0)) return null;
+  const style = window.getComputedStyle(element);
+  if (
+    style.display === "none" ||
+    style.visibility === "hidden" ||
+    Number(style.opacity || "1") === 0
+  ) {
+    return null;
+  }
+  let clipRect = {
+    left: 0,
+    top: 0,
+    right: window.innerWidth || 0,
+    bottom: window.innerHeight || 0,
+  };
+  let current = element;
+  while (current && current instanceof HTMLElement) {
+    const currentStyle = window.getComputedStyle(current);
+    const overflowValue = `${currentStyle.overflow} ${currentStyle.overflowX} ${currentStyle.overflowY}`;
+    if (/(auto|scroll|hidden|clip)/.test(overflowValue)) {
+      clipRect = intersectViewportRects(clipRect, current.getBoundingClientRect());
+      if (!clipRect) return null;
+    }
+    current = current.parentElement;
+  }
+  return intersectViewportRects(rawRect, clipRect);
+}
+
+function findVisibleChatMessageToastOrigin(messageId) {
+  if (typeof document === "undefined") return null;
+  const safeMessageId = typeof messageId === "string" ? messageId.trim() : "";
+  if (!safeMessageId) return null;
+  const candidates = Array.from(document.querySelectorAll("[data-chat-message-id]")).filter(
+    (node) => node instanceof HTMLElement && node.dataset.chatMessageId === safeMessageId
+  );
+  let bestRect = null;
+  let bestArea = 0;
+  for (const element of candidates) {
+    const visibleRect = getVisibleChatElementRect(element);
+    if (!visibleRect) continue;
+    const area = visibleRect.width * visibleRect.height;
+    if (area <= bestArea) continue;
+    bestArea = area;
+    bestRect = visibleRect;
+  }
+  if (!bestRect) return null;
+  return {
+    kind: "message",
+    x: Math.round(bestRect.left + bestRect.width / 2),
+    y: Math.round(bestRect.bottom - Math.min(12, bestRect.height * 0.35)),
+  };
+}
+
+function findChatLauncherToastOrigin() {
+  if (typeof document === "undefined") return null;
+  const launcher = document.querySelector("[data-chat-launcher-button='true']");
+  if (!(launcher instanceof HTMLElement)) return null;
+  const visibleRect = getVisibleChatElementRect(launcher);
+  if (!visibleRect) return null;
+  return {
+    kind: "launcher",
+    x: Math.round(visibleRect.left + visibleRect.width / 2),
+    y: Math.round(visibleRect.top + visibleRect.height / 2),
+  };
+}
+
+function buildBottomChatToastOrigin() {
+  if (typeof window === "undefined") {
+    return { kind: "bottom", x: 160, y: 580 };
+  }
+  return {
+    kind: "bottom",
+    x: Math.round((window.innerWidth || 320) / 2),
+    y: Math.round((window.innerHeight || 640) - 28),
+  };
 }
 
 function getChatMessageSortTime(message) {
@@ -6130,6 +6206,7 @@ export default function App() {
 
   // Chat
   const [chatMessages, setChatMessages] = useState(() => readStoredChatMessages());
+  const chatMessagesRef = useRef(chatMessages);
   const [chatInput, setChatInput] = useState("");
   const [chatReplyTarget, setChatReplyTarget] = useState(null);
   const [chatEditTarget, setChatEditTarget] = useState(null);
@@ -6177,6 +6254,9 @@ export default function App() {
     reason: "",
     details: "",
   });
+  useEffect(() => {
+    chatMessagesRef.current = chatMessages;
+  }, [chatMessages]);
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -8871,11 +8951,14 @@ export default function App() {
         clearTimeout(desktopReactionDetailsCloseTimerRef.current);
         desktopReactionDetailsCloseTimerRef.current = null;
       }
-      mobileChatReactionToastTimersRef.current.forEach((id) => clearTimeout(id));
-      mobileChatReactionToastTimersRef.current = [];
+      clearMobileChatReactionToasts();
     },
     []
   );
+
+  useEffect(() => {
+    clearMobileChatReactionToasts();
+  }, [appView]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -12678,34 +12761,41 @@ export default function App() {
       const selfNickNow = String(nicknameRef.current || "")
         .trim()
         .toLowerCase();
-      let toastEmoji = "";
-      setChatMessages((prev) => {
-        const previousMessages = Array.isArray(prev) ? prev : [];
-        if (messageId) {
-          const previousMessage =
-            previousMessages.find((entry) => entry?.id === messageId) || null;
-          const authorInstallId =
-            typeof previousMessage?.installId === "string"
-              ? previousMessage.installId.trim()
-              : "";
-          const authorNick = String(previousMessage?.nick || previousMessage?.author || "")
-            .trim()
-            .toLowerCase();
-          const isOwnMessage =
-            (authorInstallId && selfInstallId && authorInstallId === selfInstallId) ||
-            (!authorInstallId && selfNickNow && authorNick === selfNickNow);
-          if (isOwnMessage) {
-            toastEmoji = findNewReactionEmojiFromOthers(
-              previousMessage,
-              patch?.reactions,
-              selfInstallId
-            );
-          }
+      const previousMessages = Array.isArray(chatMessagesRef.current)
+        ? chatMessagesRef.current
+        : [];
+      let toastReaction = null;
+      if (messageId) {
+        const previousMessage =
+          previousMessages.find((entry) => entry?.id === messageId) || null;
+        const authorInstallId =
+          typeof previousMessage?.installId === "string"
+            ? previousMessage.installId.trim()
+            : "";
+        const authorNick = String(previousMessage?.nick || previousMessage?.author || "")
+          .trim()
+          .toLowerCase();
+        const isOwnMessage =
+          (authorInstallId && selfInstallId && authorInstallId === selfInstallId) ||
+          (!authorInstallId && selfNickNow && authorNick === selfNickNow);
+        if (isOwnMessage) {
+          toastReaction = findNewReactionFromOthers(
+            previousMessage,
+            patch?.reactions,
+            selfInstallId
+          );
         }
-        return patchChatMessageReactions(previousMessages, patch);
+      }
+      setChatMessages((prev) => {
+        const next = patchChatMessageReactions(prev, patch);
+        chatMessagesRef.current = next;
+        return next;
       });
-      if (toastEmoji) {
-        enqueueMobileChatReactionToast(toastEmoji);
+      if (toastReaction?.emoji) {
+        enqueueMobileChatReactionToast(toastReaction.emoji, {
+          messageId,
+          actorNick: toastReaction.actorNick,
+        });
       }
       scheduleDesktopChatAutoScroll();
     }
@@ -14430,44 +14520,16 @@ export default function App() {
     setAuthInfo("");
   }
 
-  async function refreshAuthStatus({ silent = false, rememberedUserIdOverride = null } = {}) {
+  async function refreshAuthStatus({ silent = false } = {}) {
     if (!silent) {
       setAuthState((prev) => ({ ...prev, loading: true }));
     }
     try {
-      let rememberedUserId =
-        Number.isInteger(Number(rememberedUserIdOverride)) && Number(rememberedUserIdOverride) > 0
-          ? Number(rememberedUserIdOverride)
-          : null;
-      if (!rememberedUserId) {
-        try {
-          const rawRememberedUserId = localStorage.getItem(LAST_AUTH_USER_ID_STORAGE_KEY);
-          const parsedRememberedUserId = Number(rawRememberedUserId);
-          rememberedUserId =
-            Number.isInteger(parsedRememberedUserId) && parsedRememberedUserId > 0
-              ? parsedRememberedUserId
-              : null;
-          if (!rememberedUserId) {
-            const storedSession = loadSessionFromStorage();
-            const parsedSessionUserId = Number(storedSession?.installId);
-            if (Number.isInteger(parsedSessionUserId) && parsedSessionUserId > 0) {
-              rememberedUserId = parsedSessionUserId;
-              localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(parsedSessionUserId));
-            }
-          }
-        } catch (_) {}
-      }
       const response = await postAuthJson(AUTH_STATUS_ENDPOINT, {
         installId: deviceInstallId,
-        rememberedUserId,
-        suppressRestore: shouldSuppressAutoAuthRestore(deviceInstallId),
       });
       const payload = response.data || {};
       if (response.ok && payload.status === "authenticated" && payload.user) {
-        setSuppressAutoAuthRestore(deviceInstallId, false);
-        try {
-          localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
-        } catch (_) {}
         setAuthState({
           loading: false,
           status: "authenticated",
@@ -14486,12 +14548,6 @@ export default function App() {
         return payload;
       }
       if (response.ok && payload.status === "login_required") {
-        setSuppressAutoAuthRestore(deviceInstallId, false);
-        if (payload.user?.id) {
-          try {
-            localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
-          } catch (_) {}
-        }
         setAuthState({
           loading: false,
           status: "login_required",
@@ -14638,16 +14694,7 @@ export default function App() {
       }
 
       if (payload?.user) {
-        setSuppressAutoAuthRestore(deviceInstallId, false);
-        const safeUserId = Number(payload.user.id);
-        try {
-          localStorage.setItem(LAST_AUTH_USER_ID_STORAGE_KEY, String(payload.user.id));
-        } catch (_) {}
-        const refreshed = await refreshAuthStatus({
-          silent: true,
-          rememberedUserIdOverride:
-            Number.isInteger(safeUserId) && safeUserId > 0 ? safeUserId : null,
-        });
+        const refreshed = await refreshAuthStatus({ silent: true });
         if (refreshed && (refreshed.status !== "authenticated" || !refreshed.user)) {
           setAccountNotice(ACCOUNT_SESSION_UNAVAILABLE_MESSAGE);
           setAuthError("Session compte indisponible. Vérifie les cookies du navigateur.");
@@ -14687,10 +14734,6 @@ export default function App() {
   async function handleAccountLogout() {
     try {
       await postAuthJson("/api/auth/logout", {});
-    } catch (_) {}
-    setSuppressAutoAuthRestore(deviceInstallId, true);
-    try {
-      localStorage.removeItem(LAST_AUTH_USER_ID_STORAGE_KEY);
     } catch (_) {}
     clearSavedSession();
     socket.auth = {};
@@ -17776,17 +17819,36 @@ export default function App() {
     }
   }
 
-  function enqueueMobileChatReactionToast(emoji) {
+  function clearMobileChatReactionToasts() {
+    setMobileChatReactionToasts([]);
+    mobileChatReactionToastTimersRef.current.forEach((id) => clearTimeout(id));
+    mobileChatReactionToastTimersRef.current = [];
+  }
+
+  function enqueueMobileChatReactionToast(emoji, { messageId = "", actorNick = "" } = {}) {
     const safeEmoji = typeof emoji === "string" ? emoji.trim() : "";
     if (!safeEmoji) return;
+    const safeActorNick = typeof actorNick === "string" ? actorNick.trim() : "";
+    let origin = null;
+    if (isMobileLayoutRef.current && !isChatOpenMobileRef.current && !isChatClosingRef.current) {
+      origin = findChatLauncherToastOrigin();
+    }
+    if (!origin) {
+      origin = findVisibleChatMessageToastOrigin(messageId);
+    }
+    if (!origin) {
+      origin = buildBottomChatToastOrigin();
+    }
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setMobileChatReactionToasts((prev) => [...prev, { id, emoji: safeEmoji }].slice(-3));
+    setMobileChatReactionToasts((prev) =>
+      [...prev, { id, emoji: safeEmoji, actorNick: safeActorNick, ...origin }].slice(-3)
+    );
     const timerId = setTimeout(() => {
       setMobileChatReactionToasts((prev) => prev.filter((entry) => entry.id !== id));
       mobileChatReactionToastTimersRef.current = mobileChatReactionToastTimersRef.current.filter(
         (entry) => entry !== timerId
       );
-    }, 1800);
+    }, 2400);
     mobileChatReactionToastTimersRef.current.push(timerId);
   }
 
@@ -20771,6 +20833,8 @@ function handleTouchEnd(e) {
         showToast("Chat temporairement bloqué");
       } else if (res?.error === "empty_nick") {
         setConnectionError("Choisis un pseudo pour discuter.");
+      } else if (res?.error === "invalid_emoji") {
+        showToast("Réaction indisponible");
       } else if (res?.error === "message_not_found") {
         showToast("Message introuvable");
       }
@@ -24839,6 +24903,16 @@ function handleTouchEnd(e) {
         ) : null}
       </span>
     );
+  }
+
+  function renderMobileNickSuffix(nick, entryOrFallback) {
+    const entry =
+      entryOrFallback && typeof entryOrFallback === "object" && !Array.isArray(entryOrFallback)
+        ? entryOrFallback
+        : null;
+    const dot = renderHumanDot(nick, entry);
+    if (!dot) return null;
+    return <span className="inline-flex items-center ml-1">{dot}</span>;
   }
 
   function renderRankDelta(entry) {
@@ -30040,6 +30114,34 @@ function handleTouchEnd(e) {
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch mineur du 14/04/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  général
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    connexion compte plus fiable et sessions prolongées : vous devriez rester
+                    connecté plus longtemps sur le même appareil.
+                  </li>
+                  <li>
+                    protection renforcée de la grille du jour et de ses résultats, pour éviter
+                    certains resets intempestifs.
+                  </li>
+                  <li>
+                    amélioration de la stabilité du live, avec moins d’écrans noirs entre les
+                    manches.
+                  </li>
+                  <li>réactions du chat remises en place et plus visibles.</li>
+                  <li>
+                    chat mobile amélioré : répondre à un message est plus simple, les gestes
+                    fonctionnent mieux, et les appuis longs parasites ont été réduits.
+                  </li>
+                  <li>classement mobile plus lisible pendant la partie.</li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 12/04/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
@@ -30646,6 +30748,7 @@ function handleTouchEnd(e) {
       {settingsMenuView}
       {aboutModalView}
       {homeChatModalView}
+      <ChatReactionToastLayer toasts={mobileChatReactionToasts} />
       <ToastStack toasts={toasts} darkMode={darkMode} />
     </>
   );
@@ -32722,9 +32825,12 @@ function handleTouchEnd(e) {
             fitHeight={true}
             assetVersion={assetVersion}
             gobbleWordAwardsByNick={gobbleAwardsForLive}
-            renderNickSuffix={(nick, entry) =>
-              renderNickSuffix(nick, entry, tournamentFinaleMedals)
+            renderNickSuffix={
+              isMobileLayout
+                ? renderMobileNickSuffix
+                : (nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)
             }
+            showGobbleWordAwards={!isMobileLayout}
             renderAfterRank={renderRankDelta}
           />
         </div>
@@ -34515,7 +34621,7 @@ function handleTouchEnd(e) {
             recordBadgesByNickForRound={recordBadgesByNickForRound}
             renderDesktopResultsDockPanel={renderDesktopResultsDockPanel}
             renderGobbleCandidate={renderGobbleCandidate}
-            renderNickSuffix={renderNickSuffix}
+            renderNickSuffix={renderMobileNickSuffix}
             renderRankDelta={renderRankDelta}
             renderVocabPanel={renderVocabPanel}
             resultsCardClassName={resultsCardClassName}
@@ -34627,7 +34733,7 @@ function handleTouchEnd(e) {
         previewBlockHeight={previewBlockHeight}
         previewGapPx={previewGapPx}
         previewTileBaseStyle={previewTileBaseStyle}
-        renderNickSuffix={renderNickSuffix}
+        renderNickSuffix={renderMobileNickSuffix}
         roundStats={roundStats}
         roundTilePointsVisible={roundTilePointsVisible}
         scoreLabel={scoreLabel}
@@ -34971,7 +35077,8 @@ function handleTouchEnd(e) {
           highlightedPlayers={highlightPlayers}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
-          renderNickSuffix={renderNickSuffix}
+          renderNickSuffix={isMobileLayout ? renderMobileNickSuffix : renderNickSuffix}
+          showGobbleWordAwards={!isMobileLayout}
         />
       )}
     </div>
@@ -35035,7 +35142,8 @@ function handleTouchEnd(e) {
           showRoundAward={true}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
-          renderNickSuffix={renderNickSuffix}
+          renderNickSuffix={isMobileLayout ? renderMobileNickSuffix : renderNickSuffix}
+          showGobbleWordAwards={!isMobileLayout}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
           onPlayerNickHover={!isMobileLayout ? setHoveredResultsNick : null}
           recordBadgesByNick={

@@ -17,7 +17,6 @@ import {
   linkDeviceToUser,
   sanitizeEmail,
   sanitizeUsernameDisplay,
-  syncLegacyReservations,
   updatePassword,
   validatePassword,
   verifyUserPassword,
@@ -182,15 +181,12 @@ export function createAuthRouter({
 
   router.use(async (_req, _res, next) => {
     await initAuthService();
-    await syncLegacyReservations().catch(() => {});
     next();
   });
 
   router.post("/status", async (req, res) => {
     res.set("Cache-Control", "no-store");
     const auth = await getAuthContext(req);
-    const rememberedUserId = Number(req.body?.rememberedUserId);
-    const suppressRestore = req.body?.suppressRestore === true;
     const { rawInstallId, resolvedInstallId } = buildInstallPair(
       req.body?.installId,
       normalizeInstallIdRaw,
@@ -215,42 +211,14 @@ export function createAuthRouter({
     }
 
     if (rawInstallId) {
-      const reservation = await findLegacyReservationForInstallPair(rawInstallId, resolvedInstallId);
-      if (reservation && !reservation.claimed_user_id) {
+      const recognizedUsers = await listUsersByDeviceInstallId(rawInstallId, resolvedInstallId);
+      if (recognizedUsers.length > 0) {
         return res.json({
           ok: true,
-          status: "legacy_profile_found",
+          status: "login_required",
           authenticated: false,
-          legacyProfile: {
-            installId: reservation.install_id,
-            usernameDisplay: reservation.username_display,
-          },
+          user: recognizedUsers.length === 1 ? sessionPayload(recognizedUsers[0]) : null,
         });
-      }
-
-      if (!suppressRestore) {
-        const recognizedUsers = await listUsersByDeviceInstallId(rawInstallId, resolvedInstallId);
-        const rememberedUser =
-          Number.isInteger(rememberedUserId) && rememberedUserId > 0
-            ? recognizedUsers.find((user) => Number(user?.id) === rememberedUserId) || null
-            : null;
-        const userToRestore =
-          recognizedUsers.length === 1 ? recognizedUsers[0] : rememberedUser;
-        if (userToRestore) {
-          const attached = await maybeAttachDeviceToUser({
-            user: userToRestore,
-            rawInstallId,
-            resolvedInstallId,
-          });
-          const session = await createSession(attached.user.id);
-          res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
-          return res.json({
-            ok: true,
-            status: "authenticated",
-            authenticated: true,
-            user: sessionPayload(attached.user),
-          });
-        }
       }
     }
 

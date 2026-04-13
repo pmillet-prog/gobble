@@ -231,6 +231,7 @@ export default function HomeChatModal({
                 return (
                   <div
                     key={key}
+                    data-chat-message-id={msg?.id || undefined}
                     className={`rounded-lg px-2 py-1.5 text-xs ${
                       isYou
                         ? "bg-blue-600 text-white"

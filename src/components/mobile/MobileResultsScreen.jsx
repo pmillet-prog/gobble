@@ -432,6 +432,7 @@ function MobileResultsScreen(props) {
                         assetVersion={assetVersion}
                         gobbleWordAwardsByNick={gobbleAwardsForLive}
                         renderNickSuffix={renderNickSuffix}
+                        showGobbleWordAwards={false}
                         renderAfterRank={
                           resultsRankingModeForMobile === "total" ? renderRankDelta : null
                         }

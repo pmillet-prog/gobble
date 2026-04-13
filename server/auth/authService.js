@@ -147,7 +147,6 @@ async function ensureDb() {
         await handle.exec(sql);
       }
       db = handle;
-      await syncLegacyReservations();
       return handle;
     })();
   }
@@ -796,7 +795,7 @@ export async function markMustResetPassword(userId, { invalidateSessions = true 
   return { ok: true };
 }
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 export const AUTH_SESSION_TTL_MS = SESSION_TTL_MS;
 

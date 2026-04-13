@@ -131,6 +131,16 @@ function clampToViewport(x, y, { marginX = 88, marginY = 92 } = {}) {
   };
 }
 
+function clearDocumentSelection() {
+  if (typeof window === "undefined") return;
+  try {
+    const selection = window.getSelection?.();
+    if (selection && typeof selection.removeAllRanges === "function" && selection.rangeCount > 0) {
+      selection.removeAllRanges();
+    }
+  } catch (_) {}
+}
+
 function isFloatingMenuCloseAllowed(menuState) {
   const openedAt = Number(menuState?.openedAt) || 0;
   if (!(openedAt > 0)) return true;
@@ -142,6 +152,14 @@ const THREE_LINE_CLAMP_STYLE = {
   WebkitLineClamp: 3,
   WebkitBoxOrient: "vertical",
   overflow: "hidden",
+};
+
+const NON_SELECTABLE_TOUCH_STYLE = {
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  WebkitTouchCallout: "none",
+  WebkitUserDrag: "none",
+  WebkitTapHighlightColor: "transparent",
 };
 
 function releaseCapturedPointer(state) {
@@ -210,14 +228,14 @@ export default function ChatContent({
   const [ownMessageMenu, setOwnMessageMenu] = React.useState(null);
   const safeReactionEmojis = React.useMemo(() => {
     if (!Array.isArray(reactionEmojis)) {
-      return ["👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🙏", "👏", "🎉", "👋", "😎"];
+      return ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
     }
     const filtered = reactionEmojis
       .map((emoji) => (typeof emoji === "string" ? emoji.trim() : ""))
       .filter(Boolean);
     return filtered.length
       ? filtered
-      : ["👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🙏", "👏", "🎉", "👋", "😎"];
+      : ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
   }, [reactionEmojis]);
   const lastVisibleMessageKey = React.useMemo(() => {
     if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {
@@ -370,6 +388,25 @@ export default function ChatContent({
     [clearLongPressTimer, clearAutoScroll]
   );
 
+  useEffect(() => {
+    if (!isOpen || typeof document === "undefined") return undefined;
+    const handleSelectionChange = () => {
+      const listEl = messagesListRef.current;
+      if (!listEl) return;
+      const selection = window.getSelection?.();
+      if (!selection || selection.rangeCount <= 0) return;
+      const anchorNode = selection.anchorNode;
+      const focusNode = selection.focusNode;
+      const selectionInsideList =
+        (anchorNode && listEl.contains(anchorNode)) || (focusNode && listEl.contains(focusNode));
+      if (selectionInsideList) {
+        clearDocumentSelection();
+      }
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, [isOpen]);
+
   const handleKeyDown = (e) => {
     if (e.key === "ArrowUp" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       if (!chatInput.includes("\n")) {
@@ -398,14 +435,20 @@ export default function ChatContent({
       if (!message?.id) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const rawTarget = event?.target;
+      const targetIsAuthorButton =
+        typeof Element !== "undefined" &&
+        rawTarget instanceof Element &&
+        !!rawTarget.closest("[data-chat-author-button='true']");
       if (
         typeof Element !== "undefined" &&
         rawTarget instanceof Element &&
-        rawTarget.closest("button, a, input, textarea, select, label")
+        rawTarget.closest("button, a, input, textarea, select, label") &&
+        !targetIsAuthorButton
       ) {
         abortPointerGesture();
         return;
       }
+      clearDocumentSelection();
 
       abortPointerGesture();
       const pointerState = {
@@ -709,6 +752,13 @@ export default function ChatContent({
             userSelect: "none",
             WebkitUserSelect: "none",
             WebkitTouchCallout: "none",
+            WebkitUserDrag: "none",
+          }}
+          onTouchStartCapture={() => {
+            clearDocumentSelection();
+          }}
+          onTouchEndCapture={() => {
+            clearDocumentSelection();
           }}
           onSelectStart={(event) => {
             event.preventDefault();
@@ -773,10 +823,11 @@ export default function ChatContent({
               return (
                 <div
                   key={messageKey}
+                  data-chat-message-id={!isSystem && msg?.id ? msg.id : undefined}
                   className={
                     isSystem
                       ? "px-2 py-0.5 text-sm italic text-orange-700 dark:text-amber-300"
-                      : `px-2 py-1 rounded-lg transition-transform duration-75 ${
+                      : `px-2 py-1 rounded-lg transition-transform duration-75 select-none ${
                           isYou
                             ? "bg-blue-600 text-white self-end"
                             : darkMode
@@ -790,9 +841,7 @@ export default function ChatContent({
                       : {
                           transform: `translateX(${dx}px)`,
                           touchAction: "pan-y",
-                          userSelect: "none",
-                          WebkitUserSelect: "none",
-                          WebkitTouchCallout: "none",
+                          ...NON_SELECTABLE_TOUCH_STYLE,
                         }
                   }
                   onPointerDown={(event) => handleMessagePointerDown(event, msg, isSystem, isOwn)}
@@ -837,9 +886,14 @@ export default function ChatContent({
                               ? "border-slate-600 bg-slate-700/80 text-slate-200"
                               : "border-slate-300 bg-slate-50 text-slate-700"
                           }`}
+                          style={NON_SELECTABLE_TOUCH_STYLE}
                         >
-                          <div className="font-semibold">{replyPreview.nick}</div>
-                          <div style={THREE_LINE_CLAMP_STYLE}>{replyPreview.text}</div>
+                          <div className="font-semibold" style={NON_SELECTABLE_TOUCH_STYLE}>
+                            {replyPreview.nick}
+                          </div>
+                          <div style={{ ...THREE_LINE_CLAMP_STYLE, ...NON_SELECTABLE_TOUCH_STYLE }}>
+                            {replyPreview.text}
+                          </div>
                         </div>
                       ) : null}
                       <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -847,6 +901,8 @@ export default function ChatContent({
                           <button
                             type="button"
                             className="font-semibold hover:underline"
+                            style={NON_SELECTABLE_TOUCH_STYLE}
+                            data-chat-author-button="true"
                             onClick={(e) =>
                               onOpenUserMenu?.(e, {
                                 nick: author,
@@ -858,17 +914,27 @@ export default function ChatContent({
                             {author}:
                           </button>
                         ) : (
-                          <span className="font-semibold">{author}:</span>
+                          <span className="font-semibold" style={NON_SELECTABLE_TOUCH_STYLE}>
+                            {author}:
+                          </span>
                         )}
                         {messageTime ? (
-                          <span className="text-[10px] leading-none opacity-70">
+                          <span
+                            className="text-[10px] leading-none opacity-70"
+                            style={NON_SELECTABLE_TOUCH_STYLE}
+                          >
                             {messageTime}
                           </span>
                         ) : null}
                         {isEdited ? (
-                          <span className="text-[10px] leading-none opacity-60">(modifié)</span>
+                          <span
+                            className="text-[10px] leading-none opacity-60"
+                            style={NON_SELECTABLE_TOUCH_STYLE}
+                          >
+                            (modifié)
+                          </span>
                         ) : null}
-                        <span>{msg.text}</span>
+                        <span style={NON_SELECTABLE_TOUCH_STYLE}>{msg.text}</span>
                       </div>
                       {reactions.length ? (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -890,6 +956,7 @@ export default function ChatContent({
                                 key={`${msg.id || messageKey}:${entry.emoji}`}
                                 type="button"
                                 className={badgeClass}
+                                style={NON_SELECTABLE_TOUCH_STYLE}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   openReactionDetails(msg, entry.emoji);
@@ -1005,7 +1072,8 @@ export default function ChatContent({
               />
               <button
                 type="button"
-                className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50 select-none"
+                style={NON_SELECTABLE_TOUCH_STYLE}
                 disabled={!chatInput.trim() || chatInputDisabled}
                 onPointerDown={(e) => {
                   if (!chatInput.trim() || chatInputDisabled) return;
@@ -1019,6 +1087,8 @@ export default function ChatContent({
                     el.focus();
                   }
                 }}
+                onContextMenu={(event) => event.preventDefault()}
+                onSelectStart={(event) => event.preventDefault()}
                 onClick={(e) => e.preventDefault()}
               >
                 Envoyer
@@ -1032,10 +1102,13 @@ export default function ChatContent({
         ? createPortal(
             <div
               className="fixed inset-0 z-[20130]"
+              style={NON_SELECTABLE_TOUCH_STYLE}
               onClick={() => {
                 if (!isFloatingMenuCloseAllowed(ownMessageMenu)) return;
                 setOwnMessageMenu(null);
               }}
+              onContextMenu={(event) => event.preventDefault()}
+              onSelectStart={(event) => event.preventDefault()}
             >
               <div
                 className={`fixed -translate-x-1/2 -translate-y-full rounded-full border px-2 py-1 flex items-center gap-1 shadow-xl ${
@@ -1043,14 +1116,22 @@ export default function ChatContent({
                     ? "bg-slate-800 border-slate-600 text-slate-100"
                     : "bg-white border-slate-200 text-slate-900"
                 }`}
-                style={{ left: `${ownMessageMenu.x}px`, top: `${ownMessageMenu.y}px` }}
+                style={{
+                  left: `${ownMessageMenu.x}px`,
+                  top: `${ownMessageMenu.y}px`,
+                  ...NON_SELECTABLE_TOUCH_STYLE,
+                }}
                 onClick={(event) => event.stopPropagation()}
+                onContextMenu={(event) => event.preventDefault()}
+                onSelectStart={(event) => event.preventDefault()}
               >
                 <button
                   type="button"
                   className={`h-9 w-9 rounded-full flex items-center justify-center ${
                     darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
                   }`}
+                  style={NON_SELECTABLE_TOUCH_STYLE}
+                  onPointerDown={(event) => event.preventDefault()}
                   onClick={() => {
                     onEditOwnMessage?.(ownMessageMenu.message);
                     setOwnMessageMenu(null);
@@ -1077,6 +1158,8 @@ export default function ChatContent({
                   className={`h-9 w-9 rounded-full flex items-center justify-center ${
                     darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
                   }`}
+                  style={NON_SELECTABLE_TOUCH_STYLE}
+                  onPointerDown={(event) => event.preventDefault()}
                   onClick={() => {
                     onDeleteOwnMessage?.(ownMessageMenu.message);
                     setOwnMessageMenu(null);
@@ -1111,10 +1194,13 @@ export default function ChatContent({
         ? createPortal(
             <div
               className="fixed inset-0 z-[20130]"
+              style={NON_SELECTABLE_TOUCH_STYLE}
               onClick={() => {
                 if (!isFloatingMenuCloseAllowed(reactionPicker)) return;
                 setReactionPicker(null);
               }}
+              onContextMenu={(event) => event.preventDefault()}
+              onSelectStart={(event) => event.preventDefault()}
             >
               {(() => {
                 const isMobileViewport = typeof window !== "undefined" && window.innerWidth <= 768;
@@ -1135,10 +1221,17 @@ export default function ChatContent({
                         transform: "translateY(-100%)",
                         width: `calc(100vw - (${sideInset} * 2))`,
                         maxWidth: "none",
+                        ...NON_SELECTABLE_TOUCH_STYLE,
                       }
-                    : { left: `${reactionPicker.x}px`, top: `${reactionPicker.y}px` }
+                    : {
+                        left: `${reactionPicker.x}px`,
+                        top: `${reactionPicker.y}px`,
+                        ...NON_SELECTABLE_TOUCH_STYLE,
+                      }
                 }
                 onClick={(event) => event.stopPropagation()}
+                onContextMenu={(event) => event.preventDefault()}
+                onSelectStart={(event) => event.preventDefault()}
               >
                 <div className={`grid grid-cols-6 ${isMobileViewport ? "gap-2" : "gap-1"}`}>
                   {safeReactionEmojis.map((emoji) => (
@@ -1150,6 +1243,8 @@ export default function ChatContent({
                     } ${
                       darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
                     }`}
+                    style={NON_SELECTABLE_TOUCH_STYLE}
+                    onPointerDown={(event) => event.preventDefault()}
                     onClick={() => {
                       onReactToMessage?.(reactionPicker.messageId, emoji);
                       setReactionPicker(null);

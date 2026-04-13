@@ -349,6 +349,8 @@ function RankingWidgetMobile({
   showBadge = false,
   flatStyle = false,
   showRoundAward = false,
+  showNickDecorations = true,
+  showGobbleWordAwards = true,
   highlightedPlayers = [],
   renderNickSuffix = null,
   renderAfterRank = null,
@@ -877,10 +879,10 @@ function RankingWidgetMobile({
                   <span className={nickClickable ? "truncate underline-offset-2" : "truncate"}>
                     {entry.nick}
                   </span>
-                  {renderNickSuffix ? (
+                  {showNickDecorations && renderNickSuffix ? (
                     <span className="flex-none">{renderNickSuffix(entry.nick, entry)}</span>
                   ) : null}
-                  {renderGobbleWordBadges(entry.nick)}
+                  {showGobbleWordAwards ? renderGobbleWordBadges(entry.nick) : null}
                 </span>
               </div>
               {recordBadgeItems.length ? (
@@ -1270,7 +1272,7 @@ function RankingWidgetMobile({
                   >
                       <span className="flex-1 min-w-0 flex items-baseline gap-1">
                         <span className="truncate">{row.type === "empty" ? "" : displayNick}</span>
-                      {renderNickSuffix && row.type !== "empty" ? (
+                      {showNickDecorations && renderNickSuffix && row.type !== "empty" ? (
                         <span className="flex-none">
                           {renderNickSuffix(
                             row.entry ? row.entry.nick : displayNick,
@@ -1278,7 +1280,7 @@ function RankingWidgetMobile({
                           )}
                         </span>
                       ) : null}
-                      {row.type !== "empty"
+                      {showGobbleWordAwards && row.type !== "empty"
                         ? renderGobbleWordBadges(row.entry ? row.entry.nick : displayNick)
                         : null}
                     </span>

@@ -611,6 +611,8 @@ app.post("/api/daily/start", async (req, res) => {
       res.status(503);
     } else if (result.error === "bad_grid") {
       res.status(500);
+    } else if (result.error === "results_unavailable") {
+      res.status(503);
     } else {
       res.status(500);
     }
@@ -650,6 +652,8 @@ app.post("/api/daily/submit", async (req, res) => {
       res.status(500);
     } else if (result.error === "no_dictionary") {
       res.status(500);
+    } else if (result.error === "results_unavailable") {
+      res.status(503);
     } else {
       res.status(400);
     }
@@ -1089,7 +1093,7 @@ const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "😮",
   "😢",
   "😡",
-  "🔥",
+  "🍻",
   "🙏",
   "👏",
   "🎉",

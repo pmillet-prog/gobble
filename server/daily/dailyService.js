@@ -46,6 +46,7 @@ const DAILY_FAKE_TWINS_PRIMARY_MAX_ATTEMPTS = 90;
 
 const gridCache = new Map();
 const resultsCache = new Map();
+const resultsWriteChains = new Map();
 const activeGenerators = new Set();
 let championCache = null;
 let lastChampionDateId = null;
@@ -92,6 +93,10 @@ function dailyGridPath(dateId) {
 
 function dailyResultsPath(dateId) {
   return path.join(DAILY_DIR, `results-${dateId}.json`);
+}
+
+function dailyResultsBackupPath(dateId) {
+  return path.join(DAILY_DIR, `results-${dateId}.json.bak`);
 }
 
 function dailyLockPath(dateId) {
@@ -166,6 +171,55 @@ async function readJsonFile(filePath) {
   } catch (_) {
     return null;
   }
+}
+
+function normalizeDailyResultsPayload(dateId, raw) {
+  const safe = raw && typeof raw === "object" ? raw : null;
+  return {
+    dateId,
+    results: Array.isArray(safe?.results) ? safe.results : [],
+    attempts: safe?.attempts && typeof safe.attempts === "object" ? safe.attempts : {},
+  };
+}
+
+function cloneDailyResultsPayload(payload, dateId) {
+  const normalized = normalizeDailyResultsPayload(dateId, payload);
+  return {
+    dateId,
+    results: normalized.results.map((entry) => ({
+      ...entry,
+      words: Array.isArray(entry?.words) ? [...entry.words] : [],
+      wordSubmissions: Array.isArray(entry?.wordSubmissions)
+        ? entry.wordSubmissions.map((item) => ({
+            ...item,
+            path: Array.isArray(item?.path) ? [...item.path] : [],
+          }))
+        : [],
+    })),
+    attempts: Object.fromEntries(
+      Object.entries(normalized.attempts).map(([installId, attempt]) => [
+        installId,
+        attempt && typeof attempt === "object" ? { ...attempt } : attempt,
+      ])
+    ),
+  };
+}
+
+async function withDailyResultsLock(dateId, task) {
+  const safeDateId = String(dateId || "").trim();
+  const previous = resultsWriteChains.get(safeDateId) || Promise.resolve();
+  const current = previous
+    .catch(() => {})
+    .then(() => task());
+  resultsWriteChains.set(
+    safeDateId,
+    current.finally(() => {
+      if (resultsWriteChains.get(safeDateId) === current) {
+        resultsWriteChains.delete(safeDateId);
+      }
+    })
+  );
+  return await current;
 }
 
 async function loadDailyDictionary() {
@@ -267,12 +321,20 @@ async function loadDailyGrid(dateId) {
   return data;
 }
 
-async function loadDailyResults(dateId) {
+async function loadDailyResults(dateId, { strict = false } = {}) {
   await ensureDailyStorage();
   const filePath = dailyResultsPath(dateId);
+  const backupPath = dailyResultsBackupPath(dateId);
   const cached = resultsCache.get(dateId);
   const stat = await getFileStat(filePath);
   if (!stat) {
+    const backup = await readJsonFile(backupPath);
+    if (backup && typeof backup === "object") {
+      const payload = normalizeDailyResultsPayload(dateId, backup);
+      resultsCache.set(dateId, { data: payload, mtimeMs: 0 });
+      console.warn(`[daily] recovered missing results file from backup date=${dateId}`);
+      return payload;
+    }
     resultsCache.delete(dateId);
     return { dateId, results: [], attempts: {} };
   }
@@ -280,18 +342,42 @@ async function loadDailyResults(dateId) {
     return cached.data;
   }
   const data = await readJsonFile(filePath);
-  const safe = data && typeof data === "object" ? data : null;
-  const results = Array.isArray(safe?.results) ? safe.results : [];
-  const attempts =
-    safe?.attempts && typeof safe.attempts === "object" ? safe.attempts : {};
-  const payload = { dateId, results, attempts };
+  let payload = null;
+  if (data && typeof data === "object") {
+    payload = normalizeDailyResultsPayload(dateId, data);
+  } else {
+    const backup = await readJsonFile(backupPath);
+    if (backup && typeof backup === "object") {
+      payload = normalizeDailyResultsPayload(dateId, backup);
+      console.warn(`[daily] recovered unreadable results file from backup date=${dateId}`);
+    } else if (cached?.data) {
+      payload = cloneDailyResultsPayload(cached.data, dateId);
+      console.warn(`[daily] reusing cached results after unreadable file date=${dateId}`);
+    } else {
+      console.warn(`[daily] results file unreadable with no recovery source date=${dateId}`);
+      if (strict) {
+        throw new Error(`daily_results_unreadable:${dateId}`);
+      }
+      payload = { dateId, results: [], attempts: {} };
+    }
+  }
   resultsCache.set(dateId, { data: payload, mtimeMs: stat.mtimeMs });
   return payload;
 }
 
 async function saveDailyResults(dateId, payload) {
   const filePath = dailyResultsPath(dateId);
+  const backupPath = dailyResultsBackupPath(dateId);
   await ensureDailyStorage();
+  const currentPayload = await readJsonFile(filePath);
+  if (currentPayload && typeof currentPayload === "object") {
+    await atomicWriteJson(backupPath, currentPayload).catch(() => {});
+  } else {
+    const cached = resultsCache.get(dateId)?.data || null;
+    if (cached) {
+      await atomicWriteJson(backupPath, cached).catch(() => {});
+    }
+  }
   await atomicWriteJson(filePath, payload);
   const stat = await getFileStat(filePath);
   if (stat) {
@@ -1318,30 +1404,45 @@ export async function startDailyAttempt(
   if (!Array.isArray(gridEntry?.grid) || gridEntry.grid.length === 0) {
     return { ok: false, error: "bad_grid", dateId: safeDateId };
   }
-  const resultsPayload = await loadDailyResults(safeDateId);
-  const results = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
-  if (
-    results.find(
-      (entry) =>
-        entry.installId === installId && normalizeDailyMode(entry?.mode) === safeMode
-    )
-  ) {
-    return { ok: false, error: "already_played", dateId: safeDateId };
+  let startState = null;
+  try {
+    startState = await withDailyResultsLock(safeDateId, async () => {
+      const resultsPayload = cloneDailyResultsPayload(
+        await loadDailyResults(safeDateId, { strict: true }),
+        safeDateId
+      );
+      const results = resultsPayload.results;
+      if (
+        results.find(
+          (entry) =>
+            entry.installId === installId && normalizeDailyMode(entry?.mode) === safeMode
+        )
+      ) {
+        return { ok: false, error: "already_played", dateId: safeDateId };
+      }
+      const attempts = resultsPayload.attempts;
+      if (attempts[installId] && normalizeDailyMode(attempts[installId]?.mode) === safeMode) {
+        return { ok: false, error: "already_played", dateId: safeDateId };
+      }
+      attempts[installId] = {
+        pseudo: String(pseudo || "").trim().slice(0, 32),
+        startedAt: Date.now(),
+        mode: safeMode,
+      };
+      await saveDailyResults(safeDateId, {
+        dateId: safeDateId,
+        results,
+        attempts,
+      });
+      return { ok: true };
+    });
+  } catch (err) {
+    console.warn(`[daily] start attempt failed to load results date=${safeDateId}`, err);
+    return { ok: false, error: "results_unavailable", dateId: safeDateId };
   }
-  const attempts = resultsPayload.attempts || {};
-  if (attempts[installId] && normalizeDailyMode(attempts[installId]?.mode) === safeMode) {
-    return { ok: false, error: "already_played", dateId: safeDateId };
+  if (!startState?.ok) {
+    return startState || { ok: false, error: "results_unavailable", dateId: safeDateId };
   }
-  attempts[installId] = {
-    pseudo: String(pseudo || "").trim().slice(0, 32),
-    startedAt: Date.now(),
-    mode: safeMode,
-  };
-  await saveDailyResults(safeDateId, {
-    dateId: safeDateId,
-    results,
-    attempts,
-  });
   const playGrid =
     safeMode === DAILY_SPECIAL_MODE
       ? cloneGridWithoutBonuses(gridEntry.grid)
@@ -1379,15 +1480,6 @@ export async function submitDailyResult({
   const gridEntry = getDailyModeGridEntry(gridPayload, safeMode);
   if (!Array.isArray(gridEntry?.grid) || gridEntry.grid.length === 0) {
     return { ok: false, error: "bad_grid", dateId: safeDateId };
-  }
-  const resultsPayload = await loadDailyResults(safeDateId);
-  const results = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
-  const existingIndex = results.findIndex(
-    (entry) =>
-      entry.installId === installId && normalizeDailyMode(entry?.mode) === safeMode
-  );
-  if (existingIndex >= 0) {
-    return { ok: false, error: "already_played", dateId: safeDateId };
   }
   if (!dictionary || dictionary.size === 0) {
     return { ok: false, error: "no_dictionary", dateId: safeDateId };
@@ -1522,18 +1614,43 @@ export async function submitDailyResult({
     durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : null,
     submittedAt,
   };
-  results.push(entry);
-  const attempts = resultsPayload.attempts || {};
-  if (attempts[installId]) {
-    delete attempts[installId];
+  let submitState = null;
+  try {
+    submitState = await withDailyResultsLock(safeDateId, async () => {
+      const resultsPayload = cloneDailyResultsPayload(
+        await loadDailyResults(safeDateId, { strict: true }),
+        safeDateId
+      );
+      const results = resultsPayload.results;
+      const existingIndex = results.findIndex(
+        (existingEntry) =>
+          existingEntry.installId === installId &&
+          normalizeDailyMode(existingEntry?.mode) === safeMode
+      );
+      if (existingIndex >= 0) {
+        return { ok: false, error: "already_played", dateId: safeDateId };
+      }
+      const attempts = resultsPayload.attempts;
+      results.push(entry);
+      if (attempts[installId]) {
+        delete attempts[installId];
+      }
+      await saveDailyResults(safeDateId, {
+        dateId: safeDateId,
+        results,
+        attempts,
+      });
+      return { ok: true, results };
+    });
+  } catch (err) {
+    console.warn(`[daily] submit failed to load results date=${safeDateId}`, err);
+    return { ok: false, error: "results_unavailable", dateId: safeDateId };
   }
-  await saveDailyResults(safeDateId, {
-    dateId: safeDateId,
-    results,
-    attempts,
-  });
+  if (!submitState?.ok) {
+    return submitState || { ok: false, error: "results_unavailable", dateId: safeDateId };
+  }
 
-  const sorted = sortResults(results);
+  const sorted = sortResults(submitState.results);
   const rank = sorted.findIndex((r) => r.installId === installId);
   return {
     ok: true,
@@ -1543,7 +1660,7 @@ export async function submitDailyResult({
     gobbles,
     rank: rank >= 0 ? rank + 1 : null,
     totalPlayers: sorted.length,
-    board: buildDailyBoardEntries(results, thresholdsByMode),
+    board: buildDailyBoardEntries(submitState.results, thresholdsByMode),
   };
 }
 

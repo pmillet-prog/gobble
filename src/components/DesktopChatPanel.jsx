@@ -48,7 +48,6 @@ function DesktopChatPanel({
   const isSystemAuthor = helpers.isSystemAuthor || (() => false);
   const getChatMessageReplyPreview = helpers.getChatMessageReplyPreview || (() => null);
   const getChatMessageReactionEntries = helpers.getChatMessageReactionEntries || (() => []);
-  const reactionToasts = Array.isArray(mobileReactionToasts) ? mobileReactionToasts : [];
 
   return (
     <div
@@ -62,43 +61,6 @@ function DesktopChatPanel({
         actionsRef?.current?.focusChatInput?.();
       }}
     >
-      <style>{`
-        @keyframes desktopChatReactionToastFloat {
-          0% {
-            opacity: 0;
-            transform: translateY(10px) scale(0.86);
-          }
-          15% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-          72% {
-            opacity: 1;
-            transform: translateY(-10px) scale(1);
-          }
-          100% {
-            opacity: 0;
-            transform: translateY(-18px) scale(0.92);
-          }
-        }
-      `}</style>
-      {reactionToasts.length ? (
-        <div className="pointer-events-none absolute right-3 top-3 z-20">
-          {reactionToasts.map((toast, idx) => (
-            <div
-              key={toast.id || `${toast.emoji}-${idx}`}
-              className="absolute right-0 rounded-full border border-white/70 bg-white/95 px-2.5 py-1 text-lg shadow-lg backdrop-blur-sm"
-              style={{
-                top: `${idx * 22}px`,
-                animation: "desktopChatReactionToastFloat 1800ms ease-out forwards",
-              }}
-              aria-hidden="true"
-            >
-              {toast.emoji}
-            </div>
-          ))}
-        </div>
-      ) : null}
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-bold text-center">Chat</h2>
         <div className="flex items-center gap-3">
@@ -284,6 +246,7 @@ function DesktopChatPanel({
               ) : (
                 <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
                   <div
+                    data-chat-message-id={msg?.id || undefined}
                     className={[
                       "group/chatmsg max-w-[88%] px-2 py-1 rounded-lg",
                       isYou
