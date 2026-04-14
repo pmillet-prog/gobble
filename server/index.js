@@ -1085,6 +1085,9 @@ const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
 const CHAT_REPLY_TEXT_MAX_LEN = 280;
 const CHAT_MESSAGE_TEXT_MAX_LEN = 300;
+const TARGET_CHAT_SPOILER_MEDIUM_WORD_MAX_LEN = 10;
+const TARGET_CHAT_SPOILER_MIN_RUN_MEDIUM = 5;
+const TARGET_CHAT_SPOILER_MIN_RUN_LONG = 6;
 const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "👍",
@@ -2827,9 +2830,96 @@ function updateChatMessageText(room, { messageId, installId, text }) {
   if (normalizeInstallId(target.installId) !== safeInstallId) {
     return { ok: false, error: "forbidden" };
   }
-  target.text = trimmedText;
+  target.text = censorTargetSpoilersInChatText(room, trimmedText);
   target.editedAt = Date.now();
   return { ok: true, message: target };
+}
+
+function getActiveTargetChatSpoilerWord(room) {
+  const currentRound = room?.currentRound;
+  if (!currentRound || !isRoundActive(currentRound)) return "";
+  const specialType = currentRound?.special?.type;
+  if (specialType !== "target_long" && specialType !== "target_score") return "";
+  return normalizeWord(String(currentRound?.targetWord || "")).replace(/[^a-z]/g, "");
+}
+
+function getTargetChatSpoilerMinRun(targetWord) {
+  const length = String(targetWord || "").length;
+  if (length <= 0) return 0;
+  if (length <= 7) return length;
+  if (length <= TARGET_CHAT_SPOILER_MEDIUM_WORD_MAX_LEN) {
+    return Math.min(length, TARGET_CHAT_SPOILER_MIN_RUN_MEDIUM);
+  }
+  return Math.min(length, TARGET_CHAT_SPOILER_MIN_RUN_LONG);
+}
+
+function buildNormalizedChatCharMap(text) {
+  const rawChars = Array.from(String(text || ""));
+  const normalizedChars = [];
+  const rawIndexByNormalizedIndex = [];
+  rawChars.forEach((char, rawIndex) => {
+    const normalized = normalizeWord(char).replace(/[^a-z]/g, "");
+    if (!normalized) return;
+    for (const normalizedChar of normalized) {
+      normalizedChars.push(normalizedChar);
+      rawIndexByNormalizedIndex.push(rawIndex);
+    }
+  });
+  return { rawChars, normalizedChars, rawIndexByNormalizedIndex };
+}
+
+function findAllSubstringRanges(haystack, needle) {
+  const ranges = [];
+  if (!haystack || !needle || needle.length > haystack.length) return ranges;
+  let startIndex = 0;
+  while (startIndex <= haystack.length - needle.length) {
+    const matchIndex = haystack.indexOf(needle, startIndex);
+    if (matchIndex < 0) break;
+    ranges.push([matchIndex, matchIndex + needle.length - 1]);
+    startIndex = matchIndex + 1;
+  }
+  return ranges;
+}
+
+function censorTargetSpoilersInChatText(room, text) {
+  const trimmedText = typeof text === "string" ? text.trim() : "";
+  if (!trimmedText) return trimmedText;
+
+  const targetWord = getActiveTargetChatSpoilerWord(room);
+  if (!targetWord) return trimmedText;
+
+  const minRun = getTargetChatSpoilerMinRun(targetWord);
+  if (!minRun) return trimmedText;
+
+  const { rawChars, normalizedChars, rawIndexByNormalizedIndex } =
+    buildNormalizedChatCharMap(trimmedText);
+  const normalizedText = normalizedChars.join("");
+  if (!normalizedText || normalizedText.length < minRun) return trimmedText;
+
+  const segments = new Set();
+  for (let segmentLength = targetWord.length; segmentLength >= minRun; segmentLength -= 1) {
+    for (let start = 0; start <= targetWord.length - segmentLength; start += 1) {
+      segments.add(targetWord.slice(start, start + segmentLength));
+    }
+  }
+
+  const blockedRawIndices = new Set();
+  for (const segment of segments) {
+    const ranges = findAllSubstringRanges(normalizedText, segment);
+    for (const [startIndex, endIndex] of ranges) {
+      for (let normalizedIndex = startIndex; normalizedIndex <= endIndex; normalizedIndex += 1) {
+        const rawIndex = rawIndexByNormalizedIndex[normalizedIndex];
+        if (Number.isInteger(rawIndex) && rawIndex >= 0) {
+          blockedRawIndices.add(rawIndex);
+        }
+      }
+    }
+  }
+
+  if (!blockedRawIndices.size) return trimmedText;
+  return rawChars
+    .map((char, rawIndex) => (blockedRawIndices.has(rawIndex) ? "*" : char))
+    .join("");
 }
 
 function deleteChatMessage(room, { messageId, installId }) {
@@ -5756,6 +5846,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
+    const safeText = censorTargetSpoilersInChatText(room, trimmed);
     const replyTo = isPayloadObject ? resolveReplyPreviewFromPayload(room, payload.replyTo) : null;
     const message = {
       id: randomUUID(),
@@ -5764,7 +5855,7 @@ io.on("connection", (socket) => {
       nick: authorNick,
       userId: identity.userId,
       installId,
-      text: trimmed,
+      text: safeText,
       team: getTeamForInstallCached(installId),
       isDailyChampion: isDailyChampionInstallId(installId),
     };

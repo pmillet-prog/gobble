@@ -33,6 +33,9 @@ function formatRecordValueLabel(record) {
     const pts = Number.isFinite(record.pts) ? ` (${record.pts} pts)` : "";
     return `Mot : ${record.word}${pts}`;
   }
+  if (record.categoryKey === "bestRoundScore") {
+    return Number.isFinite(record.pts) ? `Score : ${record.pts} pts` : "";
+  }
   if (record.categoryKey === "longestWord") {
     if (!record.word) return "";
     const len = Number.isFinite(record.len) ? ` (${record.len} lettres)` : "";

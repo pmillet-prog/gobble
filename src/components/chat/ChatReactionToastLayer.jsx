@@ -10,6 +10,8 @@ function getRisePx(kind) {
 export default function ChatReactionToastLayer({ toasts = [] }) {
   const list = Array.isArray(toasts) ? toasts.filter(Boolean) : [];
   if (!list.length || typeof document === "undefined") return null;
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth || 320 : 320;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight || 640 : 640;
 
   return createPortal(
     <>
@@ -43,14 +45,20 @@ export default function ChatReactionToastLayer({ toasts = [] }) {
           const y = Number(toast?.y);
           if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
           const kind = typeof toast?.kind === "string" ? toast.kind : "bottom";
+          const horizontalMargin = kind === "launcher" ? 120 : 96;
+          const safeX = Math.min(
+            Math.max(horizontalMargin, x),
+            Math.max(horizontalMargin, viewportWidth - horizontalMargin)
+          );
+          const safeY = Math.min(Math.max(40, y), Math.max(40, viewportHeight - 28));
           const driftPx = ((idx % 3) - 1) * 16;
           return (
             <div
               key={toast?.id || `${toast?.emoji || "?"}-${idx}`}
               className="absolute rounded-full border border-white/70 bg-white/95 px-3 py-1.5 text-slate-900 shadow-lg backdrop-blur-sm"
               style={{
-                left: `${x}px`,
-                top: `${y}px`,
+                left: `${safeX}px`,
+                top: `${safeY}px`,
                 animation: "chatReactionToastBurst 2400ms ease-out forwards",
                 userSelect: "none",
                 WebkitUserSelect: "none",

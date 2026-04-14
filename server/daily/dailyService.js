@@ -205,6 +205,65 @@ function cloneDailyResultsPayload(payload, dateId) {
   };
 }
 
+function buildDailyAttemptKey(installId, mode) {
+  const safeInstallId = String(installId || "").trim();
+  const safeMode = normalizeDailyMode(mode);
+  if (!safeInstallId) return "";
+  return `${safeInstallId}::${safeMode}`;
+}
+
+function getDailyAttemptEntry(attempts, installId, mode) {
+  const safeAttempts = attempts && typeof attempts === "object" ? attempts : {};
+  const attemptKey = buildDailyAttemptKey(installId, mode);
+  const keyedAttempt =
+    attemptKey && safeAttempts[attemptKey] && typeof safeAttempts[attemptKey] === "object"
+      ? safeAttempts[attemptKey]
+      : null;
+  if (keyedAttempt) return keyedAttempt;
+  const legacyKey = String(installId || "").trim();
+  const legacyAttempt =
+    legacyKey && safeAttempts[legacyKey] && typeof safeAttempts[legacyKey] === "object"
+      ? safeAttempts[legacyKey]
+      : null;
+  if (!legacyAttempt) return null;
+  return normalizeDailyMode(legacyAttempt?.mode) === normalizeDailyMode(mode)
+    ? legacyAttempt
+    : null;
+}
+
+function setDailyAttemptEntry(attempts, installId, mode, payload) {
+  const safeAttempts = attempts && typeof attempts === "object" ? attempts : {};
+  const attemptKey = buildDailyAttemptKey(installId, mode);
+  if (!attemptKey) return safeAttempts;
+  safeAttempts[attemptKey] = payload && typeof payload === "object" ? { ...payload } : payload;
+  const legacyKey = String(installId || "").trim();
+  if (
+    legacyKey &&
+    safeAttempts[legacyKey] &&
+    normalizeDailyMode(safeAttempts[legacyKey]?.mode) === normalizeDailyMode(mode)
+  ) {
+    delete safeAttempts[legacyKey];
+  }
+  return safeAttempts;
+}
+
+function clearDailyAttemptEntry(attempts, installId, mode) {
+  const safeAttempts = attempts && typeof attempts === "object" ? attempts : {};
+  const attemptKey = buildDailyAttemptKey(installId, mode);
+  if (attemptKey && Object.prototype.hasOwnProperty.call(safeAttempts, attemptKey)) {
+    delete safeAttempts[attemptKey];
+  }
+  const legacyKey = String(installId || "").trim();
+  if (
+    legacyKey &&
+    safeAttempts[legacyKey] &&
+    normalizeDailyMode(safeAttempts[legacyKey]?.mode) === normalizeDailyMode(mode)
+  ) {
+    delete safeAttempts[legacyKey];
+  }
+  return safeAttempts;
+}
+
 async function withDailyResultsLock(dateId, task) {
   const safeDateId = String(dateId || "").trim();
   const previous = resultsWriteChains.get(safeDateId) || Promise.resolve();
@@ -1257,14 +1316,20 @@ export async function getDailyStatus(dateId, installId) {
       ) || null;
     myResult = myMonstrousResult;
     const attempts = resultsPayload?.attempts || {};
-    const myAttempt = attempts?.[installId] || null;
-    const attemptMode = normalizeDailyMode(myAttempt?.mode);
-    hasPlayedMonstrous =
-      !!myMonstrousResult || (!!myAttempt && attemptMode === DAILY_MONSTROUS_MODE);
-    hasPlayedSpecial =
-      !!mySpecialResult || (!!myAttempt && attemptMode === DAILY_SPECIAL_MODE);
-    hasPlayedFakeTwins =
-      !!myFakeTwinsResult || (!!myAttempt && attemptMode === DAILY_FAKE_TWINS_MODE);
+    const monstrousAttempt = getDailyAttemptEntry(
+      attempts,
+      installId,
+      DAILY_MONSTROUS_MODE
+    );
+    const specialAttempt = getDailyAttemptEntry(attempts, installId, DAILY_SPECIAL_MODE);
+    const fakeTwinsAttempt = getDailyAttemptEntry(
+      attempts,
+      installId,
+      DAILY_FAKE_TWINS_MODE
+    );
+    hasPlayedMonstrous = !!myMonstrousResult || !!monstrousAttempt;
+    hasPlayedSpecial = !!mySpecialResult || !!specialAttempt;
+    hasPlayedFakeTwins = !!myFakeTwinsResult || !!fakeTwinsAttempt;
     hasPlayed = hasPlayedMonstrous;
   }
   return {
@@ -1421,14 +1486,14 @@ export async function startDailyAttempt(
         return { ok: false, error: "already_played", dateId: safeDateId };
       }
       const attempts = resultsPayload.attempts;
-      if (attempts[installId] && normalizeDailyMode(attempts[installId]?.mode) === safeMode) {
+      if (getDailyAttemptEntry(attempts, installId, safeMode)) {
         return { ok: false, error: "already_played", dateId: safeDateId };
       }
-      attempts[installId] = {
+      setDailyAttemptEntry(attempts, installId, safeMode, {
         pseudo: String(pseudo || "").trim().slice(0, 32),
         startedAt: Date.now(),
         mode: safeMode,
-      };
+      });
       await saveDailyResults(safeDateId, {
         dateId: safeDateId,
         results,
@@ -1632,9 +1697,7 @@ export async function submitDailyResult({
       }
       const attempts = resultsPayload.attempts;
       results.push(entry);
-      if (attempts[installId]) {
-        delete attempts[installId];
-      }
+      clearDailyAttemptEntry(attempts, installId, safeMode);
       await saveDailyResults(safeDateId, {
         dateId: safeDateId,
         results,

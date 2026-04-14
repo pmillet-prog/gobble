@@ -5992,6 +5992,9 @@ export default function App() {
     isMobileLayoutRef.current = isMobileLayout;
   }, [isMobileLayout]);
   useEffect(() => {
+    installIdRef.current = installId;
+  }, [installId]);
+  useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
   useEffect(() => () => clearPhaseLoopTimer(), [clearPhaseLoopTimer]);
@@ -6308,6 +6311,7 @@ export default function App() {
     rank: null,
     rankTotal: null,
     word: "",
+    pts: null,
     timeMs: null,
     wordsCount: null,
     records: [],
@@ -6587,6 +6591,7 @@ export default function App() {
   const isChatOpenMobileRef = useRef(false);
   const isChatClosingRef = useRef(isChatClosing);
   const isMobileLayoutRef = useRef(isMobileLayout);
+  const installIdRef = useRef(installId);
   const mobileRoundIntroTokenRef = useRef(0);
   const mobileRoundIntroTimersRef = useRef([]);
   const mobileRoundIntroSuppressRoundStartRef = useRef(false);
@@ -10354,20 +10359,21 @@ export default function App() {
     }
     const clean = String(targetSummary.word || "").trim();
     if (!clean) return;
+    const resolvedDefinitionWord = String(targetSummary.definitionTitle || clean).trim() || clean;
     const cachedDefinition =
       typeof targetSummary?.definition === "string"
         ? targetSummary.definition.trim()
         : "";
     if (cachedDefinition) {
       if (
-        targetDefinition.word === clean &&
+        targetDefinition.word === resolvedDefinitionWord &&
         targetDefinition.ok &&
         targetDefinition.definition === cachedDefinition
       ) {
         return;
       }
       setTargetDefinition({
-        word: targetSummary.definitionTitle || clean,
+        word: resolvedDefinitionWord,
         loading: false,
         ok: true,
         definition: cachedDefinition,
@@ -10395,7 +10401,9 @@ export default function App() {
       });
       return;
     }
-    if (targetDefinition.word === clean && targetDefinition.ok) return;
+    if (targetDefinition.word === clean && (targetDefinition.ok || targetDefinition.loading)) {
+      return;
+    }
     const requestId = ++targetDefinitionRequestRef.current;
     setTargetDefinition({
       word: clean,
@@ -12753,7 +12761,8 @@ export default function App() {
 
     function onChatReactionUpdate(patch) {
       const messageId = typeof patch?.messageId === "string" ? patch.messageId.trim() : "";
-      const selfInstallId = typeof installId === "string" ? installId.trim() : "";
+      const selfInstallId =
+        typeof installIdRef.current === "string" ? installIdRef.current.trim() : "";
       const selfNickNow = String(nicknameRef.current || "")
         .trim()
         .toLowerCase();
@@ -15409,10 +15418,14 @@ export default function App() {
       const nick = entry?.nick ? String(entry.nick) : "";
       if (!nick || seen.has(nick)) return;
       seen.add(nick);
+      const liveAwards = gobbleAwardsForLive?.get?.(nick) || null;
+      const gobbleAwardCount =
+        (liveAwards?.bestWord ? 1 : 0) + (liveAwards?.longestWord ? 1 : 0);
       snapshot.push({
         nick,
         rank: Number.isFinite(entry?.rank) ? entry.rank : idx + 1,
         score: typeof entry?.score === "number" ? entry.score : null,
+        gobbleAwardCount,
       });
     });
     snapshot.sort((a, b) => {
@@ -18233,6 +18246,7 @@ export default function App() {
       rank: primary.rank ?? null,
       rankTotal: primary.rankTotal ?? null,
       word: primary.word || "",
+      pts: Number.isFinite(primary.pts) ? primary.pts : null,
       timeMs: Number.isFinite(primary.timeMs) ? primary.timeMs : null,
       wordsCount: Number.isFinite(primary.wordsCount) ? primary.wordsCount : null,
       records: recordList,
@@ -24449,6 +24463,28 @@ function handleTouchEnd(e) {
     }
 
     for (const [nick, stats] of perPlayerStats.entries()) {
+      const roundResultEntry = finalResults.find((entry) => entry?.nick === nick);
+      const roundScore = Number(roundResultEntry?.score) || 0;
+      if (roundScore > 0) {
+        const weeklyEntry = findBoardEntry("bestRoundScore", nick);
+        if (
+          weeklyEntry &&
+          withinRound(weeklyEntry.achievedAt) &&
+          Number.isFinite(weeklyEntry.pts) &&
+          weeklyEntry.pts === roundScore
+        ) {
+          pushRecord({
+            section: "round",
+            categoryKey: "bestRoundScore",
+            categoryLabel: WEEKLY_RECORD_LABELS.bestRoundScore,
+            nick,
+            rank: findBoardRank("bestRoundScore", nick),
+            rankTotal: weeklyStats?.topN ?? null,
+            pts: roundScore,
+          });
+        }
+      }
+
       if (stats.wordsCount > 0) {
         const weeklyEntry = findBoardEntry("mostWordsInGame", nick);
         if (
@@ -24900,6 +24936,39 @@ function handleTouchEnd(e) {
             {`TB ${formatNumber(tieBreakRoundScore)}`}
           </span>
         ) : null}
+      </span>
+    );
+  }
+
+  function renderGobbleWordAwardsInline(nick, countOverride = null) {
+    const resolvedNick = nick ? String(nick).trim() : "";
+    const liveAwards = resolvedNick ? gobbleAwardsForLive?.get?.(resolvedNick) || null : null;
+    const count =
+      Number.isFinite(countOverride) && countOverride > 0
+        ? Math.trunc(countOverride)
+        : (liveAwards?.bestWord ? 1 : 0) + (liveAwards?.longestWord ? 1 : 0);
+    if (count <= 0) return null;
+    const badgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
+    return (
+      <span className="inline-flex items-center gap-0.5 ml-1">
+        {Array.from({ length: count }).map((_, idx) =>
+          badgeUrl ? (
+            <img
+              key={`players-overlay-gobble-${resolvedNick || "nick"}-${idx}`}
+              src={badgeUrl}
+              alt="G"
+              className="block h-3 w-auto"
+              style={{ imageRendering: "auto" }}
+            />
+          ) : (
+            <span
+              key={`players-overlay-gobble-${resolvedNick || "nick"}-${idx}`}
+              className={darkMode ? "text-white" : "text-black"}
+            >
+              G
+            </span>
+          )
+        )}
       </span>
     );
   }
@@ -26781,6 +26850,15 @@ function handleTouchEnd(e) {
                         playersOverlayMode === "snapshot" && typeof entry?.score === "number"
                           ? entry.score
                           : null;
+                      const gobbleAwards =
+                        playersOverlayMode === "snapshot"
+                          ? renderGobbleWordAwardsInline(
+                              nick,
+                              Number.isFinite(entry?.gobbleAwardCount)
+                                ? entry.gobbleAwardCount
+                                : 0
+                            )
+                          : renderGobbleWordAwardsInline(nick);
                       return (
                         <div
                           key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
@@ -26795,6 +26873,7 @@ function handleTouchEnd(e) {
                             <div className="min-w-0 flex items-center gap-2">
                               <span className="font-semibold truncate">{nick || "Joueur"}</span>
                               {renderHumanDot(nick)}
+                              {gobbleAwards}
                             </div>
                           </div>
                           {playersOverlayMode === "snapshot" ? (
@@ -27168,6 +27247,9 @@ function handleTouchEnd(e) {
       if (!record.word) return "";
       const pts = Number.isFinite(record.pts) ? ` (${record.pts} pts)` : "";
       return `Mot : ${record.word}${pts}`;
+    }
+    if (record.categoryKey === "bestRoundScore") {
+      return Number.isFinite(record.pts) ? `Score : ${record.pts} pts` : "";
     }
     if (record.categoryKey === "longestWord") {
       if (!record.word) return "";
@@ -31057,7 +31139,7 @@ function handleTouchEnd(e) {
           const isPalier = !!entry?.isPalier;
           const label = entry?.rightLabel
             ? entry.rightLabel
-            : formatDailyEntryLabel(entry, { includeWords: true, includeGobbles: true });
+            : formatDailyEntryLabel(entry, { includeWords: true, includeGobbles: false });
           const gobbleBadge = !isPalier ? renderGobbleBadge(entry?.gobbles) : null;
           const isSelfDaily =
             !isPalier &&
@@ -31547,7 +31629,7 @@ function handleTouchEnd(e) {
                                   {page.entries.map((entry, entryIdx) => {
                                     const label = formatDailyEntryLabel(entry, {
                                       includeWords: false,
-                                      includeGobbles: true,
+                                      includeGobbles: false,
                                     });
                                     const gobbleBadge = renderGobbleBadge(entry?.gobbles);
                                     return (
@@ -31589,7 +31671,7 @@ function handleTouchEnd(e) {
                               {page.entries.map((entry, entryIdx) => {
                                 const label = formatDailyEntryLabel(entry, {
                                   includeWords: true,
-                                  includeGobbles: true,
+                                  includeGobbles: false,
                                 });
                                 const gobbleBadge = renderGobbleBadge(entry?.gobbles);
                                 return (
@@ -32825,11 +32907,9 @@ function handleTouchEnd(e) {
             assetVersion={assetVersion}
             gobbleWordAwardsByNick={gobbleAwardsForLive}
             renderNickSuffix={
-              isMobileLayout
-                ? renderMobileNickSuffix
-                : (nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)
+              (nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)
             }
-            showGobbleWordAwards={!isMobileLayout}
+            showGobbleWordAwards={true}
             renderAfterRank={renderRankDelta}
           />
         </div>
@@ -34620,7 +34700,7 @@ function handleTouchEnd(e) {
             recordBadgesByNickForRound={recordBadgesByNickForRound}
             renderDesktopResultsDockPanel={renderDesktopResultsDockPanel}
             renderGobbleCandidate={renderGobbleCandidate}
-            renderNickSuffix={renderMobileNickSuffix}
+            renderNickSuffix={renderNickSuffix}
             renderRankDelta={renderRankDelta}
             renderVocabPanel={renderVocabPanel}
             resultsCardClassName={resultsCardClassName}
@@ -35076,8 +35156,8 @@ function handleTouchEnd(e) {
           highlightedPlayers={highlightPlayers}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
-          renderNickSuffix={isMobileLayout ? renderMobileNickSuffix : renderNickSuffix}
-          showGobbleWordAwards={!isMobileLayout}
+          renderNickSuffix={renderNickSuffix}
+          showGobbleWordAwards={true}
         />
       )}
     </div>
@@ -35141,8 +35221,8 @@ function handleTouchEnd(e) {
           showRoundAward={true}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
-          renderNickSuffix={isMobileLayout ? renderMobileNickSuffix : renderNickSuffix}
-          showGobbleWordAwards={!isMobileLayout}
+          renderNickSuffix={renderNickSuffix}
+          showGobbleWordAwards={true}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
           onPlayerNickHover={!isMobileLayout ? setHoveredResultsNick : null}
           recordBadgesByNick={
