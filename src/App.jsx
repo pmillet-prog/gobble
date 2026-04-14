@@ -5514,6 +5514,7 @@ export default function App() {
   const [foundTargetThisRound, setFoundTargetThisRound] = useState(false);
   const [foundTargetWord, setFoundTargetWord] = useState("");
   const [targetDefinition, setTargetDefinition] = useState({
+    lookupWord: "",
     word: "",
     loading: false,
     ok: false,
@@ -10337,6 +10338,7 @@ export default function App() {
     if ((!isTargetRoundNow || !targetSummary?.word) && !keepTargetDefinition) {
       targetDefinitionRequestRef.current += 1;
       setTargetDefinition({
+        lookupWord: "",
         word: "",
         loading: false,
         ok: false,
@@ -10366,13 +10368,14 @@ export default function App() {
         : "";
     if (cachedDefinition) {
       if (
-        targetDefinition.word === resolvedDefinitionWord &&
+        targetDefinition.lookupWord === clean &&
         targetDefinition.ok &&
         targetDefinition.definition === cachedDefinition
       ) {
         return;
       }
       setTargetDefinition({
+        lookupWord: clean,
         word: resolvedDefinitionWord,
         loading: false,
         ok: true,
@@ -10401,11 +10404,12 @@ export default function App() {
       });
       return;
     }
-    if (targetDefinition.word === clean && (targetDefinition.ok || targetDefinition.loading)) {
+    if (targetDefinition.lookupWord === clean && (targetDefinition.ok || targetDefinition.loading)) {
       return;
     }
     const requestId = ++targetDefinitionRequestRef.current;
     setTargetDefinition({
+      lookupWord: clean,
       word: clean,
       loading: true,
       ok: false,
@@ -10452,6 +10456,7 @@ export default function App() {
             }
           }
           setTargetDefinition({
+            lookupWord: clean,
             word: data.displayWord || data.word || clean,
             loading: false,
             ok,
@@ -10478,7 +10483,7 @@ export default function App() {
     };
 
     fetchDefinition(clean);
-  }, [specialRound?.type, targetSummary, targetDefinition.word, targetDefinition.ok, phase]);
+  }, [specialRound?.type, targetSummary, targetDefinition.lookupWord, targetDefinition.ok, targetDefinition.loading, phase]);
 
   useEffect(() => {
     if (!foundTargetThisRound) return;

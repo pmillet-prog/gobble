@@ -1085,9 +1085,7 @@ const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
 const CHAT_REPLY_TEXT_MAX_LEN = 280;
 const CHAT_MESSAGE_TEXT_MAX_LEN = 300;
-const TARGET_CHAT_SPOILER_MEDIUM_WORD_MAX_LEN = 10;
-const TARGET_CHAT_SPOILER_MIN_RUN_MEDIUM = 5;
-const TARGET_CHAT_SPOILER_MIN_RUN_LONG = 6;
+const TARGET_CHAT_SPOILER_MIN_RUN = 4;
 const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "👍",
@@ -2846,11 +2844,7 @@ function getActiveTargetChatSpoilerWord(room) {
 function getTargetChatSpoilerMinRun(targetWord) {
   const length = String(targetWord || "").length;
   if (length <= 0) return 0;
-  if (length <= 7) return length;
-  if (length <= TARGET_CHAT_SPOILER_MEDIUM_WORD_MAX_LEN) {
-    return Math.min(length, TARGET_CHAT_SPOILER_MIN_RUN_MEDIUM);
-  }
-  return Math.min(length, TARGET_CHAT_SPOILER_MIN_RUN_LONG);
+  return Math.min(length, TARGET_CHAT_SPOILER_MIN_RUN);
 }
 
 function buildNormalizedChatCharMap(text) {
