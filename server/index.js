@@ -848,7 +848,15 @@ app.get("/api/vault/words", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const identity = await requireRequestPlayerIdentity(req, res);
   if (!identity) return;
-  const items = await listWordVaultEntriesForUser(identity.userId);
+  const result = await listWordVaultEntriesForUser(identity.userId);
+  if (!result?.ok) {
+    res.status(result?.error === "auth_required" ? 401 : 500);
+    return res.json({
+      ok: false,
+      error: result?.error || "vault_list_failed",
+    });
+  }
+  const items = Array.isArray(result.items) ? result.items : [];
   return res.json({
     ok: true,
     items,

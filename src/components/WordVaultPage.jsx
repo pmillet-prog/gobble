@@ -106,6 +106,7 @@ export default function WordVaultPage({
   loading = false,
   error = "",
   words = [],
+  accountLabel = "",
   sortMode = "addedAt",
   onSortChange = null,
   onOpenWord = null,
@@ -139,6 +140,11 @@ export default function WordVaultPage({
               <div className="mt-1 text-sm opacity-75">
                 Garde ici les mots que tu veux retrouver plus tard.
               </div>
+              {accountLabel ? (
+                <div className="mt-2 text-xs font-semibold opacity-65">
+                  Compte : {accountLabel}
+                </div>
+              ) : null}
             </div>
             <button
               type="button"

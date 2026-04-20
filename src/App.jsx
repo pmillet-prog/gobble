@@ -32323,6 +32323,7 @@ function handleTouchEnd(e) {
           loading={wordVault.loading}
           error={wordVault.error}
           words={wordVault.words}
+          accountLabel={authState.user?.usernameDisplay || ""}
           sortMode={wordVault.sortMode}
           onSortChange={setWordVaultSortMode}
           onOpenWord={(word) => openDefinition(word, { fromVault: true, preferLongDefinition: true })}

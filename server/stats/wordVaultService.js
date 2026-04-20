@@ -140,9 +140,9 @@ export async function initWordVaultService() {
 
 export async function listWordVaultEntriesForUser(userId) {
   const safeUserId = normalizeUserId(userId);
-  if (!safeUserId) return [];
+  if (!safeUserId) return { ok: false, error: "auth_required", items: [] };
   const ready = await ensureDb();
-  if (!ready) return [];
+  if (!ready) return { ok: false, error: "vault_unavailable", items: [] };
   try {
     const rows = await runWithBusyRetry(() =>
       db.all(
@@ -153,10 +153,15 @@ export async function listWordVaultEntriesForUser(userId) {
         safeUserId
       )
     );
-    return Array.isArray(rows) ? rows.map(serializeVaultEntry).filter((entry) => entry.word && entry.wordKey) : [];
+    return {
+      ok: true,
+      items: Array.isArray(rows)
+        ? rows.map(serializeVaultEntry).filter((entry) => entry.word && entry.wordKey)
+        : [],
+    };
   } catch (err) {
     console.warn("Word vault list failed", err);
-    return [];
+    return { ok: false, error: "vault_list_failed", items: [] };
   }
 }
 
