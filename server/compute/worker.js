@@ -4,21 +4,32 @@ import { fileURLToPath } from "url";
 import { parentPort } from "worker_threads";
 
 import {
+  applySeededBonuses,
   buildFakeTwinsGrid,
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
   generateGrid,
+  MOVABLE_BONUS_KEYS,
   normalizeWord,
   solveGrid,
 } from "../../shared/gameLogic.js";
+import {
+  buildAnchoredGrid,
+  buildAnchoredGridCandidate,
+  MONSTROUS_ANCHOR_BUCKETS,
+  pickWeightedBucket,
+  pickUniqueLongestTarget,
+  TARGET_LONG_ANCHOR_BUCKETS,
+  tokenizeBoggleWord,
+} from "./anchoredGeneration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const MAX_QUALITY_ATTEMPTS = 50;
 const SPECIAL_QUALITY_ATTEMPTS = 220;
-const TARGET_LONG_MIN_LEN = 11;
-const TARGET_LONG_PREFERRED_LEN = 13;
+const TARGET_LONG_MIN_LEN = 10;
+const TARGET_LONG_PREFERRED_LEN = 14;
 const TARGET_LONG_BATCH_ATTEMPTS = 50;
 const TARGET_LONG_BATCHES_PER_LEN = 2;
 const TARGET_LONG_TOTAL_ATTEMPTS =
@@ -28,7 +39,6 @@ const TARGET_LONG_TOTAL_ATTEMPTS =
 const TARGET_SCORE_MIN_PTS = 100;
 const BONUS_LETTER_MIN_WORDS = 30;
 const BONUS_LETTER_SCORE = 20;
-const TARGET_LONG_LENGTH_BUCKETS = [8, 9, 10, "11plus"];
 
 let dictionary = null;
 try {
@@ -113,30 +123,32 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
   };
 }
 
-function pickRandomArrayEntry(list) {
-  if (!Array.isArray(list) || list.length === 0) return null;
-  return list[Math.floor(Math.random() * list.length)];
-}
-
 function pickTargetLongLengthBucket() {
-  const picked = pickRandomArrayEntry(TARGET_LONG_LENGTH_BUCKETS);
-  return picked ?? "11plus";
+  return pickWeightedBucket(Math.random, TARGET_LONG_ANCHOR_BUCKETS)?.key || "14plus";
 }
 
-function pickTargetLongForExactMaxLen(solved, targetLen) {
-  const exactLen = Number(targetLen);
-  if (!Number.isFinite(exactLen) || exactLen <= 0) return null;
+function pickTargetLongForMaxLenRange(solved, minLen, maxLen = Infinity) {
+  const safeMinLen = Number(minLen);
+  const safeMaxLen = Number(maxLen);
+  if (!Number.isFinite(safeMinLen) || safeMinLen <= 0) return null;
   const longestUnique = pickTargetFromSolved(solved, "target_long", { minLongLen: 0 });
   if (!longestUnique?.word) return null;
-  if (Number(longestUnique.length) !== exactLen) return null;
+  const length = Number(longestUnique.length);
+  if (length < safeMinLen || length > safeMaxLen) return null;
   return longestUnique;
 }
 
 function pickTargetLongFromSolvedByBucket(solved, bucket) {
-  if (bucket === "11plus") {
-    return pickTargetFromSolved(solved, "target_long", { minLongLen: TARGET_LONG_MIN_LEN });
+  if (bucket === "10-11") {
+    return pickTargetLongForMaxLenRange(solved, 10, 11);
   }
-  return pickTargetLongForExactMaxLen(solved, bucket);
+  if (bucket === "12-13") {
+    return pickTargetLongForMaxLenRange(solved, 12, 13);
+  }
+  if (bucket === "14plus") {
+    return pickTargetFromSolved(solved, "target_long", { minLongLen: 14 });
+  }
+  return pickTargetLongForMaxLenRange(solved, TARGET_LONG_MIN_LEN);
 }
 
 function pickTargetFromSolved(solved, type, opts = {}) {
@@ -183,6 +195,137 @@ function pickTargetFromSolved(solved, type, opts = {}) {
   return null;
 }
 
+function buildPreparedCandidate({
+  grid,
+  solved,
+  roundPlan,
+  roundNumber,
+  effectiveMinWords,
+  qualityOpts,
+  targetWord = null,
+  targetLength = null,
+  targetPath = null,
+  planExtras = null,
+}) {
+  const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
+  quality.possibleScore = roundPlan?.fixedWordScore
+    ? (quality.words || 0) * roundPlan.fixedWordScore
+    : quality.totalPts;
+  const minLongWords = roundPlan?.minLongWordCount || 0;
+  let ok = quality.ok;
+  if (roundPlan?.type === "monstrous") {
+    const minTotal = roundPlan?.minTotalScore || 0;
+    const minLen = roundPlan?.minLongWordLen || 0;
+    ok =
+      ok &&
+      quality.possibleScore >= minTotal &&
+      quality.maxLen >= minLen &&
+      quality.longWords >= minLongWords;
+  } else if (roundPlan?.type === "target_long" || roundPlan?.type === "target_score") {
+    ok = ok && !!targetWord;
+  }
+  quality.ok = ok;
+  return {
+    grid,
+    quality,
+    plan: { ...roundPlan, ...(planExtras || null) },
+    roundNumber,
+    targetWord,
+    targetLength,
+    targetPath,
+  };
+}
+
+function prepareAnchoredTargetLong({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords }) {
+  if (!dictionary || roundPlan?.type !== "target_long") return null;
+  const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
+  for (let attempt = 1; attempt <= maxAttemptsTotal; attempt += 1) {
+    const anchor = buildAnchoredGridCandidate({
+      dictionary,
+      buckets: TARGET_LONG_ANCHOR_BUCKETS,
+      size,
+      rand: Math.random,
+    });
+    if (!anchor?.grid?.length || !anchor.word) continue;
+    const solved = solveGrid(anchor.grid, dictionary);
+    const target = pickUniqueLongestTarget(solved, anchor.word);
+    if (!target?.word) continue;
+    const candidate = buildPreparedCandidate({
+      grid: anchor.grid,
+      solved,
+      roundPlan,
+      roundNumber,
+      effectiveMinWords,
+      qualityOpts,
+      targetWord: target.word,
+      targetLength: target.length || target.word.length,
+      targetPath: Array.isArray(target.path) ? target.path : null,
+      planExtras: {
+        targetLongBucket: anchor.bucket?.key || null,
+        targetLongAnchorStrategy: "word_path",
+      },
+    });
+    if (candidate.quality?.ok) return candidate;
+  }
+  return null;
+}
+
+function prepareAnchoredMonstrous({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords, qualityOpts }) {
+  if (!dictionary || roundPlan?.type !== "monstrous") return null;
+  const maxFillsPerAnchor = 10;
+  const maxAnchors = Math.max(1, Math.ceil(maxAttemptsTotal / maxFillsPerAnchor));
+  let bestCandidate = null;
+
+  for (let anchorAttempt = 1; anchorAttempt <= maxAnchors; anchorAttempt += 1) {
+    const anchor = buildAnchoredGridCandidate({
+      dictionary,
+      buckets: MONSTROUS_ANCHOR_BUCKETS,
+      size,
+      rand: Math.random,
+    });
+    const tokens = anchor?.word ? tokenizeBoggleWord(anchor.word) : null;
+    if (!anchor?.word || !tokens || !Array.isArray(anchor.path)) continue;
+
+    for (let fillAttempt = 1; fillAttempt <= maxFillsPerAnchor; fillAttempt += 1) {
+      const plainGrid = buildAnchoredGrid(anchor.word, anchor.path, size, Math.random);
+      if (!plainGrid?.length) continue;
+      const grid = applySeededBonuses(
+        plainGrid,
+        Math.floor(Math.random() * 0xffffffff),
+        MOVABLE_BONUS_KEYS
+      );
+      const solved = solveGrid(grid, dictionary);
+      const candidate = buildPreparedCandidate({
+        grid,
+        solved,
+        roundPlan,
+        roundNumber,
+        effectiveMinWords,
+        qualityOpts,
+        planExtras: {
+          monstrousAnchorStrategy: "word_path",
+          monstrousAnchorWord: anchor.word,
+          monstrousAnchorPath: anchor.path,
+        },
+      });
+      const score =
+        (candidate.quality?.words || 0) +
+        (candidate.quality?.possibleScore || 0) / 500 +
+        (candidate.quality?.longWords || 0);
+      const bestScore =
+        (bestCandidate?.quality?.words || 0) +
+        (bestCandidate?.quality?.possibleScore || 0) / 500 +
+        (bestCandidate?.quality?.longWords || 0);
+      if (!bestCandidate || score > bestScore) {
+        bestCandidate = candidate;
+      }
+      if (candidate.quality?.ok) return candidate;
+    }
+  }
+
+  return bestCandidate?.quality?.ok ? bestCandidate : null;
+}
+
 function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
   const minWords = roundPlan?.minWords ?? roomConfig?.minWords ?? 0;
   const maxAttempts = Math.max(
@@ -210,10 +353,31 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
   };
   const isTargetLong = roundPlan?.type === "target_long";
   const targetLongBucket = isTargetLong ? pickTargetLongLengthBucket() : null;
-  const isTargetLong11PlusMode = isTargetLong && targetLongBucket === "11plus";
+  const isTargetLong11PlusMode = isTargetLong && targetLongBucket === "14plus";
   const targetLongMinLen = TARGET_LONG_MIN_LEN;
   const targetLongPreferredLen = Math.max(targetLongMinLen, TARGET_LONG_PREFERRED_LEN);
   const targetLongBatchSize = Math.max(1, Math.min(TARGET_LONG_BATCH_ATTEMPTS, maxAttemptsTotal));
+
+  if (isTargetLong) {
+    const anchored = prepareAnchoredTargetLong({
+      roundPlan,
+      roundNumber,
+      size,
+      maxAttemptsTotal,
+      effectiveMinWords,
+    });
+    if (anchored?.grid?.length) return anchored;
+  } else if (roundPlan?.type === "monstrous") {
+    const anchored = prepareAnchoredMonstrous({
+      roundPlan,
+      roundNumber,
+      size,
+      maxAttemptsTotal,
+      effectiveMinWords,
+      qualityOpts,
+    });
+    if (anchored?.grid?.length) return anchored;
+  }
 
   let bestCandidate = null;
   let fallbackCandidate = null;
@@ -227,7 +391,8 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     if (
       roundPlan?.type === "speed" ||
       roundPlan?.type === "target_long" ||
-      roundPlan?.type === "bonus_letter"
+      roundPlan?.type === "bonus_letter" ||
+      roundPlan?.type === FAKE_TWINS_TYPE
     ) {
       grid = grid.map((cell) => ({ ...cell, bonus: null }));
     }
@@ -236,8 +401,9 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     let fakeTwinsCandidate = null;
     if (dictionary && needsFakeTwins) {
       fakeTwinsCandidate = buildFakeTwinsGrid(grid, dictionary, {
-        maxCellCandidates: 6,
-        maxAltLetters: 6,
+        maxCellCandidates: grid.length,
+        maxAltLetters: 26,
+        candidateSeed: attempt,
       });
       if (fakeTwinsCandidate?.grid?.length) {
         grid = fakeTwinsCandidate.grid;
@@ -275,7 +441,14 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       ok =
         ok &&
         Number.isInteger(fakeTwinsCandidate?.twinIndex) &&
-        Number(quality?.fakeTwinWords) > 0;
+        !!fakeTwinsCandidate?.meetsTwinWordTarget;
+      quality.fakeTwinWords = Number(fakeTwinsCandidate?.fakeTwinWords) || 0;
+      quality.fakeTwinUniquePaths = Number(fakeTwinsCandidate?.fakeTwinUniquePaths) || 0;
+      quality.fakeTwinDuplicatePathWords =
+        Number(fakeTwinsCandidate?.fakeTwinDuplicatePathWords) || 0;
+      quality.fakeTwinPrimaryWords = Number(fakeTwinsCandidate?.primaryLetterWords) || 0;
+      quality.fakeTwinAltWords = Number(fakeTwinsCandidate?.altLetterWords) || 0;
+      quality.fakeTwinTargetScore = Number(fakeTwinsCandidate?.targetScore) || 0;
     }
     quality.ok = ok;
 

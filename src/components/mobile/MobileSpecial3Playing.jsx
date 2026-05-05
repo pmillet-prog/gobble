@@ -456,7 +456,7 @@ function MobileSpecial3Playing(props) {
                   special3TutorialStep === 0 ? "special3-tutorial-focus rounded-2xl" : ""
                 }`}
               >
-                <MobileGrid {...mobileGridProps} />
+                <MobileGrid {...mobileGridProps} celebrationOverlay={praiseOverlay} />
               </div>
             </div>
             <div
@@ -494,7 +494,6 @@ function MobileSpecial3Playing(props) {
       </div>
       {mobileResultsPhaseFadeOverlay}
       {mobileRoundIntroOverlay}
-      {praiseOverlay}
       {chatOverlays}
     </>
   );

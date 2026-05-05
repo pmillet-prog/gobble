@@ -51,6 +51,9 @@ export default function ChatStyleSlide(props) {
     }
     setIsChatOpenMobile?.(false);
   };
+  const sheetThemeClass = darkMode
+    ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 border-amber-300/70"
+    : "bg-[linear-gradient(180deg,rgba(255,250,232,0.97),rgba(226,238,255,0.98))] text-slate-900 border-amber-300/80";
 
   if (typeof document === "undefined") return null;
 
@@ -76,11 +79,7 @@ export default function ChatStyleSlide(props) {
       />
       <div className="relative w-full pointer-events-none">
         <div
-          className={`pointer-events-auto w-full rounded-b-[28px] border-x border-b flex flex-col shadow-2xl ${
-            darkMode
-              ? "bg-slate-900/90 text-slate-100 border-slate-700"
-              : "bg-white/90 text-slate-900 border-slate-200"
-          }`}
+          className={`pointer-events-auto w-full rounded-b-[28px] border-x-2 border-b-2 flex flex-col shadow-2xl ${sheetThemeClass}`}
           style={{
             ...(chatSheetStyle || {}),
             transitionProperty: "transform, opacity",

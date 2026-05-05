@@ -1,5 +1,6 @@
 export const FAKE_TWINS_TYPE = "fake_twins";
 export const FAKE_TWINS_MIN_WORD_LENGTH = 4;
+export const FAKE_TWINS_WORD_BONUS = 50;
 
 export function normalizeWord(str) {
   return str
@@ -27,6 +28,10 @@ export function neighbors(i, size) {
     }
   }
   return out;
+}
+
+function buildNeighborsByIndex(total, size) {
+  return Array.from({ length: total }, (_, idx) => neighbors(idx, size));
 }
 
 const SCRABBLE_FR = {
@@ -95,6 +100,43 @@ function pathUsesFakeTwinsCell(path, board) {
   return Array.isArray(path) && path.some((idx) => isFakeTwinsCell(board?.[idx]));
 }
 
+function getFakeTwinsUsage(path, board, resolvedLettersByIndex = null) {
+  if (!Array.isArray(path) || !Array.isArray(board)) {
+    return {
+      usedFakeTwins: false,
+      fakeTwinsTwinIndex: null,
+      fakeTwinsResolvedLetter: null,
+      fakeTwinsResolvedKey: "",
+      fakeTwinsUsesAlt: false,
+    };
+  }
+
+  for (const idx of path) {
+    const cell = board[idx];
+    if (!isFakeTwinsCell(cell)) continue;
+    const primaryKey = normalizeLetterKey(cell?.letter);
+    const altKey = normalizeLetterKey(cell?.altLetter);
+    const resolvedValue = resolvedLettersByIndex?.[idx] || cell?.letter;
+    const resolvedKey = normalizeLetterKey(resolvedValue);
+    if (!resolvedKey || (resolvedKey !== primaryKey && resolvedKey !== altKey)) continue;
+    return {
+      usedFakeTwins: true,
+      fakeTwinsTwinIndex: idx,
+      fakeTwinsResolvedLetter: resolvedKey === altKey ? cell?.altLetter ?? null : cell?.letter ?? null,
+      fakeTwinsResolvedKey: resolvedKey,
+      fakeTwinsUsesAlt: resolvedKey === altKey,
+    };
+  }
+
+  return {
+    usedFakeTwins: false,
+    fakeTwinsTwinIndex: null,
+    fakeTwinsResolvedLetter: null,
+    fakeTwinsResolvedKey: "",
+    fakeTwinsUsesAlt: false,
+  };
+}
+
 function getCellLetterOptions(cell) {
   const primary = normalizeLetterKey(cell?.letter);
   if (!primary) return [];
@@ -108,6 +150,46 @@ function getCellLetterOptions(cell) {
   return options;
 }
 
+export function buildPathWordVariants(board, path, special = null) {
+  if (!Array.isArray(board) || !Array.isArray(path) || path.length === 0) return [];
+  let candidates = [{ raw: "", display: "", usedFakeTwins: false }];
+  for (const idx of path) {
+    const cell = board?.[idx];
+    if (!cell) return [];
+    const primaryDisplay = String(cell?.letter || "").trim();
+    const primaryRaw = normalizeWord(primaryDisplay);
+    if (!primaryRaw) return [];
+    const options = [{ raw: primaryRaw, display: primaryDisplay, usedFakeTwins: false }];
+    const altDisplay = String(cell?.altLetter || "").trim();
+    const altRaw = normalizeWord(altDisplay);
+    if (
+      isFakeTwinsSpecial(special) &&
+      cell?.specialType === FAKE_TWINS_TYPE &&
+      altRaw &&
+      altRaw !== primaryRaw
+    ) {
+      options.push({ raw: altRaw, display: altDisplay, usedFakeTwins: true });
+    }
+    const next = [];
+    for (const candidate of candidates) {
+      for (const option of options) {
+        next.push({
+          raw: `${candidate.raw}${option.raw}`,
+          display: `${candidate.display}${option.display}`,
+          usedFakeTwins: candidate.usedFakeTwins || option.usedFakeTwins,
+        });
+      }
+    }
+    const deduped = new Map();
+    next.forEach((candidate) => {
+      const key = `${candidate.raw}|${candidate.display}|${candidate.usedFakeTwins ? 1 : 0}`;
+      if (!deduped.has(key)) deduped.set(key, candidate);
+    });
+    candidates = Array.from(deduped.values());
+  }
+  return candidates.filter((candidate) => candidate.raw);
+}
+
 export function findPathForWord(board, targetNorm, special = null) {
   return findBestPathForWord(board, targetNorm, special);
 }
@@ -119,18 +201,21 @@ export function filterDictionary(dictionary, board, special = null) {
   });
   const minWordLength = getMinimumWordLength(special);
 
-  const filtered = new Set(
-    [...dictionary].filter((word) => {
-      if (!word || word.length < minWordLength) return false;
-      let i = 0;
-      while (i < word.length) {
-        const char = word[i] === "q" && word[i + 1] === "u" ? "qu" : word[i];
-        i += char === "qu" ? 2 : 1;
-        if (!boardLetters.has(char)) return false;
+  const filtered = new Set();
+  for (const word of dictionary) {
+    if (!word || word.length < minWordLength) continue;
+    let fits = true;
+    let i = 0;
+    while (i < word.length) {
+      const char = word[i] === "q" && word[i + 1] === "u" ? "qu" : word[i];
+      i += char === "qu" ? 2 : 1;
+      if (!boardLetters.has(char)) {
+        fits = false;
+        break;
       }
-      return true;
-    })
-  );
+    }
+    if (fits) filtered.add(word);
+  }
 
   return filtered;
 }
@@ -144,6 +229,7 @@ export function tileScore(tile) {
 export function computeScore(word, path, board, special = null, resolvedLettersByIndex = null) {
   let base = 0;
   let wordMultiplier = 1;
+  let usesFakeTwinsCell = false;
   const bonusKey =
     special && special.bonusLetter ? normalizeLetterKey(special.bonusLetter) : null;
   const bonusValue =
@@ -154,7 +240,9 @@ export function computeScore(word, path, board, special = null, resolvedLettersB
     const tile = board[idx];
     const bonus = tile?.bonus;
     const resolvedLetter = resolvedLettersByIndex?.[idx] || tile?.letter;
-    const baseTileValue = isFakeTwinsCell(tile) ? tileScore(tile) : tileScoreForLetter(resolvedLetter);
+    const fakeTwinsCell = isFakeTwinsCell(tile);
+    if (fakeTwinsCell) usesFakeTwinsCell = true;
+    const baseTileValue = fakeTwinsCell ? tileScore(tile) : tileScoreForLetter(resolvedLetter);
     const letterValue =
       bonusKey && bonusValue != null && normalizeLetterKey(resolvedLetter) === bonusKey
         ? bonusValue
@@ -187,7 +275,7 @@ export function computeScore(word, path, board, special = null, resolvedLettersB
       ? 3
       : 0;
   const fakeTwinsBonus =
-    isFakeTwinsSpecial(special) && pathUsesFakeTwinsCell(path, board) ? 20 : 0;
+    isFakeTwinsSpecial(special) && usesFakeTwinsCell ? FAKE_TWINS_WORD_BONUS : 0;
 
   return (base + bonusLength) * wordMultiplier + fakeTwinsBonus;
 }
@@ -207,6 +295,8 @@ function resolveWordOnBoard(board, wordNorm, special = null, forcedPath = null) 
   const total = board.length;
   const size = Math.max(1, Math.round(Math.sqrt(total)));
   const used = new Array(total).fill(false);
+  const neighborsByIndex = buildNeighborsByIndex(total, size);
+  const letterOptionsByIndex = board.map((cell) => getCellLetterOptions(cell));
   const safeForcedPath =
     Array.isArray(forcedPath) && forcedPath.length > 0
       ? forcedPath.every((idx) => Number.isInteger(idx) && idx >= 0 && idx < total)
@@ -216,67 +306,78 @@ function resolveWordOnBoard(board, wordNorm, special = null, forcedPath = null) 
 
   let best = null;
 
-  function registerCandidate(path, resolvedLettersByIndex, usedFakeTwins) {
+  function registerCandidate(path, resolvedLettersByIndex) {
     const pts = computeScore(wordNorm, path, board, special, resolvedLettersByIndex);
+    const fakeTwinsUsage = getFakeTwinsUsage(path, board, resolvedLettersByIndex);
     if (!best || pts > best.pts) {
       best = {
         path: [...path],
         pts,
-        usedFakeTwins,
+        usedFakeTwins: fakeTwinsUsage.usedFakeTwins,
+        fakeTwinsTwinIndex: fakeTwinsUsage.fakeTwinsTwinIndex,
+        fakeTwinsResolvedLetter: fakeTwinsUsage.fakeTwinsResolvedLetter,
+        fakeTwinsResolvedKey: fakeTwinsUsage.fakeTwinsResolvedKey,
+        fakeTwinsUsesAlt: fakeTwinsUsage.fakeTwinsUsesAlt,
         resolvedLettersByIndex: { ...resolvedLettersByIndex },
       };
     }
   }
 
-  function dfs(idx, pos, path, resolvedLettersByIndex, usedFakeTwins) {
-    const cell = board[idx];
-    const options = getCellLetterOptions(cell);
+  function dfs(idx, pos, path, resolvedLettersByIndex) {
+    const options = letterOptionsByIndex[idx];
     if (!options.length) return;
-    const primary = normalizeLetterKey(cell?.letter);
 
     for (const label of options) {
       if (!wordNorm.startsWith(label, pos)) continue;
 
       const nextPos = pos + label.length;
-      const nextPath = [...path, idx];
-      const nextResolvedLettersByIndex = {
-        ...resolvedLettersByIndex,
-        [idx]: label === "qu" ? "Qu" : label.toUpperCase(),
-      };
-      const nextUsedFakeTwins = usedFakeTwins || isFakeTwinsCell(cell);
+      const prevResolvedLetter = resolvedLettersByIndex[idx];
+      path.push(idx);
+      resolvedLettersByIndex[idx] = label === "qu" ? "Qu" : label.toUpperCase();
 
       if (nextPos === wordNorm.length) {
-        if (!safeForcedPath || nextPath.length === safeForcedPath.length) {
-          registerCandidate(nextPath, nextResolvedLettersByIndex, nextUsedFakeTwins);
+        if (!safeForcedPath || path.length === safeForcedPath.length) {
+          registerCandidate(path, resolvedLettersByIndex);
         }
+        if (prevResolvedLetter === undefined) delete resolvedLettersByIndex[idx];
+        else resolvedLettersByIndex[idx] = prevResolvedLetter;
+        path.pop();
         continue;
       }
 
       used[idx] = true;
       if (safeForcedPath) {
-        const nextIdx = safeForcedPath[nextPath.length];
+        const nextIdx = safeForcedPath[path.length];
         if (
           Number.isInteger(nextIdx) &&
           !used[nextIdx] &&
-          neighbors(idx, size).includes(nextIdx)
+          neighborsByIndex[idx].includes(nextIdx)
         ) {
-          dfs(nextIdx, nextPos, nextPath, nextResolvedLettersByIndex, nextUsedFakeTwins);
+          dfs(nextIdx, nextPos, path, resolvedLettersByIndex);
         }
       } else {
-        for (const nb of neighbors(idx, size)) {
+        for (const nb of neighborsByIndex[idx]) {
           if (!used[nb]) {
-            dfs(nb, nextPos, nextPath, nextResolvedLettersByIndex, nextUsedFakeTwins);
+            dfs(nb, nextPos, path, resolvedLettersByIndex);
           }
         }
       }
       used[idx] = false;
+      if (prevResolvedLetter === undefined) delete resolvedLettersByIndex[idx];
+      else resolvedLettersByIndex[idx] = prevResolvedLetter;
+      path.pop();
     }
   }
 
-  const starts = safeForcedPath ? [safeForcedPath[0]] : [...Array(total).keys()];
-  for (const startIdx of starts) {
-    if (!Number.isInteger(startIdx) || startIdx < 0 || startIdx >= total) continue;
-    dfs(startIdx, 0, [], {}, false);
+  if (safeForcedPath) {
+    const startIdx = safeForcedPath[0];
+    if (Number.isInteger(startIdx) && startIdx >= 0 && startIdx < total) {
+      dfs(startIdx, 0, [], {});
+    }
+  } else {
+    for (let startIdx = 0; startIdx < total; startIdx += 1) {
+      dfs(startIdx, 0, [], {});
+    }
   }
 
   return best;
@@ -302,6 +403,10 @@ export function scoreWordOnGrid(rawWord, board, special = null) {
     path: resolved.path,
     pts: resolved.pts,
     usedFakeTwins: !!resolved.usedFakeTwins,
+    fakeTwinsTwinIndex:
+      Number.isInteger(resolved.fakeTwinsTwinIndex) ? resolved.fakeTwinsTwinIndex : null,
+    fakeTwinsResolvedLetter: resolved.fakeTwinsResolvedLetter ?? null,
+    fakeTwinsUsesAlt: !!resolved.fakeTwinsUsesAlt,
   };
 }
 
@@ -315,6 +420,10 @@ export function scoreWordOnGridWithPath(rawWord, board, path, special = null) {
     path: resolved.path,
     pts: resolved.pts,
     usedFakeTwins: !!resolved.usedFakeTwins,
+    fakeTwinsTwinIndex:
+      Number.isInteger(resolved.fakeTwinsTwinIndex) ? resolved.fakeTwinsTwinIndex : null,
+    fakeTwinsResolvedLetter: resolved.fakeTwinsResolvedLetter ?? null,
+    fakeTwinsUsesAlt: !!resolved.fakeTwinsUsesAlt,
   };
 }
 
@@ -330,6 +439,10 @@ export function solveAll(board, dictionary, special = null) {
         path: resolved.path,
         pts: resolved.pts,
         usedFakeTwins: !!resolved.usedFakeTwins,
+        fakeTwinsTwinIndex:
+          Number.isInteger(resolved.fakeTwinsTwinIndex) ? resolved.fakeTwinsTwinIndex : null,
+        fakeTwinsResolvedLetter: resolved.fakeTwinsResolvedLetter ?? null,
+        fakeTwinsUsesAlt: !!resolved.fakeTwinsUsesAlt,
       });
     }
   }

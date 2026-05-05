@@ -4,6 +4,10 @@ dist/
 .tmp/
 .env
 *.log
+server/logs/
+data/install-aliases.json
+PATCHNOTES_DRAFT.txt
+public/buttons-alpha/
 server/data-runtime/
 server/data/gobble.db
 server/data/gobble.db-shm

@@ -1,16 +1,15 @@
 import React from "react";
-import { createPortal } from "react-dom";
 
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
 
 const BIGWORD_IMAGE_FALLBACKS = new Map([
-  [IMAGE_KEYS.bigwords.gobble, "/bigwords/gobble.png"],
-  [IMAGE_KEYS.bigwords.doubleGobble, "/bigwords/doublegobble.png"],
-  [IMAGE_KEYS.bigwords.epique, "/bigwords/epique.png"],
-  [IMAGE_KEYS.bigwords.enorme, "/bigwords/enorme.png"],
-  [IMAGE_KEYS.bigwords.excellent, "/bigwords/excellent.png"],
-  [IMAGE_KEYS.bigwords.fabuleux, "/bigwords/fabuleux.png"],
+  [IMAGE_KEYS.bigwords.gobble, "/bigwords/gobble.webp"],
+  [IMAGE_KEYS.bigwords.doubleGobble, "/bigwords/doublegobble.webp"],
+  [IMAGE_KEYS.bigwords.epique, "/bigwords/epique.webp"],
+  [IMAGE_KEYS.bigwords.enorme, "/bigwords/enorme.webp"],
+  [IMAGE_KEYS.bigwords.excellent, "/bigwords/excellent.webp"],
+  [IMAGE_KEYS.bigwords.fabuleux, "/bigwords/fabuleux.webp"],
 ]);
 
 function getBigwordImageUrl(key, assetsReady) {
@@ -24,27 +23,12 @@ function getBigwordImageUrl(key, assetsReady) {
 function GameCelebrationOverlay({
   assetsReady = false,
   gobbleFlash = null,
-  gridRef = null,
+  invalidFlash = null,
   isMobileLayout = false,
   phase = "",
   praiseFlash = null,
 }) {
-  const isActive = phase === "playing" && (praiseFlash || gobbleFlash);
-  const rects = React.useMemo(() => {
-    if (!isActive) return { flashRect: null, praisePositionStyle: undefined };
-    const gridRect = gridRef?.current?.getBoundingClientRect?.() || null;
-    const flashRect = gridRect || null;
-    const praiseRect = !isMobileLayout ? gridRect : null;
-    const praisePositionStyle =
-      praiseRect && Number.isFinite(praiseRect.left) && Number.isFinite(praiseRect.top)
-        ? {
-            left: `${Math.round(praiseRect.left + praiseRect.width / 2)}px`,
-            top: `${Math.round(praiseRect.top + praiseRect.height * 0.45)}px`,
-          }
-        : undefined;
-    return { flashRect, praisePositionStyle };
-  }, [gridRef, isActive, isMobileLayout, praiseFlash?.id, gobbleFlash?.id]);
-
+  const isActive = phase === "playing" && (praiseFlash || gobbleFlash || invalidFlash);
   const praiseImageKey =
     praiseFlash?.kind === "epic"
       ? IMAGE_KEYS.bigwords.epique
@@ -76,7 +60,7 @@ function GameCelebrationOverlay({
     : "";
   const gobbleImageAlt = gobbleFlash?.kind === "doubleGobble" ? "DOUBLE GOBBLE" : "GOBBLE";
   const praiseImageSizePx = isMobileLayout ? 220 : 300;
-  const gobbleImageSizePx = isMobileLayout ? 260 : 340;
+  const gobbleImageSizePx = isMobileLayout ? 295 : 385;
   const praiseFlashColor =
     praiseFlash?.kind === "epic"
       ? "rgba(244, 114, 182, 0.55)"
@@ -88,59 +72,38 @@ function GameCelebrationOverlay({
       ? "rgba(34, 197, 94, 0.55)"
       : "transparent";
   const gobbleFlashColor = gobbleFlash ? "rgba(255, 200, 64, 0.55)" : "transparent";
-  const flashPadding = isMobileLayout ? 8 : 12;
-  const flashRadiusBase = isMobileLayout ? 18 : 22;
-  const buildFlashHoleStyle = (color) => {
-    const flashRect = rects.flashRect;
-    if (
-      !flashRect ||
-      !Number.isFinite(flashRect.left) ||
-      !Number.isFinite(flashRect.top) ||
-      !Number.isFinite(flashRect.width) ||
-      !Number.isFinite(flashRect.height)
-    ) {
-      return null;
-    }
-    return {
-      left: `${Math.max(0, Math.round(flashRect.left - flashPadding))}px`,
-      top: `${Math.max(0, Math.round(flashRect.top - flashPadding))}px`,
-      width: `${Math.max(0, Math.round(flashRect.width + flashPadding * 2))}px`,
-      height: `${Math.max(0, Math.round(flashRect.height + flashPadding * 2))}px`,
-      ["--praise-flash-color"]: color,
-      ["--praise-flash-radius"]: `${flashRadiusBase}px`,
-    };
-  };
-  const praiseFlashHoleStyle = buildFlashHoleStyle(praiseFlashColor);
-  const gobbleFlashHoleStyle = buildFlashHoleStyle(gobbleFlashColor);
+  const invalidFlashColor = invalidFlash ? "rgba(255, 36, 36, 0.68)" : "transparent";
+  const flashInsetPx = isMobileLayout ? 10 : 14;
+  const flashRingWidthPx = isMobileLayout ? 10 : 14;
+  const flashRadiusPx = isMobileLayout ? 18 : 24;
+  const invalidTextSizePx = isMobileLayout ? 42 : 56;
 
-  if (!isActive || typeof document === "undefined") return null;
+  if (!isActive) return null;
 
-  return createPortal(
-    <>
+  return (
+    <div className="celebration-layer" aria-hidden="true">
       {gobbleFlash ? (
         <div
           key={`flash-gobble-${gobbleFlash.id}`}
-          className="praise-flash"
-          style={{ ["--praise-flash-color"]: gobbleFlashColor }}
-        >
-          {gobbleFlashHoleStyle ? (
-            <div className="praise-flash-hole" style={gobbleFlashHoleStyle} />
-          ) : (
-            <div className="praise-flash-full" />
-          )}
-        </div>
+          className="celebration-flash-ring"
+          style={{
+            inset: `${-flashInsetPx}px`,
+            borderWidth: `${flashRingWidthPx}px`,
+            borderRadius: `${flashRadiusPx}px`,
+            ["--celebration-flash-color"]: gobbleFlashColor,
+          }}
+        />
       ) : null}
       {gobbleFlash ? (
         <div
           key={gobbleFlash.id}
-          className="praise-pop praise-image-pop gobble-pop"
+          className="celebration-pop celebration-image-pop celebration-gobble-pop"
           style={{
-            ...rects.praisePositionStyle,
-            ["--praise-x"]: `${Math.round(gobbleFlash.dx || 0)}px`,
-            ["--praise-y"]: `${Math.round(gobbleFlash.dy || 0)}px`,
-            ["--praise-scale"]: gobbleFlash.scale || 1.6,
-            ["--praise-size"]: `${gobbleImageSizePx}px`,
-            ["--praise-duration"]: `${Math.max(
+            ["--celebration-x"]: `${Math.round(gobbleFlash.dx || 0)}px`,
+            ["--celebration-y"]: `${Math.round(gobbleFlash.dy || 0)}px`,
+            ["--celebration-scale"]: gobbleFlash.scale || 1.6,
+            ["--celebration-size"]: `${gobbleImageSizePx}px`,
+            ["--celebration-duration"]: `${Math.max(
               1600,
               Math.min(3000, gobbleFlash.durationMs || 2200)
             )}ms`,
@@ -150,7 +113,7 @@ function GameCelebrationOverlay({
             <img
               src={gobbleImageSrc}
               alt={gobbleImageAlt}
-              className="praise-image"
+              className="celebration-image"
               style={{ opacity: 0.86 }}
               draggable={false}
             />
@@ -161,25 +124,23 @@ function GameCelebrationOverlay({
         <>
           <div
             key={`flash-${praiseFlash.id}`}
-            className="praise-flash"
-            style={{ ["--praise-flash-color"]: praiseFlashColor }}
-          >
-            {praiseFlashHoleStyle ? (
-              <div className="praise-flash-hole" style={praiseFlashHoleStyle} />
-            ) : (
-              <div className="praise-flash-full" />
-            )}
-          </div>
+            className="celebration-flash-ring"
+            style={{
+              inset: `${-flashInsetPx}px`,
+              borderWidth: `${flashRingWidthPx}px`,
+              borderRadius: `${flashRadiusPx}px`,
+              ["--celebration-flash-color"]: praiseFlashColor,
+            }}
+          />
           <div
             key={praiseFlash.id}
-            className="praise-pop praise-image-pop"
+            className="celebration-pop celebration-image-pop"
             style={{
-              ...rects.praisePositionStyle,
-              ["--praise-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
-              ["--praise-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
-              ["--praise-scale"]: praiseFlash.scale || 1.6,
-              ["--praise-size"]: `${praiseImageSizePx}px`,
-              ["--praise-duration"]: `${Math.max(
+              ["--celebration-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
+              ["--celebration-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
+              ["--celebration-scale"]: praiseFlash.scale || 1.6,
+              ["--celebration-size"]: `${praiseImageSizePx}px`,
+              ["--celebration-duration"]: `${Math.max(
                 1200,
                 Math.min(2600, praiseFlash.durationMs || 1500)
               )}ms`,
@@ -189,15 +150,48 @@ function GameCelebrationOverlay({
               <img
                 src={praiseImageSrc}
                 alt={praiseImageAlt}
-                className="praise-image"
+                className="celebration-image"
                 draggable={false}
               />
             ) : null}
           </div>
         </>
       ) : null}
-    </>,
-    document.body
+      {invalidFlash ? (
+        <>
+          <div
+            key={`flash-invalid-${invalidFlash.id}`}
+            className="celebration-flash-ring"
+            style={{
+              inset: `${-flashInsetPx}px`,
+              borderWidth: `${flashRingWidthPx}px`,
+              borderRadius: `${flashRadiusPx}px`,
+              ["--celebration-flash-color"]: invalidFlashColor,
+            }}
+          />
+          <div
+            key={invalidFlash.id}
+            className="celebration-pop celebration-text-pop"
+            style={{
+              ["--celebration-x"]: `${Math.round(invalidFlash.dx || 0)}px`,
+              ["--celebration-y"]: `${Math.round(invalidFlash.dy || 0)}px`,
+              ["--celebration-scale"]: invalidFlash.scale || 1.18,
+              ["--celebration-duration"]: `${Math.max(
+                700,
+                Math.min(1800, invalidFlash.durationMs || 1050)
+              )}ms`,
+            }}
+          >
+            <span
+              className="celebration-text celebration-text-invalid"
+              style={{ fontSize: `${invalidTextSizePx}px` }}
+            >
+              {String(invalidFlash.text || "INVALIDE").toUpperCase()}
+            </span>
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 

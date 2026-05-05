@@ -49,12 +49,11 @@ function MobileUltraCompactPlaying({
           </span>
         </div>
         <div className="flex-1 flex items-center justify-center px-2 pb-3">
-          <MobileGrid {...mobileGridProps} />
+          <MobileGrid {...mobileGridProps} celebrationOverlay={praiseOverlay} />
         </div>
       </div>
       {mobileResultsPhaseFadeOverlay}
       {mobileRoundIntroOverlay}
-      {praiseOverlay}
       {chatOverlays}
     </>
   );

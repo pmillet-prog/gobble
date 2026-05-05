@@ -1,18 +1,23 @@
-﻿// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
+// Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
 // 
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import confetti from "canvas-confetti";
-import { resolveSoundSettings } from "./audio/equalizer";
-import AssetManager from "./assets/assetManager";
 import {
-  IMAGE_KEYS,
-  SFX_KEYS,
-  makeIncrementalSfxKey,
-  makeScoreSfxKey,
-  makeScore2SfxKey,
-} from "./assets/assetKeys";
+  AMBIENT_MUSIC_TRACKS_DEFAULT,
+  AUDIO_COOLDOWN_MAX_KEYS,
+  REGISTERED_SFX_MANIFEST,
+  SOUND_MASTER_VOLUME_DEFAULT,
+  buildSfxManifest,
+  loadAmbientTrackList,
+  normalizeSoundMasterVolume,
+  purgeRuntimeMediaCache,
+} from "./audio/audioAssets";
+import useAudioEngine from "./audio/useAudioEngine";
+import useAmbientMusic from "./audio/useAmbientMusic";
+import useGameSounds from "./audio/useGameSounds";
+import AssetManager from "./assets/assetManager";
+import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import ASSET_MANIFEST_BASE from "./assets/assetManifest";
-import AMBIENT_MUSIC_TRACKS_FALLBACK from "./audio/ambientDefaults.json";
 import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
@@ -24,11 +29,14 @@ import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
 import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
+import SoundSettingsPanel from "./components/SoundSettingsPanel.jsx";
+import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
+import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
@@ -36,6 +44,10 @@ import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
 import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPlaying.jsx";
+import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
+import HomeLobby from "./components/home/HomeLobby.jsx";
+import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
+import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import RoundPlayerDetailsModal from "./components/RoundPlayerDetailsModal.jsx";
 import HomeChatModal from "./components/HomeChatModal.jsx";
 import AuthDialog from "./components/AuthDialog.jsx";
@@ -50,6 +62,7 @@ import {
 import {
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
+  buildPathWordVariants,
   computeScore,
   filterDictionary,
   findBestPathForWord,
@@ -145,7 +158,7 @@ const DEV_PHASE_LOOP_QUERY_PARAM = "phaseLoop";
 const DEV_PHASE_LOOP_RESULTS_MS = 10_000;
 const DEV_PHASE_LOOP_PLAYING_MS = 10_000;
 const DEV_PHASE_LOOP_PLAYING_GUARD_MS = 250;
-const DEV_PHASE_LOOP_INTRO_TILE_ESTIMATE_MS = 1200;
+const DEV_PHASE_LOOP_INTRO_TILE_ESTIMATE_MS = 1400;
 const DEV_PHASE_LOOP_INTRO_MS =
   MOBILE_ROUND_INTRO_RESULTS_FADE_MS +
   MOBILE_ROUND_INTRO_INTRO_FADE_IN_MS +
@@ -177,12 +190,6 @@ const VOCAB_OVERLAY_MAX_COUNT_MS = 5000;
 const VOCAB_OVERLAY_ABSORB_MS = 2000;
 const VOCAB_OVERLAY_END_HOLD_MS = 3000;
 const VOCAB_OVERLAY_IMAGE_FADE_MS = 450;
-const DEBUG_AUDIO = false;
-const AUDIO_MASTER_GAIN = 0.7;
-const SOUND_MASTER_VOLUME_DEFAULT = 1;
-const AUDIO_POLYPHONY_LIMIT = 10;
-const AUDIO_COOLDOWN_PRUNE_MS = 60_000;
-const AUDIO_COOLDOWN_MAX_KEYS = 256;
 const SAMSUNG_SAFE_MODE_STORAGE_KEY = "samsungSafeMode";
 const SAMSUNG_DIAG_QUERY_PARAM = "samsungDiag";
 const SAMSUNG_DIAG_STORAGE_KEY = "gobbleSamsungDiagEnabled";
@@ -198,61 +205,11 @@ const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
 const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
 const SAMSUNG_BIGWORD_FLASH_MS = 650;
-const SOFT_CLIP_CURVE_CACHE = new Map();
-const AUDIO_COOLDOWNS_MS = {
-  tileStep: 12,
-  tick: 750,
-  countdownTick: 850,
-  swipe: 80,
-  bipmontre: 120,
-  vocabTick: 40,
-  vocabZero: 80,
-  vocabCling: 80,
-  specialFound: 80,
-  roundStart: 160,
-  invalidWord: 160,
-  dejaJoue: 160,
-  shortWord: 160,
-  score: 60,
-  score2: 60,
-  tournamentCelebration: 240,
-  error: 120,
-  duplicate: 120,
-  gobbleVoice: 1200,
-};
-const VOCAB_SAMPLE_BASE_FREQ = 440;
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
-const MEDIA_CACHE_PURGE_VERSION = "2026-02-26-audio-hotfix-2";
-const MEDIA_CACHE_PURGE_STORAGE_KEY = `gobbleMediaCachePurged:${MEDIA_CACHE_PURGE_VERSION}`;
-const SW_MEDIA_CACHE_PREFIX = "gobble-cache-media-";
-const SOUND_ASSET_VERSION = "2026-02-26-audio-hotfix-2";
-const SOUND_ROOT = "/sound";
-const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
-const AMBIENT_MUSIC_TRACKS_BASE = [
-  `${SOUND_ROOT}/music/oiseauxnuit.mp3`,
-  `${SOUND_ROOT}/music/oiseauxsoir.mp3`,
-  `${SOUND_ROOT}/music/reveiloiseaux.mp3`,
-  `${SOUND_ROOT}/music/reveiloiseaux2.mp3`,
-];
-const AMBIENT_MUSIC_TRACKS_DEFAULT =
-  Array.isArray(AMBIENT_MUSIC_TRACKS_FALLBACK) && AMBIENT_MUSIC_TRACKS_FALLBACK.length
-    ? AMBIENT_MUSIC_TRACKS_FALLBACK
-    : AMBIENT_MUSIC_TRACKS_BASE;
-const INCREMENTAL_SOUND_COUNT = 16;
-const INCREMENTAL_BASE_NOTE_NUMBER = 9;
-const INCREMENTAL_BASE_NOTE_INDEX = INCREMENTAL_BASE_NOTE_NUMBER - 1;
-const INCREMENTAL_SOUND_BASE_PATH = `${SOUND_ROOT}/game/incremental/09.wav`;
-const INCREMENTAL_BASE_SFX_KEY = makeIncrementalSfxKey("09");
 const CHAT_DESKTOP_FONT_SCALE_DEFAULT = 1;
 const CHAT_DESKTOP_FONT_SCALE_MIN = 0.85;
 const CHAT_DESKTOP_FONT_SCALE_MAX = 1.45;
 const CHAT_DESKTOP_FONT_SCALE_STEP = 0.05;
-
-function normalizeSoundMasterVolume(raw, fallback = SOUND_MASTER_VOLUME_DEFAULT) {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(0, Math.min(1, value));
-}
 
 function normalizeChatDesktopFontScale(raw, fallback = CHAT_DESKTOP_FONT_SCALE_DEFAULT) {
   const value = Number(raw);
@@ -260,68 +217,16 @@ function normalizeChatDesktopFontScale(raw, fallback = CHAT_DESKTOP_FONT_SCALE_D
   const clamped = Math.max(CHAT_DESKTOP_FONT_SCALE_MIN, Math.min(CHAT_DESKTOP_FONT_SCALE_MAX, value));
   return Math.round(clamped / CHAT_DESKTOP_FONT_SCALE_STEP) * CHAT_DESKTOP_FONT_SCALE_STEP;
 }
-const SCORE_SOUND_BANDS = [
-  { min: 3, max: 5, src: `${SOUND_ROOT}/game/scores/03.wav` },
-  { min: 6, max: 9, src: `${SOUND_ROOT}/game/scores/04.wav` },
-  { min: 10, max: 19, src: `${SOUND_ROOT}/game/scores/05.wav` },
-  { min: 20, max: 29, src: `${SOUND_ROOT}/game/scores/06.wav` },
-  { min: 30, max: Infinity, src: `${SOUND_ROOT}/game/scores/07.wav` },
-];
-const SCORE_SOUND_PATHS = SCORE_SOUND_BANDS.map((band) => band.src);
-const SCORE2_SOUND_PATHS = SCORE_SOUND_BANDS.map((band) =>
-  band.src.replace("/game/scores/", "/game/piano/")
-);
-const SCORE_LOW_PATH = `${SOUND_ROOT}/game/scores/01.wav`;
-const SCORE2_LOW_PATH = `${SOUND_ROOT}/game/piano/01.wav`;
-const SCORE_LOW_KEY = makeScoreSfxKey("01");
-const SCORE2_LOW_KEY = makeScore2SfxKey("01");
-function withSoundAssetVersion(url) {
-  const raw = String(url || "").trim();
-  if (!raw) return raw;
-  const joiner = raw.includes("?") ? "&" : "?";
-  return `${raw}${joiner}v=${encodeURIComponent(SOUND_ASSET_VERSION)}`;
-}
-
-const SOUND_PATHS = {
-  gobbleVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/gobble.mp3`),
-  doubleGobbleVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/doublegobble.mp3`),
-  blackHole: withSoundAssetVersion(`${SOUND_ROOT}/game/chasse.mp3`),
-  chebabeu: withSoundAssetVersion(`${SOUND_ROOT}/game/chebabeu.wav`),
-  clavier: withSoundAssetVersion(`${SOUND_ROOT}/game/clavier.wav`),
-  souris: withSoundAssetVersion(`${SOUND_ROOT}/game/souris.wav`),
-  shortWord: withSoundAssetVersion(`${SOUND_ROOT}/game/error.mp3`),
-  roundStart: withSoundAssetVersion(`${SOUND_ROOT}/game/dong.wav`),
-  specialFound: withSoundAssetVersion(`${SOUND_ROOT}/game/charleston.wav`),
-  tictac10: withSoundAssetVersion(`${SOUND_ROOT}/game/tictac10.wav`),
-  coeur: withSoundAssetVersion(`${SOUND_ROOT}/game/coeur.wav`),
-  tictoc: withSoundAssetVersion(`${SOUND_ROOT}/game/tictoc.mp3`),
-  vocabOverlay: withSoundAssetVersion(`${SOUND_ROOT}/ui/progvoca.wav`),
-  vocabCling: withSoundAssetVersion(`${SOUND_ROOT}/game/piece.wav`),
-  invalidWord: withSoundAssetVersion(`${SOUND_ROOT}/game/invalide.mp3`),
-  dejaJoue: withSoundAssetVersion(`${SOUND_ROOT}/game/dejajoue.wav`),
-  uiClick: withSoundAssetVersion(`${SOUND_ROOT}/ui/click.wav`),
-  uiClose: withSoundAssetVersion(`${SOUND_ROOT}/ui/bipmontre.wav`),
-  tournamentFireworks: withSoundAssetVersion(`${SOUND_ROOT}/game/artifice.mp3`),
-  tournamentApplause: withSoundAssetVersion(`${SOUND_ROOT}/game/applause.wav`),
-};
-const SCORE_SFX_KEYS = SCORE_SOUND_PATHS.map((src) => {
-  const label = src.split("/").pop()?.split(".")[0] || "00";
-  return makeScoreSfxKey(label);
-});
-const SCORE2_SFX_KEYS = SCORE2_SOUND_PATHS.map((src) => {
-  const label = src.split("/").pop()?.split(".")[0] || "00";
-  return makeScore2SfxKey(label);
-});
 const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.favicon, url: "/favicon.png", priority: "critical" },
   { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
   { key: IMAGE_KEYS.gobblarsBadge, url: "/Gobblars.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.doubleGobble, url: "/bigwords/doublegobble.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.png", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.png", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.png", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.webp", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.doubleGobble, url: "/bigwords/doublegobble.webp", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.webp", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
   { key: IMAGE_KEYS.vocab.debutant, url: "/vocab-ranks/debutant.png", priority: "high" },
   { key: IMAGE_KEYS.vocab.ecolier, url: "/vocab-ranks/ecolier.png", priority: "high" },
   { key: IMAGE_KEYS.vocab.collegien, url: "/vocab-ranks/collegien.png", priority: "high" },
@@ -344,88 +249,6 @@ const BOOT_ASSET_FILES = [
   "/sw.js",
   "/.well-known/assetlinks.json",
 ];
-const BOOT_ASSET_SOUNDS_BASE = [
-  { key: SFX_KEYS.gobbleVoice, url: SOUND_PATHS.gobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
-  { key: SFX_KEYS.doubleGobbleVoice, url: SOUND_PATHS.doubleGobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
-  { key: SFX_KEYS.blackHole, url: SOUND_PATHS.blackHole, priority: "low", meta: { eqKey: "blackHole" } },
-  { key: SFX_KEYS.chebabeu, url: SOUND_PATHS.chebabeu, priority: "low", meta: { eqKey: "chebabeu" } },
-  { key: SFX_KEYS.clavier, url: SOUND_PATHS.clavier, priority: "low", meta: { eqKey: "clavier" } },
-  { key: SFX_KEYS.souris, url: SOUND_PATHS.souris, priority: "low", meta: { eqKey: "souris" } },
-  { key: SFX_KEYS.roundStart, url: SOUND_PATHS.roundStart, priority: "high", meta: { eqKey: "roundStart" } },
-  { key: SFX_KEYS.specialFound, url: SOUND_PATHS.specialFound, priority: "high", meta: { eqKey: "specialFound" } },
-  { key: SFX_KEYS.tictac10, url: SOUND_PATHS.tictac10, priority: "critical", meta: { eqKey: "tick" } },
-  { key: SFX_KEYS.coeur, url: SOUND_PATHS.coeur, priority: "critical", meta: { eqKey: "coeur" } },
-  { key: SFX_KEYS.tictoc, url: SOUND_PATHS.tictoc, priority: "critical", meta: { eqKey: "countdownTick" } },
-  { key: SFX_KEYS.vocabOverlay, url: SOUND_PATHS.vocabOverlay, priority: "high", meta: { eqKey: "vocabTick" } },
-  { key: SFX_KEYS.vocabCling, url: SOUND_PATHS.vocabCling, priority: "high", meta: { eqKey: "vocabCling" } },
-  { key: SFX_KEYS.invalidWord, url: SOUND_PATHS.invalidWord, priority: "critical", meta: { eqKey: "invalidWord" } },
-  { key: SFX_KEYS.dejaJoue, url: SOUND_PATHS.dejaJoue, priority: "critical", meta: { eqKey: "dejaJoue" } },
-  { key: SFX_KEYS.shortWord, url: SOUND_PATHS.shortWord, priority: "critical", meta: { eqKey: "shortWord" } },
-  { key: SFX_KEYS.uiClick, url: SOUND_PATHS.uiClick, priority: "critical", meta: { eqKey: "swipe" } },
-  { key: SFX_KEYS.uiClose, url: SOUND_PATHS.uiClose, priority: "high", meta: { eqKey: "bipmontre" } },
-  { key: SFX_KEYS.tournamentFireworks, url: SOUND_PATHS.tournamentFireworks, priority: "high", meta: { eqKey: "tournamentFireworks" } },
-  { key: SFX_KEYS.tournamentApplause, url: SOUND_PATHS.tournamentApplause, priority: "high", meta: { eqKey: "tournamentApplause" } },
-  { key: SCORE_LOW_KEY, url: SCORE_LOW_PATH, priority: "critical", meta: { eqKey: "score" } },
-  { key: SCORE2_LOW_KEY, url: SCORE2_LOW_PATH, priority: "critical", meta: { eqKey: "score2" } },
-  { key: SFX_KEYS.errorAlt, url: "/error.mp3", priority: "low", meta: { eqKey: "error" } },
-  { key: SFX_KEYS.clickAlt, url: `${SOUND_ROOT}/ui/click2.wav`, priority: "low", meta: { eqKey: "swipe" } },
-];
-const ESSENTIAL_SFX_KEYS = new Set([
-  SFX_KEYS.gobbleVoice,
-  SFX_KEYS.doubleGobbleVoice,
-  SFX_KEYS.roundStart,
-  SFX_KEYS.specialFound,
-  SFX_KEYS.tictac10,
-  SFX_KEYS.coeur,
-  SFX_KEYS.tictoc,
-  SFX_KEYS.vocabOverlay,
-  SFX_KEYS.vocabCling,
-  SFX_KEYS.invalidWord,
-  SFX_KEYS.dejaJoue,
-  SFX_KEYS.shortWord,
-  SFX_KEYS.uiClick,
-  SFX_KEYS.uiClose,
-  INCREMENTAL_BASE_SFX_KEY,
-  SCORE_LOW_KEY,
-  SCORE2_LOW_KEY,
-]);
-const BOOT_ASSET_SFX_ESSENTIAL = BOOT_ASSET_SOUNDS_BASE.filter((entry) =>
-  ESSENTIAL_SFX_KEYS.has(entry.key)
-);
-const BOOT_ASSET_SFX_OPTIONAL = BOOT_ASSET_SOUNDS_BASE.filter(
-  (entry) => !ESSENTIAL_SFX_KEYS.has(entry.key)
-).map((entry) => ({
-  ...entry,
-  priority: "low",
-}));
-const INCREMENTAL_SFX_ENTRIES = [{
-  key: INCREMENTAL_BASE_SFX_KEY,
-  url: INCREMENTAL_SOUND_BASE_PATH,
-  priority: "high",
-  meta: { eqKey: "tileStep" },
-}];
-const SCORE_SFX_ENTRIES = SCORE_SOUND_PATHS.map((url, idx) => ({
-  key: SCORE_SFX_KEYS[idx],
-  url,
-  priority: "high",
-  meta: { eqKey: "score" },
-}));
-const SCORE2_SFX_ENTRIES = SCORE2_SOUND_PATHS.map((url, idx) => ({
-  key: SCORE2_SFX_KEYS[idx],
-  url,
-  priority: "high",
-  meta: { eqKey: "score2" },
-}));
-const BOOT_ASSET_SFX_VARIATIONS = [
-  ...INCREMENTAL_SFX_ENTRIES,
-  ...SCORE_SFX_ENTRIES,
-  ...SCORE2_SFX_ENTRIES,
-];
-const REGISTERED_SFX_MANIFEST = dedupeManifest([
-  ...BOOT_ASSET_SFX_ESSENTIAL,
-  ...BOOT_ASSET_SFX_OPTIONAL,
-  ...BOOT_ASSET_SFX_VARIATIONS,
-]);
 const BOOT_MIN_HOLD_MS = 3500;
 const BOOT_TRANSITION_MS = 500;
 const BOOT_INTRO_GIF_SRC = "/introgobble.gif";
@@ -483,6 +306,46 @@ function shiftIsoDateId(dateId, deltaDays) {
     : new Date();
   base.setUTCDate(base.getUTCDate() + Number(deltaDays || 0));
   return formatIsoDateId(base);
+}
+
+function getParisDateIdClient(date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Paris",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    const year = parts.find((part) => part.type === "year")?.value || "";
+    const month = parts.find((part) => part.type === "month")?.value || "";
+    const day = parts.find((part) => part.type === "day")?.value || "";
+    if (year && month && day) return `${year}-${month}-${day}`;
+  } catch (_) {}
+  return formatIsoDateId(date);
+}
+
+function getVaultWordOfDaySeenStorageKey(audienceKey, dateId) {
+  const safeAudience = String(audienceKey || "").trim();
+  const safeDateId = String(dateId || "").trim();
+  if (!safeAudience || !safeDateId) return "";
+  return `${VAULT_WORD_OF_DAY_SEEN_STORAGE_PREFIX}:${safeAudience}:${safeDateId}`;
+}
+
+function pickVaultWordOfDayCandidates(words, limit = VAULT_WORD_OF_DAY_MAX_DEFINITION_ATTEMPTS) {
+  const seen = new Set();
+  const entries = [];
+  for (const entry of Array.isArray(words) ? words : []) {
+    const word = String(entry?.word || "").trim();
+    const key = String(entry?.wordKey || normalizeWord(word)).trim();
+    if (!word || !key || seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ word, wordKey: key });
+  }
+  for (let i = entries.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [entries[i], entries[j]] = [entries[j], entries[i]];
+  }
+  return entries.slice(0, Math.max(1, Number(limit) || 1));
 }
 
 function buildFakeDailyHistoryDays(todayDateId) {
@@ -563,27 +426,12 @@ function buildImageCandidates(url) {
   return candidates.length ? candidates : [url];
 }
 
-function buildSfxCandidates(url) {
-  const candidates = buildCandidatesFromBase(url, ["m4a", "wav", "mp3"]);
-  return candidates.length ? candidates : [url];
-}
-
 function buildImageManifest(items) {
   return (Array.isArray(items) ? items : []).map((item) => ({
     key: item.key,
     type: "image",
     candidates: buildImageCandidates(item.url),
     priority: item.priority,
-  }));
-}
-
-function buildSfxManifest(items) {
-  return (Array.isArray(items) ? items : []).map((item) => ({
-    key: item.key,
-    type: "sfx",
-    candidates: buildSfxCandidates(item.url),
-    priority: item.priority,
-    meta: item.meta || {},
   }));
 }
 
@@ -617,66 +465,6 @@ const BOOT_ASSET_MANIFEST_BASE = dedupeManifest([
   ...buildImageManifest(BOOT_ASSET_IMAGES),
   ...buildFileManifest(BOOT_ASSET_FILES),
 ]);
-
-function resolveAmbientManifestTracks(payload) {
-  const raw = Array.isArray(payload) ? payload : payload?.tracks;
-  if (!Array.isArray(raw)) return null;
-  const seen = new Set();
-  const resolved = [];
-  raw.forEach((entry) => {
-    const value = typeof entry === "string" ? entry : entry?.src;
-    if (typeof value !== "string") return;
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const full = trimmed.startsWith("/") ? trimmed : `${SOUND_ROOT}/music/${trimmed}`;
-    if (seen.has(full)) return;
-    seen.add(full);
-    resolved.push(full);
-  });
-  return resolved.length ? resolved : null;
-}
-
-async function loadAmbientTrackList() {
-  if (typeof fetch === "undefined") return AMBIENT_MUSIC_TRACKS_DEFAULT;
-  try {
-    const res = await fetch(AMBIENT_MUSIC_MANIFEST, { cache: "force-cache" });
-    if (!res.ok) return AMBIENT_MUSIC_TRACKS_DEFAULT;
-    const data = await res.json();
-    const resolved = resolveAmbientManifestTracks(data);
-    return resolved && resolved.length ? resolved : AMBIENT_MUSIC_TRACKS_DEFAULT;
-  } catch (_) {
-    return AMBIENT_MUSIC_TRACKS_DEFAULT;
-  }
-}
-
-async function purgeRuntimeMediaCache({ force = false } = {}) {
-  if (typeof window === "undefined" || typeof caches === "undefined") {
-    return { ok: false, reason: "cache-api-unavailable", deleted: 0 };
-  }
-  if (!force && typeof localStorage !== "undefined") {
-    try {
-      const seen = localStorage.getItem(MEDIA_CACHE_PURGE_STORAGE_KEY);
-      if (seen === "1") {
-        return { ok: true, skipped: true, deleted: 0 };
-      }
-    } catch (_) {}
-  }
-  try {
-    const names = await caches.keys();
-    const targets = names.filter((name) => String(name || "").startsWith(SW_MEDIA_CACHE_PREFIX));
-    if (targets.length) {
-      await Promise.all(targets.map((name) => caches.delete(name)));
-    }
-    if (typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(MEDIA_CACHE_PURGE_STORAGE_KEY, "1");
-      } catch (_) {}
-    }
-    return { ok: true, deleted: targets.length };
-  } catch (_) {
-    return { ok: false, reason: "cache-delete-failed", deleted: 0 };
-  }
-}
 
 const DEFINITION_PLACEHOLDER_RE = /^[.\u2026\u00b7\s-]+$/;
 
@@ -791,6 +579,15 @@ function isStandaloneDisplayMode() {
     window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
     window.navigator?.standalone === true
   );
+}
+
+function isAppleMobileUserAgent(ua) {
+  return /iPhone|iPad|iPod/i.test(String(ua || ""));
+}
+
+function computeIsIosStandalone() {
+  if (typeof navigator === "undefined") return false;
+  return isAppleMobileUserAgent(navigator.userAgent || "") && isStandaloneDisplayMode();
 }
 
 function computeIsAndroidWebBrowser() {
@@ -3501,142 +3298,86 @@ body.theme-dark textarea::placeholder {
   pointer-events: none;
 }
 
-@keyframes praiseDrift {
-  0% { transform: translate(-50%, -50%) scale(0.02); opacity: 1; }
-  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 0; }
+@keyframes celebrationDrift {
+  0% { transform: translate3d(-50%, -50%, 0) scale(0.16); opacity: 0; }
+  18% { transform: translate3d(-50%, -50%, 0) scale(1); opacity: 1; }
+  100% {
+    transform: translate3d(calc(-50% + var(--celebration-x, 0px)), calc(-50% + var(--celebration-y, 0px)), 0) scale(var(--celebration-scale, 1.6));
+    opacity: 0;
+  }
 }
 
-@keyframes praiseShine {
-  0% { background-position: 0% 50%; filter: brightness(1); }
-  50% { background-position: 100% 50%; filter: brightness(1.25); }
-  100% { background-position: 0% 50%; filter: brightness(1); }
+@keyframes celebrationGobbleDrift {
+  0% { transform: translate3d(-50%, -50%, 0) scale(0.2); opacity: 0; }
+  20% { transform: translate3d(-50%, -50%, 0) scale(1); opacity: 1; }
+  72% {
+    transform: translate3d(calc(-50% + (var(--celebration-x, 0px) * 0.78)), calc(-50% + (var(--celebration-y, 0px) * 0.78)), 0) scale(calc(var(--celebration-scale, 1.6) * 0.96));
+    opacity: 0.98;
+  }
+  100% {
+    transform: translate3d(calc(-50% + var(--celebration-x, 0px)), calc(-50% + var(--celebration-y, 0px)), 0) scale(var(--celebration-scale, 1.6));
+    opacity: 0;
+  }
 }
 
-@keyframes praiseFlash {
+@keyframes celebrationFlashRing {
   0% { opacity: 0; }
-  18% { opacity: 0.55; }
+  18% { opacity: 0.52; }
   100% { opacity: 0; }
 }
 
-@keyframes gobbleHold {
-  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
-  22% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  74% { transform: translate(-50%, -50%) translate(calc(var(--praise-x) * 0.78), calc(var(--praise-y) * 0.78)) scale(calc(var(--praise-scale) * 0.96)); opacity: 0.98; }
-  100% { transform: translate(-50%, -50%) translate(var(--praise-x), var(--praise-y)) scale(var(--praise-scale)); opacity: 0; }
-}
-
-@keyframes gobbleShine {
-  0% { background-position: 0% 50%; filter: drop-shadow(0 6px 14px rgba(120, 53, 15, 0.32)); }
-  50% { background-position: 100% 50%; filter: drop-shadow(0 8px 18px rgba(245, 158, 11, 0.38)); }
-  100% { background-position: 0% 50%; filter: drop-shadow(0 6px 14px rgba(120, 53, 15, 0.32)); }
-}
-
-.praise-pop {
-  position: fixed;
-  left: 50%;
-  top: 44%;
-  z-index: 80;
-  transform: translate(-50%, -50%);
-  animation: praiseDrift var(--praise-duration, 1500ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards,
-    var(--praise-extra-anim, none);
+.celebration-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
   pointer-events: none;
-  opacity: 1;
-  white-space: nowrap;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  will-change: transform, opacity;
-  isolation: isolate;
+  overflow: visible;
 }
-.praise-image-pop {
+.celebration-flash-ring {
+  position: absolute;
+  border-style: solid;
+  border-color: var(--celebration-flash-color, transparent);
+  opacity: 0;
+  animation: celebrationFlashRing 720ms ease-out forwards;
+}
+.celebration-pop {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  z-index: 2;
+  transform: translate3d(-50%, -50%, 0);
+  animation: celebrationDrift var(--celebration-duration, 1500ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+  will-change: transform, opacity;
+}
+.celebration-gobble-pop {
+  animation: celebrationGobbleDrift var(--celebration-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+.celebration-image-pop {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.praise-image {
-  width: var(--praise-size, 240px);
+.celebration-image {
+  width: var(--celebration-size, 240px);
   height: auto;
   display: block;
-  filter:
-    drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35))
-    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
 }
-.gobble-pop {
-  animation: gobbleHold var(--praise-duration, 2000ms) cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+.celebration-text-pop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.praise-flash {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  pointer-events: none;
+.celebration-text {
+  display: inline-block;
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
-.praise-flash-full {
-  width: 100%;
-  height: 100%;
-  background: var(--praise-flash-color, transparent);
-  opacity: 0;
-  animation: praiseFlash 720ms ease-out forwards;
-}
-.praise-flash-hole {
-  position: absolute;
-  background: transparent;
-  box-shadow: 0 0 0 9999px var(--praise-flash-color, transparent);
-  border-radius: var(--praise-flash-radius, 16px);
-  opacity: 0;
-  animation: praiseFlash 720ms ease-out forwards;
-}
-.praise-outline {
-  -webkit-text-stroke: 1.5px rgba(0, 0, 0, 0.95);
+.celebration-text-invalid {
+  color: #ff2a2a;
+  -webkit-text-stroke: 2px rgba(255, 248, 248, 0.96);
   paint-order: stroke fill;
-  text-shadow: none;
-}
-.praise-bronze {
-  background:
-    linear-gradient(140deg, #ffe1c6 0%, #ffb058 35%, #ff7e1a 70%, #d45505 100%);
-  background-size: 240% 240%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  --praise-extra-anim: praiseShine 1s ease-in-out infinite;
-  filter:
-    drop-shadow(0 2px 6px rgba(210, 102, 25, 0.35))
-    drop-shadow(0 1px 2px rgba(255, 204, 160, 0.45));
-}
-.praise-silver {
-  background:
-    linear-gradient(135deg, #ffffff 0%, #e7f0ff 30%, #b9c7dc 58%, #f6fbff 78%, #8ea0b8 100%);
-  background-size: 240% 240%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  --praise-extra-anim: praiseShine 1.05s ease-in-out infinite;
-  filter:
-    drop-shadow(0 2px 6px rgba(118, 132, 150, 0.35))
-    drop-shadow(0 1px 2px rgba(233, 243, 255, 0.7));
-}
-.praise-gold {
-  background:
-    linear-gradient(135deg, #fff2a8 0%, #ffd84a 30%, #ffb300 58%, #ffef9a 78%, #d78200 100%);
-  background-size: 240% 240%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  --praise-extra-anim: praiseShine 0.95s ease-in-out infinite;
-  filter:
-    drop-shadow(0 3px 8px rgba(176, 98, 13, 0.35))
-    drop-shadow(0 1px 3px rgba(255, 230, 140, 0.7));
-}
-.praise-gobble {
-  position: relative;
-  background:
-    linear-gradient(120deg, #fff7b0 0%, #ffd166 30%, #f59e0b 60%, #ffe27a 100%);
-  background-size: 220% 220%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  --praise-extra-anim: gobbleShine 1.15s ease-in-out infinite;
-  text-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.18),
-    0 3px 8px rgba(0, 0, 0, 0.18);
 }
   .preview-tile {
   position: relative;
@@ -3770,8 +3511,14 @@ const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
+const AUTH_REQUEST_TIMEOUT_MS = 8000;
+const AUTH_STATUS_TIMEOUT_MS = 6500;
 const ACCOUNT_SESSION_UNAVAILABLE_MESSAGE =
   "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.";
+const ACCOUNT_SERVER_BUSY_MESSAGE =
+  "Le serveur met plus de temps que prévu à répondre. Ce n'est pas ta connexion : on réessaie automatiquement.";
+const LIVE_SERVER_BUSY_MESSAGE =
+  "Serveur momentanément saturé. Ta partie est conservée, reconnexion automatique en cours...";
 const AUTH_MODAL_MODES = {
   LOGIN: "login",
   REGISTER: "register",
@@ -3779,6 +3526,8 @@ const AUTH_MODAL_MODES = {
   FORGOT_PASSWORD: "forgot-password",
   CHANGE_PASSWORD: "change-password",
 };
+const VAULT_WORD_OF_DAY_SEEN_STORAGE_PREFIX = "gobble_vault_word_of_day_seen";
+const VAULT_WORD_OF_DAY_MAX_DEFINITION_ATTEMPTS = 8;
 const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
 const THEME_UNLOCK_COST_DEFAULT = 500;
@@ -4030,8 +3779,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-04-12";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-04-12T00:00:00+02:00");
+const PATCH_NOTES_VERSION = "2026-05-05";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-05-05T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const readLocalSettings = () => {
@@ -4318,6 +4067,7 @@ function getPatchNotesSeenStorageKey(audienceKey, version = PATCH_NOTES_VERSION)
 function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
   const safeInstallId = typeof installId === "string" ? installId.trim() : "";
   if (!safeInstallId) return false;
+  if (PATCH_NOTES_VERSION === "2026-05-05") return true;
   if (!Number.isFinite(PATCH_NOTES_RELEASE_TS)) return true;
   if (!Number.isFinite(installIdCreatedAtTs)) {
     // Legacy installs without timestamp are considered existing installs.
@@ -4834,57 +4584,8 @@ export default function App() {
   const [isGridRotating, setIsGridRotating] = useState(false);
   const [lastInputMode, setLastInputMode] = useState("keyboard");
   const lastInputModeRef = useRef("keyboard");
-  const audioCtxRef = useRef(null);
-  const audioSystemRef = useRef(null);
-  const audioUnlockedRef = useRef(false);
-  const audioVoiceRef = useRef({
-    activeVoices: 0,
-    maxVoices: AUDIO_POLYPHONY_LIMIT,
-    lastPlayed: new Map(),
-    drops: 0,
-    lastLogAt: 0,
-    lastPruneAt: 0,
-  });
-  const combinedScoreBufferCacheRef = useRef({
-    ctx: null,
-    buffers: new Map(),
-  });
-  const blackHoleHandleRef = useRef(null);
-  const blackHoleChebHandleRef = useRef(null);
-  const blackHoleClavierHandleRef = useRef(null);
-  const blackHoleSourisLoopRef = useRef({ intervalId: null, stopTimer: null });
-  const blackHoleClavierFadeRef = useRef(null);
-  const blackHoleAuxStopRef = useRef(null);
-  const blackHoleSyncTokenRef = useRef(0);
-  const roundEndTickHandleRef = useRef(null);
-  const roundStartHandleRef = useRef(null);
-  const roundStartStopTimerRef = useRef(null);
-  const roundStartSoundUntilRef = useRef(0);
-  const introCountdownTickGuardRef = useRef({ at: 0, token: 0, value: null, roundId: null });
-  const introCountdownHandleRef = useRef(null);
-  const introCountdownStopTimerRef = useRef(null);
-  const introCountdownPlayedRoundRef = useRef(null);
   const tickCountdownPlayedRef = useRef(false);
   const countdownTickPlayedRef = useRef(false);
-  const ambientMusicRef = useRef({
-    audio: null,
-    index: -1,
-    order: null,
-    orderKey: "",
-    lastTrack: null,
-    fadeRaf: null,
-    fadeTimer: null,
-    startGuard: null,
-    playCheck: null,
-    keepAlive: false,
-    primed: false,
-    active: false,
-  });
-  const ambientStartPendingRef = useRef(false);
-  const ambientRetryRef = useRef(false);
-  const lastAmbientPhaseRef = useRef(null);
-  const roundStartPendingRef = useRef(null);
-  const roundStartRetryRef = useRef(false);
   const roundStartAtRef = useRef(0);
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
@@ -5294,6 +4995,7 @@ export default function App() {
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [praiseFlash, setPraiseFlash] = useState(null);
   const [gobbleFlash, setGobbleFlash] = useState(null);
+  const [invalidFlash, setInvalidFlash] = useState(null);
   const [gridShake, setGridShake] = useState(false);
   const [mobileResultsPage, setMobileResultsPage] = useState(0);
   const resultsTouchRef = useRef({ startX: null, startY: null });
@@ -5380,6 +5082,7 @@ export default function App() {
   const weeklyPendingDragOffsetRef = useRef(0);
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSoundMenuOpen, setIsSoundMenuOpen] = useState(false);
   const settingsCloseTimerRef = useRef(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -5427,6 +5130,7 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installMessage, setInstallMessage] = useState("");
   const [installSupport, setInstallSupport] = useState("unknown"); // unknown | available | unavailable | installed | maybe
+  const [isIosStandalone, setIsIosStandalone] = useState(() => computeIsIosStandalone());
   const [isAndroidWebBrowser, setIsAndroidWebBrowser] = useState(() =>
     computeIsAndroidWebBrowser()
   );
@@ -5545,6 +5249,7 @@ export default function App() {
   const installId = authenticatedUserId ? buildUserScopedInstallId(authenticatedUserId) : "";
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
   const isAuthStatusPending = authState.loading || authState.status === "loading";
+  const isAuthServerUnavailable = authState.status === "unavailable";
   const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
   const {
     wordVault,
@@ -5565,6 +5270,15 @@ export default function App() {
     postAuthJson,
     readJsonResponseLoose,
     showToast,
+  });
+  const [vaultWordOfDayPopup, setVaultWordOfDayPopup] = useState({
+    open: false,
+    dateId: "",
+    word: "",
+    displayWord: "",
+    definition: "",
+    source: "",
+    url: "",
   });
   const [broadcastNotice, setBroadcastNotice] = useState({
     loading: false,
@@ -5798,6 +5512,10 @@ export default function App() {
       clearTimeout(praiseTimerRef.current);
       praiseTimerRef.current = null;
     }
+    if (invalidTimerRef.current) {
+      clearTimeout(invalidTimerRef.current);
+      invalidTimerRef.current = null;
+    }
     if (gobbleTimerRef.current) {
       clearTimeout(gobbleTimerRef.current);
       gobbleTimerRef.current = null;
@@ -5813,6 +5531,7 @@ export default function App() {
     confettiBurstTokenRef.current += 1;
     setPraiseFlash(null);
     setGobbleFlash(null);
+    setInvalidFlash(null);
     setBigScoreFlash(null);
     setGridShake(false);
     try {
@@ -6074,22 +5793,6 @@ export default function App() {
   useEffect(() => {
     isAmbientMutedRef.current = isAmbientMuted;
   }, [isAmbientMuted]);
-  useEffect(() => {
-    soundMasterVolumeRef.current = normalizeSoundMasterVolume(
-      soundMasterVolume,
-      SOUND_MASTER_VOLUME_DEFAULT
-    );
-  }, [soundMasterVolume]);
-  useEffect(() => {
-    const safeMasterVolume = normalizeSoundMasterVolume(
-      soundMasterVolume,
-      SOUND_MASTER_VOLUME_DEFAULT
-    );
-    AssetManager.setMasterVolume(safeMasterVolume);
-    if (audioSystemRef.current?.masterGain) {
-      audioSystemRef.current.masterGain.gain.value = AUDIO_MASTER_GAIN * safeMasterVolume;
-    }
-  }, [soundMasterVolume]);
   useEffect(() => {
     isVibrationEnabledRef.current = isVibrationEnabled;
   }, [isVibrationEnabled]);
@@ -6510,6 +6213,7 @@ export default function App() {
   const acceptedBestPtsRef = useRef(new Map());
   const acceptedWordMetaRef = useRef(new Map());
   const dailyAcceptedPathsRef = useRef(new Map());
+  const serverSolutionsReadyRef = useRef(false);
   const submissionStatusRef = useRef(new Map());
   const pendingWordsRef = useRef(new Set());
   const pendingQueueRef = useRef([]);
@@ -6628,6 +6332,7 @@ export default function App() {
   const gobblarToastDelayTimersRef = useRef(new Set());
   const praiseTimerRef = useRef(null);
   const gobbleTimerRef = useRef(null);
+  const invalidTimerRef = useRef(null);
   const gridShakeTimerRef = useRef(null);
   const gridShakeAnimationRef = useRef(null);
   const submissionTickRafRef = useRef(null);
@@ -6635,12 +6340,16 @@ export default function App() {
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
+  const invalidLastRef = useRef(0);
   const bigScoreLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
   const chatScrollLockRef = useRef(0);
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
+  const vaultWordOfDayRequestIdRef = useRef(0);
+  const vaultWordOfDayAttemptedRef = useRef(new Set());
+  const patchNotesOpeningRef = useRef(false);
   const disconnectGraceTimerRef = useRef(null);
   const lastBackgroundTimeRef = useRef(0);
   const manualRefreshTimerRef = useRef(null);
@@ -6699,6 +6408,127 @@ export default function App() {
   const bestGridMaxLenRef = useRef(0);
   const bestWordAnnounceRef = useRef(-1);
   const tournamentCelebrationPlayedRef = useRef(false);
+  const audioEngine = useAudioEngine({
+    isSfxMuted,
+    soundMasterVolume,
+    soundMasterVolumeRef,
+  });
+  const {
+    audioCtxRef,
+    audioSystemRef,
+    audioUnlockedRef,
+    audioVoiceRef,
+    blackHoleHandleRef,
+    blackHoleChebHandleRef,
+    blackHoleClavierHandleRef,
+    blackHoleSourisLoopRef,
+    blackHoleClavierFadeRef,
+    blackHoleAuxStopRef,
+    blackHoleSyncTokenRef,
+    getAudioSystem,
+    shouldPlay,
+    startVoiceCount,
+    playOneShotAudio,
+    playSfxHandle,
+    playCombinedScoreSound,
+    stopBlackHoleAudio,
+    requestAudioUnlock,
+  } = audioEngine;
+  const ambientAudio = useAmbientMusic({
+    ambientTracksRef,
+    appViewRef,
+    breakCountdownRef,
+    isAmbientMutedRef,
+    isLoggedInRef,
+    isSamsungBrowserRef,
+    phaseRef,
+    resolveAmbientSrc,
+    soundMasterVolumeRef,
+  });
+  const {
+    ambientStartPendingRef,
+    ambientRetryRef,
+    lastAmbientPhaseRef,
+    primeAmbientAudio,
+    resetAmbientOrder,
+    startAmbientMusic,
+    stopAmbientMusic,
+  } = ambientAudio;
+  const gameSounds = useGameSounds({
+    appViewRef,
+    devMode: DEV_MODE,
+    getAudioSystem,
+    isDailyPlayRef,
+    isLoggedInRef,
+    isMobileLayoutRef,
+    isSfxMuted,
+    mobileRoundIntroCountdownFrom: MOBILE_ROUND_INTRO_COUNTDOWN_FROM,
+    nickname,
+    nicknameRef,
+    phaseRef,
+    playCombinedScoreSound,
+    playOneShotAudio,
+    roundIdRef,
+    shouldPlay,
+    soundGobbleEnabled,
+    soundInvalidErrorEnabled,
+    soundTileStepEnabled,
+    soundTimerEnabled,
+    soundValidationEnabled,
+    startVoiceCount,
+  });
+  const {
+    introCountdownTickGuardRef,
+    introCountdownPlayedRoundRef,
+    roundStartPendingRef,
+    roundStartRetryRef,
+    maybePlayAnnouncementSound,
+    playAlreadyPlayedSound,
+    playCloseSound,
+    playCountdownTickSound,
+    playDailySpecialLockValidationSound,
+    playDoubleGobbleVoice,
+    playDuplicateErrorTone,
+    playErrorSound,
+    playGobbleVoice,
+    playInvalidWordSound,
+    playRoundStartSound,
+    playScoreSound,
+    playShortWordSound,
+    playSpecialFoundSound,
+    playSwipeSound,
+    playTickSound,
+    playTileStepSound,
+    playTournamentCelebrationSound,
+    playVocabOverlayClingSound,
+    playVocabOverlayTickSound,
+    playVocabOverlayZeroSound,
+    stopIntroCountdownSound,
+    stopRoundEndTickSound,
+    stopRoundStartSound,
+  } = gameSounds;
+  const stopAllActiveAudio = React.useCallback(
+    ({ suspendContext = false, immediate = false } = {}) => {
+      stopRoundEndTickSound({ fadeMs: immediate ? 0 : 120 });
+      stopBlackHoleAudio({ fadeMs: immediate ? 0 : 220 });
+      stopAmbientMusic({ fadeMs: immediate ? 0 : 700, keepAlive: false, immediate });
+      ambientStartPendingRef.current = false;
+      ambientRetryRef.current = false;
+      if (!suspendContext) return;
+      const ctx = audioCtxRef.current;
+      if (ctx && ctx.state === "running") {
+        ctx.suspend().catch(() => {});
+      }
+    },
+    [
+      ambientRetryRef,
+      ambientStartPendingRef,
+      audioCtxRef,
+      stopAmbientMusic,
+      stopBlackHoleAudio,
+      stopRoundEndTickSound,
+    ]
+  );
 
   const specialScoreConfig = React.useMemo(() => {
     if (specialRound?.type === "bonus_letter" && specialRound?.bonusLetter) {
@@ -6715,6 +6545,7 @@ export default function App() {
       return {
         type: FAKE_TWINS_TYPE,
         minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+        disableBonuses: true,
       };
     }
     return null;
@@ -7330,824 +7161,6 @@ export default function App() {
   const [desktopMainGridHeight, setDesktopMainGridHeight] = useState(null);
   const [mobileSpecial3Step2OverlayStyle, setMobileSpecial3Step2OverlayStyle] = useState(null);
   const [mobileSpecial3Step1GhostStyle, setMobileSpecial3Step1GhostStyle] = useState(null);
-
-  function createSoftClipCurve(amount = 1.25, samples = 1024) {
-    const key = `${amount}|${samples}`;
-    const cached = SOFT_CLIP_CURVE_CACHE.get(key);
-    if (cached) return cached;
-    const curve = new Float32Array(samples);
-    const k = Number.isFinite(amount) ? amount : 1;
-    for (let i = 0; i < samples; i++) {
-      const x = (i * 2) / (samples - 1) - 1;
-      curve[i] = Math.tanh(k * x);
-    }
-    SOFT_CLIP_CURVE_CACHE.set(key, curve);
-    return curve;
-  }
-
-  function randRange(min, max) {
-    return min + Math.random() * (max - min);
-  }
-
-  function dbToGain(db) {
-    return Math.pow(10, db / 20);
-  }
-
-  function humanizeGain(base, varianceDb = 1.2) {
-    const jitter = randRange(-varianceDb, varianceDb);
-    return base * dbToGain(jitter);
-  }
-
-  function humanizeFreq(freq, cents = 6) {
-    const jitter = randRange(-cents, cents);
-    return freq * Math.pow(2, jitter / 1200);
-  }
-
-  function createReverbImpulse(ctx, durationSec = 0.35, decay = 2.4) {
-    const length = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
-    const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch += 1) {
-      const data = buffer.getChannelData(ch);
-      for (let i = 0; i < length; i += 1) {
-        const t = i / length;
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
-      }
-    }
-    return buffer;
-  }
-
-  function applyFilterEnv(filter, now, { base, peak, attack = 0.02, release = 0.12 } = {}) {
-    const baseFreq = Number.isFinite(base) ? base : 2000;
-    filter.frequency.setValueAtTime(baseFreq, now);
-    if (Number.isFinite(peak) && peak > 0) {
-      filter.frequency.linearRampToValueAtTime(peak, now + attack);
-      filter.frequency.setTargetAtTime(baseFreq, now + attack, release);
-    }
-  }
-
-  function connectSfxChain(ctx, system, sourceNode, opts = {}, now = ctx.currentTime) {
-    const nodes = [];
-    let input = sourceNode;
-    let reverbTap = sourceNode;
-
-    if (opts.filter) {
-      const filter = ctx.createBiquadFilter();
-      filter.type = opts.filter.type || "lowpass";
-      filter.Q.setValueAtTime(Number.isFinite(opts.filter.q) ? opts.filter.q : 0.7, now);
-      applyFilterEnv(filter, now, opts.filter.env || opts.filter);
-      input.connect(filter);
-      input = filter;
-      reverbTap = filter;
-      nodes.push(filter);
-    }
-
-    if (opts.saturation) {
-      const shaper = ctx.createWaveShaper();
-      shaper.curve = createSoftClipCurve(opts.saturation, 1024);
-      shaper.oversample = "2x";
-      input.connect(shaper);
-      input = shaper;
-      reverbTap = shaper;
-      nodes.push(shaper);
-    }
-
-    if (opts.panRange && typeof ctx.createStereoPanner === "function") {
-      const panner = ctx.createStereoPanner();
-      panner.pan.setValueAtTime(randRange(-opts.panRange, opts.panRange), now);
-      input.connect(panner);
-      input = panner;
-      nodes.push(panner);
-    }
-
-    if (opts.reverbSend && system.reverbIn) {
-      const send = ctx.createGain();
-      send.gain.setValueAtTime(opts.reverbSend, now);
-      reverbTap.connect(send);
-      send.connect(system.reverbIn);
-      nodes.push(send);
-    }
-
-    input.connect(system.busIn);
-    return nodes;
-  }
-
-  function getAudioSystem({ force = false } = {}) {
-    if (!force && !audioUnlockedRef.current) return null;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return null;
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioCtx();
-      audioSystemRef.current = null;
-      audioVoiceRef.current.activeVoices = 0;
-      audioVoiceRef.current.lastPlayed = new Map();
-      audioVoiceRef.current.drops = 0;
-      audioVoiceRef.current.lastPruneAt = 0;
-    }
-    const ctx = audioCtxRef.current;
-    if (!audioSystemRef.current || audioSystemRef.current.ctx !== ctx) {
-      const busIn = ctx.createGain();
-      const masterGain = ctx.createGain();
-      masterGain.gain.value =
-        AUDIO_MASTER_GAIN *
-        normalizeSoundMasterVolume(soundMasterVolumeRef.current, SOUND_MASTER_VOLUME_DEFAULT);
-
-      const compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.value = -24;
-      compressor.knee.value = 24;
-      compressor.ratio.value = 10;
-      compressor.attack.value = 0.005;
-      compressor.release.value = 0.2;
-
-      const limiter = ctx.createWaveShaper();
-      limiter.curve = createSoftClipCurve(1.25);
-      limiter.oversample = "4x";
-
-      const reverbIn = ctx.createGain();
-      const reverb = ctx.createConvolver();
-      const reverbHP = ctx.createBiquadFilter();
-      const reverbLP = ctx.createBiquadFilter();
-      const reverbGain = ctx.createGain();
-      reverb.buffer = createReverbImpulse(ctx, 0.35, 2.4);
-      reverbHP.type = "highpass";
-      reverbHP.frequency.value = 220;
-      reverbLP.type = "lowpass";
-      reverbLP.frequency.value = 7200;
-      reverbGain.gain.value = 0.22;
-
-      reverbIn.connect(reverb);
-      reverb.connect(reverbHP);
-      reverbHP.connect(reverbLP);
-      reverbLP.connect(reverbGain);
-      reverbGain.connect(busIn);
-
-      busIn.connect(masterGain);
-      masterGain.connect(compressor);
-      compressor.connect(limiter);
-      limiter.connect(ctx.destination);
-
-      audioSystemRef.current = {
-        ctx,
-        busIn,
-        masterGain,
-        compressor,
-        limiter,
-        reverbIn,
-        reverbGain,
-      };
-    }
-    return audioSystemRef.current;
-  }
-
-  function logAudioDrop(reason, soundKey) {
-    if (!DEBUG_AUDIO) return;
-    const state = audioVoiceRef.current;
-    const now = Date.now();
-    if (now - state.lastLogAt < 150) return;
-    state.lastLogAt = now;
-    console.debug(
-      `[audio] drop:${reason} ${soundKey} active=${state.activeVoices}/${state.maxVoices} drops=${state.drops}`
-    );
-  }
-
-  function pruneAudioCooldownState(now) {
-    const state = audioVoiceRef.current;
-    const currentNow = Number.isFinite(now)
-      ? now
-      : typeof performance !== "undefined" && performance.now
-      ? performance.now()
-      : Date.now();
-    if (currentNow - (state.lastPruneAt || 0) < AUDIO_COOLDOWN_PRUNE_MS) return;
-    state.lastPruneAt = currentNow;
-    const cutoff = currentNow - AUDIO_COOLDOWN_PRUNE_MS;
-    const map = state.lastPlayed;
-    if (!(map instanceof Map) || map.size === 0) {
-      AssetManager.compactAudioState?.({ nowMs: Date.now() });
-      return;
-    }
-
-    map.forEach((lastAt, key) => {
-      if (!Number.isFinite(lastAt) || lastAt < cutoff) {
-        map.delete(key);
-      }
-    });
-    if (map.size > AUDIO_COOLDOWN_MAX_KEYS) {
-      const latest = Array.from(map.entries())
-        .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
-        .slice(0, AUDIO_COOLDOWN_MAX_KEYS);
-      state.lastPlayed = new Map(latest);
-    }
-    AssetManager.compactAudioState?.({ nowMs: Date.now() });
-  }
-
-  function shouldPlay(soundKey, cooldownMs, { ignorePolyphony = false } = {}) {
-    const state = audioVoiceRef.current;
-    const now =
-      typeof performance !== "undefined" && performance.now
-        ? performance.now()
-        : Date.now();
-    pruneAudioCooldownState(now);
-    const maxVoices = AUDIO_POLYPHONY_LIMIT;
-    if (state.maxVoices !== maxVoices) state.maxVoices = maxVoices;
-    let minInterval =
-      Number.isFinite(cooldownMs) && cooldownMs >= 0
-        ? cooldownMs
-        : AUDIO_COOLDOWNS_MS[soundKey] ?? 0;
-    const last = state.lastPlayed.get(soundKey) || 0;
-    if (minInterval > 0 && now - last < minInterval) {
-      state.drops += 1;
-      logAudioDrop("cooldown", soundKey);
-      return false;
-    }
-    if (!ignorePolyphony && state.activeVoices >= state.maxVoices) {
-      state.drops += 1;
-      logAudioDrop("polyphony", soundKey);
-      return false;
-    }
-    state.lastPlayed.set(soundKey, now);
-    return true;
-  }
-
-  function startVoiceCount(soundKey, durationSec) {
-    const state = audioVoiceRef.current;
-    state.activeVoices += 1;
-    let done = false;
-    const cleanup = () => {
-      if (done) return;
-      done = true;
-      state.activeVoices = Math.max(0, state.activeVoices - 1);
-    };
-    if (Number.isFinite(durationSec) && durationSec > 0) {
-      setTimeout(cleanup, Math.ceil(durationSec * 1000) + 30);
-    }
-    return cleanup;
-  }
-
-
-  function playOneShotAudio(
-    assetKey,
-    {
-      volume,
-      cooldownKey,
-      cooldownMs,
-      eqKey,
-      pitch,
-      onBlocked,
-      ignorePolyphony,
-      allowQueue = true,
-    } = {}
-  ) {
-    if (isSfxMuted) return;
-    const key = cooldownKey || eqKey || assetKey;
-    const overrides = {};
-    if (Number.isFinite(volume)) overrides.volume = volume;
-    if (Number.isFinite(pitch)) overrides.pitch = pitch;
-    const settings = resolveSoundSettings(eqKey || key, overrides);
-    const effectiveCooldown =
-      Number.isFinite(cooldownMs) && cooldownMs >= 0 ? cooldownMs : settings.cooldownMs;
-    if (!shouldPlay(key, effectiveCooldown, { ignorePolyphony: !!ignorePolyphony })) return;
-    const rate = (settings.pitch ?? 1) * (settings.stretch ?? 1);
-    const handle = AssetManager.playSfx(assetKey, {
-      eqKey: eqKey || key,
-      gain: settings.volume ?? 1,
-      rate,
-      allowQueue,
-    });
-    if (!handle) {
-      if (typeof onBlocked === "function") onBlocked();
-      return;
-    }
-    if (!ignorePolyphony) {
-      const buffer = AssetManager.getSfxBuffer(assetKey);
-      const duration = buffer ? buffer.duration / Math.max(0.01, rate) : 0.6;
-      startVoiceCount(key, duration);
-    }
-    return handle;
-  }
-
-  function playSfxHandle(assetKey, { eqKey, gain, rate, voiceKey, allowQueue = true } = {}) {
-    if (isSfxMuted) return null;
-    const key = voiceKey || eqKey || assetKey;
-    const settings = resolveSoundSettings(eqKey || key, {
-      volume: Number.isFinite(gain) ? gain : undefined,
-    });
-    const effectiveRate =
-      Number.isFinite(rate) ? rate : (settings.pitch ?? 1) * (settings.stretch ?? 1);
-    const handle = AssetManager.playSfx(assetKey, {
-      eqKey: eqKey || key,
-      gain: settings.volume ?? 1,
-      rate: effectiveRate,
-      allowQueue,
-    });
-    const buffer = AssetManager.getSfxBuffer(assetKey);
-    if (handle && buffer) {
-      const duration = buffer.duration / Math.max(0.01, effectiveRate);
-      startVoiceCount(key, duration);
-    }
-    return handle;
-  }
-
-  function shouldUseCombinedScoreSfx() {
-    return !!isMobileLayout;
-  }
-
-  function getCombinedScoreBuffer(primaryKey, pianoKey) {
-    const system = getAudioSystem();
-    if (!system?.ctx || !primaryKey || !pianoKey) return null;
-    const ctx = system.ctx;
-    const cache = combinedScoreBufferCacheRef.current;
-    if (cache.ctx !== ctx) {
-      cache.ctx = ctx;
-      cache.buffers = new Map();
-    }
-    const cacheKey = `${primaryKey}|${pianoKey}`;
-    if (cache.buffers.has(cacheKey)) return cache.buffers.get(cacheKey) || null;
-
-    const primaryBuffer = AssetManager.getSfxBuffer(primaryKey);
-    const pianoBuffer = AssetManager.getSfxBuffer(pianoKey);
-    if (!primaryBuffer || !pianoBuffer) return null;
-
-    const primarySettings = resolveSoundSettings("score");
-    const pianoSettings = resolveSoundSettings("score2");
-    const primaryRate = Math.max(
-      0.01,
-      (primarySettings.pitch ?? 1) * (primarySettings.stretch ?? 1)
-    );
-    const pianoRate = Math.max(
-      0.01,
-      (pianoSettings.pitch ?? 1) * (pianoSettings.stretch ?? 1)
-    );
-    const primaryGain = Number.isFinite(primarySettings.volume) ? primarySettings.volume : 1;
-    const pianoGain = Number.isFinite(pianoSettings.volume) ? pianoSettings.volume : 1;
-    const channelCount = Math.max(
-      1,
-      primaryBuffer.numberOfChannels || 1,
-      pianoBuffer.numberOfChannels || 1
-    );
-    const outDuration = Math.max(
-      primaryBuffer.duration / primaryRate,
-      pianoBuffer.duration / pianoRate
-    );
-    const outLength = Math.max(1, Math.ceil(outDuration * ctx.sampleRate));
-    const mixed = ctx.createBuffer(channelCount, outLength, ctx.sampleRate);
-
-    const mixLayer = (buffer, rate, gain) => {
-      const srcRateScale = (buffer.sampleRate || ctx.sampleRate) / ctx.sampleRate;
-      for (let ch = 0; ch < channelCount; ch += 1) {
-        const srcData = buffer.getChannelData(Math.min(ch, buffer.numberOfChannels - 1));
-        const dstData = mixed.getChannelData(ch);
-        for (let i = 0; i < outLength; i += 1) {
-          const srcPos = i * rate * srcRateScale;
-          const baseIndex = Math.floor(srcPos);
-          if (baseIndex >= srcData.length) break;
-          const nextIndex = Math.min(srcData.length - 1, baseIndex + 1);
-          const frac = srcPos - baseIndex;
-          const sample = srcData[baseIndex] + (srcData[nextIndex] - srcData[baseIndex]) * frac;
-          dstData[i] += sample * gain;
-        }
-      }
-    };
-
-    mixLayer(primaryBuffer, primaryRate, primaryGain);
-    mixLayer(pianoBuffer, pianoRate, pianoGain);
-
-    for (let ch = 0; ch < channelCount; ch += 1) {
-      const data = mixed.getChannelData(ch);
-      for (let i = 0; i < data.length; i += 1) {
-        data[i] = clampValue(data[i], -1, 1);
-      }
-    }
-
-    cache.buffers.set(cacheKey, mixed);
-    return mixed;
-  }
-
-  function playCombinedScoreSound(primaryKey, pianoKey) {
-    const system = getAudioSystem();
-    if (!system?.ctx || !system.busIn) return false;
-    const buffer = getCombinedScoreBuffer(primaryKey, pianoKey);
-    if (!buffer) return false;
-    const source = system.ctx.createBufferSource();
-    const gainNode = system.ctx.createGain();
-    source.buffer = buffer;
-    gainNode.gain.value = 1;
-    source.connect(gainNode);
-    gainNode.connect(system.busIn);
-    source.onended = () => {
-      try {
-        source.disconnect();
-      } catch (_) {}
-      try {
-        gainNode.disconnect();
-      } catch (_) {}
-    };
-    source.start();
-    return true;
-  }
-
-  function fadeAudioVolume(audio, targetVolume, durationMs = 800) {
-    if (!audio) return;
-    if (ambientMusicRef.current.fadeRaf) {
-      cancelAnimationFrame(ambientMusicRef.current.fadeRaf);
-      ambientMusicRef.current.fadeRaf = null;
-    }
-    const start = performance.now();
-    const fromRaw = Number.isFinite(audio.volume) ? audio.volume : 0;
-    const from = Math.max(0, Math.min(1, fromRaw));
-    const to = Math.max(0, Math.min(1, targetVolume));
-    const step = (now) => {
-      const t = Math.min(1, (now - start) / Math.max(1, durationMs));
-      const eased = t * (2 - t);
-      const nextVolume = from + (to - from) * eased;
-      audio.volume = Math.max(0, Math.min(1, nextVolume));
-      if (t < 1) {
-        ambientMusicRef.current.fadeRaf = requestAnimationFrame(step);
-      } else {
-        ambientMusicRef.current.fadeRaf = null;
-      }
-    };
-    ambientMusicRef.current.fadeRaf = requestAnimationFrame(step);
-  }
-
-
-  function shuffleTracks(tracks, lastTrack = null) {
-    const order = [...tracks];
-    for (let i = order.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
-    }
-    if (order.length > 1 && lastTrack && order[0] === lastTrack) {
-      const swapIndex = 1 + Math.floor(Math.random() * (order.length - 1));
-      [order[0], order[swapIndex]] = [order[swapIndex], order[0]];
-    }
-    return order;
-  }
-
-  function resetAmbientOrder() {
-    ambientMusicRef.current.order = null;
-    ambientMusicRef.current.orderKey = "";
-    ambientMusicRef.current.index = -1;
-    ambientMusicRef.current.lastTrack = null;
-  }
-
-  function getNextAmbientTrack() {
-    const tracks = ambientTracksRef.current || [];
-    if (!tracks.length) return null;
-    const trackKey = tracks.join("|");
-    const needsReshuffle =
-      !Array.isArray(ambientMusicRef.current.order) ||
-      ambientMusicRef.current.order.length !== tracks.length ||
-      ambientMusicRef.current.orderKey !== trackKey;
-    if (needsReshuffle) {
-      ambientMusicRef.current.order = shuffleTracks(
-        tracks,
-        ambientMusicRef.current.lastTrack
-      );
-      ambientMusicRef.current.orderKey = trackKey;
-      ambientMusicRef.current.index = -1;
-    }
-    if (
-      !ambientMusicRef.current.order ||
-      ambientMusicRef.current.index >= ambientMusicRef.current.order.length - 1
-    ) {
-      ambientMusicRef.current.order = shuffleTracks(
-        tracks,
-        ambientMusicRef.current.lastTrack
-      );
-      ambientMusicRef.current.index = -1;
-    }
-    const nextIndex = ambientMusicRef.current.index + 1;
-    ambientMusicRef.current.index = nextIndex;
-    const nextTrack = ambientMusicRef.current.order[nextIndex];
-    ambientMusicRef.current.lastTrack = nextTrack;
-    return nextTrack;
-  }
-
-  function ensureAmbientAudio() {
-    if (ambientMusicRef.current.audio) return ambientMusicRef.current.audio;
-    const audio = new Audio();
-    audio.preload = isSamsungBrowserRef.current ? "metadata" : "auto";
-    audio.loop = false;
-    audio.volume = 0;
-    audio.addEventListener("ended", () => {
-      if (!ambientMusicRef.current.active) return;
-      const next = getNextAmbientTrack();
-      if (!next) return;
-      const resolvedNext = resolveAmbientSrc(next);
-      if (!resolvedNext) return;
-      audio.src = resolvedNext;
-      const eq = resolveSoundSettings("ambient");
-      const bc = breakCountdownRef.current;
-      const hasCountdown = typeof bc === "number";
-      const shouldBeAudible =
-        phaseRef.current === "results" &&
-        !ambientMusicRef.current.keepAlive &&
-        !isAmbientMutedRef.current &&
-        (!hasCountdown || bc > 14);
-      audio.muted = !shouldBeAudible;
-      audio.play().catch(() => {});
-      const masterVolume = normalizeSoundMasterVolume(
-        soundMasterVolumeRef.current,
-        SOUND_MASTER_VOLUME_DEFAULT
-      );
-      const targetVolume = shouldBeAudible ? (eq.volume ?? 0.45) * masterVolume : 0;
-      fadeAudioVolume(audio, targetVolume, shouldBeAudible ? 1000 : 600);
-    });
-    ambientMusicRef.current.audio = audio;
-    return audio;
-  }
-
-  function primeAmbientAudio() {
-    if (ambientMusicRef.current.primed) return;
-    const tracks = ambientTracksRef.current || [];
-    if (!tracks.length) return;
-    const audio = ensureAmbientAudio();
-    const previousVolume = audio.volume;
-    const previousSrc = audio.src;
-    const primeSrc = resolveAmbientSrc(tracks[0]);
-    if (!primeSrc) return;
-    audio.src = primeSrc;
-    audio.volume = 0;
-    const playPromise = audio.play();
-    if (playPromise && typeof playPromise.then === "function") {
-      playPromise
-        .then(() => {
-          ambientMusicRef.current.primed = true;
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = previousVolume;
-          audio.src = previousSrc;
-        })
-        .catch(() => {
-          audio.volume = previousVolume;
-          audio.src = previousSrc;
-        });
-    } else {
-      audio.volume = previousVolume;
-      audio.src = previousSrc;
-    }
-  }
-
-  function startAmbientMusic({ silent = false, fadeMs = null } = {}) {
-    if (isAmbientMutedRef.current) return;
-    const tracks = ambientTracksRef.current || [];
-    if (!tracks.length) return;
-    const audio = ensureAmbientAudio();
-    const scheduleRetry = () => {
-      if (ambientRetryRef.current) return;
-      ambientRetryRef.current = true;
-      const retry = () => {
-        ambientRetryRef.current = false;
-        const view = appViewRef.current;
-        const canPlayLiveAmbient =
-          isLoggedInRef.current &&
-          view !== "daily" &&
-          view !== "daily_play" &&
-          view !== "daily_results";
-        const bc = breakCountdownRef.current;
-        const hasCountdown = typeof bc === "number";
-        const shouldBeAudible =
-          canPlayLiveAmbient &&
-          phaseRef.current === "results" &&
-          (!hasCountdown || bc > 14);
-        const canPlayAmbient = !isAmbientMutedRef.current && shouldBeAudible;
-        if (canPlayAmbient) {
-          const fadeMs =
-            hasCountdown && typeof bc === "number"
-              ? Math.max(0, Math.round((bc - 10) * 1000))
-              : null;
-          startAmbientMusic({ silent: false, fadeMs });
-        } else {
-          stopAmbientMusic({ fadeMs: 260, keepAlive: false });
-        }
-      };
-      window.addEventListener("pointerdown", retry, { once: true });
-      window.addEventListener("touchstart", retry, { once: true });
-      window.addEventListener("keydown", retry, { once: true });
-    };
-    const markPending = () => {
-      ambientStartPendingRef.current = true;
-      ambientMusicRef.current.active = false;
-      scheduleRetry();
-    };
-    audio.muted = !!silent;
-    const fadeOutMs = Number.isFinite(fadeMs) ? fadeMs : 700;
-    const fadeInMs = Number.isFinite(fadeMs) ? fadeMs : 1200;
-    const fadeStartMs = Number.isFinite(fadeMs) ? fadeMs : 350;
-    if (ambientMusicRef.current.active) {
-      ambientMusicRef.current.keepAlive = silent;
-      const eq = resolveSoundSettings("ambient");
-      const masterVolume = normalizeSoundMasterVolume(
-        soundMasterVolumeRef.current,
-        SOUND_MASTER_VOLUME_DEFAULT
-      );
-      const targetVolume = silent ? 0 : (eq.volume ?? 0.45) * masterVolume;
-      fadeAudioVolume(audio, targetVolume, silent ? fadeOutMs : fadeInMs);
-      if (audio.paused || audio.ended) {
-        const playPromise = audio.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(markPending);
-        }
-      }
-      return;
-    }
-    const next = getNextAmbientTrack();
-    if (!next) return;
-    if (ambientMusicRef.current.playCheck) {
-      clearTimeout(ambientMusicRef.current.playCheck);
-      ambientMusicRef.current.playCheck = null;
-    }
-    const resolvedNext = resolveAmbientSrc(next);
-    if (!resolvedNext) return;
-    ambientMusicRef.current.active = true;
-    ambientMusicRef.current.keepAlive = silent;
-    audio.src = resolvedNext;
-    audio.muted = !!silent;
-    audio.volume = 0;
-    try {
-      audio.load?.();
-    } catch (_) {}
-    const playPromise = audio.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(markPending);
-    }
-    const eq = resolveSoundSettings("ambient");
-    const masterVolume = normalizeSoundMasterVolume(
-      soundMasterVolumeRef.current,
-      SOUND_MASTER_VOLUME_DEFAULT
-    );
-    const targetVolume = silent ? 0 : (eq.volume ?? 0.45) * masterVolume;
-    fadeAudioVolume(audio, targetVolume, silent ? fadeStartMs : fadeInMs);
-    if (ambientMusicRef.current.startGuard) {
-      clearTimeout(ambientMusicRef.current.startGuard);
-    }
-    ambientMusicRef.current.startGuard = setTimeout(() => {
-      if (!ambientMusicRef.current.active) return;
-      if (audio.paused || audio.readyState < 2) {
-        const retryPromise = audio.play();
-        if (retryPromise && typeof retryPromise.catch === "function") {
-          retryPromise.catch(markPending);
-        }
-      }
-      if (ambientMusicRef.current.playCheck) {
-        clearTimeout(ambientMusicRef.current.playCheck);
-      }
-      ambientMusicRef.current.playCheck = setTimeout(() => {
-        if (!ambientMusicRef.current.active) return;
-        if (audio.paused) {
-          markPending();
-        }
-      }, 300);
-    }, 550);
-  }
-
-  function stopAmbientMusic({ fadeMs = 800, keepAlive = false, immediate = false } = {}) {
-    const audio = ambientMusicRef.current.audio;
-    if (!keepAlive) {
-      ambientMusicRef.current.active = false;
-      ambientMusicRef.current.keepAlive = false;
-    } else {
-      ambientMusicRef.current.keepAlive = true;
-    }
-    if (!audio) return;
-    if (ambientMusicRef.current.startGuard) {
-      clearTimeout(ambientMusicRef.current.startGuard);
-      ambientMusicRef.current.startGuard = null;
-    }
-    if (ambientMusicRef.current.playCheck) {
-      clearTimeout(ambientMusicRef.current.playCheck);
-      ambientMusicRef.current.playCheck = null;
-    }
-    if (ambientMusicRef.current.fadeTimer) {
-      clearTimeout(ambientMusicRef.current.fadeTimer);
-      ambientMusicRef.current.fadeTimer = null;
-    }
-    if (ambientMusicRef.current.fadeRaf) {
-      cancelAnimationFrame(ambientMusicRef.current.fadeRaf);
-      ambientMusicRef.current.fadeRaf = null;
-    }
-    if (immediate) {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.muted = true;
-        audio.src = "";
-        audio.removeAttribute?.("src");
-        audio.load?.();
-      } catch (_) {}
-      return;
-    }
-    fadeAudioVolume(audio, 0, fadeMs);
-    if (!keepAlive) {
-      ambientMusicRef.current.fadeTimer = setTimeout(() => {
-        try {
-          audio.pause();
-          audio.currentTime = 0;
-          if (isSamsungBrowserRef.current) {
-            audio.muted = true;
-            audio.src = "";
-            audio.removeAttribute?.("src");
-            audio.load?.();
-          }
-        } catch (_) {}
-      }, Math.max(0, fadeMs) + 60);
-    }
-  }
-
-  function stopBlackHoleAudio({ fadeMs = 220 } = {}) {
-    blackHoleSyncTokenRef.current += 1;
-    AssetManager.cancelQueuedSfx?.(SFX_KEYS.blackHole);
-    AssetManager.cancelQueuedSfx?.(SFX_KEYS.chebabeu);
-    AssetManager.cancelQueuedSfx?.(SFX_KEYS.clavier);
-    AssetManager.cancelQueuedSfx?.(SFX_KEYS.souris);
-    if (blackHoleSourisLoopRef.current.intervalId) {
-      clearInterval(blackHoleSourisLoopRef.current.intervalId);
-      blackHoleSourisLoopRef.current.intervalId = null;
-    }
-    if (blackHoleSourisLoopRef.current.stopTimer) {
-      clearTimeout(blackHoleSourisLoopRef.current.stopTimer);
-      blackHoleSourisLoopRef.current.stopTimer = null;
-    }
-    if (blackHoleClavierFadeRef.current) {
-      clearTimeout(blackHoleClavierFadeRef.current);
-      blackHoleClavierFadeRef.current = null;
-    }
-    if (blackHoleAuxStopRef.current) {
-      clearTimeout(blackHoleAuxStopRef.current);
-      blackHoleAuxStopRef.current = null;
-    }
-    if (blackHoleHandleRef.current) {
-      blackHoleHandleRef.current.stop?.();
-      blackHoleHandleRef.current = null;
-    }
-    if (blackHoleChebHandleRef.current) {
-      blackHoleChebHandleRef.current.stop?.();
-      blackHoleChebHandleRef.current = null;
-    }
-    if (blackHoleClavierHandleRef.current) {
-      if (fadeMs > 0) blackHoleClavierHandleRef.current.fadeOut?.(fadeMs);
-      else blackHoleClavierHandleRef.current.stop?.();
-      blackHoleClavierHandleRef.current = null;
-    }
-  }
-
-  function stopAllActiveAudio({ suspendContext = false, immediate = false } = {}) {
-    stopRoundEndTickSound({ fadeMs: immediate ? 0 : 120 });
-    stopBlackHoleAudio({ fadeMs: immediate ? 0 : 220 });
-    stopAmbientMusic({ fadeMs: immediate ? 0 : 700, keepAlive: false, immediate });
-    ambientStartPendingRef.current = false;
-    ambientRetryRef.current = false;
-    if (!suspendContext) return;
-    const ctx = audioCtxRef.current;
-    if (ctx && ctx.state === "running") {
-      ctx.suspend().catch(() => {});
-    }
-  }
-
-  function scheduleNodeCleanup(ctx, endTime, nodes, cleanup) {
-    let finished = false;
-    const finalize = () => {
-      if (finished) return;
-      finished = true;
-      nodes.forEach((node) => {
-        if (!node) return;
-        try {
-          node.disconnect();
-        } catch (_) {}
-      });
-      if (cleanup) cleanup();
-    };
-    const delayMs = Math.max(0, (endTime - ctx.currentTime) * 1000 + 40);
-    setTimeout(finalize, delayMs);
-    return finalize;
-  }
-
-  function withEnvelope(gainNode, t0, attack, sustainLevel, release, duration) {
-    const a = Math.max(0.003, Number.isFinite(attack) ? attack : 0.005);
-    const r = Math.max(0.02, Number.isFinite(release) ? release : 0.05);
-    const total = Math.max(a + r, Number.isFinite(duration) ? duration : a + r);
-    const sustain = Number.isFinite(sustainLevel) ? sustainLevel : 1;
-    const sustainEnd = Math.max(t0 + a, t0 + total - r);
-    gainNode.gain.cancelScheduledValues(t0);
-    gainNode.gain.setValueAtTime(0.0001, t0);
-    gainNode.gain.linearRampToValueAtTime(sustain, t0 + a);
-    gainNode.gain.linearRampToValueAtTime(sustain, sustainEnd);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, t0 + total);
-    return t0 + total;
-  }
-  const requestAudioUnlock = (event) => {
-    if (event && event.isTrusted === false) return false;
-    const hasGesture = !!event;
-    if (!hasGesture && !audioUnlockedRef.current) return false;
-    if (!audioUnlockedRef.current) {
-      audioUnlockedRef.current = true;
-    }
-    void AssetManager.unlockAudio();
-    const system = getAudioSystem({ force: true });
-    if (system?.ctx && system.ctx.state === "suspended") {
-      system.ctx.resume().catch(() => {});
-    }
-    return !!system?.ctx;
-  };
 
   // Débloque le contexte audio au premier geste utilisateur (mobile/desktop)
   useEffect(() => {
@@ -9530,231 +8543,6 @@ export default function App() {
     return 0;
   }
 
-  // Son "GOBBLE" (MP3 placé dans /public/sound/game/gobble.mp3)
-  function playGobbleVoice() {
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    if (!soundGobbleEnabled) return;
-    playOneShotAudio(SFX_KEYS.gobbleVoice, {
-      cooldownKey: "gobbleVoice",
-      eqKey: "gobbleVoice",
-    });
-  }
-
-  // Son "DOUBLE GOBBLE" (mot meilleur score + mot le plus long)
-  function playDoubleGobbleVoice() {
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    if (!soundGobbleEnabled) return;
-    playOneShotAudio(SFX_KEYS.doubleGobbleVoice, {
-      cooldownKey: "gobbleVoice",
-      eqKey: "gobbleVoice",
-    });
-  }
-
-  // Son progressif par tuile (01..15)
-  function playTileStepSound(step) {
-    if (!soundTileStepEnabled) return;
-    if (!Number.isFinite(step)) return;
-    const semitoneOffset =
-      Math.max(0, Math.min(INCREMENTAL_SOUND_COUNT - 1, Math.floor(step))) -
-      INCREMENTAL_BASE_NOTE_INDEX;
-    const pitch = Math.pow(2, semitoneOffset / 12);
-    playOneShotAudio(INCREMENTAL_BASE_SFX_KEY, {
-      cooldownKey: "tileStep",
-      eqKey: "tileStep",
-      pitch,
-      // Les steps doivent rester audibles en rafale rapide.
-      ignorePolyphony: true,
-    });
-  }
-
-  function stopRoundEndTickSound({ fadeMs = 120 } = {}) {
-    const handle = roundEndTickHandleRef.current;
-    if (!handle) return;
-    if (fadeMs > 0) handle.fadeOut?.(fadeMs);
-    else handle.stop?.();
-    roundEndTickHandleRef.current = null;
-  }
-
-  function stopRoundStartSound({ fadeMs = 120 } = {}) {
-    if (roundStartStopTimerRef.current) {
-      clearTimeout(roundStartStopTimerRef.current);
-      roundStartStopTimerRef.current = null;
-    }
-    const handle = roundStartHandleRef.current;
-    if (!handle) {
-      roundStartSoundUntilRef.current = 0;
-      return;
-    }
-    if (fadeMs > 0) handle.fadeOut?.(fadeMs);
-    else handle.stop?.();
-    roundStartHandleRef.current = null;
-    roundStartSoundUntilRef.current = 0;
-  }
-
-  function stopIntroCountdownSound({ fadeMs = 120 } = {}) {
-    if (introCountdownStopTimerRef.current) {
-      clearTimeout(introCountdownStopTimerRef.current);
-      introCountdownStopTimerRef.current = null;
-    }
-    AssetManager.cancelQueuedSfx?.(SFX_KEYS.tictoc);
-    const handle = introCountdownHandleRef.current;
-    if (!handle) return;
-    if (fadeMs > 0) handle.fadeOut?.(fadeMs);
-    else handle.stop?.();
-    introCountdownHandleRef.current = null;
-  }
-
-  // Petit "tic tac" pour la fin de manche (fichier)
-  function playTickSound({ isTargetRound } = {}) {
-    if (!soundTimerEnabled) return;
-    if (isSfxMuted) return;
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    stopRoundEndTickSound({ fadeMs: 0 });
-    const soundKey = isTargetRound ? "coeur" : "tick";
-    const assetKey = isTargetRound ? SFX_KEYS.coeur : SFX_KEYS.tictac10;
-    roundEndTickHandleRef.current = playOneShotAudio(assetKey, {
-      cooldownKey: "tick",
-      eqKey: soundKey,
-    });
-  }
-
-  // "Tic tac" avant le début de manche (compte à rebours)
-  function playCountdownTickSound(value = null, introToken = null) {
-    if (!soundTimerEnabled) return;
-    if (isSfxMuted) return;
-    if (!isLoggedInRef.current) return;
-    if (Number.isFinite(value) && Number(value) !== MOBILE_ROUND_INTRO_COUNTDOWN_FROM) {
-      return;
-    }
-    const roundKey = roundIdRef.current || null;
-    if (roundKey && introCountdownPlayedRoundRef.current === roundKey) {
-      return;
-    }
-    if (isMobileLayoutRef.current) {
-      const roundId = roundIdRef.current || null;
-      const now =
-        typeof performance !== "undefined" && performance.now
-          ? performance.now()
-          : Date.now();
-      const guard =
-        introCountdownTickGuardRef.current || { at: 0, token: 0, value: null, roundId: null };
-      const delta = now - (Number(guard.at) || 0);
-      const sameRoundValue =
-        value != null && roundId && guard.roundId === roundId && guard.value === value;
-      const sameToken = introToken != null && guard.token === introToken;
-      const sameValue = value != null && guard.value === value;
-      if (
-        (sameRoundValue && delta < 3200) ||
-        (sameToken && sameValue && delta < 900) ||
-        delta < 220
-      ) {
-        return;
-      }
-      introCountdownTickGuardRef.current = {
-        at: now,
-        token: introToken != null ? introToken : guard.token || 0,
-        value: value != null ? value : null,
-        roundId,
-      };
-    }
-    stopIntroCountdownSound({ fadeMs: 0 });
-    const handle = playOneShotAudio(SFX_KEYS.tictoc, {
-      cooldownKey: "countdownTick",
-      eqKey: "countdownTick",
-      allowQueue: false,
-    });
-    if (!handle) return;
-    introCountdownHandleRef.current = handle;
-    if (roundKey) {
-      introCountdownPlayedRoundRef.current = roundKey;
-    }
-    introCountdownStopTimerRef.current = setTimeout(() => {
-      if (introCountdownHandleRef.current === handle) {
-        handle.fadeOut?.(120);
-        introCountdownHandleRef.current = null;
-      }
-      introCountdownStopTimerRef.current = null;
-    }, 3000);
-  }
-
-  function playSwipeSound() {
-    playOneShotAudio(SFX_KEYS.uiClick, { cooldownKey: "swipe", eqKey: "swipe" });
-  }
-
-  function playCloseSound() {
-    playOneShotAudio(SFX_KEYS.uiClose, { cooldownKey: "bipmontre", eqKey: "bipmontre" });
-  }
-
-  function scheduleRoundStartRetry(roundKey) {
-    if (roundStartRetryRef.current) return;
-    roundStartRetryRef.current = true;
-    const retry = () => {
-      roundStartRetryRef.current = false;
-      if (phaseRef.current !== "playing") return;
-      if (roundKey && roundIdRef.current && roundIdRef.current !== roundKey) return;
-      playRoundStartSound();
-    };
-    window.addEventListener("pointerdown", retry, { once: true });
-    window.addEventListener("touchstart", retry, { once: true });
-    window.addEventListener("keydown", retry, { once: true });
-  }
-
-  // Celebration fin de mini-tournoi
-  function playTournamentCelebrationSound() {
-    if (!shouldPlay("tournamentCelebration", AUDIO_COOLDOWNS_MS.tournamentCelebration)) {
-      return;
-    }
-    playOneShotAudio(SFX_KEYS.tournamentFireworks, {
-      cooldownKey: "tournamentFireworks",
-      eqKey: "tournamentFireworks",
-    });
-    setTimeout(() => {
-      playOneShotAudio(SFX_KEYS.tournamentApplause, {
-        cooldownKey: "tournamentApplause",
-        eqKey: "tournamentApplause",
-      });
-    }, 260);
-  }
-
-  function playRoundStartSound() {
-    if (!soundTimerEnabled) return;
-    if (isSfxMuted) return;
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    const now =
-      typeof performance !== "undefined" && performance.now
-        ? performance.now()
-        : Date.now();
-    if (now < (roundStartSoundUntilRef.current || 0) - 20) return;
-    stopRoundStartSound({ fadeMs: 0 });
-    const handle = playOneShotAudio(SFX_KEYS.roundStart, {
-      cooldownKey: "roundStart",
-      eqKey: "roundStart",
-      allowQueue: false,
-      onBlocked: () => {
-        const roundKey = roundIdRef.current || null;
-        if (!roundKey) return;
-        roundStartPendingRef.current = roundKey;
-        scheduleRoundStartRetry(roundKey);
-      },
-    });
-    if (!handle) return;
-    const maxDurationMs = 3000;
-    roundStartHandleRef.current = handle;
-    roundStartSoundUntilRef.current = now + maxDurationMs;
-    roundStartStopTimerRef.current = setTimeout(() => {
-      if (roundStartHandleRef.current === handle) {
-        handle.fadeOut?.(120);
-        roundStartHandleRef.current = null;
-      }
-      roundStartSoundUntilRef.current = 0;
-      roundStartStopTimerRef.current = null;
-    }, maxDurationMs);
-  }
-
   const clearMobileRoundIntroTimers = React.useCallback(() => {
     mobileRoundIntroTimersRef.current.forEach((timerId) => clearTimeout(timerId));
     mobileRoundIntroTimersRef.current = [];
@@ -9879,14 +8667,20 @@ export default function App() {
       const maxCountdownMs = MOBILE_ROUND_INTRO_COUNTDOWN_TOTAL_MS;
       const waitBeforeCountdownMs =
         remainingMsToStart > maxCountdownMs ? remainingMsToStart - maxCountdownMs : 0;
-      const countdownWindowMs = Math.min(
-        maxCountdownMs,
-        Math.max(420, remainingMsToStart - waitBeforeCountdownMs)
-      );
-      const stepMs = Math.max(
-        150,
-        countdownWindowMs / Math.max(1, MOBILE_ROUND_INTRO_COUNTDOWN_FROM)
-      );
+      const shouldKeepFullCountdown =
+        remainingMsToStart >= maxCountdownMs - 650;
+      const countdownWindowMs = shouldKeepFullCountdown
+        ? maxCountdownMs
+        : Math.min(
+            maxCountdownMs,
+            Math.max(420, remainingMsToStart - waitBeforeCountdownMs)
+          );
+      const stepMs = shouldKeepFullCountdown
+        ? MOBILE_ROUND_INTRO_COUNTDOWN_STEP_MS
+        : Math.max(
+            150,
+            countdownWindowMs / Math.max(1, MOBILE_ROUND_INTRO_COUNTDOWN_FROM)
+          );
       const sequence = [3, 2, 1, 0];
       const runSequenceAt = (index) => {
         if (isStale()) return;
@@ -9945,169 +8739,6 @@ export default function App() {
     roundId,
     stopMobileRoundIntro,
   ]);
-
-  // Palette de sons par paliers de score (plus mélodique)
-  function playScoreSound(points) {
-    if (phaseRef.current !== "playing") return;
-    if (!isLoggedInRef.current && !isDailyPlayRef.current) return;
-    if (!soundValidationEnabled) return;
-    if (isSfxMuted) return;
-    const safePoints = Number.isFinite(points) ? Math.max(0, points) : 0;
-    if (safePoints <= 2) {
-      if (safePoints < 1) return;
-      if (shouldUseCombinedScoreSfx() && playCombinedScoreSound(SCORE_LOW_KEY, SCORE2_LOW_KEY)) {
-        return;
-      }
-      // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
-      playOneShotAudio(SCORE_LOW_KEY, {
-        cooldownKey: "score",
-        cooldownMs: 0,
-        eqKey: "score",
-        ignorePolyphony: true,
-      });
-      playOneShotAudio(SCORE2_LOW_KEY, {
-        cooldownKey: "score2",
-        cooldownMs: 0,
-        eqKey: "score2",
-        ignorePolyphony: true,
-      });
-      return;
-    }
-    const bandIndex =
-      SCORE_SOUND_BANDS.findIndex(
-        (entry) => safePoints >= entry.min && safePoints <= entry.max
-      ) || 0;
-    const scoreKey = SCORE_SFX_KEYS[bandIndex] || SCORE_SFX_KEYS[0];
-    const pianoKey = SCORE2_SFX_KEYS[bandIndex] || SCORE2_SFX_KEYS[0];
-    if (shouldUseCombinedScoreSfx() && playCombinedScoreSound(scoreKey, pianoKey)) {
-      return;
-    }
-    // Rafales possibles -> pas de cooldown et ignore polyphony pour éviter les trous.
-    const primaryHandle = playOneShotAudio(scoreKey, {
-      cooldownKey: "score",
-      cooldownMs: 0,
-      eqKey: "score",
-      ignorePolyphony: true,
-    });
-    const pianoHandle = playOneShotAudio(pianoKey, {
-      cooldownKey: "score2",
-      cooldownMs: 0,
-      eqKey: "score2",
-      ignorePolyphony: true,
-    });
-    // Fallback robuste: si une variation n'est pas encore prête, jouer la base préchargée.
-    if (!primaryHandle) {
-      playOneShotAudio(SCORE_LOW_KEY, {
-        cooldownKey: "score",
-        cooldownMs: 0,
-        eqKey: "score",
-        ignorePolyphony: true,
-      });
-    }
-    if (!pianoHandle) {
-      playOneShotAudio(SCORE2_LOW_KEY, {
-        cooldownKey: "score2",
-        cooldownMs: 0,
-        eqKey: "score2",
-        ignorePolyphony: true,
-      });
-    }
-  }
-
-
-  function playVocabOverlayTone(
-    freq,
-    durationMs = 120,
-    gainValue = 0.14,
-    soundKey = "vocabTick",
-    sampleKey = SFX_KEYS.vocabOverlay
-  ) {
-    if (isSfxMuted) return;
-    const jitteredFreq = humanizeFreq(freq, 4);
-    const pitch = jitteredFreq / VOCAB_SAMPLE_BASE_FREQ;
-    // Les ticks vocabulaires sont joués en rafales + pitch progressif: pas de cooldown.
-    const cooldownTag = `${soundKey}:${Math.round(pitch * 1000)}`;
-    playOneShotAudio(sampleKey, {
-      cooldownKey: cooldownTag,
-      cooldownMs: 0,
-      eqKey: soundKey,
-      pitch,
-      ignorePolyphony: true,
-    });
-  }
-
-  function playVocabOverlayTickSound(wordIndex) {
-    if (!Number.isFinite(wordIndex) || wordIndex <= 0) return;
-    const idx = Math.floor(wordIndex);
-    const low = 220;
-    const mid = 440;
-    const high = 660;
-    let freq = high;
-    if (idx <= 10) {
-      const t = (idx - 1) / 9;
-      freq = low + (mid - low) * t;
-    } else if (idx <= 20) {
-      const t = (idx - 11) / 9;
-      freq = mid + (high - mid) * t;
-    }
-    playVocabOverlayTone(freq, 95, 0.1, "vocabTick");
-  }
-
-  function playVocabOverlayZeroSound() {
-    playVocabOverlayTone(170, 520, 0.16, "vocabZero");
-  }
-
-  function playVocabOverlayClingSound() {
-    playVocabOverlayTone(880, 110, 0.14, "vocabCling", SFX_KEYS.vocabCling);
-    setTimeout(
-      () => playVocabOverlayTone(1320, 160, 0.12, "vocabCling2", SFX_KEYS.vocabCling),
-      70
-    );
-  }
-
-  function debugVocabTickBurst(count = 20, intervalMs = 28) {
-    const safeCount = Math.max(1, Math.floor(count));
-    const safeInterval = Math.max(8, Math.floor(intervalMs));
-    for (let i = 0; i < safeCount; i += 1) {
-      const t = safeCount > 1 ? i / (safeCount - 1) : 0;
-      const freq = 220 + (1320 - 220) * t;
-      setTimeout(() => playVocabOverlayTone(freq, 90, 0.12, "vocabTick"), i * safeInterval);
-    }
-  }
-
-  useEffect(() => {
-    if (!DEV_MODE) return;
-    window.__debugVocabTicks = () => debugVocabTickBurst();
-    return () => {
-      try {
-        delete window.__debugVocabTicks;
-      } catch (_) {}
-    };
-  }, []);
-
-  function playSpecialFoundSound() {
-    if (phaseRef.current !== "playing") return;
-    const view = appViewRef.current;
-    if (view === "daily" || view === "daily_play" || view === "daily_results") return;
-    if (isSfxMuted) return;
-    playOneShotAudio(SFX_KEYS.specialFound, {
-      cooldownKey: "specialFound",
-      eqKey: "specialFound",
-    });
-  }
-
-  function maybePlayAnnouncementSound(item) {
-    if (!item) return;
-    if (item.type !== "best_possible_score" && item.type !== "longest_possible") {
-      return;
-    }
-    const selfRaw = (nicknameRef.current || nickname || "").trim();
-    const authorRaw = (item.nick || "").trim();
-    const self = selfRaw ? selfRaw.toLowerCase() : "";
-    const author = authorRaw ? authorRaw.toLowerCase() : "";
-    if (!self || !author || self !== author) return;
-    playGobbleVoice();
-  }
 
   function triggerBigScoreFlash(pts) {
     const now = Date.now();
@@ -10210,6 +8841,33 @@ export default function App() {
     if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
     praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
     if (shakeGrid) triggerGridShake();
+  }
+
+  function triggerInvalidFlash(
+    text,
+    { force = false, durationMs = 980 } = {}
+  ) {
+    if (phaseRef.current !== "playing") return;
+    const now = Date.now();
+    if (!force && now - invalidLastRef.current < 260) return;
+    invalidLastRef.current = now;
+    const angle = (-Math.PI / 2) + (Math.random() - 0.5) * 0.7;
+    const minDist = isMobileLayout ? 18 : 24;
+    const maxDist = isMobileLayout ? 36 : 48;
+    const dist = minDist + Math.random() * (maxDist - minDist);
+    const dx = Math.round(Math.cos(angle) * dist);
+    const dy = Math.round(Math.sin(angle) * dist);
+    const scale = Number((1.06 + Math.random() * 0.18).toFixed(2));
+    setInvalidFlash({
+      id: now + Math.random(),
+      text,
+      dx,
+      dy,
+      scale,
+      durationMs,
+    });
+    if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+    invalidTimerRef.current = setTimeout(() => setInvalidFlash(null), durationMs);
   }
 
   function triggerConfettiBurst(kind = "target") {
@@ -12282,12 +10940,14 @@ export default function App() {
     if (isStandaloneDisplayMode()) {
       setInstallSupport("installed");
     }
+    setIsIosStandalone(computeIsIosStandalone());
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const updateAndroidWebState = () => {
       setIsAndroidWebBrowser(computeIsAndroidWebBrowser());
+      setIsIosStandalone(computeIsIosStandalone());
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
@@ -12558,6 +11218,7 @@ export default function App() {
       tournament: tournamentPayload = null,
       targetLength = null,
       targetHintScheduleMs = [],
+      solutions = null,
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!grid || !Array.isArray(grid)) return;
@@ -12645,6 +11306,7 @@ export default function App() {
           startsAt,
           introMs,
           status: roundStatus,
+          solutions,
         }
       );
     }
@@ -12922,7 +11584,7 @@ export default function App() {
         setPlayers([]);
         setProvisionalRanking([]);
       } else {
-        setConnectionError("Reconnexion...");
+        setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
       }
       resumeLockRef.current = false;
       resumeLockAtRef.current = 0;
@@ -12981,7 +11643,7 @@ export default function App() {
         setServerStatus("waiting");
         setProvisionalRanking([]);
         setFinalResults([]);
-        setConnectionError("Deconnecte du serveur, reessaie.");
+        setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
         setPlayers([]);
         setMedals({});
         setTournament(null);
@@ -13015,12 +11677,18 @@ export default function App() {
         disconnectGraceTimerRef.current = setTimeout(() => {
           disconnectGraceTimerRef.current = null;
           if (socket.connected || isBackgroundedRef.current) return;
+          if (hasSavedSession() || isLoggedInRef.current || autoResumeEnabledRef.current) {
+            setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+            reconnectToastPendingRef.current = true;
+            attemptSilentReconnectRef.current?.("disconnect_grace");
+            return;
+          }
           hardReset();
         }, DISCONNECT_GRACE_MS);
-        setConnectionError("Reconnexion...");
+        setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
         if (isLoggedInRef.current && !reconnectToastPendingRef.current) {
           reconnectToastPendingRef.current = true;
-          showToast("Connexion perdue, reconnexion...", 2600);
+          showToast("Serveur saturé, reconnexion automatique...", 3600);
         }
         attemptSilentReconnectRef.current?.("disconnect");
       }
@@ -13966,6 +12634,26 @@ export default function App() {
     setBroadcastSeenNonce((value) => value + 1);
   }
 
+  function markVaultWordOfDaySeen(dateId = vaultWordOfDayPopup.dateId) {
+    const audienceKey = authenticatedUserId || installId || deviceInstallId;
+    const storageKey = getVaultWordOfDaySeenStorageKey(audienceKey, dateId);
+    if (!storageKey) return;
+    try {
+      localStorage.setItem(storageKey, "1");
+    } catch (_) {}
+  }
+
+  function closeVaultWordOfDayPopup() {
+    markVaultWordOfDaySeen();
+    setVaultWordOfDayPopup((prev) => ({ ...prev, open: false }));
+  }
+
+  function openVaultFromWordOfDay() {
+    markVaultWordOfDaySeen();
+    setVaultWordOfDayPopup((prev) => ({ ...prev, open: false }));
+    openWordVaultPage();
+  }
+
   async function fetchDuelStatus({ dateId = null, retryAuth = true } = {}) {
     if (!installId) return;
     if (!isAccountAuthenticated) {
@@ -14423,23 +13111,43 @@ export default function App() {
     }
   }
 
-  async function postAuthJson(url, payload = null, { method = "POST" } = {}) {
-    const res = await fetch(url, {
-      method,
-      cache: "no-store",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        ...(payload !== null ? { "Content-Type": "application/json" } : {}),
-      },
-      body: payload !== null ? JSON.stringify(payload) : undefined,
-    });
-    const parsed = await readJsonResponseLoose(res);
-    return {
-      ok: !!(res.ok && parsed?.data && typeof parsed.data === "object" && parsed.data.ok !== false),
-      status: res.status,
-      data: parsed?.data && typeof parsed.data === "object" ? parsed.data : null,
-    };
+  async function postAuthJson(
+    url,
+    payload = null,
+    { method = "POST", timeoutMs = AUTH_REQUEST_TIMEOUT_MS } = {}
+  ) {
+    const controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timeoutId =
+      controller && Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? setTimeout(() => controller.abort(), Math.max(1, Math.round(timeoutMs)))
+        : null;
+    try {
+      const res = await fetch(url, {
+        method,
+        cache: "no-store",
+        credentials: "include",
+        signal: controller?.signal,
+        headers: {
+          Accept: "application/json",
+          ...(payload !== null ? { "Content-Type": "application/json" } : {}),
+        },
+        body: payload !== null ? JSON.stringify(payload) : undefined,
+      });
+      const parsed = await readJsonResponseLoose(res);
+      return {
+        ok: !!(res.ok && parsed?.data && typeof parsed.data === "object" && parsed.data.ok !== false),
+        status: res.status,
+        data: parsed?.data && typeof parsed.data === "object" ? parsed.data : null,
+      };
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error("request_timeout");
+      }
+      throw err;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
   }
 
   async function connectSocketWithAuth() {
@@ -14538,8 +13246,11 @@ export default function App() {
     try {
       const response = await postAuthJson(AUTH_STATUS_ENDPOINT, {
         installId: deviceInstallId,
-      });
+      }, { timeoutMs: AUTH_STATUS_TIMEOUT_MS });
       const payload = response.data || {};
+      if (response.ok) {
+        setAccountNotice((prev) => (prev === ACCOUNT_SERVER_BUSY_MESSAGE ? "" : prev));
+      }
       if (response.ok && payload.status === "authenticated" && payload.user) {
         setAuthState({
           loading: false,
@@ -14574,13 +13285,28 @@ export default function App() {
         legacyProfile: null,
       });
       return payload;
-    } catch (_) {
+    } catch (err) {
+      const code = String(err?.message || "");
+      const name = String(err?.name || "");
+      const transientServerIssue =
+        code === "request_timeout" ||
+        code === "Failed to fetch" ||
+        code === "NetworkError" ||
+        name === "TypeError";
       setAuthState((prev) => ({
         loading: false,
-        status: prev?.status && prev.status !== "loading" ? prev.status : "no_account",
+        status:
+          prev?.status && prev.status !== "loading"
+            ? prev.status
+            : transientServerIssue
+            ? "unavailable"
+            : "no_account",
         user: prev?.user || null,
         legacyProfile: prev?.legacyProfile || null,
       }));
+      if (transientServerIssue) {
+        setAccountNotice(ACCOUNT_SERVER_BUSY_MESSAGE);
+      }
       return null;
     }
   }
@@ -14593,6 +13319,16 @@ export default function App() {
         setLoginError(message);
       } else if (source === "daily") {
         setDailyStartError(message);
+      }
+      return false;
+    }
+    if (isAuthServerUnavailable) {
+      setAccountNotice(ACCOUNT_SERVER_BUSY_MESSAGE);
+      void refreshAuthStatus({ silent: true });
+      if (source === "live") {
+        setLoginError(ACCOUNT_SERVER_BUSY_MESSAGE);
+      } else if (source === "daily") {
+        setDailyStartError(ACCOUNT_SERVER_BUSY_MESSAGE);
       }
       return false;
     }
@@ -14743,6 +13479,7 @@ export default function App() {
   }
 
   async function handleAccountLogout() {
+    setIsAccountMenuOpen(false);
     try {
       await postAuthJson("/api/auth/logout", {});
     } catch (_) {}
@@ -14767,6 +13504,14 @@ export default function App() {
   useEffect(() => {
     void refreshAuthStatus();
   }, [deviceInstallId]);
+
+  useEffect(() => {
+    if (!isAuthServerUnavailable) return;
+    const timer = setTimeout(() => {
+      void refreshAuthStatus({ silent: false });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [deviceInstallId, isAuthServerUnavailable]);
 
   useEffect(() => {
     if (!isAccountAuthenticated) return;
@@ -16222,7 +14967,7 @@ export default function App() {
     resumeLockRef.current = true;
     resumeLockAtRef.current = now;
     setLoginError("");
-    setConnectionError("Reconnexion...");
+    setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
     setIsConnecting(true);
 
     let settled = false;
@@ -16455,6 +15200,7 @@ export default function App() {
       alreadySeen = localStorage.getItem(seenStorageKey) === "1";
     } catch (_) {}
     if (alreadySeen) return;
+    patchNotesOpeningRef.current = true;
     setIsPatchNotesOpen(true);
     try {
       localStorage.setItem(seenStorageKey, "1");
@@ -16592,6 +15338,107 @@ export default function App() {
   }, [duelPopupState?.mode, duelStatus?.objectives?.objectives]);
 
   useEffect(() => {
+    const isHomeLobby = !isLoggedIn && phase === "lobby" && appView === "home";
+    if (!isHomeLobby) return;
+    if (!isAccountAuthenticated) return;
+    if (!wordVault.loaded || wordVault.loading || wordVault.error) return;
+    if (!Array.isArray(wordVault.words) || wordVault.words.length === 0) return;
+    if (vaultWordOfDayPopup.open) return;
+    if (
+      shouldShowTutorial ||
+      isPatchNotesOpen ||
+      patchNotesOpeningRef.current ||
+      duelPopupState?.mode ||
+      definitionModal.open ||
+      isAccountMenuOpen ||
+      isSettingsOpen ||
+      isAboutOpen ||
+      isSupportOpen ||
+      isHomeChatOpen ||
+      isPlayersOverlayOpen ||
+      broadcastNotice.loading ||
+      !bootProgress.done ||
+      bootOverlayVisible
+    ) {
+      return;
+    }
+
+    const broadcastKey = getBroadcastMessageKey(broadcastNotice?.message);
+    if (broadcastKey && installId) {
+      const broadcastStorageKey = getBroadcastSeenStorageKey(installId, broadcastKey);
+      if (broadcastStorageKey) {
+        try {
+          if (localStorage.getItem(broadcastStorageKey) !== "1") return;
+        } catch (_) {}
+      }
+    }
+
+    const dateId = getParisDateIdClient();
+    const audienceKey = authenticatedUserId || installId || deviceInstallId;
+    const storageKey = getVaultWordOfDaySeenStorageKey(audienceKey, dateId);
+    if (!storageKey) return;
+    try {
+      if (localStorage.getItem(storageKey) === "1") return;
+    } catch (_) {}
+    if (vaultWordOfDayAttemptedRef.current.has(storageKey)) return;
+    vaultWordOfDayAttemptedRef.current.add(storageKey);
+
+    const requestId = ++vaultWordOfDayRequestIdRef.current;
+    let cancelled = false;
+    (async () => {
+      const candidates = pickVaultWordOfDayCandidates(wordVault.words);
+      for (const candidate of candidates) {
+        if (cancelled || requestId !== vaultWordOfDayRequestIdRef.current) return;
+        const result = await fetchDefinitionSummaryForWordOfDay(candidate.word).catch(() => null);
+        if (!result?.definition) continue;
+        if (cancelled || requestId !== vaultWordOfDayRequestIdRef.current) return;
+        setVaultWordOfDayPopup({
+          open: true,
+          dateId,
+          word: result.word || candidate.word,
+          displayWord: result.displayWord || candidate.word,
+          definition: result.definition,
+          source: result.source || "",
+          url: result.url || "",
+        });
+        return;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appView,
+    authenticatedUserId,
+    bootOverlayVisible,
+    bootProgress.done,
+    broadcastNotice.loading,
+    broadcastNotice?.message,
+    broadcastSeenNonce,
+    definitionModal.open,
+    deviceInstallId,
+    duelPopupState?.mode,
+    installId,
+    isAboutOpen,
+    isAccountAuthenticated,
+    isAccountMenuOpen,
+    isHomeChatOpen,
+    isLoggedIn,
+    isPatchNotesOpen,
+    isPlayersOverlayOpen,
+    isSettingsOpen,
+    isSupportOpen,
+    phase,
+    shouldShowTutorial,
+    vaultWordOfDayPopup.open,
+    wordVault.error,
+    wordVault.loaded,
+    wordVault.loading,
+    wordVault.words,
+  ]);
+
+  useEffect(() => {
     weeklyStatsSnapshotRef.current = weeklyStats;
     if (tournamentBaselineRef.current.id && !tournamentBaselineRef.current.weeklyStats) {
       tournamentBaselineRef.current.weeklyStats = weeklyStats;
@@ -16673,6 +15520,13 @@ export default function App() {
     }, 6000);
     return () => clearInterval(timer);
   }, [isLoggedIn, appView, roomId]);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    if (appView !== "home") return;
+    if (!isAccountAuthenticated) return;
+    fetchDailyStatus();
+  }, [isLoggedIn, appView, isAccountAuthenticated, installId]);
 
   useEffect(() => {
     const isHomeLobbyView = !isLoggedIn && appView === "home";
@@ -17135,6 +15989,41 @@ export default function App() {
     setResumeSnapshot(null);
   }
 
+  function hydrateServerSolutionsPayload(payload) {
+    const list = Array.isArray(payload) ? payload : [];
+    const solved = new Map();
+    const all = [];
+    for (const entry of list) {
+      const word = normalizeWord(Array.isArray(entry) ? entry[0] : entry?.word);
+      if (!word) continue;
+      const ptsSource = Array.isArray(entry) ? entry[1] : entry?.pts;
+      const pathSource = Array.isArray(entry) ? entry[2] : entry?.path;
+      const usedFakeTwinsSource = Array.isArray(entry) ? entry[3] : entry?.usedFakeTwins;
+      const numericPts = Number(ptsSource);
+      const pts = Number.isFinite(numericPts) ? numericPts : 0;
+      const path = Array.isArray(pathSource)
+        ? pathSource
+            .map((idx) => Number(idx))
+            .filter((idx) => Number.isInteger(idx) && idx >= 0)
+        : [];
+      const meta = {
+        path,
+        pts,
+        usedFakeTwins: !!usedFakeTwinsSource,
+      };
+      solved.set(word, meta);
+      all.push({ word, ...meta });
+    }
+    all.sort((a, b) => {
+      const ptsDiff = (Number(b?.pts) || 0) - (Number(a?.pts) || 0);
+      if (ptsDiff !== 0) return ptsDiff;
+      return String(a.word || "").localeCompare(String(b.word || ""), "fr", {
+        sensitivity: "base",
+      });
+    });
+    return { solved, all, ready: Array.isArray(payload) };
+  }
+
   function startGameFromServer(
     serverGrid,
     newRoundId,
@@ -17148,6 +16037,7 @@ export default function App() {
     incomingTargetHintScheduleMs = [],
     roundLifecycle = null
   ) {
+    const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions);
     const derivedSize =
       incomingGridSize ||
       Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
@@ -17165,12 +16055,19 @@ export default function App() {
     setBigScoreFlash(null);
     clearToasts();
     solutionsRef.current = new Map();
+    serverSolutionsReadyRef.current = false;
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
+    serverSolutionsReadyRef.current = serverSolutions.ready;
     setAccepted([]);
     clearAcceptedRuntimeCaches();
     resetSubmissionQueue();
-    setAllWords([]);
+    if (serverSolutions.ready) {
+      solutionsRef.current = serverSolutions.solved;
+      setAllWords(serverSolutions.all);
+    } else {
+      setAllWords([]);
+    }
     setShowAllWords(false);
     setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
     if (specialInfo?.type !== "target_long" && specialInfo?.type !== "target_score") {
@@ -17476,7 +16373,7 @@ export default function App() {
   function attemptSilentReconnect(reason = "reconnect") {
     if (reconnectAttemptRef.current) return;
     reconnectAttemptRef.current = true;
-    setConnectionError("Reconnexion...");
+    setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
     const finishAttempt = () => {
       setTimeout(() => {
         reconnectAttemptRef.current = false;
@@ -17533,6 +16430,7 @@ export default function App() {
     setBigScoreFlash(null);
     clearToasts();
     solutionsRef.current = new Map();
+    serverSolutionsReadyRef.current = false;
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
     setAccepted([]);
@@ -18111,6 +17009,49 @@ export default function App() {
     closeReportDialog();
   }
 
+  function closePatchNotes() {
+    patchNotesOpeningRef.current = false;
+    setIsPatchNotesOpen(false);
+  }
+
+  async function fetchDefinitionSummaryForWordOfDay(term) {
+    const clean = String(term || "").trim();
+    if (!clean) return null;
+    const tried = new Set();
+    const baseKey = normalizeWord(clean);
+    if (baseKey) tried.add(baseKey);
+
+    async function fetchDefinition(word) {
+      const params = new URLSearchParams();
+      params.set("word", word);
+      const res = await fetch(`/api/define?${params.toString()}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      if (!data) return null;
+      const definitionText = pickDefinitionText(data);
+      if (definitionText) {
+        return {
+          word: clean,
+          displayWord: data.displayWord || data.word || data.title || clean,
+          definition: definitionText,
+          source: data.source || "",
+          url: data.url || "",
+        };
+      }
+      const fallbacks = buildDefinitionFallbacks(clean, data, tried);
+      for (const fallback of fallbacks) {
+        const next = await fetchDefinition(fallback);
+        if (next?.definition) return next;
+      }
+      return null;
+    }
+
+    return fetchDefinition(clean);
+  }
+
   function openDefinition(
     term,
     { fromWordInfo = false, preferLongDefinition = false, fromVault = false } = {}
@@ -18362,6 +17303,45 @@ export default function App() {
     return list;
   }
 
+  function buildRoundSpecial3ForPlayer(nick) {
+    const cleanNick = String(nick || "").trim();
+    if (!cleanNick || !Array.isArray(finalResults) || !Array.isArray(board) || !board.length) {
+      return null;
+    }
+    const entry = finalResults.find((row) => String(row?.nick || "").trim() === cleanNick);
+    if (!entry) return null;
+    const placements =
+      entry?.specialPlacements && typeof entry.specialPlacements === "object"
+        ? entry.specialPlacements
+        : {};
+    const scoringBoard = applyDailySpecialPlacements(board, placements);
+    const slots = (Array.isArray(entry?.specialWordSlots) ? entry.specialWordSlots : [])
+      .map((slot, idx) => {
+        const word = String(slot?.word || "").trim();
+        if (!word) return null;
+        const path = Array.isArray(slot?.path) ? slot.path : [];
+        const pts =
+          Number.isFinite(slot?.pts) && slot.pts >= 0
+            ? Number(slot.pts)
+            : path.length
+            ? computeScore(word, path, scoringBoard, null)
+            : null;
+        return {
+          id: Number.isFinite(slot?.id) ? slot.id : idx,
+          word,
+          display: String(slot?.display || word).trim() || word,
+          path,
+          pts,
+        };
+      })
+      .filter(Boolean);
+    if (!slots.length) return null;
+    return {
+      board: scoringBoard,
+      slots,
+    };
+  }
+
   function getRoundRecordsForPlayer(nick) {
     const cleanNick = String(nick || "").trim();
     if (!cleanNick || !recordBadgesByNickForRound) return [];
@@ -18406,6 +17386,10 @@ export default function App() {
       open: true,
       nick: cleanNick,
       words: isTargetRound ? [] : buildRoundWordsForPlayer(cleanNick),
+      special3:
+        specialRound?.type === DAILY_SPECIAL_MODE
+          ? buildRoundSpecial3ForPlayer(cleanNick)
+          : null,
       allWords: isTargetRound
         ? []
         : Array.isArray(allWords)
@@ -18797,102 +17781,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeArea, authModalMode, phase, board, dictionary, submit]);
 
-  function playDefeatTone(freqs = [280, 220], soundKey = "error") {
-    if (isSfxMuted) return;
-    if (!shouldPlay(soundKey, AUDIO_COOLDOWNS_MS[soundKey] ?? 120)) return;
-    const system = getAudioSystem();
-    if (!system) return;
-    const { ctx } = system;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime + 0.01;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(humanizeGain(0.9, 1.0), now);
-      const fxNodes = connectSfxChain(
-        ctx,
-        system,
-        master,
-        {
-          filter: { type: "lowpass", base: 1800, peak: 4200, q: 0.8, attack: 0.02, release: 0.12 },
-          saturation: 0.7,
-          panRange: 0.12,
-          reverbSend: 0.06,
-        },
-        now
-      );
-      const nodes = [master, ...fxNodes];
-      let lastStop = now;
-      let lastOsc = null;
-      freqs.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const t0 = now + idx * 0.1;
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(humanizeFreq(freq, 5), t0);
-        const endTime = withEnvelope(
-          gain,
-          t0,
-          0.006,
-          humanizeGain(0.14, 1.4),
-          0.05,
-          0.16
-        );
-        const stopTime = endTime + 0.02;
-        osc.connect(gain);
-        gain.connect(master);
-        nodes.push(osc, gain);
-        if (stopTime > lastStop) lastStop = stopTime;
-        lastOsc = osc;
-        try {
-          osc.start(t0);
-          osc.stop(stopTime);
-        } catch (_) {}
-      });
-      const finalStopTime = lastStop;
-      const cleanup = startVoiceCount(soundKey, finalStopTime - ctx.currentTime + 0.1);
-      const finalize = scheduleNodeCleanup(ctx, finalStopTime + 0.05, nodes, cleanup);
-      if (lastOsc) lastOsc.onended = finalize;
-    };
-    ctx.resume().then(start).catch(start);
-  }
-
-  function playErrorSound() {
-    if (!soundInvalidErrorEnabled) return;
-    playDefeatTone([290, 230], "error");
-  }
-
-  function playInvalidWordSound() {
-    if (!soundInvalidErrorEnabled) return;
-    if (isSfxMuted) return;
-    playOneShotAudio(SFX_KEYS.invalidWord, {
-      cooldownKey: "invalidWord",
-      eqKey: "invalidWord",
-    });
-  }
-
-  function playShortWordSound() {
-    if (!soundValidationEnabled) return;
-    if (isSfxMuted) return;
-    playOneShotAudio(SFX_KEYS.shortWord, {
-      cooldownKey: "shortWord",
-      eqKey: "shortWord",
-    });
-  }
-
-  function playAlreadyPlayedSound() {
-    if (!soundInvalidErrorEnabled) return;
-    if (isSfxMuted) return;
-    playOneShotAudio(SFX_KEYS.dejaJoue, {
-      cooldownKey: "dejaJoue",
-      eqKey: "dejaJoue",
-    });
-  }
-
-  function playDuplicateErrorTone() {
-    if (!soundInvalidErrorEnabled) return;
-    playDefeatTone([320, 260], "duplicate");
-  }
-
     // =============== VIBRATIONS (optionnelles, mobile) ===============
   function vibrateLight() {
     if (!canVibrateRef.current || !isVibrationEnabledRef.current) return;
@@ -19045,6 +17933,20 @@ export default function App() {
     const isInvalidDico =
       lower.includes("dico") || lower.includes("dictionnaire") || lower.includes("absent");
     const isTooShort = lower.includes("trop court");
+    const invalidFlashLabel = isTooShort
+      ? "TROP COURT"
+      : lower.includes("déjà envoyé") || lower.includes("deja envoye")
+      ? "DEJA ENVOYE"
+      : lower.includes("déjà tenté") || lower.includes("deja tente")
+      ? "DEJA TENTE"
+      : isDuplicate
+      ? "DEJA JOUE"
+      : isInvalidDico
+      ? "INVALIDE"
+      : null;
+    if (invalidFlashLabel) {
+      triggerInvalidFlash(invalidFlashLabel);
+    }
     if (isInvalidDico) {
       playInvalidWordSound();
     } else if (isTooShort) {
@@ -19396,6 +18298,13 @@ function handleTouchEnd(e) {
     const reason = result?.reason || result?.error || "";
     const acceptedByServer = !!result?.ok || reason === "already_played";
     if (!acceptedByServer) {
+      if (meta.optimisticApplied) {
+        revertOptimisticWord(word, meta);
+        submissionStatusRef.current.delete(word);
+        pendingWordsRef.current.delete(word);
+        touchSubmissionState();
+        return;
+      }
       if (reason === "not_target") {
         setStatusMessageWithHold("Pas le mot cible", 1400);
       } else if (reason === "already_found") {
@@ -19614,6 +18523,19 @@ function handleTouchEnd(e) {
         },
         (res) => {
           applyServerWordResult(word, res);
+          if (res?.ok && Array.isArray(res.extraWords)) {
+            res.extraWords.forEach((extra) => {
+              const extraWord = normalizeWord(extra?.word || "");
+              if (!extraWord) return;
+              applyServerWordResult(extraWord, {
+                ...extra,
+                ok: true,
+                word: extraWord,
+                points: extra?.points ?? extra?.wordScore,
+                totalScore: extra?.totalScore ?? res.totalScore ?? res.score,
+              });
+            });
+          }
         }
       );
     }
@@ -19648,6 +18570,19 @@ function handleTouchEnd(e) {
     inFlight.words.forEach((word) => {
       const result = byWord.get(word) || { word, ok: false, reason: "no_response" };
       applyServerWordResult(word, result);
+      if (result?.ok && Array.isArray(result.extraWords)) {
+        result.extraWords.forEach((extra) => {
+          const extraWord = normalizeWord(extra?.word || "");
+          if (!extraWord || byWord.has(extraWord)) return;
+          applyServerWordResult(extraWord, {
+            ...extra,
+            ok: true,
+            word: extraWord,
+            points: extra?.points ?? extra?.wordScore,
+            totalScore: extra?.totalScore ?? result.totalScore ?? result.score,
+          });
+        });
+      }
     });
   }
 
@@ -19732,8 +18667,15 @@ function handleTouchEnd(e) {
     scheduleBatchFlush();
   }
 
-  function applyLocalWordScoring({ raw, display, path, usedFakeTwins = false }) {
-    const pts = computeScore(raw, path, board, specialScoreConfig);
+  function applyLocalWordScoring({
+    raw,
+    display,
+    path,
+    usedFakeTwins = false,
+    ptsOverride = null,
+  }) {
+    const computedPts = computeScore(raw, path, board, specialScoreConfig);
+    const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
     const displayStr = display || raw.toUpperCase();
     const now = Date.now();
     const normalizedPath = Array.isArray(path)
@@ -19777,8 +18719,12 @@ function handleTouchEnd(e) {
 
     const wordLen = normalizeWord(displayStr || raw || "").length || 3;
 
-    playScoreSound(pts);
-    maybeAnnounceBestWord(nickname.trim() || "Moi", displayStr || raw, pts);
+    if (isTargetRoundNow) {
+      showToast("Trouvé !");
+    } else {
+      playScoreSound(pts);
+      maybeAnnounceBestWord(nickname.trim() || "Moi", displayStr || raw, pts);
+    }
     const isSpeedRound = specialRound?.type === "speed";
     const maxPossiblePts = bestGridMaxRef.current || 0;
     const maxPossibleLen = bestGridMaxLenRef.current || 0;
@@ -19791,7 +18737,7 @@ function handleTouchEnd(e) {
     const isGobbleNow = isScoreGobbleNow || isLenGobbleNow;
     const isDoubleGobbleNow = isScoreGobbleNow && isLenGobbleNow;
 
-    if (isGobbleNow) {
+    if (!isTargetRoundNow && isGobbleNow) {
       if (isDoubleGobbleNow) playDoubleGobbleVoice();
       else playGobbleVoice();
       triggerPraiseFlash(isDoubleGobbleNow ? "DOUBLE GOBBLE !" : "GOBBLE !", {
@@ -19800,7 +18746,7 @@ function handleTouchEnd(e) {
         force: isDoubleGobbleNow,
       });
       triggerConfettiBurst("gobble");
-    } else if (!isSpeedRound) {
+    } else if (!isTargetRoundNow && !isSpeedRound) {
       if (pts > 29) {
         triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
       } else if (pts > 19) {
@@ -19822,7 +18768,7 @@ function handleTouchEnd(e) {
       return updated;
     });
 
-    setStatusMessageWithHold(`+${pts} pts`);
+    setStatusMessageWithHold(isTargetRoundNow ? "Trouvé !" : `+${pts} pts`);
     clearSelection();
   }
 
@@ -19861,56 +18807,34 @@ function handleTouchEnd(e) {
   }
 
   function buildPathWordCandidates(path) {
-    if (!Array.isArray(path) || path.length === 0) return [];
-    let candidates = [{ raw: "", display: "", usedFakeTwins: false }];
-    for (const idx of path) {
-      const cell = board?.[idx];
-      if (!cell) return [];
-      const primaryDisplay = String(cell?.letter || "").trim();
-      const primaryRaw = normalizeWord(primaryDisplay);
-      if (!primaryRaw) return [];
-      const options = [{ raw: primaryRaw, display: primaryDisplay, usedFakeTwins: false }];
-      const altDisplay = String(cell?.altLetter || "").trim();
-      const altRaw = normalizeWord(altDisplay);
-      if (
-        specialScoreConfig?.type === FAKE_TWINS_TYPE &&
-        cell?.specialType === FAKE_TWINS_TYPE &&
-        altRaw &&
-        altRaw !== primaryRaw
-      ) {
-        options.push({ raw: altRaw, display: altDisplay, usedFakeTwins: true });
-      }
-      const next = [];
-      for (const candidate of candidates) {
-        for (const option of options) {
-          next.push({
-            raw: `${candidate.raw}${option.raw}`,
-            display: `${candidate.display}${option.display}`,
-            usedFakeTwins: candidate.usedFakeTwins || option.usedFakeTwins,
-          });
-        }
-      }
-      const deduped = new Map();
-      next.forEach((candidate) => {
-        const key = `${candidate.raw}|${candidate.display}|${candidate.usedFakeTwins ? 1 : 0}`;
-        if (!deduped.has(key)) deduped.set(key, candidate);
-      });
-      candidates = Array.from(deduped.values());
-    }
-    return candidates;
+    return buildPathWordVariants(board, path, specialScoreConfig);
   }
 
-  function resolveSubmissionCandidateFromPath(path, preferredDisplay = "") {
+  function resolveSubmissionCandidatesFromPath(path, preferredDisplay = "") {
     if (!Array.isArray(path) || path.length === 0) return null;
     const preferredRaw = normalizeWord(preferredDisplay || "");
+    const serverSolutionsReady = !!serverSolutionsReadyRef.current;
+    const serverSolutions = solutionsRef.current instanceof Map ? solutionsRef.current : new Map();
     const candidates = buildPathWordCandidates(path)
       .filter((candidate) => candidate?.raw)
       .map((candidate) => ({
         ...candidate,
-        scored:
-          dictionary && dictionary.has(candidate.raw)
-            ? scoreWordOnGridWithPath(candidate.raw, board, path, specialScoreConfig)
-            : null,
+        scored: (() => {
+          const hasServerSolution = serverSolutions.has(candidate.raw);
+          if (serverSolutionsReady && !hasServerSolution) return null;
+          if (!hasServerSolution && (!dictionary || !dictionary.has(candidate.raw))) return null;
+          const scored = scoreWordOnGridWithPath(candidate.raw, board, path, specialScoreConfig);
+          const serverMeta = hasServerSolution ? serverSolutions.get(candidate.raw) : null;
+          if (!scored) return null;
+          if (serverMeta && Number.isFinite(serverMeta.pts)) {
+            return {
+              ...scored,
+              pts: serverMeta.pts,
+              usedFakeTwins: !!scored.usedFakeTwins || !!serverMeta.usedFakeTwins,
+            };
+          }
+          return scored;
+        })(),
       }))
       .filter((candidate) => candidate?.scored);
     if (!candidates.length) return null;
@@ -19927,7 +18851,11 @@ function handleTouchEnd(e) {
         sensitivity: "base",
       });
     });
-    return candidates[0] || null;
+    return candidates;
+  }
+
+  function resolveSubmissionCandidateFromPath(path, preferredDisplay = "") {
+    return resolveSubmissionCandidatesFromPath(path, preferredDisplay)?.[0] || null;
   }
 
   function getDailyActiveSlotIndex(slots, preferredIndex = 0) {
@@ -20157,9 +19085,22 @@ function handleTouchEnd(e) {
       setHighlightPath(path);
     }
 
-    const resolvedCandidate = resolveSubmissionCandidateFromPath(path, display);
+    const resolvedCandidates = resolveSubmissionCandidatesFromPath(path, display) || [];
+    const resolvedCandidate = resolvedCandidates[0] || null;
     if (!resolvedCandidate) {
-      if (!dictionary || !dictionary.has(preferredRaw)) return error("Absent du dico");
+      const serverSolutionsReady = !!serverSolutionsReadyRef.current;
+      const knownByServer =
+        solutionsRef.current instanceof Map && solutionsRef.current.has(preferredRaw);
+      if (
+        specialRound?.type === "target_long" ||
+        specialRound?.type === "target_score"
+      ) {
+        return error("Pas le mot cible");
+      }
+      if (!serverSolutionsReady && (!dictionary || !dictionary.has(preferredRaw))) {
+        return error("Absent du dico");
+      }
+      if (serverSolutionsReady && !knownByServer) return error("Absent du dico");
       return error("Mot absent de la grille");
     }
     const raw = resolvedCandidate.raw;
@@ -20186,41 +19127,75 @@ function handleTouchEnd(e) {
       resolvedCandidate.display || display || raw || ""
     ).toUpperCase();
 
-    if (acceptedRef.current.includes(raw)) return error("Déjà trouvé");
-    if (pendingWordsRef.current.has(raw)) return error("Déjà envoyé");
-    if (submissionStatusRef.current.get(raw)?.status === "rejected") {
+    const candidatesToSubmit =
+      specialScoreConfig?.type === FAKE_TWINS_TYPE ? resolvedCandidates : [resolvedCandidate];
+    const playableCandidates = candidatesToSubmit
+      .map((candidate) => {
+        const candidateRaw = candidate?.raw;
+        if (!candidateRaw) return null;
+        const candidateScored =
+          candidate?.scored &&
+          Array.isArray(candidate.scored.path) &&
+          candidate.scored.path.length > 0
+            ? candidate.scored
+            : scoreWordOnGridWithPath(candidateRaw, board, path, specialScoreConfig);
+        if (!candidateScored) return null;
+        return {
+          ...candidate,
+          scored: candidateScored,
+          display: String(candidate.display || candidateRaw || "").toUpperCase(),
+        };
+      })
+      .filter((candidate) => {
+        const candidateRaw = candidate?.raw;
+        if (!candidateRaw) return false;
+        if (acceptedRef.current.includes(candidateRaw)) return false;
+        if (pendingWordsRef.current.has(candidateRaw)) return false;
+        if (submissionStatusRef.current.get(candidateRaw)?.status === "rejected") return false;
+        return true;
+      });
+
+    if (!playableCandidates.length && acceptedRef.current.includes(raw)) return error("Déjà trouvé");
+    if (!playableCandidates.length && pendingWordsRef.current.has(raw)) return error("Déjà envoyé");
+    if (!playableCandidates.length && submissionStatusRef.current.get(raw)?.status === "rejected") {
       return error("Déjà tenté");
     }
+    if (!playableCandidates.length) return error("Déjà trouvé");
 
     // Mode en ligne : envoi optimiste + batch
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const optimisticPts = isTargetRoundNow
-        ? 0
-        : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
-        ? specialRound.fixedWordScore
-        : scored.pts;
-      const canOptimisticallyApply = !isMobileLayoutRef.current && !isTargetRoundNow;
+      const canOptimisticallyApply = true;
 
-      enqueuePendingWord(raw, {
-        display: resolvedDisplay,
-        path,
-        optimisticPts,
-        usedFakeTwins: !!scored?.usedFakeTwins,
-        traceStartedAt: getSubmissionTraceStartedAt(),
-        optimisticApplied: canOptimisticallyApply,
-      });
-      if (canOptimisticallyApply) {
-        applyLocalWordScoring({
-          raw,
-          display: resolvedDisplay,
-          path: Array.isArray(scored?.path) && scored.path.length > 0 ? scored.path : path,
-          usedFakeTwins: !!scored?.usedFakeTwins,
+      playableCandidates.forEach((candidate) => {
+        const candidateScored = candidate.scored;
+        const optimisticPts = isTargetRoundNow
+          ? 0
+          : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
+          ? specialRound.fixedWordScore
+          : candidateScored.pts;
+        enqueuePendingWord(candidate.raw, {
+          display: candidate.display,
+          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
+            ? candidateScored.path
+            : path,
+          optimisticPts,
+          usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          traceStartedAt: getSubmissionTraceStartedAt(),
+          optimisticApplied: canOptimisticallyApply,
         });
-      } else {
-        clearSelection();
-      }
+        if (!canOptimisticallyApply) return;
+        applyLocalWordScoring({
+          raw: candidate.raw,
+          display: candidate.display,
+          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
+            ? candidateScored.path
+            : path,
+          usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          ptsOverride: optimisticPts,
+        });
+      });
       if (!isMobileLayoutRef.current) {
         scheduleBatchFlush({ immediate: true });
       }
@@ -20234,11 +19209,13 @@ function handleTouchEnd(e) {
     }
 
     // Mode solo local : on garde le scoring existant
-    applyLocalWordScoring({
-      raw,
-      display: resolvedDisplay,
-      path: scored.path,
-      usedFakeTwins: !!scored?.usedFakeTwins,
+    playableCandidates.forEach((candidate) => {
+      applyLocalWordScoring({
+        raw: candidate.raw,
+        display: candidate.display,
+        path: candidate.scored.path,
+        usedFakeTwins: !!candidate.scored?.usedFakeTwins,
+      });
     });
   }
 
@@ -20268,7 +19245,8 @@ function handleTouchEnd(e) {
       path = Array.isArray(liveScored?.path) && liveScored.path.length > 0 ? liveScored.path : null;
     }
     if (!Array.isArray(path) || path.length === 0) return false;
-    const resolvedCandidate = resolveSubmissionCandidateFromPath(path, display);
+    const resolvedCandidates = resolveSubmissionCandidatesFromPath(path, display) || [];
+    const resolvedCandidate = resolvedCandidates[0] || null;
     if (!resolvedCandidate) return false;
     const raw = resolvedCandidate.raw;
     const bestResolvedPath = findBestPathForWord(board, raw, specialScoreConfig);
@@ -20280,13 +19258,35 @@ function handleTouchEnd(e) {
         ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
         : null;
     if (!scored) return false;
-    if (acceptedRef.current.includes(raw)) return false;
-    if (pendingWordsRef.current.has(raw)) return false;
-    if (submissionStatusRef.current.get(raw)?.status === "rejected") return false;
+    const candidatesToSubmit =
+      specialScoreConfig?.type === FAKE_TWINS_TYPE ? resolvedCandidates : [resolvedCandidate];
+    const playableCandidates = candidatesToSubmit
+      .map((candidate) => {
+        const candidateRaw = candidate?.raw;
+        if (!candidateRaw) return null;
+        const candidateScored =
+          candidate?.scored &&
+          Array.isArray(candidate.scored.path) &&
+          candidate.scored.path.length > 0
+            ? candidate.scored
+            : scoreWordOnGridWithPath(candidateRaw, board, path, specialScoreConfig);
+        if (!candidateScored) return null;
+        return {
+          ...candidate,
+          scored: candidateScored,
+          display: String(candidate.display || candidateRaw || "").toUpperCase(),
+        };
+      })
+      .filter((candidate) => {
+        const candidateRaw = candidate?.raw;
+        if (!candidateRaw) return false;
+        if (acceptedRef.current.includes(candidateRaw)) return false;
+        if (pendingWordsRef.current.has(candidateRaw)) return false;
+        if (submissionStatusRef.current.get(candidateRaw)?.status === "rejected") return false;
+        return true;
+      });
+    if (!playableCandidates.length) return false;
     path = Array.isArray(scored.path) && scored.path.length > 0 ? scored.path : path;
-    const resolvedDisplay = String(
-      resolvedCandidate.display || display || raw || ""
-    ).toUpperCase();
     highlightPathRef.current = path;
     setHighlightPath(path);
 
@@ -20297,21 +19297,35 @@ function handleTouchEnd(e) {
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const optimisticPts = isTargetRoundNow
-        ? 0
-        : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
-        ? specialRound.fixedWordScore
-        : scored.pts;
 
-      enqueuePendingWord(raw, {
-        display: resolvedDisplay,
-        path,
-        optimisticPts,
-        usedFakeTwins: !!scored?.usedFakeTwins,
-        traceStartedAt: getSubmissionTraceStartedAt(),
+      playableCandidates.forEach((candidate) => {
+        const candidateScored = candidate.scored;
+        const candidatePts = isTargetRoundNow
+          ? 0
+          : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
+          ? specialRound.fixedWordScore
+          : candidateScored.pts;
+        enqueuePendingWord(candidate.raw, {
+          display: candidate.display,
+          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
+            ? candidateScored.path
+            : path,
+          optimisticPts: candidatePts,
+          usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          traceStartedAt: getSubmissionTraceStartedAt(),
+          optimisticApplied: true,
+        });
+        applyLocalWordScoring({
+          raw: candidate.raw,
+          display: candidate.display,
+          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
+            ? candidateScored.path
+            : path,
+          usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          ptsOverride: candidatePts,
+        });
       });
       scheduleBatchFlush({ immediate: true });
-      clearSelection();
       return true;
     }
 
@@ -20319,11 +19333,13 @@ function handleTouchEnd(e) {
       return false;
     }
 
-    applyLocalWordScoring({
-      raw,
-      display: resolvedDisplay,
-      path: scored.path,
-      usedFakeTwins: !!scored?.usedFakeTwins,
+    playableCandidates.forEach((candidate) => {
+      applyLocalWordScoring({
+        raw: candidate.raw,
+        display: candidate.display,
+        path: candidate.scored.path,
+        usedFakeTwins: !!candidate.scored?.usedFakeTwins,
+      });
     });
     return true;
   }
@@ -20399,96 +19415,6 @@ function handleTouchEnd(e) {
         tileEl.classList.remove("daily-special-lock");
       }, 380);
     } catch (_) {}
-  }
-
-  function playDailySpecialLockValidationSound() {
-    if (!soundValidationEnabled || isSfxMuted) return;
-    const soundKey = "dailySpecialLockValidation";
-    if (!shouldPlay(soundKey, 55, { ignorePolyphony: true })) return;
-    const system = getAudioSystem();
-    if (!system) return;
-    const { ctx } = system;
-    const start = () => {
-      if (ctx.state !== "running") return;
-      const now = ctx.currentTime + 0.008;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(humanizeGain(0.95, 0.8), now);
-      const fxNodes = connectSfxChain(
-        ctx,
-        system,
-        master,
-        {
-          filter: {
-            type: "bandpass",
-            base: 1100,
-            peak: 2800,
-            q: 1.1,
-            attack: 0.01,
-            release: 0.16,
-          },
-          saturation: 0.8,
-          panRange: 0.06,
-          reverbSend: 0.08,
-        },
-        now
-      );
-      const nodes = [master, ...fxNodes];
-      let lastStop = now;
-      let lastOsc = null;
-      const notes = [
-        { freq: 720, offset: 0, attack: 0.004, hold: 0.045, release: 0.07, gain: 0.11, type: "triangle" },
-        { freq: 1080, offset: 0.052, attack: 0.003, hold: 0.055, release: 0.1, gain: 0.125, type: "sine" },
-      ];
-      notes.forEach((note) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const t0 = now + note.offset;
-        osc.type = note.type;
-        osc.frequency.setValueAtTime(humanizeFreq(note.freq, 3), t0);
-        const endTime = withEnvelope(
-          gain,
-          t0,
-          note.attack,
-          humanizeGain(note.gain, 0.7),
-          note.hold,
-          note.release
-        );
-        const stopTime = endTime + 0.025;
-        osc.connect(gain);
-        gain.connect(master);
-        nodes.push(osc, gain);
-        if (stopTime > lastStop) lastStop = stopTime;
-        lastOsc = osc;
-        try {
-          osc.start(t0);
-          osc.stop(stopTime);
-        } catch (_) {}
-      });
-      const clickOsc = ctx.createOscillator();
-      const clickGain = ctx.createGain();
-      const clickAt = now + 0.01;
-      clickOsc.type = "square";
-      clickOsc.frequency.setValueAtTime(humanizeFreq(1900, 5), clickAt);
-      const clickEnd = withEnvelope(clickGain, clickAt, 0.0015, humanizeGain(0.03, 0.5), 0.004, 0.02);
-      const clickStop = clickEnd + 0.01;
-      clickOsc.connect(clickGain);
-      clickGain.connect(master);
-      nodes.push(clickOsc, clickGain);
-      if (clickStop > lastStop) lastStop = clickStop;
-      try {
-        clickOsc.start(clickAt);
-        clickOsc.stop(clickStop);
-      } catch (_) {}
-      const finalStopTime = lastStop;
-      const cleanup = startVoiceCount(soundKey, finalStopTime - ctx.currentTime + 0.08);
-      const finalize = scheduleNodeCleanup(ctx, finalStopTime + 0.05, nodes, cleanup);
-      if (lastOsc) {
-        lastOsc.onended = finalize;
-      } else {
-        setTimeout(finalize, Math.max(30, Math.round((finalStopTime - ctx.currentTime) * 1000)));
-      }
-    };
-    ctx.resume().then(start).catch(start);
   }
 
   function findGridIndexFromPoint(clientX, clientY) {
@@ -21033,7 +19959,10 @@ function handleTouchEnd(e) {
 
   const showResultsWordPath =
     phase === "results" && !isMobileLayout && analysis?.word && highlightPath.length > 0;
-  const usedSet = phase === "playing" ? new Set(highlightPath) : new Set();
+  const usedSet = React.useMemo(
+    () => (phase === "playing" ? new Set(highlightPath) : new Set()),
+    [highlightPath, phase]
+  );
   const computeResultsPathPreview = React.useCallback(() => {
     if (!showResultsWordPath) return null;
     const gridEl = gridRef.current;
@@ -21434,13 +20363,16 @@ function handleTouchEnd(e) {
       currentBonuses.M2 ||
       currentBonuses.M3);
   const chipCompact = currentTiles.length > 10;
-  const foundDotStyle = {
-    width: "0.4rem",
-    height: "0.4rem",
-    borderRadius: "9999px",
-    backgroundColor: darkMode ? "#f8fafc" : "#0f172a",
-    flexShrink: 0,
-  };
+  const foundDotStyle = React.useMemo(
+    () => ({
+      width: "0.4rem",
+      height: "0.4rem",
+      borderRadius: "9999px",
+      backgroundColor: darkMode ? "#f8fafc" : "#0f172a",
+      flexShrink: 0,
+    }),
+    [darkMode]
+  );
   const highlightPlayersSet = new Set(highlightPlayers);
   const acceptedWordSet = React.useMemo(() => new Set(accepted), [accepted]);
   const bestPtsByFoundWord = acceptedBestPtsRef.current;
@@ -22145,18 +21077,32 @@ function handleTouchEnd(e) {
                     : "bg-slate-50 border-slate-200"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <div className="min-w-0">
                     {renderSpecial3PreviewTiles(
                       slot.display,
                       `results-special3-leader-${idx}`,
                       slot.path,
-                      special3Leader.board
+                      special3Leader.board,
+                      {
+                        align: "left",
+                        disableRotation: true,
+                        edgePadding: true,
+                        minScale: 0.3,
+                        onClick: () =>
+                          openDefinition(slot.word || slot.display, {
+                            preferLongDefinition: true,
+                          }),
+                        title: `Voir la définition de ${slot.display || slot.word}`,
+                        ariaLabel: `Voir la définition de ${slot.display || slot.word}`,
+                      }
                     )}
                   </div>
-                  <span className={`${resultLabelClass} text-[11px] font-bold whitespace-nowrap`}>
+                  <div className="mt-1 flex items-center justify-end gap-2">
+                    <span className={`${resultLabelClass} text-[11px] font-bold whitespace-nowrap`}>
                     {Number.isFinite(slot.pts) ? `${slot.pts} pts` : "--"}
-                  </span>
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -22762,18 +21708,32 @@ function handleTouchEnd(e) {
                     : "bg-slate-50 border-slate-200 text-slate-800"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <div className="min-w-0">
                     {renderSpecial3PreviewTiles(
                       slot.display,
                       `dock-special3-leader-${idx}`,
                       slot.path,
-                      special3Leader.board
+                      special3Leader.board,
+                      {
+                        align: "left",
+                        disableRotation: true,
+                        edgePadding: true,
+                        minScale: 0.3,
+                        onClick: () =>
+                          openDefinition(slot.word || slot.display, {
+                            preferLongDefinition: true,
+                          }),
+                        title: `Voir la définition de ${slot.display || slot.word}`,
+                        ariaLabel: `Voir la définition de ${slot.display || slot.word}`,
+                      }
                     )}
                   </div>
-                  <span className={`text-[11px] font-bold whitespace-nowrap ${mutedClass}`}>
-                    {Number.isFinite(slot.pts) ? `${slot.pts} pts` : "--"}
-                  </span>
+                  <div className="mt-1 flex items-center justify-end gap-2">
+                    <span className={`text-[11px] font-bold whitespace-nowrap ${mutedClass}`}>
+                      {Number.isFinite(slot.pts) ? `${slot.pts} pts` : "--"}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -23231,8 +22191,14 @@ function handleTouchEnd(e) {
     () => buildRanking(),
     [provisionalRanking, players, score, selfNick, duelStatus?.team]
   );
-  const dailyEntriesRaw = Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : [];
-  const dailyEntries = dailyEntriesRaw.filter((entry) => !entry?.isPalier);
+  const dailyEntriesRaw = React.useMemo(
+    () => (Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : []),
+    [dailyBoard?.entries]
+  );
+  const dailyEntries = React.useMemo(
+    () => dailyEntriesRaw.filter((entry) => !entry?.isPalier),
+    [dailyEntriesRaw]
+  );
   const dailyWidgetEntries = isMobileLayout ? dailyEntriesRaw : dailyEntries;
   const dailyRankingSource = React.useMemo(() => {
     const allEntries = Array.isArray(dailyWidgetEntries) ? dailyWidgetEntries : [];
@@ -23379,8 +22345,10 @@ function handleTouchEnd(e) {
     return result.slice(0, maxItems);
   }
 
-  const rankingList =
-    phase === "playing" ? buildRankingWindow(rankingSource, selfNick) : rankingSource;
+  const rankingList = React.useMemo(
+    () => (phase === "playing" ? buildRankingWindow(rankingSource, selfNick) : rankingSource),
+    [phase, rankingSource, selfNick]
+  );
   const isTargetRound =
     specialRound?.type === "target_long" ||
     specialRound?.type === "target_score" ||
@@ -25043,15 +24011,11 @@ function handleTouchEnd(e) {
   // Surbrillance par border-4 interne (plus de ring)
   const gameBlockClasses =
     "p-4 bg-white rounded-xl space-y-3 w-full max-w-md flex-shrink-0 " +
-    (activeArea === "game"
-      ? "border-4 border-black"
-      : "border border-gray-300");
+    (activeArea === "game" ? "border-4 border-black" : "border border-gray-300");
 
   const chatBlockClasses =
     "bg-white/90 dark:bg-slate-900/80 rounded-xl p-4 w-full justify-self-stretch flex flex-col h-full " +
-    (activeArea === "chat"
-      ? "border-4 border-black"
-      : "border border-gray-300");
+    (activeArea === "chat" ? "border-4 border-black" : "border border-gray-300");
   const activeRoomId = currentRoomId || roomId;
   const activeRoom = ROOM_OPTIONS[activeRoomId] || ROOM_OPTIONS["room-4x4"];
   const isFinaleBanner =
@@ -25188,6 +24152,12 @@ function handleTouchEnd(e) {
     const align = options?.align === "left" ? "left" : "center";
     const disableRotation = !!options?.disableRotation;
     const edgePadding = !!options?.edgePadding;
+    const minScale = Number.isFinite(options?.minScale)
+      ? Math.max(0.25, Math.min(1, Number(options.minScale)))
+      : 0.42;
+    const onClick = typeof options?.onClick === "function" ? options.onClick : null;
+    const title = typeof options?.title === "string" ? options.title : undefined;
+    const ariaLabel = typeof options?.ariaLabel === "string" ? options.ariaLabel : title;
     const safePath = Array.isArray(pathValue) ? pathValue : [];
     const previewBoard =
       Array.isArray(boardSource) && boardSource.length > 0 ? boardSource : boardForRender;
@@ -25214,10 +24184,9 @@ function handleTouchEnd(e) {
     const useFillIndicator = specialIndicatorPreset === "fill";
     const useRingIndicator = specialIndicatorPreset === "ring";
     const useBadgeIndicator = specialIndicatorPreset === "badge";
-    return (
-      <div className="min-h-[28px] min-w-0 flex items-center">
+    const inner = (
         <AutoScaleInline
-          minScale={0.42}
+          minScale={minScale}
           align={align}
           measurePaddingPx={edgePadding ? 10 : 4}
           className={`gap-1 max-w-full ${edgePadding ? "px-1.5" : ""}`}
@@ -25269,6 +24238,25 @@ function handleTouchEnd(e) {
             );
           })}
         </AutoScaleInline>
+    );
+    if (onClick) {
+      return (
+        <button
+          type="button"
+          className={`min-h-[28px] min-w-0 flex items-center w-full rounded-md text-left transition focus:outline-none focus:ring-2 focus:ring-blue-400/70 ${
+            darkMode ? "hover:bg-slate-700/60" : "hover:bg-slate-100"
+          }`}
+          onClick={onClick}
+          title={title}
+          aria-label={ariaLabel}
+        >
+          {inner}
+        </button>
+      );
+    }
+    return (
+      <div className="min-h-[28px] min-w-0 flex items-center">
+        {inner}
       </div>
     );
   };
@@ -26489,11 +25477,14 @@ function handleTouchEnd(e) {
       ) : null}
     </div>
   );
+  const homeSurfaceUsesFixedFantasyTheme =
+    !isLoggedIn && appView !== "daily_play" && appView !== "daily_results";
+  const menuDarkMode = homeSurfaceUsesFixedFantasyTheme ? true : darkMode;
   const statsHeaderToggle = (
     <div className="flex items-center gap-2">
       <div
         className={`inline-flex rounded-full overflow-hidden border ${
-          darkMode ? "border-slate-700" : "border-slate-200"
+          menuDarkMode ? "border-slate-700" : "border-slate-200"
         }`}
       >
         <button
@@ -26501,10 +25492,10 @@ function handleTouchEnd(e) {
           onClick={() => setStatsTab("weekly")}
           className={`px-3 py-1 text-xs font-semibold transition ${
             statsTab === "weekly"
-              ? darkMode
+              ? menuDarkMode
                 ? "bg-blue-700 text-white"
                 : "bg-blue-600 text-white"
-              : darkMode
+              : menuDarkMode
               ? "bg-slate-900 text-slate-300"
               : "bg-white text-slate-600"
           }`}
@@ -26521,10 +25512,10 @@ function handleTouchEnd(e) {
           }}
           className={`px-3 py-1 text-xs font-semibold transition ${
             statsTab === "season"
-              ? darkMode
+              ? menuDarkMode
                 ? "bg-blue-700 text-white"
                 : "bg-blue-600 text-white"
-              : darkMode
+              : menuDarkMode
               ? "bg-slate-900 text-slate-300"
               : "bg-white text-slate-600"
           }`}
@@ -26556,45 +25547,30 @@ function handleTouchEnd(e) {
         };
   const weeklyStatsPage =
     appView === "stats" ? (
-      <div
-        className={`relative w-full max-w-none h-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col min-h-0 ${
-          darkMode
-            ? "bg-slate-900/90 border-white/10 text-white"
-            : "bg-white/95 border-slate-200 text-slate-900"
-        }`}
+      <FantasyPanelShell
+        className="relative z-10 w-full max-w-none h-full"
+        bodyClassName="flex flex-col min-h-0"
+        eyebrow="Gobble stats"
+        title={statsTab === "weekly" ? activeWeeklyBoard?.label : "Vocabulaire"}
+        subtitle={
+          statsTab === "weekly"
+            ? `${weeklyWeekNumber ? `Semaine ${weeklyWeekNumber}` : "Semaine en cours"} - Reset : lundi a minuit`
+            : "Progression vocabulaire"
+        }
+        headerControls={statsHeaderToggle}
+        onClose={() => {
+          playCloseSound();
+          closeWeeklyStatsOverlay();
+        }}
         onTouchStart={handleStatsTouchStart}
         onTouchMove={handleStatsTouchMove}
         onTouchEnd={handleStatsTouchEnd}
       >
-        <div className="p-4 pb-2 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-              GOBBLE STATS
-            </div>
-            <button
-              type="button"
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
-                darkMode
-                  ? "bg-slate-800/80 border-white/10 text-slate-100"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
-              onClick={() => {
-                playCloseSound();
-                closeWeeklyStatsOverlay();
-              }}
-              aria-label="Fermer les stats"
-            >
-              Fermer
-            </button>
+        {statsTab === "weekly" ? (
+          <div className="px-4 pt-2 text-[11px] font-semibold opacity-75">
+            Slide gauche/droite pour changer de categorie
           </div>
-          <div className="flex items-center justify-start">{statsHeaderToggle}</div>
-          {statsHeaderTitle}
-          {statsTab === "weekly" ? (
-            <div className="mt-2 text-[11px] opacity-70">
-              Slide gauche/droite pour changer de categorie
-            </div>
-          ) : null}
-        </div>
+        ) : null}
         {statsTab === "weekly" ? weeklyDots : null}
         {statsTab === "season" ? seasonDots : null}
         {statsTab === "weekly" ? (
@@ -26707,7 +25683,7 @@ function handleTouchEnd(e) {
             </div>
           </div>
         )}
-      </div>
+      </FantasyPanelShell>
     ) : null;
 
   const playersOverlayEntries =
@@ -26803,44 +25779,28 @@ function handleTouchEnd(e) {
             className="fixed inset-0 z-[20160] bg-black/60 backdrop-blur-sm flex items-center justify-center px-3 py-6"
             onClick={closePlayersOverlay}
           >
-            <div
-              className={`relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden ${
-                darkMode
-                  ? "bg-slate-900/80 border-white/10 text-white"
-                  : "bg-white/80 border-slate-200/80 text-slate-900"
-              }`}
+            <FantasyPanelShell
+              className="relative w-full max-w-md max-h-[86vh]"
+              bodyClassName="overflow-hidden"
+              eyebrow={playersOverlayMode === "snapshot" ? "Classement en cours" : "Joueurs en jeu"}
+              title={`Liste des joueurs${playersOverlayEntries.length ? ` (${playersOverlayEntries.length})` : ""}`}
+              subtitle={
+                [
+                  playersOverlayMode === "snapshot"
+                    ? "Photo du classement en cours (figee)"
+                    : "Liste alphabetique (sans score)",
+                  tournamentInfoLine,
+                  tournamentEtaLine,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              }
+              onClose={() => {
+                playCloseSound();
+                closePlayersOverlay();
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                className="absolute top-3 right-3 z-20 rounded-full h-10 w-16 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
-                onClick={() => {
-                  playCloseSound();
-                  closePlayersOverlay();
-                }}
-                aria-label="Fermer la liste des joueurs"
-              >
-                <span className="pointer-events-none">X</span>
-              </button>
-              <div className="p-4 pb-2">
-                <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
-                  {playersOverlayMode === "snapshot" ? "Classement en cours" : "Joueurs en jeu"}
-                </div>
-                <div className="text-lg font-extrabold">
-                  Liste des joueurs{playersOverlayEntries.length ? ` (${playersOverlayEntries.length})` : ""}
-                </div>
-                <div className="text-xs opacity-70">
-                  {playersOverlayMode === "snapshot"
-                    ? "Photo du classement en cours (figee)"
-                    : "Liste alphabetique (sans score)"}
-                </div>
-                {tournamentInfoLine || tournamentEtaLine ? (
-                  <div className="mt-2 text-[11px] font-semibold opacity-80">
-                    {tournamentInfoLine ? <div>{tournamentInfoLine}</div> : null}
-                    {tournamentEtaLine ? <div>{tournamentEtaLine}</div> : null}
-                  </div>
-                ) : null}
-              </div>
               <div className="px-4 pb-4">
                 {playersOverlayEntries.length ? (
                   <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
@@ -26900,7 +25860,7 @@ function handleTouchEnd(e) {
                   </div>
                 )}
               </div>
-            </div>
+            </FantasyPanelShell>
           </div>,
           document.body
         )
@@ -26933,6 +25893,8 @@ function handleTouchEnd(e) {
   const definitionVaultWord = String(definitionModal.word || "").trim();
   const definitionWordInVault = isAccountAuthenticated && isWordInVault(definitionVaultWord);
   const definitionVaultShowsSavedState = !definitionModal.fromVault && definitionWordInVault;
+  const definitionModalDarkMode =
+    definitionModal.fromVault || homeSurfaceUsesFixedFantasyTheme ? menuDarkMode : darkMode;
 
   const definitionModalView =
     definitionModal.open && typeof document !== "undefined"
@@ -26949,10 +25911,10 @@ function handleTouchEnd(e) {
                 definitionModal.preferLongDefinition ? "max-w-xl" : "max-w-sm"
               } rounded-xl border p-4 shadow-xl max-h-[82vh] flex flex-col ${
                 definitionModal.fromWordInfo
-                  ? darkMode
+                  ? definitionModalDarkMode
                     ? "bg-slate-900 text-slate-100 border-slate-600"
                     : "bg-white text-slate-900 border-slate-200"
-                  : darkMode
+                  : definitionModalDarkMode
                   ? "bg-slate-900/80 text-slate-100 border-slate-600"
                   : "bg-white/80 text-slate-900 border-slate-200"
               }`}
@@ -26997,7 +25959,7 @@ function handleTouchEnd(e) {
                       href={definitionModal.url}
                       target="_blank"
                       rel="noreferrer"
-                      className={darkMode ? "text-amber-300" : "text-blue-600"}
+                      className={definitionModalDarkMode ? "text-amber-300" : "text-blue-600"}
                     >
                       Source :{" "}
                       {definitionModal.source === "wiktionary"
@@ -27009,7 +25971,7 @@ function handleTouchEnd(e) {
                         : "Source"}
                     </a>
                   ) : (
-                    <span className={darkMode ? "text-amber-300" : "text-blue-600"}>
+                    <span className={definitionModalDarkMode ? "text-amber-300" : "text-blue-600"}>
                       Source :{" "}
                       {definitionModal.source === "wiktionary"
                         ? "Wiktionary"
@@ -27027,14 +25989,14 @@ function handleTouchEnd(e) {
                     )}`}
                     target="_blank"
                     rel="noreferrer"
-                    className={darkMode ? "text-amber-300" : "text-blue-600"}
+                    className={definitionModalDarkMode ? "text-amber-300" : "text-blue-600"}
                   >
                     Rechercher sur Google
                   </a>
                 )}
                 <div className="flex items-center gap-2">
                   <DefinitionVaultButton
-                    darkMode={darkMode}
+                    darkMode={definitionModalDarkMode}
                     fromVault={definitionModal.fromVault}
                     wordInVault={definitionVaultShowsSavedState}
                     pending={wordVaultActionPending}
@@ -27043,7 +26005,7 @@ function handleTouchEnd(e) {
                   <button
                     type="button"
                     className={`px-2 py-1 rounded border text-[11px] ${
-                      darkMode
+                      definitionModalDarkMode
                         ? "bg-slate-800 border-slate-600 text-slate-100"
                         : "bg-gray-50 border-gray-200 text-slate-900"
                     }`}
@@ -27185,6 +26147,8 @@ function handleTouchEnd(e) {
       playerNick={roundPlayerModal.nick}
       words={roundPlayerModal.words}
       allWords={roundPlayerModal.allWords}
+      special3Board={roundPlayerModal.special3?.board || []}
+      special3Slots={roundPlayerModal.special3?.slots || []}
       records={roundPlayerModal.records}
       anchorRect={roundPlayerModal.anchorRect}
       targetBoardKey={roundPlayerModal.targetBoardKey}
@@ -27193,6 +26157,7 @@ function handleTouchEnd(e) {
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
       isSpecial3Round={specialRound?.type === DAILY_SPECIAL_MODE}
+      renderSpecial3PreviewTiles={renderSpecial3PreviewTiles}
       showWordScores={
         specialRound?.type !== "speed" && specialRound?.type !== DAILY_SPECIAL_MODE
       }
@@ -28558,20 +27523,29 @@ function handleTouchEnd(e) {
       const draftThemeForApply = normalizeThemePreset(actionMeta?.draftTheme || themeDraftSafe);
       setThemeApplying(true);
       try {
-        const res = await fetch("/api/theme/apply", {
-          method: "POST",
-          cache: "no-store",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            installId,
-            mode,
-            category,
-            draftTheme: draftThemeForApply,
-          }),
-        });
-        const parsed = await readJsonResponseLoose(res);
-        const payload = parsed?.data;
+        let res = null;
+        let parsed = null;
+        let payload = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          res = await fetch("/api/theme/apply", {
+            method: "POST",
+            cache: "no-store",
+            credentials: "include",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({
+              installId,
+              mode,
+              category,
+              draftTheme: draftThemeForApply,
+            }),
+          });
+          parsed = await readJsonResponseLoose(res);
+          payload = parsed?.data;
+          if (res.ok && payload?.ok) break;
+          if (String(payload?.error || "") !== "auth_required" || attempt > 0) break;
+          const refreshed = await refreshAuthStatus({ silent: true });
+          if (refreshed?.status !== "authenticated" || !refreshed?.user) break;
+        }
         if (!res.ok || !payload?.ok) {
           if (payload?.error === "insufficient_funds") {
             const required = Math.max(0, Number(payload?.required) || 0);
@@ -28585,6 +27559,9 @@ function handleTouchEnd(e) {
               2600,
               { iconSrc: gobblarsBadgeUrl, iconAlt: "Gobblars" }
             );
+          } else if (payload?.error === "auth_required") {
+            setAccountNotice(ACCOUNT_SESSION_UNAVAILABLE_MESSAGE);
+            showToast("Reconnecte-toi pour appliquer ce thème.");
           } else {
             showToast("Impossible d'appliquer ce thème.");
           }
@@ -28643,6 +27620,8 @@ function handleTouchEnd(e) {
       applyThemePresetToLocalState,
       installId,
       gobblarsBadgeUrl,
+      refreshAuthStatus,
+      setAccountNotice,
       showToast,
       themeApplying,
       themeDraftSafe,
@@ -28792,30 +27771,37 @@ function handleTouchEnd(e) {
     );
     applyThemeVisualState(nextTheme);
   }, [applyThemeVisualState, themeDraftSafe]);
+  const settingsShellClass = menuDarkMode
+    ? "border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.96),rgba(7,22,55,0.98))] text-amber-50"
+    : "border-amber-300/80 bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] text-slate-900";
+  const settingsPanelButtonClass = menuDarkMode
+    ? "bg-slate-950/35 border-amber-200/25 text-amber-50 hover:bg-slate-950/50"
+    : "bg-white/65 border-amber-300/45 text-slate-800 hover:bg-amber-50/80";
+  const settingsGoldButtonClass =
+    "bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950 shadow";
+  const settingsPositiveButtonClass = menuDarkMode
+    ? "bg-emerald-900/55 border-emerald-300/40 text-emerald-50 hover:bg-emerald-900/70"
+    : "bg-emerald-50/85 border-emerald-300/60 text-emerald-800 hover:bg-emerald-100";
+  const settingsMutedButtonClass = menuDarkMode
+    ? "bg-slate-950/25 border-amber-200/20 text-amber-50/80 hover:bg-slate-950/40"
+    : "bg-white/45 border-amber-300/35 text-slate-700 hover:bg-amber-50/70";
+  const settingsDangerButtonClass = menuDarkMode
+    ? "bg-rose-950/55 border-rose-300/40 text-rose-50 hover:bg-rose-950/70"
+    : "bg-rose-50/85 border-rose-300/60 text-rose-800 hover:bg-rose-100";
   const settingsMenuView = isSettingsOpen ? (
-    <div className="fixed inset-0 z-[20090] flex items-start justify-end p-4">
-      <style>{slideStyles}</style>
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/45"
-        onClick={() => closeSettingsMenu({ animatePanels: true })}
-        aria-label="Fermer les parametres"
-      />
+    <SettingsMenuFrame
+      slideStyles={slideStyles}
+      onClose={() => closeSettingsMenu({ animatePanels: true })}
+    >
       <div
-        className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
-          darkMode
-            ? "bg-slate-900/95 border-white/10 text-slate-100"
-            : "bg-white/95 border-slate-200 text-slate-900"
-        }`}
+        className={`relative w-full max-w-xs rounded-2xl border-2 p-4 shadow-2xl ${settingsShellClass}`}
       >
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm font-extrabold">Parametres</div>
           <button
             type="button"
             className={`h-7 w-7 rounded-full border flex items-center justify-center ${
-              darkMode
-                ? "bg-slate-800/80 border-white/10 text-slate-100"
-                : "bg-white border-slate-200 text-slate-700"
+              "bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950"
             }`}
             onClick={() => {
               closeSettingsMenu({ animatePanels: true });
@@ -28828,12 +27814,10 @@ function handleTouchEnd(e) {
         <div className="flex flex-col gap-2 text-sm">
           <div
             className={`rounded-xl border px-3 py-3 ${
-              darkMode
-                ? "border-white/10 bg-slate-800/80 text-slate-100"
-                : "border-slate-200 bg-slate-50 text-slate-900"
+              settingsPanelButtonClass
             }`}
           >
-            <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-blue-500">
+            <div className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${menuDarkMode ? "text-amber-200" : "text-amber-700"}`}>
               Compte
             </div>
             <div className="mt-1 text-sm font-semibold">
@@ -28841,15 +27825,19 @@ function handleTouchEnd(e) {
                 ? authState.user?.usernameDisplay || "Connecté"
                 : isAuthStatusPending
                 ? "Vérification..."
+                : isAuthServerUnavailable
+                ? "Serveur occupé"
                 : authState.status === "legacy_profile_found"
                 ? legacyProfileUsername || "Profil historique reconnu"
                 : "Non connecté"}
             </div>
-            <div className={`mt-1 text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+            <div className={`mt-1 text-xs ${menuDarkMode ? "text-amber-50/70" : "text-slate-600"}`}>
               {isAccountAuthenticated
                 ? "Session persistante active."
                 : isAuthStatusPending
                 ? "Recherche d'un profil existant sur cet appareil."
+                : isAuthServerUnavailable
+                ? ACCOUNT_SERVER_BUSY_MESSAGE
                 : authState.status === "legacy_profile_found"
                 ? "Ton profil a été reconnu. Sécurise-le pour conserver ton identité."
                 : "Connexion / inscription avec pseudo et mot de passe."}
@@ -28860,43 +27848,32 @@ function handleTouchEnd(e) {
                   <button
                     type="button"
                     onClick={() => openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
-                      darkMode
-                        ? "border-white/10 bg-slate-900 text-slate-100"
-                        : "border-slate-200 bg-white text-slate-700"
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
                   >
                     Changer le mot de passe
                   </button>
                   <button
                     type="button"
                     onClick={handleAccountLogout}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
-                      darkMode
-                        ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                        : "border-rose-200 bg-rose-50 text-rose-700"
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsDangerButtonClass}`}
                   >
                     Déconnexion
                   </button>
                 </>
-              ) : isAuthStatusPending ? (
+              ) : isAuthStatusPending || isAuthServerUnavailable ? (
                 <button
                   type="button"
-                  disabled
-                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
-                    darkMode
-                      ? "border-white/10 bg-slate-900 text-slate-500"
-                      : "border-slate-200 bg-white text-slate-400"
-                  }`}
+                  disabled={isAuthStatusPending}
+                  onClick={() => refreshAuthStatus({ silent: false })}
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold disabled:opacity-60 ${settingsPanelButtonClass}`}
                 >
-                  Vérification du profil...
+                  {isAuthStatusPending ? "Vérification du profil..." : "Réessayer"}
                 </button>
               ) : authState.status === "legacy_profile_found" ? (
                 <button
                   type="button"
                   onClick={() => openAuthDialog(AUTH_MODAL_MODES.CLAIM_LEGACY)}
-                  className="w-full rounded-lg bg-blue-600 px-3 py-2 text-left text-sm font-semibold text-white"
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
                 >
                   Sécuriser mon profil
                 </button>
@@ -28905,18 +27882,14 @@ function handleTouchEnd(e) {
                   <button
                     type="button"
                     onClick={() => openAuthDialog(AUTH_MODAL_MODES.REGISTER)}
-                    className="w-full rounded-lg bg-blue-600 px-3 py-2 text-left text-sm font-semibold text-white"
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
                   >
                     Créer un compte
                   </button>
                   <button
                     type="button"
                     onClick={() => openAuthDialog(AUTH_MODAL_MODES.LOGIN)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${
-                      darkMode
-                        ? "border-white/10 bg-slate-900 text-slate-100"
-                        : "border-slate-200 bg-white text-slate-700"
-                    }`}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
                   >
                     Se connecter
                   </button>
@@ -28927,18 +27900,14 @@ function handleTouchEnd(e) {
           <button
             type="button"
             onClick={openThemeMenu}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              darkMode
-                ? "bg-slate-800/80 border-white/10 text-slate-100"
-                : "bg-slate-50 border-slate-200 text-slate-800"
-            }`}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsPanelButtonClass}`}
           >
             <span className="inline-flex items-center gap-2">
               <span
                 className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${
-                  darkMode
-                    ? "bg-slate-700 border-white/15 text-amber-300"
-                    : "bg-white border-slate-300 text-amber-500"
+                  menuDarkMode
+                    ? "border-amber-200/35 bg-slate-950/45 text-amber-200"
+                    : "border-amber-300/45 bg-white/70 text-amber-700"
                 }`}
               >
                 {darkMode ? (
@@ -28984,7 +27953,9 @@ function handleTouchEnd(e) {
                 </span>
               </span>
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold border border-amber-300/40 bg-amber-300/15 text-amber-500">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold border border-amber-300/40 bg-amber-300/15 ${
+              menuDarkMode ? "text-amber-100" : "text-amber-800"
+            }`}>
               <img src={gobblarsBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
               {Math.max(0, Number(gobblarsBalance) || 0)}
             </span>
@@ -28993,13 +27964,7 @@ function handleTouchEnd(e) {
             type="button"
             onClick={openSoundMenu}
             className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              darkMode
-                ? allSoundOn
-                  ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                  : "bg-slate-800/80 border-white/10 text-slate-100"
-                : allSoundOn
-                ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                : "bg-slate-50 border-slate-200 text-slate-800"
+              allSoundOn ? settingsPositiveButtonClass : settingsPanelButtonClass
             }`}
           >
             <span className="inline-flex items-center gap-2">
@@ -29025,16 +27990,10 @@ function handleTouchEnd(e) {
             }}
             className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
               !canVibrate
-                ? darkMode
-                  ? "bg-slate-800/70 border-white/10 text-slate-100"
-                  : "bg-slate-50 border-slate-200 text-slate-800"
-                : darkMode
-                ? vibrationOn
-                  ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                  : "bg-rose-950/70 border-rose-400/40 text-slate-100"
+                ? settingsMutedButtonClass
                 : vibrationOn
-                ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                : "bg-rose-100 border-rose-300 text-slate-800"
+                ? settingsPositiveButtonClass
+                : settingsDangerButtonClass
             } ${canVibrate ? "" : "opacity-50 cursor-not-allowed"}`}
             disabled={!canVibrate}
           >
@@ -29089,11 +28048,7 @@ function handleTouchEnd(e) {
               setIsSettingsOpen(false);
               setShowHelp(true);
             }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              darkMode
-                ? "bg-transparent border-white/15 text-slate-100"
-                : "bg-transparent border-slate-200 text-slate-800"
-            }`}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
           >
             <span className="inline-flex items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
@@ -29107,11 +28062,7 @@ function handleTouchEnd(e) {
               setIsSettingsOpen(false);
               setIsAboutOpen(true);
             }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              darkMode
-                ? "bg-transparent border-white/15 text-slate-100"
-                : "bg-transparent border-slate-200 text-slate-800"
-            }`}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
           >
             <span className="inline-flex items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
@@ -29122,11 +28073,7 @@ function handleTouchEnd(e) {
           <button
             type="button"
             onClick={returnToLobby}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              darkMode
-                ? "bg-amber-500 border-amber-300 text-slate-900"
-                : "bg-amber-400 border-amber-300 text-slate-900"
-            }`}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsGoldButtonClass}`}
           >
             <span className="inline-flex items-center gap-2">
               <svg
@@ -29146,224 +28093,51 @@ function handleTouchEnd(e) {
           </button>
         </div>
       </div>
+      <SoundSettingsPanel
+        darkMode={menuDarkMode}
+        isOpen={isSoundMenuOpen}
+        enabledSoundCount={enabledSoundCount}
+        allSoundOn={allSoundOn}
+        soundMasterVolume={soundMasterVolume}
+        ambientOn={ambientOn}
+        soundValidationEnabled={soundValidationEnabled}
+        soundInvalidErrorEnabled={soundInvalidErrorEnabled}
+        soundTileStepEnabled={soundTileStepEnabled}
+        soundTimerEnabled={soundTimerEnabled}
+        soundGobbleEnabled={soundGobbleEnabled}
+        onClose={closeSoundMenu}
+        onToggleAll={() => setAllSoundEnabled(!allSoundOn)}
+        onMasterVolumeChange={(next) =>
+          setSoundMasterVolume(
+            normalizeSoundMasterVolume(next, SOUND_MASTER_VOLUME_DEFAULT)
+          )
+        }
+        onToggleAmbient={() => setIsAmbientMuted((prev) => !prev)}
+        onToggleValidation={() => setSoundValidationEnabled((prev) => !prev)}
+        onToggleInvalidError={() => setSoundInvalidErrorEnabled((prev) => !prev)}
+        onToggleTileStep={() => setSoundTileStepEnabled((prev) => !prev)}
+        onToggleTimer={() => setSoundTimerEnabled((prev) => !prev)}
+        onToggleGobble={() => setSoundGobbleEnabled((prev) => !prev)}
+      />
       <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l shadow-2xl transition-transform duration-300 ${
-          darkMode
-            ? "bg-slate-950 border-white/10 text-slate-100"
-            : "bg-white border-slate-200 text-slate-900"
-        } ${isSoundMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
+        className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
+          isThemeMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
+        }`}
       >
         <div className="h-full flex flex-col">
           <div
-            className={`shrink-0 px-4 py-3 border-b ${
-              darkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={closeSoundMenu}
-                className={`h-8 px-2 rounded-lg border text-xs font-semibold ${
-                  darkMode
-                    ? "bg-slate-900 border-white/15 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
-              >
-                Retour
-              </button>
-              <div className="text-sm font-extrabold tracking-wide">Son</div>
-              <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
-                {enabledSoundCount}/6
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
-            <button
-              type="button"
-              onClick={() => setAllSoundEnabled(!allSoundOn)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? allSoundOn
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : allSoundOn
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span className="font-semibold">Tout On / Tout Off</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {allSoundOn ? "Tout On" : "Tout Off"}
-              </span>
-            </button>
-            <div
-              className={`w-full rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? "bg-slate-900/70 border-white/10 text-slate-100"
-                  : "bg-white border-slate-200 text-slate-800"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-                <span>Volume général</span>
-                <span>{Math.round(soundMasterVolume * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={Math.round(soundMasterVolume * 100)}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  setSoundMasterVolume(
-                    normalizeSoundMasterVolume(
-                      Number.isFinite(next) ? next / 100 : SOUND_MASTER_VOLUME_DEFAULT,
-                      SOUND_MASTER_VOLUME_DEFAULT
-                    )
-                  );
-                }}
-                className="mt-2 w-full accent-blue-500"
-                aria-label="Volume général"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsAmbientMuted((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? ambientOn
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : ambientOn
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son d'ambiance</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {ambientOn ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundValidationEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundValidationEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundValidationEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son de validation</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundValidationEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundInvalidErrorEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundInvalidErrorEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundInvalidErrorEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Mots invalides / erreurs</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundInvalidErrorEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundTileStepEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundTileStepEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundTileStepEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son des tuiles (step)</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundTileStepEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundTimerEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundTimerEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundTimerEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son des timers</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundTimerEnabled ? "On" : "Off"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSoundGobbleEnabled((prev) => !prev)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                darkMode
-                  ? soundGobbleEnabled
-                    ? "bg-emerald-900/70 border-emerald-400/40 text-slate-100"
-                    : "bg-rose-950/70 border-rose-400/40 text-slate-100"
-                  : soundGobbleEnabled
-                  ? "bg-emerald-100 border-emerald-300 text-slate-800"
-                  : "bg-rose-100 border-rose-300 text-slate-800"
-              }`}
-            >
-              <span>Son gobble (incl. double)</span>
-              <span className="text-[10px] font-semibold opacity-80">
-                {soundGobbleEnabled ? "On" : "Off"}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l shadow-2xl transition-transform duration-300 ${
-          darkMode
-            ? "bg-slate-950 border-white/10 text-slate-100"
-            : "bg-white border-slate-200 text-slate-900"
-        } ${isThemeMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
-      >
-        <div className="h-full flex flex-col">
-          <div
-            className={`shrink-0 px-4 py-3 border-b ${
-              darkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-50"
-            }`}
+            className="shrink-0 px-4 py-3 border-b border-amber-200/25 bg-amber-300/10"
           >
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={closeThemeMenu}
-                className={`h-8 px-2 rounded-lg border text-xs font-semibold ${
-                  darkMode
-                    ? "bg-slate-900 border-white/15 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-700"
-                }`}
+                className={`h-8 px-2 rounded-lg border text-xs font-semibold ${settingsGoldButtonClass}`}
               >
                 Retour
               </button>
               <div className="text-sm font-extrabold tracking-wide">Thème</div>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold border border-amber-400/40 bg-amber-400/15 text-amber-500">
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold border border-amber-400/40 bg-amber-400/15 text-amber-100">
                 <img src={gobblarsBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
                 {gobblarsBalance}
               </span>
@@ -29488,11 +28262,7 @@ function handleTouchEnd(e) {
                   type="button"
                   onClick={requestThemeResetDefault}
                   disabled={themeApplying}
-                  className={`rounded-xl border px-2 py-2 text-left text-[11px] font-semibold ${
-                    darkMode
-                      ? "bg-slate-900/90 border-white/15 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-800"
-                  } disabled:opacity-50`}
+                  className={`rounded-xl border px-2 py-2 text-left text-[11px] font-semibold disabled:opacity-50 ${settingsPanelButtonClass}`}
                 >
                   <div className="font-extrabold">Par défaut</div>
                 </button>
@@ -29503,16 +28273,16 @@ function handleTouchEnd(e) {
                     themeApplying ||
                     (themeFullApplyMeta.totalCost > 0 && !themeFullApplyMeta.canAfford)
                   }
-                  className="rounded-xl border border-blue-500 bg-blue-600 px-2 py-2 text-left text-[11px] font-semibold text-white disabled:opacity-50"
+                  className={`rounded-xl border px-2 py-2 text-left text-[11px] font-semibold disabled:opacity-50 ${settingsGoldButtonClass}`}
                 >
                   <div className="font-extrabold">
                     {themeFullActionLabel}
                     {themeFullApplyMeta.totalCost > 0 ? ` (${themeFullApplyMeta.totalCost} G)` : ""}
                   </div>
-                  <div className="mt-1 text-blue-100">
+                  <div className="mt-1 text-slate-900/80">
                     {themeFullApplyMeta.changedCategories.length} paramètre(s) modifié(s)
                   </div>
-                  <div className="mt-1 text-[10px] leading-4 text-blue-100/95 break-words">
+                  <div className="mt-1 text-[10px] leading-4 text-slate-900/80 break-words">
                     {themeFullChangedSummary}
                   </div>
                 </button>
@@ -29522,11 +28292,9 @@ function handleTouchEnd(e) {
             <div className="grid grid-cols-4 gap-2">
               {themeControlButtons.map((entry) => {
                 const selected = entry.kind === "picker" ? themePickerCategory === entry.id : false;
-                const buttonClass = `${
-                  darkMode
-                    ? "bg-slate-900 border-white/10 text-slate-100"
-                    : "bg-white border-slate-200 text-slate-800"
-                } ${selected ? "ring-2 ring-blue-400 border-blue-400" : ""}`;
+                const buttonClass = `bg-slate-950/35 border-amber-200/25 text-amber-50 ${
+                  selected ? "ring-2 ring-amber-300 border-amber-300" : ""
+                }`;
                 return (
                   <button
                     key={`theme-control-${entry.id}`}
@@ -29704,22 +28472,14 @@ function handleTouchEnd(e) {
               aria-label="Fermer sélecteur thème"
             />
             <div
-              className={`relative w-full max-w-sm rounded-2xl border p-3 shadow-2xl ${
-                darkMode
-                  ? "bg-slate-950 border-white/20 text-slate-100"
-                  : "bg-white border-slate-300 text-slate-900"
-              }`}
+              className="relative w-full max-w-sm rounded-2xl border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] p-3 shadow-2xl text-amber-50"
             >
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="text-sm font-extrabold">{themePickerTitle}</div>
                 <button
                   type="button"
                   onClick={() => setThemePickerCategory("")}
-                  className={`h-7 w-7 rounded-full border flex items-center justify-center ${
-                    darkMode
-                      ? "bg-slate-900 border-white/10 text-slate-100"
-                      : "bg-white border-slate-200 text-slate-700"
-                  }`}
+                  className={`h-7 w-7 rounded-full border flex items-center justify-center ${settingsGoldButtonClass}`}
                   aria-label="Fermer"
                 >
                   <span className="text-base leading-none">×</span>
@@ -29813,12 +28573,8 @@ function handleTouchEnd(e) {
                         key={`${themePickerCategory}-${option.id}`}
                         className={`w-full rounded-xl border px-2 py-2 flex items-center justify-between gap-2 ${
                           selected
-                            ? darkMode
-                              ? "border-blue-400 bg-blue-500/20"
-                              : "border-blue-400 bg-blue-50"
-                            : darkMode
-                            ? "border-white/10 bg-slate-900/70"
-                            : "border-slate-200 bg-white"
+                            ? "border-amber-300 bg-amber-300/15"
+                            : "border-amber-200/25 bg-slate-950/35"
                         }`}
                       >
                         <button
@@ -29899,11 +28655,7 @@ function handleTouchEnd(e) {
               aria-label="Fermer confirmation achat thème"
             />
             <div
-              className={`relative w-full max-w-sm rounded-2xl border p-4 shadow-2xl ${
-                darkMode
-                  ? "bg-slate-950 border-white/20 text-slate-100"
-                  : "bg-white border-slate-300 text-slate-900"
-              }`}
+              className="relative w-full max-w-sm rounded-2xl border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] p-4 shadow-2xl text-amber-50"
             >
               <div className="text-sm font-extrabold">Confirmation d'achat</div>
               <div className="mt-2 text-[13px] leading-5 opacity-90">
@@ -29921,11 +28673,7 @@ function handleTouchEnd(e) {
                 <button
                   type="button"
                   onClick={() => setThemePurchaseConfirm(null)}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                    darkMode
-                      ? "bg-slate-900 border-white/10 text-slate-100"
-                      : "bg-white border-slate-200 text-slate-800"
-                  }`}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold ${settingsPanelButtonClass}`}
                 >
                   Annuler
                 </button>
@@ -29933,7 +28681,7 @@ function handleTouchEnd(e) {
                   type="button"
                   onClick={confirmThemePurchase}
                   disabled={themeApplying || gobblarsBalance < themePurchaseConfirm.totalCost}
-                  className="rounded-xl border border-amber-500 bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${settingsGoldButtonClass}`}
                 >
                   Valider
                 </button>
@@ -29942,7 +28690,123 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
       </div>
-    </div>
+    </SettingsMenuFrame>
+  ) : null;
+  const accountMenuView = isAccountMenuOpen ? (
+    <SettingsMenuFrame
+      slideStyles={slideStyles}
+      onClose={() => setIsAccountMenuOpen(false)}
+    >
+      <div
+        className={`relative w-full max-w-xs rounded-2xl border-2 p-4 shadow-2xl ${settingsShellClass}`}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-extrabold">Compte</div>
+          <button
+            type="button"
+            className="h-7 w-7 rounded-full border flex items-center justify-center bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950"
+            onClick={() => setIsAccountMenuOpen(false)}
+            aria-label="Fermer"
+          >
+            <span className="text-base leading-none">×</span>
+          </button>
+        </div>
+        <div className="flex flex-col gap-3 text-sm">
+          <div className={`rounded-xl border px-3 py-3 ${settingsPanelButtonClass}`}>
+            <div className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${menuDarkMode ? "text-amber-200" : "text-amber-700"}`}>
+              Profil
+            </div>
+            <div className="mt-1 text-sm font-semibold">
+              {isAccountAuthenticated
+                ? authState.user?.usernameDisplay || "Connecté"
+                : isAuthStatusPending
+                ? "Vérification..."
+                : isAuthServerUnavailable
+                ? "Serveur occupé"
+                : authState.status === "legacy_profile_found"
+                ? legacyProfileUsername || "Profil historique reconnu"
+                : "Non connecté"}
+            </div>
+            <div className={`mt-1 text-xs ${menuDarkMode ? "text-amber-50/70" : "text-slate-600"}`}>
+              {isAccountAuthenticated
+                ? "Session persistante active."
+                : isAuthStatusPending
+                ? "Recherche d'un profil existant sur cet appareil."
+                : isAuthServerUnavailable
+                ? ACCOUNT_SERVER_BUSY_MESSAGE
+                : authState.status === "legacy_profile_found"
+                ? "Sécurise ce profil pour conserver ton identité."
+                : "Connecte-toi pour retrouver ton profil."}
+            </div>
+          </div>
+
+          {isAccountAuthenticated ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountMenuOpen(false);
+                  openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
+              >
+                Changer le mot de passe
+              </button>
+              <button
+                type="button"
+                onClick={handleAccountLogout}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsDangerButtonClass}`}
+              >
+                Se déconnecter
+              </button>
+            </>
+          ) : isAuthStatusPending || isAuthServerUnavailable ? (
+            <button
+              type="button"
+              disabled={isAuthStatusPending}
+              onClick={() => refreshAuthStatus({ silent: false })}
+              className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold disabled:opacity-60 ${settingsPanelButtonClass}`}
+            >
+              {isAuthStatusPending ? "Vérification du profil..." : "Réessayer"}
+            </button>
+          ) : authState.status === "legacy_profile_found" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsAccountMenuOpen(false);
+                openAuthDialog(AUTH_MODAL_MODES.CLAIM_LEGACY);
+              }}
+              className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
+            >
+              Sécuriser mon profil
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountMenuOpen(false);
+                  openAuthDialog(AUTH_MODAL_MODES.REGISTER);
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
+              >
+                Créer un compte
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountMenuOpen(false);
+                  openAuthDialog(AUTH_MODAL_MODES.LOGIN);
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
+              >
+                Se connecter
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </SettingsMenuFrame>
   ) : null;
   const aboutModalView = (
     <>
@@ -29960,7 +28824,7 @@ function handleTouchEnd(e) {
           />
           <div
             className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
-              darkMode
+              menuDarkMode
                 ? "bg-slate-900/95 border-white/10 text-slate-100"
                 : "bg-white/95 border-slate-200 text-slate-900"
             }`}
@@ -29973,7 +28837,7 @@ function handleTouchEnd(e) {
               <button
                 type="button"
                 className={`h-7 w-7 rounded-full border flex items-center justify-center ${
-                  darkMode
+                  menuDarkMode
                     ? "bg-slate-800/80 border-white/10 text-slate-100"
                     : "bg-white border-slate-200 text-slate-700"
                 }`}
@@ -29999,7 +28863,7 @@ function handleTouchEnd(e) {
                 type="button"
                 onClick={() => setIsPatchNotesOpen(true)}
                 className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                  darkMode
+                  menuDarkMode
                     ? "bg-slate-800/90 border-white/15 text-slate-100"
                     : "bg-slate-50 border-slate-200 text-slate-900"
                 }`}
@@ -30013,7 +28877,7 @@ function handleTouchEnd(e) {
                   setIsSupportOpen(true);
                 }}
                 className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                  darkMode
+                  menuDarkMode
                     ? "bg-slate-800/90 border-white/15 text-slate-100"
                     : "bg-slate-50 border-slate-200 text-slate-900"
                 }`}
@@ -30037,7 +28901,7 @@ function handleTouchEnd(e) {
           />
           <div
             className={`relative w-full max-w-lg rounded-2xl border shadow-2xl ${
-              darkMode
+              menuDarkMode
                 ? "bg-slate-950 border-white/20 text-slate-100"
                 : "bg-white border-slate-300 text-slate-900"
             }`}
@@ -30047,7 +28911,7 @@ function handleTouchEnd(e) {
           >
             <div
               className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
-                darkMode
+                menuDarkMode
                   ? "border-white/10 bg-emerald-300/10"
                   : "border-slate-200 bg-emerald-50"
               }`}
@@ -30056,7 +28920,7 @@ function handleTouchEnd(e) {
               <button
                 type="button"
                 className={`h-8 w-8 rounded-full border flex items-center justify-center ${
-                  darkMode
+                  menuDarkMode
                     ? "bg-slate-900 border-white/10 text-slate-100"
                     : "bg-white border-slate-200 text-slate-700"
                 }`}
@@ -30072,7 +28936,7 @@ function handleTouchEnd(e) {
             <div className="px-4 py-4 space-y-3 text-[13px] leading-6">
               <div
                 className={`inline-flex rounded-full border p-1 ${
-                  darkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-100"
+                  menuDarkMode ? "border-white/10 bg-slate-900/70" : "border-slate-200 bg-slate-100"
                 }`}
               >
                 <button
@@ -30080,7 +28944,7 @@ function handleTouchEnd(e) {
                   className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
                     supportModalSection === "support"
                       ? "bg-emerald-600 text-white"
-                      : darkMode
+                      : menuDarkMode
                       ? "text-slate-200"
                       : "text-slate-700"
                   }`}
@@ -30093,7 +28957,7 @@ function handleTouchEnd(e) {
                   className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
                     supportModalSection === "thanks"
                       ? "bg-emerald-600 text-white"
-                      : darkMode
+                      : menuDarkMode
                       ? "text-slate-200"
                       : "text-slate-700"
                   }`}
@@ -30111,7 +28975,7 @@ function handleTouchEnd(e) {
                         <li
                           key={donor.id || donor.name}
                           className={`rounded-lg border px-3 py-2 font-semibold ${
-                            darkMode
+                            menuDarkMode
                               ? "bg-slate-900/70 border-white/10"
                               : "bg-slate-50 border-slate-200"
                           }`}
@@ -30160,12 +29024,12 @@ function handleTouchEnd(e) {
           <button
             type="button"
             className="absolute inset-0 bg-black/55"
-            onClick={() => setIsPatchNotesOpen(false)}
+            onClick={closePatchNotes}
             aria-label="Fermer patchnotes"
           />
           <div
             className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl ${
-              darkMode
+              menuDarkMode
                 ? "bg-slate-950 border-white/20 text-slate-100"
                 : "bg-white border-slate-300 text-slate-900"
             }`}
@@ -30175,7 +29039,7 @@ function handleTouchEnd(e) {
           >
             <div
               className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${
-                darkMode
+                menuDarkMode
                   ? "border-white/10 bg-amber-300/10"
                   : "border-slate-200 bg-amber-50"
               }`}
@@ -30187,17 +29051,178 @@ function handleTouchEnd(e) {
               <button
                 type="button"
                 className={`h-8 w-8 rounded-full border flex items-center justify-center ${
-                  darkMode
+                  menuDarkMode
                     ? "bg-slate-900 border-white/10 text-slate-100"
                     : "bg-white border-slate-200 text-slate-700"
                 }`}
-                onClick={() => setIsPatchNotesOpen(false)}
+                onClick={closePatchNotes}
                 aria-label="Fermer"
               >
                 <span className="text-base leading-none">×</span>
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 05/05/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  accueil et interface
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>refonte complète de l'écran d'accueil avec de nouveaux visuels.</li>
+                  <li>ajout des arrière-plans d'accueil rouge/bleu selon l'équipe hebdomadaire.</li>
+                  <li>
+                    ajout d'une pastille sur le bouton « grilles du jour » indiquant le nombre de
+                    grilles quotidiennes restantes à jouer.
+                  </li>
+                  <li>ajout d'une pastille sur le chat d'accueil pour les messages non lus.</li>
+                  <li>
+                    ajout d'un vrai menu compte depuis le bandeau de compte, avec accès à la
+                    déconnexion.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  coffre-fort et mots
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout d'un popup quotidien « Mot du jour » à l'arrivée sur l'accueil.
+                  </li>
+                  <li>
+                    le mot du jour est pioché parmi les mots du coffre-fort du joueur et affiche
+                    sa définition.
+                  </li>
+                  <li>
+                    le popup mot du jour ne s'affiche qu'une fois par jour et seulement si le
+                    coffre-fort contient au moins un mot.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  définitions et résultats
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    dans le bilan de manche 3 mots, la prévisualisation d'un mot peut être
+                    cliquée pour ouvrir sa définition.
+                  </li>
+                  <li>
+                    améliorations de l'affichage des définitions et de l'ajout/retrait de mots du
+                    coffre-fort.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  live, validation et confort réseau
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    mise en place d'une validation locale plus réactive des mots côté joueur pour
+                    réduire la latence ressentie.
+                  </li>
+                  <li>
+                    conservation de validations serveur pour la cohérence du score et du
+                    classement.
+                  </li>
+                  <li>
+                    amélioration des messages côté joueur quand le serveur met trop de temps à
+                    répondre, afin d'éviter que les joueurs pensent que leur connexion est seule
+                    en cause.
+                  </li>
+                  <li>
+                    améliorations de reconnexion et de reprise de session en cas de saturation ou
+                    de réponse serveur lente.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  grilles du jour et génération serveur
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    déplacement et encadrement de certaines générations de grilles du jour pour
+                    éviter de bloquer le serveur principal.
+                  </li>
+                  <li>amélioration des statuts daily et de la récupération côté accueil.</li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  nouvelles stratégies de génération de grilles
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    mot long cible live : tirage pondéré 50% mots 10-11 lettres, 40% mots 12-13
+                    lettres, 10% mots 14 lettres et plus.
+                  </li>
+                  <li>grille monstrueuse : grilles plus rapides à générer.</li>
+                  <li>
+                    qualité grille monstrueuse : au moins 200 mots, 4000 points possibles, un mot
+                    de 10+ lettres, et 3 mots de 10+ lettres.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  manche faux jumeaux
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    améliorations sur la détection des chemins pouvant produire plusieurs mots via
+                    la tuile double.
+                  </li>
+                  <li>
+                    ajout et ajustement d'un bonus de complétion pour la manche faux jumeaux.
+                    Les mots utilisant la tuile jumelle rapportent maintenant 50 points
+                    supplémentaires.
+                  </li>
+                  <li>
+                    un décompte indique désormais les mots spéciaux restants. Si tous les mots
+                    spéciaux sont trouvés, un bonus est accordé.
+                  </li>
+                  <li>
+                    renforcement des critères de génération pour éviter les plateaux où trop de
+                    mots importants se chevauchent sur le même chemin.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  son et performances
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>extraction d'une partie importante de la logique audio hors de App.jsx.</li>
+                  <li>
+                    ajout de modules dédiés pour les assets audio, le graphe audio, le moteur
+                    audio, la musique ambiante et les sons de jeu.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  animations et assets
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>remplacement et ajout des animations bigwords en WebP.</li>
+                  <li>correction de problèmes de transparence sur certains visuels.</li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  mobile
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>harmonisation de plusieurs écrans mobiles avec le thème général.</li>
+                  <li>
+                    améliorations du chat mobile et de certains comportements du classement
+                    mobile.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  ordinateur
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>prévisualisation plus stable des mots et chemins dans les bilans.</li>
+                </ul>
+              </div>
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch mineur du 14/04/2026
@@ -30608,7 +29633,7 @@ function handleTouchEnd(e) {
       chatViewportStyle={chatViewportStyle}
       closeChatPanel={closeChatPanel}
       cycleChatHistory={cycleChatHistory}
-      darkMode={darkMode}
+      darkMode={appView === "home" ? true : darkMode}
       installId={installId}
       isChatClosing={isChatClosing}
       isChatOpenMobile={isChatOpenMobile}
@@ -30651,7 +29676,7 @@ function handleTouchEnd(e) {
   const homeChatModalView = (
     <HomeChatModal
       open={isHomeChatOpen}
-      darkMode={darkMode}
+      darkMode={menuDarkMode}
       chatTab={safeChatTab}
       onChangeTab={setChatTab}
       onClose={closeHomeChat}
@@ -30676,21 +29701,22 @@ function handleTouchEnd(e) {
   const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
   const duelBlueScore = Number(duelWeeklyTotals?.blue) || 0;
   const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
-  const duelContributorsByTeam =
-    duelStatus?.weekly?.contributorsByTeam && typeof duelStatus.weekly.contributorsByTeam === "object"
-      ? duelStatus.weekly.contributorsByTeam
-      : {};
-  const duelContributorsSort = (a, b) => {
-    const pointsDiff = (Number(b?.points) || 0) - (Number(a?.points) || 0);
-    if (pointsDiff !== 0) return pointsDiff;
-    return String(a?.nick || "").localeCompare(String(b?.nick || ""));
-  };
-  const duelContributorsRed = Array.isArray(duelContributorsByTeam.red)
-    ? [...duelContributorsByTeam.red].sort(duelContributorsSort)
-    : [];
-  const duelContributorsBlue = Array.isArray(duelContributorsByTeam.blue)
-    ? [...duelContributorsByTeam.blue].sort(duelContributorsSort)
-    : [];
+  const homeBackgroundColor = duelTeam === "red" ? "rouge" : "bleu";
+  const homeBackgroundDesktop = `/background/desktop ${homeBackgroundColor}.png`;
+  const homeBackgroundMobile = `/background/mobile ${homeBackgroundColor}.png`;
+  const dailyRemainingCount = dailyStatus?.ready
+    ? [
+        !dailyStatus?.hasPlayedMonstrous,
+        !dailyStatus?.hasPlayedSpecial,
+        !dailyStatus?.hasPlayedFakeTwins,
+      ].filter(Boolean).length
+    : 0;
+  const {
+    duelContributorsBlue,
+    duelContributorsRed,
+    shouldPrepareDailyOrDuelStandaloneView,
+    shouldPrepareDailyStandaloneView,
+  } = useDailyDuelStandalonePrep({ appView, duelStatus, isLoggedIn });
   const broadcastMessageKey = getBroadcastMessageKey(broadcastNotice?.message);
   const broadcastSeenStorageKey = getBroadcastSeenStorageKey(installId, broadcastMessageKey);
   const broadcastAlreadySeen = React.useMemo(() => {
@@ -30709,9 +29735,20 @@ function handleTouchEnd(e) {
     !broadcastAlreadySeen;
   const broadcastPopupOverlay = shouldShowBroadcastPopup ? (
     <BroadcastNoticePopup
-      darkMode={darkMode}
+      darkMode={menuDarkMode}
       message={broadcastNotice?.message}
       onClose={dismissBroadcastNotice}
+    />
+  ) : null;
+  const vaultWordOfDayOverlay = vaultWordOfDayPopup.open ? (
+    <VaultWordOfDayPopup
+      definition={vaultWordOfDayPopup.definition}
+      displayWord={vaultWordOfDayPopup.displayWord}
+      onClose={closeVaultWordOfDayPopup}
+      onOpenVault={openVaultFromWordOfDay}
+      source={vaultWordOfDayPopup.source}
+      url={vaultWordOfDayPopup.url}
+      word={vaultWordOfDayPopup.word}
     />
   ) : null;
   const duelTeamTintColor =
@@ -30733,7 +29770,7 @@ function handleTouchEnd(e) {
           <div className="fixed inset-0 z-[12100] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
             <div
               className={`w-full max-w-md rounded-2xl border p-4 space-y-3 ${
-                darkMode
+                menuDarkMode
                   ? "bg-slate-900/95 border-white/10 text-slate-100"
                   : "bg-white border-slate-200 text-slate-900"
               }`}
@@ -30763,7 +29800,7 @@ function handleTouchEnd(e) {
                     Valide ces objectifs dans le jeu principal pour faire monter le score de ton équipe.
                   </div>
                   <DuelObjectivesPanel
-                    darkMode={darkMode}
+                    darkMode={menuDarkMode}
                     objectivesStatus={duelStatus?.objectives}
                     onReroll={rerollDuelObjective}
                     rerollBusyBucket={duelRerollBusyBucket}
@@ -30928,18 +29965,23 @@ function handleTouchEnd(e) {
     }
     return null;
   };
-  const selectedDailySectionMeta = getDailySectionMeta(dailySection);
+  const selectedDailySectionMeta = shouldPrepareDailyStandaloneView
+    ? getDailySectionMeta(dailySection)
+    : getDailySectionMeta(DAILY_OVERVIEW_SECTION);
   const dailyMyResult =
-    dailySection === DAILY_MONSTROUS_MODE ||
-    dailySection === DAILY_SPECIAL_MODE ||
-    dailySection === DAILY_FAKE_TWINS_MODE
+    shouldPrepareDailyStandaloneView &&
+    (dailySection === DAILY_MONSTROUS_MODE ||
+      dailySection === DAILY_SPECIAL_MODE ||
+      dailySection === DAILY_FAKE_TWINS_MODE)
       ? getDailyModeResult(dailySection)
       : null;
   const dailyBattle =
-    (dailyBoard?.battle && typeof dailyBoard.battle === "object" ? dailyBoard.battle : null) ||
-    (duelStatus?.dailyBattle && typeof duelStatus.dailyBattle === "object"
-      ? duelStatus.dailyBattle
-      : null);
+    shouldPrepareDailyOrDuelStandaloneView
+      ? (dailyBoard?.battle && typeof dailyBoard.battle === "object" ? dailyBoard.battle : null) ||
+        (duelStatus?.dailyBattle && typeof duelStatus.dailyBattle === "object"
+          ? duelStatus.dailyBattle
+          : null)
+      : null;
   const dailyBattleRedBalanced = Number(dailyBattle?.totalsBalancedByTeam?.red) || 0;
   const dailyBattleBlueBalanced = Number(dailyBattle?.totalsBalancedByTeam?.blue) || 0;
   const dailyBattleIgnoredInstallIds = new Set(
@@ -30952,23 +29994,29 @@ function handleTouchEnd(e) {
       ? dailyBattle.countedPlayersByTeam
       : { red: 0, blue: 0 };
   const todayDateId = dailyStatus?.dateId || dailyBoard?.dateId || null;
-  const fakeDailyHistoryDays = buildFakeDailyHistoryDays(todayDateId);
-  const dailyHistoryDaysRaw = (() => {
-    const realDays = Array.isArray(dailyHistory?.days) ? dailyHistory.days : [];
-    if (!ENABLE_FAKE_DAILY_HISTORY) return realDays;
-    const existingDateIds = new Set(realDays.map((entry) => String(entry?.dateId || "")));
-    const merged = [...realDays];
-    fakeDailyHistoryDays.forEach((entry) => {
-      const key = String(entry?.dateId || "");
-      if (!key || existingDateIds.has(key)) return;
-      merged.push(entry);
-    });
-    return merged;
-  })();
-  const dailyHistoryDays = (todayDateId
-    ? dailyHistoryDaysRaw.filter((entry) => entry?.dateId && entry.dateId !== todayDateId)
-    : dailyHistoryDaysRaw
-  ).sort((a, b) => String(b?.dateId || "").localeCompare(String(a?.dateId || "")));
+  const fakeDailyHistoryDays = shouldPrepareDailyStandaloneView
+    ? buildFakeDailyHistoryDays(todayDateId)
+    : [];
+  const dailyHistoryDaysRaw = shouldPrepareDailyStandaloneView
+    ? (() => {
+        const realDays = Array.isArray(dailyHistory?.days) ? dailyHistory.days : [];
+        if (!ENABLE_FAKE_DAILY_HISTORY) return realDays;
+        const existingDateIds = new Set(realDays.map((entry) => String(entry?.dateId || "")));
+        const merged = [...realDays];
+        fakeDailyHistoryDays.forEach((entry) => {
+          const key = String(entry?.dateId || "");
+          if (!key || existingDateIds.has(key)) return;
+          merged.push(entry);
+        });
+        return merged;
+      })()
+    : [];
+  const dailyHistoryDays = shouldPrepareDailyStandaloneView
+    ? (todayDateId
+        ? dailyHistoryDaysRaw.filter((entry) => entry?.dateId && entry.dateId !== todayDateId)
+        : dailyHistoryDaysRaw
+      ).sort((a, b) => String(b?.dateId || "").localeCompare(String(a?.dateId || "")))
+    : [];
   const dailyHistoryPages = [...dailyHistoryDays.map((entry) => ({ type: "day", ...entry }))];
   const dailyEntrySort = (a, b) => {
     const scoreDiff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
@@ -31051,9 +30099,11 @@ function handleTouchEnd(e) {
     }
     return aggregateDailyOverviewEntries(list);
   };
-  const filteredDailyEntries = filterDailyEntriesBySection(dailyEntries, dailySection);
+  const filteredDailyEntries = shouldPrepareDailyStandaloneView
+    ? filterDailyEntriesBySection(dailyEntries, dailySection)
+    : [];
   const filteredDailyHistoryPages =
-    dailySection === DAILY_FUTURE_SECTION
+    !shouldPrepareDailyStandaloneView || dailySection === DAILY_FUTURE_SECTION
       ? []
       : dailyHistoryPages
           .map((page) => ({
@@ -31090,30 +30140,32 @@ function handleTouchEnd(e) {
   const dailyTodayBlueEntries = filteredDailyEntries
     .filter((entry) => entry?.team === "blue")
     .sort(dailyEntrySort);
-  const dailySections = [
-    { key: DAILY_OVERVIEW_SECTION, playable: false, available: true },
-    {
-      key: DAILY_MONSTROUS_MODE,
-      playable: true,
-      available: !!dailyStatus.ready,
-      played: !!dailyStatus.hasPlayedMonstrous,
-      result: getDailyModeResult(DAILY_MONSTROUS_MODE),
-    },
-    {
-      key: DAILY_SPECIAL_MODE,
-      playable: true,
-      available: !!dailyStatus.ready,
-      played: !!dailyStatus.hasPlayedSpecial,
-      result: getDailyModeResult(DAILY_SPECIAL_MODE),
-    },
-    {
-      key: DAILY_FAKE_TWINS_MODE,
-      playable: true,
-      available: !!dailyStatus.ready,
-      played: !!dailyStatus.hasPlayedFakeTwins,
-      result: getDailyModeResult(DAILY_FAKE_TWINS_MODE),
-    },
-  ];
+  const dailySections = shouldPrepareDailyStandaloneView
+    ? [
+        { key: DAILY_OVERVIEW_SECTION, playable: false, available: true },
+        {
+          key: DAILY_MONSTROUS_MODE,
+          playable: true,
+          available: !!dailyStatus.ready,
+          played: !!dailyStatus.hasPlayedMonstrous,
+          result: getDailyModeResult(DAILY_MONSTROUS_MODE),
+        },
+        {
+          key: DAILY_SPECIAL_MODE,
+          playable: true,
+          available: !!dailyStatus.ready,
+          played: !!dailyStatus.hasPlayedSpecial,
+          result: getDailyModeResult(DAILY_SPECIAL_MODE),
+        },
+        {
+          key: DAILY_FAKE_TWINS_MODE,
+          playable: true,
+          available: !!dailyStatus.ready,
+          played: !!dailyStatus.hasPlayedFakeTwins,
+          result: getDailyModeResult(DAILY_FAKE_TWINS_MODE),
+        },
+      ]
+    : [];
   const selectedDailySectionState =
     dailySections.find((entry) => entry.key === dailySection) || dailySections[0];
   const selectedDailyEntriesCount = filteredDailyEntries.length;
@@ -31128,6 +30180,13 @@ function handleTouchEnd(e) {
       ? `Faux jumeaux : ${getDailyModeResult(DAILY_FAKE_TWINS_MODE).score || 0} pts`
       : null,
   ].filter(Boolean);
+  const dailyHomePanelClass = "border-amber-200/25 bg-slate-950/35 text-amber-50";
+  const dailyHomeInnerPanelClass = "border-amber-200/20 bg-slate-950/30 text-amber-50";
+  const dailyHomeRowBorderClass = "border-amber-200/10";
+  const dailyHomeActiveButtonClass =
+    "border border-amber-300/70 bg-gradient-to-b from-amber-200 to-amber-600 text-slate-950 shadow";
+  const dailyHomeInactiveButtonClass =
+    "border border-amber-200/25 bg-slate-950/35 text-amber-50 hover:bg-slate-950/50";
 
   const renderDailyBoardList = (
     entries = filteredDailyEntries,
@@ -31135,9 +30194,7 @@ function handleTouchEnd(e) {
     emptyLabel = "Aucun score pour le moment."
   ) => (
     <div
-      className={`rounded-xl border px-3 py-2 ${maxHeightClass} overflow-auto ${
-        darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
-      }`}
+      className={`rounded-xl border px-3 py-2 ${maxHeightClass} overflow-auto ${dailyHomePanelClass}`}
     >
       {entries.length ? (
         entries.map((entry, idx) => {
@@ -31153,15 +30210,11 @@ function handleTouchEnd(e) {
           return (
             <div
               key={entry?.playerKey || entry?.installId || `${entry?.nick}-${idx}`}
-              className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
-                darkMode ? "border-white/5" : "border-slate-100"
-              } ${
-                isPalier ? (darkMode ? "text-amber-200" : "text-amber-700") : ""
+              className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${dailyHomeRowBorderClass} ${
+                isPalier ? "text-amber-200" : ""
               } ${
                 isSelfDaily
-                  ? darkMode
-                    ? "bg-emerald-900/30 text-emerald-100"
-                    : "bg-emerald-50 text-emerald-800"
+                  ? "bg-emerald-900/30 text-emerald-100"
                   : ""
               }`}
             >
@@ -31258,15 +30311,11 @@ function handleTouchEnd(e) {
           key={rowKey}
           className={`px-2 py-2 text-sm ${
             insideCountedFrame
-              ? `border-b last:border-b-0 ${darkMode ? "border-white/10" : "border-slate-200"}`
-              : `rounded-lg border ${
-                  darkMode ? "border-white/5 bg-slate-900/40" : "border-slate-100 bg-white"
-                }`
+              ? `border-b last:border-b-0 ${dailyHomeRowBorderClass}`
+              : `rounded-lg border ${dailyHomeInnerPanelClass}`
           } ${
             row.isSelfDaily
-              ? darkMode
-                ? "bg-emerald-900/30 text-emerald-100"
-                : "bg-emerald-50 text-emerald-800"
+              ? "bg-emerald-900/30 text-emerald-100"
               : ""
           } ${row.isIgnored ? "opacity-60" : ""}`}
         >
@@ -31292,13 +30341,7 @@ function handleTouchEnd(e) {
     return (
       <div
         className={`rounded-xl px-3 py-2 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
-          isMobileLayout
-            ? darkMode
-              ? "bg-slate-900/50"
-              : "bg-white"
-            : darkMode
-            ? "border border-white/10 bg-slate-900/50"
-            : "border border-slate-200 bg-white"
+          isMobileLayout ? "bg-slate-950/30" : `border ${dailyHomePanelClass}`
         }`}
       >
         <div className="space-y-3">
@@ -31323,7 +30366,7 @@ function handleTouchEnd(e) {
               {hasCountedRows ? (
                 <div
                   className={`rounded-lg border overflow-hidden px-2 py-2 ${
-                    darkMode ? "border-amber-300/80 bg-slate-900/25" : "border-slate-700 bg-white"
+                    "border-amber-300/50 bg-amber-300/10"
                   }`}
                 >
                   <div className="grid grid-cols-2 gap-3 items-start">
@@ -31358,9 +30401,7 @@ function handleTouchEnd(e) {
   };
   const renderDuelContributorsColumn = (entries, team, maxHeightClass = "max-h-[360px]") => (
     <div
-      className={`rounded-xl border px-2 py-1.5 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
-        darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
-      }`}
+      className={`rounded-xl border px-2 py-1.5 ${maxHeightClass} overflow-y-auto custom-scrollbar custom-scrollbar-gray ${dailyHomePanelClass}`}
     >
       {entries.length ? (
         entries.map((entry, idx) => {
@@ -31371,13 +30412,9 @@ function handleTouchEnd(e) {
           return (
             <div
               key={entry?.installId || `${entry?.nick}-${idx}`}
-              className={`flex items-center justify-between gap-2 py-1.5 text-xs border-b last:border-b-0 ${
-                darkMode ? "border-white/5" : "border-slate-100"
-              } ${
+              className={`flex items-center justify-between gap-2 py-1.5 text-xs border-b last:border-b-0 ${dailyHomeRowBorderClass} ${
                 isSelfEntry
-                  ? darkMode
-                    ? "bg-emerald-900/30 text-emerald-100"
-                    : "bg-emerald-50 text-emerald-800"
+                  ? "bg-emerald-900/30 text-emerald-100"
                   : ""
               }`}
             >
@@ -31425,7 +30462,7 @@ function handleTouchEnd(e) {
     width: "0.4rem",
     height: "0.4rem",
     borderRadius: "9999px",
-    backgroundColor: darkMode ? "#f8fafc" : "#0f172a",
+    backgroundColor: menuDarkMode ? "#f8fafc" : "#0f172a",
     flexShrink: 0,
   };
   const renderDailyHistoryWords = (page) => {
@@ -31472,9 +30509,7 @@ function handleTouchEnd(e) {
               return (
                 <li
                   key={`daily-history-word-${page?.dateId || "day"}-${word}`}
-                  className={`rounded px-1 flex items-center justify-between gap-2 transition ${
-                    darkMode ? "hover:bg-slate-800/70" : "hover:bg-gray-100"
-                  }`}
+                  className="rounded px-1 flex items-center justify-between gap-2 transition hover:bg-slate-950/45"
                 >
                   <button
                     type="button"
@@ -31494,9 +30529,7 @@ function handleTouchEnd(e) {
                       className={`min-w-0 truncate ${
                         isFound
                           ? "font-semibold"
-                          : darkMode
-                          ? "text-slate-300"
-                          : "text-gray-600"
+                          : "text-amber-50/70"
                       }`}
                     >
                       {word}
@@ -31546,9 +30579,7 @@ function handleTouchEnd(e) {
                   }`}
                 >
                   <div
-                    className={`rounded-xl border px-3 py-3 ${
-                      darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
-                    } ${
+                    className={`rounded-xl border px-3 py-3 ${dailyHomePanelClass} ${
                       String(panelHeightClass || "").includes("h-full")
                         ? "h-full min-h-0 flex flex-col"
                         : ""
@@ -31619,14 +30650,10 @@ function handleTouchEnd(e) {
                           {dailySection === DAILY_OVERVIEW_SECTION ? (
                             Array.isArray(page?.entries) && page.entries.length > 0 ? (
                               <div
-                                className={`rounded-lg border overflow-hidden ${
-                                  darkMode ? "border-white/10 bg-slate-950/20" : "border-slate-200 bg-white/70"
-                                }`}
+                                className={`rounded-lg border overflow-hidden ${dailyHomeInnerPanelClass}`}
                               >
                                 <div
-                                  className={`px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] ${
-                                    darkMode ? "text-slate-300 border-b border-white/10" : "text-slate-600 border-b border-slate-200"
-                                  }`}
+                                  className={`px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-50/75 border-b ${dailyHomeRowBorderClass}`}
                                 >
                                   Classement cumulé du jour
                                 </div>
@@ -31640,9 +30667,7 @@ function handleTouchEnd(e) {
                                     return (
                                       <div
                                         key={entry?.playerKey || entry?.installId || `${entry?.nick}-${entryIdx}`}
-                                        className={`flex items-center justify-between gap-3 py-2 px-3 text-sm border-b last:border-b-0 ${
-                                          darkMode ? "border-white/5" : "border-slate-100"
-                                        }`}
+                                        className={`flex items-center justify-between gap-3 py-2 px-3 text-sm border-b last:border-b-0 ${dailyHomeRowBorderClass}`}
                                       >
                                         <div className="flex items-center gap-2 min-w-0">
                                           <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
@@ -31682,9 +30707,7 @@ function handleTouchEnd(e) {
                                 return (
                                   <div
                                     key={entry?.installId || `${entry?.nick}-${entryIdx}`}
-                                    className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
-                                      darkMode ? "border-white/5" : "border-slate-100"
-                                    }`}
+                                    className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${dailyHomeRowBorderClass}`}
                                   >
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
@@ -31710,9 +30733,7 @@ function handleTouchEnd(e) {
                           )}
                           {dailySection !== DAILY_OVERVIEW_SECTION ? (
                             <div
-                              className={`pt-3 border-t ${
-                                darkMode ? "border-white/10" : "border-slate-200"
-                              }`}
+                              className={`pt-3 border-t ${dailyHomeRowBorderClass}`}
                             >
                               {renderDailyHistoryWords(page)}
                             </div>
@@ -31735,9 +30756,7 @@ function handleTouchEnd(e) {
                             {page.crownTotals.map((entry, entryIdx) => (
                               <div
                                 key={`${entry.nick}-${entryIdx}`}
-                                className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${
-                                  darkMode ? "border-white/5" : "border-slate-100"
-                                }`}
+                                className={`flex items-center justify-between gap-3 py-2 text-sm border-b last:border-b-0 ${dailyHomeRowBorderClass}`}
                               >
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
@@ -31770,12 +30789,8 @@ function handleTouchEnd(e) {
                 {pages.map((_, idx) => {
                   const active = idx === dailyHistoryIndex;
                   const dotColor = active
-                    ? darkMode
-                      ? "bg-slate-100"
-                      : "bg-slate-900"
-                    : darkMode
-                    ? "bg-white/30"
-                    : "bg-slate-300";
+                    ? "bg-amber-300"
+                    : "bg-amber-100/30";
                   return (
                     <button
                       key={`daily-history-dot-${idx}`}
@@ -31810,11 +30825,7 @@ function handleTouchEnd(e) {
         aria-label="Fermer la confirmation de grille du jour"
       />
       <div
-        className={`relative w-full max-w-md overflow-hidden rounded-[28px] border shadow-2xl ${
-          darkMode
-            ? "border-white/10 bg-slate-900 text-slate-100"
-            : "border-slate-200 bg-white text-slate-900"
-        }`}
+        className="relative w-full max-w-md overflow-hidden rounded-[28px] border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 shadow-2xl"
       >
         <div className={`h-2 w-full bg-gradient-to-r ${selectedDailySectionMeta.accentClass}`} />
         <div className="p-5 space-y-4">
@@ -31830,31 +30841,21 @@ function handleTouchEnd(e) {
             </div>
           </div>
           <div
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              darkMode
-                ? "border-amber-400/25 bg-amber-500/10 text-amber-100"
-                : "border-amber-200 bg-amber-50 text-amber-900"
-            }`}
+            className={`rounded-2xl border px-4 py-3 text-sm ${dailyHomeInnerPanelClass}`}
           >
             Une fois lancée, la tentative compte pour le duel hebdomadaire indépendamment du live.
           </div>
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${
-                darkMode
-                  ? "border border-white/10 bg-slate-800 text-slate-100 hover:bg-slate-700"
-                  : "border border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200"
-              }`}
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${dailyHomeInactiveButtonClass}`}
               onClick={closeDailyLaunchDialog}
             >
               Annuler
             </button>
             <button
               type="button"
-              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${getDailySectionMeta(
-                dailyLaunchDialog.mode
-              ).buttonClass}`}
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ${dailyHomeActiveButtonClass}`}
               onClick={confirmDailyLaunch}
             >
               Jouer
@@ -31878,23 +30879,25 @@ function handleTouchEnd(e) {
         {homeChatModalView}
         {dailyLaunchDialogView}
         <div
-          className={`${
+          className={`relative overflow-hidden text-amber-50 ${
             isMobileLayout
-              ? "h-[100svh] min-h-[100svh] overflow-hidden flex items-stretch justify-center px-2 py-2"
+              ? "h-[100svh] min-h-[100svh] flex items-stretch justify-center px-2 py-2"
               : "min-h-screen flex items-center justify-center px-4"
-          } ${
-            darkMode
-              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
-              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
           }`}
         >
           <div
-            className={`w-full max-w-2xl rounded-2xl shadow-2xl ${
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url('${
+                isMobileLayout ? homeBackgroundMobile : homeBackgroundDesktop
+              }')`,
+            }}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-black/42 backdrop-blur-[1px]" aria-hidden="true" />
+          <div
+            className={`relative z-[1] w-full max-w-2xl rounded-2xl border-2 border-amber-300/70 shadow-2xl bg-[linear-gradient(180deg,rgba(18,47,103,0.94),rgba(7,22,55,0.97))] text-amber-50 ${
               isMobileLayout ? "h-full min-h-0 flex flex-col p-3 gap-2 overflow-hidden" : "p-4 sm:p-6 space-y-4"
-            } ${
-              darkMode
-                ? "bg-slate-900/70 border border-white/10"
-                : "bg-white/90 border border-slate-200"
             }`}
           >
             <div className="flex items-center justify-between gap-3">
@@ -31907,9 +30910,7 @@ function handleTouchEnd(e) {
               <button
                 type="button"
                 className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
-                  darkMode
-                    ? "bg-slate-800/80 border border-white/10 text-slate-100"
-                    : "bg-white border border-slate-200 text-slate-700"
+                  "border border-amber-300/70 bg-gradient-to-b from-amber-200 to-amber-600 text-slate-950 shadow"
                 }`}
                 onClick={() => setAppView("home")}
               >
@@ -31920,7 +30921,7 @@ function handleTouchEnd(e) {
             <div className={isMobileLayout ? "flex-1 min-h-0 flex flex-col gap-2" : "space-y-4"}>
             <div
               className={`rounded-2xl border p-3 sm:p-4 space-y-3 ${
-                darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+                "border-amber-200/25 bg-slate-950/35"
               }`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -31951,12 +30952,10 @@ function handleTouchEnd(e) {
               {!isMobileLayout && overallDailyResultsSummary.length ? (
                 <div className="flex flex-wrap gap-2">
                   {overallDailyResultsSummary.map((item) => (
-                    <span
-                      key={item}
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                        darkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
+                  <span
+                    key={item}
+                    className="rounded-full border border-amber-200/20 bg-slate-950/35 px-3 py-1 text-[11px] font-semibold text-amber-50/85"
+                  >
                       {item}
                     </span>
                   ))}
@@ -31984,12 +30983,8 @@ function handleTouchEnd(e) {
                     type="button"
                     className={`min-w-0 px-2 py-2 rounded-xl font-semibold transition ${
                       active
-                        ? darkMode
-                          ? "bg-white text-slate-900"
-                          : "bg-slate-900 text-white"
-                        : darkMode
-                          ? "bg-slate-800/80 border border-white/10 text-slate-100"
-                          : "bg-white border border-slate-200 text-slate-700"
+                        ? dailyHomeActiveButtonClass
+                        : dailyHomeInactiveButtonClass
                     } ${isMobileLayout ? "text-[10px] leading-tight tracking-[-0.01em]" : "text-xs"}`}
                     onClick={() => {
                       setDailySection(section.key);
@@ -32003,9 +30998,9 @@ function handleTouchEnd(e) {
             </div>
 
             <div
-              className={`overflow-hidden rounded-2xl border ${
-                darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
-              } ${isMobileLayout ? "flex-1 min-h-0 flex flex-col" : ""}`}
+              className={`overflow-hidden rounded-2xl border ${dailyHomePanelClass} ${
+                isMobileLayout ? "flex-1 min-h-0 flex flex-col" : ""
+              }`}
             >
               <div className={`h-1.5 w-full bg-gradient-to-r ${selectedDailySectionMeta.accentClass}`} />
               <div className={isMobileLayout ? "p-3 flex-1 min-h-0 flex flex-col gap-3" : "p-4 space-y-4"}>
@@ -32052,7 +31047,7 @@ function handleTouchEnd(e) {
                             dailySection === DAILY_FAKE_TWINS_MODE) &&
                             selectedDailySectionState.played)
                             ? "bg-slate-400/60 text-white cursor-not-allowed"
-                            : selectedDailySectionMeta.buttonClass
+                            : dailyHomeActiveButtonClass
                         }`}
                         disabled={
                           !selectedDailySectionState.playable ||
@@ -32080,12 +31075,8 @@ function handleTouchEnd(e) {
                     type="button"
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                       dailyRankingView === "today"
-                        ? darkMode
-                          ? "bg-blue-500 text-white"
-                          : "bg-blue-600 text-white"
-                        : darkMode
-                        ? "bg-slate-800/80 border border-white/10 text-slate-100"
-                        : "bg-white border border-slate-200 text-slate-700"
+                        ? dailyHomeActiveButtonClass
+                        : dailyHomeInactiveButtonClass
                     }`}
                     onClick={() => setDailyRankingView("today")}
                   >
@@ -32095,12 +31086,8 @@ function handleTouchEnd(e) {
                     type="button"
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                       dailyRankingView === "history"
-                        ? darkMode
-                          ? "bg-blue-500 text-white"
-                          : "bg-blue-600 text-white"
-                        : darkMode
-                        ? "bg-slate-800/80 border border-white/10 text-slate-100"
-                        : "bg-white border border-slate-200 text-slate-700"
+                        ? dailyHomeActiveButtonClass
+                        : dailyHomeInactiveButtonClass
                     }`}
                     onClick={() => setDailyRankingView("history")}
                     disabled={dailyHistoryPageCount === 0}
@@ -32228,7 +31215,7 @@ function handleTouchEnd(e) {
         >
           <div
             className={`relative w-full max-w-none h-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col min-h-0 ${
-              darkMode
+              menuDarkMode
                 ? "bg-slate-900/90 border-white/10 text-white"
                 : "bg-white/95 border-slate-200 text-slate-900"
             }`}
@@ -32241,7 +31228,7 @@ function handleTouchEnd(e) {
                 <button
                   type="button"
                   className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
-                    darkMode
+                    menuDarkMode
                       ? "bg-slate-800/80 border-white/10 text-slate-100"
                       : "bg-white border-slate-200 text-slate-700"
                   }`}
@@ -32251,15 +31238,15 @@ function handleTouchEnd(e) {
                   Fermer
                 </button>
               </div>
-              <DuelWeeklyWidget darkMode={darkMode} redScore={duelRedScore} blueScore={duelBlueScore} />
+              <DuelWeeklyWidget darkMode={menuDarkMode} redScore={duelRedScore} blueScore={duelBlueScore} />
               {duelStatus?.error ? (
-                <div className={`text-center text-[11px] ${darkMode ? "text-amber-300" : "text-amber-700"}`}>
+                <div className={`text-center text-[11px] ${menuDarkMode ? "text-amber-300" : "text-amber-700"}`}>
                   Impossible de récupérer le duel sur cette machine ({duelStatus.error})
                 </div>
               ) : null}
               <div
                 className={`rounded-xl border px-3 py-2 text-xs ${
-                  darkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
+                  menuDarkMode ? "border-white/10 bg-slate-900/50" : "border-slate-200 bg-white"
                 }`}
               >
                 Equipe:{" "}
@@ -32276,7 +31263,7 @@ function handleTouchEnd(e) {
             >
               <div className="space-y-3">
                 <DuelObjectivesPanel
-                  darkMode={darkMode}
+                  darkMode={menuDarkMode}
                   objectivesStatus={duelStatus?.objectives}
                   onReroll={rerollDuelObjective}
                   rerollBusyBucket={duelRerollBusyBucket}
@@ -32319,11 +31306,14 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         <WordVaultPage
-          darkMode={darkMode}
+          backgroundDesktop={homeBackgroundDesktop}
+          backgroundMobile={homeBackgroundMobile}
+          darkMode={menuDarkMode}
           loading={wordVault.loading}
           error={wordVault.error}
           words={wordVault.words}
           accountLabel={authState.user?.usernameDisplay || ""}
+          standaloneWarning={isIosStandalone}
           sortMode={wordVault.sortMode}
           onSortChange={setWordVaultSortMode}
           onOpenWord={(word) => openDefinition(word, { fromVault: true, preferLongDefinition: true })}
@@ -32345,13 +31335,22 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         <div
-          className={`w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden ${
-            darkMode
-              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
-              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
-          }`}
+          className="relative w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden text-white"
           style={weeklyOverlayStyle}
         >
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url('${
+                isMobileLayout ? homeBackgroundMobile : homeBackgroundDesktop
+              }')`,
+            }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
+            aria-hidden="true"
+          />
           {weeklyStatsPage}
         </div>
       </>
@@ -32359,12 +31358,88 @@ function handleTouchEnd(e) {
   }
 
   if (!isLoggedIn && !isDailyPlay) {
+    const homeAccountLabel =
+      authState.user?.usernameDisplay ||
+      legacyProfileUsername ||
+      savedSessionNick ||
+      nickname ||
+      "Compte";
+    const openHomeAccount = () => {
+      if (isAccountAuthenticated) {
+        setIsAccountMenuOpen(true);
+        return;
+      }
+      if (isAuthStatusPending || isAuthServerUnavailable) {
+        setIsAccountMenuOpen(true);
+        return;
+      }
+      const nextMode =
+        authState.status === "legacy_profile_found"
+          ? AUTH_MODAL_MODES.CLAIM_LEGACY
+          : authState.status === "login_required"
+          ? AUTH_MODAL_MODES.LOGIN
+          : AUTH_MODAL_MODES.REGISTER;
+      openAuthDialog(nextMode);
+    };
+
     return (
       <>
         {bootOverlay}
         {teamTintOverlay}
         {duelPopupOverlay}
         {broadcastPopupOverlay}
+        {vaultWordOfDayOverlay}
+        {playersOverlay}
+        {definitionModalView}
+        {tutorialOverlay}
+        {authDialogView}
+        {accountMenuView}
+        {settingsMenuView}
+        {aboutModalView}
+        <HomeLobby
+          accountLabel={homeAccountLabel}
+          accountOnline={isAccountAuthenticated}
+          accountNotice={accountNotice}
+          backgroundDesktop={homeBackgroundDesktop}
+          backgroundMobile={homeBackgroundMobile}
+          canResumeNow={canResumeNow}
+          dailyRemainingCount={dailyRemainingCount}
+          duelBlueScore={duelBlueScore}
+          duelRedScore={duelRedScore}
+          homeChatUnreadCount={homeChatUnreadCount}
+          isAuthServerUnavailable={isAuthServerUnavailable}
+          isAuthStatusPending={isAuthStatusPending}
+          isConnecting={isConnecting}
+          loginError={loginError}
+          onDismissResume={dismissResumePrompt}
+          onOpenAccount={openHomeAccount}
+          onOpenChat={openHomeChat}
+          onOpenDaily={openDailyHome}
+          onOpenDuel={openDuelPage}
+          onOpenPlayers={openPlayersOverlayAlpha}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenStats={openWeeklyStatsOverlay}
+          onOpenVault={openWordVaultPage}
+          onPlay={handleLoginOrResume}
+          onResume={handleResumeFromPrompt}
+          playerTeam={duelTeam}
+          playersCount={playersCountForLobby}
+          resumePhaseLabel={resumePhaseLabel}
+          resumeRoomLabel={resumeRoomLabel}
+          savedSessionNick={savedSessionNick}
+        />
+        {mobileChatLayer}
+        {homeChatModalView}
+      </>
+    );
+
+    return (
+      <>
+        {bootOverlay}
+        {teamTintOverlay}
+        {duelPopupOverlay}
+        {broadcastPopupOverlay}
+        {vaultWordOfDayOverlay}
         {playersOverlay}
         {definitionModalView}
         {tutorialOverlay}
@@ -32578,6 +31653,8 @@ function handleTouchEnd(e) {
                   <div className="text-sm font-semibold">
                     {isAuthStatusPending
                       ? "Vérification du profil"
+                      : isAuthServerUnavailable
+                      ? "Serveur occupé"
                       : authState.status === "legacy_profile_found"
                       ? "Profil historique reconnu"
                       : authState.status === "login_required"
@@ -32587,6 +31664,8 @@ function handleTouchEnd(e) {
                   <div className={`mt-1 text-xs ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                     {isAuthStatusPending
                       ? "Recherche d'un profil existant sur cet appareil."
+                      : isAuthServerUnavailable
+                      ? ACCOUNT_SERVER_BUSY_MESSAGE
                       : authState.status === "legacy_profile_found"
                       ? "Ton profil a été reconnu. Choisis un mot de passe pour le sécuriser."
                       : authState.status === "login_required"
@@ -32605,17 +31684,18 @@ function handleTouchEnd(e) {
                   ) : null}
                 </div>
                 <div className="mt-1 flex flex-col gap-2">
-                  {isAuthStatusPending ? (
+                  {isAuthStatusPending || isAuthServerUnavailable ? (
                     <button
                       type="button"
-                      disabled
+                      disabled={isAuthStatusPending}
+                      onClick={() => refreshAuthStatus({ silent: false })}
                       className={`px-4 py-3 rounded-lg text-sm font-semibold transition ${
                         darkMode
-                          ? "border border-white/10 bg-slate-900 text-slate-500"
-                          : "border border-slate-200 bg-white text-slate-400"
+                          ? "border border-white/10 bg-slate-900 text-slate-300 disabled:text-slate-500"
+                          : "border border-slate-200 bg-white text-slate-700 disabled:text-slate-400"
                       }`}
                     >
-                      Vérification du profil...
+                      {isAuthStatusPending ? "Vérification du profil..." : "Réessayer"}
                     </button>
                   ) : authState.status === "legacy_profile_found" ? (
                     <button
@@ -32730,59 +31810,22 @@ function handleTouchEnd(e) {
     <GameCelebrationOverlay
       assetsReady={!!bootProgress?.done}
       gobbleFlash={gobbleFlash}
-      gridRef={gridRef}
+      invalidFlash={invalidFlash}
       isMobileLayout={isMobileLayout}
       phase={phase}
       praiseFlash={praiseFlash}
     />
   );
-  const desktopResultsSummaryDrawer =
-    hasDesktopResultsSummary &&
-    desktopResultsDrawerLayout &&
-    typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed z-[12040] pointer-events-none"
-            style={{
-              left: `${desktopResultsDrawerLayout.centerX}px`,
-              bottom: `${desktopResultsDrawerLayout.bottom}px`,
-              transform: "translateX(-50%)",
-            }}
-          >
-            <div
-              className="relative pointer-events-auto transition-transform duration-300"
-              style={{
-                width: `min(92vw, ${desktopResultsDrawerLayout.maxWidth}px)`,
-                transform: desktopResultsSummaryExpanded
-                  ? "translateY(0)"
-                  : "translateY(calc(100% - 28px))",
-              }}
-            >
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  aria-expanded={desktopResultsSummaryExpanded}
-                  className={`h-7 px-4 rounded-t-xl border border-b-0 text-[11px] font-extrabold tracking-wide ${
-                    darkMode
-                      ? "bg-slate-950 border-slate-700 text-slate-100"
-                      : "bg-white border-slate-300 text-slate-700"
-                  }`}
-                  onClick={() => setDesktopResultsSummaryExpanded((prev) => !prev)}
-                >
-                  BILAN
-                </button>
-              </div>
-              <div
-                className="mt-0.5 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
-                style={{ maxHeight: `${desktopResultsDrawerLayout.maxHeight}px` }}
-              >
-                {renderDesktopResultsDockPanel()}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
+  const desktopResultsSummaryDrawer = (
+    <DesktopResultsSummaryDrawer
+      darkMode={darkMode}
+      enabled={hasDesktopResultsSummary}
+      expanded={desktopResultsSummaryExpanded}
+      layout={desktopResultsDrawerLayout}
+      onToggleExpanded={() => setDesktopResultsSummaryExpanded((prev) => !prev)}
+      renderPanel={renderDesktopResultsDockPanel}
+    />
+  );
 
   if (showTournamentFinale) {
     const baselineRankingMap = tournamentBaselineRef.current.rankingMap;
@@ -33595,7 +32638,6 @@ function handleTouchEnd(e) {
         {mobileChatLayer}
         {settingsMenuView}
         {aboutModalView}
-        {praiseOverlay}
         {chatOverlays}
       </>
     );
@@ -35228,6 +34270,7 @@ function handleTouchEnd(e) {
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
           renderNickSuffix={renderNickSuffix}
+          stackNickDecorations={!isMobileLayout}
           showGobbleWordAwards={true}
           renderAfterRank={resultsRankingMode === "total" ? renderRankDelta : null}
           onPlayerNickHover={!isMobileLayout ? setHoveredResultsNick : null}
@@ -35417,6 +34460,7 @@ function handleTouchEnd(e) {
               onMouseMove={handleMouseMove}
               onTouchMove={handleTouchMove}
             >
+              {praiseOverlay}
               {showResultsWordPath &&
               resultsPathPreview?.points?.length &&
               Number.isFinite(resultsPathPreview?.width) &&
@@ -35884,7 +34928,7 @@ function handleTouchEnd(e) {
                     <div
                       key={`live-special3-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
                       className={[
-                        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-2",
+                        "rounded-lg border px-2 py-2",
                         isActiveSlot
                           ? darkMode
                             ? "border-amber-400/70 bg-slate-800/60"
@@ -35897,30 +34941,35 @@ function handleTouchEnd(e) {
                     >
                       <button
                         type="button"
-                        className="text-left min-w-0 overflow-hidden"
+                        className="block w-full text-left min-w-0"
                         onClick={() => {
                           if (!slotWord) setDailyActiveSlot(idx);
                         }}
                       >
                         <div className="text-[11px] uppercase tracking-wide opacity-60">Mot {idx + 1}</div>
-                        <div className="mt-1 min-h-[28px] overflow-hidden">
+                        <div className="mt-1 min-h-[28px] min-w-0">
                           {displayWord ? (
                             renderSpecial3PreviewTiles(
                               displayWord,
                               `desktop-special3-slot-${idx}`,
                               displayPath,
                               null,
-                              { align: "left", disableRotation: true, edgePadding: true }
+                              {
+                                align: "left",
+                                disableRotation: true,
+                                edgePadding: true,
+                                minScale: 0.32,
+                              }
                             )
                           ) : (
                             <div className="h-7 flex items-center text-sm font-black opacity-50">—</div>
                           )}
                         </div>
                       </button>
-                      <div className="flex items-center gap-2">
+                      <div className="mt-2 flex items-center justify-between gap-2">
                         <span
                           title={scoreLabel}
-                          className={`text-xs font-black ${liveInvalid ? "text-red-500" : ""}`}
+                          className={`min-w-0 text-xs font-black ${liveInvalid ? "text-red-500" : ""}`}
                         >
                           <span className="inline-flex items-center justify-end gap-1">
                             <span className={numericScoreLabel ? "inline-block min-w-[3ch] text-right tabular-nums" : ""}>
@@ -36152,7 +35201,6 @@ function handleTouchEnd(e) {
         : null}
       {desktopResultsSummaryDrawer}
       {mobileRoundIntroOverlay}
-      {praiseOverlay}
       {chatOverlays}
     </>
   );

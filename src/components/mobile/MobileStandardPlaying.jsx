@@ -402,6 +402,7 @@ function MobileStandardPlaying(props) {
               BONUS_CLASSES={BONUS_CLASSES}
               bonusLetterKey={bonusLetterKey}
               bonusLetterScore={bonusLetterScore}
+              celebrationOverlay={praiseOverlay}
               darkMode={darkMode}
               gridRef={gridRef}
               gridShake={gridShake}
@@ -464,7 +465,6 @@ function MobileStandardPlaying(props) {
       </div>
       {mobileResultsPhaseFadeOverlay}
       {mobileRoundIntroOverlay}
-      {praiseOverlay}
       {chatOverlays}
     </>
   );

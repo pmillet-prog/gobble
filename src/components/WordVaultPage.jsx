@@ -102,11 +102,14 @@ function buildGroups(words, sortMode) {
 }
 
 export default function WordVaultPage({
+  backgroundDesktop = "/background/desktop bleu.png",
+  backgroundMobile = "/background/mobile bleu.png",
   darkMode = false,
   loading = false,
   error = "",
   words = [],
   accountLabel = "",
+  standaloneWarning = false,
   sortMode = "addedAt",
   onSortChange = null,
   onOpenWord = null,
@@ -114,24 +117,45 @@ export default function WordVaultPage({
   onClose = null,
 }) {
   const groups = buildGroups(words, sortMode);
+  const shellClass = darkMode
+    ? "border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.94),rgba(7,22,55,0.97))] text-amber-50"
+    : "border-amber-300/80 bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] text-slate-900";
+  const headerClass = darkMode
+    ? "border-amber-200/25 bg-amber-300/10"
+    : "border-amber-300/55 bg-amber-100/65";
+  const inactiveButtonClass = darkMode
+    ? "bg-slate-950/35 border-amber-200/25 text-amber-50 hover:bg-slate-950/50"
+    : "bg-white/65 border-amber-300/45 text-slate-800 hover:bg-amber-50/80";
+  const cardClass = darkMode
+    ? "bg-slate-950/45 border-amber-200/20 hover:bg-slate-950/60"
+    : "bg-white/70 border-amber-300/40 hover:bg-amber-50/80";
+  const screenStyle = {
+    "--vault-bg-mobile": `url("${backgroundMobile}")`,
+    "--vault-bg-desktop": `url("${backgroundDesktop}")`,
+    minHeight: "100svh",
+  };
 
   return (
     <div
-      className={`w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden ${
-        darkMode
-          ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
-          : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
-      }`}
-      style={{ minHeight: "100svh" }}
+      className="relative w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden text-amber-50"
+      style={screenStyle}
     >
+      <style>{`
+        .vault-themed-screen {
+          background-image: var(--vault-bg-mobile);
+          background-size: cover;
+          background-position: center;
+        }
+        @media (min-aspect-ratio: 1/1) {
+          .vault-themed-screen { background-image: var(--vault-bg-desktop); }
+        }
+      `}</style>
+      <div className="vault-themed-screen absolute inset-0" aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/42 backdrop-blur-[1px]" aria-hidden="true" />
       <div
-        className={`relative w-full max-w-none h-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col min-h-0 ${
-          darkMode
-            ? "bg-slate-900/90 border-white/10 text-white"
-            : "bg-white/95 border-slate-200 text-slate-900"
-        }`}
+        className={`relative z-[1] w-full max-w-none h-full rounded-2xl border-2 shadow-2xl overflow-hidden flex flex-col min-h-0 ${shellClass}`}
       >
-        <div className="p-4 pb-3 space-y-3 border-b border-black/5 dark:border-white/10">
+        <div className={`p-4 pb-3 space-y-3 border-b ${headerClass}`}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
@@ -148,11 +172,7 @@ export default function WordVaultPage({
             </div>
             <button
               type="button"
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${
-                darkMode
-                  ? "bg-slate-800/80 border-white/10 text-slate-100"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
+              className="px-3 py-1.5 text-xs font-black rounded-full border border-amber-300/70 bg-gradient-to-b from-amber-200 to-amber-600 text-slate-950 shadow"
               onClick={onClose}
               aria-label="Fermer le coffre fort"
             >
@@ -170,10 +190,8 @@ export default function WordVaultPage({
                     active
                       ? darkMode
                         ? "bg-amber-400 text-slate-950 border-amber-300"
-                        : "bg-slate-900 text-white border-slate-900"
-                      : darkMode
-                      ? "bg-slate-900/70 border-white/10 text-slate-200 hover:bg-slate-800"
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        : "bg-amber-400 text-slate-950 border-amber-300"
+                      : inactiveButtonClass
                   }`}
                   onClick={() => onSortChange?.(option.key)}
                 >
@@ -185,6 +203,18 @@ export default function WordVaultPage({
               {Array.isArray(words) ? words.length : 0} mot{Array.isArray(words) && words.length > 1 ? "s" : ""}
             </div>
           </div>
+          {standaloneWarning ? (
+            <div
+                className={`rounded-xl border px-3 py-2 text-xs font-semibold leading-snug ${
+                darkMode
+                  ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                  : "border-amber-300/45 bg-amber-50/75 text-amber-900"
+              }`}
+            >
+              Si le coffre reste vide depuis le raccourci iPhone, ouvre gobble.fr directement dans
+              Safari pour resynchroniser la session.
+            </div>
+          ) : null}
         </div>
         <div
           className="px-4 py-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray"
@@ -196,15 +226,15 @@ export default function WordVaultPage({
             </div>
           ) : error ? (
             <div className="h-full flex flex-col items-center justify-center gap-3 text-center">
-              <div className={`text-sm ${darkMode ? "text-amber-300" : "text-amber-700"}`}>
+              <div className="text-sm text-amber-200">
                 Impossible de charger le coffre fort ({error})
               </div>
               <button
                 type="button"
                 className={`px-4 py-2 rounded-lg text-sm font-semibold ${
                   darkMode
-                    ? "bg-slate-100 text-slate-900 hover:bg-white"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
+                    ? "bg-amber-300 text-slate-950 hover:bg-amber-200"
+                    : "bg-amber-300 text-slate-950 hover:bg-amber-200"
                 }`}
                 onClick={onRetry}
               >
@@ -227,23 +257,19 @@ export default function WordVaultPage({
                   <div className="flex items-center gap-3">
                     <div
                       className={`text-2xl sm:text-3xl font-black tracking-[0.18em] uppercase ${
-                        darkMode ? "text-white/85" : "text-slate-900/85"
+                        "text-amber-50/90"
                       }`}
                     >
                       {group.label}
                     </div>
-                    <div className={`h-px flex-1 ${darkMode ? "bg-white/10" : "bg-slate-200"}`} />
+                    <div className="h-px flex-1 bg-amber-200/20" />
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {group.items.map((entry) => (
                       <button
                         key={entry.wordKey}
                         type="button"
-                        className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                          darkMode
-                            ? "bg-slate-950/65 border-white/10 hover:bg-slate-900"
-                            : "bg-white border-slate-200 hover:bg-slate-50"
-                        }`}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition ${cardClass}`}
                         onClick={() => onOpenWord?.(entry.word)}
                       >
                         <div className="flex items-center justify-between gap-3">

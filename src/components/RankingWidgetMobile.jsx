@@ -350,6 +350,7 @@ function RankingWidgetMobile({
   flatStyle = false,
   showRoundAward = false,
   showNickDecorations = true,
+  stackNickDecorations = false,
   showGobbleWordAwards = true,
   highlightedPlayers = [],
   renderNickSuffix = null,
@@ -826,6 +827,14 @@ function RankingWidgetMobile({
           (typeof isPlayerNickClickable === "function"
             ? !!isPlayerNickClickable(entry)
             : true);
+        const shouldStackNickDecorations = stackNickDecorations && expanded && !showWheel;
+        const nickDecorations = showNickDecorations && renderNickSuffix
+          ? renderNickSuffix(entry.nick, entry)
+          : null;
+        const gobbleWordBadges = showGobbleWordAwards
+          ? renderGobbleWordBadges(entry.nick)
+          : null;
+        const hasSecondaryNickLine = shouldStackNickDecorations && (nickDecorations || gobbleWordBadges);
         const anchorNick = String(entry?.nick || "");
         const handleOpenPlayerDetails = (event, sourceElement = null) => {
           if (!nickClickable) return;
@@ -875,14 +884,28 @@ function RankingWidgetMobile({
                     <span className="inline-flex">{renderAfterRank(entry, rank)}</span>
                   ) : null}
                 </span>
-                <span className="min-w-0 flex items-baseline gap-1">
-                  <span className={nickClickable ? "truncate underline-offset-2" : "truncate"}>
-                    {entry.nick}
-                  </span>
-                  {showNickDecorations && renderNickSuffix ? (
-                    <span className="flex-none">{renderNickSuffix(entry.nick, entry)}</span>
-                  ) : null}
-                  {showGobbleWordAwards ? renderGobbleWordBadges(entry.nick) : null}
+                <span className="min-w-0 flex-1">
+                  {shouldStackNickDecorations ? (
+                    <span className="min-w-0 flex flex-col items-start gap-0.5">
+                      <span className={nickClickable ? "block max-w-full truncate underline-offset-2" : "block max-w-full truncate"}>
+                        {entry.nick}
+                      </span>
+                      {hasSecondaryNickLine ? (
+                        <span className="min-w-0 flex flex-wrap items-center gap-1 text-[10px] leading-tight opacity-90">
+                          {nickDecorations ? <span className="-ml-1">{nickDecorations}</span> : null}
+                          {gobbleWordBadges ? <span className="-ml-1">{gobbleWordBadges}</span> : null}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="min-w-0 flex items-baseline gap-1">
+                      <span className={nickClickable ? "truncate underline-offset-2" : "truncate"}>
+                        {entry.nick}
+                      </span>
+                      {nickDecorations ? <span className="flex-none">{nickDecorations}</span> : null}
+                      {gobbleWordBadges}
+                    </span>
+                  )}
                 </span>
               </div>
               {recordBadgeItems.length ? (

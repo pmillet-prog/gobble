@@ -10,8 +10,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 
 import {
+  FAKE_TWINS_COMPLETION_BONUS,
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
+  buildPathWordVariants,
   generateGrid,
   MOVABLE_BONUS_KEYS,
   scoreWordOnGrid,
@@ -1087,7 +1089,7 @@ lagMonitor.unref?.();
 const DEFAULT_ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_BREAK_DURATION_MS = 45 * 1000; // 60s - 15s hors manches cibles
 const TARGET_BREAK_DURATION_MS = 30 * 1000; // manches cibles déjà plus courtes
-const ROUND_INTRO_DURATION_MS = 6900; // Intro visuelle avant manche jouable (3..0 + arrivée des tuiles)
+const ROUND_INTRO_DURATION_MS = 7800; // Intro visuelle avant manche jouable (titre + tuiles + 3..0)
 const MAX_CHAT_HISTORY = 200;
 const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
@@ -1918,6 +1920,7 @@ function buildFakeTwinsTournamentPlan(tournamentRound, roomConfig) {
     description:
       "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Seuls les mots de 4 lettres ou plus sont valides",
     minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+    disableBonuses: true,
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
 }
@@ -2339,6 +2342,43 @@ function isRoundActive(round) {
   return !!round && (round.status === "running" || round.status === "intro");
 }
 
+function buildRoundSubmissionSolutions(round) {
+  if (!round || !dictionary) return [];
+  if (round.special?.type === SELF_SPECIAL_3_WORDS_TYPE) return [];
+  const isTargetRound =
+    round.special?.type === "target_long" || round.special?.type === "target_score";
+  if (isTargetRound) {
+    const targetWord = normalizeWord(round.targetWord || "");
+    if (!targetWord) return [];
+    const targetPath = Array.isArray(round.targetPath) ? round.targetPath : [];
+    return [
+      {
+        word: targetWord,
+        pts: 0,
+        path: targetPath,
+        usedFakeTwins: false,
+      },
+    ];
+  }
+
+  const scoreConfig = getSpecialScoreConfig(round);
+  const solved = solveGridCached(round.grid, dictionary, scoreConfig);
+  return Array.from(solved.entries()).map(([word, meta]) => {
+    const path = Array.isArray(meta?.path) ? meta.path : [];
+    const basePts = Number.isFinite(meta?.pts) ? meta.pts : 0;
+    return {
+      word,
+      pts: computeWordScoreForRound(round, word, path, basePts),
+      path,
+      usedFakeTwins: !!meta?.usedFakeTwins,
+      fakeTwinsTwinIndex:
+        Number.isInteger(meta?.fakeTwinsTwinIndex) ? meta.fakeTwinsTwinIndex : null,
+      fakeTwinsResolvedLetter: meta?.fakeTwinsResolvedLetter ?? null,
+      fakeTwinsUsesAlt: !!meta?.fakeTwinsUsesAlt,
+    };
+  });
+}
+
 function buildRoundStartedPayload(room) {
   const round = room?.currentRound;
   if (!round) return null;
@@ -2372,6 +2412,7 @@ function buildRoundStartedPayload(room) {
     targetHintScheduleMs: Array.isArray(round.targetHintScheduleMs)
       ? round.targetHintScheduleMs
       : [],
+    solutions: buildRoundSubmissionSolutions(round),
     special: round.special?.isSpecial ? round.special : null,
     gridQuality: currentQuality
       ? {
@@ -3104,6 +3145,7 @@ function getSpecialScoreConfigFromPlan(plan) {
     return {
       type: FAKE_TWINS_TYPE,
       minWordLength: plan?.minWordLength || FAKE_TWINS_MIN_WORD_LENGTH,
+      disableBonuses: true,
     };
   }
   return null;
@@ -3122,6 +3164,7 @@ function getSpecialScoreConfig(round) {
     return {
       type: FAKE_TWINS_TYPE,
       minWordLength: plan?.minWordLength || FAKE_TWINS_MIN_WORD_LENGTH,
+      disableBonuses: true,
     };
   }
   return null;
@@ -3438,6 +3481,37 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   if (!data.wordTimes.has(norm)) data.wordTimes.set(norm, Date.now());
   data.wordMeta.set(norm, { usedFakeTwins: !!scored?.usedFakeTwins });
   data.score += wordPts;
+  const extraAcceptedWords = [];
+  if (roundSpecialType === FAKE_TWINS_TYPE) {
+    const variants = buildPathWordVariants(room.currentRound.grid, scoredPath, scoreConfig);
+    for (const variant of variants) {
+      const variantNorm = normalizeWord(variant?.raw || "");
+      if (!variantNorm || variantNorm === norm || data.words.has(variantNorm)) continue;
+      if (!dictionary?.has?.(variantNorm)) continue;
+      const variantScored = scoreWordOnGridWithPath(
+        variantNorm,
+        room.currentRound.grid,
+        scoredPath,
+        scoreConfig
+      );
+      if (!variantScored?.path) continue;
+      const variantPts = computeWordScoreForRound(
+        room.currentRound,
+        variantScored.norm,
+        variantScored.path,
+        variantScored.pts
+      );
+      data.words.add(variantScored.norm);
+      if (!data.wordTimes.has(variantScored.norm)) data.wordTimes.set(variantScored.norm, Date.now());
+      data.wordMeta.set(variantScored.norm, { usedFakeTwins: !!variantScored?.usedFakeTwins });
+      data.score += variantPts;
+      extraAcceptedWords.push({
+        word: variantScored.norm,
+        wordScore: variantPts,
+        usedFakeTwins: !!variantScored?.usedFakeTwins,
+      });
+    }
+  }
 
   const playerObj = playerEntry?.player || null;
   const playerInstallId = normalizeInstallId(playerObj?.installId);
@@ -3554,6 +3628,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
       score: data.score,
       wordScore: wordPts,
       usedFakeTwins: !!scored?.usedFakeTwins,
+      extraWords: extraAcceptedWords,
     };
   }
 
@@ -3754,6 +3829,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
     score: data.score,
     wordScore: wordPts,
     usedFakeTwins: !!scored?.usedFakeTwins,
+    extraWords: extraAcceptedWords,
   };
 }
 
@@ -4097,6 +4173,35 @@ function computeRoundWordLeaders(round, results) {
 
   if (bestPts === -Infinity && maxLen === 0) return null;
   return { bestWord, longestWord, bestScoreNicks, longestWordNicks };
+}
+
+function summarizeRoundResultsForLog(results) {
+  const list = Array.isArray(results) ? results : [];
+  let words = 0;
+  let participated = 0;
+  let bestScore = 0;
+  const top = [];
+  for (const entry of list) {
+    const score = Number(entry?.score) || 0;
+    const entryWords = Array.isArray(entry?.words) ? entry.words.length : 0;
+    words += entryWords;
+    if (entryWords > 0 || score > 0 || entry?.participated) participated += 1;
+    if (score > bestScore) bestScore = score;
+    top.push({
+      nick: String(entry?.nick || ""),
+      score,
+      words: entryWords,
+      isBot: !!entry?.isBot,
+    });
+  }
+  top.sort((a, b) => (b.score || 0) - (a.score || 0));
+  return {
+    players: list.length,
+    participated,
+    words,
+    bestScore,
+    top: top.slice(0, 5),
+  };
 }
 
 function recomputeRoundGobblesFromResults(room, results) {
@@ -4993,6 +5098,32 @@ async function endRoundForRoom(room) {
     });
   }
 
+  if (specialType === FAKE_TWINS_TYPE) {
+    const totalFakeTwinWords = Math.max(0, Number(room.currentRound?.quality?.fakeTwinWords) || 0);
+    if (totalFakeTwinWords > 0) {
+      for (const entry of results) {
+        const words = Array.isArray(entry.words) ? entry.words : [];
+        const wordMeta = entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
+        const foundFakeTwinWords = words.reduce((count, word) => {
+          const norm = normalizeWord(word);
+          return wordMeta?.[norm]?.usedFakeTwins ? count + 1 : count;
+        }, 0);
+        if (foundFakeTwinWords >= totalFakeTwinWords) {
+          entry.score = (Number(entry.score) || 0) + FAKE_TWINS_COMPLETION_BONUS;
+          entry.fakeTwinsCompletionBonus = FAKE_TWINS_COMPLETION_BONUS;
+          entry.fakeTwinWordsFound = foundFakeTwinWords;
+          entry.fakeTwinWordsTotal = totalFakeTwinWords;
+          pushAnnouncement(room, {
+            type: "fake_twins_completed",
+            nick: entry.nick,
+            bonus: FAKE_TWINS_COMPLETION_BONUS,
+            text: `${entry.nick} a trouvé tous les mots faux jumeaux (+${FAKE_TWINS_COMPLETION_BONUS} pts)`,
+          });
+        }
+      }
+    }
+  }
+
   const endedAt = room.currentRound.endsAt || Date.now();
   const resultsByNick = new Map(results.map((entry) => [entry.nick, entry]));
   const vocabEntries = [];
@@ -5120,7 +5251,10 @@ async function endRoundForRoom(room) {
     }
   }
 
-  console.log(`[${room.id}] Manche terminée`, room.currentRound.id, "Résultats:", results);
+  console.log(
+    `[${room.id}] Manche terminée ${room.currentRound.id}`,
+    summarizeRoundResultsForLog(results)
+  );
 
   // --- Mini-tournoi : attribution points & finale ---
   const tournamentRound = room.currentRound.tournamentRound || 1;

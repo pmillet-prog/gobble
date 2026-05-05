@@ -1,6 +1,6 @@
 import React from "react";
 
-const FAKE_TWINS_BONUS = 20;
+const FAKE_TWINS_BONUS = 50;
 
 function WordPointsLabel({
   pts = null,

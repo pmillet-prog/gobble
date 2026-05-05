@@ -77,12 +77,16 @@ export default function RoundPlayerDetailsModal({
   records = [],
   words = [],
   allWords = [],
+  special3Board = [],
+  special3Slots = [],
   anchorRect = null,
   targetBoardKey = "",
   targetBoardLabel = "",
   targetBoardEntries = [],
   gobbleBadgeUrl = "",
   isSpeedRound = false,
+  isSpecial3Round = false,
+  renderSpecial3PreviewTiles = null,
   showWordScores = true,
   playerRank = null,
   playerRankTotal = 0,
@@ -211,6 +215,8 @@ export default function RoundPlayerDetailsModal({
   const recordsList = Array.isArray(records) ? records : [];
   const foundWordsList = Array.isArray(words) ? words : [];
   const fullWordPool = Array.isArray(allWords) ? allWords : [];
+  const special3SlotsList = Array.isArray(special3Slots) ? special3Slots : [];
+  const special3BoardSource = Array.isArray(special3Board) ? special3Board : [];
   const hasTargetBoard = Array.isArray(targetBoardEntries) && targetBoardEntries.length > 0;
   const foundWordsMap = React.useMemo(() => {
     const map = new Map();
@@ -657,6 +663,63 @@ export default function RoundPlayerDetailsModal({
                     </span>
                   </div>
                 ))}
+              </div>
+            ) : isSpecial3Round && special3SlotsList.length ? (
+              <div className="flex flex-col min-h-0 gap-2">
+                <div className="flex items-center justify-between shrink-0">
+                  <div>
+                    <h2 className="text-lg font-bold">Combinaison 3 mots</h2>
+                    <div className="text-xs text-gray-500 dark:text-slate-300">
+                      {`${special3SlotsList.length} / 3 mots validés`}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {special3SlotsList.map((slot, idx) => {
+                    const slotWord = String(slot?.word || slot?.display || "").trim();
+                    return (
+                      <button
+                        key={`special3-player-slot-${slot?.id ?? idx}-${idx}`}
+                        type="button"
+                        className={`block w-full rounded-xl border px-3 py-2 text-left transition ${
+                          darkMode
+                            ? "border-slate-700 bg-slate-900/35 hover:bg-slate-800/60"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        }`}
+                        onClick={() => onOpenDefinition?.(slotWord)}
+                        title={slotWord ? `Voir la definition de ${slotWord}` : undefined}
+                      >
+                        <div className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-60">
+                          Mot {idx + 1}
+                        </div>
+                        <div className="mt-1 min-w-0">
+                          {typeof renderSpecial3PreviewTiles === "function"
+                            ? renderSpecial3PreviewTiles(
+                                slot?.display || slotWord,
+                                `round-player-special3-${idx}`,
+                                Array.isArray(slot?.path) ? slot.path : [],
+                                special3BoardSource,
+                                {
+                                  align: "left",
+                                  disableRotation: true,
+                                  edgePadding: true,
+                                  minScale: 0.3,
+                                }
+                              )
+                            : (
+                              <div className="text-sm font-black">{slot?.display || slotWord || "—"}</div>
+                            )}
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
+                          <span className="truncate opacity-70">{slotWord || "—"}</span>
+                          <span className="font-bold whitespace-nowrap">
+                            {Number.isFinite(slot?.pts) ? `${slot.pts} pts` : "--"}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ) : comparableWordsList.length ? (
               <div className="flex flex-col min-h-0 gap-2">

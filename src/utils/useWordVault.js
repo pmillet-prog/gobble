@@ -141,17 +141,21 @@ export default function useWordVault({
         return false;
       }
       const entry = normalizeWordVaultEntry(payload?.entry);
-      if (entry) {
-        setWordVault((prev) => {
-          const existingWords = Array.isArray(prev?.words) ? prev.words : [];
-          return {
-            ...prev,
-            loaded: true,
-            error: "",
-            words: [entry, ...existingWords.filter((item) => item.wordKey !== entry.wordKey)],
-          };
-        });
+      if (!entry) {
+        showToast?.("Ajout au coffre fort impossible");
+        void fetchWordVault({ silent: true });
+        return false;
       }
+      setWordVault((prev) => {
+        const existingWords = Array.isArray(prev?.words) ? prev.words : [];
+        return {
+          ...prev,
+          loaded: true,
+          error: "",
+          words: [entry, ...existingWords.filter((item) => item.wordKey !== entry.wordKey)],
+        };
+      });
+      void fetchWordVault({ silent: true });
       if (payload?.alreadyExists) {
         showToast?.("Mot déjà ajouté au coffre fort");
       } else {

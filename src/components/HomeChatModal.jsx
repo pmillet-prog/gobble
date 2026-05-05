@@ -111,6 +111,14 @@ export default function HomeChatModal({
   }, [open, currentTab, lastMessageKey]);
 
   if (!open || typeof document === "undefined") return null;
+  const panelClass = darkMode
+    ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.96),rgba(7,22,55,0.98))] border-amber-300/70 text-amber-50"
+    : "bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] border-amber-300/80 text-slate-900";
+  const innerPanelClass = darkMode
+    ? "bg-slate-950/35 border-amber-200/25"
+    : "bg-white/60 border-amber-300/45";
+  const goldButtonClass =
+    "border-amber-300/70 bg-gradient-to-b from-amber-200 to-amber-600 text-slate-950 shadow";
 
   return createPortal(
     <div className="fixed inset-0 z-[12130] flex items-center justify-center px-3 py-4">
@@ -123,26 +131,18 @@ export default function HomeChatModal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden ${
-          darkMode
-            ? "bg-slate-900/95 border-white/10 text-slate-100"
-            : "bg-white border-slate-200 text-slate-900"
-        }`}
+        className={`relative w-full max-w-xl rounded-2xl border-2 shadow-2xl overflow-hidden ${panelClass}`}
       >
         <div
           className={`flex items-center justify-between gap-2 px-4 py-3 border-b ${
-            darkMode ? "border-white/10" : "border-slate-200"
+            darkMode ? "border-amber-200/25 bg-amber-300/10" : "border-amber-300/55 bg-amber-100/65"
           }`}
         >
           <div className="text-base font-extrabold">Chat accueil</div>
           <button
             type="button"
             onClick={() => onClose?.()}
-            className={`h-8 px-3 rounded-full text-xs font-semibold border ${
-              darkMode
-                ? "bg-slate-800 border-white/10 text-slate-100"
-                : "bg-white border-slate-300 text-slate-700"
-            }`}
+            className={`h-8 px-3 rounded-full text-xs font-black border ${goldButtonClass}`}
           >
             Fermer
           </button>
@@ -150,9 +150,9 @@ export default function HomeChatModal({
 
         <div className="px-4 pt-3 pb-2">
           <div
-            className={`inline-flex rounded-full border p-1 ${
-              darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
-            }`}
+              className={`inline-flex rounded-full border p-1 ${
+                darkMode ? "border-amber-200/30 bg-slate-950/35" : "border-amber-300/45 bg-white/65"
+              }`}
           >
             <button
               type="button"
@@ -161,7 +161,7 @@ export default function HomeChatModal({
                 currentTab === "messages"
                   ? "bg-blue-600 text-white"
                   : darkMode
-                  ? "text-slate-200"
+                  ? "text-amber-50"
                   : "text-slate-700"
               }`}
             >
@@ -174,7 +174,7 @@ export default function HomeChatModal({
                 currentTab === "system"
                   ? "bg-orange-500 text-white"
                   : darkMode
-                  ? "text-slate-200"
+                  ? "text-amber-50"
                   : "text-slate-700"
               }`}
             >
@@ -186,9 +186,7 @@ export default function HomeChatModal({
 
         <div
           ref={listRef}
-          className={`mx-4 mb-4 rounded-xl border px-3 py-3 max-h-[62vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray ${
-            darkMode ? "bg-slate-900/50 border-white/10" : "bg-slate-50 border-slate-200"
-          }`}
+          className={`mx-4 mb-4 rounded-xl border px-3 py-3 max-h-[62vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray ${innerPanelClass}`}
           style={{ overscrollBehavior: "contain" }}
         >
           {safeMessages.length === 0 ? (
@@ -236,8 +234,8 @@ export default function HomeChatModal({
                       isYou
                         ? "bg-blue-600 text-white"
                         : darkMode
-                        ? "bg-slate-800 text-slate-100"
-                        : "bg-white text-slate-900 border border-slate-200"
+                        ? "bg-slate-950/50 text-amber-50 border border-amber-200/20"
+                        : "bg-white/80 text-slate-900 border border-amber-300/35"
                     }`}
                   >
                     <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -258,15 +256,15 @@ export default function HomeChatModal({
         {!isSystemTab ? (
           <div
             className={`mx-4 mb-4 pt-2 border-t flex items-center gap-2 ${
-              darkMode ? "border-white/10" : "border-slate-200"
+              darkMode ? "border-amber-200/25" : "border-amber-300/45"
             }`}
           >
             <input
               type="text"
               className={`flex-1 border rounded px-3 py-2 text-sm ios-input ${
                 darkMode
-                  ? "bg-slate-900 border-slate-600 text-slate-100"
-                  : "bg-white border-slate-300 text-slate-900"
+                  ? "bg-slate-950/50 border-amber-200/30 text-amber-50 placeholder:text-amber-100/45"
+                  : "bg-white/80 border-amber-300/50 text-slate-900 placeholder:text-slate-500"
               }`}
               placeholder={chatInputPlaceholder}
               value={chatInput}
@@ -283,7 +281,7 @@ export default function HomeChatModal({
             />
             <button
               type="button"
-              className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+              className={`px-3 py-2 text-sm rounded border font-black disabled:opacity-50 ${goldButtonClass}`}
               disabled={!String(chatInput || "").trim() || chatInputDisabled}
               onClick={() => onSubmit?.()}
             >

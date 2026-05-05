@@ -226,6 +226,25 @@ export default function ChatContent({
   const [reactionPicker, setReactionPicker] = React.useState(null);
   const [reactionDetails, setReactionDetails] = React.useState(null);
   const [ownMessageMenu, setOwnMessageMenu] = React.useState(null);
+  const panelBorderClass = darkMode ? "border-amber-200/25" : "border-amber-300/55";
+  const panelHeaderClass = darkMode
+    ? "border-amber-200/25 bg-amber-300/10 text-amber-50"
+    : "border-amber-300/55 bg-amber-100/65 text-slate-900";
+  const panelSurfaceClass = darkMode
+    ? "bg-slate-950/35 border-amber-200/25 text-amber-50"
+    : "bg-white/55 border-amber-300/45 text-slate-900";
+  const softSurfaceClass = darkMode
+    ? "bg-slate-950/35 border-amber-200/25 text-amber-50"
+    : "bg-amber-50/70 border-amber-300/45 text-slate-800";
+  const inputSurfaceClass = darkMode
+    ? "bg-slate-950/45 border-amber-200/30 text-amber-50 placeholder:text-amber-100/45"
+    : "bg-white/80 border-amber-300/50 text-slate-900 placeholder:text-slate-500";
+  const goldButtonClass =
+    "bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950 shadow";
+  const inactiveTabClass = darkMode ? "text-amber-50" : "text-slate-700";
+  const otherMessageClass = darkMode
+    ? "bg-slate-950/45 text-amber-50 border border-amber-200/20 self-start"
+    : "bg-white/75 text-slate-900 border border-amber-300/35 self-start";
   const safeReactionEmojis = React.useMemo(() => {
     if (!Array.isArray(reactionEmojis)) {
       return ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
@@ -628,28 +647,20 @@ export default function ChatContent({
   return (
     <div className="flex flex-col h-full min-h-0 relative">
       <div
-        className={`flex items-center justify-between px-4 py-3 border-b ${
-          darkMode
-            ? "border-slate-700 bg-slate-900/95 text-slate-100"
-            : "border-slate-200 bg-white/95 text-slate-900"
-        }`}
+        className={`flex items-center justify-between px-4 py-3 border-b ${panelHeaderClass}`}
       >
         <div className="font-extrabold text-base">Chat</div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className={`text-[11px] font-semibold ${
-              darkMode ? "text-slate-300" : "text-slate-600"
-            }`}
+            className={`text-[11px] font-semibold ${darkMode ? "text-amber-50/75" : "text-slate-600"}`}
             onClick={onOpenRules}
           >
             Règles
           </button>
           <button
             type="button"
-            className={`text-[11px] font-semibold ${
-              darkMode ? "text-amber-300" : "text-blue-600"
-            }`}
+            className={`text-[11px] font-semibold ${darkMode ? "text-amber-200" : "text-blue-700"}`}
             onClick={onToggleBlockedList}
           >
             Joueurs bloqués ({blockedCount})
@@ -661,11 +672,7 @@ export default function ChatContent({
               closeChat?.();
             }}
             onClick={(e) => e.preventDefault()}
-            className={`h-10 px-4 text-sm font-semibold rounded-xl border ${
-              darkMode
-                ? "bg-slate-800 border-slate-600 text-slate-100"
-                : "bg-slate-50 border-slate-200 text-slate-900"
-            }`}
+            className={`h-10 px-4 text-sm font-semibold rounded-xl border ${goldButtonClass}`}
           >
             Fermer
           </button>
@@ -674,18 +681,14 @@ export default function ChatContent({
 
       <div className="px-3 pt-2">
         <div
-          className={`inline-flex rounded-full border p-1 ${
-            darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
-          }`}
+          className={`inline-flex rounded-full border p-1 ${panelSurfaceClass}`}
         >
           <button
             type="button"
             className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
               !isSystemTab
-                ? "bg-blue-600 text-white"
-                : darkMode
-                ? "text-slate-200"
-                : "text-slate-700"
+                ? goldButtonClass
+                : inactiveTabClass
             }`}
             onClick={() => onChangeChatTab?.("messages")}
           >
@@ -695,10 +698,8 @@ export default function ChatContent({
             type="button"
             className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
               isSystemTab
-                ? "bg-orange-500 text-white"
-                : darkMode
-                ? "text-slate-200"
-                : "text-slate-700"
+                ? goldButtonClass
+                : inactiveTabClass
             }`}
             onClick={() => onChangeChatTab?.("system")}
           >
@@ -710,11 +711,7 @@ export default function ChatContent({
       <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
         {showBlockedList ? (
           <div
-            className={`rounded-lg border px-2 py-2 text-[11px] ${
-              darkMode
-                ? "bg-slate-900/70 border-slate-600 text-slate-100"
-                : "bg-gray-50 border-gray-200 text-gray-700"
-            }`}
+            className={`rounded-lg border px-2 py-2 text-[11px] ${softSurfaceClass}`}
           >
             {blockedEntries.length === 0 ? (
               <div className="text-center">Aucun joueur bloque.</div>
@@ -725,9 +722,7 @@ export default function ChatContent({
                     <span className="font-semibold">{entry.label}</span>
                     <button
                       type="button"
-                      className={`text-[11px] font-semibold ${
-                        darkMode ? "text-amber-300" : "text-blue-600"
-                      }`}
+                      className={`text-[11px] font-semibold ${darkMode ? "text-amber-200" : "text-blue-700"}`}
                       onClick={() => onUnblockInstallId?.(entry.id)}
                     >
                       Reactiver
@@ -741,11 +736,7 @@ export default function ChatContent({
 
         <div
           ref={messagesListRef}
-          className={`flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 text-sm rounded-lg border p-2 ${
-            darkMode
-              ? "bg-slate-900/70 border-slate-700 text-slate-100"
-              : "bg-white/80 border-slate-200 text-slate-900"
-          }`}
+          className={`flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 text-sm rounded-lg border p-2 ${panelSurfaceClass}`}
           style={{
             overscrollBehavior: "contain",
             touchAction: "pan-y",
@@ -830,9 +821,7 @@ export default function ChatContent({
                       : `px-2 py-1 rounded-lg transition-transform duration-75 select-none ${
                           isYou
                             ? "bg-blue-600 text-white self-end"
-                            : darkMode
-                            ? "bg-slate-800 text-slate-100 self-start"
-                            : "bg-slate-100 text-slate-900 self-start"
+                            : otherMessageClass
                         }`
                   }
                   style={
@@ -883,8 +872,8 @@ export default function ChatContent({
                             replyTargetsSelf
                               ? "border-blue-500 bg-blue-50 text-slate-700"
                               : darkMode
-                              ? "border-slate-600 bg-slate-700/80 text-slate-200"
-                              : "border-slate-300 bg-slate-50 text-slate-700"
+                              ? "border-amber-200/25 bg-slate-950/45 text-amber-50/85"
+                              : "border-amber-300/45 bg-amber-50/80 text-slate-700"
                           }`}
                           style={NON_SELECTABLE_TOUCH_STYLE}
                         >
@@ -945,11 +934,11 @@ export default function ChatContent({
                             const badgeClass = `h-6 rounded-full border px-2 text-[11px] font-semibold leading-none inline-flex items-center gap-1 ${
                               reactedByMe
                                 ? darkMode
-                                  ? "bg-blue-600/30 border-blue-300 text-blue-100"
-                                  : "bg-blue-100 border-blue-400 text-blue-700"
-                                : darkMode
-                                ? "bg-slate-700 border-slate-500 text-slate-100"
-                                : "bg-white border-slate-300 text-slate-700"
+                                ? "bg-blue-600/30 border-blue-300 text-blue-100"
+                                : "bg-blue-100 border-blue-400 text-blue-700"
+                              : darkMode
+                              ? "bg-slate-950/45 border-amber-200/25 text-amber-50"
+                              : "bg-white/80 border-amber-300/45 text-slate-700"
                             }`;
                             return (
                               <button
@@ -983,9 +972,7 @@ export default function ChatContent({
             {chatEditTarget ? (
               <div
                 className={`mb-2 rounded-lg border px-2 py-1.5 ${
-                  darkMode
-                    ? "bg-amber-900/35 border-amber-700 text-amber-100"
-                    : "bg-amber-50 border-amber-200 text-slate-700"
+                  softSurfaceClass
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -999,8 +986,8 @@ export default function ChatContent({
                     type="button"
                     className={`h-6 w-6 rounded-full text-xs font-bold border shrink-0 ${
                       darkMode
-                        ? "border-slate-500 bg-slate-700 text-slate-200"
-                        : "border-slate-300 bg-white text-slate-600"
+                        ? "border-amber-200/25 bg-slate-950/45 text-amber-50"
+                        : "border-amber-300/45 bg-white/80 text-slate-700"
                     }`}
                     onClick={() => onClearChatEdit?.()}
                     aria-label="Annuler la modification"
@@ -1014,8 +1001,8 @@ export default function ChatContent({
               <div
                 className={`mb-2 rounded-lg border px-2 py-1.5 ${
                   darkMode
-                    ? "bg-slate-800/80 border-slate-600 text-slate-100"
-                    : "bg-blue-50 border-blue-200 text-slate-700"
+                    ? "bg-slate-950/35 border-amber-200/25 text-amber-50"
+                    : "bg-blue-50/80 border-blue-200 text-slate-700"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -1031,8 +1018,8 @@ export default function ChatContent({
                     type="button"
                     className={`h-6 w-6 rounded-full text-xs font-bold border shrink-0 ${
                       darkMode
-                        ? "border-slate-500 bg-slate-700 text-slate-200"
-                        : "border-slate-300 bg-white text-slate-600"
+                        ? "border-amber-200/25 bg-slate-950/45 text-amber-50"
+                        : "border-amber-300/45 bg-white/80 text-slate-700"
                     }`}
                     onClick={() => onClearChatReply?.()}
                     aria-label="Annuler la réponse"
@@ -1042,7 +1029,7 @@ export default function ChatContent({
                 </div>
               </div>
             ) : null}
-            <div className="flex items-end gap-2 pt-1 pb-1 border-t border-slate-200 dark:border-slate-700">
+            <div className={`flex items-end gap-2 pt-1 pb-1 border-t ${panelBorderClass}`}>
               <textarea
                 ref={(el) => {
                   localTextareaRef.current = el;
@@ -1067,12 +1054,12 @@ export default function ChatContent({
                 value={chatInput}
                 onChange={(e) => setChatInput?.(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 border rounded px-3 py-2 text-sm ios-input chat-input bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 resize-none min-h-[44px] max-h-[168px]"
+                className={`flex-1 border rounded px-3 py-2 text-sm ios-input chat-input resize-none min-h-[44px] max-h-[168px] ${inputSurfaceClass}`}
                 placeholder={chatInputPlaceholder}
               />
               <button
                 type="button"
-                className="px-3 py-2 text-sm rounded bg-blue-600 text-white disabled:opacity-50 select-none"
+                className={`px-3 py-2 text-sm rounded border disabled:opacity-50 select-none ${goldButtonClass}`}
                 style={NON_SELECTABLE_TOUCH_STYLE}
                 disabled={!chatInput.trim() || chatInputDisabled}
                 onPointerDown={(e) => {

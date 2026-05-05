@@ -1,11 +1,137 @@
 import React from "react";
 import GridTileLetter from "./GridTileLetter.jsx";
 
+const TEXTURE_BY_COLOR = {
+  wood: "/textures/bois.png",
+  marble: "/textures/marbre.jpg",
+  jeans: "/textures/jeans.jpg",
+  concrete: "/textures/beton.jpg",
+};
+
+const MOBILE_GRID_COMPARE_PROPS = [
+  "board",
+  "BONUS_CLASSES",
+  "bonusLetterKey",
+  "bonusLetterScore",
+  "celebrationOverlay",
+  "darkMode",
+  "gridRef",
+  "gridShake",
+  "gridSize",
+  "gridRotationTurns",
+  "handleMouseDown",
+  "handleMouseMove",
+  "handleMouseUp",
+  "handleTouchEnd",
+  "handleTouchMove",
+  "handleTouchStart",
+  "hintCellSet",
+  "hintCellOverlayStyleMap",
+  "hintCellStyleMap",
+  "hintOutlineCellSet",
+  "hintOutlineOverlayStyleMap",
+  "hintOutlineStyleMap",
+  "implodeActive",
+  "isMobileLayout",
+  "lightGridSurfaceStyle",
+  "MOBILE_LAYOUT_MAX_WIDTH",
+  "mobileGapPx",
+  "mobileGridSide",
+  "mobileTileFontPx",
+  "normalizeBonusLabel",
+  "normalizeLetterKey",
+  "phase",
+  "specialIndicatorPreset",
+  "specialSolvedOverlay",
+  "introHideTiles",
+  "defaultTileBaseClass",
+  "tilePointsVisible",
+  "tileRefs",
+  "tileMaterialClass",
+  "tileColorPreset",
+  "tileScore",
+  "usedSet",
+  "specialStartTileSet",
+];
+
+function normalizeRotationTurns(turns) {
+  if (!Number.isFinite(turns)) return 0;
+  const mod = turns % 4;
+  return mod < 0 ? mod + 4 : mod;
+}
+
+function rotateIndexByTurns(index, size, turns) {
+  if (!Number.isInteger(index) || !Number.isInteger(size) || size <= 0) {
+    return index;
+  }
+  const t = normalizeRotationTurns(turns);
+  if (t === 0) return index;
+  const row = Math.floor(index / size);
+  const col = index % size;
+  if (t === 1) return col * size + (size - 1 - row);
+  if (t === 2) return (size - 1 - row) * size + (size - 1 - col);
+  return (size - 1 - col) * size + row;
+}
+
+function getBonusBadgeClass(displayBonus) {
+  if (displayBonus === "L3") return "bg-blue-700 text-white";
+  if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
+  if (displayBonus === "M3") return "bg-red-600 text-white";
+  if (displayBonus === "M2") return "bg-[#ffbfb4] border border-[#f87171] text-slate-900";
+  return "bg-slate-600 text-white";
+}
+
+function getBonusLetterRingClass(displayBonus) {
+  if (displayBonus === "L3") return "theme-letter-ring theme-letter-ring-L3";
+  if (displayBonus === "L2") return "theme-letter-ring theme-letter-ring-L2";
+  if (displayBonus === "M3") return "theme-letter-ring theme-letter-ring-M3";
+  if (displayBonus === "M2") return "theme-letter-ring theme-letter-ring-M2";
+  return "";
+}
+
+function buildTileTextureStyles(size, colorPreset) {
+  const texture = TEXTURE_BY_COLOR[String(colorPreset || "")];
+  if (!texture) return null;
+  const safeSize = Number.isInteger(size) && size > 0 ? size : 4;
+  const denom = Math.max(1, safeSize - 1);
+  return Array.from({ length: safeSize * safeSize }, (_, index) => {
+    const row = Math.floor(index / safeSize);
+    const col = index % safeSize;
+    const x = (col / denom) * 100;
+    const y = (row / denom) * 100;
+    return {
+      backgroundImage: `url("${texture}")`,
+      backgroundSize: `${safeSize * 100}% ${safeSize * 100}%`,
+      backgroundPosition: `${x}% ${y}%`,
+      backgroundRepeat: "no-repeat",
+      backgroundBlendMode: "multiply",
+    };
+  });
+}
+
+function areMobileGridPropsEqual(prevProps, nextProps) {
+  for (const prop of MOBILE_GRID_COMPARE_PROPS) {
+    if (!Object.is(prevProps[prop], nextProps[prop])) return false;
+  }
+
+  if (
+    !prevProps.specialSolvedOverlay &&
+    !nextProps.specialSolvedOverlay &&
+    prevProps.phase === "playing" &&
+    nextProps.phase === "playing"
+  ) {
+    return true;
+  }
+
+  return Object.is(prevProps.tick, nextProps.tick);
+}
+
 function MobileGrid({
   board,
   BONUS_CLASSES,
   bonusLetterKey,
   bonusLetterScore,
+  celebrationOverlay = null,
   darkMode,
   gridRef,
   gridShake,
@@ -46,64 +172,13 @@ function MobileGrid({
   usedSet,
   specialStartTileSet,
 }) {
-  const normalizeRotationTurns = (turns) => {
-    if (!Number.isFinite(turns)) return 0;
-    const mod = turns % 4;
-    return mod < 0 ? mod + 4 : mod;
-  };
-  const rotateIndexByTurns = (index, size, turns) => {
-    if (!Number.isInteger(index) || !Number.isInteger(size) || size <= 0) {
-      return index;
-    }
-    const t = normalizeRotationTurns(turns);
-    if (t === 0) return index;
-    const row = Math.floor(index / size);
-    const col = index % size;
-    if (t === 1) return col * size + (size - 1 - row);
-    if (t === 2) return (size - 1 - row) * size + (size - 1 - col);
-    return (size - 1 - col) * size + row;
-  };
+  const tileTextureStyles = React.useMemo(
+    () => buildTileTextureStyles(gridSize, tileColorPreset),
+    [gridSize, tileColorPreset]
+  );
   const mapDisplayToBoardIndex = (displayIndex) => {
     const t = normalizeRotationTurns(gridRotationTurns);
     return rotateIndexByTurns(displayIndex, gridSize, (4 - t) % 4);
-  };
-  const getBonusBadgeClass = (displayBonus) => {
-    if (displayBonus === "L3") return "bg-blue-700 text-white";
-    if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
-    if (displayBonus === "M3") return "bg-red-600 text-white";
-    if (displayBonus === "M2") return "bg-[#ffbfb4] border border-[#f87171] text-slate-900";
-    return "bg-slate-600 text-white";
-  };
-  const getBonusLetterRingClass = (displayBonus) => {
-    if (displayBonus === "L3") return "theme-letter-ring theme-letter-ring-L3";
-    if (displayBonus === "L2") return "theme-letter-ring theme-letter-ring-L2";
-    if (displayBonus === "M3") return "theme-letter-ring theme-letter-ring-M3";
-    if (displayBonus === "M2") return "theme-letter-ring theme-letter-ring-M2";
-    return "";
-  };
-  const getTileTextureStyle = (index, size, colorPreset) => {
-    const textureByColor = {
-      wood: "/textures/bois.png",
-      marble: "/textures/marbre.jpg",
-      jeans: "/textures/jeans.jpg",
-      concrete: "/textures/beton.jpg",
-    };
-    const texture = textureByColor[String(colorPreset || "")];
-    if (!texture) return null;
-    const safeSize = Number.isInteger(size) && size > 0 ? size : 4;
-    const safeIndex = Number.isInteger(index) && index >= 0 ? index : 0;
-    const row = Math.floor(safeIndex / safeSize);
-    const col = safeIndex % safeSize;
-    const denom = Math.max(1, safeSize - 1);
-    const x = (col / denom) * 100;
-    const y = (row / denom) * 100;
-    return {
-      backgroundImage: `url("${texture}")`,
-      backgroundSize: `${safeSize * 100}% ${safeSize * 100}%`,
-      backgroundPosition: `${x}% ${y}%`,
-      backgroundRepeat: "no-repeat",
-      backgroundBlendMode: "multiply",
-    };
   };
   const isSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
   return (
@@ -139,6 +214,7 @@ function MobileGrid({
         onMouseMove={handleMouseMove}
         onTouchMove={handleTouchMove}
       >
+        {celebrationOverlay}
         {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
         {board.map((_, displayIndex) => {
           const boardIndex = mapDisplayToBoardIndex(displayIndex);
@@ -220,7 +296,7 @@ function MobileGrid({
                       WebkitUserSelect: "none",
                       WebkitTouchCallout: "none",
                       ...(hintStyle || {}),
-                      ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
+                      ...(tileTextureStyles?.[boardIndex] || {}),
                     }
                   : {
                       willChange: "transform",
@@ -228,7 +304,7 @@ function MobileGrid({
                       WebkitUserSelect: "none",
                       WebkitTouchCallout: "none",
                       ...(hintStyle || {}),
-                      ...(getTileTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
+                      ...(tileTextureStyles?.[boardIndex] || {}),
                     }
               }
             >
@@ -286,4 +362,4 @@ function MobileGrid({
   );
 }
 
-export default React.memo(MobileGrid);
+export default React.memo(MobileGrid, areMobileGridPropsEqual);
