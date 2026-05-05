@@ -72,7 +72,6 @@ echo "=== Server: install ==="
 cd server
 npm ci
 
-echo "=== Restart back (4000) ==="
 stop_port() {
   local port="$1"
   local pids
@@ -92,14 +91,25 @@ stop_port() {
   fi
 }
 
-stop_port 4000
-nohup npm start > "$HOME/server.log" 2>&1 &
+restart_gobble_service() {
+  local service="$1"
+  local port="$2"
+  local log_name="$3"
+  shift 3
+  if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files "$service" --no-legend 2>/dev/null | grep -q "^$service"; then
+    sudo systemctl restart "$service"
+    return
+  fi
+  stop_port "$port"
+  nohup "$@" > "$HOME/$log_name" 2>&1 &
+}
 
+echo "=== Restart back (4000) ==="
+restart_gobble_service gobble-back.service 4000 server.log npm start
 
 echo "=== Restart front (3000) ==="
-stop_port 3000
 cd ..
-nohup npx serve -s dist -l 3000 > "$HOME/front.log" 2>&1 &
+restart_gobble_service gobble-front.service 3000 front.log npx serve -s dist -l 3000
 
 
 echo "=== Ports ==="
