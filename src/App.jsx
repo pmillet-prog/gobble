@@ -30,6 +30,7 @@ import MobileWordPreview from "./components/MobileWordPreview.jsx";
 import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import SoundSettingsPanel from "./components/SoundSettingsPanel.jsx";
+import VisualSettingsPanel from "./components/VisualSettingsPanel.jsx";
 import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
@@ -4629,6 +4630,26 @@ export default function App() {
     initialSettings.soundMasterVolume,
     SOUND_MASTER_VOLUME_DEFAULT
   );
+  const initialVisualGobbleEnabled =
+    typeof initialSettings.visualGobbleEnabled === "boolean"
+      ? initialSettings.visualGobbleEnabled
+      : true;
+  const initialVisualPraiseEnabled =
+    typeof initialSettings.visualPraiseEnabled === "boolean"
+      ? initialSettings.visualPraiseEnabled
+      : true;
+  const initialVisualInvalidWordsEnabled =
+    typeof initialSettings.visualInvalidWordsEnabled === "boolean"
+      ? initialSettings.visualInvalidWordsEnabled
+      : true;
+  const initialVisualScreenShakeEnabled =
+    typeof initialSettings.visualScreenShakeEnabled === "boolean"
+      ? initialSettings.visualScreenShakeEnabled
+      : true;
+  const initialVisualConfettiEnabled =
+    typeof initialSettings.visualConfettiEnabled === "boolean"
+      ? initialSettings.visualConfettiEnabled
+      : true;
   const initialChatDesktopFontScale = normalizeChatDesktopFontScale(
     initialSettings.chatDesktopFontScale,
     CHAT_DESKTOP_FONT_SCALE_DEFAULT
@@ -4663,10 +4684,30 @@ export default function App() {
     typeof initialSettings.vibration === "boolean" ? initialSettings.vibration : true
   );
   const [soundMasterVolume, setSoundMasterVolume] = useState(() => initialMasterVolume);
+  const [visualGobbleEnabled, setVisualGobbleEnabled] = useState(
+    () => initialVisualGobbleEnabled
+  );
+  const [visualPraiseEnabled, setVisualPraiseEnabled] = useState(
+    () => initialVisualPraiseEnabled
+  );
+  const [visualInvalidWordsEnabled, setVisualInvalidWordsEnabled] = useState(
+    () => initialVisualInvalidWordsEnabled
+  );
+  const [visualScreenShakeEnabled, setVisualScreenShakeEnabled] = useState(
+    () => initialVisualScreenShakeEnabled
+  );
+  const [visualConfettiEnabled, setVisualConfettiEnabled] = useState(
+    () => initialVisualConfettiEnabled
+  );
   const [chatDesktopFontScale, setChatDesktopFontScale] = useState(
     () => initialChatDesktopFontScale
   );
   const soundMasterVolumeRef = useRef(soundMasterVolume);
+  const visualGobbleEnabledRef = useRef(visualGobbleEnabled);
+  const visualPraiseEnabledRef = useRef(visualPraiseEnabled);
+  const visualInvalidWordsEnabledRef = useRef(visualInvalidWordsEnabled);
+  const visualScreenShakeEnabledRef = useRef(visualScreenShakeEnabled);
+  const visualConfettiEnabledRef = useRef(visualConfettiEnabled);
   const isVibrationEnabledRef = useRef(isVibrationEnabled);
   const [canVibrate, setCanVibrate] = useState(false);
   const initialThemeSource = {
@@ -5084,6 +5125,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSoundMenuOpen, setIsSoundMenuOpen] = useState(false);
+  const [isVisualMenuOpen, setIsVisualMenuOpen] = useState(false);
   const settingsCloseTimerRef = useRef(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
@@ -5796,6 +5838,57 @@ export default function App() {
   useEffect(() => {
     isVibrationEnabledRef.current = isVibrationEnabled;
   }, [isVibrationEnabled]);
+  useEffect(() => {
+    visualGobbleEnabledRef.current = visualGobbleEnabled;
+    if (!visualGobbleEnabled) {
+      if (gobbleTimerRef.current) {
+        clearTimeout(gobbleTimerRef.current);
+        gobbleTimerRef.current = null;
+      }
+      setGobbleFlash(null);
+    }
+  }, [visualGobbleEnabled]);
+  useEffect(() => {
+    visualPraiseEnabledRef.current = visualPraiseEnabled;
+    if (!visualPraiseEnabled) {
+      if (praiseTimerRef.current) {
+        clearTimeout(praiseTimerRef.current);
+        praiseTimerRef.current = null;
+      }
+      setPraiseFlash(null);
+      setBigScoreFlash(null);
+    }
+  }, [visualPraiseEnabled]);
+  useEffect(() => {
+    visualInvalidWordsEnabledRef.current = visualInvalidWordsEnabled;
+    if (!visualInvalidWordsEnabled) {
+      if (invalidTimerRef.current) {
+        clearTimeout(invalidTimerRef.current);
+        invalidTimerRef.current = null;
+      }
+      setInvalidFlash(null);
+    }
+  }, [visualInvalidWordsEnabled]);
+  useEffect(() => {
+    visualScreenShakeEnabledRef.current = visualScreenShakeEnabled;
+    if (!visualScreenShakeEnabled) {
+      setShake(false);
+      setGridShake(false);
+      try {
+        gridShakeAnimationRef.current?.cancel?.();
+      } catch (_) {}
+      gridShakeAnimationRef.current = null;
+    }
+  }, [visualScreenShakeEnabled]);
+  useEffect(() => {
+    visualConfettiEnabledRef.current = visualConfettiEnabled;
+    if (!visualConfettiEnabled) {
+      confettiBurstTokenRef.current += 1;
+      try {
+        confetti.reset?.();
+      } catch (_) {}
+    }
+  }, [visualConfettiEnabled]);
   const desktopChatFontPx = Math.round(14 * chatDesktopFontScale * 10) / 10;
   const desktopChatMetaFontPx = Math.round(11 * chatDesktopFontScale * 10) / 10;
   const desktopChatMicroFontPx = Math.round(10 * chatDesktopFontScale * 10) / 10;
@@ -5825,6 +5918,11 @@ export default function App() {
             soundMasterVolume,
             SOUND_MASTER_VOLUME_DEFAULT
           ),
+          visualGobbleEnabled,
+          visualPraiseEnabled,
+          visualInvalidWordsEnabled,
+          visualScreenShakeEnabled,
+          visualConfettiEnabled,
           chatDesktopFontScale: normalizeChatDesktopFontScale(
             chatDesktopFontScale,
             CHAT_DESKTOP_FONT_SCALE_DEFAULT
@@ -5854,6 +5952,11 @@ export default function App() {
     soundGobbleEnabled,
     soundInvalidErrorEnabled,
     soundMasterVolume,
+    visualGobbleEnabled,
+    visualPraiseEnabled,
+    visualInvalidWordsEnabled,
+    visualScreenShakeEnabled,
+    visualConfettiEnabled,
     chatDesktopFontScale,
     isVibrationEnabled,
     tilePointsVisible,
@@ -8741,6 +8844,7 @@ export default function App() {
   ]);
 
   function triggerBigScoreFlash(pts) {
+    if (!visualPraiseEnabledRef.current) return;
     const now = Date.now();
     if (now - bigScoreLastRef.current < 420) return;
     bigScoreLastRef.current = now;
@@ -8750,6 +8854,28 @@ export default function App() {
   }
 
   function triggerGridShake() {
+    if (!visualScreenShakeEnabledRef.current) {
+      if (gridShakeTimerRef.current) {
+        clearTimeout(gridShakeTimerRef.current);
+        gridShakeTimerRef.current = null;
+      }
+      try {
+        gridShakeAnimationRef.current?.cancel?.();
+      } catch (_) {}
+      gridShakeAnimationRef.current = null;
+      setGridShake(false);
+      try {
+        if (
+          canVibrateRef.current &&
+          isVibrationEnabledRef.current &&
+          typeof navigator !== "undefined" &&
+          typeof navigator.vibrate === "function"
+        ) {
+          navigator.vibrate(50);
+        }
+      } catch (_) {}
+      return;
+    }
     if (gridShakeTimerRef.current) {
       clearTimeout(gridShakeTimerRef.current);
       gridShakeTimerRef.current = null;
@@ -8830,16 +8956,20 @@ export default function App() {
       lastGobbleAtRef.current = now;
       const durationMs = Math.round(2200 + Math.random() * 400);
       triggerConfettiBurst("gobble");
-      setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
-      if (gobbleTimerRef.current) clearTimeout(gobbleTimerRef.current);
-      gobbleTimerRef.current = setTimeout(() => setGobbleFlash(null), durationMs);
+      if (visualGobbleEnabledRef.current) {
+        setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
+        if (gobbleTimerRef.current) clearTimeout(gobbleTimerRef.current);
+        gobbleTimerRef.current = setTimeout(() => setGobbleFlash(null), durationMs);
+      }
       if (shakeGrid) triggerGridShake();
       return;
     }
     const durationMs = Math.round(1500 + Math.random() * 300);
-    setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
-    if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
-    praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
+    if (visualPraiseEnabledRef.current) {
+      setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
+      if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
+      praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
+    }
     if (shakeGrid) triggerGridShake();
   }
 
@@ -8847,6 +8977,7 @@ export default function App() {
     text,
     { force = false, durationMs = 980 } = {}
   ) {
+    if (!visualInvalidWordsEnabledRef.current) return;
     if (phaseRef.current !== "playing") return;
     const now = Date.now();
     if (!force && now - invalidLastRef.current < 260) return;
@@ -8871,6 +9002,7 @@ export default function App() {
   }
 
   function triggerConfettiBurst(kind = "target") {
+    if (!visualConfettiEnabledRef.current) return;
     if (typeof window === "undefined") return;
     const burstToken = ++confettiBurstTokenRef.current;
     const isMobileFirefox =
@@ -17927,7 +18059,9 @@ export default function App() {
     setStatusMessageWithHold(msg);
     setShake(false);
     // restart the animation even if the state was already true
-    requestAnimationFrame(() => setShake(true));
+    if (visualScreenShakeEnabledRef.current) {
+      requestAnimationFrame(() => setShake(true));
+    }
     const lower = (msg || "").toLowerCase();
     const isDuplicate = lower.includes("déjà") || lower.includes("deja");
     const isInvalidDico =
@@ -17957,7 +18091,9 @@ export default function App() {
       playErrorSound();
     }
     vibrateErrorPattern();
-    setTimeout(() => setShake(false), 300);
+    if (visualScreenShakeEnabledRef.current) {
+      setTimeout(() => setShake(false), 300);
+    }
     clearSelection();
   }
 
@@ -24363,7 +24499,7 @@ function handleTouchEnd(e) {
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
   const mobileResultsPhaseFadeOverlay =
     isMobileLayout && phase === "results" && mobileResultsOutroFadeActive ? (
-      <div className="fixed inset-0 z-[20044] pointer-events-none select-none">
+      <div className="fixed inset-0 z-[121] pointer-events-none select-none">
         <div className="absolute inset-0 bg-black mobile-round-intro-fade-to-black" />
       </div>
     ) : null;
@@ -27127,6 +27263,19 @@ function handleTouchEnd(e) {
     soundGobbleEnabled,
     soundInvalidErrorEnabled,
   ].filter(Boolean).length;
+  const allVisualOn =
+    visualGobbleEnabled &&
+    visualPraiseEnabled &&
+    visualInvalidWordsEnabled &&
+    visualScreenShakeEnabled &&
+    visualConfettiEnabled;
+  const enabledVisualCount = [
+    visualGobbleEnabled,
+    visualPraiseEnabled,
+    visualInvalidWordsEnabled,
+    visualScreenShakeEnabled,
+    visualConfettiEnabled,
+  ].filter(Boolean).length;
   const vibrationOn = isVibrationEnabled && canVibrate;
   const setAllSoundEnabled = React.useCallback((enabled) => {
     const next = !!enabled;
@@ -27136,6 +27285,14 @@ function handleTouchEnd(e) {
     setSoundTimerEnabled(next);
     setSoundGobbleEnabled(next);
     setSoundInvalidErrorEnabled(next);
+  }, []);
+  const setAllVisualEnabled = React.useCallback((enabled) => {
+    const next = !!enabled;
+    setVisualGobbleEnabled(next);
+    setVisualPraiseEnabled(next);
+    setVisualInvalidWordsEnabled(next);
+    setVisualScreenShakeEnabled(next);
+    setVisualConfettiEnabled(next);
   }, []);
   const toggleSoundQuick = React.useCallback(
     (event) => {
@@ -27450,6 +27607,7 @@ function handleTouchEnd(e) {
   );
   const openThemeMenu = React.useCallback(() => {
     setIsSoundMenuOpen(false);
+    setIsVisualMenuOpen(false);
     setThemeDraft(themeAppliedSafe);
     applyThemeVisualState(themeAppliedSafe);
     setThemePickerCategory("");
@@ -27459,10 +27617,19 @@ function handleTouchEnd(e) {
   }, [applyThemeVisualState, fetchThemeProfile, themeAppliedSafe]);
   const openSoundMenu = React.useCallback(() => {
     setIsThemeMenuOpen(false);
+    setIsVisualMenuOpen(false);
     setIsSoundMenuOpen(true);
   }, []);
   const closeSoundMenu = React.useCallback(() => {
     setIsSoundMenuOpen(false);
+  }, []);
+  const openVisualMenu = React.useCallback(() => {
+    setIsThemeMenuOpen(false);
+    setIsSoundMenuOpen(false);
+    setIsVisualMenuOpen(true);
+  }, []);
+  const closeVisualMenu = React.useCallback(() => {
+    setIsVisualMenuOpen(false);
   }, []);
   useEffect(() => {
     if (!isSettingsOpen && settingsCloseTimerRef.current) {
@@ -27486,13 +27653,16 @@ function handleTouchEnd(e) {
         settingsCloseTimerRef.current = null;
       }
       const shouldAnimatePanels =
-        animatePanels && (isThemeMenuOpen || isSoundMenuOpen);
+        animatePanels && (isThemeMenuOpen || isSoundMenuOpen || isVisualMenuOpen);
       if (shouldAnimatePanels) {
         if (isThemeMenuOpen) {
           closeThemeMenu();
         }
         if (isSoundMenuOpen) {
           closeSoundMenu();
+        }
+        if (isVisualMenuOpen) {
+          closeVisualMenu();
         }
         settingsCloseTimerRef.current = window.setTimeout(() => {
           settingsCloseTimerRef.current = null;
@@ -27502,7 +27672,14 @@ function handleTouchEnd(e) {
       }
       setIsSettingsOpen(false);
     },
-    [closeSoundMenu, closeThemeMenu, isSoundMenuOpen, isThemeMenuOpen]
+    [
+      closeSoundMenu,
+      closeThemeMenu,
+      closeVisualMenu,
+      isSoundMenuOpen,
+      isThemeMenuOpen,
+      isVisualMenuOpen,
+    ]
   );
   fetchThemeProfileRef.current = fetchThemeProfile;
   const requestThemeResetDefault = React.useCallback(() => {
@@ -27701,6 +27878,7 @@ function handleTouchEnd(e) {
   useEffect(() => {
     if (isSettingsOpen) return;
     setIsSoundMenuOpen(false);
+    setIsVisualMenuOpen(false);
     setIsThemeMenuOpen(false);
     setThemePickerCategory("");
     setThemePurchaseConfirm(null);
@@ -27984,6 +28162,28 @@ function handleTouchEnd(e) {
           </button>
           <button
             type="button"
+            onClick={openVisualMenu}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+              allVisualOn ? settingsPositiveButtonClass : settingsPanelButtonClass
+            }`}
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] leading-none">
+                visibility
+              </span>
+              <span className="inline-flex flex-col items-start leading-tight">
+                <span className="font-semibold">Affichage</span>
+                <span className="text-[10px] opacity-70">
+                  {enabledVisualCount}/5 effets actifs
+                </span>
+              </span>
+            </span>
+            <span className="text-[10px] font-semibold opacity-70">
+              {allVisualOn ? "Tout On" : "Configurer"}
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => {
               if (!canVibrate) return;
               setIsVibrationEnabled((v) => !v);
@@ -28118,6 +28318,24 @@ function handleTouchEnd(e) {
         onToggleTileStep={() => setSoundTileStepEnabled((prev) => !prev)}
         onToggleTimer={() => setSoundTimerEnabled((prev) => !prev)}
         onToggleGobble={() => setSoundGobbleEnabled((prev) => !prev)}
+      />
+      <VisualSettingsPanel
+        darkMode={menuDarkMode}
+        isOpen={isVisualMenuOpen}
+        enabledVisualCount={enabledVisualCount}
+        allVisualOn={allVisualOn}
+        visualGobbleEnabled={visualGobbleEnabled}
+        visualPraiseEnabled={visualPraiseEnabled}
+        visualInvalidWordsEnabled={visualInvalidWordsEnabled}
+        visualScreenShakeEnabled={visualScreenShakeEnabled}
+        visualConfettiEnabled={visualConfettiEnabled}
+        onClose={closeVisualMenu}
+        onToggleAll={() => setAllVisualEnabled(!allVisualOn)}
+        onToggleGobble={() => setVisualGobbleEnabled((prev) => !prev)}
+        onTogglePraise={() => setVisualPraiseEnabled((prev) => !prev)}
+        onToggleInvalidWords={() => setVisualInvalidWordsEnabled((prev) => !prev)}
+        onToggleScreenShake={() => setVisualScreenShakeEnabled((prev) => !prev)}
+        onToggleConfetti={() => setVisualConfettiEnabled((prev) => !prev)}
       />
       <div
         className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
@@ -29611,6 +29829,50 @@ function handleTouchEnd(e) {
     </>
   );
 
+  const quickHelpOverlay =
+    showHelp && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[20150] flex items-center justify-center bg-black/45 px-4 py-6"
+            onClick={() => setShowHelp(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`w-full max-w-lg rounded-2xl border px-4 py-3 shadow-xl ${
+                darkMode
+                  ? "bg-slate-900/95 text-slate-100 border-slate-700"
+                  : "bg-white text-slate-900 border-slate-200"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="font-bold mb-1">Aide rapide</div>
+                <button
+                  type="button"
+                  className={`h-8 min-w-8 rounded-full border px-2 text-sm font-bold ${
+                    darkMode
+                      ? "border-slate-600 bg-slate-800 text-slate-100"
+                      : "border-slate-300 bg-white text-slate-700"
+                  }`}
+                  onClick={() => setShowHelp(false)}
+                  aria-label="Fermer l'aide rapide"
+                >
+                  x
+                </button>
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
+                <li>Entrée valide le mot, Backspace efface.</li>
+                <li>Tab alterne entre saisie et chat (focus automatique).</li>
+                <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
+              </ul>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   const mobileChatLayer = (
     <MobileChatLayer
       appView={appView}
@@ -30876,6 +31138,7 @@ function handleTouchEnd(e) {
         {authDialogView}
         {settingsMenuView}
         {aboutModalView}
+        {quickHelpOverlay}
         {homeChatModalView}
         {dailyLaunchDialogView}
         <div
@@ -31133,6 +31396,7 @@ function handleTouchEnd(e) {
         {authDialogView}
         {settingsMenuView}
         {aboutModalView}
+        {quickHelpOverlay}
         <div
           className={`min-h-screen flex items-center justify-center px-4 ${
             darkMode
@@ -31205,6 +31469,7 @@ function handleTouchEnd(e) {
         {authDialogView}
         {settingsMenuView}
         {aboutModalView}
+        {quickHelpOverlay}
         <div
           className={`w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden ${
             darkMode
@@ -31305,6 +31570,7 @@ function handleTouchEnd(e) {
         {authDialogView}
         {settingsMenuView}
         {aboutModalView}
+        {quickHelpOverlay}
         <WordVaultPage
           backgroundDesktop={homeBackgroundDesktop}
           backgroundMobile={homeBackgroundMobile}
@@ -31334,6 +31600,7 @@ function handleTouchEnd(e) {
         {authDialogView}
         {settingsMenuView}
         {aboutModalView}
+        {quickHelpOverlay}
         <div
           className="relative w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden text-white"
           style={weeklyOverlayStyle}
@@ -31396,6 +31663,7 @@ function handleTouchEnd(e) {
         {accountMenuView}
         {settingsMenuView}
         {aboutModalView}
+        {quickHelpOverlay}
         <HomeLobby
           accountLabel={homeAccountLabel}
           accountOnline={isAccountAuthenticated}
@@ -31809,11 +32077,11 @@ function handleTouchEnd(e) {
   const praiseOverlay = (
     <GameCelebrationOverlay
       assetsReady={!!bootProgress?.done}
-      gobbleFlash={gobbleFlash}
-      invalidFlash={invalidFlash}
+      gobbleFlash={visualGobbleEnabled ? gobbleFlash : null}
+      invalidFlash={visualInvalidWordsEnabled ? invalidFlash : null}
       isMobileLayout={isMobileLayout}
       phase={phase}
-      praiseFlash={praiseFlash}
+      praiseFlash={visualPraiseEnabled ? praiseFlash : null}
     />
   );
   const desktopResultsSummaryDrawer = (
@@ -33374,6 +33642,7 @@ function handleTouchEnd(e) {
           submitDailyScore={submitDailyScore}
           toggleDarkModeQuick={toggleDarkModeQuick}
           toggleSoundQuick={toggleSoundQuick}
+          visualScreenShakeEnabled={visualScreenShakeEnabled}
         />
         {mobileChatLayer}
       </>
@@ -34724,7 +34993,7 @@ function handleTouchEnd(e) {
               }
             }}
           >
-            {bigScoreFlash && (
+            {visualPraiseEnabled && bigScoreFlash && (
               <div
                 className="big-score-burst"
                 style={{
@@ -34936,7 +35205,7 @@ function handleTouchEnd(e) {
                           : darkMode
                           ? "border-slate-700 bg-slate-900/50"
                           : "border-slate-200 bg-white",
-                        rowIsInvalid ? "daily-invalid-shake" : "",
+                        rowIsInvalid && visualScreenShakeEnabled ? "daily-invalid-shake" : "",
                       ].join(" ")}
                     >
                       <button

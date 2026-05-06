@@ -84,6 +84,7 @@ function MobileSpecial3Playing(props) {
     submitDailyScore = null,
     toggleDarkModeQuick = null,
     toggleSoundQuick = null,
+    visualScreenShakeEnabled = true,
   } = props;
 
   return (
@@ -332,7 +333,7 @@ function MobileSpecial3Playing(props) {
                         : darkMode
                         ? "border-slate-700 bg-slate-900/50"
                         : "border-slate-200 bg-white",
-                      rowIsInvalid ? "daily-invalid-shake" : "",
+                      rowIsInvalid && visualScreenShakeEnabled ? "daily-invalid-shake" : "",
                     ].join(" ")}
                     style={{
                       flex: "1 1 0",

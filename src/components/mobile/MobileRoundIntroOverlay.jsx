@@ -146,7 +146,7 @@ function MobileRoundIntroOverlay({
         height: squareStyle.height,
       }
     : null;
-  const overlayZIndex = showsBackdrop ? 20045 : 20040;
+  const overlayZIndex = showsBackdrop ? 121 : 120;
 
   return createPortal(
     <div
