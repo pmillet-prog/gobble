@@ -895,6 +895,7 @@ export default function ChatContent({
                             onClick={(e) =>
                               onOpenUserMenu?.(e, {
                                 nick: author,
+                                userId: msg.userId,
                                 installId: authorInstallId,
                                 messageId: msg.id,
                               })

@@ -300,6 +300,7 @@ function DesktopChatPanel({
                           onClick={(e) =>
                             actionsRef?.current?.openUserMenu?.(e, {
                               nick: author,
+                              userId: msg.userId,
                               installId: authorInstallId,
                               messageId: msg.id,
                             })

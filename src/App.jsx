@@ -50,6 +50,7 @@ import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import RoundPlayerDetailsModal from "./components/RoundPlayerDetailsModal.jsx";
+import PlayerProfileModal from "./components/PlayerProfileModal.jsx";
 import HomeChatModal from "./components/HomeChatModal.jsx";
 import AuthDialog from "./components/AuthDialog.jsx";
 import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
@@ -796,10 +797,11 @@ function buildRankingSignature(list) {
   for (let i = 0; i < limit; i += 1) {
     const entry = list[i] || {};
     const nick = String(entry.nick || "").trim();
+    const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
     const score =
       Number.isFinite(entry.score) ? entry.score : Number.isFinite(entry.points) ? entry.points : 0;
     const rank = Number.isFinite(entry.rank) ? entry.rank : i + 1;
-    out += `${nick}:${rank}:${score}|`;
+    out += `${nick}:${userId}:${rank}:${score}|`;
   }
   return out;
 }
@@ -812,9 +814,10 @@ function buildPlayersSignature(list) {
   for (let i = 0; i < limit; i += 1) {
     const entry = list[i] || {};
     const nick = String(entry.nick || "").trim();
+    const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
     const team = String(entry.team || "");
     const bot = entry.isBot ? "1" : "0";
-    out += `${nick}:${team}:${bot}|`;
+    out += `${nick}:${userId}:${team}:${bot}|`;
   }
   return out;
 }
@@ -958,6 +961,10 @@ function normalizeLetterKey(letter) {
   return String(letter).toLowerCase();
 }
 
+function normalizeNickKey(nick) {
+  return String(nick || "").trim().toLowerCase();
+}
+
 const TILE_LETTER_SCALE_MIN = 0.8;
 const TILE_LETTER_SCALE_MAX = 1.45;
 const TILE_LETTER_SCALE_DEFAULT = 1.2;
@@ -1035,13 +1042,7 @@ function getTileColorSwatchStyle(tileColorOption) {
 function buildCompletedTargetPattern(pattern, word) {
   const cleanWord = String(word || "").trim();
   if (!cleanWord) return pattern || "";
-  const letters = cleanWord.toUpperCase().split("");
-  if (!pattern) return letters.join(" ");
-  const parts = String(pattern).split(" ");
-  if (parts.length === letters.length) {
-    return parts.map((part, idx) => (part === "_" ? letters[idx] : part)).join(" ");
-  }
-  return letters.join(" ");
+  return cleanWord.toUpperCase();
 }
 
 function buildTargetBlankPattern(length) {
@@ -3784,6 +3785,7 @@ const PATCH_NOTES_VERSION = "2026-05-05";
 const PATCH_NOTES_RELEASE_TS = Date.parse("2026-05-05T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
+const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
     return {};
@@ -5351,6 +5353,7 @@ export default function App() {
     team: null,
     crowned: false,
     weekly: null,
+    lastWeekSummary: null,
     objectives: null,
     dailyBattle: null,
     tutorialVersion: null,
@@ -5368,6 +5371,8 @@ export default function App() {
     team: null,
     weekId: null,
   });
+  const [duelWeekRecapOpen, setDuelWeekRecapOpen] = useState(false);
+  const [duelWeekRecapExpanded, setDuelWeekRecapExpanded] = useState(false);
   const [duelObjectivesPopupDismissedDateId, setDuelObjectivesPopupDismissedDateId] = useState("");
   const [duelConsumedValidatedByView, setDuelConsumedValidatedByView] = useState({
     popup: { dateId: "", keys: [] },
@@ -6053,6 +6058,7 @@ export default function App() {
     left: 0,
     top: 0,
     nick: "",
+    userId: null,
     installId: null,
     messageId: null,
   });
@@ -6134,6 +6140,15 @@ export default function App() {
     targetBoardLabel: "",
     targetBoardEntries: [],
   });
+  const [playerProfileModal, setPlayerProfileModal] = useState({
+    open: false,
+    userId: null,
+    nick: "",
+    loading: false,
+    error: "",
+    profile: null,
+  });
+  const playerProfileFetchRef = useRef({ requestId: 0, controller: null });
   const roundPlayerAnchorElementRef = useRef(null);
   const roundPlayerAnchorNickRef = useRef("");
   const [definitionBlink, setDefinitionBlink] = useState(false);
@@ -10217,7 +10232,8 @@ export default function App() {
       });
 
       if (Array.isArray(results)) {
-        const selfScore = results.find((r) => r.nick === nicknameRef.current.trim())?.score;
+        const selfNickKey = normalizeNickKey(nicknameRef.current);
+        const selfScore = results.find((r) => normalizeNickKey(r?.nick) === selfNickKey)?.score;
         if (typeof selfScore === "number") {
           setScore(selfScore);
         }
@@ -11678,6 +11694,17 @@ export default function App() {
       );
     }
 
+    function maybeShowFakeTwinsCompletionToastFromAnnouncement(entry) {
+      if (!entry || entry.type !== "fake_twins_completed") return;
+      const bonus = Math.max(0, Number(entry?.bonus) || 0);
+      const nick = String(entry?.nick || "").trim();
+      const label = bonus > 0 ? `+${bonus} pts` : "bonus validé";
+      showToast(
+        nick ? `${nick} complète les faux jumeaux : ${label}` : `Faux jumeaux complétés : ${label}`,
+        3200
+      );
+    }
+
     function onAnnouncement(data) {
       if (!data) return;
       if (data.type === "big_word" || data.type === "long_word") {
@@ -11686,6 +11713,7 @@ export default function App() {
       maybePlayAnnouncementSound(data);
       maybeTriggerGobbleFromAnnouncement(data);
       maybeShowDuelToastFromAnnouncement(data);
+      maybeShowFakeTwinsCompletionToastFromAnnouncement(data);
       appendAnnouncements([data]);
     }
 
@@ -11700,6 +11728,7 @@ export default function App() {
         maybePlayAnnouncementSound(entry);
         maybeTriggerGobbleFromAnnouncement(entry);
         maybeShowDuelToastFromAnnouncement(entry);
+        maybeShowFakeTwinsCompletionToastFromAnnouncement(entry);
       });
       appendAnnouncements(filtered);
     }
@@ -12848,6 +12877,7 @@ export default function App() {
         team: data?.team || null,
         crowned: !!data?.crowned,
         weekly: data?.weekly || null,
+        lastWeekSummary: data?.lastWeekSummary || null,
         objectives: data?.objectives || null,
         dailyBattle: data?.dailyBattle || null,
         tutorialVersion: data?.tutorialVersion || null,
@@ -12887,6 +12917,19 @@ export default function App() {
       }));
     }
   }
+
+  useEffect(() => {
+    const summary = duelStatus?.lastWeekSummary;
+    const weekId = String(summary?.weekId || "").trim();
+    if (!isAccountAuthenticated || !installId || !weekId) return;
+    if (duelWeekRecapOpen) return;
+    try {
+      const key = `${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`;
+      if (localStorage.getItem(key) === "1") return;
+    } catch (_) {}
+    setDuelWeekRecapExpanded(false);
+    setDuelWeekRecapOpen(true);
+  }, [duelStatus?.lastWeekSummary, duelWeekRecapOpen, installId, isAccountAuthenticated]);
 
   function rerollDuelObjective(bucket) {
     if (!installId || !bucket) return;
@@ -14048,7 +14091,20 @@ export default function App() {
         gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
         rank: Number.isFinite(data?.rank) ? data.rank : null,
         totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
+        fakeTwinsCompletionBonus: Number.isFinite(data?.fakeTwinsCompletionBonus)
+          ? data.fakeTwinsCompletionBonus
+          : 0,
+        fakeTwinWordsFound: Number.isFinite(data?.fakeTwinWordsFound)
+          ? data.fakeTwinWordsFound
+          : null,
+        fakeTwinWordsTotal: Number.isFinite(data?.fakeTwinWordsTotal)
+          ? data.fakeTwinWordsTotal
+          : null,
       });
+      const fakeTwinsCompletionBonus = Number(data?.fakeTwinsCompletionBonus) || 0;
+      if (dailyPlayMode === DAILY_FAKE_TWINS_MODE && fakeTwinsCompletionBonus > 0) {
+        showToast(`Faux jumeaux complétés : +${fakeTwinsCompletionBonus} pts`, 3400);
+      }
       if (Array.isArray(data?.board)) {
         setDailyBoard((prev) => ({
           ...prev,
@@ -16719,6 +16775,100 @@ export default function App() {
     return trimmed;
   }
 
+  function normalizeUserIdForProfile(raw) {
+    const safeUserId = Number(raw);
+    return Number.isInteger(safeUserId) && safeUserId > 0 ? safeUserId : null;
+  }
+
+  function getUserIdFromPlayerProfileTarget(target = {}) {
+    const direct = normalizeUserIdForProfile(target?.userId);
+    if (direct) return direct;
+    const numericProfileKey = normalizeUserIdForProfile(target?.installId);
+    if (numericProfileKey) return numericProfileKey;
+    const playerKey = String(target?.playerKey || "").trim();
+    if (playerKey.startsWith("install:")) {
+      return normalizeUserIdForProfile(playerKey.slice("install:".length));
+    }
+    return null;
+  }
+
+  function closePlayerProfileModal() {
+    if (playerProfileFetchRef.current.controller) {
+      try {
+        playerProfileFetchRef.current.controller.abort();
+      } catch (_) {}
+      playerProfileFetchRef.current.controller = null;
+    }
+    setPlayerProfileModal((prev) => ({
+      ...prev,
+      open: false,
+      loading: false,
+      error: "",
+    }));
+  }
+
+  async function openPlayerProfile(target = {}) {
+    const targetUserId = getUserIdFromPlayerProfileTarget(target);
+    const targetNick = String(target?.nick || "").trim();
+    if (!targetUserId) {
+      showToast("Profil indisponible");
+      return;
+    }
+    const requestId = (playerProfileFetchRef.current.requestId || 0) + 1;
+    if (playerProfileFetchRef.current.controller) {
+      try {
+        playerProfileFetchRef.current.controller.abort();
+      } catch (_) {}
+    }
+    const controller = new AbortController();
+    playerProfileFetchRef.current = { requestId, controller };
+    setPlayerProfileModal({
+      open: true,
+      userId: targetUserId,
+      nick: targetNick,
+      loading: true,
+      error: "",
+      profile: null,
+    });
+    try {
+      const query = targetNick ? `?nick=${encodeURIComponent(targetNick)}` : "";
+      const res = await fetch(
+        `/api/player-profile/user/${encodeURIComponent(targetUserId)}${query}`,
+        {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        }
+      );
+      const data = await res.json().catch(() => null);
+      if (playerProfileFetchRef.current.requestId !== requestId) return;
+      if (!res.ok || !data?.ok || !data?.profile) {
+        throw new Error(data?.error || `http_${res.status || "error"}`);
+      }
+      setPlayerProfileModal({
+        open: true,
+        userId: targetUserId,
+        nick: targetNick,
+        loading: false,
+        error: "",
+        profile: data.profile,
+      });
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (playerProfileFetchRef.current.requestId !== requestId) return;
+      setPlayerProfileModal((prev) => ({
+        ...prev,
+        open: true,
+        loading: false,
+        error: "Profil indisponible",
+      }));
+    } finally {
+      if (playerProfileFetchRef.current.requestId === requestId) {
+        playerProfileFetchRef.current.controller = null;
+      }
+    }
+  }
+
   function updateBlockedInstallIds(updater) {
     setBlockedInstallIds((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
@@ -17040,16 +17190,18 @@ export default function App() {
     });
   }
 
-  function openUserMenu(e, { nick, installId: targetInstallId, messageId = null }) {
+  function openUserMenu(e, { nick, userId: targetUserId = null, installId: targetInstallId, messageId = null }) {
     const key = normalizeInstallId(targetInstallId);
     if (!key || key === installId) return;
+    const profileUserId =
+      normalizeUserIdForProfile(targetUserId) || normalizeUserIdForProfile(targetInstallId);
     if (e?.preventDefault) e.preventDefault();
     if (e?.stopPropagation) e.stopPropagation();
     const rect = e?.currentTarget?.getBoundingClientRect?.();
     const viewportWidth = window.innerWidth || 360;
     const viewportHeight = window.innerHeight || 640;
     const menuWidth = 180;
-    const menuHeight = 120;
+    const menuHeight = 154;
     const padding = 8;
     const anchorCenterX =
       Number.isFinite(rect?.left) && Number.isFinite(rect?.width)
@@ -17074,6 +17226,7 @@ export default function App() {
       left,
       top,
       nick: nick || "Joueur",
+      userId: profileUserId,
       installId: key,
       messageId: messageId || null,
     });
@@ -20555,18 +20708,33 @@ function handleTouchEnd(e) {
     });
     return words;
   }, [accepted, submissionTick]);
+  const fakeTwinsLetterPairLabel = React.useMemo(() => {
+    const isFakeTwinsMode =
+      specialRound?.type === FAKE_TWINS_TYPE ||
+      (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
+    if (!isFakeTwinsMode || !Array.isArray(board)) return "";
+    const twinCell = board.find(
+      (cell) =>
+        cell?.specialType === FAKE_TWINS_TYPE &&
+        String(cell?.letter || "").trim() &&
+        String(cell?.altLetter || "").trim()
+    );
+    if (!twinCell) return "";
+    return `${String(twinCell.letter).trim()}/${String(twinCell.altLetter).trim()}`;
+  }, [board, dailyPlayMode, isDailyPlay, specialRound?.type]);
   const fakeTwinsRemainingLabel = React.useMemo(() => {
     const isFakeTwinsMode =
       specialRound?.type === FAKE_TWINS_TYPE ||
       (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
     if (!isFakeTwinsMode) return "";
+    const twinLetters = fakeTwinsLetterPairLabel || "la case jumelle";
     if (!Array.isArray(allWords) || allWords.length === 0) {
       if (Number.isFinite(roundStats?.fakeTwinWords)) {
         const remaining = Math.max(
           0,
           Number(roundStats.fakeTwinWords) - localCountedFakeTwinsWords.size
         );
-        return `${formatNumber(remaining) ?? remaining} mots utilisent A/B`;
+        return `${formatNumber(remaining) ?? remaining} mots utilisent ${twinLetters}`;
       }
       return "";
     }
@@ -20574,9 +20742,10 @@ function handleTouchEnd(e) {
       if (!entry?.usedFakeTwins || !entry?.word) return false;
       return !localCountedFakeTwinsWords.has(entry.word);
     }).length;
-    return `${formatNumber(remaining) ?? remaining} mots utilisent A/B`;
+    return `${formatNumber(remaining) ?? remaining} mots utilisent ${twinLetters}`;
   }, [
     allWords,
+    fakeTwinsLetterPairLabel,
     formatNumber,
     isDailyPlay,
     localCountedFakeTwinsWords,
@@ -21178,9 +21347,10 @@ function handleTouchEnd(e) {
     })();
 
     const selfNickForResults = nicknameRef.current.trim();
+    const selfNickKeyForResults = normalizeNickKey(selfNickForResults);
     const selfResultEntry =
       selfNickForResults && Array.isArray(finalResults)
-        ? finalResults.find((entry) => entry.nick === selfNickForResults)
+        ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
         : null;
     const showOfflineLabel = !selfResultEntry;
     const compactPillClass = darkMode
@@ -21963,9 +22133,10 @@ function handleTouchEnd(e) {
         ? Number(endStats?.longestWord?.gobbleCount) || 0
         : 0;
     const selfNickForResults = nicknameRef.current.trim();
+    const selfNickKeyForResults = normalizeNickKey(selfNickForResults);
     const selfResultEntry =
       selfNickForResults && Array.isArray(finalResults)
-        ? finalResults.find((entry) => entry.nick === selfNickForResults)
+        ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
         : null;
     const showOfflineLabel = !selfResultEntry;
 
@@ -22490,9 +22661,10 @@ function handleTouchEnd(e) {
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
   const selfNickForResults = nicknameRef.current.trim();
+  const selfNickKeyForResults = normalizeNickKey(selfNickForResults);
   const selfHasResultsThisRound =
     phase === "results" && selfNickForResults && Array.isArray(finalResults)
-      ? finalResults.some((entry) => entry?.nick === selfNickForResults)
+      ? finalResults.some((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
       : false;
   const showOfflineResultsLabel = phase === "results" && !selfHasResultsThisRound;
   const guidedResultsEligible =
@@ -24174,6 +24346,24 @@ function handleTouchEnd(e) {
           Math.round(chatDrawerBaseHeightPx - chatTopInsetPx - CHAT_DRAWER_TOP_GAP_PX)
         )
       : 0;
+  const chatKeyboardInsetForLayoutPx =
+    isChatOpenMobile || isChatClosing ? Math.max(0, Math.round(chatKeyboardInsetPx || 0)) : 0;
+  const chatDrawerVisibleHeightCeilingPx =
+    chatDrawerBaseHeightPx > 0
+      ? Math.max(
+          180,
+          Math.round(
+            chatDrawerBaseHeightPx -
+              chatKeyboardInsetForLayoutPx -
+              chatTopInsetPx -
+              CHAT_DRAWER_TOP_GAP_PX
+          )
+        )
+      : 0;
+  const chatDrawerEffectiveHeightCeilingPx =
+    chatKeyboardInsetForLayoutPx > 0 && chatDrawerVisibleHeightCeilingPx > 0
+      ? Math.min(chatDrawerHeightCeilingPx, chatDrawerVisibleHeightCeilingPx)
+      : chatDrawerHeightCeilingPx;
   const chatDrawerCalibration =
     isChatOpenMobile || isChatClosing
       ? chatDrawerSessionCalibrationRef.current
@@ -24182,24 +24372,24 @@ function handleTouchEnd(e) {
     !!chatDrawerCalibration &&
     String(chatDrawerCalibration.orientation || "portrait") === getChatDrawerOrientationKey();
   const calibratedChatSheetHeightPx =
-    chatDrawerHeightCeilingPx > 0 && chatDrawerCalibrationMatchesOrientation
+    chatDrawerEffectiveHeightCeilingPx > 0 && chatDrawerCalibrationMatchesOrientation
       ? clampValue(
           Number.isFinite(chatDrawerCalibration?.ratio)
             ? Math.round(chatDrawerBaseHeightPx * chatDrawerCalibration.ratio)
             : Number.isFinite(chatDrawerCalibration?.heightPx)
             ? Math.round(chatDrawerCalibration.heightPx)
             : 0,
-          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerHeightCeilingPx),
-          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerHeightCeilingPx)
+          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx),
+          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx)
         )
       : 0;
   const globalChatSheetHeightPx =
-    chatDrawerHeightCeilingPx > 0
+    chatDrawerEffectiveHeightCeilingPx > 0
       ? calibratedChatSheetHeightPx ||
         clampValue(
           Math.round(chatDrawerBaseHeightPx * CHAT_DRAWER_FIXED_HEIGHT_RATIO),
-          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerHeightCeilingPx),
-          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerHeightCeilingPx)
+          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx),
+          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx)
         )
       : 0;
   const chatViewportStyle = chatTopInsetPx
@@ -24668,6 +24858,35 @@ function handleTouchEnd(e) {
                   darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
                 }`}
                 onClick={() => {
+                  openPlayerProfile({
+                    userId: userMenu.userId,
+                    nick: userMenu.nick,
+                  });
+                  closeUserMenu();
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21a8 8 0 0 1 16 0" />
+                </svg>
+                Profil
+              </button>
+              <button
+                type="button"
+                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+                  darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                }`}
+                onClick={() => {
                   blockInstallId(userMenu.installId, userMenu.nick);
                   closeUserMenu();
                 }}
@@ -24907,6 +25126,16 @@ function handleTouchEnd(e) {
       </div>
     </div>
   ) : null;
+  const playerProfileModalView = (
+    <PlayerProfileModal
+      open={playerProfileModal.open}
+      darkMode={darkMode}
+      loading={playerProfileModal.loading}
+      error={playerProfileModal.error}
+      profile={playerProfileModal.profile}
+      onClose={closePlayerProfileModal}
+    />
+  );
 
   function getWeeklyEntryKey(entry) {
     if (!entry) return "";
@@ -25001,7 +25230,7 @@ function handleTouchEnd(e) {
     return isTruncated;
   }
 
-  function WeeklyNickLine({ nick, metaLabel, compactMetaLabel, vocabMeta }) {
+  function WeeklyNickLine({ nick, metaLabel, compactMetaLabel, vocabMeta, onOpenProfile = null }) {
     const nickRef = useRef(null);
     const isTruncated = useNickTruncation(nickRef, [nick, metaLabel, compactMetaLabel]);
     const useCompact = Boolean(compactMetaLabel) && isTruncated;
@@ -25021,9 +25250,20 @@ function handleTouchEnd(e) {
             draggable={false}
           />
         ) : null}
-        <span ref={nickRef} className="truncate">
-          {nick}
-        </span>
+        {onOpenProfile ? (
+          <button
+            type="button"
+            ref={nickRef}
+            className="min-w-0 truncate text-left hover:underline"
+            onClick={onOpenProfile}
+          >
+            {nick}
+          </button>
+        ) : (
+          <span ref={nickRef} className="truncate">
+            {nick}
+          </span>
+        )}
         {metaText ? <span className={metaClass}>{metaText}</span> : null}
       </div>
     );
@@ -25141,6 +25381,13 @@ function handleTouchEnd(e) {
       (installId && entry.playerKey && entry.playerKey === `install:${installId}`) ||
       (selfNickLower && entryNickLower && entryNickLower === selfNickLower) ||
       (selfNickLower && entry.playerKey && entry.playerKey === `nick:${selfNickLower}`);
+    const profileUserId = getUserIdFromPlayerProfileTarget(entry);
+    const openWeeklyProfile = profileUserId
+      ? (e) => {
+          e.stopPropagation();
+          openPlayerProfile({ userId: profileUserId, nick: baseNick });
+        }
+      : null;
 
     return (
       <div
@@ -25161,6 +25408,7 @@ function handleTouchEnd(e) {
               metaLabel={metaLabel}
               compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
+              onOpenProfile={openWeeklyProfile}
             />
             {hasWord ? (
               <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
@@ -25329,6 +25577,13 @@ function handleTouchEnd(e) {
       (installId && entry.playerKey && entry.playerKey === `install:${installId}`) ||
       (selfNickLower && entryNickLower && entryNickLower === selfNickLower) ||
       (selfNickLower && entry.playerKey && entry.playerKey === `nick:${selfNickLower}`);
+    const profileUserId = getUserIdFromPlayerProfileTarget(entry);
+    const openWeeklyProfile = profileUserId
+      ? (e) => {
+          e.stopPropagation();
+          openPlayerProfile({ userId: profileUserId, nick: baseNick });
+        }
+      : null;
 
     return (
       <div
@@ -25349,6 +25604,7 @@ function handleTouchEnd(e) {
               metaLabel={metaLabel}
               compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
+              onOpenProfile={openWeeklyProfile}
             />
             {hasWord ? (
               <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
@@ -28964,6 +29220,19 @@ function handleTouchEnd(e) {
                 type="button"
                 onClick={() => {
                   setIsAccountMenuOpen(false);
+                  openPlayerProfile({
+                    userId: authenticatedUserId,
+                    nick: authState.user?.usernameDisplay || nickname || "Joueur",
+                  });
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
+              >
+                Voir mon profil
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountMenuOpen(false);
                   openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
                 }}
                 className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
@@ -29955,6 +30224,7 @@ function handleTouchEnd(e) {
       onClearChatEdit={clearChatEditTarget}
       chatReplyTarget={chatReplyTarget}
       onClearChatReply={clearChatReplyTarget}
+      onOpenPlayerProfile={openPlayerProfile}
       selfNick={selfNick}
       selfInstallId={installId}
     />
@@ -30102,6 +30372,223 @@ function handleTouchEnd(e) {
           document.body
         )
       : null;
+  const duelWeekSummary = duelStatus?.lastWeekSummary || null;
+  const duelWeekWinner = duelWeekSummary?.winnerTeam || null;
+  const duelWeekRedScore = Number(duelWeekSummary?.totalsByTeam?.red) || 0;
+  const duelWeekBlueScore = Number(duelWeekSummary?.totalsByTeam?.blue) || 0;
+  const duelWeekScoreGap = Math.abs(duelWeekRedScore - duelWeekBlueScore);
+  const duelWeekMyContribution = duelWeekSummary?.myContribution || null;
+  const duelWeekTopContributors = React.useMemo(() => {
+    const red = Array.isArray(duelWeekSummary?.contributorsByTeam?.red)
+      ? duelWeekSummary.contributorsByTeam.red.slice(0, 5)
+      : [];
+    const blue = Array.isArray(duelWeekSummary?.contributorsByTeam?.blue)
+      ? duelWeekSummary.contributorsByTeam.blue.slice(0, 5)
+      : [];
+    return { red, blue };
+  }, [duelWeekSummary]);
+  const closeDuelWeekRecap = React.useCallback(() => {
+    const weekId = String(duelWeekSummary?.weekId || "").trim();
+    if (installId && weekId) {
+      try {
+        localStorage.setItem(`${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`, "1");
+      } catch (_) {}
+    }
+    setDuelWeekRecapOpen(false);
+    setDuelWeekRecapExpanded(false);
+  }, [duelWeekSummary?.weekId, installId]);
+  const renderDuelWeekTeamContributors = React.useCallback(
+    (team) => {
+      const list = duelWeekTopContributors[team] || [];
+      const colorClass = team === "red" ? "text-red-400" : "text-blue-400";
+      if (!list.length) {
+        return <div className="text-xs opacity-60">Aucune contribution enregistrée.</div>;
+      }
+      return (
+        <div className="space-y-1">
+          {list.map((entry, idx) => (
+            <div
+              key={`${team}-${entry?.installId || entry?.nick || idx}`}
+              className="flex items-center justify-between gap-2 rounded-lg bg-white/8 px-2 py-1.5 text-xs"
+            >
+              <span className="min-w-0 truncate">
+                <span className={`font-black ${colorClass}`}>#{idx + 1}</span>{" "}
+                <span className="font-semibold">{entry?.nick || "Joueur"}</span>
+              </span>
+              <span className="shrink-0 font-black tabular-nums">
+                {formatNumber(Number(entry?.points) || 0)}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    },
+    [duelWeekTopContributors, formatNumber]
+  );
+  const duelWeekRecapOverlay =
+    duelWeekRecapOpen && duelWeekSummary && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[20145] flex items-center justify-center bg-black/60 px-4 py-6">
+            <button
+              type="button"
+              className="absolute inset-0"
+              onClick={closeDuelWeekRecap}
+              aria-label="Fermer le récap duel"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Récapitulatif du duel hebdomadaire"
+              className="relative w-full max-w-lg overflow-hidden rounded-2xl border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.98),rgba(7,22,55,0.99))] text-amber-50 shadow-2xl"
+            >
+              <div
+                className={`h-2 w-full ${
+                  duelWeekWinner === "red"
+                    ? "bg-red-500"
+                    : duelWeekWinner === "blue"
+                    ? "bg-blue-500"
+                    : "bg-amber-400"
+                }`}
+              />
+              <div className="p-4 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.22em] opacity-65">
+                      Duel hebdomadaire terminé
+                    </div>
+                    <div className="mt-1 text-2xl font-black leading-tight">
+                      {duelWeekWinner === "red"
+                        ? "Victoire des Rouges"
+                        : duelWeekWinner === "blue"
+                        ? "Victoire des Bleus"
+                        : "Égalité parfaite"}
+                    </div>
+                    <div className="mt-1 text-xs opacity-70">{duelWeekSummary.weekId}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="h-8 w-8 rounded-full border border-amber-200/30 bg-slate-950/35 text-sm font-black"
+                    onClick={closeDuelWeekRecap}
+                    aria-label="Fermer"
+                  >
+                    x
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 px-3 py-3 text-center">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-wide text-red-300">
+                      Rouges
+                    </div>
+                    <div className="text-2xl font-black tabular-nums text-red-400">
+                      {formatNumber(duelWeekRedScore)}
+                    </div>
+                  </div>
+                  <div className="text-xs font-black opacity-50">VS</div>
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-wide text-blue-300">
+                      Bleus
+                    </div>
+                    <div className="text-2xl font-black tabular-nums text-blue-400">
+                      {formatNumber(duelWeekBlueScore)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
+                    <div className="text-[10px] font-black uppercase tracking-wide opacity-55">
+                      Écart final
+                    </div>
+                    <div className="mt-1 font-black tabular-nums">
+                      {formatNumber(duelWeekScoreGap)} pts
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
+                    <div className="text-[10px] font-black uppercase tracking-wide opacity-55">
+                      Ta contribution
+                    </div>
+                    <div className="mt-1 font-black tabular-nums">
+                      {formatNumber(Number(duelWeekMyContribution?.points) || 0)} pts
+                    </div>
+                  </div>
+                </div>
+
+                {duelWeekMyContribution ? (
+                  <div className="rounded-xl border border-amber-200/20 bg-amber-300/10 px-3 py-2 text-sm">
+                    <div className="font-semibold">
+                      Tu étais dans l'équipe{" "}
+                      <span className={duelWeekMyContribution.team === "red" ? "text-red-300" : "text-blue-300"}>
+                        {duelWeekMyContribution.team === "red" ? "Rouge" : "Bleue"}
+                      </span>
+                      {duelWeekMyContribution.rank ? `, rang #${duelWeekMyContribution.rank}` : ""}.
+                    </div>
+                    {duelWeekRecapExpanded ? (
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                          <div className="opacity-60">Objectifs</div>
+                          <div className="font-black">{formatNumber(Number(duelWeekMyContribution.objectivePoints) || 0)}</div>
+                        </div>
+                        <div>
+                          <div className="opacity-60">Gobbles</div>
+                          <div className="font-black">{formatNumber(Number(duelWeekMyContribution.gobblePoints) || 0)}</div>
+                        </div>
+                        <div>
+                          <div className="opacity-60">Médailles</div>
+                          <div className="font-black">{formatNumber(Number(duelWeekMyContribution.medalPoints) || 0)}</div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {duelWeekRecapExpanded ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <div className="mb-1 text-xs font-black uppercase tracking-wide text-red-300">
+                        Top rouges
+                      </div>
+                      {renderDuelWeekTeamContributors("red")}
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-black uppercase tracking-wide text-blue-300">
+                        Top bleus
+                      </div>
+                      {renderDuelWeekTeamContributors("blue")}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-xl border border-amber-300/60 bg-amber-400 px-3 py-2 text-sm font-black text-slate-950"
+                    onClick={() => {
+                      if (duelWeekRecapExpanded) {
+                        closeDuelWeekRecap();
+                      } else {
+                        setDuelWeekRecapExpanded(true);
+                      }
+                    }}
+                  >
+                    {duelWeekRecapExpanded ? "Continuer" : "Voir le détail"}
+                  </button>
+                  {!duelWeekRecapExpanded ? (
+                    <button
+                      type="button"
+                      className="rounded-xl border border-white/15 bg-slate-950/30 px-3 py-2 text-sm font-semibold"
+                      onClick={closeDuelWeekRecap}
+                    >
+                      Fermer
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
   const isBootBlocking = !bootProgress.done;
   const shouldShowBootOverlay = isBootBlocking || bootOverlayVisible;
   const bootOverlay = shouldShowBootOverlay ? (
@@ -30116,11 +30603,13 @@ function handleTouchEnd(e) {
     <>
       {bootOverlay}
       {duelPopupOverlay}
+      {duelWeekRecapOverlay}
       {playersOverlay}
       {userMenuView}
       {desktopChatReactionPickerView}
       {desktopChatReactionDetailsView}
       {reportModal}
+      {playerProfileModalView}
       {chatRulesModal}
       {definitionModalView}
       {wordInfoModalView}
@@ -31464,6 +31953,7 @@ function handleTouchEnd(e) {
       <>
         {bootOverlay}
         {playersOverlay}
+        {playerProfileModalView}
         {definitionModalView}
         {tutorialOverlay}
         {authDialogView}
@@ -31565,6 +32055,7 @@ function handleTouchEnd(e) {
       <>
         {bootOverlay}
         {playersOverlay}
+        {playerProfileModalView}
         {definitionModalView}
         {tutorialOverlay}
         {authDialogView}
@@ -31595,6 +32086,7 @@ function handleTouchEnd(e) {
       <>
         {bootOverlay}
         {playersOverlay}
+        {playerProfileModalView}
         {definitionModalView}
         {tutorialOverlay}
         {authDialogView}
@@ -31654,9 +32146,11 @@ function handleTouchEnd(e) {
         {bootOverlay}
         {teamTintOverlay}
         {duelPopupOverlay}
+        {duelWeekRecapOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
         {playersOverlay}
+        {playerProfileModalView}
         {definitionModalView}
         {tutorialOverlay}
         {authDialogView}
@@ -31706,9 +32200,11 @@ function handleTouchEnd(e) {
         {bootOverlay}
         {teamTintOverlay}
         {duelPopupOverlay}
+        {duelWeekRecapOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
         {playersOverlay}
+        {playerProfileModalView}
         {definitionModalView}
         {tutorialOverlay}
         {authDialogView}
@@ -32672,6 +33168,7 @@ function handleTouchEnd(e) {
 	                                  onClick={(e) =>
 	                                    openUserMenu(e, {
 	                                      nick: author,
+                                      userId: msg.userId,
                                       installId: authorInstallId,
                                       messageId: msg.id,
                                     })
@@ -34007,6 +34504,7 @@ function handleTouchEnd(e) {
               setHighlightPlayers([]);
             }}
             onGoToResultsPage={goToResultsPage}
+            onOpenPlayerProfile={openPlayerProfile}
             onOpenRoundPlayerModal={openRoundPlayerModal}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenWordInfoModal={openWordInfoModal}
@@ -34408,10 +34906,37 @@ function handleTouchEnd(e) {
               ? "TROUVE LE MEILLEUR MOT"
               : "MANCHE SPECIALE"}
           </div>
-          <div className="mt-3 text-center font-black tracking-widest text-xl sm:text-2xl tabular-nums">
+          <div
+            className={`mt-3 text-center font-black text-xl sm:text-2xl tabular-nums ${
+              solvedTargetWord ? "tracking-normal" : "tracking-widest"
+            }`}
+          >
             {specialHintDisplay ? (
-              <span className="inline-flex items-center justify-center gap-2">
-                <span>{specialHintDisplay}</span>
+              <span
+                className={`inline-flex items-center justify-center gap-2 ${
+                  solvedTargetWord ? "max-w-full min-w-0" : ""
+                }`}
+              >
+                <span
+                  className={
+                    solvedTargetWord
+                      ? "block max-w-full whitespace-nowrap tracking-normal"
+                      : ""
+                  }
+                  style={
+                    solvedTargetWord
+                      ? {
+                          letterSpacing: 0,
+                          fontSize:
+                            solvedTargetWord.length >= 13
+                              ? "clamp(1rem, 3.8vw, 1.5rem)"
+                              : undefined,
+                        }
+                      : undefined
+                  }
+                >
+                  {specialHintDisplay}
+                </span>
                 {showSolvedTargetLoupe && (
                   <button
                     type="button"
@@ -34547,12 +35072,12 @@ function handleTouchEnd(e) {
             resultsRankingMode === "round" ? recordBadgesByNickForRound : null
           }
           onPlayerNickClick={
-            resultsRankingMode === "round" ? openRoundPlayerModal : null
+            resultsRankingMode === "round" ? openRoundPlayerModal : openPlayerProfile
           }
           isPlayerNickClickable={
             resultsRankingMode === "round"
               ? (rankingEntry) => canOpenRoundPlayerDetails(rankingEntry)
-              : null
+              : (rankingEntry) => !!getUserIdFromPlayerProfileTarget(rankingEntry)
           }
         />
       </div>
@@ -34588,6 +35113,7 @@ function handleTouchEnd(e) {
                       onClick={(e) =>
                         openUserMenu(e, {
                           nick: p.nick,
+                          userId: p.userId,
                           installId: p.installId,
                           messageId: null,
                         })

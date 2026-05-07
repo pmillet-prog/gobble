@@ -69,6 +69,7 @@ export default function HomeChatModal({
   chatInputPlaceholder = "Ecrire un message...",
   selfNick = "",
   selfInstallId = "",
+  onOpenPlayerProfile = null,
 }) {
   const listRef = React.useRef(null);
 
@@ -111,6 +112,13 @@ export default function HomeChatModal({
   }, [open, currentTab, lastMessageKey]);
 
   if (!open || typeof document === "undefined") return null;
+  const getProfileUserId = (message) => {
+    const directUserId = Number(message?.userId);
+    if (Number.isInteger(directUserId) && directUserId > 0) return directUserId;
+    const numericInstallId = Number(message?.installId);
+    if (Number.isInteger(numericInstallId) && numericInstallId > 0) return numericInstallId;
+    return null;
+  };
   const panelClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.96),rgba(7,22,55,0.98))] border-amber-300/70 text-amber-50"
     : "bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] border-amber-300/80 text-slate-900";
@@ -208,6 +216,8 @@ export default function HomeChatModal({
                   ? authorInstallId === selfInstallId
                   : author === selfNick;
                 const isSystem = isSystemAuthor(author);
+                const profileUserId = getProfileUserId(msg);
+                const canOpenProfile = !isSystem && profileUserId && onOpenPlayerProfile;
                 if (isSystem) {
                   return (
                     <div
@@ -239,7 +249,22 @@ export default function HomeChatModal({
                     }`}
                   >
                     <div className="flex items-baseline gap-1.5 flex-wrap">
-                      <span className="font-bold">{author}:</span>
+                      {canOpenProfile ? (
+                        <button
+                          type="button"
+                          className="font-bold hover:underline"
+                          onClick={() =>
+                            onOpenPlayerProfile?.({
+                              userId: profileUserId,
+                              nick: author,
+                            })
+                          }
+                        >
+                          {author}:
+                        </button>
+                      ) : (
+                        <span className="font-bold">{author}:</span>
+                      )}
                       {messageTime ? (
                         <span className="text-[10px] leading-none opacity-70">
                           {messageTime}

@@ -661,6 +661,119 @@ function findNickInWeekState(weekState, playerKey) {
   return "";
 }
 
+function cloneWeeklyEntry(entry) {
+  return entry && typeof entry === "object" ? { ...entry } : null;
+}
+
+function getWeekPlayerEntries(weekState, playerKey) {
+  if (!weekState || typeof weekState !== "object" || !playerKey) return {};
+  return {
+    medals: cloneWeeklyEntry(weekState.medals?.get?.(playerKey)),
+    mostWordsInGame: cloneWeeklyEntry(weekState.mostWordsInGame?.get?.(playerKey)),
+    totalScore: cloneWeeklyEntry(weekState.totalScore?.get?.(playerKey)),
+    bestWord: cloneWeeklyEntry(weekState.bestWord?.get?.(playerKey)),
+    longestWord: cloneWeeklyEntry(weekState.longestWord?.get?.(playerKey)),
+    bestSpecial3Score: cloneWeeklyEntry(weekState.bestSpecial3Score?.get?.(playerKey)),
+    bestRoundScore: cloneWeeklyEntry(weekState.bestRoundScore?.get?.(playerKey)),
+    bestTimeTargetLong: cloneWeeklyEntry(weekState.bestTimeTargetLong?.get?.(playerKey)),
+    bestTimeTargetScore: cloneWeeklyEntry(weekState.bestTimeTargetScore?.get?.(playerKey)),
+    vocab: cloneWeeklyEntry(weekState.vocab?.get?.(playerKey)),
+    mostGobbles: cloneWeeklyEntry(weekState.mostGobbles?.get?.(playerKey)),
+  };
+}
+
+function replaceBest(current, candidate, key, asc = false) {
+  if (!candidate || !Number.isFinite(Number(candidate?.[key]))) return current || null;
+  if (!current || !Number.isFinite(Number(current?.[key]))) return cloneWeeklyEntry(candidate);
+  const currentValue = Number(current[key]);
+  const candidateValue = Number(candidate[key]);
+  if (asc ? candidateValue < currentValue : candidateValue > currentValue) {
+    return cloneWeeklyEntry(candidate);
+  }
+  return current;
+}
+
+function summarizeAllTimeWeeklyEntries(weeks, playerKey) {
+  const summary = {
+    weeksWithStats: 0,
+    medals: { gold: 0, silver: 0, bronze: 0, total: 0 },
+    totalScore: 0,
+    roundsPlayed: 0,
+    mostGobbles: 0,
+    bestWord: null,
+    longestWord: null,
+    bestRoundScore: null,
+    bestSpecial3Score: null,
+    mostWordsInGame: null,
+    bestTimeTargetLong: null,
+    bestTimeTargetScore: null,
+    vocab: null,
+  };
+  for (const weekState of weeks) {
+    const entries = getWeekPlayerEntries(weekState, playerKey);
+    if (Object.values(entries).some(Boolean)) summary.weeksWithStats += 1;
+    if (entries.medals) {
+      summary.medals.gold += Number(entries.medals.gold) || 0;
+      summary.medals.silver += Number(entries.medals.silver) || 0;
+      summary.medals.bronze += Number(entries.medals.bronze) || 0;
+      summary.medals.total += Number(entries.medals.total) || 0;
+    }
+    if (entries.totalScore) {
+      summary.totalScore += Number(entries.totalScore.totalScore) || 0;
+      summary.roundsPlayed += Number(entries.totalScore.roundsPlayed) || 0;
+    }
+    if (entries.mostGobbles) {
+      summary.mostGobbles += Number(entries.mostGobbles.gobbles) || 0;
+    }
+    summary.bestWord = replaceBest(summary.bestWord, entries.bestWord, "pts", false);
+    summary.longestWord = replaceBest(summary.longestWord, entries.longestWord, "len", false);
+    summary.bestRoundScore = replaceBest(summary.bestRoundScore, entries.bestRoundScore, "pts", false);
+    summary.bestSpecial3Score = replaceBest(
+      summary.bestSpecial3Score,
+      entries.bestSpecial3Score,
+      "pts",
+      false
+    );
+    summary.mostWordsInGame = replaceBest(
+      summary.mostWordsInGame,
+      entries.mostWordsInGame,
+      "wordsCount",
+      false
+    );
+    summary.bestTimeTargetLong = replaceBest(
+      summary.bestTimeTargetLong,
+      normalizeTargetTimeEntry(entries.bestTimeTargetLong),
+      "ms",
+      true
+    );
+    summary.bestTimeTargetScore = replaceBest(
+      summary.bestTimeTargetScore,
+      normalizeTargetTimeEntry(entries.bestTimeTargetScore),
+      "ms",
+      true
+    );
+    summary.vocab = replaceBest(summary.vocab, entries.vocab, "vocabCount", false);
+  }
+  return summary;
+}
+
+export function getWeeklyPlayerSnapshot(installId) {
+  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
+  if (!safeInstallId) return null;
+  ensureCurrentWeek();
+  const playerKey = `install:${safeInstallId}`;
+  const currentWeek = getWeekPlayerEntries(state, playerKey);
+  const historyWeeks = Array.from(history.keys())
+    .sort((a, b) => b - a)
+    .map((weekStartTs) => history.get(weekStartTs))
+    .filter(Boolean);
+  return {
+    playerKey,
+    currentWeek,
+    allTime: summarizeAllTimeWeeklyEntries([state, ...historyWeeks], playerKey),
+  };
+}
+
 export function getWeeklyNickForInstallId(installId) {
   const safeInstallId = typeof installId === "string" ? installId.trim() : "";
   if (!safeInstallId) return "";

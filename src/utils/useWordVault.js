@@ -131,16 +131,31 @@ export default function useWordVault({
     }
     setWordVaultActionPending(true);
     try {
-      const response = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
+      let response = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
       const payload = response?.data || {};
-      if (!response?.ok) {
-        if (payload?.error === "auth_required") {
-          await refreshAuthStatus?.({ silent: true });
+      if (!response?.ok && payload?.error === "auth_required") {
+        const refreshed = await refreshAuthStatus?.({ silent: true });
+        if (refreshed?.status === "authenticated" && refreshed?.user) {
+          response = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
+        } else {
+          ensureAuthenticated?.({ source: "action" });
+          showToast?.("Reconnecte-toi pour ajouter ce mot au coffre fort");
+          return false;
         }
-        showToast?.("Ajout au coffre fort impossible");
+      }
+      if (!response?.ok) {
+        const retryPayload = response?.data || {};
+        if (retryPayload?.error === "auth_required") {
+          await refreshAuthStatus?.({ silent: true });
+          ensureAuthenticated?.({ source: "action" });
+          showToast?.("Reconnecte-toi pour ajouter ce mot au coffre fort");
+        } else {
+          showToast?.("Ajout au coffre fort impossible");
+        }
         return false;
       }
-      const entry = normalizeWordVaultEntry(payload?.entry);
+      const successPayload = response?.data || {};
+      const entry = normalizeWordVaultEntry(successPayload?.entry);
       if (!entry) {
         showToast?.("Ajout au coffre fort impossible");
         void fetchWordVault({ silent: true });
@@ -156,14 +171,40 @@ export default function useWordVault({
         };
       });
       void fetchWordVault({ silent: true });
-      if (payload?.alreadyExists) {
+      if (successPayload?.alreadyExists) {
         showToast?.("Mot déjà ajouté au coffre fort");
       } else {
         showToast?.("Mot ajouté au coffre fort");
       }
       return true;
-    } catch (_) {
-      showToast?.("Ajout au coffre fort impossible");
+    } catch (err) {
+      const code = String(err?.message || "");
+      if (code === "request_timeout") {
+        try {
+          const retryResponse = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
+          const retryPayload = retryResponse?.data || {};
+          if (retryResponse?.ok) {
+            const entry = normalizeWordVaultEntry(retryPayload?.entry);
+            if (entry) {
+              setWordVault((prev) => {
+                const existingWords = Array.isArray(prev?.words) ? prev.words : [];
+                return {
+                  ...prev,
+                  loaded: true,
+                  error: "",
+                  words: [entry, ...existingWords.filter((item) => item.wordKey !== entry.wordKey)],
+                };
+              });
+              void fetchWordVault({ silent: true });
+              showToast?.(retryPayload?.alreadyExists ? "Mot déjà ajouté au coffre fort" : "Mot ajouté au coffre fort");
+              return true;
+            }
+          }
+        } catch (_) {}
+        showToast?.("Connexion trop lente, ajout au coffre fort non confirmé");
+      } else {
+        showToast?.("Ajout au coffre fort impossible");
+      }
       return false;
     } finally {
       setWordVaultActionPending(false);

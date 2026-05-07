@@ -1,0 +1,144 @@
+.avatar-stage {
+  display: inline-flex;
+  width: var(--avatar-size, 220px);
+  height: var(--avatar-size, 220px);
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-root {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.avatar-character,
+.avatar-arm-left,
+.avatar-arm-right,
+.avatar-mouth,
+.avatar-shadow,
+.avatar-body {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.avatar--idle .avatar-character {
+  animation: avatar-idle-float 3.6s ease-in-out infinite;
+}
+
+.avatar--idle .avatar-body {
+  animation: avatar-idle-breathe 3.6s ease-in-out infinite;
+}
+
+.avatar--happy .avatar-character {
+  animation: avatar-happy-bounce 1.4s ease-in-out infinite;
+}
+
+.avatar--happy .avatar-mouth {
+  animation: avatar-mouth-pop 1.4s ease-in-out infinite;
+}
+
+.avatar--annoyed .avatar-character {
+  animation: avatar-annoyed-shake 0.34s ease-in-out infinite;
+}
+
+.avatar--win .avatar-character {
+  animation: avatar-win-bounce 1.05s ease-in-out infinite;
+}
+
+.avatar--win .avatar-arm-left {
+  transform: translate(7px, -28px) rotate(-38deg);
+}
+
+.avatar--win .avatar-arm-right {
+  transform: translate(-7px, -28px) rotate(38deg);
+}
+
+.avatar--lose .avatar-character {
+  transform: translateY(8px) scaleY(0.97);
+}
+
+.avatar--lose .avatar-shadow {
+  transform: scaleX(0.86);
+  opacity: 0.8;
+}
+
+@keyframes avatar-idle-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes avatar-idle-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.018, 0.986);
+  }
+}
+
+@keyframes avatar-happy-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  42% {
+    transform: translateY(-9px) scale(1.03, 0.98);
+  }
+  68% {
+    transform: translateY(2px) scale(0.99, 1.01);
+  }
+}
+
+@keyframes avatar-mouth-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05, 1.08);
+  }
+}
+
+@keyframes avatar-annoyed-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes avatar-win-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  38% {
+    transform: translateY(-14px) scale(1.04, 0.97);
+  }
+  70% {
+    transform: translateY(2px) scale(0.99, 1.01);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar--idle .avatar-character,
+  .avatar--idle .avatar-body,
+  .avatar--happy .avatar-character,
+  .avatar--happy .avatar-mouth,
+  .avatar--annoyed .avatar-character,
+  .avatar--win .avatar-character {
+    animation: none;
+  }
+}

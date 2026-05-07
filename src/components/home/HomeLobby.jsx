@@ -490,10 +490,10 @@ function HomeLobby({
           onClick={onOpenDuel}
         >
           <span className="home-duel-score home-duel-score-blue">
-            {formatDuelScore(duelRedScore)}
+            {formatDuelScore(duelBlueScore)}
           </span>
           <span className="home-duel-score home-duel-score-red">
-            {formatDuelScore(duelBlueScore)}
+            {formatDuelScore(duelRedScore)}
           </span>
         </HomeImageButton>
 

@@ -18,7 +18,7 @@ export const DAILY_DURATION_MS = 120 * 1000;
 export const DAILY_MONSTROUS_MODE = "monstrous_grid";
 export const DAILY_SPECIAL_MODE = "self_specials_3_words";
 export const DAILY_FAKE_TWINS_MODE = "fake_twins_grid";
-export const DAILY_GENERATION_VERSION = "anchored-daily-v1";
+export const DAILY_GENERATION_VERSION = "anchored-daily-v3";
 
 const DAILY_MONSTROUS_MIN_WORDS = 200;
 const DAILY_MONSTROUS_MIN_TOTAL_SCORE = 4000;
@@ -26,7 +26,7 @@ const DAILY_MONSTROUS_MIN_LONG_LEN = 10;
 const DAILY_MONSTROUS_MIN_LONG_WORDS = 3;
 const DAILY_SPECIAL_MIN_WORDS = 120;
 const DAILY_SPECIAL_MIN_LONG_LEN = 8;
-const DAILY_FAKE_TWINS_MIN_WORDS = 120;
+const DAILY_FAKE_TWINS_MIN_WORDS = 150;
 const DAILY_FAKE_TWINS_MIN_LONG_LEN = 8;
 const MAX_GENERATION_ATTEMPTS = 240;
 const FAKE_TWINS_PRIMARY_MAX_ATTEMPTS = 90;

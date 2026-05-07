@@ -1205,7 +1205,14 @@ async function buildWeeklyContributorsByTeam(week) {
       normalizeNick(nickByInstallId[installId]) ||
       normalizeNick(weeklyNickFallback[installId]) ||
       `Joueur ${installId.slice(-4)}`;
-    out[team].push({ installId, nick, points });
+    out[team].push({
+      installId,
+      nick,
+      points,
+      objectivePoints,
+      gobblePoints,
+      medalPoints,
+    });
   }
   out.red.sort((a, b) => {
     const d = (Number(b?.points) || 0) - (Number(a?.points) || 0);
@@ -1702,11 +1709,73 @@ export async function getWeeklyDuelScore(weekId = null) {
   };
 }
 
+export async function getWeeklyDuelRecap(weekId = null, installId = "") {
+  await finalizeDailyBonusesUntil(getParisDateId());
+  const safeWeekId = weekId || shiftWeekId(getParisWeekId(), -1);
+  const week = ensureWeekShape(state.weeks?.[safeWeekId]);
+  if (!week) return null;
+  const totals = getTeamTotals(week);
+  const contributorsByTeam = await buildWeeklyContributorsByTeam(week);
+  const winnerTeam =
+    totals.totalByTeam.red === totals.totalByTeam.blue
+      ? null
+      : totals.totalByTeam.red > totals.totalByTeam.blue
+      ? "red"
+      : "blue";
+  const safeInstallId = normalizeInstallId(installId);
+  let myContribution = null;
+  if (safeInstallId) {
+    for (const team of TEAM_VALUES) {
+      const list = contributorsByTeam[team] || [];
+      const idx = list.findIndex((entry) => entry?.installId === safeInstallId);
+      if (idx >= 0) {
+        const entry = list[idx];
+        myContribution = {
+          team,
+          rank: idx + 1,
+          points: Number(entry?.points) || 0,
+          objectivePoints: Number(entry?.objectivePoints) || 0,
+          gobblePoints: Number(entry?.gobblePoints) || 0,
+          medalPoints: Number(entry?.medalPoints) || 0,
+        };
+        break;
+      }
+    }
+    if (!myContribution) {
+      const team = week.teamByInstallId?.[safeInstallId] || null;
+      if (TEAM_VALUES.includes(team)) {
+        myContribution = {
+          team,
+          rank: null,
+          points: 0,
+          objectivePoints: 0,
+          gobblePoints: 0,
+          medalPoints: 0,
+        };
+      }
+    }
+  }
+  return {
+    weekId: safeWeekId,
+    weekStartTs: week.weekStartTs || getWeekStartTsFromWeekId(safeWeekId),
+    weekEndTs: (week.weekStartTs || getWeekStartTsFromWeekId(safeWeekId)) + 7 * 86400000,
+    totalsByTeam: totals.totalByTeam,
+    objectivePointsByTeam: totals.objectiveByTeam,
+    gobblePointsByTeam: totals.gobbleByTeam,
+    dailyBonusPointsByTeam: totals.dailyBonusByTeam,
+    medalPointsByTeam: totals.medalByTeam,
+    contributorsByTeam,
+    winnerTeam,
+    myContribution,
+  };
+}
+
 export async function getDuelStatus(installId, { dateId = null, weekId = null } = {}) {
   const safeDateId = parseDateId(dateId) ? dateId : getParisDateId();
   const resolvedWeekId = weekId || getWeekIdFromDateId(safeDateId);
   const weekly = await getWeeklyDuelScore(resolvedWeekId);
   const safeInstallId = normalizeInstallId(installId);
+  const lastWeekSummary = await getWeeklyDuelRecap(shiftWeekId(resolvedWeekId, -1), safeInstallId);
   const team = safeInstallId ? await ensureInstallTeam(safeInstallId, resolvedWeekId) : null;
   const crowned = safeInstallId ? await isInstallCrowned(safeInstallId, resolvedWeekId) : false;
   const objectives = safeInstallId
@@ -1728,6 +1797,7 @@ export async function getDuelStatus(installId, { dateId = null, weekId = null } 
     team,
     crowned,
     weekly,
+    lastWeekSummary,
     objectives,
     dailyBattle,
   };

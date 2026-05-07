@@ -119,6 +119,18 @@ function MobileStandardPlaying(props) {
     wordsFoundLabel = "",
   } = props;
 
+  const solvedTargetLength = String(solvedTargetWord || "").trim().length;
+  const isSolvedTargetDisplay = solvedTargetLength > 0;
+  const solvedTargetFontPx = isSolvedTargetDisplay
+    ? Math.max(
+        11,
+        Math.min(
+          specialWordFont,
+          Math.round((specialWordFont * 12) / Math.max(12, solvedTargetLength))
+        )
+      )
+    : specialWordFont;
+
   return (
     <>
       <div
@@ -246,12 +258,34 @@ function MobileStandardPlaying(props) {
                   : "MANCHE SPECIALE"}
               </div>
               <div
-                className="mt-2 text-center font-black tracking-widest tabular-nums"
+                className={`mt-2 text-center font-black tabular-nums ${
+                  isSolvedTargetDisplay ? "tracking-normal" : "tracking-widest"
+                }`}
                 style={{ fontSize: `${specialWordFont}px` }}
               >
                 {specialHintDisplay ? (
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <span>{specialHintDisplay}</span>
+                  <span
+                    className={`inline-flex items-center justify-center gap-2 ${
+                      isSolvedTargetDisplay ? "max-w-full min-w-0" : ""
+                    }`}
+                  >
+                    <span
+                      className={
+                        isSolvedTargetDisplay
+                          ? "block max-w-full whitespace-nowrap tracking-normal"
+                          : ""
+                      }
+                      style={
+                        isSolvedTargetDisplay
+                          ? {
+                              fontSize: `${solvedTargetFontPx}px`,
+                              letterSpacing: 0,
+                            }
+                          : undefined
+                      }
+                    >
+                      {specialHintDisplay}
+                    </span>
                     {showSolvedTargetLoupe && (
                       <button
                         type="button"

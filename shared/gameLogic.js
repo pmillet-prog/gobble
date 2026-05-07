@@ -9,8 +9,9 @@ export const MOVABLE_BONUS_KEYS = Object.freeze(["L2", "L3", "M2", "M3"]);
 export const FAKE_TWINS_TYPE = "fake_twins";
 export const FAKE_TWINS_MIN_WORD_LENGTH = 4;
 export const FAKE_TWINS_WORD_BONUS = 50;
-export const FAKE_TWINS_COMPLETION_BONUS = 200;
-export const FAKE_TWINS_MAX_WORDS = 40;
+export const FAKE_TWINS_COMPLETION_BONUS = 500;
+export const FAKE_TWINS_MIN_WORDS = 15;
+export const FAKE_TWINS_MAX_WORDS = 25;
 export const FAKE_TWINS_MIN_SIDE_WORD_RATIO = 0.2;
 const FAKE_TWINS_MIN_PRIMARY_WORDS = 10;
 
@@ -792,14 +793,16 @@ function summarizeFakeTwinsCandidate(
   maxWords = FAKE_TWINS_MAX_WORDS
 ) {
   const fakeTwinWords = Math.max(0, Number(primaryLetterWords) || 0) + Math.max(0, Number(altLetterWords) || 0);
+  const minWords = Math.min(FAKE_TWINS_MIN_WORDS, maxWords);
   const minSideWords =
     fakeTwinWords > 0 ? Math.ceil(fakeTwinWords * FAKE_TWINS_MIN_SIDE_WORD_RATIO) : 0;
   const sidesUsed = primaryLetterWords > 0 && altLetterWords > 0;
   const balanced = sidesUsed && Math.min(primaryLetterWords, altLetterWords) >= minSideWords;
-  const withinWordTarget = fakeTwinWords > 0 && fakeTwinWords <= maxWords;
+  const withinWordTarget = fakeTwinWords >= minWords && fakeTwinWords <= maxWords;
   const targetScore =
     Math.min(fakeTwinWords, maxWords) * 100 +
     Math.min(primaryLetterWords, altLetterWords) * 25 -
+    Math.max(0, minWords - fakeTwinWords) * 500 -
     Math.max(0, fakeTwinWords - maxWords) * 1000 -
     Math.max(0, minSideWords - Math.min(primaryLetterWords, altLetterWords)) * 400 -
     (sidesUsed ? 0 : 200);
@@ -856,10 +859,12 @@ function summarizeSolvedFakeTwinsWords(solved, baseSolvedKeys, grid) {
   const minSideWords = baseMinSideWords + Math.ceil(duplicatePathWords / 2);
   const sidesUsed = primaryLetterWords > 0 && altLetterWords > 0;
   const balanced = sidesUsed && Math.min(primaryLetterWords, altLetterWords) >= minSideWords;
-  const withinWordTarget = fakeTwinWords > 0 && fakeTwinWords <= FAKE_TWINS_MAX_WORDS;
+  const withinWordTarget =
+    fakeTwinWords >= FAKE_TWINS_MIN_WORDS && fakeTwinWords <= FAKE_TWINS_MAX_WORDS;
   const targetScore =
     Math.min(fakeTwinWords, FAKE_TWINS_MAX_WORDS) * 100 +
     Math.min(primaryLetterWords, altLetterWords) * 25 -
+    Math.max(0, FAKE_TWINS_MIN_WORDS - fakeTwinWords) * 500 -
     Math.max(0, fakeTwinWords - FAKE_TWINS_MAX_WORDS) * 1000 -
     Math.max(0, minSideWords - Math.min(primaryLetterWords, altLetterWords)) * 400 -
     duplicatePathWords * 120 -

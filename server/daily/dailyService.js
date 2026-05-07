@@ -7,6 +7,8 @@ import {
   buildPathWordVariants,
   buildFakeTwinsGrid,
   FAKE_TWINS_COMPLETION_BONUS,
+  FAKE_TWINS_MAX_WORDS,
+  FAKE_TWINS_MIN_WORDS as FAKE_TWINS_MIN_TARGET_WORDS,
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
   LETTER_BAG,
@@ -42,7 +44,7 @@ const DAILY_MONSTROUS_MIN_LONG_WORDS = 3;
 const DAILY_SPECIAL_MIN_WORDS = 140;
 const DAILY_SPECIAL_MIN_LONG_LEN = 8;
 const DAILY_SPECIAL_MIN_LONG_COUNT = 3;
-const DAILY_FAKE_TWINS_MIN_WORDS = 120;
+const DAILY_FAKE_TWINS_MIN_WORDS = 150;
 const DAILY_FAKE_TWINS_MIN_LONG_LEN = 8;
 const DAILY_GENERATION_MAX_ATTEMPTS = 240;
 const DAILY_FAKE_TWINS_PRIMARY_MAX_ATTEMPTS = 90;
@@ -272,6 +274,20 @@ function clearDailyAttemptEntry(attempts, installId, mode) {
     delete safeAttempts[legacyKey];
   }
   return safeAttempts;
+}
+
+async function hasStoredDailyModeProgress(dateId, mode) {
+  const safeMode = normalizeDailyMode(mode);
+  if (!dateId || !safeMode) return false;
+  const raw = await readJsonFile(dailyResultsPath(dateId));
+  if (!raw || typeof raw !== "object") return false;
+  const payload = normalizeDailyResultsPayload(dateId, raw);
+  if (payload.results.some((entry) => normalizeDailyMode(entry?.mode) === safeMode)) {
+    return true;
+  }
+  return Object.values(payload.attempts || {}).some(
+    (entry) => entry && typeof entry === "object" && normalizeDailyMode(entry?.mode) === safeMode
+  );
 }
 
 async function withDailyResultsLock(dateId, task) {
@@ -811,11 +827,34 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
       : null;
   const needsMonstrousBonusRepair =
     !hasAnyGridBonus(payload.grid) && Number.isFinite(payload.seed);
-  const needsFakeTwinsBonusRepair =
+  const needsFakeTwinsBonusStrip =
     Array.isArray(payload.fakeTwinsGrid) &&
     payload.fakeTwinsGrid.length > 0 &&
-    !hasAnyGridBonus(payload.fakeTwinsGrid) &&
-    Number.isFinite(payload.fakeTwinsSeed);
+    hasAnyGridBonus(payload.fakeTwinsGrid);
+  const fakeTwinsQuality =
+    payload.fakeTwinsGridQuality && typeof payload.fakeTwinsGridQuality === "object"
+      ? payload.fakeTwinsGridQuality
+      : {};
+  const fakeTwinsWordCount = Number.isFinite(Number(payload.fakeTwinsWordCount))
+    ? Number(payload.fakeTwinsWordCount)
+    : Number(fakeTwinsQuality.words) || 0;
+  const fakeTwinsSpecialWordCount = Number(fakeTwinsQuality.fakeTwinWords) || 0;
+  const fakeTwinsSpecialOutOfTarget =
+    fakeTwinsSpecialWordCount < FAKE_TWINS_MIN_TARGET_WORDS ||
+    fakeTwinsSpecialWordCount > FAKE_TWINS_MAX_WORDS;
+  const fakeTwinsHasProgress =
+    fakeTwinsWordCount < DAILY_FAKE_TWINS_MIN_WORDS ||
+    fakeTwinsQuality.meetsTwinWordTarget === false ||
+    fakeTwinsSpecialOutOfTarget
+      ? await hasStoredDailyModeProgress(dateId, DAILY_FAKE_TWINS_MODE)
+      : false;
+  const needsFakeTwinsRuleRepair =
+    Array.isArray(payload.fakeTwinsGrid) &&
+    payload.fakeTwinsGrid.length > 0 &&
+    !fakeTwinsHasProgress &&
+    (fakeTwinsWordCount < DAILY_FAKE_TWINS_MIN_WORDS ||
+      fakeTwinsQuality.meetsTwinWordTarget === false ||
+      fakeTwinsSpecialOutOfTarget);
   const needsSpecialGrid =
     !Array.isArray(payload.specialGrid) ||
     payload.specialGrid.length === 0 ||
@@ -823,12 +862,13 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
   const needsFakeTwinsGrid =
     !Array.isArray(payload.fakeTwinsGrid) ||
     payload.fakeTwinsGrid.length === 0 ||
-    fakeTwinsLettersKey === monstrousLettersKey;
+    fakeTwinsLettersKey === monstrousLettersKey ||
+    needsFakeTwinsRuleRepair;
   const needsDurationRepair =
     !Number.isFinite(Number(payload.durationMs)) || Number(payload.durationMs) !== DAILY_DURATION_MS;
   if (
     !needsMonstrousBonusRepair &&
-    !needsFakeTwinsBonusRepair &&
+    !needsFakeTwinsBonusStrip &&
     !needsSpecialGrid &&
     !needsFakeTwinsGrid &&
     !needsDurationRepair
@@ -892,13 +932,13 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
   }
   const migratedFakeTwinsGrid =
     fakeTwinsEntry?.grid ??
-    (needsFakeTwinsBonusRepair
-      ? applySeededBonuses(payload.fakeTwinsGrid, payload.fakeTwinsSeed, MOVABLE_BONUS_KEYS)
-      : payload.fakeTwinsGrid ?? null);
+    (Array.isArray(payload.fakeTwinsGrid) && payload.fakeTwinsGrid.length > 0
+      ? cloneGridWithoutBonuses(payload.fakeTwinsGrid)
+      : null);
   let migratedFakeTwinsGridQuality = fakeTwinsEntry?.gridQuality ?? payload.fakeTwinsGridQuality ?? null;
   if (
     !fakeTwinsEntry &&
-    needsFakeTwinsBonusRepair &&
+    needsFakeTwinsBonusStrip &&
     Array.isArray(migratedFakeTwinsGrid) &&
     dictionary &&
     dictionary.size > 0
@@ -922,6 +962,7 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
 
   const migrated = {
     ...payload,
+    generationVersion: DAILY_GENERATION_VERSION,
     durationMs: DAILY_DURATION_MS,
     grid: migratedGrid,
     gridQuality,
@@ -996,7 +1037,7 @@ function getDailyModeGridEntry(payload, mode = DAILY_MONSTROUS_MODE) {
         mode: safeMode,
         seed: payload?.fakeTwinsSeed ?? payload?.seed ?? null,
         gridSize: payload?.fakeTwinsGridSize ?? payload?.gridSize ?? 4,
-        grid: payload.fakeTwinsGrid,
+        grid: cloneGridWithoutBonuses(payload.fakeTwinsGrid),
         wordCount: payload?.fakeTwinsWordCount ?? null,
         longestWordLen: payload?.fakeTwinsLongestWordLen ?? null,
         gridQuality: payload?.fakeTwinsGridQuality ?? null,

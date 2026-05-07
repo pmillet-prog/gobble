@@ -43,6 +43,7 @@ function MobileResultsScreen(props) {
     onAnalyzeWord = null,
     onClearAnalysis = null,
     onGoToResultsPage = null,
+    onOpenPlayerProfile = null,
     onOpenRoundPlayerModal = null,
     onOpenSettings = null,
     onOpenWordInfoModal = null,
@@ -444,7 +445,7 @@ function MobileResultsScreen(props) {
                         onPlayerNickClick={
                           resultsRankingModeForMobile === "round"
                             ? onOpenRoundPlayerModal
-                            : null
+                            : onOpenPlayerProfile
                         }
                         isPlayerNickClickable={
                           resultsRankingModeForMobile === "round"
@@ -454,7 +455,15 @@ function MobileResultsScreen(props) {
                                 if (!nick) return false;
                                 return getRoundRecordsForPlayer?.(nick).length > 0;
                               }
-                            : null
+                            : (rankingEntry) => {
+                                const directUserId = Number(rankingEntry?.userId);
+                                if (Number.isInteger(directUserId) && directUserId > 0) return true;
+                                const direct = String(rankingEntry?.installId || "").trim();
+                                if (/^[1-9]\d*$/.test(direct)) return true;
+                                const playerKey = String(rankingEntry?.playerKey || "").trim();
+                                if (!playerKey.startsWith("install:")) return false;
+                                return /^[1-9]\d*$/.test(playerKey.slice("install:".length));
+                              }
                         }
                       />
                     </div>

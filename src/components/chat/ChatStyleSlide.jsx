@@ -82,12 +82,12 @@ export default function ChatStyleSlide(props) {
           className={`pointer-events-auto w-full rounded-b-[28px] border-x-2 border-b-2 flex flex-col shadow-2xl ${sheetThemeClass}`}
           style={{
             ...(chatSheetStyle || {}),
-            transitionProperty: "transform, opacity",
+            transitionProperty: "transform, opacity, height, max-height",
             transitionDuration: `${durationMs}ms`,
             transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
             transform: isRenderedOpen ? "translateY(0)" : "translateY(calc(-100% - 24px))",
             opacity: isRenderedOpen ? 1 : 0.94,
-            willChange: "transform, opacity",
+            willChange: "transform, opacity, height, max-height",
           }}
         >
           <ChatContent {...props} isOpen={isOpen} closeChat={closeChat} />

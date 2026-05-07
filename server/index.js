@@ -115,6 +115,12 @@ import {
   rerollObjective,
 } from "./stats/teamDuelService.js";
 import {
+  initPlayerProfileService,
+  getPublicPlayerProfileByUserId,
+  recordLiveHeadToHeadOutcomes,
+  recordPlayerRoundStats,
+} from "./stats/playerProfileService.js";
+import {
   clearBroadcastMessage,
   getActiveBroadcast,
   getBroadcastAdminState,
@@ -143,6 +149,9 @@ void initTrophyService().catch((err) =>
 );
 void initGobblarsService().catch((err) =>
   console.warn("Gobblars service init failed", err)
+);
+void initPlayerProfileService().catch((err) =>
+  console.warn("Player profile service init failed", err)
 );
 void initWordVaultService().catch((err) =>
   console.warn("Word vault service init failed", err)
@@ -188,6 +197,28 @@ app.post("/api/client-crash", async (req, res) => {
   } catch (err) {
     console.warn("client crash report failed", err);
     res.status(500).json({ ok: false, error: "internal" });
+  }
+});
+
+app.get("/api/player-profile/user/:userId", async (req, res) => {
+  try {
+    const userId = Number(req.params?.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ ok: false, error: "invalid_player" });
+    }
+    const auth = await getAuthFromCookieHeader(req?.headers?.cookie);
+    const viewerUserId = Number(auth?.user?.id);
+    const profile = await getPublicPlayerProfileByUserId(userId, {
+      fallbackNick: String(req.query?.nick || ""),
+      viewerUserId: Number.isInteger(viewerUserId) && viewerUserId > 0 ? viewerUserId : null,
+    });
+    if (!profile) {
+      return res.status(404).json({ ok: false, error: "profile_not_found" });
+    }
+    return res.json({ ok: true, profile });
+  } catch (err) {
+    console.warn("Player profile route failed", err);
+    return res.status(500).json({ ok: false, error: "profile_unavailable" });
   }
 });
 
@@ -343,6 +374,23 @@ app.get("/api/stats/weekly", async (req, res) => {
       }
       return playerKey;
     };
+    const getUserIdFromPlayerKey = (rawPlayerKey) => {
+      const playerKey = typeof rawPlayerKey === "string" ? rawPlayerKey.trim() : "";
+      if (!playerKey.startsWith("install:")) return null;
+      const userId = Number(playerKey.slice("install:".length));
+      return Number.isInteger(userId) && userId > 0 ? userId : null;
+    };
+    const withUserIds = (entries) =>
+      Array.isArray(entries)
+        ? entries.map((entry) => {
+            if (!entry || typeof entry !== "object") return entry;
+            const userId =
+              Number.isInteger(Number(entry.userId)) && Number(entry.userId) > 0
+                ? Number(entry.userId)
+                : getUserIdFromPlayerKey(entry.playerKey);
+            return userId ? { ...entry, userId } : entry;
+          })
+        : [];
     const nickByPlayerKey = new Map();
     const installKeyByNick = new Map();
     for (const value of Object.values(boards)) {
@@ -410,17 +458,17 @@ app.get("/api/stats/weekly", async (req, res) => {
         : [];
     const filteredBoards = {
       ...boards,
-      medals: filterBots(boards.medals),
-      mostWordsInGame: filterBots(boards.mostWordsInGame),
-      totalScore: filterBots(boards.totalScore),
-      bestWord: filterBots(boards.bestWord),
-      longestWord: filterBots(boards.longestWord),
-      bestSpecial3Score: filterBots(boards.bestSpecial3Score),
-      bestRoundScore: filterBots(boards.bestRoundScore),
-      bestTimeTargetLong: filterBots(boards.bestTimeTargetLong),
-      bestTimeTargetScore: filterBots(boards.bestTimeTargetScore),
-      vocab: filterBots(mergedVocab).slice(0, payload?.topN || topN || 50),
-      mostGobbles: filterBots(boards.mostGobbles),
+      medals: withUserIds(filterBots(boards.medals)),
+      mostWordsInGame: withUserIds(filterBots(boards.mostWordsInGame)),
+      totalScore: withUserIds(filterBots(boards.totalScore)),
+      bestWord: withUserIds(filterBots(boards.bestWord)),
+      longestWord: withUserIds(filterBots(boards.longestWord)),
+      bestSpecial3Score: withUserIds(filterBots(boards.bestSpecial3Score)),
+      bestRoundScore: withUserIds(filterBots(boards.bestRoundScore)),
+      bestTimeTargetLong: withUserIds(filterBots(boards.bestTimeTargetLong)),
+      bestTimeTargetScore: withUserIds(filterBots(boards.bestTimeTargetScore)),
+      vocab: withUserIds(filterBots(mergedVocab).slice(0, payload?.topN || topN || 50)),
+      mostGobbles: withUserIds(filterBots(boards.mostGobbles)),
     };
     return res.json({ ...payload, boards: filteredBoards });
   } catch (_) {
@@ -1111,7 +1159,7 @@ const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "👋",
   "😎",
 ]);
-const LIVE_ROUND_END_GRACE_MS = 250;
+const LIVE_ROUND_END_GRACE_MS = 3000;
 const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
 const DEFAULT_MIN_WORDS = 150;
@@ -2474,6 +2522,7 @@ function buildLiveRanking(room, roundId) {
     if (!active) continue;
     ranking.push({
       nick: player.nick,
+      userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       score: data?.score || 0,
       team: getTeamForInstallCached(player.installId),
       isDailyChampion: isDailyChampionInstallId(player.installId),
@@ -2482,6 +2531,7 @@ function buildLiveRanking(room, roundId) {
   ranking.sort((a, b) => (b.score || 0) - (a.score || 0));
   return ranking.map((entry, idx) => ({
     nick: entry.nick,
+    userId: Number.isInteger(Number(entry?.userId)) ? Number(entry.userId) : null,
     rank: idx + 1,
     team: entry.team || null,
     isDailyChampion: !!entry.isDailyChampion,
@@ -2584,6 +2634,7 @@ function buildRankingUpdatePayload(room) {
     if (!active) continue;
     ranking.push({
       nick: player.nick,
+      userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       score: data?.score || 0,
       team: getTeamForInstallCached(player.installId),
       isDailyChampion: isDailyChampionInstallId(player.installId),
@@ -2593,6 +2644,7 @@ function buildRankingUpdatePayload(room) {
   ranking.sort((a, b) => b.score - a.score);
   const compact = ranking.map((entry, idx) => ({
     nick: entry.nick,
+    userId: Number.isInteger(Number(entry?.userId)) ? Number(entry.userId) : null,
     rank: idx + 1,
     team: entry.team || null,
     isDailyChampion: entry.isDailyChampion || false,
@@ -3108,6 +3160,7 @@ function getFullRanking(room) {
     const lookup = findPlayerByNick(room, nick);
     ranking.push({
       nick,
+      userId: Number.isInteger(Number(lookup?.player?.userId)) ? Number(lookup.player.userId) : null,
       score: data.score || 0,
       team: getTeamForInstallCached(lookup?.player?.installId),
       isDailyChampion: isDailyChampionInstallId(lookup?.player?.installId),
@@ -3168,6 +3221,14 @@ function getSpecialScoreConfig(round) {
     };
   }
   return null;
+}
+
+function getLiveHeadToHeadRoundType(round) {
+  const specialType = round?.special?.type || "";
+  if (specialType === "target_long" || specialType === "target_score") return "target";
+  if (specialType === SELF_SPECIAL_3_WORDS_TYPE) return "special3";
+  if (specialType === FAKE_TWINS_TYPE) return "fakeTwins";
+  return "normal";
 }
 
 function normalizeSpecial3Placements(rawPlacements, totalCells) {
@@ -3308,10 +3369,28 @@ function expandTargetRevealed(word, revealed) {
   return expanded;
 }
 
-function pickTargetRevealGroup(word, revealed) {
+function getTargetHiddenLetterCount(word, revealed) {
+  if (!word || typeof word !== "string") return 0;
+  const expanded = expandTargetRevealed(word, revealed);
+  return Math.max(0, word.length - expanded.size);
+}
+
+function getTargetHiddenLetterCountAfterReveal(word, expanded, group) {
+  const next = new Set(expanded || []);
+  if (Array.isArray(group)) {
+    group.forEach((idx) => next.add(idx));
+  }
+  return getTargetHiddenLetterCount(word, next);
+}
+
+function pickTargetRevealGroup(word, revealed, options = {}) {
   if (!word || typeof word !== "string") return null;
   const chars = word.split("");
   const expanded = expandTargetRevealed(word, revealed);
+  const minHiddenAfter = Math.max(
+    0,
+    Math.trunc(Number(options?.minHiddenAfter) || 0)
+  );
   const groups = [];
   for (let i = 0; i < chars.length; i++) {
     if (expanded.has(i)) continue;
@@ -3329,7 +3408,44 @@ function pickTargetRevealGroup(word, revealed) {
     groups.push([i]);
   }
   if (!groups.length) return null;
-  return groups[Math.floor(Math.random() * groups.length)];
+  if (minHiddenAfter <= 0) {
+    return groups[Math.floor(Math.random() * groups.length)];
+  }
+  const viableGroups = groups
+    .map((group) => ({
+      group,
+      hiddenAfter: getTargetHiddenLetterCountAfterReveal(word, expanded, group),
+    }))
+    .filter((entry) => entry.hiddenAfter >= minHiddenAfter);
+  if (!viableGroups.length) return null;
+  const exactGroups = viableGroups.filter(
+    (entry) => entry.hiddenAfter === minHiddenAfter
+  );
+  const pool = exactGroups.length ? exactGroups : viableGroups;
+  return pool[Math.floor(Math.random() * pool.length)].group;
+}
+
+function buildEvenTargetHintScheduleMs({ count, firstMs, lastMs, latestAllowed }) {
+  const safeCount = Math.max(0, Math.trunc(Number(count) || 0));
+  if (safeCount <= 0) return [];
+  const safeLatest = Math.max(1000, Math.trunc(Number(latestAllowed) || 1000));
+  const start = Math.max(0, Math.min(safeLatest, Math.trunc(Number(firstMs) || 0)));
+  const end = Math.max(
+    start,
+    Math.min(safeLatest, Math.trunc(Number(lastMs) || safeLatest))
+  );
+  if (safeCount === 1) return [start];
+  const timings = [];
+  let prev = -1;
+  for (let i = 0; i < safeCount; i += 1) {
+    const ratio = i / (safeCount - 1);
+    let ms = Math.round(start + (end - start) * ratio);
+    if (ms <= prev) ms = prev + 1;
+    if (ms > safeLatest) break;
+    timings.push(ms);
+    prev = ms;
+  }
+  return timings;
 }
 
 function getTargetHintScheduleMs({
@@ -3338,12 +3454,10 @@ function getTargetHintScheduleMs({
   roundDurationMs = 90 * 1000,
   roundType = "target_long",
 } = {}) {
-  const rawLength =
-    Number.isFinite(targetLength) && targetLength > 0
-      ? Number(targetLength)
-      : typeof targetWord === "string"
-      ? targetWord.length
-      : 0;
+  const wordLength = typeof targetWord === "string" ? targetWord.length : 0;
+  const configuredLength =
+    Number.isFinite(targetLength) && targetLength > 0 ? Number(targetLength) : 0;
+  const rawLength = Math.max(configuredLength, wordLength);
   const safeLength = Math.max(1, Math.floor(rawLength));
   const isTargetScoreRound = roundType === "target_score";
   const scheduleByLength = isTargetScoreRound
@@ -3367,6 +3481,21 @@ function getTargetHintScheduleMs({
     if (ms <= prev) continue;
     timings.push(ms);
     prev = ms;
+  }
+  if (!isTargetScoreRound) {
+    const desiredHintCount = Math.max(0, safeLength - 1);
+    if (desiredHintCount > timings.length) {
+      const firstMs = timings.length ? timings[0] : 9000;
+      const lastMs = timings.length
+        ? timings[timings.length - 1]
+        : Math.max(firstMs, latestAllowed - 4000);
+      return buildEvenTargetHintScheduleMs({
+        count: desiredHintCount,
+        firstMs,
+        lastMs,
+        latestAllowed,
+      });
+    }
   }
   return timings;
 }
@@ -4175,6 +4304,37 @@ function computeRoundWordLeaders(round, results) {
   return { bestWord, longestWord, bestScoreNicks, longestWordNicks };
 }
 
+function computePlayerWordHighlightsForProfile(round, entry) {
+  if (!round || !entry || !Array.isArray(entry.words) || !entry.words.length) {
+    return { bestWord: null, longestWord: null };
+  }
+  const board = round.grid;
+  if (!Array.isArray(board) || board.length === 0) {
+    return { bestWord: null, longestWord: null };
+  }
+  const scoreConfig = getSpecialScoreConfig(round);
+  const specialType = round?.special?.type;
+  const scoringBoard =
+    specialType === SELF_SPECIAL_3_WORDS_TYPE
+      ? applySpecial3Placements(board, entry?.specialPlacements).board
+      : board;
+  let bestWord = null;
+  let longestWord = null;
+  for (const raw of entry.words) {
+    const scored = scoreWordOnGrid(raw, scoringBoard, scoreConfig);
+    if (!scored) continue;
+    const pts = computeWordScoreForRound(round, scored.norm, scored.path, scored.pts);
+    if (!bestWord || pts > bestWord.pts) {
+      bestWord = { word: scored.norm, pts };
+    }
+    const len = scored.norm.length;
+    if (!longestWord || len > longestWord.len) {
+      longestWord = { word: scored.norm, len };
+    }
+  }
+  return { bestWord, longestWord };
+}
+
 function summarizeRoundResultsForLog(results) {
   const list = Array.isArray(results) ? results : [];
   let words = 0;
@@ -4921,7 +5081,7 @@ async function startRoundForRoom(room) {
       const word = room.currentRound.targetWord || "";
       const revealed = room.currentRound.targetRevealed || new Set();
       if (revealed.size === 0 && word) {
-        const group = pickTargetRevealGroup(word, revealed);
+        const group = pickTargetRevealGroup(word, revealed, { minHiddenAfter: 1 });
         if (group) {
           group.forEach((idx) => revealed.add(idx));
           room.currentRound.targetRevealed = revealed;
@@ -4958,11 +5118,10 @@ async function startRoundForRoom(room) {
         setTimeout(() => {
           if (!room.currentRound || room.currentRound.id !== roundId) return;
           const word = room.currentRound.targetWord || "";
-          const chars = word.split("");
           const revealed = room.currentRound.targetRevealed || new Set();
-          if (revealed.size >= chars.length) return;
+          if (getTargetHiddenLetterCount(word, revealed) <= 1) return;
 
-          const group = pickTargetRevealGroup(word, revealed);
+          const group = pickTargetRevealGroup(word, revealed, { minHiddenAfter: 1 });
           if (!group) return;
           group.forEach((idx) => revealed.add(idx));
           room.currentRound.targetRevealed = revealed;
@@ -5089,6 +5248,7 @@ async function endRoundForRoom(room) {
       specialWordSlots: Array.isArray(data?.specialWordSlots) ? data.specialWordSlots : null,
       uniqueWords,
       newVocabWords: [],
+      userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       installId: player?.installId || null,
       team: getTeamForInstallCached(player?.installId),
       isBot: isBotNick(room, nick),
@@ -5185,6 +5345,28 @@ async function endRoundForRoom(room) {
   recomputeRoundGobblesFromResults(room, results);
 
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
+  const liveHeadToHeadParticipants = results
+    .filter(
+      (entry) =>
+        !entry?.isBot &&
+        Number.isInteger(Number(entry?.userId)) &&
+        Number(entry.userId) > 0 &&
+        Number(entry?.score) > 0
+    )
+    .map((entry) => ({
+      userId: Number(entry.userId),
+      nick: entry.nick,
+      score: Number(entry.score) || 0,
+    }));
+  if (liveHeadToHeadParticipants.length >= 2) {
+    void recordLiveHeadToHeadOutcomes({
+      roundType: getLiveHeadToHeadRoundType(room.currentRound),
+      participants: liveHeadToHeadParticipants,
+      ts: endedAt,
+    }).catch((err) => {
+      console.warn("Live head-to-head update failed", err);
+    });
+  }
   const roundGobbles = room.currentRound.gobbles || new Map();
   const roundObjectivePointsByNick =
     room.currentRound.duelObjectivePointsByNick instanceof Map
@@ -5217,6 +5399,26 @@ async function endRoundForRoom(room) {
       recordMostGobbles(playerKey, entry.nick, gobblesEarned, endedAt);
     }
     const installIdForDuel = getInstallIdForNick(room, entry.nick);
+    const userIdForProfile = Number(entry?.userId);
+    if (Number.isInteger(userIdForProfile) && userIdForProfile > 0) {
+      const highlights = computePlayerWordHighlightsForProfile(room.currentRound, entry);
+      void recordPlayerRoundStats({
+        userId: userIdForProfile,
+        nick: entry.nick,
+        roundId,
+        score: entry.score || 0,
+        wordsCount,
+        bestWord: highlights.bestWord,
+        longestWord: highlights.longestWord,
+        gobblesEarned,
+        isTargetRound,
+        targetFound: targetFoundAt.has(entry.nick),
+        isSpecial3Round,
+        ts: endedAt,
+      }).catch((err) => {
+        console.warn("Player lifetime stats update failed", err);
+      });
+    }
     if (installIdForDuel) {
       const objectivePointsFromWords = Number(roundObjectivePointsByNick.get(entry.nick)) || 0;
       const duelRound = await recordMainRoundCompleted({
