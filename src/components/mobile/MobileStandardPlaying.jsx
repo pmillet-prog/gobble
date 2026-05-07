@@ -70,7 +70,9 @@ function MobileStandardPlaying(props) {
     nextHintLabel = "",
     normalizeBonusLabel = (value) => value,
     normalizeLetterKey = (value) => value,
+    canOpenPlayerProfile = null,
     onOpenDefinition = null,
+    onOpenPlayerProfile = null,
     onOpenPlayersOverlaySnapshot = null,
     onOpenSettings = null,
     onRotateGrid = null,
@@ -403,6 +405,8 @@ function MobileStandardPlaying(props) {
                 animateRank={false}
                 assetVersion={assetVersion}
                 gobbleWordAwardsByNick={gobbleAwardsForLive}
+                onPlayerNickClick={onOpenPlayerProfile}
+                isPlayerNickClickable={canOpenPlayerProfile}
                 renderNickSuffix={renderNickSuffix}
                 showGobbleWordAwards={true}
                 className="h-full"

@@ -19,8 +19,8 @@ const DB_PATH = path.join(DATA_DIR, "gobble.db");
 let db = null;
 let initPromise = null;
 let writeQueue = Promise.resolve();
-const SQLITE_BUSY_MAX_RETRIES = 10;
-const SQLITE_BUSY_RETRY_BASE_MS = 40;
+const SQLITE_BUSY_MAX_RETRIES = 30;
+const SQLITE_BUSY_RETRY_BASE_MS = 80;
 
 function isSqliteBusyError(err) {
   const code = String(err?.code || "").toUpperCase();
@@ -48,6 +48,24 @@ function runSerializedWrite(task) {
   const next = writeQueue.then(execute, execute);
   writeQueue = next.catch(() => {});
   return next;
+}
+
+async function runInImmediateTransaction(task) {
+  await db.exec("BEGIN IMMEDIATE");
+  let committed = false;
+  try {
+    const result = await task();
+    await db.exec("COMMIT");
+    committed = true;
+    return result;
+  } catch (err) {
+    if (!committed) {
+      try {
+        await db.exec("ROLLBACK");
+      } catch (_) {}
+    }
+    throw err;
+  }
 }
 
 function normalizeInstallId(installId) {
@@ -138,7 +156,7 @@ export async function initPlayerProfileService() {
       await fs.mkdir(DATA_DIR, { recursive: true });
       db = await open({ filename: DB_PATH, driver: sqlite3.Database });
       await db.exec("PRAGMA journal_mode = WAL;");
-      await db.exec("PRAGMA busy_timeout = 5000;");
+      await db.exec("PRAGMA busy_timeout = 15000;");
       await db.exec(`
         CREATE TABLE IF NOT EXISTS player_lifetime_stats (
           installId TEXT PRIMARY KEY,
@@ -282,7 +300,7 @@ export async function recordPlayerRoundStats({
       safeTs,
       safeTs
     );
-    return getPlayerLifetimeStats(safeProfileKey);
+    return { ok: true, profileKey: safeProfileKey };
   });
 }
 
@@ -317,7 +335,7 @@ export async function recordLiveHeadToHeadOutcomes({
   const ready = await initPlayerProfileService();
   if (!ready) return 0;
 
-  return runSerializedWrite(async () => {
+  return runSerializedWrite(() => runInImmediateTransaction(async () => {
     let recorded = 0;
     for (let i = 0; i < players.length; i += 1) {
       for (let j = i + 1; j < players.length; j += 1) {
@@ -353,7 +371,7 @@ export async function recordLiveHeadToHeadOutcomes({
       }
     }
     return recorded;
-  });
+  }));
 }
 
 export async function getPlayerLifetimeStats(installId) {

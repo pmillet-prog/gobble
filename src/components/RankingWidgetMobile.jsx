@@ -1268,6 +1268,19 @@ function RankingWidgetMobile({
                 ...(rowStyle || {}),
                 lineHeight: effectiveRowPx ? `${effectiveRowPx}px` : undefined,
               };
+              const wheelNickClickable =
+                row.type !== "empty" &&
+                typeof onPlayerNickClick === "function" &&
+                (typeof isPlayerNickClickable === "function"
+                  ? !!isPlayerNickClickable(labelEntry || { nick: displayNick })
+                  : true);
+              const handleOpenWheelPlayerDetails = (event) => {
+                if (!wheelNickClickable) return;
+                onPlayerNickClick?.(labelEntry || { nick: displayNick }, event.currentTarget, {
+                  clientX: event.clientX,
+                  clientY: event.clientY,
+                });
+              };
 
               return (
                 <React.Fragment key={index}>
@@ -1280,9 +1293,16 @@ function RankingWidgetMobile({
                       "col-start-2 row-start-" +
                       (index + 1) +
                       " " +
-                      rightClasses
+                      rightClasses +
+                      (wheelNickClickable
+                        ? " cursor-pointer rounded px-1 hover:bg-slate-100/60 dark:hover:bg-slate-700/40"
+                        : "")
                     }
                     style={rightStyle}
+                    role={wheelNickClickable ? "button" : undefined}
+                    tabIndex={wheelNickClickable ? 0 : undefined}
+                    data-round-player-anchor={wheelNickClickable ? "1" : undefined}
+                    data-round-player-nick={wheelNickClickable ? String(displayNick || "") : undefined}
                     onMouseEnter={() =>
                       onPlayerNickHover?.(
                         row.type === "empty"
@@ -1291,6 +1311,16 @@ function RankingWidgetMobile({
                           ? row.entry.nick
                           : displayNick || null
                       )
+                    }
+                    onClick={wheelNickClickable ? handleOpenWheelPlayerDetails : undefined}
+                    onKeyDown={
+                      wheelNickClickable
+                        ? (event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            handleOpenWheelPlayerDetails(event);
+                          }
+                        : undefined
                     }
                   >
                       <span className="flex-1 min-w-0 flex items-baseline gap-1">

@@ -14359,8 +14359,21 @@ export default function App() {
       const liveAwards = gobbleAwardsForLive?.get?.(nick) || null;
       const gobbleAwardCount =
         (liveAwards?.bestWord ? 1 : 0) + (liveAwards?.longestWord ? 1 : 0);
+      const userId = normalizeUserIdForProfile(entry?.userId);
+      const installId = entry?.installId != null ? String(entry.installId) : "";
+      const playerKey = entry?.playerKey
+        ? String(entry.playerKey)
+        : userId
+        ? `install:${userId}`
+        : "";
       snapshot.push({
         nick,
+        userId,
+        installId,
+        playerKey,
+        team: entry?.team || null,
+        isBot: !!entry?.isBot,
+        isDailyChampion: !!entry?.isDailyChampion,
         rank: Number.isFinite(entry?.rank) ? entry.rank : idx + 1,
         score: typeof entry?.score === "number" ? entry.score : null,
         gobbleAwardCount,
@@ -16790,6 +16803,10 @@ export default function App() {
       return normalizeUserIdForProfile(playerKey.slice("install:".length));
     }
     return null;
+  }
+
+  function canOpenPlayerProfile(target = {}) {
+    return !!getUserIdFromPlayerProfileTarget(target);
   }
 
   function closePlayerProfileModal() {
@@ -22398,7 +22415,15 @@ function handleTouchEnd(e) {
       const nick = player?.nick ? String(player.nick).trim() : "";
       if (!nick || seen.has(nick)) return;
       seen.add(nick);
-      entries.push({ nick });
+      entries.push({
+        nick,
+        userId: normalizeUserIdForProfile(player?.userId),
+        installId: player?.installId != null ? String(player.installId) : "",
+        playerKey: player?.playerKey ? String(player.playerKey) : "",
+        team: player?.team || null,
+        isBot: !!player?.isBot,
+        isDailyChampion: !!player?.isDailyChampion,
+      });
     });
     entries.sort((a, b) => a.nick.localeCompare(b.nick));
     return entries;
@@ -22423,14 +22448,43 @@ function handleTouchEnd(e) {
   function buildRanking() {
     const entries = [];
     const seen = new Set();
+    const identityByNick = new Map();
+
+    players.forEach((player) => {
+      const nick = player?.nick ? String(player.nick).trim() : "";
+      if (!nick || identityByNick.has(nick)) return;
+      const userId = normalizeUserIdForProfile(player?.userId);
+      identityByNick.set(nick, {
+        userId,
+        installId: player?.installId != null ? String(player.installId) : "",
+        playerKey: player?.playerKey
+          ? String(player.playerKey)
+          : userId
+          ? `install:${userId}`
+          : "",
+        team: player?.team || null,
+        isBot: !!player?.isBot,
+        isDailyChampion: !!player?.isDailyChampion,
+      });
+    });
 
     provisionalRanking.forEach((entry) => {
+      const identity = identityByNick.get(entry?.nick) || {};
+      const userId = normalizeUserIdForProfile(entry?.userId) || identity.userId || null;
       entries.push({
         nick: entry.nick,
+        userId,
+        installId: entry?.installId != null ? String(entry.installId) : identity.installId || "",
+        playerKey: entry?.playerKey
+          ? String(entry.playerKey)
+          : userId
+          ? `install:${userId}`
+          : identity.playerKey || "",
         score: typeof entry.score === "number" ? entry.score : null,
         rank: typeof entry.rank === "number" ? entry.rank : null,
-        team: entry?.team || null,
-        isDailyChampion: !!entry.isDailyChampion,
+        team: entry?.team || identity.team || null,
+        isBot: !!entry?.isBot || !!identity.isBot,
+        isDailyChampion: !!entry.isDailyChampion || !!identity.isDailyChampion,
       });
       seen.add(entry.nick);
     });
@@ -22438,12 +22492,22 @@ function handleTouchEnd(e) {
     players.forEach((player) => {
       if (!player?.nick) return;
       if (seen.has(player.nick)) return;
+      const identity = identityByNick.get(player.nick) || {};
+      const userId = identity.userId || normalizeUserIdForProfile(player?.userId);
       entries.push({
         nick: player.nick,
+        userId,
+        installId: identity.installId || (player?.installId != null ? String(player.installId) : ""),
+        playerKey: player?.playerKey
+          ? String(player.playerKey)
+          : userId
+          ? `install:${userId}`
+          : identity.playerKey || "",
         score: typeof player.score === "number" ? player.score : null,
         rank: null,
-        team: player?.team || null,
-        isDailyChampion: !!player.isDailyChampion,
+        team: player?.team || identity.team || null,
+        isBot: !!player?.isBot || !!identity.isBot,
+        isDailyChampion: !!player.isDailyChampion || !!identity.isDailyChampion,
       });
       seen.add(player.nick);
     });
@@ -22451,7 +22515,11 @@ function handleTouchEnd(e) {
     const currentScore = typeof score === "number" ? score : null;
     if (selfNick) {
       const selfEntry = entries.find((entry) => entry.nick === selfNick);
+      const selfUserId = normalizeUserIdForProfile(authenticatedUserId);
       if (selfEntry) {
+        if (selfUserId && !selfEntry.userId) selfEntry.userId = selfUserId;
+        if (installId && !selfEntry.installId) selfEntry.installId = installId;
+        if (selfUserId && !selfEntry.playerKey) selfEntry.playerKey = `install:${selfUserId}`;
         if (
           currentScore !== null &&
           (selfEntry.score === null || currentScore > selfEntry.score)
@@ -22461,9 +22529,13 @@ function handleTouchEnd(e) {
       } else {
         entries.push({
           nick: selfNick,
+          userId: selfUserId,
+          installId: installId || "",
+          playerKey: selfUserId ? `install:${selfUserId}` : "",
           score: currentScore,
           rank: null,
           team: duelStatus?.team || null,
+          isBot: false,
           isDailyChampion: false,
         });
         seen.add(selfNick);
@@ -22471,8 +22543,12 @@ function handleTouchEnd(e) {
     }
 
     if (entries.length === 0) {
+      const fallbackUserId = normalizeUserIdForProfile(authenticatedUserId);
       entries.push({
         nick: selfNick || "Moi",
+        userId: fallbackUserId,
+        installId: installId || "",
+        playerKey: fallbackUserId ? `install:${fallbackUserId}` : "",
         score: currentScore ?? 0,
         rank: null,
       });
@@ -22496,7 +22572,7 @@ function handleTouchEnd(e) {
 
   const liveRankingSource = React.useMemo(
     () => buildRanking(),
-    [provisionalRanking, players, score, selfNick, duelStatus?.team]
+    [provisionalRanking, players, score, selfNick, duelStatus?.team, authenticatedUserId, installId]
   );
   const dailyEntriesRaw = React.useMemo(
     () => (Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : []),
@@ -22534,13 +22610,16 @@ function handleTouchEnd(e) {
     if (hasSelf) return base;
     const selfEntry = {
       nick: selfNick,
+      userId: normalizeUserIdForProfile(authenticatedUserId),
       score,
       wordsCount: Number.isFinite(accepted?.length) ? accepted.length : null,
       installId: installId || null,
       team: duelStatus?.team || null,
       mode: currentDailyMode,
       isPalier: false,
-      playerKey: installId ? `install:${installId}` : `nick:${selfNick}`,
+      playerKey: normalizeUserIdForProfile(authenticatedUserId)
+        ? `install:${normalizeUserIdForProfile(authenticatedUserId)}`
+        : "",
     };
     const merged = [...base, selfEntry];
     merged.sort((a, b) => {
@@ -22560,6 +22639,7 @@ function handleTouchEnd(e) {
     score,
     accepted?.length,
     installId,
+    authenticatedUserId,
     duelStatus?.team,
   ]);
   const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
@@ -26198,6 +26278,7 @@ function handleTouchEnd(e) {
                   <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
                     {playersOverlayEntries.map((entry, idx) => {
                       const nick = entry?.nick ? String(entry.nick) : "";
+                      const profileAvailable = canOpenPlayerProfile(entry);
                       const rank = playersOverlayMode === "snapshot"
                         ? Number.isFinite(entry?.rank)
                           ? entry.rank
@@ -26216,11 +26297,13 @@ function handleTouchEnd(e) {
                                 : 0
                             )
                           : renderGobbleWordAwardsInline(nick);
-                      return (
-                        <div
-                          key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
-                          className="flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0"
-                        >
+                      const rowClassName = `flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0 ${
+                        profileAvailable
+                          ? "w-full text-left cursor-pointer rounded-md px-2 hover:bg-slate-100/70 dark:hover:bg-white/10"
+                          : ""
+                      }`;
+                      const rowContent = (
+                        <>
                           <div className="flex items-center gap-3 min-w-0">
                             {playersOverlayMode === "snapshot" ? (
                               <span className="w-6 text-center text-xs font-bold text-amber-500">
@@ -26238,6 +26321,23 @@ function handleTouchEnd(e) {
                               {score != null ? `${score} pts` : "-"}
                             </div>
                           ) : null}
+                        </>
+                      );
+                      return profileAvailable ? (
+                        <button
+                          key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
+                          type="button"
+                          className={rowClassName}
+                          onClick={() => openPlayerProfile(entry)}
+                        >
+                          {rowContent}
+                        </button>
+                      ) : (
+                        <div
+                          key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
+                          className={rowClassName}
+                        >
+                          {rowContent}
                         </div>
                       );
                     })}
@@ -32719,6 +32819,8 @@ function handleTouchEnd(e) {
             fitHeight={true}
             assetVersion={assetVersion}
             gobbleWordAwardsByNick={gobbleAwardsForLive}
+            onPlayerNickClick={openPlayerProfile}
+            isPlayerNickClickable={canOpenPlayerProfile}
             renderNickSuffix={
               (nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)
             }
@@ -34616,6 +34718,7 @@ function handleTouchEnd(e) {
         normalizeBonusLabel={normalizeBonusLabel}
         normalizeLetterKey={normalizeLetterKey}
         onOpenDefinition={openDefinition}
+        onOpenPlayerProfile={openPlayerProfile}
         onOpenPlayersOverlaySnapshot={openPlayersOverlaySnapshot}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onRotateGrid={rotateGridClockwise}
@@ -34628,6 +34731,7 @@ function handleTouchEnd(e) {
         previewGapPx={previewGapPx}
         previewTileBaseStyle={previewTileBaseStyle}
         renderNickSuffix={renderMobileNickSuffix}
+        canOpenPlayerProfile={canOpenPlayerProfile}
         roundStats={roundStats}
         roundTilePointsVisible={roundTilePointsVisible}
         scoreLabel={scoreLabel}
@@ -34998,6 +35102,8 @@ function handleTouchEnd(e) {
           highlightedPlayers={highlightPlayers}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
+          onPlayerNickClick={openPlayerProfile}
+          isPlayerNickClickable={canOpenPlayerProfile}
           renderNickSuffix={renderNickSuffix}
           showGobbleWordAwards={true}
         />
@@ -35092,8 +35198,7 @@ function handleTouchEnd(e) {
                 {(visiblePlayerList.length
                   ? visiblePlayerList
                   : [{ nick: "En attente..." }]).map((p) => {
-                  const canOpenMenu =
-                    p?.installId && p.installId !== installId && p.nick;
+                  const canOpenProfile = canOpenPlayerProfile(p);
                   const pillClass = `px-3 py-1 rounded-full text-xs border ${
                     p.nick === selfNick
                       ? "bg-blue-50 border-blue-200 text-blue-800"
@@ -35105,19 +35210,12 @@ function handleTouchEnd(e) {
                       {p.nick ? renderMedals(p.nick, p) : null}
                     </>
                   );
-                  return canOpenMenu ? (
+                  return canOpenProfile ? (
                     <button
                       key={p.nick}
                       type="button"
                       className={`${pillClass} hover:underline`}
-                      onClick={(e) =>
-                        openUserMenu(e, {
-                          nick: p.nick,
-                          userId: p.userId,
-                          installId: p.installId,
-                          messageId: null,
-                        })
-                      }
+                      onClick={() => openPlayerProfile(p)}
                     >
                       {content}
                     </button>
