@@ -22,6 +22,23 @@ function formatTargetTime(ms) {
   return `${(value / 1000).toFixed(1).replace(".", ",")}s`;
 }
 
+function finitePositive(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : 0;
+}
+
+function pickBestScoredRecord(primary, fallback) {
+  const primaryScore = finitePositive(primary?.pts);
+  const fallbackScore = finitePositive(fallback?.pts);
+  return primaryScore >= fallbackScore ? primary || fallback || null : fallback || primary || null;
+}
+
+function pickLongestRecord(primary, fallback) {
+  const primaryLength = finitePositive(primary?.len);
+  const fallbackLength = finitePositive(fallback?.len);
+  return primaryLength >= fallbackLength ? primary || fallback || null : fallback || primary || null;
+}
+
 function StatCard({ label, value, detail = "" }) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/10 px-3 py-2">
@@ -76,26 +93,28 @@ export default function PlayerProfileModal({
   const trophies = profile?.trophies || null;
   const vocabulary = profile?.vocabulary || {};
   const duel = profile?.duel || {};
-  const bestWord = lifetime.bestWord || weeklyAllTime.bestWord || null;
-  const longestWord = lifetime.longestWord || weeklyAllTime.longestWord || null;
-  const bestRoundScore =
-    Number(lifetime.bestRoundScore) > 0
-      ? Number(lifetime.bestRoundScore)
-      : Number(weeklyAllTime.bestRoundScore?.pts) || 0;
-  const bestSpecial3Score =
-    Number(lifetime.bestSpecial3Score) > 0
-      ? Number(lifetime.bestSpecial3Score)
-      : Number(weeklyAllTime.bestSpecial3Score?.pts) || 0;
-  const roundsPlayed =
-    Number(lifetime.roundsPlayed) > 0
-      ? Number(lifetime.roundsPlayed)
-      : Number(weeklyAllTime.roundsPlayed) || 0;
-  const totalScore =
-    Number(lifetime.totalScore) > 0
-      ? Number(lifetime.totalScore)
-      : Number(weeklyAllTime.totalScore) || 0;
-  const gobbles =
-    Number(lifetime.gobbles) > 0 ? Number(lifetime.gobbles) : Number(weeklyAllTime.mostGobbles) || 0;
+  const bestWord = pickBestScoredRecord(lifetime.bestWord, weeklyAllTime.bestWord);
+  const longestWord = pickLongestRecord(lifetime.longestWord, weeklyAllTime.longestWord);
+  const bestRoundScore = Math.max(
+    finitePositive(lifetime.bestRoundScore),
+    finitePositive(weeklyAllTime.bestRoundScore?.pts)
+  );
+  const bestSpecial3Score = Math.max(
+    finitePositive(lifetime.bestSpecial3Score),
+    finitePositive(weeklyAllTime.bestSpecial3Score?.pts)
+  );
+  const roundsPlayed = Math.max(
+    finitePositive(lifetime.roundsPlayed),
+    finitePositive(weeklyAllTime.roundsPlayed)
+  );
+  const totalScore = Math.max(
+    finitePositive(lifetime.totalScore),
+    finitePositive(weeklyAllTime.totalScore)
+  );
+  const gobbles = Math.max(
+    finitePositive(lifetime.gobbles),
+    finitePositive(weeklyAllTime.mostGobbles)
+  );
   const headToHead = profile?.headToHead || null;
   const headToHeadTotal = headToHead?.total || {};
   const hasHeadToHead = Number(headToHeadTotal.roundsPlayed) > 0;

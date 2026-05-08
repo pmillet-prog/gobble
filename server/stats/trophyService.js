@@ -6,7 +6,9 @@ import { open } from "sqlite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, "../data");
+const DATA_DIR = process.env.GOBBLE_DATA_DIR
+  ? path.resolve(process.env.GOBBLE_DATA_DIR)
+  : path.join(__dirname, "../data");
 const DB_PATH = path.join(DATA_DIR, "gobble.db");
 
 const DEFAULT_TROPHIES = 800;
@@ -24,8 +26,8 @@ const LEAGUES = [
 
 let db = null;
 let writeQueue = Promise.resolve();
-const SQLITE_BUSY_MAX_RETRIES = 10;
-const SQLITE_BUSY_RETRY_BASE_MS = 40;
+const SQLITE_BUSY_MAX_RETRIES = 30;
+const SQLITE_BUSY_RETRY_BASE_MS = 80;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -133,7 +135,7 @@ export async function initTrophyService() {
     await fs.mkdir(DATA_DIR, { recursive: true });
     db = await open({ filename: DB_PATH, driver: sqlite3.Database });
     await db.exec("PRAGMA journal_mode = WAL;");
-    await db.exec("PRAGMA busy_timeout = 5000;");
+    await db.exec("PRAGMA busy_timeout = 15000;");
     await db.exec(`
       CREATE TABLE IF NOT EXISTS trophies (
         installId TEXT PRIMARY KEY,

@@ -149,6 +149,10 @@ export default function useWordVault({
           await refreshAuthStatus?.({ silent: true });
           ensureAuthenticated?.({ source: "action" });
           showToast?.("Reconnecte-toi pour ajouter ce mot au coffre fort");
+        } else if (retryPayload?.error === "word_required" || retryPayload?.error === "word_invalid") {
+          showToast?.("Ce mot ne peut pas être ajouté au coffre fort");
+        } else if (retryPayload?.error === "vault_busy" || retryPayload?.error === "vault_unavailable") {
+          showToast?.("Coffre fort temporairement indisponible, réessaie dans quelques secondes");
         } else {
           showToast?.("Ajout au coffre fort impossible");
         }

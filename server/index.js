@@ -922,7 +922,11 @@ app.post("/api/vault/words", async (req, res) => {
   const result = await addWordVaultEntryForUser(identity.userId, req.body?.word);
   if (!result?.ok) {
     res.status(
-      result?.error === "word_required" || result?.error === "word_invalid" ? 400 : 500
+      result?.error === "word_required" || result?.error === "word_invalid"
+        ? 400
+        : result?.error === "vault_busy" || result?.error === "vault_unavailable"
+        ? 503
+        : 500
     );
   }
   return res.json(result);

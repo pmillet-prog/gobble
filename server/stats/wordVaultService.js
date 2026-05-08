@@ -15,8 +15,8 @@ const DB_PATH = path.join(DATA_DIR, "gobble.db");
 let db = null;
 let initPromise = null;
 let writeQueue = Promise.resolve();
-const SQLITE_BUSY_MAX_RETRIES = 10;
-const SQLITE_BUSY_RETRY_BASE_MS = 40;
+const SQLITE_BUSY_MAX_RETRIES = 30;
+const SQLITE_BUSY_RETRY_BASE_MS = 80;
 const MAX_VAULT_WORD_LEN = 80;
 
 function isSqliteBusyError(err) {
@@ -108,7 +108,7 @@ async function ensureDb() {
       await fs.mkdir(DATA_DIR, { recursive: true });
       db = await open({ filename: DB_PATH, driver: sqlite3.Database });
       await db.exec("PRAGMA journal_mode = WAL;");
-      await db.exec("PRAGMA busy_timeout = 5000;");
+      await db.exec("PRAGMA busy_timeout = 15000;");
       await db.exec(`
         CREATE TABLE IF NOT EXISTS word_vault_entries (
           user_id INTEGER NOT NULL,
@@ -214,7 +214,7 @@ export async function addWordVaultEntryForUser(userId, rawWord) {
     return result;
   } catch (err) {
     console.warn("Word vault add failed", err);
-    return { ok: false, error: "vault_add_failed" };
+    return { ok: false, error: isSqliteBusyError(err) ? "vault_busy" : "vault_add_failed" };
   }
 }
 
