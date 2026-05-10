@@ -1475,7 +1475,12 @@ export async function getDailyResultsSnapshot(dateId) {
   };
 }
 
-export async function getDailyHistory({ days = 7, installId = null, dictionary = null } = {}) {
+export async function getDailyHistory({
+  days = 7,
+  installId = null,
+  dictionary = null,
+  includeWords = false,
+} = {}) {
   const safeDays = Math.min(30, Math.max(1, Math.round(days || 7)));
   const todayId = getParisDateId();
   const history = [];
@@ -1509,20 +1514,22 @@ export async function getDailyHistory({ days = 7, installId = null, dictionary =
       dateId,
       entries: boardEntries,
       totalPlayers: results.length,
-      findableWordsByMode: {
-        [DAILY_MONSTROUS_MODE]: buildDailyHistoryWordPool(
-          getDailyModeGridEntry(gridPayload, DAILY_MONSTROUS_MODE),
-          dictionary
-        ),
-        [DAILY_SPECIAL_MODE]: buildDailyHistoryWordPool(
-          getDailyModeGridEntry(gridPayload, DAILY_SPECIAL_MODE),
-          dictionary
-        ),
-        [DAILY_FAKE_TWINS_MODE]: buildDailyHistoryWordPool(
-          getDailyModeGridEntry(gridPayload, DAILY_FAKE_TWINS_MODE),
-          dictionary
-        ),
-      },
+      findableWordsByMode: includeWords
+        ? {
+            [DAILY_MONSTROUS_MODE]: buildDailyHistoryWordPool(
+              getDailyModeGridEntry(gridPayload, DAILY_MONSTROUS_MODE),
+              dictionary
+            ),
+            [DAILY_SPECIAL_MODE]: buildDailyHistoryWordPool(
+              getDailyModeGridEntry(gridPayload, DAILY_SPECIAL_MODE),
+              dictionary
+            ),
+            [DAILY_FAKE_TWINS_MODE]: buildDailyHistoryWordPool(
+              getDailyModeGridEntry(gridPayload, DAILY_FAKE_TWINS_MODE),
+              dictionary
+            ),
+          }
+        : {},
       myWordsByMode,
     });
     const winner = boardEntries[0];

@@ -123,6 +123,21 @@ function analyzeGridQualityFromSolved(solved, minWords = 0, opts = {}) {
   };
 }
 
+function serializeSolvedSolutions(solved) {
+  if (!solved || typeof solved.entries !== "function") return [];
+  return Array.from(solved.entries()).map(([word, data]) => ({
+    word,
+    pts: Number.isFinite(data?.pts) ? data.pts : 0,
+    path: Array.isArray(data?.path) ? data.path : [],
+    usedFakeTwins: !!data?.usedFakeTwins,
+    fakeTwinsTwinIndex: Number.isInteger(data?.fakeTwinsTwinIndex)
+      ? data.fakeTwinsTwinIndex
+      : null,
+    fakeTwinsResolvedLetter: data?.fakeTwinsResolvedLetter ?? null,
+    fakeTwinsUsesAlt: !!data?.fakeTwinsUsesAlt,
+  }));
+}
+
 function pickTargetLongLengthBucket() {
   return pickWeightedBucket(Math.random, TARGET_LONG_ANCHOR_BUCKETS)?.key || "14plus";
 }
@@ -233,6 +248,7 @@ function buildPreparedCandidate({
     targetWord,
     targetLength,
     targetPath,
+    solutions: serializeSolvedSolutions(solved),
   };
 }
 
@@ -512,6 +528,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       targetWord,
       targetLength,
       targetPath,
+      solutions: serializeSolvedSolutions(solved),
     };
     const candidateHasRequiredTarget =
       roundPlan?.type === FAKE_TWINS_TYPE

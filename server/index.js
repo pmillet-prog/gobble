@@ -24,7 +24,7 @@ import {
 } from "../shared/gameLogic.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
-import { getMetrics } from "./observability/metrics.js";
+import { getMetrics, resetMetrics } from "./observability/metrics.js";
 import {
   getDefinition,
   clearDefinitionCache,
@@ -162,6 +162,51 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.set("trust proxy", true);
+
+const HTTP_SLOW_REQUEST_MS = 3000;
+let activeHttpRequestSeq = 0;
+const activeHttpRequests = new Map();
+
+function getActiveHttpRequestsSnapshot(limit = 12) {
+  const now = Date.now();
+  return Array.from(activeHttpRequests.values())
+    .sort((a, b) => a.startedAt - b.startedAt)
+    .slice(0, limit)
+    .map((entry) => ({
+      id: entry.id,
+      method: entry.method,
+      url: entry.url,
+      ageMs: now - entry.startedAt,
+    }));
+}
+
+app.use((req, res, next) => {
+  const id = ++activeHttpRequestSeq;
+  const startedAt = Date.now();
+  const entry = {
+    id,
+    method: req.method,
+    url: String(req.originalUrl || req.url || "").slice(0, 300),
+    startedAt,
+  };
+  activeHttpRequests.set(id, entry);
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    activeHttpRequests.delete(id);
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > HTTP_SLOW_REQUEST_MS) {
+      console.warn(
+        `[http] slow ${entry.method} ${entry.url} ${durationMs}ms status=${res.statusCode}`
+      );
+    }
+  };
+  res.on("finish", cleanup);
+  res.on("close", cleanup);
+  next();
+});
+
 app.use(
   "/api/auth",
   createAuthRouter({
@@ -200,6 +245,29 @@ app.post("/api/client-crash", async (req, res) => {
   }
 });
 
+const PLAYER_PROFILE_CACHE_TTL_MS = 15000;
+const PLAYER_PROFILE_CACHE_MAX = 200;
+const playerProfileResponseCache = new Map();
+
+function getCachedPlayerProfile(cacheKey) {
+  const entry = playerProfileResponseCache.get(cacheKey);
+  if (!entry) return null;
+  if (Date.now() - entry.createdAt > PLAYER_PROFILE_CACHE_TTL_MS) {
+    playerProfileResponseCache.delete(cacheKey);
+    return null;
+  }
+  return entry.profile || null;
+}
+
+function setCachedPlayerProfile(cacheKey, profile) {
+  if (!cacheKey || !profile) return;
+  playerProfileResponseCache.set(cacheKey, { profile, createdAt: Date.now() });
+  if (playerProfileResponseCache.size > PLAYER_PROFILE_CACHE_MAX) {
+    const oldestKey = playerProfileResponseCache.keys().next().value;
+    if (oldestKey) playerProfileResponseCache.delete(oldestKey);
+  }
+}
+
 app.get("/api/player-profile/user/:userId", async (req, res) => {
   try {
     const userId = Number(req.params?.userId);
@@ -208,13 +276,21 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
     }
     const auth = await getAuthFromCookieHeader(req?.headers?.cookie);
     const viewerUserId = Number(auth?.user?.id);
+    const safeViewerUserId = Number.isInteger(viewerUserId) && viewerUserId > 0 ? viewerUserId : null;
+    const fallbackNick = String(req.query?.nick || "");
+    const cacheKey = `${userId}|${safeViewerUserId || 0}|${fallbackNick.slice(0, 48)}`;
+    const cachedProfile = getCachedPlayerProfile(cacheKey);
+    if (cachedProfile) {
+      return res.json({ ok: true, profile: cachedProfile });
+    }
     const profile = await getPublicPlayerProfileByUserId(userId, {
-      fallbackNick: String(req.query?.nick || ""),
-      viewerUserId: Number.isInteger(viewerUserId) && viewerUserId > 0 ? viewerUserId : null,
+      fallbackNick,
+      viewerUserId: safeViewerUserId,
     });
     if (!profile) {
       return res.status(404).json({ ok: false, error: "profile_not_found" });
     }
+    setCachedPlayerProfile(cacheKey, profile);
     return res.json({ ok: true, profile });
   } catch (err) {
     console.warn("Player profile route failed", err);
@@ -300,6 +376,27 @@ function solveGridCached(grid, dictionary, special = null) {
     if (oldest) solveCache.delete(oldest);
   }
   return solved;
+}
+
+function sanitizePreparedSolutions(rawSolutions) {
+  if (!Array.isArray(rawSolutions)) return [];
+  return rawSolutions
+    .map((entry) => {
+      const word = normalizeWord(String(entry?.word || ""));
+      if (!word) return null;
+      return {
+        word,
+        pts: Number.isFinite(entry?.pts) ? entry.pts : 0,
+        path: Array.isArray(entry?.path) ? entry.path : [],
+        usedFakeTwins: !!entry?.usedFakeTwins,
+        fakeTwinsTwinIndex: Number.isInteger(entry?.fakeTwinsTwinIndex)
+          ? entry.fakeTwinsTwinIndex
+          : null,
+        fakeTwinsResolvedLetter: entry?.fakeTwinsResolvedLetter ?? null,
+        fakeTwinsUsesAlt: !!entry?.fakeTwinsUsesAlt,
+      };
+    })
+    .filter(Boolean);
 }
 
 app.use((req, res, next) => {
@@ -617,7 +714,11 @@ app.get("/api/daily/history", async (req, res) => {
   const days = Number.isFinite(rawDays)
     ? Math.min(30, Math.max(1, Math.round(rawDays)))
     : 7;
-  const payload = await getDailyHistory({ days, installId, dictionary });
+  const includeWords =
+    req.query?.includeWords === "1" ||
+    req.query?.includeWords === "true" ||
+    req.query?.includeWords === true;
+  const payload = await getDailyHistory({ days, installId, dictionary, includeWords });
   const safeDays = Array.isArray(payload?.days) ? payload.days : [];
   const enrichedDays = [];
   for (const day of safeDays) {
@@ -1024,15 +1125,11 @@ app.get("/api/players", async (req, res) => {
     return res.json({ ok: false, error: "invalid_room", roomId: requestedRoomId });
   }
   const roomPlayers = Array.from(room.players.values());
-  await Promise.all(
-    roomPlayers.map(async (player) => {
-      const installId = normalizeInstallId(player?.installId);
-      if (!installId || isBotToken(player?.token)) return;
-      try {
-        await refreshInstallDuelCache(installId);
-      } catch (_) {}
-    })
-  );
+  for (const player of roomPlayers) {
+    const installId = normalizeInstallId(player?.installId);
+    if (!installId || isBotToken(player?.token)) continue;
+    scheduleInstallDuelCacheRefresh(installId);
+  }
   const players = roomPlayers
     .filter((p) => isPlayerConnected(p) || isBotToken(p?.token))
     .map((p) => ({
@@ -1082,6 +1179,10 @@ app.get("/health", (req, res) => {
     ok: true,
     now: new Date().toISOString(),
     metrics,
+    activeHttpRequests: {
+      count: activeHttpRequests.size,
+      oldest: getActiveHttpRequestsSnapshot(8),
+    },
   });
 });
 
@@ -1133,8 +1234,12 @@ const lagMonitor = setInterval(() => {
   });
   const p99 = metrics?.eventLoopDelay?.p99;
   if (Number.isFinite(p99) && p99 > 200) {
-    console.warn(`[health] high event loop delay p99=${p99.toFixed(1)}ms`);
+    console.warn(
+      `[health] high event loop delay p99=${p99.toFixed(1)}ms activeHttp=${activeHttpRequests.size}`,
+      getActiveHttpRequestsSnapshot(5)
+    );
   }
+  resetMetrics();
 }, 5000);
 lagMonitor.unref?.();
 
@@ -2413,8 +2518,41 @@ function buildRoundSubmissionSolutions(round) {
     ];
   }
 
+  const preparedSolutions = sanitizePreparedSolutions(round.solutions);
+  if (preparedSolutions.length) {
+    const scoreConfig = getSpecialScoreConfig(round);
+    const shouldRescorePrepared =
+      !!scoreConfig?.bonusLetter || round.special?.type === "bonus_letter";
+    return preparedSolutions.map((entry) => {
+      const path = Array.isArray(entry.path) ? entry.path : [];
+      const rescored =
+        shouldRescorePrepared && path.length
+          ? scoreWordOnGridWithPath(entry.word, round.grid, path, scoreConfig)
+          : null;
+      const finalPath = Array.isArray(rescored?.path) ? rescored.path : path;
+      const basePts = Number.isFinite(rescored?.pts)
+        ? rescored.pts
+        : Number.isFinite(entry.pts)
+        ? entry.pts
+        : 0;
+      return {
+        ...entry,
+        pts: computeWordScoreForRound(round, entry.word, finalPath, basePts),
+        path: finalPath,
+        usedFakeTwins: !!(rescored?.usedFakeTwins || entry.usedFakeTwins),
+      };
+    });
+  }
+
+  const startedAt = Date.now();
   const scoreConfig = getSpecialScoreConfig(round);
   const solved = solveGridCached(round.grid, dictionary, scoreConfig);
+  const elapsed = Date.now() - startedAt;
+  if (elapsed > 250) {
+    console.warn(
+      `[roundStarted] main-thread solve fallback took ${elapsed}ms round=${round.id} special=${round.special?.type || "normal"}`
+    );
+  }
   return Array.from(solved.entries()).map(([word, meta]) => {
     const path = Array.isArray(meta?.path) ? meta.path : [];
     const basePts = Number.isFinite(meta?.pts) ? meta.pts : 0;
@@ -3231,6 +3369,7 @@ function getLiveHeadToHeadRoundType(round) {
   const specialType = round?.special?.type || "";
   if (specialType === "target_long" || specialType === "target_score") return "target";
   if (specialType === SELF_SPECIAL_3_WORDS_TYPE) return "special3";
+  if (specialType === "bonus_letter") return "bonusLetter";
   if (specialType === FAKE_TWINS_TYPE) return "fakeTwins";
   return "normal";
 }
@@ -4926,6 +5065,7 @@ async function startRoundForRoom(room) {
     targetWord: prepared?.targetWord || null,
     targetLength: prepared?.targetLength || null,
     targetPath: prepared?.targetPath || null,
+    solutions: sanitizePreparedSolutions(prepared?.solutions),
     targetWordCellMap: null,
     targetRevealed: new Set(),
     targetHintScheduleMs: [],
@@ -5006,7 +5146,14 @@ async function startRoundForRoom(room) {
     roundId,
     planUsed?.label || ""
   );
+  const payloadBuildStartedAt = Date.now();
   const roundStartedPayload = buildRoundStartedPayload(room);
+  const payloadBuildElapsed = Date.now() - payloadBuildStartedAt;
+  if (payloadBuildElapsed > 250) {
+    console.warn(
+      `[${room.id}] roundStarted payload built in ${payloadBuildElapsed}ms round=${roundId} special=${planUsed?.type || "normal"} solutions=${roundStartedPayload?.solutions?.length || 0}`
+    );
+  }
   if (roundStartedPayload) {
     io.to(room.id).emit("roundStarted", roundStartedPayload);
   }
@@ -5405,7 +5552,9 @@ async function endRoundForRoom(room) {
     const installIdForDuel = getInstallIdForNick(room, entry.nick);
     const userIdForProfile = Number(entry?.userId);
     if (Number.isInteger(userIdForProfile) && userIdForProfile > 0) {
-      const highlights = computePlayerWordHighlightsForProfile(room.currentRound, entry);
+      const highlights = isTargetRound
+        ? { bestWord: null, longestWord: null }
+        : computePlayerWordHighlightsForProfile(room.currentRound, entry);
       void recordPlayerRoundStats({
         userId: userIdForProfile,
         nick: entry.nick,

@@ -29,6 +29,7 @@ const MAX_NICK_LEN = 48;
 const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 const MAX_HISTORY_WEEKS = 30;
 const MAX_HISTORY_DAYS = 45;
+const DUEL_STATE_REGRESSION_SCORE_MARGIN = 1000;
 // Semaine de démarrage officielle du duel d'équipes.
 // Les couronnes ne s'appliquent qu'à partir de la semaine suivante (W+1).
 // Exemple: start=2026-W08 => premières couronnes en 2026-W09.
@@ -523,6 +524,115 @@ function ensureWeekShape(week) {
   return week;
 }
 
+function normalizeLoadedState(parsed) {
+  if (!parsed || typeof parsed !== "object") return null;
+  return {
+    ...makeDefaultState(),
+    ...parsed,
+    weeks: parsed.weeks && typeof parsed.weeks === "object" ? parsed.weeks : {},
+    crownsByWeek:
+      parsed.crownsByWeek && typeof parsed.crownsByWeek === "object" ? parsed.crownsByWeek : {},
+    dailyObjectivesByInstallId:
+      parsed.dailyObjectivesByInstallId && typeof parsed.dailyObjectivesByInstallId === "object"
+        ? parsed.dailyObjectivesByInstallId
+        : {},
+    dailyBattles:
+      parsed.dailyBattles && typeof parsed.dailyBattles === "object" ? parsed.dailyBattles : {},
+  };
+}
+
+function countObjectKeys(value) {
+  return value && typeof value === "object" ? Object.keys(value).length : 0;
+}
+
+function getWeekRecoveryScore(week) {
+  const shapedWeek = ensureWeekShape(week);
+  if (!shapedWeek) return 0;
+  const totals = getTeamTotals(shapedWeek).totalByTeam;
+  const points = Math.max(0, Number(totals.red) || 0) + Math.max(0, Number(totals.blue) || 0);
+  const contributionCount = countObjectKeys(shapedWeek.contributionsByInstallId);
+  const actionCount = countObjectKeys(shapedWeek.actionsByInstallId);
+  const teamCount = countObjectKeys(shapedWeek.teamByInstallId);
+  return points + contributionCount * 100 + actionCount * 10 + teamCount;
+}
+
+function getDuelStateRecoveryScore(candidateState) {
+  if (!candidateState || typeof candidateState !== "object") return 0;
+  const currentWeekId = getParisWeekId();
+  const previousWeekId = shiftWeekId(currentWeekId, -1);
+  return (
+    getWeekRecoveryScore(candidateState.weeks?.[currentWeekId]) * 2 +
+    getWeekRecoveryScore(candidateState.weeks?.[previousWeekId])
+  );
+}
+
+async function readDuelStateCandidate(filePath) {
+  try {
+    const stat = await fs.stat(filePath);
+    const raw = await fs.readFile(filePath, "utf8");
+    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+    const parsed = JSON.parse(cleaned);
+    const candidateState = normalizeLoadedState(parsed);
+    if (!candidateState) return null;
+    return {
+      filePath,
+      state: candidateState,
+      score: getDuelStateRecoveryScore(candidateState),
+      mtimeMs: Number(stat.mtimeMs) || 0,
+      size: Number(stat.size) || 0,
+    };
+  } catch (err) {
+    if (err?.code !== "ENOENT") {
+      console.warn(`teamDuel unable to read ${filePath}: ${err?.message || err}`);
+    }
+    return null;
+  }
+}
+
+async function listDuelStateCandidatePaths() {
+  const backups = [];
+  try {
+    const entries = await fs.readdir(DATA_DIR);
+    const baseName = path.basename(DATA_PATH);
+    for (const entry of entries) {
+      if (entry.startsWith(`${baseName}.bak.`)) {
+        const filePath = path.join(DATA_DIR, entry);
+        try {
+          const stat = await fs.stat(filePath);
+          backups.push({ filePath, mtimeMs: Number(stat.mtimeMs) || 0 });
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  backups.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return [DATA_PATH, ...backups.slice(0, 12).map((entry) => entry.filePath)];
+}
+
+function pickBestDuelStateCandidate(candidates) {
+  let best = null;
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (!best) {
+      best = candidate;
+      continue;
+    }
+    if (candidate.score > best.score) {
+      best = candidate;
+      continue;
+    }
+    if (candidate.score === best.score) {
+      const candidateIsMain = candidate.filePath === DATA_PATH;
+      const bestIsMain = best.filePath === DATA_PATH;
+      if (candidateIsMain && !bestIsMain) {
+        best = candidate;
+      } else if (candidateIsMain === bestIsMain && candidate.mtimeMs > best.mtimeMs) {
+        best = candidate;
+      }
+    }
+  }
+  return best;
+}
+
 async function maybeBackupFile(filePath) {
   const now = Date.now();
   if (now - lastBackupAt < BACKUP_INTERVAL_MS) return;
@@ -556,6 +666,18 @@ async function saveToDisk() {
   saveTimer = null;
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
+    const diskCandidate = await readDuelStateCandidate(DATA_PATH);
+    const memoryScore = getDuelStateRecoveryScore(state);
+    if (
+      diskCandidate &&
+      diskCandidate.score > memoryScore + DUEL_STATE_REGRESSION_SCORE_MARGIN
+    ) {
+      console.warn(
+        `teamDuel refused to overwrite richer disk state diskScore=${diskCandidate.score} memoryScore=${memoryScore}`
+      );
+      state = diskCandidate.state;
+      return;
+    }
     await maybeBackupFile(DATA_PATH);
     await atomicWriteJson(DATA_PATH, state);
   } catch (_) {}
@@ -568,32 +690,28 @@ function scheduleSave() {
 }
 
 async function loadFromDisk() {
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf8");
-    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
-    const parsed = JSON.parse(cleaned);
-    if (parsed && typeof parsed === "object") {
-      state = {
-        ...makeDefaultState(),
-        ...parsed,
-        weeks: parsed.weeks && typeof parsed.weeks === "object" ? parsed.weeks : {},
-        crownsByWeek:
-          parsed.crownsByWeek && typeof parsed.crownsByWeek === "object"
-            ? parsed.crownsByWeek
-            : {},
-        dailyObjectivesByInstallId:
-          parsed.dailyObjectivesByInstallId &&
-          typeof parsed.dailyObjectivesByInstallId === "object"
-            ? parsed.dailyObjectivesByInstallId
-            : {},
-        dailyBattles:
-          parsed.dailyBattles && typeof parsed.dailyBattles === "object"
-            ? parsed.dailyBattles
-            : {},
-      };
-      return;
+  const paths = await listDuelStateCandidatePaths();
+  const candidates = [];
+  for (const filePath of paths) {
+    const candidate = await readDuelStateCandidate(filePath);
+    if (candidate) candidates.push(candidate);
+  }
+  const mainCandidate = candidates.find((candidate) => candidate.filePath === DATA_PATH) || null;
+  const bestCandidate = pickBestDuelStateCandidate(candidates);
+  if (bestCandidate) {
+    if (
+      mainCandidate &&
+      bestCandidate.filePath !== DATA_PATH &&
+      bestCandidate.score > mainCandidate.score + DUEL_STATE_REGRESSION_SCORE_MARGIN
+    ) {
+      console.warn(
+        `teamDuel recovered richer backup ${path.basename(bestCandidate.filePath)} score=${bestCandidate.score} currentScore=${mainCandidate.score}`
+      );
     }
-  } catch (_) {}
+    state = bestCandidate.state;
+    return;
+  }
+  console.warn(`teamDuel no readable state found at ${DATA_PATH}, starting empty`);
   state = makeDefaultState();
 }
 

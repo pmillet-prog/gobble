@@ -81,6 +81,7 @@ function normalizeRoundType(roundType) {
   const safeType = String(roundType || "").trim();
   if (safeType === "target") return "target";
   if (safeType === "special3") return "special3";
+  if (safeType === "bonusLetter") return "bonusLetter";
   if (safeType === "fakeTwins") return "fakeTwins";
   return "normal";
 }
@@ -230,10 +231,14 @@ export async function recordPlayerRoundStats({
   const safeNick = normalizeNick(nick);
   const safeScore = finiteInt(score);
   const safeWordsCount = finiteInt(wordsCount);
-  const bestWordText = String(bestWord?.word || "").trim().slice(0, 40);
-  const bestWordScore = finiteInt(bestWord?.pts);
-  const longestWordText = String(longestWord?.word || "").trim().slice(0, 40);
-  const longestWordLength = finiteInt(longestWord?.len || longestWordText.length);
+  const bestWordText = isTargetRound ? "" : String(bestWord?.word || "").trim().slice(0, 40);
+  const bestWordScore = isTargetRound ? 0 : finiteInt(bestWord?.pts);
+  const longestWordText = isTargetRound
+    ? ""
+    : String(longestWord?.word || "").trim().slice(0, 40);
+  const longestWordLength = isTargetRound
+    ? 0
+    : finiteInt(longestWord?.len || longestWordText.length);
   const gobbles = finiteInt(gobblesEarned);
   const doubleGobbles = gobbles >= 2 ? 1 : 0;
   const targetRoundsPlayed = isTargetRound ? 1 : 0;

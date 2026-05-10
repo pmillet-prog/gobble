@@ -65,7 +65,8 @@ const HEAD_TO_HEAD_TYPES = [
   ["normal", "Normales"],
   ["target", "Cibles"],
   ["special3", "3 mots"],
-  ["fakeTwins", "Jumeaux"],
+  ["bonusLetter", "Lettre en or"],
+  ["fakeTwins", "Faux jumeaux"],
 ];
 
 export default function PlayerProfileModal({
