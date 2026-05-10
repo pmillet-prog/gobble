@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "test:bots": "node ./tests/botManager.test.js",
-    "auth:force-reset": "node ./scripts/auth-force-reset.js"
+    "auth:force-reset": "node ./scripts/auth-force-reset.js",
+    "profile:repair-word-records": "node ./scripts/repair-profile-word-records-from-weekly.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",

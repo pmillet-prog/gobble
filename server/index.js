@@ -600,7 +600,7 @@ function sanitizeDailyMode(raw) {
 async function runDailyStartFlow({ installId, pseudo, dailyMode }) {
   const result = await startDailyAttempt(null, installId, pseudo, { dailyMode });
   if (!result?.ok) return result;
-  await refreshInstallDuelCache(installId);
+  await refreshInstallDuelCache(installId).catch(() => null);
   const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
   return { ...result, duel };
 }
@@ -669,7 +669,7 @@ async function runDailySubmitFlow({
       },
     }
   );
-  await refreshInstallDuelCache(installId);
+  await refreshInstallDuelCache(installId).catch(() => null);
   const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
   return { ...result, board: boardWithTeams, duel };
 }
@@ -683,7 +683,7 @@ app.get("/api/daily/status", async (req, res) => {
   let duel = null;
   if (installId) {
     try {
-      await refreshInstallDuelCache(installId);
+      scheduleInstallDuelCacheRefresh(installId, 60_000);
       duel = await getDuelStatus(installId, { dateId: payload?.dateId || null });
     } catch (_) {}
   }
@@ -820,7 +820,7 @@ app.get("/api/theme/profile", async (req, res) => {
   if (!identity) return;
   const installId = identity.installId;
   try {
-    await refreshInstallDuelCache(installId).catch(() => {});
+    scheduleInstallDuelCacheRefresh(installId, 60_000);
     const profile = await getGobblarProfile(installId);
     if (!profile) {
       res.status(500);
@@ -898,7 +898,7 @@ app.get("/api/duel/status", async (req, res) => {
   const identity = await requireRequestPlayerIdentity(req, res);
   if (!identity) return;
   const installId = identity.installId;
-  await refreshInstallDuelCache(installId);
+  scheduleInstallDuelCacheRefresh(installId, 60_000);
   const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
   const payload = await getDuelStatus(installId, { dateId });
   return res.json({ ok: true, ...payload });
@@ -1744,6 +1744,41 @@ async function refreshInstallDuelCache(rawInstallId) {
     scheduleWeeklyWinnerGobblarsGrant(installId, entry.weekId);
   }
   return entry;
+}
+
+function runDeferredTask(task, delayMs = 0) {
+  const timer = setTimeout(() => {
+    Promise.resolve()
+      .then(task)
+      .catch((err) => {
+        console.warn("Deferred task failed", err?.message || err);
+      });
+  }, Math.max(0, Number(delayMs) || 0));
+  timer.unref?.();
+}
+
+function queueLiveHeadToHeadUpdate(payload, delayMs = 1500) {
+  runDeferredTask(
+    () =>
+      recordLiveHeadToHeadOutcomes(payload).catch((err) => {
+        console.warn("Live head-to-head update failed", err);
+      }),
+    delayMs
+  );
+}
+
+function queuePlayerRoundStatsUpdates(entries, delayMs = 2500) {
+  const safeEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
+  if (!safeEntries.length) return;
+  runDeferredTask(async () => {
+    for (const entry of safeEntries) {
+      try {
+        await recordPlayerRoundStats(entry);
+      } catch (err) {
+        console.warn("Player lifetime stats update failed", err);
+      }
+    }
+  }, delayMs);
 }
 
 function scheduleInstallDuelCacheRefresh(rawInstallId, minIntervalMs = DUEL_CACHE_REFRESH_MIN_MS) {
@@ -5510,12 +5545,10 @@ async function endRoundForRoom(room) {
       score: Number(entry.score) || 0,
     }));
   if (liveHeadToHeadParticipants.length >= 2) {
-    void recordLiveHeadToHeadOutcomes({
+    queueLiveHeadToHeadUpdate({
       roundType: getLiveHeadToHeadRoundType(room.currentRound),
       participants: liveHeadToHeadParticipants,
       ts: endedAt,
-    }).catch((err) => {
-      console.warn("Live head-to-head update failed", err);
     });
   }
   const roundGobbles = room.currentRound.gobbles || new Map();
@@ -5528,6 +5561,7 @@ async function endRoundForRoom(room) {
   const isSpecial3Round = room.currentRound?.special?.type === SELF_SPECIAL_3_WORDS_TYPE;
   const teamDuelUpdates = new Map();
   const duelDateId = getParisDateId(new Date(endedAt));
+  const profileStatsUpdates = [];
   for (const entry of results) {
     if (entry.isBot) continue;
     if (!entry.participated) continue;
@@ -5555,7 +5589,7 @@ async function endRoundForRoom(room) {
       const highlights = isTargetRound
         ? { bestWord: null, longestWord: null }
         : computePlayerWordHighlightsForProfile(room.currentRound, entry);
-      void recordPlayerRoundStats({
+      profileStatsUpdates.push({
         userId: userIdForProfile,
         nick: entry.nick,
         roundId,
@@ -5568,8 +5602,6 @@ async function endRoundForRoom(room) {
         targetFound: targetFoundAt.has(entry.nick),
         isSpecial3Round,
         ts: endedAt,
-      }).catch((err) => {
-        console.warn("Player lifetime stats update failed", err);
       });
     }
     if (installIdForDuel) {
@@ -5602,9 +5634,10 @@ async function endRoundForRoom(room) {
           gobblePointsAdded: Number(duelRound?.gobblePointsAdded) || 0,
         });
       }
-      void refreshInstallDuelCache(installIdForDuel);
+      scheduleInstallDuelCacheRefresh(installIdForDuel, 60_000);
     }
   }
+  queuePlayerRoundStatsUpdates(profileStatsUpdates);
 
   console.log(
     `[${room.id}] Manche terminée ${room.currentRound.id}`,
