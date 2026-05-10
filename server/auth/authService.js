@@ -10,6 +10,10 @@ import {
 } from "crypto";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import {
+  runSerializedSqliteWrite,
+  runSqliteImmediateTransaction,
+} from "../sqliteQueue.js";
 
 const scrypt = promisify(scryptCallback);
 
@@ -25,12 +29,46 @@ const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
 const USERNAME_MIN_LEN = 3;
 const USERNAME_MAX_LEN = 25;
 const PASSWORD_MIN_LEN = 3;
+const SESSION_TOUCH_MIN_MS = 5 * 60 * 1000;
 
 let db = null;
 let initPromise = null;
+const sessionTouchCache = new Map();
 
 function nowTs() {
   return Date.now();
+}
+
+function runAuthWrite(task) {
+  return runSerializedSqliteWrite(task, {
+    retries: 30,
+    baseMs: 80,
+    label: "auth",
+  });
+}
+
+function runAuthStatement(ready, sql, ...params) {
+  return runAuthWrite(() => ready.run(sql, ...params));
+}
+
+function scheduleSessionTouch(ready, sessionId, previousLastSeenAt, timestamp) {
+  const safeSessionId = String(sessionId || "").trim();
+  if (!safeSessionId) return;
+  const previous = Math.max(
+    Number(previousLastSeenAt) || 0,
+    Number(sessionTouchCache.get(safeSessionId)) || 0
+  );
+  if (timestamp - previous < SESSION_TOUCH_MIN_MS) return;
+  sessionTouchCache.set(safeSessionId, timestamp);
+  void runAuthWrite(() =>
+    ready.run(
+      `UPDATE user_sessions
+       SET last_seen_at = ?
+       WHERE id = ?`,
+      timestamp,
+      safeSessionId
+    )
+  ).catch(() => {});
 }
 
 function createPrimaryInstallId() {
@@ -136,17 +174,19 @@ async function ensureDb() {
     initPromise = (async () => {
       await fs.mkdir(DATA_DIR, { recursive: true });
       const handle = await open({ filename: DB_PATH, driver: sqlite3.Database });
-      await handle.exec("PRAGMA journal_mode = WAL;");
-      await handle.exec("PRAGMA busy_timeout = 5000;");
-      await handle.exec("PRAGMA foreign_keys = ON;");
       const migrationNames = (await fs.readdir(MIGRATIONS_DIR))
         .filter((name) => name.endsWith(".sql"))
         .sort();
-      for (const migrationName of migrationNames) {
-        const sql = await fs.readFile(path.join(MIGRATIONS_DIR, migrationName), "utf8");
-        await handle.exec(sql);
-      }
       db = handle;
+      await runAuthWrite(async () => {
+        await handle.exec("PRAGMA journal_mode = WAL;");
+        await handle.exec("PRAGMA busy_timeout = 5000;");
+        await handle.exec("PRAGMA foreign_keys = ON;");
+        for (const migrationName of migrationNames) {
+          const sql = await fs.readFile(path.join(MIGRATIONS_DIR, migrationName), "utf8");
+          await handle.exec(sql);
+        }
+      });
       return handle;
     })();
   }
@@ -261,7 +301,8 @@ async function upsertLegacyReservation(profile, { claimedUserId = null } = {}) {
   );
   if (existingByInstall) {
     try {
-      await ready.run(
+      await runAuthStatement(
+        ready,
         `UPDATE legacy_username_reservations
          SET username_display = ?, username_normalized = ?, source = ?, updated_at = ?,
              claimed_user_id = COALESCE(claimed_user_id, ?)
@@ -293,7 +334,8 @@ async function upsertLegacyReservation(profile, { claimedUserId = null } = {}) {
     return existingByUsername;
   }
   try {
-    await ready.run(
+    await runAuthStatement(
+      ready,
       `INSERT INTO legacy_username_reservations
        (install_id, username_display, username_normalized, source, created_at, updated_at, claimed_user_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -469,7 +511,8 @@ export async function setUserIdentityMigrationSignature(userId, migrationSignatu
   const safeUserId = Number(userId);
   const safeSignature = String(migrationSignature || "").trim();
   if (!Number.isInteger(safeUserId) || safeUserId <= 0 || !safeSignature) return false;
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `INSERT INTO user_identity_migrations (user_id, migration_signature, updated_at)
      VALUES (?, ?, ?)
      ON CONFLICT(user_id)
@@ -556,7 +599,8 @@ export async function isUsernameTakenOrReserved(rawUsername) {
 async function setPrimaryInstallId(userId, installId) {
   const ready = await ensureDb();
   if (!installId) return;
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `UPDATE users
      SET primary_install_id = COALESCE(primary_install_id, ?), updated_at = ?
      WHERE id = ?`,
@@ -584,7 +628,8 @@ export async function ensureUserPrimaryInstallId(userId) {
 export async function touchUserLastLogin(userId) {
   const ready = await ensureDb();
   const timestamp = nowTs();
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `UPDATE users
      SET last_login_at = ?, updated_at = ?
      WHERE id = ?`,
@@ -600,7 +645,8 @@ export async function linkDeviceToUser(userId, installId) {
   const safeInstallId = String(installId || "").trim();
   if (!safeUserId || !safeInstallId) return false;
   const timestamp = nowTs();
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `INSERT INTO user_devices (user_id, install_id, created_at, last_seen_at)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, install_id)
@@ -664,49 +710,53 @@ export async function createUser({
   const passwordHash = await hashPassword(password);
 
   try {
-    await ready.exec("BEGIN IMMEDIATE");
-    const insert = await ready.run(
-      `INSERT INTO users
-       (username_display, username_normalized, password_hash, email, primary_install_id,
-        created_at, updated_at, last_login_at, is_legacy_converted, must_reset_password)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 0)`,
-      displayResult.value,
-      usernameNormalized,
-      passwordHash,
-      emailResult.value,
-      effectivePrimary,
-      timestamp,
-      timestamp,
-      isLegacyConverted ? 1 : 0
+    const userId = await runAuthWrite(() =>
+      runSqliteImmediateTransaction(
+        ready,
+        async () => {
+          const insert = await ready.run(
+            `INSERT INTO users
+             (username_display, username_normalized, password_hash, email, primary_install_id,
+              created_at, updated_at, last_login_at, is_legacy_converted, must_reset_password)
+             VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 0)`,
+            displayResult.value,
+            usernameNormalized,
+            passwordHash,
+            emailResult.value,
+            effectivePrimary,
+            timestamp,
+            timestamp,
+            isLegacyConverted ? 1 : 0
+          );
+          const createdUserId = Number(insert?.lastID);
+          if (primary) {
+            await ready.run(
+              `INSERT INTO user_devices (user_id, install_id, created_at, last_seen_at)
+               VALUES (?, ?, ?, ?)`,
+              createdUserId,
+              primary,
+              timestamp,
+              timestamp
+            );
+          }
+          if (claimedReservationId) {
+            await ready.run(
+              `UPDATE legacy_username_reservations
+               SET claimed_user_id = ?, updated_at = ?
+               WHERE id = ?`,
+              createdUserId,
+              timestamp,
+              Number(claimedReservationId)
+            );
+          }
+          return createdUserId;
+        },
+        { label: "auth-create-user" }
+      )
     );
-    const userId = Number(insert?.lastID);
-    if (primary) {
-      await ready.run(
-        `INSERT INTO user_devices (user_id, install_id, created_at, last_seen_at)
-         VALUES (?, ?, ?, ?)`,
-        userId,
-        primary,
-        timestamp,
-        timestamp
-      );
-    }
-    if (claimedReservationId) {
-      await ready.run(
-        `UPDATE legacy_username_reservations
-         SET claimed_user_id = ?, updated_at = ?
-         WHERE id = ?`,
-        userId,
-        timestamp,
-        Number(claimedReservationId)
-      );
-    }
-    await ready.exec("COMMIT");
     const user = await findUserById(userId);
     return { ok: true, user };
   } catch (err) {
-    try {
-      await ready.exec("ROLLBACK");
-    } catch (_) {}
     const message = String(err?.message || "").toLowerCase();
     if (message.includes("user_devices.install_id") || message.includes("users.primary_install_id")) {
       return { ok: false, error: "device_linked_to_other_account" };
@@ -761,7 +811,8 @@ export async function updatePassword({
   }
   const passwordHash = await hashPassword(newPassword);
   const timestamp = nowTs();
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `UPDATE users
      SET password_hash = ?, updated_at = ?, must_reset_password = ?
      WHERE id = ?`,
@@ -776,7 +827,8 @@ export async function updatePassword({
 export async function markMustResetPassword(userId, { invalidateSessions = true } = {}) {
   const ready = await ensureDb();
   const timestamp = nowTs();
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `UPDATE users
      SET must_reset_password = 1, updated_at = ?
      WHERE id = ?`,
@@ -784,7 +836,8 @@ export async function markMustResetPassword(userId, { invalidateSessions = true 
     Number(userId)
   );
   if (invalidateSessions) {
-    await ready.run(
+    await runAuthStatement(
+      ready,
       `UPDATE user_sessions
        SET invalidated_at = COALESCE(invalidated_at, ?)
        WHERE user_id = ? AND invalidated_at IS NULL`,
@@ -840,7 +893,8 @@ export async function createSession(userId) {
   const tokenHash = sha256Hex(token);
   const timestamp = nowTs();
   const expiresAt = timestamp + SESSION_TTL_MS;
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `INSERT INTO user_sessions
      (id, user_id, token_hash, created_at, last_seen_at, expires_at, invalidated_at)
      VALUES (?, ?, ?, ?, ?, ?, NULL)`,
@@ -888,13 +942,7 @@ export async function getSessionByToken(token) {
     timestamp
   );
   if (!row) return null;
-  await ready.run(
-    `UPDATE user_sessions
-     SET last_seen_at = ?
-     WHERE id = ?`,
-    timestamp,
-    row.session_id
-  ).catch(() => {});
+  scheduleSessionTouch(ready, row.session_id, Number(row.session_last_seen_at) || 0, timestamp);
   return {
     session: {
       id: row.session_id,
@@ -912,7 +960,8 @@ export async function invalidateSessionByToken(token) {
   const safeToken = String(token || "").trim();
   if (!safeToken) return false;
   const timestamp = nowTs();
-  const result = await ready.run(
+  const result = await runAuthStatement(
+    ready,
     `UPDATE user_sessions
      SET invalidated_at = COALESCE(invalidated_at, ?)
      WHERE token_hash = ? AND invalidated_at IS NULL`,
@@ -926,7 +975,8 @@ export async function invalidateSessionsForUser(userId, { exceptSessionId = null
   const ready = await ensureDb();
   const timestamp = nowTs();
   if (exceptSessionId) {
-    await ready.run(
+    await runAuthStatement(
+      ready,
       `UPDATE user_sessions
        SET invalidated_at = COALESCE(invalidated_at, ?)
        WHERE user_id = ? AND invalidated_at IS NULL AND id <> ?`,
@@ -936,7 +986,8 @@ export async function invalidateSessionsForUser(userId, { exceptSessionId = null
     );
     return true;
   }
-  await ready.run(
+  await runAuthStatement(
+    ready,
     `UPDATE user_sessions
      SET invalidated_at = COALESCE(invalidated_at, ?)
      WHERE user_id = ? AND invalidated_at IS NULL`,

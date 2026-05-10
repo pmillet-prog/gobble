@@ -5,6 +5,11 @@ import { createHash } from "crypto";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
+import {
+  runSerializedSqliteWrite,
+  runSqliteBusyRetry,
+  runSqliteImmediateTransaction,
+} from "../sqliteQueue.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +21,6 @@ const WEEKLY_STATS_PATH = path.join(DATA_DIR, "weekly-stats.json");
 
 let db = null;
 let initPromise = null;
-let writeQueue = Promise.resolve();
 const SQLITE_BUSY_MAX_RETRIES = 10;
 const SQLITE_BUSY_RETRY_BASE_MS = 40;
 
@@ -39,42 +43,23 @@ function sleep(ms) {
 }
 
 async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await task();
-    } catch (err) {
-      if (!isSqliteBusyError(err) || attempt >= retries) {
-        throw err;
-      }
-      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
-      await sleep(waitMs);
-    }
-  }
+  return runSqliteBusyRetry(task, {
+    retries,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "vocabulary",
+  });
 }
 
 function runSerializedWrite(task) {
-  const execute = () => runWithBusyRetry(task);
-  const next = writeQueue.then(execute, execute);
-  writeQueue = next.catch(() => {});
-  return next;
+  return runSerializedSqliteWrite(task, {
+    retries: SQLITE_BUSY_MAX_RETRIES,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "vocabulary",
+  });
 }
 
 async function runInImmediateTransaction(task) {
-  await db.exec("BEGIN IMMEDIATE");
-  let committed = false;
-  try {
-    const result = await task();
-    await db.exec("COMMIT");
-    committed = true;
-    return result;
-  } catch (err) {
-    if (!committed) {
-      try {
-        await db.exec("ROLLBACK");
-      } catch (_) {}
-    }
-    throw err;
-  }
+  return runSqliteImmediateTransaction(db, task, { label: "vocabulary" });
 }
 
 function extractInstallIdFromPlayerKey(playerKey) {
@@ -163,26 +148,28 @@ async function ensureDb() {
     initPromise = (async () => {
       await fs.mkdir(DATA_DIR, { recursive: true });
       db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-      await db.exec("PRAGMA journal_mode = WAL;");
-      await db.exec("PRAGMA busy_timeout = 5000;");
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS vocab_words (
-          installId TEXT NOT NULL,
-          wordHash TEXT NOT NULL,
-          firstSeenTs INTEGER NOT NULL,
-          PRIMARY KEY(installId, wordHash)
-        );
-        CREATE TABLE IF NOT EXISTS vocab_counts (
-          installId TEXT PRIMARY KEY,
-          count INTEGER NOT NULL DEFAULT 0,
-          updatedAt INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS vocab_profiles (
-          installId TEXT PRIMARY KEY,
-          nick TEXT NOT NULL,
-          updatedAt INTEGER NOT NULL
-        );
-      `);
+      await runSerializedWrite(async () => {
+        await db.exec("PRAGMA journal_mode = WAL;");
+        await db.exec("PRAGMA busy_timeout = 5000;");
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS vocab_words (
+            installId TEXT NOT NULL,
+            wordHash TEXT NOT NULL,
+            firstSeenTs INTEGER NOT NULL,
+            PRIMARY KEY(installId, wordHash)
+          );
+          CREATE TABLE IF NOT EXISTS vocab_counts (
+            installId TEXT PRIMARY KEY,
+            count INTEGER NOT NULL DEFAULT 0,
+            updatedAt INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS vocab_profiles (
+            installId TEXT PRIMARY KEY,
+            nick TEXT NOT NULL,
+            updatedAt INTEGER NOT NULL
+          );
+        `);
+      });
       await backfillVocabularyProfilesFromWeeklyStats();
       console.log(`vocab DB ready path=${DB_PATH}`);
       return db;

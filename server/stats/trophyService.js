@@ -3,6 +3,11 @@ import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import {
+  runSerializedSqliteWrite,
+  runSqliteBusyRetry,
+  runSqliteImmediateTransaction,
+} from "../sqliteQueue.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +30,6 @@ const LEAGUES = [
 ];
 
 let db = null;
-let writeQueue = Promise.resolve();
 const SQLITE_BUSY_MAX_RETRIES = 30;
 const SQLITE_BUSY_RETRY_BASE_MS = 80;
 
@@ -48,42 +52,23 @@ function sleep(ms) {
 }
 
 async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await task();
-    } catch (err) {
-      if (!isSqliteBusyError(err) || attempt >= retries) {
-        throw err;
-      }
-      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
-      await sleep(waitMs);
-    }
-  }
+  return runSqliteBusyRetry(task, {
+    retries,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "trophies",
+  });
 }
 
 function runSerializedWrite(task) {
-  const execute = () => runWithBusyRetry(task);
-  const next = writeQueue.then(execute, execute);
-  writeQueue = next.catch(() => {});
-  return next;
+  return runSerializedSqliteWrite(task, {
+    retries: SQLITE_BUSY_MAX_RETRIES,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "trophies",
+  });
 }
 
 async function runInImmediateTransaction(task) {
-  await db.exec("BEGIN IMMEDIATE");
-  let committed = false;
-  try {
-    const result = await task();
-    await db.exec("COMMIT");
-    committed = true;
-    return result;
-  } catch (err) {
-    if (!committed) {
-      try {
-        await db.exec("ROLLBACK");
-      } catch (_) {}
-    }
-    throw err;
-  }
+  return runSqliteImmediateTransaction(db, task, { label: "trophies" });
 }
 
 function getDayKey(ts) {
@@ -134,35 +119,37 @@ export async function initTrophyService() {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-    await db.exec("PRAGMA journal_mode = WAL;");
-    await db.exec("PRAGMA busy_timeout = 15000;");
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS trophies (
-        installId TEXT PRIMARY KEY,
-        trophies INTEGER NOT NULL,
-        league TEXT NOT NULL,
-        updatedAt INTEGER NOT NULL,
-        shieldCount INTEGER NOT NULL DEFAULT 0,
-        shieldFloor INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS trophy_history (
-        installId TEXT NOT NULL,
-        ts INTEGER NOT NULL,
-        delta INTEGER NOT NULL,
-        trophies INTEGER NOT NULL,
-        league TEXT NOT NULL,
-        tournamentId TEXT,
-        PRIMARY KEY(installId, ts)
-      );
-      CREATE TABLE IF NOT EXISTS bot_encounters (
-        installId TEXT NOT NULL,
-        botId TEXT NOT NULL,
-        dayKey TEXT NOT NULL,
-        count INTEGER NOT NULL DEFAULT 0,
-        updatedAt INTEGER NOT NULL,
-        PRIMARY KEY(installId, botId, dayKey)
-      );
-    `);
+    await runSerializedWrite(async () => {
+      await db.exec("PRAGMA journal_mode = WAL;");
+      await db.exec("PRAGMA busy_timeout = 15000;");
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS trophies (
+          installId TEXT PRIMARY KEY,
+          trophies INTEGER NOT NULL,
+          league TEXT NOT NULL,
+          updatedAt INTEGER NOT NULL,
+          shieldCount INTEGER NOT NULL DEFAULT 0,
+          shieldFloor INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS trophy_history (
+          installId TEXT NOT NULL,
+          ts INTEGER NOT NULL,
+          delta INTEGER NOT NULL,
+          trophies INTEGER NOT NULL,
+          league TEXT NOT NULL,
+          tournamentId TEXT,
+          PRIMARY KEY(installId, ts)
+        );
+        CREATE TABLE IF NOT EXISTS bot_encounters (
+          installId TEXT NOT NULL,
+          botId TEXT NOT NULL,
+          dayKey TEXT NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,
+          updatedAt INTEGER NOT NULL,
+          PRIMARY KEY(installId, botId, dayKey)
+        );
+      `);
+    });
   } catch (err) {
     console.warn("Trophy service init failed", err);
     db = null;

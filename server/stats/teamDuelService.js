@@ -1803,8 +1803,10 @@ export async function recordTournamentMedalPoints({
   return { ok: true, dateId: safeDateId, weekId, team, type: safeType, points };
 }
 
-export async function getWeeklyDuelScore(weekId = null) {
-  await finalizeDailyBonusesUntil(getParisDateId());
+export async function getWeeklyDuelScore(weekId = null, { finalize = true } = {}) {
+  if (finalize) {
+    await finalizeDailyBonusesUntil(getParisDateId());
+  }
   const safeWeekId = weekId || getParisWeekId();
   const week = await ensureWeekState(safeWeekId);
   const totals = getTeamTotals(week);
@@ -1827,8 +1829,10 @@ export async function getWeeklyDuelScore(weekId = null) {
   };
 }
 
-export async function getWeeklyDuelRecap(weekId = null, installId = "") {
-  await finalizeDailyBonusesUntil(getParisDateId());
+export async function getWeeklyDuelRecap(weekId = null, installId = "", { finalize = true } = {}) {
+  if (finalize) {
+    await finalizeDailyBonusesUntil(getParisDateId());
+  }
   const safeWeekId = weekId || shiftWeekId(getParisWeekId(), -1);
   const week = ensureWeekShape(state.weeks?.[safeWeekId]);
   if (!week) return null;

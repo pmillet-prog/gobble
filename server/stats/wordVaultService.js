@@ -4,6 +4,11 @@ import fs from "fs/promises";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
+import {
+  runSerializedSqliteWrite,
+  runSqliteBusyRetry,
+  runSqliteImmediateTransaction,
+} from "../sqliteQueue.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,7 +19,6 @@ const DB_PATH = path.join(DATA_DIR, "gobble.db");
 
 let db = null;
 let initPromise = null;
-let writeQueue = Promise.resolve();
 const SQLITE_BUSY_MAX_RETRIES = 30;
 const SQLITE_BUSY_RETRY_BASE_MS = 80;
 const MAX_VAULT_WORD_LEN = 80;
@@ -34,42 +38,23 @@ function sleep(ms) {
 }
 
 async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await task();
-    } catch (err) {
-      if (!isSqliteBusyError(err) || attempt >= retries) {
-        throw err;
-      }
-      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
-      await sleep(waitMs);
-    }
-  }
+  return runSqliteBusyRetry(task, {
+    retries,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "word-vault",
+  });
 }
 
 function runSerializedWrite(task) {
-  const execute = () => runWithBusyRetry(task);
-  const next = writeQueue.then(execute, execute);
-  writeQueue = next.catch(() => {});
-  return next;
+  return runSerializedSqliteWrite(task, {
+    retries: SQLITE_BUSY_MAX_RETRIES,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "word-vault",
+  });
 }
 
 async function runInImmediateTransaction(task) {
-  await db.exec("BEGIN IMMEDIATE");
-  let committed = false;
-  try {
-    const result = await task();
-    await db.exec("COMMIT");
-    committed = true;
-    return result;
-  } catch (err) {
-    if (!committed) {
-      try {
-        await db.exec("ROLLBACK");
-      } catch (_) {}
-    }
-    throw err;
-  }
+  return runSqliteImmediateTransaction(db, task, { label: "word-vault" });
 }
 
 function collapseWhitespace(raw) {
@@ -107,19 +92,21 @@ async function ensureDb() {
     initPromise = (async () => {
       await fs.mkdir(DATA_DIR, { recursive: true });
       db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-      await db.exec("PRAGMA journal_mode = WAL;");
-      await db.exec("PRAGMA busy_timeout = 15000;");
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS word_vault_entries (
-          user_id INTEGER NOT NULL,
-          word_key TEXT NOT NULL,
-          word TEXT NOT NULL,
-          added_at INTEGER NOT NULL,
-          PRIMARY KEY(user_id, word_key)
-        );
-        CREATE INDEX IF NOT EXISTS idx_word_vault_entries_user_added_at
-        ON word_vault_entries(user_id, added_at DESC);
-      `);
+      await runSerializedWrite(async () => {
+        await db.exec("PRAGMA journal_mode = WAL;");
+        await db.exec("PRAGMA busy_timeout = 15000;");
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS word_vault_entries (
+            user_id INTEGER NOT NULL,
+            word_key TEXT NOT NULL,
+            word TEXT NOT NULL,
+            added_at INTEGER NOT NULL,
+            PRIMARY KEY(user_id, word_key)
+          );
+          CREATE INDEX IF NOT EXISTS idx_word_vault_entries_user_added_at
+          ON word_vault_entries(user_id, added_at DESC);
+        `);
+      });
       return db;
     })();
   }

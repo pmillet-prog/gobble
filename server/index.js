@@ -24,6 +24,7 @@ import {
 } from "../shared/gameLogic.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
+import { createPersistenceClient } from "./persistence/persistenceClient.js";
 import { getMetrics, resetMetrics } from "./observability/metrics.js";
 import {
   getDefinition,
@@ -117,8 +118,6 @@ import {
 import {
   initPlayerProfileService,
   getPublicPlayerProfileByUserId,
-  recordLiveHeadToHeadOutcomes,
-  recordPlayerRoundStats,
 } from "./stats/playerProfileService.js";
 import {
   clearBroadcastMessage,
@@ -141,6 +140,7 @@ process.on("unhandledRejection", (reason) => {
 });
 
 const computePool = createComputePool();
+const persistenceClient = createPersistenceClient();
 void initVocabularyService().catch((err) =>
   console.warn("Vocabulary service init failed", err)
 );
@@ -1758,25 +1758,15 @@ function runDeferredTask(task, delayMs = 0) {
 }
 
 function queueLiveHeadToHeadUpdate(payload, delayMs = 1500) {
-  runDeferredTask(
-    () =>
-      recordLiveHeadToHeadOutcomes(payload).catch((err) => {
-        console.warn("Live head-to-head update failed", err);
-      }),
-    delayMs
-  );
+  runDeferredTask(() => persistenceClient.recordLiveHeadToHeadOutcomes(payload), delayMs);
 }
 
 function queuePlayerRoundStatsUpdates(entries, delayMs = 2500) {
   const safeEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
   if (!safeEntries.length) return;
-  runDeferredTask(async () => {
+  runDeferredTask(() => {
     for (const entry of safeEntries) {
-      try {
-        await recordPlayerRoundStats(entry);
-      } catch (err) {
-        console.warn("Player lifetime stats update failed", err);
-      }
+      persistenceClient.recordPlayerRoundStats(entry);
     }
   }, delayMs);
 }

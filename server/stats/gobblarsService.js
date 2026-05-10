@@ -3,6 +3,11 @@ import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import {
+  runSerializedSqliteWrite,
+  runSqliteBusyRetry,
+  runSqliteImmediateTransaction,
+} from "../sqliteQueue.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,7 +150,6 @@ function isThemeOptionUnlocked(unlocks, category, optionId) {
 }
 
 let db = null;
-let writeQueue = Promise.resolve();
 const SQLITE_BUSY_MAX_RETRIES = 30;
 const SQLITE_BUSY_RETRY_BASE_MS = 80;
 
@@ -164,42 +168,23 @@ function sleep(ms) {
 }
 
 async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await task();
-    } catch (err) {
-      if (!isSqliteBusyError(err) || attempt >= retries) {
-        throw err;
-      }
-      const waitMs = SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1);
-      await sleep(waitMs);
-    }
-  }
+  return runSqliteBusyRetry(task, {
+    retries,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "gobblars",
+  });
 }
 
 function runSerializedWrite(task) {
-  const execute = () => runWithBusyRetry(task);
-  const next = writeQueue.then(execute, execute);
-  writeQueue = next.catch(() => {});
-  return next;
+  return runSerializedSqliteWrite(task, {
+    retries: SQLITE_BUSY_MAX_RETRIES,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "gobblars",
+  });
 }
 
 async function runInImmediateTransaction(task) {
-  await db.exec("BEGIN IMMEDIATE");
-  let committed = false;
-  try {
-    const result = await task();
-    await db.exec("COMMIT");
-    committed = true;
-    return result;
-  } catch (err) {
-    if (!committed) {
-      try {
-        await db.exec("ROLLBACK");
-      } catch (_) {}
-    }
-    throw err;
-  }
+  return runSqliteImmediateTransaction(db, task, { label: "gobblars" });
 }
 
 function safeJsonParse(raw, fallback) {
@@ -434,40 +419,42 @@ export async function initGobblarsService() {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-    await db.exec("PRAGMA journal_mode = WAL;");
-    await db.exec("PRAGMA busy_timeout = 15000;");
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS gobblar_profiles (
-        installId TEXT PRIMARY KEY,
-        balance INTEGER NOT NULL DEFAULT 0,
-        themeApplied TEXT NOT NULL DEFAULT '{}',
-        themeUnlocks TEXT NOT NULL DEFAULT '{}',
-        updatedAt INTEGER NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS gobblar_ledger (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        installId TEXT NOT NULL,
-        ts INTEGER NOT NULL,
-        delta INTEGER NOT NULL,
-        reason TEXT NOT NULL,
-        meta TEXT
-      );
-      CREATE TABLE IF NOT EXISTS gobblar_week_rewards (
-        installId TEXT NOT NULL,
-        weekId TEXT NOT NULL,
-        source TEXT NOT NULL,
-        amount INTEGER NOT NULL,
-        awardedAt INTEGER NOT NULL,
-        PRIMARY KEY(installId, weekId, source)
-      );
-      CREATE TABLE IF NOT EXISTS gobblar_global_grants (
-        installId TEXT NOT NULL,
-        grantKey TEXT NOT NULL,
-        amount INTEGER NOT NULL,
-        awardedAt INTEGER NOT NULL,
-        PRIMARY KEY(installId, grantKey)
-      );
-    `);
+    await runSerializedWrite(async () => {
+      await db.exec("PRAGMA journal_mode = WAL;");
+      await db.exec("PRAGMA busy_timeout = 15000;");
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS gobblar_profiles (
+          installId TEXT PRIMARY KEY,
+          balance INTEGER NOT NULL DEFAULT 0,
+          themeApplied TEXT NOT NULL DEFAULT '{}',
+          themeUnlocks TEXT NOT NULL DEFAULT '{}',
+          updatedAt INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS gobblar_ledger (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          installId TEXT NOT NULL,
+          ts INTEGER NOT NULL,
+          delta INTEGER NOT NULL,
+          reason TEXT NOT NULL,
+          meta TEXT
+        );
+        CREATE TABLE IF NOT EXISTS gobblar_week_rewards (
+          installId TEXT NOT NULL,
+          weekId TEXT NOT NULL,
+          source TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          awardedAt INTEGER NOT NULL,
+          PRIMARY KEY(installId, weekId, source)
+        );
+        CREATE TABLE IF NOT EXISTS gobblar_global_grants (
+          installId TEXT NOT NULL,
+          grantKey TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          awardedAt INTEGER NOT NULL,
+          PRIMARY KEY(installId, grantKey)
+        );
+      `);
+    });
     await applyGlobalGrantToAllExistingProfilesOnce();
   } catch (err) {
     console.warn("Gobblars service init failed", err);

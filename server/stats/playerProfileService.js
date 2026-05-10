@@ -3,6 +3,11 @@ import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import {
+  runSerializedSqliteWrite,
+  runSqliteBusyRetry,
+  runSqliteImmediateTransaction,
+} from "../sqliteQueue.js";
 
 import { getWeeklyNickForInstallId, getWeeklyPlayerSnapshot } from "./weeklyStatsService.js";
 import { getVocabularySnapshot } from "./vocabularyService.js";
@@ -18,7 +23,6 @@ const DB_PATH = path.join(DATA_DIR, "gobble.db");
 
 let db = null;
 let initPromise = null;
-let writeQueue = Promise.resolve();
 const SQLITE_BUSY_MAX_RETRIES = 30;
 const SQLITE_BUSY_RETRY_BASE_MS = 80;
 
@@ -33,39 +37,23 @@ function sleep(ms) {
 }
 
 async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await task();
-    } catch (err) {
-      if (!isSqliteBusyError(err) || attempt >= retries) throw err;
-      await sleep(SQLITE_BUSY_RETRY_BASE_MS * (attempt + 1));
-    }
-  }
+  return runSqliteBusyRetry(task, {
+    retries,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "player-profile",
+  });
 }
 
 function runSerializedWrite(task) {
-  const execute = () => runWithBusyRetry(task);
-  const next = writeQueue.then(execute, execute);
-  writeQueue = next.catch(() => {});
-  return next;
+  return runSerializedSqliteWrite(task, {
+    retries: SQLITE_BUSY_MAX_RETRIES,
+    baseMs: SQLITE_BUSY_RETRY_BASE_MS,
+    label: "player-profile",
+  });
 }
 
 async function runInImmediateTransaction(task) {
-  await db.exec("BEGIN IMMEDIATE");
-  let committed = false;
-  try {
-    const result = await task();
-    await db.exec("COMMIT");
-    committed = true;
-    return result;
-  } catch (err) {
-    if (!committed) {
-      try {
-        await db.exec("ROLLBACK");
-      } catch (_) {}
-    }
-    throw err;
-  }
+  return runSqliteImmediateTransaction(db, task, { label: "player-profile" });
 }
 
 function normalizeInstallId(installId) {
@@ -156,45 +144,47 @@ export async function initPlayerProfileService() {
     initPromise = (async () => {
       await fs.mkdir(DATA_DIR, { recursive: true });
       db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-      await db.exec("PRAGMA journal_mode = WAL;");
-      await db.exec("PRAGMA busy_timeout = 15000;");
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS player_lifetime_stats (
-          installId TEXT PRIMARY KEY,
-          nick TEXT NOT NULL DEFAULT '',
-          roundsPlayed INTEGER NOT NULL DEFAULT 0,
-          totalScore INTEGER NOT NULL DEFAULT 0,
-          wordsFound INTEGER NOT NULL DEFAULT 0,
-          bestRoundScore INTEGER NOT NULL DEFAULT 0,
-          bestRoundId TEXT,
-          bestWord TEXT,
-          bestWordScore INTEGER NOT NULL DEFAULT 0,
-          longestWord TEXT,
-          longestWordLength INTEGER NOT NULL DEFAULT 0,
-          gobbles INTEGER NOT NULL DEFAULT 0,
-          doubleGobbles INTEGER NOT NULL DEFAULT 0,
-          targetRoundsPlayed INTEGER NOT NULL DEFAULT 0,
-          targetRoundsFound INTEGER NOT NULL DEFAULT 0,
-          special3RoundsPlayed INTEGER NOT NULL DEFAULT 0,
-          bestSpecial3Score INTEGER NOT NULL DEFAULT 0,
-          createdAt INTEGER NOT NULL,
-          updatedAt INTEGER NOT NULL
-        );
-      `);
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS player_live_head_to_head (
-          playerAUserId TEXT NOT NULL,
-          playerBUserId TEXT NOT NULL,
-          roundType TEXT NOT NULL,
-          playerAWins INTEGER NOT NULL DEFAULT 0,
-          playerBWins INTEGER NOT NULL DEFAULT 0,
-          draws INTEGER NOT NULL DEFAULT 0,
-          roundsPlayed INTEGER NOT NULL DEFAULT 0,
-          createdAt INTEGER NOT NULL,
-          updatedAt INTEGER NOT NULL,
-          PRIMARY KEY (playerAUserId, playerBUserId, roundType)
-        );
-      `);
+      await runSerializedWrite(async () => {
+        await db.exec("PRAGMA journal_mode = WAL;");
+        await db.exec("PRAGMA busy_timeout = 15000;");
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS player_lifetime_stats (
+            installId TEXT PRIMARY KEY,
+            nick TEXT NOT NULL DEFAULT '',
+            roundsPlayed INTEGER NOT NULL DEFAULT 0,
+            totalScore INTEGER NOT NULL DEFAULT 0,
+            wordsFound INTEGER NOT NULL DEFAULT 0,
+            bestRoundScore INTEGER NOT NULL DEFAULT 0,
+            bestRoundId TEXT,
+            bestWord TEXT,
+            bestWordScore INTEGER NOT NULL DEFAULT 0,
+            longestWord TEXT,
+            longestWordLength INTEGER NOT NULL DEFAULT 0,
+            gobbles INTEGER NOT NULL DEFAULT 0,
+            doubleGobbles INTEGER NOT NULL DEFAULT 0,
+            targetRoundsPlayed INTEGER NOT NULL DEFAULT 0,
+            targetRoundsFound INTEGER NOT NULL DEFAULT 0,
+            special3RoundsPlayed INTEGER NOT NULL DEFAULT 0,
+            bestSpecial3Score INTEGER NOT NULL DEFAULT 0,
+            createdAt INTEGER NOT NULL,
+            updatedAt INTEGER NOT NULL
+          );
+        `);
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS player_live_head_to_head (
+            playerAUserId TEXT NOT NULL,
+            playerBUserId TEXT NOT NULL,
+            roundType TEXT NOT NULL,
+            playerAWins INTEGER NOT NULL DEFAULT 0,
+            playerBWins INTEGER NOT NULL DEFAULT 0,
+            draws INTEGER NOT NULL DEFAULT 0,
+            roundsPlayed INTEGER NOT NULL DEFAULT 0,
+            createdAt INTEGER NOT NULL,
+            updatedAt INTEGER NOT NULL,
+            PRIMARY KEY (playerAUserId, playerBUserId, roundType)
+          );
+        `);
+      });
       return db;
     })();
   }
@@ -468,7 +458,7 @@ export async function getPublicPlayerProfileByUserId(
     Promise.resolve(getWeeklyPlayerSnapshot(safeUserId)),
     getVocabularySnapshot(safeUserId),
     getTrophyStatus(safeUserId).catch(() => null),
-    getWeeklyDuelRecap(null, safeUserId).catch(() => null),
+    getWeeklyDuelRecap(null, safeUserId, { finalize: false }).catch(() => null),
   ]);
 
   const nick =
