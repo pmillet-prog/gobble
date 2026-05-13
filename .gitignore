@@ -6,6 +6,7 @@ dist/
 *.log
 server/logs/
 data/install-aliases.json
+data/dev-access.json
 PATCHNOTES_DRAFT.txt
 public/buttons-alpha/
 server/data-runtime/

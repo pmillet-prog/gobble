@@ -30,11 +30,17 @@ if !errorlevel! neq 0 (
 )
 
 echo === 2) VM: pull + build + restart ===
-ssh freebox@192.168.1.84 "cd ~/gobble_git && git fetch origin && git reset --hard origin/main && git clean -fd -e server/data/ -e server/data-runtime/ && bash scripts/vm_update.sh"
+set "VM_LOG=%~dp0deploy-vm.log"
+set "VM_CMD=cd ~/gobble_git && git fetch origin && git reset --hard origin/main && git clean -fd -e server/data/ -e server/data-runtime/ && bash scripts/vm_update.sh"
 
+ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=6 freebox@192.168.1.84 "!VM_CMD!" > "!VM_LOG!" 2>&1
+set "VM_EXIT=!errorlevel!"
 
-if !errorlevel! neq 0 (
+type "!VM_LOG!"
+
+if !VM_EXIT! neq 0 (
   echo ERREUR: update VM a echoue
+  echo Voir le log complet: !VM_LOG!
   pause
   exit /b 1
 )

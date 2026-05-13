@@ -24768,6 +24768,7 @@ function handleTouchEnd(e) {
     const disableRotation = !!options?.disableRotation;
     const edgePadding = !!options?.edgePadding;
     const compact = !!options?.compact;
+    const reserveScaledWidth = !!options?.reserveScaledWidth;
     const minScale = Number.isFinite(options?.minScale)
       ? Math.max(0.25, Math.min(1, Number(options.minScale)))
       : 0.42;
@@ -24805,6 +24806,7 @@ function handleTouchEnd(e) {
           minScale={minScale}
           align={align}
           measurePaddingPx={edgePadding ? 4 : 1}
+          reserveScaledWidth={reserveScaledWidth}
           className={compact ? "gap-0.5 py-0.5" : `gap-1 ${edgePadding ? "px-1" : ""}`}
         >
           {tiles.map((tile, idx) => {
@@ -36280,7 +36282,7 @@ function handleTouchEnd(e) {
       ))}
     </span>
   ) : liveWordTiles.length ? (
-    <AutoScaleInline minScale={0.42} measurePaddingPx={8} className="gap-1 py-1">
+    <AutoScaleInline minScale={0.42} measurePaddingPx={8} reserveScaledWidth className="gap-1 py-1">
       {liveWordTiles.map((ch, idx) => {
         // rotation déterministe légère, entre -5° et +5°
         const angle = ((idx * 17 + liveWordTiles.length * 13) % 11) - 5;
@@ -36458,6 +36460,7 @@ function handleTouchEnd(e) {
                                 disableRotation: true,
                                 compact: true,
                                 minScale: 0.28,
+                                reserveScaledWidth: true,
                               }
                             )
                           ) : (

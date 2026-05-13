@@ -1402,6 +1402,7 @@ const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   : path.join(__dirname, "../data");
 const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json");
 const DEV_CONTROLS_PATH = path.join(RUNTIME_DATA_DIR, "dev-controls.json");
+const DEV_ACCESS_PATH = path.join(RUNTIME_DATA_DIR, "dev-access.json");
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
@@ -1443,49 +1444,117 @@ const DEFAULT_DEV_CONTROLS = Object.freeze({
   botReactions: false,
 });
 let devControls = loadDevControls();
-const DEV_TOOLS_PASSWORD = String(
-  process.env.GOBBLE_DEV_PASSWORD ||
-    process.env.GOBBLE_DEV_PASS ||
-    (process.env.NODE_ENV === "production" ? "" : "prout84")
-).trim();
-const DEV_ACCOUNT_NAMES = parseDevAccountNameAllowlist(
-  process.env.GOBBLE_DEV_ACCOUNTS ||
-    process.env.GOBBLE_DEV_USERS ||
-    (process.env.NODE_ENV === "production" ? "" : "Tigre,Test")
-);
-const DEV_ACCOUNT_IDS = parseDevAccountIdAllowlist(process.env.GOBBLE_DEV_USER_IDS || "");
-const MODERATION_ACCOUNT_NAMES = parseDevAccountNameAllowlist(
-  process.env.GOBBLE_MOD_ACCOUNTS ||
-    process.env.GOBBLE_MOD_USERS ||
-    process.env.GOBBLE_DEV_ACCOUNTS ||
-    process.env.GOBBLE_DEV_USERS ||
-    (process.env.NODE_ENV === "production" ? "" : "Tigre,Test")
-);
-const MODERATION_ACCOUNT_IDS = parseDevAccountIdAllowlist(
-  process.env.GOBBLE_MOD_USER_IDS || process.env.GOBBLE_DEV_USER_IDS || ""
-);
 const moderationInstallBans = new Map();
 const moderationUserBans = new Map();
+const DEV_ACCESS_CACHE_TTL_MS = 2000;
+let devAccessCache = { readAt: 0, config: {} };
+let devAccessWarnedAt = 0;
 
 function parseDevAccountNameAllowlist(raw) {
+  const entries = Array.isArray(raw) ? raw : String(raw || "").split(",");
   return new Set(
-    String(raw || "")
-      .split(",")
+    entries
       .map((entry) => normalizeUsername(entry))
       .filter(Boolean)
   );
 }
 
 function parseDevAccountIdAllowlist(raw) {
+  const entries = Array.isArray(raw) ? raw : String(raw || "").split(",");
   return new Set(
-    String(raw || "")
-      .split(",")
+    entries
       .map((entry) => String(entry || "").trim())
       .filter(Boolean)
   );
 }
 
+function mergeAllowlists(parser, ...values) {
+  const merged = new Set();
+  values.forEach((value) => {
+    parser(value).forEach((entry) => merged.add(entry));
+  });
+  return merged;
+}
+
+function readDevAccessConfigFile() {
+  const now = Date.now();
+  if (now - devAccessCache.readAt < DEV_ACCESS_CACHE_TTL_MS) {
+    return devAccessCache.config;
+  }
+  let config = {};
+  try {
+    const parsed = JSON.parse(readFileSync(DEV_ACCESS_PATH, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      config = parsed;
+    }
+  } catch (err) {
+    if (err?.code !== "ENOENT" && now - devAccessWarnedAt > 30000) {
+      devAccessWarnedAt = now;
+      console.warn("[dev] Impossible de lire dev-access.json", err?.message || err);
+    }
+  }
+  devAccessCache = { readAt: now, config };
+  return config;
+}
+
+function getDevAccessConfig() {
+  const fileConfig = readDevAccessConfigFile();
+  const devAccountNames = mergeAllowlists(
+    parseDevAccountNameAllowlist,
+    process.env.GOBBLE_DEV_ACCOUNTS,
+    process.env.GOBBLE_DEV_USERS,
+    fileConfig.devAccounts,
+    fileConfig.devUsers,
+    fileConfig.devAccountNames,
+    process.env.NODE_ENV === "production" ? "" : "Tigre,Test"
+  );
+  const devAccountIds = mergeAllowlists(
+    parseDevAccountIdAllowlist,
+    process.env.GOBBLE_DEV_USER_IDS,
+    fileConfig.devUserIds,
+    fileConfig.devAccountIds
+  );
+  const explicitModerationNames = mergeAllowlists(
+    parseDevAccountNameAllowlist,
+    process.env.GOBBLE_MOD_ACCOUNTS,
+    process.env.GOBBLE_MOD_USERS,
+    fileConfig.moderationAccounts,
+    fileConfig.modAccounts,
+    fileConfig.moderationUsers,
+    fileConfig.modUsers
+  );
+  const explicitModerationIds = mergeAllowlists(
+    parseDevAccountIdAllowlist,
+    process.env.GOBBLE_MOD_USER_IDS,
+    fileConfig.moderationUserIds,
+    fileConfig.modUserIds,
+    fileConfig.moderationAccountIds,
+    fileConfig.modAccountIds
+  );
+  const moderationAccountNames = explicitModerationNames.size
+    ? explicitModerationNames
+    : new Set(devAccountNames);
+  const moderationAccountIds = explicitModerationIds.size
+    ? explicitModerationIds
+    : new Set(devAccountIds);
+  const password = String(
+    process.env.GOBBLE_DEV_PASSWORD ||
+      process.env.GOBBLE_DEV_PASS ||
+      fileConfig.devPassword ||
+      fileConfig.password ||
+      (process.env.NODE_ENV === "production" ? "" : "prout84")
+  ).trim();
+  return {
+    devAccountNames,
+    devAccountIds,
+    moderationAccountNames,
+    moderationAccountIds,
+    password,
+  };
+}
+
 function getSocketDevAccount(socket) {
+  const accessConfig = getDevAccessConfig();
   const user = socket?.data?.authUser || null;
   if (!user) {
     return { allowed: false, label: "", reason: "auth_required" };
@@ -1493,8 +1562,8 @@ function getSocketDevAccount(socket) {
   const userId = Number.isInteger(Number(user.id)) ? String(Number(user.id)) : "";
   const usernameNormalized = normalizeUsername(user.usernameDisplay || user.usernameNormalized || "");
   const allowed =
-    (userId && DEV_ACCOUNT_IDS.has(userId)) ||
-    (usernameNormalized && DEV_ACCOUNT_NAMES.has(usernameNormalized));
+    (userId && accessConfig.devAccountIds.has(userId)) ||
+    (usernameNormalized && accessConfig.devAccountNames.has(usernameNormalized));
   return {
     allowed,
     label: user.usernameDisplay || user.usernameNormalized || (userId ? `#${userId}` : ""),
@@ -1503,6 +1572,7 @@ function getSocketDevAccount(socket) {
 }
 
 function getSocketModerationAccount(socket) {
+  const accessConfig = getDevAccessConfig();
   const user = socket?.data?.authUser || null;
   if (!user) {
     return { allowed: false, label: "", reason: "auth_required" };
@@ -1510,8 +1580,8 @@ function getSocketModerationAccount(socket) {
   const userId = Number.isInteger(Number(user.id)) ? String(Number(user.id)) : "";
   const usernameNormalized = normalizeUsername(user.usernameDisplay || user.usernameNormalized || "");
   const allowed =
-    (userId && MODERATION_ACCOUNT_IDS.has(userId)) ||
-    (usernameNormalized && MODERATION_ACCOUNT_NAMES.has(usernameNormalized));
+    (userId && accessConfig.moderationAccountIds.has(userId)) ||
+    (usernameNormalized && accessConfig.moderationAccountNames.has(usernameNormalized));
   return {
     allowed,
     label: user.usernameDisplay || user.usernameNormalized || (userId ? `#${userId}` : ""),
@@ -1521,12 +1591,14 @@ function getSocketModerationAccount(socket) {
 }
 
 function buildModerationPayload(socket = null) {
+  const accessConfig = getDevAccessConfig();
   const account = socket ? getSocketModerationAccount(socket) : { allowed: true, label: "" };
   return {
     available: !!account.allowed,
     accountAllowed: !!account.allowed,
     accountLabel: account.label || "",
-    allowedAccountsConfigured: MODERATION_ACCOUNT_NAMES.size > 0 || MODERATION_ACCOUNT_IDS.size > 0,
+    allowedAccountsConfigured:
+      accessConfig.moderationAccountNames.size > 0 || accessConfig.moderationAccountIds.size > 0,
   };
 }
 
@@ -1631,17 +1703,19 @@ function isPrivateClientIp(ip) {
 }
 
 function areDevToolsAllowedForSocket(socket) {
+  const accessConfig = getDevAccessConfig();
   const raw = String(process.env.GOBBLE_DEV_TOOLS || "").trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
   const devAccount = getSocketDevAccount(socket);
   if (!devAccount.allowed) return false;
   if (raw === "1" || raw === "true" || raw === "on" || raw === "yes") return true;
-  if (process.env.NODE_ENV === "production") return !!DEV_TOOLS_PASSWORD;
+  if (process.env.NODE_ENV === "production") return !!accessConfig.password;
   return isPrivateClientIp(getClientIpFromSocket(socket));
 }
 
 function isDevPasswordRequired(socket) {
-  if (DEV_TOOLS_PASSWORD) return true;
+  const accessConfig = getDevAccessConfig();
+  if (accessConfig.password) return true;
   return process.env.NODE_ENV === "production" || !isPrivateClientIp(getClientIpFromSocket(socket));
 }
 
@@ -1652,7 +1726,8 @@ function hasUnlockedDevTools(socket) {
 }
 
 function buildDevControlsPayload(socket = null) {
-  const passwordRequired = socket ? isDevPasswordRequired(socket) : !!DEV_TOOLS_PASSWORD;
+  const accessConfig = getDevAccessConfig();
+  const passwordRequired = socket ? isDevPasswordRequired(socket) : !!accessConfig.password;
   const unlocked = socket ? hasUnlockedDevTools(socket) : !passwordRequired;
   const devAccount = socket ? getSocketDevAccount(socket) : { allowed: true, label: "" };
   return {
@@ -1660,10 +1735,11 @@ function buildDevControlsPayload(socket = null) {
     unlocked,
     locked: !unlocked,
     passwordRequired,
-    passwordConfigured: !!DEV_TOOLS_PASSWORD,
+    passwordConfigured: !!accessConfig.password,
     accountAllowed: !!devAccount.allowed,
     accountLabel: devAccount.label || "",
-    allowedAccountsConfigured: DEV_ACCOUNT_NAMES.size > 0 || DEV_ACCOUNT_IDS.size > 0,
+    allowedAccountsConfigured:
+      accessConfig.devAccountNames.size > 0 || accessConfig.devAccountIds.size > 0,
     controls: normalizeDevControls(devControls),
     roundTypes: [
       { value: "", label: "Cycle normal" },
@@ -7339,19 +7415,20 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
       return;
     }
+    const accessConfig = getDevAccessConfig();
     const passwordRequired = isDevPasswordRequired(socket);
     if (!passwordRequired) {
       socket.data.devToolsUnlocked = true;
       cb?.({ ok: true, ...buildDevControlsPayload(socket) });
       return;
     }
-    if (!DEV_TOOLS_PASSWORD) {
+    if (!accessConfig.password) {
       cb?.({ ok: false, error: "password_not_configured", ...buildDevControlsPayload(socket) });
       return;
     }
     const password =
       payload && typeof payload.password === "string" ? payload.password.trim() : "";
-    if (!password || password !== DEV_TOOLS_PASSWORD) {
+    if (!password || password !== accessConfig.password) {
       cb?.({ ok: false, error: "bad_password", ...buildDevControlsPayload(socket) });
       return;
     }
