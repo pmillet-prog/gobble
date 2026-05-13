@@ -450,6 +450,7 @@ class BotManager {
     this.botRoundStreak = new Map();
     this.botRestUntil = new Map();
     this.botSessionUntil = new Map();
+    this.manualBotOverrides = new Map();
     this.presenceTimers = new Map();
     this.presenceInterval = setInterval(() => this.refreshPresence(), 5 * 60 * 1000);
     this.warnedNoDictionary = false;
@@ -469,10 +470,21 @@ class BotManager {
     const roster = rosterForRoom(room);
     const allowedKeys = new Set(roster.map((bot) => this.botKey(bot)));
     const nowMs = Date.now();
+    this.cleanupManualBotOverrides(room, nowMs);
+    const forcedActiveKeys = new Set();
+    const forcedInactiveKeys = new Set();
+    for (const bot of roster) {
+      const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
+      if (!override) continue;
+      const key = this.botKey(bot);
+      if (override.active) forcedActiveKeys.add(key);
+      else forcedInactiveKeys.add(key);
+    }
 
     for (const bot of roster) {
       const key = this.botKey(bot);
       if (!room.players.has(key)) continue;
+      if (forcedActiveKeys.has(key)) continue;
       const sessionKey = botSessionKey(room.id, bot.nick);
       const sessionUntil = this.botSessionUntil.get(sessionKey) || 0;
       if (sessionUntil && nowMs >= sessionUntil) {
@@ -498,6 +510,9 @@ class BotManager {
     }
 
     const awakeBots = roster.filter((bot) => {
+      const key = this.botKey(bot);
+      if (forcedActiveKeys.has(key)) return true;
+      if (forcedInactiveKeys.has(key)) return false;
       if (isBotSleeping(bot, now)) return false;
       if (shouldBotRestNow(bot, now)) return false;
       const restUntil = this.botRestUntil.get(botStreakKey(room.id, bot.nick)) || 0;
@@ -530,7 +545,7 @@ class BotManager {
       const seeded = mulberry32(hashString(`boot-${room.id}-${getParisHour(now)}`));
       const candidates = awakeBots
         .map((bot) => ({ bot, key: this.botKey(bot) }))
-        .filter(({ key }) => !selection.has(key));
+        .filter(({ key }) => !selection.has(key) && !forcedInactiveKeys.has(key));
       candidates.sort(() => seeded() - 0.5);
       const bootstrapCount = Math.min(desiredBots, 3, candidates.length);
       for (let i = 0; i < bootstrapCount; i++) {
@@ -542,7 +557,8 @@ class BotManager {
 
     // Supprime les bots qui ne devraient plus Ítre lý (hors roster ou endormis)
     for (const key of Array.from(selection)) {
-      if (!allowedKeys.has(key) || !awakeKeys.has(key)) {
+      if (forcedActiveKeys.has(key)) continue;
+      if (!allowedKeys.has(key) || !awakeKeys.has(key) || forcedInactiveKeys.has(key)) {
         selection.delete(key);
         const player = room.players.get(key);
         if (player?.nick) this.removeBotFromRoom(room, { nick: player.nick });
@@ -552,7 +568,9 @@ class BotManager {
     // Ajuste au nombre souhaitÈ (par heure) en essayant de garder un roulement.
     if (selection.size > desiredBots) {
       const seeded = mulberry32(hashString(`down-${room.id}-${getParisHour(now)}`));
-      const ordered = Array.from(selection).sort(() => seeded() - 0.5);
+      const ordered = Array.from(selection)
+        .filter((key) => !forcedActiveKeys.has(key))
+        .sort(() => seeded() - 0.5);
       while (selection.size > desiredBots && ordered.length) {
         const key = ordered.pop();
         selection.delete(key);
@@ -565,7 +583,7 @@ class BotManager {
       const seeded = mulberry32(hashString(`up-${room.id}-${getParisHour(now)}`));
       const candidates = awakeBots
         .map((bot) => ({ bot, key: this.botKey(bot) }))
-        .filter(({ key }) => !selection.has(key));
+        .filter(({ key }) => !selection.has(key) && !forcedInactiveKeys.has(key));
       candidates.sort(() => seeded() - 0.5);
       while (selection.size < desiredBots && candidates.length) {
         const { bot, key } = candidates.pop();
@@ -577,6 +595,13 @@ class BotManager {
     }
 
     this.roomBotSelection.set(room.id, selection);
+
+    for (const bot of roster) {
+      const key = this.botKey(bot);
+      if (!forcedActiveKeys.has(key)) continue;
+      selection.add(key);
+      if (!room.players.has(key)) this.addBotToRoom(room, bot);
+    }
 
     // Nettoie les bots "fantÙmes" qui ne sont plus dans le roster
     for (const [token, player] of room.players.entries()) {
@@ -600,6 +625,117 @@ class BotManager {
     }
     this.emitPlayers(room);
     this.broadcastProvisionalRanking(room);
+  }
+
+  listBotsForRoom(room) {
+    const roster = rosterForRoom(room);
+    this.cleanupManualBotOverrides(room, Date.now());
+    return roster.map((bot) => {
+      const key = this.botKey(bot);
+      const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
+      return {
+        nick: bot.nick,
+        skill: Number.isFinite(bot.skill) ? bot.skill : null,
+        active: !!room?.players?.has?.(key),
+        override: override
+          ? {
+              active: !!override.active,
+              expiresAt: override.expiresAt || null,
+              roundsRemaining: Number.isFinite(override.roundsRemaining)
+                ? override.roundsRemaining
+                : null,
+            }
+          : null,
+      };
+    });
+  }
+
+  setBotActive(room, nick, active, duration = "rounds:3") {
+    if (!room || !nick) return { ok: false, error: "invalid_room" };
+    const roster = rosterForRoom(room);
+    const bot = roster.find((entry) => entry?.nick === nick);
+    if (!bot) return { ok: false, error: "unknown_bot" };
+    const key = this.botKey(bot);
+    const selection = this.roomBotSelection.get(room.id) || new Set();
+    const override = this.buildManualBotOverride(active, duration);
+    this.manualBotOverrides.set(this.manualOverrideKey(room.id, bot.nick), override);
+    if (active) {
+      selection.add(key);
+      this.roomBotSelection.set(room.id, selection);
+      this.botRestUntil.delete(botStreakKey(room.id, bot.nick));
+      if (!room.players.has(key)) {
+        this.addBotToRoom(room, bot);
+      } else {
+        this.emitPlayers(room);
+        this.broadcastProvisionalRanking(room);
+      }
+      return { ok: true, bot: { nick: bot.nick, active: true, override } };
+    }
+
+    selection.delete(key);
+    this.roomBotSelection.set(room.id, selection);
+    if (room.players.has(key)) {
+      this.removeBotFromRoom(room, bot);
+    } else {
+      this.emitPlayers(room);
+      this.broadcastProvisionalRanking(room);
+    }
+    return { ok: true, bot: { nick: bot.nick, active: false, override } };
+  }
+
+  manualOverrideKey(roomId, nick) {
+    return `${roomId || "room"}:${String(nick || "").toLowerCase()}`;
+  }
+
+  buildManualBotOverride(active, duration) {
+    const value = String(duration || "rounds:3").trim().toLowerCase();
+    const override = { active: !!active, createdAt: Date.now() };
+    if (value === "manual" || value === "until_manual") {
+      return override;
+    }
+    const [kind, rawAmount] = value.split(":");
+    const amount = Math.max(1, Math.min(240, Number.parseInt(rawAmount, 10) || 0));
+    if (kind === "minutes" && amount) {
+      override.expiresAt = Date.now() + amount * 60 * 1000;
+      return override;
+    }
+    if (kind === "rounds" && amount) {
+      override.roundsRemaining = amount;
+      return override;
+    }
+    override.roundsRemaining = 3;
+    return override;
+  }
+
+  cleanupManualBotOverrides(room, nowMs = Date.now()) {
+    if (!room?.id) return;
+    const prefix = `${room.id}:`;
+    for (const [key, override] of Array.from(this.manualBotOverrides.entries())) {
+      if (!key.startsWith(prefix)) continue;
+      if (override?.expiresAt && nowMs >= override.expiresAt) {
+        this.manualBotOverrides.delete(key);
+      }
+    }
+  }
+
+  tickManualBotOverrideRounds(room) {
+    if (!room?.id) return;
+    const prefix = `${room.id}:`;
+    let changed = false;
+    for (const [key, override] of Array.from(this.manualBotOverrides.entries())) {
+      if (!key.startsWith(prefix)) continue;
+      if (!Number.isFinite(override?.roundsRemaining)) continue;
+      const next = override.roundsRemaining - 1;
+      if (next <= 0) {
+        this.manualBotOverrides.delete(key);
+      } else {
+        this.manualBotOverrides.set(key, { ...override, roundsRemaining: next });
+      }
+      changed = true;
+    }
+    if (changed) {
+      this.refreshPresenceForRoom(room);
+    }
   }
 
   schedulePresenceChange(room, bot, action, minDelayMs, maxDelayMs) {
@@ -675,9 +811,13 @@ class BotManager {
 
     const roster = rosterForRoom(room);
     const nowDate = new Date();
-    const activeBots = roster.filter(
-      (bot) => room.players.has(this.botKey(bot)) && !isBotSleeping(bot, nowDate)
-    );
+    const activeBots = roster.filter((bot) => {
+      const key = this.botKey(bot);
+      if (!room.players.has(key)) return false;
+      const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
+      if (override?.active) return true;
+      return !isBotSleeping(bot, nowDate);
+    });
     if (!activeBots.length) return;
     const tunedBots = activeBots.map(tuneBotProfile);
     const round = room.currentRound;
@@ -729,9 +869,12 @@ class BotManager {
   onRoundEnd(room) {
     this.clearTimers(room.id);
     this.roomSolutions.delete(room.id);
+    this.tickManualBotOverrideRounds(room);
     const now = Date.now();
     for (const player of room.players.values()) {
       if (!player?.token?.startsWith("bot-")) continue;
+      const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, player.nick));
+      if (override?.active) continue;
       const key = botStreakKey(room.id, player.nick);
       const streak = (this.botRoundStreak.get(key) || 0) + 1;
       if (streak >= BOT_STREAK_LIMIT) {

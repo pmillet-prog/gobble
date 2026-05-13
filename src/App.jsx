@@ -31,6 +31,8 @@ import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import SoundSettingsPanel from "./components/SoundSettingsPanel.jsx";
 import VisualSettingsPanel from "./components/VisualSettingsPanel.jsx";
+import DevSettingsPanel from "./components/DevSettingsPanel.jsx";
+import ModerationPanel from "./components/ModerationPanel.jsx";
 import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelObjectivesPanel from "./components/DuelObjectivesPanel.jsx";
@@ -1090,9 +1092,9 @@ function buildTargetHintStyleMap(cells, wordIndices, wordLength) {
     const red = interpolateColorChannel(6, 92, ratio);
     const green = interpolateColorChannel(116, 214, ratio);
     const blue = interpolateColorChannel(60, 170, ratio);
-    const fillAlpha = 0.34 - ratio * 0.14;
-    const fillEdgeAlpha = 0.48 - ratio * 0.16;
-    const insetAlpha = 0.62 - ratio * 0.18;
+    const fillAlpha = 0.4 - ratio * 0.16;
+    const fillEdgeAlpha = 0.56 - ratio * 0.18;
+    const insetAlpha = 0.7 - ratio * 0.2;
     const outlineAlpha = 0.98 - ratio * 0.14;
     const glowAlpha = 0.56 - ratio * 0.18;
     map.set(boardIndex, {
@@ -1124,9 +1126,9 @@ function buildTargetHintOverlayStyleMap(cells, wordIndices, wordLength, variant 
     const red = interpolateColorChannel(8, 118, ratio);
     const green = interpolateColorChannel(126, 228, ratio);
     const blue = interpolateColorChannel(64, 176, ratio);
-    const strongAlpha = 0.66 - ratio * 0.3;
-    const midAlpha = 0.36 - ratio * 0.16;
-    const glowAlpha = 0.46 - ratio * 0.16;
+    const strongAlpha = 0.76 - ratio * 0.34;
+    const midAlpha = 0.44 - ratio * 0.18;
+    const glowAlpha = 0.56 - ratio * 0.18;
     const style =
       variant === "outline"
         ? {
@@ -5128,6 +5130,35 @@ export default function App() {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSoundMenuOpen, setIsSoundMenuOpen] = useState(false);
   const [isVisualMenuOpen, setIsVisualMenuOpen] = useState(false);
+  const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
+  const [isModerationMenuOpen, setIsModerationMenuOpen] = useState(false);
+  const [devMenuTapCount, setDevMenuTapCount] = useState(0);
+  const [devMenuUnlocked, setDevMenuUnlocked] = useState(false);
+  const [devControlsAvailable, setDevControlsAvailable] = useState(false);
+  const [devControlsLocked, setDevControlsLocked] = useState(true);
+  const [devAccountAllowed, setDevAccountAllowed] = useState(false);
+  const [devAccountLabel, setDevAccountLabel] = useState("");
+  const [devPasswordRequired, setDevPasswordRequired] = useState(true);
+  const [devPasswordConfigured, setDevPasswordConfigured] = useState(false);
+  const [devPassword, setDevPassword] = useState("");
+  const [devError, setDevError] = useState("");
+  const [devBots, setDevBots] = useState([]);
+  const [devBotDuration, setDevBotDuration] = useState("rounds:3");
+  const [devControlsBusy, setDevControlsBusy] = useState(false);
+  const [devControls, setDevControls] = useState({
+    enabled: false,
+    forcedRoundType: "",
+    botMedals: false,
+    chatFill: false,
+    botChat: false,
+    botReactions: false,
+  });
+  const [devRoundTypes, setDevRoundTypes] = useState([]);
+  const [moderationAvailable, setModerationAvailable] = useState(false);
+  const [moderationAccountLabel, setModerationAccountLabel] = useState("");
+  const [moderationPlayers, setModerationPlayers] = useState([]);
+  const [moderationBusy, setModerationBusy] = useState(false);
+  const [moderationError, setModerationError] = useState("");
   const settingsCloseTimerRef = useRef(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
@@ -5169,6 +5200,8 @@ export default function App() {
   const [specialRound, setSpecialRound] = useState(null);
   const [nextStartAt, setNextStartAt] = useState(null);
   const [breakCountdown, setBreakCountdown] = useState(null);
+  const [roundPreparing, setRoundPreparing] = useState(null);
+  const [roundStartDelayTick, setRoundStartDelayTick] = useState(0);
   const breakCountdownRef = useRef(breakCountdown);
   const [upcomingSpecial, setUpcomingSpecial] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -5363,6 +5396,11 @@ export default function App() {
     tournamentId: null,
     red: 0,
     blue: 0,
+  });
+  const duelStatusFetchStateRef = useRef({
+    inFlight: false,
+    key: "",
+    startedAt: 0,
   });
   const [duelRerollBusyBucket, setDuelRerollBusyBucket] = useState(null);
   const [duelPopupState, setDuelPopupState] = useState({
@@ -5666,6 +5704,7 @@ export default function App() {
     setServerEndsAt(null);
     setServerRoundDurationMs(null);
     setNextStartAt(null);
+    setRoundPreparing(null);
     setBreakCountdown(null);
     setBreakKind(null);
     setSpecialHint(null);
@@ -6406,6 +6445,8 @@ export default function App() {
   const mobileGameViewportLockRef = useRef({ width: 0, height: 0 });
   const chatDesktopListRef = useRef(null);
   const chatDesktopStickToBottomRef = useRef(true);
+  const chatDesktopFocusRestoreUntilRef = useRef(0);
+  const chatDesktopFocusWasAtBottomRef = useRef(true);
   const chatDesktopAutoScrollRafRef = useRef(null);
   const chatDesktopAutoScrollTimersRef = useRef([]);
   const pendingDesktopChatFontScaleScrollRef = useRef(false);
@@ -8017,6 +8058,13 @@ export default function App() {
   const handleDesktopChatScroll = React.useCallback(
     (event) => {
       const listEl = event?.currentTarget || chatDesktopListRef.current;
+      if (
+        typeof Date !== "undefined" &&
+        Date.now() < chatDesktopFocusRestoreUntilRef.current &&
+        !isDesktopChatNearBottom(listEl)
+      ) {
+        return;
+      }
       chatDesktopStickToBottomRef.current = isDesktopChatNearBottom(listEl);
     },
     [isDesktopChatNearBottom]
@@ -8047,6 +8095,26 @@ export default function App() {
       chatDesktopAutoScrollTimersRef.current.push(id);
     });
   }, [clearDesktopChatAutoScroll]);
+
+  const prepareDesktopChatInputFocus = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (isMobileLayoutRef.current) return;
+    const listEl = chatDesktopListRef.current;
+    chatDesktopFocusWasAtBottomRef.current =
+      chatDesktopStickToBottomRef.current || isDesktopChatNearBottom(listEl);
+  }, [isDesktopChatNearBottom]);
+
+  const restoreDesktopChatAfterInputFocus = React.useCallback(
+    (wasAtBottom = chatDesktopFocusWasAtBottomRef.current) => {
+      if (typeof window === "undefined") return;
+      if (isMobileLayoutRef.current) return;
+      if (!wasAtBottom) return;
+      chatDesktopFocusRestoreUntilRef.current = Date.now() + 450;
+      chatDesktopStickToBottomRef.current = true;
+      scheduleDesktopChatAutoScroll({ force: true });
+    },
+    [scheduleDesktopChatAutoScroll]
+  );
 
   const handleChatDesktopFontScaleChange = React.useCallback((nextValue) => {
     pendingDesktopChatFontScaleScrollRef.current = true;
@@ -10066,6 +10134,7 @@ export default function App() {
       clearQueuedRankingUpdate();
       setProvisionalRanking([]);
       setAnnouncements([]);
+      setRoundPreparing(null);
       setFinalResults(Array.isArray(results) ? results : []);
       setServerEndsAt(null);
       setServerRoundDurationMs(null);
@@ -10528,6 +10597,7 @@ export default function App() {
       if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
       syncServerTime();
       setNextStartAt(nextTs || null);
+      setRoundPreparing(null);
       setBreakKind(bk);
       const isTournamentEndBreak = bk === "tournament_end";
       if (tournamentPayload && !isTournamentEndBreak) {
@@ -11349,6 +11419,24 @@ export default function App() {
       return view !== "daily" && view !== "daily_play" && view !== "daily_results";
     };
 
+    function onRoundPreparing(payload = {}) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!payload || typeof payload !== "object") return;
+      const activeRoomId = currentRoomIdRef.current;
+      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
+      setRoundPreparing({
+        roomId: payload.roomId || activeRoomId || null,
+        roundNumber: Number.isFinite(payload.roundNumber) ? payload.roundNumber : null,
+        special: payload.special && payload.special.isSpecial ? payload.special : null,
+        message:
+          typeof payload.message === "string" && payload.message.trim()
+            ? payload.message.trim()
+            : "La prochaine grille met un peu plus de temps à générer.",
+        startedAt: Number.isFinite(payload.startedAt) ? payload.startedAt : Date.now(),
+      });
+      setMobileResultsOutroFadeActive(false);
+    }
+
     function onRoundStarted({
       roomId: incomingRoomId,
       roundId: incomingRoundId,
@@ -11387,6 +11475,7 @@ export default function App() {
       setProvisionalRanking([]);
       setAnnouncements([]);
       setNextStartAt(null);
+      setRoundPreparing(null);
       setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
       setBreakKind(null);
       setTournamentSummary(null);
@@ -11987,10 +12076,24 @@ export default function App() {
       });
     }
 
+    function onModerationNotice(payload = {}) {
+      const message =
+        typeof payload?.message === "string" && payload.message.trim()
+          ? payload.message.trim()
+          : "Action de moderation appliquee.";
+      clearSavedSession();
+      isLoggedInRef.current = false;
+      setIsLoggedIn(false);
+      setConnectionError(message);
+      setLoginError(message);
+      showToastRef.current?.(message, 8000);
+    }
+
     roundHandlersRef.current.onRoundStarted = onRoundStarted;
     roundHandlersRef.current.onRoundEnded = onRoundEnded;
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
 
+    socket.on("roundPreparing", onRoundPreparing);
     socket.on("roundStarted", onRoundStarted);
     socket.on("roundEnded", onRoundEnded);
     socket.on("breakStarted", onBreakStarted);
@@ -12008,11 +12111,13 @@ export default function App() {
     socket.on("specialSolved", onSpecialSolved);
     socket.on("trophiesUpdated", onTrophiesUpdated);
     socket.on("gobblarsAwarded", onGobblarsAwarded);
+    socket.on("moderation:notice", onModerationNotice);
     socket.on("connect", onConnect);
     socket.on("connect_error", onConnectError);
     socket.on("disconnect", onDisconnect);
 
     return () => {
+      socket.off("roundPreparing", onRoundPreparing);
       socket.off("roundStarted", onRoundStarted);
       socket.off("roundEnded", onRoundEnded);
       socket.off("breakStarted", onBreakStarted);
@@ -12030,6 +12135,7 @@ export default function App() {
       socket.off("specialSolved", onSpecialSolved);
       socket.off("trophiesUpdated", onTrophiesUpdated);
       socket.off("gobblarsAwarded", onGobblarsAwarded);
+      socket.off("moderation:notice", onModerationNotice);
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
@@ -12815,7 +12921,7 @@ export default function App() {
     openWordVaultPage();
   }
 
-  async function fetchDuelStatus({ dateId = null, retryAuth = true } = {}) {
+  async function fetchDuelStatus({ dateId = null, retryAuth = true, force = false } = {}) {
     if (!installId) return;
     if (!isAccountAuthenticated) {
       setDuelStatus((prev) => ({
@@ -12825,6 +12931,14 @@ export default function App() {
       }));
       return;
     }
+    const requestKey = `${installId}|${dateId || ""}`;
+    const fetchState = duelStatusFetchStateRef.current;
+    if (!force && fetchState.inFlight) {
+      return;
+    }
+    fetchState.inFlight = true;
+    fetchState.key = requestKey;
+    fetchState.startedAt = Date.now();
     setDuelStatus((prev) => ({ ...prev, loading: true, error: "" }));
     const params = new URLSearchParams();
     params.set("installId", installId);
@@ -12837,15 +12951,27 @@ export default function App() {
         if (attempt > 0) {
           query.set("r", String(Date.now()));
         }
-        const res = await fetch(`/api/duel/status?${query.toString()}`, {
-          cache: "no-store",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            "Cache-Control": "no-store, no-cache, max-age=0",
-            Pragma: "no-cache",
-          },
-        });
+        const controller =
+          typeof AbortController !== "undefined" ? new AbortController() : null;
+        const timeoutId =
+          controller && typeof window !== "undefined"
+            ? window.setTimeout(() => controller.abort(), 12000)
+            : null;
+        let res = null;
+        try {
+          res = await fetch(`/api/duel/status?${query.toString()}`, {
+            cache: "no-store",
+            credentials: "include",
+            signal: controller?.signal,
+            headers: {
+              Accept: "application/json",
+              "Cache-Control": "no-store, no-cache, max-age=0",
+              Pragma: "no-cache",
+            },
+          });
+        } finally {
+          if (timeoutId) window.clearTimeout(timeoutId);
+        }
         const parsed = await readJsonResponseLoose(res);
         if (!res.ok) {
           errorCode = String(parsed?.data?.error || `http_${res.status || "error"}`);
@@ -12898,7 +13024,7 @@ export default function App() {
         if (retryAuth) {
           const refreshed = await refreshAuthStatus({ silent: true });
           if (refreshed?.status === "authenticated" && refreshed?.user) {
-            await fetchDuelStatus({ dateId, retryAuth: false });
+            await fetchDuelStatus({ dateId, retryAuth: false, force: true });
             return;
           }
         }
@@ -12915,6 +13041,12 @@ export default function App() {
         loading: false,
         error: code,
       }));
+    } finally {
+      if (duelStatusFetchStateRef.current.key === requestKey) {
+        duelStatusFetchStateRef.current.inFlight = false;
+        duelStatusFetchStateRef.current.key = "";
+        duelStatusFetchStateRef.current.startedAt = 0;
+      }
     }
   }
 
@@ -15117,6 +15249,12 @@ export default function App() {
             setResumeSnapshot(null);
             return;
           }
+          if (res?.error === "moderation_banned") {
+            clearSavedSession();
+            setResumeSnapshot(null);
+            setConnectionError(res?.message || "Accès live temporairement suspendu.");
+            return;
+          }
           if (res?.ok && res?.available && res?.snapshot) {
             setResumeSnapshot(res.snapshot);
             setCanResumeSession(true);
@@ -15216,6 +15354,14 @@ export default function App() {
           if (res?.error === "auth_required") {
             clearSavedSession();
             setConnectionError("Session live invalide. Recharge la page.");
+            setIsConnecting(false);
+            isLoggedInRef.current = false;
+            setIsLoggedIn(false);
+            return;
+          }
+          if (res?.error === "moderation_banned") {
+            clearSavedSession();
+            setConnectionError(res?.message || "Accès live temporairement suspendu.");
             setIsConnecting(false);
             isLoggedInRef.current = false;
             setIsLoggedIn(false);
@@ -15849,6 +15995,21 @@ export default function App() {
 
   useEffect(() => {
     if (
+      phase !== "results" ||
+      breakKind === "tournament_end" ||
+      !Number.isFinite(nextStartAt)
+    ) {
+      return undefined;
+    }
+    const delayMs = Math.max(0, Number(nextStartAt) + 650 - getNowServerMs());
+    const timerId = setTimeout(() => {
+      setRoundStartDelayTick(Date.now());
+    }, delayMs);
+    return () => clearTimeout(timerId);
+  }, [phase, breakKind, nextStartAt, roundId]);
+
+  useEffect(() => {
+    if (
       !isMobileLayout ||
       phase !== "results" ||
       breakKind === "tournament_end"
@@ -16075,6 +16236,10 @@ export default function App() {
               socket.disconnect();
             }
             openAuthDialog(AUTH_MODAL_MODES.LOGIN);
+          } else if (res?.error === "moderation_banned") {
+            clearSavedSession();
+            setLoginError(res?.message || "Accès live temporairement suspendu.");
+            setConnectionError(res?.message || "Accès live temporairement suspendu.");
           } else if (res?.error === "invalid_room") {
             setLoginError("Salle indisponible");
           } else if (res?.error === "invalid_install_id") {
@@ -19401,7 +19566,9 @@ function handleTouchEnd(e) {
         specialRound?.type === "target_long" ||
         specialRound?.type === "target_score"
       ) {
-        return error("Pas le mot cible");
+        if (dictionary && !dictionary.has(preferredRaw)) return error("Absent du dico");
+        if (serverSolutionsReady && !knownByServer) return error("Mot absent de la grille");
+        return error("Mot absent de la grille");
       }
       if (!serverSolutionsReady && (!dictionary || !dictionary.has(preferredRaw))) {
         return error("Absent du dico");
@@ -19472,7 +19639,7 @@ function handleTouchEnd(e) {
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const canOptimisticallyApply = true;
+      const canOptimisticallyApply = !isTargetRoundNow;
 
       playableCandidates.forEach((candidate) => {
         const candidateScored = candidate.scored;
@@ -19951,9 +20118,12 @@ function handleTouchEnd(e) {
     const el = chatInputRef.current;
     if (!el) return;
     const preventScroll = options.preventScroll !== false;
+    prepareDesktopChatInputFocus();
+    const wasAtBottom = chatDesktopFocusWasAtBottomRef.current;
     try {
       if (preventScroll) {
         el.focus({ preventScroll: true });
+        restoreDesktopChatAfterInputFocus(wasAtBottom);
         return;
       }
       el.focus();
@@ -19962,6 +20132,7 @@ function handleTouchEnd(e) {
         el.focus();
       } catch (_) {}
     }
+    restoreDesktopChatAfterInputFocus(wasAtBottom);
   }
 
   function setChatReplyTargetFromMessage(message) {
@@ -20203,6 +20374,8 @@ function handleTouchEnd(e) {
   }
 
   function handleChatInputFocus() {
+    setActiveArea("chat");
+    restoreDesktopChatAfterInputFocus(chatDesktopFocusWasAtBottomRef.current);
     if (!chatRulesAccepted) {
       setIsChatRulesOpen(true);
     }
@@ -20249,6 +20422,7 @@ function handleTouchEnd(e) {
     openDesktopChatReactionDetails,
     openDesktopChatReactionPicker,
     openUserMenu,
+    prepareDesktopChatInputFocus,
     scheduleCloseDesktopChatReactionDetails,
     setActiveArea,
     setChatInputValue: (value, target) => {
@@ -20599,9 +20773,6 @@ function handleTouchEnd(e) {
     currentTiles.length > 0
       ? currentTiles.join("")
       : currentTilesRef.current.join("");
-  const previewScale = liveWordTiles.length
-    ? clampValue(11 / Math.max(1, liveWordTiles.join("").length), 0.6, 1)
-    : 1;
   const safeDailySlotIndex = clampValue(
     Number.isFinite(dailyActiveSlot) ? dailyActiveSlot : 0,
     0,
@@ -22422,7 +22593,11 @@ function handleTouchEnd(e) {
         playerKey: player?.playerKey ? String(player.playerKey) : "",
         team: player?.team || null,
         isBot: !!player?.isBot,
-        isDailyChampion: !!player?.isDailyChampion,
+        isDailyChampion:
+          !!player?.isDailyChampion ||
+          (!!duelStatus?.crowned &&
+            ((installId && String(player?.installId || "") === String(installId)) ||
+              (selfNick && nick === selfNick))),
       });
     });
     entries.sort((a, b) => a.nick.localeCompare(b.nick));
@@ -22484,7 +22659,12 @@ function handleTouchEnd(e) {
         rank: typeof entry.rank === "number" ? entry.rank : null,
         team: entry?.team || identity.team || null,
         isBot: !!entry?.isBot || !!identity.isBot,
-        isDailyChampion: !!entry.isDailyChampion || !!identity.isDailyChampion,
+        isDailyChampion:
+          !!entry.isDailyChampion ||
+          !!identity.isDailyChampion ||
+          (!!duelStatus?.crowned &&
+            ((installId && String(entry?.installId || identity.installId || "") === String(installId)) ||
+              (selfNick && entry.nick === selfNick))),
       });
       seen.add(entry.nick);
     });
@@ -22507,7 +22687,12 @@ function handleTouchEnd(e) {
         rank: null,
         team: player?.team || identity.team || null,
         isBot: !!player?.isBot || !!identity.isBot,
-        isDailyChampion: !!player.isDailyChampion || !!identity.isDailyChampion,
+        isDailyChampion:
+          !!player.isDailyChampion ||
+          !!identity.isDailyChampion ||
+          (!!duelStatus?.crowned &&
+            ((installId && String(player?.installId || identity.installId || "") === String(installId)) ||
+              (selfNick && player.nick === selfNick))),
       });
       seen.add(player.nick);
     });
@@ -22536,7 +22721,7 @@ function handleTouchEnd(e) {
           rank: null,
           team: duelStatus?.team || null,
           isBot: false,
-          isDailyChampion: false,
+          isDailyChampion: !!duelStatus?.crowned,
         });
         seen.add(selfNick);
       }
@@ -22572,7 +22757,16 @@ function handleTouchEnd(e) {
 
   const liveRankingSource = React.useMemo(
     () => buildRanking(),
-    [provisionalRanking, players, score, selfNick, duelStatus?.team, authenticatedUserId, installId]
+    [
+      provisionalRanking,
+      players,
+      score,
+      selfNick,
+      duelStatus?.team,
+      duelStatus?.crowned,
+      authenticatedUserId,
+      installId,
+    ]
   );
   const dailyEntriesRaw = React.useMemo(
     () => (Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : []),
@@ -22615,6 +22809,7 @@ function handleTouchEnd(e) {
       wordsCount: Number.isFinite(accepted?.length) ? accepted.length : null,
       installId: installId || null,
       team: duelStatus?.team || null,
+      isDailyChampion: !!duelStatus?.crowned,
       mode: currentDailyMode,
       isPalier: false,
       playerKey: normalizeUserIdForProfile(authenticatedUserId)
@@ -22641,6 +22836,7 @@ function handleTouchEnd(e) {
     installId,
     authenticatedUserId,
     duelStatus?.team,
+    duelStatus?.crowned,
   ]);
   const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
 
@@ -23962,12 +24158,23 @@ function handleTouchEnd(e) {
         className={`inline-flex items-center ${
           darkMode ? "text-amber-300" : "text-amber-600"
         } ${className}`}
+        title="Equipe gagnante de la semaine precedente"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M4 6l4.5 3 3.5-4 3.5 4L20 6l-2 10H6L4 6zm3 12h10l.4 2H6.6l.4-2z" />
         </svg>
       </span>
     );
+  }
+
+  function isCrownedEntry(nick, entry = null) {
+    if (entry?.isDailyChampion || entry?.crowned || entry?.isWeeklyChampion) return true;
+    if (!duelStatus?.crowned) return false;
+    const entryInstallId =
+      entry?.installId != null ? String(entry.installId).trim() : "";
+    if (installId && entryInstallId && entryInstallId === String(installId)) return true;
+    const cleanNick = nick ? String(nick).trim() : "";
+    return !!cleanNick && !!selfNick && cleanNick === String(selfNick).trim();
   }
 
   function renderGobbleBadge(gobbles) {
@@ -24201,7 +24408,9 @@ function handleTouchEnd(e) {
       );
 
     return parts.length ? (
-      <span className="inline-flex items-center gap-0.5">{parts}</span>
+      <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap leading-none align-middle">
+        {parts}
+      </span>
     ) : null;
   }
 
@@ -24216,7 +24425,7 @@ function handleTouchEnd(e) {
       ? maybeFallback
       : null;
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
-    const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
+    const crown = isCrownedEntry(nick, entry) ? renderCrownIcon() : null;
     if (!medalsInline && !crown) return null;
     return (
       <span className="inline-flex items-center gap-0.5 ml-1">
@@ -24272,7 +24481,7 @@ function handleTouchEnd(e) {
       : null;
     const dot = renderHumanDot(nick, entry);
     const medalsInline = renderMedalsInline(nick, fallbackMedals);
-    const crown = entry?.isDailyChampion ? renderCrownIcon() : null;
+    const crown = isCrownedEntry(nick, entry) ? renderCrownIcon() : null;
     const tieBreakRoundScore = Number(entry?.tieBreakRoundScore);
     const showTieBreakBadge =
       entry?.showTieBreakBadge === true &&
@@ -24281,7 +24490,7 @@ function handleTouchEnd(e) {
       Number.isFinite(tieBreakRoundScore);
     if (!dot && !medalsInline && !crown && !showTieBreakBadge) return null;
     return (
-      <span className="inline-flex items-center gap-1 ml-1">
+      <span className="inline-flex min-w-0 max-w-full shrink-0 items-center gap-1 overflow-hidden whitespace-nowrap leading-none align-middle">
         {crown}
         {dot}
         {medalsInline}
@@ -24558,6 +24767,7 @@ function handleTouchEnd(e) {
     const align = options?.align === "left" ? "left" : "center";
     const disableRotation = !!options?.disableRotation;
     const edgePadding = !!options?.edgePadding;
+    const compact = !!options?.compact;
     const minScale = Number.isFinite(options?.minScale)
       ? Math.max(0.25, Math.min(1, Number(options.minScale)))
       : 0.42;
@@ -24594,8 +24804,8 @@ function handleTouchEnd(e) {
         <AutoScaleInline
           minScale={minScale}
           align={align}
-          measurePaddingPx={edgePadding ? 10 : 4}
-          className={`gap-1 max-w-full ${edgePadding ? "px-1.5" : ""}`}
+          measurePaddingPx={edgePadding ? 4 : 1}
+          className={compact ? "gap-0.5 py-0.5" : `gap-1 ${edgePadding ? "px-1" : ""}`}
         >
           {tiles.map((tile, idx) => {
             const angle = disableRotation ? 0 : ((idx * 17 + tiles.length * 13) % 11) - 5;
@@ -24614,7 +24824,9 @@ function handleTouchEnd(e) {
               <span
                 key={`${keyPrefix}-${tile.id}`}
                 className={[
-                  "tile-cell relative inline-flex items-center justify-center rounded-md px-1.5 h-7 min-w-[28px] text-sm font-black select-none",
+                  compact
+                    ? "tile-cell relative inline-flex items-center justify-center rounded px-1 h-6 min-w-[22px] text-xs font-black select-none"
+                    : "tile-cell relative inline-flex items-center justify-center rounded-md px-1.5 h-7 min-w-[28px] text-sm font-black select-none",
                   tileMaterialClass,
                   tileBaseClass,
                 ]
@@ -24661,7 +24873,7 @@ function handleTouchEnd(e) {
       );
     }
     return (
-      <div className="min-h-[28px] min-w-0 flex items-center">
+      <div className={`${compact ? "min-h-[24px]" : "min-h-[28px]"} min-w-0 flex items-center`}>
         {inner}
       </div>
     );
@@ -24744,6 +24956,15 @@ function handleTouchEnd(e) {
       </div>
     ) : null;
   const countdownLabel = (() => {
+    const roundStartDelayed =
+      phase === "results" &&
+      breakKind !== "tournament_end" &&
+      Number.isFinite(nextStartAt) &&
+      roundStartDelayTick >= 0 &&
+      getNowServerMs() > Number(nextStartAt) + 600;
+    if (roundPreparing || roundStartDelayed) {
+      return "Grille en préparation, démarrage imminent...";
+    }
     if (phase === "playing") {
       const sec = Math.max(0, tick || 0);
       return `Temps restant : ${sec}s`;
@@ -24767,8 +24988,49 @@ function handleTouchEnd(e) {
 
   const countdownLines = [countdownLabel];
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
+  const roundStartDelayed =
+    phase === "results" &&
+    breakKind !== "tournament_end" &&
+    Number.isFinite(nextStartAt) &&
+    roundStartDelayTick >= 0 &&
+    getNowServerMs() > Number(nextStartAt) + 600;
+  const showRoundPreparationWaiting = !!roundPreparing || roundStartDelayed;
+  const preparingSpecial = roundPreparing?.special || upcomingSpecial || null;
+  const roundPreparationTitle = preparingSpecial?.isSpecial
+    ? `Préparation : ${getSpecialRoundDisplayLabel(preparingSpecial)}`
+    : "Grille en préparation";
+  const roundPreparationMessage =
+    typeof roundPreparing?.message === "string" && roundPreparing.message.trim()
+      ? roundPreparing.message.trim()
+      : "La grille met un peu plus de temps à générer. La manche démarre dès qu'elle est prête.";
+  const roundPreparationOverlay = showRoundPreparationWaiting ? (
+    <div className="fixed inset-0 z-[122] pointer-events-none select-none flex items-center justify-center bg-slate-950/45 px-4">
+      <div
+        className={`w-full max-w-sm rounded-xl border px-4 py-3 text-center shadow-2xl ${
+          darkMode
+            ? "border-amber-300/45 bg-slate-950/92 text-slate-50"
+            : "border-amber-500/45 bg-white/95 text-slate-950"
+        }`}
+      >
+        <div className="text-sm font-black uppercase tracking-wide text-amber-500">
+          {roundPreparationTitle}
+        </div>
+        <div className="mt-2 text-sm font-semibold leading-snug">
+          {roundPreparationMessage}
+        </div>
+        <div className="mt-3 flex justify-center gap-1.5" aria-hidden="true">
+          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-500 [animation-delay:-0.2s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-500 [animation-delay:-0.1s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-500" />
+        </div>
+      </div>
+    </div>
+  ) : null;
   const mobileResultsPhaseFadeOverlay =
-    isMobileLayout && phase === "results" && mobileResultsOutroFadeActive ? (
+    isMobileLayout &&
+    phase === "results" &&
+    mobileResultsOutroFadeActive &&
+    !showRoundPreparationWaiting ? (
       <div className="fixed inset-0 z-[121] pointer-events-none select-none">
         <div className="absolute inset-0 bg-black mobile-round-intro-fade-to-black" />
       </div>
@@ -25310,7 +25572,14 @@ function handleTouchEnd(e) {
     return isTruncated;
   }
 
-  function WeeklyNickLine({ nick, metaLabel, compactMetaLabel, vocabMeta, onOpenProfile = null }) {
+  function WeeklyNickLine({
+    nick,
+    metaLabel,
+    compactMetaLabel,
+    vocabMeta,
+    crowned = false,
+    onOpenProfile = null,
+  }) {
     const nickRef = useRef(null);
     const isTruncated = useNickTruncation(nickRef, [nick, metaLabel, compactMetaLabel]);
     const useCompact = Boolean(compactMetaLabel) && isTruncated;
@@ -25344,6 +25613,7 @@ function handleTouchEnd(e) {
             {nick}
           </span>
         )}
+        {crowned ? renderCrownIcon("shrink-0") : null}
         {metaText ? <span className={metaClass}>{metaText}</span> : null}
       </div>
     );
@@ -25488,6 +25758,7 @@ function handleTouchEnd(e) {
               metaLabel={metaLabel}
               compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
+              crowned={isCrownedEntry(baseNick, entry)}
               onOpenProfile={openWeeklyProfile}
             />
             {hasWord ? (
@@ -25684,6 +25955,7 @@ function handleTouchEnd(e) {
               metaLabel={metaLabel}
               compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
+              crowned={isCrownedEntry(baseNick, entry)}
               onOpenProfile={openWeeklyProfile}
             />
             {hasWord ? (
@@ -27964,6 +28236,8 @@ function handleTouchEnd(e) {
   const openThemeMenu = React.useCallback(() => {
     setIsSoundMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsDevMenuOpen(false);
+    setIsModerationMenuOpen(false);
     setThemeDraft(themeAppliedSafe);
     applyThemeVisualState(themeAppliedSafe);
     setThemePickerCategory("");
@@ -27974,6 +28248,8 @@ function handleTouchEnd(e) {
   const openSoundMenu = React.useCallback(() => {
     setIsThemeMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsDevMenuOpen(false);
+    setIsModerationMenuOpen(false);
     setIsSoundMenuOpen(true);
   }, []);
   const closeSoundMenu = React.useCallback(() => {
@@ -27982,17 +28258,239 @@ function handleTouchEnd(e) {
   const openVisualMenu = React.useCallback(() => {
     setIsThemeMenuOpen(false);
     setIsSoundMenuOpen(false);
+    setIsDevMenuOpen(false);
+    setIsModerationMenuOpen(false);
     setIsVisualMenuOpen(true);
   }, []);
   const closeVisualMenu = React.useCallback(() => {
     setIsVisualMenuOpen(false);
   }, []);
+  const applyDevControlsResponse = React.useCallback((res) => {
+    if (!res || typeof res !== "object") return;
+    setDevControlsAvailable(!!res.available);
+    setDevControlsLocked(!!res.locked);
+    setDevAccountAllowed(!!res.accountAllowed);
+    setDevAccountLabel(typeof res.accountLabel === "string" ? res.accountLabel : "");
+    if (res.available && res.locked === false) {
+      setDevMenuUnlocked(true);
+    } else if (res.locked) {
+      setDevMenuUnlocked(false);
+    }
+    setDevPasswordRequired(!!res.passwordRequired);
+    setDevPasswordConfigured(!!res.passwordConfigured);
+    if (res.controls && typeof res.controls === "object") {
+      setDevControls((prev) => ({ ...prev, ...res.controls }));
+    }
+    if (Array.isArray(res.roundTypes)) {
+      setDevRoundTypes(res.roundTypes);
+    }
+  }, []);
+  const fetchDevBots = React.useCallback(() => {
+    if (!socket?.connected) return;
+    socket.emit(
+      "dev:bots:list",
+      { roomId: currentRoomIdRef.current || roomIdRef.current },
+      (res) => {
+        if (Array.isArray(res?.bots)) setDevBots(res.bots);
+        if (!res?.ok && res?.error === "dev_tools_locked") {
+          applyDevControlsResponse(res);
+        }
+      }
+    );
+  }, [applyDevControlsResponse]);
+  const fetchDevControls = React.useCallback(() => {
+    if (!socket?.connected) return;
+    socket.emit("dev:controls:get", null, (res) => {
+      applyDevControlsResponse(res);
+      if (res?.ok && !res?.locked) fetchDevBots();
+    });
+  }, [applyDevControlsResponse, fetchDevBots]);
+  const unlockDevControls = React.useCallback(() => {
+    if (!socket?.connected) return;
+    setDevControlsBusy(true);
+    setDevError("");
+    socket.emit("dev:unlock", { password: devPassword }, (res) => {
+      setDevControlsBusy(false);
+      applyDevControlsResponse(res);
+      if (res?.ok) {
+        setDevMenuUnlocked(true);
+        setDevPassword("");
+        fetchDevBots();
+        return;
+      }
+      setDevError(
+        res?.error === "bad_password"
+          ? "Mot de passe incorrect."
+          : res?.error === "password_not_configured"
+          ? "Mot de passe serveur manquant."
+          : "Acces dev refuse."
+      );
+    });
+  }, [applyDevControlsResponse, devPassword, fetchDevBots]);
+  const lockDevControls = React.useCallback(() => {
+    if (!socket?.connected) return;
+    socket.emit("dev:lock", null, (res) => {
+      applyDevControlsResponse(res);
+      setDevMenuUnlocked(false);
+      setDevBots([]);
+    });
+  }, [applyDevControlsResponse]);
+  const patchDevControls = React.useCallback(
+    (patch) => {
+      if (!socket?.connected || !patch || typeof patch !== "object") return;
+      setDevControlsBusy(true);
+      setDevError("");
+      socket.emit("dev:controls:set", patch, (res) => {
+        setDevControlsBusy(false);
+        applyDevControlsResponse(res);
+        if (res?.ok) fetchDevBots();
+        if (!res?.ok) showToast("Options dev indisponibles sur ce serveur.");
+      });
+    },
+    [applyDevControlsResponse, fetchDevBots, showToast]
+  );
+  const openDevMenu = React.useCallback(() => {
+    setIsThemeMenuOpen(false);
+    setIsSoundMenuOpen(false);
+    setIsVisualMenuOpen(false);
+    setIsModerationMenuOpen(false);
+    setIsDevMenuOpen(true);
+    fetchDevControls();
+  }, [fetchDevControls]);
+  const closeDevMenu = React.useCallback(() => {
+    setIsDevMenuOpen(false);
+  }, []);
+  const applyModerationResponse = React.useCallback((res) => {
+    if (!res || typeof res !== "object") return;
+    setModerationAvailable(!!res.available);
+    setModerationAccountLabel(typeof res.accountLabel === "string" ? res.accountLabel : "");
+    if (Array.isArray(res.players)) setModerationPlayers(res.players);
+  }, []);
+  const fetchModerationState = React.useCallback(() => {
+    if (!socket?.connected) return;
+    socket.emit(
+      "moderation:state",
+      { roomId: currentRoomIdRef.current || roomIdRef.current },
+      (res) => {
+        applyModerationResponse(res);
+        if (!res?.ok && res?.error !== "account_not_allowed" && res?.error !== "auth_required") {
+          setModerationError("Moderation indisponible.");
+        } else {
+          setModerationError("");
+        }
+      }
+    );
+  }, [applyModerationResponse]);
+  const openModerationMenu = React.useCallback(() => {
+    setIsThemeMenuOpen(false);
+    setIsSoundMenuOpen(false);
+    setIsVisualMenuOpen(false);
+    setIsDevMenuOpen(false);
+    setIsModerationMenuOpen(true);
+    fetchModerationState();
+  }, [fetchModerationState]);
+  const closeModerationMenu = React.useCallback(() => {
+    setIsModerationMenuOpen(false);
+  }, []);
+  const handleSettingsTitleDevTap = React.useCallback(() => {
+    if (devMenuUnlocked) return;
+    setDevMenuTapCount((prev) => {
+      const next = prev + 1;
+      if (next >= 7) {
+        setIsDevMenuOpen(true);
+        setDevError("");
+        showToast("Mot de passe dev requis.");
+        fetchDevControls();
+        return 0;
+      }
+      return next;
+    });
+  }, [devMenuUnlocked, fetchDevControls, showToast]);
+  const fillDevChat = React.useCallback(() => {
+    if (!socket?.connected) return;
+    setDevControlsBusy(true);
+    socket.emit("dev:chat:fill", { roomId: currentRoomIdRef.current || roomIdRef.current, count: 90 }, (res) => {
+      setDevControlsBusy(false);
+      if (!res?.ok) showToast("Remplissage chat indisponible.");
+    });
+  }, [showToast]);
+  const setDevBotActive = React.useCallback(
+    (nick, active) => {
+      if (!socket?.connected || !nick) return;
+      setDevControlsBusy(true);
+      socket.emit(
+        "dev:bots:set",
+        {
+          roomId: currentRoomIdRef.current || roomIdRef.current,
+          nick,
+          active,
+          duration: devBotDuration,
+        },
+        (res) => {
+          setDevControlsBusy(false);
+          if (Array.isArray(res?.bots)) setDevBots(res.bots);
+          if (!res?.ok) showToast("Impossible de modifier ce bot.");
+        }
+      );
+    },
+    [devBotDuration, showToast]
+  );
+  const clearDevChat = React.useCallback(() => {
+    if (!socket?.connected) return;
+    setDevControlsBusy(true);
+    socket.emit("dev:chat:clear", { roomId: currentRoomIdRef.current || roomIdRef.current }, (res) => {
+      setDevControlsBusy(false);
+      if (!res?.ok) showToast("Nettoyage chat indisponible.");
+    });
+  }, [showToast]);
+  const applyModerationAction = React.useCallback(
+    (player, action) => {
+      if (!socket?.connected || !player) return;
+      const label = action === "ban_5m" ? "bannir 5 minutes" : "retirer";
+      const nick = String(player.nick || "").trim();
+      if (!nick) return;
+      if (typeof window !== "undefined" && !window.confirm(`${label} ${nick} ?`)) return;
+      setModerationBusy(true);
+      setModerationError("");
+      socket.emit(
+        "moderation:action",
+        {
+          roomId: currentRoomIdRef.current || roomIdRef.current,
+          action,
+          socketId: player.socketId,
+          installId: player.installId,
+          userId: player.userId,
+          nick,
+        },
+        (res) => {
+          setModerationBusy(false);
+          applyModerationResponse(res);
+          if (res?.ok) {
+            showToast(action === "ban_5m" ? `${nick} banni 5 minutes.` : `${nick} retire du live.`);
+            return;
+          }
+          setModerationError(
+            res?.error === "cannot_target_self"
+              ? "Action impossible sur ton propre compte."
+              : res?.error === "target_not_found"
+              ? "Joueur introuvable."
+              : "Action moderation refusee."
+          );
+        }
+      );
+    },
+    [applyModerationResponse, showToast]
+  );
   useEffect(() => {
     if (!isSettingsOpen && settingsCloseTimerRef.current) {
       clearTimeout(settingsCloseTimerRef.current);
       settingsCloseTimerRef.current = null;
     }
   }, [isSettingsOpen]);
+  useEffect(() => {
+    if (!isSettingsOpen || !socket?.connected) return;
+    fetchModerationState();
+  }, [fetchModerationState, isSettingsOpen]);
   useEffect(() => {
     return () => {
       if (settingsCloseTimerRef.current) {
@@ -28009,7 +28507,12 @@ function handleTouchEnd(e) {
         settingsCloseTimerRef.current = null;
       }
       const shouldAnimatePanels =
-        animatePanels && (isThemeMenuOpen || isSoundMenuOpen || isVisualMenuOpen);
+        animatePanels &&
+        (isThemeMenuOpen ||
+          isSoundMenuOpen ||
+          isVisualMenuOpen ||
+          isDevMenuOpen ||
+          isModerationMenuOpen);
       if (shouldAnimatePanels) {
         if (isThemeMenuOpen) {
           closeThemeMenu();
@@ -28019,6 +28522,12 @@ function handleTouchEnd(e) {
         }
         if (isVisualMenuOpen) {
           closeVisualMenu();
+        }
+        if (isDevMenuOpen) {
+          closeDevMenu();
+        }
+        if (isModerationMenuOpen) {
+          closeModerationMenu();
         }
         settingsCloseTimerRef.current = window.setTimeout(() => {
           settingsCloseTimerRef.current = null;
@@ -28031,7 +28540,11 @@ function handleTouchEnd(e) {
     [
       closeSoundMenu,
       closeThemeMenu,
+      closeDevMenu,
+      closeModerationMenu,
       closeVisualMenu,
+      isDevMenuOpen,
+      isModerationMenuOpen,
       isSoundMenuOpen,
       isThemeMenuOpen,
       isVisualMenuOpen,
@@ -28235,6 +28748,8 @@ function handleTouchEnd(e) {
     if (isSettingsOpen) return;
     setIsSoundMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsDevMenuOpen(false);
+    setIsModerationMenuOpen(false);
     setIsThemeMenuOpen(false);
     setThemePickerCategory("");
     setThemePurchaseConfirm(null);
@@ -28331,7 +28846,13 @@ function handleTouchEnd(e) {
         className={`relative w-full max-w-xs rounded-2xl border-2 p-4 shadow-2xl ${settingsShellClass}`}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-extrabold">Parametres</div>
+          <button
+            type="button"
+            className="text-sm font-extrabold text-left"
+            onClick={handleSettingsTitleDevTap}
+          >
+            Parametres
+          </button>
           <button
             type="button"
             className={`h-7 w-7 rounded-full border flex items-center justify-center ${
@@ -28538,6 +29059,52 @@ function handleTouchEnd(e) {
               {allVisualOn ? "Tout On" : "Configurer"}
             </span>
           </button>
+          {devMenuUnlocked ? (
+            <button
+              type="button"
+              onClick={openDevMenu}
+              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+                devControls?.enabled ? settingsPositiveButtonClass : settingsMutedButtonClass
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] leading-none">
+                  code
+                </span>
+                <span className="inline-flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Dev</span>
+                  <span className="text-[10px] opacity-70">
+                    Tests locaux et bots
+                  </span>
+                </span>
+              </span>
+              <span className="text-[10px] font-semibold opacity-70">
+                {devControls?.enabled ? "On" : "Off"}
+              </span>
+            </button>
+          ) : null}
+          {moderationAvailable ? (
+            <button
+              type="button"
+              onClick={openModerationMenu}
+              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] leading-none">
+                  shield
+                </span>
+                <span className="inline-flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Moderation</span>
+                  <span className="text-[10px] opacity-70">
+                    Kick et bans temporaires
+                  </span>
+                </span>
+              </span>
+              <span className="text-[10px] font-semibold opacity-70">
+                {moderationPlayers.length}
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -28692,6 +29259,45 @@ function handleTouchEnd(e) {
         onToggleInvalidWords={() => setVisualInvalidWordsEnabled((prev) => !prev)}
         onToggleScreenShake={() => setVisualScreenShakeEnabled((prev) => !prev)}
         onToggleConfetti={() => setVisualConfettiEnabled((prev) => !prev)}
+      />
+      <DevSettingsPanel
+        darkMode={menuDarkMode}
+        isOpen={isDevMenuOpen}
+        available={devControlsAvailable}
+        locked={devControlsLocked}
+        accountAllowed={devAccountAllowed}
+        accountLabel={devAccountLabel}
+        passwordRequired={devPasswordRequired}
+        passwordConfigured={devPasswordConfigured}
+        controls={devControls}
+        roundTypes={devRoundTypes}
+        bots={devBots}
+        botDuration={devBotDuration}
+        busy={devControlsBusy}
+        password={devPassword}
+        error={devError}
+        onClose={closeDevMenu}
+        onPasswordChange={setDevPassword}
+        onUnlock={unlockDevControls}
+        onLock={lockDevControls}
+        onPatch={patchDevControls}
+        onFillChat={fillDevChat}
+        onClearChat={clearDevChat}
+        onRefreshBots={fetchDevBots}
+        onBotDurationChange={setDevBotDuration}
+        onSetBotActive={setDevBotActive}
+      />
+      <ModerationPanel
+        darkMode={menuDarkMode}
+        isOpen={isModerationMenuOpen}
+        available={moderationAvailable}
+        accountLabel={moderationAccountLabel}
+        players={moderationPlayers}
+        busy={moderationBusy}
+        error={moderationError}
+        onClose={closeModerationMenu}
+        onRefresh={fetchModerationState}
+        onAction={applyModerationAction}
       />
       <div
         className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
@@ -35106,6 +35712,7 @@ function handleTouchEnd(e) {
           isPlayerNickClickable={canOpenPlayerProfile}
           renderNickSuffix={renderNickSuffix}
           showGobbleWordAwards={true}
+          stackNickDecorations={!isMobileLayout}
         />
       )}
     </div>
@@ -35489,6 +36096,8 @@ function handleTouchEnd(e) {
                   bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
                 const isHint = hintCellSet.has(boardIndex);
                 const isHintOutline = hintOutlineCellSet.has(boardIndex);
+                const shouldShowHint = !isUsed && isHint;
+                const shouldShowHintOutline = !isUsed && isHintOutline;
                 const letterPts = isBonusLetterTile
                   ? bonusLetterScore ?? 20
                   : tileScore(cell);
@@ -35501,15 +36110,15 @@ function handleTouchEnd(e) {
                   ? BONUS_CLASSES[displayBonus]
                   : defaultTileBaseClass;
                 const highlightClass = isUsed ? "tile-used" : "";
-                const hintClass = isHint ? "tile-hint" : "";
-                const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
+                const hintClass = shouldShowHint ? "tile-hint" : "";
+                const hintOutlineClass = shouldShowHintOutline ? "tile-hint-outline" : "";
                 const hintStyle =
-                  (isHint ? hintCellStyleMap.get(boardIndex) : null) ||
-                  (isHintOutline ? hintOutlineStyleMap.get(boardIndex) : null) ||
+                  (shouldShowHint ? hintCellStyleMap.get(boardIndex) : null) ||
+                  (shouldShowHintOutline ? hintOutlineStyleMap.get(boardIndex) : null) ||
                   null;
                 const hintOverlayStyle =
-                  (isHint ? hintCellOverlayStyleMap.get(boardIndex) : null) ||
-                  (isHintOutline ? hintOutlineOverlayStyleMap.get(boardIndex) : null) ||
+                  (shouldShowHint ? hintCellOverlayStyleMap.get(boardIndex) : null) ||
+                  (shouldShowHintOutline ? hintOutlineOverlayStyleMap.get(boardIndex) : null) ||
                   null;
                 const letterRingClass =
                   !isBonusLetterTile && useRingIndicator && displayBonus
@@ -35671,10 +36280,7 @@ function handleTouchEnd(e) {
       ))}
     </span>
   ) : liveWordTiles.length ? (
-    <div
-      className="flex justify-center items-center gap-1 max-w-full overflow-visible"
-      style={{ transform: `scale(${previewScale})`, transformOrigin: "center" }}
-    >
+    <AutoScaleInline minScale={0.42} measurePaddingPx={8} className="gap-1 py-1">
       {liveWordTiles.map((ch, idx) => {
         // rotation déterministe légère, entre -5° et +5°
         const angle = ((idx * 17 + liveWordTiles.length * 13) % 11) - 5;
@@ -35688,7 +36294,7 @@ function handleTouchEnd(e) {
           </div>
         );
       })}
-    </div>
+    </AutoScaleInline>
   ) : showPreviewStatus ? (
     <span className="text-gray-700 dark:text-slate-200">
       {currentDisplay.toUpperCase()}
@@ -35774,12 +36380,12 @@ function handleTouchEnd(e) {
           </div>
 
           {phase === "playing" && isSpecial3WordsMode ? (
-            <div className="relative flex flex-col flex-1 min-h-0 gap-3">
+            <div className="relative flex flex-col flex-1 min-h-0 gap-2">
               <div className="text-xs font-semibold text-center text-orange-700">
                 Place les bonus sur la grille, puis garde 3 mots avec des tuiles de départ différentes.
               </div>
               <div
-                className={`rounded-xl border p-3 space-y-2 ${
+                className={`rounded-lg border px-2 py-2 space-y-1.5 ${
                   darkMode
                     ? "bg-slate-900/90 border-slate-700"
                     : "bg-white/90 border-slate-200"
@@ -35821,14 +36427,14 @@ function handleTouchEnd(e) {
                     <div
                       key={`live-special3-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
                       className={[
-                        "rounded-lg border px-2 py-2",
+                        "rounded-md border-l-4 px-1.5 py-1.5",
                         isActiveSlot
                           ? darkMode
-                            ? "border-amber-400/70 bg-slate-800/60"
+                            ? "border-amber-400 bg-slate-800/60"
                             : "border-amber-400 bg-amber-50"
                           : darkMode
-                          ? "border-slate-700 bg-slate-900/50"
-                          : "border-slate-200 bg-white",
+                          ? "border-transparent bg-slate-900/35"
+                          : "border-transparent bg-slate-50/70",
                         rowIsInvalid && visualScreenShakeEnabled ? "daily-invalid-shake" : "",
                       ].join(" ")}
                     >
@@ -35839,8 +36445,8 @@ function handleTouchEnd(e) {
                           if (!slotWord) setDailyActiveSlot(idx);
                         }}
                       >
-                        <div className="text-[11px] uppercase tracking-wide opacity-60">Mot {idx + 1}</div>
-                        <div className="mt-1 min-h-[28px] min-w-0">
+                        <div className="text-[10px] uppercase tracking-wide opacity-60">Mot {idx + 1}</div>
+                        <div className="mt-0.5 min-h-[24px] min-w-0">
                           {displayWord ? (
                             renderSpecial3PreviewTiles(
                               displayWord,
@@ -35850,16 +36456,16 @@ function handleTouchEnd(e) {
                               {
                                 align: "left",
                                 disableRotation: true,
-                                edgePadding: true,
-                                minScale: 0.32,
+                                compact: true,
+                                minScale: 0.28,
                               }
                             )
                           ) : (
-                            <div className="h-7 flex items-center text-sm font-black opacity-50">—</div>
+                            <div className="h-6 flex items-center text-sm font-black opacity-50">—</div>
                           )}
                         </div>
                       </button>
-                      <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="mt-1 flex items-center justify-between gap-2">
                         <span
                           title={scoreLabel}
                           className={`min-w-0 text-xs font-black ${liveInvalid ? "text-red-500" : ""}`}
@@ -36093,6 +36699,7 @@ function handleTouchEnd(e) {
           )
         : null}
       {desktopResultsSummaryDrawer}
+      {roundPreparationOverlay}
       {mobileRoundIntroOverlay}
       {chatOverlays}
     </>

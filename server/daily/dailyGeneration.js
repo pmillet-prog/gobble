@@ -271,9 +271,6 @@ export function buildDailyModeGrid(
     }
   }
   if (bestEntry) {
-    if (mode === DAILY_FAKE_TWINS_MODE) {
-      throw new Error(`daily_${mode}_target_not_met`);
-    }
     const { valid: _valid, ...fallbackEntry } = bestEntry;
     console.warn(
       `[daily] using fallback ${mode} grid for ${dateId} after ${maxAttempts} attempts`

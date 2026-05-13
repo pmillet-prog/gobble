@@ -224,6 +224,8 @@ function MobileGrid({
           const isUsed = usedSet.has(boardIndex);
           const isHint = hintCellSet?.has?.(boardIndex);
           const isHintOutline = hintOutlineCellSet?.has?.(boardIndex);
+          const shouldShowHint = !isUsed && isHint;
+          const shouldShowHintOutline = !isUsed && isHintOutline;
           const isBonusLetterTile =
             bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
           const letterPts = isBonusLetterTile
@@ -238,15 +240,15 @@ function MobileGrid({
             ? BONUS_CLASSES[displayBonus]
             : defaultTileBaseClass;
           const highlightClass = isUsed ? "tile-used" : "";
-          const hintClass = isHint ? "tile-hint" : "";
-          const hintOutlineClass = isHintOutline ? "tile-hint-outline" : "";
+          const hintClass = shouldShowHint ? "tile-hint" : "";
+          const hintOutlineClass = shouldShowHintOutline ? "tile-hint-outline" : "";
           const hintStyle =
-            (isHint ? hintCellStyleMap?.get?.(boardIndex) : null) ||
-            (isHintOutline ? hintOutlineStyleMap?.get?.(boardIndex) : null) ||
+            (shouldShowHint ? hintCellStyleMap?.get?.(boardIndex) : null) ||
+            (shouldShowHintOutline ? hintOutlineStyleMap?.get?.(boardIndex) : null) ||
             null;
           const hintOverlayStyle =
-            (isHint ? hintCellOverlayStyleMap?.get?.(boardIndex) : null) ||
-            (isHintOutline ? hintOutlineOverlayStyleMap?.get?.(boardIndex) : null) ||
+            (shouldShowHint ? hintCellOverlayStyleMap?.get?.(boardIndex) : null) ||
+            (shouldShowHintOutline ? hintOutlineOverlayStyleMap?.get?.(boardIndex) : null) ||
             null;
           const letterRingClass =
             !isBonusLetterTile && useRingIndicator && displayBonus

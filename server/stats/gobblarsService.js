@@ -414,7 +414,7 @@ async function applyGlobalGrantToAllExistingProfilesOnce() {
   }
 }
 
-export async function initGobblarsService() {
+export async function initGobblarsService({ applyGlobalGrant = true } = {}) {
   if (db) return;
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
@@ -455,10 +455,52 @@ export async function initGobblarsService() {
         );
       `);
     });
-    await applyGlobalGrantToAllExistingProfilesOnce();
+    if (applyGlobalGrant) {
+      await applyGlobalGrantToAllExistingProfilesOnce();
+    }
   } catch (err) {
     console.warn("Gobblars service init failed", err);
     db = null;
+  }
+}
+
+export async function getGobblarProfileReadOnly(installId) {
+  if (!installId) return null;
+  const fallbackTheme = sanitizeThemeInput(DEFAULT_THEME);
+  const fallback = {
+    installId,
+    balance: 0,
+    themeApplied: fallbackTheme,
+    themeUnlocks: sanitizeUnlocksInput({}, fallbackTheme),
+    updatedAt: Date.now(),
+    lockableCategories: LOCKABLE_THEME_CATEGORIES,
+    unlockCost: THEME_UNLOCK_COST,
+  };
+  if (!db) return fallback;
+  try {
+    const row = await runWithBusyRetry(() =>
+      db.get(
+        "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
+        installId
+      )
+    );
+    if (!row) return fallback;
+    const themeApplied = sanitizeThemeInput(safeJsonParse(row.themeApplied, DEFAULT_THEME));
+    return {
+      installId: row.installId,
+      balance: Number(row.balance) || 0,
+      themeApplied,
+      themeUnlocks: sanitizeUnlocksInput(
+        safeJsonParse(row.themeUnlocks, {}),
+        safeJsonParse(row.themeApplied, DEFAULT_THEME)
+      ),
+      updatedAt: Number(row.updatedAt) || 0,
+      lockableCategories: LOCKABLE_THEME_CATEGORIES,
+      unlockCost: THEME_UNLOCK_COST,
+    };
+  } catch (err) {
+    console.warn("Gobblars profile read failed", err);
+    return fallback;
   }
 }
 

@@ -129,6 +129,18 @@ export function createPersistenceClient() {
     recordLiveHeadToHeadOutcomes(payload) {
       enqueue("recordLiveHeadToHeadOutcomes", payload);
     },
+    upsertVocabularyProfile(payload) {
+      enqueue("upsertVocabularyProfile", payload);
+    },
+    addGobblars(payload) {
+      return call("addGobblars", payload);
+    },
+    grantWeeklyWinnerGobblars(payload) {
+      return call("grantWeeklyWinnerGobblars", payload);
+    },
+    applyThemeSelection(payload) {
+      return call("applyThemeSelection", payload);
+    },
     health() {
       return call("health", {});
     },
@@ -147,4 +159,3 @@ export function createPersistenceClient() {
     },
   };
 }
-

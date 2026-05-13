@@ -53,7 +53,6 @@ import {
   getVocabularyCountForInstallIds,
   getVocabularyLeaderboard,
   migrateVocabularyProfile,
-  upsertVocabularyProfile,
   getKnownVocabWords,
   getKnownVocabWordsForInstallIds,
 } from "./stats/vocabularyService.js";
@@ -67,10 +66,7 @@ import {
 } from "./stats/trophyService.js";
 import {
   initGobblarsService,
-  getGobblarProfile,
-  addGobblars,
-  grantWeeklyWinnerGobblars,
-  applyThemeSelection,
+  getGobblarProfileReadOnly,
   migrateGobblarProfile,
   THEME_UNLOCK_COST,
   WEEKLY_WIN_GOBBLARS_BONUS,
@@ -132,6 +128,7 @@ import {
   getSessionByToken,
   getUserIdentityMigrationSignature,
   listDevicesForUser,
+  normalizeUsername,
   setUserIdentityMigrationSignature,
 } from "./auth/authService.js";
 
@@ -147,7 +144,7 @@ void initVocabularyService().catch((err) =>
 void initTrophyService().catch((err) =>
   console.warn("Trophy service init failed", err)
 );
-void initGobblarsService().catch((err) =>
+void initGobblarsService({ applyGlobalGrant: false }).catch((err) =>
   console.warn("Gobblars service init failed", err)
 );
 void initPlayerProfileService().catch((err) =>
@@ -270,6 +267,7 @@ function setCachedPlayerProfile(cacheKey, profile) {
 
 app.get("/api/player-profile/user/:userId", async (req, res) => {
   try {
+    pruneHeavyEndpointRateBuckets();
     const userId = Number(req.params?.userId);
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ ok: false, error: "invalid_player" });
@@ -277,6 +275,11 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
     const auth = await getAuthFromCookieHeader(req?.headers?.cookie);
     const viewerUserId = Number(auth?.user?.id);
     const safeViewerUserId = Number.isInteger(viewerUserId) && viewerUserId > 0 ? viewerUserId : null;
+    const rateKey = safeViewerUserId
+      ? `player-profile:user:${safeViewerUserId}`
+      : `player-profile:ip:${getClientIpFromRequest(req) || "unknown"}`;
+    const rateCheck = checkHeavyEndpointRateLimit(rateKey, { limit: 40, windowMs: 60_000 });
+    if (!rateCheck.ok) return sendRateLimitResponse(res, rateCheck);
     const fallbackNick = String(req.query?.nick || "");
     const cacheKey = `${userId}|${safeViewerUserId || 0}|${fallbackNick.slice(0, 48)}`;
     const cachedProfile = getCachedPlayerProfile(cacheKey);
@@ -601,7 +604,8 @@ async function runDailyStartFlow({ installId, pseudo, dailyMode }) {
   const result = await startDailyAttempt(null, installId, pseudo, { dailyMode });
   if (!result?.ok) return result;
   await refreshInstallDuelCache(installId).catch(() => null);
-  const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
+  clearDuelStatusResponseCache(installId);
+  const duel = await getCachedDuelStatus(installId, { dateId: result?.dateId || null, force: true });
   return { ...result, duel };
 }
 
@@ -630,7 +634,7 @@ async function runDailySubmitFlow({
 
   const dailyGobbles = Number(result?.gobbles) || 0;
   if (dailyGobbles > 0) {
-    await addGobblars({
+    await persistenceClient.addGobblars({
       installId,
       amount: dailyGobbles,
       reason: "daily_gobbles",
@@ -670,7 +674,9 @@ async function runDailySubmitFlow({
     }
   );
   await refreshInstallDuelCache(installId).catch(() => null);
-  const duel = await getDuelStatus(installId, { dateId: result?.dateId || null });
+  clearDuelStatusResponseCache(installId);
+  clearThemeProfileResponseCache(installId);
+  const duel = await getCachedDuelStatus(installId, { dateId: result?.dateId || null, force: true });
   return { ...result, board: boardWithTeams, duel };
 }
 
@@ -684,7 +690,7 @@ app.get("/api/daily/status", async (req, res) => {
   if (installId) {
     try {
       scheduleInstallDuelCacheRefresh(installId, 60_000);
-      duel = await getDuelStatus(installId, { dateId: payload?.dateId || null });
+      duel = await getCachedDuelStatus(installId, { dateId: payload?.dateId || null });
     } catch (_) {}
   }
   res.json({ ...payload, champion: null, duel });
@@ -820,25 +826,19 @@ app.get("/api/theme/profile", async (req, res) => {
   if (!identity) return;
   const installId = identity.installId;
   try {
+    pruneHeavyEndpointRateBuckets();
+    const rateCheck = checkHeavyEndpointRateLimit(`theme-profile:${installId}`, {
+      limit: 20,
+      windowMs: 60_000,
+    });
+    if (!rateCheck.ok) return sendRateLimitResponse(res, rateCheck);
     scheduleInstallDuelCacheRefresh(installId, 60_000);
-    const profile = await getGobblarProfile(installId);
-    if (!profile) {
+    const payload = await getCachedThemeProfilePayload(installId);
+    if (!payload) {
       res.status(500);
       return res.json({ ok: false, error: "profile_unavailable" });
     }
-    return res.json({
-      ok: true,
-      installId,
-      balance: Number(profile.balance) || 0,
-      themeApplied: profile.themeApplied || {},
-      themeUnlocks: profile.themeUnlocks || {},
-      unlockCost: Number.isFinite(Number(profile.unlockCost))
-        ? Number(profile.unlockCost)
-        : THEME_UNLOCK_COST,
-      lockableCategories: Array.isArray(profile.lockableCategories)
-        ? profile.lockableCategories
-        : [],
-    });
+    return res.json(payload);
   } catch (err) {
     console.warn("Theme profile route failed", err);
     res.status(500);
@@ -859,7 +859,7 @@ app.post("/api/theme/apply", async (req, res) => {
       ? req.body.draftTheme
       : {};
   try {
-    const result = await applyThemeSelection({
+    const result = await persistenceClient.applyThemeSelection({
       installId,
       mode,
       category,
@@ -874,6 +874,7 @@ app.post("/api/theme/apply", async (req, res) => {
       res.status(409);
       return res.json(result);
     }
+    clearThemeProfileResponseCache(installId);
     return res.json({
       ok: true,
       installId,
@@ -898,9 +899,15 @@ app.get("/api/duel/status", async (req, res) => {
   const identity = await requireRequestPlayerIdentity(req, res);
   if (!identity) return;
   const installId = identity.installId;
+  pruneHeavyEndpointRateBuckets();
+  const rateCheck = checkHeavyEndpointRateLimit(`duel-status:${installId}`, {
+    limit: 14,
+    windowMs: 30_000,
+  });
+  if (!rateCheck.ok) return sendRateLimitResponse(res, rateCheck);
   scheduleInstallDuelCacheRefresh(installId, 60_000);
   const dateId = typeof req.query?.dateId === "string" ? req.query.dateId : null;
-  const payload = await getDuelStatus(installId, { dateId });
+  const payload = await getCachedDuelStatus(installId, { dateId });
   return res.json({ ok: true, ...payload });
 });
 
@@ -947,6 +954,7 @@ app.post("/api/duel/objectives/reroll", async (req, res) => {
   const dateId = typeof req.body?.dateId === "string" ? req.body.dateId : null;
   const bucket = typeof req.body?.bucket === "string" ? req.body.bucket : null;
   const payload = await rerollObjective({ installId, dateId, bucket });
+  if (payload?.ok) clearDuelStatusResponseCache(installId);
   if (!payload?.ok) {
     res.status(409);
   }
@@ -988,6 +996,7 @@ app.post("/api/duel/objectives/submit", async (req, res) => {
     await recordDailyPlayed({ installId, dateId });
     payload = { ok: true };
   }
+  if (payload?.ok) clearDuelStatusResponseCache(installId);
   if (!payload?.ok) {
     res.status(400);
   }
@@ -1380,27 +1389,307 @@ const LOG_DIR = path.join(__dirname, "logs");
 const CONNECTIONS_LOG_PATH = path.join(LOG_DIR, "connections.log");
 const REPORTS_LOG_PATH = path.join(LOG_DIR, "reports.jsonl");
 const CLIENT_CRASHES_LOG_PATH = path.join(LOG_DIR, "client-crashes.jsonl");
+const MODERATION_LOG_PATH = path.join(LOG_DIR, "moderation.jsonl");
 const REPORT_WINDOW_MS = 10 * 60 * 1000;
 const REPORT_MUTE_THRESHOLD = 3;
 const REPORT_REASON_MAX_LEN = 160;
 const MUTE_DURATION_MS = 10 * 60 * 1000;
+const MODERATION_BAN_5_MIN_MS = 5 * 60 * 1000;
 const INSTALL_ID_MAX_LEN = 128;
 const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
 const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json");
+const DEV_CONTROLS_PATH = path.join(RUNTIME_DATA_DIR, "dev-controls.json");
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
 const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
 const clientCrashLogger = createAsyncFileLogger({ filePath: CLIENT_CRASHES_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
+const moderationLogger = createAsyncFileLogger({ filePath: MODERATION_LOG_PATH });
 const duelInstallCache = new Map(); // installId -> { weekId, team, crowned, updatedAt }
 const duelCacheRefreshAt = new Map(); // installId -> ts
 const duelWinnerGrantJobs = new Map(); // `${weekId}:${installId}` -> Promise | "done"
+const DUEL_STATUS_RESPONSE_CACHE_TTL_MS = 6000;
+const THEME_PROFILE_RESPONSE_CACHE_TTL_MS = 6000;
+const SHORT_RESPONSE_CACHE_MAX = 300;
+const duelStatusResponseCache = new Map();
+const duelStatusInFlight = new Map();
+const themeProfileResponseCache = new Map();
+const themeProfileInFlight = new Map();
+const heavyEndpointRateBuckets = new Map();
 const installAliasByInstallId = new Map();
 let duelWeekCacheKey = getDuelParisWeekId();
+
+const DEV_FORCED_ROUND_TYPES = new Set([
+  "",
+  "normal",
+  "self_specials_3_words",
+  "speed",
+  "monstrous",
+  "target_long",
+  "target_score",
+  "bonus_letter",
+  "fake_twins",
+]);
+const DEFAULT_DEV_CONTROLS = Object.freeze({
+  enabled: false,
+  forcedRoundType: "",
+  botMedals: false,
+  chatFill: false,
+  botChat: false,
+  botReactions: false,
+});
+let devControls = loadDevControls();
+const DEV_TOOLS_PASSWORD = String(
+  process.env.GOBBLE_DEV_PASSWORD ||
+    process.env.GOBBLE_DEV_PASS ||
+    (process.env.NODE_ENV === "production" ? "" : "prout84")
+).trim();
+const DEV_ACCOUNT_NAMES = parseDevAccountNameAllowlist(
+  process.env.GOBBLE_DEV_ACCOUNTS ||
+    process.env.GOBBLE_DEV_USERS ||
+    (process.env.NODE_ENV === "production" ? "" : "Tigre,Test")
+);
+const DEV_ACCOUNT_IDS = parseDevAccountIdAllowlist(process.env.GOBBLE_DEV_USER_IDS || "");
+const MODERATION_ACCOUNT_NAMES = parseDevAccountNameAllowlist(
+  process.env.GOBBLE_MOD_ACCOUNTS ||
+    process.env.GOBBLE_MOD_USERS ||
+    process.env.GOBBLE_DEV_ACCOUNTS ||
+    process.env.GOBBLE_DEV_USERS ||
+    (process.env.NODE_ENV === "production" ? "" : "Tigre,Test")
+);
+const MODERATION_ACCOUNT_IDS = parseDevAccountIdAllowlist(
+  process.env.GOBBLE_MOD_USER_IDS || process.env.GOBBLE_DEV_USER_IDS || ""
+);
+const moderationInstallBans = new Map();
+const moderationUserBans = new Map();
+
+function parseDevAccountNameAllowlist(raw) {
+  return new Set(
+    String(raw || "")
+      .split(",")
+      .map((entry) => normalizeUsername(entry))
+      .filter(Boolean)
+  );
+}
+
+function parseDevAccountIdAllowlist(raw) {
+  return new Set(
+    String(raw || "")
+      .split(",")
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean)
+  );
+}
+
+function getSocketDevAccount(socket) {
+  const user = socket?.data?.authUser || null;
+  if (!user) {
+    return { allowed: false, label: "", reason: "auth_required" };
+  }
+  const userId = Number.isInteger(Number(user.id)) ? String(Number(user.id)) : "";
+  const usernameNormalized = normalizeUsername(user.usernameDisplay || user.usernameNormalized || "");
+  const allowed =
+    (userId && DEV_ACCOUNT_IDS.has(userId)) ||
+    (usernameNormalized && DEV_ACCOUNT_NAMES.has(usernameNormalized));
+  return {
+    allowed,
+    label: user.usernameDisplay || user.usernameNormalized || (userId ? `#${userId}` : ""),
+    reason: allowed ? "" : "account_not_allowed",
+  };
+}
+
+function getSocketModerationAccount(socket) {
+  const user = socket?.data?.authUser || null;
+  if (!user) {
+    return { allowed: false, label: "", reason: "auth_required" };
+  }
+  const userId = Number.isInteger(Number(user.id)) ? String(Number(user.id)) : "";
+  const usernameNormalized = normalizeUsername(user.usernameDisplay || user.usernameNormalized || "");
+  const allowed =
+    (userId && MODERATION_ACCOUNT_IDS.has(userId)) ||
+    (usernameNormalized && MODERATION_ACCOUNT_NAMES.has(usernameNormalized));
+  return {
+    allowed,
+    label: user.usernameDisplay || user.usernameNormalized || (userId ? `#${userId}` : ""),
+    userId,
+    reason: allowed ? "" : "account_not_allowed",
+  };
+}
+
+function buildModerationPayload(socket = null) {
+  const account = socket ? getSocketModerationAccount(socket) : { allowed: true, label: "" };
+  return {
+    available: !!account.allowed,
+    accountAllowed: !!account.allowed,
+    accountLabel: account.label || "",
+    allowedAccountsConfigured: MODERATION_ACCOUNT_NAMES.size > 0 || MODERATION_ACCOUNT_IDS.size > 0,
+  };
+}
+
+function requireModerationAccess(socket, cb) {
+  const account = getSocketModerationAccount(socket);
+  if (account.allowed) return account;
+  cb?.({ ok: false, error: account.reason || "moderation_forbidden", ...buildModerationPayload(socket) });
+  return null;
+}
+
+function pruneModerationBans(now = Date.now()) {
+  for (const [key, ban] of Array.from(moderationInstallBans.entries())) {
+    if (!ban?.expiresAt || ban.expiresAt <= now) moderationInstallBans.delete(key);
+  }
+  for (const [key, ban] of Array.from(moderationUserBans.entries())) {
+    if (!ban?.expiresAt || ban.expiresAt <= now) moderationUserBans.delete(key);
+  }
+}
+
+function getActiveModerationBan(identity, now = Date.now()) {
+  pruneModerationBans(now);
+  const installId = normalizeInstallId(identity?.installId || "");
+  const userId = Number.isInteger(Number(identity?.userId)) ? String(Number(identity.userId)) : "";
+  const installBan = installId ? moderationInstallBans.get(installId) : null;
+  const userBan = userId ? moderationUserBans.get(userId) : null;
+  const ban =
+    installBan && userBan
+      ? installBan.expiresAt >= userBan.expiresAt
+        ? installBan
+        : userBan
+      : installBan || userBan || null;
+  if (!ban?.expiresAt || ban.expiresAt <= now) return null;
+  return ban;
+}
+
+function buildModerationBanResponse(ban) {
+  const until = Number(ban?.expiresAt) || Date.now();
+  const seconds = Math.max(1, Math.ceil((until - Date.now()) / 1000));
+  return {
+    ok: false,
+    error: "moderation_banned",
+    until,
+    remainingMs: Math.max(0, until - Date.now()),
+    message: `Accès au live suspendu temporairement (${seconds}s restantes).`,
+  };
+}
+
+function normalizeDevControls(raw = {}) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const forcedRoundType = DEV_FORCED_ROUND_TYPES.has(String(source.forcedRoundType || ""))
+    ? String(source.forcedRoundType || "")
+    : "";
+  return {
+    enabled: !!source.enabled,
+    forcedRoundType,
+    botMedals: !!source.botMedals,
+    chatFill: !!source.chatFill,
+    botChat: !!source.botChat,
+    botReactions: !!source.botReactions,
+  };
+}
+
+function loadDevControls() {
+  try {
+    const raw = readFileSync(DEV_CONTROLS_PATH, "utf8");
+    return normalizeDevControls(JSON.parse(raw));
+  } catch (_) {
+    return { ...DEFAULT_DEV_CONTROLS };
+  }
+}
+
+function persistDevControls() {
+  try {
+    mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
+    writeFileSync(
+      DEV_CONTROLS_PATH,
+      JSON.stringify({ version: 1, updatedAt: Date.now(), controls: devControls }, null, 2),
+      "utf8"
+    );
+  } catch (err) {
+    console.warn("[dev] Impossible de sauvegarder les controles dev", err?.message || err);
+  }
+}
+
+function isDevControlsActive(flag = null) {
+  if (!devControls?.enabled) return false;
+  if (!flag) return true;
+  return !!devControls[flag];
+}
+
+function isPrivateClientIp(ip) {
+  const value = normalizeIp(ip);
+  if (!value) return false;
+  if (value === "127.0.0.1" || value === "::1" || value === "localhost") return true;
+  if (value.startsWith("10.")) return true;
+  if (value.startsWith("192.168.")) return true;
+  const parts = value.split(".").map((part) => Number(part));
+  if (parts.length === 4 && parts.every((part) => Number.isInteger(part))) {
+    return parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31;
+  }
+  return false;
+}
+
+function areDevToolsAllowedForSocket(socket) {
+  const raw = String(process.env.GOBBLE_DEV_TOOLS || "").trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
+  const devAccount = getSocketDevAccount(socket);
+  if (!devAccount.allowed) return false;
+  if (raw === "1" || raw === "true" || raw === "on" || raw === "yes") return true;
+  if (process.env.NODE_ENV === "production") return !!DEV_TOOLS_PASSWORD;
+  return isPrivateClientIp(getClientIpFromSocket(socket));
+}
+
+function isDevPasswordRequired(socket) {
+  if (DEV_TOOLS_PASSWORD) return true;
+  return process.env.NODE_ENV === "production" || !isPrivateClientIp(getClientIpFromSocket(socket));
+}
+
+function hasUnlockedDevTools(socket) {
+  if (!areDevToolsAllowedForSocket(socket)) return false;
+  if (!isDevPasswordRequired(socket)) return true;
+  return socket?.data?.devToolsUnlocked === true;
+}
+
+function buildDevControlsPayload(socket = null) {
+  const passwordRequired = socket ? isDevPasswordRequired(socket) : !!DEV_TOOLS_PASSWORD;
+  const unlocked = socket ? hasUnlockedDevTools(socket) : !passwordRequired;
+  const devAccount = socket ? getSocketDevAccount(socket) : { allowed: true, label: "" };
+  return {
+    available: socket ? areDevToolsAllowedForSocket(socket) : true,
+    unlocked,
+    locked: !unlocked,
+    passwordRequired,
+    passwordConfigured: !!DEV_TOOLS_PASSWORD,
+    accountAllowed: !!devAccount.allowed,
+    accountLabel: devAccount.label || "",
+    allowedAccountsConfigured: DEV_ACCOUNT_NAMES.size > 0 || DEV_ACCOUNT_IDS.size > 0,
+    controls: normalizeDevControls(devControls),
+    roundTypes: [
+      { value: "", label: "Cycle normal" },
+      { value: "normal", label: "Manches normales" },
+      { value: "self_specials_3_words", label: "3 mots en boucle" },
+      { value: "speed", label: "Rapidite en boucle" },
+      { value: "monstrous", label: "Grille monstrueuse" },
+      { value: "target_long", label: "Mot le plus long" },
+      { value: "target_score", label: "Meilleur mot" },
+      { value: "bonus_letter", label: "Lettre en or" },
+      { value: "fake_twins", label: "Faux jumeaux" },
+    ],
+  };
+}
+
+function requireDevToolsAccess(socket, cb) {
+  if (!areDevToolsAllowedForSocket(socket)) {
+    cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
+    return false;
+  }
+  if (!hasUnlockedDevTools(socket)) {
+    cb?.({ ok: false, error: "dev_tools_locked", ...buildDevControlsPayload(socket) });
+    return false;
+  }
+  return true;
+}
 
 function normalizeInstallIdRaw(raw) {
   if (typeof raw !== "string") return "";
@@ -1672,6 +1961,7 @@ function linkInstallIds(fromInstallId, targetInstallId) {
   duelInstallCache.clear();
   duelCacheRefreshAt.clear();
   duelWinnerGrantJobs.clear();
+  duelStatusResponseCache.clear();
   return true;
 }
 
@@ -1702,7 +1992,7 @@ function scheduleWeeklyWinnerGobblarsGrant(rawInstallId, weekId) {
   const jobKey = `${safeWeekId}:${installId}`;
   const existing = duelWinnerGrantJobs.get(jobKey);
   if (existing) return;
-  const job = grantWeeklyWinnerGobblars({
+  const job = persistenceClient.grantWeeklyWinnerGobblars({
     installId,
     weekId: safeWeekId,
     amount: WEEKLY_WIN_GOBBLARS_BONUS,
@@ -1779,6 +2069,72 @@ function scheduleInstallDuelCacheRefresh(rawInstallId, minIntervalMs = DUEL_CACH
   if (now - lastAt < minIntervalMs) return;
   duelCacheRefreshAt.set(installId, now);
   void refreshInstallDuelCache(installId).catch(() => {});
+}
+
+function buildDuelStatusCacheKey(rawInstallId, dateId = null) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return "";
+  const safeDateId = typeof dateId === "string" && dateId.trim() ? dateId.trim() : getParisDateId();
+  return `${installId}|${safeDateId}`;
+}
+
+function clearDuelStatusResponseCache(rawInstallId) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return;
+  clearCacheByPrefix(duelStatusResponseCache, `${installId}|`);
+}
+
+async function getCachedDuelStatus(rawInstallId, { dateId = null, force = false } = {}) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return getDuelStatus(rawInstallId, { dateId });
+  const key = buildDuelStatusCacheKey(installId, dateId);
+  return getCachedOrInFlight({
+    cache: duelStatusResponseCache,
+    inFlight: duelStatusInFlight,
+    key,
+    ttlMs: DUEL_STATUS_RESPONSE_CACHE_TTL_MS,
+    force,
+    task: () => getDuelStatus(installId, { dateId }),
+  });
+}
+
+function buildThemeProfilePayload(installId, profile) {
+  return {
+    ok: true,
+    installId,
+    balance: Number(profile.balance) || 0,
+    themeApplied: profile.themeApplied || {},
+    themeUnlocks: profile.themeUnlocks || {},
+    unlockCost: Number.isFinite(Number(profile.unlockCost))
+      ? profile.unlockCost
+      : THEME_UNLOCK_COST,
+    lockableCategories: Array.isArray(profile.lockableCategories)
+      ? profile.lockableCategories
+      : [],
+  };
+}
+
+function clearThemeProfileResponseCache(rawInstallId) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return;
+  themeProfileResponseCache.delete(installId);
+}
+
+async function getCachedThemeProfilePayload(rawInstallId, { force = false } = {}) {
+  const installId = normalizeInstallId(rawInstallId);
+  if (!installId) return null;
+  return getCachedOrInFlight({
+    cache: themeProfileResponseCache,
+    inFlight: themeProfileInFlight,
+    key: installId,
+    ttlMs: THEME_PROFILE_RESPONSE_CACHE_TTL_MS,
+    force,
+    task: async () => {
+      const profile = await getGobblarProfileReadOnly(installId);
+      if (!profile) return null;
+      return buildThemeProfilePayload(installId, profile);
+    },
+  });
 }
 
 function sanitizeReportReason(raw) {
@@ -1877,6 +2233,96 @@ function getClientIpFromSocket(socket) {
     }
   } catch (_) {}
   return normalizeIp(socket?.handshake?.address || "");
+}
+
+function getClientIpFromRequest(req) {
+  try {
+    const xf = req?.headers?.["x-forwarded-for"];
+    if (typeof xf === "string" && xf.trim()) {
+      return normalizeIp(xf.split(",")[0].trim());
+    }
+  } catch (_) {}
+  return normalizeIp(req?.ip || req?.socket?.remoteAddress || req?.connection?.remoteAddress || "");
+}
+
+function getShortCachedValue(cache, key, ttlMs) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - (Number(entry.createdAt) || 0) > ttlMs) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.value || null;
+}
+
+function setShortCachedValue(cache, key, value) {
+  if (!key || !value) return;
+  cache.set(key, { value, createdAt: Date.now() });
+  if (cache.size > SHORT_RESPONSE_CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest) cache.delete(oldest);
+  }
+}
+
+async function getCachedOrInFlight({ cache, inFlight, key, ttlMs, force = false, task }) {
+  if (!force) {
+    const cached = getShortCachedValue(cache, key, ttlMs);
+    if (cached) return cached;
+    const existing = inFlight.get(key);
+    if (existing) return existing;
+  }
+  const promise = Promise.resolve()
+    .then(task)
+    .then((value) => {
+      setShortCachedValue(cache, key, value);
+      return value;
+    })
+    .finally(() => {
+      if (inFlight.get(key) === promise) inFlight.delete(key);
+    });
+  inFlight.set(key, promise);
+  return promise;
+}
+
+function clearCacheByPrefix(cache, prefix) {
+  for (const key of Array.from(cache.keys())) {
+    if (String(key).startsWith(prefix)) cache.delete(key);
+  }
+}
+
+function checkHeavyEndpointRateLimit(key, { limit = 30, windowMs = 60_000 } = {}) {
+  const safeKey = String(key || "").trim();
+  if (!safeKey) return { ok: true, remaining: limit };
+  const now = Date.now();
+  const bucket = heavyEndpointRateBuckets.get(safeKey);
+  if (!bucket || now >= bucket.resetAt) {
+    heavyEndpointRateBuckets.set(safeKey, { count: 1, resetAt: now + windowMs });
+    return { ok: true, remaining: Math.max(0, limit - 1), resetAt: now + windowMs };
+  }
+  bucket.count += 1;
+  if (bucket.count > limit) {
+    return {
+      ok: false,
+      remaining: 0,
+      resetAt: bucket.resetAt,
+      retryAfterMs: Math.max(1000, bucket.resetAt - now),
+    };
+  }
+  return { ok: true, remaining: Math.max(0, limit - bucket.count), resetAt: bucket.resetAt };
+}
+
+function pruneHeavyEndpointRateBuckets(now = Date.now()) {
+  if (heavyEndpointRateBuckets.size < 1000) return;
+  for (const [key, bucket] of Array.from(heavyEndpointRateBuckets.entries())) {
+    if (!bucket?.resetAt || bucket.resetAt <= now) heavyEndpointRateBuckets.delete(key);
+  }
+}
+
+function sendRateLimitResponse(res, check) {
+  const retryAfterSeconds = Math.max(1, Math.ceil((Number(check?.retryAfterMs) || 1000) / 1000));
+  res.set("Retry-After", String(retryAfterSeconds));
+  res.status(429);
+  return res.json({ ok: false, error: "rate_limited", retryAfterMs: retryAfterSeconds * 1000 });
 }
 
 function loadIgnoredIps() {
@@ -2204,6 +2650,28 @@ function resetTournament(room) {
 }
 
 function getTournamentRoundPlan(room, tournamentRound) {
+  if (isDevControlsActive()) {
+    switch (devControls.forcedRoundType) {
+      case "normal":
+        return buildBaseTournamentPlan(tournamentRound, room.config);
+      case SELF_SPECIAL_3_WORDS_TYPE:
+        return buildSelfSpecial3WordsTournamentPlan(tournamentRound, room.config);
+      case "speed":
+        return buildSpeedTournamentPlan(tournamentRound, room.config);
+      case "monstrous":
+        return buildMonstrousTournamentPlan(tournamentRound, room.config);
+      case "target_long":
+        return buildTargetLongTournamentPlan(tournamentRound, room.config);
+      case "target_score":
+        return buildTargetScoreTournamentPlan(tournamentRound, room.config);
+      case "bonus_letter":
+        return buildBonusLetterTournamentPlan(tournamentRound, room.config);
+      case FAKE_TWINS_TYPE:
+        return buildFakeTwinsTournamentPlan(tournamentRound, room.config);
+      default:
+        break;
+    }
+  }
   if (FORCE_FAKE_TWINS_ALL_ROUNDS) {
     return buildFakeTwinsTournamentPlan(tournamentRound, room.config);
   }
@@ -2402,6 +2870,12 @@ function emitMedals(room) {
     const nick = key.slice("nick:".length);
     if (!payload[nick]) payload[nick] = counts;
   }
+  if (isDevControlsActive("botMedals")) {
+    for (const p of room.players.values()) {
+      if (!isBotToken(p?.token) || !p?.nick) continue;
+      payload[p.nick] = { gold: 3, silver: 3, bronze: 3, dev: true };
+    }
+  }
   io.to(room.id).emit("medalsUpdate", payload);
   persistRoomMedals(room);
 }
@@ -2435,7 +2909,7 @@ function addMedal(room, nick, type) {
     });
     const gobblarsAmount = Number(MEDAL_GOBBLARS[type]) || 0;
     if (gobblarsAmount > 0) {
-      void addGobblars({
+      void persistenceClient.addGobblars({
         installId,
         amount: gobblarsAmount,
         reason: "tournament_medal",
@@ -2447,6 +2921,7 @@ function addMedal(room, nick, type) {
       })
         .then((result) => {
           if (!result || result.ok === false) return;
+          clearThemeProfileResponseCache(installId);
           emitToInstallId(room, installId, "gobblarsAwarded", {
             kind: "tournament_medal",
             medal: type,
@@ -2506,6 +2981,71 @@ function emitToInstallId(room, installId, eventName, payload) {
     if (player?.connected === false) continue;
     io.to(socketId).emit(eventName, payload);
   }
+}
+
+function listModerationPlayers(room) {
+  if (!room) return [];
+  return Array.from(room.players.entries())
+    .filter(([, player]) => !isBotToken(player?.token) && isPlayerConnected(player))
+    .map(([socketId, player]) => ({
+      socketId,
+      nick: player?.nick || "",
+      userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
+      installId: normalizeInstallId(player?.installId || ""),
+      connected: isPlayerConnected(player),
+    }))
+    .filter((player) => player.nick)
+    .sort((a, b) => a.nick.localeCompare(b.nick, "fr", { sensitivity: "base" }));
+}
+
+function findModerationTarget(room, payload = {}) {
+  if (!room) return null;
+  const socketId = typeof payload.socketId === "string" ? payload.socketId.trim() : "";
+  const installId = normalizeInstallId(payload.installId || payload.targetInstallId || "");
+  const userId = Number.isInteger(Number(payload.userId || payload.targetUserId))
+    ? Number(payload.userId || payload.targetUserId)
+    : null;
+  const nick = typeof payload.nick === "string" ? payload.nick.trim() : "";
+  if (!socketId && !installId && !userId && !nick) return null;
+  for (const [candidateSocketId, player] of room.players.entries()) {
+    if (isBotToken(player?.token)) continue;
+    if (socketId && candidateSocketId !== socketId) continue;
+    if (installId && normalizeInstallId(player?.installId || "") !== installId) continue;
+    if (userId && Number(player?.userId) !== userId) continue;
+    if (nick && player?.nick !== nick) continue;
+    return { socketId: candidateSocketId, player };
+  }
+  return null;
+}
+
+function appendModerationLog(entry) {
+  try {
+    moderationLogger.logLine(`${JSON.stringify(entry)}\n`);
+  } catch (_) {}
+}
+
+function removeSocketPlayerFromRoom(room, targetSocketId, notice) {
+  if (!room || !targetSocketId) return false;
+  const player = room.players.get(targetSocketId);
+  clearPendingDisconnect(room, targetSocketId);
+  if (notice) {
+    io.to(targetSocketId).emit("moderation:notice", notice);
+  }
+  room.players.delete(targetSocketId);
+  if (player?.installId) {
+    clearPresenceAnnouncement(room, normalizeInstallId(player.installId));
+  }
+  const targetSocket = io.sockets.sockets.get(targetSocketId);
+  if (targetSocket) {
+    try {
+      targetSocket.leave(room.id);
+    } catch (_) {}
+    setTimeout(() => targetSocket.disconnect(true), notice ? 250 : 0);
+  }
+  emitPlayers(room);
+  emitMedals(room);
+  emitRoomsStats();
+  return true;
 }
 
 function isPlayerConnected(player) {
@@ -3248,6 +3788,7 @@ function pushChatMessage(room, message) {
   room.chatMessages = merged;
 
   io.to(room.id).emit("chatMessage", message);
+  scheduleDevBotResponseForChat(room, message);
 }
 
 function getTeamDot(team) {
@@ -3280,6 +3821,160 @@ function broadcastSystemChatMessage(text, opts = {}) {
   for (const room of rooms.values()) {
     pushSystemChatMessage(room, text, opts);
   }
+}
+
+function getActiveDevBotNicks(room) {
+  if (!room) return [];
+  const nicks = [];
+  for (const player of room.players.values()) {
+    if (isBotToken(player?.token) && player?.nick) nicks.push(player.nick);
+  }
+  if (nicks.length) return nicks;
+  return (BOT_ROSTER_4X4 || []).map((bot) => bot?.nick).filter(Boolean).slice(0, 6);
+}
+
+function isDevBotChatMessage(message) {
+  return (
+    message?.meta?.kind === "dev_bot_chat" ||
+    message?.meta?.kind === "dev_chat_fill" ||
+    String(message?.installId || "").startsWith("dev-bot:")
+  );
+}
+
+function pushDevBotChatMessage(room, nick, text, opts = {}) {
+  if (!room || !nick || !text) return null;
+  const replyTo = opts.replyTo ? buildChatReplyPreviewFromMessage(opts.replyTo) : null;
+  const message = {
+    id: randomUUID(),
+    t: Date.now(),
+    roomId: room.id,
+    nick,
+    author: nick,
+    installId: `dev-bot:${nick}`,
+    text: String(text).trim().slice(0, CHAT_MESSAGE_TEXT_MAX_LEN),
+    isBot: true,
+    meta: { kind: opts.kind || "dev_bot_chat" },
+  };
+  if (replyTo) message.replyTo = replyTo;
+  pushChatMessage(room, message);
+  return message;
+}
+
+function pickDevBotNick(room, seed = Date.now()) {
+  const nicks = getActiveDevBotNicks(room);
+  if (!nicks.length) return "";
+  return nicks[Math.abs(Math.trunc(seed)) % nicks.length] || nicks[0] || "";
+}
+
+function addDevBotReaction(room, message, seed = Date.now()) {
+  if (!room || !message?.id) return;
+  const nick = pickDevBotNick(room, seed);
+  if (!nick) return;
+  const emojis = Array.from(CHAT_REACTION_ALLOWED_EMOJIS);
+  const emoji = emojis[Math.abs(Math.trunc(seed)) % emojis.length] || "👍";
+  const result = updateChatMessageReactions(room, {
+    messageId: message.id,
+    emoji,
+    installId: `dev-bot:${nick}`,
+    nick,
+  });
+  if (!result.ok) return;
+  io.to(room.id).emit("chat:message_reaction", {
+    roomId: room.id,
+    messageId: message.id,
+    reactions: result.reactions,
+    updatedAt: result.message?.reactionsUpdatedAt || Date.now(),
+  });
+}
+
+function scheduleDevBotResponseForChat(room, message) {
+  if (!room || !message || isSystemChatEntry(message) || isDevBotChatMessage(message)) return;
+  if (isBotNick(room, message.nick)) return;
+  const now = Date.now();
+  if (isDevControlsActive("botReactions")) {
+    setTimeout(() => addDevBotReaction(room, message, now), 450 + Math.random() * 700);
+  }
+  if (!isDevControlsActive("botChat")) return;
+  const last = Number(room.devLastBotChatAt) || 0;
+  if (now - last < 12000) return;
+  room.devLastBotChatAt = now;
+  const replies = [
+    "Je teste le chat, bien recu.",
+    "Reaction cote bot OK.",
+    "Je garde le rythme sans spam.",
+    "Message vu pour le test tactile.",
+  ];
+  const nick = pickDevBotNick(room, now + 7);
+  if (!nick) return;
+  const text = replies[Math.floor(Math.random() * replies.length)] || replies[0];
+  setTimeout(
+    () => pushDevBotChatMessage(room, nick, text, { replyTo: message }),
+    900 + Math.random() * 1200
+  );
+}
+
+function scheduleDevSpecialRoundChat(room, roundId, plan, introMs, durationMs) {
+  if (!isDevControlsActive("botChat") || !room || !plan?.isSpecial) return;
+  const label = plan.label || "manche speciale";
+  const lines = [
+    `Test bot: ${label}, chat actif.`,
+    "Je surveille la manche speciale.",
+    "Dernier ping bot pour cette manche.",
+  ];
+  const offsets = [
+    Math.max(900, introMs + 1500),
+    Math.max(2500, introMs + Math.round(durationMs * 0.35)),
+    Math.max(4000, introMs + Math.round(durationMs * 0.7)),
+  ];
+  offsets.forEach((offset, idx) => {
+    const timer = setTimeout(() => {
+      if (!room.currentRound || room.currentRound.id !== roundId) return;
+      const nick = pickDevBotNick(room, roundId + idx);
+      if (!nick) return;
+      pushDevBotChatMessage(room, nick, lines[idx] || lines[0]);
+    }, Math.max(0, offset));
+    room.currentRound?.timers?.push(timer);
+  });
+}
+
+function fillDevChat(room, count = 80) {
+  if (!room) return 0;
+  const nicks = getActiveDevBotNicks(room);
+  if (!nicks.length) return 0;
+  const templates = [
+    "Message de remplissage pour tester le scroll.",
+    "Ligne test avec un texte un peu plus long pour la largeur.",
+    "Reaction et hauteur de bulle a verifier.",
+    "Test tactile chat.",
+    "Encore une ligne de charge visuelle.",
+  ];
+  const total = Math.max(1, Math.min(180, Math.trunc(Number(count) || 80)));
+  for (let i = 0; i < total; i += 1) {
+    const nick = nicks[i % nicks.length];
+    pushDevBotChatMessage(room, nick, `${templates[i % templates.length]} #${i + 1}`, {
+      kind: "dev_chat_fill",
+    });
+  }
+  return total;
+}
+
+function clearDevChat(room) {
+  if (!room || !Array.isArray(room.chatMessages)) return 0;
+  const removedMessages = room.chatMessages.filter((message) => isDevBotChatMessage(message));
+  const before = room.chatMessages.length;
+  room.chatMessages = room.chatMessages.filter((message) => !isDevBotChatMessage(message));
+  const removed = before - room.chatMessages.length;
+  if (removed > 0) {
+    removedMessages.forEach((message) => {
+      if (!message?.id) return;
+      io.to(room.id).emit("chat:message_delete", {
+        roomId: room.id,
+        messageId: message.id,
+        deletedAt: Date.now(),
+      });
+    });
+  }
+  return removed;
 }
 
 function flushAnnouncements(room) {
@@ -3726,31 +4421,35 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   if (roundSpecialType === SELF_SPECIAL_3_WORDS_TYPE) {
     return { ok: false, error: "special3_use_state_sync" };
   }
-  if (roundSpecialType === "target_long" || roundSpecialType === "target_score") {
-    if (room.currentRound?.targetFoundAt?.has?.(resolvedNick)) {
-      return { ok: false, error: "already_found" };
-    }
-    const target = room.currentRound?.targetWord;
-    if (!target || typeof target !== "string") {
-      return { ok: false, error: "invalid_word" };
-    }
-    if (normInput !== target) {
-      return { ok: false, error: "not_target" };
-    }
-  }
 
   const safePath =
     Array.isArray(path) && path.length > 0 && path.every((idx) => Number.isInteger(idx))
       ? path
       : null;
-  if (!safePath) return { ok: false, error: "missing_path" };
+  const scored = safePath
+    ? scoreWordOnGridWithPath(normInput, room.currentRound.grid, safePath, scoreConfig)
+    : isTargetRound
+    ? scoreWordOnGrid(normInput, room.currentRound.grid, scoreConfig)
+    : null;
 
-  const scored = scoreWordOnGridWithPath(
-    normInput,
-    room.currentRound.grid,
-    safePath,
-    scoreConfig
-  );
+  if (isTargetRound) {
+    if (room.currentRound?.targetFoundAt?.has?.(resolvedNick)) {
+      return { ok: false, error: "already_found" };
+    }
+    const target = normalizeWord(room.currentRound?.targetWord || "");
+    if (!target) {
+      return { ok: false, error: "invalid_word" };
+    }
+    if (dictionary && !dictionary.has(normInput)) {
+      return { ok: false, error: "invalid_word" };
+    }
+    if (!scored) return { ok: false, error: "invalid_word" };
+    if (normInput !== target) {
+      return { ok: false, error: "not_target" };
+    }
+  }
+
+  if (!safePath) return { ok: false, error: "missing_path" };
   if (!scored) return { ok: false, error: "invalid_word" };
 
   const { norm, pts, path: scoredPath } = scored;
@@ -4069,7 +4768,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   const liveGobblarsNow =
     (!isSpeedRound && isMaxPossiblePts ? 1 : 0) + (isMaxPossibleLen ? 1 : 0);
   if (!isBotPlayer && playerInstallId && liveGobblarsNow > 0) {
-    void addGobblars({
+    void persistenceClient.addGobblars({
       installId: playerInstallId,
       amount: liveGobblarsNow,
       reason: "live_gobble",
@@ -4084,6 +4783,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
     })
       .then((result) => {
         if (!result || result.ok === false) return;
+        clearThemeProfileResponseCache(playerInstallId);
         emitToInstallId(room, playerInstallId, "gobblarsAwarded", {
           kind: "live_gobble",
           amount: liveGobblarsNow,
@@ -4671,6 +5371,24 @@ function hasPreparedOrPendingGrid(room, roundNumber) {
   );
 }
 
+function emitRoundPreparing(room, plan, roundNumber, tournamentRound) {
+  if (!room?.id) return;
+  io.to(room.id).emit("roundPreparing", {
+    roomId: room.id,
+    roundNumber,
+    special: plan?.isSpecial ? plan : null,
+    tournament: {
+      id: room.tournament?.id || null,
+      round: tournamentRound || room.tournament?.currentRound || 0,
+      totalRounds: room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
+    },
+    message: plan?.isSpecial
+      ? `La manche spéciale ${plan.label || ""} met un peu plus de temps à générer.`
+      : "La prochaine grille met un peu plus de temps à générer.",
+    startedAt: Date.now(),
+  });
+}
+
 function matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId = null) {
   const buffered = room?.bufferedPreparedGrid;
   if (!buffered || !plan) return false;
@@ -5038,6 +5756,9 @@ async function startRoundForRoom(room) {
   }
   if (!prepared) {
     // Startup path: ensure the very first round also goes through worker quality/solver.
+    if (planNeedsPreparedGrid(planUsed) || planUsed?.isSpecial) {
+      emitRoundPreparing(room, planUsed, roundNumber, tournamentRound);
+    }
     prepared = await prepareNextGrid(room, planUsed, roundNumber);
     if (prepared?.roundNumber === roundNumber && room.nextPreparedGrid?.roundNumber === roundNumber) {
       room.nextPreparedGrid = null;
@@ -5226,6 +5947,7 @@ async function startRoundForRoom(room) {
         ? `MANCHE SPECIALE : ${planUsed.label} - objectif: trouver le mot qui rapporte le plus de points`
         : `MANCHE SPECIALE : ${planUsed.label}`;
     pushAnnouncement(room, { type: "special_start", text: specialText });
+    scheduleDevSpecialRoundChat(room, roundId, planUsed, roundIntroMs, roundDurationMs);
   }
 
   // SystÃ¨me d'indices pour les manches "cible"
@@ -6049,6 +6771,22 @@ async function endRoundForRoom(room) {
     nextPlan,
     nextRoundNumber
   );
+  if (nextPlan?.isSpecial && planNeedsPreparedGrid(nextPlan)) {
+    const preparingNoticeDelayMs = Math.max(0, breakMs - 900);
+    setTimeout(() => {
+      if (room.breakState?.nextStartAt !== nextStartAt) return;
+      const hasReadyGrid =
+        room.nextPreparedGrid?.roundNumber === nextRoundNumber ||
+        matchesBufferedPreparedGrid(
+          room,
+          nextTournamentRoundForBreak,
+          nextPlan,
+          room.tournament?.id || null
+        );
+      if (hasReadyGrid) return;
+      emitRoundPreparing(room, nextPlan, nextRoundNumber, nextTournamentRoundForBreak);
+    }, preparingNoticeDelayMs);
+  }
   setTimeout(() => {
     startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
   }, breakMs);
@@ -6070,6 +6808,11 @@ io.on("connection", (socket) => {
     }
     const identity = requireSocketPlayerIdentity(socket, cb);
     if (!identity) return;
+    const activeBan = getActiveModerationBan(identity);
+    if (activeBan) {
+      cb?.(buildModerationBanResponse(activeBan));
+      return;
+    }
     const installId = identity.installId;
     const roomId = payload?.roomId;
     if (!installId || !roomId) {
@@ -6110,7 +6853,7 @@ io.on("connection", (socket) => {
       };
       room.players.set(socket.id, player);
       room.nickToInstallId.set(player.nick, player.installId || installId);
-      void upsertVocabularyProfile(installId, player.nick, now);
+      persistenceClient.upsertVocabularyProfile({ installId, nick: player.nick, updatedAt: now });
       try {
         await refreshInstallDuelCache(installId);
       } catch (_) {}
@@ -6131,6 +6874,11 @@ io.on("connection", (socket) => {
   socket.on("login", async (payload, cb) => {
     const identity = requireSocketPlayerIdentity(socket, cb);
     if (!identity) return;
+    const activeBan = getActiveModerationBan(identity);
+    if (activeBan) {
+      cb?.(buildModerationBanResponse(activeBan));
+      return;
+    }
     const nick = typeof payload === "string" ? payload : payload?.nick;
     const token = typeof payload === "object" ? payload?.clientId : null;
     const installId = identity.installId;
@@ -6194,7 +6942,7 @@ io.on("connection", (socket) => {
       lastSeenAt: now,
     });
     room.nickToInstallId.set(trimmed, installId);
-    void upsertVocabularyProfile(installId, trimmed, now);
+    persistenceClient.upsertVocabularyProfile({ installId, nick: trimmed, updatedAt: now });
     try {
       await refreshInstallDuelCache(installId);
     } catch (_) {}
@@ -6576,6 +7324,249 @@ io.on("connection", (socket) => {
     socket.join(room.id);
     socket.emit("chat:history", Array.isArray(room.chatMessages) ? room.chatMessages : []);
     cb?.({ ok: true, roomId: room.id });
+  });
+
+  socket.on("dev:controls:get", (_payload, cb) => {
+    if (!areDevToolsAllowedForSocket(socket)) {
+      cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
+      return;
+    }
+    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
+  });
+
+  socket.on("dev:unlock", (payload, cb) => {
+    if (!areDevToolsAllowedForSocket(socket)) {
+      cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
+      return;
+    }
+    const passwordRequired = isDevPasswordRequired(socket);
+    if (!passwordRequired) {
+      socket.data.devToolsUnlocked = true;
+      cb?.({ ok: true, ...buildDevControlsPayload(socket) });
+      return;
+    }
+    if (!DEV_TOOLS_PASSWORD) {
+      cb?.({ ok: false, error: "password_not_configured", ...buildDevControlsPayload(socket) });
+      return;
+    }
+    const password =
+      payload && typeof payload.password === "string" ? payload.password.trim() : "";
+    if (!password || password !== DEV_TOOLS_PASSWORD) {
+      cb?.({ ok: false, error: "bad_password", ...buildDevControlsPayload(socket) });
+      return;
+    }
+    socket.data.devToolsUnlocked = true;
+    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
+  });
+
+  socket.on("dev:lock", (_payload, cb) => {
+    socket.data.devToolsUnlocked = false;
+    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
+  });
+
+  socket.on("dev:controls:set", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const previous = normalizeDevControls(devControls);
+    devControls = normalizeDevControls({ ...previous, ...(payload || {}) });
+    persistDevControls();
+    for (const room of rooms.values()) {
+      room.nextPreparedGrid = null;
+      room.nextPreparedGridPromise = null;
+      room.nextPreparedGridPromiseRoundNumber = null;
+      room.bufferedPreparedGrid = null;
+      room.bufferedPreparedGridPromise = null;
+      room.bufferedPreparedGridPromiseMeta = null;
+      if (!previous.chatFill && devControls.chatFill) {
+        fillDevChat(room, 80);
+      } else if (previous.chatFill && !devControls.chatFill) {
+        clearDevChat(room);
+      }
+      emitMedals(room);
+    }
+    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
+  });
+
+  socket.on("dev:chat:fill", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const count = fillDevChat(room, payload?.count || 80);
+    cb?.({ ok: true, count });
+  });
+
+  socket.on("dev:chat:clear", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const count = clearDevChat(room);
+    cb?.({ ok: true, count });
+  });
+
+  socket.on("dev:bots:list", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    cb?.({
+      ok: true,
+      roomId: room.id,
+      bots:
+        typeof botManager?.listBotsForRoom === "function"
+          ? botManager.listBotsForRoom(room)
+          : [],
+    });
+  });
+
+  socket.on("dev:bots:set", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const nick = typeof payload?.nick === "string" ? payload.nick.trim() : "";
+    const active = !!payload?.active;
+    const duration = typeof payload?.duration === "string" ? payload.duration : "rounds:3";
+    const result =
+      typeof botManager?.setBotActive === "function"
+        ? botManager.setBotActive(room, nick, active, duration)
+        : { ok: false, error: "bots_unavailable" };
+    cb?.({
+      ...result,
+      roomId: room.id,
+      bots:
+        typeof botManager?.listBotsForRoom === "function"
+          ? botManager.listBotsForRoom(room)
+          : [],
+    });
+  });
+
+  socket.on("moderation:state", (payload, cb) => {
+    const account = requireModerationAccess(socket, cb);
+    if (!account) return;
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room", ...buildModerationPayload(socket) });
+      return;
+    }
+    cb?.({
+      ok: true,
+      ...buildModerationPayload(socket),
+      roomId: room.id,
+      players: listModerationPlayers(room),
+    });
+  });
+
+  socket.on("moderation:action", (payload, cb) => {
+    const moderator = requireModerationAccess(socket, cb);
+    if (!moderator) return;
+    const action = typeof payload?.action === "string" ? payload.action.trim() : "";
+    if (action !== "kick" && action !== "ban_5m") {
+      cb?.({ ok: false, error: "invalid_action", ...buildModerationPayload(socket) });
+      return;
+    }
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room", ...buildModerationPayload(socket) });
+      return;
+    }
+    const target = findModerationTarget(room, payload || {});
+    if (!target?.player) {
+      cb?.({
+        ok: false,
+        error: "target_not_found",
+        ...buildModerationPayload(socket),
+        players: listModerationPlayers(room),
+      });
+      return;
+    }
+    const moderatorIdentity = getSocketPlayerIdentity(socket);
+    const targetUserId = Number.isInteger(Number(target.player?.userId))
+      ? Number(target.player.userId)
+      : null;
+    const targetInstallId = normalizeInstallId(target.player?.installId || "");
+    if (
+      (targetUserId && Number(moderatorIdentity?.userId) === targetUserId) ||
+      (targetInstallId && normalizeInstallId(moderatorIdentity?.installId || "") === targetInstallId)
+    ) {
+      cb?.({ ok: false, error: "cannot_target_self", ...buildModerationPayload(socket) });
+      return;
+    }
+    const now = Date.now();
+    const until = action === "ban_5m" ? now + MODERATION_BAN_5_MIN_MS : null;
+    if (until) {
+      if (targetInstallId) {
+        moderationInstallBans.set(targetInstallId, {
+          expiresAt: until,
+          action,
+          moderator: moderator.label || "",
+          targetNick: target.player.nick || "",
+        });
+      }
+      if (targetUserId) {
+        moderationUserBans.set(String(targetUserId), {
+          expiresAt: until,
+          action,
+          moderator: moderator.label || "",
+          targetNick: target.player.nick || "",
+        });
+      }
+    }
+    const message =
+      action === "ban_5m"
+        ? "Tu as été exclu du live pendant 5 minutes par modération."
+        : "Tu as été retiré du live par modération.";
+    const notice = {
+      action,
+      roomId: room.id,
+      message,
+      until,
+      durationMs: until ? MODERATION_BAN_5_MIN_MS : null,
+      targetNick: target.player.nick || "",
+    };
+    appendModerationLog({
+      t: now,
+      roomId: room.id,
+      action,
+      moderatorUserId: moderator.userId || null,
+      moderator: moderator.label || "",
+      targetSocketId: target.socketId,
+      targetUserId,
+      targetInstallId,
+      targetNick: target.player.nick || "",
+      until,
+      ip: getClientIpFromSocket(socket),
+    });
+    removeSocketPlayerFromRoom(room, target.socketId, notice);
+    cb?.({
+      ok: true,
+      ...buildModerationPayload(socket),
+      roomId: room.id,
+      action,
+      targetNick: target.player.nick || "",
+      until,
+      players: listModerationPlayers(room),
+    });
   });
 
   socket.on("reportMessage", (payload, cb) => {

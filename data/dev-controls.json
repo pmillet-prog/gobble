@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "updatedAt": 1778687511904,
+  "controls": {
+    "enabled": true,
+    "forcedRoundType": "",
+    "botMedals": false,
+    "chatFill": false,
+    "botChat": false,
+    "botReactions": false
+  }
+}

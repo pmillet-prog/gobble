@@ -58,6 +58,7 @@ function DesktopChatPanel({
         actionsRef?.current?.setActiveArea?.("chat");
         const target = event.target instanceof HTMLElement ? event.target : null;
         if (target?.closest("button, a, input, textarea, select, label")) return;
+        actionsRef?.current?.prepareDesktopChatInputFocus?.();
         actionsRef?.current?.focusChatInput?.();
       }}
     >
@@ -546,6 +547,9 @@ function DesktopChatPanel({
               data-autofill="off"
               aria-autocomplete="none"
               aria-label="Message du chat"
+              onPointerDownCapture={() =>
+                actionsRef?.current?.prepareDesktopChatInputFocus?.()
+              }
               onFocus={() => actionsRef?.current?.handleChatInputFocus?.()}
               readOnly={chatInputDisabled}
               aria-disabled={chatInputDisabled}

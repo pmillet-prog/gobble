@@ -10,10 +10,12 @@ export const FAKE_TWINS_TYPE = "fake_twins";
 export const FAKE_TWINS_MIN_WORD_LENGTH = 4;
 export const FAKE_TWINS_WORD_BONUS = 50;
 export const FAKE_TWINS_COMPLETION_BONUS = 500;
-export const FAKE_TWINS_MIN_WORDS = 15;
-export const FAKE_TWINS_MAX_WORDS = 25;
+export const FAKE_TWINS_MIN_WORDS = 10;
+export const FAKE_TWINS_MAX_WORDS = 20;
 export const FAKE_TWINS_MIN_SIDE_WORD_RATIO = 0.2;
-const FAKE_TWINS_MIN_PRIMARY_WORDS = 10;
+const FAKE_TWINS_MIN_PRIMARY_WORDS = 3;
+const FAKE_TWINS_PREFERRED_MAX_PRIMARY_WORDS = 12;
+const FAKE_TWINS_RARE_LETTERS = new Set(["k", "w", "x", "y", "z"]);
 
 export const LETTER_BAG =
   "EEEEEEAAAAAAIIIIIIOOOOONNNNNRRRRRTTTTTLLLLSSSSSSSUUUUDDDDGGBBCCMMFPPHVWYKJXQZ";
@@ -752,10 +754,27 @@ export function findBestMovableBonusWord(board, wordsIterable) {
 }
 
 function collectCandidateAltLetters(rand, maxLetters = FAKE_TWINS_LETTER_POOL.length) {
-  return shuffleCopy(FAKE_TWINS_LETTER_POOL, rand).slice(
+  const shuffled = shuffleCopy(FAKE_TWINS_LETTER_POOL, rand);
+  const common = [];
+  const rare = [];
+  shuffled.forEach((letter) => {
+    const key = normalizeLetterKey(letter);
+    if (FAKE_TWINS_RARE_LETTERS.has(key)) rare.push(letter);
+    else common.push(letter);
+  });
+  return [...common, ...rare].slice(
     0,
     Math.max(1, Math.trunc(maxLetters || FAKE_TWINS_LETTER_POOL.length))
   );
+}
+
+function getFakeTwinsLetterPenalty(primaryLetter, altLetter) {
+  const primary = normalizeLetterKey(primaryLetter);
+  const alt = normalizeLetterKey(altLetter);
+  let penalty = 0;
+  if (FAKE_TWINS_RARE_LETTERS.has(primary)) penalty += 250;
+  if (FAKE_TWINS_RARE_LETTERS.has(alt)) penalty += 350;
+  return penalty;
 }
 
 function collectCandidateTwinIndices(
@@ -767,17 +786,30 @@ function collectCandidateTwinIndices(
 ) {
   const preferred = [];
   const fallback = [];
+  const overflow = [];
+  const preferredMax = Math.min(maxWords, FAKE_TWINS_PREFERRED_MAX_PRIMARY_WORDS);
   for (let idx = 0; idx < baseGrid.length; idx += 1) {
     const letter = normalizeLetterKey(baseGrid?.[idx]?.letter);
     if (!letter || letter === "qu") continue;
     const baseCount = (wordsByIndex.get(idx) || []).length;
-    if (baseCount >= FAKE_TWINS_MIN_PRIMARY_WORDS && baseCount <= maxWords) {
+    const isRarePrimary = FAKE_TWINS_RARE_LETTERS.has(letter);
+    if (
+      !isRarePrimary &&
+      baseCount >= FAKE_TWINS_MIN_PRIMARY_WORDS &&
+      baseCount <= preferredMax
+    ) {
       preferred.push(idx);
-    } else if (baseCount > 0) {
+    } else if (baseCount > 0 && baseCount <= maxWords) {
       fallback.push(idx);
+    } else if (baseCount > 0) {
+      overflow.push(idx);
     }
   }
-  const shuffled = shuffleCopy(preferred.length ? preferred : fallback, rand);
+  const shuffled = [
+    ...shuffleCopy(preferred, rand),
+    ...shuffleCopy(fallback, rand),
+    ...shuffleCopy(overflow, rand),
+  ];
   const limit =
     maxCandidates == null
       ? shuffled.length
@@ -794,14 +826,16 @@ function summarizeFakeTwinsCandidate(
 ) {
   const fakeTwinWords = Math.max(0, Number(primaryLetterWords) || 0) + Math.max(0, Number(altLetterWords) || 0);
   const minWords = Math.min(FAKE_TWINS_MIN_WORDS, maxWords);
+  const targetMid = (minWords + maxWords) / 2;
   const minSideWords =
     fakeTwinWords > 0 ? Math.ceil(fakeTwinWords * FAKE_TWINS_MIN_SIDE_WORD_RATIO) : 0;
   const sidesUsed = primaryLetterWords > 0 && altLetterWords > 0;
   const balanced = sidesUsed && Math.min(primaryLetterWords, altLetterWords) >= minSideWords;
   const withinWordTarget = fakeTwinWords >= minWords && fakeTwinWords <= maxWords;
   const targetScore =
-    Math.min(fakeTwinWords, maxWords) * 100 +
-    Math.min(primaryLetterWords, altLetterWords) * 25 -
+    (withinWordTarget ? 2000 : 0) -
+    Math.abs(fakeTwinWords - targetMid) * 120 +
+    Math.min(primaryLetterWords, altLetterWords) * 35 -
     Math.max(0, minWords - fakeTwinWords) * 500 -
     Math.max(0, fakeTwinWords - maxWords) * 1000 -
     Math.max(0, minSideWords - Math.min(primaryLetterWords, altLetterWords)) * 400 -
@@ -861,9 +895,11 @@ function summarizeSolvedFakeTwinsWords(solved, baseSolvedKeys, grid) {
   const balanced = sidesUsed && Math.min(primaryLetterWords, altLetterWords) >= minSideWords;
   const withinWordTarget =
     fakeTwinWords >= FAKE_TWINS_MIN_WORDS && fakeTwinWords <= FAKE_TWINS_MAX_WORDS;
+  const targetMid = (FAKE_TWINS_MIN_WORDS + FAKE_TWINS_MAX_WORDS) / 2;
   const targetScore =
-    Math.min(fakeTwinWords, FAKE_TWINS_MAX_WORDS) * 100 +
-    Math.min(primaryLetterWords, altLetterWords) * 25 -
+    (withinWordTarget ? 2000 : 0) -
+    Math.abs(fakeTwinWords - targetMid) * 120 +
+    Math.min(primaryLetterWords, altLetterWords) * 35 -
     Math.max(0, FAKE_TWINS_MIN_WORDS - fakeTwinWords) * 500 -
     Math.max(0, fakeTwinWords - FAKE_TWINS_MAX_WORDS) * 1000 -
     Math.max(0, minSideWords - Math.min(primaryLetterWords, altLetterWords)) * 400 -
@@ -973,6 +1009,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
         }
       }
       const summary = summarizeFakeTwinsCandidate(primaryLetterWords, altOnlyWords, maxWords);
+      const letterPenalty = getFakeTwinsLetterPenalty(primary, altLetter);
       const candidate = {
         twinIndex: idx,
         altLetter,
@@ -988,7 +1025,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
         balanced: summary.balanced,
         withinWordTarget: summary.withinWordTarget,
         meetsTwinWordTarget: summary.meetsTarget,
-        targetScore: summary.targetScore,
+        targetScore: summary.targetScore - letterPenalty,
       };
       if (candidate.meetsTwinWordTarget) {
         const grid = cloneGridWithFakeTwinsCell(sourceGrid, idx, altLetter);
@@ -1011,7 +1048,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
           balanced: resolvedSummary.balanced,
           withinWordTarget: resolvedSummary.withinWordTarget,
           meetsTwinWordTarget: resolvedSummary.meetsTarget,
-          targetScore: resolvedSummary.targetScore,
+          targetScore: resolvedSummary.targetScore - letterPenalty,
         };
         if (resolvedCandidate.meetsTwinWordTarget) {
           return resolvedCandidate;

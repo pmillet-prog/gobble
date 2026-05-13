@@ -378,6 +378,7 @@ function RankingWidgetMobile({
   const lastAnimatedTickRef = React.useRef(-1);
   const [rowPx, setRowPx] = React.useState(null);
   const [rowsCount, setRowsCount] = React.useState(5);
+  const [containerWidthPx, setContainerWidthPx] = React.useState(null);
   const WHEEL_ROWS = 5;
   const BASE_ROW_PX = 26;
   const BASE_RING_SIZE = 40;
@@ -398,6 +399,29 @@ function RankingWidgetMobile({
         .join("|"),
     [safeRanking]
   );
+
+  React.useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return undefined;
+
+    const computeWidth = () => {
+      const width = Math.round(node.clientWidth || 0);
+      if (!width) return;
+      setContainerWidthPx((prev) => (Math.abs((prev || 0) - width) >= 2 ? width : prev));
+    };
+
+    computeWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      if (typeof window === "undefined") return undefined;
+      window.addEventListener("resize", computeWidth);
+      return () => window.removeEventListener("resize", computeWidth);
+    }
+
+    const ro = new ResizeObserver(computeWidth);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
 
   React.useEffect(() => {
     if (!fitHeight || expanded) {
@@ -658,6 +682,24 @@ function RankingWidgetMobile({
   const extendedDivider = darkMode ? "border-slate-700/40" : "border-slate-200/40";
   const extendedSelfColor = darkMode ? "text-sky-300" : "text-sky-700";
   const extendedOtherColor = normalTextColor;
+  const flatCompactScale =
+    expanded && containerWidthPx
+      ? clampValue(containerWidthPx / 260, 0.78, 1)
+      : 1;
+  const flatIsCompact = flatCompactScale < 0.98;
+  const flatFontPx = Math.round(11 * flatCompactScale * 10) / 10;
+  const flatSecondaryFontPx = Math.round(10 * flatCompactScale * 10) / 10;
+  const flatBadgeFontPx = Math.round(8 * flatCompactScale * 10) / 10;
+  const flatTextStyle = flatIsCompact ? { fontSize: `${flatFontPx}px` } : undefined;
+  const flatSecondaryTextStyle = flatIsCompact
+    ? { fontSize: `${flatSecondaryFontPx}px` }
+    : undefined;
+  const flatBadgeStyle = flatIsCompact ? { fontSize: `${flatBadgeFontPx}px` } : undefined;
+  const flatRowPaddingClass = flatIsCompact ? "px-1.5 py-[2px]" : "px-2 py-[3px]";
+  const flatMainGapClass = flatIsCompact ? "gap-1.5" : "gap-2";
+  const flatScoreClass = flatIsCompact
+    ? "ml-1 shrink-0 max-w-[43%] text-right tabular-nums opacity-80 font-bold"
+    : "ml-2 shrink-0 max-w-[45%] text-right tabular-nums text-[11px] opacity-80 font-bold";
   const containerClass =
     containerBase +
     " " +
@@ -719,6 +761,7 @@ function RankingWidgetMobile({
         " " +
         extendedBorder
       }
+      style={flatTextStyle}
     >
       {safeRanking.map((entry, index) => {
         const rowKey = String(entry?.playerKey || entry?.nick || `row-${index}`);
@@ -827,7 +870,7 @@ function RankingWidgetMobile({
           (typeof isPlayerNickClickable === "function"
             ? !!isPlayerNickClickable(entry)
             : true);
-        const shouldStackNickDecorations = stackNickDecorations && expanded && !showWheel;
+        const shouldStackNickDecorations = stackNickDecorations && expanded;
         const nickDecorations = showNickDecorations && renderNickSuffix
           ? renderNickSuffix(entry.nick, entry)
           : null;
@@ -852,7 +895,9 @@ function RankingWidgetMobile({
               else rowRefs.current.delete(rowKey);
             }}
             className={
-              "flex items-start justify-between px-2 py-[3px] border-b last:border-b-0 rounded " +
+              "flex items-start justify-between " +
+              flatRowPaddingClass +
+              " border-b last:border-b-0 rounded " +
               extendedDivider +
               " " +
               rowColor +
@@ -876,9 +921,9 @@ function RankingWidgetMobile({
                 : undefined
             }
           >
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <div className="flex items-baseline gap-2 min-w-0">
-                <span className="tabular-nums text-[11px] opacity-80 inline-flex items-baseline gap-1">
+            <div className="flex flex-1 flex-col gap-0.5 min-w-0 pr-1">
+              <div className={`flex items-baseline ${flatMainGapClass} min-w-0`}>
+                <span className="tabular-nums opacity-80 inline-flex items-baseline gap-1" style={flatTextStyle}>
                   <span>{rank}</span>
                   {renderAfterRank ? (
                     <span className="inline-flex">{renderAfterRank(entry, rank)}</span>
@@ -891,9 +936,12 @@ function RankingWidgetMobile({
                         {entry.nick}
                       </span>
                       {hasSecondaryNickLine ? (
-                        <span className="min-w-0 flex flex-wrap items-center gap-1 text-[10px] leading-tight opacity-90">
-                          {nickDecorations ? <span className="-ml-1">{nickDecorations}</span> : null}
-                          {gobbleWordBadges ? <span className="-ml-1">{gobbleWordBadges}</span> : null}
+                        <span
+                          className="min-w-0 max-w-full flex flex-wrap items-center gap-1 leading-tight opacity-90"
+                          style={flatSecondaryTextStyle}
+                        >
+                          {nickDecorations ? <span className="min-w-0 max-w-full overflow-hidden">{nickDecorations}</span> : null}
+                          {gobbleWordBadges ? <span className="min-w-0 max-w-full overflow-hidden">{gobbleWordBadges}</span> : null}
                         </span>
                       ) : null}
                     </span>
@@ -911,7 +959,8 @@ function RankingWidgetMobile({
               {recordBadgeItems.length ? (
                 <div className="flex items-center">
                   <span
-                    className="record-rainbow rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest"
+                    className="record-rainbow rounded-full px-2 py-0.5 font-extrabold uppercase tracking-widest"
+                    style={flatBadgeStyle}
                     aria-label={`Nouveau record ${recordBadgeItems.length} categories`}
                     title="Nouveau record"
                   >
@@ -920,7 +969,7 @@ function RankingWidgetMobile({
                 </div>
               ) : null}
             </div>
-            <span className="tabular-nums text-[11px] opacity-80 font-bold">
+            <span className={flatScoreClass} style={flatTextStyle}>
               {scoreContent}
             </span>
           </div>

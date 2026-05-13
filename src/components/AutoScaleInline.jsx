@@ -10,6 +10,7 @@ export default function AutoScaleInline({
   const viewportRef = React.useRef(null);
   const lineRef = React.useRef(null);
   const [scale, setScale] = React.useState(1);
+  const [lineWidth, setLineWidth] = React.useState(0);
 
   React.useEffect(() => {
     const viewportEl = viewportRef.current;
@@ -20,6 +21,7 @@ export default function AutoScaleInline({
     const recomputeScale = () => {
       const viewportWidth = viewportEl.clientWidth || 0;
       const lineWidth = lineEl.scrollWidth || 0;
+      setLineWidth((prev) => (Math.abs(prev - lineWidth) > 0.5 ? lineWidth : prev));
       if (viewportWidth <= 0 || lineWidth <= 0) {
         setScale(1);
         return;
@@ -28,7 +30,7 @@ export default function AutoScaleInline({
       const effectiveViewportWidth = Math.max(0, viewportWidth - safeMeasurePadding * 2);
       const ratio = effectiveViewportWidth / lineWidth;
       const nextScale = Number.isFinite(ratio)
-        ? Math.max(Math.min(1, ratio), Math.max(0.45, Number(minScale) || 0.62))
+        ? Math.max(Math.min(1, ratio), Math.max(0.25, Number(minScale) || 0.62))
         : 1;
       setScale((prev) => (Math.abs(prev - nextScale) > 0.01 ? nextScale : prev));
     };
@@ -50,6 +52,7 @@ export default function AutoScaleInline({
     if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(scheduleRecompute);
       observer.observe(viewportEl);
+      observer.observe(lineEl);
     } else if (typeof window !== "undefined") {
       window.addEventListener("resize", scheduleRecompute);
     }
@@ -66,20 +69,38 @@ export default function AutoScaleInline({
   }, [children, measurePaddingPx, minScale]);
 
   const justifyClass = align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
-  const transformOrigin =
-    align === "left" ? "left top" : align === "right" ? "right top" : "center top";
+  const safeMeasurePadding = Math.max(0, Number(measurePaddingPx) || 0);
+  const scaledLineWidth = lineWidth > 0 ? Math.ceil(lineWidth * scale) : null;
 
   return (
-    <div ref={viewportRef} className={`w-full overflow-hidden flex ${justifyClass}`}>
+    <div
+      ref={viewportRef}
+      className={`w-full overflow-hidden flex ${justifyClass}`}
+      style={
+        safeMeasurePadding
+          ? {
+              boxSizing: "border-box",
+              paddingLeft: `${safeMeasurePadding}px`,
+              paddingRight: `${safeMeasurePadding}px`,
+            }
+          : undefined
+      }
+    >
       <div
-        ref={lineRef}
-        className={`inline-flex items-center justify-center whitespace-nowrap ${className}`}
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin,
-        }}
+        className="flex-none overflow-visible"
+        style={scaledLineWidth ? { width: `${scaledLineWidth}px` } : undefined}
       >
-        {children}
+        <div
+          ref={lineRef}
+          className={`inline-flex items-center justify-center whitespace-nowrap ${className}`}
+          style={{
+            maxWidth: "none",
+            transform: `scale(${scale})`,
+            transformOrigin: "left center",
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
