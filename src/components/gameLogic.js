@@ -1,3 +1,4 @@
+export const OCID_TYPE = "ocid";
 export const FAKE_TWINS_TYPE = "fake_twins";
 export const FAKE_TWINS_MIN_WORD_LENGTH = 4;
 export const FAKE_TWINS_WORD_BONUS = 50;

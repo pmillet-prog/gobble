@@ -13,6 +13,7 @@ import {
   FAKE_TWINS_COMPLETION_BONUS,
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
+  OCID_TYPE,
   buildPathWordVariants,
   generateGrid,
   MOVABLE_BONUS_KEYS,
@@ -392,6 +393,12 @@ function sanitizePreparedSolutions(rawSolutions) {
         pts: Number.isFinite(entry?.pts) ? entry.pts : 0,
         path: Array.isArray(entry?.path) ? entry.path : [],
         usedFakeTwins: !!entry?.usedFakeTwins,
+        rareBonusWord: !!entry?.rareBonusWord,
+        rareBonusPoints: Number.isFinite(entry?.rareBonusPoints) ? entry.rareBonusPoints : 0,
+        rarityBucket: typeof entry?.rarityBucket === "string" ? entry.rarityBucket : "",
+        rarityScore: Number.isFinite(entry?.rarityScore) ? entry.rarityScore : 0,
+        fakeTwinsCompletionWord: !!entry?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!entry?.fakeTwinsBonusOnly,
         fakeTwinsTwinIndex: Number.isInteger(entry?.fakeTwinsTwinIndex)
           ? entry.fakeTwinsTwinIndex
           : null,
@@ -400,6 +407,50 @@ function sanitizePreparedSolutions(rawSolutions) {
       };
     })
     .filter(Boolean);
+}
+
+function findPreparedSolutionMeta(round, word) {
+  const norm = normalizeWord(word);
+  if (!norm || !Array.isArray(round?.solutions)) return null;
+  return round.solutions.find((entry) => normalizeWord(entry?.word || "") === norm) || null;
+}
+
+function buildFakeTwinsSubmittedWordMeta(round, word, scored) {
+  const prepared = findPreparedSolutionMeta(round, word);
+  const usedFakeTwins = !!(scored?.usedFakeTwins || prepared?.usedFakeTwins);
+  const hasPreparedCompletionFlag =
+    prepared && Object.prototype.hasOwnProperty.call(prepared, "fakeTwinsCompletionWord");
+  const fakeTwinsCompletionWord =
+    usedFakeTwins && (hasPreparedCompletionFlag ? !!prepared.fakeTwinsCompletionWord : true);
+  return {
+    usedFakeTwins,
+    fakeTwinsCompletionWord,
+    fakeTwinsBonusOnly: usedFakeTwins && !fakeTwinsCompletionWord,
+  };
+}
+
+function shouldApplyRareWordBonus(round) {
+  const type = String(round?.special?.type || "");
+  return type !== "target_long" && type !== "target_score" && type !== OCID_TYPE && type !== SELF_SPECIAL_3_WORDS_TYPE;
+}
+
+function buildRareBonusSubmittedWordMeta(round, word) {
+  if (!shouldApplyRareWordBonus(round)) {
+    return { rareBonusWord: false, rareBonusPoints: 0, rarityBucket: "", rarityScore: 0 };
+  }
+  const prepared = findPreparedSolutionMeta(round, word);
+  if (!prepared?.rareBonusWord) {
+    return { rareBonusWord: false, rareBonusPoints: 0, rarityBucket: "", rarityScore: 0 };
+  }
+  const points = Number.isFinite(prepared.rareBonusPoints)
+    ? Math.max(0, Math.trunc(prepared.rareBonusPoints))
+    : RARE_WORD_BONUS_POINTS;
+  return {
+    rareBonusWord: true,
+    rareBonusPoints: points || RARE_WORD_BONUS_POINTS,
+    rarityBucket: String(prepared.rarityBucket || ""),
+    rarityScore: Number(prepared.rarityScore) || 0,
+  };
 }
 
 app.use((req, res, next) => {
@@ -1284,6 +1335,13 @@ const DEFAULT_MIN_WORDS = 150;
 const SPECIAL_ROUND_EVERY = 5;
 const LIVE_SPECIAL_ROUND_DURATION_MS = 120 * 1000;
 const TARGET_SPECIAL_ROUND_DURATION_MS = 90 * 1000;
+const OCID_PROPOSAL_DURATION_MS = 40 * 1000;
+const OCID_VOTE_DURATION_MS = 20 * 1000;
+const OCID_EXACT_TARGET_POINTS = 1000;
+const OCID_CORRECT_VOTE_POINTS = 600;
+const OCID_VALID_PROPOSAL_POINTS = 100;
+const OCID_BLUFF_VOTE_POINTS = 500;
+const RARE_WORD_BONUS_POINTS = 10;
 const SPEED_MIN_WORDS = 300;
 const SPEED_WORD_SCORE = 11;
 const MONSTROUS_MIN_TOTAL_SCORE = 4000;
@@ -1338,6 +1396,7 @@ const BONUS_LETTER_MIN_WORDS = 30;
 const FUTURE_SPECIAL_BUFFER_TYPES = new Set([
   "monstrous",
   "fake_twins",
+  OCID_TYPE,
   "target_long",
   "target_score",
   "bonus_letter",
@@ -1434,10 +1493,13 @@ const DEV_FORCED_ROUND_TYPES = new Set([
   "target_score",
   "bonus_letter",
   "fake_twins",
+  OCID_TYPE,
 ]);
 const DEFAULT_DEV_CONTROLS = Object.freeze({
   enabled: false,
   forcedRoundType: "",
+  forcedRoundTypes: [],
+  forcedRoundRandom: false,
   botMedals: false,
   chatFill: false,
   botChat: false,
@@ -1648,12 +1710,22 @@ function buildModerationBanResponse(ban) {
 
 function normalizeDevControls(raw = {}) {
   const source = raw && typeof raw === "object" ? raw : {};
-  const forcedRoundType = DEV_FORCED_ROUND_TYPES.has(String(source.forcedRoundType || ""))
-    ? String(source.forcedRoundType || "")
-    : "";
+  const rawForcedRoundTypes = Array.isArray(source.forcedRoundTypes)
+    ? source.forcedRoundTypes
+    : [source.forcedRoundType];
+  const forcedRoundTypes = Array.from(
+    new Set(
+      rawForcedRoundTypes
+        .map((entry) => String(entry || ""))
+        .filter((entry) => entry && DEV_FORCED_ROUND_TYPES.has(entry))
+    )
+  );
+  const forcedRoundType = forcedRoundTypes[0] || "";
   return {
     enabled: !!source.enabled,
     forcedRoundType,
+    forcedRoundTypes,
+    forcedRoundRandom: !!source.forcedRoundRandom,
     botMedals: !!source.botMedals,
     chatFill: !!source.chatFill,
     botChat: !!source.botChat,
@@ -1703,26 +1775,19 @@ function isPrivateClientIp(ip) {
 }
 
 function areDevToolsAllowedForSocket(socket) {
-  const accessConfig = getDevAccessConfig();
   const raw = String(process.env.GOBBLE_DEV_TOOLS || "").trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
   const devAccount = getSocketDevAccount(socket);
   if (!devAccount.allowed) return false;
-  if (raw === "1" || raw === "true" || raw === "on" || raw === "yes") return true;
-  if (process.env.NODE_ENV === "production") return !!accessConfig.password;
-  return isPrivateClientIp(getClientIpFromSocket(socket));
+  return true;
 }
 
 function isDevPasswordRequired(socket) {
-  const accessConfig = getDevAccessConfig();
-  if (accessConfig.password) return true;
-  return process.env.NODE_ENV === "production" || !isPrivateClientIp(getClientIpFromSocket(socket));
+  return false;
 }
 
 function hasUnlockedDevTools(socket) {
-  if (!areDevToolsAllowedForSocket(socket)) return false;
-  if (!isDevPasswordRequired(socket)) return true;
-  return socket?.data?.devToolsUnlocked === true;
+  return areDevToolsAllowedForSocket(socket);
 }
 
 function buildDevControlsPayload(socket = null) {
@@ -1751,6 +1816,7 @@ function buildDevControlsPayload(socket = null) {
       { value: "target_score", label: "Meilleur mot" },
       { value: "bonus_letter", label: "Lettre en or" },
       { value: "fake_twins", label: "Faux jumeaux" },
+      { value: OCID_TYPE, label: "OCID" },
     ],
   };
 }
@@ -2629,6 +2695,22 @@ function buildFakeTwinsTournamentPlan(tournamentRound, roomConfig) {
   };
 }
 
+function buildOcidTournamentPlan(tournamentRound, roomConfig) {
+  const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
+  return {
+    ...base,
+    isSpecial: true,
+    type: OCID_TYPE,
+    label: "Manche OCID",
+    description:
+      "Propose un mot qui correspond a la definition. Le vrai mot rare sera dans la liste au vote.",
+    minWords: 200,
+    maxTargetLength: 13,
+    disableBonuses: true,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+  };
+}
+
 function buildSelfSpecial3WordsTournamentPlan(tournamentRound, roomConfig) {
   const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
   return {
@@ -2692,6 +2774,7 @@ function buildTournamentSpecials(roomConfig) {
     { weight: 1, value: (round) => buildTargetScoreTournamentPlan(round, roomConfig) },
     { weight: 1, value: (round) => buildBonusLetterTournamentPlan(round, roomConfig) },
     { weight: 1, value: (round) => buildFakeTwinsTournamentPlan(round, roomConfig) },
+    { weight: 1, value: (round) => buildOcidTournamentPlan(round, roomConfig) },
   ];
   for (const round of TOURNAMENT_SPECIAL_ROUNDS) {
     const pick = pickWeightedItem(weightedFactories);
@@ -2720,14 +2803,35 @@ function createTournamentState(roomConfig) {
 
 function resetTournament(room) {
   room.tournament = createTournamentState(room.config);
+  room.devForcedRoundPickCache = new Map();
   room.bufferedPreparedGrid = null;
   room.bufferedPreparedGridPromise = null;
   room.bufferedPreparedGridPromiseMeta = null;
 }
 
+function pickDevForcedRoundType(room, tournamentRound) {
+  const forcedRoundTypes = Array.isArray(devControls?.forcedRoundTypes)
+    ? devControls.forcedRoundTypes
+    : [];
+  if (!forcedRoundTypes.length) return devControls.forcedRoundType || "";
+  if (!devControls?.forcedRoundRandom || forcedRoundTypes.length < 2) {
+    return forcedRoundTypes[(Math.max(1, Number(tournamentRound) || 1) - 1) % forcedRoundTypes.length];
+  }
+  if (!(room.devForcedRoundPickCache instanceof Map)) {
+    room.devForcedRoundPickCache = new Map();
+  }
+  const cacheKey = `${forcedRoundTypes.join("|")}#${Math.max(1, Number(tournamentRound) || 1)}`;
+  const cached = room.devForcedRoundPickCache.get(cacheKey);
+  if (cached && forcedRoundTypes.includes(cached)) return cached;
+  const picked = forcedRoundTypes[Math.floor(Math.random() * forcedRoundTypes.length)] || "";
+  room.devForcedRoundPickCache.set(cacheKey, picked);
+  return picked;
+}
+
 function getTournamentRoundPlan(room, tournamentRound) {
   if (isDevControlsActive()) {
-    switch (devControls.forcedRoundType) {
+    const forcedRoundType = pickDevForcedRoundType(room, tournamentRound);
+    switch (forcedRoundType) {
       case "normal":
         return buildBaseTournamentPlan(tournamentRound, room.config);
       case SELF_SPECIAL_3_WORDS_TYPE:
@@ -2744,6 +2848,8 @@ function getTournamentRoundPlan(room, tournamentRound) {
         return buildBonusLetterTournamentPlan(tournamentRound, room.config);
       case FAKE_TWINS_TYPE:
         return buildFakeTwinsTournamentPlan(tournamentRound, room.config);
+      case OCID_TYPE:
+        return buildOcidTournamentPlan(tournamentRound, room.config);
       default:
         break;
     }
@@ -3142,7 +3248,9 @@ function isRoundActive(round) {
 
 function buildRoundSubmissionSolutions(round) {
   if (!round || !dictionary) return [];
-  if (round.special?.type === SELF_SPECIAL_3_WORDS_TYPE) return [];
+  if (round.special?.type === SELF_SPECIAL_3_WORDS_TYPE || round.special?.type === OCID_TYPE) {
+    return [];
+  }
   const isTargetRound =
     round.special?.type === "target_long" || round.special?.type === "target_score";
   if (isTargetRound) {
@@ -3176,11 +3284,17 @@ function buildRoundSubmissionSolutions(round) {
         : Number.isFinite(entry.pts)
         ? entry.pts
         : 0;
+      const rareMeta = buildRareBonusSubmittedWordMeta(round, entry.word);
       return {
         ...entry,
-        pts: computeWordScoreForRound(round, entry.word, finalPath, basePts),
+        pts:
+          computeWordScoreForRound(round, entry.word, finalPath, basePts) +
+          (Number(rareMeta.rareBonusPoints) || 0),
         path: finalPath,
         usedFakeTwins: !!(rescored?.usedFakeTwins || entry.usedFakeTwins),
+        ...rareMeta,
+        fakeTwinsCompletionWord: !!entry.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!entry.fakeTwinsBonusOnly,
       };
     });
   }
@@ -3197,11 +3311,15 @@ function buildRoundSubmissionSolutions(round) {
   return Array.from(solved.entries()).map(([word, meta]) => {
     const path = Array.isArray(meta?.path) ? meta.path : [];
     const basePts = Number.isFinite(meta?.pts) ? meta.pts : 0;
+    const rareMeta = buildRareBonusSubmittedWordMeta(round, word);
     return {
       word,
-      pts: computeWordScoreForRound(round, word, path, basePts),
+      pts: computeWordScoreForRound(round, word, path, basePts) + (Number(rareMeta.rareBonusPoints) || 0),
       path,
       usedFakeTwins: !!meta?.usedFakeTwins,
+      ...rareMeta,
+      fakeTwinsCompletionWord: !!meta?.fakeTwinsCompletionWord,
+      fakeTwinsBonusOnly: !!meta?.fakeTwinsBonusOnly,
       fakeTwinsTwinIndex:
         Number.isInteger(meta?.fakeTwinsTwinIndex) ? meta.fakeTwinsTwinIndex : null,
       fakeTwinsResolvedLetter: meta?.fakeTwinsResolvedLetter ?? null,
@@ -3243,6 +3361,10 @@ function buildRoundStartedPayload(room) {
     targetHintScheduleMs: Array.isArray(round.targetHintScheduleMs)
       ? round.targetHintScheduleMs
       : [],
+    ocidVote:
+      round.special?.type === OCID_TYPE && round.status === "ocid_vote"
+        ? buildPublicOcidVotePayload(room)
+        : null,
     solutions: buildRoundSubmissionSolutions(round),
     special: round.special?.isSpecial ? round.special : null,
     gridQuality: currentQuality
@@ -4240,6 +4362,304 @@ function computeWordScoreForRound(round, norm, path, defaultPts) {
   return defaultPts;
 }
 
+function sanitizeOcidProposalWord(rawWord) {
+  const display = String(rawWord || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 32);
+  const normalized = normalizeWord(display);
+  if (!display || !normalized) return null;
+  if (normalized.length < 2 || normalized.length > 24) return null;
+  return { display, normalized };
+}
+
+function shuffleOcidOptions(options) {
+  const out = Array.isArray(options) ? [...options] : [];
+  for (let idx = out.length - 1; idx > 0; idx -= 1) {
+    const swapIdx = Math.floor(Math.random() * (idx + 1));
+    [out[idx], out[swapIdx]] = [out[swapIdx], out[idx]];
+  }
+  return out;
+}
+
+function buildOcidVoteOptions(round) {
+  if (!round || round.special?.type !== OCID_TYPE) return [];
+  if (Array.isArray(round.ocidOptions) && round.ocidOptions.length) return round.ocidOptions;
+  const targetNorm = normalizeWord(round.targetWord || "");
+  const byNorm = new Map();
+  const targetDisplay = String(round.targetWord || "").trim().toUpperCase();
+  if (targetNorm) {
+    byNorm.set(targetNorm, {
+      id: `ocid-target-${targetNorm}`,
+      word: targetNorm,
+      display: targetDisplay || targetNorm.toUpperCase(),
+      isTarget: true,
+      authors: [],
+    });
+  }
+  const proposals =
+    round.ocidProposals instanceof Map ? Array.from(round.ocidProposals.entries()) : [];
+  for (const [nick, proposal] of proposals) {
+    const normalized = normalizeWord(proposal?.normalized || proposal?.display || "");
+    if (!normalized || normalized === targetNorm) continue;
+    const existing = byNorm.get(normalized) || {
+      id: `ocid-${normalized}`,
+      word: normalized,
+      display: (String(proposal?.display || normalized).trim() || normalized).toUpperCase(),
+      isTarget: false,
+      authors: [],
+    };
+    if (!existing.authors.includes(nick)) existing.authors.push(nick);
+    byNorm.set(normalized, existing);
+  }
+  const options = shuffleOcidOptions(Array.from(byNorm.values())).map((option, idx) => ({
+    ...option,
+    id: `ocid-option-${idx}-${option.word}`,
+  }));
+  round.ocidOptions = options;
+  return options;
+}
+
+function buildPublicOcidVotePayload(room) {
+  const round = room?.currentRound;
+  if (!round || round.special?.type !== OCID_TYPE) return null;
+  const options = buildOcidVoteOptions(round);
+  const voteCounts = new Map();
+  if (round.ocidVotes instanceof Map) {
+    for (const optionId of round.ocidVotes.values()) {
+      voteCounts.set(optionId, (voteCounts.get(optionId) || 0) + 1);
+    }
+  }
+  return {
+    roomId: room.id,
+    roundId: round.id,
+    voteEndsAt: round.ocidVoteEndsAt || round.endsAt || null,
+    definition: round.special?.ocidDefinition || "",
+    optionCount: options.length,
+    options: options.map((option) => ({
+      id: option.id,
+      display: option.display,
+      voteCount: Number(voteCounts.get(option.id)) || 0,
+    })),
+  };
+}
+
+function clearOcidProposalForNick(room, { roundId, nick }) {
+  const round = room?.currentRound;
+  if (!room || !round || round.id !== roundId || round.special?.type !== OCID_TYPE) {
+    return { ok: false, error: "invalid_round" };
+  }
+  if (round.status !== "running") {
+    return { ok: false, error: "proposal_closed" };
+  }
+  if (!(round.ocidProposals instanceof Map)) round.ocidProposals = new Map();
+  round.ocidProposals.delete(nick);
+  return { ok: true };
+}
+
+function submitOcidProposalForNick(room, { roundId, nick, word, path = [] }) {
+  const round = room?.currentRound;
+  if (!room || !round || round.id !== roundId || round.special?.type !== OCID_TYPE) {
+    return { ok: false, error: "invalid_round" };
+  }
+  if (round.status !== "running") {
+    return { ok: false, error: "proposal_closed" };
+  }
+  const player = Array.from(room.players.values()).find((entry) => entry?.nick === nick);
+  if (!player) {
+    return { ok: false, error: "not_logged_in" };
+  }
+  const proposal = sanitizeOcidProposalWord(word);
+  if (!proposal) {
+    if (round.ocidProposals instanceof Map) round.ocidProposals.delete(nick);
+    return { ok: false, error: "invalid_word" };
+  }
+  const submittedPath = Array.isArray(path)
+    ? path.map((idx) => Number(idx)).filter((idx) => Number.isInteger(idx) && idx >= 0)
+    : [];
+  let scored =
+    submittedPath.length === path?.length
+      ? scoreWordOnGridWithPath(proposal.normalized, round.grid, submittedPath, null)
+      : null;
+  if (!scored?.path) {
+    const fallbackPath = findBestPathForWord(round.grid, proposal.normalized, null);
+    scored = Array.isArray(fallbackPath)
+      ? scoreWordOnGridWithPath(proposal.normalized, round.grid, fallbackPath, null)
+      : null;
+  }
+  if (!scored?.path) {
+    if (round.ocidProposals instanceof Map) round.ocidProposals.delete(nick);
+    return { ok: false, error: "not_traceable" };
+  }
+  if (!(round.ocidProposals instanceof Map)) round.ocidProposals = new Map();
+  round.ocidProposals.set(nick, {
+    ...proposal,
+    display: String(proposal.display || proposal.normalized || "").toUpperCase(),
+    path: scored.path,
+    submittedAt: Date.now(),
+  });
+  return { ok: true, proposal: proposal.display, active: true };
+}
+
+function submitOcidVoteForNick(room, { roundId, nick, optionId }) {
+  const round = room?.currentRound;
+  if (!room || !round || round.id !== roundId || round.special?.type !== OCID_TYPE) {
+    return { ok: false, error: "invalid_round" };
+  }
+  if (round.status !== "ocid_vote") {
+    return { ok: false, error: "vote_closed" };
+  }
+  const player = Array.from(room.players.values()).find((entry) => entry?.nick === nick);
+  if (!player) {
+    return { ok: false, error: "not_logged_in" };
+  }
+  const selectedOptionId = String(optionId || "");
+  const options = buildOcidVoteOptions(round);
+  const selectedOption = options.find((option) => option.id === selectedOptionId);
+  if (!selectedOption) {
+    return { ok: false, error: "invalid_option" };
+  }
+  if (Array.isArray(selectedOption.authors) && selectedOption.authors.includes(nick)) {
+    return { ok: false, error: "own_proposal" };
+  }
+  if (!(round.ocidVotes instanceof Map)) round.ocidVotes = new Map();
+  round.ocidVotes.set(nick, selectedOptionId);
+  try {
+    io.to(room.id).emit("ocidVoteUpdated", buildPublicOcidVotePayload(room));
+  } catch (_) {}
+  return { ok: true, optionId: selectedOptionId };
+}
+
+function computeOcidRoundResults(room, baseResults) {
+  const round = room?.currentRound;
+  if (!round || round.special?.type !== OCID_TYPE) return null;
+  const options = buildOcidVoteOptions(round);
+  const targetNorm = normalizeWord(round.targetWord || "");
+  const optionsById = new Map(options.map((option) => [option.id, option]));
+  const proposals = round.ocidProposals instanceof Map ? round.ocidProposals : new Map();
+  const votes = round.ocidVotes instanceof Map ? round.ocidVotes : new Map();
+  const scores = new Map();
+  const details = new Map();
+  const ensure = (nick) => {
+    if (!scores.has(nick)) scores.set(nick, 0);
+    if (!details.has(nick)) {
+      details.set(nick, {
+        exactTarget: false,
+        validProposal: false,
+        correctVote: false,
+        bluffVotes: 0,
+        exactTargetPoints: 0,
+        validProposalPoints: 0,
+        correctVotePoints: 0,
+        bluffVotePoints: 0,
+        votersForProposal: [],
+        proposal: proposals.get(nick)?.display || "",
+        vote: "",
+      });
+    }
+    return details.get(nick);
+  };
+
+  for (const [nick, proposal] of proposals.entries()) {
+    const normalized = normalizeWord(proposal?.normalized || proposal?.display || "");
+    const detail = ensure(nick);
+    if (normalized && normalized === targetNorm) {
+      scores.set(nick, (scores.get(nick) || 0) + OCID_EXACT_TARGET_POINTS);
+      detail.exactTarget = true;
+      detail.exactTargetPoints += OCID_EXACT_TARGET_POINTS;
+    } else if (normalized && dictionary?.has?.(normalized)) {
+      scores.set(nick, (scores.get(nick) || 0) + OCID_VALID_PROPOSAL_POINTS);
+      detail.validProposal = true;
+      detail.validProposalPoints += OCID_VALID_PROPOSAL_POINTS;
+    }
+  }
+
+  for (const [nick, optionId] of votes.entries()) {
+    const option = optionsById.get(optionId);
+    if (!option) continue;
+    const detail = ensure(nick);
+    detail.vote = option.display || "";
+    if (option.isTarget) {
+      scores.set(nick, (scores.get(nick) || 0) + OCID_CORRECT_VOTE_POINTS);
+      detail.correctVote = true;
+      detail.correctVotePoints += OCID_CORRECT_VOTE_POINTS;
+      continue;
+    }
+    for (const author of option.authors || []) {
+      if (!author || author === nick) continue;
+      const authorDetail = ensure(author);
+      authorDetail.bluffVotes += 1;
+      if (!authorDetail.votersForProposal.includes(nick)) {
+        authorDetail.votersForProposal.push(nick);
+      }
+      scores.set(author, (scores.get(author) || 0) + OCID_BLUFF_VOTE_POINTS);
+      authorDetail.bluffVotePoints += OCID_BLUFF_VOTE_POINTS;
+    }
+  }
+
+  const byNick = new Map((Array.isArray(baseResults) ? baseResults : []).map((entry) => [entry.nick, entry]));
+  for (const player of room.players.values()) {
+    const connected = isPlayerConnected(player) || isBotToken(player?.token);
+    const hasOcidActivity = proposals.has(player.nick) || votes.has(player.nick);
+    if (!connected && !hasOcidActivity) continue;
+    if (!byNick.has(player.nick)) {
+      byNick.set(player.nick, {
+        nick: player.nick,
+        words: [],
+        wordMeta: {},
+        uniqueWords: [],
+        newVocabWords: [],
+        userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
+        installId: player?.installId || null,
+        team: getTeamForInstallCached(player?.installId),
+        isBot: isBotNick(room, player.nick),
+        isDailyChampion: isDailyChampionInstallId(player?.installId),
+        connected,
+      });
+    }
+  }
+  const results = Array.from(byNick.values()).map((entry) => {
+    const score = Number(scores.get(entry.nick)) || 0;
+    const detail = ensure(entry.nick);
+    return {
+      ...entry,
+      score,
+      participated: !!(detail.proposal || detail.vote || score > 0),
+      ocid: detail,
+    };
+  });
+  results.sort((a, b) => {
+    const diff = (b.score || 0) - (a.score || 0);
+    if (diff !== 0) return diff;
+    return String(a.nick || "").localeCompare(String(b.nick || ""), "fr", { sensitivity: "base" });
+  });
+  return {
+    results,
+    summary: {
+      type: OCID_TYPE,
+      word: round.targetWord || "",
+      definition: round.special?.ocidDefinition || "",
+      definitionSource: round.special?.ocidDefinitionSource || "",
+      definitionUrl: round.special?.ocidDefinitionUrl || "",
+      scoring: {
+        exactTarget: OCID_EXACT_TARGET_POINTS,
+        correctVote: OCID_CORRECT_VOTE_POINTS,
+        validProposal: OCID_VALID_PROPOSAL_POINTS,
+        bluffVote: OCID_BLUFF_VOTE_POINTS,
+      },
+      options: options.map((option) => ({
+        display: option.display,
+        isTarget: !!option.isTarget,
+        authors: Array.isArray(option.authors) ? option.authors : [],
+        voters: Array.from(votes.entries())
+          .filter(([, value]) => value === option.id)
+          .map(([nick]) => nick),
+        voteCount: Array.from(votes.values()).filter((value) => value === option.id).length,
+      })),
+    },
+  };
+}
+
 function buildTargetWordCellMap(word, path, grid) {
   const map = [];
   if (!word || !Array.isArray(path) || !Array.isArray(grid)) return map;
@@ -4494,6 +4914,9 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   const roundSpecialType = room.currentRound?.special?.type;
   const isTargetRound = roundSpecialType === "target_long" || roundSpecialType === "target_score";
+  if (roundSpecialType === OCID_TYPE) {
+    return { ok: false, error: "ocid_use_proposal" };
+  }
   if (roundSpecialType === SELF_SPECIAL_3_WORDS_TYPE) {
     return { ok: false, error: "special3_use_state_sync" };
   }
@@ -4530,7 +4953,10 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   const { norm, pts, path: scoredPath } = scored;
   const len = norm.length;
-  const wordPts = computeWordScoreForRound(room.currentRound, norm, scoredPath, pts);
+  const scoredRareMeta = buildRareBonusSubmittedWordMeta(room.currentRound, norm);
+  const wordPts =
+    computeWordScoreForRound(room.currentRound, norm, scoredPath, pts) +
+    (Number(scoredRareMeta.rareBonusPoints) || 0);
 
   const roundSubs = room.submissions.get(roundId);
   if (!roundSubs) {
@@ -4551,7 +4977,8 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   if (!data.wordTimes) data.wordTimes = new Map();
   if (!(data.wordMeta instanceof Map)) data.wordMeta = new Map();
   if (!data.wordTimes.has(norm)) data.wordTimes.set(norm, Date.now());
-  data.wordMeta.set(norm, { usedFakeTwins: !!scored?.usedFakeTwins });
+  const scoredFakeTwinsMeta = buildFakeTwinsSubmittedWordMeta(room.currentRound, norm, scored);
+  data.wordMeta.set(norm, { ...scoredFakeTwinsMeta, ...scoredRareMeta });
   data.score += wordPts;
   const extraAcceptedWords = [];
   if (roundSpecialType === FAKE_TWINS_TYPE) {
@@ -4567,20 +4994,28 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
         scoreConfig
       );
       if (!variantScored?.path) continue;
-      const variantPts = computeWordScoreForRound(
+      const variantRareMeta = buildRareBonusSubmittedWordMeta(room.currentRound, variantScored.norm);
+      const variantPts =
+        computeWordScoreForRound(
         room.currentRound,
         variantScored.norm,
         variantScored.path,
         variantScored.pts
-      );
+        ) + (Number(variantRareMeta.rareBonusPoints) || 0);
       data.words.add(variantScored.norm);
       if (!data.wordTimes.has(variantScored.norm)) data.wordTimes.set(variantScored.norm, Date.now());
-      data.wordMeta.set(variantScored.norm, { usedFakeTwins: !!variantScored?.usedFakeTwins });
+      const variantFakeTwinsMeta = buildFakeTwinsSubmittedWordMeta(
+        room.currentRound,
+        variantScored.norm,
+        variantScored
+      );
+      data.wordMeta.set(variantScored.norm, { ...variantFakeTwinsMeta, ...variantRareMeta });
       data.score += variantPts;
       extraAcceptedWords.push({
         word: variantScored.norm,
         wordScore: variantPts,
-        usedFakeTwins: !!variantScored?.usedFakeTwins,
+        ...variantFakeTwinsMeta,
+        ...variantRareMeta,
       });
     }
   }
@@ -4699,7 +5134,8 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
       ok: true,
       score: data.score,
       wordScore: wordPts,
-      usedFakeTwins: !!scored?.usedFakeTwins,
+      ...scoredFakeTwinsMeta,
+      ...scoredRareMeta,
       extraWords: extraAcceptedWords,
     };
   }
@@ -4901,7 +5337,8 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
     ok: true,
     score: data.score,
     wordScore: wordPts,
-    usedFakeTwins: !!scored?.usedFakeTwins,
+    ...scoredFakeTwinsMeta,
+    ...scoredRareMeta,
     extraWords: extraAcceptedWords,
   };
 }
@@ -5413,7 +5850,8 @@ function planNeedsPreparedGrid(plan) {
     plan?.type === "target_long" ||
     plan?.type === "target_score" ||
     plan?.type === "bonus_letter" ||
-    plan?.type === FAKE_TWINS_TYPE
+    plan?.type === FAKE_TWINS_TYPE ||
+    plan?.type === OCID_TYPE
   );
 }
 
@@ -5857,7 +6295,9 @@ async function startRoundForRoom(room) {
   const now = Date.now();
   const roundId = now;
   const roundDurationMs =
-    planUsed?.type === "target_long" || planUsed?.type === "target_score"
+    planUsed?.type === OCID_TYPE
+      ? OCID_PROPOSAL_DURATION_MS
+      : planUsed?.type === "target_long" || planUsed?.type === "target_score"
       ? TARGET_SPECIAL_ROUND_DURATION_MS
       : planUsed?.type === "speed" || planUsed?.type === "monstrous"
       ? LIVE_SPECIAL_ROUND_DURATION_MS
@@ -5892,6 +6332,10 @@ async function startRoundForRoom(room) {
     targetRevealed: new Set(),
     targetHintScheduleMs: [],
     targetSolvedBy: null,
+    ocidProposals: new Map(),
+    ocidVotes: new Map(),
+    ocidOptions: [],
+    ocidVoteEndsAt: null,
     gobbles: new Map(),
     gobbleFlags: new Map(),
     duelWordTasks: new Set(),
@@ -6017,6 +6461,8 @@ async function startRoundForRoom(room) {
         ? `MANCHE SPECIALE : ${planUsed.label} - place les bonus et garde 3 mots avec des tuiles de départ différentes`
         : planUsed.type === FAKE_TWINS_TYPE
         ? `MANCHE SPECIALE : ${planUsed.label} - une case vaut 2 lettres, seuls les mots de 4 lettres ou plus sont valides`
+        : planUsed.type === OCID_TYPE
+        ? `MANCHE SPECIALE : ${planUsed.label} - propose un mot pour pieger les autres joueurs`
         : planUsed.type === "target_long"
         ? `MANCHE SPECIALE : ${planUsed.label} - objectif: trouver le mot le plus long`
         : planUsed.type === "target_score"
@@ -6141,10 +6587,41 @@ async function startRoundForRoom(room) {
 
   room.currentRound.timers.push(
     setTimeout(() => {
+      if (planUsed?.type === OCID_TYPE) {
+        startOcidVotePhase(room).catch((err) =>
+          console.warn("startOcidVotePhase failed", err)
+        );
+        return;
+      }
       endRoundForRoom(room).catch((err) =>
         console.warn("endRoundForRoom failed", err)
       );
-    }, roundIntroMs + roundDurationMs + LIVE_ROUND_END_GRACE_MS)
+    }, roundIntroMs + roundDurationMs + (planUsed?.type === OCID_TYPE ? 0 : LIVE_ROUND_END_GRACE_MS))
+  );
+}
+
+async function startOcidVotePhase(room) {
+  if (!room?.currentRound || room.currentRound.special?.type !== OCID_TYPE) return;
+  if (room.currentRound.status !== "running" && room.currentRound.status !== "intro") return;
+  const round = room.currentRound;
+  round.status = "ocid_vote";
+  const now = Date.now();
+  round.ocidVoteEndsAt = now + OCID_VOTE_DURATION_MS;
+  round.endsAt = round.ocidVoteEndsAt;
+  round.durationMs = OCID_VOTE_DURATION_MS;
+  const payload = buildPublicOcidVotePayload(room);
+  io.to(room.id).emit("ocidVoteStarted", payload);
+  if (botManager?.onOcidVoteStart) {
+    botManager.onOcidVoteStart(room);
+  }
+  pushAnnouncement(room, {
+    type: "ocid_vote",
+    text: "Vote OCID : trouve le vrai mot parmi les propositions.",
+  });
+  round.timers.push(
+    setTimeout(() => {
+      endRoundForRoom(room).catch((err) => console.warn("endRoundForRoom failed", err));
+    }, OCID_VOTE_DURATION_MS + LIVE_ROUND_END_GRACE_MS)
   );
 }
 
@@ -6152,7 +6629,9 @@ async function endRoundForRoom(room) {
   if (
     !room ||
     !room.currentRound ||
-    (room.currentRound.status !== "running" && room.currentRound.status !== "intro")
+    (room.currentRound.status !== "running" &&
+      room.currentRound.status !== "intro" &&
+      room.currentRound.status !== "ocid_vote")
   ) {
     return;
   }
@@ -6181,6 +6660,7 @@ async function endRoundForRoom(room) {
   const isTargetRound = specialType === "target_long" || specialType === "target_score";
   let targetPointsMultiplier = 1;
   let targetSummary = null;
+  let ocidSummary = null;
 
   for (const player of room.players.values()) {
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
@@ -6208,12 +6688,18 @@ async function endRoundForRoom(room) {
           .filter((word) => typeof word === "string" && word)
       )
     );
+    const wordMetaObj =
+      data.wordMeta instanceof Map ? Object.fromEntries(data.wordMeta.entries()) : {};
+    const rareBonusPoints = Object.values(wordMetaObj).reduce(
+      (sum, meta) => sum + (Number(meta?.rareBonusPoints) || 0),
+      0
+    );
     results.push({
       nick,
       score: data.score,
       words: rawWords,
-      wordMeta:
-        data.wordMeta instanceof Map ? Object.fromEntries(data.wordMeta.entries()) : {},
+      wordMeta: wordMetaObj,
+      rareBonusPoints,
       wordTimes,
       specialPlacements:
         data?.specialPlacements && typeof data.specialPlacements === "object"
@@ -6233,20 +6719,41 @@ async function endRoundForRoom(room) {
   }
 
   if (specialType === FAKE_TWINS_TYPE) {
-    const totalFakeTwinWords = Math.max(0, Number(room.currentRound?.quality?.fakeTwinWords) || 0);
+    const totalFakeTwinWords = Math.max(
+      0,
+      Number(
+        room.currentRound?.quality?.fakeTwinCompletionWords ??
+          room.currentRound?.quality?.fakeTwinWords
+      ) || 0
+    );
+    const totalFakeTwinBonusWords = Math.max(
+      0,
+      Number(room.currentRound?.quality?.fakeTwinBonusWords) || 0
+    );
     if (totalFakeTwinWords > 0) {
       for (const entry of results) {
         const words = Array.isArray(entry.words) ? entry.words : [];
         const wordMeta = entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
         const foundFakeTwinWords = words.reduce((count, word) => {
           const norm = normalizeWord(word);
+          const meta = wordMeta?.[norm];
+          const hasCompletionFlag =
+            meta && Object.prototype.hasOwnProperty.call(meta, "fakeTwinsCompletionWord");
+          return meta?.usedFakeTwins && (hasCompletionFlag ? meta.fakeTwinsCompletionWord : true)
+            ? count + 1
+            : count;
+        }, 0);
+        const foundFakeTwinBonusWords = words.reduce((count, word) => {
+          const norm = normalizeWord(word);
           return wordMeta?.[norm]?.usedFakeTwins ? count + 1 : count;
         }, 0);
+        entry.fakeTwinWordsFound = foundFakeTwinWords;
+        entry.fakeTwinWordsTotal = totalFakeTwinWords;
+        entry.fakeTwinBonusWordsFound = foundFakeTwinBonusWords;
+        entry.fakeTwinBonusWordsTotal = totalFakeTwinBonusWords || totalFakeTwinWords;
         if (foundFakeTwinWords >= totalFakeTwinWords) {
           entry.score = (Number(entry.score) || 0) + FAKE_TWINS_COMPLETION_BONUS;
           entry.fakeTwinsCompletionBonus = FAKE_TWINS_COMPLETION_BONUS;
-          entry.fakeTwinWordsFound = foundFakeTwinWords;
-          entry.fakeTwinWordsTotal = totalFakeTwinWords;
           pushAnnouncement(room, {
             type: "fake_twins_completed",
             nick: entry.nick,
@@ -6258,12 +6765,29 @@ async function endRoundForRoom(room) {
     }
   }
 
+  if (specialType === OCID_TYPE) {
+    const ocidComputed = computeOcidRoundResults(room, results);
+    if (ocidComputed) {
+      results.length = 0;
+      results.push(...ocidComputed.results);
+      ocidSummary = ocidComputed.summary;
+      targetSummary = {
+        word: ocidSummary.word || "",
+        definition: ocidSummary.definition || "",
+        definitionSource: ocidSummary.definitionSource || "",
+        definitionUrl: ocidSummary.definitionUrl || "",
+        ocid: ocidSummary,
+      };
+    }
+  }
+
   const endedAt = room.currentRound.endsAt || Date.now();
   const resultsByNick = new Map(results.map((entry) => [entry.nick, entry]));
   const vocabEntries = [];
   const vocabLookups = [];
   const vocabInstallIdsByNick = new Map();
   for (const entry of results) {
+    if (specialType === OCID_TYPE || isTargetRound) continue;
     if (entry.isBot) continue;
     const lookup = findPlayerByNick(room, entry.nick);
     const player = lookup?.player || null;
@@ -7415,29 +7939,12 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
       return;
     }
-    const accessConfig = getDevAccessConfig();
-    const passwordRequired = isDevPasswordRequired(socket);
-    if (!passwordRequired) {
-      socket.data.devToolsUnlocked = true;
-      cb?.({ ok: true, ...buildDevControlsPayload(socket) });
-      return;
-    }
-    if (!accessConfig.password) {
-      cb?.({ ok: false, error: "password_not_configured", ...buildDevControlsPayload(socket) });
-      return;
-    }
-    const password =
-      payload && typeof payload.password === "string" ? payload.password.trim() : "";
-    if (!password || password !== accessConfig.password) {
-      cb?.({ ok: false, error: "bad_password", ...buildDevControlsPayload(socket) });
-      return;
-    }
     socket.data.devToolsUnlocked = true;
     cb?.({ ok: true, ...buildDevControlsPayload(socket) });
   });
 
   socket.on("dev:lock", (_payload, cb) => {
-    socket.data.devToolsUnlocked = false;
+    socket.data.devToolsUnlocked = true;
     cb?.({ ok: true, ...buildDevControlsPayload(socket) });
   });
 
@@ -7453,6 +7960,7 @@ io.on("connection", (socket) => {
       room.bufferedPreparedGrid = null;
       room.bufferedPreparedGridPromise = null;
       room.bufferedPreparedGridPromiseMeta = null;
+      room.devForcedRoundPickCache = new Map();
       if (!previous.chatFill && devControls.chatFill) {
         fillDevChat(room, 80);
       } else if (previous.chatFill && !devControls.chatFill) {
@@ -7828,6 +8336,51 @@ io.on("connection", (socket) => {
     cb?.(result);
   });
 
+  socket.on("ocid:propose", (payload, cb) => {
+    const room = getRoom(socket.roomId);
+    const player = room?.players.get(socket.id);
+    if (!room || !player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const result = submitOcidProposalForNick(room, {
+      roundId: payload?.roundId,
+      nick: player.nick,
+      word: payload?.word,
+      path: payload?.path,
+    });
+    cb?.(result);
+  });
+
+  socket.on("ocid:clearProposal", (payload, cb) => {
+    const room = getRoom(socket.roomId);
+    const player = room?.players.get(socket.id);
+    if (!room || !player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const result = clearOcidProposalForNick(room, {
+      roundId: payload?.roundId,
+      nick: player.nick,
+    });
+    cb?.(result);
+  });
+
+  socket.on("ocid:vote", (payload, cb) => {
+    const room = getRoom(socket.roomId);
+    const player = room?.players.get(socket.id);
+    if (!room || !player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const result = submitOcidVoteForNick(room, {
+      roundId: payload?.roundId,
+      nick: player.nick,
+      optionId: payload?.optionId,
+    });
+    cb?.(result);
+  });
+
   socket.on("submitWord", ({ roundId, word, path, traceStartedAt = null }, cb) => {
     const room = getRoom(socket.roomId);
     const player = room?.players.get(socket.id);
@@ -7958,6 +8511,9 @@ botManager = createBotManager({
   ensurePlayerInRound,
   submitWordForNick,
   submitSpecial3WordsState: updateSpecial3WordsState,
+  submitOcidProposalForNick,
+  clearOcidProposalForNick,
+  submitOcidVoteForNick,
   emitPlayers,
   emitMedals,
   broadcastProvisionalRanking,

@@ -49,6 +49,7 @@ function MobileStandardPlaying(props) {
     isDailyPlay = false,
     isFinaleBanner = false,
     isMobileLayout = true,
+    isOcidRound = false,
     isTargetRound = false,
     lightGridSurfaceStyle = undefined,
     liveFeedMinHeight = 0,
@@ -68,6 +69,11 @@ function MobileStandardPlaying(props) {
     mobileTileFontPx = 18,
     mobileViewportContainerStyle = undefined,
     nextHintLabel = "",
+    ocidProposal = "",
+    ocidProposalSubmitted = "",
+    ocidSelectedOptionId = "",
+    ocidStatusMessage = "",
+    ocidVote = null,
     normalizeBonusLabel = (value) => value,
     normalizeLetterKey = (value) => value,
     canOpenPlayerProfile = null,
@@ -75,6 +81,10 @@ function MobileStandardPlaying(props) {
     onOpenPlayerProfile = null,
     onOpenPlayersOverlaySnapshot = null,
     onOpenSettings = null,
+    onOcidProposalChange = null,
+    onClearOcidProposal = null,
+    onSubmitOcidProposal = null,
+    onSubmitOcidVote = null,
     onRotateGrid = null,
     onSetShowHelp = null,
     onToggleDarkMode = null,
@@ -121,6 +131,7 @@ function MobileStandardPlaying(props) {
     wordsFoundLabel = "",
   } = props;
 
+  const hideOcidVotePlaySurface = phase === "playing" && isOcidRound && !!ocidVote;
   const solvedTargetLength = String(solvedTargetWord || "").trim().length;
   const isSolvedTargetDisplay = solvedTargetLength > 0;
   const solvedTargetFontPx = isSolvedTargetDisplay
@@ -160,7 +171,7 @@ function MobileStandardPlaying(props) {
           phase={phase}
           roomLabelSeparator=" - "
           roundStatsText={
-            phase === "playing" && roundStats && !isTargetRound
+            phase === "playing" && roundStats && !isTargetRound && !isOcidRound
               ? `${roundStats.words ?? "?"} mots - ${
                   formatNumber(roundStats.totalPts ?? roundStats.maxPts ?? 0) || "?"
                 } pts`
@@ -233,7 +244,85 @@ function MobileStandardPlaying(props) {
             paddingTop: mobileBodyPaddingTop,
           }}
         >
-          {phase === "playing" && isTargetRound ? (
+          {phase === "playing" && isOcidRound ? (
+            <div
+              ref={mobileRankingRef}
+              className={`relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm overflow-hidden box-border ${
+                ocidVote ? "flex flex-1 min-h-0 flex-col" : "flex-none"
+              }`}
+            >
+              <div className="text-[10px] font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300">
+                MANCHE OCID
+              </div>
+              <div className="mt-2 text-[12px] font-semibold opacity-85 text-center leading-snug shrink-0">
+                {ocidVote?.definition || specialRound?.ocidDefinition || "Definition indisponible"}
+              </div>
+              {ocidVote ? (
+                <div
+                  className="mt-2 grid flex-1 min-h-0 content-start grid-cols-1 gap-1.5 overflow-y-auto pr-1 overscroll-contain"
+                >
+                  {(ocidVote.options || []).map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => onSubmitOcidVote?.(option.id)}
+                      className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-[12px] font-bold ${
+                        ocidSelectedOptionId === option.id
+                          ? "bg-emerald-600 text-white border-emerald-400"
+                          : darkMode
+                          ? "bg-slate-800 border-slate-700 text-slate-100"
+                          : "bg-slate-50 border-slate-200 text-slate-800"
+                      }`}
+                    >
+                      <span className="min-w-0 truncate text-left">{option.display}</span>
+                      {Number(option?.voteCount) > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black text-white shadow-sm">
+                          {Number(option.voteCount)}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <div
+                    className={`relative min-h-[34px] w-full rounded-lg border px-2 py-1.5 pr-8 text-sm font-black uppercase tracking-wide ${
+                      darkMode
+                        ? "border-slate-700 bg-slate-800/80 text-slate-100"
+                        : "border-slate-300 bg-slate-50 text-slate-900"
+                    }`}
+                    aria-live="polite"
+                  >
+                    {ocidProposal ? (
+                      <span className="block truncate">{ocidProposal}</span>
+                    ) : (
+                      <span className="block truncate font-semibold normal-case tracking-normal text-slate-400">
+                        Trace ton mot
+                      </span>
+                    )}
+                    {ocidProposal ? (
+                      <button
+                        type="button"
+                        onClick={() => onClearOcidProposal?.()}
+                        className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                        aria-label="Changer de proposition"
+                      >
+                        <span className="material-icons-outlined text-[16px] leading-none">close</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+              <div className="mt-2 shrink-0 text-[11px] font-semibold opacity-70 text-center">
+                {ocidStatusMessage ||
+                  (ocidVote
+                    ? "Vote pour le vrai mot cible."
+                    : ocidProposalSubmitted
+                    ? `Retenu : ${ocidProposalSubmitted}`
+                    : "Trace un mot plausible. Il sera retenu automatiquement.")}
+              </div>
+            </div>
+          ) : phase === "playing" && isTargetRound ? (
             <div
               ref={mobileRankingRef}
               className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
@@ -353,7 +442,7 @@ function MobileStandardPlaying(props) {
               >
                 {nextHintLabel}
               </div>
-              {phase === "playing" && !isDailyPlay && !isTargetRound ? (
+              {phase === "playing" && !isDailyPlay && !isTargetRound && !isOcidRound ? (
                 <button
                   type="button"
                   className={`absolute bottom-2 right-2 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
@@ -381,7 +470,7 @@ function MobileStandardPlaying(props) {
                   : undefined
               }
             >
-              {phase === "playing" && !isDailyPlay && !isTargetRound ? (
+              {phase === "playing" && !isDailyPlay && !isTargetRound && !isOcidRound ? (
                 <button
                   type="button"
                   className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
@@ -414,26 +503,29 @@ function MobileStandardPlaying(props) {
             </div>
           )}
 
-          <MobileWordPreview
-            countdownLines={countdownLines}
-            currentDisplay={currentDisplay}
-            darkMode={darkMode}
-            liveWord={liveWord}
-            liveWordTiles={liveWordTiles}
-            onRotateGrid={onRotateGrid}
-            phase={phase}
-            previewBlockHeight={previewBlockHeight}
-            previewGapPx={previewGapPx}
-            previewTileBaseStyle={previewTileBaseStyle}
-            previewStats={{
-              show: showPreviewStats,
-              wordsFoundLabel,
-              totalWordsLabel,
-              scoreLabel,
-              totalScoreLabel,
-            }}
-            shake={shake}
-          />
+          {!isOcidRound ? (
+            <MobileWordPreview
+              countdownLines={countdownLines}
+              currentDisplay={currentDisplay}
+              darkMode={darkMode}
+              liveWord={liveWord}
+              liveWordTiles={liveWordTiles}
+              onRotateGrid={onRotateGrid}
+              phase={phase}
+              previewBlockHeight={previewBlockHeight}
+              previewGapPx={previewGapPx}
+              previewTileBaseStyle={previewTileBaseStyle}
+              previewStats={{
+                show: showPreviewStats,
+                wordsFoundLabel,
+                totalWordsLabel,
+                scoreLabel,
+                totalScoreLabel,
+              }}
+              shake={shake}
+            />
+          ) : null}
+          {!hideOcidVotePlaySurface ? (
           <div className="flex-1 min-h-0 flex flex-col gap-1">
             <MobileGrid
               board={boardForRender}
@@ -499,6 +591,7 @@ function MobileStandardPlaying(props) {
               />
             </div>
           </div>
+          ) : null}
         </div>
       </div>
       {mobileResultsPhaseFadeOverlay}

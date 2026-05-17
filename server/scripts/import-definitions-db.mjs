@@ -1,0 +1,235 @@
+#!/usr/bin/env node
+
+import fs from "fs/promises";
+import { createReadStream } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import readline from "readline";
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
+import { normalizeWord } from "../../shared/gameLogic.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, "../..");
+const DEFAULT_INPUT = path.join(ROOT_DIR, "data/definitions-fr.jsonl");
+const DEFAULT_OUTPUT = path.join(ROOT_DIR, "data/definitions-fr.sqlite");
+const BATCH_SIZE = 1000;
+
+function printHelp() {
+  console.log(`Usage:
+  node server/scripts/import-definitions-db.mjs [options]
+
+Options:
+  --input <path>       JSONL source (defaut: data/definitions-fr.jsonl)
+  --output <path>      SQLite generee (defaut: data/definitions-fr.sqlite)
+  --help               Affiche cette aide
+`);
+}
+
+function parseArgs(argv) {
+  const options = {
+    input: DEFAULT_INPUT,
+    output: DEFAULT_OUTPUT,
+    help: false,
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    const readValue = () => {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error(`Valeur manquante pour ${arg}`);
+      }
+      i += 1;
+      return path.resolve(value);
+    };
+    if (arg === "--help" || arg === "-h") options.help = true;
+    else if (arg === "--input") options.input = readValue();
+    else if (arg === "--output") options.output = readValue();
+    else throw new Error(`Option inconnue: ${arg}`);
+  }
+  return options;
+}
+
+function normalizeDefinitionKey(value) {
+  const normalized = normalizeWord(String(value || ""));
+  return normalized ? normalized.toUpperCase() : "";
+}
+
+function sanitizeEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const key = normalizeDefinitionKey(raw.key || raw.word || raw.title);
+  const definition = String(raw.definition || "").trim();
+  if (!key || !definition) return null;
+  const definitions = Array.isArray(raw.definitions)
+    ? raw.definitions.map((entry) => String(entry || "").trim()).filter(Boolean)
+    : [definition];
+  return {
+    key,
+    word: String(raw.word || key).trim(),
+    title: String(raw.title || raw.word || key).trim(),
+    definition,
+    definitionsJson: JSON.stringify(definitions.length ? definitions : [definition]),
+    source: String(raw.source || "wiktionary").trim() || "wiktionary",
+    sourceUrl: String(raw.sourceUrl || raw.url || "").trim(),
+    sourceLicense: String(raw.sourceLicense || "").trim(),
+    isFormOf: raw.isFormOf ? 1 : 0,
+    formOf: String(raw.formOf || "").trim(),
+  };
+}
+
+async function openBuildDb(outputPath) {
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.rm(outputPath, { force: true });
+  await fs.rm(`${outputPath}-shm`, { force: true });
+  await fs.rm(`${outputPath}-wal`, { force: true });
+  const db = await open({
+    filename: outputPath,
+    driver: sqlite3.Database,
+  });
+  await db.exec(`
+    PRAGMA journal_mode = OFF;
+    PRAGMA synchronous = OFF;
+    PRAGMA temp_store = MEMORY;
+    CREATE TABLE definitions (
+      key TEXT PRIMARY KEY,
+      word TEXT NOT NULL,
+      title TEXT NOT NULL,
+      definition TEXT NOT NULL,
+      definitions_json TEXT NOT NULL,
+      source TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      source_license TEXT NOT NULL,
+      is_form_of INTEGER NOT NULL DEFAULT 0,
+      form_of TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX idx_definitions_form_of ON definitions(form_of);
+    CREATE TABLE metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+  return db;
+}
+
+async function flushBatch(db, statement, batch) {
+  if (!batch.length) return;
+  await db.exec("BEGIN");
+  try {
+    for (const entry of batch) {
+      await statement.run(
+        entry.key,
+        entry.word,
+        entry.title,
+        entry.definition,
+        entry.definitionsJson,
+        entry.source,
+        entry.sourceUrl,
+        entry.sourceLicense,
+        entry.isFormOf,
+        entry.formOf
+      );
+    }
+    await db.exec("COMMIT");
+  } catch (err) {
+    try {
+      await db.exec("ROLLBACK");
+    } catch (_) {}
+    throw err;
+  }
+  batch.length = 0;
+}
+
+async function importDefinitions(options) {
+  const startedAt = Date.now();
+  const tmpOutput = `${options.output}.tmp`;
+  const db = await openBuildDb(tmpOutput);
+  const insert = await db.prepare(`
+    INSERT OR REPLACE INTO definitions
+      (key, word, title, definition, definitions_json, source, source_url,
+       source_license, is_form_of, form_of)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  let read = 0;
+  let written = 0;
+  let skipped = 0;
+  const batch = [];
+  const rl = readline.createInterface({
+    input: createReadStream(options.input, { encoding: "utf8" }),
+    crlfDelay: Infinity,
+  });
+
+  try {
+    for await (const line of rl) {
+      read += 1;
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let parsed = null;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch (_) {
+        skipped += 1;
+        continue;
+      }
+      const entry = sanitizeEntry(parsed);
+      if (!entry) {
+        skipped += 1;
+        continue;
+      }
+      batch.push(entry);
+      written += 1;
+      if (batch.length >= BATCH_SIZE) {
+        await flushBatch(db, insert, batch);
+      }
+      if (written > 0 && written % 50000 === 0) {
+        console.error(`[definitions-db] written=${written} read=${read}`);
+      }
+    }
+    await flushBatch(db, insert, batch);
+    await insert.finalize();
+    await db.run(
+      "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+      "importedAt",
+      new Date().toISOString()
+    );
+    await db.run(
+      "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+      "source",
+      path.relative(ROOT_DIR, options.input)
+    );
+    await db.exec("PRAGMA optimize");
+  } finally {
+    await db.close();
+  }
+
+  await fs.rm(options.output, { force: true });
+  await fs.rename(tmpOutput, options.output);
+  const elapsedMs = Date.now() - startedAt;
+  console.log(
+    JSON.stringify(
+      {
+        ok: true,
+        input: options.input,
+        output: options.output,
+        read,
+        written,
+        skipped,
+        elapsedMs,
+      },
+      null,
+      2
+    )
+  );
+}
+
+const options = parseArgs(process.argv.slice(2));
+if (options.help) {
+  printHelp();
+  process.exit(0);
+}
+
+importDefinitions(options).catch((err) => {
+  console.error(`[definitions-db] erreur: ${err?.message || err}`);
+  process.exit(1);
+});

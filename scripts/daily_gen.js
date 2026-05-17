@@ -5,6 +5,7 @@ import { promises as fs } from "fs";
 
 import { normalizeWord } from "../shared/gameLogic.js";
 import { buildDailyPayload } from "../server/daily/dailyGeneration.js";
+import { getFakeTwinsCompletionWordSet } from "../server/stats/wordRarityService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,7 +99,8 @@ async function main() {
     process.exit(1);
   }
 
-  const payload = buildDailyPayload(dateId, dictionary);
+  const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
+  const payload = buildDailyPayload(dateId, dictionary, { fakeTwinsCompletionWordSet });
   await atomicWriteJson(outputPath, payload);
   console.log(
     `daily grid ready date=${dateId} monstrousWords=${payload.wordCount} specialWords=${payload.specialWordCount}`

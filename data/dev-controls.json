@@ -1,9 +1,13 @@
 {
   "version": 1,
-  "updatedAt": 1778687511904,
+  "updatedAt": 1779049488165,
   "controls": {
     "enabled": true,
-    "forcedRoundType": "",
+    "forcedRoundType": "ocid",
+    "forcedRoundTypes": [
+      "ocid"
+    ],
+    "forcedRoundRandom": false,
     "botMedals": false,
     "chatFill": false,
     "botChat": false,

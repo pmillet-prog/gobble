@@ -4,6 +4,9 @@
   "scripts": {
     "dev": "node scripts/generate-music-manifest.js && vite",
     "build": "node scripts/generate-music-manifest.js && node ./node_modules/vite/bin/vite.js build",
+    "definitions:build": "node scripts/build-wiktionary-definitions.mjs",
+    "definitions:import": "node server/scripts/import-definitions-db.mjs",
+    "rarity:build": "node server/scripts/build-word-rarity.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

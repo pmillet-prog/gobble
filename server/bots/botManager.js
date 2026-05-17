@@ -1,4 +1,4 @@
-import { solveGrid } from "../../shared/gameLogic.js";
+import { OCID_TYPE, solveGrid } from "../../shared/gameLogic.js";
 
 const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
@@ -432,6 +432,9 @@ class BotManager {
     ensurePlayerInRound,
     submitWordForNick,
     submitSpecial3WordsState,
+    submitOcidProposalForNick,
+    clearOcidProposalForNick,
+    submitOcidVoteForNick,
     emitPlayers,
     emitMedals,
     broadcastProvisionalRanking,
@@ -441,6 +444,9 @@ class BotManager {
     this.ensurePlayerInRound = ensurePlayerInRound;
     this.submitWordForNick = submitWordForNick;
     this.submitSpecial3WordsState = submitSpecial3WordsState;
+    this.submitOcidProposalForNick = submitOcidProposalForNick;
+    this.clearOcidProposalForNick = clearOcidProposalForNick;
+    this.submitOcidVoteForNick = submitOcidVoteForNick;
     this.emitPlayers = emitPlayers;
     this.emitMedals = emitMedals;
     this.broadcastProvisionalRanking = broadcastProvisionalRanking;
@@ -858,6 +864,10 @@ class BotManager {
         roundType: round?.special?.type || null,
         maxWordsCap,
       });
+      if (round?.special?.type === OCID_TYPE) {
+        this.scheduleBotOcidProposal(room, bot, words, timeBudget, rand);
+        continue;
+      }
       if (round?.special?.type === "self_specials_3_words") {
         this.scheduleBotSpecial3Words(room, bot, words, timeBudget, solutions, rand);
         continue;
@@ -932,6 +942,114 @@ class BotManager {
       lastT = t;
       const timer = setTimeout(() => this.playWord(room, bot, item.word), Math.max(0, t));
       this.registerTimer(room.id, timer);
+    }
+  }
+
+  scheduleBotOcidProposal(room, bot, words, timeBudget, rand = Math.random) {
+    const round = room.currentRound;
+    if (!round || round?.special?.type !== OCID_TYPE) return;
+    if (typeof this.submitOcidProposalForNick !== "function") return;
+    if (!Array.isArray(words) || !words.length) return;
+
+    const target = String(round.targetWord || "").toLowerCase();
+    const candidates = words.filter((word) => String(word || "").toLowerCase() !== target);
+    const pool = candidates.length ? candidates : words;
+    const index = Math.floor(rand() * pool.length);
+    const word = pool[index];
+    if (!word) return;
+
+    const warmupDelay = 1800 + rand() * Math.max(1200, Math.min(12000, timeBudget * 0.7));
+    const timer = setTimeout(
+      () => this.playOcidProposal(room, bot, word),
+      Math.max(0, Math.min(timeBudget - 1000, warmupDelay))
+    );
+    this.registerTimer(room.id, timer);
+  }
+
+  playOcidProposal(room, bot, word) {
+    const round = room.currentRound;
+    if (!round || round?.special?.type !== OCID_TYPE || round.status !== "running") return;
+    if (Date.now() >= round.endsAt) return;
+    if (typeof this.submitOcidProposalForNick !== "function") return;
+
+    this.ensurePlayerInRound(room, bot.nick);
+    const res = this.submitOcidProposalForNick(room, {
+      roundId: round.id,
+      nick: bot.nick,
+      word,
+    });
+
+    if (!res?.ok) {
+      console.debug(`[bots] ${bot.nick} -> ${res?.error || "ocid_proposal_reject"}`);
+    }
+  }
+
+  onOcidVoteStart(room) {
+    const round = room?.currentRound;
+    if (!round || round?.special?.type !== OCID_TYPE || round.status !== "ocid_vote") return;
+    if (typeof this.submitOcidVoteForNick !== "function") return;
+
+    const roster = rosterForRoom(room);
+    const nowDate = new Date();
+    const activeBots = roster
+      .filter((bot) => {
+        const key = this.botKey(bot);
+        if (!room.players.has(key)) return false;
+        const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
+        if (override?.active) return true;
+        return !isBotSleeping(bot, nowDate);
+      })
+      .map(tuneBotProfile);
+    if (!activeBots.length) return;
+
+    const timeBudget = Math.max(1000, round.endsAt - Date.now() - 600);
+    for (const bot of activeBots) {
+      const rand = mulberry32(hashString(`${round.id}-${bot.nick}-ocid-vote`));
+      const delay = 900 + rand() * Math.max(1000, timeBudget - 1200);
+      const timer = setTimeout(
+        () => this.playOcidVote(room, bot, rand),
+        Math.max(0, Math.min(timeBudget, delay))
+      );
+      this.registerTimer(room.id, timer);
+    }
+  }
+
+  chooseOcidVoteOption(round, bot, rand = Math.random) {
+    const options = Array.isArray(round?.ocidOptions) ? round.ocidOptions : [];
+    if (!options.length) return null;
+
+    const target = options.find((option) => option?.isTarget);
+    const skill = clamp01(bot?.skill, 0.4);
+    const correctChance = Math.min(0.72, 0.16 + skill * 0.58);
+    if (target && rand() < correctChance) return target;
+
+    const notOwn = options.filter(
+      (option) => !(Array.isArray(option?.authors) && option.authors.includes(bot.nick))
+    );
+    const wrongNotOwn = notOwn.filter((option) => !option?.isTarget);
+    const wrong = options.filter((option) => !option?.isTarget);
+    const pool = wrongNotOwn.length ? wrongNotOwn : wrong.length ? wrong : notOwn.length ? notOwn : options;
+    return pool[Math.floor(rand() * pool.length)] || target || options[0] || null;
+  }
+
+  playOcidVote(room, bot, rand = Math.random) {
+    const round = room.currentRound;
+    if (!round || round?.special?.type !== OCID_TYPE || round.status !== "ocid_vote") return;
+    if (Date.now() >= round.endsAt) return;
+    if (typeof this.submitOcidVoteForNick !== "function") return;
+
+    const option = this.chooseOcidVoteOption(round, bot, rand);
+    if (!option?.id) return;
+
+    this.ensurePlayerInRound(room, bot.nick);
+    const res = this.submitOcidVoteForNick(room, {
+      roundId: round.id,
+      nick: bot.nick,
+      optionId: option.id,
+    });
+
+    if (!res?.ok) {
+      console.debug(`[bots] ${bot.nick} -> ${res?.error || "ocid_vote_reject"}`);
     }
   }
 

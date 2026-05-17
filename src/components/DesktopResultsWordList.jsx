@@ -101,14 +101,38 @@ function DesktopResultsWordList({
               ? "font-semibold text-slate-300 opacity-70"
               : "font-semibold text-gray-500 opacity-70"
             : isFound
-            ? "font-semibold"
-            : "text-gray-600";
+            ? "font-extrabold"
+            : darkMode
+            ? "font-normal text-slate-500 opacity-60"
+            : "font-normal text-gray-400 opacity-65";
           const fakeTwinsWordClassName =
             entry?.usedFakeTwins && !isRejected
               ? darkMode
-                ? "text-blue-300"
+                ? entry?.fakeTwinsBonusOnly
+                  ? "text-violet-300"
+                  : "text-blue-300"
+                : entry?.fakeTwinsBonusOnly
+                ? "text-violet-600"
                 : "text-blue-600"
               : "";
+          const rareBonusWordClassName =
+            entry?.rareBonusWord && !isRejected
+              ? isFound
+                ? darkMode
+                  ? "text-amber-300 font-black"
+                  : "text-orange-600 font-black"
+                : darkMode
+                ? "font-medium"
+                : "font-medium"
+              : "";
+          const rareBonusWordStyle =
+            entry?.rareBonusWord && !isRejected && !isFound
+              ? {
+                  color: darkMode ? "#facc15" : "#ca8a04",
+                  opacity: darkMode ? 0.78 : 0.82,
+                  fontWeight: 500,
+                }
+              : undefined;
 
           return (
             <li
@@ -172,7 +196,10 @@ function DesktopResultsWordList({
                   <span style={{ ...foundDotStyle, opacity: 0 }} aria-hidden="true" />
                 )}
                 <span className="flex items-center gap-1 min-w-0">
-                  <span className={`${wordClassName} ${fakeTwinsWordClassName}`.trim()}>
+                  <span
+                    className={`${wordClassName} ${fakeTwinsWordClassName} ${rareBonusWordClassName}`.trim()}
+                    style={rareBonusWordStyle}
+                  >
                     {entry.word}
                   </span>
                   {renderGobbleCandidate(entry.word)}

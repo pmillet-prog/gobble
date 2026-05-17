@@ -141,13 +141,14 @@ function compareDailyModeEntries(mode, a, b) {
   return (aQuality.longWords || 0) - (bQuality.longWords || 0);
 }
 
-function buildDailyModeEntry(mode, seed, dictionary) {
+function buildDailyModeEntry(mode, seed, dictionary, { fakeTwinsCompletionWordSet = null } = {}) {
   const baseGrid = generateGridFromSeed(seed, DAILY_GRID_SIZE);
   if (mode === DAILY_FAKE_TWINS_MODE) {
     const fakeTwins = buildFakeTwinsGrid(baseGrid, dictionary, {
       maxCellCandidates: baseGrid.length,
       maxAltLetters: 26,
       candidateSeed: seed,
+      fakeTwinsCompletionWordSet,
     });
     if (!Number.isInteger(fakeTwins?.twinIndex) || !fakeTwins?.altLetter) {
       return null;
@@ -175,12 +176,16 @@ function buildDailyModeEntry(mode, seed, dictionary) {
       gridQuality: {
         ...summary,
         fakeTwinWords,
+        fakeTwinCompletionWords: Number(fakeTwins?.fakeTwinCompletionWords) || fakeTwinWords,
+        fakeTwinBonusWords: Number(fakeTwins?.fakeTwinBonusWords) || fakeTwinWords,
         fakeTwinUniquePaths: Number(fakeTwins?.fakeTwinUniquePaths) || 0,
         fakeTwinDuplicatePathWords: Number(fakeTwins?.fakeTwinDuplicatePathWords) || 0,
         twinIndex: fakeTwins.twinIndex,
         altLetter: fakeTwins.altLetter,
         primaryLetterWords: Number(fakeTwins?.primaryLetterWords) || 0,
         altLetterWords: Number(fakeTwins?.altLetterWords) || 0,
+        primaryCompletionWords: Number(fakeTwins?.primaryCompletionWords) || 0,
+        altCompletionWords: Number(fakeTwins?.altCompletionWords) || 0,
         meetsTwinWordTarget: !!fakeTwins?.meetsTwinWordTarget,
         fakeTwinTargetScore: Number(fakeTwins?.targetScore) || 0,
       },
@@ -250,7 +255,7 @@ export function buildDailyModeGrid(
   dateId,
   mode,
   dictionary,
-  { avoidGridKey = "", maxAttempts = MAX_GENERATION_ATTEMPTS } = {}
+  { avoidGridKey = "", maxAttempts = MAX_GENERATION_ATTEMPTS, fakeTwinsCompletionWordSet = null } = {}
 ) {
   if (!dictionary || dictionary.size === 0) {
     throw new Error("daily_dictionary_missing");
@@ -259,7 +264,7 @@ export function buildDailyModeGrid(
   let bestEntry = null;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const seed = baseSeed + attempt;
-    const entry = buildDailyModeEntry(mode, seed, dictionary);
+    const entry = buildDailyModeEntry(mode, seed, dictionary, { fakeTwinsCompletionWordSet });
     if (!entry) continue;
     if (avoidGridKey && getGridLettersKey(entry.grid) === avoidGridKey) continue;
     if (entry.valid) {
@@ -280,7 +285,7 @@ export function buildDailyModeGrid(
   throw new Error(`daily_${mode}_generation_failed`);
 }
 
-function buildFallbackFakeTwinsEntry(dateId, payload, dictionary) {
+function buildFallbackFakeTwinsEntry(dateId, payload, dictionary, fakeTwinsCompletionWordSet = null) {
   if (!dictionary || dictionary.size === 0) return null;
   const candidateSources = [];
   if (Array.isArray(payload?.specialGrid) && payload.specialGrid.length > 0) {
@@ -306,6 +311,7 @@ function buildFallbackFakeTwinsEntry(dateId, payload, dictionary) {
       maxCellCandidates: baseGrid.length,
       maxAltLetters: 26,
       candidateSeed: bonusSeed,
+      fakeTwinsCompletionWordSet,
     });
     if (!Array.isArray(fakeTwins?.grid) || !Number.isInteger(fakeTwins?.twinIndex)) {
       continue;
@@ -333,10 +339,14 @@ function buildFallbackFakeTwinsEntry(dateId, payload, dictionary) {
       gridQuality: {
         ...summary,
         fakeTwinWords,
+        fakeTwinCompletionWords: Number(fakeTwins?.fakeTwinCompletionWords) || fakeTwinWords,
+        fakeTwinBonusWords: Number(fakeTwins?.fakeTwinBonusWords) || fakeTwinWords,
         twinIndex: fakeTwins.twinIndex,
         altLetter: fakeTwins.altLetter,
         primaryLetterWords: Number(fakeTwins?.primaryLetterWords) || 0,
         altLetterWords: Number(fakeTwins?.altLetterWords) || 0,
+        primaryCompletionWords: Number(fakeTwins?.primaryCompletionWords) || 0,
+        altCompletionWords: Number(fakeTwins?.altCompletionWords) || 0,
         meetsTwinWordTarget: !!fakeTwins?.meetsTwinWordTarget,
         fakeTwinTargetScore: Number(fakeTwins?.targetScore) || 0,
       },
@@ -345,7 +355,7 @@ function buildFallbackFakeTwinsEntry(dateId, payload, dictionary) {
   return null;
 }
 
-export function buildDailyPayload(dateId, dictionary) {
+export function buildDailyPayload(dateId, dictionary, { fakeTwinsCompletionWordSet = null } = {}) {
   const monstrous = buildDailyModeGrid(dateId, DAILY_MONSTROUS_MODE, dictionary);
   const special = buildDailyModeGrid(dateId, DAILY_SPECIAL_MODE, dictionary, {
     avoidGridKey: getGridLettersKey(monstrous.grid),
@@ -356,6 +366,7 @@ export function buildDailyPayload(dateId, dictionary) {
     fakeTwins = buildDailyModeGrid(dateId, DAILY_FAKE_TWINS_MODE, dictionary, {
       avoidGridKey: fakeTwinsAvoidKey,
       maxAttempts: FAKE_TWINS_PRIMARY_MAX_ATTEMPTS,
+      fakeTwinsCompletionWordSet,
     });
   } catch (_) {
     fakeTwins = buildFallbackFakeTwinsEntry(
@@ -366,7 +377,8 @@ export function buildDailyPayload(dateId, dictionary) {
         specialSeed: special.seed,
         specialGrid: special.grid,
       },
-      dictionary
+      dictionary,
+      fakeTwinsCompletionWordSet
     );
   }
   if (!fakeTwins) {

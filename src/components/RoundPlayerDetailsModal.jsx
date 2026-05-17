@@ -233,6 +233,11 @@ export default function RoundPlayerDetailsModal({
         isGobble: gobbleCount > 0,
         gobbleCount,
         usedFakeTwins: !!entry?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!entry?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!entry?.fakeTwinsBonusOnly,
+        rareBonusWord: !!entry?.rareBonusWord,
+        rareBonusPoints: Number(entry?.rareBonusPoints) || 0,
+        rarityBucket: entry?.rarityBucket || "",
       });
     });
     return map;
@@ -252,6 +257,11 @@ export default function RoundPlayerDetailsModal({
         isGobble: gobbleCount > 0,
         gobbleCount,
         usedFakeTwins: !!entry?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!entry?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!entry?.fakeTwinsBonusOnly,
+        rareBonusWord: !!entry?.rareBonusWord,
+        rareBonusPoints: Number(entry?.rareBonusPoints) || 0,
+        rarityBucket: entry?.rarityBucket || "",
       });
     });
     foundWordsMap.forEach((meta, word) => {
@@ -265,6 +275,11 @@ export default function RoundPlayerDetailsModal({
             Math.trunc(Number(meta?.gobbleCount) || (meta?.isGobble ? 1 : 0))
           ),
           usedFakeTwins: !!meta?.usedFakeTwins,
+          fakeTwinsCompletionWord: !!meta?.fakeTwinsCompletionWord,
+          fakeTwinsBonusOnly: !!meta?.fakeTwinsBonusOnly,
+          rareBonusWord: !!meta?.rareBonusWord,
+          rareBonusPoints: Number(meta?.rareBonusPoints) || 0,
+          rarityBucket: meta?.rarityBucket || "",
         });
       }
     });
@@ -278,6 +293,13 @@ export default function RoundPlayerDetailsModal({
         bestPts: entry.bestPts,
         isGobble: !!(entry?.isGobble || foundMeta?.isGobble),
         usedFakeTwins: !!(entry?.usedFakeTwins || foundMeta?.usedFakeTwins),
+        fakeTwinsCompletionWord: !!(
+          entry?.fakeTwinsCompletionWord || foundMeta?.fakeTwinsCompletionWord
+        ),
+        fakeTwinsBonusOnly: !!(entry?.fakeTwinsBonusOnly || foundMeta?.fakeTwinsBonusOnly),
+        rareBonusWord: !!(entry?.rareBonusWord || foundMeta?.rareBonusWord),
+        rareBonusPoints: Number(entry?.rareBonusPoints) || Number(foundMeta?.rareBonusPoints) || 0,
+        rarityBucket: entry?.rarityBucket || foundMeta?.rarityBucket || "",
         gobbleCount: Math.max(
           0,
           Math.trunc(
@@ -805,14 +827,38 @@ export default function RoundPlayerDetailsModal({
                           ? "font-semibold text-slate-300 opacity-70"
                           : "font-semibold text-gray-500 opacity-70"
                         : isFound
-                        ? "font-semibold"
-                        : "text-gray-600";
+                        ? "font-extrabold"
+                        : darkMode
+                        ? "font-normal text-slate-500 opacity-60"
+                        : "font-normal text-gray-400 opacity-65";
                       const fakeTwinsWordClassName =
                         entry?.usedFakeTwins && !isRejected
                           ? darkMode
-                            ? "text-blue-300"
+                            ? entry?.fakeTwinsBonusOnly
+                              ? "text-violet-300"
+                              : "text-blue-300"
+                            : entry?.fakeTwinsBonusOnly
+                            ? "text-violet-600"
                             : "text-blue-600"
                           : "";
+                      const rareBonusWordClassName =
+                        entry?.rareBonusWord && !isRejected
+                          ? isFound
+                            ? darkMode
+                              ? "text-amber-300 font-black"
+                              : "text-orange-600 font-black"
+                            : darkMode
+                            ? "font-medium"
+                            : "font-medium"
+                          : "";
+                      const rareBonusWordStyle =
+                        entry?.rareBonusWord && !isRejected && !isFound
+                          ? {
+                              color: darkMode ? "#facc15" : "#ca8a04",
+                              opacity: darkMode ? 0.78 : 0.82,
+                              fontWeight: 500,
+                            }
+                          : undefined;
                       return (
                         <li
                           key={entry.word}
@@ -863,7 +909,10 @@ export default function RoundPlayerDetailsModal({
                               />
                             )}
                             <span className="flex items-center gap-1 min-w-0">
-                              <span className={`${wordClassName} ${fakeTwinsWordClassName}`.trim()}>
+                              <span
+                                className={`${wordClassName} ${fakeTwinsWordClassName} ${rareBonusWordClassName}`.trim()}
+                                style={rareBonusWordStyle}
+                              >
                                 {entry.word}
                               </span>
                               {renderGobbleCandidate(entry.word)}

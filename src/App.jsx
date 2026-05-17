@@ -43,6 +43,7 @@ import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawe
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
+import OcidResultOverlay from "./components/mobile/OcidResultOverlay.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
@@ -66,6 +67,7 @@ import {
 import {
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
+  OCID_TYPE,
   buildPathWordVariants,
   computeScore,
   filterDictionary,
@@ -965,6 +967,91 @@ function normalizeLetterKey(letter) {
 
 function normalizeNickKey(nick) {
   return String(nick || "").trim().toLowerCase();
+}
+
+const OCID_NO_VOTER_MESSAGES = [
+  "Personne n'a voté pour {word}, quel dommage, il avait pourtant un certain panache !",
+  "{word} n'a convaincu personne, mais il avait une vraie présence scénique.",
+  "Aucun vote pour {word}. Le public n'était pas prêt.",
+  "{word} repart sans voix, mais avec une dignité intacte.",
+  "Personne n'a choisi {word}. Audacieux, mais pas rentable.",
+  "{word} a traversé le vote dans un silence presque artistique.",
+  "Zéro vote pour {word}. Un choix de niche, manifestement très niche.",
+  "{word} n'a pas trouvé son public, ce qui est injuste mais statistique.",
+  "Aucun joueur n'a suivi {word}. Dommage, il avait du tempérament.",
+  "{word} a fini seul au buffet des propositions.",
+  "Personne n'a mordu à {word}. Pourtant, l'hameçon brillait.",
+  "{word} n'a récolté aucun vote. Panache validé, points refusés.",
+  "Zéro voix pour {word}. La poésie ne paie pas toujours.",
+  "{word} a laissé tout le monde perplexe, ce qui est déjà une performance.",
+  "Aucun vote pour {word}. Trop subtil ? Trop beau ? Trop tôt.",
+  "{word} n'a pas bluffé la salle, mais il a tenté quelque chose.",
+  "Personne n'a craqué pour {word}. Sévère, mais clair.",
+  "{word} termine sans vote, avec un certain mystère dans le regard.",
+  "Aucune voix pour {word}. Le bluff était peut-être trop avant-gardiste.",
+  "{word} a fait chou blanc, mais avec une belle assurance.",
+];
+
+const OCID_VALID_BLUFF_MESSAGES = [
+  "Vous avez bien leurré {audience} avec {word}, et votre mot était valide !",
+  "{audienceCaps} a cru à {word}, qui existait vraiment. Joli double effet.",
+  "{word} était valide, et {audience} est tombé dans le panneau.",
+  "Bluff propre : {word} existe, et {audience} vous a suivi.",
+  "{audienceCaps} a voté pour {word}. Mot valide, piège élégant.",
+  "{word} a fait illusion auprès de {audience}, tout en restant dans le dictionnaire.",
+  "Vous avez vendu {word} à {audience}, et le dico ne peut même pas protester.",
+  "{word} était légal, crédible, et {audience} y a cru.",
+  "Coup net : {audience} a choisi {word}, un vrai mot en plus.",
+  "{word} a bluffé {audience}. La légalité rend la chose presque respectable.",
+  "{audienceCaps} s'est laissé attirer par {word}, parfaitement valide.",
+  "Vous avez ferré {audience} avec {word}, et sans inventer un mot.",
+  "{word} passe au détecteur de dictionnaire, et {audience} au détecteur de bluff.",
+  "{audienceCaps} a validé {word} du regard. Le dictionnaire aussi.",
+  "Votre {word} était crédible, valide, et assez convaincant pour {audience}.",
+  "{word} a gagné la confiance de {audience}. Mot réel, piège réel.",
+  "Très propre : {word} existe, et {audience} l'a pris pour la cible.",
+  "{audienceCaps} a offert ses points à {word}, qui avait en plus ses papiers.",
+  "{word} n'était pas la cible, mais il était valide et {audience} y a cru.",
+  "Vous avez joué {word} au bon endroit : valide, plausible, rentable.",
+];
+
+const OCID_INVALID_BLUFF_MESSAGES = [
+  "Vous avez bien eu {audience} avec un mot qui n'existe pas : {word}. Quelle créativité !",
+  "{audienceCaps} a voté pour {word}, pur produit de votre imagination.",
+  "{word} n'existe pas, mais {audience} y a cru. C'est presque de la littérature.",
+  "Bluff sauvage : {word} est introuvable au dico, pas dans les votes.",
+  "{audienceCaps} a acheté {word}. Le dictionnaire demande un recours.",
+  "{word} était inventé, et pourtant {audience} a signé.",
+  "Vous avez vendu {word} à {audience}. Aucun dictionnaire n'a été consulté à temps.",
+  "{word} n'existe pas, mais il a existé assez longtemps pour piéger {audience}.",
+  "Coup de théâtre : {audience} a cru à {word}, mot totalement artisanal.",
+  "{word} était une pure invention. {audienceCaps} l'a trouvé crédible quand même.",
+  "Vous avez sorti {word} de nulle part, et {audience} l'a suivi.",
+  "{audienceCaps} s'est laissé convaincre par {word}. La créativité a payé.",
+  "{word} a trompé {audience} sans passer par la case dictionnaire.",
+  "Votre {word} n'existe pas, mais il a quand même fait des dégâts.",
+  "{word} était faux, l'aplomb était vrai, et {audience} a voté.",
+  "{audienceCaps} a offert ses points à {word}. Le dico reste interdit de parole.",
+  "Invention rentable : {word} a séduit {audience}.",
+  "{word} était du bluff brut, et {audience} l'a pris au sérieux.",
+  "Vous avez improvisé {word}; {audience} a applaudi avec ses points.",
+  "{word} n'avait aucun papier, mais {audience} l'a laissé passer.",
+];
+
+function pickStableOcidMessage(messages, key) {
+  if (!Array.isArray(messages) || !messages.length) return "";
+  const raw = String(key || "");
+  let hash = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+  }
+  return messages[hash % messages.length] || messages[0];
+}
+
+function formatOcidMessage(template, values = {}) {
+  return String(template || "").replace(/\{(\w+)\}/g, (_, key) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : ""
+  );
 }
 
 const TILE_LETTER_SCALE_MIN = 0.8;
@@ -4510,6 +4597,7 @@ function getSpecialRoundDisplayLabel(specialInfo) {
   }
   if (specialInfo.type === "target_long") return "Mot le plus long";
   if (specialInfo.type === "target_score") return "Meilleur mot";
+  if (specialInfo.type === OCID_TYPE) return "Manche OCID";
   if (specialInfo.type === "bonus_letter") return "Lettre en or";
   return "Manche speciale";
 }
@@ -4521,6 +4609,9 @@ function getSpecialRoundDescription(specialInfo) {
   }
   if (specialInfo.type === FAKE_TWINS_TYPE || specialInfo.type === DAILY_FAKE_TWINS_MODE) {
     return "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Seuls les mots de 4 lettres ou plus sont valides.";
+  }
+  if (specialInfo.type === OCID_TYPE) {
+    return "Propose un mot qui semble correspondre a la definition, puis vote pour le vrai mot cible.";
   }
   return "";
 }
@@ -5148,6 +5239,8 @@ export default function App() {
   const [devControls, setDevControls] = useState({
     enabled: false,
     forcedRoundType: "",
+    forcedRoundTypes: [],
+    forcedRoundRandom: false,
     botMedals: false,
     chatFill: false,
     botChat: false,
@@ -5285,6 +5378,16 @@ export default function App() {
   const [tournamentSummaryAt, setTournamentSummaryAt] = useState(null);
   const [tournamentFinaleHoldUntil, setTournamentFinaleHoldUntil] = useState(null);
   const [targetSummary, setTargetSummary] = useState(null); // { word, foundOrder }
+  const [ocidProposal, setOcidProposal] = useState("");
+  const [ocidProposalPath, setOcidProposalPath] = useState([]);
+  const [ocidProposalSubmitted, setOcidProposalSubmitted] = useState("");
+  const [ocidVote, setOcidVote] = useState(null);
+  const [ocidSelectedOptionId, setOcidSelectedOptionId] = useState("");
+  const [ocidStatusMessage, setOcidStatusMessage] = useState("");
+  const [ocidMobileResultDismissedKey, setOcidMobileResultDismissedKey] = useState("");
+  const ocidProposalSyncTimerRef = useRef(null);
+  const ocidResultToastKeyRef = useRef("");
+  const ocidResultToastDelayTimersRef = useRef([]);
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
   const breakKindRef = useRef(breakKind);
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
@@ -6421,7 +6524,16 @@ export default function App() {
 
   function registerAcceptedWordRuntime(
     word,
-    { score = null, bestPts = null, usedFakeTwins = false } = {}
+    {
+      score = null,
+      bestPts = null,
+      usedFakeTwins = false,
+      fakeTwinsCompletionWord = false,
+      fakeTwinsBonusOnly = false,
+      rareBonusWord = false,
+      rareBonusPoints = 0,
+      rarityBucket = "",
+    } = {}
   ) {
     if (!word) return;
     acceptedWordSetRef.current.add(word);
@@ -6431,8 +6543,15 @@ export default function App() {
     if (Number.isFinite(bestPts)) {
       acceptedBestPtsRef.current.set(word, bestPts);
     }
-    if (usedFakeTwins) {
-      acceptedWordMetaRef.current.set(word, { usedFakeTwins: true });
+    if (usedFakeTwins || rareBonusWord) {
+      acceptedWordMetaRef.current.set(word, {
+        usedFakeTwins: !!usedFakeTwins,
+        fakeTwinsCompletionWord: !!fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!fakeTwinsBonusOnly,
+        rareBonusWord: !!rareBonusWord,
+        rareBonusPoints: Number(rareBonusPoints) || 0,
+        rarityBucket: String(rarityBucket || ""),
+      });
     } else if (!acceptedWordMetaRef.current.has(word)) {
       acceptedWordMetaRef.current.set(word, { usedFakeTwins: false });
     }
@@ -9661,6 +9780,10 @@ export default function App() {
       stopVocabOverlayAnimation();
       return;
     }
+    if (targetSummary) {
+      stopVocabOverlayAnimation();
+      return;
+    }
     if (!Number.isFinite(vocabCount)) return;
     if (!vocabResultsReadyKey) return;
     const overlayKey = vocabResultsReadyKey;
@@ -9749,6 +9872,7 @@ export default function App() {
     vocabCount,
     vocabRoundDelta,
     vocabResultsReadyKey,
+    targetSummary,
   ]);
 
   useEffect(() => {
@@ -10271,34 +10395,41 @@ export default function App() {
           showToast(`🔥 Gobble ! (+${gobblePoints} équipe)`, 2200);
         }
       }
-      const stableVocabKey =
-        endedId ||
-        summaryAt ||
-        (tournamentPayload?.id
-          ? `tournament-${tournamentPayload.id}-${tournamentPayload.round || "end"}`
-          : null);
-      const vocabResultsKey = stableVocabKey || `results-${Date.now()}`;
-      vocabResultsPendingRef.current = vocabResultsKey;
-      setVocabResultsReadyKey(null);
-      void requestVocabCount().then((count) => {
-        if (vocabResultsPendingRef.current !== vocabResultsKey) return;
-        if (!Number.isFinite(count)) {
-          setVocabRoundDelta(null);
-          return;
-        }
-        const base = vocabBaselineRef.current;
-        if (Number.isFinite(base)) {
-          setVocabRoundDelta(Math.max(0, count - base));
-        } else {
-          setVocabRoundDelta(null);
-        }
-        if (skipVocabOverlayOnceRef.current) {
-          skipVocabOverlayOnceRef.current = false;
-          setVocabResultsReadyKey(null);
-          return;
-        }
-        setVocabResultsReadyKey(vocabResultsKey);
-      });
+      const isTargetResults = !!targetSummaryPayload;
+      if (isTargetResults) {
+        vocabResultsPendingRef.current = null;
+        setVocabRoundDelta(null);
+        setVocabResultsReadyKey(null);
+      } else {
+        const stableVocabKey =
+          endedId ||
+          summaryAt ||
+          (tournamentPayload?.id
+            ? `tournament-${tournamentPayload.id}-${tournamentPayload.round || "end"}`
+            : null);
+        const vocabResultsKey = stableVocabKey || `results-${Date.now()}`;
+        vocabResultsPendingRef.current = vocabResultsKey;
+        setVocabResultsReadyKey(null);
+        void requestVocabCount().then((count) => {
+          if (vocabResultsPendingRef.current !== vocabResultsKey) return;
+          if (!Number.isFinite(count)) {
+            setVocabRoundDelta(null);
+            return;
+          }
+          const base = vocabBaselineRef.current;
+          if (Number.isFinite(base)) {
+            setVocabRoundDelta(Math.max(0, count - base));
+          } else {
+            setVocabRoundDelta(null);
+          }
+          if (skipVocabOverlayOnceRef.current) {
+            skipVocabOverlayOnceRef.current = false;
+            setVocabResultsReadyKey(null);
+            return;
+          }
+          setVocabResultsReadyKey(vocabResultsKey);
+        });
+      }
 
       if (Array.isArray(results)) {
         const selfNickKey = normalizeNickKey(nicknameRef.current);
@@ -10674,6 +10805,8 @@ export default function App() {
     toastTimersRef.current.clear();
     gobblarToastDelayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
     gobblarToastDelayTimersRef.current.clear();
+    ocidResultToastDelayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    ocidResultToastDelayTimersRef.current = [];
   }
 
   function showToast(message, durationMs = 2800, options = {}) {
@@ -11455,6 +11588,7 @@ export default function App() {
       targetLength = null,
       targetHintScheduleMs = [],
       solutions = null,
+      ocidVote: ocidVotePayload = null,
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!grid || !Array.isArray(grid)) return;
@@ -11482,6 +11616,12 @@ export default function App() {
       setTournamentSummaryAt(null);
       setTournamentFinaleHoldUntil(null);
       setTargetSummary(null);
+      setOcidProposal("");
+      setOcidProposalPath([]);
+      setOcidProposalSubmitted("");
+      setOcidVote(ocidVotePayload || null);
+      setOcidSelectedOptionId("");
+      setOcidStatusMessage("");
       setTournament(tournamentPayload || null);
       if (tournamentPayload) {
         ensureTournamentBaseline(tournamentPayload);
@@ -11520,14 +11660,19 @@ export default function App() {
       setVocabRoundDelta(null);
       setVocabResultsReadyKey(null);
       vocabResultsPendingRef.current = null;
-      const vocabRoundKey = incomingRoundId || Date.now();
-      vocabBaselineRoundRef.current = vocabRoundKey;
-      void requestVocabCount().then((count) => {
-        if (vocabBaselineRoundRef.current !== vocabRoundKey) return;
-        if (Number.isFinite(count)) {
-          vocabBaselineRef.current = count;
-        }
-      });
+      if (special?.type === OCID_TYPE) {
+        vocabBaselineRoundRef.current = null;
+        vocabBaselineRef.current = null;
+      } else {
+        const vocabRoundKey = incomingRoundId || Date.now();
+        vocabBaselineRoundRef.current = vocabRoundKey;
+        void requestVocabCount().then((count) => {
+          if (vocabBaselineRoundRef.current !== vocabRoundKey) return;
+          if (Number.isFinite(count)) {
+            vocabBaselineRef.current = count;
+          }
+        });
+      }
       startGameFromServerRef.current?.(
         grid,
         incomingRoundId,
@@ -11559,30 +11704,26 @@ export default function App() {
       teamDuel: teamDuelPayload = null,
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
+      const payload = {
+        roomId: endedRoomId,
+        roundId: endedId,
+        results,
+        tournament: tournamentPayload,
+        tournamentSummary: summary,
+        tournamentSummaryAt: summaryAt,
+        targetSummary: targetSummaryPayload,
+        teamDuel: teamDuelPayload,
+      };
+      if (targetSummaryPayload?.ocid) {
+        processRoundEndedRef.current?.(payload);
+        return;
+      }
       if (phaseRef.current !== "playing") {
-        processRoundEndedRef.current?.({
-          roomId: endedRoomId,
-          roundId: endedId,
-          results,
-          tournament: tournamentPayload,
-          tournamentSummary: summary,
-          tournamentSummaryAt: summaryAt,
-          targetSummary: targetSummaryPayload,
-          teamDuel: teamDuelPayload,
-        });
+        processRoundEndedRef.current?.(payload);
         return;
       }
       playOutroThenResultsRef.current?.(
-        {
-          roomId: endedRoomId,
-          roundId: endedId,
-          results,
-          tournament: tournamentPayload,
-          tournamentSummary: summary,
-          tournamentSummaryAt: summaryAt,
-          targetSummary: targetSummaryPayload,
-          teamDuel: teamDuelPayload,
-        },
+        payload,
         { fallback: false }
       );
     }
@@ -11999,6 +12140,43 @@ export default function App() {
       }
     }
 
+    function onOcidVoteStarted(payload = {}) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!payload || typeof payload !== "object") return;
+      const activeRoomId = currentRoomIdRef.current;
+      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
+      setOcidVote(payload);
+      setOcidSelectedOptionId("");
+      setOcidStatusMessage("");
+      stopRoundEndTickSound({ fadeMs: 80 });
+      tickCountdownPlayedRef.current = false;
+      const voteEndsAt = Number(payload?.voteEndsAt);
+      if (Number.isFinite(voteEndsAt)) {
+        setServerEndsAt(voteEndsAt);
+        setServerRoundDurationMs(Math.max(1, voteEndsAt - getNowServerMs()));
+        setTick(Math.max(0, Math.round((voteEndsAt - getNowServerMs()) / 1000)));
+      }
+      setStatusMessageWithHold("Vote OCID", 1800);
+    }
+
+    function onOcidVoteUpdated(payload = {}) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!payload || typeof payload !== "object") return;
+      const activeRoomId = currentRoomIdRef.current;
+      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
+      setOcidVote((prev) => {
+        if (!prev || (payload.roundId && prev.roundId && payload.roundId !== prev.roundId)) {
+          return payload;
+        }
+        return {
+          ...prev,
+          ...payload,
+          voteEndsAt: prev.voteEndsAt || payload.voteEndsAt,
+          definition: prev.definition || payload.definition,
+        };
+      });
+    }
+
     function onTrophiesUpdated(payload) {
       const updates = Array.isArray(payload?.updates) ? payload.updates : [];
       if (!updates.length) return;
@@ -12109,6 +12287,8 @@ export default function App() {
     socket.on("medalsUpdate", onMedalsUpdate);
     socket.on("specialHint", onSpecialHint);
     socket.on("specialSolved", onSpecialSolved);
+    socket.on("ocidVoteStarted", onOcidVoteStarted);
+    socket.on("ocidVoteUpdated", onOcidVoteUpdated);
     socket.on("trophiesUpdated", onTrophiesUpdated);
     socket.on("gobblarsAwarded", onGobblarsAwarded);
     socket.on("moderation:notice", onModerationNotice);
@@ -12133,6 +12313,8 @@ export default function App() {
       socket.off("medalsUpdate", onMedalsUpdate);
       socket.off("specialHint", onSpecialHint);
       socket.off("specialSolved", onSpecialSolved);
+      socket.off("ocidVoteStarted", onOcidVoteStarted);
+      socket.off("ocidVoteUpdated", onOcidVoteUpdated);
       socket.off("trophiesUpdated", onTrophiesUpdated);
       socket.off("gobblarsAwarded", onGobblarsAwarded);
       socket.off("moderation:notice", onModerationNotice);
@@ -12204,6 +12386,11 @@ export default function App() {
         );
 
         if (remaining <= 0) {
+          if (specialRound?.type === OCID_TYPE) {
+            clearInterval(id);
+            stopRoundEndTickSound({ fadeMs: 80 });
+            return 0;
+          }
           clearInterval(id);
           finalizeRound();
           return 0;
@@ -12229,6 +12416,9 @@ export default function App() {
     currentRoomId,
     roomId,
     isDailySpecial3TutorialActive,
+    specialRound,
+    ocidVote,
+    stopRoundEndTickSound,
   ]);
 
   useEffect(() => {
@@ -12237,6 +12427,7 @@ export default function App() {
     if (!dictionary) return;
     if (specialRound?.type === "target_long") return;
     if (specialRound?.type === "target_score") return;
+    if (specialRound?.type === OCID_TYPE) return;
     if (allWords.length > 0) return;
 
     scheduleAllWordsCompute(board, {
@@ -12269,6 +12460,7 @@ export default function App() {
     if (specialRound?.type === "monstrous") return;
     if (specialRound?.type === "target_long") return;
     if (specialRound?.type === "target_score") return;
+    if (specialRound?.type === OCID_TYPE) return;
     if (!dictionary || dictionary.size === 0) return;
     if (!board || board.length === 0) return;
     if (accepted.length === 0) return;
@@ -14883,8 +15075,11 @@ export default function App() {
   }
 
   function getResultsPages() {
+    if (specialRound?.type === OCID_TYPE || targetSummary?.ocid) {
+      return ["round", "total"];
+    }
     return isTargetRound
-      ? ["round", "total", "vocab"]
+      ? ["round", "total"]
       : ["round", "total", "found", "all", "vocab"];
   }
 
@@ -16365,6 +16560,15 @@ export default function App() {
       const ptsSource = Array.isArray(entry) ? entry[1] : entry?.pts;
       const pathSource = Array.isArray(entry) ? entry[2] : entry?.path;
       const usedFakeTwinsSource = Array.isArray(entry) ? entry[3] : entry?.usedFakeTwins;
+      const fakeTwinsCompletionSource = Array.isArray(entry)
+        ? entry[4]
+        : entry?.fakeTwinsCompletionWord;
+      const fakeTwinsBonusOnlySource = Array.isArray(entry)
+        ? entry[5]
+        : entry?.fakeTwinsBonusOnly;
+      const rareBonusWordSource = Array.isArray(entry) ? entry[6] : entry?.rareBonusWord;
+      const rareBonusPointsSource = Array.isArray(entry) ? entry[7] : entry?.rareBonusPoints;
+      const rarityBucketSource = Array.isArray(entry) ? entry[8] : entry?.rarityBucket;
       const numericPts = Number(ptsSource);
       const pts = Number.isFinite(numericPts) ? numericPts : 0;
       const path = Array.isArray(pathSource)
@@ -16376,6 +16580,11 @@ export default function App() {
         path,
         pts,
         usedFakeTwins: !!usedFakeTwinsSource,
+        fakeTwinsCompletionWord: !!fakeTwinsCompletionSource,
+        fakeTwinsBonusOnly: !!fakeTwinsBonusOnlySource,
+        rareBonusWord: !!rareBonusWordSource,
+        rareBonusPoints: Number(rareBonusPointsSource) || 0,
+        rarityBucket: String(rarityBucketSource || ""),
       };
       solved.set(word, meta);
       all.push({ word, ...meta });
@@ -16685,6 +16894,8 @@ export default function App() {
           : computeScore(word, meta?.path || [], sourceBoard, specialScoreConfig),
       path: Array.isArray(meta?.path) ? meta.path : [],
       usedFakeTwins: !!meta?.usedFakeTwins,
+      fakeTwinsCompletionWord: !!meta?.usedFakeTwins,
+      fakeTwinsBonusOnly: false,
     }));
 
     all.sort((a, b) => b.pts - a.pts);
@@ -17744,16 +17955,20 @@ export default function App() {
       const hasLongest = Number.isFinite(stats.len) && maxLen > 0 && stats.len === maxLen;
       const gobbleCount = (hasBestScore ? 1 : 0) + (hasLongest ? 1 : 0);
       const gobbleActive = isSpeedRound ? hasLongest : gobbleCount > 0;
+      const fakeTwinsMeta =
+        wordMetaByNorm?.[normalizeWord(word)] ||
+        allWordsMap.get(normalizeWord(word)) ||
+        allWordsMap.get(word) ||
+        {};
       list.push({
         word,
         pts: scoreAllowed && Number.isFinite(stats.pts) ? stats.pts : null,
         len: Number.isFinite(stats.len) ? stats.len : 0,
         isGobble: !!gobbleActive,
         gobbleCount,
-        usedFakeTwins:
-          !!wordMetaByNorm?.[normalizeWord(word)]?.usedFakeTwins ||
-          !!allWordsMap.get(normalizeWord(word))?.usedFakeTwins ||
-          !!allWordsMap.get(word)?.usedFakeTwins,
+        usedFakeTwins: !!fakeTwinsMeta?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!fakeTwinsMeta?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!fakeTwinsMeta?.fakeTwinsBonusOnly,
       });
     });
     list.sort((a, b) => {
@@ -18796,6 +19011,27 @@ function handleTouchEnd(e) {
       !!result?.usedFakeTwins ||
       !!meta?.usedFakeTwins ||
       !!allWordsMap.get(word)?.usedFakeTwins;
+    const fakeTwinsCompletionWord =
+      usedFakeTwins &&
+      (result?.fakeTwinsCompletionWord ??
+        meta?.fakeTwinsCompletionWord ??
+        allWordsMap.get(word)?.fakeTwinsCompletionWord ??
+        true);
+    const fakeTwinsBonusOnly =
+      usedFakeTwins &&
+      (result?.fakeTwinsBonusOnly ??
+        meta?.fakeTwinsBonusOnly ??
+        allWordsMap.get(word)?.fakeTwinsBonusOnly ??
+        !fakeTwinsCompletionWord);
+    const rareBonusWord =
+      !!result?.rareBonusWord || !!meta?.rareBonusWord || !!allWordsMap.get(word)?.rareBonusWord;
+    const rareBonusPoints =
+      Number(result?.rareBonusPoints) ||
+      Number(meta?.rareBonusPoints) ||
+      Number(allWordsMap.get(word)?.rareBonusPoints) ||
+      0;
+    const rarityBucket =
+      String(result?.rarityBucket || meta?.rarityBucket || allWordsMap.get(word)?.rarityBucket || "");
     const totalScore =
       Number.isFinite(result?.totalScore)
         ? result.totalScore
@@ -18818,6 +19054,11 @@ function handleTouchEnd(e) {
       status: "accepted",
       reason: "",
       usedFakeTwins,
+      fakeTwinsCompletionWord,
+      fakeTwinsBonusOnly,
+      rareBonusWord,
+      rareBonusPoints,
+      rarityBucket,
       ts: meta.ts || Date.now(),
     });
     pendingWordsRef.current.delete(word);
@@ -18843,6 +19084,11 @@ function handleTouchEnd(e) {
         score: Number.isFinite(pts) ? pts : null,
         bestPts: computedBestPts,
         usedFakeTwins,
+        fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly,
+        rareBonusWord,
+        rareBonusPoints,
+        rarityBucket,
       });
       setLastWords((prev) => {
         if (!Array.isArray(prev) || prev.length === 0) return prev;
@@ -18856,6 +19102,11 @@ function handleTouchEnd(e) {
             pts: safePts,
             display,
             usedFakeTwins,
+            fakeTwinsCompletionWord,
+            fakeTwinsBonusOnly,
+            rareBonusWord,
+            rareBonusPoints,
+            rarityBucket,
           };
         });
         return updated ? next : prev;
@@ -18873,6 +19124,11 @@ function handleTouchEnd(e) {
       score: Number.isFinite(pts) ? pts : null,
       bestPts: computedBestPts,
       usedFakeTwins,
+      fakeTwinsCompletionWord,
+      fakeTwinsBonusOnly,
+      rareBonusWord,
+      rareBonusPoints,
+      rarityBucket,
     });
     pushWordHistory(word);
 
@@ -18890,6 +19146,11 @@ function handleTouchEnd(e) {
             label: feedLabel,
             bonuses: wordBonuses,
             usedFakeTwins,
+            fakeTwinsCompletionWord,
+            fakeTwinsBonusOnly,
+            rareBonusWord,
+            rareBonusPoints,
+            rarityBucket,
           },
           ...prev,
         ];
@@ -19143,6 +19404,8 @@ function handleTouchEnd(e) {
     display,
     path,
     usedFakeTwins = false,
+    fakeTwinsCompletionWord = false,
+    fakeTwinsBonusOnly = false,
     ptsOverride = null,
   }) {
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
@@ -19156,7 +19419,13 @@ function handleTouchEnd(e) {
       : [];
 
     setScore((s) => s + pts);
-    registerAcceptedWordRuntime(raw, { score: pts, bestPts: pts, usedFakeTwins });
+    registerAcceptedWordRuntime(raw, {
+      score: pts,
+      bestPts: pts,
+      usedFakeTwins,
+      fakeTwinsCompletionWord,
+      fakeTwinsBonusOnly,
+    });
     dailyAcceptedPathsRef.current.set(raw, {
       word: raw,
       path: normalizedPath,
@@ -19182,6 +19451,8 @@ function handleTouchEnd(e) {
           label: feedLabel,
           bonuses: wordBonuses,
           usedFakeTwins: !!usedFakeTwins,
+          fakeTwinsCompletionWord: !!fakeTwinsCompletionWord,
+          fakeTwinsBonusOnly: !!fakeTwinsBonusOnly,
         },
         ...prev,
       ];
@@ -19302,6 +19573,8 @@ function handleTouchEnd(e) {
               ...scored,
               pts: serverMeta.pts,
               usedFakeTwins: !!scored.usedFakeTwins || !!serverMeta.usedFakeTwins,
+              fakeTwinsCompletionWord: !!serverMeta.fakeTwinsCompletionWord,
+              fakeTwinsBonusOnly: !!serverMeta.fakeTwinsBonusOnly,
             };
           }
           return scored;
@@ -19556,6 +19829,39 @@ function handleTouchEnd(e) {
       setHighlightPath(path);
     }
 
+    if (specialRound?.type === OCID_TYPE) {
+      const scored = scoreWordOnGridWithPath(preferredRaw, board, path, null);
+      if (!scored?.path) return error("Mot absent de la grille");
+      const displayLabel = String(display || preferredRaw || "").toUpperCase();
+      setOcidProposal(displayLabel);
+      setOcidProposalPath(Array.isArray(scored.path) ? scored.path : path);
+      setOcidProposalSubmitted("");
+      setOcidStatusMessage("Mot prêt à envoyer.");
+      if (roundId && socket.connected && isLoggedIn) {
+        socket.emit(
+          "ocid:propose",
+          { roundId, word: displayLabel, path: Array.isArray(scored.path) ? scored.path : path },
+          (res) => {
+            if (res?.ok) {
+              setOcidProposalSubmitted(String(res?.proposal || displayLabel).trim());
+              setOcidStatusMessage("Proposition retenue.");
+              return;
+            }
+            setOcidProposalSubmitted("");
+            setOcidStatusMessage(
+              res?.error === "proposal_closed"
+                ? "Les propositions sont fermées."
+                : res?.error === "not_traceable"
+                ? "Ce mot n'est pas traçable sur la grille."
+                : "Proposition refusée."
+            );
+          }
+        );
+      }
+      clearSelection();
+      return;
+    }
+
     const resolvedCandidates = resolveSubmissionCandidatesFromPath(path, display) || [];
     const resolvedCandidate = resolvedCandidates[0] || null;
     if (!resolvedCandidate) {
@@ -19655,6 +19961,8 @@ function handleTouchEnd(e) {
             : path,
           optimisticPts,
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
+          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
           traceStartedAt: getSubmissionTraceStartedAt(),
           optimisticApplied: canOptimisticallyApply,
         });
@@ -19666,6 +19974,8 @@ function handleTouchEnd(e) {
             ? candidateScored.path
             : path,
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
+          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
           ptsOverride: optimisticPts,
         });
       });
@@ -19688,12 +19998,15 @@ function handleTouchEnd(e) {
         display: candidate.display,
         path: candidate.scored.path,
         usedFakeTwins: !!candidate.scored?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!candidate.scored?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!candidate.scored?.fakeTwinsBonusOnly,
       });
     });
   }
 
   function tryAutoSubmitCurrentWordAtRoundEnd() {
     if (isSpecial3WordsMode) return false;
+    if (specialRound?.type === OCID_TYPE) return false;
     if (foundTargetThisRound) return false;
 
     const display = currentTilesRef.current.join("");
@@ -19785,6 +20098,8 @@ function handleTouchEnd(e) {
             : path,
           optimisticPts: candidatePts,
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
+          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
           traceStartedAt: getSubmissionTraceStartedAt(),
           optimisticApplied: true,
         });
@@ -19795,6 +20110,8 @@ function handleTouchEnd(e) {
             ? candidateScored.path
             : path,
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
+          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
+          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
           ptsOverride: candidatePts,
         });
       });
@@ -19812,6 +20129,8 @@ function handleTouchEnd(e) {
         display: candidate.display,
         path: candidate.scored.path,
         usedFakeTwins: !!candidate.scored?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!candidate.scored?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!candidate.scored?.fakeTwinsBonusOnly,
       });
     });
     return true;
@@ -20864,6 +21183,8 @@ function handleTouchEnd(e) {
         userPts: meta.optimisticPts,
         reason: meta.reason || "",
         usedFakeTwins: !!meta.usedFakeTwins,
+        fakeTwinsCompletionWord: !!meta.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!meta.fakeTwinsBonusOnly,
         ts: meta.ts || 0,
       });
     });
@@ -20885,17 +21206,26 @@ function handleTouchEnd(e) {
   const scoreLabel = formatNumber(score) ?? "0";
   const localCountedFakeTwinsWords = React.useMemo(() => {
     const words = new Set();
+    const fakeTwinsMetaByWord = new Map(
+      (Array.isArray(allWords) ? allWords : []).map((entry) => [entry.word, entry])
+    );
     accepted.forEach((word) => {
-      if (acceptedWordMetaRef.current.get(word)?.usedFakeTwins) {
+      const meta = acceptedWordMetaRef.current.get(word) || fakeTwinsMetaByWord.get(word);
+      if (meta?.usedFakeTwins && (meta.fakeTwinsCompletionWord ?? true)) {
         words.add(word);
       }
     });
     submissionStatusRef.current.forEach((meta, word) => {
       if (!meta || meta.status === "rejected" || !meta.usedFakeTwins) return;
+      if (
+        !(meta.fakeTwinsCompletionWord ?? fakeTwinsMetaByWord.get(word)?.fakeTwinsCompletionWord ?? true)
+      ) {
+        return;
+      }
       words.add(word);
     });
     return words;
-  }, [accepted, submissionTick]);
+  }, [accepted, allWords, submissionTick]);
   const fakeTwinsLetterPairLabel = React.useMemo(() => {
     const isFakeTwinsMode =
       specialRound?.type === FAKE_TWINS_TYPE ||
@@ -20917,20 +21247,23 @@ function handleTouchEnd(e) {
     if (!isFakeTwinsMode) return "";
     const twinLetters = fakeTwinsLetterPairLabel || "la case jumelle";
     if (!Array.isArray(allWords) || allWords.length === 0) {
-      if (Number.isFinite(roundStats?.fakeTwinWords)) {
+      const totalFakeTwinCompletionWords =
+        roundStats?.fakeTwinCompletionWords ?? roundStats?.fakeTwinWords;
+      if (Number.isFinite(totalFakeTwinCompletionWords)) {
         const remaining = Math.max(
           0,
-          Number(roundStats.fakeTwinWords) - localCountedFakeTwinsWords.size
+          Number(totalFakeTwinCompletionWords) - localCountedFakeTwinsWords.size
         );
-        return `${formatNumber(remaining) ?? remaining} mots utilisent ${twinLetters}`;
+        return `${formatNumber(remaining) ?? remaining} mots cibles utilisent ${twinLetters}`;
       }
       return "";
     }
     const remaining = (Array.isArray(allWords) ? allWords : []).filter((entry) => {
       if (!entry?.usedFakeTwins || !entry?.word) return false;
+      if (!(entry.fakeTwinsCompletionWord ?? true)) return false;
       return !localCountedFakeTwinsWords.has(entry.word);
     }).length;
-    return `${formatNumber(remaining) ?? remaining} mots utilisent ${twinLetters}`;
+    return `${formatNumber(remaining) ?? remaining} mots cibles utilisent ${twinLetters}`;
   }, [
     allWords,
     fakeTwinsLetterPairLabel,
@@ -20938,6 +21271,7 @@ function handleTouchEnd(e) {
     isDailyPlay,
     localCountedFakeTwinsWords,
     dailyPlayMode,
+    roundStats?.fakeTwinCompletionWords,
     roundStats?.fakeTwinWords,
     specialRound?.type,
   ]);
@@ -20948,7 +21282,8 @@ function handleTouchEnd(e) {
     ? formatNumber(previewTotals.totalScore)
     : "?";
   const showPreviewStatus = Boolean(statusHoldText) && !liveWord;
-  const showPreviewStats = !liveWord && !statusHoldText && !isTargetHintRound;
+  const showPreviewStats =
+    !liveWord && !statusHoldText && !isTargetHintRound && specialRound?.type !== OCID_TYPE;
   const vocabDeltaValue = Number.isFinite(vocabRoundDelta) ? Math.max(0, vocabRoundDelta) : 0;
   const vocabHasDelta = vocabDeltaValue > 0;
   const vocabDeltaLabel = vocabHasDelta ? `+${formatNumber(vocabDeltaValue)}` : "inchangé";
@@ -21314,6 +21649,23 @@ function handleTouchEnd(e) {
       usedFakeTwins:
         !!acceptedWordMetaRef.current.get(word)?.usedFakeTwins ||
         !!allWordsMap.get(word)?.usedFakeTwins,
+      fakeTwinsCompletionWord:
+        !!acceptedWordMetaRef.current.get(word)?.fakeTwinsCompletionWord ||
+        !!allWordsMap.get(word)?.fakeTwinsCompletionWord,
+      fakeTwinsBonusOnly:
+        !!acceptedWordMetaRef.current.get(word)?.fakeTwinsBonusOnly ||
+        !!allWordsMap.get(word)?.fakeTwinsBonusOnly,
+      rareBonusWord:
+        !!acceptedWordMetaRef.current.get(word)?.rareBonusWord ||
+        !!allWordsMap.get(word)?.rareBonusWord,
+      rareBonusPoints:
+        Number(acceptedWordMetaRef.current.get(word)?.rareBonusPoints) ||
+        Number(allWordsMap.get(word)?.rareBonusPoints) ||
+        0,
+      rarityBucket:
+        acceptedWordMetaRef.current.get(word)?.rarityBucket ||
+        allWordsMap.get(word)?.rarityBucket ||
+        "",
     }));
     pendingWordEntries.forEach((entry) => {
       if (acceptedWordSet.has(entry.word)) return;
@@ -21328,6 +21680,28 @@ function handleTouchEnd(e) {
           !!entry?.usedFakeTwins ||
           !!acceptedWordMetaRef.current.get(entry.word)?.usedFakeTwins ||
           !!allWordsMap.get(entry.word)?.usedFakeTwins,
+        fakeTwinsCompletionWord:
+          !!entry?.fakeTwinsCompletionWord ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.fakeTwinsCompletionWord ||
+          !!allWordsMap.get(entry.word)?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly:
+          !!entry?.fakeTwinsBonusOnly ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.fakeTwinsBonusOnly ||
+          !!allWordsMap.get(entry.word)?.fakeTwinsBonusOnly,
+        rareBonusWord:
+          !!entry?.rareBonusWord ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.rareBonusWord ||
+          !!allWordsMap.get(entry.word)?.rareBonusWord,
+        rareBonusPoints:
+          Number(entry?.rareBonusPoints) ||
+          Number(acceptedWordMetaRef.current.get(entry.word)?.rareBonusPoints) ||
+          Number(allWordsMap.get(entry.word)?.rareBonusPoints) ||
+          0,
+        rarityBucket:
+          entry?.rarityBucket ||
+          acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
+          allWordsMap.get(entry.word)?.rarityBucket ||
+          "",
       });
     });
     return list;
@@ -21359,6 +21733,33 @@ function handleTouchEnd(e) {
           !!entry?.usedFakeTwins ||
           !!allWordsMap.get(entry.word)?.usedFakeTwins ||
           !!acceptedWordMetaRef.current.get(entry.word)?.usedFakeTwins,
+        fakeTwinsCompletionWord:
+          !!pendingStatusMap.get(entry.word)?.fakeTwinsCompletionWord ||
+          !!entry?.fakeTwinsCompletionWord ||
+          !!allWordsMap.get(entry.word)?.fakeTwinsCompletionWord ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly:
+          !!pendingStatusMap.get(entry.word)?.fakeTwinsBonusOnly ||
+          !!entry?.fakeTwinsBonusOnly ||
+          !!allWordsMap.get(entry.word)?.fakeTwinsBonusOnly ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.fakeTwinsBonusOnly,
+        rareBonusWord:
+          !!pendingStatusMap.get(entry.word)?.rareBonusWord ||
+          !!entry?.rareBonusWord ||
+          !!allWordsMap.get(entry.word)?.rareBonusWord ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.rareBonusWord,
+        rareBonusPoints:
+          Number(pendingStatusMap.get(entry.word)?.rareBonusPoints) ||
+          Number(entry?.rareBonusPoints) ||
+          Number(allWordsMap.get(entry.word)?.rareBonusPoints) ||
+          Number(acceptedWordMetaRef.current.get(entry.word)?.rareBonusPoints) ||
+          0,
+        rarityBucket:
+          pendingStatusMap.get(entry.word)?.rarityBucket ||
+          entry?.rarityBucket ||
+          allWordsMap.get(entry.word)?.rarityBucket ||
+          acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
+          "",
         userPts: (() => {
           const raw =
             pendingStatusMap.get(entry.word)?.userPts ??
@@ -22936,8 +23337,228 @@ function handleTouchEnd(e) {
     specialRound?.type === "target_long" ||
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
+  const isOcidRound = specialRound?.type === OCID_TYPE;
+  const ocidDefinitionText = String(
+    ocidVote?.definition ||
+      specialRound?.ocidDefinition ||
+      specialRound?.definition ||
+      targetSummary?.ocid?.definition ||
+      targetSummary?.definition ||
+      ""
+  ).trim();
+  const clearOcidProposalServer = React.useCallback(() => {
+    if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
+    socket.emit("ocid:clearProposal", { roundId }, () => {});
+  }, [isOcidRound, ocidVote, roundId]);
+  const syncOcidProposalDraft = React.useCallback(
+    ({ manual = false } = {}) => {
+      if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
+      const word = String(ocidProposal || "").trim();
+      if (!word) {
+        socket.emit("ocid:clearProposal", { roundId }, () => {});
+        if (manual) setOcidStatusMessage("Trace un mot sur la grille.");
+        setOcidProposalSubmitted("");
+        return;
+      }
+      socket.emit("ocid:propose", { roundId, word, path: ocidProposalPath }, (res) => {
+        if (res?.ok) {
+          const accepted = String(res?.proposal || word).trim();
+          setOcidProposalSubmitted(accepted);
+          setOcidStatusMessage(manual ? `Proposition retenue : ${accepted}` : "Proposition retenue.");
+          return;
+        }
+        setOcidProposalSubmitted("");
+        setOcidStatusMessage(
+          res?.error === "proposal_closed"
+            ? "Les propositions sont fermées."
+            : res?.error === "not_traceable"
+            ? "Ce mot n'est pas traçable sur la grille."
+            : "Proposition refusée."
+        );
+      });
+    },
+    [isOcidRound, ocidProposal, ocidProposalPath, ocidVote, roundId]
+  );
+  React.useEffect(() => {
+    if (ocidProposalSyncTimerRef.current) {
+      clearTimeout(ocidProposalSyncTimerRef.current);
+      ocidProposalSyncTimerRef.current = null;
+    }
+    if (phase !== "playing" || !isOcidRound || ocidVote || !roundId) return undefined;
+    ocidProposalSyncTimerRef.current = setTimeout(() => {
+      ocidProposalSyncTimerRef.current = null;
+      syncOcidProposalDraft({ manual: false });
+    }, 350);
+    return () => {
+      if (ocidProposalSyncTimerRef.current) {
+        clearTimeout(ocidProposalSyncTimerRef.current);
+        ocidProposalSyncTimerRef.current = null;
+      }
+    };
+  }, [phase, isOcidRound, ocidVote, roundId, ocidProposal, ocidProposalPath, syncOcidProposalDraft]);
+  const submitOcidProposal = React.useCallback(() => {
+    if (!socket?.connected || !roundId || !isOcidRound) return;
+    syncOcidProposalDraft({ manual: true });
+  }, [isOcidRound, roundId, syncOcidProposalDraft]);
+  const submitOcidVote = React.useCallback(
+    (optionId) => {
+      if (!socket?.connected || !roundId || !isOcidRound || !optionId) return;
+      socket.emit("ocid:vote", { roundId, optionId }, (res) => {
+        if (res?.ok) {
+          setOcidSelectedOptionId(optionId);
+          setOcidStatusMessage("Vote enregistre.");
+          return;
+        }
+        setOcidStatusMessage(
+          res?.error === "vote_closed"
+            ? "Le vote est termine."
+            : res?.error === "own_proposal"
+            ? "Tu ne peux pas voter pour ton propre mot."
+            : "Vote refuse."
+        );
+      });
+    },
+    [isOcidRound, roundId]
+  );
   const selfNickForResults = nicknameRef.current.trim();
   const selfNickKeyForResults = normalizeNickKey(selfNickForResults);
+  const ocidSummary = targetSummary?.ocid || null;
+  const ocidScoring = ocidSummary?.scoring || {};
+  const selfOcidResult =
+    ocidSummary && selfNickKeyForResults && Array.isArray(finalResults)
+      ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults) || null
+      : null;
+  const selfOcidDetail = selfOcidResult?.ocid || null;
+  const selfOcidSubmittedWord = String(selfOcidDetail?.proposal || "").trim().toUpperCase();
+  const selfOcidVoters = Array.isArray(selfOcidDetail?.votersForProposal)
+    ? selfOcidDetail.votersForProposal.map((nick) => String(nick || "").trim()).filter(Boolean)
+    : [];
+  const selfOcidVoteWord = String(selfOcidDetail?.vote || "").trim();
+  const selfOcidVoteOption = Array.isArray(ocidSummary?.options)
+    ? ocidSummary.options.find(
+        (option) => normalizeWord(option?.display || "") === normalizeWord(selfOcidVoteWord)
+      ) || null
+    : null;
+  const selfOcidVotedAuthors =
+    selfOcidVoteOption && !selfOcidVoteOption.isTarget && Array.isArray(selfOcidVoteOption.authors)
+      ? selfOcidVoteOption.authors.map((nick) => String(nick || "").trim()).filter(Boolean)
+      : [];
+  const selfOcidGiftedPoints =
+    selfOcidVotedAuthors.length * (Number(ocidScoring?.bluffVote) || 0);
+  const selfOcidAudienceLabel =
+    selfOcidVoters.length === 1 ? "un joueur" : `${selfOcidVoters.length} joueurs`;
+  const selfOcidAudienceCaps =
+    selfOcidAudienceLabel.charAt(0).toUpperCase() + selfOcidAudienceLabel.slice(1);
+  const selfOcidBluffMessage = selfOcidVoters.length
+    ? formatOcidMessage(
+        pickStableOcidMessage(
+          selfOcidDetail?.validProposal ? OCID_VALID_BLUFF_MESSAGES : OCID_INVALID_BLUFF_MESSAGES,
+          `${roundId}|${selfNickForResults}|${selfOcidSubmittedWord}|${selfOcidVoters.join(",")}`
+        ),
+        {
+          word: selfOcidSubmittedWord || "votre mot",
+          audience: selfOcidAudienceLabel,
+          audienceCaps: selfOcidAudienceCaps,
+        }
+      )
+    : formatOcidMessage(
+        pickStableOcidMessage(
+          OCID_NO_VOTER_MESSAGES,
+          `${roundId}|${selfNickForResults}|${selfOcidSubmittedWord}`
+        ),
+        { word: selfOcidSubmittedWord || "votre mot" }
+      );
+  const selfOcidTargetDetail = selfOcidDetail?.exactTarget
+    ? `+${Number(selfOcidDetail?.exactTargetPoints) || Number(ocidScoring?.exactTarget) || 0} pts pour l'avoir tracé`
+    : selfOcidDetail?.correctVote
+    ? `+${Number(selfOcidDetail?.correctVotePoints) || Number(ocidScoring?.correctVote) || 0} pts pour l'avoir retrouvé au vote`
+    : "Pas trouvé cette fois.";
+  const selfOcidVoteDetail = selfOcidVoteOption?.isTarget
+    ? "Vous avez voté pour le vrai mot cible."
+    : selfOcidVotedAuthors.length
+    ? `Vous avez voté pour le mot de : ${selfOcidVotedAuthors.join(", ")}`
+    : "Aucun vote enregistré.";
+  const selfOcidGiftDetail =
+    selfOcidVotedAuthors.length && selfOcidGiftedPoints > 0
+      ? `Vous leur avez offert ${formatNumber(selfOcidGiftedPoints)} pts.`
+      : "";
+  const selfOcidBluffPanelText = selfOcidDetail?.exactTarget
+    ? "Vous n'avez pas bluffé : vous avez trouvé le mot cible dès le traçage."
+    : selfOcidBluffMessage;
+  const selfOcidBluffPoints =
+    Number(selfOcidDetail?.bluffVotePoints) ||
+    selfOcidVoters.length * (Number(ocidScoring?.bluffVote) || 0);
+  const ocidMobileResultKey =
+    ocidSummary && phase === "results"
+      ? `${roundId || ""}|${String(ocidSummary.word || "")}|${selfNickKeyForResults}`
+      : "";
+  const ocidMobileResultOverlay =
+    isMobileLayout &&
+    phase === "results" &&
+    ocidSummary &&
+    ocidMobileResultKey &&
+    ocidMobileResultDismissedKey !== ocidMobileResultKey ? (
+      <OcidResultOverlay
+        darkMode={darkMode}
+        targetWord={ocidSummary.word || ""}
+        targetDetail={selfOcidTargetDetail}
+        voteDetail={selfOcidVoteDetail}
+        giftDetail={selfOcidGiftDetail}
+        bluffDetail={selfOcidBluffPanelText}
+        voters={selfOcidVoters}
+        bluffPoints={selfOcidBluffPoints}
+        onClose={() => setOcidMobileResultDismissedKey(ocidMobileResultKey)}
+      />
+    ) : null;
+  useEffect(() => {
+    if (phase !== "results" || !ocidSummary || !selfOcidResult || !selfOcidDetail) return;
+    const toastKey = [
+      roundId,
+      selfNickKeyForResults,
+      selfOcidResult.score || 0,
+      selfOcidSubmittedWord,
+      selfOcidVoteWord,
+      selfOcidVoters.join("|"),
+    ].join("#");
+    if (ocidResultToastKeyRef.current === toastKey) return;
+    ocidResultToastKeyRef.current = toastKey;
+    ocidResultToastDelayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    ocidResultToastDelayTimersRef.current = [];
+    const queue = [];
+    const exactPoints =
+      Number(selfOcidDetail.exactTargetPoints) ||
+      (selfOcidDetail.exactTarget ? Number(ocidScoring?.exactTarget) || 0 : 0);
+    const validPoints =
+      Number(selfOcidDetail.validProposalPoints) ||
+      (selfOcidDetail.validProposal ? Number(ocidScoring?.validProposal) || 0 : 0);
+    const votePoints =
+      Number(selfOcidDetail.correctVotePoints) ||
+      (selfOcidDetail.correctVote ? Number(ocidScoring?.correctVote) || 0 : 0);
+    const bluffPointValue = Number(ocidScoring?.bluffVote) || 0;
+    if (validPoints > 0) queue.push(`+${validPoints} points pour mot valide`);
+    if (exactPoints > 0) queue.push(`+${exactPoints} bravo ! mot cible trouvé`);
+    if (votePoints > 0) queue.push(`+${votePoints} points pour ton vote`);
+    selfOcidVoters.forEach((nick) => {
+      queue.push(`+${bluffPointValue} ${nick} a voté pour ton mot !`);
+    });
+    queue.forEach((message, idx) => {
+      const timerId = setTimeout(() => {
+        showToastRef.current?.(message, 2600);
+      }, idx * 900);
+      ocidResultToastDelayTimersRef.current.push(timerId);
+    });
+  }, [
+    phase,
+    ocidSummary,
+    selfOcidResult,
+    selfOcidDetail,
+    roundId,
+    selfNickKeyForResults,
+    selfOcidSubmittedWord,
+    selfOcidVoteWord,
+    selfOcidVoters,
+    ocidScoring,
+  ]);
   const selfHasResultsThisRound =
     phase === "results" && selfNickForResults && Array.isArray(finalResults)
       ? finalResults.some((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
@@ -22948,6 +23569,7 @@ function handleTouchEnd(e) {
     isMobileLayout &&
     phase === "results" &&
     !isTargetRound &&
+    !isOcidRound &&
     !showOfflineResultsLabel;
   const guidedResultsPages = guidedResultsEligible ? getResultsPages() : [];
   const guidedResultsPageKey = guidedResultsPages.length
@@ -22961,17 +23583,13 @@ function handleTouchEnd(e) {
       : null;
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
-    const pages = isTargetRound
-      ? ["round", "total", "vocab"]
-      : ["round", "total", "found", "all", "vocab"];
+    const pages = getResultsPages();
     setMobileResultsPage((prev) => clampValue(prev, 0, pages.length - 1));
-  }, [isMobileLayout, phase, isTargetRound]);
+  }, [isMobileLayout, phase, isTargetRound, specialRound, targetSummary]);
 
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
-    const pages = isTargetRound
-      ? ["round", "total", "vocab"]
-      : ["round", "total", "found", "all", "vocab"];
+    const pages = getResultsPages();
     const pageKey = pages[clampValue(mobileResultsPage, 0, pages.length - 1)];
     if (pageKey === "round") setResultsRankingMode("round");
     if (pageKey === "total") setResultsRankingMode("total");
@@ -22983,7 +23601,16 @@ function handleTouchEnd(e) {
       prepareWordListFlip(displayList);
       setShowAllWords(true);
     }
-  }, [isMobileLayout, phase, isTargetRound, mobileResultsPage, showAllWords, displayList]);
+  }, [
+    isMobileLayout,
+    phase,
+    isTargetRound,
+    mobileResultsPage,
+    showAllWords,
+    displayList,
+    specialRound,
+    targetSummary,
+  ]);
   useEffect(() => {
     if (phase !== "playing" || !specialRound?.isSpecial) return;
     if (inputLocked) return;
@@ -23174,6 +23801,15 @@ function handleTouchEnd(e) {
     const seconds = Math.max(0, ms) / 1000;
     return `${seconds.toFixed(1).replace(".", ",")}s`;
   };
+  const renderRareBonusInline = (points) => {
+    const value = Math.max(0, Math.trunc(Number(points) || 0));
+    if (value <= 0) return null;
+    return (
+      <span className="text-orange-600 font-black tabular-nums">
+        ({formatNumber(value)})
+      </span>
+    );
+  };
   const finalRanking = finalResults.length
     ? [...finalResults]
         .map((entry) => {
@@ -23182,7 +23818,58 @@ function handleTouchEnd(e) {
             typeof roundAward?.points === "number" ? roundAward.points : null;
           const roundGobbles =
             typeof roundAward?.gobbles === "number" ? roundAward.gobbles : 0;
-          if (isTargetRound) {
+          if (targetSummary?.ocid) {
+            const detail = entry?.ocid || {};
+            const parts = [];
+            if (detail.exactTarget) parts.push("mot cible tracé");
+            else if (detail.validProposal) {
+              const proposal = String(detail.proposal || "").trim().toUpperCase();
+              parts.push(
+                proposal ? (
+                  <React.Fragment key={`ocid-valid-${entry.nick || proposal}`}>
+                    <span className="font-black text-orange-600 dark:text-amber-300">
+                      {proposal}
+                    </span>{" "}
+                    · mot valide
+                  </React.Fragment>
+                ) : (
+                  "mot valide"
+                )
+              );
+            }
+            if (detail.correctVote) parts.push("bon vote");
+            if (Number(detail.bluffVotes) > 0) {
+              const voters = Array.isArray(detail.votersForProposal)
+                ? detail.votersForProposal.filter(Boolean)
+                : [];
+              const voterLabel = voters.length
+                ? ` (${voters.slice(0, 4).join(", ")}${voters.length > 4 ? "..." : ""})`
+                : "";
+              parts.push(
+                `${Number(detail.bluffVotes)} vote${Number(detail.bluffVotes) > 1 ? "s" : ""} bluff${voterLabel}`
+              );
+            }
+            return {
+              ...entry,
+              wordsCount: null,
+              roundPoints,
+              roundGobbles,
+              rightLabel: parts.length ? (
+                <>
+                  {entry.score || 0} pts
+                  {parts.map((part, idx) => (
+                    <React.Fragment key={`ocid-part-${entry.nick || "row"}-${idx}`}>
+                      {" · "}
+                      {part}
+                    </React.Fragment>
+                  ))}
+                </>
+              ) : (
+                `${entry.score || 0} pts`
+              ),
+            };
+          }
+          if (isTargetRound && !targetSummary?.ocid) {
             const timeMs = Number.isFinite(entry.targetFoundMs) ? entry.targetFoundMs : null;
             return {
               ...entry,
@@ -23197,10 +23884,30 @@ function handleTouchEnd(e) {
             wordsCount: Array.isArray(entry.words) ? entry.words.length : null,
             roundPoints,
             roundGobbles,
+            rightLabel:
+              specialRound?.type === FAKE_TWINS_TYPE &&
+              Number.isFinite(entry.fakeTwinWordsFound) &&
+              Number.isFinite(entry.fakeTwinWordsTotal)
+                ? (
+                  <>
+                    {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
+                    {renderRareBonusInline(entry?.rareBonusPoints)}
+                    {Number(entry?.rareBonusPoints) > 0 ? " " : ""}
+                    {entry.score || 0} pts · 2L {entry.fakeTwinWordsFound}/{entry.fakeTwinWordsTotal}
+                  </>
+                )
+                : Number(entry?.rareBonusPoints) > 0
+                ? (
+                  <>
+                    {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
+                    {renderRareBonusInline(entry?.rareBonusPoints)} {entry.score || 0} pts
+                  </>
+                )
+                : undefined,
           };
         })
         .sort((a, b) => {
-          if (!isTargetRound) return (b.score || 0) - (a.score || 0);
+          if (!isTargetRound || targetSummary?.ocid) return (b.score || 0) - (a.score || 0);
           const aFound = Number.isFinite(a.targetFoundAt);
           const bFound = Number.isFinite(b.targetFoundAt);
           if (aFound && bFound) {
@@ -32635,6 +33342,14 @@ function handleTouchEnd(e) {
               {dailyRankLabel != null ? ` · Rang #${dailyRankLabel}` : ""}
               {dailyResult?.totalPlayers ? ` / ${dailyResult.totalPlayers}` : ""}
             </div>
+            {dailyResult?.mode === DAILY_FAKE_TWINS_MODE &&
+              Number.isFinite(dailyResult?.fakeTwinWordsFound) &&
+              Number.isFinite(dailyResult?.fakeTwinWordsTotal) && (
+                <div className="text-xs font-semibold opacity-80">
+                  Faux jumeaux cibles : {dailyResult.fakeTwinWordsFound}/
+                  {dailyResult.fakeTwinWordsTotal}
+                </div>
+              )}
             {dailySubmitError && (
               <div className="text-xs text-red-400">{dailySubmitError}</div>
             )}
@@ -35005,9 +35720,7 @@ function handleTouchEnd(e) {
           };
 
     if (isResults) {
-      const resultsPages = isTargetRound
-        ? ["round", "total", "vocab"]
-        : ["round", "total", "found", "all", "vocab"];
+      const resultsPages = getResultsPages();
       const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
       const resultsPageKey = resultsPages[safeResultsPage];
       const showVocabPage = resultsPageKey === "vocab";
@@ -35254,6 +35967,7 @@ function handleTouchEnd(e) {
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
             wordsEmpty={wordsEmpty}
           />
+          {ocidMobileResultOverlay}
           {mobileChatLayer}
         </>
       );
@@ -35301,6 +36015,7 @@ function handleTouchEnd(e) {
         isDailyPlay={isDailyPlay}
         isFinaleBanner={isFinaleBanner}
         isMobileLayout={isMobileLayout}
+        isOcidRound={isOcidRound}
         isTargetRound={isTargetRound}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         liveFeedMinHeight={liveFeedMinHeight}
@@ -35325,9 +36040,28 @@ function handleTouchEnd(e) {
         nextHintLabel={nextHintLabel}
         normalizeBonusLabel={normalizeBonusLabel}
         normalizeLetterKey={normalizeLetterKey}
+        ocidProposal={ocidProposal}
+        ocidProposalSubmitted={ocidProposalSubmitted}
+        ocidSelectedOptionId={ocidSelectedOptionId}
+        ocidStatusMessage={ocidStatusMessage}
+        ocidVote={ocidVote}
         onOpenDefinition={openDefinition}
         onOpenPlayerProfile={openPlayerProfile}
         onOpenPlayersOverlaySnapshot={openPlayersOverlaySnapshot}
+        onOcidProposalChange={(value) => {
+          setOcidProposal(value);
+          setOcidProposalPath([]);
+          setOcidProposalSubmitted("");
+        }}
+        onClearOcidProposal={() => {
+          setOcidProposal("");
+          setOcidProposalPath([]);
+          setOcidProposalSubmitted("");
+          setOcidStatusMessage("");
+          clearOcidProposalServer();
+        }}
+        onSubmitOcidProposal={submitOcidProposal}
+        onSubmitOcidVote={submitOcidVote}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onRotateGrid={rotateGridClockwise}
         onSetShowHelp={setShowHelp}
@@ -35609,6 +36343,90 @@ function handleTouchEnd(e) {
     <div className="text-sm font-semibold">Classement provisoire</div>
 
     <div className="flex-1 min-h-0">
+      {isOcidRound && isMobileLayout && (
+        <div className={`mb-2 rounded-xl border px-3 py-2 ${darkMode ? "bg-slate-900/70 border-white/10" : "bg-white border-slate-200"}`}>
+          <div className="text-[11px] font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300">
+            MANCHE OCID
+          </div>
+          <div className="mt-2 text-xs font-semibold opacity-80 text-center leading-snug">
+            {ocidVote?.definition || specialRound?.ocidDefinition || "Definition indisponible"}
+          </div>
+          {ocidVote ? (
+            <div className="mt-2 grid grid-cols-1 gap-1.5">
+              {(ocidVote.options || []).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => submitOcidVote(option.id)}
+                  className={`rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
+                    ocidSelectedOptionId === option.id
+                      ? darkMode
+                        ? "bg-emerald-900/60 border-emerald-300/50 text-emerald-50"
+                        : "bg-emerald-50 border-emerald-300 text-emerald-800"
+                      : darkMode
+                      ? "bg-slate-800/70 border-slate-700 text-slate-100"
+                      : "bg-slate-50 border-slate-200 text-slate-800"
+                  }`}
+                >
+                  {option.display}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <form
+              className="mt-2 flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitOcidProposal();
+              }}
+            >
+              <div className="relative min-w-0 flex-1">
+                <input
+                  value={ocidProposal}
+                  onChange={(e) => {
+                    setOcidProposal(e.target.value);
+                    setOcidProposalPath([]);
+                    setOcidProposalSubmitted("");
+                  }}
+                  maxLength={32}
+                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 pr-8 text-sm text-slate-900"
+                  placeholder="Trace ou tape ton mot"
+                />
+                {ocidProposal ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOcidProposal("");
+                      setOcidProposalPath([]);
+                      setOcidProposalSubmitted("");
+                      setOcidStatusMessage("");
+                      clearOcidProposalServer();
+                    }}
+                    className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                    aria-label="Changer de proposition"
+                  >
+                    <span className="material-icons-outlined text-[16px] leading-none">close</span>
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="submit"
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white"
+              >
+                Envoyer
+              </button>
+            </form>
+          )}
+          <div className="mt-2 text-[11px] font-semibold opacity-70 text-center">
+            {ocidStatusMessage ||
+              (ocidVote
+                ? "Vote pour le vrai mot cible."
+                : ocidProposalSubmitted
+                ? `Retenu : ${ocidProposalSubmitted}`
+                : "Trace ou tape un mot plausible. Il sera retenu automatiquement.")}
+          </div>
+        </div>
+      )}
       {isTargetRound && (
         <div className={`mb-2 rounded-xl border px-3 py-2 ${darkMode ? "bg-slate-900/70 border-white/10" : "bg-white border-slate-200"}`}>
           <div className="text-[11px] font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300">
@@ -35697,7 +36515,7 @@ function handleTouchEnd(e) {
           </div>
         </div>
       )}
-      {!isTargetRound && (
+      {!isTargetRound && !isOcidRound && (
         <RankingWidgetMobile
           fullRanking={rankingSource || []}
           selfNick={selfNick}
@@ -36098,8 +36916,8 @@ function handleTouchEnd(e) {
                   bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
                 const isHint = hintCellSet.has(boardIndex);
                 const isHintOutline = hintOutlineCellSet.has(boardIndex);
-                const shouldShowHint = !isUsed && isHint;
-                const shouldShowHintOutline = !isUsed && isHintOutline;
+                const shouldShowHint = isHint;
+                const shouldShowHintOutline = isHintOutline;
                 const letterPts = isBonusLetterTile
                   ? bonusLetterScore ?? 20
                   : tileScore(cell);
@@ -36345,40 +37163,146 @@ function handleTouchEnd(e) {
           }}
         >
           {/* bloc score */}
-          <div className="bg-white border rounded-xl p-3 w-full space-y-2 mb-4 shrink-0 relative overflow-hidden">
-            <div className="text-lg font-bold text-center">Score total : {score}</div>
-            {(specialRound?.isSpecial || isSpecial3WordsMode) && (
-              <div className="text-center text-xs font-semibold text-orange-700">
-                {specialRound?.type === "monstrous" ? (
-                  <div className="font-extrabold uppercase tracking-[0.12em] text-amber-500">
-                    GRILLE MONSTRUEUSE
+          <div
+            className={`bg-white dark:bg-slate-950/80 border dark:border-slate-700 rounded-xl p-3 w-full relative overflow-hidden ${
+              phase === "playing" && isOcidRound
+                ? "flex flex-col flex-1 min-h-0 mb-0"
+                : "space-y-2 mb-4 shrink-0"
+            }`}
+          >
+            {phase === "playing" && isOcidRound ? (
+              <div className="flex h-full min-h-0 flex-col gap-3">
+                <div className="text-[11px] font-extrabold tracking-widest text-center text-amber-500">
+                  MANCHE OCID
+                </div>
+                <div
+                  className={`min-h-[2.6rem] text-center text-lg font-black leading-snug ${
+                    ocidDefinitionText
+                      ? "text-slate-900 dark:text-slate-100"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  {ocidDefinitionText || "Définition indisponible"}
+                </div>
+                {ocidVote ? (
+                  <div
+                    className="grid flex-1 min-h-0 content-start grid-cols-1 gap-1.5 overflow-y-auto pr-1 overscroll-contain"
+                  >
+                    {(ocidVote.options || []).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => submitOcidVote(option.id)}
+                        className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-sm font-bold transition ${
+                          ocidSelectedOptionId === option.id
+                            ? darkMode
+                              ? "bg-emerald-900/60 border-emerald-300/50 text-emerald-50"
+                              : "bg-emerald-50 border-emerald-300 text-emerald-800"
+                            : darkMode
+                            ? "bg-slate-800/70 border-slate-700 text-slate-100"
+                            : "bg-slate-50 border-slate-200 text-slate-800"
+                        }`}
+                      >
+                        <span className="min-w-0 truncate text-left">{option.display}</span>
+                        {Number(option?.voteCount) > 0 ? (
+                          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black text-white shadow-sm">
+                            {Number(option.voteCount)}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))}
                   </div>
                 ) : (
-                  <div>
-                    {isSpecial3WordsMode ? "" : `${specialRound?.label || "Manche spéciale"} `}
-                    {specialRound?.type === "speed"
-                      ? `mots fixes ${specialRound.fixedWordScore} pts`
-                    : isSpecial3WordsMode
-                      ? "3 mots, tuiles de départ différentes"
-                      : specialRound?.type === FAKE_TWINS_TYPE
-                      ? "une case vaut 2 lettres, mots de 4 lettres min"
-                      : specialRound?.type === "bonus_letter"
-                      ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
-                      : "objectif : 1 seul mot"}
+                  <form
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      submitOcidProposal();
+                    }}
+                  >
+                    <div className="relative min-w-0 flex-1">
+                      <input
+                        value={ocidProposal}
+                        onChange={(e) => {
+                          setOcidProposal(e.target.value);
+                          setOcidProposalPath([]);
+                          setOcidProposalSubmitted("");
+                        }}
+                        maxLength={32}
+                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 pr-8 text-sm text-slate-900"
+                        placeholder="Trace ou tape ton mot"
+                      />
+                      {ocidProposal ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOcidProposal("");
+                            setOcidProposalPath([]);
+                            setOcidProposalSubmitted("");
+                            setOcidStatusMessage("");
+                            clearOcidProposalServer();
+                          }}
+                          className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                          aria-label="Changer de proposition"
+                        >
+                          <span className="material-icons-outlined text-[16px] leading-none">close</span>
+                        </button>
+                      ) : null}
+                    </div>
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white"
+                    >
+                      Envoyer
+                    </button>
+                  </form>
+                )}
+                <div className="text-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  {ocidStatusMessage ||
+                    (ocidVote
+                      ? "Vote pour le vrai mot cible."
+                      : ocidProposalSubmitted
+                      ? `Retenu : ${ocidProposalSubmitted}`
+                      : "Trace ou tape un mot plausible. Il sera retenu automatiquement.")}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="text-lg font-bold text-center">Score total : {score}</div>
+                {(specialRound?.isSpecial || isSpecial3WordsMode) && (
+                  <div className="text-center text-xs font-semibold text-orange-700">
+                    {specialRound?.type === "monstrous" ? (
+                      <div className="font-extrabold uppercase tracking-[0.12em] text-amber-500">
+                        GRILLE MONSTRUEUSE
+                      </div>
+                    ) : (
+                      <div>
+                        {isSpecial3WordsMode ? "" : `${specialRound?.label || "Manche spéciale"} `}
+                        {specialRound?.type === "speed"
+                          ? `mots fixes ${specialRound.fixedWordScore} pts`
+                        : isSpecial3WordsMode
+                          ? "3 mots, tuiles de départ différentes"
+                          : specialRound?.type === FAKE_TWINS_TYPE
+                          ? "une case vaut 2 lettres, mots de 4 lettres min"
+                          : specialRound?.type === "bonus_letter"
+                          ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
+                          : "objectif : 1 seul mot"}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+                <div className="text-center text-sm text-gray-600">
+                  {roundStats && !isTargetRound ? (
+                    <span>
+                      {roundStats.words ?? "?"} mots possibles {" "}
+                      {formatNumber(roundStats.totalPts ?? roundStats.maxPts ?? 0) || "?"} pts
+                    </span>
+                  ) : (
+                    <span>{isTargetRound ? "Stats masquées (manche cible)" : "Stats de grille indisponibles"}</span>
+                  )}
+                </div>
+              </>
             )}
-            <div className="text-center text-sm text-gray-600">
-              {roundStats && !isTargetRound ? (
-                <span>
-                  {roundStats.words ?? "?"} mots possibles {" "}
-                  {formatNumber(roundStats.totalPts ?? roundStats.maxPts ?? 0) || "?"} pts
-                </span>
-              ) : (
-                <span>{isTargetRound ? "Stats masquées (manche cible)" : "Stats de grille indisponibles"}</span>
-              )}
-            </div>
           </div>
 
           {phase === "playing" && isSpecial3WordsMode ? (
@@ -36520,7 +37444,7 @@ function handleTouchEnd(e) {
                 </button>
               ) : null}
             </div>
-          ) : phase === "playing" ? (
+          ) : phase === "playing" && isOcidRound ? null : phase === "playing" ? (
             <div className="flex flex-col flex-1 min-h-0">
               <LiveFeed
                 items={mixedFeed}
@@ -36528,6 +37452,64 @@ function handleTouchEnd(e) {
                 maxHeight="100%"
                 bannerText={fakeTwinsRemainingLabel}
               />
+            </div>
+          ) : phase === "results" && ocidSummary ? (
+            <div className="flex flex-col flex-1 min-h-0 gap-3 overflow-y-auto pr-1">
+              <div className={`rounded-xl border p-3 ${darkMode ? "bg-slate-900/80 border-slate-700" : "bg-amber-50 border-amber-200"}`}>
+                <div className="text-[11px] font-extrabold uppercase tracking-wide text-amber-700">
+                  Mot cible
+                </div>
+                <div className="mt-1 text-2xl font-black text-slate-950 dark:text-amber-100">
+                  {String(ocidSummary.word || "").toUpperCase() || "?"}
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {selfOcidTargetDetail}
+                </div>
+              </div>
+              <div className={`rounded-xl border p-3 ${darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white border-slate-200"}`}>
+                <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Votre vote
+                </div>
+                {selfOcidVoteOption?.isTarget ? (
+                  <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {selfOcidVoteDetail}
+                  </div>
+                ) : selfOcidVotedAuthors.length ? (
+                  <>
+                    <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {selfOcidVoteDetail}
+                    </div>
+                    <div className="mt-1 text-xs font-bold text-rose-600 dark:text-rose-300">
+                      {selfOcidGiftDetail}
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    {selfOcidVoteDetail}
+                  </div>
+                )}
+              </div>
+              <div className={`rounded-xl border p-3 ${darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white border-slate-200"}`}>
+                <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Votre bluff
+                </div>
+                {selfOcidSubmittedWord ? (
+                  <>
+                    <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {selfOcidBluffPanelText}
+                    </div>
+                    {selfOcidVoters.length && !selfOcidDetail?.exactTarget ? (
+                      <div className="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        Votes reçus : {selfOcidVoters.join(", ")} · +{formatNumber(selfOcidBluffPoints)} pts
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    Vous n'aviez pas de proposition retenue.
+                  </div>
+                )}
+              </div>
             </div>
           ) : isTargetRound ? (
             <div className="flex flex-col flex-1 min-h-0" />

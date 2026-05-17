@@ -224,8 +224,8 @@ function MobileGrid({
           const isUsed = usedSet.has(boardIndex);
           const isHint = hintCellSet?.has?.(boardIndex);
           const isHintOutline = hintOutlineCellSet?.has?.(boardIndex);
-          const shouldShowHint = !isUsed && isHint;
-          const shouldShowHintOutline = !isUsed && isHintOutline;
+          const shouldShowHint = isHint;
+          const shouldShowHintOutline = isHintOutline;
           const isBonusLetterTile =
             bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
           const letterPts = isBonusLetterTile

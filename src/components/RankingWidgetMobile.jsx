@@ -24,7 +24,7 @@ function areRankingListsEquivalent(left, right) {
 }
 
 function buildRightLabel(entry, scoreValue, wordsCount) {
-  if (entry && typeof entry.rightLabel === "string") {
+  if (entry && entry.rightLabel != null) {
     return entry.rightLabel;
   }
   if (typeof scoreValue === "number") {

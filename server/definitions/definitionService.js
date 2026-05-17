@@ -1,5 +1,6 @@
 ﻿
 import { normalizeWord } from "../../shared/gameLogic.js";
+import { getLocalDefinitionEntry } from "./localDefinitionStore.js";
 
 const CACHE_MAX = 500;
 const OK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -8,6 +9,8 @@ const MAX_CONCURRENCY = 6;
 const DEBUG = process.env.DEBUG_DEFINE === "1";
 const USER_AGENT = "Gobble/1.0 (https://gobble.fr; contact: contact@gobble.fr)";
 const ALLOW_WIKIPEDIA_DEFINITIONS = false;
+const LOCAL_DEFINITIONS_ENABLED = process.env.GOBBLE_LOCAL_DEFINITIONS !== "0";
+const WEB_FALLBACK_ENABLED = process.env.GOBBLE_DEFINE_WEB_FALLBACK !== "0";
 const PROPER_NOUN_PATTERNS = [
   /\bnom propre\b/,
   /\bprenom\b/,
@@ -1055,6 +1058,87 @@ function buildPayload(word, summary, source) {
   };
 }
 
+function pickLocalDefinitionText(entry, maxLen) {
+  const definitions = Array.isArray(entry?.definitions)
+    ? entry.definitions.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const raw =
+    maxLen > DEFAULT_DEFINITION_MAX_LEN && definitions.length > 1
+      ? definitions.join(" • ")
+      : String(entry?.definition || definitions[0] || "");
+  return clipDefinition(raw, maxLen);
+}
+
+function localEntryToSummary(entry, maxLen) {
+  if (!entry) return null;
+  const extract = pickLocalDefinitionText(entry, maxLen);
+  if (!extract) return null;
+  return {
+    title: entry.title || entry.word || "",
+    extract,
+    url: entry.sourceUrl || "",
+    description: "",
+  };
+}
+
+function applyFormOfMetadata(payload, hint) {
+  if (!payload || !hint) return payload;
+  if (hint.kind === "inflection") {
+    payload.inflectionBase = hint.base;
+    payload.inflectionLabel = hint.label;
+    payload.inflectionGuess = true;
+  } else if (hint.kind === "participle") {
+    payload.participleBase = hint.base;
+    payload.participleLabel = hint.label;
+    payload.participleGuess = true;
+  } else if (hint.kind === "orthography") {
+    // On affiche la definition de la forme correcte sans label.
+  } else {
+    payload.lemma = hint.base;
+    payload.lemmaLabel = hint.label;
+    payload.lemmaGuess = true;
+  }
+  return payload;
+}
+
+async function lookupLocalDefinitionPayload(input, options = {}, seen = new Set()) {
+  if (!LOCAL_DEFINITIONS_ENABLED) return null;
+  const entry = await getLocalDefinitionEntry(input);
+  if (!entry) return null;
+
+  const maxLen = resolveDefinitionMaxLen(options);
+  const summary = localEntryToSummary(entry, maxLen);
+  let payload = buildPayload(input, summary, "wiktionary");
+  if (!payload) return null;
+
+  payload.local = true;
+  if (entry.sourceLicense) payload.sourceLicense = entry.sourceLicense;
+
+  const hint =
+    (entry.isFormOf && entry.formOf
+      ? { base: entry.formOf, label: "Forme probable de :", kind: "lemma" }
+      : null) || extractFormOfHint(entry.definition);
+  if (!hint?.base) return payload;
+
+  const seenKey = normalizeLookup(input);
+  const baseKey = normalizeLookup(hint.base);
+  if (!baseKey || baseKey === seenKey || seen.has(baseKey)) {
+    return applyFormOfMetadata(payload, hint);
+  }
+
+  seen.add(seenKey);
+  const basePayload = await lookupLocalDefinitionPayload(hint.base, options, seen);
+  if (basePayload?.ok) {
+    payload = {
+      ...basePayload,
+      word: input,
+      local: true,
+      displayWord: entry.title && entry.title !== input ? normalizeNfc(entry.title) : basePayload.displayWord,
+    };
+  }
+  return applyFormOfMetadata(payload, hint);
+}
+
 export function peekDefinitionCache(word) {
   return getCacheEntry(getCacheKey(word));
 }
@@ -1105,6 +1189,9 @@ export async function getDefinition(
     const options = { timeoutMs, definitionMaxLen: effectiveDefinitionMaxLen };
 
     try {
+      payload = await lookupLocalDefinitionPayload(input, options);
+
+      if (!payload && WEB_FALLBACK_ENABLED) {
       const baseCandidates = buildDefineCandidates(input);
       const accentCandidates = await fetchAccentCandidates(input, options);
       displayWord = pickDisplayWord(input, accentCandidates);
@@ -1560,6 +1647,7 @@ export async function getDefinition(
             payload.lemmaGuess = true;
           }
         }
+      }
       }
     } catch (err) {
       debugLog(`[define] error ${input}: ${err?.message || err}`);

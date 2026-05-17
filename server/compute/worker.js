@@ -10,18 +10,25 @@ import {
   FAKE_TWINS_TYPE,
   generateGrid,
   MOVABLE_BONUS_KEYS,
+  OCID_TYPE,
   normalizeWord,
   solveGrid,
 } from "../../shared/gameLogic.js";
 import {
   buildAnchoredGrid,
   buildAnchoredGridCandidate,
+  buildRandomPath,
   MONSTROUS_ANCHOR_BUCKETS,
   pickWeightedBucket,
   pickUniqueLongestTarget,
   TARGET_LONG_ANCHOR_BUCKETS,
   tokenizeBoggleWord,
 } from "./anchoredGeneration.js";
+import {
+  getFakeTwinsCompletionWordSet,
+  getOcidTargetCandidates,
+  getRareBonusWordMetaMap,
+} from "../stats/wordRarityService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +39,8 @@ const TARGET_LONG_MIN_LEN = 10;
 const TARGET_LONG_PREFERRED_LEN = 14;
 const TARGET_LONG_BATCH_ATTEMPTS = 50;
 const TARGET_LONG_BATCHES_PER_LEN = 2;
+const RARE_WORD_BONUS_POINTS = 10;
+const OCID_MIN_WORDS = 200;
 const TARGET_LONG_TOTAL_ATTEMPTS =
   TARGET_LONG_BATCH_ATTEMPTS *
   TARGET_LONG_BATCHES_PER_LEN *
@@ -130,12 +139,38 @@ function serializeSolvedSolutions(solved) {
     pts: Number.isFinite(data?.pts) ? data.pts : 0,
     path: Array.isArray(data?.path) ? data.path : [],
     usedFakeTwins: !!data?.usedFakeTwins,
+    rareBonusWord: !!data?.rareBonusWord,
+    rareBonusPoints: Number.isFinite(data?.rareBonusPoints) ? data.rareBonusPoints : 0,
+    rarityBucket: typeof data?.rarityBucket === "string" ? data.rarityBucket : "",
+    rarityScore: Number.isFinite(data?.rarityScore) ? data.rarityScore : 0,
+    fakeTwinsCompletionWord: !!data?.fakeTwinsCompletionWord,
+    fakeTwinsBonusOnly: !!data?.fakeTwinsBonusOnly,
     fakeTwinsTwinIndex: Number.isInteger(data?.fakeTwinsTwinIndex)
       ? data.fakeTwinsTwinIndex
       : null,
     fakeTwinsResolvedLetter: data?.fakeTwinsResolvedLetter ?? null,
     fakeTwinsUsesAlt: !!data?.fakeTwinsUsesAlt,
   }));
+}
+
+function shouldApplyRareWordBonus(roundPlan) {
+  const type = String(roundPlan?.type || "");
+  return type !== "target_long" && type !== "target_score" && type !== OCID_TYPE && type !== "self_specials_3_words";
+}
+
+function annotateRareBonusWords(solved, rareBonusWordMetaMap, roundPlan) {
+  if (!shouldApplyRareWordBonus(roundPlan)) return solved;
+  if (!(rareBonusWordMetaMap instanceof Map) || !rareBonusWordMetaMap.size) return solved;
+  if (!solved || typeof solved.entries !== "function") return solved;
+  for (const [word, data] of solved.entries()) {
+    const meta = rareBonusWordMetaMap.get(normalizeWord(word));
+    if (!meta) continue;
+    data.rareBonusWord = true;
+    data.rareBonusPoints = RARE_WORD_BONUS_POINTS;
+    data.rarityBucket = meta.rarityBucket || "";
+    data.rarityScore = Number(meta.rarityScore) || 0;
+  }
+  return solved;
 }
 
 function pickTargetLongLengthBucket() {
@@ -236,20 +271,86 @@ function buildPreparedCandidate({
       quality.possibleScore >= minTotal &&
       quality.maxLen >= minLen &&
       quality.longWords >= minLongWords;
-  } else if (roundPlan?.type === "target_long" || roundPlan?.type === "target_score") {
+  } else if (
+    roundPlan?.type === "target_long" ||
+    roundPlan?.type === "target_score" ||
+    roundPlan?.type === OCID_TYPE
+  ) {
     ok = ok && !!targetWord;
   }
   quality.ok = ok;
+  const { fakeTwinsCompletionWordSet, ocidTargetCandidates, rareBonusWordMetaMap, ...publicRoundPlan } =
+    roundPlan && typeof roundPlan === "object" ? roundPlan : {};
   return {
     grid,
     quality,
-    plan: { ...roundPlan, ...(planExtras || null) },
+    plan: { ...publicRoundPlan, ...(planExtras || null) },
     roundNumber,
     targetWord,
     targetLength,
     targetPath,
     solutions: serializeSolvedSolutions(solved),
   };
+}
+
+function shuffleArray(values) {
+  const out = Array.isArray(values) ? [...values] : [];
+  for (let idx = out.length - 1; idx > 0; idx -= 1) {
+    const swapIdx = Math.floor(Math.random() * (idx + 1));
+    [out[idx], out[swapIdx]] = [out[swapIdx], out[idx]];
+  }
+  return out;
+}
+
+function prepareAnchoredOcid({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords }) {
+  if (!dictionary || roundPlan?.type !== OCID_TYPE) return null;
+  const candidates = shuffleArray(roundPlan?.ocidTargetCandidates || []);
+  if (!candidates.length) return null;
+  const attemptsPerWord = Math.max(2, Math.ceil(maxAttemptsTotal / Math.max(1, candidates.length)));
+  let bestCandidate = null;
+  for (const target of candidates) {
+    const word = normalizeWord(target?.word || "");
+    const tokens = tokenizeBoggleWord(word);
+    if (!word || word.length > 13 || !tokens || tokens.length > size * size) continue;
+    for (let attempt = 0; attempt < attemptsPerWord; attempt += 1) {
+      const path = buildRandomPath(tokens.length, size, Math.random, 300);
+      const grid = path ? buildAnchoredGrid(word, path, size, Math.random) : null;
+      if (!grid?.length) continue;
+      const solved = solveGrid(grid, dictionary);
+      const solvedTarget = solved.get(word);
+      if (!solvedTarget?.path) continue;
+      const candidate = buildPreparedCandidate({
+        grid,
+        solved,
+        roundPlan,
+        roundNumber,
+        effectiveMinWords: Math.max(effectiveMinWords, roundPlan?.minWords || OCID_MIN_WORDS),
+        qualityOpts: {},
+        targetWord: word,
+        targetLength: word.length,
+        targetPath: Array.isArray(solvedTarget.path) ? solvedTarget.path : path,
+        planExtras: {
+          ocidDefinition: String(target.definition || ""),
+          ocidDefinitionSource: target.source || "",
+          ocidDefinitionUrl: target.sourceUrl || "",
+          ocidRarityBucket: target.rarityBucket || "",
+          ocidRarityScore: Number(target.rarityScore) || 0,
+          ocidPlayersFound: Number(target.playersFound) || 0,
+        },
+      });
+      const score =
+        (candidate.quality?.words || 0) +
+        (candidate.quality?.possibleScore || 0) / 500 +
+        (candidate.quality?.maxLen || 0);
+      const bestScore =
+        (bestCandidate?.quality?.words || 0) +
+        (bestCandidate?.quality?.possibleScore || 0) / 500 +
+        (bestCandidate?.quality?.maxLen || 0);
+      if (!bestCandidate || score > bestScore) bestCandidate = candidate;
+      if (candidate.quality?.ok) return candidate;
+    }
+  }
+  return bestCandidate?.quality?.ok ? bestCandidate : null;
 }
 
 function prepareAnchoredTargetLong({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords }) {
@@ -286,7 +387,15 @@ function prepareAnchoredTargetLong({ roundPlan, roundNumber, size, maxAttemptsTo
   return null;
 }
 
-function prepareAnchoredMonstrous({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords, qualityOpts }) {
+function prepareAnchoredMonstrous({
+  roundPlan,
+  roundNumber,
+  size,
+  maxAttemptsTotal,
+  effectiveMinWords,
+  qualityOpts,
+  rareBonusWordMetaMap = null,
+}) {
   if (!dictionary || roundPlan?.type !== "monstrous") return null;
   const maxFillsPerAnchor = 10;
   const maxAnchors = Math.max(1, Math.ceil(maxAttemptsTotal / maxFillsPerAnchor));
@@ -310,7 +419,11 @@ function prepareAnchoredMonstrous({ roundPlan, roundNumber, size, maxAttemptsTot
         Math.floor(Math.random() * 0xffffffff),
         MOVABLE_BONUS_KEYS
       );
-      const solved = solveGrid(grid, dictionary);
+      const solved = annotateRareBonusWords(
+        solveGrid(grid, dictionary),
+        rareBonusWordMetaMap,
+        roundPlan
+      );
       const candidate = buildPreparedCandidate({
         grid,
         solved,
@@ -350,6 +463,12 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
   );
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
   const needsFakeTwins = roundPlan?.type === FAKE_TWINS_TYPE;
+  const fakeTwinsCompletionWordSet =
+    roundPlan?.fakeTwinsCompletionWordSet instanceof Set
+      ? roundPlan.fakeTwinsCompletionWordSet
+      : null;
+  const rareBonusWordMetaMap =
+    roundPlan?.rareBonusWordMetaMap instanceof Map ? roundPlan.rareBonusWordMetaMap : null;
   const maxAttemptsBase = needsBonusLetter
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
     : needsFakeTwins
@@ -383,6 +502,16 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       effectiveMinWords,
     });
     if (anchored?.grid?.length) return anchored;
+  } else if (roundPlan?.type === OCID_TYPE) {
+    const anchored = prepareAnchoredOcid({
+      roundPlan,
+      roundNumber,
+      size,
+      maxAttemptsTotal: Math.max(maxAttemptsTotal, SPECIAL_QUALITY_ATTEMPTS),
+      effectiveMinWords,
+    });
+    if (anchored?.grid?.length) return anchored;
+    return null;
   } else if (roundPlan?.type === "monstrous") {
     const anchored = prepareAnchoredMonstrous({
       roundPlan,
@@ -391,6 +520,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       maxAttemptsTotal,
       effectiveMinWords,
       qualityOpts,
+      rareBonusWordMetaMap,
     });
     if (anchored?.grid?.length) return anchored;
   }
@@ -420,13 +550,20 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
         maxCellCandidates: grid.length,
         maxAltLetters: 26,
         candidateSeed: attempt,
+        fakeTwinsCompletionWordSet,
       });
       if (fakeTwinsCandidate?.grid?.length) {
         grid = fakeTwinsCandidate.grid;
       }
-      solved = fakeTwinsCandidate?.solved || null;
+      solved = annotateRareBonusWords(
+        fakeTwinsCandidate?.solved || null,
+        rareBonusWordMetaMap,
+        roundPlan
+      );
     } else {
-      solved = dictionary ? solveGrid(grid, dictionary) : null;
+      solved = dictionary
+        ? annotateRareBonusWords(solveGrid(grid, dictionary), rareBonusWordMetaMap, roundPlan)
+        : null;
     }
     const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
     quality.possibleScore = roundPlan?.fixedWordScore
@@ -459,11 +596,16 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
         Number.isInteger(fakeTwinsCandidate?.twinIndex) &&
         !!fakeTwinsCandidate?.meetsTwinWordTarget;
       quality.fakeTwinWords = Number(fakeTwinsCandidate?.fakeTwinWords) || 0;
+      quality.fakeTwinCompletionWords = Number(fakeTwinsCandidate?.fakeTwinCompletionWords) || 0;
+      quality.fakeTwinBonusWords = Number(fakeTwinsCandidate?.fakeTwinBonusWords) || 0;
       quality.fakeTwinUniquePaths = Number(fakeTwinsCandidate?.fakeTwinUniquePaths) || 0;
       quality.fakeTwinDuplicatePathWords =
         Number(fakeTwinsCandidate?.fakeTwinDuplicatePathWords) || 0;
       quality.fakeTwinPrimaryWords = Number(fakeTwinsCandidate?.primaryLetterWords) || 0;
       quality.fakeTwinAltWords = Number(fakeTwinsCandidate?.altLetterWords) || 0;
+      quality.fakeTwinPrimaryCompletionWords =
+        Number(fakeTwinsCandidate?.primaryCompletionWords) || 0;
+      quality.fakeTwinAltCompletionWords = Number(fakeTwinsCandidate?.altCompletionWords) || 0;
       quality.fakeTwinTargetScore = Number(fakeTwinsCandidate?.targetScore) || 0;
     }
     quality.ok = ok;
@@ -652,7 +794,28 @@ if (parentPort) {
 
     try {
       if (type === "prepareNextGrid") {
-        const result = prepareNextGridJob(payload || {});
+        const nextPayload = payload || {};
+        if (nextPayload?.roundPlan?.type === FAKE_TWINS_TYPE) {
+          const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
+          nextPayload.roundPlan = {
+            ...nextPayload.roundPlan,
+            fakeTwinsCompletionWordSet,
+          };
+        } else if (nextPayload?.roundPlan?.type === OCID_TYPE) {
+          const ocidTargetCandidates = await getOcidTargetCandidates({ dictionary });
+          nextPayload.roundPlan = {
+            ...nextPayload.roundPlan,
+            ocidTargetCandidates,
+          };
+        }
+        if (shouldApplyRareWordBonus(nextPayload?.roundPlan)) {
+          const rareBonusWordMetaMap = await getRareBonusWordMetaMap();
+          nextPayload.roundPlan = {
+            ...nextPayload.roundPlan,
+            rareBonusWordMetaMap,
+          };
+        }
+        const result = prepareNextGridJob(nextPayload);
         respond({ id, ok: true, result });
         return;
       }

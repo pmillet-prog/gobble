@@ -83,6 +83,10 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
       pts: w.pts,
       label: w.label || null,
       usedFakeTwins: !!w.usedFakeTwins,
+      fakeTwinsBonusOnly: !!w.fakeTwinsBonusOnly,
+      rareBonusWord: !!w.rareBonusWord,
+      rareBonusPoints: Number(w.rareBonusPoints) || 0,
+      rarityBucket: w.rarityBucket || "",
     };
   });
 
@@ -242,9 +246,17 @@ function LiveFeed({
               >
                 <span
                   className={`font-semibold not-italic truncate ${
-                    item.usedFakeTwins
+                    item.rareBonusWord
                       ? darkMode
-                        ? "text-blue-300"
+                        ? "text-amber-300 font-black"
+                        : "text-orange-600 font-black"
+                      : item.usedFakeTwins
+                      ? darkMode
+                        ? item.fakeTwinsBonusOnly
+                          ? "text-violet-300"
+                          : "text-blue-300"
+                        : item.fakeTwinsBonusOnly
+                        ? "text-violet-600"
                         : "text-blue-600"
                       : ""
                   }`}

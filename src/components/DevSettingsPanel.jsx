@@ -50,6 +50,22 @@ export default function DevSettingsPanel({
     if (typeof onPatch === "function") onPatch(next);
   };
   const canUseTools = available && !locked;
+  const selectedRoundTypes = Array.isArray(controls?.forcedRoundTypes)
+    ? controls.forcedRoundTypes
+    : controls?.forcedRoundType
+    ? [controls.forcedRoundType]
+    : [];
+  const randomCycleEnabled = !!controls?.forcedRoundRandom;
+  const patchRoundTypeSelection = (value, checked) => {
+    const next = new Set(selectedRoundTypes);
+    if (checked) next.add(value);
+    else next.delete(value);
+    const forcedRoundTypes = Array.from(next);
+    patch({
+      forcedRoundTypes,
+      forcedRoundType: forcedRoundTypes[0] || "",
+    });
+  };
   const renderToggle = ({ keyName, label, disabled = false }) => {
     const enabled = !!controls?.[keyName];
     return (
@@ -91,49 +107,9 @@ export default function DevSettingsPanel({
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
           {available && locked ? (
-            <form
-              className={`rounded-xl border px-3 py-3 space-y-2 ${mutedClass}`}
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (typeof onUnlock === "function") onUnlock();
-              }}
-            >
-              <div className="text-[11px] font-bold uppercase tracking-widest opacity-75">
-                Deverrouillage
-              </div>
-              {passwordRequired ? (
-                passwordConfigured ? (
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) =>
-                      typeof onPasswordChange === "function"
-                        ? onPasswordChange(e.target.value)
-                        : null
-                    }
-                    className="w-full rounded-lg border border-amber-300/40 bg-white/90 px-2 py-2 text-sm text-slate-900"
-                    placeholder="Mot de passe dev"
-                    autoComplete="off"
-                  />
-                ) : (
-                  <div className="text-xs font-semibold text-rose-300">
-                    Mot de passe serveur non configure.
-                  </div>
-                )
-              ) : (
-                <div className="text-xs font-semibold opacity-75">
-                  Acces local autorise sans mot de passe serveur.
-                </div>
-              )}
-              {error ? <div className="text-xs font-semibold text-rose-300">{error}</div> : null}
-              <button
-                type="submit"
-                disabled={busy || (passwordRequired && !passwordConfigured)}
-                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${buttonClass}`}
-              >
-                Deverrouiller
-              </button>
-            </form>
+            <div className={`rounded-xl border px-3 py-3 text-xs font-semibold ${mutedClass}`}>
+              Acces dev en attente d'autorisation compte.
+            </div>
           ) : null}
           {!available ? (
             <div className={`rounded-xl border px-3 py-3 text-xs font-semibold ${mutedClass}`}>
@@ -147,23 +123,60 @@ export default function DevSettingsPanel({
           {available && !locked ? (
             <>
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
-          <label className={`block rounded-xl border px-3 py-2 ${mutedClass}`}>
+          <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
             <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">
-              Manche forcee
+              Cycle force
             </span>
-            <select
-              disabled={busy || !canUseTools || !controls?.enabled}
-              value={controls?.forcedRoundType || ""}
-              onChange={(e) => patch({ forcedRoundType: e.target.value })}
-              className="mt-2 w-full rounded-lg border border-amber-300/40 bg-white/90 px-2 py-2 text-sm text-slate-900 disabled:opacity-60"
+            <div className="mt-1 text-[11px] font-semibold opacity-70">
+              Aucun choix: cycle normal. Plusieurs choix: rotation a tour de role, ou tirage aleatoire.
+            </div>
+            <label
+              className={`mt-2 flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+                randomCycleEnabled
+                  ? darkMode
+                    ? "border-sky-300/45 bg-sky-900/45 text-sky-50"
+                    : "border-sky-300/60 bg-sky-50/85 text-sky-800"
+                  : "border-amber-300/25 bg-white/10"
+              }`}
             >
-              {(roundTypes || []).map((entry) => (
-                <option key={entry.value || "cycle"} value={entry.value}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span>Tirage aleatoire dans la selection</span>
+              <input
+                type="checkbox"
+                disabled={busy || !canUseTools || !controls?.enabled || selectedRoundTypes.length < 2}
+                checked={randomCycleEnabled}
+                onChange={(e) => patch({ forcedRoundRandom: e.target.checked })}
+                className="h-4 w-4 accent-sky-500"
+              />
+            </label>
+            <div className="mt-2 grid grid-cols-1 gap-1">
+              {(roundTypes || [])
+                .filter((entry) => entry?.value)
+                .map((entry) => {
+                  const checked = selectedRoundTypes.includes(entry.value);
+                  return (
+                    <label
+                      key={entry.value}
+                      className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+                        checked
+                          ? darkMode
+                            ? "border-emerald-300/45 bg-emerald-900/45 text-emerald-50"
+                            : "border-emerald-300/60 bg-emerald-50/85 text-emerald-800"
+                          : "border-amber-300/25 bg-white/10"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={busy || !canUseTools || !controls?.enabled}
+                        checked={checked}
+                        onChange={(e) => patchRoundTypeSelection(entry.value, e.target.checked)}
+                        className="h-4 w-4 accent-emerald-500"
+                      />
+                      <span>{entry.label}</span>
+                    </label>
+                  );
+                })}
+            </div>
+          </div>
           {renderToggle({
             keyName: "botMedals",
             label: "3 medailles de chaque aux bots",
@@ -280,16 +293,6 @@ export default function DevSettingsPanel({
               )}
             </div>
           </div>
-          {!locked ? (
-            <button
-              type="button"
-              disabled={busy || !available}
-              onClick={onLock}
-              className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${mutedClass}`}
-            >
-              Verrouiller le menu dev
-            </button>
-          ) : null}
           <div className="pt-2 text-[11px] font-semibold opacity-70">
             Les changements s'appliquent aux prochaines manches. Les medailles bots sont seulement affichees.
           </div>
