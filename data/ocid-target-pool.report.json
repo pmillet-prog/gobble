@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-05-18T11:43:26.174Z",
+  "total": 46978,
+  "byBucket": {
+    "never_found": 36891,
+    "extreme": 2826,
+    "very_rare": 4466,
+    "rare": 2795
+  },
+  "byLength": {
+    "4": 456,
+    "5": 2001,
+    "6": 5076,
+    "7": 8306,
+    "8": 9241,
+    "9": 7688,
+    "10": 5968,
+    "11": 4086,
+    "12": 2600,
+    "13": 1556
+  },
+  "stats": {
+    "rarityRows": 346362,
+    "rejectedNotPlayable": 73688,
+    "rejectedMissingDefinition": 0,
+    "rejectedBucketAfterLemma": 13687,
+    "rejectedDefinition": 339499,
+    "lemmaReplacements": 7630,
+    "originalFallbacks": 760
+  },
+  "elapsedMs": 10971
+}

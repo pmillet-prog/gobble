@@ -48,6 +48,7 @@ import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
 import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPlaying.jsx";
+import HelpOverlay from "./components/HelpOverlay.jsx";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
@@ -21314,7 +21315,7 @@ function handleTouchEnd(e) {
           0,
           Number(totalFakeTwinCompletionWords) - localCountedFakeTwinsWords.size
         );
-        return `${formatNumber(remaining) ?? remaining} mots cibles utilisent ${twinLetters}`;
+        return `${formatNumber(remaining) ?? remaining} mots communs utilisent ${twinLetters}`;
       }
       return "";
     }
@@ -21323,7 +21324,7 @@ function handleTouchEnd(e) {
       if (!(entry.fakeTwinsCompletionWord ?? true)) return false;
       return !localCountedFakeTwinsWords.has(entry.word);
     }).length;
-    return `${formatNumber(remaining) ?? remaining} mots cibles utilisent ${twinLetters}`;
+    return `${formatNumber(remaining) ?? remaining} mots communs utilisent ${twinLetters}`;
   }, [
     allWords,
     fakeTwinsLetterPairLabel,
@@ -23899,21 +23900,25 @@ function handleTouchEnd(e) {
           if (targetSummary?.ocid) {
             const detail = entry?.ocid || {};
             const parts = [];
-            if (detail.exactTarget) parts.push("mot cible tracé");
-            else if (detail.validProposal) {
-              const proposal = String(detail.proposal || "").trim().toUpperCase();
+            const proposal = String(detail.proposal || "").trim().toUpperCase();
+            if (proposal) {
+              const proposalLabel = detail.exactTarget
+                ? "mot cible tracé"
+                : detail.validProposal
+                ? "mot valide"
+                : "mot invalide";
               parts.push(
-                proposal ? (
-                  <React.Fragment key={`ocid-valid-${entry.nick || proposal}`}>
-                    <span className="font-black text-orange-600 dark:text-amber-300">
-                      {proposal}
-                    </span>{" "}
-                    · mot valide
-                  </React.Fragment>
-                ) : (
-                  "mot valide"
-                )
+                <React.Fragment key={`ocid-proposal-${entry.nick || proposal}`}>
+                  <span className="font-black text-amber-500 dark:text-amber-200">
+                    {proposal}
+                  </span>{" "}
+                  · {proposalLabel}
+                </React.Fragment>
               );
+            } else if (detail.exactTarget) {
+              parts.push("mot cible tracé");
+            } else if (detail.validProposal) {
+              parts.push("mot valide");
             }
             if (detail.correctVote) parts.push("bon vote");
             if (Number(detail.bluffVotes) > 0) {
@@ -29966,7 +29971,7 @@ function handleTouchEnd(e) {
           >
             <span className="inline-flex items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                Aide rapide
+                Aide
               </span>
             </span>
           </button>
@@ -31707,49 +31712,9 @@ function handleTouchEnd(e) {
     </>
   );
 
-  const quickHelpOverlay =
-    showHelp && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed inset-0 z-[20150] flex items-center justify-center bg-black/45 px-4 py-6"
-            onClick={() => setShowHelp(false)}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className={`w-full max-w-lg rounded-2xl border px-4 py-3 shadow-xl ${
-                darkMode
-                  ? "bg-slate-900/95 text-slate-100 border-slate-700"
-                  : "bg-white text-slate-900 border-slate-200"
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="font-bold mb-1">Aide rapide</div>
-                <button
-                  type="button"
-                  className={`h-8 min-w-8 rounded-full border px-2 text-sm font-bold ${
-                    darkMode
-                      ? "border-slate-600 bg-slate-800 text-slate-100"
-                      : "border-slate-300 bg-white text-slate-700"
-                  }`}
-                  onClick={() => setShowHelp(false)}
-                  aria-label="Fermer l'aide rapide"
-                >
-                  x
-                </button>
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
-                <li>Entrée valide le mot, Backspace efface.</li>
-                <li>Tab alterne entre saisie et chat (focus automatique).</li>
-                <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
-              </ul>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
+  const quickHelpOverlay = (
+    <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
+  );
 
   const mobileChatLayer = (
     <MobileChatLayer
@@ -36447,50 +36412,7 @@ function handleTouchEnd(e) {
         </div>
       )}
 
-      {showHelp && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[20150] flex items-center justify-center bg-black/45 px-4 py-6"
-              onClick={() => setShowHelp(false)}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                className={`w-full max-w-lg rounded-2xl border px-4 py-3 shadow-xl ${
-                  darkMode
-                    ? "bg-slate-900/95 text-slate-100 border-slate-700"
-                    : "bg-white text-slate-900 border-slate-200"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-bold mb-1">Aide rapide</div>
-                  </div>
-                  <button
-                    type="button"
-                    className={`h-8 min-w-8 rounded-full border px-2 text-sm font-bold ${
-                      darkMode
-                        ? "border-slate-600 bg-slate-800 text-slate-100"
-                        : "border-slate-300 bg-white text-slate-700"
-                    }`}
-                    onClick={() => setShowHelp(false)}
-                    aria-label="Fermer l'aide rapide"
-                  >
-                    x
-                  </button>
-                </div>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>Saisie clavier ou glisser doigt/souris sur la grille pour former un mot.</li>
-                  <li>Entrée valide le mot, Backspace efface.</li>
-                  <li>Tab alterne entre saisie et chat (focus automatique).</li>
-                  <li>Score = lettres (bonus L2/L3) x multiplicateurs de mot (M2/M3) + bonus de longueur.</li>
-                </ul>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      {quickHelpOverlay}
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
       <div className={`relative ${desktopColumnDragId ? "pointer-events-none" : ""}`}>

@@ -1,6 +1,6 @@
 import React from "react";
-import { createPortal } from "react-dom";
 
+import HelpOverlay from "../HelpOverlay.jsx";
 import LiveFeed from "../LiveFeed.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import MobileHeader from "../MobileHeader.jsx";
@@ -182,60 +182,11 @@ function MobileStandardPlaying(props) {
           showRoundStats={true}
           tournament={tournament}
         />
-        {showHelp && typeof document !== "undefined"
-          ? createPortal(
-              <div
-                className="fixed inset-0 z-[20150] flex items-start justify-center bg-black/45 px-4 pt-20 pb-6"
-                onClick={() => onSetShowHelp?.(false)}
-              >
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  className={`w-full max-w-sm rounded-2xl border px-4 py-3 shadow-xl ${
-                    darkMode
-                      ? "bg-slate-900/90 text-slate-100 border-slate-700"
-                      : "bg-white/90 text-slate-900 border-slate-200"
-                  }`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
-                    Aide rapide
-                  </div>
-                  <div className="mt-2 text-[12px] font-semibold">Principes de base</div>
-                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                    <li>Forme des mots en reliant des tuiles qui se touchent (diagonales OK).</li>
-                    <li>Une tuile ne peut pas etre reutilisee dans le meme mot.</li>
-                    <li>Entree valide le mot, Backspace efface.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] font-semibold">Bareme</div>
-                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                    <li>Score = somme des lettres + bonus de longueur.</li>
-                    <li>Bonus L2/L3 multiplient la lettre.</li>
-                    <li>Bonus M2/M3 multiplient le mot.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] font-semibold">Manches speciales</div>
-                  <ul className="mt-1 text-[11px] list-disc list-inside space-y-1">
-                    <li>Lettre bonus : une lettre rapporte plus de points.</li>
-                    <li>Rapidite : tous les mots valent 11 points.</li>
-                    <li>Monstrueuse : grille plus grande, plus de mots possibles.</li>
-                    <li>3 mots : place les bonus puis garde 3 mots avec des tuiles de départ différentes.</li>
-                    <li>Faux jumeaux : une case vaut 2 lettres possibles, seuls les mots de 4+ lettres comptent.</li>
-                    <li>Objectif : trouver le mot le plus long ou le plus rentable.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] font-semibold">Support</div>
-                  <p className="mt-1 text-[11px]">
-                    <a
-                      href="mailto:support@gobble.fr"
-                      className="underline underline-offset-2 text-amber-600 dark:text-amber-400"
-                    >
-                      support@gobble.fr
-                    </a>
-                  </p>
-                </div>
-              </div>,
-              document.body
-            )
-          : null}
+        <HelpOverlay
+          open={showHelp}
+          darkMode={darkMode}
+          onClose={() => onSetShowHelp?.(false)}
+        />
 
         <div
           className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"

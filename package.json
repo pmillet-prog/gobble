@@ -7,6 +7,7 @@
     "definitions:build": "node scripts/build-wiktionary-definitions.mjs",
     "definitions:import": "node server/scripts/import-definitions-db.mjs",
     "rarity:build": "node server/scripts/build-word-rarity.mjs",
+    "ocid:pool:build": "node server/scripts/build-ocid-target-pool.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
