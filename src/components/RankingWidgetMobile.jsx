@@ -903,6 +903,7 @@ function RankingWidgetMobile({
               rowColor +
               " transition " +
               rowBg +
+              (isSelf ? " ranking-self-row" : "") +
               (nickClickable ? " cursor-pointer hover:bg-slate-100/60 dark:hover:bg-slate-700/40" : "")
             }
             data-round-player-anchor={nickClickable ? "1" : undefined}

@@ -438,6 +438,7 @@ class BotManager {
     emitPlayers,
     emitMedals,
     broadcastProvisionalRanking,
+    botsEnabled = true,
   }) {
     this.rooms = rooms;
     this.dictionary = dictionary;
@@ -450,6 +451,7 @@ class BotManager {
     this.emitPlayers = emitPlayers;
     this.emitMedals = emitMedals;
     this.broadcastProvisionalRanking = broadcastProvisionalRanking;
+    this.botsEnabled = botsEnabled !== false;
     this.roundTimers = new Map();
     this.roomBotSelection = new Map();
     this.roomBotHourKey = new Map();
@@ -466,12 +468,14 @@ class BotManager {
   }
 
   refreshPresence() {
+    if (!this.botsEnabled) return;
     for (const room of this.rooms.values()) {
       this.refreshPresenceForRoom(room);
     }
   }
 
   refreshPresenceForRoom(room) {
+    if (!this.botsEnabled) return;
     const now = new Date();
     const roster = rosterForRoom(room);
     const allowedKeys = new Set(roster.map((bot) => this.botKey(bot)));
@@ -658,6 +662,7 @@ class BotManager {
 
   setBotActive(room, nick, active, duration = "rounds:3") {
     if (!room || !nick) return { ok: false, error: "invalid_room" };
+    if (!this.botsEnabled && active) return { ok: false, error: "bots_disabled" };
     const roster = rosterForRoom(room);
     const bot = roster.find((entry) => entry?.nick === nick);
     if (!bot) return { ok: false, error: "unknown_bot" };
@@ -745,6 +750,7 @@ class BotManager {
   }
 
   schedulePresenceChange(room, bot, action, minDelayMs, maxDelayMs) {
+    if (!this.botsEnabled && action === "add") return;
     if (!room || !bot || !bot.nick) return;
     const key = `${room.id || "room"}:${action}:${bot.nick}`;
     if (this.presenceTimers.has(key)) return;
@@ -768,6 +774,7 @@ class BotManager {
         return;
       }
       if (action === "add") {
+        if (!this.botsEnabled) return;
         const botKey = this.botKey(bot);
         if (!room.players.has(botKey)) this.addBotToRoom(room, bot);
       } else if (action === "remove") {
@@ -807,6 +814,7 @@ class BotManager {
 
   onRoundStart(room) {
     this.clearTimers(room.id);
+    if (!this.botsEnabled) return;
     if (!this.dictionary) {
       if (!this.warnedNoDictionary) {
         console.warn("[bots] Aucun dictionnaire, les bots restent passifs");
@@ -985,6 +993,7 @@ class BotManager {
   }
 
   onOcidVoteStart(room) {
+    if (!this.botsEnabled) return;
     const round = room?.currentRound;
     if (!round || round?.special?.type !== OCID_TYPE || round.status !== "ocid_vote") return;
     if (typeof this.submitOcidVoteForNick !== "function") return;
@@ -1051,6 +1060,32 @@ class BotManager {
     if (!res?.ok) {
       console.debug(`[bots] ${bot.nick} -> ${res?.error || "ocid_vote_reject"}`);
     }
+  }
+
+  setBotsEnabled(enabled) {
+    const next = enabled !== false;
+    this.botsEnabled = next;
+    if (next) {
+      this.refreshPresence();
+      return { ok: true, botsEnabled: true };
+    }
+
+    for (const room of this.rooms.values()) {
+      this.clearTimers(room.id);
+      this.roomBotSelection.delete(room.id);
+      for (const [key, player] of Array.from(room.players.entries())) {
+        if (!String(key || "").startsWith("bot-") && !String(player?.token || "").startsWith("bot-")) {
+          continue;
+        }
+        if (player?.nick) this.removeBotFromRoom(room, { nick: player.nick });
+        else room.players.delete(key);
+      }
+    }
+    for (const timer of this.presenceTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.presenceTimers.clear();
+    return { ok: true, botsEnabled: false };
   }
 
   scheduleBotSpecial3Words(room, bot, words, timeBudget, solutions, rand = Math.random) {

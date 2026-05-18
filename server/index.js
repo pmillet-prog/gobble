@@ -1341,6 +1341,7 @@ const OCID_EXACT_TARGET_POINTS = 1000;
 const OCID_CORRECT_VOTE_POINTS = 600;
 const OCID_VALID_PROPOSAL_POINTS = 100;
 const OCID_BLUFF_VOTE_POINTS = 500;
+const OCID_RECENT_TARGET_LIMIT = 30;
 const RARE_WORD_BONUS_POINTS = 10;
 const SPEED_MIN_WORDS = 300;
 const SPEED_WORD_SCORE = 11;
@@ -1501,6 +1502,7 @@ const DEFAULT_DEV_CONTROLS = Object.freeze({
   forcedRoundTypes: [],
   forcedRoundRandom: false,
   botMedals: false,
+  botsEnabled: true,
   chatFill: false,
   botChat: false,
   botReactions: false,
@@ -1727,6 +1729,7 @@ function normalizeDevControls(raw = {}) {
     forcedRoundTypes,
     forcedRoundRandom: !!source.forcedRoundRandom,
     botMedals: !!source.botMedals,
+    botsEnabled: source.botsEnabled !== false,
     chatFill: !!source.chatFill,
     botChat: !!source.botChat,
     botReactions: !!source.botReactions,
@@ -2925,6 +2928,7 @@ function createRoomState(roomId, config) {
     bufferedPreparedGrid: null,
     bufferedPreparedGridPromise: null,
     bufferedPreparedGridPromiseMeta: null,
+    ocidRecentTargets: [],
     roundCounter: 0,
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
@@ -4519,9 +4523,6 @@ function submitOcidVoteForNick(room, { roundId, nick, optionId }) {
   if (!selectedOption) {
     return { ok: false, error: "invalid_option" };
   }
-  if (Array.isArray(selectedOption.authors) && selectedOption.authors.includes(nick)) {
-    return { ok: false, error: "own_proposal" };
-  }
   if (!(round.ocidVotes instanceof Map)) round.ocidVotes = new Map();
   round.ocidVotes.set(nick, selectedOptionId);
   try {
@@ -5873,7 +5874,39 @@ function getPreparedPlanCacheKey(plan) {
     bonusLetterScore: plan.bonusLetterScore || 0,
     fixedWordScore: plan.fixedWordScore || 0,
     disableBonuses: !!plan.disableBonuses,
+    ocidExcludedTargets: Array.isArray(plan.ocidExcludedTargets)
+      ? plan.ocidExcludedTargets
+      : [],
   });
+}
+
+function getRecentOcidTargetSet(room) {
+  const values = Array.isArray(room?.ocidRecentTargets) ? room.ocidRecentTargets : [];
+  return new Set(values.map((word) => normalizeWord(word || "")).filter(Boolean));
+}
+
+function buildPlanWithOcidExclusions(room, plan) {
+  if (!plan || plan.type !== OCID_TYPE) return plan;
+  const excluded = Array.from(getRecentOcidTargetSet(room));
+  return {
+    ...plan,
+    ocidExcludedTargets: excluded,
+  };
+}
+
+function isRecentOcidTarget(room, word) {
+  const normalized = normalizeWord(word || "");
+  return !!normalized && getRecentOcidTargetSet(room).has(normalized);
+}
+
+function rememberOcidTarget(room, word) {
+  const normalized = normalizeWord(word || "");
+  if (!room || !normalized) return;
+  const previous = Array.isArray(room.ocidRecentTargets) ? room.ocidRecentTargets : [];
+  room.ocidRecentTargets = [
+    normalized,
+    ...previous.filter((entry) => normalizeWord(entry || "") !== normalized),
+  ].slice(0, OCID_RECENT_TARGET_LIMIT);
 }
 
 function hasPreparedOrPendingGrid(room, roundNumber) {
@@ -5951,9 +5984,10 @@ function ensureBufferedPreparedGrid(room, tournamentRound, plan) {
   if (!room || !plan?.isSpecial) return;
   const tournamentId = room?.tournament?.id || null;
   if (!tournamentId) return;
-  if (matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId)) return;
+  const preparedPlan = buildPlanWithOcidExclusions(room, plan);
+  if (matchesBufferedPreparedGrid(room, tournamentRound, preparedPlan, tournamentId)) return;
   const pendingMeta = room.bufferedPreparedGridPromiseMeta;
-  const planKey = getPreparedPlanCacheKey(plan);
+  const planKey = getPreparedPlanCacheKey(preparedPlan);
   if (
     room.bufferedPreparedGridPromise &&
     pendingMeta?.tournamentId === tournamentId &&
@@ -5978,7 +6012,7 @@ function ensureBufferedPreparedGrid(room, tournamentRound, plan) {
   promise = computePool
     .prepareBufferedGrid({
       roomConfig: room.config,
-      roundPlan: plan,
+      roundPlan: preparedPlan,
       roundNumber: targetRoundNumber,
     })
     .then((prepared) => {
@@ -5998,7 +6032,7 @@ function ensureBufferedPreparedGrid(room, tournamentRound, plan) {
         planKey,
         prepared: {
           ...prepared,
-          plan: prepared.plan || plan,
+          plan: prepared.plan || preparedPlan,
         },
       };
       return room.bufferedPreparedGrid;
@@ -6160,7 +6194,10 @@ function pickBonusLetter(grid, solved, minWords) {
 
 async function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   const roundNumber = targetRoundNumber || (room.roundCounter || 0) + 1;
-  const roundPlan = plan || getRoundPlan(roundNumber, room.config);
+  const roundPlan = buildPlanWithOcidExclusions(
+    room,
+    plan || getRoundPlan(roundNumber, room.config)
+  );
   if (room?.nextPreparedGrid?.roundNumber === roundNumber) {
     return room.nextPreparedGrid;
   }
@@ -6256,16 +6293,24 @@ async function startRoundForRoom(room) {
   }
   let prepared = cached;
   let planUsed = prepared?.plan || tournamentPlan;
+  if (prepared?.plan?.type === OCID_TYPE && isRecentOcidTarget(room, prepared.targetWord)) {
+    prepared = null;
+    planUsed = tournamentPlan;
+  }
   if (!prepared) {
     prepared = takeBufferedPreparedGrid(
       room,
       tournamentRound,
-      tournamentPlan,
+      buildPlanWithOcidExclusions(room, tournamentPlan),
       roundNumber,
       room.tournament?.id || null
     );
     if (prepared?.plan) {
       planUsed = prepared.plan;
+    }
+    if (prepared?.plan?.type === OCID_TYPE && isRecentOcidTarget(room, prepared.targetWord)) {
+      prepared = null;
+      planUsed = tournamentPlan;
     }
   }
   if (!prepared) {
@@ -6341,6 +6386,9 @@ async function startRoundForRoom(room) {
     duelWordTasks: new Set(),
     duelObjectivePointsByNick: new Map(),
   };
+  if (planUsed?.type === OCID_TYPE && room.currentRound.targetWord) {
+    rememberOcidTarget(room, room.currentRound.targetWord);
+  }
 
   const roundSubs = new Map();
   for (const p of room.players.values()) {
@@ -6611,9 +6659,6 @@ async function startOcidVotePhase(room) {
   round.durationMs = OCID_VOTE_DURATION_MS;
   const payload = buildPublicOcidVotePayload(room);
   io.to(room.id).emit("ocidVoteStarted", payload);
-  if (botManager?.onOcidVoteStart) {
-    botManager.onOcidVoteStart(room);
-  }
   pushAnnouncement(room, {
     type: "ocid_vote",
     text: "Vote OCID : trouve le vrai mot parmi les propositions.",
@@ -7953,6 +7998,9 @@ io.on("connection", (socket) => {
     const previous = normalizeDevControls(devControls);
     devControls = normalizeDevControls({ ...previous, ...(payload || {}) });
     persistDevControls();
+    if (previous.botsEnabled !== devControls.botsEnabled) {
+      botManager?.setBotsEnabled?.(devControls.botsEnabled);
+    }
     for (const room of rooms.values()) {
       room.nextPreparedGrid = null;
       room.nextPreparedGridPromise = null;
@@ -8517,6 +8565,7 @@ botManager = createBotManager({
   emitPlayers,
   emitMedals,
   broadcastProvisionalRanking,
+  botsEnabled: devControls.botsEnabled,
 });
 
 const PORT = 4000;

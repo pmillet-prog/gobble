@@ -122,15 +122,15 @@ function DesktopResultsWordList({
                   ? "text-amber-300 font-black"
                   : "text-orange-600 font-black"
                 : darkMode
-                ? "font-medium"
-                : "font-medium"
+                ? "font-normal"
+                : "font-normal"
               : "";
           const rareBonusWordStyle =
             entry?.rareBonusWord && !isRejected && !isFound
               ? {
-                  color: darkMode ? "#facc15" : "#ca8a04",
-                  opacity: darkMode ? 0.78 : 0.82,
-                  fontWeight: 500,
+                  color: darkMode ? "#fde68a" : "#b45309",
+                  opacity: darkMode ? 0.52 : 0.58,
+                  fontWeight: 400,
                 }
               : undefined;
 

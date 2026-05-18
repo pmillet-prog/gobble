@@ -21,9 +21,14 @@ export default function ChatWidget(props) {
     setMobileDraftInput((prev) => (prev === nextValue ? prev : nextValue));
   }, [chatInput]);
 
-  const handleMobileDraftChange = React.useCallback((value) => {
-    setMobileDraftInput(String(value ?? ""));
-  }, []);
+  const handleMobileDraftChange = React.useCallback(
+    (value) => {
+      const nextValue = String(value ?? "");
+      setMobileDraftInput(nextValue);
+      setChatInput?.(nextValue);
+    },
+    [setChatInput]
+  );
 
   const handleMobileSubmit = React.useCallback(
     (event, forcedText = null) => {

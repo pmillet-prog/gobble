@@ -123,6 +123,7 @@ export default function DevSettingsPanel({
           {available && !locked ? (
             <>
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
+          {renderToggle({ keyName: "botsEnabled", label: "Bots actifs (general)" })}
           <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
             <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">
               Cycle force
@@ -258,7 +259,7 @@ export default function DevSettingsPanel({
                   <button
                     key={bot.nick}
                     type="button"
-                    disabled={busy || !canUseTools}
+                    disabled={busy || !canUseTools || !controls?.botsEnabled}
                     onClick={() =>
                       typeof onSetBotActive === "function"
                         ? onSetBotActive(bot.nick, !bot.active)

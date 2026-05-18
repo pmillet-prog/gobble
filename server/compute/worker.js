@@ -279,8 +279,13 @@ function buildPreparedCandidate({
     ok = ok && !!targetWord;
   }
   quality.ok = ok;
-  const { fakeTwinsCompletionWordSet, ocidTargetCandidates, rareBonusWordMetaMap, ...publicRoundPlan } =
-    roundPlan && typeof roundPlan === "object" ? roundPlan : {};
+  const {
+    fakeTwinsCompletionWordSet,
+    ocidExcludedTargets,
+    ocidTargetCandidates,
+    rareBonusWordMetaMap,
+    ...publicRoundPlan
+  } = roundPlan && typeof roundPlan === "object" ? roundPlan : {};
   return {
     grid,
     quality,
@@ -304,12 +309,18 @@ function shuffleArray(values) {
 
 function prepareAnchoredOcid({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords }) {
   if (!dictionary || roundPlan?.type !== OCID_TYPE) return null;
+  const excludedTargets = new Set(
+    Array.isArray(roundPlan?.ocidExcludedTargets)
+      ? roundPlan.ocidExcludedTargets.map((word) => normalizeWord(word || "")).filter(Boolean)
+      : []
+  );
   const candidates = shuffleArray(roundPlan?.ocidTargetCandidates || []);
   if (!candidates.length) return null;
   const attemptsPerWord = Math.max(2, Math.ceil(maxAttemptsTotal / Math.max(1, candidates.length)));
   let bestCandidate = null;
   for (const target of candidates) {
     const word = normalizeWord(target?.word || "");
+    if (excludedTargets.has(word)) continue;
     const tokens = tokenizeBoggleWord(word);
     if (!word || word.length > 13 || !tokens || tokens.length > size * size) continue;
     for (let attempt = 0; attempt < attemptsPerWord; attempt += 1) {

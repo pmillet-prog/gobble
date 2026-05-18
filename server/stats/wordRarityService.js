@@ -14,6 +14,7 @@ const DB_PATH = process.env.GOBBLE_WORD_RARITY_DB
   : DEFAULT_DB_PATH;
 const FAKE_TWINS_COMPLETION_BUCKETS = new Set(["common", "uncommon"]);
 const OCID_TARGET_BUCKETS = Object.freeze(["extreme", "very_rare", "rare"]);
+const OCID_TARGET_CANDIDATE_LIMIT = 15000;
 const RARE_BONUS_BUCKETS = new Set(["rare", "very_rare", "extreme"]);
 
 let db = null;
@@ -47,9 +48,36 @@ function buildOcidSpoilerFragments(word, aliases = []) {
   return Array.from(fragments);
 }
 
+function normalizeOcidDefinitionText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[œ]/g, "oe")
+    .replace(/[æ]/g, "ae")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isOcidFormOnlyDefinition(definition) {
+  const text = normalizeOcidDefinitionText(definition);
+  if (!text) return true;
+  return [
+    /^(?:premiere|deuxieme|troisieme) personne\b[\s\S]*\bdu verbe\b/,
+    /^participe (?:passe|present)\b[\s\S]*\bdu verbe\b/,
+    /^forme conjuguee\b[\s\S]*\bde\b/,
+    /^conjugaison\b[\s\S]*\bde\b/,
+    /^forme du verbe\b/,
+    /^(?:feminin|masculin|pluriel|singulier)\b[\s\S]*\bde\b/,
+    /^(?:variante|graphie|orthographe)\b[\s\S]*\bde\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
 function isOcidDefinitionUsable(definition, word = "", aliases = []) {
   const text = String(definition || "").trim().toLowerCase();
   if (!text) return false;
+  if (isOcidFormOnlyDefinition(text)) return false;
   const hasBadKind = [
     "commune française",
     "ancienne commune",
@@ -71,6 +99,22 @@ function isOcidDefinitionUsable(definition, word = "", aliases = []) {
   return !buildOcidSpoilerFragments(word, aliases).some((fragment) =>
     normalizedText.includes(fragment)
   );
+}
+
+function buildOcidCandidateFromEntry({ row, word, definition, aliases = [] }) {
+  const normalizedWord = normalizeWord(word || "");
+  if (!normalizedWord || normalizedWord.length > 13 || !definition?.definition) return null;
+  if (!isOcidDefinitionUsable(definition.definition, normalizedWord, aliases)) return null;
+  return {
+    word: normalizedWord,
+    definition: definition.definition,
+    definitions: Array.isArray(definition.definitions) ? definition.definitions : [],
+    source: definition.source || "wiktionary",
+    sourceUrl: definition.sourceUrl || "",
+    rarityBucket: String(row?.rarity_bucket || ""),
+    rarityScore: Number(row?.rarity_score) || 0,
+    playersFound: Number(row?.players_found) || 0,
+  };
 }
 
 async function ensureDb() {
@@ -170,10 +214,16 @@ export async function getRareBonusWordMetaMap() {
   }
 }
 
-export async function getOcidTargetCandidates({ dictionary = null, limit = 800 } = {}) {
+export async function getOcidTargetCandidates({
+  dictionary = null,
+  limit = OCID_TARGET_CANDIDATE_LIMIT,
+} = {}) {
   const ready = await ensureDb();
   if (!ready) return [];
-  const maxRows = Math.max(50, Math.min(5000, Math.trunc(Number(limit) || 800)));
+  const maxRows = Math.max(
+    50,
+    Math.min(OCID_TARGET_CANDIDATE_LIMIT, Math.trunc(Number(limit) || OCID_TARGET_CANDIDATE_LIMIT))
+  );
   try {
     const placeholders = OCID_TARGET_BUCKETS.map(() => "?").join(", ");
     const rows = await ready.all(
@@ -191,28 +241,19 @@ export async function getOcidTargetCandidates({ dictionary = null, limit = 800 }
     for (const row of rows) {
       const rawWord = normalizeWord(row?.word || "");
       const baseWord =
-        Number(row?.is_form_of) === 1 && row?.form_of
-          ? normalizeWord(row.form_of)
-          : rawWord;
-      const word = baseWord || rawWord;
-      if (!word || word.length > 13 || seen.has(word)) continue;
-      if (dictionary instanceof Set && !dictionary.has(word)) continue;
-      const definition = await getLocalDefinitionEntry(word);
-      if (!definition?.definition) continue;
-      if (definition.isFormOf && definition.formOf) continue;
-      const aliases = [rawWord, row?.form_of, definition.formOf].filter(Boolean);
-      if (!isOcidDefinitionUsable(definition.definition, word, aliases)) continue;
-      seen.add(word);
-      out.push({
-        word,
-        definition: definition.definition,
-        definitions: Array.isArray(definition.definitions) ? definition.definitions : [],
-        source: definition.source || "wiktionary",
-        sourceUrl: definition.sourceUrl || "",
-        rarityBucket: String(row?.rarity_bucket || ""),
-        rarityScore: Number(row?.rarity_score) || 0,
-        playersFound: Number(row?.players_found) || 0,
-      });
+        Number(row?.is_form_of) === 1 && row?.form_of ? normalizeWord(row.form_of) : "";
+      const candidates = baseWord && baseWord !== rawWord ? [baseWord, rawWord] : [rawWord];
+      for (const word of candidates) {
+        if (!word || word.length > 13 || seen.has(word)) continue;
+        if (dictionary instanceof Set && !dictionary.has(word)) continue;
+        const definition = await getLocalDefinitionEntry(word);
+        const aliases = [rawWord, baseWord, row?.form_of, definition?.formOf].filter(Boolean);
+        const candidate = buildOcidCandidateFromEntry({ row, word, definition, aliases });
+        if (!candidate) continue;
+        seen.add(word);
+        out.push(candidate);
+        break;
+      }
     }
     return out;
   } catch (err) {

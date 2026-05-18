@@ -1038,6 +1038,32 @@ const OCID_INVALID_BLUFF_MESSAGES = [
   "{word} n'avait aucun papier, mais {audience} l'a laissé passer.",
 ];
 
+const OCID_SELF_WRONG_VALID_VOTE_MESSAGES = [
+  "Vous étiez vraiment sûr de vous avec {word}, mais ce n'est pas ça. Vote perso : +0 point.",
+  "{word} existait, certes. La cible, beaucoup moins. Auto-vote courageux, gain nul.",
+  "Vous avez voté pour votre propre {word}. Le dictionnaire approuve, le score beaucoup moins : +0.",
+  "{word} était valide, mais pas la bonne réponse. L'auto-confiance rapporte 0 point.",
+  "Vous avez misé sur {word} jusqu'au bout. Mot valide, pari perdu, +0 point au vote.",
+  "{word} avait des arguments, sauf celui d'être la cible. Auto-vote sans bénéfice.",
+  "Vous avez cru très fort à {word}. Le mot existe, les points de vote non.",
+  "{word} était défendable, mais la définition ne l'a pas choisi. +0 point pour ce vote.",
+  "Vous avez soutenu votre {word} avec panache. Beau geste, aucun point.",
+  "Mot valide, intuition moins valide : votre vote pour {word} rapporte 0 point.",
+];
+
+const OCID_SELF_WRONG_INVALID_VOTE_MESSAGES = [
+  "Vous étiez vraiment sûr de vous avec {word}, mais ce n'est pas ça. Et ce mot n'existe pas : +0 point.",
+  "Vous avez voté pour votre propre {word}. Audacieux, invalide, et gratuit : +0.",
+  "{word} sortait de votre imagination, et y retourne sans points.",
+  "Auto-vote sur {word}. Le dictionnaire a levé un sourcil, le score aussi : +0.",
+  "Vous avez défendu {word} jusqu'au bout. Personne ne peut vous enlever l'audace, ni vous donner des points.",
+  "{word} n'était ni la cible ni vraiment un mot. Double peine, +0 point.",
+  "Vous avez cru à {word}. Le jeu, lui, reste assez froid : +0.",
+  "Vote personnel pour {word}. Créatif, mais pas rentable.",
+  "{word} avait du culot. Le culot ne compte pas au barème : +0 point.",
+  "Vous avez choisi votre propre invention {word}. L'histoire retiendra l'effort, pas les points.",
+];
+
 function pickStableOcidMessage(messages, key) {
   if (!Array.isArray(messages) || !messages.length) return "";
   const raw = String(key || "");
@@ -3238,6 +3264,14 @@ body.theme-contrast-strong #root {
   filter: contrast(1.09) saturate(1.05);
 }
 
+.ranking-self-row .rare-bonus-inline {
+  color: #fbbf24;
+}
+
+body.theme-dark .ranking-self-row .rare-bonus-inline {
+  color: #ea580c;
+}
+
 body.theme-dark .bg-white {
   background-color: #0f172a !important;
   color: #e5e7eb !important;
@@ -5242,6 +5276,7 @@ export default function App() {
     forcedRoundTypes: [],
     forcedRoundRandom: false,
     botMedals: false,
+    botsEnabled: true,
     chatFill: false,
     botChat: false,
     botReactions: false,
@@ -23412,8 +23447,6 @@ function handleTouchEnd(e) {
         setOcidStatusMessage(
           res?.error === "vote_closed"
             ? "Le vote est termine."
-            : res?.error === "own_proposal"
-            ? "Tu ne peux pas voter pour ton propre mot."
             : "Vote refuse."
         );
       });
@@ -23443,8 +23476,26 @@ function handleTouchEnd(e) {
     selfOcidVoteOption && !selfOcidVoteOption.isTarget && Array.isArray(selfOcidVoteOption.authors)
       ? selfOcidVoteOption.authors.map((nick) => String(nick || "").trim()).filter(Boolean)
       : [];
+  const selfOcidExternalVotedAuthors = selfOcidVotedAuthors.filter(
+    (nick) => normalizeNickKey(nick) !== selfNickKeyForResults
+  );
+  const selfOcidOwnWrongVote =
+    !!selfOcidVoteOption &&
+    !selfOcidVoteOption.isTarget &&
+    selfOcidVotedAuthors.some((nick) => normalizeNickKey(nick) === selfNickKeyForResults);
+  const selfOcidOwnWrongVoteMessage = selfOcidOwnWrongVote
+    ? formatOcidMessage(
+        pickStableOcidMessage(
+          selfOcidDetail?.validProposal
+            ? OCID_SELF_WRONG_VALID_VOTE_MESSAGES
+            : OCID_SELF_WRONG_INVALID_VOTE_MESSAGES,
+          `${roundId}|${selfNickForResults}|self-vote|${selfOcidSubmittedWord}`
+        ),
+        { word: selfOcidSubmittedWord || selfOcidVoteWord || "votre mot" }
+      )
+    : "";
   const selfOcidGiftedPoints =
-    selfOcidVotedAuthors.length * (Number(ocidScoring?.bluffVote) || 0);
+    selfOcidExternalVotedAuthors.length * (Number(ocidScoring?.bluffVote) || 0);
   const selfOcidAudienceLabel =
     selfOcidVoters.length === 1 ? "un joueur" : `${selfOcidVoters.length} joueurs`;
   const selfOcidAudienceCaps =
@@ -23475,11 +23526,13 @@ function handleTouchEnd(e) {
     : "Pas trouvé cette fois.";
   const selfOcidVoteDetail = selfOcidVoteOption?.isTarget
     ? "Vous avez voté pour le vrai mot cible."
-    : selfOcidVotedAuthors.length
-    ? `Vous avez voté pour le mot de : ${selfOcidVotedAuthors.join(", ")}`
+    : selfOcidOwnWrongVoteMessage
+    ? selfOcidOwnWrongVoteMessage
+    : selfOcidExternalVotedAuthors.length
+    ? `Vous avez voté pour le mot de : ${selfOcidExternalVotedAuthors.join(", ")}`
     : "Aucun vote enregistré.";
   const selfOcidGiftDetail =
-    selfOcidVotedAuthors.length && selfOcidGiftedPoints > 0
+    selfOcidExternalVotedAuthors.length && selfOcidGiftedPoints > 0
       ? `Vous leur avez offert ${formatNumber(selfOcidGiftedPoints)} pts.`
       : "";
   const selfOcidBluffPanelText = selfOcidDetail?.exactTarget
@@ -23805,7 +23858,7 @@ function handleTouchEnd(e) {
     const value = Math.max(0, Math.trunc(Number(points) || 0));
     if (value <= 0) return null;
     return (
-      <span className="text-orange-600 font-black tabular-nums">
+      <span className="rare-bonus-inline text-amber-700 dark:text-amber-300 font-black tabular-nums">
         ({formatNumber(value)})
       </span>
     );
@@ -23891,9 +23944,10 @@ function handleTouchEnd(e) {
                 ? (
                   <>
                     {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
+                    2L {entry.fakeTwinWordsFound}/{entry.fakeTwinWordsTotal} ·{" "}
                     {renderRareBonusInline(entry?.rareBonusPoints)}
                     {Number(entry?.rareBonusPoints) > 0 ? " " : ""}
-                    {entry.score || 0} pts · 2L {entry.fakeTwinWordsFound}/{entry.fakeTwinWordsTotal}
+                    {entry.score || 0} pts
                   </>
                 )
                 : Number(entry?.rareBonusPoints) > 0
@@ -37474,14 +37528,16 @@ function handleTouchEnd(e) {
                   <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
                     {selfOcidVoteDetail}
                   </div>
-                ) : selfOcidVotedAuthors.length ? (
+                ) : selfOcidOwnWrongVoteMessage || selfOcidExternalVotedAuthors.length ? (
                   <>
                     <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
                       {selfOcidVoteDetail}
                     </div>
-                    <div className="mt-1 text-xs font-bold text-rose-600 dark:text-rose-300">
-                      {selfOcidGiftDetail}
-                    </div>
+                    {selfOcidGiftDetail ? (
+                      <div className="mt-1 text-xs font-bold text-rose-600 dark:text-rose-300">
+                        {selfOcidGiftDetail}
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   <div className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
