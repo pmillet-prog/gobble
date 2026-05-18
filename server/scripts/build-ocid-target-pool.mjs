@@ -201,20 +201,27 @@ function isDefinitionUsable(definition, word = "", aliases = []) {
     return false;
   }
   const hasBadKind = [
-    "commune française",
+    "commune francaise",
     "ancienne commune",
     "ville de",
-    "municipalité",
-    "localité",
+    "municipalite",
+    "localite",
     "toponyme",
-    "gentilé",
+    "gentile",
+    "nom de famille",
+    "nom propre",
+    "patronyme",
+    "matronyme",
+    "anthroponyme",
+    "prenom",
+    "pseudonyme",
     "sigle",
     "acronyme",
     "code iso",
     "code iata",
     "symbole chimique",
     "variante orthographique",
-  ].some((fragment) => text.includes(fragment));
+  ].some((fragment) => normalizedDefinition.includes(fragment));
   if (hasBadKind) return false;
   const normalizedText = normalizeWord(text).replace(/[^a-z]/g, "");
   if (!normalizedText) return false;

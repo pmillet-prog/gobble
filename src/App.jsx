@@ -6638,6 +6638,7 @@ export default function App() {
   const chatHistoryRef = useRef([]);
   const chatHistoryIndexRef = useRef(-1);
   const solutionsRef = useRef(new Map());
+  const serverAllWordsRef = useRef([]);
   const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
   const chatLastSentRef = useRef(0);
   const chatReplyTargetRef = useRef(null);
@@ -12461,11 +12462,15 @@ export default function App() {
   useEffect(() => {
     if (phase !== "results") return;
     if (isDailyPlay) return;
-    if (!dictionary) return;
     if (specialRound?.type === "target_long") return;
     if (specialRound?.type === "target_score") return;
     if (specialRound?.type === OCID_TYPE) return;
     if (allWords.length > 0) return;
+    if (serverAllWordsRef.current.length > 0) {
+      setAllWords(serverAllWordsRef.current);
+      return;
+    }
+    if (!dictionary) return;
 
     scheduleAllWordsCompute(board, {
       updateBestRefs: true,
@@ -16667,6 +16672,7 @@ export default function App() {
     setBigScoreFlash(null);
     clearToasts();
     solutionsRef.current = new Map();
+    serverAllWordsRef.current = [];
     serverSolutionsReadyRef.current = false;
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
@@ -16676,10 +16682,9 @@ export default function App() {
     resetSubmissionQueue();
     if (serverSolutions.ready) {
       solutionsRef.current = serverSolutions.solved;
-      setAllWords(serverSolutions.all);
-    } else {
-      setAllWords([]);
+      serverAllWordsRef.current = serverSolutions.all;
     }
+    setAllWords([]);
     setShowAllWords(false);
     setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
     if (specialInfo?.type !== "target_long" && specialInfo?.type !== "target_score") {
@@ -17044,6 +17049,7 @@ export default function App() {
     setBigScoreFlash(null);
     clearToasts();
     solutionsRef.current = new Map();
+    serverAllWordsRef.current = [];
     serverSolutionsReadyRef.current = false;
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
@@ -19467,6 +19473,9 @@ function handleTouchEnd(e) {
     usedFakeTwins = false,
     fakeTwinsCompletionWord = false,
     fakeTwinsBonusOnly = false,
+    rareBonusWord = false,
+    rareBonusPoints = 0,
+    rarityBucket = "",
     ptsOverride = null,
   }) {
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
@@ -19486,6 +19495,9 @@ function handleTouchEnd(e) {
       usedFakeTwins,
       fakeTwinsCompletionWord,
       fakeTwinsBonusOnly,
+      rareBonusWord,
+      rareBonusPoints,
+      rarityBucket,
     });
     dailyAcceptedPathsRef.current.set(raw, {
       word: raw,
@@ -19514,6 +19526,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!usedFakeTwins,
           fakeTwinsCompletionWord: !!fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!fakeTwinsBonusOnly,
+          rareBonusWord: !!rareBonusWord,
+          rareBonusPoints: Number(rareBonusPoints) || 0,
+          rarityBucket: String(rarityBucket || ""),
         },
         ...prev,
       ];
@@ -19636,6 +19651,9 @@ function handleTouchEnd(e) {
               usedFakeTwins: !!scored.usedFakeTwins || !!serverMeta.usedFakeTwins,
               fakeTwinsCompletionWord: !!serverMeta.fakeTwinsCompletionWord,
               fakeTwinsBonusOnly: !!serverMeta.fakeTwinsBonusOnly,
+              rareBonusWord: !!serverMeta.rareBonusWord,
+              rareBonusPoints: Number(serverMeta.rareBonusPoints) || 0,
+              rarityBucket: String(serverMeta.rarityBucket || ""),
             };
           }
           return scored;
@@ -20006,7 +20024,7 @@ function handleTouchEnd(e) {
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const canOptimisticallyApply = !isTargetRoundNow;
+      const canOptimisticallyApply = true;
 
       playableCandidates.forEach((candidate) => {
         const candidateScored = candidate.scored;
@@ -20024,6 +20042,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
+          rareBonusWord: !!candidateScored?.rareBonusWord,
+          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
+          rarityBucket: String(candidateScored?.rarityBucket || ""),
           traceStartedAt: getSubmissionTraceStartedAt(),
           optimisticApplied: canOptimisticallyApply,
         });
@@ -20037,6 +20058,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
+          rareBonusWord: !!candidateScored?.rareBonusWord,
+          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
+          rarityBucket: String(candidateScored?.rarityBucket || ""),
           ptsOverride: optimisticPts,
         });
       });
@@ -20061,6 +20085,9 @@ function handleTouchEnd(e) {
         usedFakeTwins: !!candidate.scored?.usedFakeTwins,
         fakeTwinsCompletionWord: !!candidate.scored?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!candidate.scored?.fakeTwinsBonusOnly,
+        rareBonusWord: !!candidate.scored?.rareBonusWord,
+        rareBonusPoints: Number(candidate.scored?.rareBonusPoints) || 0,
+        rarityBucket: String(candidate.scored?.rarityBucket || ""),
       });
     });
   }
@@ -20161,6 +20188,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
+          rareBonusWord: !!candidateScored?.rareBonusWord,
+          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
+          rarityBucket: String(candidateScored?.rarityBucket || ""),
           traceStartedAt: getSubmissionTraceStartedAt(),
           optimisticApplied: true,
         });
@@ -20173,6 +20203,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
+          rareBonusWord: !!candidateScored?.rareBonusWord,
+          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
+          rarityBucket: String(candidateScored?.rarityBucket || ""),
           ptsOverride: candidatePts,
         });
       });
@@ -20192,6 +20225,9 @@ function handleTouchEnd(e) {
         usedFakeTwins: !!candidate.scored?.usedFakeTwins,
         fakeTwinsCompletionWord: !!candidate.scored?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!candidate.scored?.fakeTwinsBonusOnly,
+        rareBonusWord: !!candidate.scored?.rareBonusWord,
+        rareBonusPoints: Number(candidate.scored?.rareBonusPoints) || 0,
+        rarityBucket: String(candidate.scored?.rarityBucket || ""),
       });
     });
     return true;

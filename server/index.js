@@ -3250,6 +3250,39 @@ function isRoundActive(round) {
   return !!round && (round.status === "running" || round.status === "intro");
 }
 
+function compactRoundSubmissionSolution(entry) {
+  const word = normalizeWord(entry?.word || "");
+  if (!word) return null;
+  const pts = Number.isFinite(entry?.pts) ? entry.pts : 0;
+  const usedFakeTwins = !!entry?.usedFakeTwins;
+  const fakeTwinsCompletionWord = !!entry?.fakeTwinsCompletionWord;
+  const fakeTwinsBonusOnly = !!entry?.fakeTwinsBonusOnly;
+  const rareBonusWord = !!entry?.rareBonusWord;
+  const rareBonusPoints = Number.isFinite(entry?.rareBonusPoints) ? entry.rareBonusPoints : 0;
+  const rarityBucket = String(entry?.rarityBucket || "");
+  if (
+    !usedFakeTwins &&
+    !fakeTwinsCompletionWord &&
+    !fakeTwinsBonusOnly &&
+    !rareBonusWord &&
+    !rareBonusPoints &&
+    !rarityBucket
+  ) {
+    return [word, pts];
+  }
+  return [
+    word,
+    pts,
+    [],
+    usedFakeTwins,
+    fakeTwinsCompletionWord,
+    fakeTwinsBonusOnly,
+    rareBonusWord,
+    rareBonusPoints,
+    rarityBucket,
+  ];
+}
+
 function buildRoundSubmissionSolutions(round) {
   if (!round || !dictionary) return [];
   if (round.special?.type === SELF_SPECIAL_3_WORDS_TYPE || round.special?.type === OCID_TYPE) {
@@ -3262,13 +3295,12 @@ function buildRoundSubmissionSolutions(round) {
     if (!targetWord) return [];
     const targetPath = Array.isArray(round.targetPath) ? round.targetPath : [];
     return [
-      {
+      compactRoundSubmissionSolution({
         word: targetWord,
         pts: 0,
-        path: targetPath,
         usedFakeTwins: false,
-      },
-    ];
+      }),
+    ].filter(Boolean);
   }
 
   const preparedSolutions = sanitizePreparedSolutions(round.solutions);
@@ -3289,18 +3321,17 @@ function buildRoundSubmissionSolutions(round) {
         ? entry.pts
         : 0;
       const rareMeta = buildRareBonusSubmittedWordMeta(round, entry.word);
-      return {
+      return compactRoundSubmissionSolution({
         ...entry,
         pts:
           computeWordScoreForRound(round, entry.word, finalPath, basePts) +
           (Number(rareMeta.rareBonusPoints) || 0),
-        path: finalPath,
         usedFakeTwins: !!(rescored?.usedFakeTwins || entry.usedFakeTwins),
         ...rareMeta,
         fakeTwinsCompletionWord: !!entry.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!entry.fakeTwinsBonusOnly,
-      };
-    });
+      });
+    }).filter(Boolean);
   }
 
   const startedAt = Date.now();
@@ -3316,10 +3347,9 @@ function buildRoundSubmissionSolutions(round) {
     const path = Array.isArray(meta?.path) ? meta.path : [];
     const basePts = Number.isFinite(meta?.pts) ? meta.pts : 0;
     const rareMeta = buildRareBonusSubmittedWordMeta(round, word);
-    return {
+    return compactRoundSubmissionSolution({
       word,
       pts: computeWordScoreForRound(round, word, path, basePts) + (Number(rareMeta.rareBonusPoints) || 0),
-      path,
       usedFakeTwins: !!meta?.usedFakeTwins,
       ...rareMeta,
       fakeTwinsCompletionWord: !!meta?.fakeTwinsCompletionWord,
@@ -3328,8 +3358,8 @@ function buildRoundSubmissionSolutions(round) {
         Number.isInteger(meta?.fakeTwinsTwinIndex) ? meta.fakeTwinsTwinIndex : null,
       fakeTwinsResolvedLetter: meta?.fakeTwinsResolvedLetter ?? null,
       fakeTwinsUsesAlt: !!meta?.fakeTwinsUsesAlt,
-    };
-  });
+    });
+  }).filter(Boolean);
 }
 
 function buildRoundStartedPayload(room) {

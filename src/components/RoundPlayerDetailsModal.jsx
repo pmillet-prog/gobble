@@ -852,15 +852,19 @@ export default function RoundPlayerDetailsModal({
                       const fakeTwinsWordClassName =
                         entry?.usedFakeTwins && !isRejected
                           ? darkMode
-                            ? entry?.fakeTwinsBonusOnly
+                            ? entry?.rareBonusWord
                               ? "text-violet-300"
                               : "text-blue-300"
-                            : entry?.fakeTwinsBonusOnly
+                            : entry?.rareBonusWord
                             ? "text-violet-600"
                             : "text-blue-600"
                           : "";
+                      const shouldUseRareBonusStyle =
+                        entry?.rareBonusWord &&
+                        !isRejected &&
+                        !entry?.usedFakeTwins;
                       const rareBonusWordClassName =
-                        entry?.rareBonusWord && !isRejected
+                        shouldUseRareBonusStyle
                           ? isFound
                             ? darkMode
                               ? "text-amber-300 font-black"
@@ -870,7 +874,7 @@ export default function RoundPlayerDetailsModal({
                             : "font-normal"
                           : "";
                       const rareBonusWordStyle =
-                        entry?.rareBonusWord && !isRejected && !isFound
+                        shouldUseRareBonusStyle && !isFound
                           ? {
                               color: darkMode ? "#fde68a" : "#b45309",
                               opacity: darkMode ? 0.52 : 0.58,

@@ -246,7 +246,11 @@ function LiveFeed({
               >
                 <span
                   className={`font-semibold not-italic truncate ${
-                    item.rareBonusWord
+                    item.usedFakeTwins && item.rareBonusWord
+                      ? darkMode
+                        ? "text-violet-300"
+                        : "text-violet-600"
+                      : item.rareBonusWord
                       ? darkMode
                         ? "text-amber-300 font-black"
                         : "text-orange-600 font-black"

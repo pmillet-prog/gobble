@@ -98,6 +98,7 @@ const styles = `
   margin-bottom: clamp(-10px, -1.2vh, -2px);
   z-index: 2;
   flex: 0 0 auto;
+  clip-path: inset(24% 0 28% 0);
 }
 .home-account-name {
   position: absolute;
