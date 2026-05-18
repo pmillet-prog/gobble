@@ -7,6 +7,7 @@ export default function ChatStyleSlide(props) {
     darkMode,
     isChatOpenMobile,
     isChatClosing,
+    chatOpenedAtMs,
     chatAnimationMs,
     chatOverlayStyle,
     chatViewportStyle,
@@ -18,7 +19,13 @@ export default function ChatStyleSlide(props) {
   const isChatVisible = isChatOpenMobile || isChatClosing;
   const isOpen = isChatOpenMobile && !isChatClosing;
   const durationMs = Number.isFinite(chatAnimationMs) ? chatAnimationMs : 220;
-  const [isRenderedOpen, setIsRenderedOpen] = React.useState(false);
+  const openedAtMs = Number(chatOpenedAtMs) || 0;
+  const shouldSkipInitialOpenAnimation =
+    isOpen && openedAtMs > 0 && Date.now() - openedAtMs > durationMs + 80;
+  const skipInitialOpenAnimationRef = React.useRef(shouldSkipInitialOpenAnimation);
+  const [isRenderedOpen, setIsRenderedOpen] = React.useState(
+    () => shouldSkipInitialOpenAnimation
+  );
 
   React.useEffect(() => {
     if (!isChatVisible) {
@@ -27,6 +34,11 @@ export default function ChatStyleSlide(props) {
     }
     if (!isOpen) {
       setIsRenderedOpen(false);
+      return undefined;
+    }
+    if (skipInitialOpenAnimationRef.current) {
+      skipInitialOpenAnimationRef.current = false;
+      setIsRenderedOpen(true);
       return undefined;
     }
     let raf1 = null;

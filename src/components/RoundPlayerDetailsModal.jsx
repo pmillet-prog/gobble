@@ -90,6 +90,8 @@ export default function RoundPlayerDetailsModal({
   showWordScores = true,
   playerRank = null,
   playerRankTotal = 0,
+  playerProfileTarget = null,
+  canOpenPlayerProfile = false,
   canGoPrev = false,
   canGoNext = false,
   onPrevPlayer = null,
@@ -97,6 +99,7 @@ export default function RoundPlayerDetailsModal({
   onToggleWordViewSound = null,
   onClose = null,
   onOpenDefinition = null,
+  onOpenPlayerProfile = null,
 }) {
   const PANEL_ANIM_MS = 280;
   const CONTENT_FADE_MS = 300;
@@ -218,6 +221,8 @@ export default function RoundPlayerDetailsModal({
   const special3SlotsList = Array.isArray(special3Slots) ? special3Slots : [];
   const special3BoardSource = Array.isArray(special3Board) ? special3Board : [];
   const hasTargetBoard = Array.isArray(targetBoardEntries) && targetBoardEntries.length > 0;
+  const canOpenHeaderProfile =
+    !hasTargetBoard && canOpenPlayerProfile && typeof onOpenPlayerProfile === "function";
   const foundWordsMap = React.useMemo(() => {
     const map = new Map();
     foundWordsList.forEach((entry) => {
@@ -570,9 +575,22 @@ export default function RoundPlayerDetailsModal({
               <div className="text-[11px] uppercase tracking-[0.16em] font-bold opacity-70">
                 {hasTargetBoard ? "Classement hebdo" : "Mots de manche"}
               </div>
-              <div className="text-base font-extrabold truncate">
-                {hasTargetBoard ? targetBoardLabel || "Classement cible" : playerNick || "Joueur"}
-              </div>
+              {canOpenHeaderProfile ? (
+                <button
+                  type="button"
+                  className={`block max-w-full truncate text-left text-base font-extrabold underline-offset-4 transition hover:underline ${
+                    darkMode ? "text-amber-100 hover:text-amber-200" : "text-slate-900 hover:text-blue-700"
+                  }`}
+                  onClick={() => onOpenPlayerProfile?.(playerProfileTarget)}
+                  title="Ouvrir le profil"
+                >
+                  {playerNick || "Joueur"}
+                </button>
+              ) : (
+                <div className="text-base font-extrabold truncate">
+                  {hasTargetBoard ? targetBoardLabel || "Classement cible" : playerNick || "Joueur"}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {canGoPrev ? (

@@ -123,7 +123,6 @@ export default function DevSettingsPanel({
           {available && !locked ? (
             <>
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
-          {renderToggle({ keyName: "botsEnabled", label: "Bots actifs (general)" })}
           <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
             <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">
               Cycle force
@@ -229,6 +228,9 @@ export default function DevSettingsPanel({
               >
                 Maj
               </button>
+            </div>
+            <div className="mt-2">
+              {renderToggle({ keyName: "botsEnabled", label: "Activer tous les bots" })}
             </div>
             <label className="mt-2 block">
               <span className="block text-[10px] font-bold uppercase tracking-widest opacity-65">

@@ -92,6 +92,20 @@ function publicRecord(entry, fields = []) {
   return Object.keys(out).length ? out : null;
 }
 
+async function ensurePlayerLifetimeStatsColumns() {
+  const rows = await db.all("PRAGMA table_info(player_lifetime_stats)");
+  const existing = new Set((Array.isArray(rows) ? rows : []).map((row) => row.name));
+  const requiredColumns = [
+    ["bestWordsInRound", "bestWordsInRound INTEGER NOT NULL DEFAULT 0"],
+    ["bestWordsInRoundId", "bestWordsInRoundId TEXT"],
+  ];
+  for (const [name, ddl] of requiredColumns) {
+    if (!existing.has(name)) {
+      await db.exec(`ALTER TABLE player_lifetime_stats ADD COLUMN ${ddl};`);
+    }
+  }
+}
+
 function sanitizeLifetimeRow(row) {
   if (!row) {
     return {
@@ -99,6 +113,7 @@ function sanitizeLifetimeRow(row) {
       roundsPlayed: 0,
       totalScore: 0,
       wordsFound: 0,
+      mostWordsInGame: null,
       bestRoundScore: 0,
       bestWord: null,
       longestWord: null,
@@ -117,6 +132,13 @@ function sanitizeLifetimeRow(row) {
     roundsPlayed: finiteInt(row.roundsPlayed),
     totalScore: finiteInt(row.totalScore),
     wordsFound: finiteInt(row.wordsFound),
+    mostWordsInGame:
+      finiteInt(row.bestWordsInRound) > 0
+        ? {
+            wordsCount: finiteInt(row.bestWordsInRound),
+            roundId: String(row.bestWordsInRoundId || ""),
+          }
+        : null,
     bestRoundScore: finiteInt(row.bestRoundScore),
     bestRoundId: String(row.bestRoundId || ""),
     bestWord:
@@ -154,6 +176,8 @@ export async function initPlayerProfileService() {
             roundsPlayed INTEGER NOT NULL DEFAULT 0,
             totalScore INTEGER NOT NULL DEFAULT 0,
             wordsFound INTEGER NOT NULL DEFAULT 0,
+            bestWordsInRound INTEGER NOT NULL DEFAULT 0,
+            bestWordsInRoundId TEXT,
             bestRoundScore INTEGER NOT NULL DEFAULT 0,
             bestRoundId TEXT,
             bestWord TEXT,
@@ -170,6 +194,7 @@ export async function initPlayerProfileService() {
             updatedAt INTEGER NOT NULL
           );
         `);
+        await ensurePlayerLifetimeStatsColumns();
         await db.exec(`
           CREATE TABLE IF NOT EXISTS player_live_head_to_head (
             playerAUserId TEXT NOT NULL,
@@ -221,6 +246,7 @@ export async function recordPlayerRoundStats({
   const safeNick = normalizeNick(nick);
   const safeScore = finiteInt(score);
   const safeWordsCount = finiteInt(wordsCount);
+  const safeRoundId = String(roundId || "").slice(0, 120);
   const bestWordText = isTargetRound ? "" : String(bestWord?.word || "").trim().slice(0, 40);
   const bestWordScore = isTargetRound ? 0 : finiteInt(bestWord?.pts);
   const longestWordText = isTargetRound
@@ -241,16 +267,23 @@ export async function recordPlayerRoundStats({
     await db.run(
       `INSERT INTO player_lifetime_stats (
          installId, nick, roundsPlayed, totalScore, wordsFound,
-         bestRoundScore, bestRoundId, bestWord, bestWordScore, longestWord,
+         bestWordsInRound, bestWordsInRoundId, bestRoundScore, bestRoundId,
+         bestWord, bestWordScore, longestWord,
          longestWordLength, gobbles, doubleGobbles, targetRoundsPlayed,
          targetRoundsFound, special3RoundsPlayed, bestSpecial3Score, createdAt, updatedAt
        )
-       VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(installId) DO UPDATE SET
          nick = CASE WHEN excluded.nick <> '' THEN excluded.nick ELSE player_lifetime_stats.nick END,
          roundsPlayed = player_lifetime_stats.roundsPlayed + 1,
          totalScore = player_lifetime_stats.totalScore + excluded.totalScore,
          wordsFound = player_lifetime_stats.wordsFound + excluded.wordsFound,
+         bestWordsInRound = MAX(player_lifetime_stats.bestWordsInRound, excluded.bestWordsInRound),
+         bestWordsInRoundId = CASE
+           WHEN excluded.bestWordsInRound > player_lifetime_stats.bestWordsInRound
+           THEN excluded.bestWordsInRoundId
+           ELSE player_lifetime_stats.bestWordsInRoundId
+         END,
          bestRoundScore = MAX(player_lifetime_stats.bestRoundScore, excluded.bestRoundScore),
          bestRoundId = CASE
            WHEN excluded.bestRoundScore > player_lifetime_stats.bestRoundScore
@@ -280,8 +313,10 @@ export async function recordPlayerRoundStats({
       safeNick,
       safeScore,
       safeWordsCount,
+      safeWordsCount,
+      safeWordsCount > 0 ? safeRoundId : "",
       safeScore,
-      String(roundId || "").slice(0, 120),
+      safeRoundId,
       bestWordText,
       bestWordScore,
       longestWordText,

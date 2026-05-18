@@ -15,7 +15,7 @@ const DB_PATH = process.env.GOBBLE_WORD_RARITY_DB
 const FAKE_TWINS_COMPLETION_BUCKETS = new Set(["common", "uncommon"]);
 const OCID_TARGET_BUCKETS = Object.freeze(["extreme", "very_rare", "rare"]);
 const OCID_TARGET_CANDIDATE_LIMIT = 15000;
-const RARE_BONUS_BUCKETS = new Set(["rare", "very_rare", "extreme"]);
+const RARE_BONUS_BUCKETS = new Set(["rare", "very_rare", "extreme", "never_found"]);
 
 let db = null;
 let initPromise = null;

@@ -14,6 +14,7 @@ function MobileChatLayer(props) {
     chatInputPlaceholder = "",
     chatInputRef = null,
     chatInputType = "text",
+    chatOpenedAtMs = 0,
     chatKeyboardInsetPx = 0,
     chatMessagesUnreadCount = 0,
     chatOverlayStyle = undefined,
@@ -66,6 +67,7 @@ function MobileChatLayer(props) {
       chatInputType={chatInputType}
       chatInputDisabled={chatInputDisabled}
       chatInputPlaceholder={chatInputPlaceholder}
+      chatOpenedAtMs={chatOpenedAtMs}
       chatEditTarget={chatEditTarget}
       chatReplyTarget={chatReplyTarget}
       chatTab={chatTab}

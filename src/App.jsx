@@ -5379,6 +5379,7 @@ export default function App() {
   const [chatKeyboardInsetPx, setChatKeyboardInsetPx] = useState(0);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
   const [isChatClosing, setIsChatClosing] = useState(false);
+  const [chatOpenedAtMs, setChatOpenedAtMs] = useState(0);
   const chatCloseTimerRef = useRef(null);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
   const [mobileChatReactionToasts, setMobileChatReactionToasts] = useState([]);
@@ -17362,6 +17363,7 @@ export default function App() {
       if (h > 0) gameViewportFreezeHeightRef.current = Math.round(h);
     }
 
+    setChatOpenedAtMs(Date.now());
     setIsChatOpenMobile(true);
   }
 
@@ -17378,6 +17380,7 @@ export default function App() {
       } catch (_) {}
     }
     setChatTab("messages");
+    setChatOpenedAtMs(0);
     chatBaselineHeightRef.current = 0;
     chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
     chatBodyLockHeightRef.current = 0;
@@ -18004,6 +18007,9 @@ export default function App() {
         usedFakeTwins: !!fakeTwinsMeta?.usedFakeTwins,
         fakeTwinsCompletionWord: !!fakeTwinsMeta?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!fakeTwinsMeta?.fakeTwinsBonusOnly,
+        rareBonusWord: !!fakeTwinsMeta?.rareBonusWord,
+        rareBonusPoints: Number(fakeTwinsMeta?.rareBonusPoints) || 0,
+        rarityBucket: String(fakeTwinsMeta?.rarityBucket || ""),
       });
     });
     list.sort((a, b) => {
@@ -18078,6 +18084,19 @@ export default function App() {
   function buildRoundPlayerModalPayload(nick, anchorRect = null) {
     const cleanNick = String(nick || "").trim();
     if (!cleanNick) return null;
+    const resultEntry = Array.isArray(finalResults)
+      ? finalResults.find((row) => String(row?.nick || "").trim() === cleanNick)
+      : null;
+    const rankingEntry = Array.isArray(finalRanking)
+      ? finalRanking.find((row) => String(row?.nick || "").trim() === cleanNick)
+      : null;
+    const profileSource = resultEntry || rankingEntry || {};
+    const profileTarget = {
+      userId: profileSource?.userId,
+      installId: profileSource?.installId,
+      playerKey: profileSource?.playerKey,
+      nick: cleanNick,
+    };
     const records = getRoundRecordsForPlayer(cleanNick);
     let targetBoardKey = "";
     let targetBoardLabel = "";
@@ -18123,10 +18142,16 @@ export default function App() {
               isGobble: gobbleCount > 0,
               gobbleCount,
               usedFakeTwins: !!item?.usedFakeTwins,
+              fakeTwinsCompletionWord: !!item?.fakeTwinsCompletionWord,
+              fakeTwinsBonusOnly: !!item?.fakeTwinsBonusOnly,
+              rareBonusWord: !!item?.rareBonusWord,
+              rareBonusPoints: Number(item?.rareBonusPoints) || 0,
+              rarityBucket: String(item?.rarityBucket || ""),
             };
           })
         : [],
       records,
+      profileTarget,
       anchorRect: anchorRect || null,
       targetBoardKey,
       targetBoardLabel,
@@ -27681,6 +27706,8 @@ function handleTouchEnd(e) {
       targetBoardKey={roundPlayerModal.targetBoardKey}
       targetBoardLabel={roundPlayerModal.targetBoardLabel}
       targetBoardEntries={roundPlayerModal.targetBoardEntries}
+      playerProfileTarget={roundPlayerModal.profileTarget}
+      canOpenPlayerProfile={canOpenPlayerProfile(roundPlayerModal.profileTarget)}
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
       isSpecial3Round={specialRound?.type === DAILY_SPECIAL_MODE}
@@ -27710,6 +27737,7 @@ function handleTouchEnd(e) {
       }
       onToggleWordViewSound={playSwipeSound}
       onClose={() => closeRoundPlayerModal({ withSound: true })}
+      onOpenPlayerProfile={openPlayerProfile}
       onOpenDefinition={(word) => {
         if (!word) return;
         openDefinition(word, { fromWordInfo: true });
@@ -31020,6 +31048,118 @@ function handleTouchEnd(e) {
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch brouillon du 18/05/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  nouvelles manches et équilibrage
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout de la manche OCID : proposer un mot à partir d'une définition, puis
+                    voter parmi les propositions.
+                  </li>
+                  <li>
+                    amélioration progressive de la manche faux jumeaux : objectif plus lisible,
+                    bonus de complétion mieux ciblé et affichages de résultats clarifiés.
+                  </li>
+                  <li>
+                    ajout d'un bonus de rareté sur les mots rares ou plus, avec affichage dédié
+                    dans le flux live et les bilans.
+                  </li>
+                  <li>
+                    ajustements des bots en live, notamment sur les manches spéciales et les
+                    phases de vote.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  dictionnaire, définitions et rareté
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    intégration locale d'une base de définitions pour limiter les requêtes web
+                    pendant le jeu.
+                  </li>
+                  <li>
+                    création d'un tableau de rareté basé sur les mots réellement trouvés par les
+                    joueurs.
+                  </li>
+                  <li>
+                    filtrage renforcé des définitions trop évidentes ou inutilisables pour les
+                    manches à mot cible.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  profils, comptes et progression
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    enrichissement des profils joueurs, statistiques personnelles et historiques.
+                  </li>
+                  <li>
+                    réparations et consolidations autour du coffre-fort, des mots connus et des
+                    progressions liées au compte.
+                  </li>
+                  <li>
+                    premières bases d'un atelier avatar et de nouveaux éléments visuels associés.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  interface et confort de jeu
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    résultats OCID enrichis : mot cible, vote, bluff, points gagnés et votes reçus
+                    mieux détaillés sur mobile et ordinateur.
+                  </li>
+                  <li>
+                    amélioration des listes de vote, des indicateurs de votes et des affichages
+                    de mots rares.
+                  </li>
+                  <li>
+                    le chat conserve mieux le message en cours d'écriture lors des changements de
+                    phase.
+                  </li>
+                  <li>
+                    ajout et ajustement d'options visuelles, de panneaux de réglages et de
+                    plusieurs affichages mobile/ordinateur.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  outils et stabilité
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    menu dev ajusté : sélection de plusieurs manches forcées, mode aléatoire et
+                    switch général pour activer ou désactiver les bots.
+                  </li>
+                  <li>
+                    bots ajustés sur OCID : ils ne votent plus pendant cette manche afin de garder
+                    les votes plus lisibles.
+                  </li>
+                  <li>
+                    amélioration du vivier de mots OCID et garde-fou contre les répétitions trop
+                    rapprochées.
+                  </li>
+                  <li>
+                    ajout d'un menu de modération séparé et d'outils serveur pour mieux encadrer
+                    les actions sensibles.
+                  </li>
+                  <li>
+                    refonte partielle de la persistance serveur : files SQLite, worker dédié et
+                    écritures moins bloquantes.
+                  </li>
+                  <li>
+                    nombreux correctifs sur les grilles du jour, les statistiques hebdomadaires,
+                    les trophées et les scripts de maintenance.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 05/05/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
@@ -31623,6 +31763,7 @@ function handleTouchEnd(e) {
       chatInputPlaceholder={chatInputPlaceholder}
       chatInputRef={chatInputRef}
       chatInputType={chatInputType}
+      chatOpenedAtMs={chatOpenedAtMs}
       chatKeyboardInsetPx={chatKeyboardInsetPx}
       chatMessagesUnreadCount={chatMessagesUnreadCount}
       chatOverlayStyle={globalChatOverlayStyle}

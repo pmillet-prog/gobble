@@ -39,6 +39,12 @@ function pickLongestRecord(primary, fallback) {
   return primaryLength >= fallbackLength ? primary || fallback || null : fallback || primary || null;
 }
 
+function pickMostWordsRecord(primary, fallback) {
+  const primaryCount = finitePositive(primary?.wordsCount);
+  const fallbackCount = finitePositive(fallback?.wordsCount);
+  return primaryCount >= fallbackCount ? primary || fallback || null : fallback || primary || null;
+}
+
 function StatCard({ label, value, detail = "" }) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/10 px-3 py-2">
@@ -96,6 +102,10 @@ export default function PlayerProfileModal({
   const duel = profile?.duel || {};
   const bestWord = pickBestScoredRecord(lifetime.bestWord, weeklyAllTime.bestWord);
   const longestWord = pickLongestRecord(lifetime.longestWord, weeklyAllTime.longestWord);
+  const mostWordsInGame = pickMostWordsRecord(
+    lifetime.mostWordsInGame,
+    weeklyAllTime.mostWordsInGame
+  );
   const bestRoundScore = Math.max(
     finitePositive(lifetime.bestRoundScore),
     finitePositive(weeklyAllTime.bestRoundScore?.pts)
@@ -229,6 +239,14 @@ export default function PlayerProfileModal({
                 <RecordLine
                   label="Meilleur score"
                   value={`${formatNumber(bestRoundScore)} pts`}
+                />
+                <RecordLine
+                  label="Max mots / manche"
+                  value={
+                    mostWordsInGame?.wordsCount
+                      ? `${formatNumber(mostWordsInGame.wordsCount)} mots`
+                      : "-"
+                  }
                 />
                 <RecordLine
                   label="Meilleur mot"
