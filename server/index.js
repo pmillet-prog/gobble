@@ -311,7 +311,7 @@ const BOT_STRENGTH_BY_NICK = new Map(
     .map((bot) => [bot.nick, bot.skill ?? 0])
 );
 
-const SOLVE_CACHE_MAX = 8;
+const SOLVE_CACHE_MAX = 2;
 const solveCache = new Map();
 const ANNOUNCEMENT_BATCH_MS = 220;
 const ANNOUNCEMENT_BATCH_MAX = 12;
@@ -1365,7 +1365,7 @@ const MEDAL_GOBBLARS = Object.freeze({
   bronze: 3,
 });
 const DISCONNECT_GRACE_MS = 120 * 1000;
-const RANKING_BROADCAST_MIN_MS = 90;
+const RANKING_BROADCAST_MIN_MS = 180;
 const DUEL_CACHE_REFRESH_MIN_MS = 45 * 1000;
 
 
@@ -3283,24 +3283,57 @@ function compactRoundSubmissionSolution(entry) {
   ];
 }
 
+function packRoundSubmissionSolutions(entries) {
+  const words = [];
+  const points = [];
+  const meta = [];
+  const list = Array.isArray(entries) ? entries : [];
+  for (const entry of list) {
+    const compact = Array.isArray(entry) ? entry : compactRoundSubmissionSolution(entry);
+    const word = normalizeWord(compact?.[0] || "");
+    if (!word) continue;
+    const idx = words.length;
+    words.push(word);
+    points.push(Number.isFinite(compact[1]) ? compact[1] : 0);
+    if (compact.length > 2) {
+      meta.push([
+        idx,
+        compact[3] ? 1 : 0,
+        compact[4] ? 1 : 0,
+        compact[5] ? 1 : 0,
+        compact[6] ? 1 : 0,
+        Number.isFinite(compact[7]) ? compact[7] : 0,
+        String(compact[8] || ""),
+      ]);
+    }
+  }
+  return { v: 2, w: words, p: points, m: meta };
+}
+
+function getRoundSolutionsPayloadCount(payload) {
+  if (Array.isArray(payload)) return payload.length;
+  if (payload && Array.isArray(payload.w)) return payload.w.length;
+  return 0;
+}
+
 function buildRoundSubmissionSolutions(round) {
-  if (!round || !dictionary) return [];
+  if (!round || !dictionary) return packRoundSubmissionSolutions([]);
   if (round.special?.type === SELF_SPECIAL_3_WORDS_TYPE || round.special?.type === OCID_TYPE) {
-    return [];
+    return packRoundSubmissionSolutions([]);
   }
   const isTargetRound =
     round.special?.type === "target_long" || round.special?.type === "target_score";
   if (isTargetRound) {
     const targetWord = normalizeWord(round.targetWord || "");
-    if (!targetWord) return [];
+    if (!targetWord) return packRoundSubmissionSolutions([]);
     const targetPath = Array.isArray(round.targetPath) ? round.targetPath : [];
-    return [
+    return packRoundSubmissionSolutions([
       compactRoundSubmissionSolution({
         word: targetWord,
         pts: 0,
         usedFakeTwins: false,
       }),
-    ].filter(Boolean);
+    ].filter(Boolean));
   }
 
   const preparedSolutions = sanitizePreparedSolutions(round.solutions);
@@ -3308,7 +3341,7 @@ function buildRoundSubmissionSolutions(round) {
     const scoreConfig = getSpecialScoreConfig(round);
     const shouldRescorePrepared =
       !!scoreConfig?.bonusLetter || round.special?.type === "bonus_letter";
-    return preparedSolutions.map((entry) => {
+    return packRoundSubmissionSolutions(preparedSolutions.map((entry) => {
       const path = Array.isArray(entry.path) ? entry.path : [];
       const rescored =
         shouldRescorePrepared && path.length
@@ -3331,7 +3364,7 @@ function buildRoundSubmissionSolutions(round) {
         fakeTwinsCompletionWord: !!entry.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!entry.fakeTwinsBonusOnly,
       });
-    }).filter(Boolean);
+    }).filter(Boolean));
   }
 
   const startedAt = Date.now();
@@ -3343,7 +3376,7 @@ function buildRoundSubmissionSolutions(round) {
       `[roundStarted] main-thread solve fallback took ${elapsed}ms round=${round.id} special=${round.special?.type || "normal"}`
     );
   }
-  return Array.from(solved.entries()).map(([word, meta]) => {
+  return packRoundSubmissionSolutions(Array.from(solved.entries()).map(([word, meta]) => {
     const path = Array.isArray(meta?.path) ? meta.path : [];
     const basePts = Number.isFinite(meta?.pts) ? meta.pts : 0;
     const rareMeta = buildRareBonusSubmittedWordMeta(round, word);
@@ -3359,7 +3392,7 @@ function buildRoundSubmissionSolutions(round) {
       fakeTwinsResolvedLetter: meta?.fakeTwinsResolvedLetter ?? null,
       fakeTwinsUsesAlt: !!meta?.fakeTwinsUsesAlt,
     });
-  }).filter(Boolean);
+  }).filter(Boolean));
 }
 
 function buildRoundStartedPayload(room) {
@@ -4319,7 +4352,9 @@ function getSpecialScoreConfig(round) {
 
 function getLiveHeadToHeadRoundType(round) {
   const specialType = round?.special?.type || "";
-  if (specialType === "target_long" || specialType === "target_score") return "target";
+  if (specialType === "target_long" || specialType === "target_score" || specialType === OCID_TYPE) {
+    return "target";
+  }
   if (specialType === SELF_SPECIAL_3_WORDS_TYPE) return "special3";
   if (specialType === "bonus_letter") return "bonusLetter";
   if (specialType === FAKE_TWINS_TYPE) return "fakeTwins";
@@ -6495,7 +6530,7 @@ async function startRoundForRoom(room) {
   const payloadBuildElapsed = Date.now() - payloadBuildStartedAt;
   if (payloadBuildElapsed > 250) {
     console.warn(
-      `[${room.id}] roundStarted payload built in ${payloadBuildElapsed}ms round=${roundId} special=${planUsed?.type || "normal"} solutions=${roundStartedPayload?.solutions?.length || 0}`
+      `[${room.id}] roundStarted payload built in ${payloadBuildElapsed}ms round=${roundId} special=${planUsed?.type || "normal"} solutions=${getRoundSolutionsPayloadCount(roundStartedPayload?.solutions)}`
     );
   }
   if (roundStartedPayload) {
@@ -6918,26 +6953,6 @@ async function endRoundForRoom(room) {
   recomputeRoundGobblesFromResults(room, results);
 
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
-  const liveHeadToHeadParticipants = results
-    .filter(
-      (entry) =>
-        !entry?.isBot &&
-        Number.isInteger(Number(entry?.userId)) &&
-        Number(entry.userId) > 0 &&
-        Number(entry?.score) > 0
-    )
-    .map((entry) => ({
-      userId: Number(entry.userId),
-      nick: entry.nick,
-      score: Number(entry.score) || 0,
-    }));
-  if (liveHeadToHeadParticipants.length >= 2) {
-    queueLiveHeadToHeadUpdate({
-      roundType: getLiveHeadToHeadRoundType(room.currentRound),
-      participants: liveHeadToHeadParticipants,
-      ts: endedAt,
-    });
-  }
   const roundGobbles = room.currentRound.gobbles || new Map();
   const roundObjectivePointsByNick =
     room.currentRound.duelObjectivePointsByNick instanceof Map
@@ -7167,6 +7182,7 @@ async function endRoundForRoom(room) {
         words: meta ? [room.currentRound.targetWord || ""] : [],
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
+        userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
         installId: player.installId || null,
         team: getTeamForInstallCached(player.installId),
         isBot: isBotToken(player?.token),
@@ -7191,6 +7207,30 @@ async function endRoundForRoom(room) {
 
     results.length = 0;
     results.push(...targetResults);
+  }
+
+  const liveHeadToHeadRoundType = getLiveHeadToHeadRoundType(room.currentRound);
+  const liveHeadToHeadAllowsZeroScores = isTargetRound;
+  const liveHeadToHeadParticipants = results
+    .filter((entry) => {
+      if (entry?.isBot) return false;
+      if (!Number.isInteger(Number(entry?.userId)) || Number(entry.userId) <= 0) return false;
+      const score = Number(entry?.score);
+      if (!Number.isFinite(score)) return false;
+      return liveHeadToHeadAllowsZeroScores ? score >= 0 : score > 0;
+    })
+    .map((entry) => ({
+      userId: Number(entry.userId),
+      nick: entry.nick,
+      score: Number(entry.score) || 0,
+    }));
+  if (liveHeadToHeadParticipants.length >= 2) {
+    queueLiveHeadToHeadUpdate({
+      roundType: liveHeadToHeadRoundType,
+      participants: liveHeadToHeadParticipants,
+      includeZeroScores: liveHeadToHeadAllowsZeroScores,
+      ts: endedAt,
+    });
   }
 
   const endedRoundSnapshot = room.currentRound

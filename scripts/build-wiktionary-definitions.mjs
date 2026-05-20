@@ -254,13 +254,34 @@ function extractFrenchDefinitions(wikitext, maxDefinitions) {
 }
 
 function extractFormOfInfo(definition) {
-  const normalized = normalizeForText(definition);
+  const normalized = normalizeForText(definition).replace(/[’`]/g, "'");
   if (!normalized) return null;
-  const match = normalized.match(
-    /^(?:forme|feminin|masculin|pluriel|participe|premiere|deuxieme|troisieme|variante|graphie|orthographe)\b[\s\S]*\bde\s+([a-z'-]+)\b/
-  );
-  if (!match) return null;
-  return { base: match[1], kind: "form_of" };
+  if (
+    !/^(?:forme|feminin|masculin|pluriel|participe|premiere|deuxieme|troisieme|variante|graphie|orthographe)\b/.test(
+      normalized
+    )
+  ) {
+    return null;
+  }
+
+  const blockedBases = new Set(["d", "l", "la", "le", "les", "de", "des", "du", "un", "une"]);
+  const pickBase = (match) => {
+    const base = String(match?.[1] || "").trim();
+    if (!base || base.length < 2 || blockedBases.has(base)) return null;
+    return base;
+  };
+  const patterns = [
+    /\bdu verbe\s+([a-z'-]+)\b/,
+    /\bde l'auxiliaire\s+([a-z'-]+)\b/,
+    /\b(?:participe|conjugaison|forme)\b[\s\S]*\bd'?([a-z-]{3,})\s*$/,
+    /\bde\s+([a-z'-]+)\s*$/,
+    /\bde\s+([a-z'-]+)\b/,
+  ];
+  for (const pattern of patterns) {
+    const base = pickBase(normalized.match(pattern));
+    if (base) return { base, kind: "form_of" };
+  }
+  return null;
 }
 
 function sourceUrl(title) {

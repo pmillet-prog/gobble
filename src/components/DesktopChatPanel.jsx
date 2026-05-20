@@ -85,7 +85,7 @@ function DesktopChatPanel({
           </button>
         </div>
       </div>
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div
           className={`inline-flex rounded-full border p-1 ${
             darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
@@ -119,7 +119,7 @@ function DesktopChatPanel({
           </button>
         </div>
         <label
-          className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-2 py-1 ${
+          className={`ml-auto inline-flex max-w-full min-w-[7rem] items-center gap-2 rounded-full border px-2 py-1 ${
             darkMode
               ? "border-white/10 bg-slate-800/70 text-slate-100"
               : "border-slate-200 bg-slate-100 text-slate-700"
@@ -144,7 +144,7 @@ function DesktopChatPanel({
             onChange={(e) =>
               actionsRef?.current?.changeChatDesktopFontScale?.(e.target.value)
             }
-            className="w-24 accent-blue-600"
+            className="min-w-0 flex-1 basis-16 max-w-24 accent-blue-600"
             aria-label="Taille de la police du chat"
           />
         </label>

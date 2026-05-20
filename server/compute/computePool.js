@@ -1,6 +1,12 @@
 import { Worker } from "worker_threads";
 
 export function createComputePool() {
+  const dedicatedWorkers = String(process.env.GOBBLE_COMPUTE_DEDICATED_WORKERS || "")
+    .trim()
+    .toLowerCase();
+  const useDedicatedWorkers =
+    dedicatedWorkers === "1" || dedicatedWorkers === "true" || dedicatedWorkers === "yes";
+
   function createWorkerChannel(label) {
     let worker = null;
     let nextId = 1;
@@ -87,8 +93,8 @@ export function createComputePool() {
   }
 
   const prepareChannel = createWorkerChannel("prepare");
-  const analyzeChannel = createWorkerChannel("analyze");
-  const bufferChannel = createWorkerChannel("buffer");
+  const analyzeChannel = useDedicatedWorkers ? createWorkerChannel("analyze") : prepareChannel;
+  const bufferChannel = useDedicatedWorkers ? createWorkerChannel("buffer") : prepareChannel;
 
   return {
     prepareNextGrid(payload) {
@@ -101,7 +107,9 @@ export function createComputePool() {
       return bufferChannel.call("prepareNextGrid", payload);
     },
     cancelBufferedPrepare() {
-      bufferChannel.cancelPending("buffer_prepare_cancelled");
+      if (useDedicatedWorkers) {
+        bufferChannel.cancelPending("buffer_prepare_cancelled");
+      }
     },
   };
 }

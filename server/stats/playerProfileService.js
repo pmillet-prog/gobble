@@ -68,6 +68,9 @@ function normalizeUserId(userId) {
 function normalizeRoundType(roundType) {
   const safeType = String(roundType || "").trim();
   if (safeType === "target") return "target";
+  if (safeType === "target_long") return "target";
+  if (safeType === "target_score") return "target";
+  if (safeType === "ocid") return "target";
   if (safeType === "special3") return "special3";
   if (safeType === "bonusLetter") return "bonusLetter";
   if (safeType === "fakeTwins") return "fakeTwins";
@@ -337,9 +340,11 @@ export async function recordPlayerRoundStats({
 export async function recordLiveHeadToHeadOutcomes({
   roundType = "normal",
   participants = [],
+  includeZeroScores = false,
   ts = Date.now(),
 } = {}) {
   const safeRoundType = normalizeRoundType(roundType);
+  const allowZeroScores = Boolean(includeZeroScores);
   const safeTs = finiteInt(ts, Date.now());
   const cleanParticipants = Array.isArray(participants)
     ? participants
@@ -350,7 +355,9 @@ export async function recordLiveHeadToHeadOutcomes({
         }))
         .filter(
           (participant) =>
-            participant.userId && Number.isFinite(participant.score) && participant.score > 0
+            participant.userId &&
+            Number.isFinite(participant.score) &&
+            (allowZeroScores ? participant.score >= 0 : participant.score > 0)
         )
     : [];
   const byUser = new Map();
@@ -376,6 +383,9 @@ export async function recordLiveHeadToHeadOutcomes({
         const aWins = a.score > b.score ? 1 : 0;
         const bWins = b.score > a.score ? 1 : 0;
         const draws = a.score === b.score ? 1 : 0;
+        if (allowZeroScores && a.score <= 0 && b.score <= 0) {
+          continue;
+        }
         await db.run(
           `INSERT INTO player_live_head_to_head (
              playerAUserId, playerBUserId, roundType, playerAWins, playerBWins,

@@ -351,6 +351,8 @@ function extractBaseFromRawForm(extract) {
   if (!raw) return null;
   const verbMatch = raw.match(/\bverbe\s+([\p{L}'-]+)/iu);
   if (verbMatch) return normalizeNfc(verbMatch[1]);
+  const elidedMatch = raw.match(/\b(?:participe|conjugaison|forme)\b[\s\S]*\bd[’']?([\p{L}-]{3,})[\s.]*$/iu);
+  if (elidedMatch) return normalizeNfc(elidedMatch[1]);
   const deMatch = raw.match(/\bde\s+([\p{L}'-]+)[\s.]*$/iu);
   if (deMatch) return normalizeNfc(deMatch[1]);
   return null;
@@ -374,6 +376,24 @@ function extractParticipleHint(normalized, rawBase) {
   return { base, label, kind: "participle" };
 }
 
+function prettifyConjugationDetail(detail) {
+  return String(detail || "")
+    .replace(/\bl indicatif\b/g, "l’indicatif")
+    .replace(/\bl imperatif\b/g, "l’impératif")
+    .replace(/\bl imparfait\b/g, "l’imparfait")
+    .replace(/\bl infinitif\b/g, "l’infinitif")
+    .replace(/\bl auxiliaire\b/g, "l’auxiliaire")
+    .replace(/\bsubjonctif present\b/g, "subjonctif présent")
+    .replace(/\bindicatif present\b/g, "indicatif présent")
+    .replace(/\bpresent de l’indicatif\b/g, "présent de l’indicatif")
+    .replace(/\bpresent du subjonctif\b/g, "présent du subjonctif")
+    .replace(/\bimperatif\b/g, "impératif")
+    .replace(/\bpasse\b/g, "passé")
+    .replace(/\bpresent\b/g, "présent")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function extractConjugationHint(normalized, rawBase) {
   if (!normalized) return null;
   const personMatch = normalized.match(
@@ -389,6 +409,10 @@ function extractConjugationHint(normalized, rawBase) {
       const suffix = ` de ${baseToken}`;
       if (detail.endsWith(suffix)) {
         detail = detail.slice(0, -suffix.length).trim();
+      } else if (detail.endsWith(` du verbe ${baseToken}`)) {
+        detail = detail.slice(0, -` du verbe ${baseToken}`.length).trim();
+      } else if (detail.endsWith(` d un verbe ${baseToken}`)) {
+        detail = detail.slice(0, -` d un verbe ${baseToken}`.length).trim();
       } else {
         const lastDe = detail.lastIndexOf(" de ");
         if (lastDe >= 0) {
@@ -405,6 +429,7 @@ function extractConjugationHint(normalized, rawBase) {
     if (detail === "de" || detail === "du" || detail === "des") {
       detail = "";
     }
+    detail = prettifyConjugationDetail(detail);
   }
   const personLabel = {
     premiere: "Première",
@@ -1101,6 +1126,33 @@ function applyFormOfMetadata(payload, hint) {
   return payload;
 }
 
+const BLOCKED_FORM_BASES = new Set(["d", "l", "la", "le", "les", "de", "des", "du", "un", "une"]);
+
+function isUsableFormBase(value) {
+  const normalized = normalizeLookup(value);
+  if (!normalized || normalized.length < 2) return false;
+  return !BLOCKED_FORM_BASES.has(normalized);
+}
+
+function findLocalFormOfHint(entry) {
+  const definitions = [
+    entry?.definition,
+    ...(Array.isArray(entry?.definitions) ? entry.definitions : []),
+  ];
+  const seen = new Set();
+  for (const definition of definitions) {
+    const text = String(definition || "").trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    const hint = extractFormOfHint(text);
+    if (hint && isUsableFormBase(hint.base)) return hint;
+  }
+  if (entry?.isFormOf && isUsableFormBase(entry.formOf)) {
+    return { base: entry.formOf, label: "Forme probable de :", kind: "lemma" };
+  }
+  return null;
+}
+
 async function lookupLocalDefinitionPayload(input, options = {}, seen = new Set()) {
   if (!LOCAL_DEFINITIONS_ENABLED) return null;
   const entry = await getLocalDefinitionEntry(input);
@@ -1114,10 +1166,7 @@ async function lookupLocalDefinitionPayload(input, options = {}, seen = new Set(
   payload.local = true;
   if (entry.sourceLicense) payload.sourceLicense = entry.sourceLicense;
 
-  const hint =
-    (entry.isFormOf && entry.formOf
-      ? { base: entry.formOf, label: "Forme probable de :", kind: "lemma" }
-      : null) || extractFormOfHint(entry.definition);
+  const hint = findLocalFormOfHint(entry);
   if (!hint?.base) return payload;
 
   const seenKey = normalizeLookup(input);
