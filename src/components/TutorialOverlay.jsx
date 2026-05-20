@@ -64,8 +64,9 @@ const STEPS = [
       "Chaque partie se joue en 5 manches, avec des variantes en milieu de tournoi.",
     bullets: [
       "5 manches au total.",
-      "Les manches 2 et 4 sont spéciales.",
-      "Speciales possibles : mot le plus long, meilleur mot, rapidite (11 pts), lettre en or, grille monstrueuse.",
+      "Les manches 1 et 5 sont normales.",
+      "La manche 3 est une Massive Boggle fixe.",
+      "Les manches 2 et 4 sont spéciales : mot le plus long, meilleur mot, rapidite (11 pts), lettre en or, grille monstrueuse, faux jumeaux, 3 mots ou OCID.",
     ],
   },
   {

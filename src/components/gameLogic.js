@@ -228,6 +228,10 @@ export function tileScore(tile) {
 }
 
 export function computeScore(word, path, board, special = null, resolvedLettersByIndex = null) {
+  if (special?.classicBoggleScoring) {
+    return classicBoggleScoreForLength(word?.length || 0);
+  }
+
   let base = 0;
   let wordMultiplier = 1;
   let usesFakeTwinsCell = false;
@@ -279,6 +283,15 @@ export function computeScore(word, path, board, special = null, resolvedLettersB
     isFakeTwinsSpecial(special) && usesFakeTwinsCell ? FAKE_TWINS_WORD_BONUS : 0;
 
   return (base + bonusLength) * wordMultiplier + fakeTwinsBonus;
+}
+
+function classicBoggleScoreForLength(length) {
+  if (length >= 8) return 11;
+  if (length === 7) return 5;
+  if (length === 6) return 3;
+  if (length === 5) return 2;
+  if (length >= 3) return 1;
+  return 0;
 }
 
 export function summarizeBonuses(path, board) {

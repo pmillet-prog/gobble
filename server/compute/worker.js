@@ -41,13 +41,17 @@ const TARGET_LONG_BATCH_ATTEMPTS = 50;
 const TARGET_LONG_BATCHES_PER_LEN = 2;
 const RARE_WORD_BONUS_POINTS = 10;
 const OCID_MIN_WORDS = 200;
+const CLASSIC_BOGGLE_MIN_WORDS = 200;
+const CLASSIC_BOGGLE_MIN_LONG_WORD_LEN = 8;
+const CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT = 3;
+const BONUS_LETTER_MIN_WORDS = 30;
+const BONUS_LETTER_SCORE = 20;
+const MASSIVE_BOGGLE_TYPE = "massive_boggle";
 const TARGET_LONG_TOTAL_ATTEMPTS =
   TARGET_LONG_BATCH_ATTEMPTS *
   TARGET_LONG_BATCHES_PER_LEN *
   (TARGET_LONG_PREFERRED_LEN - TARGET_LONG_MIN_LEN + 1);
 const TARGET_SCORE_MIN_PTS = 100;
-const BONUS_LETTER_MIN_WORDS = 30;
-const BONUS_LETTER_SCORE = 20;
 
 let dictionary = null;
 try {
@@ -473,6 +477,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     roundPlan?.qualityAttempts || roomConfig?.qualityAttempts || MAX_QUALITY_ATTEMPTS
   );
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
+  const needsClassicBoggle = roundPlan?.type === MASSIVE_BOGGLE_TYPE;
   const needsFakeTwins = roundPlan?.type === FAKE_TWINS_TYPE;
   const fakeTwinsCompletionWordSet =
     roundPlan?.fakeTwinsCompletionWordSet instanceof Set
@@ -480,8 +485,8 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       : null;
   const rareBonusWordMetaMap =
     roundPlan?.rareBonusWordMetaMap instanceof Map ? roundPlan.rareBonusWordMetaMap : null;
-  const maxAttemptsBase = needsBonusLetter
-    ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS * 2, 300)
+  const maxAttemptsBase = needsClassicBoggle
+    ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS)
     : needsFakeTwins
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS)
     : maxAttempts;
@@ -490,11 +495,17 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       ? Math.max(maxAttemptsBase, TARGET_LONG_TOTAL_ATTEMPTS)
       : maxAttemptsBase;
   const size = roomConfig?.gridSize || 4;
-  const effectiveMinWords = dictionary ? minWords : 0;
+  const effectiveMinWords = dictionary
+    ? needsClassicBoggle
+      ? Math.max(minWords, CLASSIC_BOGGLE_MIN_WORDS)
+      : minWords
+    : 0;
   const qualityOpts = {
     minLongWordLen:
       roundPlan?.type === FAKE_TWINS_TYPE
         ? FAKE_TWINS_MIN_WORD_LENGTH
+        : needsClassicBoggle
+        ? Math.max(roundPlan?.minLongWordLen || 0, CLASSIC_BOGGLE_MIN_LONG_WORD_LEN)
         : roundPlan?.minLongWordLen || 0,
   };
   const isTargetLong = roundPlan?.type === "target_long";
@@ -549,6 +560,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       roundPlan?.type === "speed" ||
       roundPlan?.type === "target_long" ||
       roundPlan?.type === "bonus_letter" ||
+      roundPlan?.type === MASSIVE_BOGGLE_TYPE ||
       roundPlan?.type === FAKE_TWINS_TYPE
     ) {
       grid = grid.map((cell) => ({ ...cell, bonus: null }));
@@ -573,7 +585,22 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       );
     } else {
       solved = dictionary
-        ? annotateRareBonusWords(solveGrid(grid, dictionary), rareBonusWordMetaMap, roundPlan)
+        ? annotateRareBonusWords(
+            solveGrid(
+              grid,
+              dictionary,
+              needsClassicBoggle
+                ? {
+                    ...roundPlan,
+                    minWordLength: 3,
+                    classicBoggleScoring: true,
+                    disableBonuses: true,
+                  }
+                : null
+            ),
+            rareBonusWordMetaMap,
+            roundPlan
+          )
         : null;
     }
     const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
@@ -593,6 +620,13 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
         quality.possibleScore >= minTotal &&
         quality.maxLen >= minLen &&
         quality.longWords >= minLongWords;
+    } else if (needsClassicBoggle) {
+      ok =
+        ok &&
+        !!dictionary &&
+        quality.words >= CLASSIC_BOGGLE_MIN_WORDS &&
+        quality.longWords >=
+          (roundPlan?.minLongWordCount || CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT);
     } else if (
       roundPlan?.type === "target_long" ||
       roundPlan?.type === "target_score" ||
@@ -648,30 +682,48 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       quality.ok = quality.ok && !!targetWord;
     }
 
-    if (solved && roundPlan?.type === "bonus_letter") {
+    if (solved && needsBonusLetter) {
       const minLetterWords = roundPlan?.bonusLetterMinWords || BONUS_LETTER_MIN_WORDS;
       bonusLetter = pickBonusLetter(grid, solved, minLetterWords);
       quality.ok = quality.ok && !!bonusLetter;
     }
 
-    const planForRound = bonusLetter
-      ? {
-          ...roundPlan,
-          bonusLetter,
-          bonusLetterScore: roundPlan?.bonusLetterScore || BONUS_LETTER_SCORE,
-          disableBonuses: true,
-        }
-      : {
-          ...roundPlan,
-          ...(needsFakeTwins && Number.isInteger(fakeTwinsCandidate?.twinIndex)
-            ? {
-                minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
-                twinIndex: fakeTwinsCandidate.twinIndex,
-                altLetter: fakeTwinsCandidate.altLetter || null,
-              }
-            : null),
-          ...(isTargetLong ? { targetLongBucket } : null),
-        };
+    const planForRound = {
+      ...roundPlan,
+      ...(bonusLetter
+        ? {
+            bonusLetter,
+            bonusLetterScore: roundPlan?.bonusLetterScore || BONUS_LETTER_SCORE,
+            disableBonuses: true,
+          }
+        : null),
+      ...(needsClassicBoggle
+        ? {
+            minWords: Math.max(roundPlan?.minWords || 0, CLASSIC_BOGGLE_MIN_WORDS),
+            minLongWordLen: Math.max(
+              roundPlan?.minLongWordLen || 0,
+              CLASSIC_BOGGLE_MIN_LONG_WORD_LEN
+            ),
+            minLongWordCount: Math.max(
+              roundPlan?.minLongWordCount || 0,
+              CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT
+            ),
+            minWordLength: 3,
+            classicBoggleScoring: true,
+            disableBonuses: true,
+            bonusLetter: "",
+            bonusLetterScore: 0,
+          }
+        : null),
+      ...(needsFakeTwins && Number.isInteger(fakeTwinsCandidate?.twinIndex)
+        ? {
+            minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+            twinIndex: fakeTwinsCandidate.twinIndex,
+            altLetter: fakeTwinsCandidate.altLetter || null,
+          }
+        : null),
+      ...(isTargetLong ? { targetLongBucket } : null),
+    };
 
     const candidate = {
       grid,
@@ -695,7 +747,6 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     if (needsBonusLetter && !planForRound?.bonusLetter) {
       continue;
     }
-
     const currentScore =
       (quality?.words || 0) + (quality?.possibleScore || 0) / 500 + (quality?.longWords || 0);
     const bestScore =
@@ -785,7 +836,17 @@ function analyzeGridJob({ grid, roundPlan, roomConfig, scoreConfig }) {
   const minWords = roundPlan?.minWords ?? roomConfig?.minWords ?? 0;
   const effectiveMinWords = dictionary ? minWords : 0;
   const qualityOpts = { minLongWordLen: roundPlan?.minLongWordLen || 0 };
-  const solved = dictionary ? solveGrid(grid, dictionary, scoreConfig || null) : null;
+  const effectiveScoreConfig =
+    scoreConfig ||
+    (roundPlan?.type === MASSIVE_BOGGLE_TYPE
+      ? {
+          ...roundPlan,
+          minWordLength: 3,
+          classicBoggleScoring: true,
+          disableBonuses: true,
+        }
+      : null);
+  const solved = dictionary ? solveGrid(grid, dictionary, effectiveScoreConfig) : null;
   const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
   quality.possibleScore = roundPlan?.fixedWordScore
     ? (quality.words || 0) * roundPlan.fixedWordScore

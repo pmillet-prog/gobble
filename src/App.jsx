@@ -92,9 +92,15 @@ const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const FINAL_ROUND_RESULTS_SECONDS = 20;
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
+const TRANSIENT_HOME_CONNECTION_ERRORS = new Set([
+  "Connexion au serveur impossible",
+  "Impossible de joindre le serveur",
+  "Connexion timeout",
+]);
 const DAILY_SPECIAL_MODE = "self_specials_3_words";
 const DAILY_MONSTROUS_MODE = "monstrous_grid";
 const DAILY_FAKE_TWINS_MODE = "fake_twins_grid";
+const MASSIVE_BOGGLE_TYPE = "massive_boggle";
 const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
 const DAILY_SPECIAL_WORD_TARGET = 3;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
@@ -2972,9 +2978,9 @@ body.theme-dark .tile-hint {
   top: 6px;
   padding: 1px 5px;
   border-radius: 9999px;
-  border: 1px solid rgba(16, 185, 129, 0.24);
-  background: rgba(236, 253, 245, 0.95);
-  color: #047857;
+  border: 1px solid rgba(184, 116, 27, 0.38);
+  background: rgba(255, 247, 214, 0.96);
+  color: #8a4b08;
   font-size: 0.54rem;
   line-height: 1;
   font-weight: 900;
@@ -3056,9 +3062,9 @@ body.theme-dark .fake-twins-tile::before {
 }
 
 body.theme-dark .fake-twins-badge {
-  border-color: rgba(52, 211, 153, 0.34);
-  background: rgba(6, 78, 59, 0.92);
-  color: #d1fae5;
+  border-color: rgba(251, 191, 36, 0.42);
+  background: rgba(92, 49, 8, 0.92);
+  color: #fef3c7;
 }
 
 .tile-used .tile-letter {
@@ -3542,7 +3548,8 @@ body.theme-dark .preview-tile {
   border-color: #f97316;
   color: #111827;
 }
-.bonus-letter-tile {
+.bonus-letter-tile,
+.fake-twins-tile {
   background:
     linear-gradient(145deg, #ffe9a8 0%, #f7c969 28%, #e09a2f 62%, #b8741b 100%);
   border: 2px solid #b8741b;
@@ -3554,13 +3561,15 @@ body.theme-dark .preview-tile {
     0 2px 0 rgba(120, 53, 15, 0.55),
     0 6px 12px rgba(120, 53, 15, 0.55);
 }
-body.theme-dark .bonus-letter-tile {
+body.theme-dark .bonus-letter-tile,
+body.theme-dark .fake-twins-tile {
   background:
     linear-gradient(145deg, #ffe7a1 0%, #f4c55d 26%, #e0932a 62%, #b46a16 100%);
   border-color: #b8741b;
   color: #1a0f00;
 }
-.bonus-letter-tile::after {
+.bonus-letter-tile::after,
+.fake-twins-tile::after {
   content: "";
   position: absolute;
   inset: 2px;
@@ -4632,6 +4641,7 @@ function getSpecialRoundDisplayLabel(specialInfo) {
   if (specialInfo.type === "target_score") return "Meilleur mot";
   if (specialInfo.type === OCID_TYPE) return "Manche OCID";
   if (specialInfo.type === "bonus_letter") return "Lettre en or";
+  if (specialInfo.type === MASSIVE_BOGGLE_TYPE) return "Massive Boggle";
   return "Manche speciale";
 }
 
@@ -6849,6 +6859,13 @@ export default function App() {
       return {
         bonusLetter: specialRound.bonusLetter,
         bonusLetterScore: specialRound.bonusLetterScore ?? 20,
+        disableBonuses: true,
+      };
+    }
+    if (specialRound?.type === MASSIVE_BOGGLE_TYPE) {
+      return {
+        classicBoggleScoring: true,
+        minWordLength: specialRound.minWordLength || 3,
         disableBonuses: true,
       };
     }
@@ -12005,7 +12022,6 @@ export default function App() {
       if (!hasSession && !isLoggedInRef.current) {
         isLoggedInRef.current = false;
         setIsLoggedIn(false);
-        setLoginError("Connexion au serveur impossible");
         clearQueuedRankingUpdate();
         setConnectionError("Connexion au serveur impossible");
         setPlayers([]);
@@ -12026,6 +12042,7 @@ export default function App() {
       watchdogFailureCountRef.current = 0;
       batchUnsupportedRef.current = false;
       setConnectionError("");
+      setLoginError((prev) => (TRANSIENT_HOME_CONNECTION_ERRORS.has(prev) ? "" : prev));
       if (reconnectToastPendingRef.current) {
         reconnectToastPendingRef.current = false;
         if (isLoggedInRef.current) {
@@ -15351,6 +15368,12 @@ export default function App() {
               bonusLetterScore: currentRound.special.bonusLetterScore ?? 20,
               disableBonuses: true,
             }
+          : currentRound.special?.type === MASSIVE_BOGGLE_TYPE
+          ? {
+              classicBoggleScoring: true,
+              minWordLength: currentRound.special.minWordLength || 3,
+              disableBonuses: true,
+            }
           : null;
       dailyAcceptedPathsRef.current = new Map();
       if (currentRound.grid && words.length) {
@@ -15415,6 +15438,12 @@ export default function App() {
             ? {
                 bonusLetter: lastRound.round.special.bonusLetter,
                 bonusLetterScore: lastRound.round.special.bonusLetterScore ?? 20,
+                disableBonuses: true,
+              }
+            : lastRound.round.special?.type === MASSIVE_BOGGLE_TYPE
+            ? {
+                classicBoggleScoring: true,
+                minWordLength: lastRound.round.special.minWordLength || 3,
                 disableBonuses: true,
               }
             : null;
@@ -22040,6 +22069,7 @@ function handleTouchEnd(e) {
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
+      if (upcomingSpecial.type === MASSIVE_BOGGLE_TYPE) return "MASSIVE BOGGLE";
       return String(upcomingSpecial.label || "MANCHE SPECIALE").toUpperCase();
     })();
 
@@ -22526,6 +22556,7 @@ function handleTouchEnd(e) {
       if (upcomingSpecial.type === "target_long") return "MOT LE PLUS LONG";
       if (upcomingSpecial.type === "target_score") return "MEILLEUR MOT";
       if (upcomingSpecial.type === "bonus_letter") return "LETTRE EN OR";
+      if (upcomingSpecial.type === MASSIVE_BOGGLE_TYPE) return "MASSIVE BOGGLE";
       return String(upcomingSpecial.label || "MANCHE SPECIALE").toUpperCase();
     })();
 
@@ -27962,8 +27993,6 @@ function handleTouchEnd(e) {
   const specialTutorialLabel = specialTutorialPlan?.label || "Manche spéciale";
   const specialTutorialFixedScore =
     specialTutorialPlan?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK;
-  const specialTutorialBonusLetter = specialTutorialPlan?.bonusLetter || "";
-  const specialTutorialBonusScore = specialTutorialPlan?.bonusLetterScore ?? 20;
   const monstrousMinLongLen = specialTutorialPlan?.minLongWordLen ?? null;
   const monstrousMinLongCount = specialTutorialPlan?.minLongWordCount ?? null;
   const monstrousMinTotalScore = specialTutorialPlan?.minTotalScore ?? null;
@@ -28015,6 +28044,17 @@ function handleTouchEnd(e) {
         targetIsScore: specialTutorialType === "target_score",
       }];
     }
+    if (specialTutorialType === OCID_TYPE) {
+      return [{
+        lead: "Manche OCID : une définition est affichée, et le vrai mot est présent dans la grille.",
+        bullets: [
+          "Trace le mot qui te semble correspondre à la définition, ou bluffe avec une autre proposition.",
+          "Quand le chrono de traçage se termine, le mot visible dans ton aperçu est retenu automatiquement.",
+          "Au vote, choisis la proposition qui te semble être le vrai mot cible.",
+          "Tu marques pour le mot cible trouvé, pour un vote correct, pour un mot valide proposé, et pour les votes reçus sur ton bluff.",
+        ],
+      }];
+    }
     if (specialTutorialType === "speed") {
       return [{
         lead: `Tous les mots valent ${specialTutorialFixedScore} points.`,
@@ -28038,8 +28078,17 @@ function handleTouchEnd(e) {
     }
     if (specialTutorialType === "bonus_letter") {
       return [{
-        lead: `Lettre en or : ${specialTutorialBonusLetter ? specialTutorialBonusLetter.toUpperCase() : "?"} vaut ${specialTutorialBonusScore} points.`,
+        lead: `Lettre en or : ${specialTutorialPlan?.bonusLetter ? String(specialTutorialPlan.bonusLetter).toUpperCase() : "?"} vaut ${specialTutorialPlan?.bonusLetterScore ?? 20} points.`,
         bullets: ["Les autres lettres gardent leur valeur habituelle."],
+      }];
+    }
+    if (specialTutorialType === MASSIVE_BOGGLE_TYPE) {
+      return [{
+        lead: "Massive Boggle : barème 3/4=1, 5=2, 6=3, 7=5, 8+=11.",
+        bullets: [
+          "Les bonus de tuiles sont désactivés.",
+          "Seuls les gobbles du ou des plus longs mots sont actifs.",
+        ],
       }];
     }
     if (specialTutorialType === FAKE_TWINS_TYPE || specialTutorialType === DAILY_FAKE_TWINS_MODE) {
@@ -29996,6 +30045,24 @@ function handleTouchEnd(e) {
             <span className="inline-flex items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
                 Aide
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeSettingsMenu({ animatePanels: true });
+              openTutorialFromHome();
+            }}
+            disabled={isConnecting}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 disabled:opacity-60 ${settingsMutedButtonClass}`}
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] leading-none">
+                school
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
+                Relire le didacticiel
               </span>
             </span>
           </button>
@@ -36549,6 +36616,8 @@ function handleTouchEnd(e) {
                           ? "une case vaut 2 lettres, mots de 4 lettres min"
                           : specialRound?.type === "bonus_letter"
                           ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
+                          : specialRound?.type === MASSIVE_BOGGLE_TYPE
+                          ? "barème Massive Boggle"
                           : "objectif : 1 seul mot"}
                       </div>
                     )}

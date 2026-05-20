@@ -73,6 +73,7 @@ function normalizeRoundType(roundType) {
   if (safeType === "ocid") return "target";
   if (safeType === "special3") return "special3";
   if (safeType === "bonusLetter") return "bonusLetter";
+  if (safeType === "massiveBoggle") return "massiveBoggle";
   if (safeType === "fakeTwins") return "fakeTwins";
   return "normal";
 }

@@ -72,6 +72,7 @@ const HEAD_TO_HEAD_TYPES = [
   ["target", "Cibles"],
   ["special3", "3 mots"],
   ["bonusLetter", "Lettre en or"],
+  ["massiveBoggle", "Massive Boggle"],
   ["fakeTwins", "Faux jumeaux"],
 ];
 

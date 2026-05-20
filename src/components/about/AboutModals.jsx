@@ -270,7 +270,126 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
-                  patch brouillon du 18/05/2026
+                  patch du 20/05/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  nouvelles manches et tournoi
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout de Massive Boggle comme manche fixe du round 3 en mini-tournoi.
+                  </li>
+                  <li>
+                    barème Massive Boggle : mots de 3 lettres minimum, 3/4=1, 5=2,
+                    6=3, 7=5, 8+=11.
+                  </li>
+                  <li>
+                    Massive Boggle désactive les bonus de tuiles et ne garde que le gobble
+                    du ou des plus longs mots.
+                  </li>
+                  <li>
+                    la manche Lettre en or reste disponible comme manche à part entière.
+                  </li>
+                  <li>
+                    Massive Boggle est disponible dans le menu dev, le didacticiel spécial,
+                    l'aide et les stats 1 contre 1 des profils.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  faux jumeaux et rareté
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    la tuile jumelle reprend le rendu doré.
+                  </li>
+                  <li>
+                    le texte d'objectif parle désormais de mots communs utilisant la lettre
+                    jumelle.
+                  </li>
+                  <li>
+                    les mots rares utilisant la lettre jumelle gardent un marquage violet,
+                    distinct du doré des autres mots rares.
+                  </li>
+                  <li>
+                    correction d'un cas où un gobble pouvait être annoncé pendant une manche
+                    faux jumeaux puis ne pas être conservé dans le bilan.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  dictionnaire, définitions et OCID
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    amélioration du vivier OCID pré-calculé et du filtrage des définitions
+                    trop évidentes ou liées à des noms propres.
+                  </li>
+                  <li>
+                    meilleure détection des formes conjuguées et des renvois vers le mot de
+                    base dans les définitions locales.
+                  </li>
+                  <li>
+                    correction du popup de règles OCID qui pouvait s'afficher vide.
+                  </li>
+                  <li>
+                    les manches OCID sont mieux rattachées aux statistiques de manches cibles
+                    dans les profils.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  interface et profils
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout d'une vraie aide détaillée par type de manche, avec règles et
+                    scoring.
+                  </li>
+                  <li>
+                    retour du bouton pour relire le didacticiel depuis les réglages.
+                  </li>
+                  <li>
+                    ajout du record de nombre de mots par manche dans les profils joueurs.
+                  </li>
+                  <li>
+                    amélioration de l'affichage des mots rares dans les listes de mots et les
+                    détails de résultats.
+                  </li>
+                  <li>
+                    le message temporaire "connexion au serveur impossible" pollue moins
+                    l'accueil lorsqu'une reconnexion se rétablit.
+                  </li>
+                  <li>
+                    retrait de la mention "brouillon" du précédent patch note.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  stabilité et performances
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    réduction de la taille de App.jsx grâce à l'extraction de plusieurs
+                    modales et panneaux dans des composants dédiés.
+                  </li>
+                  <li>
+                    optimisation des données envoyées au client pour les solutions de grille,
+                    notamment les métadonnées de rareté et de faux jumeaux.
+                  </li>
+                  <li>
+                    ajustements serveur autour du calcul de grilles préparées, du cache de
+                    résolution et du rythme d'envoi du classement live.
+                  </li>
+                  <li>
+                    corrections diverses sur les statistiques 1 contre 1, les profils, les
+                    définitions préchargées et les écrans de résultats.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 18/05/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
                   nouvelles manches et équilibrage

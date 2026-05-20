@@ -8,6 +8,7 @@ const HELP_SECTIONS = [
       "Trace un mot en reliant des tuiles voisines, diagonales comprises.",
       "Une même tuile ne peut pas être réutilisée dans un mot.",
       "Les mots rares ou jamais trouvés par les joueurs donnent un bonus dédié sur les manches concernées.",
+      "En mini-tournoi : manches normales en 1 et 5, manches spéciales en 2 et 4, Massive Boggle en 3.",
     ],
     scoring: [
       "Score d'un mot classique : valeur des lettres + bonus de longueur.",
@@ -58,6 +59,18 @@ const HELP_SECTIONS = [
     scoring: [
       "Chaque occurrence de la lettre en or vaut 20 points avant application des bonus de tuile.",
       "Le reste du score suit le barème classique.",
+    ],
+  },
+  {
+    title: "Massive Boggle",
+    rules: [
+      "La grille se joue comme une manche normale, mais sans bonus de tuiles ni bonus de longueur classique.",
+      "En mini-tournoi, elle est jouée en troisième manche.",
+      "La manche vise une grille riche : environ 200 mots possibles, dont plusieurs mots longs.",
+    ],
+    scoring: [
+      "Barème Boggle : 3 ou 4 lettres = 1 point, 5 = 2, 6 = 3, 7 = 5, 8 et plus = 11.",
+      "Seul le gobble du ou des plus longs mots est actif.",
     ],
   },
   {

@@ -349,6 +349,7 @@ function buildSolveCacheKey(grid, special) {
   const bonusLetterScore =
     Number.isFinite(special?.bonusLetterScore) ? special.bonusLetterScore : "";
   const disableBonuses = special?.disableBonuses ? 1 : 0;
+  const classicBoggleScoring = special?.classicBoggleScoring ? 1 : 0;
   const minWordLength =
     Number.isFinite(special?.minWordLength) && special.minWordLength > 0
       ? Math.trunc(special.minWordLength)
@@ -359,6 +360,7 @@ function buildSolveCacheKey(grid, special) {
     bonusLetter,
     bonusLetterScore,
     disableBonuses,
+    classicBoggleScoring,
     minWordLength,
   ].join("|");
 }
@@ -1354,6 +1356,7 @@ const MONSTROUS_QUALITY_ATTEMPTS = 320;
 
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
+const TOURNAMENT_MASSIVE_BOGGLE_ROUND = 3;
 const TOURNAMENT_RESULTS_BREAK_MS = 40 * 1000;
 const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
@@ -1392,8 +1395,12 @@ const TARGET_HINT_DEFAULT_SECONDS = TARGET_HINT_SCHEDULE_SECONDS_BY_LENGTH[11];
 const TARGET_HINT_SCORE_DEFAULT_SECONDS =
   TARGET_HINT_SCHEDULE_SECONDS_SCORE_BY_LENGTH[9];
 
+const CLASSIC_BOGGLE_MIN_WORDS = 200;
+const CLASSIC_BOGGLE_MIN_LONG_WORD_LEN = 8;
+const CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT = 3;
 const BONUS_LETTER_SCORE = 20;
 const BONUS_LETTER_MIN_WORDS = 30;
+const MASSIVE_BOGGLE_TYPE = "massive_boggle";
 const FUTURE_SPECIAL_BUFFER_TYPES = new Set([
   "monstrous",
   "fake_twins",
@@ -1401,6 +1408,7 @@ const FUTURE_SPECIAL_BUFFER_TYPES = new Set([
   "target_long",
   "target_score",
   "bonus_letter",
+  MASSIVE_BOGGLE_TYPE,
 ]);
 const FORCE_BONUS_LETTER_ALL_ROUNDS = false;
 const SELF_SPECIAL_3_WORDS_TYPE = "self_specials_3_words";
@@ -1493,6 +1501,7 @@ const DEV_FORCED_ROUND_TYPES = new Set([
   "target_long",
   "target_score",
   "bonus_letter",
+  MASSIVE_BOGGLE_TYPE,
   "fake_twins",
   OCID_TYPE,
 ]);
@@ -1818,6 +1827,7 @@ function buildDevControlsPayload(socket = null) {
       { value: "target_long", label: "Mot le plus long" },
       { value: "target_score", label: "Meilleur mot" },
       { value: "bonus_letter", label: "Lettre en or" },
+      { value: MASSIVE_BOGGLE_TYPE, label: "Massive Boggle" },
       { value: "fake_twins", label: "Faux jumeaux" },
       { value: OCID_TYPE, label: "OCID" },
     ],
@@ -2683,6 +2693,24 @@ function buildBonusLetterTournamentPlan(tournamentRound, roomConfig) {
   };
 }
 
+function buildMassiveBoggleTournamentPlan(tournamentRound, roomConfig) {
+  const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
+  return {
+    ...base,
+    isSpecial: true,
+    type: MASSIVE_BOGGLE_TYPE,
+    label: "Massive Boggle",
+    description: "Barème Massive Boggle : 3/4=1, 5=2, 6=3, 7=5, 8+=11",
+    minWords: CLASSIC_BOGGLE_MIN_WORDS,
+    minLongWordLen: CLASSIC_BOGGLE_MIN_LONG_WORD_LEN,
+    minLongWordCount: CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT,
+    minWordLength: 3,
+    classicBoggleScoring: true,
+    disableBonuses: true,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
+  };
+}
+
 function buildFakeTwinsTournamentPlan(tournamentRound, roomConfig) {
   const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
   return {
@@ -2849,6 +2877,8 @@ function getTournamentRoundPlan(room, tournamentRound) {
         return buildTargetScoreTournamentPlan(tournamentRound, room.config);
       case "bonus_letter":
         return buildBonusLetterTournamentPlan(tournamentRound, room.config);
+      case MASSIVE_BOGGLE_TYPE:
+        return buildMassiveBoggleTournamentPlan(tournamentRound, room.config);
       case FAKE_TWINS_TYPE:
         return buildFakeTwinsTournamentPlan(tournamentRound, room.config);
       case OCID_TYPE:
@@ -2871,6 +2901,9 @@ function getTournamentRoundPlan(room, tournamentRound) {
   }
   if (FORCE_BONUS_LETTER_ALL_ROUNDS) {
     return buildBonusLetterTournamentPlan(tournamentRound, room.config);
+  }
+  if (tournamentRound === TOURNAMENT_MASSIVE_BOGGLE_ROUND) {
+    return buildMassiveBoggleTournamentPlan(tournamentRound, room.config);
   }
   const total = room?.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
   // La manche finale n'est jamais une manche spéciale.
@@ -2896,6 +2929,9 @@ function buildSpecialWarning(plan) {
   }
   if (plan.type === FAKE_TWINS_TYPE) {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (une case vaut 2 lettres, mots de 4+ lettres)`;
+  }
+  if (plan.type === MASSIVE_BOGGLE_TYPE) {
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (barème Massive Boggle, mots de 3+ lettres)`;
   }
   return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label}`;
 }
@@ -3340,7 +3376,10 @@ function buildRoundSubmissionSolutions(round) {
   if (preparedSolutions.length) {
     const scoreConfig = getSpecialScoreConfig(round);
     const shouldRescorePrepared =
-      !!scoreConfig?.bonusLetter || round.special?.type === "bonus_letter";
+      !!scoreConfig?.bonusLetter ||
+      !!scoreConfig?.classicBoggleScoring ||
+      round.special?.type === "bonus_letter" ||
+      round.special?.type === MASSIVE_BOGGLE_TYPE;
     return packRoundSubmissionSolutions(preparedSolutions.map((entry) => {
       const path = Array.isArray(entry.path) ? entry.path : [];
       const rescored =
@@ -3404,7 +3443,8 @@ function buildRoundStartedPayload(room) {
     currentTournamentRound >= totalRounds ? 1 : currentTournamentRound + 1;
   const nextPlan = getTournamentRoundPlan(room, nextTournamentRound);
   const currentQuality = round.quality;
-  const isBonusLetterRound = round.special?.type === "bonus_letter";
+  const isCustomScoredSpecialRound =
+    round.special?.type === "bonus_letter" || round.special?.type === MASSIVE_BOGGLE_TYPE;
   const isSpecial3WordsRound = round.special?.type === "self_specials_3_words";
   const bonusBestPts = Number(room?.bestPossibleStats?.maxPts) || 0;
   const bonusPossibleScore = Number(room?.bestPossibleStats?.totalPts) || 0;
@@ -3439,7 +3479,7 @@ function buildRoundStartedPayload(room) {
           words: currentQuality.words ?? 0,
           maxLen: currentQuality.maxLen ?? 0,
           maxPts:
-            isBonusLetterRound
+            isCustomScoredSpecialRound
               ? bonusBestPts || currentQuality.maxPts || 0
               : isSpecial3WordsRound
               ? Number(currentQuality?.special3Words?.maxPts) ||
@@ -3449,7 +3489,7 @@ function buildRoundStartedPayload(room) {
               : round.special?.fixedWordScore || currentQuality.maxPts || 0,
           totalPts: currentQuality.totalPts ?? 0,
           possibleScore:
-            isBonusLetterRound
+            isCustomScoredSpecialRound
               ? bonusPossibleScore || currentQuality.possibleScore || currentQuality.totalPts || 0
               : currentQuality.possibleScore ?? currentQuality.totalPts ?? 0,
           longWords: currentQuality.longWords ?? 0,
@@ -4321,6 +4361,13 @@ function getSpecialScoreConfigFromPlan(plan) {
       disableBonuses: true,
     };
   }
+  if (plan?.type === MASSIVE_BOGGLE_TYPE) {
+    return {
+      classicBoggleScoring: true,
+      minWordLength: plan?.minWordLength || 3,
+      disableBonuses: true,
+    };
+  }
   if (plan?.type === FAKE_TWINS_TYPE) {
     return {
       type: FAKE_TWINS_TYPE,
@@ -4337,6 +4384,13 @@ function getSpecialScoreConfig(round) {
     return {
       bonusLetter: plan.bonusLetter,
       bonusLetterScore: plan.bonusLetterScore || BONUS_LETTER_SCORE,
+      disableBonuses: true,
+    };
+  }
+  if (plan?.type === MASSIVE_BOGGLE_TYPE) {
+    return {
+      classicBoggleScoring: true,
+      minWordLength: plan?.minWordLength || 3,
       disableBonuses: true,
     };
   }
@@ -4357,6 +4411,7 @@ function getLiveHeadToHeadRoundType(round) {
   }
   if (specialType === SELF_SPECIAL_3_WORDS_TYPE) return "special3";
   if (specialType === "bonus_letter") return "bonusLetter";
+  if (specialType === MASSIVE_BOGGLE_TYPE) return "massiveBoggle";
   if (specialType === FAKE_TWINS_TYPE) return "fakeTwins";
   return "normal";
 }
@@ -5143,7 +5198,6 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   }
 
   const isSpeedRound = room.currentRound?.special?.type === "speed";
-  const isBonusLetterRound = room.currentRound?.special?.type === "bonus_letter";
   const maxLenPossible = room.bestPossibleStats.maxLen || 0;
   const maxPtsPossible = room.bestPossibleStats.maxPts || 0;
   const isMaxPossibleLen = maxLenPossible > 0 && len === maxLenPossible;
@@ -5151,6 +5205,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   // Manche "cible" : si on trouve le mot secret, on annonce + voile "bravo" (sans points bonus)
   const specialType = room.currentRound?.special?.type;
+  const scoreGobbleAllowed = !isSpeedRound && specialType !== MASSIVE_BOGGLE_TYPE;
   const targetWord = room.currentRound?.targetWord;
   if (
     (specialType === "target_long" || specialType === "target_score") &&
@@ -5276,7 +5331,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
     }
   }
 
-  if (!isSpeedRound && isMaxPossiblePts) {
+  if (scoreGobbleAllowed && isMaxPossiblePts) {
     if (!room.bestPossibleScoreRecord.players.has(resolvedNick)) {
       room.bestPossibleScoreRecord.players.add(resolvedNick);
       room.bestPossibleScoreRecord.pts = maxPtsPossible;
@@ -5291,7 +5346,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
         text: `${resolvedNick} a trouvé le gobble du meilleur mot avec (${wordPts} points)`,
       });
     }
-  } else if (!isSpeedRound && wordPts >= MIN_BIG_WORD) {
+  } else if (scoreGobbleAllowed && wordPts >= MIN_BIG_WORD) {
     if (wordPts > room.bestScoreRecord.pts) {
       room.bestScoreRecord = { pts: wordPts, players: new Set([resolvedNick]) };
       pushAnnouncement(room, {
@@ -5344,7 +5399,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   }
 
   const liveGobblarsNow =
-    (!isSpeedRound && isMaxPossiblePts ? 1 : 0) + (isMaxPossibleLen ? 1 : 0);
+    (scoreGobbleAllowed && isMaxPossiblePts ? 1 : 0) + (isMaxPossibleLen ? 1 : 0);
   if (!isBotPlayer && playerInstallId && liveGobblarsNow > 0) {
     void persistenceClient.addGobblars({
       installId: playerInstallId,
@@ -5816,6 +5871,12 @@ function recomputeRoundGobblesFromResults(room, results) {
   const specialType = room.currentRound?.special?.type;
   const isTargetRound =
     specialType === "target_long" || specialType === "target_score";
+  const liveGobbles =
+    room.currentRound.gobbles instanceof Map ? new Map(room.currentRound.gobbles) : new Map();
+  const liveGobbleFlags =
+    room.currentRound.gobbleFlags instanceof Map
+      ? new Map(room.currentRound.gobbleFlags)
+      : new Map();
 
   const gobbles = new Map();
   const gobbleFlags = new Map();
@@ -5835,7 +5896,8 @@ function recomputeRoundGobblesFromResults(room, results) {
   const scoreConfig = getSpecialScoreConfig(room.currentRound);
   const maxLenPossible = Number(room.bestPossibleStats?.maxLen) || 0;
   const maxPtsPossible = Number(room.bestPossibleStats?.maxPts) || 0;
-  const scoreGobbleEnabled = specialType !== "speed" && maxPtsPossible > 0;
+  const scoreGobbleEnabled =
+    specialType !== "speed" && specialType !== MASSIVE_BOGGLE_TYPE && maxPtsPossible > 0;
   const lenGobbleEnabled = maxLenPossible > 0;
 
   for (const entry of results) {
@@ -5881,6 +5943,22 @@ function recomputeRoundGobblesFromResults(room, results) {
     }
   }
 
+  for (const [nick, liveCountRaw] of liveGobbles.entries()) {
+    if (!nick) continue;
+    const liveCount = Math.max(0, Math.trunc(Number(liveCountRaw) || 0));
+    if (liveCount <= 0) continue;
+    const recomputedCount = Math.max(0, Math.trunc(Number(gobbles.get(nick)) || 0));
+    if (liveCount > recomputedCount) {
+      gobbles.set(nick, liveCount);
+    }
+    const liveFlags = liveGobbleFlags.get(nick) || {};
+    const recomputedFlags = gobbleFlags.get(nick) || {};
+    gobbleFlags.set(nick, {
+      score: !!(recomputedFlags.score || liveFlags.score),
+      len: !!(recomputedFlags.len || liveFlags.len),
+    });
+  }
+
   room.currentRound.gobbles = gobbles;
   room.currentRound.gobbleFlags = gobbleFlags;
 }
@@ -5898,7 +5976,7 @@ function queueDefinitionPrefetch(room, results, targetSummary, roundOverride = n
   } else {
     const leaders = computeRoundWordLeaders(round, results);
     if (leaders?.longestWord?.word) words.add(leaders.longestWord.word);
-    if (specialType !== "speed" && leaders?.bestWord?.word) {
+    if (specialType !== "speed" && specialType !== MASSIVE_BOGGLE_TYPE && leaders?.bestWord?.word) {
       words.add(leaders.bestWord.word);
     }
   }
@@ -5916,6 +5994,7 @@ function planNeedsPreparedGrid(plan) {
     plan?.type === "target_long" ||
     plan?.type === "target_score" ||
     plan?.type === "bonus_letter" ||
+    plan?.type === MASSIVE_BOGGLE_TYPE ||
     plan?.type === FAKE_TWINS_TYPE ||
     plan?.type === OCID_TYPE
   );
@@ -5937,6 +6016,7 @@ function getPreparedPlanCacheKey(plan) {
     minWordLength: plan.minWordLength || 0,
     bonusLetter: plan.bonusLetter || "",
     bonusLetterScore: plan.bonusLetterScore || 0,
+    classicBoggleScoring: !!plan.classicBoggleScoring,
     fixedWordScore: plan.fixedWordScore || 0,
     disableBonuses: !!plan.disableBonuses,
     ocidExcludedTargets: Array.isArray(plan.ocidExcludedTargets)
@@ -6409,7 +6489,9 @@ async function startRoundForRoom(room) {
       ? OCID_PROPOSAL_DURATION_MS
       : planUsed?.type === "target_long" || planUsed?.type === "target_score"
       ? TARGET_SPECIAL_ROUND_DURATION_MS
-      : planUsed?.type === "speed" || planUsed?.type === "monstrous"
+      : planUsed?.type === "speed" ||
+        planUsed?.type === "monstrous" ||
+        planUsed?.type === MASSIVE_BOGGLE_TYPE
       ? LIVE_SPECIAL_ROUND_DURATION_MS
       : room.config.durationMs;
   const roundIntroMs = Math.max(0, ROUND_INTRO_DURATION_MS);
@@ -6486,7 +6568,10 @@ async function startRoundForRoom(room) {
         bestPossibleStats.maxPts = special3MaxPts;
       }
     }
-    if (planUsed?.type === "bonus_letter" && planUsed?.bonusLetter && dictionary) {
+    if (
+      (planUsed?.type === "bonus_letter" || planUsed?.type === MASSIVE_BOGGLE_TYPE) &&
+      dictionary
+    ) {
       const scoreConfig = getSpecialScoreConfigFromPlan(planUsed);
       const computed = scoreConfig ? computeBestPossible(grid, scoreConfig) : null;
       if (computed && (computed.maxPts > 0 || computed.maxLen > 0)) {

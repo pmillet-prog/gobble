@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": 1779186314613,
+  "updatedAt": 1779311550768,
   "controls": {
     "enabled": true,
-    "forcedRoundType": "ocid",
+    "forcedRoundType": "massive_boggle",
     "forcedRoundTypes": [
-      "ocid"
+      "massive_boggle"
     ],
     "forcedRoundRandom": false,
     "botMedals": false,
