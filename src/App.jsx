@@ -16619,7 +16619,8 @@ export default function App() {
     setResumeSnapshot(null);
   }
 
-  function hydrateServerSolutionsPayload(payload) {
+  function hydrateServerSolutionsPayload(payload, options = {}) {
+    const disableRareBonus = !!options.disableRareBonus;
     const isPackedPayload =
       payload && !Array.isArray(payload) && Array.isArray(payload.w);
     const packedPoints = isPackedPayload && Array.isArray(payload.p) ? payload.p : [];
@@ -16665,9 +16666,21 @@ export default function App() {
       const fakeTwinsBonusOnlySource = Array.isArray(entry)
         ? entry[5]
         : entry?.fakeTwinsBonusOnly;
-      const rareBonusWordSource = Array.isArray(entry) ? entry[6] : entry?.rareBonusWord;
-      const rareBonusPointsSource = Array.isArray(entry) ? entry[7] : entry?.rareBonusPoints;
-      const rarityBucketSource = Array.isArray(entry) ? entry[8] : entry?.rarityBucket;
+      const rareBonusWordSource = disableRareBonus
+        ? false
+        : Array.isArray(entry)
+        ? entry[6]
+        : entry?.rareBonusWord;
+      const rareBonusPointsSource = disableRareBonus
+        ? 0
+        : Array.isArray(entry)
+        ? entry[7]
+        : entry?.rareBonusPoints;
+      const rarityBucketSource = disableRareBonus
+        ? ""
+        : Array.isArray(entry)
+        ? entry[8]
+        : entry?.rarityBucket;
       const numericPts = Number(ptsSource);
       const pts = Number.isFinite(numericPts) ? numericPts : 0;
       const path = Array.isArray(pathSource)
@@ -16711,7 +16724,9 @@ export default function App() {
     incomingTargetHintScheduleMs = [],
     roundLifecycle = null
   ) {
-    const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions);
+    const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions, {
+      disableRareBonus: specialInfo?.type === MASSIVE_BOGGLE_TYPE,
+    });
     const derivedSize =
       incomingGridSize ||
       Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
@@ -16769,13 +16784,25 @@ export default function App() {
         ...prev,
       ]);
     }
+    const solutionMaxPts = serverSolutions.ready && serverSolutions.all.length
+      ? Math.max(...serverSolutions.all.map((entry) => Number(entry?.pts) || 0))
+      : null;
+    const solutionMaxLen = serverSolutions.ready && serverSolutions.all.length
+      ? Math.max(...serverSolutions.all.map((entry) => normalizeWord(entry?.word).length || 0))
+      : null;
     const stats =
       gridQuality && typeof gridQuality === "object"
         ? {
             words: gridQuality.words ?? null,
             totalPts: gridQuality.possibleScore ?? gridQuality.totalPts ?? gridQuality.maxPts ?? null,
-            maxPts: gridQuality.maxPts ?? null,
-            maxLen: gridQuality.maxLen ?? null,
+            maxPts:
+              Number.isFinite(solutionMaxPts) && solutionMaxPts > 0
+                ? solutionMaxPts
+                : gridQuality.maxPts ?? null,
+            maxLen:
+              Number.isFinite(solutionMaxLen) && solutionMaxLen > 0
+                ? solutionMaxLen
+                : gridQuality.maxLen ?? null,
             longWords: gridQuality.longWords ?? null,
             fakeTwinWords: gridQuality.fakeTwinWords ?? null,
           }
@@ -17992,9 +18019,11 @@ export default function App() {
     if (!entry || !Array.isArray(entry.words)) return [];
     const isSpeedRound = specialRound?.type === "speed";
     const isSpecial3Round = specialRound?.type === DAILY_SPECIAL_MODE;
+    const isMassiveBoggleRound = specialRound?.type === MASSIVE_BOGGLE_TYPE;
     const wordMetaByNorm =
       entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
     const scoreAllowed = !isSpeedRound && !isTargetRound && !isSpecial3Round;
+    const scoreGobbleAllowed = scoreAllowed && !isMassiveBoggleRound;
     const scoreCache = new Map();
     const getStats = (rawWord) => {
       const word = String(rawWord || "").trim();
@@ -18050,7 +18079,7 @@ export default function App() {
       unique.add(key);
       const stats = getStats(word);
       const hasBestScore =
-        scoreAllowed &&
+        scoreGobbleAllowed &&
         Number.isFinite(stats.pts) &&
         Number.isFinite(maxPts) &&
         stats.pts === maxPts;
@@ -18071,9 +18100,9 @@ export default function App() {
         usedFakeTwins: !!fakeTwinsMeta?.usedFakeTwins,
         fakeTwinsCompletionWord: !!fakeTwinsMeta?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!fakeTwinsMeta?.fakeTwinsBonusOnly,
-        rareBonusWord: !!fakeTwinsMeta?.rareBonusWord,
-        rareBonusPoints: Number(fakeTwinsMeta?.rareBonusPoints) || 0,
-        rarityBucket: String(fakeTwinsMeta?.rarityBucket || ""),
+        rareBonusWord: !isMassiveBoggleRound && !!fakeTwinsMeta?.rareBonusWord,
+        rareBonusPoints: isMassiveBoggleRound ? 0 : Number(fakeTwinsMeta?.rareBonusPoints) || 0,
+        rarityBucket: isMassiveBoggleRound ? "" : String(fakeTwinsMeta?.rarityBucket || ""),
       });
     });
     list.sort((a, b) => {
@@ -18208,9 +18237,11 @@ export default function App() {
               usedFakeTwins: !!item?.usedFakeTwins,
               fakeTwinsCompletionWord: !!item?.fakeTwinsCompletionWord,
               fakeTwinsBonusOnly: !!item?.fakeTwinsBonusOnly,
-              rareBonusWord: !!item?.rareBonusWord,
-              rareBonusPoints: Number(item?.rareBonusPoints) || 0,
-              rarityBucket: String(item?.rarityBucket || ""),
+              rareBonusWord: specialRound?.type !== MASSIVE_BOGGLE_TYPE && !!item?.rareBonusWord,
+              rareBonusPoints:
+                specialRound?.type === MASSIVE_BOGGLE_TYPE ? 0 : Number(item?.rareBonusPoints) || 0,
+              rarityBucket:
+                specialRound?.type === MASSIVE_BOGGLE_TYPE ? "" : String(item?.rarityBucket || ""),
             };
           })
         : [],
@@ -19147,15 +19178,19 @@ function handleTouchEnd(e) {
         meta?.fakeTwinsBonusOnly ??
         allWordsMap.get(word)?.fakeTwinsBonusOnly ??
         !fakeTwinsCompletionWord);
+    const rareBonusEnabledNow = specialRound?.type !== MASSIVE_BOGGLE_TYPE;
     const rareBonusWord =
-      !!result?.rareBonusWord || !!meta?.rareBonusWord || !!allWordsMap.get(word)?.rareBonusWord;
-    const rareBonusPoints =
-      Number(result?.rareBonusPoints) ||
-      Number(meta?.rareBonusPoints) ||
-      Number(allWordsMap.get(word)?.rareBonusPoints) ||
-      0;
-    const rarityBucket =
-      String(result?.rarityBucket || meta?.rarityBucket || allWordsMap.get(word)?.rarityBucket || "");
+      rareBonusEnabledNow &&
+      (!!result?.rareBonusWord || !!meta?.rareBonusWord || !!allWordsMap.get(word)?.rareBonusWord);
+    const rareBonusPoints = rareBonusEnabledNow
+      ? Number(result?.rareBonusPoints) ||
+        Number(meta?.rareBonusPoints) ||
+        Number(allWordsMap.get(word)?.rareBonusPoints) ||
+        0
+      : 0;
+    const rarityBucket = rareBonusEnabledNow
+      ? String(result?.rarityBucket || meta?.rarityBucket || allWordsMap.get(word)?.rarityBucket || "")
+      : "";
     const totalScore =
       Number.isFinite(result?.totalScore)
         ? result.totalScore
@@ -19295,7 +19330,7 @@ function handleTouchEnd(e) {
       const isSpeedRound = specialRound?.type === "speed";
       const maxPossiblePts = bestGridMaxRef.current || 0;
       const maxPossibleLen = bestGridMaxLenRef.current || 0;
-      const allowScoreGobble = !isSpeedRound;
+      const allowScoreGobble = !isSpeedRound && specialRound?.type !== MASSIVE_BOGGLE_TYPE;
       const allowLenGobble = true;
       const isScoreGobbleNow =
         allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts;
@@ -19537,6 +19572,10 @@ function handleTouchEnd(e) {
   }) {
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
     const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
+    const rareBonusEnabledNow = specialRound?.type !== MASSIVE_BOGGLE_TYPE;
+    const effectiveRareBonusWord = rareBonusEnabledNow && !!rareBonusWord;
+    const effectiveRareBonusPoints = rareBonusEnabledNow ? Number(rareBonusPoints) || 0 : 0;
+    const effectiveRarityBucket = rareBonusEnabledNow ? String(rarityBucket || "") : "";
     const displayStr = display || raw.toUpperCase();
     const now = Date.now();
     const normalizedPath = Array.isArray(path)
@@ -19552,9 +19591,9 @@ function handleTouchEnd(e) {
       usedFakeTwins,
       fakeTwinsCompletionWord,
       fakeTwinsBonusOnly,
-      rareBonusWord,
-      rareBonusPoints,
-      rarityBucket,
+      rareBonusWord: effectiveRareBonusWord,
+      rareBonusPoints: effectiveRareBonusPoints,
+      rarityBucket: effectiveRarityBucket,
     });
     dailyAcceptedPathsRef.current.set(raw, {
       word: raw,
@@ -19583,9 +19622,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!usedFakeTwins,
           fakeTwinsCompletionWord: !!fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!fakeTwinsBonusOnly,
-          rareBonusWord: !!rareBonusWord,
-          rareBonusPoints: Number(rareBonusPoints) || 0,
-          rarityBucket: String(rarityBucket || ""),
+          rareBonusWord: effectiveRareBonusWord,
+          rareBonusPoints: effectiveRareBonusPoints,
+          rarityBucket: effectiveRarityBucket,
         },
         ...prev,
       ];
@@ -19603,7 +19642,7 @@ function handleTouchEnd(e) {
     const isSpeedRound = specialRound?.type === "speed";
     const maxPossiblePts = bestGridMaxRef.current || 0;
     const maxPossibleLen = bestGridMaxLenRef.current || 0;
-    const allowScoreGobble = !isSpeedRound;
+    const allowScoreGobble = !isSpeedRound && specialRound?.type !== MASSIVE_BOGGLE_TYPE;
     const allowLenGobble = true;
     const isScoreGobbleNow =
       allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts;
@@ -22262,7 +22301,10 @@ function handleTouchEnd(e) {
         ) : null}
         <div className="space-y-2">
           {renderSpecial3LeaderSummary(false)}
-          {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord && (
+          {!isSpecial3RoundForResults &&
+            !isSpeedRound &&
+            specialRound?.type !== MASSIVE_BOGGLE_TYPE &&
+            endStats.bestWord && (
             <div
               className="space-y-0.5"
               onMouseEnter={() => {
@@ -22911,7 +22953,10 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
         {renderDockSpecial3LeaderSummary()}
-        {!isSpecial3RoundForResults && !isSpeedRound && endStats.bestWord ? (
+        {!isSpecial3RoundForResults &&
+        !isSpeedRound &&
+        specialRound?.type !== MASSIVE_BOGGLE_TYPE &&
+        endStats.bestWord ? (
           <div
             className="space-y-1"
             onMouseEnter={() => {
@@ -24079,7 +24124,7 @@ function handleTouchEnd(e) {
                     {entry.score || 0} pts
                   </>
                 )
-                : Number(entry?.rareBonusPoints) > 0
+                : specialRound?.type !== MASSIVE_BOGGLE_TYPE && Number(entry?.rareBonusPoints) > 0
                 ? (
                   <>
                     {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
@@ -24117,7 +24162,8 @@ function handleTouchEnd(e) {
     if (!Array.isArray(board) || board.length === 0) return null;
 
     const isSpeedRoundNow = specialRound?.type === "speed";
-    const allowScoreGobble = !isSpeedRoundNow;
+    const isMassiveBoggleRoundNow = specialRound?.type === MASSIVE_BOGGLE_TYPE;
+    const allowScoreGobble = !isSpeedRoundNow && !isMassiveBoggleRoundNow;
     const winner = [...finalResults].sort((a, b) => (b?.score || 0) - (a?.score || 0))[0];
 
     const solverEntriesByNorm = new Map();
@@ -27794,6 +27840,7 @@ function handleTouchEnd(e) {
       canOpenPlayerProfile={canOpenPlayerProfile}
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
+      allowScoreGobble={specialRound?.type !== MASSIVE_BOGGLE_TYPE}
       isSpecial3Round={specialRound?.type === DAILY_SPECIAL_MODE}
       renderSpecial3PreviewTiles={renderSpecial3PreviewTiles}
       showWordScores={specialRound?.type !== "speed" && specialRound?.type !== DAILY_SPECIAL_MODE}

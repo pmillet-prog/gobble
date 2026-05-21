@@ -85,6 +85,7 @@ export default function RoundPlayerDetailsModal({
   targetBoardEntries = [],
   gobbleBadgeUrl = "",
   isSpeedRound = false,
+  allowScoreGobble = true,
   isSpecial3Round = false,
   renderSpecial3PreviewTiles = null,
   showWordScores = true,
@@ -394,7 +395,7 @@ export default function RoundPlayerDetailsModal({
     backgroundColor: darkMode ? "#f8fafc" : "#0f172a",
     flexShrink: 0,
   };
-  const gobbleMaxPts = isSpeedRound
+  const gobbleMaxPts = isSpeedRound || !allowScoreGobble
     ? 0
     : comparableWordsList.reduce((max, entry) => {
         const pts = entry?.bestPts;
@@ -410,7 +411,11 @@ export default function RoundPlayerDetailsModal({
     if (gobbleMaxPts <= 0 && gobbleMaxLen <= 0) return map;
     comparableWordsList.forEach((entry) => {
       const len = String(entry?.word || "").trim().length;
-      const isBest = !isSpeedRound && Number.isFinite(entry?.bestPts) && entry.bestPts === gobbleMaxPts;
+      const isBest =
+        !isSpeedRound &&
+        allowScoreGobble &&
+        Number.isFinite(entry?.bestPts) &&
+        entry.bestPts === gobbleMaxPts;
       const isLong = len > 0 && len === gobbleMaxLen;
       const explicitCount = Math.max(
         0,
@@ -424,7 +429,7 @@ export default function RoundPlayerDetailsModal({
       });
     });
     return map;
-  }, [comparableWordsList, gobbleMaxLen, gobbleMaxPts, isSpeedRound]);
+  }, [allowScoreGobble, comparableWordsList, gobbleMaxLen, gobbleMaxPts, isSpeedRound]);
 
   const renderGobbleCandidate = React.useCallback(
     (word) => {

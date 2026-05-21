@@ -11,6 +11,7 @@ export default function RoundPlayerDetailsModalHost({
   canOpenPlayerProfile,
   gobbleBadgeUrl,
   isSpeedRound,
+  allowScoreGobble = true,
   isSpecial3Round,
   renderSpecial3PreviewTiles,
   showWordScores,
@@ -51,6 +52,7 @@ export default function RoundPlayerDetailsModalHost({
         canOpenPlayerProfile={canOpenPlayerProfile(modal?.profileTarget)}
         gobbleBadgeUrl={gobbleBadgeUrl}
         isSpeedRound={isSpeedRound}
+        allowScoreGobble={allowScoreGobble}
         isSpecial3Round={isSpecial3Round}
         renderSpecial3PreviewTiles={renderSpecial3PreviewTiles}
         showWordScores={showWordScores}

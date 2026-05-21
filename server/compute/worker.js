@@ -44,9 +44,13 @@ const OCID_MIN_WORDS = 200;
 const CLASSIC_BOGGLE_MIN_WORDS = 200;
 const CLASSIC_BOGGLE_MIN_LONG_WORD_LEN = 8;
 const CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT = 3;
+const MASSIVE_BOGGLE_ANCHOR_MIN_LEN = 12;
 const BONUS_LETTER_MIN_WORDS = 30;
 const BONUS_LETTER_SCORE = 20;
 const MASSIVE_BOGGLE_TYPE = "massive_boggle";
+const MASSIVE_BOGGLE_ANCHOR_BUCKETS = Object.freeze([
+  { key: "12plus", weight: 1, minLen: MASSIVE_BOGGLE_ANCHOR_MIN_LEN },
+]);
 const TARGET_LONG_TOTAL_ATTEMPTS =
   TARGET_LONG_BATCH_ATTEMPTS *
   TARGET_LONG_BATCHES_PER_LEN *
@@ -159,7 +163,13 @@ function serializeSolvedSolutions(solved) {
 
 function shouldApplyRareWordBonus(roundPlan) {
   const type = String(roundPlan?.type || "");
-  return type !== "target_long" && type !== "target_score" && type !== OCID_TYPE && type !== "self_specials_3_words";
+  return (
+    type !== "target_long" &&
+    type !== "target_score" &&
+    type !== OCID_TYPE &&
+    type !== "self_specials_3_words" &&
+    type !== MASSIVE_BOGGLE_TYPE
+  );
 }
 
 function annotateRareBonusWords(solved, rareBonusWordMetaMap, roundPlan) {
@@ -281,6 +291,12 @@ function buildPreparedCandidate({
     roundPlan?.type === OCID_TYPE
   ) {
     ok = ok && !!targetWord;
+  } else if (roundPlan?.type === MASSIVE_BOGGLE_TYPE) {
+    ok =
+      ok &&
+      quality.words >= Math.max(roundPlan?.minWords || 0, CLASSIC_BOGGLE_MIN_WORDS) &&
+      quality.longWords >=
+        Math.max(roundPlan?.minLongWordCount || 0, CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT);
   }
   quality.ok = ok;
   const {
@@ -400,6 +416,83 @@ function prepareAnchoredTargetLong({ roundPlan, roundNumber, size, maxAttemptsTo
     if (candidate.quality?.ok) return candidate;
   }
   return null;
+}
+
+function prepareAnchoredMassiveBoggle({
+  roundPlan,
+  roundNumber,
+  size,
+  maxAttemptsTotal,
+  effectiveMinWords,
+}) {
+  if (!dictionary || roundPlan?.type !== MASSIVE_BOGGLE_TYPE) return null;
+  const qualityOpts = {
+    minLongWordLen: Math.max(
+      roundPlan?.minLongWordLen || 0,
+      CLASSIC_BOGGLE_MIN_LONG_WORD_LEN
+    ),
+  };
+  const scoreConfig = {
+    ...roundPlan,
+    minWordLength: 3,
+    classicBoggleScoring: true,
+    disableBonuses: true,
+  };
+  let bestCandidate = null;
+
+  for (let attempt = 1; attempt <= maxAttemptsTotal; attempt += 1) {
+    const anchor = buildAnchoredGridCandidate({
+      dictionary,
+      buckets: MASSIVE_BOGGLE_ANCHOR_BUCKETS,
+      size,
+      rand: Math.random,
+      maxPathRestarts: 300,
+    });
+    if (!anchor?.grid?.length || !anchor.word) continue;
+    const solved = solveGrid(anchor.grid, dictionary, scoreConfig);
+    const anchoredWord = solved.get(anchor.word);
+    if (!anchoredWord?.path) continue;
+    const candidate = buildPreparedCandidate({
+      grid: anchor.grid,
+      solved,
+      roundPlan,
+      roundNumber,
+      effectiveMinWords: Math.max(effectiveMinWords, CLASSIC_BOGGLE_MIN_WORDS),
+      qualityOpts,
+      planExtras: {
+        minWords: Math.max(roundPlan?.minWords || 0, CLASSIC_BOGGLE_MIN_WORDS),
+        minLongWordLen: Math.max(
+          roundPlan?.minLongWordLen || 0,
+          CLASSIC_BOGGLE_MIN_LONG_WORD_LEN
+        ),
+        minLongWordCount: Math.max(
+          roundPlan?.minLongWordCount || 0,
+          CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT
+        ),
+        minWordLength: 3,
+        classicBoggleScoring: true,
+        disableBonuses: true,
+        bonusLetter: "",
+        bonusLetterScore: 0,
+      },
+    });
+    const score =
+      (candidate.quality?.words || 0) +
+      (candidate.quality?.possibleScore || 0) / 500 +
+      (candidate.quality?.longWords || 0) * 10 +
+      (candidate.quality?.maxLen || 0);
+    const bestScore =
+      (bestCandidate?.quality?.words || 0) +
+      (bestCandidate?.quality?.possibleScore || 0) / 500 +
+      (bestCandidate?.quality?.longWords || 0) * 10 +
+      (bestCandidate?.quality?.maxLen || 0);
+    if (!bestCandidate || score > bestScore) {
+      bestCandidate = candidate;
+    }
+    if (candidate.quality?.ok) return candidate;
+  }
+
+  return bestCandidate?.quality?.ok ? bestCandidate : null;
 }
 
 function prepareAnchoredMonstrous({
@@ -534,6 +627,15 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     });
     if (anchored?.grid?.length) return anchored;
     return null;
+  } else if (needsClassicBoggle) {
+    const anchored = prepareAnchoredMassiveBoggle({
+      roundPlan,
+      roundNumber,
+      size,
+      maxAttemptsTotal: Math.max(maxAttemptsTotal, SPECIAL_QUALITY_ATTEMPTS),
+      effectiveMinWords,
+    });
+    if (anchored?.grid?.length) return anchored;
   } else if (roundPlan?.type === "monstrous") {
     const anchored = prepareAnchoredMonstrous({
       roundPlan,

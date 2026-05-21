@@ -433,7 +433,13 @@ function buildFakeTwinsSubmittedWordMeta(round, word, scored) {
 
 function shouldApplyRareWordBonus(round) {
   const type = String(round?.special?.type || "");
-  return type !== "target_long" && type !== "target_score" && type !== OCID_TYPE && type !== SELF_SPECIAL_3_WORDS_TYPE;
+  return (
+    type !== "target_long" &&
+    type !== "target_score" &&
+    type !== OCID_TYPE &&
+    type !== SELF_SPECIAL_3_WORDS_TYPE &&
+    type !== MASSIVE_BOGGLE_TYPE
+  );
 }
 
 function buildRareBonusSubmittedWordMeta(round, word) {
@@ -453,6 +459,49 @@ function buildRareBonusSubmittedWordMeta(round, word) {
     rarityBucket: String(prepared.rarityBucket || ""),
     rarityScore: Number(prepared.rarityScore) || 0,
   };
+}
+
+function getEffectiveMaxPossibleScoreForRound(round, fallback = 0) {
+  const baseFallback = Number.isFinite(fallback) ? Math.max(0, Number(fallback)) : 0;
+  if (!round) return baseFallback;
+  const specialType = String(round?.special?.type || "");
+  if (
+    specialType === "speed" ||
+    specialType === "target_long" ||
+    specialType === "target_score" ||
+    specialType === MASSIVE_BOGGLE_TYPE
+  ) {
+    return baseFallback;
+  }
+  const cached = Number(round.effectiveMaxPossibleScore);
+  if (Number.isFinite(cached) && cached > 0) return cached;
+  const preparedSolutions = Array.isArray(round.preparedSolutions) ? round.preparedSolutions : [];
+  if (!preparedSolutions.length) return baseFallback;
+  const scoreConfig = getSpecialScoreConfig(round);
+  let maxPts = baseFallback;
+  for (const entry of preparedSolutions) {
+    const word = normalizeWord(entry?.word || "");
+    if (!word) continue;
+    const path = Array.isArray(entry?.path) ? entry.path : [];
+    const rescored = path.length
+      ? scoreWordOnGridWithPath(word, round.grid, path, scoreConfig)
+      : null;
+    const finalPath = Array.isArray(rescored?.path) ? rescored.path : path;
+    const basePts = Number.isFinite(rescored?.pts)
+      ? rescored.pts
+      : Number.isFinite(entry?.pts)
+      ? entry.pts
+      : 0;
+    const rareMeta = buildRareBonusSubmittedWordMeta(round, word);
+    const totalPts =
+      computeWordScoreForRound(round, word, finalPath, basePts) +
+      (Number(rareMeta.rareBonusPoints) || 0);
+    if (Number.isFinite(totalPts) && totalPts > maxPts) {
+      maxPts = totalPts;
+    }
+  }
+  round.effectiveMaxPossibleScore = maxPts;
+  return maxPts;
 }
 
 app.use((req, res, next) => {
@@ -5199,7 +5248,10 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
 
   const isSpeedRound = room.currentRound?.special?.type === "speed";
   const maxLenPossible = room.bestPossibleStats.maxLen || 0;
-  const maxPtsPossible = room.bestPossibleStats.maxPts || 0;
+  const maxPtsPossible = getEffectiveMaxPossibleScoreForRound(
+    room.currentRound,
+    room.bestPossibleStats.maxPts || 0
+  );
   const isMaxPossibleLen = maxLenPossible > 0 && len === maxLenPossible;
   const isMaxPossiblePts = maxPtsPossible > 0 && wordPts === maxPtsPossible;
 
@@ -5895,7 +5947,10 @@ function recomputeRoundGobblesFromResults(room, results) {
 
   const scoreConfig = getSpecialScoreConfig(room.currentRound);
   const maxLenPossible = Number(room.bestPossibleStats?.maxLen) || 0;
-  const maxPtsPossible = Number(room.bestPossibleStats?.maxPts) || 0;
+  const maxPtsPossible = getEffectiveMaxPossibleScoreForRound(
+    room.currentRound,
+    Number(room.bestPossibleStats?.maxPts) || 0
+  );
   const scoreGobbleEnabled =
     specialType !== "speed" && specialType !== MASSIVE_BOGGLE_TYPE && maxPtsPossible > 0;
   const lenGobbleEnabled = maxLenPossible > 0;
@@ -5915,12 +5970,18 @@ function recomputeRoundGobblesFromResults(room, results) {
     for (const raw of words) {
       const scored = scoreWordOnGrid(raw, scoringBoard, scoreConfig);
       if (!scored) continue;
+      const wordMeta =
+        entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
+      const metaKey = Object.keys(wordMeta).find((key) => normalizeWord(key) === scored.norm);
+      const rareBonusPoints = Number(
+        (metaKey ? wordMeta[metaKey] : wordMeta[scored.norm])?.rareBonusPoints
+      ) || 0;
       const pts = computeWordScoreForRound(
         room.currentRound,
         scored.norm,
         scored.path,
         scored.pts
-      );
+      ) + rareBonusPoints;
       const len = scored.norm.length;
       if (scoreGobbleEnabled && pts === maxPtsPossible) {
         hasScoreGobble = true;
