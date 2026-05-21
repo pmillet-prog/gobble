@@ -3626,6 +3626,7 @@ const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
 const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
 const BIG_SCORE_THRESHOLD = 100;
+const MASSIVE_BOGGLE_BIG_FEEDBACK_THRESHOLD = 20;
 const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
@@ -3643,6 +3644,16 @@ const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
+
+function getMassiveBoggleFeedbackPoints(points, rawWord) {
+  const safePoints = Number.isFinite(points) ? Math.max(0, Number(points)) : 0;
+  const len = normalizeWord(rawWord || "").length;
+  if (len >= 12) return Math.max(safePoints, 34);
+  if (len >= 10) return Math.max(safePoints, 24);
+  if (len >= 8) return Math.max(safePoints, 14);
+  if (len >= 7) return Math.max(safePoints, 8);
+  return safePoints;
+}
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
 const AUTH_REQUEST_TIMEOUT_MS = 8000;
 const AUTH_STATUS_TIMEOUT_MS = 6500;
@@ -19317,6 +19328,10 @@ function handleTouchEnd(e) {
       });
 
       const wordLen = normalizeWord(display || word || "").length || 3;
+      const isMassiveBoggleRoundNow = specialRound?.type === MASSIVE_BOGGLE_TYPE;
+      const feedbackPts = isMassiveBoggleRoundNow
+        ? getMassiveBoggleFeedbackPoints(safePts, display || word)
+        : safePts;
       if (isTargetRoundNow) {
         setFoundTargetThisRound(true);
         setFoundTargetWord(word);
@@ -19324,13 +19339,13 @@ function handleTouchEnd(e) {
         showToast("Trouv\u00e9 !");
       } else {
         maybeAnnounceBestWord(nickname.trim() || "Moi", display || word, safePts);
-        playScoreSound(safePts);
+        playScoreSound(feedbackPts);
       }
 
       const isSpeedRound = specialRound?.type === "speed";
       const maxPossiblePts = bestGridMaxRef.current || 0;
       const maxPossibleLen = bestGridMaxLenRef.current || 0;
-      const allowScoreGobble = !isSpeedRound && specialRound?.type !== MASSIVE_BOGGLE_TYPE;
+      const allowScoreGobble = !isSpeedRound && !isMassiveBoggleRoundNow;
       const allowLenGobble = true;
       const isScoreGobbleNow =
         allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts;
@@ -19350,16 +19365,19 @@ function handleTouchEnd(e) {
           });
           triggerConfettiBurst("gobble");
         } else if (!isSpeedRound) {
-          if (safePts > 29) {
+          if (feedbackPts > 29) {
             triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
-          } else if (safePts > 19) {
+          } else if (feedbackPts > 19) {
             triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
-          } else if (safePts > 9) {
+          } else if (feedbackPts > 9) {
             triggerPraiseFlash("FABULEUX !", { kind: "purple" });
-          } else if (safePts > 5) {
+          } else if (feedbackPts > 5) {
             triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
           }
-          if (safePts >= BIG_SCORE_THRESHOLD) {
+          if (
+            safePts >= BIG_SCORE_THRESHOLD ||
+            (isMassiveBoggleRoundNow && feedbackPts >= MASSIVE_BOGGLE_BIG_FEEDBACK_THRESHOLD)
+          ) {
             triggerBigScoreFlash(safePts);
           }
         }
@@ -19632,17 +19650,21 @@ function handleTouchEnd(e) {
     });
 
     const wordLen = normalizeWord(displayStr || raw || "").length || 3;
+    const isMassiveBoggleRoundNow = specialRound?.type === MASSIVE_BOGGLE_TYPE;
+    const feedbackPts = isMassiveBoggleRoundNow
+      ? getMassiveBoggleFeedbackPoints(pts, displayStr || raw)
+      : pts;
 
     if (isTargetRoundNow) {
       showToast("Trouvé !");
     } else {
-      playScoreSound(pts);
+      playScoreSound(feedbackPts);
       maybeAnnounceBestWord(nickname.trim() || "Moi", displayStr || raw, pts);
     }
     const isSpeedRound = specialRound?.type === "speed";
     const maxPossiblePts = bestGridMaxRef.current || 0;
     const maxPossibleLen = bestGridMaxLenRef.current || 0;
-    const allowScoreGobble = !isSpeedRound && specialRound?.type !== MASSIVE_BOGGLE_TYPE;
+    const allowScoreGobble = !isSpeedRound && !isMassiveBoggleRoundNow;
     const allowLenGobble = true;
     const isScoreGobbleNow =
       allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts;
@@ -19661,16 +19683,19 @@ function handleTouchEnd(e) {
       });
       triggerConfettiBurst("gobble");
     } else if (!isTargetRoundNow && !isSpeedRound) {
-      if (pts > 29) {
+      if (feedbackPts > 29) {
         triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
-      } else if (pts > 19) {
+      } else if (feedbackPts > 19) {
         triggerPraiseFlash("ENORME !", { kind: "gold", shakeGrid: true });
-      } else if (pts > 9) {
+      } else if (feedbackPts > 9) {
         triggerPraiseFlash("FABULEUX !", { kind: "purple" });
-      } else if (pts > 5) {
+      } else if (feedbackPts > 5) {
         triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
       }
-      if (pts >= BIG_SCORE_THRESHOLD) {
+      if (
+        pts >= BIG_SCORE_THRESHOLD ||
+        (isMassiveBoggleRoundNow && feedbackPts >= MASSIVE_BOGGLE_BIG_FEEDBACK_THRESHOLD)
+      ) {
         triggerBigScoreFlash(pts);
       }
     }

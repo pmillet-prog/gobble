@@ -475,7 +475,11 @@ function getEffectiveMaxPossibleScoreForRound(round, fallback = 0) {
   }
   const cached = Number(round.effectiveMaxPossibleScore);
   if (Number.isFinite(cached) && cached > 0) return cached;
-  const preparedSolutions = Array.isArray(round.preparedSolutions) ? round.preparedSolutions : [];
+  const preparedSolutions = Array.isArray(round.preparedSolutions)
+    ? round.preparedSolutions
+    : Array.isArray(round.solutions)
+    ? round.solutions
+    : [];
   if (!preparedSolutions.length) return baseFallback;
   const scoreConfig = getSpecialScoreConfig(round);
   let maxPts = baseFallback;
@@ -7118,6 +7122,27 @@ async function endRoundForRoom(room) {
     const wordsCount = Array.isArray(entry.words) ? entry.words.length : 0;
     recordMostWordsInGame(playerKey, entry.nick, wordsCount, roundId, endedAt);
     recordBestRoundScore(playerKey, entry.nick, entry.score, roundId, endedAt);
+    const highlights = isTargetRound
+      ? { bestWord: null, longestWord: null }
+      : computePlayerWordHighlightsForProfile(room.currentRound, entry);
+    if (highlights.bestWord?.word) {
+      recordBestWord(
+        playerKey,
+        entry.nick,
+        highlights.bestWord.word,
+        Number(highlights.bestWord.pts) || 0,
+        endedAt
+      );
+    }
+    if (highlights.longestWord?.word) {
+      recordLongestWord(
+        playerKey,
+        entry.nick,
+        highlights.longestWord.word,
+        Number(highlights.longestWord.len) || 0,
+        endedAt
+      );
+    }
     if (isSpecial3Round) {
       recordBestSpecial3Score(playerKey, entry.nick, entry.score, roundId, endedAt);
     }
@@ -7134,9 +7159,6 @@ async function endRoundForRoom(room) {
     const installIdForDuel = getInstallIdForNick(room, entry.nick);
     const userIdForProfile = Number(entry?.userId);
     if (Number.isInteger(userIdForProfile) && userIdForProfile > 0) {
-      const highlights = isTargetRound
-        ? { bestWord: null, longestWord: null }
-        : computePlayerWordHighlightsForProfile(room.currentRound, entry);
       profileStatsUpdates.push({
         userId: userIdForProfile,
         nick: entry.nick,
