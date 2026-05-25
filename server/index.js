@@ -4930,11 +4930,16 @@ function computeOcidRoundResults(room, baseResults) {
   if (!round || round.special?.type !== OCID_TYPE) return null;
   const options = buildOcidVoteOptions(round);
   const targetNorm = normalizeWord(round.targetWord || "");
+  const proposalStartedAt =
+    Number.isFinite(round.startsAt)
+      ? round.startsAt
+      : (Number(round.endsAt) || Date.now()) - (Number(round.durationMs) || OCID_PROPOSAL_DURATION_MS);
   const optionsById = new Map(options.map((option) => [option.id, option]));
   const proposals = round.ocidProposals instanceof Map ? round.ocidProposals : new Map();
   const votes = round.ocidVotes instanceof Map ? round.ocidVotes : new Map();
   const scores = new Map();
   const details = new Map();
+  const ocidTargetFoundAt = new Map();
   const ensure = (nick) => {
     if (!scores.has(nick)) scores.set(nick, 0);
     if (!details.has(nick)) {
@@ -4950,6 +4955,8 @@ function computeOcidRoundResults(room, baseResults) {
         votersForProposal: [],
         proposal: proposals.get(nick)?.display || "",
         vote: "",
+        targetFoundAt: null,
+        targetFoundMs: null,
       });
     }
     return details.get(nick);
@@ -4959,15 +4966,21 @@ function computeOcidRoundResults(room, baseResults) {
     const normalized = normalizeWord(proposal?.normalized || proposal?.display || "");
     const detail = ensure(nick);
     if (normalized && normalized === targetNorm) {
+      const submittedAt = Number(proposal?.submittedAt) || Date.now();
+      const elapsedMs = Math.max(0, submittedAt - proposalStartedAt);
       scores.set(nick, (scores.get(nick) || 0) + OCID_EXACT_TARGET_POINTS);
       detail.exactTarget = true;
       detail.exactTargetPoints += OCID_EXACT_TARGET_POINTS;
+      detail.targetFoundAt = submittedAt;
+      detail.targetFoundMs = elapsedMs;
+      ocidTargetFoundAt.set(nick, submittedAt);
     } else if (normalized && dictionary?.has?.(normalized)) {
       scores.set(nick, (scores.get(nick) || 0) + OCID_VALID_PROPOSAL_POINTS);
       detail.validProposal = true;
       detail.validProposalPoints += OCID_VALID_PROPOSAL_POINTS;
     }
   }
+  round.targetFoundAt = ocidTargetFoundAt;
 
   for (const [nick, optionId] of votes.entries()) {
     const option = optionsById.get(optionId);
@@ -5026,15 +5039,14 @@ function computeOcidRoundResults(room, baseResults) {
     return {
       ...entry,
       score,
+      words: detail.exactTarget ? [round.targetWord || ""] : entry.words,
+      targetFoundAt: Number.isFinite(detail.targetFoundAt) ? detail.targetFoundAt : null,
+      targetFoundMs: Number.isFinite(detail.targetFoundMs) ? detail.targetFoundMs : null,
       participated: !!(detail.proposal || detail.vote || score > 0),
       ocid: detail,
     };
   });
-  results.sort((a, b) => {
-    const diff = (b.score || 0) - (a.score || 0);
-    if (diff !== 0) return diff;
-    return String(a.nick || "").localeCompare(String(b.nick || ""), "fr", { sensitivity: "base" });
-  });
+  results.sort(compareOcidRoundResultEntries);
   return {
     results,
     summary: {
@@ -5060,6 +5072,30 @@ function computeOcidRoundResults(room, baseResults) {
       })),
     },
   };
+}
+
+function compareOcidRoundResultEntries(a, b) {
+  const diff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
+  if (diff !== 0) return diff;
+  const aFound = Number.isFinite(a?.targetFoundAt);
+  const bFound = Number.isFinite(b?.targetFoundAt);
+  if (aFound && bFound) {
+    const timeDiff = Number(a.targetFoundAt) - Number(b.targetFoundAt);
+    if (timeDiff !== 0) return timeDiff;
+  } else if (aFound) {
+    return -1;
+  } else if (bFound) {
+    return 1;
+  }
+  return String(a?.nick || "").localeCompare(String(b?.nick || ""), "fr", {
+    sensitivity: "base",
+  });
+}
+
+function getOcidTournamentTieKey(entry) {
+  const score = Number(entry?.score) || 0;
+  const foundAt = entry?.targetFoundAt;
+  return Number.isFinite(foundAt) ? `${score}:target:${foundAt}` : `${score}:no-target`;
 }
 
 function buildTargetWordCellMap(word, path, grid) {
@@ -7451,7 +7487,9 @@ async function endRoundForRoom(room) {
     }
   }
 
-  results.sort((a, b) => b.score - a.score);
+  results.sort((a, b) =>
+    specialType === OCID_TYPE ? compareOcidRoundResultEntries(a, b) : b.score - a.score
+  );
   recomputeRoundGobblesFromResults(room, results);
 
   const roundId = room.currentRound.id ? `${room.id}#${room.currentRound.id}` : `${room.id}#${Date.now()}`;
@@ -7620,7 +7658,12 @@ async function endRoundForRoom(room) {
       for (let i = 0; i < results.length; ) {
         const scoreVal = results[i]?.score ?? 0;
         const tieGroup = [];
-        while (i < results.length && (results[i]?.score ?? 0) === scoreVal) {
+        const tieKey = specialType === OCID_TYPE ? getOcidTournamentTieKey(results[i]) : null;
+        while (
+          i < results.length &&
+          (results[i]?.score ?? 0) === scoreVal &&
+          (specialType !== OCID_TYPE || getOcidTournamentTieKey(results[i]) === tieKey)
+        ) {
           tieGroup.push(results[i]);
           i++;
         }

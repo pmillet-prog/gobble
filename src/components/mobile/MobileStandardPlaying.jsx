@@ -451,6 +451,7 @@ function MobileStandardPlaying(props) {
                 getNickClassName={getNickClassName}
                 renderNickSuffix={renderNickSuffix}
                 showGobbleWordAwards={true}
+                showScores={true}
                 className="h-full"
               />
             </div>

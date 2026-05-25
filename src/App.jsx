@@ -1338,9 +1338,9 @@ const BONUS_CLASSES = {
 };
 
 const WEEKLY_BOARDS = [
+  { key: "weeklyVocab", label: "Vocabulaire hebdo", subtitle: "Course aux mots uniques" },
   { key: "medals", label: "Medailles", subtitle: "Total hebdo" },
   { key: "mostWordsInGame", label: "Mots par manche", subtitle: "Volume max" },
-  { key: "weeklyVocab", label: "Vocabulaire hebdo", subtitle: "Nouveaux mots uniques" },
   { key: "totalScore", label: "Score total", subtitle: "Somme hebdo (cibles = 1000 pts)" },
   { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus élevé" },
   { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
@@ -5201,6 +5201,7 @@ export default function App() {
   const [mobileRoundIntroHideTiles, setMobileRoundIntroHideTiles] = useState(false);
   const [mobileResultsOutroFadeActive, setMobileResultsOutroFadeActive] = useState(false);
   const [finalePage, setFinalePage] = useState(0);
+  const [dismissedTournamentFinaleKey, setDismissedTournamentFinaleKey] = useState(null);
   const finaleScrollRef = useRef(null);
   const finaleTouchRef = useRef({ startX: null, startY: null });
   const finaleDraggingRef = useRef(false);
@@ -10466,6 +10467,7 @@ export default function App() {
                 nick: e.nick,
                 score: e.points,
                 gobbles: e.gobbles ?? null,
+                rightLabel: renderTournamentTotalRightLabel(e.points, e.gobbles),
                 roundScoreSum: Number(e.roundScoreSum) || 0,
                 tieBreakRoundScore: Number(e.tieBreakRoundScore) || Number(e.roundScoreSum) || 0,
                 tieBreakBy:
@@ -14918,7 +14920,7 @@ export default function App() {
   }
 
   function openWeeklyStatsOverlay() {
-    setWeeklyActiveIndex((idx) => (idx >= 0 && idx < WEEKLY_BOARDS.length ? idx : 0));
+    setWeeklyActiveIndex(0);
     setIsWeeklyOpen(true);
     setAppView("stats");
     setStatsTab("weekly");
@@ -15059,9 +15061,35 @@ export default function App() {
     playSwipeSound();
   }
 
+  function goToWeeklyBoard(nextIndex) {
+    const total = WEEKLY_BOARDS.length;
+    if (!Number.isFinite(nextIndex) || total <= 1) return;
+    const current = clampValue(weeklyActiveIndex, 0, total - 1);
+    const next = clampValue(nextIndex, 0, total - 1);
+    if (next === current) return;
+    setWeeklyActiveIndex(next);
+    setWeeklyDragOffset(0);
+    setWeeklyDragging(false);
+    playSwipeSound();
+  }
+
   function shouldIgnoreSwipeClick(ref, delayMs = 450) {
     const last = ref?.current || 0;
     return Date.now() - last < delayMs;
+  }
+
+  function isKeyboardEditableTarget(target) {
+    if (typeof HTMLElement === "undefined") return false;
+    const targetElement = target instanceof HTMLElement ? target : null;
+    if (!targetElement) return false;
+    const tag = targetElement.tagName;
+    return (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      targetElement.isContentEditable ||
+      !!targetElement.closest?.("[contenteditable='true']")
+    );
   }
 
   function isStatsScrollTouchTarget(target) {
@@ -16427,13 +16455,62 @@ export default function App() {
   useEffect(() => {
     if (!isWeeklyOpen) return;
     const onKey = (e) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (isKeyboardEditableTarget(e.target)) return;
+      if (
+        authModalMode ||
+        definitionModal.open ||
+        isChatRulesOpen ||
+        isSettingsOpen ||
+        roundPlayerModal.open ||
+        userMenu.open
+      ) {
+        return;
+      }
       if (e.key === "Escape") {
+        e.preventDefault();
         closeWeeklyStatsOverlay();
+        return;
+      }
+      if (isMobileLayout) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (statsTab === "season") shiftSeasonPage(-1);
+        else shiftWeeklyBoard(-1);
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (statsTab === "season") shiftSeasonPage(1);
+        else shiftWeeklyBoard(1);
+        return;
+      }
+      if (e.key === "Home") {
+        e.preventDefault();
+        if (statsTab === "season") goToSeasonPage(0);
+        else goToWeeklyBoard(0);
+        return;
+      }
+      if (e.key === "End") {
+        e.preventDefault();
+        if (statsTab === "season") goToSeasonPage(getSeasonPages().length - 1);
+        else goToWeeklyBoard(WEEKLY_BOARDS.length - 1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isWeeklyOpen]);
+  }, [
+    authModalMode,
+    definitionModal.open,
+    isChatRulesOpen,
+    isMobileLayout,
+    isSettingsOpen,
+    isWeeklyOpen,
+    roundPlayerModal.open,
+    statsTab,
+    userMenu.open,
+    weeklyActiveIndex,
+  ]);
 
   useEffect(() => {
     if (!isWeeklyOpen) return;
@@ -24458,6 +24535,17 @@ function handleTouchEnd(e) {
       </span>
     );
   };
+  const renderTournamentTotalRightLabel = (points, gobbles) => {
+    const safePoints = Math.max(0, Number(points) || 0);
+    const safeGobbles = Math.max(0, Number(gobbles) || 0);
+    return (
+      <>
+        {formatNumber(safePoints) ?? 0} pts
+        <span className="mx-1 opacity-60">·</span>
+        {formatNumber(safeGobbles) ?? 0} gobble{safeGobbles > 1 ? "s" : ""}
+      </>
+    );
+  };
   const finalRanking = finalResults.length
     ? [...finalResults]
         .map((entry) => {
@@ -24471,8 +24559,15 @@ function handleTouchEnd(e) {
             const parts = [];
             const proposal = String(detail.proposal || "").trim().toUpperCase();
             if (proposal) {
+              const targetTimeMs = Number.isFinite(detail.targetFoundMs)
+                ? detail.targetFoundMs
+                : Number.isFinite(entry.targetFoundMs)
+                ? entry.targetFoundMs
+                : null;
               const proposalLabel = detail.exactTarget
-                ? "mot cible tracé"
+                ? `mot cible tracé${
+                    Number.isFinite(targetTimeMs) ? ` en ${formatTargetTime(targetTimeMs)}` : ""
+                  }`
                 : detail.validProposal
                 ? "mot valide"
                 : "mot invalide";
@@ -24485,7 +24580,16 @@ function handleTouchEnd(e) {
                 </React.Fragment>
               );
             } else if (detail.exactTarget) {
-              parts.push("mot cible tracé");
+              const targetTimeMs = Number.isFinite(detail.targetFoundMs)
+                ? detail.targetFoundMs
+                : Number.isFinite(entry.targetFoundMs)
+                ? entry.targetFoundMs
+                : null;
+              parts.push(
+                Number.isFinite(targetTimeMs)
+                  ? `mot cible tracé en ${formatTargetTime(targetTimeMs)}`
+                  : "mot cible tracé"
+              );
             } else if (detail.validProposal) {
               parts.push("mot valide");
             }
@@ -24560,7 +24664,22 @@ function handleTouchEnd(e) {
           };
         })
         .sort((a, b) => {
-          if (!isTargetRound || targetSummary?.ocid) return (b.score || 0) - (a.score || 0);
+          if (targetSummary?.ocid) {
+            const scoreDiff = (b.score || 0) - (a.score || 0);
+            if (scoreDiff !== 0) return scoreDiff;
+            const aFound = Number.isFinite(a.targetFoundAt);
+            const bFound = Number.isFinite(b.targetFoundAt);
+            if (aFound && bFound) {
+              const d = a.targetFoundAt - b.targetFoundAt;
+              if (d !== 0) return d;
+            } else if (aFound) {
+              return -1;
+            } else if (bFound) {
+              return 1;
+            }
+            return (a.nick || "").localeCompare(b.nick || "");
+          }
+          if (!isTargetRound) return (b.score || 0) - (a.score || 0);
           const aFound = Number.isFinite(a.targetFoundAt);
           const bFound = Number.isFinite(b.targetFoundAt);
           if (aFound && bFound) {
@@ -25648,6 +25767,10 @@ function handleTouchEnd(e) {
           nick: entry.nick,
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
           gobbles: entry.gobbles ?? null,
+          rightLabel: renderTournamentTotalRightLabel(
+            typeof entry.score === "number" ? entry.score : entry.points || 0,
+            entry.gobbles ?? 0
+          ),
           roundScoreSum: getRankingRoundScoreSum(entry),
           tieBreakRoundScore: getRankingRoundScoreSum(entry),
           tieBreakBy:
@@ -26506,11 +26629,21 @@ function handleTouchEnd(e) {
     if (!times.length) return null;
     return Math.max(...times);
   })();
+  const tournamentFinaleDismissKey = tournamentFinaleSummary
+    ? String(
+        tournamentFinaleSummary.tournamentId ||
+          tournament?.id ||
+          tournamentSummaryAt ||
+          tournamentFinaleHoldUntil ||
+          "current"
+      )
+    : "";
 
   const showTournamentFinale =
     phase === "results" &&
     breakKind === "tournament_end" &&
     (!tournamentFinaleGateAt || getNowServerMs() >= tournamentFinaleGateAt) &&
+    dismissedTournamentFinaleKey !== tournamentFinaleDismissKey &&
     tournamentFinaleSummary &&
     Array.isArray(tournamentFinaleSummary.ranking) &&
     tournamentFinaleSummary.ranking.length > 0;
@@ -26575,6 +26708,63 @@ function handleTouchEnd(e) {
       void requestTrophyStatus();
     }
   }, [showTournamentFinale, trophyStatus]);
+
+  useEffect(() => {
+    if (!showTournamentFinale || isMobileLayout) return;
+    const onKey = (e) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (isKeyboardEditableTarget(e.target)) return;
+      if (
+        authModalMode ||
+        definitionModal.open ||
+        isChatRulesOpen ||
+        isSettingsOpen ||
+        roundPlayerModal.open ||
+        userMenu.open
+      ) {
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (tournamentFinaleDismissKey) {
+          setDismissedTournamentFinaleKey(tournamentFinaleDismissKey);
+        }
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        shiftFinalePage(-1);
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        shiftFinalePage(1);
+        return;
+      }
+      if (e.key === "Home") {
+        e.preventDefault();
+        goToFinalePage(0);
+        return;
+      }
+      if (e.key === "End") {
+        e.preventDefault();
+        goToFinalePage(getFinalePagesCount() - 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    authModalMode,
+    definitionModal.open,
+    finalePage,
+    isChatRulesOpen,
+    isMobileLayout,
+    isSettingsOpen,
+    roundPlayerModal.open,
+    showTournamentFinale,
+    tournamentFinaleDismissKey,
+    userMenu.open,
+  ]);
 
   const chatRulesModal = isChatRulesOpen ? (
     <div
@@ -27549,6 +27739,46 @@ function handleTouchEnd(e) {
   const weeklyWeekNumber = weeklyStats?.weekStartTs
     ? getISOWeekNumber(new Date(weeklyStats.weekStartTs))
     : getISOWeekNumber(new Date());
+  const weeklyVocabSelfRank = getSelfWeeklyVocabRankFromStats(weeklyStats);
+  const weeklyVocabSelfCount = Number.isFinite(vocabWeeklyCount)
+    ? Math.max(0, vocabWeeklyCount)
+    : null;
+  const weeklyVocabRaceBanner = (
+    <div
+      className={`mx-4 mt-2 rounded-xl border px-3 py-2 shadow-sm ${
+        darkMode
+          ? "border-amber-300/40 bg-gradient-to-r from-amber-300/18 via-slate-900/80 to-amber-500/12 text-amber-50"
+          : "border-amber-300/70 bg-gradient-to-r from-amber-50 via-white to-yellow-50 text-slate-900"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-black uppercase tracking-widest opacity-75">
+            Course vocabulaire hebdo
+          </div>
+          <div className="mt-0.5 text-xs font-semibold leading-snug">
+            Le gagnant de la semaine affichera son pseudo en or la semaine suivante.
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div
+            className={`inline-flex h-10 min-w-10 items-center justify-center rounded-full border px-2 text-sm font-black tabular-nums ${
+              darkMode
+                ? "border-amber-200/70 bg-amber-300/20 text-amber-100"
+                : "border-amber-400 bg-amber-100 text-amber-800"
+            }`}
+          >
+            {Number.isFinite(weeklyVocabSelfRank) ? `#${weeklyVocabSelfRank}` : "-"}
+          </div>
+          <div className="mt-1 text-[10px] font-bold tabular-nums opacity-80">
+            {Number.isFinite(weeklyVocabSelfCount)
+              ? `${formatNumber(weeklyVocabSelfCount) ?? 0} mots`
+              : "Non classe"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   const weeklyOffsetPercent =
     weeklyDragOffset && weeklySlideWidthRef.current
       ? (weeklyDragOffset / weeklySlideWidthRef.current) * 100
@@ -27788,6 +28018,9 @@ function handleTouchEnd(e) {
             Slide gauche/droite pour changer de categorie
           </div>
         ) : null}
+        {statsTab === "weekly" && activeWeeklyBoard?.key === "weeklyVocab"
+          ? weeklyVocabRaceBanner
+          : null}
         {statsTab === "weekly" ? weeklyDots : null}
         {statsTab === "season" ? seasonDots : null}
         {statsTab === "weekly" ? (
@@ -30004,6 +30237,31 @@ function handleTouchEnd(e) {
       isVisualMenuOpen,
     ]
   );
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      if (
+        authModalMode ||
+        definitionModal.open ||
+        playerProfileModal.open ||
+        roundPlayerModal.open
+      ) {
+        return;
+      }
+      event.preventDefault();
+      closeSettingsMenu({ animatePanels: true });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    authModalMode,
+    closeSettingsMenu,
+    definitionModal.open,
+    isSettingsOpen,
+    playerProfileModal.open,
+    roundPlayerModal.open,
+  ]);
   fetchThemeProfileRef.current = fetchThemeProfile;
   const requestThemeResetDefault = React.useCallback(() => {
     const defaults = normalizeThemePreset({
@@ -34010,6 +34268,10 @@ function handleTouchEnd(e) {
         nick: e.nick,
         score: typeof e.points === "number" ? e.points : e.score || 0,
         gobbles: typeof e.gobbles === "number" ? e.gobbles : 0,
+        rightLabel: renderTournamentTotalRightLabel(
+          typeof e.points === "number" ? e.points : e.score || 0,
+          typeof e.gobbles === "number" ? e.gobbles : 0
+        ),
         roundScoreSum: Number(e.roundScoreSum) || 0,
         tieBreakRoundScore:
           Number(e.tieBreakRoundScore) || Number(e.roundScoreSum) || 0,
@@ -34146,6 +34408,21 @@ function handleTouchEnd(e) {
           <div className="text-[11px] text-slate-500 dark:text-slate-300 mb-1">
             {boardMeta.subtitle || ""}
           </div>
+          {boardMeta.key === "weeklyVocab" ? (
+            <div className="mb-2 rounded-xl border border-amber-300/50 bg-gradient-to-r from-amber-100/90 via-white/70 to-yellow-100/80 px-3 py-2 text-slate-900 dark:from-amber-300/15 dark:via-slate-900/70 dark:to-amber-500/10 dark:text-amber-50">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 text-[11px] font-semibold leading-snug">
+                  <span className="font-black uppercase tracking-widest">Course vocab</span>
+                  <span className="block opacity-85">
+                    Le gagnant de la semaine aura son pseudo en or la semaine suivante.
+                  </span>
+                </div>
+                <div className="shrink-0 rounded-full border border-amber-400 bg-amber-100 px-2 py-1 text-xs font-black tabular-nums text-amber-800 dark:border-amber-200/70 dark:bg-amber-300/20 dark:text-amber-100">
+                  {Number.isFinite(weeklyVocabSelfRank) ? `#${weeklyVocabSelfRank}` : "-"}
+                </div>
+              </div>
+            </div>
+          ) : null}
           {!hasChanges && baselineEntries.length > 0 ? (
             <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-300 mb-1">
               Aucun changement
@@ -36448,6 +36725,7 @@ function handleTouchEnd(e) {
           isPlayerNickClickable={canOpenPlayerProfile}
           renderNickSuffix={renderNickSuffix}
           showGobbleWordAwards={true}
+          showScores={true}
           stackNickDecorations={!isMobileLayout}
         />
       )}

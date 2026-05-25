@@ -358,6 +358,7 @@ function RankingWidgetMobile({
   showNickDecorations = true,
   stackNickDecorations = false,
   showGobbleWordAwards = true,
+  showScores = true,
   highlightedPlayers = [],
   getNickClassName = null,
   renderNickSuffix = null,
@@ -791,9 +792,9 @@ function RankingWidgetMobile({
           Number.isFinite(entry?.gobbles) ? Number(entry.gobbles) : 0,
           getGobbleAwardCountForNick(entry?.nick)
         );
-        const scoreLabelBase = buildRightLabel(entry, entry.score, wordsCount);
+        const scoreLabelBase = showScores ? buildRightLabel(entry, entry.score, wordsCount) : "";
         let scoreLabelInner = scoreLabelBase;
-        if (!entry?.rightLabel && typeof entry.score === "number" && gobbles != null) {
+        if (showScores && !entry?.rightLabel && typeof entry.score === "number" && gobbles != null) {
           scoreLabelInner = scoreLabelBase;
         }
         const roundPoints =
@@ -805,7 +806,7 @@ function RankingWidgetMobile({
             ? entry.roundGobbles
             : 0;
         const gobblesBadge =
-          !entry?.rightLabel && typeof entry.score === "number" && gobbles > 0
+          !entry?.rightLabel && gobbles > 0
             ? renderGobbleCountBadge(gobbles, `flat-score-gobble-${entry.nick}`, "mr-1")
             : null;
         const scoreContent = (
@@ -819,7 +820,7 @@ function RankingWidgetMobile({
                 +{roundPoints}
               </span>
             ) : null}
-            {scoreLabelInner}
+            {showScores ? scoreLabelInner : null}
           </>
         );
 
@@ -1256,11 +1257,11 @@ function RankingWidgetMobile({
               }
 
               let scoreValue =
-                row.entry && typeof row.entry.score === "number"
+                showScores && row.entry && typeof row.entry.score === "number"
                   ? row.entry.score
                   : undefined;
 
-              if (isSelfLine && youEntry && typeof youEntry.score === "number") {
+              if (showScores && isSelfLine && youEntry && typeof youEntry.score === "number") {
                 scoreValue = youEntry.score;
               }
 
@@ -1269,7 +1270,7 @@ function RankingWidgetMobile({
               const isPalier = !!labelEntry?.isPalier;
               const wordsCount =
                 typeof labelEntry?.wordsCount === "number" ? labelEntry.wordsCount : null;
-              const scoreLabel = buildRightLabel(labelEntry, scoreValue, wordsCount);
+              const scoreLabel = showScores ? buildRightLabel(labelEntry, scoreValue, wordsCount) : "";
               const roundPoints =
                 showRoundAward && typeof labelEntry?.roundPoints === "number"
                   ? labelEntry.roundPoints
@@ -1424,7 +1425,7 @@ function RankingWidgetMobile({
                               +{roundPoints}
                             </span>
                           ) : null}
-                          {scoreLabel}
+                          {showScores ? scoreLabel : null}
                         </>
                       )}
                     </span>
