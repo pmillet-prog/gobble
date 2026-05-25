@@ -1191,6 +1191,34 @@ function buildDailyHistoryWordPool(gridEntry, dictionary) {
   });
 }
 
+async function buildDailyFakeTwinsStartSolutions(grid, dictionary) {
+  if (!dictionary || dictionary.size === 0) return null;
+  if (!Array.isArray(grid) || grid.length === 0) return null;
+  const scoringGrid = cloneGridWithoutBonuses(grid);
+  const solved = solveGrid(scoringGrid, dictionary, {
+    type: FAKE_TWINS_TYPE,
+    minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
+    disableBonuses: true,
+  });
+  const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
+  const hasCompletionSet =
+    fakeTwinsCompletionWordSet instanceof Set && fakeTwinsCompletionWordSet.size > 0;
+  return Array.from(solved.entries()).map(([word, entry]) => {
+    const normalizedWord = normalizeWord(word);
+    const usedFakeTwins = !!entry?.usedFakeTwins;
+    const fakeTwinsCompletionWord =
+      usedFakeTwins && (!hasCompletionSet || fakeTwinsCompletionWordSet.has(normalizedWord));
+    return [
+      normalizedWord,
+      Number(entry?.pts) || 0,
+      Array.isArray(entry?.path) ? entry.path : [],
+      usedFakeTwins,
+      fakeTwinsCompletionWord,
+      usedFakeTwins && !fakeTwinsCompletionWord,
+    ];
+  });
+}
+
 function computeDailyGobbles({ bestWordPts, longestWordLen }, maxWordPts, maxWordLen) {
   let gobbles = 0;
   if (
@@ -1589,7 +1617,7 @@ export async function startDailyAttempt(
   dateId,
   installId,
   pseudo,
-  { dailyMode = null } = {}
+  { dailyMode = null, dictionary = null } = {}
 ) {
   const safeDateId = dateId || getParisDateId();
   const safeMode = normalizeDailyMode(dailyMode);
@@ -1644,6 +1672,10 @@ export async function startDailyAttempt(
     safeMode === DAILY_SPECIAL_MODE
       ? cloneGridWithoutBonuses(gridEntry.grid)
       : cloneGridWithBonuses(gridEntry.grid);
+  const solutions =
+    safeMode === DAILY_FAKE_TWINS_MODE
+      ? await buildDailyFakeTwinsStartSolutions(playGrid, dictionary)
+      : null;
   return {
     ok: true,
     dateId: safeDateId,
@@ -1653,6 +1685,7 @@ export async function startDailyAttempt(
     gridSize: gridEntry.gridSize || 4,
     seed: gridEntry.seed,
     gridQuality: gridEntry.gridQuality || null,
+    solutions,
     durationMs: Number.isFinite(Number(gridPayload.durationMs))
       ? Math.max(0, Math.round(Number(gridPayload.durationMs)))
       : DAILY_DURATION_MS,

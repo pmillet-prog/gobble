@@ -54,6 +54,7 @@ function MobileResultsScreen(props) {
     recordBadgesByNickForRound = null,
     renderDesktopResultsDockPanel = null,
     renderGobbleCandidate = null,
+    getNickClassName = null,
     renderNickSuffix = null,
     renderRankDelta = null,
     renderVocabPanel = null,
@@ -413,6 +414,7 @@ function MobileResultsScreen(props) {
                         showRoundAward={true}
                         assetVersion={assetVersion}
                         gobbleWordAwardsByNick={gobbleAwardsForLive}
+                        getNickClassName={getNickClassName}
                         renderNickSuffix={renderNickSuffix}
                         stackNickDecorations={true}
                         showGobbleWordAwards={true}

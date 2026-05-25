@@ -168,6 +168,7 @@ function shouldApplyRareWordBonus(roundPlan) {
     type !== "target_score" &&
     type !== OCID_TYPE &&
     type !== "self_specials_3_words" &&
+    type !== "speed" &&
     type !== MASSIVE_BOGGLE_TYPE
   );
 }

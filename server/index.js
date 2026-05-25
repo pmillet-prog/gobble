@@ -35,6 +35,7 @@ import {
 import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
 import {
   getWeekStartTs,
+  getPreviousWeeklyVocabChampion,
   getWeeklyStats,
   recordBestSpecial3Score,
   recordBestRoundScore,
@@ -46,6 +47,7 @@ import {
   recordMostWordsInGame,
   recordTotalScore,
   recordVocabCount,
+  recordWeeklyVocabCount,
 } from "./stats/weeklyStatsService.js";
 import {
   initVocabularyService,
@@ -53,6 +55,8 @@ import {
   getVocabularyCount,
   getVocabularyCountForInstallIds,
   getVocabularyLeaderboard,
+  getWeeklyVocabularyCountForInstallIds,
+  getWeeklyVocabularyLeaderboard,
   migrateVocabularyProfile,
   getKnownVocabWords,
   getKnownVocabWordsForInstallIds,
@@ -438,6 +442,7 @@ function shouldApplyRareWordBonus(round) {
     type !== "target_score" &&
     type !== OCID_TYPE &&
     type !== SELF_SPECIAL_3_WORDS_TYPE &&
+    type !== "speed" &&
     type !== MASSIVE_BOGGLE_TYPE
   );
 }
@@ -621,6 +626,17 @@ app.get("/api/stats/weekly", async (req, res) => {
         installKeyByNick.set(nickLower, key);
       }
     }
+    const weeklyVocabularyFallback = await getWeeklyVocabularyLeaderboard(
+      payload?.weekStartTs || Date.now(),
+      payload?.topN || topN || 50
+    );
+    for (const entry of weeklyVocabularyFallback) {
+      const key = canonicalizeVocabPlayerKey("", entry?.installId);
+      const nickLower = normalizeWeeklyNick(entry?.nick);
+      if (key.startsWith("install:") && nickLower && !installKeyByNick.has(nickLower)) {
+        installKeyByNick.set(nickLower, key);
+      }
+    }
     const vocabByKey = new Map();
     const vocabFromWeekly = Array.isArray(boards?.vocab) ? boards.vocab : [];
     for (const entry of vocabFromWeekly) {
@@ -658,6 +674,48 @@ app.get("/api/stats/weekly", async (req, res) => {
       if (diff !== 0) return diff;
       return (Number(a?.achievedAt) || 0) - (Number(b?.achievedAt) || 0);
     });
+    const weeklyVocabByKey = new Map();
+    const weeklyVocabFromStats = Array.isArray(boards?.weeklyVocab) ? boards.weeklyVocab : [];
+    for (const entry of weeklyVocabFromStats) {
+      const nickLower = normalizeWeeklyNick(entry?.nick);
+      const rawKey = canonicalizeVocabPlayerKey(entry?.playerKey, entry?.installId);
+      const key =
+        nickLower && (!rawKey || rawKey.startsWith("nick:")) && installKeyByNick.has(nickLower)
+          ? installKeyByNick.get(nickLower)
+          : rawKey || buildWeeklyNickKey(entry?.nick);
+      if (!key) continue;
+      const current = weeklyVocabByKey.get(key);
+      const currentCount = Number(current?.weeklyVocabCount ?? current?.vocabCount) || 0;
+      const entryCount = Number(entry?.weeklyVocabCount ?? entry?.vocabCount) || 0;
+      if (!current || entryCount > currentCount) {
+        weeklyVocabByKey.set(key, { ...entry, playerKey: key, weeklyVocabCount: entryCount });
+      }
+    }
+    for (const entry of weeklyVocabularyFallback) {
+      if (!entry?.installId) continue;
+      const key = canonicalizeVocabPlayerKey("", entry.installId);
+      const resolvedNick =
+        (typeof entry?.nick === "string" && entry.nick.trim()) || nickByPlayerKey.get(key) || "";
+      const displayNick = resolvedNick || `Joueur-${String(entry.installId).slice(0, 6)}`;
+      const next = {
+        nick: displayNick,
+        playerKey: key,
+        weeklyVocabCount: Number(entry.count) || 0,
+        achievedAt: Number(entry.updatedAt) || 0,
+      };
+      const current = weeklyVocabByKey.get(key);
+      const currentCount = Number(current?.weeklyVocabCount ?? current?.vocabCount) || 0;
+      if (!current || next.weeklyVocabCount > currentCount) {
+        weeklyVocabByKey.set(key, next);
+      }
+    }
+    const mergedWeeklyVocab = Array.from(weeklyVocabByKey.values()).sort((a, b) => {
+      const diff =
+        (Number(b?.weeklyVocabCount ?? b?.vocabCount) || 0) -
+        (Number(a?.weeklyVocabCount ?? a?.vocabCount) || 0);
+      if (diff !== 0) return diff;
+      return (Number(a?.achievedAt) || 0) - (Number(b?.achievedAt) || 0);
+    });
     const filterBots = (entries) =>
       Array.isArray(entries)
         ? entries.filter((entry) => !BOT_NICK_SET.has(entry?.nick))
@@ -674,6 +732,9 @@ app.get("/api/stats/weekly", async (req, res) => {
       bestTimeTargetLong: withUserIds(filterBots(boards.bestTimeTargetLong)),
       bestTimeTargetScore: withUserIds(filterBots(boards.bestTimeTargetScore)),
       vocab: withUserIds(filterBots(mergedVocab).slice(0, payload?.topN || topN || 50)),
+      weeklyVocab: withUserIds(
+        filterBots(mergedWeeklyVocab).slice(0, payload?.topN || topN || 50)
+      ),
       mostGobbles: withUserIds(filterBots(boards.mostGobbles)),
     };
     return res.json({ ...payload, boards: filteredBoards });
@@ -707,7 +768,7 @@ function sanitizeDailyMode(raw) {
 }
 
 async function runDailyStartFlow({ installId, pseudo, dailyMode }) {
-  const result = await startDailyAttempt(null, installId, pseudo, { dailyMode });
+  const result = await startDailyAttempt(null, installId, pseudo, { dailyMode, dictionary });
   if (!result?.ok) return result;
   await refreshInstallDuelCache(installId).catch(() => null);
   clearDuelStatusResponseCache(installId);
@@ -1253,7 +1314,8 @@ app.get("/api/players", async (req, res) => {
       installId: p?.installId || null,
       team: getTeamForInstallCached(p?.installId),
       isBot: isBotToken(p?.token),
-      isDailyChampion: isDailyChampionInstallId(p?.installId),
+      isDailyChampion: isDailyChampionPlayer(p),
+      isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(p),
     }))
     .filter((p) => p.nick)
     .sort((a, b) => a.nick.localeCompare(b.nick));
@@ -1568,6 +1630,14 @@ const DEFAULT_DEV_CONTROLS = Object.freeze({
   chatFill: false,
   botChat: false,
   botReactions: false,
+  selfCrown: false,
+  selfGoldNick: false,
+  selfCrownTargetUserId: "",
+  selfCrownTargetInstallId: "",
+  selfCrownTargetNick: "",
+  selfGoldNickTargetUserId: "",
+  selfGoldNickTargetInstallId: "",
+  selfGoldNickTargetNick: "",
 });
 let devControls = loadDevControls();
 const moderationInstallBans = new Map();
@@ -1795,6 +1865,14 @@ function normalizeDevControls(raw = {}) {
     chatFill: !!source.chatFill,
     botChat: !!source.botChat,
     botReactions: !!source.botReactions,
+    selfCrown: !!source.selfCrown,
+    selfGoldNick: !!source.selfGoldNick,
+    selfCrownTargetUserId: String(source.selfCrownTargetUserId || "").trim(),
+    selfCrownTargetInstallId: normalizeInstallIdRaw(source.selfCrownTargetInstallId || ""),
+    selfCrownTargetNick: String(source.selfCrownTargetNick || "").trim(),
+    selfGoldNickTargetUserId: String(source.selfGoldNickTargetUserId || "").trim(),
+    selfGoldNickTargetInstallId: normalizeInstallIdRaw(source.selfGoldNickTargetInstallId || ""),
+    selfGoldNickTargetNick: String(source.selfGoldNickTargetNick || "").trim(),
   };
 }
 
@@ -1824,6 +1902,87 @@ function isDevControlsActive(flag = null) {
   if (!devControls?.enabled) return false;
   if (!flag) return true;
   return !!devControls[flag];
+}
+
+function getDevSelfRewardTargetFromSocket(socket) {
+  const player =
+    socket?.roomId && rooms.get(socket.roomId)?.players?.get(socket.id)
+      ? rooms.get(socket.roomId).players.get(socket.id)
+      : null;
+  const userIdCandidate =
+    socket?.data?.userId ??
+    socket?.data?.authUser?.id ??
+    player?.userId ??
+    null;
+  const userId = Number.isInteger(Number(userIdCandidate)) ? String(Number(userIdCandidate)) : "";
+  const installId =
+    normalizeInstallId(socket?.data?.installId || player?.installId || "") ||
+    normalizeInstallIdRaw(socket?.data?.installId || player?.installId || "");
+  const nick = String(socket?.data?.nick || player?.nick || "").trim();
+  return { userId, installId, nick };
+}
+
+function clearDevSelfRewardTarget(controls, prefix) {
+  controls[`${prefix}TargetUserId`] = "";
+  controls[`${prefix}TargetInstallId`] = "";
+  controls[`${prefix}TargetNick`] = "";
+}
+
+function bindDevSelfRewardTarget(controls, prefix, socket) {
+  const target = getDevSelfRewardTargetFromSocket(socket);
+  controls[`${prefix}TargetUserId`] = target.userId || "";
+  controls[`${prefix}TargetInstallId`] = target.installId || "";
+  controls[`${prefix}TargetNick`] = target.nick || "";
+}
+
+function ensureDevSelfRewardTarget(controls, prefix, socket) {
+  if (!controls?.[prefix]) return false;
+  const hasTarget =
+    !!controls[`${prefix}TargetUserId`] ||
+    !!controls[`${prefix}TargetInstallId`] ||
+    !!controls[`${prefix}TargetNick`];
+  if (hasTarget) return false;
+  bindDevSelfRewardTarget(controls, prefix, socket);
+  return (
+    !!controls[`${prefix}TargetUserId`] ||
+    !!controls[`${prefix}TargetInstallId`] ||
+    !!controls[`${prefix}TargetNick`]
+  );
+}
+
+function applyDevSelfRewardTargetPatch(previousControls, nextControls, payload, socket) {
+  const patch = payload && typeof payload === "object" ? payload : {};
+  for (const prefix of ["selfCrown", "selfGoldNick"]) {
+    if (!Object.prototype.hasOwnProperty.call(patch, prefix)) {
+      continue;
+    }
+    if (nextControls[prefix]) {
+      bindDevSelfRewardTarget(nextControls, prefix, socket);
+    } else {
+      clearDevSelfRewardTarget(nextControls, prefix);
+    }
+  }
+  if (nextControls.selfCrown && !previousControls.selfCrown) {
+    ensureDevSelfRewardTarget(nextControls, "selfCrown", socket);
+  }
+  if (nextControls.selfGoldNick && !previousControls.selfGoldNick) {
+    ensureDevSelfRewardTarget(nextControls, "selfGoldNick", socket);
+  }
+}
+
+function isDevSelfRewardTarget(prefix, subject = {}) {
+  if (!isDevControlsActive(prefix)) return false;
+  const targetUserId = String(devControls?.[`${prefix}TargetUserId`] || "").trim();
+  const targetInstallId = normalizeInstallId(devControls?.[`${prefix}TargetInstallId`] || "");
+  const targetNick = String(devControls?.[`${prefix}TargetNick`] || "").trim().toLowerCase();
+  const subjectUserId = Number.isInteger(Number(subject?.userId))
+    ? String(Number(subject.userId))
+    : "";
+  const subjectInstallId = normalizeInstallId(subject?.installId || "");
+  const subjectNick = String(subject?.nick || subject?.fallbackNick || "").trim().toLowerCase();
+  if (targetUserId && subjectUserId && targetUserId === subjectUserId) return true;
+  if (targetInstallId && subjectInstallId && targetInstallId === subjectInstallId) return true;
+  return !!targetNick && !!subjectNick && targetNick === subjectNick;
 }
 
 function isPrivateClientIp(ip) {
@@ -2213,8 +2372,50 @@ function scheduleWeeklyWinnerGobblarsGrant(rawInstallId, weekId) {
 }
 
 function isDailyChampionInstallId(raw) {
+  if (isDevSelfRewardTarget("selfCrown", { installId: raw })) return true;
   const entry = getDuelCacheEntry(raw);
   return !!entry?.crowned;
+}
+
+function isDailyChampionPlayer(player) {
+  if (isDevSelfRewardTarget("selfCrown", player)) return true;
+  return isDailyChampionInstallId(player?.installId);
+}
+
+let weeklyVocabChampionCache = { checkedAt: 0, champion: null };
+
+function getCachedPreviousWeeklyVocabChampion() {
+  const now = Date.now();
+  if (now - weeklyVocabChampionCache.checkedAt < 5000) {
+    return weeklyVocabChampionCache.champion;
+  }
+  const champion = getPreviousWeeklyVocabChampion(now);
+  weeklyVocabChampionCache = { checkedAt: now, champion };
+  return champion;
+}
+
+function isWeeklyVocabChampionPlayer(player) {
+  if (isDevSelfRewardTarget("selfGoldNick", player)) return true;
+  const champion = getCachedPreviousWeeklyVocabChampion();
+  if (!champion) return false;
+  const playerKey = getMedalKeyForPlayer(player);
+  if (champion.playerKey && playerKey && champion.playerKey === playerKey) return true;
+  const installId = normalizeInstallId(player?.installId);
+  if (champion.installId && installId && champion.installId === installId) return true;
+  const nick = typeof player?.nick === "string" ? player.nick.trim() : "";
+  return !!champion.nick && !!nick && champion.nick === nick;
+}
+
+function isWeeklyVocabChampionInstallId(raw, fallbackNick = "") {
+  if (isDevSelfRewardTarget("selfGoldNick", { installId: raw, fallbackNick })) return true;
+  const champion = getCachedPreviousWeeklyVocabChampion();
+  if (!champion) return false;
+  const playerKey = getMedalKeyForInstallId(raw);
+  if (champion.playerKey && playerKey && champion.playerKey === playerKey) return true;
+  const installId = normalizeInstallId(raw);
+  if (champion.installId && installId && champion.installId === installId) return true;
+  const nick = typeof fallbackNick === "string" ? fallbackNick.trim() : "";
+  return !!champion.nick && !!nick && champion.nick === nick;
 }
 
 function getTeamForInstallCached(rawInstallId) {
@@ -2753,7 +2954,7 @@ function buildMassiveBoggleTournamentPlan(tournamentRound, roomConfig) {
     isSpecial: true,
     type: MASSIVE_BOGGLE_TYPE,
     label: "Massive Boggle",
-    description: "Barème Massive Boggle : 3/4=1, 5=2, 6=3, 7=5, 8+=11",
+    description: "Mots de 3+ lettres, bonus de tuiles désactivés",
     minWords: CLASSIC_BOGGLE_MIN_WORDS,
     minLongWordLen: CLASSIC_BOGGLE_MIN_LONG_WORD_LEN,
     minLongWordCount: CLASSIC_BOGGLE_MIN_LONG_WORD_COUNT,
@@ -2984,7 +3185,7 @@ function buildSpecialWarning(plan) {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (une case vaut 2 lettres, mots de 4+ lettres)`;
   }
   if (plan.type === MASSIVE_BOGGLE_TYPE) {
-    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (barème Massive Boggle, mots de 3+ lettres)`;
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (mots de 3+ lettres)`;
   }
   return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label}`;
 }
@@ -3087,7 +3288,8 @@ function emitPlayers(room) {
         team: getTeamForInstallCached(p.installId),
         isBot: isBotToken(p?.token),
         connected: isPlayerConnected(p) || isBotToken(p?.token),
-        isDailyChampion: isDailyChampionInstallId(p.installId),
+        isDailyChampion: isDailyChampionPlayer(p),
+        isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(p),
       }))
   );
 }
@@ -3579,6 +3781,8 @@ function buildBreakSnapshot(room) {
 function buildLiveRanking(room, roundId) {
   if (!room?.currentRound) return [];
   const roundSubs = room.submissions.get(roundId) || new Map();
+  const roundGobbles =
+    room.currentRound.gobbles instanceof Map ? room.currentRound.gobbles : new Map();
   const ranking = [];
   for (const player of room.players.values()) {
     const data = roundSubs.get(player.nick);
@@ -3589,17 +3793,22 @@ function buildLiveRanking(room, roundId) {
       nick: player.nick,
       userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       score: data?.score || 0,
+      gobbles: Number(roundGobbles.get(player.nick)) || 0,
       team: getTeamForInstallCached(player.installId),
-      isDailyChampion: isDailyChampionInstallId(player.installId),
+      isDailyChampion: isDailyChampionPlayer(player),
+      isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     });
   }
   ranking.sort((a, b) => (b.score || 0) - (a.score || 0));
   return ranking.map((entry, idx) => ({
     nick: entry.nick,
     userId: Number.isInteger(Number(entry?.userId)) ? Number(entry.userId) : null,
+    score: Number(entry.score) || 0,
     rank: idx + 1,
+    gobbles: Number(entry.gobbles) || 0,
     team: entry.team || null,
     isDailyChampion: !!entry.isDailyChampion,
+    isWeeklyVocabChampion: !!entry.isWeeklyVocabChampion,
   }));
 }
 
@@ -3652,7 +3861,8 @@ function buildSessionSnapshot(room, player) {
     words,
     participated,
     team: getTeamForInstallCached(player.installId),
-    isDailyChampion: isDailyChampionInstallId(player.installId),
+    isDailyChampion: isDailyChampionPlayer(player),
+    isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     special3Words,
   };
 
@@ -3690,6 +3900,8 @@ function buildRankingUpdatePayload(room) {
   if (!room?.currentRound || room.currentRound.status !== "running") return null;
   const roundSubs = room.submissions.get(room.currentRound.id);
   if (!roundSubs) return null;
+  const roundGobbles =
+    room.currentRound.gobbles instanceof Map ? room.currentRound.gobbles : new Map();
 
   const ranking = [];
   for (const player of room.players.values()) {
@@ -3701,8 +3913,10 @@ function buildRankingUpdatePayload(room) {
       nick: player.nick,
       userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       score: data?.score || 0,
+      gobbles: Number(roundGobbles.get(player.nick)) || 0,
       team: getTeamForInstallCached(player.installId),
-      isDailyChampion: isDailyChampionInstallId(player.installId),
+      isDailyChampion: isDailyChampionPlayer(player),
+      isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     });
   }
 
@@ -3710,14 +3924,17 @@ function buildRankingUpdatePayload(room) {
   const compact = ranking.map((entry, idx) => ({
     nick: entry.nick,
     userId: Number.isInteger(Number(entry?.userId)) ? Number(entry.userId) : null,
+    score: Number(entry.score) || 0,
     rank: idx + 1,
+    gobbles: Number(entry.gobbles) || 0,
     team: entry.team || null,
     isDailyChampion: entry.isDailyChampion || false,
+    isWeeklyVocabChampion: entry.isWeeklyVocabChampion || false,
   }));
   const signature = ranking
     .map(
       (entry) =>
-        `${entry.nick}:${Number(entry.score) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}`
+        `${entry.nick}:${Number(entry.score) || 0}:${Number(entry.gobbles) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}:${entry.isWeeklyVocabChampion ? 1 : 0}`
     )
     .join("|");
 
@@ -4375,6 +4592,8 @@ function pushAnnouncement(room, payload) {
 function getFullRanking(room) {
   if (!room.currentRound) return [];
   const roundSubs = room.submissions.get(room.currentRound.id) || new Map();
+  const roundGobbles =
+    room.currentRound.gobbles instanceof Map ? room.currentRound.gobbles : new Map();
   const ranking = [];
   for (const [nick, data] of roundSubs.entries()) {
     const lookup = findPlayerByNick(room, nick);
@@ -4382,8 +4601,10 @@ function getFullRanking(room) {
       nick,
       userId: Number.isInteger(Number(lookup?.player?.userId)) ? Number(lookup.player.userId) : null,
       score: data.score || 0,
+      gobbles: Number(roundGobbles.get(nick)) || 0,
       team: getTeamForInstallCached(lookup?.player?.installId),
       isDailyChampion: isDailyChampionInstallId(lookup?.player?.installId),
+      isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(lookup?.player?.installId, nick),
     });
   }
   ranking.sort((a, b) => b.score - a.score);
@@ -4772,9 +4993,12 @@ function computeOcidRoundResults(room, baseResults) {
   }
 
   const byNick = new Map((Array.isArray(baseResults) ? baseResults : []).map((entry) => [entry.nick, entry]));
+  const roundSubs = room?.submissions?.get?.(round.id) || new Map();
   for (const player of room.players.values()) {
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
     const hasOcidActivity = proposals.has(player.nick) || votes.has(player.nick);
+    const roundEligible = roundSubs.has(player.nick);
+    if (!roundEligible && !hasOcidActivity) continue;
     if (!connected && !hasOcidActivity) continue;
     if (!byNick.has(player.nick)) {
       byNick.set(player.nick, {
@@ -4787,9 +5011,13 @@ function computeOcidRoundResults(room, baseResults) {
         installId: player?.installId || null,
         team: getTeamForInstallCached(player?.installId),
         isBot: isBotNick(room, player.nick),
-        isDailyChampion: isDailyChampionInstallId(player?.installId),
+        isDailyChampion: isDailyChampionPlayer(player),
+        isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
         connected,
+        roundEligible,
       });
+    } else if (roundEligible) {
+      byNick.set(player.nick, { ...byNick.get(player.nick), roundEligible: true });
     }
   }
   const results = Array.from(byNick.values()).map((entry) => {
@@ -5767,6 +5995,76 @@ function getMedalKeyForNickLookup(room, nick) {
   return getMedalKeyForNick(nick);
 }
 
+async function computeWeeklyVocabRankMap(atTs = Date.now(), overrides = []) {
+  const byKey = new Map();
+  const addEntry = (entry) => {
+    const playerKey =
+      typeof entry?.playerKey === "string" && entry.playerKey.trim()
+        ? entry.playerKey.trim()
+        : getMedalKeyForInstallId(entry?.installId);
+    if (!playerKey) return;
+    const weeklyVocabCount = Number(entry?.weeklyVocabCount ?? entry?.vocabCount ?? entry?.count);
+    if (!Number.isFinite(weeklyVocabCount) || weeklyVocabCount <= 0) return;
+    const achievedAt = Number(entry?.achievedAt ?? entry?.updatedAt) || atTs;
+    const current = byKey.get(playerKey);
+    if (
+      !current ||
+      weeklyVocabCount > current.weeklyVocabCount ||
+      (weeklyVocabCount === current.weeklyVocabCount && achievedAt < current.achievedAt)
+    ) {
+      byKey.set(playerKey, {
+        nick: typeof entry?.nick === "string" ? entry.nick.trim() : "",
+        playerKey,
+        weeklyVocabCount,
+        achievedAt,
+      });
+    }
+  };
+
+  const weeklyStatsSnapshot = getWeeklyStats(500);
+  const weeklyVocabEntries = Array.isArray(weeklyStatsSnapshot?.boards?.weeklyVocab)
+    ? weeklyStatsSnapshot.boards.weeklyVocab
+    : [];
+  weeklyVocabEntries.forEach(addEntry);
+
+  const fallbackEntries = await getWeeklyVocabularyLeaderboard(atTs, 500).catch(() => []);
+  if (Array.isArray(fallbackEntries)) {
+    fallbackEntries.forEach((entry) =>
+      addEntry({
+        ...entry,
+        playerKey: getMedalKeyForInstallId(entry?.installId),
+        weeklyVocabCount: Number(entry?.count) || 0,
+      })
+    );
+  }
+
+  for (const override of Array.isArray(overrides) ? overrides : []) {
+    const playerKey = typeof override?.playerKey === "string" ? override.playerKey.trim() : "";
+    if (!playerKey) continue;
+    const weeklyVocabCount = Number(override?.weeklyVocabCount);
+    if (!Number.isFinite(weeklyVocabCount) || weeklyVocabCount <= 0) {
+      byKey.delete(playerKey);
+      continue;
+    }
+    const existing = byKey.get(playerKey);
+    byKey.set(playerKey, {
+      nick: typeof override?.nick === "string" ? override.nick.trim() : existing?.nick || "",
+      playerKey,
+      weeklyVocabCount,
+      achievedAt: Number(override?.achievedAt) || existing?.achievedAt || atTs,
+    });
+  }
+
+  const ranked = Array.from(byKey.values()).sort((a, b) => {
+    const diff = (Number(b.weeklyVocabCount) || 0) - (Number(a.weeklyVocabCount) || 0);
+    if (diff !== 0) return diff;
+    const timeDiff = (Number(a.achievedAt) || 0) - (Number(b.achievedAt) || 0);
+    if (timeDiff !== 0) return timeDiff;
+    return String(a.nick || "").localeCompare(String(b.nick || ""));
+  });
+  return new Map(ranked.map((entry, idx) => [entry.playerKey, idx + 1]));
+}
+
 function getInstallIdForNick(room, nick) {
   if (!room || !nick) return null;
   const cached = room.nickToInstallId?.get(nick);
@@ -5977,9 +6275,9 @@ function recomputeRoundGobblesFromResults(room, results) {
       const wordMeta =
         entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
       const metaKey = Object.keys(wordMeta).find((key) => normalizeWord(key) === scored.norm);
-      const rareBonusPoints = Number(
-        (metaKey ? wordMeta[metaKey] : wordMeta[scored.norm])?.rareBonusPoints
-      ) || 0;
+      const rareBonusPoints = shouldApplyRareWordBonus(room.currentRound)
+        ? Number((metaKey ? wordMeta[metaKey] : wordMeta[scored.norm])?.rareBonusPoints) || 0
+        : 0;
       const pts = computeWordScoreForRound(
         room.currentRound,
         scored.norm,
@@ -6922,14 +7220,6 @@ async function endRoundForRoom(room) {
   let targetSummary = null;
   let ocidSummary = null;
 
-  for (const player of room.players.values()) {
-    const connected = isPlayerConnected(player) || isBotToken(player?.token);
-    if (!connected) continue;
-    if (!roundSubs.has(player.nick)) {
-      roundSubs.set(player.nick, { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() });
-    }
-  }
-
   for (const [nick, data] of roundSubs.entries()) {
     const lookup = findPlayerByNick(room, nick);
     const player = lookup?.player || null;
@@ -6950,10 +7240,12 @@ async function endRoundForRoom(room) {
     );
     const wordMetaObj =
       data.wordMeta instanceof Map ? Object.fromEntries(data.wordMeta.entries()) : {};
-    const rareBonusPoints = Object.values(wordMetaObj).reduce(
-      (sum, meta) => sum + (Number(meta?.rareBonusPoints) || 0),
-      0
-    );
+    const rareBonusPoints = shouldApplyRareWordBonus(room.currentRound)
+      ? Object.values(wordMetaObj).reduce(
+          (sum, meta) => sum + (Number(meta?.rareBonusPoints) || 0),
+          0
+        )
+      : 0;
     results.push({
       nick,
       score: data.score,
@@ -6972,9 +7264,11 @@ async function endRoundForRoom(room) {
       installId: player?.installId || null,
       team: getTeamForInstallCached(player?.installId),
       isBot: isBotNick(room, nick),
-      isDailyChampion: isDailyChampionInstallId(player?.installId),
+      isDailyChampion: isDailyChampionPlayer(player),
+      isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(player?.installId, nick),
       connected,
       participated,
+      roundEligible: true,
     });
   }
 
@@ -7062,10 +7356,38 @@ async function endRoundForRoom(room) {
             currentInstallId: installId,
           })
         : [installId];
+    const playerKey = getMedalKeyForNickLookup(room, entry.nick);
+    if (!playerKey) continue;
     vocabInstallIdsByNick.set(entry.nick, vocabInstallIds);
-    vocabEntries.push({ installId, words, ts: endedAt, nick: entry.nick });
-    vocabLookups.push({ installId, installIds: vocabInstallIds, words, nick: entry.nick });
+    const vocabEntry = { installId, words, weeklyWords: words, ts: endedAt, nick: entry.nick };
+    vocabEntries.push(vocabEntry);
+    vocabLookups.push({
+      installId,
+      installIds: vocabInstallIds,
+      playerKey,
+      words,
+      nick: entry.nick,
+    });
   }
+  const weeklyVocabRankBeforeOverrides = [];
+  if (vocabLookups.length) {
+    for (const lookup of vocabLookups) {
+      const weeklyCountBefore = await getWeeklyVocabularyCountForInstallIds(
+        lookup.installIds?.length ? lookup.installIds : [lookup.installId],
+        endedAt
+      );
+      lookup.weeklyVocabCountBefore = weeklyCountBefore;
+      weeklyVocabRankBeforeOverrides.push({
+        playerKey: lookup.playerKey,
+        nick: lookup.nick,
+        weeklyVocabCount: weeklyCountBefore,
+        achievedAt: endedAt,
+      });
+    }
+  }
+  const weeklyVocabRankBeforeMap = weeklyVocabRankBeforeOverrides.length
+    ? await computeWeeklyVocabRankMap(endedAt, weeklyVocabRankBeforeOverrides)
+    : new Map();
   if (vocabLookups.length) {
     for (const lookup of vocabLookups) {
       const knownWords = await getKnownVocabWordsForInstallIds(
@@ -7076,6 +7398,11 @@ async function endRoundForRoom(room) {
       const resultEntry = resultsByNick.get(lookup.nick);
       if (resultEntry) {
         resultEntry.newVocabWords = newVocabWords;
+        resultEntry.vocabWeeklyRank = {
+          before: weeklyVocabRankBeforeMap.get(lookup.playerKey) || null,
+          after: null,
+          delta: 0,
+        };
       }
     }
   }
@@ -7088,6 +7415,7 @@ async function endRoundForRoom(room) {
     }
   }
   if (vocabEntries.length && vocabSummary && typeof vocabSummary === "object") {
+    const weeklyVocabRankAfterOverrides = [];
     for (const entry of vocabEntries) {
       const summary = vocabSummary[entry.installId];
       if (!summary) continue;
@@ -7096,6 +7424,30 @@ async function endRoundForRoom(room) {
       const vocabInstallIds = vocabInstallIdsByNick.get(entry.nick) || [entry.installId];
       const totalCount = await getVocabularyCountForInstallIds(vocabInstallIds);
       recordVocabCount(playerKey, entry.nick, totalCount, endedAt);
+      const weeklyCount = await getWeeklyVocabularyCountForInstallIds(vocabInstallIds, endedAt);
+      recordWeeklyVocabCount(playerKey, entry.nick, weeklyCount, endedAt);
+      weeklyVocabRankAfterOverrides.push({
+        playerKey,
+        nick: entry.nick,
+        weeklyVocabCount: weeklyCount,
+        achievedAt: endedAt,
+      });
+    }
+    const weeklyVocabRankAfterMap = weeklyVocabRankAfterOverrides.length
+      ? await computeWeeklyVocabRankMap(endedAt, weeklyVocabRankAfterOverrides)
+      : new Map();
+    for (const entry of vocabEntries) {
+      const playerKey = getMedalKeyForNickLookup(room, entry.nick);
+      if (!playerKey) continue;
+      const resultEntry = resultsByNick.get(entry.nick);
+      if (!resultEntry) continue;
+      const before = Number(resultEntry?.vocabWeeklyRank?.before) || null;
+      const after = weeklyVocabRankAfterMap.get(playerKey) || null;
+      resultEntry.vocabWeeklyRank = {
+        before,
+        after,
+        delta: Number.isFinite(before) && Number.isFinite(after) ? before - after : 0,
+      };
     }
   }
 
@@ -7340,23 +7692,27 @@ async function endRoundForRoom(room) {
     });
 
     const targetResults = [];
-    for (const player of room.players.values()) {
+    for (const [nick] of roundSubs.entries()) {
+      const lookup = findPlayerByNick(room, nick);
+      const player = lookup?.player || null;
       const connected = isPlayerConnected(player) || isBotToken(player?.token);
       if (!connected) continue;
-      const meta = foundMeta.get(player.nick);
+      const meta = foundMeta.get(nick);
       targetResults.push({
-        nick: player.nick,
+        nick,
         score: meta ? meta.points : 0,
         words: meta ? [room.currentRound.targetWord || ""] : [],
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
         userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
-        installId: player.installId || null,
-        team: getTeamForInstallCached(player.installId),
+        installId: player?.installId || null,
+        team: getTeamForInstallCached(player?.installId),
         isBot: isBotToken(player?.token),
-        isDailyChampion: isDailyChampionInstallId(player?.installId),
+        isDailyChampion: isDailyChampionPlayer(player),
+        isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
         connected,
         participated: !!meta,
+        roundEligible: true,
       });
     }
 
@@ -7385,6 +7741,9 @@ async function endRoundForRoom(room) {
       if (!Number.isInteger(Number(entry?.userId)) || Number(entry.userId) <= 0) return false;
       const score = Number(entry?.score);
       if (!Number.isFinite(score)) return false;
+      if (liveHeadToHeadAllowsZeroScores && !entry?.roundEligible && !entry?.participated) {
+        return false;
+      }
       return liveHeadToHeadAllowsZeroScores ? score >= 0 : score > 0;
     })
     .map((entry) => ({
@@ -7427,6 +7786,7 @@ async function endRoundForRoom(room) {
           team: getTeamForInstallCached(installId),
           isBot: isBotNick(room, nick),
           isDailyChampion: isDailyChampionInstallId(installId),
+          isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(installId, nick),
         };
       })
       .sort((a, b) => {
@@ -7800,7 +8160,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (resumeSocketId) {
+    if (resumeSocketId && resumeSocketId !== socket.id) {
       clearPendingDisconnect(room, resumeSocketId);
       room.players.delete(resumeSocketId);
       const oldSocket = io.sockets.sockets.get(resumeSocketId);
@@ -8003,6 +8363,7 @@ io.on("connection", (socket) => {
       text: safeText,
       team: getTeamForInstallCached(installId),
       isDailyChampion: isDailyChampionInstallId(installId),
+      isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(installId, authorNick),
     };
     if (replyTo) {
       message.replyTo = replyTo;
@@ -8214,6 +8575,13 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
       return;
     }
+    let targetChanged = false;
+    targetChanged = ensureDevSelfRewardTarget(devControls, "selfCrown", socket) || targetChanged;
+    targetChanged = ensureDevSelfRewardTarget(devControls, "selfGoldNick", socket) || targetChanged;
+    if (targetChanged) {
+      persistDevControls();
+      broadcastCrownUpdate();
+    }
     cb?.({ ok: true, ...buildDevControlsPayload(socket) });
   });
 
@@ -8235,6 +8603,7 @@ io.on("connection", (socket) => {
     if (!requireDevToolsAccess(socket, cb)) return;
     const previous = normalizeDevControls(devControls);
     devControls = normalizeDevControls({ ...previous, ...(payload || {}) });
+    applyDevSelfRewardTargetPatch(previous, devControls, payload, socket);
     persistDevControls();
     if (previous.botsEnabled !== devControls.botsEnabled) {
       botManager?.setBotsEnabled?.(devControls.botsEnabled);
@@ -8253,6 +8622,18 @@ io.on("connection", (socket) => {
         clearDevChat(room);
       }
       emitMedals(room);
+    }
+    if (
+      previous.selfCrown !== devControls.selfCrown ||
+      previous.selfGoldNick !== devControls.selfGoldNick ||
+      previous.selfCrownTargetUserId !== devControls.selfCrownTargetUserId ||
+      previous.selfCrownTargetInstallId !== devControls.selfCrownTargetInstallId ||
+      previous.selfCrownTargetNick !== devControls.selfCrownTargetNick ||
+      previous.selfGoldNickTargetUserId !== devControls.selfGoldNickTargetUserId ||
+      previous.selfGoldNickTargetInstallId !== devControls.selfGoldNickTargetInstallId ||
+      previous.selfGoldNickTargetNick !== devControls.selfGoldNickTargetNick
+    ) {
+      broadcastCrownUpdate();
     }
     cb?.({ ok: true, ...buildDevControlsPayload(socket) });
   });
@@ -8523,7 +8904,10 @@ io.on("connection", (socket) => {
       const count = await getVocabularyCountForInstallIds(
         installIds.length ? installIds : [installId]
       );
-      cb?.({ count });
+      const weeklyCount = await getWeeklyVocabularyCountForInstallIds(
+        installIds.length ? installIds : [installId]
+      );
+      cb?.({ count, weeklyCount });
     } catch (err) {
       console.warn("getVocabCount failed", err);
       cb?.({ count: 0 });

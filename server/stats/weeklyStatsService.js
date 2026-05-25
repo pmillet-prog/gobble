@@ -30,6 +30,7 @@ function buildWeekState(weekStartTs) {
     bestTimeTargetLong: new Map(),
     bestTimeTargetScore: new Map(),
     vocab: new Map(),
+    weeklyVocab: new Map(),
     mostGobbles: new Map(),
   };
 }
@@ -190,6 +191,7 @@ function serializeWeekState(week) {
     bestTimeTargetLong: serializeMap(week.bestTimeTargetLong),
     bestTimeTargetScore: serializeMap(week.bestTimeTargetScore),
     vocab: serializeMap(week.vocab),
+    weeklyVocab: serializeMap(week.weeklyVocab),
     mostGobbles: serializeMap(week.mostGobbles),
   };
 }
@@ -208,6 +210,7 @@ function reviveWeekState(parsed, fallbackWeekStartTs) {
     bestTimeTargetLong: reviveMap(parsed?.bestTimeTargetLong),
     bestTimeTargetScore: reviveMap(parsed?.bestTimeTargetScore),
     vocab: reviveMap(parsed?.vocab),
+    weeklyVocab: reviveMap(parsed?.weeklyVocab),
     mostGobbles: reviveMap(parsed?.mostGobbles),
   };
 }
@@ -233,6 +236,7 @@ function isWeekEmpty(week) {
     week.bestTimeTargetLong.size === 0 &&
     week.bestTimeTargetScore.size === 0 &&
     week.vocab.size === 0 &&
+    week.weeklyVocab.size === 0 &&
     week.mostGobbles.size === 0
   );
 }
@@ -583,6 +587,25 @@ export function recordVocabCount(playerKey, nick, vocabCount, achievedAt = Date.
   scheduleSave();
 }
 
+export function recordWeeklyVocabCount(playerKey, nick, weeklyVocabCount, achievedAt = Date.now()) {
+  ensureCurrentWeek();
+  if (!playerKey || !nick || !Number.isFinite(weeklyVocabCount) || weeklyVocabCount <= 0) return;
+  const current = state.weeklyVocab.get(playerKey) || {
+    nick,
+    playerKey,
+    weeklyVocabCount: 0,
+    achievedAt,
+  };
+  const nextCount = Math.max(current.weeklyVocabCount || 0, weeklyVocabCount);
+  const result = {
+    ...current,
+    weeklyVocabCount: nextCount,
+    achievedAt: nextCount === current.weeklyVocabCount ? current.achievedAt : achievedAt,
+  };
+  state.weeklyVocab.set(playerKey, result);
+  scheduleSave();
+}
+
 function sortEntries(arr, key, asc = false) {
   return arr.sort((a, b) => {
     const av = a?.[key] ?? 0;
@@ -594,6 +617,35 @@ function sortEntries(arr, key, asc = false) {
     const bt = b?.achievedAt ?? 0;
     return at - bt;
   });
+}
+
+export function getPreviousWeeklyVocabChampion(now = Date.now()) {
+  ensureCurrentWeek();
+  const currentWeekStart = state.weekStartTs || getWeekStartTs(now);
+  const previousWeekStart = getWeekStartTs(currentWeekStart - 60 * 1000);
+  const previousWeek = history.get(previousWeekStart);
+  if (!previousWeek?.weeklyVocab || previousWeek.weeklyVocab.size === 0) return null;
+  const winner = Array.from(previousWeek.weeklyVocab.values())
+    .filter((entry) => Number(entry?.weeklyVocabCount) > 0)
+    .sort((a, b) => {
+      const countDiff =
+        (Number(b?.weeklyVocabCount) || 0) - (Number(a?.weeklyVocabCount) || 0);
+      if (countDiff !== 0) return countDiff;
+      const timeDiff = (Number(a?.achievedAt) || 0) - (Number(b?.achievedAt) || 0);
+      if (timeDiff !== 0) return timeDiff;
+      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+    })[0];
+  if (!winner) return null;
+  const playerKey = typeof winner.playerKey === "string" ? winner.playerKey.trim() : "";
+  const installId = playerKey.startsWith("install:") ? playerKey.slice("install:".length) : "";
+  return {
+    nick: typeof winner.nick === "string" ? winner.nick.trim() : "",
+    playerKey,
+    installId,
+    weeklyVocabCount: Number(winner.weeklyVocabCount) || 0,
+    achievedAt: Number(winner.achievedAt) || 0,
+    weekStartTs: Number(previousWeek.weekStartTs) || 0,
+  };
 }
 
 export function getWeeklyStats(topN = TOP_N) {
@@ -632,6 +684,11 @@ export function getWeeklyStats(topN = TOP_N) {
       bestTimeTargetLong: sortEntries(bestTimeTargetLong, "ms", true).slice(0, topN),
       bestTimeTargetScore: sortEntries(bestTimeTargetScore, "ms", true).slice(0, topN),
       vocab: sortEntries(Array.from(activeState.vocab.values()), "vocabCount", false).slice(0, topN),
+      weeklyVocab: sortEntries(
+        Array.from(activeState.weeklyVocab.values()),
+        "weeklyVocabCount",
+        false
+      ).slice(0, topN),
       mostGobbles: sortEntries(Array.from(activeState.mostGobbles.values()), "gobbles", false).slice(0, topN),
     },
   };
@@ -650,6 +707,7 @@ function findNickInWeekState(weekState, playerKey) {
     weekState.bestTimeTargetLong,
     weekState.bestTimeTargetScore,
     weekState.vocab,
+    weekState.weeklyVocab,
     weekState.mostGobbles,
   ];
   for (const board of boards) {
@@ -678,6 +736,7 @@ function getWeekPlayerEntries(weekState, playerKey) {
     bestTimeTargetLong: cloneWeeklyEntry(weekState.bestTimeTargetLong?.get?.(playerKey)),
     bestTimeTargetScore: cloneWeeklyEntry(weekState.bestTimeTargetScore?.get?.(playerKey)),
     vocab: cloneWeeklyEntry(weekState.vocab?.get?.(playerKey)),
+    weeklyVocab: cloneWeeklyEntry(weekState.weeklyVocab?.get?.(playerKey)),
     mostGobbles: cloneWeeklyEntry(weekState.mostGobbles?.get?.(playerKey)),
   };
 }
@@ -708,6 +767,7 @@ function summarizeAllTimeWeeklyEntries(weeks, playerKey) {
     bestTimeTargetLong: null,
     bestTimeTargetScore: null,
     vocab: null,
+    weeklyVocab: null,
   };
   for (const weekState of weeks) {
     const entries = getWeekPlayerEntries(weekState, playerKey);
@@ -753,6 +813,12 @@ function summarizeAllTimeWeeklyEntries(weeks, playerKey) {
       true
     );
     summary.vocab = replaceBest(summary.vocab, entries.vocab, "vocabCount", false);
+    summary.weeklyVocab = replaceBest(
+      summary.weeklyVocab,
+      entries.weeklyVocab,
+      "weeklyVocabCount",
+      false
+    );
   }
   return summary;
 }

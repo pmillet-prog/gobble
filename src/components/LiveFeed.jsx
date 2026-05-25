@@ -107,6 +107,7 @@ function LiveFeed({
   wrapAroundWidth = "clamp(48px, 12vw, 72px)",
   wrapAroundHeight = "clamp(48px, 12vw, 72px)",
   bannerText = "",
+  getNickClassName = null,
 }) {
   const color = darkMode ? "text-slate-200" : "text-slate-800";
   const listRef = useRef(null);
@@ -153,7 +154,17 @@ function LiveFeed({
       if (!part) return null;
       const isNick = escapedNick && nick && part.toLowerCase() === nick.toLowerCase();
       const isNumber = /^\d+$/.test(part.trim());
-      if (isNick || isNumber) {
+      if (isNick) {
+        return (
+          <strong
+            key={idx}
+            className={["font-bold", getNickClassName?.({ nick }, nick)].filter(Boolean).join(" ")}
+          >
+            {part}
+          </strong>
+        );
+      }
+      if (isNumber) {
         return (
           <strong key={idx} className="font-bold">
             {part}

@@ -35,6 +35,7 @@ function MobileChatLayer(props) {
     keyboardInsetReservePx = 0,
     mobileChatReactionToasts = [],
     mobileChatUnreadCount = 0,
+    getAuthorNickClassName = null,
     onChangeChatTab = null,
     onChatInputFocus = null,
     onClearChatEdit = null,
@@ -90,6 +91,7 @@ function MobileChatLayer(props) {
       hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
       chatKeyboardInsetPx={chatKeyboardInsetPx}
       keyboardInsetReservePx={keyboardInsetReservePx}
+      getAuthorNickClassName={getAuthorNickClassName}
       isChatOpenMobile={isChatOpenMobile}
       isChatClosing={isChatClosing}
       mobileChatUnreadCount={mobileChatUnreadCount}

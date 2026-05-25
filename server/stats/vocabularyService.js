@@ -5,6 +5,7 @@ import { createHash } from "crypto";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
+import { getWeekStartTs } from "./weeklyStatsService.js";
 import {
   runSerializedSqliteWrite,
   runSqliteBusyRetry,
@@ -80,6 +81,7 @@ function collectProfilesFromWeekObject(weekObj, sink) {
     "bestTimeTargetLong",
     "bestTimeTargetScore",
     "vocab",
+    "weeklyVocab",
     "mostGobbles",
   ];
   for (const boardKey of boardKeys) {
@@ -168,6 +170,15 @@ async function ensureDb() {
             nick TEXT NOT NULL,
             updatedAt INTEGER NOT NULL
           );
+          CREATE TABLE IF NOT EXISTS vocab_weekly_words (
+            installId TEXT NOT NULL,
+            weekStartTs INTEGER NOT NULL,
+            wordHash TEXT NOT NULL,
+            firstSeenTs INTEGER NOT NULL,
+            PRIMARY KEY(installId, weekStartTs, wordHash)
+          );
+          CREATE INDEX IF NOT EXISTS idx_vocab_weekly_words_week
+            ON vocab_weekly_words(weekStartTs, installId);
         `);
       });
       await backfillVocabularyProfilesFromWeeklyStats();
@@ -278,6 +289,7 @@ export async function recordVocabularyBatch(entries = []) {
   const safeEntries = Array.isArray(entries) ? entries : [];
   const now = Date.now();
   const addedByInstall = new Map();
+  const weeklyAddedByInstall = new Map();
   const seenInstallIds = new Set();
 
   try {
@@ -319,6 +331,35 @@ export async function recordVocabularyBatch(entries = []) {
               addedByInstall.set(installId, (addedByInstall.get(installId) || 0) + 1);
             }
           }
+          const rawWeeklyWords = Array.isArray(entry?.weeklyWords)
+            ? entry.weeklyWords
+            : words;
+          const weeklyWords = Array.from(
+            new Set(
+              rawWeeklyWords
+                .map((word) => normalizeWord(word))
+                .filter((word) => typeof word === "string" && word)
+            )
+          );
+          const weekStartTs = getWeekStartTs(ts);
+          for (const normalized of weeklyWords) {
+            const hash = hashWord(normalized);
+            const result = await db.run(
+              `INSERT OR IGNORE INTO vocab_weekly_words
+                 (installId, weekStartTs, wordHash, firstSeenTs)
+               VALUES (?, ?, ?, ?)`,
+              installId,
+              weekStartTs,
+              hash,
+              ts
+            );
+            if (result?.changes > 0) {
+              weeklyAddedByInstall.set(
+                installId,
+                (weeklyAddedByInstall.get(installId) || 0) + 1
+              );
+            }
+          }
         }
 
         for (const [installId, added] of addedByInstall.entries()) {
@@ -344,7 +385,9 @@ export async function recordVocabularyBatch(entries = []) {
   for (const installId of seenInstallIds) {
     result[installId] = {
       added: addedByInstall.get(installId) || 0,
+      weeklyAdded: weeklyAddedByInstall.get(installId) || 0,
       total: await getVocabularyCount(installId),
+      weeklyTotal: await getWeeklyVocabularyCount(installId),
     };
   }
   return result;
@@ -372,6 +415,34 @@ export async function getVocabularyCountForInstallIds(installIds = []) {
     return Number(row?.count) || 0;
   } catch (err) {
     console.warn("Vocabulary count failed", err);
+    return 0;
+  }
+}
+
+export async function getWeeklyVocabularyCount(installId, atTs = Date.now()) {
+  return await getWeeklyVocabularyCountForInstallIds([installId], atTs);
+}
+
+export async function getWeeklyVocabularyCountForInstallIds(installIds = [], atTs = Date.now()) {
+  const safeInstallIds = normalizeInstallIdList(installIds);
+  if (!safeInstallIds.length) return 0;
+  const ready = await ensureDb();
+  if (!ready) return 0;
+  const weekStartTs = getWeekStartTs(Number.isFinite(atTs) ? atTs : Date.now());
+  try {
+    const placeholders = safeInstallIds.map(() => "?").join(", ");
+    const row = await runWithBusyRetry(() =>
+      db.get(
+        `SELECT COUNT(DISTINCT wordHash) AS count
+         FROM vocab_weekly_words
+         WHERE weekStartTs = ?
+           AND installId IN (${placeholders})`,
+        [weekStartTs, ...safeInstallIds]
+      )
+    );
+    return Number(row?.count) || 0;
+  } catch (err) {
+    console.warn("Weekly vocabulary count failed", err);
     return 0;
   }
 }
@@ -513,7 +584,18 @@ export async function migrateVocabularyProfile(targetInstallId, sourceInstallIds
             target,
             source
           );
+          await db.run(
+            `INSERT INTO vocab_weekly_words (installId, weekStartTs, wordHash, firstSeenTs)
+             SELECT ?, weekStartTs, wordHash, firstSeenTs
+             FROM vocab_weekly_words
+             WHERE installId = ?
+             ON CONFLICT(installId, weekStartTs, wordHash)
+             DO UPDATE SET firstSeenTs = MIN(vocab_weekly_words.firstSeenTs, excluded.firstSeenTs)`,
+            target,
+            source
+          );
           await db.run("DELETE FROM vocab_words WHERE installId = ?", source);
+          await db.run("DELETE FROM vocab_weekly_words WHERE installId = ?", source);
           await db.run("DELETE FROM vocab_counts WHERE installId = ?", source);
           await db.run("DELETE FROM vocab_profiles WHERE installId = ?", source);
         }
@@ -579,6 +661,44 @@ export async function getVocabularyLeaderboard(limit = 50) {
       .filter((row) => row.installId && row.count > 0);
   } catch (err) {
     console.warn("Vocabulary leaderboard failed", err);
+    return [];
+  }
+}
+
+export async function getWeeklyVocabularyLeaderboard(atTs = Date.now(), limit = 50) {
+  const ready = await ensureDb();
+  if (!ready) return [];
+  const safeLimit = Math.min(500, Math.max(1, Math.round(limit || 50)));
+  const weekStartTs = getWeekStartTs(Number.isFinite(atTs) ? atTs : Date.now());
+  try {
+    const rows = await runWithBusyRetry(() =>
+      db.all(
+        `SELECT w.installId, COUNT(DISTINCT w.wordHash) AS wordCount,
+                MIN(w.firstSeenTs) AS firstSeenAt, MAX(w.firstSeenTs) AS updatedAt,
+                p.nick
+         FROM vocab_weekly_words w
+         LEFT JOIN vocab_profiles p ON p.installId = w.installId
+         WHERE w.weekStartTs = ?
+         GROUP BY w.installId
+         HAVING wordCount > 0
+         ORDER BY wordCount DESC, firstSeenAt ASC
+         LIMIT ?`,
+        weekStartTs,
+        safeLimit
+      )
+    );
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => ({
+        installId: row?.installId || "",
+        nick: typeof row?.nick === "string" ? row.nick.trim() : "",
+        count: Number(row?.wordCount) || 0,
+        updatedAt: Number(row?.updatedAt) || 0,
+        weekStartTs,
+      }))
+      .filter((row) => row.installId && row.count > 0);
+  } catch (err) {
+    console.warn("Weekly vocabulary leaderboard failed", err);
     return [];
   }
 }

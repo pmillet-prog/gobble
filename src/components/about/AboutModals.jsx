@@ -270,6 +270,87 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 25/05/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  vocabulaire et rangs
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout d'une progression vocabulaire hebdomadaire séparée de la progression
+                    globale.
+                  </li>
+                  <li>
+                    ajout d'un classement hebdomadaire vocabulaire et d'une animation de fin de
+                    manche indiquant le rang actuel et les places gagnées ou perdues.
+                  </li>
+                  <li>
+                    nouvelle répartition des 12 rangs vocabulaire, nouveaux visuels dédiés et
+                    affichage du rang dans les stats, résultats compatibles et profils joueurs.
+                  </li>
+                  <li>
+                    le vainqueur vocabulaire de la semaine précédente reçoit un pseudo doré en
+                    live.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  manches et statistiques
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les joueurs arrivés en cours de manche ne sont plus comptés comme ayant joué
+                    une manche à 0 point dans les stats 1 contre 1 ni dans le total hebdomadaire.
+                  </li>
+                  <li>
+                    les manches rapidité n'appliquent plus le bonus de rareté.
+                  </li>
+                  <li>
+                    le vivier OCID filtre davantage les formes conjuguées afin de privilégier les
+                    infinitifs attendus.
+                  </li>
+                  <li>
+                    correction d'un état résiduel possible après une grille du jour qui pouvait
+                    perturber les mots proposés en tournoi live.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  Massive Boggle et faux jumeaux
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    en Massive Boggle, les mots trouvés et trouvables sont triés par longueur puis
+                    par ordre alphabétique.
+                  </li>
+                  <li>
+                    les gobbles Massive Boggle ne s'affichent plus sur tous les mots à 11 points,
+                    mais seulement sur le ou les mots les plus longs.
+                  </li>
+                  <li>
+                    le titre d'annonce Massive Boggle ne répète plus le barème de score.
+                  </li>
+                  <li>
+                    les grilles du jour faux jumeaux mettent mieux à jour le décompte des mots
+                    communs restants et conservent le bonus de complétion prévu.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  interface live et outils
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le widget de classement live affiche mieux les gobbles de manche en cours.
+                  </li>
+                  <li>
+                    le pseudo doré est propagé dans davantage de listes live, dont la liste des
+                    joueurs en jeu.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 20/05/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

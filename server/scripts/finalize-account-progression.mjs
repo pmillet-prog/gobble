@@ -23,6 +23,7 @@ const WEEKLY_BOARD_KEYS = [
   "bestTimeTargetLong",
   "bestTimeTargetScore",
   "vocab",
+  "weeklyVocab",
   "mostGobbles",
 ];
 const DUEL_POINTS_DAILY_CAP = 85;
@@ -196,6 +197,19 @@ function mergeWeeklyBoardEntry(boardKey, current, incoming) {
       next.vocabCount = currentCount;
       next.achievedAt = Number(next?.achievedAt) || achievedAt;
     }
+    return next;
+  }
+  if (boardKey === "weeklyVocab") {
+    const currentCount = Number(next?.weeklyVocabCount ?? next?.vocabCount) || 0;
+    const incomingCount = Number(source?.weeklyVocabCount ?? source?.vocabCount) || 0;
+    if (incomingCount > currentCount) {
+      next.weeklyVocabCount = incomingCount;
+      next.achievedAt = Number(source?.achievedAt) || achievedAt;
+    } else {
+      next.weeklyVocabCount = currentCount;
+      next.achievedAt = Number(next?.achievedAt) || achievedAt;
+    }
+    delete next.vocabCount;
     return next;
   }
   if (boardKey === "bestWord") {
@@ -529,6 +543,17 @@ async function ensureMigrationTable(db) {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS vocab_weekly_words (
+      installId TEXT NOT NULL,
+      weekStartTs INTEGER NOT NULL,
+      wordHash TEXT NOT NULL,
+      firstSeenTs INTEGER NOT NULL,
+      PRIMARY KEY(installId, weekStartTs, wordHash)
+    );
+    CREATE INDEX IF NOT EXISTS idx_vocab_weekly_words_week
+      ON vocab_weekly_words(weekStartTs, installId);
+  `);
 }
 
 async function loadUsersAndDevices(db) {
@@ -675,7 +700,18 @@ async function mergeVocabularyForUser(db, targetInstallId, sourceInstallIds, use
       targetInstallId,
       sourceInstallId
     );
+    await db.run(
+      `INSERT INTO vocab_weekly_words (installId, weekStartTs, wordHash, firstSeenTs)
+       SELECT ?, weekStartTs, wordHash, firstSeenTs
+       FROM vocab_weekly_words
+       WHERE installId = ?
+       ON CONFLICT(installId, weekStartTs, wordHash)
+       DO UPDATE SET firstSeenTs = MIN(vocab_weekly_words.firstSeenTs, excluded.firstSeenTs)`,
+      targetInstallId,
+      sourceInstallId
+    );
     await db.run("DELETE FROM vocab_words WHERE installId = ?", sourceInstallId);
+    await db.run("DELETE FROM vocab_weekly_words WHERE installId = ?", sourceInstallId);
     await db.run("DELETE FROM vocab_counts WHERE installId = ?", sourceInstallId);
     await db.run("DELETE FROM vocab_profiles WHERE installId = ?", sourceInstallId);
   }

@@ -1,17 +1,17 @@
 {
   "version": 1,
-  "updatedAt": 1779311550768,
+  "updatedAt": 1779725699758,
   "controls": {
     "enabled": true,
-    "forcedRoundType": "massive_boggle",
-    "forcedRoundTypes": [
-      "massive_boggle"
-    ],
+    "forcedRoundType": "",
+    "forcedRoundTypes": [],
     "forcedRoundRandom": false,
-    "botMedals": false,
+    "botMedals": true,
     "botsEnabled": true,
     "chatFill": false,
     "botChat": false,
-    "botReactions": false
+    "botReactions": false,
+    "selfCrown": true,
+    "selfGoldNick": true
   }
 }

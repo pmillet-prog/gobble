@@ -94,8 +94,8 @@ const STEPS = [
       "Plus tu accumules, plus ton niveau de vocabulaire monte.",
       "sauras-tu atteindre le haut du classement ?"
     ],
-    imageKey: IMAGE_KEYS.vocab.debutant,
-    imageAlt: "Grade debutant",
+    imageKey: IMAGE_KEYS.vocab.creche,
+    imageAlt: "Rang Cr\u00e8che",
     imageAspect: 1,
   },
 ];

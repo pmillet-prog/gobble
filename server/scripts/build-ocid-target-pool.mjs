@@ -178,8 +178,8 @@ function isFormOnlyDefinition(definition) {
   const text = normalizeForText(definition);
   if (!text) return true;
   return [
-    /^(?:premiere|deuxieme|troisieme) personne\b[\s\S]*\bdu verbe\b/,
-    /^participe (?:passe|present)\b[\s\S]*\bdu verbe\b/,
+    /^(?:premiere|deuxieme|troisieme) personne\b/,
+    /^participe (?:passe|present)\b/,
     /^forme conjuguee\b[\s\S]*\bde\b/,
     /^conjugaison\b[\s\S]*\bde\b/,
     /^forme du verbe\b/,

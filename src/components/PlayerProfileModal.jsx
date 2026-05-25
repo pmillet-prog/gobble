@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { getVocabLevelMeta, getVocabRankImageUrl } from "../vocabRanks.js";
 
 function formatNumber(value) {
   const num = Number(value);
@@ -51,6 +52,40 @@ function StatCard({ label, value, detail = "" }) {
       <div className="text-[10px] font-black uppercase tracking-wide opacity-55">{label}</div>
       <div className="mt-1 text-lg font-black tabular-nums leading-tight">{value}</div>
       {detail ? <div className="mt-0.5 truncate text-[11px] opacity-70">{detail}</div> : null}
+    </div>
+  );
+}
+
+function VocabRankCard({ vocabulary = {} }) {
+  const count = Number(vocabulary.count) || 0;
+  const level = getVocabLevelMeta(count);
+  const imageSrc = getVocabRankImageUrl(level);
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/10 px-3 py-2">
+      <div className="text-[10px] font-black uppercase tracking-wide opacity-55">
+        Vocabulaire
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={level?.label || "Rang vocabulaire"}
+            className="h-12 w-12 shrink-0 object-contain"
+            draggable={false}
+          />
+        ) : null}
+        <div className="min-w-0">
+          <div className="truncate text-sm font-black leading-tight">
+            {level?.label || "Niveau"}
+          </div>
+          <div className="text-lg font-black tabular-nums leading-tight">
+            {formatNumber(count)}
+          </div>
+          <div className="truncate text-[11px] opacity-70">
+            {formatRank(vocabulary.rank, vocabulary.totalPlayers)}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -182,7 +217,7 @@ export default function PlayerProfileModal({
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <StatCard label="Parties" value={formatNumber(roundsPlayed)} />
                 <StatCard label="Score total" value={formatNumber(totalScore)} />
-                <StatCard label="Vocabulaire" value={formatNumber(vocabulary.count)} detail={formatRank(vocabulary.rank, vocabulary.totalPlayers)} />
+                <VocabRankCard vocabulary={vocabulary} />
                 <StatCard label="Gobbles" value={formatNumber(gobbles)} detail={`${formatNumber(lifetime.doubleGobbles)} doubles`} />
               </div>
 

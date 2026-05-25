@@ -18,6 +18,7 @@ import useGameSounds from "./audio/useGameSounds";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import ASSET_MANIFEST_BASE from "./assets/assetManifest";
+import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
@@ -101,6 +102,10 @@ const DAILY_SPECIAL_MODE = "self_specials_3_words";
 const DAILY_MONSTROUS_MODE = "monstrous_grid";
 const DAILY_FAKE_TWINS_MODE = "fake_twins_grid";
 const MASSIVE_BOGGLE_TYPE = "massive_boggle";
+function isRareBonusEnabledForSpecial(special) {
+  const type = String(special?.type || "");
+  return type !== "speed" && type !== MASSIVE_BOGGLE_TYPE;
+}
 const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
 const DAILY_SPECIAL_WORD_TARGET = 3;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
@@ -238,12 +243,18 @@ const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high" },
   { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
   { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
-  { key: IMAGE_KEYS.vocab.debutant, url: "/vocab-ranks/debutant.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.ecolier, url: "/vocab-ranks/ecolier.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.collegien, url: "/vocab-ranks/collegien.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.lyceen, url: "/vocab-ranks/lyceen.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.etudiant, url: "/vocab-ranks/etudiant.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.expert, url: "/vocab-ranks/expert.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.college, url: "/vocab-ranks/college.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.lycee, url: "/vocab-ranks/lycee.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.bac, url: "/vocab-ranks/bac.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.prepa, url: "/vocab-ranks/prepa.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.universite, url: "/vocab-ranks/universite.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.licence, url: "/vocab-ranks/licence.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.master, url: "/vocab-ranks/master.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.doctorat, url: "/vocab-ranks/doctorat.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.academie, url: "/vocab-ranks/academie.png", priority: "high" },
 ];
 const IMAGE_FALLBACKS = new Map(BOOT_ASSET_IMAGES.map((entry) => [entry.key, entry.url]));
 const BOOT_ASSET_FILES = [
@@ -810,7 +821,10 @@ function buildRankingSignature(list) {
     const score =
       Number.isFinite(entry.score) ? entry.score : Number.isFinite(entry.points) ? entry.points : 0;
     const rank = Number.isFinite(entry.rank) ? entry.rank : i + 1;
-    out += `${nick}:${userId}:${rank}:${score}|`;
+    const gobbles = Number.isFinite(entry.gobbles) ? entry.gobbles : 0;
+    const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
+    const weeklyVocabChampion = entry.isWeeklyVocabChampion ? "1" : "0";
+    out += `${nick}:${userId}:${rank}:${score}:${gobbles}:${dailyChampion}:${weeklyVocabChampion}|`;
   }
   return out;
 }
@@ -826,7 +840,9 @@ function buildPlayersSignature(list) {
     const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
     const team = String(entry.team || "");
     const bot = entry.isBot ? "1" : "0";
-    out += `${nick}:${userId}:${team}:${bot}|`;
+    const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
+    const weeklyVocabChampion = entry.isWeeklyVocabChampion ? "1" : "0";
+    out += `${nick}:${userId}:${team}:${bot}:${dailyChampion}:${weeklyVocabChampion}|`;
   }
   return out;
 }
@@ -1324,6 +1340,7 @@ const BONUS_CLASSES = {
 const WEEKLY_BOARDS = [
   { key: "medals", label: "Medailles", subtitle: "Total hebdo" },
   { key: "mostWordsInGame", label: "Mots par manche", subtitle: "Volume max" },
+  { key: "weeklyVocab", label: "Vocabulaire hebdo", subtitle: "Nouveaux mots uniques" },
   { key: "totalScore", label: "Score total", subtitle: "Somme hebdo (cibles = 1000 pts)" },
   { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus élevé" },
   { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
@@ -1333,10 +1350,7 @@ const WEEKLY_BOARDS = [
   { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
   { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
 ];
-const FINALE_WEEKLY_BOARDS = [
-  { key: "vocab", label: "Vocabulaire", subtitle: "Mots uniques" },
-  ...WEEKLY_BOARDS,
-];
+const FINALE_WEEKLY_BOARDS = WEEKLY_BOARDS;
 const WEEKLY_RECORD_LABELS = {
   bestWord: "Meilleur mot",
   longestWord: "Mot le plus long",
@@ -3923,8 +3937,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-05-05";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-05-05T00:00:00+02:00");
+const PATCH_NOTES_VERSION = "2026-05-25";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-05-25T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
@@ -4597,25 +4611,9 @@ const LEAGUE_META = {
   },
 };
 
-const VOCAB_LEVELS = [
-  { key: "debutant", label: "Debutant", min: 0, max: 500, imageKey: IMAGE_KEYS.vocab.debutant, color: "#f59e0b" },
-  { key: "ecolier", label: "Ecolier", min: 500, max: 2000, imageKey: IMAGE_KEYS.vocab.ecolier, color: "#22c55e" },
-  { key: "collegien", label: "Collegien", min: 2000, max: 5000, imageKey: IMAGE_KEYS.vocab.collegien, color: "#ef4444" },
-  { key: "lyceen", label: "Lyceen", min: 5000, max: 10000, imageKey: IMAGE_KEYS.vocab.lyceen, color: "#f59e0b" },
-  { key: "etudiant", label: "Etudiant", min: 10000, max: 20000, imageKey: IMAGE_KEYS.vocab.etudiant, color: "#3b82f6" },
-  { key: "expert", label: "Expert", min: 20000, max: 300000, imageKey: IMAGE_KEYS.vocab.expert, color: "#facc15" },
-];
 function getLeaguePalette(league, darkMode) {
   const meta = LEAGUE_META[league] || LEAGUE_META.Bronze;
   return darkMode ? meta.dark : meta.light;
-}
-
-function getVocabLevelMeta(count) {
-  const safe = Number.isFinite(count) ? Math.max(0, count) : 0;
-  for (const level of VOCAB_LEVELS) {
-    if (safe >= level.min && safe < level.max) return level;
-  }
-  return VOCAB_LEVELS[VOCAB_LEVELS.length - 1];
 }
 
 function getVocabProgress(count) {
@@ -5300,6 +5298,8 @@ export default function App() {
     chatFill: false,
     botChat: false,
     botReactions: false,
+    selfCrown: false,
+    selfGoldNick: false,
   });
   const [devRoundTypes, setDevRoundTypes] = useState([]);
   const [moderationAvailable, setModerationAvailable] = useState(false);
@@ -5927,6 +5927,7 @@ export default function App() {
   const startGameFromServerRef = useRef(null);
   const requestSessionResumeSnapshotRef = useRef(null);
   const resumeLoginFromSessionRef = useRef(null);
+  const previousAppViewRef = useRef(appView);
   const bootResumeAttemptKeyRef = useRef("");
   const attemptSilentReconnectRef = useRef(null);
   const pingInFlightRef = useRef(false);
@@ -6351,9 +6352,12 @@ export default function App() {
   const roundPlayerAnchorNickRef = useRef("");
   const [definitionBlink, setDefinitionBlink] = useState(false);
   const [vocabCount, setVocabCount] = useState(null);
+  const [vocabWeeklyCount, setVocabWeeklyCount] = useState(null);
   const [vocabRoundDelta, setVocabRoundDelta] = useState(null);
+  const [vocabWeeklyRoundDelta, setVocabWeeklyRoundDelta] = useState(null);
   const [vocabLoading, setVocabLoading] = useState(false);
   const [vocabUpdatedAt, setVocabUpdatedAt] = useState(null);
+  const [vocabWeeklyUpdatedAt, setVocabWeeklyUpdatedAt] = useState(null);
   const [vocabResultsReadyKey, setVocabResultsReadyKey] = useState(null);
   const [isVocabOverlayOpen, setIsVocabOverlayOpen] = useState(false);
   const [vocabOverlayPhase, setVocabOverlayPhase] = useState("idle");
@@ -6361,6 +6365,10 @@ export default function App() {
   const [vocabOverlayAnimatedDelta, setVocabOverlayAnimatedDelta] = useState(0);
   const [vocabOverlayBaseCount, setVocabOverlayBaseCount] = useState(0);
   const [vocabOverlayTargetCount, setVocabOverlayTargetCount] = useState(0);
+  const [vocabOverlayWeeklyAnimatedTotal, setVocabOverlayWeeklyAnimatedTotal] = useState(0);
+  const [vocabOverlayWeeklyAnimatedDelta, setVocabOverlayWeeklyAnimatedDelta] = useState(0);
+  const [vocabOverlayWeeklyBaseCount, setVocabOverlayWeeklyBaseCount] = useState(0);
+  const [vocabOverlayWeeklyTargetCount, setVocabOverlayWeeklyTargetCount] = useState(0);
   const [vocabOverlayAbsorbing, setVocabOverlayAbsorbing] = useState(false);
   const [vocabOverlayBounce, setVocabOverlayBounce] = useState(false);
   const [vocabOverlayRank, setVocabOverlayRank] = useState(null);
@@ -6432,7 +6440,11 @@ export default function App() {
       targetSummaryOpen: !!targetSummary,
       vocabOverlayOpen: !!isVocabOverlayOpen,
       vocabCount: Number.isFinite(vocabCount) ? vocabCount : null,
+      vocabWeeklyCount: Number.isFinite(vocabWeeklyCount) ? vocabWeeklyCount : null,
       vocabRoundDelta: Number.isFinite(vocabRoundDelta) ? vocabRoundDelta : null,
+      vocabWeeklyRoundDelta: Number.isFinite(vocabWeeklyRoundDelta)
+        ? vocabWeeklyRoundDelta
+        : null,
       specialTutorialOpen: !!isSpecialTutorialOpen,
       guidedResultsStep: guidedResultsStep || null,
       installId: typeof installId === "string" ? installId : null,
@@ -6515,7 +6527,9 @@ export default function App() {
     targetSummary,
     isVocabOverlayOpen,
     vocabCount,
+    vocabWeeklyCount,
     vocabRoundDelta,
+    vocabWeeklyRoundDelta,
     isSpecialTutorialOpen,
     guidedResultsStep,
     installId,
@@ -6540,7 +6554,11 @@ export default function App() {
   const lastRoundWindowRef = useRef({ startAt: null, endAt: null });
   const vocabBaselineRef = useRef(null);
   const vocabBaselineRoundRef = useRef(null);
+  const vocabWeeklyBaselineRef = useRef(null);
+  const vocabWeeklyBaselineRoundRef = useRef(null);
+  const vocabWeeklyRankBaselineRef = useRef(null);
   const vocabOverlayRoundRef = useRef(null);
+  const vocabOverlayRankSnapshotRef = useRef(null);
   const vocabResultsPendingRef = useRef(null);
   const skipVocabOverlayOnceRef = useRef(false);
   const vocabOverlayTimersRef = useRef([]);
@@ -9664,6 +9682,7 @@ export default function App() {
     setVocabOverlayShowRanking(false);
     setVocabOverlayWordFading(false);
     setVocabOverlayCurrentWord("");
+    setVocabOverlayWeeklyAnimatedDelta(0);
   }
 
   function skipVocabOverlayAnimation() {
@@ -9682,6 +9701,9 @@ export default function App() {
     baseCount,
     deltaCount,
     targetCount,
+    weeklyBaseCount,
+    weeklyDeltaCount,
+    weeklyTargetCount,
     rankStart,
     rankEnd,
     words,
@@ -9693,6 +9715,19 @@ export default function App() {
     setVocabOverlayTargetCount(targetCount);
     setVocabOverlayAnimatedTotal(baseCount);
     setVocabOverlayAnimatedDelta(0);
+    const safeWeeklyBaseCount = Number.isFinite(weeklyBaseCount)
+      ? Math.max(0, weeklyBaseCount)
+      : baseCount;
+    const safeWeeklyTargetCount = Number.isFinite(weeklyTargetCount)
+      ? Math.max(0, weeklyTargetCount)
+      : safeWeeklyBaseCount + deltaCount;
+    const safeWeeklyDeltaCount = Number.isFinite(weeklyDeltaCount)
+      ? Math.max(0, weeklyDeltaCount)
+      : Math.max(0, safeWeeklyTargetCount - safeWeeklyBaseCount);
+    setVocabOverlayWeeklyBaseCount(safeWeeklyBaseCount);
+    setVocabOverlayWeeklyTargetCount(safeWeeklyTargetCount);
+    setVocabOverlayWeeklyAnimatedTotal(safeWeeklyBaseCount);
+    setVocabOverlayWeeklyAnimatedDelta(0);
     setVocabOverlayAbsorbing(false);
     setVocabOverlayBounce(false);
     setVocabOverlayRank(rankStart);
@@ -9719,7 +9754,8 @@ export default function App() {
 
     queueVocabOverlayTimer(
       setTimeout(() => {
-        if (!deltaCount || deltaCount <= 0) {
+        const soundDeltaCount = Math.max(0, safeWeeklyDeltaCount, deltaCount || 0);
+        if (!soundDeltaCount || soundDeltaCount <= 0) {
           playVocabOverlayZeroSound();
           setVocabOverlayBounce(true);
           queueVocabOverlayTimer(setTimeout(() => setVocabOverlayBounce(false), 700));
@@ -9737,7 +9773,7 @@ export default function App() {
         }
 
         const perWordMs = VOCAB_OVERLAY_SEGMENT_MS / VOCAB_OVERLAY_WORDS_PER_SEGMENT;
-        const linearDurationMs = Math.max(0, deltaCount) * perWordMs;
+        const linearDurationMs = soundDeltaCount * perWordMs;
         const durationMs = clampValue(
           linearDurationMs,
           VOCAB_OVERLAY_MIN_COUNT_MS,
@@ -9760,11 +9796,15 @@ export default function App() {
               ? (Math.exp(accelPower * t) - 1) / (Math.exp(accelPower) - 1)
               : t;
           const currentDelta = Math.round(deltaCount * eased);
+          const currentWeeklyDelta = Math.round(safeWeeklyDeltaCount * eased);
           const currentTotal = baseCount + currentDelta;
+          const currentWeeklyTotal = safeWeeklyBaseCount + currentWeeklyDelta;
           setVocabOverlayAnimatedDelta(currentDelta);
           setVocabOverlayAnimatedTotal(currentTotal);
+          setVocabOverlayWeeklyAnimatedDelta(currentWeeklyDelta);
+          setVocabOverlayWeeklyAnimatedTotal(currentWeeklyTotal);
 
-          while (vocabOverlayLastTickRef.current < currentDelta) {
+          while (vocabOverlayLastTickRef.current < currentWeeklyDelta) {
             vocabOverlayLastTickRef.current += 1;
             playVocabOverlayTickSound(vocabOverlayLastTickRef.current);
             const wordList = vocabOverlayWordsRef.current;
@@ -9780,6 +9820,8 @@ export default function App() {
           } else {
             setVocabOverlayAnimatedDelta(deltaCount);
             setVocabOverlayAnimatedTotal(targetCount);
+            setVocabOverlayWeeklyAnimatedDelta(safeWeeklyDeltaCount);
+            setVocabOverlayWeeklyAnimatedTotal(safeWeeklyTargetCount);
             if (Number.isFinite(rankEnd)) {
               setVocabOverlayRank(rankEnd);
             }
@@ -9894,6 +9936,15 @@ export default function App() {
       .map((word) => String(word || "").trim())
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+    const weeklyWordSource = Array.isArray(acceptedRef.current)
+      ? acceptedRef.current
+      : Array.isArray(accepted)
+      ? accepted
+      : rawWordList;
+    const sortedWeeklyWords = Array.from(new Set(weeklyWordSource))
+      .map((word) => String(word || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
 
     let deltaCount = Number.isFinite(vocabRoundDelta)
       ? Math.max(0, vocabRoundDelta)
@@ -9914,16 +9965,63 @@ export default function App() {
     let baseCount = Number.isFinite(vocabCount) ? Math.max(0, vocabCount - deltaCount) : 0;
     if (!Number.isFinite(baseCount)) baseCount = 0;
     const targetCount = baseCount + deltaCount;
-    const rankStart = Number.isFinite(baseCount) ? getWeeklyVocabRankForCount(baseCount) : null;
-    const rankEnd = Number.isFinite(targetCount) ? getWeeklyVocabRankForCount(targetCount) : null;
+    const weeklyTargetCount = Number.isFinite(vocabWeeklyCount)
+      ? Math.max(0, vocabWeeklyCount)
+      : null;
+    let weeklyDeltaCount = Number.isFinite(vocabWeeklyRoundDelta)
+      ? Math.max(0, vocabWeeklyRoundDelta)
+      : 0;
+    if (!Number.isFinite(weeklyDeltaCount) || weeklyDeltaCount <= 0) {
+      const hasReliableWeeklyBaseline =
+        Number.isFinite(vocabWeeklyBaselineRef.current) &&
+        (!roundId ||
+          !vocabWeeklyBaselineRoundRef.current ||
+          vocabWeeklyBaselineRoundRef.current === roundId);
+      if (hasReliableWeeklyBaseline && Number.isFinite(weeklyTargetCount)) {
+        weeklyDeltaCount = Math.max(0, weeklyTargetCount - vocabWeeklyBaselineRef.current);
+      } else {
+        weeklyDeltaCount = Math.max(deltaCount, sortedWeeklyWords.length);
+      }
+    }
+    weeklyDeltaCount = Math.max(weeklyDeltaCount, deltaCount);
+    const weeklyBaseCount = Number.isFinite(weeklyTargetCount)
+      ? Math.max(0, weeklyTargetCount - weeklyDeltaCount)
+      : null;
+    const serverWeeklyRank =
+      selfResult?.vocabWeeklyRank && typeof selfResult.vocabWeeklyRank === "object"
+        ? selfResult.vocabWeeklyRank
+        : null;
+    const rankSnapshot =
+      vocabOverlayRankSnapshotRef.current?.key === overlayKey
+        ? vocabOverlayRankSnapshotRef.current
+        : null;
+    const computedRankStart = Number.isFinite(weeklyBaseCount)
+      ? getWeeklyVocabRankForCount(weeklyBaseCount)
+      : null;
+    const computedRankEnd = Number.isFinite(weeklyTargetCount)
+      ? getWeeklyVocabRankForCount(weeklyTargetCount)
+      : null;
+    const rankStart = Number.isFinite(Number(serverWeeklyRank?.before))
+      ? Number(serverWeeklyRank.before)
+      : Number.isFinite(rankSnapshot?.rankStart)
+      ? rankSnapshot.rankStart
+      : computedRankStart;
+    const rankEnd = Number.isFinite(Number(serverWeeklyRank?.after))
+      ? Number(serverWeeklyRank.after)
+      : Number.isFinite(rankSnapshot?.rankEnd)
+      ? rankSnapshot.rankEnd
+      : computedRankEnd;
 
     startVocabOverlayAnimation({
       baseCount,
       deltaCount,
       targetCount,
+      weeklyBaseCount,
+      weeklyDeltaCount,
+      weeklyTargetCount,
       rankStart,
       rankEnd,
-      words: sortedWords,
+      words: sortedWeeklyWords.length ? sortedWeeklyWords : sortedWords,
     });
   }, [
     accepted,
@@ -9934,7 +10032,9 @@ export default function App() {
     tournamentSummaryAt,
     installId,
     vocabCount,
+    vocabWeeklyCount,
     vocabRoundDelta,
+    vocabWeeklyRoundDelta,
     vocabResultsReadyKey,
     targetSummary,
   ]);
@@ -10376,6 +10476,7 @@ export default function App() {
                 delta,
                 isBot: !!e.isBot,
                 isDailyChampion: !!e.isDailyChampion,
+                isWeeklyVocabChampion: !!e.isWeeklyVocabChampion,
               };
             })
           : []
@@ -10463,7 +10564,9 @@ export default function App() {
       if (isTargetResults) {
         vocabResultsPendingRef.current = null;
         setVocabRoundDelta(null);
+        setVocabWeeklyRoundDelta(null);
         setVocabResultsReadyKey(null);
+        vocabOverlayRankSnapshotRef.current = null;
       } else {
         const stableVocabKey =
           endedId ||
@@ -10474,10 +10577,16 @@ export default function App() {
         const vocabResultsKey = stableVocabKey || `results-${Date.now()}`;
         vocabResultsPendingRef.current = vocabResultsKey;
         setVocabResultsReadyKey(null);
-        void requestVocabCount().then((count) => {
+        void Promise.all([
+          requestVocabCount(),
+          fetchWeeklyStatsSnapshot(STATS_SEASON_TARGET_LIMIT),
+        ]).then(([snapshot, weeklySnapshot]) => {
           if (vocabResultsPendingRef.current !== vocabResultsKey) return;
+          const count = Number.isFinite(snapshot?.count) ? snapshot.count : null;
+          const weeklyCount = Number.isFinite(snapshot?.weeklyCount) ? snapshot.weeklyCount : null;
           if (!Number.isFinite(count)) {
             setVocabRoundDelta(null);
+            setVocabWeeklyRoundDelta(null);
             return;
           }
           const base = vocabBaselineRef.current;
@@ -10486,6 +10595,28 @@ export default function App() {
           } else {
             setVocabRoundDelta(null);
           }
+          const weeklyBase = vocabWeeklyBaselineRef.current;
+          if (Number.isFinite(weeklyCount) && Number.isFinite(weeklyBase)) {
+            setVocabWeeklyRoundDelta(Math.max(0, weeklyCount - weeklyBase));
+          } else {
+            setVocabWeeklyRoundDelta(null);
+          }
+          const rankStart =
+            Number.isFinite(vocabWeeklyRankBaselineRef.current)
+              ? vocabWeeklyRankBaselineRef.current
+              : Number.isFinite(weeklyBase)
+              ? getWeeklyVocabRankForCount(weeklyBase, weeklyStats)
+              : null;
+          const rankEnd =
+            getSelfWeeklyVocabRankFromStats(weeklySnapshot) ||
+            (Number.isFinite(weeklyCount)
+              ? getWeeklyVocabRankForCount(weeklyCount, weeklySnapshot || weeklyStats)
+              : null);
+          vocabOverlayRankSnapshotRef.current = {
+            key: vocabResultsKey,
+            rankStart,
+            rankEnd,
+          };
           if (skipVocabOverlayOnceRef.current) {
             skipVocabOverlayOnceRef.current = false;
             setVocabResultsReadyKey(null);
@@ -11722,18 +11853,29 @@ export default function App() {
         roundStartAtRef.current = getNowServerMs();
       }
       setVocabRoundDelta(null);
+      setVocabWeeklyRoundDelta(null);
       setVocabResultsReadyKey(null);
       vocabResultsPendingRef.current = null;
       if (special?.type === OCID_TYPE) {
         vocabBaselineRoundRef.current = null;
         vocabBaselineRef.current = null;
+        vocabWeeklyBaselineRoundRef.current = null;
+        vocabWeeklyBaselineRef.current = null;
+        vocabWeeklyRankBaselineRef.current = null;
       } else {
         const vocabRoundKey = incomingRoundId || Date.now();
         vocabBaselineRoundRef.current = vocabRoundKey;
-        void requestVocabCount().then((count) => {
+        vocabWeeklyBaselineRoundRef.current = vocabRoundKey;
+        void requestVocabCount().then((snapshot) => {
           if (vocabBaselineRoundRef.current !== vocabRoundKey) return;
+          const count = Number.isFinite(snapshot?.count) ? snapshot.count : null;
+          const weeklyCount = Number.isFinite(snapshot?.weeklyCount) ? snapshot.weeklyCount : null;
           if (Number.isFinite(count)) {
             vocabBaselineRef.current = count;
+          }
+          if (Number.isFinite(weeklyCount)) {
+            vocabWeeklyBaselineRef.current = weeklyCount;
+            vocabWeeklyRankBaselineRef.current = getWeeklyVocabRankForCount(weeklyCount);
           }
         });
       }
@@ -12836,6 +12978,8 @@ export default function App() {
         return Number(entry.pts) || 0;
       case "vocab":
         return Number(entry.vocabCount) || 0;
+      case "weeklyVocab":
+        return Number(entry.weeklyVocabCount ?? entry.vocabCount) || 0;
       case "bestTimeTargetLong":
       case "bestTimeTargetScore":
         return Number.isFinite(entry.ms) ? Number(entry.ms) : null;
@@ -12849,7 +12993,8 @@ export default function App() {
   function dedupeWeeklyEntries(boardKey, entries, limit = 50) {
     if (!Array.isArray(entries)) return [];
     const installKeyByNick = new Map();
-    if (boardKey === "vocab") {
+    const isVocabBoard = boardKey === "vocab" || boardKey === "weeklyVocab";
+    if (isVocabBoard) {
       for (const entry of entries) {
         const playerKey = typeof entry?.playerKey === "string" ? entry.playerKey.trim() : "";
         const nickKey = entry?.nick ? String(entry.nick).trim().toLowerCase() : "";
@@ -12862,7 +13007,7 @@ export default function App() {
       const nickKey = entry?.nick ? String(entry.nick).trim().toLowerCase() : null;
       const rawKey = entry?.playerKey || nickKey;
       const key =
-        boardKey === "vocab" && nickKey && (!rawKey || String(rawKey).startsWith("nick:"))
+        isVocabBoard && nickKey && (!rawKey || String(rawKey).startsWith("nick:"))
           ? installKeyByNick.get(nickKey) || rawKey
           : rawKey;
       if (!key) continue;
@@ -12931,8 +13076,8 @@ export default function App() {
     return deduped.slice(0, limit);
   }
 
-  function getWeeklyVocabRankForCount(countValue) {
-    const entries = weeklyStats?.boards?.vocab;
+  function getWeeklyVocabRankForCount(countValue, statsSource = weeklyStats) {
+    const entries = statsSource?.boards?.weeklyVocab;
     if (!Array.isArray(entries) || entries.length === 0) return null;
     const installKey = installId ? `install:${installId}` : null;
     const nickKey = selfNick ? `nick:${selfNick}` : null;
@@ -12949,18 +13094,18 @@ export default function App() {
         (nickLower && entryNick === nickLower);
       if (!matches) return entry;
       replaced = true;
-      return { ...entry, vocabCount: countValue, achievedAt: now };
+      return { ...entry, weeklyVocabCount: countValue, achievedAt: now };
     });
     if (!replaced) {
       withOverride.push({
         nick: selfNick || "Toi",
         playerKey: installKey || nickKey,
-        vocabCount: countValue,
+        weeklyVocabCount: countValue,
         achievedAt: now,
       });
     }
-    const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
-    const ranked = dedupeWeeklyEntries("vocab", withOverride, Math.max(weeklyLimit, 200));
+    const weeklyLimit = statsSource?.topN || statsSource?.limits?.topN || 50;
+    const ranked = dedupeWeeklyEntries("weeklyVocab", withOverride, Math.max(weeklyLimit, 200));
     const idx = ranked.findIndex((entry) => {
       if (!entry) return false;
       if (installKey && entry.playerKey === installKey) return true;
@@ -12969,6 +13114,56 @@ export default function App() {
       return !!(nickLower && entryNick && entryNick === nickLower);
     });
     return idx >= 0 ? idx + 1 : null;
+  }
+
+  function getSelfWeeklyVocabRankFromStats(statsSource = weeklyStats) {
+    const entries = statsSource?.boards?.weeklyVocab;
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+    const installKey = installId ? `install:${installId}` : null;
+    const nickKey = selfNick ? `nick:${selfNick}` : null;
+    const nickLower = selfNick ? String(selfNick).trim().toLowerCase() : null;
+    if (!installKey && !nickKey && !nickLower) return null;
+    const ranked = dedupeWeeklyEntries(
+      "weeklyVocab",
+      entries,
+      Math.max(statsSource?.topN || statsSource?.limits?.topN || 50, 200)
+    );
+    const idx = ranked.findIndex((entry) => {
+      if (!entry) return false;
+      if (installKey && entry.playerKey === installKey) return true;
+      if (nickKey && entry.playerKey === nickKey) return true;
+      const entryNick = entry.nick ? String(entry.nick).trim().toLowerCase() : null;
+      return !!(nickLower && entryNick && entryNick === nickLower);
+    });
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  function fetchWeeklyStatsSnapshot(topN = 200) {
+    const requestedTopN = Number.isFinite(topN)
+      ? Math.min(200, Math.max(1, Math.round(topN)))
+      : 200;
+    const query = requestedTopN ? `?topN=${requestedTopN}` : "";
+    return fetch(`/api/stats/weekly${query}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        if (!res.ok) throw new Error(`http_${res.status || "error"}`);
+        return text ? JSON.parse(text) : null;
+      })
+      .then((data) => {
+        if (data && typeof data === "object") {
+          setWeeklyStats(data);
+          setWeeklyStatsError("");
+          return data;
+        }
+        return null;
+      })
+      .catch((err) => {
+        console.warn("weekly stats snapshot failed", err);
+        return null;
+      });
   }
 
   function fetchWeeklyStats(force = false, topN = null) {
@@ -14296,7 +14491,9 @@ export default function App() {
         data.gridSize || null,
         null,
         data.gridQuality || null,
-        null
+        null,
+        [],
+        data.solutions ? { solutions: data.solutions } : null
       );
       fetchDailyBoard(data.dateId || null);
     };
@@ -14550,6 +14747,15 @@ export default function App() {
             : prev?.myFakeTwinsResult || null,
       }));
       void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
+      clearSelection();
+      resetSubmissionQueue();
+      setInputLocked(true);
+      inputLockedRef.current = true;
+      setRoundId(null);
+      setServerEndsAt(null);
+      setServerRoundDurationMs(null);
+      setServerStatus("waiting");
+      setPhase("lobby");
       setAppView("daily_results");
     };
     try {
@@ -14620,12 +14826,17 @@ export default function App() {
     const emitRequest = (resolve) => {
       socket.emit("getVocabCount", { installId }, (res) => {
         const count = Number.isFinite(res?.count) ? res.count : null;
+        const weeklyCount = Number.isFinite(res?.weeklyCount) ? res.weeklyCount : null;
         if (Number.isFinite(count)) {
           setVocabCount(count);
           setVocabUpdatedAt(Date.now());
         }
+        if (Number.isFinite(weeklyCount)) {
+          setVocabWeeklyCount(weeklyCount);
+          setVocabWeeklyUpdatedAt(Date.now());
+        }
         setVocabLoading(false);
-        resolve(count);
+        resolve({ count, weeklyCount });
       });
     };
 
@@ -14766,6 +14977,7 @@ export default function App() {
         team: entry?.team || null,
         isBot: !!entry?.isBot,
         isDailyChampion: !!entry?.isDailyChampion,
+        isWeeklyVocabChampion: !!entry?.isWeeklyVocabChampion,
         rank: Number.isFinite(entry?.rank) ? entry.rank : idx + 1,
         score: typeof entry?.score === "number" ? entry.score : null,
         gobbleAwardCount,
@@ -15679,6 +15891,29 @@ export default function App() {
   useEffect(() => {
     resumeLoginFromSessionRef.current = resumeLoginFromSession;
   });
+
+  useEffect(() => {
+    const previousView = previousAppViewRef.current;
+    previousAppViewRef.current = appView;
+    const wasDailyView =
+      previousView === "daily" ||
+      previousView === "daily_play" ||
+      previousView === "daily_results";
+    if (appView !== "live" || !wasDailyView) return;
+    if (!isAccountAuthenticated || !hasSavedSession()) return;
+
+    clearSelection();
+    resetSubmissionQueue();
+    setInputLocked(true);
+    inputLockedRef.current = true;
+    setRoundId(null);
+    setServerEndsAt(null);
+    setServerRoundDurationMs(null);
+    setServerStatus("waiting");
+    setPhase("lobby");
+    setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+    resumeLoginFromSessionRef.current?.("daily_to_live");
+  }, [appView, clearSelection, isAccountAuthenticated]);
 
   function setResultsRankingModeWithPulse(nextMode) {
     if (resultsRankingMode === nextMode) return;
@@ -16736,7 +16971,7 @@ export default function App() {
     roundLifecycle = null
   ) {
     const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions, {
-      disableRareBonus: specialInfo?.type === MASSIVE_BOGGLE_TYPE,
+      disableRareBonus: !isRareBonusEnabledForSpecial(specialInfo),
     });
     const derivedSize =
       incomingGridSize ||
@@ -18031,6 +18266,7 @@ export default function App() {
     const isSpeedRound = specialRound?.type === "speed";
     const isSpecial3Round = specialRound?.type === DAILY_SPECIAL_MODE;
     const isMassiveBoggleRound = specialRound?.type === MASSIVE_BOGGLE_TYPE;
+    const rareBonusAllowed = isRareBonusEnabledForSpecial(specialRound);
     const wordMetaByNorm =
       entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
     const scoreAllowed = !isSpeedRound && !isTargetRound && !isSpecial3Round;
@@ -18111,9 +18347,9 @@ export default function App() {
         usedFakeTwins: !!fakeTwinsMeta?.usedFakeTwins,
         fakeTwinsCompletionWord: !!fakeTwinsMeta?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!fakeTwinsMeta?.fakeTwinsBonusOnly,
-        rareBonusWord: !isMassiveBoggleRound && !!fakeTwinsMeta?.rareBonusWord,
-        rareBonusPoints: isMassiveBoggleRound ? 0 : Number(fakeTwinsMeta?.rareBonusPoints) || 0,
-        rarityBucket: isMassiveBoggleRound ? "" : String(fakeTwinsMeta?.rarityBucket || ""),
+        rareBonusWord: rareBonusAllowed && !!fakeTwinsMeta?.rareBonusWord,
+        rareBonusPoints: rareBonusAllowed ? Number(fakeTwinsMeta?.rareBonusPoints) || 0 : 0,
+        rarityBucket: rareBonusAllowed ? String(fakeTwinsMeta?.rarityBucket || "") : "",
       });
     });
     list.sort((a, b) => {
@@ -18248,11 +18484,11 @@ export default function App() {
               usedFakeTwins: !!item?.usedFakeTwins,
               fakeTwinsCompletionWord: !!item?.fakeTwinsCompletionWord,
               fakeTwinsBonusOnly: !!item?.fakeTwinsBonusOnly,
-              rareBonusWord: specialRound?.type !== MASSIVE_BOGGLE_TYPE && !!item?.rareBonusWord,
+              rareBonusWord: isRareBonusEnabledForSpecial(specialRound) && !!item?.rareBonusWord,
               rareBonusPoints:
-                specialRound?.type === MASSIVE_BOGGLE_TYPE ? 0 : Number(item?.rareBonusPoints) || 0,
+                isRareBonusEnabledForSpecial(specialRound) ? Number(item?.rareBonusPoints) || 0 : 0,
               rarityBucket:
-                specialRound?.type === MASSIVE_BOGGLE_TYPE ? "" : String(item?.rarityBucket || ""),
+                isRareBonusEnabledForSpecial(specialRound) ? String(item?.rarityBucket || "") : "",
             };
           })
         : [],
@@ -19189,7 +19425,7 @@ function handleTouchEnd(e) {
         meta?.fakeTwinsBonusOnly ??
         allWordsMap.get(word)?.fakeTwinsBonusOnly ??
         !fakeTwinsCompletionWord);
-    const rareBonusEnabledNow = specialRound?.type !== MASSIVE_BOGGLE_TYPE;
+    const rareBonusEnabledNow = isRareBonusEnabledForSpecial(specialRound);
     const rareBonusWord =
       rareBonusEnabledNow &&
       (!!result?.rareBonusWord || !!meta?.rareBonusWord || !!allWordsMap.get(word)?.rareBonusWord);
@@ -19590,7 +19826,7 @@ function handleTouchEnd(e) {
   }) {
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
     const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
-    const rareBonusEnabledNow = specialRound?.type !== MASSIVE_BOGGLE_TYPE;
+    const rareBonusEnabledNow = isRareBonusEnabledForSpecial(specialRound);
     const effectiveRareBonusWord = rareBonusEnabledNow && !!rareBonusWord;
     const effectiveRareBonusPoints = rareBonusEnabledNow ? Number(rareBonusPoints) || 0 : 0;
     const effectiveRarityBucket = rareBonusEnabledNow ? String(rarityBucket || "") : "";
@@ -19766,15 +20002,16 @@ function handleTouchEnd(e) {
           const serverMeta = hasServerSolution ? serverSolutions.get(candidate.raw) : null;
           if (!scored) return null;
           if (serverMeta && Number.isFinite(serverMeta.pts)) {
+            const rareBonusAllowed = isRareBonusEnabledForSpecial(specialRound);
             return {
               ...scored,
               pts: serverMeta.pts,
               usedFakeTwins: !!scored.usedFakeTwins || !!serverMeta.usedFakeTwins,
               fakeTwinsCompletionWord: !!serverMeta.fakeTwinsCompletionWord,
               fakeTwinsBonusOnly: !!serverMeta.fakeTwinsBonusOnly,
-              rareBonusWord: !!serverMeta.rareBonusWord,
-              rareBonusPoints: Number(serverMeta.rareBonusPoints) || 0,
-              rarityBucket: String(serverMeta.rarityBucket || ""),
+              rareBonusWord: rareBonusAllowed && !!serverMeta.rareBonusWord,
+              rareBonusPoints: rareBonusAllowed ? Number(serverMeta.rareBonusPoints) || 0 : 0,
+              rarityBucket: rareBonusAllowed ? String(serverMeta.rarityBucket || "") : "",
             };
           }
           return scored;
@@ -19974,6 +20211,7 @@ function handleTouchEnd(e) {
 
   function submit()  {
   if (inputLockedRef.current) return;
+  if (!isDailyPlayRef.current && appViewRef.current !== "live") return;
   if (typeof window !== "undefined") {
     window.scrollTo(0, 0);
   }
@@ -20145,6 +20383,7 @@ function handleTouchEnd(e) {
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
+      const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
       const canOptimisticallyApply = true;
 
       playableCandidates.forEach((candidate) => {
@@ -20163,9 +20402,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: !!candidateScored?.rareBonusWord,
-          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
-          rarityBucket: String(candidateScored?.rarityBucket || ""),
+          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
+          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
+          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
           traceStartedAt: getSubmissionTraceStartedAt(),
           optimisticApplied: canOptimisticallyApply,
         });
@@ -20179,9 +20418,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: !!candidateScored?.rareBonusWord,
-          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
-          rarityBucket: String(candidateScored?.rarityBucket || ""),
+          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
+          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
+          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
           ptsOverride: optimisticPts,
         });
       });
@@ -20198,6 +20437,7 @@ function handleTouchEnd(e) {
     }
 
     // Mode solo local : on garde le scoring existant
+    const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
     playableCandidates.forEach((candidate) => {
       applyLocalWordScoring({
         raw: candidate.raw,
@@ -20206,9 +20446,9 @@ function handleTouchEnd(e) {
         usedFakeTwins: !!candidate.scored?.usedFakeTwins,
         fakeTwinsCompletionWord: !!candidate.scored?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!candidate.scored?.fakeTwinsBonusOnly,
-        rareBonusWord: !!candidate.scored?.rareBonusWord,
-        rareBonusPoints: Number(candidate.scored?.rareBonusPoints) || 0,
-        rarityBucket: String(candidate.scored?.rarityBucket || ""),
+        rareBonusWord: rareBonusAllowedNow && !!candidate.scored?.rareBonusWord,
+        rareBonusPoints: rareBonusAllowedNow ? Number(candidate.scored?.rareBonusPoints) || 0 : 0,
+        rarityBucket: rareBonusAllowedNow ? String(candidate.scored?.rarityBucket || "") : "",
       });
     });
   }
@@ -20289,6 +20529,7 @@ function handleTouchEnd(e) {
     dragGridMetricsRef.current = null;
     resetDragMovePipeline();
 
+    const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
     if (roundId && socket.connected && isLoggedIn) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
@@ -20309,9 +20550,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: !!candidateScored?.rareBonusWord,
-          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
-          rarityBucket: String(candidateScored?.rarityBucket || ""),
+          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
+          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
+          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
           traceStartedAt: getSubmissionTraceStartedAt(),
           optimisticApplied: true,
         });
@@ -20324,9 +20565,9 @@ function handleTouchEnd(e) {
           usedFakeTwins: !!candidateScored?.usedFakeTwins,
           fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
           fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: !!candidateScored?.rareBonusWord,
-          rareBonusPoints: Number(candidateScored?.rareBonusPoints) || 0,
-          rarityBucket: String(candidateScored?.rarityBucket || ""),
+          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
+          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
+          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
           ptsOverride: candidatePts,
         });
       });
@@ -20346,9 +20587,9 @@ function handleTouchEnd(e) {
         usedFakeTwins: !!candidate.scored?.usedFakeTwins,
         fakeTwinsCompletionWord: !!candidate.scored?.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!candidate.scored?.fakeTwinsBonusOnly,
-        rareBonusWord: !!candidate.scored?.rareBonusWord,
-        rareBonusPoints: Number(candidate.scored?.rareBonusPoints) || 0,
-        rarityBucket: String(candidate.scored?.rarityBucket || ""),
+        rareBonusWord: rareBonusAllowedNow && !!candidate.scored?.rareBonusWord,
+        rareBonusPoints: rareBonusAllowedNow ? Number(candidate.scored?.rareBonusPoints) || 0 : 0,
+        rarityBucket: rareBonusAllowedNow ? String(candidate.scored?.rarityBucket || "") : "",
       });
     });
     return true;
@@ -21510,6 +21751,11 @@ function handleTouchEnd(e) {
     : vocabLoading
     ? "Calcul en cours..."
     : "\u2014";
+  const vocabWeeklyLabel = Number.isFinite(vocabWeeklyCount)
+    ? `${formatNumber(vocabWeeklyCount)} cette semaine`
+    : vocabLoading
+    ? "Hebdo en cours..."
+    : "";
   const vocabTotalValue = Number.isFinite(vocabCount) ? vocabCount : 0;
   const vocabLevel = getVocabLevelMeta(vocabTotalValue);
   const vocabPrevValue = vocabHasDelta
@@ -21573,6 +21819,11 @@ function handleTouchEnd(e) {
       >
         {vocabTotalLabel}
       </div>
+      {vocabWeeklyLabel ? (
+        <div className="text-[11px] font-semibold opacity-65 -mt-1">
+          {vocabWeeklyLabel}
+        </div>
+      ) : null}
       <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
         {vocabImageSrc ? (
           <div className="relative">
@@ -21642,8 +21893,16 @@ function handleTouchEnd(e) {
   const vocabOverlayDeltaValue = Number.isFinite(vocabOverlayAnimatedDelta)
     ? vocabOverlayAnimatedDelta
     : 0;
+  const vocabOverlayWeeklyTotalValue = Number.isFinite(vocabOverlayWeeklyAnimatedTotal)
+    ? vocabOverlayWeeklyAnimatedTotal
+    : 0;
+  const vocabOverlayWeeklyDeltaValue = Number.isFinite(vocabOverlayWeeklyAnimatedDelta)
+    ? vocabOverlayWeeklyAnimatedDelta
+    : 0;
   const vocabOverlayDeltaLabel = `+${formatNumber(vocabOverlayDeltaValue)}`;
+  const vocabOverlayWeeklyDeltaLabel = `+${formatNumber(vocabOverlayWeeklyDeltaValue)}`;
   const vocabOverlayTotalLabel = `${formatNumber(vocabOverlayTotalValue)} mots uniques`;
+  const vocabOverlayWeeklyTotalLabel = `${formatNumber(vocabOverlayWeeklyTotalValue)} cette semaine`;
   const vocabOverlayActiveLevel = vocabOverlayImageLevel || getVocabLevelMeta(vocabOverlayTotalValue);
   const vocabOverlayRange = Math.max(
     1,
@@ -21685,6 +21944,34 @@ function handleTouchEnd(e) {
     ? vocabOverlayFinalPct
     : vocabOverlayBasePct;
   const vocabOverlayDeltaFillPct = vocabOverlayAbsorbing ? 0 : vocabOverlayDeltaPct;
+  const vocabOverlayWeeklyRange = Math.max(
+    1,
+    vocabOverlayWeeklyTargetCount,
+    vocabOverlayWeeklyAnimatedTotal
+  );
+  const vocabOverlayWeeklyProgressPct = clampValue(
+    (vocabOverlayWeeklyTotalValue / vocabOverlayWeeklyRange) * 100,
+    0,
+    100
+  );
+  const vocabOverlayWeeklyBasePct = clampValue(
+    (vocabOverlayWeeklyBaseCount / vocabOverlayWeeklyRange) * 100,
+    0,
+    100
+  );
+  const vocabOverlayWeeklyFinalPct = clampValue(
+    (vocabOverlayWeeklyTargetCount / vocabOverlayWeeklyRange) * 100,
+    0,
+    100
+  );
+  const vocabOverlayWeeklyDeltaPct = Math.max(
+    0,
+    vocabOverlayWeeklyProgressPct - vocabOverlayWeeklyBasePct
+  );
+  const vocabOverlayWeeklyBaseFillPct = vocabOverlayAbsorbing
+    ? vocabOverlayWeeklyFinalPct
+    : vocabOverlayWeeklyBasePct;
+  const vocabOverlayWeeklyDeltaFillPct = vocabOverlayAbsorbing ? 0 : vocabOverlayWeeklyDeltaPct;
   const vocabOverlayCursorStyle = {
     left: `${vocabOverlayProgressPct}%`,
     borderTopColor:
@@ -21730,54 +22017,125 @@ function handleTouchEnd(e) {
     });
     return () => cancelAnimationFrame(rafId);
   }, [vocabOverlayAbsorbing, vocabOverlayProgressPct, isMobileLayout]);
-  const vocabOverlayRankLabel = Number.isFinite(vocabOverlayRank)
-    ? `#${vocabOverlayRank}`
-    : null;
+  const vocabOverlayRankDelta =
+    Number.isFinite(vocabOverlayRankStart) && Number.isFinite(vocabOverlayRankEnd)
+      ? vocabOverlayRankStart - vocabOverlayRankEnd
+      : 0;
+  const vocabOverlayRankDeltaAbs = Math.abs(vocabOverlayRankDelta);
+  const vocabOverlayRankNumber = Number.isFinite(vocabOverlayRank) ? vocabOverlayRank : "?";
   const renderVocabOverlayPanel = () => (
     <div className="flex flex-col items-center gap-3">
       <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
         Vocabulaire
       </div>
-      <div
-        ref={vocabOverlayDeltaRef}
-        className={`text-4xl font-black tabular-nums ${vocabOverlayCountClass} ${vocabOverlayAbsorbClass}`}
-        style={vocabOverlayAbsorbStyle}
-      >
-        {vocabOverlayDeltaLabel}
-      </div>
-      <div className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
-        {vocabOverlayTotalLabel}
+      <div className="grid w-full max-w-xl grid-cols-1 sm:grid-cols-2 gap-3">
+        <div
+          className={`rounded-[8px] px-4 py-3 ${
+            darkMode ? "bg-slate-900/70" : "bg-white/85"
+          }`}
+        >
+          <div className="text-[10px] uppercase tracking-[0.18em] opacity-65">
+            Semaine
+          </div>
+          <div className="mt-1 mb-2 flex items-center gap-2">
+            <div
+              key={`vocab-weekly-rank-${vocabOverlayRankNumber}`}
+              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
+                darkMode
+                  ? "border-amber-300/80 bg-slate-950 text-amber-100"
+                  : "border-amber-500/80 bg-white text-slate-900"
+              } shadow-inner ${vocabOverlayCountClass}`}
+              title="Rang vocabulaire hebdomadaire"
+            >
+              <span className="text-lg font-black tabular-nums">{vocabOverlayRankNumber}</span>
+            </div>
+            <div className="min-w-0 text-[10px] uppercase tracking-[0.14em] leading-tight">
+              <div className="font-bold opacity-70">Rang hebdo</div>
+              {Number.isFinite(vocabOverlayRankStart) &&
+              Number.isFinite(vocabOverlayRankEnd) ? (
+                vocabOverlayRankDelta > 0 ? (
+                  <div className="mt-0.5 flex items-center gap-1 text-green-500 font-black">
+                    <span aria-hidden="true">▲</span>
+                    <span>+{vocabOverlayRankDeltaAbs}</span>
+                    <span className="opacity-75 normal-case tracking-normal">
+                      place{vocabOverlayRankDeltaAbs > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ) : vocabOverlayRankDelta < 0 ? (
+                  <div className="mt-0.5 flex items-center gap-1 text-red-500 font-black">
+                    <span aria-hidden="true">▼</span>
+                    <span>-{vocabOverlayRankDeltaAbs}</span>
+                    <span className="opacity-75 normal-case tracking-normal">
+                      place{vocabOverlayRankDeltaAbs > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-0.5 font-bold opacity-55 normal-case tracking-normal">
+                    inchangé
+                  </div>
+                )
+              ) : (
+                <div className="mt-0.5 font-bold opacity-55 normal-case tracking-normal">
+                  non classé
+                </div>
+              )}
+            </div>
+          </div>
+          <div className={`text-4xl font-black tabular-nums ${vocabOverlayCountClass}`}>
+            {vocabOverlayWeeklyDeltaLabel}
+          </div>
+          <div className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
+            {vocabOverlayWeeklyTotalLabel}
+          </div>
+          <div className="mt-3 relative h-2 rounded-full overflow-hidden bg-slate-500/20">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-emerald-500/80"
+              style={{
+                width: `${vocabOverlayWeeklyBaseFillPct}%`,
+                transition: vocabOverlayAbsorbing
+                  ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease`
+                  : "none",
+              }}
+            />
+            <div
+              className="absolute inset-y-0 vocab-delta-fill"
+              style={{
+                left: `${vocabOverlayWeeklyBasePct}%`,
+                width: `${vocabOverlayWeeklyDeltaFillPct}%`,
+                opacity: vocabOverlayAbsorbing ? 0 : 1,
+                transition: vocabOverlayAbsorbing
+                  ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease, opacity 0.6s ease`
+                  : "none",
+              }}
+            />
+          </div>
+        </div>
+        <div
+          className={`rounded-[8px] px-4 py-3 ${
+            darkMode ? "bg-slate-900/55" : "bg-white/75"
+          }`}
+        >
+          <div className="text-[10px] uppercase tracking-[0.18em] opacity-65">
+            Global
+          </div>
+          <div
+            ref={vocabOverlayDeltaRef}
+            className={`text-3xl font-black tabular-nums ${vocabOverlayCountClass} ${vocabOverlayAbsorbClass}`}
+            style={vocabOverlayAbsorbStyle}
+          >
+            {vocabOverlayDeltaLabel}
+          </div>
+          <div className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
+            {vocabOverlayTotalLabel}
+          </div>
+        </div>
       </div>
       <div className="text-[11px] uppercase tracking-[0.18em] min-h-[14px]">
-        {vocabOverlayShowRanking ? (
-          <div className="flex items-center justify-center gap-2 vocab-word-fade-in">
-            <span className="opacity-70">Classement : </span>
-            <span className="font-bold">
-              {Number.isFinite(vocabOverlayRankEnd) ? `#${vocabOverlayRankEnd}` : "—"}
-            </span>
-            {Number.isFinite(vocabOverlayRankStart) &&
-            Number.isFinite(vocabOverlayRankEnd) ? (
-              vocabOverlayRankStart - vocabOverlayRankEnd > 0 ? (
-                <span className="text-green-500 font-bold flex items-center gap-1">
-                  <span aria-hidden="true">?</span>
-                  <span>
-                    +{vocabOverlayRankStart - vocabOverlayRankEnd}
-                  </span>
-                </span>
-              ) : (
-                <span className="opacity-60">—</span>
-              )
-            ) : (
-              <span className="opacity-60">—</span>
-            )}
-          </div>
-        ) : (
-          <div
-            className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""}`}
-          >
-            {vocabOverlayCurrentWord || ""}
-          </div>
-        )}
+        <div
+          className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""}`}
+        >
+          {vocabOverlayCurrentWord || ""}
+        </div>
       </div>
       <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
         {vocabOverlayImageSrc ? (
@@ -21853,6 +22211,7 @@ function handleTouchEnd(e) {
     [allWords]
   );
   const isSpeedRound = specialRound?.type === "speed";
+  const rareBonusEnabledForResults = isRareBonusEnabledForSpecial(specialRound);
   const roundTilePointsVisible = tilePointsVisible && !isSpeedRound;
   const speedWordScore = isSpeedRound
     ? specialRound?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
@@ -21874,16 +22233,21 @@ function handleTouchEnd(e) {
         !!acceptedWordMetaRef.current.get(word)?.fakeTwinsBonusOnly ||
         !!allWordsMap.get(word)?.fakeTwinsBonusOnly,
       rareBonusWord:
-        !!acceptedWordMetaRef.current.get(word)?.rareBonusWord ||
-        !!allWordsMap.get(word)?.rareBonusWord,
+        rareBonusEnabledForResults &&
+        (!!acceptedWordMetaRef.current.get(word)?.rareBonusWord ||
+          !!allWordsMap.get(word)?.rareBonusWord),
       rareBonusPoints:
-        Number(acceptedWordMetaRef.current.get(word)?.rareBonusPoints) ||
-        Number(allWordsMap.get(word)?.rareBonusPoints) ||
-        0,
+        rareBonusEnabledForResults
+          ? Number(acceptedWordMetaRef.current.get(word)?.rareBonusPoints) ||
+            Number(allWordsMap.get(word)?.rareBonusPoints) ||
+            0
+          : 0,
       rarityBucket:
-        acceptedWordMetaRef.current.get(word)?.rarityBucket ||
-        allWordsMap.get(word)?.rarityBucket ||
-        "",
+        rareBonusEnabledForResults
+          ? acceptedWordMetaRef.current.get(word)?.rarityBucket ||
+            allWordsMap.get(word)?.rarityBucket ||
+            ""
+          : "",
     }));
     pendingWordEntries.forEach((entry) => {
       if (acceptedWordSet.has(entry.word)) return;
@@ -21907,24 +22271,38 @@ function handleTouchEnd(e) {
           !!acceptedWordMetaRef.current.get(entry.word)?.fakeTwinsBonusOnly ||
           !!allWordsMap.get(entry.word)?.fakeTwinsBonusOnly,
         rareBonusWord:
-          !!entry?.rareBonusWord ||
-          !!acceptedWordMetaRef.current.get(entry.word)?.rareBonusWord ||
-          !!allWordsMap.get(entry.word)?.rareBonusWord,
+          rareBonusEnabledForResults &&
+          (!!entry?.rareBonusWord ||
+            !!acceptedWordMetaRef.current.get(entry.word)?.rareBonusWord ||
+            !!allWordsMap.get(entry.word)?.rareBonusWord),
         rareBonusPoints:
-          Number(entry?.rareBonusPoints) ||
-          Number(acceptedWordMetaRef.current.get(entry.word)?.rareBonusPoints) ||
-          Number(allWordsMap.get(entry.word)?.rareBonusPoints) ||
-          0,
+          rareBonusEnabledForResults
+            ? Number(entry?.rareBonusPoints) ||
+              Number(acceptedWordMetaRef.current.get(entry.word)?.rareBonusPoints) ||
+              Number(allWordsMap.get(entry.word)?.rareBonusPoints) ||
+              0
+            : 0,
         rarityBucket:
-          entry?.rarityBucket ||
-          acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
-          allWordsMap.get(entry.word)?.rarityBucket ||
-          "",
+          rareBonusEnabledForResults
+            ? entry?.rarityBucket ||
+              acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
+              allWordsMap.get(entry.word)?.rarityBucket ||
+              ""
+            : "",
       });
     });
     return list;
-  }, [accepted, acceptedWordSet, allWordsMap, bestPtsByFoundWord, pendingWordEntries]);
+  }, [
+    accepted,
+    acceptedWordSet,
+    allWordsMap,
+    bestPtsByFoundWord,
+    pendingWordEntries,
+    rareBonusEnabledForResults,
+  ]);
   const suppressWordListScores = specialRound?.type === DAILY_SPECIAL_MODE;
+  const isMassiveBoggleRoundForResults = specialRound?.type === MASSIVE_BOGGLE_TYPE;
+  const sortResultsWordsByLength = suppressWordListScores || isMassiveBoggleRoundForResults;
   const compareWordsByLengthAlpha = (a, b) => {
     const lenDiff =
       normalizeWord(String(b?.word || "")).length - normalizeWord(String(a?.word || "")).length;
@@ -21936,7 +22314,9 @@ function handleTouchEnd(e) {
   const scoreForSort = (entry) =>
     typeof entry.bestPts === "number" ? entry.bestPts : entry.userPts || 0;
   foundList.sort((a, b) =>
-    suppressWordListScores ? compareWordsByLengthAlpha(a, b) : scoreForSort(b) - scoreForSort(a)
+    sortResultsWordsByLength
+      ? compareWordsByLengthAlpha(a, b)
+      : scoreForSort(b) - scoreForSort(a)
   );
   const baseList = allWords.length > 0 ? allWords : foundList;
   const displayList = React.useMemo(
@@ -21962,22 +22342,27 @@ function handleTouchEnd(e) {
           !!allWordsMap.get(entry.word)?.fakeTwinsBonusOnly ||
           !!acceptedWordMetaRef.current.get(entry.word)?.fakeTwinsBonusOnly,
         rareBonusWord:
-          !!pendingStatusMap.get(entry.word)?.rareBonusWord ||
-          !!entry?.rareBonusWord ||
-          !!allWordsMap.get(entry.word)?.rareBonusWord ||
-          !!acceptedWordMetaRef.current.get(entry.word)?.rareBonusWord,
+          rareBonusEnabledForResults &&
+          (!!pendingStatusMap.get(entry.word)?.rareBonusWord ||
+            !!entry?.rareBonusWord ||
+            !!allWordsMap.get(entry.word)?.rareBonusWord ||
+            !!acceptedWordMetaRef.current.get(entry.word)?.rareBonusWord),
         rareBonusPoints:
-          Number(pendingStatusMap.get(entry.word)?.rareBonusPoints) ||
-          Number(entry?.rareBonusPoints) ||
-          Number(allWordsMap.get(entry.word)?.rareBonusPoints) ||
-          Number(acceptedWordMetaRef.current.get(entry.word)?.rareBonusPoints) ||
-          0,
+          rareBonusEnabledForResults
+            ? Number(pendingStatusMap.get(entry.word)?.rareBonusPoints) ||
+              Number(entry?.rareBonusPoints) ||
+              Number(allWordsMap.get(entry.word)?.rareBonusPoints) ||
+              Number(acceptedWordMetaRef.current.get(entry.word)?.rareBonusPoints) ||
+              0
+            : 0,
         rarityBucket:
-          pendingStatusMap.get(entry.word)?.rarityBucket ||
-          entry?.rarityBucket ||
-          allWordsMap.get(entry.word)?.rarityBucket ||
-          acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
-          "",
+          rareBonusEnabledForResults
+            ? pendingStatusMap.get(entry.word)?.rarityBucket ||
+              entry?.rarityBucket ||
+              allWordsMap.get(entry.word)?.rarityBucket ||
+              acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
+              ""
+            : "",
         userPts: (() => {
           const raw =
             pendingStatusMap.get(entry.word)?.userPts ??
@@ -21995,9 +22380,9 @@ function handleTouchEnd(e) {
               : entry.bestPts
             : speedWordScore,
       })),
-    [acceptedWordSet, baseList, pendingStatusMap, speedWordScore]
+    [acceptedWordSet, baseList, pendingStatusMap, rareBonusEnabledForResults, speedWordScore]
   );
-  if (suppressWordListScores) {
+  if (sortResultsWordsByLength) {
     displayList.sort(compareWordsByLengthAlpha);
   }
   const hoveredResultsWordSet = React.useMemo(() => {
@@ -22017,7 +22402,7 @@ function handleTouchEnd(e) {
   const gobbleBadgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
   const isSpeedRoundForResults = specialRound?.type === "speed";
   const isSpecial3RoundForResults = specialRound?.type === DAILY_SPECIAL_MODE;
-  const gobbleMaxPts = isSpeedRoundForResults
+  const gobbleMaxPts = isSpeedRoundForResults || isMassiveBoggleRoundForResults
     ? 0
     : displayList.reduce((max, entry) => {
         const pts = entry.bestPts;
@@ -22036,6 +22421,7 @@ function handleTouchEnd(e) {
       const isBest =
         !isSpecial3RoundForResults &&
         !isSpeedRoundForResults &&
+        !isMassiveBoggleRoundForResults &&
         Number.isFinite(entry.bestPts) &&
         entry.bestPts === gobbleMaxPts;
       const isLong = len > 0 && len === gobbleMaxLen;
@@ -22047,6 +22433,7 @@ function handleTouchEnd(e) {
     displayList,
     gobbleMaxLen,
     gobbleMaxPts,
+    isMassiveBoggleRoundForResults,
     isSpecial3RoundForResults,
     isSpeedRoundForResults,
   ]);
@@ -23220,6 +23607,7 @@ function handleTouchEnd(e) {
         playerKey: player?.playerKey ? String(player.playerKey) : "",
         team: player?.team || null,
         isBot: !!player?.isBot,
+        isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
         isDailyChampion:
           !!player?.isDailyChampion ||
           (!!duelStatus?.crowned &&
@@ -23267,6 +23655,7 @@ function handleTouchEnd(e) {
         team: player?.team || null,
         isBot: !!player?.isBot,
         isDailyChampion: !!player?.isDailyChampion,
+        isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
       });
     });
 
@@ -23283,9 +23672,12 @@ function handleTouchEnd(e) {
           ? `install:${userId}`
           : identity.playerKey || "",
         score: typeof entry.score === "number" ? entry.score : null,
+        gobbles: Number.isFinite(entry?.gobbles) ? Number(entry.gobbles) : 0,
         rank: typeof entry.rank === "number" ? entry.rank : null,
         team: entry?.team || identity.team || null,
         isBot: !!entry?.isBot || !!identity.isBot,
+        isWeeklyVocabChampion:
+          !!entry.isWeeklyVocabChampion || !!identity.isWeeklyVocabChampion,
         isDailyChampion:
           !!entry.isDailyChampion ||
           !!identity.isDailyChampion ||
@@ -23311,9 +23703,12 @@ function handleTouchEnd(e) {
           ? `install:${userId}`
           : identity.playerKey || "",
         score: typeof player.score === "number" ? player.score : null,
+        gobbles: Number.isFinite(player?.gobbles) ? Number(player.gobbles) : 0,
         rank: null,
         team: player?.team || identity.team || null,
         isBot: !!player?.isBot || !!identity.isBot,
+        isWeeklyVocabChampion:
+          !!player.isWeeklyVocabChampion || !!identity.isWeeklyVocabChampion,
         isDailyChampion:
           !!player.isDailyChampion ||
           !!identity.isDailyChampion ||
@@ -23345,10 +23740,12 @@ function handleTouchEnd(e) {
           installId: installId || "",
           playerKey: selfUserId ? `install:${selfUserId}` : "",
           score: currentScore,
+          gobbles: 0,
           rank: null,
           team: duelStatus?.team || null,
           isBot: false,
           isDailyChampion: !!duelStatus?.crowned,
+          isWeeklyVocabChampion: false,
         });
         seen.add(selfNick);
       }
@@ -23362,7 +23759,9 @@ function handleTouchEnd(e) {
         installId: installId || "",
         playerKey: fallbackUserId ? `install:${fallbackUserId}` : "",
         score: currentScore ?? 0,
+        gobbles: 0,
         rank: null,
+        isWeeklyVocabChampion: false,
       });
     }
 
@@ -23437,6 +23836,7 @@ function handleTouchEnd(e) {
       installId: installId || null,
       team: duelStatus?.team || null,
       isDailyChampion: !!duelStatus?.crowned,
+      isWeeklyVocabChampion: false,
       mode: currentDailyMode,
       isPalier: false,
       playerKey: normalizeUserIdForProfile(authenticatedUserId)
@@ -24149,7 +24549,7 @@ function handleTouchEnd(e) {
                     {entry.score || 0} pts
                   </>
                 )
-                : specialRound?.type !== MASSIVE_BOGGLE_TYPE && Number(entry?.rareBonusPoints) > 0
+                : isRareBonusEnabledForSpecial(specialRound) && Number(entry?.rareBonusPoints) > 0
                 ? (
                   <>
                     {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
@@ -25112,6 +25512,37 @@ function handleTouchEnd(e) {
   );
   const recordBadgesByNickForRound =
     isTargetRound ? targetRecordBadgesByNick : roundRecordBadgesByNick;
+  const devSelfCrownEnabled = !!devControls?.enabled && !!devControls?.selfCrown;
+  const devSelfGoldNickEnabled = !!devControls?.enabled && !!devControls?.selfGoldNick;
+  const crownedNickSet = React.useMemo(() => {
+    const set = new Set();
+    const add = (entry) => {
+      if (!entry?.isDailyChampion && !entry?.crowned && !entry?.isWeeklyChampion) return;
+      const nick = entry?.nick ? String(entry.nick).trim().toLowerCase() : "";
+      if (nick) set.add(nick);
+    };
+    players.forEach(add);
+    lobbyPlayersList.forEach(add);
+    provisionalRanking.forEach(add);
+    finalResults.forEach(add);
+    (tournamentRanking || []).forEach(add);
+    (tournamentSummary?.ranking || []).forEach(add);
+    chatMessages.forEach(add);
+    if (duelStatus?.crowned && selfNick) {
+      set.add(String(selfNick).trim().toLowerCase());
+    }
+    return set;
+  }, [
+    players,
+    lobbyPlayersList,
+    provisionalRanking,
+    finalResults,
+    tournamentRanking,
+    tournamentSummary,
+    chatMessages,
+    duelStatus?.crowned,
+    selfNick,
+  ]);
 
   function renderCrownIcon(className = "") {
     return (
@@ -25130,11 +25561,16 @@ function handleTouchEnd(e) {
 
   function isCrownedEntry(nick, entry = null) {
     if (entry?.isDailyChampion || entry?.crowned || entry?.isWeeklyChampion) return true;
+    const cleanNick = nick ? String(nick).trim() : "";
+    if (devSelfCrownEnabled && cleanNick && !!selfNick && cleanNick === String(selfNick).trim()) {
+      return true;
+    }
+    const cleanNickLower = cleanNick.toLowerCase();
+    if (cleanNickLower && crownedNickSet.has(cleanNickLower)) return true;
     if (!duelStatus?.crowned) return false;
     const entryInstallId =
       entry?.installId != null ? String(entry.installId).trim() : "";
     if (installId && entryInstallId && entryInstallId === String(installId)) return true;
-    const cleanNick = nick ? String(nick).trim() : "";
     return !!cleanNick && !!selfNick && cleanNick === String(selfNick).trim();
   }
 
@@ -25222,6 +25658,7 @@ function handleTouchEnd(e) {
             Number(entry.tieGroupSize) || tieMetaByNick.get(entry.nick)?.tieGroupSize || 0,
           isBot: !!entry.isBot,
           isDailyChampion: !!entry.isDailyChampion,
+          isWeeklyVocabChampion: !!entry.isWeeklyVocabChampion,
         }));
       return {
         winnerNick: ranking[0]?.nick || null,
@@ -25244,6 +25681,50 @@ function handleTouchEnd(e) {
     });
     return map;
   }, [tournamentFinaleSummary]);
+
+  const weeklyVocabChampionNickSet = React.useMemo(() => {
+    const set = new Set();
+    const add = (entry) => {
+      if (!entry?.isWeeklyVocabChampion) return;
+      const nick = entry?.nick ? String(entry.nick).trim().toLowerCase() : "";
+      if (nick) set.add(nick);
+    };
+    players.forEach(add);
+    lobbyPlayersList.forEach(add);
+    provisionalRanking.forEach(add);
+    finalResults.forEach(add);
+    (tournamentRanking || []).forEach(add);
+    (tournamentFinaleSummary?.ranking || []).forEach(add);
+    chatMessages.forEach(add);
+    return set;
+  }, [
+    players,
+    lobbyPlayersList,
+    provisionalRanking,
+    finalResults,
+    tournamentRanking,
+    tournamentFinaleSummary,
+    chatMessages,
+  ]);
+  const weeklyVocabChampionNickClass = darkMode
+    ? "text-amber-300 font-black"
+    : "text-amber-600 font-black";
+
+  function isWeeklyVocabChampionEntry(nick, entry = null) {
+    if (entry?.isWeeklyVocabChampion) return true;
+    const cleanNick = nick ? String(nick).trim().toLowerCase() : "";
+    const cleanSelfNick = selfNick ? String(selfNick).trim().toLowerCase() : "";
+    if (devSelfGoldNickEnabled && cleanNick && cleanSelfNick && cleanNick === cleanSelfNick) {
+      return true;
+    }
+    return !!cleanNick && weeklyVocabChampionNickSet.has(cleanNick);
+  }
+
+  function getLiveNickClassName(entry = null, nick = "") {
+    return isWeeklyVocabChampionEntry(nick || entry?.nick, entry)
+      ? weeklyVocabChampionNickClass
+      : "";
+  }
 
   const botNickSet = React.useMemo(() => {
     const set = new Set();
@@ -25337,34 +25818,33 @@ function handleTouchEnd(e) {
     }
     const m = persistentMedals || fallbackMedals?.[nick];
     if (!m) return null;
-    const toSuperscript = (n) => `x${n}`;
+    const renderMedalCount = (value) =>
+      value > 1 ? (
+        <span className="text-[10px] font-extrabold leading-none tabular-nums">
+          {value}
+        </span>
+      ) : null;
 
     const parts = [];
     if (m.gold)
       parts.push(
-        <span key="gold" className="inline-flex items-start">
+        <span key="gold" className="inline-flex items-center gap-0.5">
           <span aria-hidden="true">{"\u{1F947}"}</span>
-          {m.gold > 1 && (
-            <sup className="text-[0.6em] leading-none -ml-0.5">{toSuperscript(m.gold)}</sup>
-          )}
+          {renderMedalCount(m.gold)}
         </span>
       );
     if (m.silver)
       parts.push(
-        <span key="silver" className="inline-flex items-start">
+        <span key="silver" className="inline-flex items-center gap-0.5">
           <span aria-hidden="true">{"\u{1F948}"}</span>
-          {m.silver > 1 && (
-            <sup className="text-[0.6em] leading-none -ml-0.5">{toSuperscript(m.silver)}</sup>
-          )}
+          {renderMedalCount(m.silver)}
         </span>
       );
     if (m.bronze)
       parts.push(
-        <span key="bronze" className="inline-flex items-start">
+        <span key="bronze" className="inline-flex items-center gap-0.5">
           <span aria-hidden="true">{"\u{1F949}"}</span>
-          {m.bronze > 1 && (
-            <sup className="text-[0.6em] leading-none -ml-0.5">{toSuperscript(m.bronze)}</sup>
-          )}
+          {renderMedalCount(m.bronze)}
         </span>
       );
 
@@ -25509,9 +25989,15 @@ function handleTouchEnd(e) {
       entryOrFallback && typeof entryOrFallback === "object" && !Array.isArray(entryOrFallback)
         ? entryOrFallback
         : null;
+    const crown = isCrownedEntry(nick, entry) ? renderCrownIcon() : null;
     const dot = renderHumanDot(nick, entry);
-    if (!dot) return null;
-    return <span className="inline-flex items-center ml-1">{dot}</span>;
+    if (!crown && !dot) return null;
+    return (
+      <span className="inline-flex items-center gap-1 ml-1">
+        {crown}
+        {dot}
+      </span>
+    );
   }
 
   function renderRankDelta(entry) {
@@ -26459,6 +26945,7 @@ function handleTouchEnd(e) {
     if (boardKey === "bestSpecial3Score") return Number(entry.pts) || 0;
     if (boardKey === "bestRoundScore") return Number(entry.pts) || 0;
     if (boardKey === "vocab") return Number(entry.vocabCount) || 0;
+    if (boardKey === "weeklyVocab") return Number(entry.weeklyVocabCount ?? entry.vocabCount) || 0;
     if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
       return Number.isFinite(Number(entry.ms)) ? Number(entry.ms) : null;
     }
@@ -26555,12 +27042,17 @@ function handleTouchEnd(e) {
     return (
       <div className={`font-semibold truncate flex items-center ${gapClass} text-xs`}>
         {vocabMeta?.imageKey ? (
-          <img
-            src={getImageUrl(vocabMeta.imageKey)}
-            alt={vocabMeta.label || "Niveau"}
-            className="h-5 w-5 shrink-0"
-            draggable={false}
-          />
+          <span className="inline-flex shrink-0 items-center gap-1">
+            <img
+              src={getImageUrl(vocabMeta.imageKey)}
+              alt={vocabMeta.label || "Niveau"}
+              className="h-5 w-5 shrink-0"
+              draggable={false}
+            />
+            <span className="text-[10px] font-black opacity-75">
+              {vocabMeta.label || "Niveau"}
+            </span>
+          </span>
         ) : null}
         {onOpenProfile ? (
           <button
@@ -26619,6 +27111,8 @@ function handleTouchEnd(e) {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "vocab") {
       valueParts.push(`${formatNumber(entry.vocabCount) ?? 0} mots`);
+    } else if (boardKey === "weeklyVocab") {
+      valueParts.push(`${formatNumber(entry.weeklyVocabCount ?? entry.vocabCount) ?? 0} mots`);
     } else if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
       valueParts.push(formatMsShort(entry.ms) || "");
     } else if (boardKey === "mostGobbles") {
@@ -26796,6 +27290,8 @@ function handleTouchEnd(e) {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "vocab") {
       valueParts.push(`${formatNumber(entry.vocabCount) ?? 0} mots`);
+    } else if (boardKey === "weeklyVocab") {
+      valueParts.push(`${formatNumber(entry.weeklyVocabCount ?? entry.vocabCount) ?? 0} mots`);
     } else if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
       valueParts.push(formatMsShort(entry.ms) || "");
     } else if (boardKey === "mostGobbles") {
@@ -26968,13 +27464,27 @@ function handleTouchEnd(e) {
       },
     ];
   }, [vocabCount, selfNick, vocabUpdatedAt, installId]);
+  const weeklyVocabBoardEntries = React.useMemo(() => {
+    if (!Number.isFinite(vocabWeeklyCount) || vocabWeeklyCount <= 0) return [];
+    return [
+      {
+        nick: selfNick || "Toi",
+        weeklyVocabCount: vocabWeeklyCount,
+        achievedAt: Number.isFinite(vocabWeeklyUpdatedAt) ? vocabWeeklyUpdatedAt : null,
+        playerKey: installId ? `install:${installId}` : null,
+      },
+    ];
+  }, [vocabWeeklyCount, selfNick, vocabWeeklyUpdatedAt, installId]);
   const weeklyBoardData = React.useMemo(() => {
     const data = { ...(weeklyStats?.boards || {}) };
     if (!Array.isArray(data.vocab) || data.vocab.length === 0) {
       data.vocab = vocabBoardEntries;
     }
+    if (!Array.isArray(data.weeklyVocab) || data.weeklyVocab.length === 0) {
+      data.weeklyVocab = weeklyVocabBoardEntries;
+    }
     return data;
-  }, [weeklyStats?.boards, vocabBoardEntries]);
+  }, [weeklyStats?.boards, vocabBoardEntries, weeklyVocabBoardEntries]);
   const weeklyVocabLookup = React.useMemo(() => {
     const lookup = new Map();
     const weeklyVocabEntries = Array.isArray(weeklyBoardData.vocab)
@@ -27532,6 +28042,7 @@ function handleTouchEnd(e) {
                                 : 0
                             )
                           : renderGobbleWordAwardsInline(nick);
+                      const nickClassName = getLiveNickClassName(entry, nick);
                       const rowClassName = `flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0 ${
                         profileAvailable
                           ? "w-full text-left cursor-pointer rounded-md px-2 hover:bg-slate-100/70 dark:hover:bg-white/10"
@@ -27546,7 +28057,9 @@ function handleTouchEnd(e) {
                               </span>
                             ) : null}
                             <div className="min-w-0 flex items-center gap-2">
-                              <span className="font-semibold truncate">{nick || "Joueur"}</span>
+                              <span className={`font-semibold truncate ${nickClassName}`}>
+                                {nick || "Joueur"}
+                              </span>
                               {renderHumanDot(nick)}
                               {gobbleAwards}
                             </div>
@@ -31028,6 +31541,7 @@ function handleTouchEnd(e) {
       keyboardInsetReservePx={keyboardInsetReservePx}
       mobileChatReactionToasts={mobileChatReactionToasts}
       mobileChatUnreadCount={mobileChatUnreadCount}
+      getAuthorNickClassName={getLiveNickClassName}
       onChangeChatTab={setChatTab}
       onChatInputFocus={handleChatInputFocus}
       onClearChatEdit={clearChatEditTarget}
@@ -33507,6 +34021,7 @@ function handleTouchEnd(e) {
         showTieBreakBadge: true,
         delta,
         isDailyChampion: !!e.isDailyChampion,
+        isWeeklyVocabChampion: !!e.isWeeklyVocabChampion,
       };
     });
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
@@ -33587,6 +34102,7 @@ function handleTouchEnd(e) {
             fitHeight={true}
             assetVersion={assetVersion}
             gobbleWordAwardsByNick={gobbleAwardsForLive}
+            getNickClassName={getLiveNickClassName}
             onPlayerNickClick={openPlayerProfile}
             isPlayerNickClickable={canOpenPlayerProfile}
             renderNickSuffix={
@@ -33961,6 +34477,13 @@ function handleTouchEnd(e) {
                         (!replyPreview.installId &&
                           String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
                     );
+                    const authorNickClass = isWeeklyVocabChampionEntry(author, msg)
+                      ? "text-amber-300 font-black"
+                      : isYou
+                      ? "text-white"
+                      : darkMode
+                      ? "text-slate-100"
+                      : "text-black";
 
 	              return (
 	                <div
@@ -34028,13 +34551,7 @@ function handleTouchEnd(e) {
 	                              {canOpenMenu ? (
 	                                <button
 	                                  type="button"
-	                                  className={`font-semibold hover:underline ${
-	                                    isYou
-	                                      ? "text-white"
-                                      : darkMode
-                                      ? "text-slate-100"
-                                      : "text-black"
-                                  }`}
+	                                  className={`font-semibold hover:underline ${authorNickClass}`}
 	                                  onClick={(e) =>
 	                                    openUserMenu(e, {
 	                                      nick: author,
@@ -34048,13 +34565,7 @@ function handleTouchEnd(e) {
 	                                </button>
 	                              ) : (
 	                                <span
-                                    className={`font-semibold ${
-                                      isYou
-                                        ? "text-white"
-                                        : darkMode
-                                        ? "text-slate-100"
-                                        : "text-black"
-                                    }`}
+                                    className={`font-semibold ${authorNickClass}`}
                                   >
                                     {author} :
                                   </span>
@@ -35398,6 +35909,7 @@ function handleTouchEnd(e) {
             resultsReorderTick={resultsReorderTick}
             resultsWordsTitle={resultsWordsTitle}
             selfNick={selfNick}
+            getNickClassName={getLiveNickClassName}
             showAllWords={showAllWords}
             showHelp={showHelp}
             showOfflineResultsLabel={showOfflineResultsLabel}
@@ -35438,6 +35950,7 @@ function handleTouchEnd(e) {
         formatNumber={formatNumber}
         fullRanking={fullRanking}
         gobbleAwardsForLive={gobbleAwardsForLive}
+        getNickClassName={getLiveNickClassName}
         gridRef={gridRef}
         gridRotationTurns={gridRotationTurns}
         gridShake={gridShake}
@@ -35930,6 +36443,7 @@ function handleTouchEnd(e) {
           highlightedPlayers={highlightPlayers}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
+          getNickClassName={getLiveNickClassName}
           onPlayerNickClick={openPlayerProfile}
           isPlayerNickClickable={canOpenPlayerProfile}
           renderNickSuffix={renderNickSuffix}
@@ -35998,6 +36512,7 @@ function handleTouchEnd(e) {
           showRoundAward={true}
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
+          getNickClassName={getLiveNickClassName}
           renderNickSuffix={renderNickSuffix}
           stackNickDecorations={!isMobileLayout}
           showGobbleWordAwards={true}
@@ -36028,6 +36543,7 @@ function handleTouchEnd(e) {
                   ? visiblePlayerList
                   : [{ nick: "En attente..." }]).map((p) => {
                   const canOpenProfile = canOpenPlayerProfile(p);
+                  const nickClassName = getLiveNickClassName(p, p.nick);
                   const pillClass = `px-3 py-1 rounded-full text-xs border ${
                     p.nick === selfNick
                       ? "bg-blue-50 border-blue-200 text-blue-800"
@@ -36035,7 +36551,7 @@ function handleTouchEnd(e) {
                   }`;
                   const content = (
                     <>
-                      {p.nick}
+                      <span className={nickClassName}>{p.nick}</span>
                       {p.nick ? renderMedals(p.nick, p) : null}
                     </>
                   );
@@ -36689,7 +37205,7 @@ function handleTouchEnd(e) {
                           : specialRound?.type === "bonus_letter"
                           ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                           : specialRound?.type === MASSIVE_BOGGLE_TYPE
-                          ? "barème Massive Boggle"
+                          ? "mots de 3 lettres min"
                           : "objectif : 1 seul mot"}
                       </div>
                     )}
@@ -36855,6 +37371,7 @@ function handleTouchEnd(e) {
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText={fakeTwinsRemainingLabel}
+                getNickClassName={getLiveNickClassName}
               />
             </div>
           ) : phase === "results" && ocidSummary ? (
@@ -37024,6 +37541,7 @@ function handleTouchEnd(e) {
             desktopChatTab={safeChatTab}
             desktopEmojiList={DESKTOP_CHAT_EMOJIS}
             helpersRef={desktopChatHelpersRef}
+            getAuthorNickClassName={getLiveNickClassName}
             installId={installId}
             isDesktopEmojiPickerOpen={isDesktopEmojiPickerOpen}
             lastMessageId={lastMessageId}

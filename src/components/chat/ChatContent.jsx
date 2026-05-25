@@ -210,6 +210,7 @@ export default function ChatContent({
   onSelectChatReply,
   onReactToMessage,
   reactionEmojis = [],
+  getAuthorNickClassName = null,
 }) {
   const isSystemTab = chatTab === "system";
   const messagesEndRef = useRef(null);
@@ -810,6 +811,11 @@ export default function ChatContent({
                 swipePreview?.messageId === msg.id && Number.isFinite(swipePreview?.dx)
                   ? swipePreview.dx
                   : 0;
+              const authorNickClass =
+                (typeof getAuthorNickClassName === "function"
+                  ? getAuthorNickClassName(msg, author)
+                  : "") || (msg?.isWeeklyVocabChampion ? "text-amber-300 font-black" : "");
+              const authorBaseClass = authorNickClass || "font-semibold";
 
               return (
                 <div
@@ -889,7 +895,7 @@ export default function ChatContent({
                         {canOpenMenu ? (
                           <button
                             type="button"
-                            className="font-semibold hover:underline"
+                            className={`${authorBaseClass} hover:underline`}
                             style={NON_SELECTABLE_TOUCH_STYLE}
                             data-chat-author-button="true"
                             onClick={(e) =>
@@ -904,7 +910,7 @@ export default function ChatContent({
                             {author}:
                           </button>
                         ) : (
-                          <span className="font-semibold" style={NON_SELECTABLE_TOUCH_STYLE}>
+                          <span className={authorBaseClass} style={NON_SELECTABLE_TOUCH_STYLE}>
                             {author}:
                           </span>
                         )}

@@ -197,6 +197,16 @@ export default function DevSettingsPanel({
             label: "Reaction bot aux messages humains",
             disabled: !controls?.enabled,
           })}
+          {renderToggle({
+            keyName: "selfCrown",
+            label: "Me donner la couronne",
+            disabled: !controls?.enabled,
+          })}
+          {renderToggle({
+            keyName: "selfGoldNick",
+            label: "Me donner le pseudo dore",
+            disabled: !controls?.enabled,
+          })}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"

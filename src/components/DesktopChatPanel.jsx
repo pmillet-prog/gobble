@@ -40,6 +40,7 @@ function DesktopChatPanel({
   chatScaleMax = 1.5,
   chatScaleMin = 0.85,
   chatScaleStep = 0.05,
+  getAuthorNickClassName = null,
 }) {
   const helpers = helpersRef?.current || {};
   const formatChatUnreadSuffix = helpers.formatChatUnreadSuffix || (() => "");
@@ -212,6 +213,17 @@ function DesktopChatPanel({
               (!replyPreview.installId &&
                 String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
           );
+          const authorNickClass =
+            (typeof getAuthorNickClassName === "function"
+              ? getAuthorNickClassName(msg, author)
+              : "") ||
+            (msg?.isWeeklyVocabChampion
+              ? "text-amber-300 font-black"
+              : isYou
+            ? "text-white"
+            : darkMode
+            ? "text-slate-100"
+                : "text-black");
 
           return (
             <div
@@ -291,13 +303,7 @@ function DesktopChatPanel({
                       {canOpenMenu ? (
                         <button
                           type="button"
-                          className={`font-semibold hover:underline ${
-                            isYou
-                              ? "text-white"
-                              : darkMode
-                              ? "text-slate-100"
-                              : "text-black"
-                          }`}
+                          className={`font-semibold hover:underline ${authorNickClass}`}
                           onClick={(e) =>
                             actionsRef?.current?.openUserMenu?.(e, {
                               nick: author,
@@ -311,13 +317,7 @@ function DesktopChatPanel({
                         </button>
                       ) : (
                         <span
-                          className={`font-semibold ${
-                            isYou
-                              ? "text-white"
-                              : darkMode
-                              ? "text-slate-100"
-                              : "text-black"
-                          }`}
+                          className={`font-semibold ${authorNickClass}`}
                         >
                           {author} :
                         </span>

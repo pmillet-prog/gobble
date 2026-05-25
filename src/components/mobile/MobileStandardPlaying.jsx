@@ -94,6 +94,7 @@ function MobileStandardPlaying(props) {
     previewBlockHeight = 0,
     previewGapPx = 0,
     previewTileBaseStyle = undefined,
+    getNickClassName = null,
     renderNickSuffix = null,
     roundStats = null,
     roundTilePointsVisible = false,
@@ -447,6 +448,7 @@ function MobileStandardPlaying(props) {
                 gobbleWordAwardsByNick={gobbleAwardsForLive}
                 onPlayerNickClick={onOpenPlayerProfile}
                 isPlayerNickClickable={canOpenPlayerProfile}
+                getNickClassName={getNickClassName}
                 renderNickSuffix={renderNickSuffix}
                 showGobbleWordAwards={true}
                 className="h-full"
@@ -536,6 +538,7 @@ function MobileStandardPlaying(props) {
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText={liveFeedBannerText}
+                getNickClassName={getNickClassName}
                 wrapAroundBottomRight={!isChatOpenMobile}
                 wrapAroundWidth="clamp(44px, 11vw, 68px)"
                 wrapAroundHeight="clamp(44px, 11vw, 68px)"
