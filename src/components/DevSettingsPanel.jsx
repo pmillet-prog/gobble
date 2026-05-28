@@ -12,7 +12,6 @@ export default function DevSettingsPanel({
   controls = {},
   roundTypes = [],
   bots = [],
-  botDuration = "rounds:3",
   busy = false,
   password = "",
   error = "",
@@ -23,11 +22,13 @@ export default function DevSettingsPanel({
   onPatch = null,
   onFillChat = null,
   onClearChat = null,
+  onSendGlobalAnnouncement = null,
   onShowWeeklyRecap = null,
   onRefreshBots = null,
-  onBotDurationChange = null,
   onSetBotActive = null,
+  onSetAllBotsActive = null,
 }) {
+  const [globalAnnouncementText, setGlobalAnnouncementText] = React.useState("");
   const panelClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] border-amber-300/70 text-amber-50"
     : "bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] border-amber-300/80 text-slate-900";
@@ -51,6 +52,11 @@ export default function DevSettingsPanel({
     if (typeof onPatch === "function") onPatch(next);
   };
   const canUseTools = available && !locked;
+  const canSendGlobalAnnouncement =
+    canUseTools && !busy && globalAnnouncementText.trim().length > 0;
+  const activeBotCount = Array.isArray(bots)
+    ? bots.filter((bot) => !!bot?.active).length
+    : 0;
   const selectedRoundTypes = Array.isArray(controls?.forcedRoundTypes)
     ? controls.forcedRoundTypes
     : controls?.forcedRoundType
@@ -216,6 +222,31 @@ export default function DevSettingsPanel({
           >
             Afficher le recap hebdo
           </button>
+          <div className={`rounded-xl border px-3 py-3 ${mutedClass}`}>
+            <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">
+              Annonce globale
+            </span>
+            <textarea
+              disabled={busy || !canUseTools}
+              value={globalAnnouncementText}
+              onChange={(e) => setGlobalAnnouncementText(e.target.value)}
+              maxLength={1200}
+              rows={4}
+              placeholder="Message visible par tous, partout dans le jeu"
+              className="mt-2 w-full resize-y rounded-lg border border-amber-300/40 bg-white/90 px-2 py-2 text-xs text-slate-900 disabled:opacity-60"
+            />
+            <button
+              type="button"
+              disabled={!canSendGlobalAnnouncement}
+              onClick={async () => {
+                if (typeof onSendGlobalAnnouncement !== "function") return;
+                await onSendGlobalAnnouncement(globalAnnouncementText);
+              }}
+              className={`mt-2 w-full rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${buttonClass}`}
+            >
+              Envoyer a tous
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
@@ -251,29 +282,35 @@ export default function DevSettingsPanel({
             <div className="mt-2">
               {renderToggle({ keyName: "botsEnabled", label: "Activer tous les bots" })}
             </div>
-            <label className="mt-2 block">
-              <span className="block text-[10px] font-bold uppercase tracking-widest opacity-65">
-                Duree de l'ajustement
-              </span>
-              <select
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
                 disabled={busy || !canUseTools}
-                value={botDuration}
-                onChange={(e) =>
-                  typeof onBotDurationChange === "function"
-                    ? onBotDurationChange(e.target.value)
+                onClick={() =>
+                  typeof onSetAllBotsActive === "function"
+                    ? onSetAllBotsActive(false)
                     : null
                 }
-                className="mt-1 w-full rounded-lg border border-amber-300/40 bg-white/90 px-2 py-2 text-xs text-slate-900 disabled:opacity-60"
+                className={`rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${mutedClass}`}
               >
-                <option value="rounds:1">1 manche</option>
-                <option value="rounds:3">3 manches</option>
-                <option value="rounds:5">5 manches</option>
-                <option value="minutes:15">15 minutes</option>
-                <option value="minutes:30">30 minutes</option>
-                <option value="minutes:60">1 heure</option>
-                <option value="manual">Jusqu'au changement manuel</option>
-              </select>
-            </label>
+                Tous absents
+              </button>
+              <button
+                type="button"
+                disabled={busy || !canUseTools || !controls?.botsEnabled}
+                onClick={() =>
+                  typeof onSetAllBotsActive === "function"
+                    ? onSetAllBotsActive(true)
+                    : null
+                }
+                className={`rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${buttonClass}`}
+              >
+                Tous presents
+              </button>
+            </div>
+            <div className="mt-2 text-[10px] font-semibold opacity-70">
+              {activeBotCount}/{Array.isArray(bots) ? bots.length : 0} bots presents. Les choix restent jusqu'au prochain changement manuel.
+            </div>
             <div className="mt-2 max-h-56 overflow-y-auto pr-1 space-y-1">
               {(bots || []).length ? (
                 bots.map((bot) => (
@@ -294,12 +331,7 @@ export default function DevSettingsPanel({
                       <span className="block truncate font-semibold">{bot.nick}</span>
                       {bot.override ? (
                         <span className="block truncate text-[10px] opacity-75">
-                          force {bot.override.active ? "present" : "absent"}
-                          {Number.isFinite(bot.override.roundsRemaining)
-                            ? `, ${bot.override.roundsRemaining} manche(s)`
-                            : bot.override.expiresAt
-                            ? ", minuteur"
-                            : ", manuel"}
+                          force {bot.override.active ? "present" : "absent"}, manuel
                         </span>
                       ) : null}
                     </span>
@@ -316,7 +348,7 @@ export default function DevSettingsPanel({
             </div>
           </div>
           <div className="pt-2 text-[11px] font-semibold opacity-70">
-            Les changements s'appliquent aux prochaines manches. Les medailles bots sont seulement affichees.
+            Les bots changent immediatement. Les medailles bots sont seulement affichees.
           </div>
             </>
           ) : null}

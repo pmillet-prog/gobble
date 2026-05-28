@@ -660,7 +660,7 @@ class BotManager {
     });
   }
 
-  setBotActive(room, nick, active, duration = "rounds:3") {
+  setBotActive(room, nick, active, duration = "manual") {
     if (!room || !nick) return { ok: false, error: "invalid_room" };
     if (!this.botsEnabled && active) return { ok: false, error: "bots_disabled" };
     const roster = rosterForRoom(room);
@@ -694,12 +694,43 @@ class BotManager {
     return { ok: true, bot: { nick: bot.nick, active: false, override } };
   }
 
+  setAllBotsActive(room, active, duration = "manual") {
+    if (!room) return { ok: false, error: "invalid_room" };
+    if (!this.botsEnabled && active) return { ok: false, error: "bots_disabled" };
+    const roster = rosterForRoom(room);
+    if (!roster.length) return { ok: true, count: 0 };
+    const selection = this.roomBotSelection.get(room.id) || new Set();
+    const override = this.buildManualBotOverride(active, duration);
+    let count = 0;
+    for (const bot of roster) {
+      if (!bot?.nick) continue;
+      const key = this.botKey(bot);
+      this.manualBotOverrides.set(this.manualOverrideKey(room.id, bot.nick), {
+        ...override,
+        createdAt: Date.now(),
+      });
+      count += 1;
+      if (active) {
+        selection.add(key);
+        this.botRestUntil.delete(botStreakKey(room.id, bot.nick));
+        if (!room.players.has(key)) this.addBotToRoom(room, bot);
+      } else {
+        selection.delete(key);
+        if (room.players.has(key)) this.removeBotFromRoom(room, bot);
+      }
+    }
+    this.roomBotSelection.set(room.id, selection);
+    this.emitPlayers(room);
+    this.broadcastProvisionalRanking(room);
+    return { ok: true, count };
+  }
+
   manualOverrideKey(roomId, nick) {
     return `${roomId || "room"}:${String(nick || "").toLowerCase()}`;
   }
 
   buildManualBotOverride(active, duration) {
-    const value = String(duration || "rounds:3").trim().toLowerCase();
+    const value = String(duration || "manual").trim().toLowerCase();
     const override = { active: !!active, createdAt: Date.now() };
     if (value === "manual" || value === "until_manual") {
       return override;
@@ -714,7 +745,6 @@ class BotManager {
       override.roundsRemaining = amount;
       return override;
     }
-    override.roundsRemaining = 3;
     return override;
   }
 

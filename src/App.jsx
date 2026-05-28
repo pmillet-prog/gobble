@@ -4870,6 +4870,12 @@ export default function App() {
   const [chatDesktopFontScale, setChatDesktopFontScale] = useState(
     () => initialChatDesktopFontScale
   );
+  const [keyboardRecallSubmittedWord, setKeyboardRecallSubmittedWord] = useState(() =>
+    typeof initialSettings.keyboardRecallSubmittedWord === "boolean"
+      ? initialSettings.keyboardRecallSubmittedWord
+      : false
+  );
+  const keyboardRecallSubmittedWordRef = useRef(keyboardRecallSubmittedWord);
   const soundMasterVolumeRef = useRef(soundMasterVolume);
   const visualGobbleEnabledRef = useRef(visualGobbleEnabled);
   const visualPraiseEnabledRef = useRef(visualPraiseEnabled);
@@ -5295,6 +5301,7 @@ export default function App() {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSoundMenuOpen, setIsSoundMenuOpen] = useState(false);
   const [isVisualMenuOpen, setIsVisualMenuOpen] = useState(false);
+  const [isKeyboardMenuOpen, setIsKeyboardMenuOpen] = useState(false);
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
   const [isModerationMenuOpen, setIsModerationMenuOpen] = useState(false);
   const [devMenuTapCount, setDevMenuTapCount] = useState(0);
@@ -5308,7 +5315,6 @@ export default function App() {
   const [devPassword, setDevPassword] = useState("");
   const [devError, setDevError] = useState("");
   const [devBots, setDevBots] = useState([]);
-  const [devBotDuration, setDevBotDuration] = useState("rounds:3");
   const [devControlsBusy, setDevControlsBusy] = useState(false);
   const [devControls, setDevControls] = useState({
     enabled: false,
@@ -5543,6 +5549,10 @@ export default function App() {
     message: null,
     error: "",
   });
+  const [devGlobalAnnouncement, setDevGlobalAnnouncement] = useState(null);
+  const devGlobalAnnouncementHideTimerRef = useRef(null);
+  const devGlobalAnnouncementClearTimerRef = useRef(null);
+  const devGlobalAnnouncementRafRef = useRef(null);
   const [broadcastSeenNonce, setBroadcastSeenNonce] = useState(0);
   const [dailyStatus, setDailyStatus] = useState({
     loading: false,
@@ -6117,6 +6127,9 @@ export default function App() {
       } catch (_) {}
     }
   }, [visualConfettiEnabled]);
+  useEffect(() => {
+    keyboardRecallSubmittedWordRef.current = keyboardRecallSubmittedWord;
+  }, [keyboardRecallSubmittedWord]);
   const desktopChatFontPx = Math.round(14 * chatDesktopFontScale * 10) / 10;
   const desktopChatMetaFontPx = Math.round(11 * chatDesktopFontScale * 10) / 10;
   const desktopChatMicroFontPx = Math.round(10 * chatDesktopFontScale * 10) / 10;
@@ -6155,6 +6168,7 @@ export default function App() {
             chatDesktopFontScale,
             CHAT_DESKTOP_FONT_SCALE_DEFAULT
           ),
+          keyboardRecallSubmittedWord,
           vibration: isVibrationEnabled,
           tileLetterFont: persistedTheme.font,
           tileLetterScale: persistedTheme.letterScale,
@@ -6186,6 +6200,7 @@ export default function App() {
     visualScreenShakeEnabled,
     visualConfettiEnabled,
     chatDesktopFontScale,
+    keyboardRecallSubmittedWord,
     isVibrationEnabled,
     tilePointsVisible,
     themeUnlocks,
@@ -10019,6 +10034,10 @@ export default function App() {
       selfResult?.vocabWeeklyRank && typeof selfResult.vocabWeeklyRank === "object"
         ? selfResult.vocabWeeklyRank
         : null;
+    const serverRankBeforeValue =
+      serverWeeklyRank?.before == null ? null : Number(serverWeeklyRank.before);
+    const serverRankAfterValue =
+      serverWeeklyRank?.after == null ? null : Number(serverWeeklyRank.after);
     const rankSnapshot =
       vocabOverlayRankSnapshotRef.current?.key === overlayKey
         ? vocabOverlayRankSnapshotRef.current
@@ -10029,13 +10048,13 @@ export default function App() {
     const computedRankEnd = Number.isFinite(weeklyTargetCount)
       ? getWeeklyVocabRankForCount(weeklyTargetCount)
       : null;
-    const rankStart = Number.isFinite(Number(serverWeeklyRank?.before))
-      ? Number(serverWeeklyRank.before)
+    const rankStart = Number.isFinite(serverRankBeforeValue)
+      ? serverRankBeforeValue
       : Number.isFinite(rankSnapshot?.rankStart)
       ? rankSnapshot.rankStart
       : computedRankStart;
-    const rankEnd = Number.isFinite(Number(serverWeeklyRank?.after))
-      ? Number(serverWeeklyRank.after)
+    const rankEnd = Number.isFinite(serverRankAfterValue)
+      ? serverRankAfterValue
       : Number.isFinite(rankSnapshot?.rankEnd)
       ? rankSnapshot.rankEnd
       : computedRankEnd;
@@ -10620,13 +10639,36 @@ export default function App() {
         const vocabResultsKey = stableVocabKey || `results-${Date.now()}`;
         vocabResultsPendingRef.current = vocabResultsKey;
         setVocabResultsReadyKey(null);
-        void Promise.all([
-          requestVocabCount(),
-          fetchWeeklyStatsSnapshot(STATS_SEASON_TARGET_LIMIT),
-        ]).then(([snapshot, weeklySnapshot]) => {
+        const selfNickKeyForVocab = normalizeNickKey(nicknameRef.current);
+        const selfResultForVocab =
+          selfNickKeyForVocab && Array.isArray(results)
+            ? results.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForVocab)
+            : null;
+        const serverWeeklyRank =
+          selfResultForVocab?.vocabWeeklyRank &&
+          typeof selfResultForVocab.vocabWeeklyRank === "object"
+            ? selfResultForVocab.vocabWeeklyRank
+            : null;
+        const serverWeeklyRace =
+          selfResultForVocab?.vocabWeeklyRace &&
+          typeof selfResultForVocab.vocabWeeklyRace === "object"
+            ? selfResultForVocab.vocabWeeklyRace
+            : null;
+        const serverWeeklyBeforeCount = Number(serverWeeklyRace?.beforeCount);
+        const serverWeeklyAfterCount = Number(serverWeeklyRace?.afterCount);
+        const serverRankBeforeValue =
+          serverWeeklyRank?.before == null ? null : Number(serverWeeklyRank.before);
+        const serverRankAfterValue =
+          serverWeeklyRank?.after == null ? null : Number(serverWeeklyRank.after);
+        void fetchWeeklyStatsSnapshot(STATS_SEASON_TARGET_LIMIT);
+        void requestVocabCount().then((snapshot) => {
           if (vocabResultsPendingRef.current !== vocabResultsKey) return;
           const count = Number.isFinite(snapshot?.count) ? snapshot.count : null;
-          const weeklyCount = Number.isFinite(snapshot?.weeklyCount) ? snapshot.weeklyCount : null;
+          const weeklyCount = Number.isFinite(snapshot?.weeklyCount)
+            ? snapshot.weeklyCount
+            : Number.isFinite(serverWeeklyAfterCount)
+            ? Math.max(0, serverWeeklyAfterCount)
+            : null;
           if (!Number.isFinite(count)) {
             setVocabRoundDelta(null);
             setVocabWeeklyRoundDelta(null);
@@ -10638,25 +10680,32 @@ export default function App() {
           } else {
             setVocabRoundDelta(null);
           }
-          const weeklyBase = vocabWeeklyBaselineRef.current;
+          const weeklyBase = Number.isFinite(serverWeeklyBeforeCount)
+            ? Math.max(0, serverWeeklyBeforeCount)
+            : vocabWeeklyBaselineRef.current;
           if (Number.isFinite(weeklyCount) && Number.isFinite(weeklyBase)) {
             setVocabWeeklyRoundDelta(Math.max(0, weeklyCount - weeklyBase));
           } else {
             setVocabWeeklyRoundDelta(null);
           }
+          const statsForRace = weeklyStatsSnapshotRef.current;
           const rankStart =
-            Number.isFinite(vocabWeeklyRankBaselineRef.current)
+            Number.isFinite(serverRankBeforeValue)
+              ? serverRankBeforeValue
+              : Number.isFinite(vocabWeeklyRankBaselineRef.current)
               ? vocabWeeklyRankBaselineRef.current
               : Number.isFinite(weeklyBase)
-              ? getWeeklyVocabRankForCount(weeklyBase, weeklyStats)
+              ? getWeeklyVocabRankForCount(weeklyBase, statsForRace)
               : null;
           const rankEnd =
-            getSelfWeeklyVocabRankFromStats(weeklySnapshot) ||
+            Number.isFinite(serverRankAfterValue)
+              ? serverRankAfterValue
+              : getSelfWeeklyVocabRankFromStats(statsForRace) ||
             (Number.isFinite(weeklyCount)
-              ? getWeeklyVocabRankForCount(weeklyCount, weeklySnapshot || weeklyStats)
+              ? getWeeklyVocabRankForCount(weeklyCount, statsForRace)
               : null);
           const raceSnapshot = buildVocabOverlayRaceSnapshot({
-            statsSource: weeklySnapshot || weeklyStats,
+            statsSource: statsForRace,
             roundResults: results,
             weeklyBaseCount: Number.isFinite(weeklyBase) ? weeklyBase : null,
             weeklyTargetCount: weeklyCount,
@@ -12557,6 +12606,59 @@ export default function App() {
       showToastRef.current?.(message, 8000);
     }
 
+    function onDevGlobalAnnouncement(payload = {}) {
+      const body =
+        typeof payload?.body === "string" && payload.body.trim()
+          ? payload.body.trim()
+          : typeof payload?.message === "string" && payload.message.trim()
+          ? payload.message.trim()
+          : "";
+      if (!body) return;
+      if (devGlobalAnnouncementHideTimerRef.current) {
+        clearTimeout(devGlobalAnnouncementHideTimerRef.current);
+        devGlobalAnnouncementHideTimerRef.current = null;
+      }
+      if (devGlobalAnnouncementClearTimerRef.current) {
+        clearTimeout(devGlobalAnnouncementClearTimerRef.current);
+        devGlobalAnnouncementClearTimerRef.current = null;
+      }
+      if (devGlobalAnnouncementRafRef.current) {
+        cancelAnimationFrame(devGlobalAnnouncementRafRef.current);
+        devGlobalAnnouncementRafRef.current = null;
+      }
+      const next = {
+        id:
+          typeof payload?.id === "string" && payload.id.trim()
+            ? payload.id.trim()
+            : `dev-global-${Date.now()}`,
+        title:
+          typeof payload?.title === "string" && payload.title.trim()
+            ? payload.title.trim()
+            : "Annonce serveur",
+        body,
+        createdAt: Number.isFinite(payload?.createdAt) ? payload.createdAt : Date.now(),
+        author: typeof payload?.author === "string" ? payload.author.trim() : "",
+        visible: false,
+      };
+      setDevGlobalAnnouncement(next);
+      devGlobalAnnouncementRafRef.current = requestAnimationFrame(() => {
+        devGlobalAnnouncementRafRef.current = null;
+        setDevGlobalAnnouncement((prev) =>
+          prev?.id === next.id ? { ...prev, visible: true } : prev
+        );
+      });
+      devGlobalAnnouncementHideTimerRef.current = setTimeout(() => {
+        devGlobalAnnouncementHideTimerRef.current = null;
+        setDevGlobalAnnouncement((prev) =>
+          prev?.id === next.id ? { ...prev, visible: false } : prev
+        );
+      }, 6500);
+      devGlobalAnnouncementClearTimerRef.current = setTimeout(() => {
+        devGlobalAnnouncementClearTimerRef.current = null;
+        setDevGlobalAnnouncement((prev) => (prev?.id === next.id ? null : prev));
+      }, 7300);
+    }
+
     roundHandlersRef.current.onRoundStarted = onRoundStarted;
     roundHandlersRef.current.onRoundEnded = onRoundEnded;
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
@@ -12582,6 +12684,7 @@ export default function App() {
     socket.on("trophiesUpdated", onTrophiesUpdated);
     socket.on("gobblarsAwarded", onGobblarsAwarded);
     socket.on("moderation:notice", onModerationNotice);
+    socket.on("dev:globalAnnouncement", onDevGlobalAnnouncement);
     socket.on("connect", onConnect);
     socket.on("connect_error", onConnectError);
     socket.on("disconnect", onDisconnect);
@@ -12608,9 +12711,22 @@ export default function App() {
       socket.off("trophiesUpdated", onTrophiesUpdated);
       socket.off("gobblarsAwarded", onGobblarsAwarded);
       socket.off("moderation:notice", onModerationNotice);
+      socket.off("dev:globalAnnouncement", onDevGlobalAnnouncement);
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
+      if (devGlobalAnnouncementHideTimerRef.current) {
+        clearTimeout(devGlobalAnnouncementHideTimerRef.current);
+        devGlobalAnnouncementHideTimerRef.current = null;
+      }
+      if (devGlobalAnnouncementClearTimerRef.current) {
+        clearTimeout(devGlobalAnnouncementClearTimerRef.current);
+        devGlobalAnnouncementClearTimerRef.current = null;
+      }
+      if (devGlobalAnnouncementRafRef.current) {
+        cancelAnimationFrame(devGlobalAnnouncementRafRef.current);
+        devGlobalAnnouncementRafRef.current = null;
+      }
     };
   }, []);
 
@@ -13163,9 +13279,12 @@ export default function App() {
   function getWeeklyVocabRankForCount(countValue, statsSource = weeklyStats) {
     const entries = statsSource?.boards?.weeklyVocab;
     if (!Array.isArray(entries) || entries.length === 0) return null;
-    const installKey = installId ? `install:${installId}` : null;
-    const nickKey = selfNick ? `nick:${selfNick}` : null;
-    const nickLower = selfNick ? String(selfNick).trim().toLowerCase() : null;
+    const currentInstallId =
+      typeof installIdRef.current === "string" ? installIdRef.current.trim() : "";
+    const currentSelfNick = String(nicknameRef.current || "").trim();
+    const installKey = currentInstallId ? `install:${currentInstallId}` : null;
+    const nickKey = currentSelfNick ? `nick:${currentSelfNick}` : null;
+    const nickLower = currentSelfNick ? currentSelfNick.toLowerCase() : null;
     if (!installKey && !nickKey && !nickLower) return null;
     let replaced = false;
     const now = Date.now();
@@ -13182,7 +13301,7 @@ export default function App() {
     });
     if (!replaced) {
       withOverride.push({
-        nick: selfNick || "Toi",
+        nick: currentSelfNick || "Toi",
         playerKey: installKey || nickKey,
         weeklyVocabCount: countValue,
         achievedAt: now,
@@ -13203,9 +13322,12 @@ export default function App() {
   function getSelfWeeklyVocabRankFromStats(statsSource = weeklyStats) {
     const entries = statsSource?.boards?.weeklyVocab;
     if (!Array.isArray(entries) || entries.length === 0) return null;
-    const installKey = installId ? `install:${installId}` : null;
-    const nickKey = selfNick ? `nick:${selfNick}` : null;
-    const nickLower = selfNick ? String(selfNick).trim().toLowerCase() : null;
+    const currentInstallId =
+      typeof installIdRef.current === "string" ? installIdRef.current.trim() : "";
+    const currentSelfNick = String(nicknameRef.current || "").trim();
+    const installKey = currentInstallId ? `install:${currentInstallId}` : null;
+    const nickKey = currentSelfNick ? `nick:${currentSelfNick}` : null;
+    const nickLower = currentSelfNick ? currentSelfNick.toLowerCase() : null;
     if (!installKey && !nickKey && !nickLower) return null;
     const ranked = dedupeWeeklyEntries(
       "weeklyVocab",
@@ -13236,10 +13358,13 @@ export default function App() {
       : baseCount;
     if (!Number.isFinite(baseCount) || !Number.isFinite(targetCount)) return null;
     const entries = statsSource?.boards?.weeklyVocab;
-    const installKey = installId ? `install:${installId}` : null;
-    const nickKey = selfNick ? `nick:${selfNick}` : null;
-    const nickLower = selfNick ? String(selfNick).trim().toLowerCase() : "";
-    const selfLabel = selfNick || "Toi";
+    const currentInstallId =
+      typeof installIdRef.current === "string" ? installIdRef.current.trim() : "";
+    const currentSelfNick = String(nicknameRef.current || "").trim();
+    const installKey = currentInstallId ? `install:${currentInstallId}` : null;
+    const nickKey = currentSelfNick ? `nick:${currentSelfNick}` : null;
+    const nickLower = currentSelfNick ? currentSelfNick.toLowerCase() : "";
+    const selfLabel = currentSelfNick || "Toi";
     const now = Date.now();
     const withSelf = Array.isArray(entries) ? [...entries] : [];
     if (Array.isArray(roundResults)) {
@@ -13299,8 +13424,6 @@ export default function App() {
     };
     const selfIdx = ranked.findIndex(isSelfEntry);
     const rankAfter = selfIdx >= 0 ? selfIdx + 1 : Number.isFinite(rankEnd) ? rankEnd : null;
-    const deltaCount = Math.max(0, targetCount - baseCount);
-    const maxExactGap = Math.max(35, deltaCount * 4, Math.ceil(Math.max(targetCount, 1) * 0.08));
     const passed = [];
     const ahead = [];
     ranked.forEach((entry, idx) => {
@@ -13321,19 +13444,15 @@ export default function App() {
     });
     passed.sort((a, b) => a.count - b.count || a.rank - b.rank);
     ahead.sort((a, b) => a.gap - b.gap || a.rank - b.rank);
-    const exactAhead = ahead.filter((entry) => entry.gap <= maxExactGap).slice(0, 3);
-    const clippedAhead = exactAhead.length ? [] : ahead.slice(0, 2).map((entry) => ({ ...entry, clipped: true }));
+    const nextAhead = ahead[0] || null;
     const selected = [
-      ...passed.slice(Math.max(0, passed.length - 5)),
-      ...exactAhead,
-      ...clippedAhead,
+      ...passed.slice(Math.max(0, passed.length - 6)),
+      ...(nextAhead ? [nextAhead] : []),
     ];
-    const naturalMax = Math.max(
-      targetCount,
-      ...selected.filter((entry) => !entry.clipped).map((entry) => entry.count)
+    const maxCount = Math.max(
+      baseCount + 1,
+      nextAhead ? nextAhead.count : targetCount
     );
-    const fallbackSpan = Math.max(10, deltaCount * 1.6);
-    const maxCount = Math.max(naturalMax, targetCount + fallbackSpan);
     return {
       min: baseCount,
       max: maxCount,
@@ -13341,13 +13460,13 @@ export default function App() {
       targetCount,
       rankStart: Number.isFinite(rankStart) ? rankStart : null,
       rankEnd: Number.isFinite(rankAfter) ? rankAfter : Number.isFinite(rankEnd) ? rankEnd : null,
-      nextAhead: ahead[0] || null,
+      nextAhead,
       competitors: selected.map((entry) => ({
         nick: entry.nick,
         count: entry.count,
         rank: entry.rank,
         playerKey: entry.playerKey || null,
-        clipped: !!entry.clipped,
+        clipped: false,
         status: entry.count <= targetCount ? "passed" : "ahead",
       })),
     };
@@ -17768,13 +17887,17 @@ export default function App() {
   function loadWordFromHistory(wordNorm) {
     if (!wordNorm || phase !== "playing") return;
     const path = findBestPathForWord(board, wordNorm, specialScoreConfig);
-    if (!path || path.length === 0) return;
-    const letters = path.map((idx) => board[idx].letter);
+    const hasPath = Array.isArray(path) && path.length > 0;
+    const letters = hasPath
+      ? path.map((idx) => board[idx].letter)
+      : String(wordNorm || "")
+          .toUpperCase()
+          .split("");
     activeTraceStartedAtRef.current = getNowServerMs();
-    highlightPathRef.current = path;
+    highlightPathRef.current = hasPath ? path : [];
     setCurrentTiles(letters);
     currentTilesRef.current = letters;
-    setHighlightPath(path);
+    setHighlightPath(hasPath ? path : []);
     clearStatusMessage();
     setActiveArea("game");
   }
@@ -20414,6 +20537,14 @@ function handleTouchEnd(e) {
 
     const display = currentTilesRef.current.join("");
     const raw = normalizeWord(display);
+    if (
+      raw &&
+      keyboardRecallSubmittedWordRef.current &&
+      !isMobileLayoutRef.current &&
+      lastInputModeRef.current === "keyboard"
+    ) {
+      pushWordHistory(raw);
+    }
     if (!raw || raw.length < 2) {
       markDailySlotInvalid(targetSlot, "Mot trop court");
       return;
@@ -20525,6 +20656,14 @@ function handleTouchEnd(e) {
     
     const display = currentTilesRef.current.join("");
     const preferredRaw = normalizeWord(display);
+    if (
+      preferredRaw &&
+      keyboardRecallSubmittedWordRef.current &&
+      !isMobileLayoutRef.current &&
+      lastInputModeRef.current === "keyboard"
+    ) {
+      pushWordHistory(preferredRaw);
+    }
     const minimumWordLength =
       Number.isFinite(specialScoreConfig?.minWordLength) && specialScoreConfig.minWordLength > 0
         ? Math.trunc(specialScoreConfig.minWordLength)
@@ -22438,7 +22577,7 @@ function handleTouchEnd(e) {
                   darkMode
                     ? "border-emerald-300 bg-slate-950 text-emerald-100"
                     : "border-emerald-500 bg-white text-emerald-700"
-                } ${vocabOverlayCountClass}`}
+                }`}
                 style={{
                   left: `${vocabOverlayRaceCurrentPct}%`,
                   transform: "translateX(-50%)",
@@ -30238,6 +30377,7 @@ function handleTouchEnd(e) {
   const openThemeMenu = React.useCallback(() => {
     setIsSoundMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsKeyboardMenuOpen(false);
     setIsDevMenuOpen(false);
     setIsModerationMenuOpen(false);
     setThemeDraft(themeAppliedSafe);
@@ -30250,6 +30390,7 @@ function handleTouchEnd(e) {
   const openSoundMenu = React.useCallback(() => {
     setIsThemeMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsKeyboardMenuOpen(false);
     setIsDevMenuOpen(false);
     setIsModerationMenuOpen(false);
     setIsSoundMenuOpen(true);
@@ -30260,12 +30401,24 @@ function handleTouchEnd(e) {
   const openVisualMenu = React.useCallback(() => {
     setIsThemeMenuOpen(false);
     setIsSoundMenuOpen(false);
+    setIsKeyboardMenuOpen(false);
     setIsDevMenuOpen(false);
     setIsModerationMenuOpen(false);
     setIsVisualMenuOpen(true);
   }, []);
   const closeVisualMenu = React.useCallback(() => {
     setIsVisualMenuOpen(false);
+  }, []);
+  const openKeyboardMenu = React.useCallback(() => {
+    setIsThemeMenuOpen(false);
+    setIsSoundMenuOpen(false);
+    setIsVisualMenuOpen(false);
+    setIsDevMenuOpen(false);
+    setIsModerationMenuOpen(false);
+    setIsKeyboardMenuOpen(true);
+  }, []);
+  const closeKeyboardMenu = React.useCallback(() => {
+    setIsKeyboardMenuOpen(false);
   }, []);
   const applyDevControlsResponse = React.useCallback((res) => {
     if (!res || typeof res !== "object") return;
@@ -30355,6 +30508,7 @@ function handleTouchEnd(e) {
     setIsThemeMenuOpen(false);
     setIsSoundMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsKeyboardMenuOpen(false);
     setIsModerationMenuOpen(false);
     setIsDevMenuOpen(true);
     fetchDevControls();
@@ -30387,6 +30541,7 @@ function handleTouchEnd(e) {
     setIsThemeMenuOpen(false);
     setIsSoundMenuOpen(false);
     setIsVisualMenuOpen(false);
+    setIsKeyboardMenuOpen(false);
     setIsDevMenuOpen(false);
     setIsModerationMenuOpen(true);
     fetchModerationState();
@@ -30426,7 +30581,7 @@ function handleTouchEnd(e) {
           roomId: currentRoomIdRef.current || roomIdRef.current,
           nick,
           active,
-          duration: devBotDuration,
+          duration: "manual",
         },
         (res) => {
           setDevControlsBusy(false);
@@ -30435,7 +30590,28 @@ function handleTouchEnd(e) {
         }
       );
     },
-    [devBotDuration, showToast]
+    [showToast]
+  );
+  const setAllDevBotsActive = React.useCallback(
+    (active) => {
+      if (!socket?.connected) return;
+      setDevControlsBusy(true);
+      socket.emit(
+        "dev:bots:setAll",
+        {
+          roomId: currentRoomIdRef.current || roomIdRef.current,
+          active: !!active,
+        },
+        (res) => {
+          setDevControlsBusy(false);
+          if (Array.isArray(res?.bots)) setDevBots(res.bots);
+          if (!res?.ok) {
+            showToast(active ? "Impossible d'activer tous les bots." : "Impossible de couper tous les bots.");
+          }
+        }
+      );
+    },
+    [showToast]
   );
   const clearDevChat = React.useCallback(() => {
     if (!socket?.connected) return;
@@ -30460,6 +30636,40 @@ function handleTouchEnd(e) {
     showToast("Chargement du recap hebdo...", 1600);
     void fetchDuelStatus({ force: true });
   }, [duelStatus?.lastWeekSummary, installId, isAccountAuthenticated, showToast]);
+
+  const sendDevGlobalAnnouncement = React.useCallback(
+    (message) =>
+      new Promise((resolve) => {
+        const body = typeof message === "string" ? message.trim() : "";
+        if (!body) {
+          resolve(false);
+          return;
+        }
+        if (!socket?.connected) {
+          showToast("Serveur indisponible pour l'annonce.", 2200);
+          resolve(false);
+          return;
+        }
+        setDevControlsBusy(true);
+        socket.emit("dev:globalAnnouncement", { message: body }, (res) => {
+          setDevControlsBusy(false);
+          applyDevControlsResponse(res);
+          if (res?.ok) {
+            showToast("Annonce envoyee a tous.", 2200);
+            resolve(true);
+            return;
+          }
+          showToast(
+            res?.error === "empty_message"
+              ? "Message vide."
+              : "Annonce globale refusee par le serveur.",
+            2600
+          );
+          resolve(false);
+        });
+      }),
+    [applyDevControlsResponse, showToast]
+  );
 
   useEffect(() => {
     if (!duelWeekRecapOpenAfterRefreshRef.current) return;
@@ -30545,6 +30755,7 @@ function handleTouchEnd(e) {
         (isThemeMenuOpen ||
           isSoundMenuOpen ||
           isVisualMenuOpen ||
+          isKeyboardMenuOpen ||
           isDevMenuOpen ||
           isModerationMenuOpen);
       if (shouldAnimatePanels) {
@@ -30556,6 +30767,9 @@ function handleTouchEnd(e) {
         }
         if (isVisualMenuOpen) {
           closeVisualMenu();
+        }
+        if (isKeyboardMenuOpen) {
+          closeKeyboardMenu();
         }
         if (isDevMenuOpen) {
           closeDevMenu();
@@ -30574,10 +30788,12 @@ function handleTouchEnd(e) {
     [
       closeSoundMenu,
       closeThemeMenu,
+      closeKeyboardMenu,
       closeDevMenu,
       closeModerationMenu,
       closeVisualMenu,
       isDevMenuOpen,
+      isKeyboardMenuOpen,
       isModerationMenuOpen,
       isSoundMenuOpen,
       isThemeMenuOpen,
@@ -31118,6 +31334,30 @@ function handleTouchEnd(e) {
               {allVisualOn ? "Tout On" : "Configurer"}
             </span>
           </button>
+          {!isMobileLayout ? (
+            <button
+              type="button"
+              onClick={openKeyboardMenu}
+              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+                keyboardRecallSubmittedWord ? settingsPositiveButtonClass : settingsPanelButtonClass
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] leading-none">
+                  keyboard
+                </span>
+                <span className="inline-flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Clavier</span>
+                  <span className="text-[10px] opacity-70">
+                    Rappel avec flèche haut
+                  </span>
+                </span>
+              </span>
+              <span className="text-[10px] font-semibold opacity-70">
+                {keyboardRecallSubmittedWord ? "Envoyé" : "Valide"}
+              </span>
+            </button>
+          ) : null}
           {devMenuUnlocked ? (
             <button
               type="button"
@@ -31343,6 +31583,17 @@ function handleTouchEnd(e) {
             onToggleConfetti: () => setVisualConfettiEnabled((prev) => !prev),
           },
         }}
+        keyboard={{
+          isOpen: isKeyboardMenuOpen,
+          props: {
+            darkMode: menuDarkMode,
+            isOpen: isKeyboardMenuOpen,
+            recallSubmittedWord: keyboardRecallSubmittedWord,
+            onClose: closeKeyboardMenu,
+            onToggleRecallSubmittedWord: () =>
+              setKeyboardRecallSubmittedWord((prev) => !prev),
+          },
+        }}
         dev={{
           isOpen: isDevMenuOpen,
           props: {
@@ -31357,7 +31608,6 @@ function handleTouchEnd(e) {
             controls: devControls,
             roundTypes: devRoundTypes,
             bots: devBots,
-            botDuration: devBotDuration,
             busy: devControlsBusy,
             password: devPassword,
             error: devError,
@@ -31368,10 +31618,11 @@ function handleTouchEnd(e) {
             onPatch: patchDevControls,
             onFillChat: fillDevChat,
             onClearChat: clearDevChat,
+            onSendGlobalAnnouncement: sendDevGlobalAnnouncement,
             onShowWeeklyRecap: showDevDuelWeekRecap,
             onRefreshBots: fetchDevBots,
-            onBotDurationChange: setDevBotDuration,
             onSetBotActive: setDevBotActive,
+            onSetAllBotsActive: setAllDevBotsActive,
           },
         }}
         moderation={{
@@ -32246,6 +32497,32 @@ function handleTouchEnd(e) {
       onClose={dismissBroadcastNotice}
     />
   ) : null;
+  const devGlobalAnnouncementOverlay =
+    devGlobalAnnouncement && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed left-0 right-0 top-4 px-3 pointer-events-none flex justify-center transition-all duration-500 ease-out"
+            style={{
+              zIndex: 2147483000,
+              opacity: devGlobalAnnouncement.visible ? 1 : 0,
+              transform: devGlobalAnnouncement.visible
+                ? "translateY(0)"
+                : "translateY(-14px)",
+            }}
+            aria-live="assertive"
+          >
+            <div className="max-w-3xl rounded-xl border border-red-200/80 bg-red-700/95 px-4 py-3 text-center text-white shadow-[0_18px_60px_rgba(127,29,29,0.45)]">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-100/90">
+                {devGlobalAnnouncement.title || "Annonce serveur"}
+              </div>
+              <div className="mt-1 whitespace-pre-wrap text-sm sm:text-base font-black leading-snug">
+                {devGlobalAnnouncement.body}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
   const vaultWordOfDayOverlay = vaultWordOfDayPopup.open ? (
     <VaultWordOfDayPopup
       definition={vaultWordOfDayPopup.definition}
@@ -32581,6 +32858,7 @@ function handleTouchEnd(e) {
       {bootOverlay}
       {duelPopupOverlay}
       {duelWeekRecapOverlay}
+      {devGlobalAnnouncementOverlay}
       {playersOverlay}
       {userMenuView}
       {desktopChatReactionPickerView}
@@ -34136,6 +34414,7 @@ function handleTouchEnd(e) {
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
+        {devGlobalAnnouncementOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
         {playersOverlay}
@@ -34190,6 +34469,7 @@ function handleTouchEnd(e) {
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
+        {devGlobalAnnouncementOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
         {playersOverlay}

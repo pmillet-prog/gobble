@@ -14,7 +14,10 @@ export default function BroadcastNoticePopup({
   const ctaUrl = typeof message.ctaUrl === "string" ? message.ctaUrl.trim() : "";
 
   return createPortal(
-    <div className="fixed inset-0 z-[12050] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-4">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-4"
+      style={{ zIndex: 2147483000 }}
+    >
       <div
         className={`w-full max-w-2xl max-h-[min(88vh,900px)] overflow-hidden rounded-2xl border p-4 space-y-3 ${
           darkMode

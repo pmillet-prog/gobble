@@ -1593,6 +1593,7 @@ const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
 const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json");
 const DEV_CONTROLS_PATH = path.join(RUNTIME_DATA_DIR, "dev-controls.json");
 const DEV_ACCESS_PATH = path.join(RUNTIME_DATA_DIR, "dev-access.json");
+const DEV_GLOBAL_ANNOUNCEMENT_MAX_LEN = 1200;
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
@@ -2063,6 +2064,15 @@ function requireDevToolsAccess(socket, cb) {
     return false;
   }
   return true;
+}
+
+function sanitizeDevGlobalAnnouncement(raw) {
+  if (typeof raw !== "string") return "";
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim()
+    .slice(0, DEV_GLOBAL_ANNOUNCEMENT_MAX_LEN);
 }
 
 function normalizeInstallIdRaw(raw) {
@@ -7619,6 +7629,7 @@ async function endRoundForRoom(room) {
   }
   if (vocabEntries.length && vocabSummary && typeof vocabSummary === "object") {
     const weeklyVocabRankAfterOverrides = [];
+    const weeklyVocabCountAfterByPlayerKey = new Map();
     for (const entry of vocabEntries) {
       const summary = vocabSummary[entry.installId];
       if (!summary) continue;
@@ -7629,6 +7640,7 @@ async function endRoundForRoom(room) {
       recordVocabCount(playerKey, entry.nick, totalCount, endedAt);
       const weeklyCount = await getWeeklyVocabularyCountForInstallIds(vocabInstallIds, endedAt);
       recordWeeklyVocabCount(playerKey, entry.nick, weeklyCount, endedAt);
+      weeklyVocabCountAfterByPlayerKey.set(playerKey, weeklyCount);
       weeklyVocabRankAfterOverrides.push({
         playerKey,
         nick: entry.nick,
@@ -7654,7 +7666,7 @@ async function endRoundForRoom(room) {
       resultEntry.vocabWeeklyRace = {
         ...(resultEntry.vocabWeeklyRace || {}),
         beforeCount: Number(resultEntry.vocabWeeklyRace?.beforeCount) || 0,
-        afterCount: weeklyCount,
+        afterCount: Number(weeklyVocabCountAfterByPlayerKey.get(playerKey)) || 0,
       };
     }
   }
@@ -8885,6 +8897,29 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, count });
   });
 
+  socket.on("dev:globalAnnouncement", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const body = sanitizeDevGlobalAnnouncement(payload?.message || payload?.body || "");
+    if (!body) {
+      cb?.({ ok: false, error: "empty_message" });
+      return;
+    }
+    const account = getSocketDevAccount(socket);
+    const createdAt = Date.now();
+    const message = {
+      id: `dev-global-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+      title: "Annonce serveur",
+      body,
+      createdAt,
+      author: account?.label || socket.data?.nick || "",
+    };
+    io.emit("dev:globalAnnouncement", message);
+    console.log(
+      `[dev] global announcement by ${message.author || "unknown"}: ${body.slice(0, 140)}`
+    );
+    cb?.({ ok: true, message, ...buildDevControlsPayload(socket) });
+  });
+
   socket.on("dev:bots:list", (payload, cb) => {
     if (!requireDevToolsAccess(socket, cb)) return;
     const requestedRoomId =
@@ -8919,6 +8954,30 @@ io.on("connection", (socket) => {
     const result =
       typeof botManager?.setBotActive === "function"
         ? botManager.setBotActive(room, nick, active, duration)
+        : { ok: false, error: "bots_unavailable" };
+    cb?.({
+      ...result,
+      roomId: room.id,
+      bots:
+        typeof botManager?.listBotsForRoom === "function"
+          ? botManager.listBotsForRoom(room)
+          : [],
+    });
+  });
+
+  socket.on("dev:bots:setAll", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const requestedRoomId =
+      payload && typeof payload.roomId === "string" ? payload.roomId : null;
+    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    const active = payload?.active !== false;
+    const result =
+      typeof botManager?.setAllBotsActive === "function"
+        ? botManager.setAllBotsActive(room, active, "manual")
         : { ok: false, error: "bots_unavailable" };
     cb?.({
       ...result,
