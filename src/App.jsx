@@ -193,6 +193,7 @@ const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
 const RANKING_UI_UPDATE_MIN_MS = 180;
 const PLAYERS_UI_UPDATE_MIN_MS = 120;
+const LIVE_ROUND_END_PAYLOAD_WAIT_MS = 4500;
 const SAMSUNG_RANKING_UI_UPDATE_MIN_MS = 260;
 const SAMSUNG_PLAYERS_UI_UPDATE_MIN_MS = 320;
 const PING_SERVER_TIMEOUT_MS = 3200;
@@ -10456,6 +10457,8 @@ export default function App() {
         setRoomId(endedRoomId);
       }
       roundStartAtRef.current = 0;
+      setInputLocked(false);
+      inputLockedRef.current = false;
       setPhase("results");
       setServerStatus("break");
       clearQueuedRankingUpdate();
@@ -10914,15 +10917,40 @@ export default function App() {
         }
       }
 
-      const pending = pendingRoundEndRef.current;
+      let pending = pendingRoundEndRef.current;
       pendingRoundEndRef.current = null;
       const shouldFallback = implodeFallbackRef.current;
       implodeFallbackRef.current = false;
+      let skipFallbackForStaleRound = false;
 
-      if (pending && processRoundEndedRef.current) {
-        processRoundEndedRef.current(pending);
-      } else if (shouldFallback) {
+      if (
+        !pending &&
+        shouldFallback &&
+        isLoggedInRef.current &&
+        !isDailyPlayRef.current
+      ) {
         setServerStatus("break");
+        const fallbackRoundKey = roundKey || null;
+        const deadline = performance.now() + LIVE_ROUND_END_PAYLOAD_WAIT_MS;
+        while (!pendingRoundEndRef.current && performance.now() < deadline) {
+          if (fallbackRoundKey && outroRoundRef.current !== fallbackRoundKey) {
+            skipFallbackForStaleRound = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 80));
+        }
+        pending = pendingRoundEndRef.current;
+        pendingRoundEndRef.current = null;
+      }
+
+      let processedRoundEndPayload = false;
+      if (pending && processRoundEndedRef.current) {
+        processedRoundEndPayload = true;
+        processRoundEndedRef.current(pending);
+      } else if (shouldFallback && !skipFallbackForStaleRound) {
+        setServerStatus("break");
+        setInputLocked(false);
+        inputLockedRef.current = false;
         setPhase("results");
       }
 
@@ -10941,6 +10969,13 @@ export default function App() {
       }
       // Le clavier doit toujours se couper (fade) à la fin visuelle du blackhole.
       stopAuxNow?.(280);
+
+      const latePending = pendingRoundEndRef.current;
+      if (!processedRoundEndPayload && latePending && processRoundEndedRef.current) {
+        pendingRoundEndRef.current = null;
+        processedRoundEndPayload = true;
+        processRoundEndedRef.current(latePending);
+      }
 
       const pendingBreak = pendingBreakStartRef.current;
       if (pendingBreak && processBreakStartedRef.current) {

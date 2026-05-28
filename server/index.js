@@ -1485,6 +1485,7 @@ const MEDAL_GOBBLARS = Object.freeze({
 const DISCONNECT_GRACE_MS = 120 * 1000;
 const RANKING_BROADCAST_MIN_MS = 180;
 const DUEL_WORD_ACCEPTED_DEBOUNCE_MS = 350;
+const DUEL_WORD_END_ROUND_WAIT_MS = 1200;
 const PERF_COUNTER_WINDOW_MS = 5000;
 const PERF_RANKING_BUILD_WARN_MS = 25;
 const PERF_SUBMIT_WORD_WARN_MS = 80;
@@ -5465,6 +5466,27 @@ function flushPendingDuelWordAcceptedQueues(roundRef, room) {
   );
 }
 
+async function waitForDuelWordTasksBeforeResults(room, tasks) {
+  const pendingTasks = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
+  if (!pendingTasks.length) return;
+  let timeoutId = null;
+  const startedAt = Date.now();
+  const timeout = new Promise((resolve) => {
+    timeoutId = setTimeout(() => resolve("timeout"), DUEL_WORD_END_ROUND_WAIT_MS);
+    timeoutId.unref?.();
+  });
+  const settled = Promise.allSettled(pendingTasks).then(() => "settled");
+  const result = await Promise.race([settled, timeout]);
+  if (timeoutId) clearTimeout(timeoutId);
+  if (result === "timeout") {
+    console.warn(
+      `[perf:${room?.id || "room"}] duel word endRound wait timed out after ${
+        Date.now() - startedAt
+      }ms tasks=${pendingTasks.length}`
+    );
+  }
+}
+
 function enqueueDuelWordAccepted(room, payload) {
   const roundRef = room?.currentRound;
   const installId = normalizeInstallId(payload?.installId);
@@ -7386,7 +7408,7 @@ async function endRoundForRoom(room) {
       ? Array.from(room.currentRound.duelWordTasks)
       : [];
   if (pendingDuelWordTasks.length > 0) {
-    await Promise.allSettled(pendingDuelWordTasks);
+    await waitForDuelWordTasksBeforeResults(room, pendingDuelWordTasks);
   }
 
   const roundSubs = room.submissions.get(room.currentRound.id) || new Map();
