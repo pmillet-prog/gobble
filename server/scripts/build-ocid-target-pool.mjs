@@ -44,6 +44,7 @@ const OCID_DERIVATIONAL_SUFFIXES = Object.freeze([
   ["atrice", ["", "er", "eur"]],
   ["ateur", ["", "er"]],
   ["ation", ["", "er"]],
+  ["age", ["", "er", "ir", "re"]],
   ["ement", ["", "er"]],
   ["iser", ["", "e"]],
   ["ise", ["", "er"]],
@@ -52,6 +53,7 @@ const OCID_DERIVATIONAL_SUFFIXES = Object.freeze([
   ["isme", [""]],
   ["iste", [""]],
   ["ique", ["", "ie"]],
+  ["ure", ["", "er", "ement"]],
 ]);
 
 function printHelp() {

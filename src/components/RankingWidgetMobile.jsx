@@ -373,6 +373,25 @@ function RankingWidgetMobile({
 }) {
   const me = (selfNick || "").trim();
   const safeRanking = Array.isArray(fullRanking) ? fullRanking : [];
+  const isPalierEntry = (entry) => !!entry?.isPalier;
+  const getRankingEntryKey = (entry, index = 0) =>
+    String(entry?.playerKey || entry?.installId || entry?.nick || `row-${index}`);
+  const playerRanking = React.useMemo(
+    () => safeRanking.filter((entry) => entry && !isPalierEntry(entry)),
+    [safeRanking]
+  );
+  const playerRankByKey = React.useMemo(() => {
+    const map = new Map();
+    playerRanking.forEach((entry, idx) => {
+      map.set(getRankingEntryKey(entry, idx), idx + 1);
+    });
+    return map;
+  }, [playerRanking]);
+  const getPlayerRankForEntry = (entry, fallbackIndex = 0) => {
+    if (!entry || isPalierEntry(entry)) return null;
+    const key = getRankingEntryKey(entry, fallbackIndex);
+    return playerRankByKey.get(key) || null;
+  };
   const [displayRank, setDisplayRank] = React.useState(null);
   const [targetRank, setTargetRank] = React.useState(null);
   const [displayRanking, setDisplayRanking] = React.useState(safeRanking);
@@ -554,8 +573,8 @@ function RankingWidgetMobile({
 
   // Met à jour le rang cible quand le classement bouge
   React.useEffect(() => {
-    if (!safeRanking || safeRanking.length === 0 || !me) return;
-    const youIdx = safeRanking.findIndex((e) => e.nick === me);
+    if (!playerRanking || playerRanking.length === 0 || !me) return;
+    const youIdx = playerRanking.findIndex((e) => e.nick === me);
     if (youIdx === -1) return;
     const actualRank = youIdx + 1;
 
@@ -564,7 +583,7 @@ function RankingWidgetMobile({
       if (prev == null || !animateRank) return prev === actualRank ? prev : actualRank;
       return prev;
     });
-  }, [safeRanking, me, animateRank]);
+  }, [playerRanking, me, animateRank]);
 
   // Fige le classement affiché pendant une animation de rang, pour éviter les désync bague/liste.
   React.useEffect(() => {
@@ -781,13 +800,36 @@ function RankingWidgetMobile({
       style={flatTextStyle}
     >
       {safeRanking.map((entry, index) => {
-        const rowKey = String(entry?.playerKey || entry?.nick || `row-${index}`);
+        const rowKey = getRankingEntryKey(entry, index);
         const isSelf = selfNick && entry.nick === selfNick;
         const isHighlighted = entry.nick && highlightSet.has(entry.nick);
         const isPalier = !!entry?.isPalier;
-        const rank = index + 1;
+        const rank = getPlayerRankForEntry(entry, index);
         const wordsCount =
           typeof entry?.wordsCount === "number" ? entry.wordsCount : null;
+        if (isPalier) {
+          return (
+            <div
+              key={rowKey}
+              ref={(el) => {
+                if (el) rowRefs.current.set(rowKey, el);
+                else rowRefs.current.delete(rowKey);
+              }}
+              className={
+                "flex items-center gap-2 px-2 py-1 border-b last:border-b-0 " +
+                extendedDivider +
+                " " +
+                (darkMode ? "text-amber-200/85" : "text-amber-700/85")
+              }
+            >
+              <span className={darkMode ? "h-px flex-1 bg-amber-200/35" : "h-px flex-1 bg-amber-500/35"} />
+              <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] tabular-nums">
+                {entry?.rightLabel || entry?.nick || `${entry?.score || ""} pts`}
+              </span>
+              <span className={darkMode ? "h-px flex-1 bg-amber-200/35" : "h-px flex-1 bg-amber-500/35"} />
+            </div>
+          );
+        }
         const gobbles = Math.max(
           Number.isFinite(entry?.gobbles) ? Number(entry.gobbles) : 0,
           getGobbleAwardCountForNick(entry?.nick)
@@ -993,8 +1035,13 @@ function RankingWidgetMobile({
     );
   }
 
-  const youIdx = me ? safeRanking.findIndex((e) => e.nick === me) : -1;
-  const youEntry = youIdx >= 0 ? safeRanking[youIdx] : null;
+  const youIdx = me ? playerRanking.findIndex((e) => e.nick === me) : -1;
+  const youEntry =
+    youIdx >= 0
+      ? playerRanking[youIdx]
+      : me
+      ? safeRanking.find((entry) => entry?.nick === me && !entry?.isPalier) || null
+      : null;
   const youRank = youIdx >= 0 ? youIdx + 1 : null;
 
   const OFFSETS = expanded
@@ -1054,10 +1101,11 @@ function RankingWidgetMobile({
   const wheelOffsets = showWheel && expanded ? [-2, -1, 0, 1, 2] : OFFSETS;
 
   const rankingForRoll = animateRank ? displayRanking : safeRanking;
+  const rollHasPaliers = rankingForRoll.some((entry) => entry?.isPalier);
   const selfEntryForRoll = youEntry || (me ? { nick: me } : null);
   const otherEntriesForRoll = me
-    ? rankingForRoll.filter((entry) => entry.nick !== me)
-    : rankingForRoll;
+    ? rankingForRoll.filter((entry) => entry.nick !== me && !entry?.isPalier)
+    : rankingForRoll.filter((entry) => !entry?.isPalier);
   const desiredRankIndex =
     typeof displayRank === "number" && displayRank > 0
       ? displayRank - 1
@@ -1069,14 +1117,21 @@ function RankingWidgetMobile({
     Math.min(desiredRankIndex, otherEntriesForRoll.length)
   );
   const virtualRanking =
-    selfEntryForRoll && me
+    rollHasPaliers
+      ? [...rankingForRoll]
+      : selfEntryForRoll && me
       ? [
           ...otherEntriesForRoll.slice(0, selfInsertIndex),
           selfEntryForRoll,
           ...otherEntriesForRoll.slice(selfInsertIndex),
         ]
       : [...otherEntriesForRoll];
-  const baseCenterIndex = selfEntryForRoll && me ? selfInsertIndex : -1;
+  const selfFullIndex = me ? virtualRanking.findIndex((entry) => entry?.nick === me) : -1;
+  const baseCenterIndex = rollHasPaliers
+    ? selfFullIndex
+    : selfEntryForRoll && me
+    ? selfInsertIndex
+    : -1;
 
   const rows = wheelOffsets.map((offset) => {
     if (offset === 0) {
@@ -1103,7 +1158,7 @@ function RankingWidgetMobile({
     return {
       offset,
       type: "other",
-      rank: idx + 1,
+      rank: getPlayerRankForEntry(virtualRanking[idx], idx),
       entry: virtualRanking[idx],
     };
   });
@@ -1168,9 +1223,10 @@ function RankingWidgetMobile({
           >
             {rows.map((row, index) => {
               const cfg = getSlotConfig(row.offset);
-            const isSelfLine = row.type === "self";
-            const isHighlighted =
-              row.entry && row.entry.nick && highlightSet.has(row.entry.nick);
+              const rowIsPalier = !!row.entry?.isPalier;
+              const isSelfLine = row.type === "self";
+              const isHighlighted =
+                row.entry && row.entry.nick && highlightSet.has(row.entry.nick);
 
               // Colonne gauche : rangs + bague
               let leftContent = null;
@@ -1211,21 +1267,28 @@ function RankingWidgetMobile({
                     </div>
                   </div>
                 );
-              } else if (row.type === "empty") {
+              } else if (row.type === "empty" || rowIsPalier) {
                 leftContent = (
                   <div
                     className="flex items-center justify-center"
-                    style={{ opacity: 0, ...(rowStyle || {}) }}
+                    style={{ opacity: rowIsPalier ? cfg.opacity : 0, ...(rowStyle || {}) }}
                   >
                     <span
                       className={
-                        "tabular-nums opacity-0 " + (cfg.rankClass || "")
+                        "tabular-nums " +
+                        (rowIsPalier
+                          ? darkMode
+                            ? "text-amber-200/70"
+                            : "text-amber-700/70"
+                          : "opacity-0") +
+                        " " +
+                        (cfg.rankClass || "")
                       }
                       style={
                         cfg.rankFontPx ? { fontSize: `${cfg.rankFontPx}px` } : undefined
                       }
                     >
-                      0
+                      {rowIsPalier ? "-" : "0"}
                     </span>
                   </div>
                 );
@@ -1325,6 +1388,7 @@ function RankingWidgetMobile({
               };
               const wheelNickClickable =
                 row.type !== "empty" &&
+                !isPalier &&
                 typeof onPlayerNickClick === "function" &&
                 (typeof isPlayerNickClickable === "function"
                   ? !!isPlayerNickClickable(labelEntry || { nick: displayNick })
@@ -1362,6 +1426,8 @@ function RankingWidgetMobile({
                       onPlayerNickHover?.(
                         row.type === "empty"
                           ? null
+                          : isPalier
+                          ? null
                           : row.entry
                           ? row.entry.nick
                           : displayNick || null
@@ -1378,6 +1444,28 @@ function RankingWidgetMobile({
                         : undefined
                     }
                   >
+                    {isPalier ? (
+                      <div className="flex w-full items-center gap-2 px-1">
+                        <span
+                          className={
+                            darkMode
+                              ? "h-px flex-1 bg-amber-200/35"
+                              : "h-px flex-1 bg-amber-500/35"
+                          }
+                        />
+                        <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] tabular-nums">
+                          {labelEntry?.rightLabel || labelEntry?.nick || `${labelEntry?.score || ""} pts`}
+                        </span>
+                        <span
+                          className={
+                            darkMode
+                              ? "h-px flex-1 bg-amber-200/35"
+                              : "h-px flex-1 bg-amber-500/35"
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <>
                       <span className="flex-1 min-w-0 flex items-baseline gap-1">
                         <span
                           className={["truncate", wheelNickClassName].filter(Boolean).join(" ")}
@@ -1429,6 +1517,8 @@ function RankingWidgetMobile({
                         </>
                       )}
                     </span>
+                      </>
+                    )}
                   </div>
                 </React.Fragment>
               );

@@ -70,6 +70,14 @@ function formatPlayerRankLabel(rank, total) {
   return ordinal;
 }
 
+function compareWordsByLengthAlpha(a, b) {
+  const aWord = String(a?.word || "");
+  const bWord = String(b?.word || "");
+  const lenDiff = bWord.trim().length - aWord.trim().length;
+  if (lenDiff !== 0) return lenDiff;
+  return aWord.localeCompare(bWord, "fr", { sensitivity: "base" });
+}
+
 export default function RoundPlayerDetailsModal({
   open = false,
   darkMode = false,
@@ -89,6 +97,7 @@ export default function RoundPlayerDetailsModal({
   isSpecial3Round = false,
   renderSpecial3PreviewTiles = null,
   showWordScores = true,
+  sortWordsByLengthAlpha = false,
   playerRank = null,
   playerRankTotal = 0,
   playerProfileTarget = null,
@@ -318,6 +327,7 @@ export default function RoundPlayerDetailsModal({
       };
     });
     list.sort((a, b) => {
+      if (sortWordsByLengthAlpha) return compareWordsByLengthAlpha(a, b);
       const ptsDiff = (Number(b?.bestPts) || 0) - (Number(a?.bestPts) || 0);
       if (ptsDiff !== 0) return ptsDiff;
       return String(a?.word || "").localeCompare(String(b?.word || ""), "fr", {
@@ -325,7 +335,7 @@ export default function RoundPlayerDetailsModal({
       });
     });
     return list;
-  }, [fullWordPool, foundWordsMap]);
+  }, [fullWordPool, foundWordsMap, sortWordsByLengthAlpha]);
   const foundWordsCount = foundWordsList.length;
   const setWordView = React.useCallback(
     (nextShowAll, { withSound = true } = {}) => {

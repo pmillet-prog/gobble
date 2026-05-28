@@ -15,6 +15,7 @@ export default function RoundPlayerDetailsModalHost({
   isSpecial3Round,
   renderSpecial3PreviewTiles,
   showWordScores,
+  sortWordsByLengthAlpha = false,
   onNavigate,
   onSwipeSound,
   onClose,
@@ -56,6 +57,7 @@ export default function RoundPlayerDetailsModalHost({
         isSpecial3Round={isSpecial3Round}
         renderSpecial3PreviewTiles={renderSpecial3PreviewTiles}
         showWordScores={showWordScores}
+        sortWordsByLengthAlpha={sortWordsByLengthAlpha}
         playerRank={playerRank}
         playerRankTotal={playerRankTotal}
         canGoPrev={canGoPrev}

@@ -1,21 +1,21 @@
 {
-  "generatedAt": "2026-05-24T17:56:47.930Z",
-  "total": 46461,
+  "generatedAt": "2026-05-28T13:22:49.954Z",
+  "total": 46126,
   "byBucket": {
-    "never_found": 36665,
-    "extreme": 2782,
-    "very_rare": 4337,
-    "rare": 2677
+    "never_found": 36424,
+    "extreme": 2751,
+    "very_rare": 4287,
+    "rare": 2664
   },
   "byLength": {
     "4": 445,
     "5": 1964,
     "6": 4991,
-    "7": 8145,
-    "8": 9115,
-    "9": 7639,
-    "10": 5942,
-    "11": 4072,
+    "7": 8014,
+    "8": 8936,
+    "9": 7626,
+    "10": 5932,
+    "11": 4070,
     "12": 2594,
     "13": 1554
   },
@@ -24,9 +24,9 @@
     "rejectedNotPlayable": 73688,
     "rejectedMissingDefinition": 0,
     "rejectedBucketAfterLemma": 13687,
-    "rejectedDefinition": 340211,
-    "lemmaReplacements": 7615,
-    "originalFallbacks": 383
+    "rejectedDefinition": 340917,
+    "lemmaReplacements": 7571,
+    "originalFallbacks": 382
   },
-  "elapsedMs": 9581
+  "elapsedMs": 10139
 }

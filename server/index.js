@@ -1484,6 +1484,12 @@ const MEDAL_GOBBLARS = Object.freeze({
 });
 const DISCONNECT_GRACE_MS = 120 * 1000;
 const RANKING_BROADCAST_MIN_MS = 180;
+const DUEL_WORD_ACCEPTED_DEBOUNCE_MS = 350;
+const PERF_COUNTER_WINDOW_MS = 5000;
+const PERF_RANKING_BUILD_WARN_MS = 25;
+const PERF_SUBMIT_WORD_WARN_MS = 80;
+const PERF_SUBMIT_BATCH_WARN_MS = 140;
+const PERF_END_ROUND_WARN_MS = 500;
 const DUEL_CACHE_REFRESH_MIN_MS = 45 * 1000;
 
 
@@ -3228,8 +3234,10 @@ function createRoomState(roomId, config) {
     rankingBroadcastTimer: null,
     rankingLastBroadcastAt: 0,
     rankingLastSignature: null,
+    rankingDirty: false,
     rankingPendingPayload: null,
     rankingPendingSignature: null,
+    perfCounters: null,
   };
 }
 
@@ -3242,6 +3250,36 @@ let botManager = null;
 
 function getRoom(roomId) {
   return rooms.get(roomId);
+}
+
+function bumpRoomPerfCounter(room, key, amount = 1, meta = null) {
+  if (!room || !key) return;
+  const now = Date.now();
+  if (!room.perfCounters || now - (room.perfCounters.startedAt || 0) > PERF_COUNTER_WINDOW_MS) {
+    if (room.perfCounters && room.perfCounters.counts) {
+      const counts = room.perfCounters.counts;
+      const rankingBuilds = Number(counts.rankingBuilds) || 0;
+      const rankingMs = Number(counts.rankingBuildMs) || 0;
+      const submitWords = Number(counts.submitWords) || 0;
+      const batchWords = Number(counts.batchWords) || 0;
+      const duelQueued = Number(counts.duelWordQueued) || 0;
+      if (rankingBuilds >= 30 || submitWords >= 60 || batchWords >= 40 || duelQueued >= 40) {
+        console.warn(`[perf:${room.id}] hot window`, {
+          ms: now - room.perfCounters.startedAt,
+          rankingBuilds,
+          rankingBuildMs: Math.round(rankingMs),
+          rankingEmits: Number(counts.rankingEmits) || 0,
+          submitWords,
+          batchWords,
+          duelWordQueued: duelQueued,
+          sockets: io?.sockets?.adapter?.rooms?.get?.(room.id)?.size || 0,
+        });
+      }
+    }
+    room.perfCounters = { startedAt: now, counts: Object.create(null), lastMeta: null };
+  }
+  room.perfCounters.counts[key] = (Number(room.perfCounters.counts[key]) || 0) + amount;
+  if (meta) room.perfCounters.lastMeta = meta;
 }
 
 function findPlayerByNick(room, nick) {
@@ -3892,11 +3930,13 @@ function clearPendingRankingBroadcast(room) {
     clearTimeout(room.rankingBroadcastTimer);
     room.rankingBroadcastTimer = null;
   }
+  room.rankingDirty = false;
   room.rankingPendingPayload = null;
   room.rankingPendingSignature = null;
 }
 
 function buildRankingUpdatePayload(room) {
+  const startedAt = Date.now();
   if (!room?.currentRound || room.currentRound.status !== "running") return null;
   const roundSubs = room.submissions.get(room.currentRound.id);
   if (!roundSubs) return null;
@@ -3938,6 +3978,15 @@ function buildRankingUpdatePayload(room) {
     )
     .join("|");
 
+  const elapsed = Date.now() - startedAt;
+  bumpRoomPerfCounter(room, "rankingBuilds");
+  bumpRoomPerfCounter(room, "rankingBuildMs", elapsed);
+  if (elapsed > PERF_RANKING_BUILD_WARN_MS) {
+    console.warn(
+      `[perf:${room.id}] ranking build ${elapsed}ms players=${ranking.length} round=${room.currentRound.id}`
+    );
+  }
+
   return {
     payload: {
       roomId: room.id,
@@ -3954,6 +4003,7 @@ function emitRankingUpdate(room, built) {
     return;
   }
   io.to(room.id).emit("rankingUpdate", built.payload);
+  bumpRoomPerfCounter(room, "rankingEmits");
   room.rankingLastSignature = built.signature || null;
   room.rankingLastBroadcastAt = Date.now();
 }
@@ -3982,24 +4032,17 @@ function clearPresenceAnnouncement(room, rawInstallId) {
 function flushPendingRankingBroadcast(room) {
   if (!room) return;
   room.rankingBroadcastTimer = null;
-  if (!room.rankingPendingPayload) return;
-  const built = {
-    payload: room.rankingPendingPayload,
-    signature: room.rankingPendingSignature,
-  };
+  if (!room.rankingDirty) return;
+  room.rankingDirty = false;
   room.rankingPendingPayload = null;
   room.rankingPendingSignature = null;
+  const built = buildRankingUpdatePayload(room);
+  if (!built) return;
   emitRankingUpdate(room, built);
 }
 
 function broadcastProvisionalRanking(room, { force = false } = {}) {
   if (!room?.currentRound || room.currentRound.status !== "running") return;
-  const built = buildRankingUpdatePayload(room);
-  if (!built) return;
-
-  room.rankingPendingPayload = built.payload;
-  room.rankingPendingSignature = built.signature;
-
   const now = Date.now();
   const elapsed = now - (room.rankingLastBroadcastAt || 0);
 
@@ -4008,16 +4051,15 @@ function broadcastProvisionalRanking(room, { force = false } = {}) {
       clearTimeout(room.rankingBroadcastTimer);
       room.rankingBroadcastTimer = null;
     }
-    const immediate = {
-      payload: room.rankingPendingPayload,
-      signature: room.rankingPendingSignature,
-    };
+    room.rankingDirty = false;
     room.rankingPendingPayload = null;
     room.rankingPendingSignature = null;
-    emitRankingUpdate(room, immediate);
+    const built = buildRankingUpdatePayload(room);
+    if (built) emitRankingUpdate(room, built);
     return;
   }
 
+  room.rankingDirty = true;
   if (room.rankingBroadcastTimer) return;
   const waitMs = Math.max(0, RANKING_BROADCAST_MIN_MS - elapsed);
   room.rankingBroadcastTimer = setTimeout(() => flushPendingRankingBroadcast(room), waitMs);
@@ -5308,10 +5350,169 @@ function getObjectiveTeamPointsFromUpdates(updates) {
     );
 }
 
-function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = null }) {
+function maybeAnnounceCloseFight(room) {
+  if (!room?.currentRound || room.closeFightAnnounced) return;
+  const ranking = getFullRanking(room);
+  if (ranking.length < 2) return;
+  const [a, b] = ranking;
+  const diff = Math.abs((a.score || 0) - (b.score || 0));
+  if (
+    !room.closeFightAnnounced &&
+    Number.isFinite(diff) &&
+    diff < 10 &&
+    (a.score || 0) >= 5 &&
+    (b.score || 0) >= 5
+  ) {
+    room.closeFightAnnounced = true;
+    pushAnnouncement(room, {
+      type: "duel",
+      nickA: a.nick,
+      nickB: b.nick,
+      diff,
+      text: `${a.nick} et ${b.nick} sont au coude a coude (ecart ${diff} pts)`,
+    });
+  }
+}
+
+function processDuelWordUpdates(room, roundRef, roundId, payload, duelWord) {
+  const updates = Array.isArray(duelWord?.updates) ? duelWord.updates : [];
+  const teamPoints = getObjectiveTeamPointsFromUpdates(updates);
+  if (teamPoints > 0 && roundRef && roundRef.id === roundId) {
+    if (!(roundRef.duelObjectivePointsByNick instanceof Map)) {
+      roundRef.duelObjectivePointsByNick = new Map();
+    }
+    roundRef.duelObjectivePointsByNick.set(
+      payload.nick,
+      (Number(roundRef.duelObjectivePointsByNick.get(payload.nick)) || 0) + teamPoints
+    );
+  }
+  updates
+    .filter((entry) => entry?.newlyValidated)
+    .forEach((entry) => {
+      const points = Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0;
+      pushAnnouncement(room, {
+        type: "objective_validated",
+        nick: payload.nick,
+        objectiveId: entry?.id || "",
+        objectiveTitle: entry?.title || "Objectif",
+        objectiveBucket: entry?.bucket || "",
+        objectiveProgress: Number(entry?.progress) || 0,
+        objectiveTarget: Number(entry?.target) || 0,
+        teamPoints: points,
+        text: `✅ ${payload.nick} a validé "${entry?.title || "Objectif"}" (+${points} équipe)`,
+      });
+    });
+}
+
+function flushDuelWordAcceptedQueue(room, roundRef, installId) {
+  const queues = roundRef?.duelWordAcceptedQueues;
+  const queue = queues instanceof Map ? queues.get(installId) : null;
+  if (!queue) return Promise.resolve();
+  if (queue.processing) return queue.promise || Promise.resolve();
+  queue.processing = true;
+  if (queue.timer) {
+    clearTimeout(queue.timer);
+    queue.timer = null;
+  }
+  queues.delete(installId);
+
+  const task = (async () => {
+    try {
+      const startedAt = Date.now();
+      const events = Array.isArray(queue.events) ? queue.events.splice(0) : [];
+      for (const event of events) {
+        try {
+          const duelWord = await recordMainWordAccepted({
+            installId: event.installId,
+            nick: event.nick,
+            dateId: event.dateId,
+            roundSpecialType: event.roundSpecialType,
+            wordLength: event.wordLength,
+            wordPoints: event.wordPoints,
+            usedBonusTile: event.usedBonusTile,
+            usedRareLetter: event.usedRareLetter,
+          });
+          processDuelWordUpdates(room, roundRef, event.roundId, event, duelWord);
+        } catch (err) {
+          console.warn(`[${room?.id || "room"}] duel word update failed`, err?.message || err);
+        }
+      }
+      scheduleInstallDuelCacheRefresh(installId);
+      const elapsed = Date.now() - startedAt;
+      if (elapsed > 120) {
+        console.warn(
+          `[perf:${room?.id || "room"}] duel word flush ${elapsed}ms events=${events.length} install=${installId}`
+        );
+      }
+    } catch (err) {
+      console.warn(`[${room?.id || "room"}] duel word flush failed`, err?.message || err);
+    }
+  })().finally(() => {
+    if (roundRef?.duelWordTasks instanceof Set && queue.promise) {
+      roundRef.duelWordTasks.delete(queue.promise);
+    }
+    queue.resolve?.();
+  });
+  queue.task = task;
+  return queue.promise || task;
+}
+
+function flushPendingDuelWordAcceptedQueues(roundRef, room) {
+  const queues = roundRef?.duelWordAcceptedQueues;
+  if (!(queues instanceof Map) || queues.size === 0) return [];
+  return Array.from(queues.keys()).map((installId) =>
+    flushDuelWordAcceptedQueue(room, roundRef, installId)
+  );
+}
+
+function enqueueDuelWordAccepted(room, payload) {
+  const roundRef = room?.currentRound;
+  const installId = normalizeInstallId(payload?.installId);
+  if (!room || !roundRef || !installId) return;
+  if (!(roundRef.duelWordAcceptedQueues instanceof Map)) {
+    roundRef.duelWordAcceptedQueues = new Map();
+  }
+  let queue = roundRef.duelWordAcceptedQueues.get(installId);
+  if (!queue) {
+    queue = { events: [], timer: null, promise: null, resolve: null, processing: false };
+    queue.promise = new Promise((resolve) => {
+      queue.resolve = resolve;
+    });
+    roundRef.duelWordAcceptedQueues.set(installId, queue);
+    if (!(roundRef.duelWordTasks instanceof Set)) {
+      roundRef.duelWordTasks = new Set();
+    }
+    roundRef.duelWordTasks.add(queue.promise);
+  }
+  queue.events.push({ ...payload, installId });
+  bumpRoomPerfCounter(room, "duelWordQueued");
+  if (queue.timer) clearTimeout(queue.timer);
+  queue.timer = setTimeout(
+    () => flushDuelWordAcceptedQueue(room, roundRef, installId),
+    DUEL_WORD_ACCEPTED_DEBOUNCE_MS
+  );
+  queue.timer.unref?.();
+}
+
+function submitWordForNick(
+  room,
+  { roundId, word, path, nick, traceStartedAt = null, deferRankingBroadcast = false }
+) {
+  const submitStartedAt = Date.now();
+  let submitAccepted = false;
+  const finish = (result) => {
+    const elapsed = Date.now() - submitStartedAt;
+    bumpRoomPerfCounter(room, "submitWords");
+    if (elapsed > PERF_SUBMIT_WORD_WARN_MS) {
+      console.warn(
+        `[perf:${room?.id || "room"}] submitWord ${elapsed}ms ok=${!!result?.ok} accepted=${submitAccepted} word=${String(word || "").slice(0, 24)}`
+      );
+    }
+    return result;
+  };
   if (!room) return { ok: false, error: "invalid_room" };
   if (!room.currentRound || room.currentRound.id !== roundId) {
-    return { ok: false, error: "round_invalid" };
+    return finish({ ok: false, error: "round_invalid" });
   }
   const now = Date.now();
   const roundEndsAt = Number.isFinite(room.currentRound.endsAt) ? room.currentRound.endsAt : null;
@@ -5571,14 +5772,15 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
   }
 
   if (isTargetRound) {
-    return {
+    submitAccepted = true;
+    return finish({
       ok: true,
       score: data.score,
       wordScore: wordPts,
       ...scoredFakeTwinsMeta,
       ...scoredRareMeta,
       extraWords: extraAcceptedWords,
-    };
+    });
   }
 
   if (!isBotPlayer && playerInstallId) {
@@ -5592,7 +5794,7 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
     const usedRareLetter = /[zkxy]/i.test(norm);
     const duelRoundRef = room.currentRound;
     const duelRoundId = duelRoundRef?.id;
-    const duelWordTask = recordMainWordAccepted({
+    enqueueDuelWordAccepted(room, {
       installId: playerInstallId,
       nick: resolvedNick,
       dateId: getParisDateId(),
@@ -5601,54 +5803,8 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
       wordPoints: wordPts,
       usedBonusTile,
       usedRareLetter,
-    }).then((duelWord) => {
-      const updates = Array.isArray(duelWord?.updates) ? duelWord.updates : [];
-      const teamPoints = getObjectiveTeamPointsFromUpdates(updates);
-      if (
-        teamPoints > 0 &&
-        duelRoundRef &&
-        duelRoundRef.id === duelRoundId
-      ) {
-        if (!(duelRoundRef.duelObjectivePointsByNick instanceof Map)) {
-          duelRoundRef.duelObjectivePointsByNick = new Map();
-        }
-        duelRoundRef.duelObjectivePointsByNick.set(
-          resolvedNick,
-          (Number(duelRoundRef.duelObjectivePointsByNick.get(resolvedNick)) || 0) + teamPoints
-        );
-      }
-      updates
-        .filter((entry) => entry?.newlyValidated)
-        .forEach((entry) => {
-          const points = Number(entry?.teamPointsAwarded) || Number(entry?.points) || 0;
-          pushAnnouncement(room, {
-            type: "objective_validated",
-            nick: resolvedNick,
-            objectiveId: entry?.id || "",
-            objectiveTitle: entry?.title || "Objectif",
-            objectiveBucket: entry?.bucket || "",
-            objectiveProgress: Number(entry?.progress) || 0,
-            objectiveTarget: Number(entry?.target) || 0,
-            teamPoints: points,
-            text: `✅ ${resolvedNick} a validé "${entry?.title || "Objectif"}" (+${points} équipe)`,
-          });
-        });
-    }).finally(() => {
-      scheduleInstallDuelCacheRefresh(playerInstallId);
-      if (
-        duelRoundRef &&
-        duelRoundRef.id === duelRoundId &&
-        duelRoundRef.duelWordTasks instanceof Set
-      ) {
-        duelRoundRef.duelWordTasks.delete(duelWordTask);
-      }
+      roundId: duelRoundId,
     });
-    if (duelRoundRef && duelRoundRef.id === duelRoundId) {
-      if (!(duelRoundRef.duelWordTasks instanceof Set)) {
-        duelRoundRef.duelWordTasks = new Set();
-      }
-      duelRoundRef.duelWordTasks.add(duelWordTask);
-    }
   }
 
   if (scoreGobbleAllowed && isMaxPossiblePts) {
@@ -5750,38 +5906,20 @@ function submitWordForNick(room, { roundId, word, path, nick, traceStartedAt = n
       });
   }
 
-  const ranking = getFullRanking(room);
-  if (ranking.length >= 2) {
-    const [a, b] = ranking;
-    const diff = Math.abs((a.score || 0) - (b.score || 0));
-    if (
-      !room.closeFightAnnounced &&
-      Number.isFinite(diff) &&
-      diff < 10 &&
-      (a.score || 0) >= 5 &&
-      (b.score || 0) >= 5
-    ) {
-      room.closeFightAnnounced = true;
-      pushAnnouncement(room, {
-        type: "duel",
-        nickA: a.nick,
-        nickB: b.nick,
-        diff,
-        text: `${a.nick} et ${b.nick} sont au coude a coude (ecart ${diff} pts)`,
-      });
-    }
+  if (!deferRankingBroadcast) {
+    maybeAnnounceCloseFight(room);
+    broadcastProvisionalRanking(room);
   }
 
-  broadcastProvisionalRanking(room);
-
-  return {
+  submitAccepted = true;
+  return finish({
     ok: true,
     score: data.score,
     wordScore: wordPts,
     ...scoredFakeTwinsMeta,
     ...scoredRareMeta,
     extraWords: extraAcceptedWords,
-  };
+  });
 }
 
 function updateSpecial3WordsState(room, { roundId, nick, wordSlots, specialPlacements }) {
@@ -6929,6 +7067,7 @@ async function startRoundForRoom(room) {
     ocidVoteEndsAt: null,
     gobbles: new Map(),
     gobbleFlags: new Map(),
+    duelWordAcceptedQueues: new Map(),
     duelWordTasks: new Set(),
     duelObjectivePointsByNick: new Map(),
   };
@@ -7220,6 +7359,7 @@ async function startOcidVotePhase(room) {
 }
 
 async function endRoundForRoom(room) {
+  const endRoundStartedAt = Date.now();
   if (
     !room ||
     !room.currentRound ||
@@ -7240,6 +7380,7 @@ async function endRoundForRoom(room) {
   }
 
   room.currentRound.status = "finished";
+  flushPendingDuelWordAcceptedQueues(room.currentRound, room);
   const pendingDuelWordTasks =
     room.currentRound.duelWordTasks instanceof Set
       ? Array.from(room.currentRound.duelWordTasks)
@@ -7439,6 +7580,10 @@ async function endRoundForRoom(room) {
           after: null,
           delta: 0,
         };
+        resultEntry.vocabWeeklyRace = {
+          beforeCount: Number(lookup.weeklyVocabCountBefore) || 0,
+          afterCount: null,
+        };
       }
     }
   }
@@ -7483,6 +7628,11 @@ async function endRoundForRoom(room) {
         before,
         after,
         delta: Number.isFinite(before) && Number.isFinite(after) ? before - after : 0,
+      };
+      resultEntry.vocabWeeklyRace = {
+        ...(resultEntry.vocabWeeklyRace || {}),
+        beforeCount: Number(resultEntry.vocabWeeklyRace?.beforeCount) || 0,
+        afterCount: weeklyCount,
       };
     }
   }
@@ -8076,6 +8226,12 @@ async function endRoundForRoom(room) {
   setTimeout(() => {
     startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
   }, breakMs);
+  const endRoundElapsed = Date.now() - endRoundStartedAt;
+  if (endRoundElapsed > PERF_END_ROUND_WARN_MS) {
+    console.warn(
+      `[perf:${room.id}] endRound ${endRoundElapsed}ms results=${results.length} vocab=${vocabEntries.length} teamDuel=${teamDuelUpdates.size} special=${specialType || "normal"}`
+    );
+  }
   pruneRoomState(room);
 }
 
@@ -9112,6 +9268,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitWordsBatch", (payload, cb) => {
+    const batchStartedAt = Date.now();
     const clientSeq = Number.isFinite(payload?.clientSeq) ? payload.clientSeq : null;
     const items = Array.isArray(payload?.items) ? payload.items : [];
     const room = getRoom(socket.roomId);
@@ -9128,6 +9285,7 @@ io.on("connection", (socket) => {
     }
 
     const results = [];
+    let acceptedCount = 0;
     for (const item of items) {
       const rawWord = typeof item?.word === "string" ? item.word : "";
       if (!rawWord) {
@@ -9140,7 +9298,9 @@ io.on("connection", (socket) => {
         path: item?.path,
         nick: player.nick,
         traceStartedAt: item?.traceStartedAt,
+        deferRankingBroadcast: true,
       });
+      if (res?.ok) acceptedCount += 1;
       const normalized = normalizeWord(rawWord) || rawWord;
       results.push({
         word: normalized,
@@ -9154,6 +9314,17 @@ io.on("connection", (socket) => {
             ? res?.totalScore ?? res?.score
             : undefined,
       });
+    }
+    if (acceptedCount > 0) {
+      bumpRoomPerfCounter(room, "batchWords", acceptedCount);
+      maybeAnnounceCloseFight(room);
+      broadcastProvisionalRanking(room);
+    }
+    const batchElapsed = Date.now() - batchStartedAt;
+    if (batchElapsed > PERF_SUBMIT_BATCH_WARN_MS) {
+      console.warn(
+        `[perf:${room.id}] submitWordsBatch ${batchElapsed}ms items=${items.length} accepted=${acceptedCount}`
+      );
     }
 
     cb?.({ ok: true, clientSeq, results });

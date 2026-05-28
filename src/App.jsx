@@ -2278,6 +2278,21 @@ body {
   }
 }
 
+@keyframes vocabRacePassed {
+  0% {
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+    transform: scaleY(1);
+  }
+  45% {
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.95);
+    transform: scaleY(1.45);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+    transform: scaleY(1);
+  }
+}
+
 .vocab-delta-fill {
   background-image: linear-gradient(
     90deg,
@@ -2334,6 +2349,11 @@ body {
 
 .vocab-word-fade-in {
   animation: vocabWordFadeIn 0.35s ease both;
+}
+
+.vocab-race-passed {
+  animation: vocabRacePassed 0.75s ease both;
+  transform-origin: center;
 }
 
 .weekly-arrow-hint {
@@ -5571,6 +5591,8 @@ export default function App() {
   });
   const [duelWeekRecapOpen, setDuelWeekRecapOpen] = useState(false);
   const [duelWeekRecapExpanded, setDuelWeekRecapExpanded] = useState(false);
+  const [duelWeekRecapPreviewMode, setDuelWeekRecapPreviewMode] = useState(false);
+  const duelWeekRecapOpenAfterRefreshRef = useRef(false);
   const [duelObjectivesPopupDismissedDateId, setDuelObjectivesPopupDismissedDateId] = useState("");
   const [duelConsumedValidatedByView, setDuelConsumedValidatedByView] = useState({
     popup: { dateId: "", keys: [] },
@@ -6383,6 +6405,7 @@ export default function App() {
   const [vocabOverlayWords, setVocabOverlayWords] = useState([]);
   const [vocabOverlayCurrentWord, setVocabOverlayCurrentWord] = useState("");
   const [vocabOverlayShowRanking, setVocabOverlayShowRanking] = useState(false);
+  const [vocabOverlayRace, setVocabOverlayRace] = useState(null);
   const [vocabOverlayWordFading, setVocabOverlayWordFading] = useState(false);
   const [trophyStatus, setTrophyStatus] = useState(null);
   const [trophyHistory, setTrophyHistory] = useState([]);
@@ -9681,6 +9704,7 @@ export default function App() {
     setVocabOverlayAbsorbing(false);
     setVocabOverlayBounce(false);
     setVocabOverlayShowRanking(false);
+    setVocabOverlayRace(null);
     setVocabOverlayWordFading(false);
     setVocabOverlayCurrentWord("");
     setVocabOverlayWeeklyAnimatedDelta(0);
@@ -9707,6 +9731,7 @@ export default function App() {
     weeklyTargetCount,
     rankStart,
     rankEnd,
+    raceSnapshot,
     words,
   }) {
     clearVocabOverlayTimers();
@@ -9734,6 +9759,7 @@ export default function App() {
     setVocabOverlayRank(rankStart);
     setVocabOverlayRankStart(rankStart);
     setVocabOverlayRankEnd(rankEnd);
+    setVocabOverlayRace(raceSnapshot && typeof raceSnapshot === "object" ? raceSnapshot : null);
     const startLevel = getVocabLevelMeta(baseCount);
     setVocabOverlayImageLevel(startLevel);
     setVocabOverlayStartLevelKey(startLevel?.key || null);
@@ -10012,6 +10038,16 @@ export default function App() {
       : Number.isFinite(rankSnapshot?.rankEnd)
       ? rankSnapshot.rankEnd
       : computedRankEnd;
+    const raceSnapshot =
+      rankSnapshot?.race ||
+      buildVocabOverlayRaceSnapshot({
+        statsSource: weeklyStats,
+        roundResults: finalResults,
+        weeklyBaseCount,
+        weeklyTargetCount,
+        rankStart,
+        rankEnd,
+      });
 
     startVocabOverlayAnimation({
       baseCount,
@@ -10022,6 +10058,7 @@ export default function App() {
       weeklyTargetCount,
       rankStart,
       rankEnd,
+      raceSnapshot,
       words: sortedWeeklyWords.length ? sortedWeeklyWords : sortedWords,
     });
   }, [
@@ -10037,6 +10074,7 @@ export default function App() {
     vocabRoundDelta,
     vocabWeeklyRoundDelta,
     vocabResultsReadyKey,
+    weeklyStats,
     targetSummary,
   ]);
 
@@ -10614,10 +10652,19 @@ export default function App() {
             (Number.isFinite(weeklyCount)
               ? getWeeklyVocabRankForCount(weeklyCount, weeklySnapshot || weeklyStats)
               : null);
+          const raceSnapshot = buildVocabOverlayRaceSnapshot({
+            statsSource: weeklySnapshot || weeklyStats,
+            roundResults: results,
+            weeklyBaseCount: Number.isFinite(weeklyBase) ? weeklyBase : null,
+            weeklyTargetCount: weeklyCount,
+            rankStart,
+            rankEnd,
+          });
           vocabOverlayRankSnapshotRef.current = {
             key: vocabResultsKey,
             rankStart,
             rankEnd,
+            race: raceSnapshot,
           };
           if (skipVocabOverlayOnceRef.current) {
             skipVocabOverlayOnceRef.current = false;
@@ -13140,6 +13187,137 @@ export default function App() {
     return idx >= 0 ? idx + 1 : null;
   }
 
+  function buildVocabOverlayRaceSnapshot({
+    statsSource = weeklyStats,
+    roundResults = null,
+    weeklyBaseCount = null,
+    weeklyTargetCount = null,
+    rankStart = null,
+    rankEnd = null,
+  } = {}) {
+    const baseCount = Number.isFinite(weeklyBaseCount) ? Math.max(0, weeklyBaseCount) : null;
+    const targetCount = Number.isFinite(weeklyTargetCount)
+      ? Math.max(0, weeklyTargetCount)
+      : baseCount;
+    if (!Number.isFinite(baseCount) || !Number.isFinite(targetCount)) return null;
+    const entries = statsSource?.boards?.weeklyVocab;
+    const installKey = installId ? `install:${installId}` : null;
+    const nickKey = selfNick ? `nick:${selfNick}` : null;
+    const nickLower = selfNick ? String(selfNick).trim().toLowerCase() : "";
+    const selfLabel = selfNick || "Toi";
+    const now = Date.now();
+    const withSelf = Array.isArray(entries) ? [...entries] : [];
+    if (Array.isArray(roundResults)) {
+      roundResults.forEach((entry) => {
+        const afterCount = Number(entry?.vocabWeeklyRace?.afterCount);
+        if (!Number.isFinite(afterCount) || afterCount <= 0) return;
+        const nick = typeof entry?.nick === "string" && entry.nick.trim() ? entry.nick.trim() : "";
+        if (!nick) return;
+        const playerKey = entry?.installId
+          ? `install:${entry.installId}`
+          : Number.isInteger(Number(entry?.userId))
+          ? `user:${Number(entry.userId)}`
+          : `nick:${nick}`;
+        withSelf.push({
+          nick,
+          playerKey,
+          weeklyVocabCount: afterCount,
+          achievedAt: now,
+        });
+      });
+    }
+    let replaced = false;
+    const normalizedSelfEntries = withSelf.map((entry) => {
+      if (!entry) return entry;
+      const entryNick = entry.nick ? String(entry.nick).trim().toLowerCase() : "";
+      const matches =
+        (installKey && entry.playerKey === installKey) ||
+        (nickKey && entry.playerKey === nickKey) ||
+        (nickLower && entryNick === nickLower);
+      if (!matches) return entry;
+      replaced = true;
+      return {
+        ...entry,
+        nick: entry.nick || selfLabel,
+        weeklyVocabCount: targetCount,
+        achievedAt: now,
+      };
+    });
+    if (!replaced) {
+      normalizedSelfEntries.push({
+        nick: selfLabel,
+        playerKey: installKey || nickKey || `nick:${selfLabel}`,
+        weeklyVocabCount: targetCount,
+        achievedAt: now,
+      });
+    }
+    const limit = Math.max(statsSource?.topN || statsSource?.limits?.topN || 50, 200);
+    const ranked = dedupeWeeklyEntries("weeklyVocab", normalizedSelfEntries, limit);
+    const isSelfEntry = (entry) => {
+      if (!entry) return false;
+      const entryNick = entry.nick ? String(entry.nick).trim().toLowerCase() : "";
+      return (
+        (installKey && entry.playerKey === installKey) ||
+        (nickKey && entry.playerKey === nickKey) ||
+        (!!nickLower && entryNick === nickLower)
+      );
+    };
+    const selfIdx = ranked.findIndex(isSelfEntry);
+    const rankAfter = selfIdx >= 0 ? selfIdx + 1 : Number.isFinite(rankEnd) ? rankEnd : null;
+    const deltaCount = Math.max(0, targetCount - baseCount);
+    const maxExactGap = Math.max(35, deltaCount * 4, Math.ceil(Math.max(targetCount, 1) * 0.08));
+    const passed = [];
+    const ahead = [];
+    ranked.forEach((entry, idx) => {
+      if (!entry || isSelfEntry(entry)) return;
+      const count = Number(entry.weeklyVocabCount ?? entry.vocabCount ?? entry.count);
+      if (!Number.isFinite(count) || count <= 0) return;
+      const item = {
+        nick: entry.nick || "?",
+        count,
+        rank: idx + 1,
+        playerKey: entry.playerKey || null,
+      };
+      if (count > baseCount && count <= targetCount) {
+        passed.push(item);
+      } else if (count > targetCount) {
+        ahead.push({ ...item, gap: count - targetCount });
+      }
+    });
+    passed.sort((a, b) => a.count - b.count || a.rank - b.rank);
+    ahead.sort((a, b) => a.gap - b.gap || a.rank - b.rank);
+    const exactAhead = ahead.filter((entry) => entry.gap <= maxExactGap).slice(0, 3);
+    const clippedAhead = exactAhead.length ? [] : ahead.slice(0, 2).map((entry) => ({ ...entry, clipped: true }));
+    const selected = [
+      ...passed.slice(Math.max(0, passed.length - 5)),
+      ...exactAhead,
+      ...clippedAhead,
+    ];
+    const naturalMax = Math.max(
+      targetCount,
+      ...selected.filter((entry) => !entry.clipped).map((entry) => entry.count)
+    );
+    const fallbackSpan = Math.max(10, deltaCount * 1.6);
+    const maxCount = Math.max(naturalMax, targetCount + fallbackSpan);
+    return {
+      min: baseCount,
+      max: maxCount,
+      baseCount,
+      targetCount,
+      rankStart: Number.isFinite(rankStart) ? rankStart : null,
+      rankEnd: Number.isFinite(rankAfter) ? rankAfter : Number.isFinite(rankEnd) ? rankEnd : null,
+      nextAhead: ahead[0] || null,
+      competitors: selected.map((entry) => ({
+        nick: entry.nick,
+        count: entry.count,
+        rank: entry.rank,
+        playerKey: entry.playerKey || null,
+        clipped: !!entry.clipped,
+        status: entry.count <= targetCount ? "passed" : "ahead",
+      })),
+    };
+  }
+
   function fetchWeeklyStatsSnapshot(topN = 200) {
     const requestedTopN = Number.isFinite(topN)
       ? Math.min(200, Math.max(1, Math.round(topN)))
@@ -13516,6 +13694,7 @@ export default function App() {
       const key = `${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`;
       if (localStorage.getItem(key) === "1") return;
     } catch (_) {}
+    setDuelWeekRecapPreviewMode(false);
     setDuelWeekRecapExpanded(false);
     setDuelWeekRecapOpen(true);
   }, [duelStatus?.lastWeekSummary, duelWeekRecapOpen, installId, isAccountAuthenticated]);
@@ -18430,6 +18609,13 @@ export default function App() {
       });
     });
     list.sort((a, b) => {
+      if (isMassiveBoggleRound) {
+        const lenDiff = (Number(b?.len) || 0) - (Number(a?.len) || 0);
+        if (lenDiff !== 0) return lenDiff;
+        return String(a?.word || "").localeCompare(String(b?.word || ""), "fr", {
+          sensitivity: "base",
+        });
+      }
       if (scoreAllowed) {
         const ptsDiff = (Number(b?.pts) || 0) - (Number(a?.pts) || 0);
         if (ptsDiff !== 0) return ptsDiff;
@@ -22100,6 +22286,32 @@ function handleTouchEnd(e) {
       : 0;
   const vocabOverlayRankDeltaAbs = Math.abs(vocabOverlayRankDelta);
   const vocabOverlayRankNumber = Number.isFinite(vocabOverlayRank) ? vocabOverlayRank : "?";
+  const vocabOverlayRaceMin = Number.isFinite(vocabOverlayRace?.min)
+    ? vocabOverlayRace.min
+    : vocabOverlayWeeklyBaseCount;
+  const vocabOverlayRaceMax = Math.max(
+    vocabOverlayRaceMin + 1,
+    Number.isFinite(vocabOverlayRace?.max)
+      ? vocabOverlayRace.max
+      : Math.max(vocabOverlayWeeklyTargetCount, vocabOverlayWeeklyAnimatedTotal)
+  );
+  const vocabOverlayRaceRange = Math.max(1, vocabOverlayRaceMax - vocabOverlayRaceMin);
+  const getVocabRacePct = (count, { clipped = false } = {}) =>
+    clipped
+      ? 96
+      : clampValue(((Number(count) - vocabOverlayRaceMin) / vocabOverlayRaceRange) * 100, 0, 100);
+  const vocabOverlayRaceCurrentPct = getVocabRacePct(vocabOverlayWeeklyTotalValue);
+  const vocabOverlayRaceTargetPct = getVocabRacePct(vocabOverlayWeeklyTargetCount);
+  const vocabOverlayRaceMarks = Array.isArray(vocabOverlayRace?.competitors)
+    ? vocabOverlayRace.competitors.slice(0, 7)
+    : [];
+  const vocabOverlayNextAhead = vocabOverlayRace?.nextAhead || null;
+  const vocabOverlayNextAheadGap = Number(vocabOverlayNextAhead?.gap);
+  const vocabOverlayWeeklyHint = Number.isFinite(vocabOverlayNextAheadGap)
+    ? `Encore ${formatNumber(Math.max(1, Math.ceil(vocabOverlayNextAheadGap)))} pour ${vocabOverlayNextAhead.nick}`
+    : Number(vocabOverlayRankEnd) === 1
+    ? "En tête de la course"
+    : "Course hebdo";
   const renderVocabOverlayPanel = () => (
     <div className="flex flex-col items-center gap-3">
       <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
@@ -22164,27 +22376,92 @@ function handleTouchEnd(e) {
           <div className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
             {vocabOverlayWeeklyTotalLabel}
           </div>
-          <div className="mt-3 relative h-2 rounded-full overflow-hidden bg-slate-500/20">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-emerald-500/80"
-              style={{
-                width: `${vocabOverlayWeeklyBaseFillPct}%`,
-                transition: vocabOverlayAbsorbing
-                  ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease`
-                  : "none",
-              }}
-            />
-            <div
-              className="absolute inset-y-0 vocab-delta-fill"
-              style={{
-                left: `${vocabOverlayWeeklyBasePct}%`,
-                width: `${vocabOverlayWeeklyDeltaFillPct}%`,
-                opacity: vocabOverlayAbsorbing ? 0 : 1,
-                transition: vocabOverlayAbsorbing
-                  ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease, opacity 0.6s ease`
-                  : "none",
-              }}
-            />
+          <div className="mt-3">
+            <div className="relative h-12">
+              <div className="absolute left-0 right-0 top-5 h-2 rounded-full bg-slate-500/20 overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 vocab-delta-fill"
+                  style={{
+                    width: `${vocabOverlayRaceCurrentPct}%`,
+                    opacity: vocabOverlayAbsorbing ? 0.55 : 1,
+                    transition: vocabOverlayAbsorbing
+                      ? `width ${VOCAB_OVERLAY_ABSORB_MS}ms ease, opacity 0.6s ease`
+                      : "none",
+                  }}
+                />
+              </div>
+              <div className="absolute top-3 bottom-2 left-0 w-px bg-slate-400/70" />
+              <div
+                className="absolute top-2 bottom-2 w-0.5 rounded-full bg-emerald-500 shadow"
+                style={{
+                  left: `${vocabOverlayRaceTargetPct}%`,
+                  transform: "translateX(-50%)",
+                }}
+              />
+              <div
+                className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 text-[9px] font-black tabular-nums ${
+                  darkMode
+                    ? "border-emerald-300 bg-slate-950 text-emerald-100"
+                    : "border-emerald-500 bg-white text-emerald-700"
+                } ${vocabOverlayCountClass}`}
+                style={{
+                  left: `${vocabOverlayRaceCurrentPct}%`,
+                  transform: "translateX(-50%)",
+                }}
+                title="Position actuelle"
+              >
+                {Number.isFinite(vocabOverlayRank) ? vocabOverlayRank : ""}
+              </div>
+              <div className="absolute top-8 left-0 -translate-x-1 text-[8px] font-bold uppercase tracking-[0.08em] opacity-60">
+                départ
+              </div>
+              {vocabOverlayRaceMarks.map((entry, idx) => {
+                const markPct = getVocabRacePct(entry.count, { clipped: entry.clipped });
+                const isPassed = entry.status === "passed" && vocabOverlayWeeklyTotalValue >= entry.count;
+                const labelTop = idx % 2 === 0;
+                return (
+                  <div
+                    key={`${entry.playerKey || entry.nick}-${entry.rank}-${idx}`}
+                    className="absolute top-2 bottom-1"
+                    style={{
+                      left: `${markPct}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                    title={`${entry.nick} - ${formatNumber(entry.count)} mots`}
+                  >
+                    <div
+                      className={`mx-auto h-7 w-px ${
+                        isPassed
+                          ? "bg-emerald-400 vocab-race-passed"
+                          : entry.status === "ahead"
+                          ? "bg-amber-400/90"
+                          : "bg-slate-400/80"
+                      }`}
+                    />
+                    <div
+                      className={`absolute left-1/2 max-w-[54px] -translate-x-1/2 truncate text-center text-[8px] font-black leading-none ${
+                        labelTop ? "-top-2" : "top-8"
+                      } ${
+                        isPassed
+                          ? "text-emerald-500"
+                          : entry.status === "ahead"
+                          ? "text-amber-500"
+                          : "opacity-70"
+                      }`}
+                    >
+                      {entry.clipped ? "+" : ""}
+                      {entry.nick}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-0.5 flex items-center justify-between gap-2 text-[9px] font-bold uppercase tracking-[0.08em] opacity-70">
+              <span>{formatNumber(vocabOverlayRaceMin)} mots</span>
+              <span className="truncate text-right normal-case tracking-normal">
+                {vocabOverlayWeeklyHint}
+              </span>
+            </div>
           </div>
         </div>
         <div
@@ -27249,6 +27526,7 @@ function handleTouchEnd(e) {
             type="button"
             ref={nickRef}
             className="min-w-0 truncate text-left hover:underline"
+            style={{ touchAction: "pan-y" }}
             onClick={onOpenProfile}
           >
             {nick}
@@ -27382,6 +27660,7 @@ function handleTouchEnd(e) {
     const openWeeklyProfile = profileUserId
       ? (e) => {
           e.stopPropagation();
+          if (shouldIgnoreSwipeClick(weeklySwipeBlockRef)) return;
           openPlayerProfile({ userId: profileUserId, nick: baseNick });
         }
       : null;
@@ -28615,6 +28894,7 @@ function handleTouchEnd(e) {
       isSpecial3Round={specialRound?.type === DAILY_SPECIAL_MODE}
       renderSpecial3PreviewTiles={renderSpecial3PreviewTiles}
       showWordScores={specialRound?.type !== "speed" && specialRound?.type !== DAILY_SPECIAL_MODE}
+      sortWordsByLengthAlpha={specialRound?.type === MASSIVE_BOGGLE_TYPE}
       onNavigate={navigateRoundPlayerModal}
       onSwipeSound={playSwipeSound}
       onClose={() => closeRoundPlayerModal({ withSound: true })}
@@ -30130,6 +30410,38 @@ function handleTouchEnd(e) {
       if (!res?.ok) showToast("Nettoyage chat indisponible.");
     });
   }, [showToast]);
+  const showDevDuelWeekRecap = React.useCallback(() => {
+    if (!isAccountAuthenticated || !installId) {
+      showToast("Connecte-toi avec un compte pour charger le recap hebdo.", 2400);
+      return;
+    }
+    setDuelWeekRecapPreviewMode(true);
+    setDuelWeekRecapExpanded(false);
+    if (duelStatus?.lastWeekSummary) {
+      setDuelWeekRecapOpen(true);
+      return;
+    }
+    duelWeekRecapOpenAfterRefreshRef.current = true;
+    showToast("Chargement du recap hebdo...", 1600);
+    void fetchDuelStatus({ force: true });
+  }, [duelStatus?.lastWeekSummary, installId, isAccountAuthenticated, showToast]);
+
+  useEffect(() => {
+    if (!duelWeekRecapOpenAfterRefreshRef.current) return;
+    if (duelStatus?.loading) return;
+    const summary = duelStatus?.lastWeekSummary;
+    if (summary) {
+      duelWeekRecapOpenAfterRefreshRef.current = false;
+      setDuelWeekRecapPreviewMode(true);
+      setDuelWeekRecapExpanded(false);
+      setDuelWeekRecapOpen(true);
+      return;
+    }
+    if (duelStatus?.error || duelStatus?.loading === false) {
+      duelWeekRecapOpenAfterRefreshRef.current = false;
+      showToast("Aucun recap hebdo disponible pour l'instant.", 2400);
+    }
+  }, [duelStatus?.error, duelStatus?.lastWeekSummary, duelStatus?.loading, showToast]);
   const applyModerationAction = React.useCallback(
     (player, action) => {
       if (!socket?.connected || !player) return;
@@ -31021,6 +31333,7 @@ function handleTouchEnd(e) {
             onPatch: patchDevControls,
             onFillChat: fillDevChat,
             onClearChat: clearDevChat,
+            onShowWeeklyRecap: showDevDuelWeekRecap,
             onRefreshBots: fetchDevBots,
             onBotDurationChange: setDevBotDuration,
             onSetBotActive: setDevBotActive,
@@ -32017,14 +32330,15 @@ function handleTouchEnd(e) {
   }, [duelWeekSummary]);
   const closeDuelWeekRecap = React.useCallback(() => {
     const weekId = String(duelWeekSummary?.weekId || "").trim();
-    if (installId && weekId) {
+    if (!duelWeekRecapPreviewMode && installId && weekId) {
       try {
         localStorage.setItem(`${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`, "1");
       } catch (_) {}
     }
     setDuelWeekRecapOpen(false);
     setDuelWeekRecapExpanded(false);
-  }, [duelWeekSummary?.weekId, installId]);
+    setDuelWeekRecapPreviewMode(false);
+  }, [duelWeekRecapPreviewMode, duelWeekSummary?.weekId, installId]);
   const renderDuelWeekTeamContributors = React.useCallback(
     (team) => {
       const list = duelWeekTopContributors[team] || [];
@@ -35075,10 +35389,18 @@ function handleTouchEnd(e) {
   const useUltraCompactLayout = isUltraCompact;
   if (isMobileLayout && useUltraCompactLayout && phase === "playing" && !isSpecial3WordsMode) {
     const compactRankingList = rankingSource;
+    const compactPlayerRankingList = Array.isArray(compactRankingList)
+      ? compactRankingList.filter((entry) => !entry?.isPalier)
+      : [];
     const compactTotal =
-      compactRankingList.length || (Array.isArray(players) ? players.length : 0) || null;
+      compactPlayerRankingList.length || (Array.isArray(players) ? players.length : 0) || null;
+    const compactRankIndex = selfNick
+      ? compactPlayerRankingList.findIndex((entry) => entry?.nick === selfNick)
+      : -1;
     const compactRank =
-      compactRankingList.find((entry) => entry.nick === selfNick)?.rank ?? livePosition;
+      compactRankIndex >= 0
+        ? compactRankIndex + 1
+        : compactPlayerRankingList.find((entry) => entry.nick === selfNick)?.rank ?? livePosition;
     const compactScore = typeof score === "number" ? score : null;
     const { width: viewportWidthRaw, height: viewportHeightRaw } = getViewportSize();
     const lockedGameViewportWidth =

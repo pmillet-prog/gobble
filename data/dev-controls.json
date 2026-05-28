@@ -1,17 +1,23 @@
 {
   "version": 1,
-  "updatedAt": 1779725699758,
+  "updatedAt": 1779972591692,
   "controls": {
     "enabled": true,
     "forcedRoundType": "",
     "forcedRoundTypes": [],
     "forcedRoundRandom": false,
-    "botMedals": true,
+    "botMedals": false,
     "botsEnabled": true,
     "chatFill": false,
     "botChat": false,
     "botReactions": false,
-    "selfCrown": true,
-    "selfGoldNick": true
+    "selfCrown": false,
+    "selfGoldNick": false,
+    "selfCrownTargetUserId": "",
+    "selfCrownTargetInstallId": "",
+    "selfCrownTargetNick": "",
+    "selfGoldNickTargetUserId": "",
+    "selfGoldNickTargetInstallId": "",
+    "selfGoldNickTargetNick": ""
   }
 }

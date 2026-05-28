@@ -23,6 +23,7 @@ export default function DevSettingsPanel({
   onPatch = null,
   onFillChat = null,
   onClearChat = null,
+  onShowWeeklyRecap = null,
   onRefreshBots = null,
   onBotDurationChange = null,
   onSetBotActive = null,
@@ -207,6 +208,14 @@ export default function DevSettingsPanel({
             label: "Me donner le pseudo dore",
             disabled: !controls?.enabled,
           })}
+          <button
+            type="button"
+            disabled={busy || !canUseTools}
+            onClick={onShowWeeklyRecap}
+            className={`w-full rounded-xl border px-3 py-2 text-left text-xs font-semibold disabled:opacity-50 ${buttonClass}`}
+          >
+            Afficher le recap hebdo
+          </button>
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
