@@ -27,6 +27,7 @@ function getBigwordImageUrl(key, assetsReady) {
 function GameCelebrationOverlay({
   assetsReady = false,
   isMobileLayout = false,
+  liteVisualEffects = false,
   phase = "",
 }) {
   const { gobbleFlash, invalidFlash, praiseFlash } = React.useSyncExternalStore(
@@ -65,8 +66,9 @@ function GameCelebrationOverlay({
       getBigwordImageUrl(IMAGE_KEYS.bigwords.gobble, assetsReady)
     : "";
   const gobbleImageAlt = gobbleFlash?.kind === "doubleGobble" ? "DOUBLE GOBBLE" : "GOBBLE";
-  const praiseImageSizePx = isMobileLayout ? 220 : 300;
-  const gobbleImageSizePx = isMobileLayout ? 295 : 385;
+  const lite = !!liteVisualEffects;
+  const praiseImageSizePx = isMobileLayout ? (lite ? 160 : 220) : lite ? 220 : 300;
+  const gobbleImageSizePx = isMobileLayout ? (lite ? 210 : 295) : lite ? 280 : 385;
   const praiseFlashColor =
     praiseFlash?.kind === "epic"
       ? "rgba(244, 114, 182, 0.55)"
@@ -79,16 +81,17 @@ function GameCelebrationOverlay({
       : "transparent";
   const gobbleFlashColor = gobbleFlash ? "rgba(255, 200, 64, 0.55)" : "transparent";
   const invalidFlashColor = invalidFlash ? "rgba(255, 36, 36, 0.68)" : "transparent";
+  const showFlashRing = !lite;
   const flashInsetPx = isMobileLayout ? 10 : 14;
   const flashRingWidthPx = isMobileLayout ? 10 : 14;
   const flashRadiusPx = isMobileLayout ? 18 : 24;
-  const invalidTextSizePx = isMobileLayout ? 42 : 56;
+  const invalidTextSizePx = isMobileLayout ? (lite ? 32 : 42) : lite ? 42 : 56;
 
   if (!isActive) return null;
 
   return (
     <div className="celebration-layer" aria-hidden="true">
-      {gobbleFlash ? (
+      {gobbleFlash && showFlashRing ? (
         <div
           key={`flash-gobble-${gobbleFlash.id}`}
           className="celebration-flash-ring"
@@ -110,8 +113,8 @@ function GameCelebrationOverlay({
             ["--celebration-scale"]: gobbleFlash.scale || 1.6,
             ["--celebration-size"]: `${gobbleImageSizePx}px`,
             ["--celebration-duration"]: `${Math.max(
-              1600,
-              Math.min(3000, gobbleFlash.durationMs || 2200)
+              lite ? 650 : 1600,
+              Math.min(lite ? 950 : 3000, gobbleFlash.durationMs || 2200)
             )}ms`,
           }}
         >
@@ -128,16 +131,18 @@ function GameCelebrationOverlay({
       ) : null}
       {praiseFlash ? (
         <>
-          <div
-            key={`flash-${praiseFlash.id}`}
-            className="celebration-flash-ring"
-            style={{
-              inset: `${-flashInsetPx}px`,
-              borderWidth: `${flashRingWidthPx}px`,
-              borderRadius: `${flashRadiusPx}px`,
-              ["--celebration-flash-color"]: praiseFlashColor,
-            }}
-          />
+          {showFlashRing ? (
+            <div
+              key={`flash-${praiseFlash.id}`}
+              className="celebration-flash-ring"
+              style={{
+                inset: `${-flashInsetPx}px`,
+                borderWidth: `${flashRingWidthPx}px`,
+                borderRadius: `${flashRadiusPx}px`,
+                ["--celebration-flash-color"]: praiseFlashColor,
+              }}
+            />
+          ) : null}
           <div
             key={praiseFlash.id}
             className="celebration-pop celebration-image-pop"
@@ -147,8 +152,8 @@ function GameCelebrationOverlay({
               ["--celebration-scale"]: praiseFlash.scale || 1.6,
               ["--celebration-size"]: `${praiseImageSizePx}px`,
               ["--celebration-duration"]: `${Math.max(
-                1200,
-                Math.min(2600, praiseFlash.durationMs || 1500)
+                lite ? 560 : 1200,
+                Math.min(lite ? 900 : 2600, praiseFlash.durationMs || 1500)
               )}ms`,
             }}
           >
@@ -165,16 +170,18 @@ function GameCelebrationOverlay({
       ) : null}
       {invalidFlash ? (
         <>
-          <div
-            key={`flash-invalid-${invalidFlash.id}`}
-            className="celebration-flash-ring"
-            style={{
-              inset: `${-flashInsetPx}px`,
-              borderWidth: `${flashRingWidthPx}px`,
-              borderRadius: `${flashRadiusPx}px`,
-              ["--celebration-flash-color"]: invalidFlashColor,
-            }}
-          />
+          {showFlashRing ? (
+            <div
+              key={`flash-invalid-${invalidFlash.id}`}
+              className="celebration-flash-ring"
+              style={{
+                inset: `${-flashInsetPx}px`,
+                borderWidth: `${flashRingWidthPx}px`,
+                borderRadius: `${flashRadiusPx}px`,
+                ["--celebration-flash-color"]: invalidFlashColor,
+              }}
+            />
+          ) : null}
           <div
             key={invalidFlash.id}
             className="celebration-pop celebration-text-pop"
@@ -183,8 +190,8 @@ function GameCelebrationOverlay({
               ["--celebration-y"]: `${Math.round(invalidFlash.dy || 0)}px`,
               ["--celebration-scale"]: invalidFlash.scale || 1.18,
               ["--celebration-duration"]: `${Math.max(
-                700,
-                Math.min(1800, invalidFlash.durationMs || 1050)
+                lite ? 420 : 700,
+                Math.min(lite ? 820 : 1800, invalidFlash.durationMs || 1050)
               )}ms`,
             }}
           >

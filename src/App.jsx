@@ -234,6 +234,7 @@ const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
 const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
 const SAMSUNG_BIGWORD_FLASH_MS = 650;
+const LITE_VISUAL_FX_QUERY_PARAM = "liteFx";
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
 const CHAT_DESKTOP_FONT_SCALE_DEFAULT = 1;
 const CHAT_DESKTOP_FONT_SCALE_MIN = 0.85;
@@ -646,6 +647,30 @@ function isAndroidWebViewUserAgent(ua) {
 function isLikelySamsungDeviceUserAgent(ua) {
   const value = String(ua || "");
   return /SM-[A-Z0-9]+/i.test(value) || /SAMSUNG/i.test(value);
+}
+
+function isLikelyLowEndAndroidDeviceUserAgent(ua) {
+  const value = String(ua || "");
+  return /(TECNO|Infinix|itel|SPARK|CAMON|POVA|HiOS|XOS)/i.test(value);
+}
+
+function computePreferLiteVisualEffects() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  try {
+    const forced = new URLSearchParams(window.location.search).get(LITE_VISUAL_FX_QUERY_PARAM);
+    if (/^(1|true|on)$/i.test(String(forced || ""))) return true;
+    if (/^(0|false|off)$/i.test(String(forced || ""))) return false;
+  } catch (_) {}
+  const ua = navigator.userAgent || "";
+  if (!/Android/i.test(ua)) return false;
+  if (isLikelyLowEndAndroidDeviceUserAgent(ua)) return true;
+  const deviceMemory = Number(navigator.deviceMemory);
+  const cpuCount = Number(navigator.hardwareConcurrency);
+  if (Number.isFinite(deviceMemory) && deviceMemory > 0 && deviceMemory <= 3) return true;
+  if (Number.isFinite(cpuCount) && cpuCount > 0 && cpuCount <= 4 && isAndroidWebViewUserAgent(ua)) {
+    return true;
+  }
+  return false;
 }
 
 function isFirefoxMobileUserAgent(ua) {
@@ -5009,6 +5034,7 @@ export default function App() {
   const [visualConfettiEnabled, setVisualConfettiEnabled] = useState(
     () => initialVisualConfettiEnabled
   );
+  const [preferLiteVisualEffects] = useState(() => computePreferLiteVisualEffects());
   const [chatDesktopFontScale, setChatDesktopFontScale] = useState(
     () => initialChatDesktopFontScale
   );
@@ -5024,6 +5050,7 @@ export default function App() {
   const visualInvalidWordsEnabledRef = useRef(visualInvalidWordsEnabled);
   const visualScreenShakeEnabledRef = useRef(visualScreenShakeEnabled);
   const visualConfettiEnabledRef = useRef(visualConfettiEnabled);
+  const preferLiteVisualEffectsRef = useRef(preferLiteVisualEffects);
   const isVibrationEnabledRef = useRef(isVibrationEnabled);
   const [canVibrate, setCanVibrate] = useState(false);
   const initialThemeSource = {
@@ -6243,6 +6270,10 @@ export default function App() {
       } catch (_) {}
     }
   }, [visualConfettiEnabled]);
+
+  useEffect(() => {
+    preferLiteVisualEffectsRef.current = preferLiteVisualEffects;
+  }, [preferLiteVisualEffects]);
   useEffect(() => {
     keyboardRecallSubmittedWordRef.current = keyboardRecallSubmittedWord;
   }, [keyboardRecallSubmittedWord]);
@@ -6598,6 +6629,14 @@ export default function App() {
       vocabWeeklyRoundDelta: Number.isFinite(vocabWeeklyRoundDelta)
         ? vocabWeeklyRoundDelta
         : null,
+      preferLiteVisualEffects: !!preferLiteVisualEffects,
+      visualEffects: {
+        gobble: !!visualGobbleEnabled,
+        praise: !!visualPraiseEnabled,
+        invalidWords: !!visualInvalidWordsEnabled,
+        screenShake: !!visualScreenShakeEnabled,
+        confetti: !!visualConfettiEnabled,
+      },
       specialTutorialOpen: !!isSpecialTutorialOpen,
       guidedResultsStep: guidedResultsStep || null,
       installId: typeof installId === "string" ? installId : null,
@@ -6623,6 +6662,7 @@ export default function App() {
             showAllWords: runtime.showAllWords,
             socketConnected: runtime.socketConnected,
             isMobileLayout: runtime.isMobileLayout,
+            preferLiteVisualEffects: runtime.preferLiteVisualEffects,
             isAccountAuthenticated: runtime.isAccountAuthenticated,
             authStatus: runtime.authStatus,
             duelError: runtime.duelError,
@@ -6683,6 +6723,12 @@ export default function App() {
     vocabWeeklyCount,
     vocabRoundDelta,
     vocabWeeklyRoundDelta,
+    preferLiteVisualEffects,
+    visualGobbleEnabled,
+    visualPraiseEnabled,
+    visualInvalidWordsEnabled,
+    visualScreenShakeEnabled,
+    visualConfettiEnabled,
     isSpecialTutorialOpen,
     guidedResultsStep,
     installId,
@@ -9281,8 +9327,9 @@ export default function App() {
     const now = Date.now();
     if (now - bigScoreLastRef.current < 420) return;
     bigScoreLastRef.current = now;
-    const durationMs = 950;
-    setBigScoreFlash({ pts, id: now, durationMs, lite: false });
+    const lite = !!preferLiteVisualEffectsRef.current;
+    const durationMs = lite ? 620 : 950;
+    setBigScoreFlash({ pts, id: now, durationMs, lite });
     setTimeout(() => setBigScoreFlash(null), durationMs);
   }
 
@@ -9376,18 +9423,20 @@ export default function App() {
     const now = Date.now();
     if (!force && now - praiseLastRef.current < 420) return;
     praiseLastRef.current = now;
+    const lite = !!preferLiteVisualEffectsRef.current;
+    const isGobbleKind = kind === "gobble" || kind === "doubleGobble";
     const angle = Math.random() * Math.PI * 2;
-    const minDist = isMobileLayout ? 90 : 140;
-    const maxDist = isMobileLayout ? 160 : 240;
+    const minDist = isMobileLayout ? (lite ? 32 : 90) : lite ? 70 : 140;
+    const maxDist = isMobileLayout ? (lite ? 68 : 160) : lite ? 120 : 240;
     const dist = minDist + Math.random() * (maxDist - minDist);
     const dx = Math.round(Math.cos(angle) * dist);
     const dy = Math.round(Math.sin(angle) * dist);
-    const scaleBase = 1.6;
-    const scaleRange = 0.5;
+    const scaleBase = lite ? (isGobbleKind ? 1.08 : 1.0) : 1.6;
+    const scaleRange = lite ? 0.12 : 0.5;
     const scale = Number(((1.0 + Math.random() * scaleRange) * scaleBase).toFixed(2));
-    if (kind === "gobble" || kind === "doubleGobble") {
+    if (isGobbleKind) {
       lastGobbleAtRef.current = now;
-      const durationMs = Math.round(2200 + Math.random() * 400);
+      const durationMs = lite ? Math.round(780 + Math.random() * 120) : Math.round(2200 + Math.random() * 400);
       triggerConfettiBurst("gobble");
       if (visualGobbleEnabledRef.current) {
         showCelebrationFlash("gobbleFlash", {
@@ -9398,12 +9447,13 @@ export default function App() {
           dy,
           scale,
           durationMs,
+          lite,
         }, durationMs);
       }
       if (shakeGrid) triggerGridShake();
       return;
     }
-    const durationMs = Math.round(1500 + Math.random() * 300);
+    const durationMs = lite ? Math.round(650 + Math.random() * 120) : Math.round(1500 + Math.random() * 300);
     if (visualPraiseEnabledRef.current) {
       showCelebrationFlash("praiseFlash", {
         id: now + Math.random(),
@@ -9413,6 +9463,7 @@ export default function App() {
         dy,
         scale,
         durationMs,
+        lite,
       }, durationMs);
     }
     if (shakeGrid) triggerGridShake();
@@ -9439,10 +9490,11 @@ export default function App() {
       text,
       dx,
       dy,
-      scale,
-      durationMs,
+      scale: preferLiteVisualEffectsRef.current ? Math.min(scale, 1.04) : scale,
+      durationMs: preferLiteVisualEffectsRef.current ? Math.min(durationMs, 720) : durationMs,
+      lite: !!preferLiteVisualEffectsRef.current,
     };
-    showCelebrationFlash("invalidFlash", flash, durationMs);
+    showCelebrationFlash("invalidFlash", flash, flash.durationMs);
   }
 
   function triggerConfettiBurst(kind = "target") {
@@ -9476,6 +9528,22 @@ export default function App() {
         particleCount: Math.floor(140 * particleRatio),
       });
     };
+
+    if (preferLiteVisualEffectsRef.current) {
+      const isGobble = kind === "gobble";
+      const isTournament = kind === "tournament";
+      fire(isTournament ? 0.18 : isGobble ? 0.13 : 0.11, {
+        spread: isTournament ? 92 : isGobble ? 60 : 72,
+        startVelocity: isTournament ? 30 : 26,
+        scalar: 0.72,
+        shapes: ["circle"],
+        colors: isGobble
+          ? ["#fbbf24", "#fde68a", "#ffffff"]
+          : ["#22c55e", "#3b82f6", "#eab308", "#ffffff"],
+        ticks: 80,
+      });
+      return;
+    }
 
     if (kind === "gobble") {
       fire(0.35, {
@@ -35122,6 +35190,7 @@ function handleTouchEnd(e) {
     <GameCelebrationOverlay
       assetsReady={!!bootProgress?.done}
       isMobileLayout={isMobileLayout}
+      liteVisualEffects={preferLiteVisualEffects}
       phase={phase}
     />
   );
@@ -35966,6 +36035,7 @@ function handleTouchEnd(e) {
         </div>
         {settingsMenuView}
         {aboutModalView}
+        {globalChatLayer}
         {chatOverlays}
       </>
     );
