@@ -2,6 +2,8 @@
 // 
 import React, { Suspense, useEffect, useState, useRef, useLayoutEffect } from "react";
 import confetti from "canvas-confetti";
+import { recordAppRender } from "./perf/renderPerfProbe.js";
+import PerfTestOverlay from "./perf/PerfTestOverlay.jsx";
 import {
   AMBIENT_MUSIC_TRACKS_DEFAULT,
   AUDIO_COOLDOWN_MAX_KEYS,
@@ -23,7 +25,7 @@ import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
-import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
+import GlobalChatLayer from "./components/chat/GlobalChatLayer.jsx";
 import ChatReactionToastLayer from "./components/chat/ChatReactionToastLayer.jsx";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
@@ -36,13 +38,22 @@ import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
+import {
+  clearAllCelebrationFlashes,
+  clearCelebrationFlash,
+  showCelebrationFlash,
+} from "./components/celebrationFxStore.js";
+import {
+  getTraceStateSnapshot,
+  subscribeTraceState,
+  setTraceState,
+} from "./components/traceStateStore.js";
 import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
-import HomeChatModalHost from "./components/HomeChatModalHost.jsx";
 import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
@@ -54,6 +65,7 @@ import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
+import GridTileButton from "./components/GridTileButton.jsx";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
 import {
@@ -4689,7 +4701,113 @@ function getSpecialRoundDescription(specialInfo) {
   return "";
 }
 
+function TraceAwareDesktopPreviewContent({
+  board = [],
+  countdownLines = [],
+  currentDisplay = "",
+  darkMode = false,
+  getTraceCellLabel = null,
+  phase = "",
+  previewTileStyle = undefined,
+  scoreLabel = "0",
+  showPreviewStats = false,
+  showPreviewStatus = false,
+  totalScoreLabel = "?",
+  totalWordsLabel = "?",
+  wordsFoundLabel = "0",
+}) {
+  const traceSnapshot = React.useSyncExternalStore(
+    subscribeTraceState,
+    getTraceStateSnapshot,
+    getTraceStateSnapshot
+  );
+  const traceChunks =
+    phase === "playing"
+      ? Array.isArray(traceSnapshot.highlightPath) && traceSnapshot.highlightPath.length
+        ? traceSnapshot.highlightPath
+            .map((idx) => {
+              const cell = Array.isArray(board) ? board[idx] : null;
+              return typeof getTraceCellLabel === "function"
+                ? getTraceCellLabel(cell)
+                : String(cell?.letter || "");
+            })
+            .filter((chunk) => String(chunk || "").trim())
+        : Array.isArray(traceSnapshot.currentTiles)
+        ? traceSnapshot.currentTiles
+        : []
+      : [];
+
+  if (phase !== "playing") {
+    return (
+      <span className="text-gray-800 dark:text-white">
+        {countdownLines.map((line, idx) => (
+          <span
+            key={`${line}-${idx}`}
+            className={`block ${
+              /^\d+$/.test(line)
+                ? "text-2xl font-black leading-none"
+                : String(line).startsWith("MANCHE SPECIALE")
+                ? "text-[0.7rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
+                : ""
+            }`}
+          >
+            {line}
+          </span>
+        ))}
+      </span>
+    );
+  }
+
+  if (traceChunks.length) {
+    return (
+      <AutoScaleInline minScale={0.42} measurePaddingPx={8} reserveScaledWidth className="gap-1 py-1">
+        {traceChunks.map((ch, idx) => {
+          const angle = ((idx * 17 + traceChunks.length * 13) % 11) - 5;
+          return (
+            <div
+              key={idx}
+              className="preview-tile"
+              style={{ ...previewTileStyle, transform: `rotate(${angle}deg)` }}
+            >
+              {ch}
+            </div>
+          );
+        })}
+      </AutoScaleInline>
+    );
+  }
+
+  if (showPreviewStatus) {
+    return (
+      <span className="text-gray-700 dark:text-slate-200">
+        {currentDisplay.toUpperCase()}
+      </span>
+    );
+  }
+
+  if (showPreviewStats) {
+    return (
+      <div className="text-gray-700 dark:text-slate-200 text-sm leading-tight font-semibold">
+        <div>{`mots : ${wordsFoundLabel} / ${totalWordsLabel}`}</div>
+        <div>{`score : ${scoreLabel} / ${totalScoreLabel}`}</div>
+      </div>
+    );
+  }
+
+  return <span className="text-gray-700 dark:text-slate-200">{READY_LABEL}</span>;
+}
+
+function useStableEvent(handler) {
+  const handlerRef = React.useRef(handler);
+  React.useLayoutEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
+  return React.useCallback((...args) => handlerRef.current?.(...args), []);
+}
+
 export default function App() {
+  recordAppRender();
+
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
@@ -4711,9 +4829,33 @@ export default function App() {
   const [board, setBoard] = useState(
     Array(initialGridSize * initialGridSize).fill({ letter: "?", bonus: null })
   );
-  const [currentTiles, setCurrentTiles] = useState([]);
-  const [highlightPath, setHighlightPath] = useState([]);
+  const currentTilesRef = useRef([]);
   const highlightPathRef = useRef([]);
+  const [, forceTraceRender] = useState(0);
+  const currentTiles = currentTilesRef.current;
+  const highlightPath = highlightPathRef.current;
+  function publishTraceState() {
+    setTraceState({
+      currentTiles: currentTilesRef.current,
+      highlightPath: highlightPathRef.current,
+    });
+  }
+  function setCurrentTiles(nextOrUpdater) {
+    const prev = currentTilesRef.current;
+    const next =
+      typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
+    currentTilesRef.current = Array.isArray(next) ? next : [];
+    publishTraceState();
+    if (phase !== "playing" || isSpecial3WordsMode) forceTraceRender((tick) => tick + 1);
+  }
+  function setHighlightPath(nextOrUpdater) {
+    const prev = highlightPathRef.current;
+    const next =
+      typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
+    highlightPathRef.current = Array.isArray(next) ? next : [];
+    publishTraceState();
+    if (phase !== "playing" || isSpecial3WordsMode) forceTraceRender((tick) => tick + 1);
+  }
   const [dictionary, setDictionary] = useState(null);
   const [accepted, setAccepted] = useState([]);
   const [submissionTick, setSubmissionTick] = useState(0);
@@ -5208,9 +5350,6 @@ export default function App() {
   const safeAreaProbeRef = useRef(null);
   const safeAreaTopProbeRef = useRef(null);
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
-  const [praiseFlash, setPraiseFlash] = useState(null);
-  const [gobbleFlash, setGobbleFlash] = useState(null);
-  const [invalidFlash, setInvalidFlash] = useState(null);
   const [gridShake, setGridShake] = useState(false);
   const [mobileResultsPage, setMobileResultsPage] = useState(0);
   const resultsTouchRef = useRef({ startX: null, startY: null });
@@ -5316,6 +5455,7 @@ export default function App() {
   const [devError, setDevError] = useState("");
   const [devBots, setDevBots] = useState([]);
   const [devControlsBusy, setDevControlsBusy] = useState(false);
+  const [perfTestEnabled, setPerfTestEnabled] = useState(false);
   const [devControls, setDevControls] = useState({
     enabled: false,
     forcedRoundType: "",
@@ -5786,18 +5926,6 @@ export default function App() {
   ]);
 
   function clearCelebrationFx() {
-    if (praiseTimerRef.current) {
-      clearTimeout(praiseTimerRef.current);
-      praiseTimerRef.current = null;
-    }
-    if (invalidTimerRef.current) {
-      clearTimeout(invalidTimerRef.current);
-      invalidTimerRef.current = null;
-    }
-    if (gobbleTimerRef.current) {
-      clearTimeout(gobbleTimerRef.current);
-      gobbleTimerRef.current = null;
-    }
     if (gridShakeTimerRef.current) {
       clearTimeout(gridShakeTimerRef.current);
       gridShakeTimerRef.current = null;
@@ -5807,9 +5935,7 @@ export default function App() {
     } catch (_) {}
     gridShakeAnimationRef.current = null;
     confettiBurstTokenRef.current += 1;
-    setPraiseFlash(null);
-    setGobbleFlash(null);
-    setInvalidFlash(null);
+    clearAllCelebrationFlashes();
     setBigScoreFlash(null);
     setGridShake(false);
     try {
@@ -6079,32 +6205,20 @@ export default function App() {
   useEffect(() => {
     visualGobbleEnabledRef.current = visualGobbleEnabled;
     if (!visualGobbleEnabled) {
-      if (gobbleTimerRef.current) {
-        clearTimeout(gobbleTimerRef.current);
-        gobbleTimerRef.current = null;
-      }
-      setGobbleFlash(null);
+      clearCelebrationFlash("gobbleFlash");
     }
   }, [visualGobbleEnabled]);
   useEffect(() => {
     visualPraiseEnabledRef.current = visualPraiseEnabled;
     if (!visualPraiseEnabled) {
-      if (praiseTimerRef.current) {
-        clearTimeout(praiseTimerRef.current);
-        praiseTimerRef.current = null;
-      }
-      setPraiseFlash(null);
+      clearCelebrationFlash("praiseFlash");
       setBigScoreFlash(null);
     }
   }, [visualPraiseEnabled]);
   useEffect(() => {
     visualInvalidWordsEnabledRef.current = visualInvalidWordsEnabled;
     if (!visualInvalidWordsEnabled) {
-      if (invalidTimerRef.current) {
-        clearTimeout(invalidTimerRef.current);
-        invalidTimerRef.current = null;
-      }
-      setInvalidFlash(null);
+      clearCelebrationFlash("invalidFlash");
     }
   }, [visualInvalidWordsEnabled]);
   useEffect(() => {
@@ -6214,9 +6328,6 @@ export default function App() {
   useEffect(() => {
     roundIdRef.current = roundId;
   }, [roundId]);
-  useEffect(() => {
-    highlightPathRef.current = Array.isArray(highlightPath) ? highlightPath : [];
-  }, [highlightPath]);
   useEffect(() => {
     lastInputModeRef.current = lastInputMode;
   }, [lastInputMode]);
@@ -6576,7 +6687,6 @@ export default function App() {
     authenticatedUserId,
   ]);
 
-  const currentTilesRef = useRef([]);
   const acceptedRef = useRef([]);
   const acceptedWordSetRef = useRef(new Set());
   const acceptedScoresRef = useRef(new Map());
@@ -6723,9 +6833,6 @@ export default function App() {
   const lastKeyboardInsetRef = useRef(0);
   const toastTimersRef = useRef(new Map());
   const gobblarToastDelayTimersRef = useRef(new Set());
-  const praiseTimerRef = useRef(null);
-  const gobbleTimerRef = useRef(null);
-  const invalidTimerRef = useRef(null);
   const gridShakeTimerRef = useRef(null);
   const gridShakeAnimationRef = useRef(null);
   const submissionTickRafRef = useRef(null);
@@ -9281,18 +9388,30 @@ export default function App() {
       const durationMs = Math.round(2200 + Math.random() * 400);
       triggerConfettiBurst("gobble");
       if (visualGobbleEnabledRef.current) {
-        setGobbleFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
-        if (gobbleTimerRef.current) clearTimeout(gobbleTimerRef.current);
-        gobbleTimerRef.current = setTimeout(() => setGobbleFlash(null), durationMs);
+        showCelebrationFlash("gobbleFlash", {
+          id: now + Math.random(),
+          text,
+          kind,
+          dx,
+          dy,
+          scale,
+          durationMs,
+        }, durationMs);
       }
       if (shakeGrid) triggerGridShake();
       return;
     }
     const durationMs = Math.round(1500 + Math.random() * 300);
     if (visualPraiseEnabledRef.current) {
-      setPraiseFlash({ id: now + Math.random(), text, kind, dx, dy, scale, durationMs });
-      if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current);
-      praiseTimerRef.current = setTimeout(() => setPraiseFlash(null), durationMs);
+      showCelebrationFlash("praiseFlash", {
+        id: now + Math.random(),
+        text,
+        kind,
+        dx,
+        dy,
+        scale,
+        durationMs,
+      }, durationMs);
     }
     if (shakeGrid) triggerGridShake();
   }
@@ -9313,16 +9432,15 @@ export default function App() {
     const dx = Math.round(Math.cos(angle) * dist);
     const dy = Math.round(Math.sin(angle) * dist);
     const scale = Number((1.06 + Math.random() * 0.18).toFixed(2));
-    setInvalidFlash({
+    const flash = {
       id: now + Math.random(),
       text,
       dx,
       dy,
       scale,
       durationMs,
-    });
-    if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
-    invalidTimerRef.current = setTimeout(() => setInvalidFlash(null), durationMs);
+    };
+    showCelebrationFlash("invalidFlash", flash, durationMs);
   }
 
   function triggerConfettiBurst(kind = "target") {
@@ -18049,6 +18167,9 @@ export default function App() {
     }
   }
 
+  const stableOpenPlayerProfile = useStableEvent(openPlayerProfile);
+  const stableCanOpenPlayerProfile = useStableEvent(canOpenPlayerProfile);
+
   function updateBlockedInstallIds(updater) {
     setBlockedInstallIds((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
@@ -19593,21 +19714,21 @@ export default function App() {
       }
 
       const letter = board[index].letter;
-setCurrentTiles((prevLetters) => {
-  const newLetters = [...prevLetters, letter];
-  currentTilesRef.current = newLetters;
+      setCurrentTiles((prevLetters) => {
+        const newLetters = [...prevLetters, letter];
+        currentTilesRef.current = newLetters;
 
-  // son progressif : index de la tuile dans le mot
-  const step = newLetters.length - 1; // 0 pour la première, 1 pour la 2e, etc.
-  tileStepRef.current = step;
-  playTileStepSound(step);
+        // son progressif : index de la tuile dans le mot
+        const step = newLetters.length - 1; // 0 pour la première, 1 pour la 2e, etc.
+        tileStepRef.current = step;
+        playTileStepSound(step);
 
-  return newLetters;
-});
+        return newLetters;
+      });
 
-const nextPath = [...prevPath, index];
-highlightPathRef.current = nextPath;
-return nextPath;
+      const nextPath = [...prevPath, index];
+      highlightPathRef.current = nextPath;
+      return nextPath;
 
     });
   }
@@ -20564,7 +20685,7 @@ function handleTouchEnd(e) {
       lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
     const usesManualPath = touchContext || lastInputMode === "mouse";
     if (usesManualPath) {
-      path = highlightPath;
+      path = Array.isArray(highlightPathRef.current) ? highlightPathRef.current : [];
       if (!path || path.length === 0) {
         markDailySlotInvalid(targetSlot, "Mot absent de la grille");
         return;
@@ -22044,17 +22165,6 @@ function handleTouchEnd(e) {
   const special3ActiveSlotIndex = isSpecial3WordsMode
     ? getDailyActiveSlotIndex(special3Slots, safeDailySlotIndex)
     : 0;
-  const currentBonuses = summarizeBonuses(highlightPath, boardForRender);
-  const wordMultiplier =
-    Math.pow(2, currentBonuses.M2 || 0) * Math.pow(3, currentBonuses.M3 || 0);
-  const showBonuses =
-    !bonusLetterKey &&
-    highlightPath.length > 0 &&
-    (currentBonuses.L2 ||
-      currentBonuses.L3 ||
-      currentBonuses.M2 ||
-      currentBonuses.M3);
-  const chipCompact = currentTiles.length > 10;
   const foundDotStyle = React.useMemo(
     () => ({
       width: "0.4rem",
@@ -22573,19 +22683,18 @@ function handleTouchEnd(e) {
                 }}
               />
               <div
-                className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 text-[9px] font-black tabular-nums ${
-                  darkMode
-                    ? "border-emerald-300 bg-slate-950 text-emerald-100"
-                    : "border-emerald-500 bg-white text-emerald-700"
-                }`}
+                className="absolute top-3 h-0 w-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent"
                 style={{
                   left: `${vocabOverlayRaceCurrentPct}%`,
                   transform: "translateX(-50%)",
+                  borderTopColor: darkMode ? "#6ee7b7" : "#059669",
+                  filter: darkMode
+                    ? "drop-shadow(0 0 6px rgba(110, 231, 183, 0.65))"
+                    : "drop-shadow(0 1px 2px rgba(15, 23, 42, 0.25))",
                 }}
                 title="Position actuelle"
-              >
-                {Number.isFinite(vocabOverlayRank) ? vocabOverlayRank : ""}
-              </div>
+                aria-hidden="true"
+              />
               <div className="absolute top-8 left-0 -translate-x-1 text-[8px] font-bold uppercase tracking-[0.08em] opacity-60">
                 départ
               </div>
@@ -26258,18 +26367,18 @@ function handleTouchEnd(e) {
 
   const weeklyVocabChampionNickSet = React.useMemo(() => {
     const set = new Set();
-    const add = (entry) => {
-      if (!entry?.isWeeklyVocabChampion) return;
+    const add = (entry, force = false) => {
+      if (!force && !entry?.isWeeklyVocabChampion) return;
       const nick = entry?.nick ? String(entry.nick).trim().toLowerCase() : "";
       if (nick) set.add(nick);
     };
+    add(weeklyStats?.previousWeeklyVocabChampion, true);
     players.forEach(add);
     lobbyPlayersList.forEach(add);
     provisionalRanking.forEach(add);
     finalResults.forEach(add);
     (tournamentRanking || []).forEach(add);
     (tournamentFinaleSummary?.ranking || []).forEach(add);
-    chatMessages.forEach(add);
     return set;
   }, [
     players,
@@ -26278,7 +26387,7 @@ function handleTouchEnd(e) {
     finalResults,
     tournamentRanking,
     tournamentFinaleSummary,
-    chatMessages,
+    weeklyStats?.previousWeeklyVocabChampion,
   ]);
   const weeklyVocabChampionNickClass = darkMode
     ? "text-amber-300 font-black"
@@ -26378,6 +26487,62 @@ function handleTouchEnd(e) {
     dailyHistory?.days,
     duelStatus?.team,
     selfNick,
+  ]);
+  const nickDecorationKey = React.useMemo(() => {
+    const setSignature = (set) =>
+      Array.from(set || [])
+        .map((value) => String(value || ""))
+        .filter(Boolean)
+        .sort()
+        .join(",");
+    const teamSignature = Array.from(teamByNick?.entries?.() || [])
+      .map(([nick, team]) => `${String(nick || "").trim()}:${team}`)
+      .filter((entry) => entry.length > 1)
+      .sort()
+      .join(",");
+    let medalsSignature = "";
+    let finaleMedalsSignature = "";
+    try {
+      medalsSignature = medals ? JSON.stringify(medals) : "";
+    } catch (_) {
+      medalsSignature = "";
+    }
+    try {
+      finaleMedalsSignature = tournamentFinaleMedals ? JSON.stringify(tournamentFinaleMedals) : "";
+    } catch (_) {
+      finaleMedalsSignature = "";
+    }
+    return [
+      devSelfCrownEnabled ? "dc1" : "dc0",
+      devSelfGoldNickEnabled ? "dg1" : "dg0",
+      selfNick || "",
+      phase,
+      breakKind || "",
+      tournamentSummaryAt || 0,
+      tournamentFinaleHoldUntil || 0,
+      setSignature(crownedNickSet),
+      setSignature(weeklyVocabChampionNickSet),
+      setSignature(botNickSet),
+      setSignature(humanNickSet),
+      teamSignature,
+      medalsSignature,
+      finaleMedalsSignature,
+    ].join("|");
+  }, [
+    botNickSet,
+    breakKind,
+    crownedNickSet,
+    devSelfCrownEnabled,
+    devSelfGoldNickEnabled,
+    humanNickSet,
+    medals,
+    phase,
+    selfNick,
+    teamByNick,
+    tournamentFinaleMedals,
+    tournamentFinaleHoldUntil,
+    tournamentSummaryAt,
+    weeklyVocabChampionNickSet,
   ]);
 
   function renderMedalsInline(nick, fallbackMedals) {
@@ -27668,6 +27833,7 @@ function handleTouchEnd(e) {
     metaLabel,
     compactMetaLabel,
     vocabMeta,
+    showVocabLabel = true,
     crowned = false,
     onOpenProfile = null,
   }) {
@@ -27690,9 +27856,11 @@ function handleTouchEnd(e) {
               className="h-5 w-5 shrink-0"
               draggable={false}
             />
-            <span className="text-[10px] font-black opacity-75">
-              {vocabMeta.label || "Niveau"}
-            </span>
+            {showVocabLabel ? (
+              <span className="text-[10px] font-black opacity-75">
+                {vocabMeta.label || "Niveau"}
+              </span>
+            ) : null}
           </span>
         ) : null}
         {onOpenProfile ? (
@@ -27716,7 +27884,12 @@ function handleTouchEnd(e) {
     );
   }
 
-  function renderWeeklyRow(boardKey, entry, idx, { showVocabIcon = false } = {}) {
+  function renderWeeklyRow(
+    boardKey,
+    entry,
+    idx,
+    { showVocabIcon = false, showVocabLabel = true } = {}
+  ) {
     if (!entry) return null;
     const rank = idx + 1;
     const isTotalScoreBoard = boardKey === "totalScore";
@@ -27858,6 +28031,7 @@ function handleTouchEnd(e) {
               metaLabel={metaLabel}
               compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
+              showVocabLabel={showVocabLabel}
               crowned={isCrownedEntry(baseNick, entry)}
               onOpenProfile={openWeeklyProfile}
             />
@@ -28558,7 +28732,10 @@ function handleTouchEnd(e) {
                             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                           >
                             {seasonVocabEntries.map((entry, entryIdx) =>
-                              renderWeeklyRow("vocab", entry, entryIdx, { showVocabIcon: true })
+                              renderWeeklyRow("vocab", entry, entryIdx, {
+                                showVocabIcon: true,
+                                showVocabLabel: false,
+                              })
                             )}
                           </div>
                         ) : (
@@ -29061,7 +29238,7 @@ function handleTouchEnd(e) {
       modal={roundPlayerModal}
       finalRanking={finalRanking}
       canOpenRoundPlayerDetails={canOpenRoundPlayerDetails}
-      canOpenPlayerProfile={canOpenPlayerProfile}
+      canOpenPlayerProfile={stableCanOpenPlayerProfile}
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
       allowScoreGobble={specialRound?.type !== MASSIVE_BOGGLE_TYPE}
@@ -29072,7 +29249,7 @@ function handleTouchEnd(e) {
       onNavigate={navigateRoundPlayerModal}
       onSwipeSound={playSwipeSound}
       onClose={() => closeRoundPlayerModal({ withSound: true })}
-      onOpenPlayerProfile={openPlayerProfile}
+      onOpenPlayerProfile={stableOpenPlayerProfile}
       onOpenDefinition={(word) => {
         if (!word) return;
         openDefinition(word, { fromWordInfo: true });
@@ -31611,7 +31788,9 @@ function handleTouchEnd(e) {
             busy: devControlsBusy,
             password: devPassword,
             error: devError,
+            perfTestEnabled,
             onClose: closeDevMenu,
+            onPerfTestToggle: setPerfTestEnabled,
             onPasswordChange: setDevPassword,
             onUnlock: unlockDevControls,
             onLock: lockDevControls,
@@ -32365,62 +32544,60 @@ function handleTouchEnd(e) {
     <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
   ) : null;
 
-  const mobileChatLayer = (
-    <MobileChatLayer
-      appView={appView}
-      blockedCount={blockedCount}
-      blockedEntries={blockedEntries}
-      chatAnimationMs={CHAT_DRAWER_ANIM_MS}
-      chatEditTarget={chatEditTarget}
-      chatInput={chatInput}
-      chatInputDisabled={chatInputDisabled}
-      chatInputPlaceholder={chatInputPlaceholder}
-      chatInputRef={chatInputRef}
-      chatInputType={chatInputType}
-      chatOpenedAtMs={chatOpenedAtMs}
-      chatKeyboardInsetPx={chatKeyboardInsetPx}
-      chatMessagesUnreadCount={chatMessagesUnreadCount}
-      chatOverlayStyle={globalChatOverlayStyle}
-      chatReplyTarget={chatReplyTarget}
-      chatSheetStyle={globalChatSheetStyle}
-      chatSystemCount={chatSystemCount}
-      chatTab={chatTab}
-      chatViewportStyle={chatViewportStyle}
-      closeChatPanel={closeChatPanel}
-      cycleChatHistory={cycleChatHistory}
-      darkMode={appView === "home" ? true : darkMode}
-      installId={installId}
-      isChatClosing={isChatClosing}
-      isChatOpenMobile={isChatOpenMobile}
-      isLoggedIn={isLoggedIn}
-      isMobileLayout={isMobileLayout}
-      isSpecial3WordsMode={isSpecial3WordsMode}
-      keyboardInsetReservePx={keyboardInsetReservePx}
-      mobileChatReactionToasts={mobileChatReactionToasts}
-      mobileChatUnreadCount={mobileChatUnreadCount}
-      getAuthorNickClassName={getLiveNickClassName}
-      onChangeChatTab={setChatTab}
-      onChatInputFocus={handleChatInputFocus}
-      onClearChatEdit={clearChatEditTarget}
-      onClearChatReply={clearChatReplyTarget}
-      onCloseSound={playCloseSound}
-      onDeleteOwnMessage={deleteOwnChatMessage}
-      onEditOwnMessage={beginChatEditFromMessage}
-      onOpenChat={requestOpenChat}
-      onOpenRules={() => setIsChatRulesOpen(true)}
-      onOpenUserMenu={openUserMenu}
-      onReactToMessage={sendChatReaction}
-      onSelectChatReply={setChatReplyTargetFromMessage}
-      onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-      onUnblockInstallId={unblockInstallId}
-      reactionEmojis={CHAT_REACTION_EMOJIS}
-      selfNick={selfNick}
-      setChatInput={setChatInput}
-      showBlockedList={showBlockedList}
-      submitChat={submitChat}
-      visibleMessages={visibleMessages}
-    />
-  );
+  const mobileChatProps = {
+    appView,
+    blockedCount,
+    blockedEntries,
+    chatAnimationMs: CHAT_DRAWER_ANIM_MS,
+    chatEditTarget,
+    chatInput,
+    chatInputDisabled,
+    chatInputPlaceholder,
+    chatInputRef,
+    chatInputType,
+    chatOpenedAtMs,
+    chatKeyboardInsetPx,
+    chatMessagesUnreadCount,
+    chatOverlayStyle: globalChatOverlayStyle,
+    chatReplyTarget,
+    chatSheetStyle: globalChatSheetStyle,
+    chatSystemCount,
+    chatTab,
+    chatViewportStyle,
+    closeChatPanel,
+    cycleChatHistory,
+    darkMode: appView === "home" ? true : darkMode,
+    installId,
+    isChatClosing,
+    isChatOpenMobile,
+    isLoggedIn,
+    isMobileLayout,
+    isSpecial3WordsMode,
+    keyboardInsetReservePx,
+    mobileChatReactionToasts,
+    mobileChatUnreadCount,
+    getAuthorNickClassName: getLiveNickClassName,
+    onChangeChatTab: setChatTab,
+    onChatInputFocus: handleChatInputFocus,
+    onClearChatEdit: clearChatEditTarget,
+    onClearChatReply: clearChatReplyTarget,
+    onCloseSound: playCloseSound,
+    onDeleteOwnMessage: deleteOwnChatMessage,
+    onEditOwnMessage: beginChatEditFromMessage,
+    onOpenChat: requestOpenChat,
+    onOpenRules: () => setIsChatRulesOpen(true),
+    onOpenUserMenu: openUserMenu,
+    onReactToMessage: sendChatReaction,
+    onSelectChatReply: setChatReplyTargetFromMessage,
+    onToggleBlockedList: () => setShowBlockedList((prev) => !prev),
+    onUnblockInstallId: unblockInstallId,
+    reactionEmojis: CHAT_REACTION_EMOJIS,
+    selfNick,
+    setChatInput,
+    showBlockedList,
+    submitChat,
+    visibleMessages,
+  };
   const homeChatVisibleMessages = React.useMemo(() => {
     const source = safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
     const cap =
@@ -32429,30 +32606,31 @@ function handleTouchEnd(e) {
     if (source.length <= cap) return source;
     return source.slice(-cap);
   }, [safeChatTab, chatSystemMessages, chatMessagesOnly]);
-  const homeChatModalView = (
-    <HomeChatModalHost
-      open={isHomeChatOpen}
-      darkMode={menuDarkMode}
-      chatTab={safeChatTab}
-      onChangeTab={setChatTab}
-      onClose={closeHomeChat}
-      messagesUnreadCount={homeChatUnreadCount}
-      systemCount={chatSystemCount}
-      messages={homeChatVisibleMessages}
-      chatInput={chatInput}
-      setChatInput={setChatInput}
-      onInputFocus={handleChatInputFocus}
-      onSubmit={() => submitChat(null)}
-      chatInputDisabled={chatInputDisabled}
-      chatInputPlaceholder={chatInputPlaceholder}
-      chatEditTarget={chatEditTarget}
-      onClearChatEdit={clearChatEditTarget}
-      chatReplyTarget={chatReplyTarget}
-      onClearChatReply={clearChatReplyTarget}
-      onOpenPlayerProfile={openPlayerProfile}
-      selfNick={selfNick}
-      selfInstallId={installId}
-    />
+  const homeChatProps = {
+    open: isHomeChatOpen,
+    darkMode: menuDarkMode,
+    chatTab: safeChatTab,
+    onChangeTab: setChatTab,
+    onClose: closeHomeChat,
+    messagesUnreadCount: homeChatUnreadCount,
+    systemCount: chatSystemCount,
+    messages: homeChatVisibleMessages,
+    chatInput,
+    setChatInput,
+    onInputFocus: handleChatInputFocus,
+    onSubmit: (text) => submitChat(null, text),
+    chatInputDisabled,
+    chatInputPlaceholder,
+    chatEditTarget,
+    onClearChatEdit: clearChatEditTarget,
+    chatReplyTarget,
+    onClearChatReply: clearChatReplyTarget,
+    onOpenPlayerProfile: openPlayerProfile,
+    selfNick,
+    selfInstallId: installId,
+  };
+  const globalChatLayer = (
+    <GlobalChatLayer key="global-chat-layer" mobileProps={mobileChatProps} homeProps={homeChatProps} />
   );
   const duelWeeklyTotals = duelStatus?.weekly?.totalsByTeam || { red: 0, blue: 0 };
   const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
@@ -32523,6 +32701,9 @@ function handleTouchEnd(e) {
           document.body
         )
       : null;
+  const perfTestOverlay = perfTestEnabled ? (
+    <PerfTestOverlay phase={phase} roundId={roundId} />
+  ) : null;
   const vaultWordOfDayOverlay = vaultWordOfDayPopup.open ? (
     <VaultWordOfDayPopup
       definition={vaultWordOfDayPopup.definition}
@@ -32859,6 +33040,7 @@ function handleTouchEnd(e) {
       {duelPopupOverlay}
       {duelWeekRecapOverlay}
       {devGlobalAnnouncementOverlay}
+      {perfTestOverlay}
       {playersOverlay}
       {userMenuView}
       {desktopChatReactionPickerView}
@@ -32876,7 +33058,6 @@ function handleTouchEnd(e) {
       {specialTutorialOverlay}
       {settingsMenuView}
       {aboutModalView}
-      {homeChatModalView}
       <ChatReactionToastLayer toasts={mobileChatReactionToasts} />
       <ToastStack toasts={toasts} darkMode={darkMode} />
     </>
@@ -33883,7 +34064,6 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         {quickHelpOverlay}
-        {homeChatModalView}
         {dailyLaunchDialogView}
         <div
           className={`relative overflow-hidden text-amber-50 ${
@@ -34127,6 +34307,7 @@ function handleTouchEnd(e) {
             </div>
           </div>
         </div>
+        {globalChatLayer}
         {chatOverlays}
       </>
     );
@@ -34360,6 +34541,7 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         {quickHelpOverlay}
+        {globalChatLayer}
         <div
           className="relative w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden text-white"
           style={weeklyOverlayStyle}
@@ -34415,6 +34597,7 @@ function handleTouchEnd(e) {
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
         {devGlobalAnnouncementOverlay}
+        {perfTestOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
         {playersOverlay}
@@ -34426,6 +34609,7 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         {quickHelpOverlay}
+        {globalChatLayer}
         <HomeLobby
           accountLabel={homeAccountLabel}
           accountOnline={isAccountAuthenticated}
@@ -34458,8 +34642,6 @@ function handleTouchEnd(e) {
           resumeRoomLabel={resumeRoomLabel}
           savedSessionNick={savedSessionNick}
         />
-        {mobileChatLayer}
-        {homeChatModalView}
       </>
     );
 
@@ -34470,6 +34652,7 @@ function handleTouchEnd(e) {
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
         {devGlobalAnnouncementOverlay}
+        {perfTestOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
         {playersOverlay}
@@ -34833,8 +35016,7 @@ function handleTouchEnd(e) {
 
         </div>
         </div>
-        {mobileChatLayer}
-        {homeChatModalView}
+        {globalChatLayer}
       </>
     );
   }
@@ -34842,11 +35024,8 @@ function handleTouchEnd(e) {
   const praiseOverlay = (
     <GameCelebrationOverlay
       assetsReady={!!bootProgress?.done}
-      gobbleFlash={visualGobbleEnabled ? gobbleFlash : null}
-      invalidFlash={visualInvalidWordsEnabled ? invalidFlash : null}
       isMobileLayout={isMobileLayout}
       phase={phase}
-      praiseFlash={visualPraiseEnabled ? praiseFlash : null}
     />
   );
   const desktopResultsSummaryDrawer = (
@@ -34994,8 +35173,9 @@ function handleTouchEnd(e) {
             assetVersion={assetVersion}
             gobbleWordAwardsByNick={gobbleAwardsForLive}
             getNickClassName={getLiveNickClassName}
-            onPlayerNickClick={openPlayerProfile}
-            isPlayerNickClickable={canOpenPlayerProfile}
+            nickDecorationKey={nickDecorationKey}
+            onPlayerNickClick={stableOpenPlayerProfile}
+            isPlayerNickClickable={stableCanOpenPlayerProfile}
             renderNickSuffix={
               (nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)
             }
@@ -35687,7 +35867,6 @@ function handleTouchEnd(e) {
             </div>
           </div>
         </div>
-        {mobileChatLayer}
         {settingsMenuView}
         {aboutModalView}
         {chatOverlays}
@@ -35870,7 +36049,7 @@ function handleTouchEnd(e) {
           praiseOverlay={praiseOverlay}
           slideStyles={slideStyles}
         />
-        {mobileChatLayer}
+        {globalChatLayer}
       </>
     );
   }
@@ -36436,7 +36615,7 @@ function handleTouchEnd(e) {
           toggleSoundQuick={toggleSoundQuick}
           visualScreenShakeEnabled={visualScreenShakeEnabled}
         />
-        {mobileChatLayer}
+        {globalChatLayer}
       </>
     );
   }
@@ -36797,7 +36976,7 @@ function handleTouchEnd(e) {
               setHighlightPlayers([]);
             }}
             onGoToResultsPage={goToResultsPage}
-            onOpenPlayerProfile={openPlayerProfile}
+            onOpenPlayerProfile={stableOpenPlayerProfile}
             onOpenRoundPlayerModal={openRoundPlayerModal}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenWordInfoModal={openWordInfoModal}
@@ -36824,6 +37003,7 @@ function handleTouchEnd(e) {
             resultsWordsTitle={resultsWordsTitle}
             selfNick={selfNick}
             getNickClassName={getLiveNickClassName}
+            nickDecorationKey={nickDecorationKey}
             showAllWords={showAllWords}
             showHelp={showHelp}
             showOfflineResultsLabel={showOfflineResultsLabel}
@@ -36839,7 +37019,7 @@ function handleTouchEnd(e) {
             wordsEmpty={wordsEmpty}
           />
           {ocidMobileResultOverlay}
-          {mobileChatLayer}
+          {globalChatLayer}
         </>
       );
     }
@@ -36864,7 +37044,9 @@ function handleTouchEnd(e) {
         formatNumber={formatNumber}
         fullRanking={fullRanking}
         gobbleAwardsForLive={gobbleAwardsForLive}
+        getTraceCellLabel={getLivePreviewLabelForCell}
         getNickClassName={getLiveNickClassName}
+        nickDecorationKey={nickDecorationKey}
         gridRef={gridRef}
         gridRotationTurns={gridRotationTurns}
         gridShake={gridShake}
@@ -36918,7 +37100,7 @@ function handleTouchEnd(e) {
         ocidStatusMessage={ocidStatusMessage}
         ocidVote={ocidVote}
         onOpenDefinition={openDefinition}
-        onOpenPlayerProfile={openPlayerProfile}
+        onOpenPlayerProfile={stableOpenPlayerProfile}
         onOpenPlayersOverlaySnapshot={openPlayersOverlaySnapshot}
         onOcidProposalChange={(value) => {
           setOcidProposal(value);
@@ -36945,7 +37127,7 @@ function handleTouchEnd(e) {
         previewGapPx={previewGapPx}
         previewTileBaseStyle={previewTileBaseStyle}
         renderNickSuffix={renderMobileNickSuffix}
-        canOpenPlayerProfile={canOpenPlayerProfile}
+        canOpenPlayerProfile={stableCanOpenPlayerProfile}
         roundStats={roundStats}
         roundTilePointsVisible={roundTilePointsVisible}
         scoreLabel={scoreLabel}
@@ -36975,13 +37157,14 @@ function handleTouchEnd(e) {
         tileMaterialClass={tileMaterialClass}
         tileRefs={tileRefs}
         tileScore={tileScore}
+        traceBoard={boardForRender}
         totalScoreLabel={totalScoreLabel}
         totalWordsLabel={totalWordsLabel}
         tournament={tournament}
         usedSet={usedSet}
         wordsFoundLabel={wordsFoundLabel}
       />
-      {mobileChatLayer}
+      {globalChatLayer}
     </>
   );
   }
@@ -37358,8 +37541,9 @@ function handleTouchEnd(e) {
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
           getNickClassName={getLiveNickClassName}
-          onPlayerNickClick={openPlayerProfile}
-          isPlayerNickClickable={canOpenPlayerProfile}
+          nickDecorationKey={nickDecorationKey}
+          onPlayerNickClick={stableOpenPlayerProfile}
+          isPlayerNickClickable={stableCanOpenPlayerProfile}
           renderNickSuffix={renderNickSuffix}
           showGobbleWordAwards={true}
           showScores={true}
@@ -37428,6 +37612,7 @@ function handleTouchEnd(e) {
           assetVersion={assetVersion}
           gobbleWordAwardsByNick={gobbleAwardsForLive}
           getNickClassName={getLiveNickClassName}
+          nickDecorationKey={nickDecorationKey}
           renderNickSuffix={renderNickSuffix}
           stackNickDecorations={!isMobileLayout}
           showGobbleWordAwards={true}
@@ -37611,7 +37796,21 @@ function handleTouchEnd(e) {
               }}
               onMouseUp={handleMouseUp}
               onMouseMove={handleMouseMove}
+              onMouseDown={(event) => {
+                const target = event.target instanceof Element ? event.target : null;
+                const tile = target?.closest?.("[data-board-index]");
+                const index = Number(tile?.getAttribute?.("data-board-index"));
+                if (Number.isInteger(index)) handleMouseDown(index);
+              }}
+              onTouchStart={(event) => {
+                const target = event.target instanceof Element ? event.target : null;
+                const tile = target?.closest?.("[data-board-index]");
+                const index = Number(tile?.getAttribute?.("data-board-index"));
+                if (Number.isInteger(index)) handleTouchStart(event, index);
+              }}
               onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
             >
               {praiseOverlay}
               {showResultsWordPath &&
@@ -37762,7 +37961,7 @@ function handleTouchEnd(e) {
                   : useFillIndicator && displayBonus
                   ? BONUS_CLASSES[displayBonus]
                   : defaultTileBaseClass;
-                const highlightClass = isUsed ? "tile-used" : "";
+                const highlightClass = phase === "playing" ? "" : isUsed ? "tile-used" : "";
                 const hintClass = shouldShowHint ? "tile-hint" : "";
                 const hintOutlineClass = shouldShowHintOutline ? "tile-hint-outline" : "";
                 const hintStyle =
@@ -37783,71 +37982,48 @@ function handleTouchEnd(e) {
                   displayBonus &&
                   !bonusLetterKey;
                 const isSpecialStartTileLocked = special3LockedStartTileSet.has(boardIndex);
-                const isFakeTwinsTile = cell?.specialType === FAKE_TWINS_TYPE && cell?.altLetter;
+                const tileClassName = [
+                  "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
+                  tileMaterialClass,
+                  bonusClass,
+                  highlightClass,
+                  hintClass,
+                  hintOutlineClass,
+                  isSpecialStartTileLocked ? "daily-special-start-used" : "",
+                  mobileRoundIntroHideTiles ? "opacity-0 pointer-events-none" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                const tileStyle = {
+                  width: "100%",
+                  aspectRatio: "1 / 1",
+                  willChange: "transform",
+                  touchAction: "none",
+                  WebkitUserSelect: "none",
+                  WebkitTouchCallout: "none",
+                  fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
+                  ...(hintStyle || {}),
+                  ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
+                };
 
                 return (
-                  <button
-  key={displayIndex}
-  ref={(el) => (tileRefs.current[boardIndex] = el)}
-  onMouseDown={() => handleMouseDown(boardIndex)}
-  onTouchStart={(e) => handleTouchStart(e, boardIndex)}
-  onTouchEnd={handleTouchEnd}
-  onTouchCancel={handleTouchEnd}
-  type="button"
-  className={[
-    // plus de tailles figées en px ici
-    "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
-    tileMaterialClass,
-    bonusClass,
-    highlightClass,
-    hintClass,
-    hintOutlineClass,
-    isFakeTwinsTile ? "fake-twins-tile" : "",
-    isSpecialStartTileLocked ? "daily-special-start-used" : "",
-    mobileRoundIntroHideTiles ? "opacity-0 pointer-events-none" : "",
-  ]
-    .filter(Boolean)
-    .join(" ")}
-  style={{
-    // sur ce layout mobile, chaque tuile prend 100% de sa cellule de grille
-    width: "100%",
-    aspectRatio: "1 / 1",
-    willChange: "transform",
-    touchAction: "none",
-    WebkitUserSelect: "none",
-    WebkitTouchCallout: "none",
-    fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
-    ...(hintStyle || {}),
-    ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
-  }}
->
-  {isSpecialStartTileLocked ? (
-    <span aria-hidden="true" className="daily-special-start-lock" />
-  ) : null}
-  {hintOverlayStyle ? (
-    <span
-      aria-hidden="true"
-      className="absolute inset-0 pointer-events-none"
-      style={{ borderRadius: "inherit", ...hintOverlayStyle }}
-    />
-  ) : null}
-  <GridTileLetter cell={cell} className={`relative z-[1] ${letterRingClass}`.trim()} />
-  {roundTilePointsVisible && letterPts > 0 ? <span className="tile-points z-[1]">{letterPts}</span> : null}
-  {displayBonus && (useFillIndicator || showBonusBadge) && (
-    <span
-      className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
-        displayBonus
-      )}`}
-      style={{
-        transform: isSquareMaterial
-          ? "translate(-8%, 8%)"
-          : "translate(10%, -10%)",
-      }}
-    >
-      {displayBonus}
-    </span>
-  )}
-</button>
+                  <GridTileButton
+                    key={displayIndex}
+                    boardIndex={boardIndex}
+                    cell={cell}
+                    className={tileClassName}
+                    displayBonus={displayBonus}
+                    hintOverlayStyle={hintOverlayStyle}
+                    isSquareMaterial={isSquareMaterial}
+                    isSpecialStartTileLocked={isSpecialStartTileLocked}
+                    letterPts={letterPts}
+                    letterRingClass={letterRingClass}
+                    showBonusBadge={!!(displayBonus && (useFillIndicator || showBonusBadge))}
+                    style={tileStyle}
+                    trackTraceUsed={phase === "playing"}
+                    tilePointsVisible={roundTilePointsVisible}
+                    tileRefs={tileRefs}
+                  />
 
                 );
               })}
@@ -37915,50 +38091,22 @@ function handleTouchEnd(e) {
         })
       )}
     </div>
-  ) : phase !== "playing" && isMobileLayout ? (
-    <span className="text-gray-800 dark:text-white">
-      {countdownLines.map((line, idx) => (
-        <span
-          key={`${line}-${idx}`}
-          className={`block ${
-            /^\d+$/.test(line)
-              ? "text-2xl font-black leading-none"
-              : String(line).startsWith("MANCHE SPECIALE")
-              ? "text-[0.7rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-              : ""
-          }`}
-        >
-          {line}
-        </span>
-      ))}
-    </span>
-  ) : liveWordTiles.length ? (
-    <AutoScaleInline minScale={0.42} measurePaddingPx={8} reserveScaledWidth className="gap-1 py-1">
-      {liveWordTiles.map((ch, idx) => {
-        // rotation déterministe légère, entre -5° et +5°
-        const angle = ((idx * 17 + liveWordTiles.length * 13) % 11) - 5;
-        return (
-          <div
-            key={idx}
-            className="preview-tile"
-            style={{ ...previewTileStyle, transform: `rotate(${angle}deg)` }}
-          >
-            {ch}
-          </div>
-        );
-      })}
-    </AutoScaleInline>
-  ) : showPreviewStatus ? (
-    <span className="text-gray-700 dark:text-slate-200">
-      {currentDisplay.toUpperCase()}
-    </span>
-  ) : showPreviewStats ? (
-    <div className="text-gray-700 dark:text-slate-200 text-sm leading-tight font-semibold">
-      <div>{`mots : ${wordsFoundLabel} / ${totalWordsLabel}`}</div>
-      <div>{`score : ${scoreLabel} / ${totalScoreLabel}`}</div>
-    </div>
   ) : (
-    <span className="text-gray-700 dark:text-slate-200">{READY_LABEL}</span>
+    <TraceAwareDesktopPreviewContent
+      board={boardForRender}
+      countdownLines={countdownLines}
+      currentDisplay={currentDisplay}
+      darkMode={darkMode}
+      getTraceCellLabel={getLivePreviewLabelForCell}
+      phase={phase}
+      previewTileStyle={previewTileStyle}
+      scoreLabel={scoreLabel}
+      showPreviewStats={showPreviewStats}
+      showPreviewStatus={showPreviewStatus}
+      totalScoreLabel={totalScoreLabel}
+      totalWordsLabel={totalWordsLabel}
+      wordsFoundLabel={wordsFoundLabel}
+    />
   )}
               </div>
               <button

@@ -31,6 +31,7 @@ function MobileStandardPlaying(props) {
     gridRotationTurns = 0,
     gridShake = false,
     gridSize = 4,
+    getTraceCellLabel = null,
     handleMouseDown = null,
     handleMouseMove = null,
     handleMouseUp = null,
@@ -95,6 +96,7 @@ function MobileStandardPlaying(props) {
     previewGapPx = 0,
     previewTileBaseStyle = undefined,
     getNickClassName = null,
+    nickDecorationKey = "",
     renderNickSuffix = null,
     roundStats = null,
     roundTilePointsVisible = false,
@@ -125,6 +127,7 @@ function MobileStandardPlaying(props) {
     tileMaterialClass = "",
     tileRefs = null,
     tileScore = null,
+    traceBoard = [],
     totalScoreLabel = "",
     totalWordsLabel = "",
     tournament = null,
@@ -449,6 +452,7 @@ function MobileStandardPlaying(props) {
                 onPlayerNickClick={onOpenPlayerProfile}
                 isPlayerNickClickable={canOpenPlayerProfile}
                 getNickClassName={getNickClassName}
+                nickDecorationKey={nickDecorationKey}
                 renderNickSuffix={renderNickSuffix}
                 showGobbleWordAwards={true}
                 showScores={true}
@@ -462,6 +466,7 @@ function MobileStandardPlaying(props) {
               countdownLines={countdownLines}
               currentDisplay={currentDisplay}
               darkMode={darkMode}
+              getTraceCellLabel={getTraceCellLabel}
               liveWord={liveWord}
               liveWordTiles={liveWordTiles}
               onRotateGrid={onRotateGrid}
@@ -476,6 +481,7 @@ function MobileStandardPlaying(props) {
                 scoreLabel,
                 totalScoreLabel,
               }}
+              traceBoard={traceBoard}
               shake={shake}
             />
           ) : null}

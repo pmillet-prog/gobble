@@ -72,6 +72,19 @@ export default function HomeChatModal({
   onOpenPlayerProfile = null,
 }) {
   const listRef = React.useRef(null);
+  const [draftInput, setDraftInput] = React.useState(() => String(chatInput || ""));
+
+  React.useEffect(() => {
+    const next = String(chatInput || "");
+    setDraftInput((prev) => (prev === next ? prev : next));
+  }, [chatInput]);
+
+  const submitDraft = React.useCallback(() => {
+    const didSend = typeof onSubmit === "function" ? onSubmit(draftInput) : false;
+    if (didSend === false) return;
+    setDraftInput("");
+    setChatInput?.("");
+  }, [draftInput, onSubmit, setChatInput]);
 
   React.useEffect(() => {
     if (!open) return undefined;
@@ -292,23 +305,23 @@ export default function HomeChatModal({
                   : "bg-white/80 border-amber-300/50 text-slate-900 placeholder:text-slate-500"
               }`}
               placeholder={chatInputPlaceholder}
-              value={chatInput}
-              onChange={(event) => setChatInput?.(event.target.value)}
+              value={draftInput}
+              onChange={(event) => setDraftInput(event.target.value)}
               onFocus={onInputFocus}
               readOnly={chatInputDisabled}
               aria-disabled={chatInputDisabled}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  onSubmit?.();
+                  submitDraft();
                 }
               }}
             />
             <button
               type="button"
               className={`px-3 py-2 text-sm rounded border font-black disabled:opacity-50 ${goldButtonClass}`}
-              disabled={!String(chatInput || "").trim() || chatInputDisabled}
-              onClick={() => onSubmit?.()}
+              disabled={!String(draftInput || "").trim() || chatInputDisabled}
+              onClick={submitDraft}
             >
               Envoyer
             </button>

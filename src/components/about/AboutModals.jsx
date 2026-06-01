@@ -270,6 +270,76 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 01/06/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  classements et vocabulaire
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    la course vocabulaire hebdomadaire est mieux mise en avant dans les stats,
+                    avec rappel du rang actuel et de la récompense du vainqueur.
+                  </li>
+                  <li>
+                    fiabilisation du pseudo doré du vainqueur vocabulaire de la semaine
+                    précédente dans les affichages live.
+                  </li>
+                  <li>
+                    le classement saison vocabulaire garde l'icône de rang, sans répéter le nom
+                    du rang dans chaque ligne.
+                  </li>
+                  <li>
+                    les paliers des classements de grilles du jour sont traités comme des repères
+                    visuels plutôt que comme des joueurs.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  manches et résultats
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    en manche OCID, le temps de validation du mot tracé est enregistré et affiché
+                    pour départager les joueurs à bonne réponse comparable.
+                  </li>
+                  <li>
+                    les listes de mots Massive Boggle sont aussi triées par longueur puis ordre
+                    alphabétique dans le détail des mots de chaque joueur.
+                  </li>
+                  <li>
+                    correction de l'affichage des gobbles dans les classements provisoires et de
+                    fin de mini-tournoi, sans perdre l'affichage G/GG en live.
+                  </li>
+                  <li>
+                    amélioration du classement live mobile afin de conserver les retours de score
+                    en temps réel tout en évitant des rerenders inutiles.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  interface et confort
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout de la navigation clavier sur desktop dans les menus à pages : flèches
+                    pour naviguer, Echap pour fermer les menus et fenêtres compatibles.
+                  </li>
+                  <li>
+                    ajout d'un réglage clavier desktop permettant à la flèche haut de rappeler le
+                    dernier mot envoyé, même invalide, plutôt que seulement le dernier mot valide.
+                  </li>
+                  <li>
+                    les annonces serveur s'affichent en surimpression rouge avec apparition et
+                    disparition progressives.
+                  </li>
+                  <li>
+                    le chat et plusieurs animations de jeu ont été davantage isolés du rendu
+                    principal pour améliorer la fluidité pendant les manches.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 25/05/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

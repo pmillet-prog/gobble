@@ -1,7 +1,8 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 function SettingsMenuFrame({ slideStyles = "", onClose, children }) {
-  return (
+  const frame = (
     <div className="fixed inset-0 z-[20090] flex items-start justify-end p-4">
       <style>{slideStyles}</style>
       <button
@@ -13,6 +14,7 @@ function SettingsMenuFrame({ slideStyles = "", onClose, children }) {
       {children}
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(frame, document.body) : frame;
 }
 
 export default React.memo(SettingsMenuFrame);

@@ -2,6 +2,10 @@ import React from "react";
 
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
+import {
+  getCelebrationFxSnapshot,
+  subscribeCelebrationFx,
+} from "./celebrationFxStore.js";
 
 const BIGWORD_IMAGE_FALLBACKS = new Map([
   [IMAGE_KEYS.bigwords.gobble, "/bigwords/gobble.webp"],
@@ -22,12 +26,14 @@ function getBigwordImageUrl(key, assetsReady) {
 
 function GameCelebrationOverlay({
   assetsReady = false,
-  gobbleFlash = null,
-  invalidFlash = null,
   isMobileLayout = false,
   phase = "",
-  praiseFlash = null,
 }) {
+  const { gobbleFlash, invalidFlash, praiseFlash } = React.useSyncExternalStore(
+    subscribeCelebrationFx,
+    getCelebrationFxSnapshot,
+    getCelebrationFxSnapshot
+  );
   const isActive = phase === "playing" && (praiseFlash || gobbleFlash || invalidFlash);
   const praiseImageKey =
     praiseFlash?.kind === "epic"

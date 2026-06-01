@@ -1,5 +1,7 @@
 import React from "react";
-import GridTileLetter from "./GridTileLetter.jsx";
+import GridTileButton, {
+  getBonusLetterRingClass,
+} from "./GridTileButton.jsx";
 
 const TEXTURE_BY_COLOR = {
   wood: "/textures/bois.png",
@@ -71,22 +73,6 @@ function rotateIndexByTurns(index, size, turns) {
   if (t === 1) return col * size + (size - 1 - row);
   if (t === 2) return (size - 1 - row) * size + (size - 1 - col);
   return (size - 1 - col) * size + row;
-}
-
-function getBonusBadgeClass(displayBonus) {
-  if (displayBonus === "L3") return "bg-blue-700 text-white";
-  if (displayBonus === "L2") return "bg-sky-400 text-slate-900";
-  if (displayBonus === "M3") return "bg-red-600 text-white";
-  if (displayBonus === "M2") return "bg-[#ffbfb4] border border-[#f87171] text-slate-900";
-  return "bg-slate-600 text-white";
-}
-
-function getBonusLetterRingClass(displayBonus) {
-  if (displayBonus === "L3") return "theme-letter-ring theme-letter-ring-L3";
-  if (displayBonus === "L2") return "theme-letter-ring theme-letter-ring-L2";
-  if (displayBonus === "M3") return "theme-letter-ring theme-letter-ring-M3";
-  if (displayBonus === "M2") return "theme-letter-ring theme-letter-ring-M2";
-  return "";
 }
 
 function buildTileTextureStyles(size, colorPreset) {
@@ -181,6 +167,28 @@ function MobileGrid({
     return rotateIndexByTurns(displayIndex, gridSize, (4 - t) % 4);
   };
   const isSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
+  const readBoardIndexFromEvent = React.useCallback((event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const tile = target?.closest?.("[data-board-index]");
+    const index = Number(tile?.getAttribute?.("data-board-index"));
+    return Number.isInteger(index) ? index : null;
+  }, []);
+  const handleGridMouseDown = React.useCallback(
+    (event) => {
+      const index = readBoardIndexFromEvent(event);
+      if (index == null) return;
+      handleMouseDown(index);
+    },
+    [handleMouseDown, readBoardIndexFromEvent]
+  );
+  const handleGridTouchStart = React.useCallback(
+    (event) => {
+      const index = readBoardIndexFromEvent(event);
+      if (index == null) return;
+      handleTouchStart(event, index);
+    },
+    [handleTouchStart, readBoardIndexFromEvent]
+  );
   return (
     <div
       className="flex justify-center items-center flex-shrink-0 w-full"
@@ -211,8 +219,12 @@ function MobileGrid({
           ...lightGridSurfaceStyle,
         }}
         onMouseUp={handleMouseUp}
+        onMouseDown={handleGridMouseDown}
         onMouseMove={handleMouseMove}
+        onTouchStart={handleGridTouchStart}
         onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {celebrationOverlay}
         {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
@@ -239,7 +251,7 @@ function MobileGrid({
             : useFillIndicator && displayBonus
             ? BONUS_CLASSES[displayBonus]
             : defaultTileBaseClass;
-          const highlightClass = isUsed ? "tile-used" : "";
+          const highlightClass = phase === "playing" ? "" : isUsed ? "tile-used" : "";
           const hintClass = shouldShowHint ? "tile-hint" : "";
           const hintOutlineClass = shouldShowHintOutline ? "tile-hint-outline" : "";
           const hintStyle =
@@ -260,85 +272,59 @@ function MobileGrid({
             displayBonus &&
             !bonusLetterKey;
           const isSpecialStartTileLocked = specialStartTileSet?.has?.(boardIndex);
-          const isFakeTwinsTile = cell?.specialType === "fake_twins" && cell?.altLetter;
+          const tileClassName = [
+            "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
+            isMobileLayout
+              ? "w-full"
+              : "w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] text-xl",
+            tileMaterialClass,
+            bonusClass,
+            highlightClass,
+            hintClass,
+            hintOutlineClass,
+            isSpecialStartTileLocked ? "daily-special-start-used" : "",
+            introHideTiles ? "opacity-0 pointer-events-none" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const tileStyle = isMobileLayout
+            ? {
+                aspectRatio: "1 / 1",
+                fontSize: `${mobileTileFontPx}px`,
+                willChange: "transform",
+                touchAction: "none",
+                WebkitUserSelect: "none",
+                WebkitTouchCallout: "none",
+                ...(hintStyle || {}),
+                ...(tileTextureStyles?.[boardIndex] || {}),
+              }
+            : {
+                willChange: "transform",
+                touchAction: "none",
+                WebkitUserSelect: "none",
+                WebkitTouchCallout: "none",
+                ...(hintStyle || {}),
+                ...(tileTextureStyles?.[boardIndex] || {}),
+              };
 
           return (
-            <button
+            <GridTileButton
               key={displayIndex}
-              ref={(el) => (tileRefs.current[boardIndex] = el)}
-              onMouseDown={() => handleMouseDown(boardIndex)}
-              onTouchStart={(e) => handleTouchStart(e, boardIndex)}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onTouchCancel={handleTouchEnd}
-              type="button"
-              className={[
-                "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
-                isMobileLayout
-                  ? "w-full"
-                  : "w-[40px] h-[40px] sm:w-[48px] sm:h-[48px] text-xl",
-                tileMaterialClass,
-                bonusClass,
-                highlightClass,
-                hintClass,
-                hintOutlineClass,
-                isFakeTwinsTile ? "fake-twins-tile" : "",
-                isSpecialStartTileLocked ? "daily-special-start-used" : "",
-                introHideTiles ? "opacity-0 pointer-events-none" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              style={
-                isMobileLayout
-                  ? {
-                      aspectRatio: "1 / 1",
-                      fontSize: `${mobileTileFontPx}px`,
-                      willChange: "transform",
-                      touchAction: "none",
-                      WebkitUserSelect: "none",
-                      WebkitTouchCallout: "none",
-                      ...(hintStyle || {}),
-                      ...(tileTextureStyles?.[boardIndex] || {}),
-                    }
-                  : {
-                      willChange: "transform",
-                      touchAction: "none",
-                      WebkitUserSelect: "none",
-                      WebkitTouchCallout: "none",
-                      ...(hintStyle || {}),
-                      ...(tileTextureStyles?.[boardIndex] || {}),
-                    }
-              }
-            >
-              {isSpecialStartTileLocked ? (
-                <span aria-hidden="true" className="daily-special-start-lock" />
-              ) : null}
-              {hintOverlayStyle ? (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ borderRadius: "inherit", ...hintOverlayStyle }}
-                />
-              ) : null}
-              <GridTileLetter cell={cell} className={`relative z-[1] ${letterRingClass}`.trim()} />
-              {tilePointsVisible && letterPts > 0 ? (
-                <span className="tile-points z-[1]">{letterPts}</span>
-              ) : null}
-              {showBonusBadge && (
-                <span
-                  className={`absolute top-0 right-0 z-[2] text-[0.65rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
-                    displayBonus
-                  )}`}
-                  style={{
-                    transform: isSquareMaterial
-                      ? "translate(-8%, 8%)"
-                      : "translate(10%, -10%)",
-                  }}
-                >
-                  {displayBonus}
-                </span>
-              )}
-            </button>
+              boardIndex={boardIndex}
+              cell={cell}
+              className={tileClassName}
+              displayBonus={displayBonus}
+              hintOverlayStyle={hintOverlayStyle}
+              isSquareMaterial={isSquareMaterial}
+              isSpecialStartTileLocked={isSpecialStartTileLocked}
+              letterPts={letterPts}
+              letterRingClass={letterRingClass}
+              showBonusBadge={showBonusBadge}
+              style={tileStyle}
+              trackTraceUsed={phase === "playing"}
+              tilePointsVisible={tilePointsVisible}
+              tileRefs={tileRefs}
+            />
           );
         })}
         {phase === "playing" && specialSolvedOverlay && (

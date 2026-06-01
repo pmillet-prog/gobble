@@ -1,11 +1,17 @@
 ﻿import React from "react";
 
+import {
+  getTraceStateSnapshot,
+  subscribeTraceState,
+} from "./traceStateStore.js";
+
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 
 export default function MobileWordPreview({
   countdownLines,
   currentDisplay,
   darkMode,
+  getTraceCellLabel = null,
   liveWord,
   liveWordTiles = [],
   onRotateGrid,
@@ -14,8 +20,14 @@ export default function MobileWordPreview({
   previewGapPx,
   previewTileBaseStyle,
   previewStats,
+  traceBoard = [],
   shake,
 }) {
+  const traceSnapshot = React.useSyncExternalStore(
+    subscribeTraceState,
+    getTraceStateSnapshot,
+    getTraceStateSnapshot
+  );
   const previewHeight = Number.isFinite(previewBlockHeight)
     ? previewBlockHeight
     : 52;
@@ -31,8 +43,25 @@ export default function MobileWordPreview({
     12,
     Math.max(9, Math.round(previewHeight * 0.26))
   );
+  const traceChunks =
+    phase === "playing"
+      ? Array.isArray(traceSnapshot.highlightPath) && traceSnapshot.highlightPath.length
+        ? traceSnapshot.highlightPath
+            .map((idx) => {
+              const cell = Array.isArray(traceBoard) ? traceBoard[idx] : null;
+              return typeof getTraceCellLabel === "function"
+                ? getTraceCellLabel(cell)
+                : String(cell?.letter || "");
+            })
+            .filter((chunk) => String(chunk || "").trim())
+        : Array.isArray(traceSnapshot.currentTiles)
+        ? traceSnapshot.currentTiles
+        : []
+      : [];
   const previewChunks =
-    Array.isArray(liveWordTiles) && liveWordTiles.length
+    traceChunks.length
+      ? traceChunks
+      : Array.isArray(liveWordTiles) && liveWordTiles.length
       ? liveWordTiles
       : liveWord
       ? liveWord.split("")

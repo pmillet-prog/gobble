@@ -654,6 +654,7 @@ export function getWeeklyStats(topN = TOP_N) {
   const activeState = state;
   const weekStartTs = activeState.weekStartTs;
   const nextResetTs = getNextResetTs(weekStartTs);
+  const previousWeeklyVocabChampion = getPreviousWeeklyVocabChampion();
   const mostWords = Array.from(activeState.mostWordsInGame.values()).filter(
     (entry) => Number(entry?.wordsCount) > 0
   );
@@ -668,6 +669,7 @@ export function getWeeklyStats(topN = TOP_N) {
     weekStartISO: new Date(weekStartTs).toISOString(),
     nextResetTs,
     nextResetISO: new Date(nextResetTs).toISOString(),
+    previousWeeklyVocabChampion,
     topN,
     boards: {
       medals: sortEntries(Array.from(activeState.medals.values()), "total", false).slice(0, topN),

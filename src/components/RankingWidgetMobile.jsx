@@ -365,6 +365,7 @@ function RankingWidgetMobile({
   renderAfterRank = null,
   recordBadgesByNick = null,
   gobbleWordAwardsByNick = null,
+  nickDecorationKey = "",
   onPlayerNickClick = null,
   onPlayerNickHover = null,
   isPlayerNickClickable = null,
@@ -1558,4 +1559,52 @@ function RankingWidgetMobile({
   );
 }
 
-export default React.memo(RankingWidgetMobile);
+function areStringListsEquivalent(left, right) {
+  if (left === right) return true;
+  const a = Array.isArray(left) ? left : [];
+  const b = Array.isArray(right) ? right : [];
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (String(a[i] || "") !== String(b[i] || "")) return false;
+  }
+  return true;
+}
+
+function areRankingWidgetPropsEqual(prev, next) {
+  const hasDecorationKey =
+    prev.nickDecorationKey != null ||
+    next.nickDecorationKey != null;
+  if (!areRankingListsEquivalent(prev.fullRanking, next.fullRanking)) return false;
+  if (!areStringListsEquivalent(prev.highlightedPlayers, next.highlightedPlayers)) return false;
+  if ((prev.selfNick || "") !== (next.selfNick || "")) return false;
+  if (!!prev.darkMode !== !!next.darkMode) return false;
+  if (!!prev.expanded !== !!next.expanded) return false;
+  if ((prev.fitHeight ?? true) !== (next.fitHeight ?? true)) return false;
+  if ((prev.animateRank ?? true) !== (next.animateRank ?? true)) return false;
+  if ((prev.animateReorderTick || 0) !== (next.animateReorderTick || 0)) return false;
+  if ((prev.showWheel ?? true) !== (next.showWheel ?? true)) return false;
+  if (!!prev.showBadge !== !!next.showBadge) return false;
+  if (!!prev.flatStyle !== !!next.flatStyle) return false;
+  if (!!prev.showRoundAward !== !!next.showRoundAward) return false;
+  if ((prev.showNickDecorations ?? true) !== (next.showNickDecorations ?? true)) return false;
+  if (!!prev.stackNickDecorations !== !!next.stackNickDecorations) return false;
+  if ((prev.showGobbleWordAwards ?? true) !== (next.showGobbleWordAwards ?? true)) return false;
+  if ((prev.showScores ?? true) !== (next.showScores ?? true)) return false;
+  if ((prev.className || "") !== (next.className || "")) return false;
+  if ((prev.assetVersion || "") !== (next.assetVersion || "")) return false;
+  if (prev.recordBadgesByNick !== next.recordBadgesByNick) return false;
+  if (prev.gobbleWordAwardsByNick !== next.gobbleWordAwardsByNick) return false;
+  if (prev.renderAfterRank !== next.renderAfterRank) return false;
+  if (prev.onPlayerNickClick !== next.onPlayerNickClick) return false;
+  if (prev.onPlayerNickHover !== next.onPlayerNickHover) return false;
+  if (prev.isPlayerNickClickable !== next.isPlayerNickClickable) return false;
+  if (hasDecorationKey) {
+    return String(prev.nickDecorationKey || "") === String(next.nickDecorationKey || "");
+  }
+  return (
+    prev.getNickClassName === next.getNickClassName &&
+    prev.renderNickSuffix === next.renderNickSuffix
+  );
+}
+
+export default React.memo(RankingWidgetMobile, areRankingWidgetPropsEqual);

@@ -55,6 +55,7 @@ function MobileResultsScreen(props) {
     renderDesktopResultsDockPanel = null,
     renderGobbleCandidate = null,
     getNickClassName = null,
+    nickDecorationKey = "",
     renderNickSuffix = null,
     renderRankDelta = null,
     renderVocabPanel = null,
@@ -415,6 +416,7 @@ function MobileResultsScreen(props) {
                         assetVersion={assetVersion}
                         gobbleWordAwardsByNick={gobbleAwardsForLive}
                         getNickClassName={getNickClassName}
+                        nickDecorationKey={nickDecorationKey}
                         renderNickSuffix={renderNickSuffix}
                         stackNickDecorations={true}
                         showGobbleWordAwards={true}

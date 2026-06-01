@@ -1,5 +1,7 @@
 import React from "react";
 
+let globalAnnouncementDraftCache = "";
+
 export default function DevSettingsPanel({
   darkMode = false,
   isOpen = false,
@@ -15,7 +17,9 @@ export default function DevSettingsPanel({
   busy = false,
   password = "",
   error = "",
+  perfTestEnabled = false,
   onClose = null,
+  onPerfTestToggle = null,
   onPasswordChange = null,
   onUnlock = null,
   onLock = null,
@@ -28,7 +32,14 @@ export default function DevSettingsPanel({
   onSetBotActive = null,
   onSetAllBotsActive = null,
 }) {
-  const [globalAnnouncementText, setGlobalAnnouncementText] = React.useState("");
+  const [globalAnnouncementText, setGlobalAnnouncementText] = React.useState(
+    () => globalAnnouncementDraftCache
+  );
+  const updateGlobalAnnouncementText = React.useCallback((next) => {
+    const safe = typeof next === "string" ? next : "";
+    globalAnnouncementDraftCache = safe;
+    setGlobalAnnouncementText(safe);
+  }, []);
   const panelClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] border-amber-300/70 text-amber-50"
     : "bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] border-amber-300/80 text-slate-900";
@@ -130,6 +141,23 @@ export default function DevSettingsPanel({
           {available && !locked ? (
             <>
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
+          <button
+            type="button"
+            disabled={busy || !canUseTools}
+            onClick={() => {
+              if (typeof onPerfTestToggle === "function") {
+                onPerfTestToggle(!perfTestEnabled);
+              }
+            }}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 disabled:opacity-50 ${toggleClass(
+              perfTestEnabled
+            )}`}
+          >
+            <span>Test perf</span>
+            <span className="text-[10px] font-semibold opacity-80">
+              {perfTestEnabled ? "On" : "Off"}
+            </span>
+          </button>
           <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
             <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">
               Cycle force
@@ -229,7 +257,7 @@ export default function DevSettingsPanel({
             <textarea
               disabled={busy || !canUseTools}
               value={globalAnnouncementText}
-              onChange={(e) => setGlobalAnnouncementText(e.target.value)}
+              onChange={(e) => updateGlobalAnnouncementText(e.target.value)}
               maxLength={1200}
               rows={4}
               placeholder="Message visible par tous, partout dans le jeu"
