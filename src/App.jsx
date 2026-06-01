@@ -5421,6 +5421,7 @@ export default function App() {
     startX: null,
     startY: null,
     fromScrollable: false,
+    fromProfileButton: false,
     gestureAxis: "none",
   });
   const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
@@ -5485,6 +5486,7 @@ export default function App() {
     startX: null,
     startY: null,
     fromScrollable: false,
+    fromProfileButton: false,
     gestureAxis: "none",
   });
   const seasonSlideWidthRef = useRef(0);
@@ -15551,21 +15553,30 @@ export default function App() {
     return scrollEl.scrollHeight > scrollEl.clientHeight + 1;
   }
 
+  function isStatsProfileTouchTarget(target) {
+    if (typeof Element === "undefined") return false;
+    const touchEl = target instanceof Element ? target : null;
+    return !!touchEl?.closest?.('[data-stats-profile-button="true"]');
+  }
+
   function resolveStatsGestureAxis(touchRef, deltaX, deltaY) {
     const currentAxis = touchRef?.current?.gestureAxis || "none";
     if (currentAxis === "horizontal" || currentAxis === "vertical") {
       return currentAxis;
     }
     const fromScrollable = !!touchRef?.current?.fromScrollable;
+    const fromProfileButton = !!touchRef?.current?.fromProfileButton;
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
-    const deadZone = fromScrollable ? 9 : 7;
+    const deadZone = fromProfileButton ? 5 : fromScrollable ? 9 : 7;
     if (absX < deadZone && absY < deadZone) return "pending";
     if (!fromScrollable) {
       touchRef.current.gestureAxis = "horizontal";
       return "horizontal";
     }
-    const horizontalStrong = absX >= 12 && absX >= absY * 0.85;
+    const horizontalStrong = fromProfileButton
+      ? absX >= 7 && absX >= absY * 0.7
+      : absX >= 12 && absX >= absY * 0.85;
     const verticalStrong = absY >= 12 && absY > absX * 1.2;
     if (horizontalStrong) {
       touchRef.current.gestureAxis = "horizontal";
@@ -15673,6 +15684,7 @@ export default function App() {
   function handleWeeklyTouchStart(e) {
     if (statsTab !== "weekly") return;
     weeklyTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
+    weeklyTouchRef.current.fromProfileButton = isStatsProfileTouchTarget(e?.target);
     weeklyTouchRef.current.gestureAxis = "none";
     const touch = e?.touches?.[0];
     const x = touch?.clientX ?? null;
@@ -15718,8 +15730,10 @@ export default function App() {
   function handleWeeklyTouchEnd(e) {
     if (statsTab !== "weekly") return;
     const axis = weeklyTouchRef.current.gestureAxis;
+    const fromProfileButton = !!weeklyTouchRef.current.fromProfileButton;
     weeklyTouchRef.current.gestureAxis = "none";
     weeklyTouchRef.current.fromScrollable = false;
+    weeklyTouchRef.current.fromProfileButton = false;
     const startX = weeklyTouchRef.current.startX;
     const startY = weeklyTouchRef.current.startY;
     weeklyTouchRef.current.startX = null;
@@ -15737,7 +15751,12 @@ export default function App() {
     }
     const deltaX = touch.clientX - startX;
     const deltaY = touch.clientY - startY;
-    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
+    if (fromProfileButton && Math.hypot(deltaX, deltaY) >= 8) {
+      weeklySwipeBlockRef.current = Date.now();
+    }
+    const threshold = fromProfileButton
+      ? Math.max(32, width * 0.07)
+      : Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       weeklySwipeBlockRef.current = Date.now();
       shiftWeeklyBoard(deltaX < 0 ? 1 : -1);
@@ -15748,6 +15767,7 @@ export default function App() {
   function handleSeasonTouchStart(e) {
     if (statsTab !== "season") return;
     seasonTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
+    seasonTouchRef.current.fromProfileButton = isStatsProfileTouchTarget(e?.target);
     seasonTouchRef.current.gestureAxis = "none";
     const touch = e?.touches?.[0];
     const x = touch?.clientX ?? null;
@@ -15791,8 +15811,10 @@ export default function App() {
   function handleSeasonTouchEnd(e) {
     if (statsTab !== "season") return;
     const axis = seasonTouchRef.current.gestureAxis;
+    const fromProfileButton = !!seasonTouchRef.current.fromProfileButton;
     seasonTouchRef.current.gestureAxis = "none";
     seasonTouchRef.current.fromScrollable = false;
+    seasonTouchRef.current.fromProfileButton = false;
     const startX = seasonTouchRef.current.startX;
     const startY = seasonTouchRef.current.startY;
     seasonTouchRef.current.startX = null;
@@ -15810,7 +15832,12 @@ export default function App() {
     }
     const deltaX = touch.clientX - startX;
     const deltaY = touch.clientY - startY;
-    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
+    if (fromProfileButton && Math.hypot(deltaX, deltaY) >= 8) {
+      seasonSwipeBlockRef.current = Date.now();
+    }
+    const threshold = fromProfileButton
+      ? Math.max(32, width * 0.07)
+      : Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       seasonSwipeBlockRef.current = Date.now();
       shiftSeasonPage(deltaX < 0 ? 1 : -1);
@@ -16982,6 +17009,7 @@ export default function App() {
     seasonTouchRef.current.startX = null;
     seasonTouchRef.current.startY = null;
     seasonTouchRef.current.fromScrollable = false;
+    seasonTouchRef.current.fromProfileButton = false;
     seasonTouchRef.current.gestureAxis = "none";
   }, [statsTab]);
 
@@ -27934,8 +27962,9 @@ function handleTouchEnd(e) {
           <button
             type="button"
             ref={nickRef}
+            data-stats-profile-button="true"
             className="min-w-0 truncate text-left hover:underline"
-            style={{ touchAction: "pan-y" }}
+            style={{ touchAction: "manipulation" }}
             onClick={onOpenProfile}
           >
             {nick}
@@ -28071,10 +28100,11 @@ function handleTouchEnd(e) {
       (selfNickLower && entryNickLower && entryNickLower === selfNickLower) ||
       (selfNickLower && entry.playerKey && entry.playerKey === `nick:${selfNickLower}`);
     const profileUserId = getUserIdFromPlayerProfileTarget(entry);
+    const statsSwipeBlockRef = statsTab === "season" ? seasonSwipeBlockRef : weeklySwipeBlockRef;
     const openWeeklyProfile = profileUserId
       ? (e) => {
           e.stopPropagation();
-          if (shouldIgnoreSwipeClick(weeklySwipeBlockRef)) return;
+          if (shouldIgnoreSwipeClick(statsSwipeBlockRef)) return;
           openPlayerProfile({ userId: profileUserId, nick: baseNick });
         }
       : null;
@@ -32639,7 +32669,7 @@ function handleTouchEnd(e) {
     isChatOpenMobile,
     isLoggedIn,
     isMobileLayout,
-    isSpecial3WordsMode,
+    isSpecial3WordsMode: phase === "playing" && isSpecial3WordsMode,
     keyboardInsetReservePx,
     mobileChatReactionToasts,
     mobileChatUnreadCount,
