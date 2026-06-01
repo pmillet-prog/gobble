@@ -26389,16 +26389,79 @@ function handleTouchEnd(e) {
     tournamentFinaleSummary,
     weeklyStats?.previousWeeklyVocabChampion,
   ]);
+  const weeklyVocabChampionIdentity = React.useMemo(() => {
+    const champion = weeklyStats?.previousWeeklyVocabChampion;
+    if (!champion || typeof champion !== "object") {
+      return { nick: "", playerKey: "", installId: "", userId: "" };
+    }
+    const playerKey = String(champion.playerKey || "").trim();
+    const installId = String(
+      champion.installId ||
+        (playerKey.startsWith("install:") ? playerKey.slice("install:".length) : "")
+    ).trim();
+    const userId =
+      Number.isInteger(Number(champion.userId)) && Number(champion.userId) > 0
+        ? String(Number(champion.userId))
+        : /^[1-9]\d*$/.test(installId)
+        ? installId
+        : "";
+    return {
+      nick: String(champion.nick || "").trim().toLowerCase(),
+      playerKey,
+      installId,
+      userId,
+    };
+  }, [weeklyStats?.previousWeeklyVocabChampion]);
   const weeklyVocabChampionNickClass = darkMode
     ? "text-amber-300 font-black"
     : "text-amber-600 font-black";
 
   function isWeeklyVocabChampionEntry(nick, entry = null) {
-    if (entry?.isWeeklyVocabChampion) return true;
+    if (entry?.isBot) return false;
     const cleanNick = nick ? String(nick).trim().toLowerCase() : "";
     const cleanSelfNick = selfNick ? String(selfNick).trim().toLowerCase() : "";
     if (devSelfGoldNickEnabled && cleanNick && cleanSelfNick && cleanNick === cleanSelfNick) {
       return true;
+    }
+    const entryPlayerKey = String(entry?.playerKey || "").trim();
+    const entryInstallId = String(
+      entry?.installId ||
+        (entryPlayerKey.startsWith("install:")
+          ? entryPlayerKey.slice("install:".length)
+          : "")
+    ).trim();
+    const entryUserId =
+      Number.isInteger(Number(entry?.userId)) && Number(entry.userId) > 0
+        ? String(Number(entry.userId))
+        : /^[1-9]\d*$/.test(entryInstallId)
+        ? entryInstallId
+        : "";
+    if (
+      weeklyVocabChampionIdentity.playerKey &&
+      entryPlayerKey &&
+      weeklyVocabChampionIdentity.playerKey === entryPlayerKey
+    ) {
+      return true;
+    }
+    if (
+      weeklyVocabChampionIdentity.installId &&
+      entryInstallId &&
+      weeklyVocabChampionIdentity.installId === entryInstallId
+    ) {
+      return true;
+    }
+    if (
+      weeklyVocabChampionIdentity.userId &&
+      entryUserId &&
+      weeklyVocabChampionIdentity.userId === entryUserId
+    ) {
+      return true;
+    }
+    if (entry?.isWeeklyVocabChampion && weeklyVocabChampionIdentity.nick) {
+      return cleanNick === weeklyVocabChampionIdentity.nick;
+    }
+    if (weeklyVocabChampionIdentity.playerKey || weeklyVocabChampionIdentity.installId) {
+      return false;
     }
     return !!cleanNick && weeklyVocabChampionNickSet.has(cleanNick);
   }
@@ -26522,6 +26585,9 @@ function handleTouchEnd(e) {
       tournamentFinaleHoldUntil || 0,
       setSignature(crownedNickSet),
       setSignature(weeklyVocabChampionNickSet),
+      weeklyVocabChampionIdentity.playerKey,
+      weeklyVocabChampionIdentity.installId,
+      weeklyVocabChampionIdentity.userId,
       setSignature(botNickSet),
       setSignature(humanNickSet),
       teamSignature,
@@ -26542,6 +26608,7 @@ function handleTouchEnd(e) {
     tournamentFinaleMedals,
     tournamentFinaleHoldUntil,
     tournamentSummaryAt,
+    weeklyVocabChampionIdentity,
     weeklyVocabChampionNickSet,
   ]);
 

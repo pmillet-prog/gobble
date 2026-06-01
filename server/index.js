@@ -2412,6 +2412,7 @@ function getCachedPreviousWeeklyVocabChampion() {
 }
 
 function isWeeklyVocabChampionPlayer(player) {
+  if (player?.isBot) return false;
   if (isDevSelfRewardTarget("selfGoldNick", player)) return true;
   const champion = getCachedPreviousWeeklyVocabChampion();
   if (!champion) return false;
@@ -2419,6 +2420,7 @@ function isWeeklyVocabChampionPlayer(player) {
   if (champion.playerKey && playerKey && champion.playerKey === playerKey) return true;
   const installId = normalizeInstallId(player?.installId);
   if (champion.installId && installId && champion.installId === installId) return true;
+  if (champion.playerKey || champion.installId) return false;
   const nick = typeof player?.nick === "string" ? player.nick.trim() : "";
   return !!champion.nick && !!nick && champion.nick === nick;
 }
@@ -2431,6 +2433,7 @@ function isWeeklyVocabChampionInstallId(raw, fallbackNick = "") {
   if (champion.playerKey && playerKey && champion.playerKey === playerKey) return true;
   const installId = normalizeInstallId(raw);
   if (champion.installId && installId && champion.installId === installId) return true;
+  if (champion.playerKey || champion.installId) return false;
   const nick = typeof fallbackNick === "string" ? fallbackNick.trim() : "";
   return !!champion.nick && !!nick && champion.nick === nick;
 }
