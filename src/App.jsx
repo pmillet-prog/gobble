@@ -5089,6 +5089,7 @@ export default function App() {
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [themePickerCategory, setThemePickerCategory] = useState("");
   const [themePurchaseConfirm, setThemePurchaseConfirm] = useState(null);
+  const [mobileExitConfirmOpen, setMobileExitConfirmOpen] = useState(false);
   const [themeApplying, setThemeApplying] = useState(false);
   const [themeLoading, setThemeLoading] = useState(false);
   const [gobblarsBalance, setGobblarsBalance] = useState(0);
@@ -5639,6 +5640,7 @@ export default function App() {
   const [ocidStatusMessage, setOcidStatusMessage] = useState("");
   const [ocidMobileResultDismissedKey, setOcidMobileResultDismissedKey] = useState("");
   const ocidProposalSyncTimerRef = useRef(null);
+  const ocidLatestProposalRef = useRef({ roundId: null, word: "", path: [] });
   const ocidResultToastKeyRef = useRef("");
   const ocidResultToastDelayTimersRef = useRef([]);
   const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
@@ -5858,6 +5860,8 @@ export default function App() {
   const shouldShowTutorial = installId ? !matchesCurrentPlayerIdentity(tutorialSeenInstallId) : false;
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
+  const shouldProtectMobileLiveExit =
+    isMobileLayout && isLoggedIn && appView === "live" && phase === "playing" && !isDailyPlay;
   const isDailySpecialMode =
     isDailyPlay && (dailyPlayMode === DAILY_SPECIAL_MODE || !dailyPlayMode);
   const isLiveSpecial3WordsMode =
@@ -6122,6 +6126,8 @@ export default function App() {
   const pingInFlightRef = useRef(false);
   const watchdogTimerRef = useRef(null);
   const watchdogFailureCountRef = useRef(0);
+  const mobileExitGuardLeavingRef = useRef(false);
+  const mobileExitGuardActiveRef = useRef(false);
   const rankingQueueTimerRef = useRef(null);
   const rankingQueuedRef = useRef(null);
   const rankingLastApplyAtRef = useRef(0);
@@ -6172,6 +6178,49 @@ export default function App() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+  const pushMobileExitGuardHistoryEntry = React.useCallback(() => {
+    if (typeof window === "undefined" || !window.history?.pushState) return;
+    const marker = "__gobbleMobileExitGuard";
+    const currentState =
+      window.history.state && typeof window.history.state === "object"
+        ? window.history.state
+        : {};
+    if (currentState?.[marker]) return;
+    try {
+      window.history.pushState({ ...currentState, [marker]: true }, "", window.location.href);
+    } catch (_) {}
+  }, []);
+  useEffect(() => {
+    if (!shouldProtectMobileLiveExit) {
+      setMobileExitConfirmOpen(false);
+      mobileExitGuardActiveRef.current = false;
+      mobileExitGuardLeavingRef.current = false;
+      return undefined;
+    }
+
+    mobileExitGuardActiveRef.current = true;
+    mobileExitGuardLeavingRef.current = false;
+    pushMobileExitGuardHistoryEntry();
+
+    const onPopState = () => {
+      if (!mobileExitGuardActiveRef.current || mobileExitGuardLeavingRef.current) return;
+      setMobileExitConfirmOpen(true);
+      window.setTimeout(pushMobileExitGuardHistoryEntry, 0);
+    };
+    const onBeforeUnload = (event) => {
+      if (!mobileExitGuardActiveRef.current || mobileExitGuardLeavingRef.current) return undefined;
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [pushMobileExitGuardHistoryEntry, roundId, shouldProtectMobileLiveExit]);
   useEffect(() => {
     rankingLastSignatureRef.current = buildRankingSignature(provisionalRanking);
   }, [provisionalRanking]);
@@ -12134,6 +12183,7 @@ export default function App() {
       setTargetSummary(null);
       setOcidProposal("");
       setOcidProposalPath([]);
+      ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
       setOcidProposalSubmitted("");
       setOcidVote(ocidVotePayload || null);
       setOcidSelectedOptionId("");
@@ -18900,6 +18950,8 @@ export default function App() {
     const rareBonusAllowed = isRareBonusEnabledForSpecial(specialRound);
     const wordMetaByNorm =
       entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
+    const wordScoresByNorm =
+      entry?.wordScores && typeof entry.wordScores === "object" ? entry.wordScores : {};
     const scoreAllowed = !isSpeedRound && !isTargetRound && !isSpecial3Round;
     const scoreGobbleAllowed = scoreAllowed && !isMassiveBoggleRound;
     const scoreCache = new Map();
@@ -18922,10 +18974,20 @@ export default function App() {
       return stats;
     };
 
-    let maxPts =
-      scoreAllowed && Number.isFinite(roundStats?.maxPts) && roundStats.maxPts > 0
-        ? roundStats.maxPts
-        : null;
+    let maxPts = null;
+    if (scoreAllowed && Array.isArray(allWords) && allWords.length) {
+      allWords.forEach((item) => {
+        if (Number.isFinite(item?.pts)) {
+          maxPts = Number.isFinite(maxPts) ? Math.max(maxPts, item.pts) : item.pts;
+        }
+      });
+    }
+    if (!Number.isFinite(maxPts) || maxPts <= 0) {
+      maxPts =
+        scoreAllowed && Number.isFinite(roundStats?.maxPts) && roundStats.maxPts > 0
+          ? roundStats.maxPts
+          : null;
+    }
     let maxLen =
       Number.isFinite(roundStats?.maxLen) && roundStats.maxLen > 0
         ? roundStats.maxLen
@@ -18956,31 +19018,37 @@ export default function App() {
       if (unique.has(key)) return;
       unique.add(key);
       const stats = getStats(word);
+      const norm = normalizeWord(word);
+      const allWordMeta = allWordsMap.get(norm) || allWordsMap.get(word) || {};
+      const submittedPts = Number(wordScoresByNorm?.[norm]);
+      const metaForWord = wordMetaByNorm?.[norm] || allWordMeta || {};
+      const fallbackRareBonus = rareBonusAllowed ? Number(metaForWord?.rareBonusPoints) || 0 : 0;
+      const userPts =
+        scoreAllowed && Number.isFinite(submittedPts)
+          ? submittedPts
+          : scoreAllowed && Number.isFinite(stats.pts)
+          ? stats.pts + fallbackRareBonus
+          : null;
       const hasBestScore =
         scoreGobbleAllowed &&
-        Number.isFinite(stats.pts) &&
+        Number.isFinite(userPts) &&
         Number.isFinite(maxPts) &&
-        stats.pts === maxPts;
+        userPts === maxPts;
       const hasLongest = Number.isFinite(stats.len) && maxLen > 0 && stats.len === maxLen;
       const gobbleCount = (hasBestScore ? 1 : 0) + (hasLongest ? 1 : 0);
       const gobbleActive = isSpeedRound ? hasLongest : gobbleCount > 0;
-      const fakeTwinsMeta =
-        wordMetaByNorm?.[normalizeWord(word)] ||
-        allWordsMap.get(normalizeWord(word)) ||
-        allWordsMap.get(word) ||
-        {};
       list.push({
         word,
-        pts: scoreAllowed && Number.isFinite(stats.pts) ? stats.pts : null,
+        pts: userPts,
         len: Number.isFinite(stats.len) ? stats.len : 0,
         isGobble: !!gobbleActive,
         gobbleCount,
-        usedFakeTwins: !!fakeTwinsMeta?.usedFakeTwins,
-        fakeTwinsCompletionWord: !!fakeTwinsMeta?.fakeTwinsCompletionWord,
-        fakeTwinsBonusOnly: !!fakeTwinsMeta?.fakeTwinsBonusOnly,
-        rareBonusWord: rareBonusAllowed && !!fakeTwinsMeta?.rareBonusWord,
-        rareBonusPoints: rareBonusAllowed ? Number(fakeTwinsMeta?.rareBonusPoints) || 0 : 0,
-        rarityBucket: rareBonusAllowed ? String(fakeTwinsMeta?.rarityBucket || "") : "",
+        usedFakeTwins: !!metaForWord?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!metaForWord?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!metaForWord?.fakeTwinsBonusOnly,
+        rareBonusWord: rareBonusAllowed && !!metaForWord?.rareBonusWord,
+        rareBonusPoints: rareBonusAllowed ? Number(metaForWord?.rareBonusPoints) || 0 : 0,
+        rarityBucket: rareBonusAllowed ? String(metaForWord?.rarityBucket || "") : "",
       });
     });
     list.sort((a, b) => {
@@ -20925,14 +20993,20 @@ function handleTouchEnd(e) {
       const scored = scoreWordOnGridWithPath(preferredRaw, board, path, null);
       if (!scored?.path) return error("Mot absent de la grille");
       const displayLabel = String(display || preferredRaw || "").toUpperCase();
+      const proposalPath = Array.isArray(scored.path) ? scored.path : path;
+      ocidLatestProposalRef.current = {
+        roundId,
+        word: displayLabel,
+        path: proposalPath,
+      };
       setOcidProposal(displayLabel);
-      setOcidProposalPath(Array.isArray(scored.path) ? scored.path : path);
+      setOcidProposalPath(proposalPath);
       setOcidProposalSubmitted("");
       setOcidStatusMessage("Mot prêt à envoyer.");
       if (roundId && socket.connected && isLoggedIn) {
         socket.emit(
           "ocid:propose",
-          { roundId, word: displayLabel, path: Array.isArray(scored.path) ? scored.path : path },
+          { roundId, word: displayLabel, path: proposalPath },
           (res) => {
             if (res?.ok) {
               setOcidProposalSubmitted(String(res?.proposal || displayLabel).trim());
@@ -22681,7 +22755,6 @@ function handleTouchEnd(e) {
       ? 96
       : clampValue(((Number(count) - vocabOverlayRaceMin) / vocabOverlayRaceRange) * 100, 0, 100);
   const vocabOverlayRaceCurrentPct = getVocabRacePct(vocabOverlayWeeklyTotalValue);
-  const vocabOverlayRaceTargetPct = getVocabRacePct(vocabOverlayWeeklyTargetCount);
   const vocabOverlayRaceMarks = Array.isArray(vocabOverlayRace?.competitors)
     ? vocabOverlayRace.competitors.slice(0, 7)
     : [];
@@ -22771,13 +22844,6 @@ function handleTouchEnd(e) {
                 />
               </div>
               <div className="absolute top-3 bottom-2 left-0 w-px bg-slate-400/70" />
-              <div
-                className="absolute top-2 bottom-2 w-0.5 rounded-full bg-emerald-500 shadow"
-                style={{
-                  left: `${vocabOverlayRaceTargetPct}%`,
-                  transform: "translateX(-50%)",
-                }}
-              />
               <div
                 className="absolute top-3 h-0 w-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent"
                 style={{
@@ -24714,11 +24780,17 @@ function handleTouchEnd(e) {
       if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
       const word = String(ocidProposal || "").trim();
       if (!word) {
+        ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
         socket.emit("ocid:clearProposal", { roundId }, () => {});
         if (manual) setOcidStatusMessage("Trace un mot sur la grille.");
         setOcidProposalSubmitted("");
         return;
       }
+      ocidLatestProposalRef.current = {
+        roundId,
+        word,
+        path: Array.isArray(ocidProposalPath) ? ocidProposalPath : [],
+      };
       socket.emit("ocid:propose", { roundId, word, path: ocidProposalPath }, (res) => {
         if (res?.ok) {
           const accepted = String(res?.proposal || word).trim();
@@ -24755,6 +24827,34 @@ function handleTouchEnd(e) {
       }
     };
   }, [phase, isOcidRound, ocidVote, roundId, ocidProposal, ocidProposalPath, syncOcidProposalDraft]);
+  React.useEffect(() => {
+    if (!isOcidRound || ocidVote || !roundId) return undefined;
+    const flushOcidProposalBeforeSuspend = () => {
+      if (phaseRef.current !== "playing") return;
+      if (!socket?.connected) return;
+      const draft = ocidLatestProposalRef.current || {};
+      const word = String(draft.word || "").trim();
+      if (!word || draft.roundId !== roundId) return;
+      if (ocidProposalSyncTimerRef.current) {
+        clearTimeout(ocidProposalSyncTimerRef.current);
+        ocidProposalSyncTimerRef.current = null;
+      }
+      socket.emit(
+        "ocid:propose",
+        { roundId, word, path: Array.isArray(draft.path) ? draft.path : [] },
+        () => {}
+      );
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushOcidProposalBeforeSuspend();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flushOcidProposalBeforeSuspend);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flushOcidProposalBeforeSuspend);
+    };
+  }, [isOcidRound, ocidVote, roundId]);
   const submitOcidProposal = React.useCallback(() => {
     if (!socket?.connected || !roundId || !isOcidRound) return;
     syncOcidProposalDraft({ manual: true });
@@ -32794,8 +32894,63 @@ function handleTouchEnd(e) {
     selfNick,
     selfInstallId: installId,
   };
+  const mobileExitConfirmLayer = mobileExitConfirmOpen ? (
+    <div
+      className="fixed inset-0 z-[22000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirmer la sortie"
+      onClick={() => {
+        setMobileExitConfirmOpen(false);
+        if (shouldProtectMobileLiveExit) pushMobileExitGuardHistoryEntry();
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border border-red-300/50 bg-slate-950 px-4 py-4 text-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="text-center text-[11px] font-black uppercase tracking-[0.18em] text-red-300">
+          Quitter la partie ?
+        </div>
+        <div className="mt-3 text-center text-sm font-semibold leading-snug text-slate-100">
+          Tu es en pleine manche. Si tu quittes maintenant, tu abandonnes la manche en cours.
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white"
+            onClick={() => {
+              setMobileExitConfirmOpen(false);
+              if (shouldProtectMobileLiveExit) pushMobileExitGuardHistoryEntry();
+            }}
+          >
+            Rester
+          </button>
+          <button
+            type="button"
+            className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black text-white shadow-lg shadow-red-950/30"
+            onClick={() => {
+              mobileExitGuardLeavingRef.current = true;
+              mobileExitGuardActiveRef.current = false;
+              setMobileExitConfirmOpen(false);
+              returnToLobby();
+            }}
+          >
+            Quitter
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
   const globalChatLayer = (
-    <GlobalChatLayer key="global-chat-layer" mobileProps={mobileChatProps} homeProps={homeChatProps} />
+    <>
+      <GlobalChatLayer
+        key="global-chat-layer"
+        mobileProps={mobileChatProps}
+        homeProps={homeChatProps}
+      />
+      {mobileExitConfirmLayer}
+    </>
   );
   const duelWeeklyTotals = duelStatus?.weekly?.totalsByTeam || { red: 0, blue: 0 };
   const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
@@ -37277,6 +37432,7 @@ function handleTouchEnd(e) {
         onClearOcidProposal={() => {
           setOcidProposal("");
           setOcidProposalPath([]);
+          ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
           setOcidProposalSubmitted("");
           setOcidStatusMessage("");
           clearOcidProposalServer();
@@ -37574,13 +37730,14 @@ function handleTouchEnd(e) {
                 {ocidProposal ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      setOcidProposal("");
-                      setOcidProposalPath([]);
-                      setOcidProposalSubmitted("");
-                      setOcidStatusMessage("");
-                      clearOcidProposalServer();
-                    }}
+                  onClick={() => {
+                    setOcidProposal("");
+                    setOcidProposalPath([]);
+                    ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
+                    setOcidProposalSubmitted("");
+                    setOcidStatusMessage("");
+                    clearOcidProposalServer();
+                  }}
                     className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
                     aria-label="Changer de proposition"
                   >
@@ -38386,6 +38543,7 @@ function handleTouchEnd(e) {
                           onClick={() => {
                             setOcidProposal("");
                             setOcidProposalPath([]);
+                            ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
                             setOcidProposalSubmitted("");
                             setOcidStatusMessage("");
                             clearOcidProposalServer();

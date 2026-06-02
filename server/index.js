@@ -1454,6 +1454,7 @@ const LIVE_SPECIAL_ROUND_DURATION_MS = 120 * 1000;
 const TARGET_SPECIAL_ROUND_DURATION_MS = 90 * 1000;
 const OCID_PROPOSAL_DURATION_MS = 40 * 1000;
 const OCID_VOTE_DURATION_MS = 20 * 1000;
+const OCID_PROPOSAL_END_GRACE_MS = LIVE_ROUND_END_GRACE_MS;
 const OCID_EXACT_TARGET_POINTS = 1000;
 const OCID_CORRECT_VOTE_POINTS = 600;
 const OCID_VALID_PROPOSAL_POINTS = 100;
@@ -3934,7 +3935,13 @@ function ensurePlayerInRound(room, nick) {
   const roundSubs = room.submissions.get(room.currentRound.id);
   if (!roundSubs) return;
   if (!roundSubs.has(nick)) {
-    roundSubs.set(nick, { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() });
+    roundSubs.set(nick, {
+      words: new Set(),
+      score: 0,
+      wordTimes: new Map(),
+      wordMeta: new Map(),
+      wordScores: new Map(),
+    });
   }
 }
 
@@ -5639,7 +5646,13 @@ function submitWordForNick(
 
   let data = roundSubs.get(resolvedNick);
   if (!data) {
-    data = { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() };
+    data = {
+      words: new Set(),
+      score: 0,
+      wordTimes: new Map(),
+      wordMeta: new Map(),
+      wordScores: new Map(),
+    };
     roundSubs.set(resolvedNick, data);
   }
 
@@ -5650,9 +5663,11 @@ function submitWordForNick(
   data.words.add(norm);
   if (!data.wordTimes) data.wordTimes = new Map();
   if (!(data.wordMeta instanceof Map)) data.wordMeta = new Map();
+  if (!(data.wordScores instanceof Map)) data.wordScores = new Map();
   if (!data.wordTimes.has(norm)) data.wordTimes.set(norm, Date.now());
   const scoredFakeTwinsMeta = buildFakeTwinsSubmittedWordMeta(room.currentRound, norm, scored);
   data.wordMeta.set(norm, { ...scoredFakeTwinsMeta, ...scoredRareMeta });
+  data.wordScores.set(norm, wordPts);
   data.score += wordPts;
   const extraAcceptedWords = [];
   if (roundSpecialType === FAKE_TWINS_TYPE) {
@@ -5684,6 +5699,7 @@ function submitWordForNick(
         variantScored
       );
       data.wordMeta.set(variantScored.norm, { ...variantFakeTwinsMeta, ...variantRareMeta });
+      data.wordScores.set(variantScored.norm, variantPts);
       data.score += variantPts;
       extraAcceptedWords.push({
         word: variantScored.norm,
@@ -5982,7 +5998,13 @@ function updateSpecial3WordsState(room, { roundId, nick, wordSlots, specialPlace
 
   let data = roundSubs.get(resolvedNick);
   if (!data) {
-    data = { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() };
+    data = {
+      words: new Set(),
+      score: 0,
+      wordTimes: new Map(),
+      wordMeta: new Map(),
+      wordScores: new Map(),
+    };
     roundSubs.set(resolvedNick, data);
   }
 
@@ -7113,7 +7135,13 @@ async function startRoundForRoom(room) {
   const roundSubs = new Map();
   for (const p of room.players.values()) {
     if (!isPlayerConnected(p) && !isBotToken(p?.token)) continue;
-    roundSubs.set(p.nick, { words: new Set(), score: 0, wordTimes: new Map(), wordMeta: new Map() });
+    roundSubs.set(p.nick, {
+      words: new Set(),
+      score: 0,
+      wordTimes: new Map(),
+      wordMeta: new Map(),
+      wordScores: new Map(),
+    });
   }
   room.submissions.set(roundId, roundSubs);
   pruneRoomState(room);
@@ -7367,8 +7395,11 @@ async function startRoundForRoom(room) {
       endRoundForRoom(room).catch((err) =>
         console.warn("endRoundForRoom failed", err)
       );
-    }, roundIntroMs + roundDurationMs + (planUsed?.type === OCID_TYPE ? 0 : LIVE_ROUND_END_GRACE_MS))
-  );
+    },
+    roundIntroMs +
+      roundDurationMs +
+      (planUsed?.type === OCID_TYPE ? OCID_PROPOSAL_END_GRACE_MS : LIVE_ROUND_END_GRACE_MS)
+  ));
 }
 
 async function startOcidVotePhase(room) {
@@ -7452,6 +7483,8 @@ async function endRoundForRoom(room) {
     );
     const wordMetaObj =
       data.wordMeta instanceof Map ? Object.fromEntries(data.wordMeta.entries()) : {};
+    const wordScoresObj =
+      data.wordScores instanceof Map ? Object.fromEntries(data.wordScores.entries()) : {};
     const rareBonusPoints = shouldApplyRareWordBonus(room.currentRound)
       ? Object.values(wordMetaObj).reduce(
           (sum, meta) => sum + (Number(meta?.rareBonusPoints) || 0),
@@ -7462,6 +7495,7 @@ async function endRoundForRoom(room) {
       nick,
       score: data.score,
       words: rawWords,
+      wordScores: wordScoresObj,
       wordMeta: wordMetaObj,
       rareBonusPoints,
       wordTimes,
