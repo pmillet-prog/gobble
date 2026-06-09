@@ -9,6 +9,7 @@ export const IMAGE_KEYS = {
     enorme: "img_bigwords_enorme",
     excellent: "img_bigwords_excellent",
     fabuleux: "img_bigwords_fabuleux",
+    bonus: "img_bigwords_bonus",
   },
   vocab: {
     creche: "img_vocab_creche",

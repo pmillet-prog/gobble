@@ -229,10 +229,10 @@ function MobileResultsScreen(props) {
                       const fakeTwinsWordClassName =
                         entry?.usedFakeTwins && !isRejected
                           ? darkMode
-                            ? entry?.rareBonusWord
+                            ? entry?.fakeTwinsBonusOnly || entry?.rareBonusWord
                               ? "text-violet-300"
                               : "text-blue-300"
-                            : entry?.rareBonusWord
+                            : entry?.fakeTwinsBonusOnly || entry?.rareBonusWord
                             ? "text-violet-600"
                             : "text-blue-600"
                           : "";

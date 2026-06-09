@@ -25,6 +25,8 @@ function areRankingListsEquivalent(left, right) {
     if (!!a.isWeeklyVocabChampion !== !!b.isWeeklyVocabChampion) return false;
     if ((a.team || "") !== (b.team || "")) return false;
     if ((a.gobbles || 0) !== (b.gobbles || 0)) return false;
+    if ((a.roundGobbles || 0) !== (b.roundGobbles || 0)) return false;
+    if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
   }
   return true;
 }
@@ -850,14 +852,14 @@ function RankingWidgetMobile({
             : 0;
         const gobblesBadge =
           !entry?.rightLabel && gobbles > 0
-            ? renderGobbleCountBadge(gobbles, `flat-score-gobble-${entry.nick}`, "mr-1")
+            ? renderGobbleCountBadge(gobbles, `flat-nick-gobble-${entry.nick}`, "ml-1")
+            : null;
+        const roundGobblesBadge =
+          roundGobbles > 0
+            ? renderGobbleCountBadge(roundGobbles, `flat-round-gobble-${entry.nick}`, "ml-1")
             : null;
         const scoreContent = (
           <>
-            {roundGobbles > 0 ? (
-              renderGobbleCountBadge(roundGobbles, `flat-round-gobble-${entry.nick}`, "mr-1")
-            ) : null}
-            {gobblesBadge}
             {roundPoints != null && roundPoints > 0 ? (
               <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
                 +{roundPoints}
@@ -903,10 +905,12 @@ function RankingWidgetMobile({
           ? renderNickSuffix(entry.nick, entry)
           : null;
         const nickClassName = resolveNickClassName(entry, entry.nick);
-        const gobbleWordBadges = showGobbleWordAwards && gobbles <= 0
+        const gobbleWordBadges = showGobbleWordAwards && gobbles <= 0 && roundGobbles <= 0
           ? renderGobbleWordBadges(entry.nick)
           : null;
-        const hasSecondaryNickLine = shouldStackNickDecorations && (nickDecorations || gobbleWordBadges);
+        const hasSecondaryNickLine =
+          shouldStackNickDecorations &&
+          (nickDecorations || gobblesBadge || roundGobblesBadge || gobbleWordBadges);
         const anchorNick = String(entry?.nick || "");
         const handleOpenPlayerDetails = (event, sourceElement = null) => {
           if (!nickClickable) return;
@@ -978,6 +982,8 @@ function RankingWidgetMobile({
                           style={flatSecondaryTextStyle}
                         >
                           {nickDecorations ? <span className="min-w-0 max-w-full overflow-hidden">{nickDecorations}</span> : null}
+                          {gobblesBadge}
+                          {roundGobblesBadge}
                           {gobbleWordBadges ? <span className="min-w-0 max-w-full overflow-hidden">{gobbleWordBadges}</span> : null}
                         </span>
                       ) : null}
@@ -993,6 +999,8 @@ function RankingWidgetMobile({
                         {entry.nick}
                       </span>
                       {nickDecorations ? <span className="flex-none">{nickDecorations}</span> : null}
+                      {gobblesBadge}
+                      {roundGobblesBadge}
                       {gobbleWordBadges}
                     </span>
                   )}
@@ -1481,7 +1489,24 @@ function RankingWidgetMobile({
                           )}
                         </span>
                       ) : null}
-                      {showGobbleWordAwards && row.type !== "empty" && liveGobbleCount <= 0
+                      {liveGobbleCount > 0
+                        ? renderGobbleCountBadge(
+                            liveGobbleCount,
+                            `wheel-live-gobble-${displayNick || index}`,
+                            "ml-1"
+                          )
+                        : null}
+                      {roundGobbles > 0
+                        ? renderGobbleCountBadge(
+                            roundGobbles,
+                            `wheel-round-gobble-${displayNick || index}`,
+                            "ml-1"
+                          )
+                        : null}
+                      {showGobbleWordAwards &&
+                      row.type !== "empty" &&
+                      liveGobbleCount <= 0 &&
+                      roundGobbles <= 0
                         ? renderGobbleWordBadges(row.entry ? row.entry.nick : displayNick)
                         : null}
                     </span>
@@ -1495,20 +1520,6 @@ function RankingWidgetMobile({
                         ""
                       ) : (
                         <>
-                          {liveGobbleCount > 0
-                            ? renderGobbleCountBadge(
-                                liveGobbleCount,
-                                `wheel-live-gobble-${displayNick || index}`,
-                                "mr-1"
-                              )
-                            : null}
-                          {roundGobbles > 0 ? (
-                            renderGobbleCountBadge(
-                              roundGobbles,
-                              `wheel-round-gobble-${displayNick || index}`,
-                              "mr-1"
-                            )
-                          ) : null}
                           {roundPoints != null && roundPoints > 0 ? (
                             <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
                               +{roundPoints}

@@ -15,7 +15,7 @@ const DB_PATH = process.env.GOBBLE_WORD_RARITY_DB
 const OCID_POOL_PATH = process.env.GOBBLE_OCID_TARGET_POOL
   ? path.resolve(process.env.GOBBLE_OCID_TARGET_POOL)
   : DEFAULT_OCID_POOL_PATH;
-const FAKE_TWINS_COMPLETION_BUCKETS = new Set(["common", "uncommon"]);
+const FAKE_TWINS_COMPLETION_BUCKETS = new Set(["common"]);
 const OCID_TARGET_BUCKETS = Object.freeze(["never_found", "extreme", "very_rare", "rare"]);
 const OCID_TARGET_BUCKET_WEIGHTS = Object.freeze({
   never_found: 0.35,

@@ -3,8 +3,9 @@ import React from "react";
 import { FAKE_TWINS_TYPE } from "./gameLogic";
 import GridTileLetter from "./GridTileLetter.jsx";
 import {
-  getTraceStateSnapshot,
-  subscribeTraceState,
+  isTraceTileHighlighted,
+  registerTraceTile,
+  syncTraceTileClasses,
 } from "./traceStateStore.js";
 
 export function getBonusBadgeClass(displayBonus) {
@@ -39,24 +40,45 @@ function GridTileButton({
   tilePointsVisible = true,
   tileRefs = null,
 }) {
-  const traceSnapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
+  const unregisterTraceTileRef = React.useRef(null);
+  const setTileRef = React.useCallback(
+    (el) => {
+      if (tileRefs?.current) {
+        if (el) tileRefs.current[boardIndex] = el;
+        else if (tileRefs.current[boardIndex]) tileRefs.current[boardIndex] = null;
+      }
+      if (unregisterTraceTileRef.current) {
+        unregisterTraceTileRef.current();
+        unregisterTraceTileRef.current = null;
+      }
+      if (trackTraceUsed && el) {
+        unregisterTraceTileRef.current = registerTraceTile(boardIndex, el);
+      }
+    },
+    [boardIndex, tileRefs, trackTraceUsed]
+  );
+  React.useEffect(
+    () => () => {
+      if (unregisterTraceTileRef.current) {
+        unregisterTraceTileRef.current();
+        unregisterTraceTileRef.current = null;
+      }
+    },
+    []
   );
   const isFakeTwinsTile = cell?.specialType === FAKE_TWINS_TYPE && cell?.altLetter;
-  const isTraceUsed =
-    trackTraceUsed &&
-    Array.isArray(traceSnapshot.highlightPath) &&
-    traceSnapshot.highlightPath.includes(boardIndex);
+  const isTraceUsed = trackTraceUsed && isTraceTileHighlighted(boardIndex);
   const resolvedClassName = `${className}${isFakeTwinsTile ? " fake-twins-tile" : ""}${
     isTraceUsed ? " tile-used" : ""
   }`.trim();
+
+  React.useLayoutEffect(() => {
+    if (trackTraceUsed) syncTraceTileClasses();
+  }, [boardIndex, resolvedClassName, trackTraceUsed]);
+
   return (
     <button
-      ref={(el) => {
-        if (tileRefs?.current) tileRefs.current[boardIndex] = el;
-      }}
+      ref={setTileRef}
       data-board-index={boardIndex}
       type="button"
       className={resolvedClassName}

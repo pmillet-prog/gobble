@@ -270,6 +270,58 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 09/06/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  parties et résultats
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    amélioration du calcul et de l'affichage des scores de mots, notamment avec
+                    les mots rares et les chemins non optimaux.
+                  </li>
+                  <li>
+                    harmonisation des listes de mots trouvés et trouvables entre l'écran de
+                    résultats et le détail d'un joueur.
+                  </li>
+                  <li>
+                    ajustement des classements de mini-tournoi : les gobbles sont à nouveau
+                    affichés avec leur visuel, avant le score total.
+                  </li>
+                  <li>
+                    dans le classement live mobile, les indications G/GG apparaissent maintenant à
+                    côté du pseudo plutôt qu'en bout de ligne.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  grille et confort de jeu
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    restauration et optimisation du chemin tracé sur mobile et desktop, avec un
+                    dégradé désormais bleu vers violet.
+                  </li>
+                  <li>
+                    amélioration de la manche Faux jumeaux : génération plus rapide et distinction
+                    plus claire des mots qui comptent pour le bonus de complétion.
+                  </li>
+                  <li>
+                    en cas de complétion Faux jumeaux pendant la manche, une animation dédiée
+                    signale maintenant le bonus obtenu.
+                  </li>
+                  <li>
+                    ajout d'une protection de sortie sur mobile pour limiter les départs
+                    involontaires pendant le tracé.
+                  </li>
+                  <li>
+                    correction de l'affichage de l'animation de progression vocabulaire hebdo sur
+                    desktop.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 01/06/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

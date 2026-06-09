@@ -2,6 +2,10 @@ import React from "react";
 import GridTileButton, {
   getBonusLetterRingClass,
 } from "./GridTileButton.jsx";
+import {
+  getTraceStateSnapshot,
+  subscribeTraceState,
+} from "./traceStateStore.js";
 
 const TEXTURE_BY_COLOR = {
   wood: "/textures/bois.png",
@@ -9,6 +13,8 @@ const TEXTURE_BY_COLOR = {
   jeans: "/textures/jeans.jpg",
   concrete: "/textures/beton.jpg",
 };
+
+const TRACE_GRADIENT_MAX_ORDER = 15;
 
 const MOBILE_GRID_COMPARE_PROPS = [
   "board",
@@ -95,6 +101,32 @@ function buildTileTextureStyles(size, colorPreset) {
   });
 }
 
+function buildTraceTileInfoMap(highlightPath) {
+  const infoMap = new Map();
+  if (!Array.isArray(highlightPath) || !highlightPath.length) return infoMap;
+  highlightPath.forEach((boardIndex, order) => {
+    if (!Number.isFinite(boardIndex) || infoMap.has(boardIndex)) return;
+    const progress = Math.min(1, order / TRACE_GRADIENT_MAX_ORDER);
+    const hue = 215 + progress * 55;
+    infoMap.set(boardIndex, {
+      order,
+      progress,
+      hue,
+      style: {
+        "--trace-order": String(order),
+        "--trace-progress": progress.toFixed(3),
+        "--trace-hue": hue.toFixed(1),
+        "--trace-bg-top": `hsl(${hue.toFixed(1)} 78% 38%)`,
+        "--trace-bg-mid": `hsl(${(hue + 8).toFixed(1)} 84% 48%)`,
+        "--trace-bg-bottom": `hsl(${(hue + 16).toFixed(1)} 90% 68%)`,
+        "--trace-glow": `hsla(${hue.toFixed(1)}, 78%, 42%, 0.34)`,
+        "--trace-ring": `hsla(${hue.toFixed(1)}, 86%, 58%, 0.5)`,
+      },
+    });
+  });
+  return infoMap;
+}
+
 function areMobileGridPropsEqual(prevProps, nextProps) {
   for (const prop of MOBILE_GRID_COMPARE_PROPS) {
     if (!Object.is(prevProps[prop], nextProps[prop])) return false;
@@ -158,9 +190,21 @@ function MobileGrid({
   usedSet,
   specialStartTileSet,
 }) {
+  const traceSnapshot = React.useSyncExternalStore(
+    subscribeTraceState,
+    getTraceStateSnapshot,
+    getTraceStateSnapshot
+  );
   const tileTextureStyles = React.useMemo(
     () => buildTileTextureStyles(gridSize, tileColorPreset),
     [gridSize, tileColorPreset]
+  );
+  const traceTileInfoMap = React.useMemo(
+    () =>
+      phase === "playing"
+        ? buildTraceTileInfoMap(traceSnapshot.highlightPath)
+        : new Map(),
+    [phase, traceSnapshot.highlightPath]
   );
   const mapDisplayToBoardIndex = (displayIndex) => {
     const t = normalizeRotationTurns(gridRotationTurns);
@@ -234,6 +278,7 @@ function MobileGrid({
           const { letter, bonus } = cell;
           const displayBonus = normalizeBonusLabel(bonus);
           const isUsed = usedSet.has(boardIndex);
+          const traceInfo = phase === "playing" ? traceTileInfoMap.get(boardIndex) : null;
           const isHint = hintCellSet?.has?.(boardIndex);
           const isHintOutline = hintOutlineCellSet?.has?.(boardIndex);
           const shouldShowHint = isHint;
@@ -251,7 +296,8 @@ function MobileGrid({
             : useFillIndicator && displayBonus
             ? BONUS_CLASSES[displayBonus]
             : defaultTileBaseClass;
-          const highlightClass = phase === "playing" ? "" : isUsed ? "tile-used" : "";
+          const highlightClass =
+            phase === "playing" ? (traceInfo ? "tile-used" : "") : isUsed ? "tile-used" : "";
           const hintClass = shouldShowHint ? "tile-hint" : "";
           const hintOutlineClass = shouldShowHintOutline ? "tile-hint-outline" : "";
           const hintStyle =
@@ -291,18 +337,18 @@ function MobileGrid({
             ? {
                 aspectRatio: "1 / 1",
                 fontSize: `${mobileTileFontPx}px`,
-                willChange: "transform",
                 touchAction: "none",
                 WebkitUserSelect: "none",
                 WebkitTouchCallout: "none",
+                ...(traceInfo?.style || {}),
                 ...(hintStyle || {}),
                 ...(tileTextureStyles?.[boardIndex] || {}),
               }
             : {
-                willChange: "transform",
                 touchAction: "none",
                 WebkitUserSelect: "none",
                 WebkitTouchCallout: "none",
+                ...(traceInfo?.style || {}),
                 ...(hintStyle || {}),
                 ...(tileTextureStyles?.[boardIndex] || {}),
               };

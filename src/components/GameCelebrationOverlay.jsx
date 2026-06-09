@@ -14,6 +14,7 @@ const BIGWORD_IMAGE_FALLBACKS = new Map([
   [IMAGE_KEYS.bigwords.enorme, "/bigwords/enorme.webp"],
   [IMAGE_KEYS.bigwords.excellent, "/bigwords/excellent.webp"],
   [IMAGE_KEYS.bigwords.fabuleux, "/bigwords/fabuleux.webp"],
+  [IMAGE_KEYS.bigwords.bonus, "/bigwords/bonus.webp"],
 ]);
 
 function getBigwordImageUrl(key, assetsReady) {
@@ -39,6 +40,8 @@ function GameCelebrationOverlay({
   const praiseImageKey =
     praiseFlash?.kind === "epic"
       ? IMAGE_KEYS.bigwords.epique
+      : praiseFlash?.kind === "bonus"
+      ? IMAGE_KEYS.bigwords.bonus
       : praiseFlash?.kind === "gold"
       ? IMAGE_KEYS.bigwords.enorme
       : praiseFlash?.kind === "purple"
@@ -50,6 +53,8 @@ function GameCelebrationOverlay({
   const praiseImageAlt =
     praiseFlash?.kind === "epic"
       ? "EPIQUE"
+      : praiseFlash?.kind === "bonus"
+      ? "BONUS"
       : praiseFlash?.kind === "gold"
       ? "ENORME"
       : praiseFlash?.kind === "purple"
@@ -72,6 +77,8 @@ function GameCelebrationOverlay({
   const praiseFlashColor =
     praiseFlash?.kind === "epic"
       ? "rgba(244, 114, 182, 0.55)"
+      : praiseFlash?.kind === "bonus"
+      ? "rgba(251, 191, 36, 0.58)"
       : praiseFlash?.kind === "gold"
       ? "rgba(255, 92, 36, 0.55)"
       : praiseFlash?.kind === "purple"

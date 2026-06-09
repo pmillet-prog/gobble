@@ -1,10 +1,12 @@
 {
   "version": 1,
-  "updatedAt": 1779972591692,
+  "updatedAt": 1781008369236,
   "controls": {
     "enabled": true,
-    "forcedRoundType": "",
-    "forcedRoundTypes": [],
+    "forcedRoundType": "fake_twins",
+    "forcedRoundTypes": [
+      "fake_twins"
+    ],
     "forcedRoundRandom": false,
     "botMedals": false,
     "botsEnabled": true,

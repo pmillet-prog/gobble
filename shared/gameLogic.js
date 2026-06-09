@@ -381,19 +381,46 @@ function getFakeTwinsDictionaryEntries(dictionary) {
   }
 
   const byToken = new Map();
+  const entries = [];
   for (const word of dictionary) {
     if (!word || word.length < FAKE_TWINS_MIN_WORD_LENGTH || word.length > 25) continue;
     const tokens = tokenizeWord(word);
     const letters = new Set(tokens);
     const entry = { word, tokens, letters };
+    entries.push(entry);
     for (const token of letters) {
       if (!byToken.has(token)) byToken.set(token, []);
       byToken.get(token).push(entry);
     }
   }
 
-  const indexed = { byToken };
+  const indexed = { byToken, entries, completionBySet: new WeakMap() };
   FAKE_TWINS_DICTIONARY_CACHE.set(dictionary, indexed);
+  return indexed;
+}
+
+function getFakeTwinsCompletionDictionaryEntries(dictionaryEntries, completionWordSet) {
+  if (
+    !(completionWordSet instanceof Set) ||
+    completionWordSet.size === 0 ||
+    !dictionaryEntries ||
+    typeof dictionaryEntries !== "object"
+  ) {
+    return dictionaryEntries;
+  }
+  if (dictionaryEntries.completionBySet?.has(completionWordSet)) {
+    return dictionaryEntries.completionBySet.get(completionWordSet);
+  }
+  const byToken = new Map();
+  for (const entry of dictionaryEntries.entries || []) {
+    if (!completionWordSet.has(normalizeWord(entry?.word || ""))) continue;
+    for (const token of entry.letters || []) {
+      if (!byToken.has(token)) byToken.set(token, []);
+      byToken.get(token).push(entry);
+    }
+  }
+  const indexed = { byToken };
+  dictionaryEntries.completionBySet?.set(completionWordSet, indexed);
   return indexed;
 }
 
@@ -1044,6 +1071,10 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
     options?.fakeTwinsCompletionWordSet instanceof Set
       ? options.fakeTwinsCompletionWordSet
       : null;
+  const hasCompletionFilter = completionWordSet instanceof Set && completionWordSet.size > 0;
+  const candidateDictionaryEntries = hasCompletionFilter
+    ? getFakeTwinsCompletionDictionaryEntries(dictionaryEntries, completionWordSet)
+    : dictionaryEntries;
   const rand = mulberry32(Number(options?.candidateSeed) || 0);
   const { indices: candidateIndices } = collectCandidateTwinIndices(
     sourceGrid,
@@ -1068,19 +1099,22 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
       if (!altLetter || !altKey || altKey === primary || altKey === "qu") continue;
       let altOnlyWords = 0;
       let altOnlyCompletionWords = 0;
-      for (const entry of dictionaryEntries.byToken.get(altKey) || []) {
+      for (const entry of candidateDictionaryEntries.byToken.get(altKey) || []) {
         if (baseSolvedKeys.has(entry.word)) continue;
         if (!wordFitsBoardWithAlt(entry.letters, boardData.lettersSet, altKey)) continue;
         if (canSpellWordUsingForcedTile(entry.tokens, boardData, idx, altKey)) {
           altOnlyWords += 1;
-          if (isFakeTwinsCompletionWord(entry.word, completionWordSet)) {
+          if (hasCompletionFilter || isFakeTwinsCompletionWord(entry.word, completionWordSet)) {
             altOnlyCompletionWords += 1;
             if (primaryCompletionWords + altOnlyCompletionWords > maxWords) break;
           }
         }
       }
+      const primaryCandidateWords = hasCompletionFilter
+        ? primaryCompletionWords
+        : primaryLetterWords;
       const summary = summarizeFakeTwinsCandidate(
-        primaryLetterWords,
+        primaryCandidateWords,
         altOnlyWords,
         maxWords,
         primaryCompletionWords,

@@ -47,6 +47,7 @@ import {
   getTraceStateSnapshot,
   subscribeTraceState,
   setTraceState,
+  syncTraceTilesInContainer,
 } from "./components/traceStateStore.js";
 import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
@@ -257,6 +258,7 @@ const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high" },
   { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
   { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.bonus, url: "/bigwords/bonus.webp", priority: "high" },
   { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "high" },
   { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "high" },
   { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "high" },
@@ -2880,12 +2882,18 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
 .tile-used {
   transform: translateY(-1px) scale(1.08);
   transition: transform 80ms ease, box-shadow 120ms ease;
-  background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 55%, #60a5fa 100%) !important;
+  background:
+    linear-gradient(
+      180deg,
+      var(--trace-bg-top, #1d4ed8) 0%,
+      var(--trace-bg-mid, #2563eb) 55%,
+      var(--trace-bg-bottom, #60a5fa) 100%
+    ) !important;
   border-color: rgba(255, 255, 255, 0.92) !important;
   border-width: 3px !important;
   box-shadow:
-    0 10px 26px rgba(37, 99, 235, 0.35),
-    0 0 0 3px rgba(59, 130, 246, 0.55),
+    0 10px 26px var(--trace-glow, rgba(37, 99, 235, 0.35)),
+    0 0 0 3px var(--trace-ring, rgba(59, 130, 246, 0.55)),
     inset 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
 
@@ -4820,6 +4828,25 @@ function TraceAwareDesktopPreviewContent({
   }
 
   return <span className="text-gray-700 dark:text-slate-200">{READY_LABEL}</span>;
+}
+
+function TraceGridDomSync({ gridRef, phase }) {
+  const traceSnapshot = React.useSyncExternalStore(
+    subscribeTraceState,
+    getTraceStateSnapshot,
+    getTraceStateSnapshot
+  );
+
+  React.useLayoutEffect(() => {
+    const container = gridRef?.current;
+    if (!container) return;
+    syncTraceTilesInContainer(
+      container,
+      phase === "playing" ? traceSnapshot.highlightPath : []
+    );
+  }, [gridRef, phase, traceSnapshot.highlightPath]);
+
+  return null;
 }
 
 function useStableEvent(handler) {
@@ -6937,6 +6964,7 @@ export default function App() {
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
+  const fakeTwinsCompletionCelebratedRef = useRef("");
   const invalidLastRef = useRef(0);
   const bigScoreLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
@@ -9549,6 +9577,7 @@ export default function App() {
   function triggerConfettiBurst(kind = "target") {
     if (!visualConfettiEnabledRef.current) return;
     if (typeof window === "undefined") return;
+    if (isMobileLayoutRef.current && preferLiteVisualEffectsRef.current) return;
     const burstToken = ++confettiBurstTokenRef.current;
     const isMobileFirefox =
       isMobileLayoutRef.current &&
@@ -21197,8 +21226,13 @@ function handleTouchEnd(e) {
     const liveHighlightPath = Array.isArray(highlightPathRef.current)
       ? highlightPathRef.current
       : [];
-    let path = findBestPathForWord(board, preferredRaw, specialScoreConfig);
-    if ((!Array.isArray(path) || path.length === 0) && liveHighlightPath.length > 0) {
+    const inputMode = lastInputModeRef.current;
+    const touchContext =
+      inputMode === "touch" || (isTouchDeviceRef.current && inputMode !== "keyboard");
+    const usesManualPath = touchContext || inputMode === "mouse";
+    let path = null;
+    if (usesManualPath) {
+      if (!liveHighlightPath.length) return false;
       const liveScored = scoreWordOnGridWithPath(
         preferredRaw,
         board,
@@ -21206,18 +21240,36 @@ function handleTouchEnd(e) {
         specialScoreConfig
       );
       path = Array.isArray(liveScored?.path) && liveScored.path.length > 0 ? liveScored.path : null;
+    } else {
+      path = findBestPathForWord(board, preferredRaw, specialScoreConfig);
+      if ((!Array.isArray(path) || path.length === 0) && liveHighlightPath.length > 0) {
+        const liveScored = scoreWordOnGridWithPath(
+          preferredRaw,
+          board,
+          liveHighlightPath,
+          specialScoreConfig
+        );
+        path = Array.isArray(liveScored?.path) && liveScored.path.length > 0 ? liveScored.path : null;
+      }
     }
     if (!Array.isArray(path) || path.length === 0) return false;
     const resolvedCandidates = resolveSubmissionCandidatesFromPath(path, display) || [];
     const resolvedCandidate = resolvedCandidates[0] || null;
     if (!resolvedCandidate) return false;
     const raw = resolvedCandidate.raw;
-    const bestResolvedPath = findBestPathForWord(board, raw, specialScoreConfig);
-    if (Array.isArray(bestResolvedPath) && bestResolvedPath.length > 0) {
-      path = bestResolvedPath;
+    if (!usesManualPath) {
+      const bestResolvedPath = findBestPathForWord(board, raw, specialScoreConfig);
+      if (Array.isArray(bestResolvedPath) && bestResolvedPath.length > 0) {
+        path = bestResolvedPath;
+      }
     }
     const scored =
-      Array.isArray(path) && path.length > 0
+      usesManualPath &&
+      resolvedCandidate.scored &&
+      Array.isArray(resolvedCandidate.scored.path) &&
+      resolvedCandidate.scored.path.length > 0
+        ? resolvedCandidate.scored
+        : Array.isArray(path) && path.length > 0
         ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
         : null;
     if (!scored) return false;
@@ -22380,6 +22432,9 @@ function handleTouchEnd(e) {
   const foundWordsCount = accepted.length + pendingCount;
   const wordsFoundLabel = formatNumber(foundWordsCount) ?? "0";
   const scoreLabel = formatNumber(score) ?? "0";
+  const isFakeTwinsModeActive =
+    specialRound?.type === FAKE_TWINS_TYPE ||
+    (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
   const localCountedFakeTwinsWords = React.useMemo(() => {
     const words = new Set();
     const fakeTwinsMetaByWord = new Map(
@@ -22402,11 +22457,41 @@ function handleTouchEnd(e) {
     });
     return words;
   }, [accepted, allWords, submissionTick]);
+  const fakeTwinsCompletionProgress = React.useMemo(() => {
+    if (!isFakeTwinsModeActive) {
+      return { target: 0, remaining: null };
+    }
+    if (Array.isArray(allWords) && allWords.length > 0) {
+      const remaining = allWords.filter((entry) => {
+        if (!entry?.usedFakeTwins || !entry?.word) return false;
+        if (!(entry.fakeTwinsCompletionWord ?? true)) return false;
+        return !localCountedFakeTwinsWords.has(entry.word);
+      }).length;
+      const target = allWords.filter((entry) => {
+        if (!entry?.usedFakeTwins || !entry?.word) return false;
+        return entry.fakeTwinsCompletionWord ?? true;
+      }).length;
+      return { target, remaining };
+    }
+    const statsTarget = Number(
+      roundStats?.fakeTwinCompletionWords ?? roundStats?.fakeTwinWords
+    );
+    if (!Number.isFinite(statsTarget) || statsTarget <= 0) {
+      return { target: 0, remaining: null };
+    }
+    return {
+      target: statsTarget,
+      remaining: Math.max(0, statsTarget - localCountedFakeTwinsWords.size),
+    };
+  }, [
+    allWords,
+    isFakeTwinsModeActive,
+    localCountedFakeTwinsWords,
+    roundStats?.fakeTwinCompletionWords,
+    roundStats?.fakeTwinWords,
+  ]);
   const fakeTwinsLetterPairLabel = React.useMemo(() => {
-    const isFakeTwinsMode =
-      specialRound?.type === FAKE_TWINS_TYPE ||
-      (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
-    if (!isFakeTwinsMode || !Array.isArray(board)) return "";
+    if (!isFakeTwinsModeActive || !Array.isArray(board)) return "";
     const twinCell = board.find(
       (cell) =>
         cell?.specialType === FAKE_TWINS_TYPE &&
@@ -22415,41 +22500,47 @@ function handleTouchEnd(e) {
     );
     if (!twinCell) return "";
     return `${String(twinCell.letter).trim()}/${String(twinCell.altLetter).trim()}`;
-  }, [board, dailyPlayMode, isDailyPlay, specialRound?.type]);
+  }, [board, isFakeTwinsModeActive]);
   const fakeTwinsRemainingLabel = React.useMemo(() => {
-    const isFakeTwinsMode =
-      specialRound?.type === FAKE_TWINS_TYPE ||
-      (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
-    if (!isFakeTwinsMode) return "";
+    if (!isFakeTwinsModeActive) return "";
     const twinLetters = fakeTwinsLetterPairLabel || "la case jumelle";
-    if (!Array.isArray(allWords) || allWords.length === 0) {
-      const totalFakeTwinCompletionWords =
-        roundStats?.fakeTwinCompletionWords ?? roundStats?.fakeTwinWords;
-      if (Number.isFinite(totalFakeTwinCompletionWords)) {
-        const remaining = Math.max(
-          0,
-          Number(totalFakeTwinCompletionWords) - localCountedFakeTwinsWords.size
-        );
-        return `${formatNumber(remaining) ?? remaining} mots communs utilisent ${twinLetters}`;
-      }
+    if (!Number.isFinite(fakeTwinsCompletionProgress.remaining)) {
       return "";
     }
-    const remaining = (Array.isArray(allWords) ? allWords : []).filter((entry) => {
-      if (!entry?.usedFakeTwins || !entry?.word) return false;
-      if (!(entry.fakeTwinsCompletionWord ?? true)) return false;
-      return !localCountedFakeTwinsWords.has(entry.word);
-    }).length;
+    const remaining = fakeTwinsCompletionProgress.remaining;
     return `${formatNumber(remaining) ?? remaining} mots communs utilisent ${twinLetters}`;
   }, [
-    allWords,
     fakeTwinsLetterPairLabel,
+    fakeTwinsCompletionProgress.remaining,
     formatNumber,
-    isDailyPlay,
-    localCountedFakeTwinsWords,
+    isFakeTwinsModeActive,
+  ]);
+  React.useEffect(() => {
+    if (phase !== "playing" || !isFakeTwinsModeActive) {
+      fakeTwinsCompletionCelebratedRef.current = "";
+      return;
+    }
+    const remaining = Number(fakeTwinsCompletionProgress.remaining);
+    const target = Number(fakeTwinsCompletionProgress.target);
+    if (!Number.isFinite(remaining) || !Number.isFinite(target) || target <= 0) return;
+    if (remaining > 0) return;
+    const celebrationKey = isDailyPlay
+      ? `daily:${dailyPlayMode}:${dailyStatus?.dateId || dailyBoard?.dateId || "current"}`
+      : `live:${roundId || "current"}`;
+    if (fakeTwinsCompletionCelebratedRef.current === celebrationKey) return;
+    fakeTwinsCompletionCelebratedRef.current = celebrationKey;
+    triggerPraiseFlash("BONUS !", { kind: "bonus", shakeGrid: true, force: true });
+    triggerConfettiBurst("target");
+  }, [
+    dailyBoard?.dateId,
     dailyPlayMode,
-    roundStats?.fakeTwinCompletionWords,
-    roundStats?.fakeTwinWords,
-    specialRound?.type,
+    dailyStatus?.dateId,
+    fakeTwinsCompletionProgress.remaining,
+    fakeTwinsCompletionProgress.target,
+    isDailyPlay,
+    isFakeTwinsModeActive,
+    phase,
+    roundId,
   ]);
   const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
     ? formatNumber(previewTotals.totalWords)
@@ -22765,12 +22856,25 @@ function handleTouchEnd(e) {
     : Number(vocabOverlayRankEnd) === 1
     ? "En tête de la course"
     : "Course hebdo";
+  const vocabOverlayPanelMaxClass = isMobileLayout ? "max-w-xl" : "max-w-3xl";
+  const vocabOverlayRaceHeightClass = isMobileLayout ? "h-12" : "h-20";
+  const vocabOverlayRaceTrackTopClass = isMobileLayout ? "top-5" : "top-9";
+  const vocabOverlayRaceStartLabelClass = isMobileLayout
+    ? "top-8 text-[8px]"
+    : "top-14 text-[10px]";
+  const vocabOverlayRaceMarkClass = isMobileLayout ? "top-2 bottom-1" : "top-3 bottom-2";
+  const vocabOverlayRaceLineClass = isMobileLayout ? "h-7" : "h-12";
+  const vocabOverlayRaceLabelClass = isMobileLayout
+    ? "max-w-[54px] text-[8px]"
+    : "max-w-[96px] text-[11px]";
+  const vocabOverlayRaceLabelTopClass = isMobileLayout ? "-top-2" : "-top-3";
+  const vocabOverlayRaceLabelBottomClass = isMobileLayout ? "top-8" : "top-14";
   const renderVocabOverlayPanel = () => (
     <div className="flex flex-col items-center gap-3">
       <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
         Vocabulaire
       </div>
-      <div className="grid w-full max-w-xl grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className={`grid w-full ${vocabOverlayPanelMaxClass} grid-cols-1 gap-3`}>
         <div
           className={`rounded-[8px] px-4 py-3 ${
             darkMode ? "bg-slate-900/70" : "bg-white/85"
@@ -22830,8 +22934,8 @@ function handleTouchEnd(e) {
             {vocabOverlayWeeklyTotalLabel}
           </div>
           <div className="mt-3">
-            <div className="relative h-12">
-              <div className="absolute left-0 right-0 top-5 h-2 rounded-full bg-slate-500/20 overflow-hidden">
+            <div className={`relative ${vocabOverlayRaceHeightClass}`}>
+              <div className={`absolute left-0 right-0 ${vocabOverlayRaceTrackTopClass} h-2 rounded-full bg-slate-500/20 overflow-hidden`}>
                 <div
                   className="absolute inset-y-0 left-0 vocab-delta-fill"
                   style={{
@@ -22857,7 +22961,7 @@ function handleTouchEnd(e) {
                 title="Position actuelle"
                 aria-hidden="true"
               />
-              <div className="absolute top-8 left-0 -translate-x-1 text-[8px] font-bold uppercase tracking-[0.08em] opacity-60">
+              <div className={`absolute left-0 -translate-x-1 font-bold uppercase tracking-[0.08em] opacity-60 ${vocabOverlayRaceStartLabelClass}`}>
                 départ
               </div>
               {vocabOverlayRaceMarks.map((entry, idx) => {
@@ -22867,7 +22971,7 @@ function handleTouchEnd(e) {
                 return (
                   <div
                     key={`${entry.playerKey || entry.nick}-${entry.rank}-${idx}`}
-                    className="absolute top-2 bottom-1"
+                    className={`absolute ${vocabOverlayRaceMarkClass}`}
                     style={{
                       left: `${markPct}%`,
                       transform: "translateX(-50%)",
@@ -22875,7 +22979,7 @@ function handleTouchEnd(e) {
                     title={`${entry.nick} - ${formatNumber(entry.count)} mots`}
                   >
                     <div
-                      className={`mx-auto h-7 w-px ${
+                      className={`mx-auto w-px ${vocabOverlayRaceLineClass} ${
                         isPassed
                           ? "bg-emerald-400 vocab-race-passed"
                           : entry.status === "ahead"
@@ -22884,8 +22988,8 @@ function handleTouchEnd(e) {
                       }`}
                     />
                     <div
-                      className={`absolute left-1/2 max-w-[54px] -translate-x-1/2 truncate text-center text-[8px] font-black leading-none ${
-                        labelTop ? "-top-2" : "top-8"
+                      className={`absolute left-1/2 -translate-x-1/2 truncate text-center font-black leading-none ${vocabOverlayRaceLabelClass} ${
+                        labelTop ? vocabOverlayRaceLabelTopClass : vocabOverlayRaceLabelBottomClass
                       } ${
                         isPassed
                           ? "text-emerald-500"
@@ -25294,12 +25398,17 @@ function handleTouchEnd(e) {
   const renderTournamentTotalRightLabel = (points, gobbles) => {
     const safePoints = Math.max(0, Number(points) || 0);
     const safeGobbles = Math.max(0, Number(gobbles) || 0);
+    const gobbleBadge = renderGobbleBadge(safeGobbles);
     return (
-      <>
-        {formatNumber(safePoints) ?? 0} pts
-        <span className="mx-1 opacity-60">·</span>
-        {formatNumber(safeGobbles) ?? 0} gobble{safeGobbles > 1 ? "s" : ""}
-      </>
+      <span className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
+        {gobbleBadge ? (
+          <>
+            {gobbleBadge}
+            <span className="opacity-60">·</span>
+          </>
+        ) : null}
+        <span>{formatNumber(safePoints) ?? 0} pts</span>
+      </span>
     );
   };
   const finalRanking = finalResults.length
@@ -29675,7 +29784,9 @@ function handleTouchEnd(e) {
               }`}
             />
             <div
-              className={`relative w-full max-w-lg rounded-2xl border p-4 shadow-2xl ${
+              className={`relative w-full ${
+                isMobileLayout ? "max-w-lg p-4" : "max-w-4xl p-5"
+              } rounded-2xl border shadow-2xl ${
                 darkMode
                   ? "bg-slate-900/95 border-slate-700 text-slate-100"
                   : "bg-white/95 border-slate-200 text-slate-900"
@@ -35341,14 +35452,17 @@ function handleTouchEnd(e) {
     );
   }
 
-  const praiseOverlay = (
+  const shouldMountCelebrationOverlay =
+    phase === "playing" &&
+    (visualGobbleEnabled || visualPraiseEnabled || visualInvalidWordsEnabled);
+  const praiseOverlay = shouldMountCelebrationOverlay ? (
     <GameCelebrationOverlay
       assetsReady={!!bootProgress?.done}
       isMobileLayout={isMobileLayout}
       liteVisualEffects={preferLiteVisualEffects}
       phase={phase}
     />
-  );
+  ) : null;
   const desktopResultsSummaryDrawer = (
     <DesktopResultsSummaryDrawer
       darkMode={darkMode}
@@ -38136,6 +38250,7 @@ function handleTouchEnd(e) {
               onTouchEnd={handleTouchEnd}
               onTouchCancel={handleTouchEnd}
             >
+              {!isMobileLayout ? <TraceGridDomSync gridRef={gridRef} phase={phase} /> : null}
               {praiseOverlay}
               {showResultsWordPath &&
               resultsPathPreview?.points?.length &&
