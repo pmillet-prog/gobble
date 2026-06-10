@@ -136,6 +136,15 @@ import {
   normalizeUsername,
   setUserIdentityMigrationSignature,
 } from "./auth/authService.js";
+import {
+  addPlaytimeUsage,
+  buildPlaytimeBlockedResponse,
+  clearPlaytimeLimit,
+  getPlaytimeLimitStatus,
+  initPlaytimeLimitService,
+  listActivePlaytimeLimits,
+  setPlaytimeLimit,
+} from "./playtime/playtimeLimitService.js";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection", reason);
@@ -1586,6 +1595,8 @@ const REPORT_MUTE_THRESHOLD = 3;
 const REPORT_REASON_MAX_LEN = 160;
 const MUTE_DURATION_MS = 10 * 60 * 1000;
 const MODERATION_BAN_5_MIN_MS = 5 * 60 * 1000;
+const TARGET_CHAT_RATE_LIMIT_WINDOW_MS = 5000;
+const TARGET_CHAT_RATE_LIMIT_MAX = 3;
 const INSTALL_ID_MAX_LEN = 128;
 const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
@@ -1595,9 +1606,11 @@ const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json")
 const DEV_CONTROLS_PATH = path.join(RUNTIME_DATA_DIR, "dev-controls.json");
 const DEV_ACCESS_PATH = path.join(RUNTIME_DATA_DIR, "dev-access.json");
 const DEV_GLOBAL_ANNOUNCEMENT_MAX_LEN = 1200;
+initPlaytimeLimitService({ dataDir: RUNTIME_DATA_DIR });
 const reportEntries = [];
 const reportsByInstallId = new Map();
 const mutedInstallIds = new Map();
+const targetChatRateBuckets = new Map();
 const reportLogger = createAsyncFileLogger({ filePath: REPORTS_LOG_PATH });
 const clientCrashLogger = createAsyncFileLogger({ filePath: CLIENT_CRASHES_LOG_PATH });
 const connectionLogger = createAsyncFileLogger({ filePath: CONNECTIONS_LOG_PATH });
@@ -3559,7 +3572,11 @@ function removeSocketPlayerFromRoom(room, targetSocketId, notice) {
   const player = room.players.get(targetSocketId);
   clearPendingDisconnect(room, targetSocketId);
   if (notice) {
-    io.to(targetSocketId).emit("moderation:notice", notice);
+    if (notice.type === "playtime_limit") {
+      io.to(targetSocketId).emit("playtimeLimit:blocked", notice);
+    } else {
+      io.to(targetSocketId).emit("moderation:notice", notice);
+    }
   }
   room.players.delete(targetSocketId);
   if (player?.installId) {
@@ -3576,6 +3593,32 @@ function removeSocketPlayerFromRoom(room, targetSocketId, notice) {
   emitMedals(room);
   emitRoomsStats();
   return true;
+}
+
+function enforcePlaytimeLimitsAtTournamentStart(room) {
+  if (!room?.players?.size) return;
+  const removals = [];
+  for (const [socketId, player] of room.players.entries()) {
+    if (isBotToken(player?.token)) continue;
+    const userId = Number(player?.userId);
+    if (!Number.isInteger(userId) || userId <= 0) continue;
+    const status = getPlaytimeLimitStatus(userId);
+    if (!status?.active || !status.exhausted) continue;
+    removals.push({
+      socketId,
+      notice: {
+        type: "playtime_limit",
+        action: "playtime_limit_exhausted",
+        roomId: room.id,
+        message:
+          "Ton contrôle de temps est arrivé à zéro. Tu peux revenir au live demain.",
+        playtimeLimit: status,
+      },
+    });
+  }
+  for (const removal of removals) {
+    removeSocketPlayerFromRoom(room, removal.socketId, removal.notice);
+  }
 }
 
 function isPlayerConnected(player) {
@@ -3662,7 +3705,7 @@ function getRoundSolutionsPayloadCount(payload) {
 
 function buildRoundSubmissionSolutions(round) {
   if (!round || !dictionary) return packRoundSubmissionSolutions([]);
-  if (round.special?.type === SELF_SPECIAL_3_WORDS_TYPE || round.special?.type === OCID_TYPE) {
+  if (round.special?.type === OCID_TYPE) {
     return packRoundSubmissionSolutions([]);
   }
   const isTargetRound =
@@ -4291,6 +4334,39 @@ function getTargetChatSpoilerMinRun(targetWord) {
   const length = String(targetWord || "").length;
   if (length <= 0) return 0;
   return Math.min(length, TARGET_CHAT_SPOILER_MIN_RUN);
+}
+
+function isActiveTargetChatRound(room) {
+  const currentRound = room?.currentRound;
+  if (!currentRound || !isRoundActive(currentRound)) return false;
+  const specialType = currentRound?.special?.type;
+  return specialType === "target_long" || specialType === "target_score";
+}
+
+function checkTargetChatRateLimit(room, installId, now = Date.now()) {
+  if (!isActiveTargetChatRound(room)) return { ok: true };
+  const safeInstallId = normalizeInstallId(installId);
+  if (!safeInstallId) return { ok: true };
+  const roundId = String(room?.currentRound?.id || "round");
+  const roomId = String(room?.id || "room");
+  const key = `${roomId}:${roundId}:${safeInstallId}`;
+  const previous = targetChatRateBuckets.get(key) || [];
+  const recent = previous.filter((ts) => now - ts < TARGET_CHAT_RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= TARGET_CHAT_RATE_LIMIT_MAX) {
+    const retryMs = Math.max(250, TARGET_CHAT_RATE_LIMIT_WINDOW_MS - (now - recent[0]));
+    targetChatRateBuckets.set(key, recent);
+    return { ok: false, retryMs };
+  }
+  recent.push(now);
+  targetChatRateBuckets.set(key, recent);
+  if (targetChatRateBuckets.size > 2000) {
+    for (const [bucketKey, timestamps] of targetChatRateBuckets.entries()) {
+      const live = timestamps.filter((ts) => now - ts < TARGET_CHAT_RATE_LIMIT_WINDOW_MS);
+      if (live.length) targetChatRateBuckets.set(bucketKey, live);
+      else targetChatRateBuckets.delete(bucketKey);
+    }
+  }
+  return { ok: true };
 }
 
 function buildNormalizedChatCharMap(text) {
@@ -7024,6 +7100,9 @@ async function startRoundForRoom(room) {
     resetTournament(room);
     tournamentRound = 1;
   }
+  if (tournamentRound === 1) {
+    enforcePlaytimeLimitsAtTournamentStart(room);
+  }
 
   const tournamentPlan = getTournamentRoundPlan(room, tournamentRound);
   const cached = room.nextPreparedGrid?.roundNumber === roundNumber ? room.nextPreparedGrid : null;
@@ -8314,6 +8393,52 @@ io.on("connection", (socket) => {
     cb?.({ ok: true, serverNow: Date.now() });
   });
 
+  socket.on("playtimeLimit:status", (_payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    cb?.({ ok: true, playtimeLimit: getPlaytimeLimitStatus(identity.userId) });
+  });
+
+  socket.on("playtimeLimit:set", (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const limitMs = Math.round(Number(payload?.limitMs) || 0);
+    const username =
+      identity.user?.usernameDisplay ||
+      identity.user?.usernameNormalized ||
+      socket.data?.nick ||
+      "";
+    const result = setPlaytimeLimit({ userId: identity.userId, username, limitMs });
+    cb?.(
+      result.ok
+        ? { ok: true, playtimeLimit: result.status }
+        : {
+            ok: false,
+            error: result.error || "playtime_limit_failed",
+            playtimeLimit: getPlaytimeLimitStatus(identity.userId),
+          }
+    );
+  });
+
+  socket.on("playtimeLimit:usage", (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const now = Date.now();
+    const requestedDeltaMs = Math.max(0, Math.round(Number(payload?.deltaMs) || 0));
+    const deltaMs = Math.min(5 * 60 * 1000, requestedDeltaMs);
+    socket.data.playtimeUsageLastAt = now;
+    const username =
+      identity.user?.usernameDisplay ||
+      identity.user?.usernameNormalized ||
+      socket.data?.nick ||
+      "";
+    const result = addPlaytimeUsage({ userId: identity.userId, username, deltaMs });
+    cb?.({
+      ok: result.ok !== false,
+      playtimeLimit: result.status || getPlaytimeLimitStatus(identity.userId),
+    });
+  });
+
   socket.on("session:resume", async (payload, cb) => {
     if (typeof payload === "function") {
       cb = payload;
@@ -8324,6 +8449,11 @@ io.on("connection", (socket) => {
     const activeBan = getActiveModerationBan(identity);
     if (activeBan) {
       cb?.(buildModerationBanResponse(activeBan));
+      return;
+    }
+    const playtimeStatus = getPlaytimeLimitStatus(identity.userId);
+    if (playtimeStatus?.active && playtimeStatus.exhausted) {
+      cb?.({ ...buildPlaytimeBlockedResponse(playtimeStatus), available: false });
       return;
     }
     const installId = identity.installId;
@@ -8374,6 +8504,7 @@ io.on("connection", (socket) => {
       socket.data.userId = identity.userId;
       socket.data.nick = player.nick;
       socket.data.roomId = room.id;
+      socket.data.playtimeUsageLastAt = Date.now();
       socket.roomId = room.id;
       socket.join(room.id);
       emitPlayers(room);
@@ -8381,7 +8512,12 @@ io.on("connection", (socket) => {
       emitRoomsStats();
     }
     const snapshot = buildSessionSnapshot(room, player);
-    cb?.({ ok: true, available: true, snapshot });
+    cb?.({
+      ok: true,
+      available: true,
+      snapshot,
+      playtimeLimit: getPlaytimeLimitStatus(identity.userId),
+    });
   });
 
   socket.on("login", async (payload, cb) => {
@@ -8390,6 +8526,11 @@ io.on("connection", (socket) => {
     const activeBan = getActiveModerationBan(identity);
     if (activeBan) {
       cb?.(buildModerationBanResponse(activeBan));
+      return;
+    }
+    const playtimeStatus = getPlaytimeLimitStatus(identity.userId);
+    if (playtimeStatus?.active && playtimeStatus.exhausted) {
+      cb?.(buildPlaytimeBlockedResponse(playtimeStatus));
       return;
     }
     const nick = typeof payload === "string" ? payload : payload?.nick;
@@ -8463,6 +8604,7 @@ io.on("connection", (socket) => {
     socket.data.userId = identity.userId;
     socket.data.nick = trimmed;
     socket.data.roomId = room.id;
+    socket.data.playtimeUsageLastAt = Date.now();
     socket.roomId = room.id;
     socket.join(room.id);
     if (!isBotToken(token) && !isResumeLogin) {
@@ -8619,6 +8761,16 @@ io.on("connection", (socket) => {
       socket.join(room.id);
     } else if (!player) {
       cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const rateLimit = checkTargetChatRateLimit(room, installId);
+    if (!rateLimit.ok) {
+      cb?.({
+        ok: false,
+        error: "rate_limited",
+        retryMs: rateLimit.retryMs,
+        message: "Attends quelques secondes avant de renvoyer un message.",
+      });
       return;
     }
     const safeText = censorTargetSpoilersInChatText(room, trimmed);
@@ -8837,7 +8989,12 @@ io.on("connection", (socket) => {
     socket.data.chatRoomId = room.id;
     socket.join(room.id);
     socket.emit("chat:history", Array.isArray(room.chatMessages) ? room.chatMessages : []);
-    cb?.({ ok: true, roomId: room.id });
+    const identity = getSocketPlayerIdentity(socket);
+    cb?.({
+      ok: true,
+      roomId: room.id,
+      playtimeLimit: identity ? getPlaytimeLimitStatus(identity.userId) : null,
+    });
   });
 
   socket.on("dev:controls:get", (_payload, cb) => {
@@ -8955,6 +9112,26 @@ io.on("connection", (socket) => {
       `[dev] global announcement by ${message.author || "unknown"}: ${body.slice(0, 140)}`
     );
     cb?.({ ok: true, message, ...buildDevControlsPayload(socket) });
+  });
+
+  socket.on("dev:playtimeLimits:list", (_payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    cb?.({ ok: true, limits: listActivePlaytimeLimits() });
+  });
+
+  socket.on("dev:playtimeLimits:clear", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    const userId = Number(payload?.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      cb?.({ ok: false, error: "invalid_user", limits: listActivePlaytimeLimits() });
+      return;
+    }
+    const result = clearPlaytimeLimit(userId);
+    cb?.({
+      ok: result.ok,
+      removed: !!result.removed,
+      limits: listActivePlaytimeLimits(),
+    });
   });
 
   socket.on("dev:bots:list", (payload, cb) => {

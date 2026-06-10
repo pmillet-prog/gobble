@@ -160,7 +160,10 @@ function GameCelebrationOverlay({
               ["--celebration-size"]: `${praiseImageSizePx}px`,
               ["--celebration-duration"]: `${Math.max(
                 lite ? 560 : 1200,
-                Math.min(lite ? 900 : 2600, praiseFlash.durationMs || 1500)
+                Math.min(
+                  praiseFlash?.kind === "bonus" ? (lite ? 1800 : 3600) : lite ? 900 : 2600,
+                  praiseFlash.durationMs || 1500
+                )
               )}ms`,
             }}
           >

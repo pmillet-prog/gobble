@@ -268,6 +268,14 @@ function disconnectNode(node) {
   } catch (_) {}
 }
 
+function revokeTrackedObjectUrl(url) {
+  if (!url) return;
+  try {
+    URL.revokeObjectURL(url);
+  } catch (_) {}
+  state.objectUrls.delete(url);
+}
+
 function resetAudioForNewContext() {
   state.sfxBuffers.clear();
   state.resolvedUrls.forEach((value, key) => {
@@ -1021,6 +1029,28 @@ export function getFileBuffer(key) {
   return state.files.get(key) || null;
 }
 
+export function release(key) {
+  if (!key) return;
+  const imageEntry = state.images.get(key);
+  if (imageEntry?.url) revokeTrackedObjectUrl(imageEntry.url);
+  state.images.delete(key);
+
+  const fileUrl = state.fileUrls.get(key);
+  if (fileUrl) revokeTrackedObjectUrl(fileUrl);
+  state.fileUrls.delete(key);
+  state.files.delete(key);
+  state.resolvedUrls.delete(key);
+
+  state.sfxBuffers.delete(key);
+  state.pendingSfx.delete(key);
+  state.decodingSfx.delete(key);
+  state.loadingSfx.delete(key);
+  state.pendingPlaysByKey.delete(key);
+  state.lastPlayed.delete(key);
+  state.nextStartTime.delete(key);
+  state.sfxMisses.delete(key);
+}
+
 export async function unlockAudio() {
   state.audioUnlocked = true;
   const ctx = ensureAudioContext({ force: true });
@@ -1235,9 +1265,9 @@ export function setMasterVolume(volume) {
 
 export function dispose() {
   state.images.forEach((entry) => {
-    if (entry?.url) URL.revokeObjectURL(entry.url);
+    if (entry?.url) revokeTrackedObjectUrl(entry.url);
   });
-  state.objectUrls.forEach((url) => URL.revokeObjectURL(url));
+  state.objectUrls.forEach((url) => revokeTrackedObjectUrl(url));
   state.objectUrls.clear();
   state.images.clear();
   state.sfxBuffers.clear();
@@ -1279,6 +1309,7 @@ const AssetManager = {
   getSfxBuffer,
   getFileUrl,
   getFileBuffer,
+  release,
   unlockAudio,
   playSfx,
   setMuted,

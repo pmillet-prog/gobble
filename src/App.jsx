@@ -32,8 +32,10 @@ import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
 import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
+import GlobalRedAnnouncementOverlay from "./components/GlobalRedAnnouncementOverlay.jsx";
+import PlaytimeCountdownOverlay from "./components/PlaytimeCountdownOverlay.jsx";
+import SettingsMenu from "./components/settings/SettingsMenu.jsx";
 import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
-import SettingsPanelHost from "./components/settings/SettingsPanelHost.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
@@ -60,15 +62,40 @@ import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
 import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPlaying.jsx";
+import DesktopLiveGrid from "./components/live/DesktopLiveGrid.jsx";
 import HelpOverlay from "./components/HelpOverlay.jsx";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
-import GridTileButton from "./components/GridTileButton.jsx";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
+import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
+import { usePlaytimeLimit } from "./hooks/usePlaytimeLimit.js";
+import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNavigation.js";
+import {
+  CHAT_MESSAGES_HISTORY_MAX,
+  CHAT_MESSAGES_STORAGE_KEY,
+  CHAT_SYSTEM_HISTORY_MAX,
+  capChatMessagesByType,
+  findNewReactionFromOthers,
+  formatChatMessageTime,
+  formatChatUnreadSuffix,
+  getChatMessageReactionEntries,
+  getChatMessageReplyPreview,
+  getChatMessageSortTime,
+  isEditedChatMessage,
+  isSystemAuthor,
+  isSystemChatMessage,
+  normalizeChatMessageShape,
+  normalizeChatReplyPreview,
+  normalizeLegacyChatEmoticons,
+  patchChatMessageById,
+  patchChatMessageReactions,
+  readStoredChatMessages,
+  removeChatMessageById,
+} from "./utils/chatMessages";
 import {
   readDuelObjectiveAnimationsState,
   writeDuelObjectiveAnimationsState,
@@ -89,6 +116,7 @@ import {
   tileScore,
 } from "./components/gameLogic";
 import { generateGrid } from "./components/gridGeneration";
+import { hydrateServerSolutionsPayload } from "./utils/roundSolutions";
 
 const DuelObjectivesPanel = React.lazy(() => import("./components/DuelObjectivesPanel.jsx"));
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
@@ -259,22 +287,21 @@ const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
   { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
   { key: IMAGE_KEYS.bigwords.bonus, url: "/bigwords/bonus.webp", priority: "high" },
-  { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.college, url: "/vocab-ranks/college.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.lycee, url: "/vocab-ranks/lycee.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.bac, url: "/vocab-ranks/bac.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.prepa, url: "/vocab-ranks/prepa.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.universite, url: "/vocab-ranks/universite.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.licence, url: "/vocab-ranks/licence.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.master, url: "/vocab-ranks/master.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.doctorat, url: "/vocab-ranks/doctorat.png", priority: "high" },
-  { key: IMAGE_KEYS.vocab.academie, url: "/vocab-ranks/academie.png", priority: "high" },
+  { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.college, url: "/vocab-ranks/college.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.lycee, url: "/vocab-ranks/lycee.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.bac, url: "/vocab-ranks/bac.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.prepa, url: "/vocab-ranks/prepa.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.universite, url: "/vocab-ranks/universite.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.licence, url: "/vocab-ranks/licence.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.master, url: "/vocab-ranks/master.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.doctorat, url: "/vocab-ranks/doctorat.png", priority: "low" },
+  { key: IMAGE_KEYS.vocab.academie, url: "/vocab-ranks/academie.png", priority: "low" },
 ];
 const IMAGE_FALLBACKS = new Map(BOOT_ASSET_IMAGES.map((entry) => [entry.key, entry.url]));
 const BOOT_ASSET_FILES = [
-  "/dico.txt",
   "/privacy.html",
   "/privacy/index.html",
   "/robots.txt",
@@ -1325,49 +1352,6 @@ function buildTargetHintOverlayStyleMap(cells, wordIndices, wordLength, variant 
     map.set(boardIndex, style);
   }
   return map;
-}
-
-function isSystemAuthor(rawAuthor) {
-  if (!rawAuthor) return false;
-  const simplified = String(rawAuthor)
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  return simplified === "system" || simplified === "systeme";
-}
-
-function isSystemChatMessage(message) {
-  if (!message || typeof message !== "object") return false;
-  if (message.type === "system" || message.channel === "system") return true;
-  return isSystemAuthor(message.author || message.nick || "");
-}
-
-function formatChatUnreadSuffix(unreadCount) {
-  const value = Number(unreadCount) || 0;
-  if (value <= 0) return "";
-  if (value >= 10) return " (9+)";
-  return ` (${value})`;
-}
-
-const CHAT_TIME_FORMATTER = new Intl.DateTimeFormat("fr-FR", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function formatChatMessageTime(message) {
-  const ts = getChatMessageSortTime(message);
-  if (!Number.isFinite(ts) || ts <= 0) return "";
-  try {
-    return CHAT_TIME_FORMATTER.format(new Date(ts));
-  } catch (_) {
-    return "";
-  }
-}
-
-function isEditedChatMessage(message) {
-  const editedAt = Number(message?.editedAt);
-  return Number.isFinite(editedAt) && editedAt > 0;
 }
 
 const BONUS_CLASSES = {
@@ -3699,9 +3683,6 @@ body.theme-dark .tile-hint {
 
 const DEFAULT_CHAT_VISIBLE_LINES = 18;
 const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
-const CHAT_MESSAGES_HISTORY_MAX = 200;
-const CHAT_SYSTEM_HISTORY_MAX = 100;
-const CHAT_BUFFER_MAX = CHAT_MESSAGES_HISTORY_MAX + CHAT_SYSTEM_HISTORY_MAX;
 const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
 const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
@@ -3717,7 +3698,6 @@ const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const MAX_INSTALL_ID_LEN = 128;
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
-const CHAT_MESSAGES_STORAGE_KEY = "gobble_chat_messages_v1";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v3";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
@@ -4173,27 +4153,6 @@ const REPORT_REASONS = [
   "Infos perso",
   "Autre",
 ];
-const CHAT_LEGACY_EMOTICON_RULES = [
-  { regex: /(^|[\s([{<'"])(?:<3)(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "❤️" },
-  { regex: /(^|[\s([{<'"])(?::'\()(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😢" },
-  { regex: /(^|[\s([{<'"])(?::-\)|:\))(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "🙂" },
-  { regex: /(^|[\s([{<'"])(?:;-\)|;\))(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😉" },
-  { regex: /(^|[\s([{<'"])(?::-?D|X-?D|x-?D)(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😄" },
-  { regex: /(^|[\s([{<'"])(?::-?[Pp]|;-?[Pp])(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😛" },
-  { regex: /(^|[\s([{<'"])(?::-\(|:\()(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "🙁" },
-  { regex: /(^|[\s([{<'"])(?::-?[Oo])(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😮" },
-  { regex: /(^|[\s([{<'"])(?::-[\\/]|:[\\/])(?=$|[\s)\]}>,'"!.?;:])/g, emoji: "😕" },
-];
-
-function normalizeLegacyChatEmoticons(raw) {
-  let text = typeof raw === "string" ? raw : String(raw ?? "");
-  if (!text) return "";
-  for (const rule of CHAT_LEGACY_EMOTICON_RULES) {
-    text = text.replace(rule.regex, (_, prefix = "") => `${prefix}${rule.emoji}`);
-  }
-  return text;
-}
-
 function generateInstallId() {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -4301,163 +4260,6 @@ function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
   return installIdCreatedAtTs < PATCH_NOTES_RELEASE_TS;
 }
 
-function normalizeChatReplyPreview(rawReply) {
-  if (!rawReply || typeof rawReply !== "object") return null;
-  const id = typeof rawReply.id === "string" ? rawReply.id.trim() : "";
-  if (!id) return null;
-  const installId =
-    typeof rawReply.installId === "string" && rawReply.installId.trim()
-      ? rawReply.installId.trim()
-      : null;
-  const nick = String(rawReply.nick || rawReply.author || "Anonyme")
-    .trim()
-    .slice(0, 40);
-  const text = normalizeLegacyChatEmoticons(String(rawReply.text || ""))
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 280);
-  if (!text) return null;
-  const t = Number(rawReply.t ?? rawReply.ts ?? rawReply.timestamp ?? rawReply.createdAt);
-  return {
-    id,
-    installId,
-    nick: nick || "Anonyme",
-    text,
-    t: Number.isFinite(t) && t > 0 ? t : Date.now(),
-  };
-}
-
-function normalizeChatReactions(rawReactions) {
-  if (!rawReactions || typeof rawReactions !== "object" || Array.isArray(rawReactions)) {
-    return {};
-  }
-  const out = {};
-  for (const [rawEmoji, rawUsers] of Object.entries(rawReactions)) {
-    const emoji = typeof rawEmoji === "string" ? rawEmoji.trim() : "";
-    if (!emoji) continue;
-    const users = [];
-    const seen = new Set();
-    for (const rawUser of Array.isArray(rawUsers) ? rawUsers : []) {
-      const installId =
-        typeof rawUser?.installId === "string" ? rawUser.installId.trim() : "";
-      if (!installId || seen.has(installId)) continue;
-      seen.add(installId);
-      const nick = typeof rawUser?.nick === "string" ? rawUser.nick.trim().slice(0, 40) : "";
-      users.push({
-        installId,
-        nick: nick || "Anonyme",
-      });
-    }
-    if (users.length) out[emoji] = users;
-  }
-  return out;
-}
-
-function normalizeChatMessageShape(rawMessage) {
-  if (!rawMessage || typeof rawMessage !== "object") return null;
-  const message = { ...rawMessage };
-  if (typeof rawMessage.text === "string") {
-    message.text = normalizeLegacyChatEmoticons(rawMessage.text);
-  }
-  const replyTo = normalizeChatReplyPreview(rawMessage.replyTo);
-  if (replyTo) message.replyTo = replyTo;
-  else delete message.replyTo;
-  const reactions = normalizeChatReactions(rawMessage.reactions);
-  if (Object.keys(reactions).length) message.reactions = reactions;
-  else delete message.reactions;
-  return message;
-}
-
-function getChatMessageReplyPreview(message) {
-  if (!message || typeof message !== "object") return null;
-  return normalizeChatReplyPreview(message.replyTo);
-}
-
-function getChatMessageReactionEntries(message) {
-  const reactions = normalizeChatReactions(message?.reactions);
-  return Object.entries(reactions)
-    .map(([emoji, users]) => ({
-      emoji,
-      users: Array.isArray(users) ? users : [],
-      count: Array.isArray(users) ? users.length : 0,
-    }))
-    .filter((entry) => entry.count > 0);
-}
-
-function patchChatMessageById(messages, updatedMessage) {
-  const normalized = normalizeChatMessageShape(updatedMessage);
-  if (!normalized?.id) return messages;
-  let changed = false;
-  const next = (Array.isArray(messages) ? messages : []).map((entry) => {
-    if (!entry || entry.id !== normalized.id) return entry;
-    changed = true;
-    return {
-      ...entry,
-      ...normalized,
-    };
-  });
-  return changed ? next : messages;
-}
-
-function removeChatMessageById(messages, messageId) {
-  const targetId = typeof messageId === "string" ? messageId.trim() : "";
-  if (!targetId) return messages;
-  const list = Array.isArray(messages) ? messages : [];
-  const next = list.filter((entry) => entry?.id !== targetId);
-  return next.length === list.length ? messages : next;
-}
-
-function patchChatMessageReactions(messages, patch) {
-  const messageId = typeof patch?.messageId === "string" ? patch.messageId.trim() : "";
-  if (!messageId) return messages;
-  const normalizedReactions = normalizeChatReactions(patch?.reactions);
-  let changed = false;
-  const next = (Array.isArray(messages) ? messages : []).map((entry) => {
-    if (!entry || entry.id !== messageId) return entry;
-    changed = true;
-    const updated = { ...entry };
-    if (Object.keys(normalizedReactions).length) updated.reactions = normalizedReactions;
-    else delete updated.reactions;
-    if (patch?.updatedAt) {
-      const ts = Number(patch.updatedAt);
-      if (Number.isFinite(ts) && ts > 0) {
-        updated.reactionsUpdatedAt = ts;
-      }
-    }
-    return updated;
-  });
-  return changed ? next : messages;
-}
-
-function findNewReactionFromOthers(prevMessage, patchReactions, selfInstallId) {
-  if (!prevMessage || typeof prevMessage !== "object") return null;
-  const previousReactions = normalizeChatReactions(prevMessage.reactions);
-  const nextReactions = normalizeChatReactions(patchReactions);
-  const selfId = typeof selfInstallId === "string" ? selfInstallId.trim() : "";
-  for (const [emoji, users] of Object.entries(nextReactions)) {
-    const previousUsers = new Set(
-      (Array.isArray(previousReactions[emoji]) ? previousReactions[emoji] : [])
-        .map((user) => (typeof user?.installId === "string" ? user.installId.trim() : ""))
-        .filter(Boolean)
-    );
-    const addedByOtherUser = (Array.isArray(users) ? users : []).find((user) => {
-      const userInstallId =
-        typeof user?.installId === "string" ? user.installId.trim() : "";
-      if (!userInstallId || previousUsers.has(userInstallId)) return false;
-      return !selfId || userInstallId !== selfId;
-    });
-    if (addedByOtherUser) {
-      const nick =
-        typeof addedByOtherUser?.nick === "string" ? addedByOtherUser.nick.trim() : "";
-      return {
-        emoji,
-        actorNick: nick || "Quelqu'un",
-      };
-    }
-  }
-  return null;
-}
-
 function intersectViewportRects(a, b) {
   if (!a || !b) return null;
   const left = Math.max(Number(a.left) || 0, Number(b.left) || 0);
@@ -4553,74 +4355,6 @@ function buildBottomChatToastOrigin() {
     x: Math.round((window.innerWidth || 320) / 2),
     y: Math.round((window.innerHeight || 640) - 28),
   };
-}
-
-function getChatMessageSortTime(message) {
-  const tsCandidate =
-    message?.t ??
-    message?.ts ??
-    message?.timestamp ??
-    message?.createdAt ??
-    0;
-  const ts = Number(tsCandidate);
-  return Number.isFinite(ts) ? ts : 0;
-}
-
-function dedupeChatMessages(messages) {
-  const seen = new Set();
-  const out = [];
-  for (const raw of Array.isArray(messages) ? messages : []) {
-    const normalized = normalizeChatMessageShape(raw);
-    if (!normalized) continue;
-    const id = typeof normalized.id === "string" ? normalized.id : "";
-    const key = id
-      ? `id:${id}`
-      : `fallback:${getChatMessageSortTime(normalized)}:${normalized.nick || normalized.author || ""}:${normalized.text || ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(normalized);
-  }
-  return out;
-}
-
-function capChatMessagesByType(messages) {
-  const deduped = dedupeChatMessages(messages);
-  const system = [];
-  const user = [];
-  for (let i = deduped.length - 1; i >= 0; i -= 1) {
-    const msg = deduped[i];
-    if (isSystemChatMessage(msg)) {
-      if (system.length < CHAT_SYSTEM_HISTORY_MAX) {
-        system.push(msg);
-      }
-      continue;
-    }
-    if (user.length < CHAT_MESSAGES_HISTORY_MAX) {
-      user.push(msg);
-    }
-  }
-  const merged = [...user.reverse(), ...system.reverse()];
-  merged.sort((a, b) => {
-    const tA = getChatMessageSortTime(a);
-    const tB = getChatMessageSortTime(b);
-    if (tA !== tB) return tA - tB;
-    return String(a?.id || "").localeCompare(String(b?.id || ""));
-  });
-  return merged.slice(-CHAT_BUFFER_MAX);
-}
-
-function readStoredChatMessages() {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return [];
-  }
-  try {
-    const raw = localStorage.getItem(CHAT_MESSAGES_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return capChatMessagesByType(parsed);
-  } catch (_) {
-    return [];
-  }
 }
 
 function getBroadcastMessageKey(message) {
@@ -5216,6 +4950,7 @@ export default function App() {
       const isSamsungRuntime =
         typeof navigator !== "undefined" &&
         /SamsungBrowser/i.test(navigator.userAgent || "");
+      const shouldPreloadLowStatic = !isSamsungRuntime && !computeIsMobileLayout();
       if (isSamsungRuntime || forceCachePurge) {
         await purgeRuntimeMediaCache({ force: forceCachePurge });
       }
@@ -5247,7 +4982,10 @@ export default function App() {
       );
       AssetManager.registerManifest(bootManifest);
       const total = bootManifest.filter((entry) => {
-        if (entry?.type !== "sfx") return true;
+        if (entry?.type !== "sfx") {
+          if (entry?.priority === "low" && !shouldPreloadLowStatic) return false;
+          return true;
+        }
         if (!shouldPreloadSfx) return false;
         return entry.priority === "critical" || entry.priority === "high";
       }).length;
@@ -5292,12 +5030,14 @@ export default function App() {
         excludeTypes: shouldPreloadSfx ? [] : ["sfx"],
         concurrency: 4,
       });
-      await AssetManager.preload({
-        priority: "all",
-        onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "low" }),
-        excludeTypes: ["sfx"],
-        concurrency: 4,
-      });
+      if (shouldPreloadLowStatic) {
+        await AssetManager.preload({
+          priority: "all",
+          onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "low" }),
+          excludeTypes: ["sfx"],
+          concurrency: 4,
+        });
+      }
       const elapsed = performance.now() - startedAt;
       const delay = Math.max(0, BOOT_MIN_HOLD_MS - elapsed);
       window.setTimeout(() => {
@@ -5406,13 +5146,6 @@ export default function App() {
   const safeAreaTopProbeRef = useRef(null);
   const [bigScoreFlash, setBigScoreFlash] = useState(null);
   const [gridShake, setGridShake] = useState(false);
-  const [mobileResultsPage, setMobileResultsPage] = useState(0);
-  const resultsTouchRef = useRef({ startX: null, startY: null });
-  const resultsSlideWidthRef = useRef(0);
-  const resultsDraggingRef = useRef(false);
-  const [resultsSlidePhase, setResultsSlidePhase] = useState("idle");
-  const resultsSlideOutTimerRef = useRef(null);
-  const resultsSlideInTimerRef = useRef(null);
   const [resultsReorderTick, setResultsReorderTick] = useState(0);
   const [mobileRoundIntroStage, setMobileRoundIntroStage] = useState("idle");
   const [mobileRoundIntroCountdown, setMobileRoundIntroCountdown] = useState(null);
@@ -5421,12 +5154,8 @@ export default function App() {
   const [mobileRoundIntroRoundDescription, setMobileRoundIntroRoundDescription] = useState("");
   const [mobileRoundIntroHideTiles, setMobileRoundIntroHideTiles] = useState(false);
   const [mobileResultsOutroFadeActive, setMobileResultsOutroFadeActive] = useState(false);
-  const [finalePage, setFinalePage] = useState(0);
   const [dismissedTournamentFinaleKey, setDismissedTournamentFinaleKey] = useState(null);
   const finaleScrollRef = useRef(null);
-  const finaleTouchRef = useRef({ startX: null, startY: null });
-  const finaleDraggingRef = useRef(false);
-  const finaleSlideWidthRef = useRef(0);
   const [nickname, setNickname] = useState(() => {
     try {
       return localStorage.getItem("boggle_nick") || "";
@@ -5747,10 +5476,10 @@ export default function App() {
     message: null,
     error: "",
   });
-  const [devGlobalAnnouncement, setDevGlobalAnnouncement] = useState(null);
-  const devGlobalAnnouncementHideTimerRef = useRef(null);
-  const devGlobalAnnouncementClearTimerRef = useRef(null);
-  const devGlobalAnnouncementRafRef = useRef(null);
+  const {
+    announcement: globalRedAnnouncement,
+    showGlobalRedAnnouncement,
+  } = useGlobalRedAnnouncement();
   const [broadcastSeenNonce, setBroadcastSeenNonce] = useState(0);
   const [dailyStatus, setDailyStatus] = useState({
     loading: false,
@@ -6648,6 +6377,7 @@ export default function App() {
   const [trophyLoading, setTrophyLoading] = useState(false);
   const [statsTab, setStatsTab] = useState("weekly");
   const crashRuntimeSignatureRef = useRef("");
+  const mobileResultsPageRuntimeRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -6694,7 +6424,9 @@ export default function App() {
       announcementsCount: Array.isArray(announcements) ? announcements.length : null,
       chatMessagesCount: Array.isArray(chatMessages) ? chatMessages.length : null,
       blockedInstallIdsCount: Array.isArray(blockedInstallIds) ? blockedInstallIds.length : null,
-      mobileResultsPage: Number.isFinite(mobileResultsPage) ? mobileResultsPage : null,
+      mobileResultsPage: Number.isFinite(mobileResultsPageRuntimeRef.current)
+        ? mobileResultsPageRuntimeRef.current
+        : null,
       specialRoundType: specialRound?.type || null,
       specialRoundIsSpecial: !!specialRound?.isSpecial,
       targetSummaryOpen: !!targetSummary,
@@ -6791,7 +6523,6 @@ export default function App() {
     roundId,
     roomId,
     gridSize,
-    mobileResultsPage,
     specialRound,
     targetSummary,
     isVocabOverlayOpen,
@@ -7026,6 +6757,7 @@ export default function App() {
   const dragMoveRafRef = useRef(null);
   const dragPendingPointRef = useRef(null);
   const lastTouchMoveSampleRef = useRef({ x: null, y: null, at: 0 });
+  const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
   const isChromiumMobileRef = useRef(false);
@@ -9495,7 +9227,7 @@ export default function App() {
 
   function triggerPraiseFlash(
     text,
-    { kind = "blue", shakeGrid = false, force = false } = {}
+    { kind = "blue", shakeGrid = false, force = false, durationMs: requestedDurationMs = null } = {}
   ) {
     const now = Date.now();
     if (!force && now - praiseLastRef.current < 420) return;
@@ -9530,7 +9262,11 @@ export default function App() {
       if (shakeGrid) triggerGridShake();
       return;
     }
-    const durationMs = lite ? Math.round(650 + Math.random() * 120) : Math.round(1500 + Math.random() * 300);
+    const durationMs = Number.isFinite(Number(requestedDurationMs))
+      ? Math.max(lite ? 1100 : 2200, Math.round(Number(requestedDurationMs)))
+      : lite
+      ? Math.round(650 + Math.random() * 120)
+      : Math.round(1500 + Math.random() * 300);
     if (visualPraiseEnabledRef.current) {
       showCelebrationFlash("praiseFlash", {
         id: now + Math.random(),
@@ -11430,6 +11166,25 @@ export default function App() {
     showToastRef.current = showToast;
   });
 
+  const {
+    applyPlaytimeLimitStatus,
+    clearDevPlaytimeLimit,
+    devPlaytimeLimits,
+    fetchDevPlaytimeLimits,
+    playtimeLimit,
+    playtimeRemainingMs,
+    setPlaytimeLimitFromSettings,
+  } = usePlaytimeLimit({
+    appView,
+    authenticatedUserId,
+    isAccountAuthenticated,
+    isLoggedIn,
+    onBlocked: returnToLobby,
+    setDevControlsBusy,
+    showGlobalRedAnnouncement,
+    showToast,
+  });
+
   function getObjectiveBucketLabel(bucket) {
     const key = String(bucket || "").toLowerCase();
     if (key === "easy") return "facile";
@@ -11824,6 +11579,8 @@ export default function App() {
   }
 
   useEffect(() => {
+    const shouldLoadClientDictionary = isDailyPlay || appView === "daily_play";
+    if (!shouldLoadClientDictionary || dictionary) return undefined;
     let cancelled = false;
     const loadDictionary = async () => {
       const fileKey = makeFileKey("/dico.txt");
@@ -11837,12 +11594,9 @@ export default function App() {
             .map((x) => normalizeWord(x.trim()))
             .filter(Boolean);
           setDictionary(new Set(list));
+          AssetManager.release?.(fileKey);
           return;
         } catch (_) {}
-      }
-      if (AssetManager.isReady(fileKey)) {
-        console.error(`[asset] dico.txt manquant dans AssetManager (${fileKey})`);
-        return;
       }
       try {
         const res = await fetch("/dico.txt");
@@ -11859,7 +11613,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [appView, dictionary, isDailyPlay]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -12874,56 +12628,7 @@ export default function App() {
     }
 
     function onDevGlobalAnnouncement(payload = {}) {
-      const body =
-        typeof payload?.body === "string" && payload.body.trim()
-          ? payload.body.trim()
-          : typeof payload?.message === "string" && payload.message.trim()
-          ? payload.message.trim()
-          : "";
-      if (!body) return;
-      if (devGlobalAnnouncementHideTimerRef.current) {
-        clearTimeout(devGlobalAnnouncementHideTimerRef.current);
-        devGlobalAnnouncementHideTimerRef.current = null;
-      }
-      if (devGlobalAnnouncementClearTimerRef.current) {
-        clearTimeout(devGlobalAnnouncementClearTimerRef.current);
-        devGlobalAnnouncementClearTimerRef.current = null;
-      }
-      if (devGlobalAnnouncementRafRef.current) {
-        cancelAnimationFrame(devGlobalAnnouncementRafRef.current);
-        devGlobalAnnouncementRafRef.current = null;
-      }
-      const next = {
-        id:
-          typeof payload?.id === "string" && payload.id.trim()
-            ? payload.id.trim()
-            : `dev-global-${Date.now()}`,
-        title:
-          typeof payload?.title === "string" && payload.title.trim()
-            ? payload.title.trim()
-            : "Annonce serveur",
-        body,
-        createdAt: Number.isFinite(payload?.createdAt) ? payload.createdAt : Date.now(),
-        author: typeof payload?.author === "string" ? payload.author.trim() : "",
-        visible: false,
-      };
-      setDevGlobalAnnouncement(next);
-      devGlobalAnnouncementRafRef.current = requestAnimationFrame(() => {
-        devGlobalAnnouncementRafRef.current = null;
-        setDevGlobalAnnouncement((prev) =>
-          prev?.id === next.id ? { ...prev, visible: true } : prev
-        );
-      });
-      devGlobalAnnouncementHideTimerRef.current = setTimeout(() => {
-        devGlobalAnnouncementHideTimerRef.current = null;
-        setDevGlobalAnnouncement((prev) =>
-          prev?.id === next.id ? { ...prev, visible: false } : prev
-        );
-      }, 6500);
-      devGlobalAnnouncementClearTimerRef.current = setTimeout(() => {
-        devGlobalAnnouncementClearTimerRef.current = null;
-        setDevGlobalAnnouncement((prev) => (prev?.id === next.id ? null : prev));
-      }, 7300);
+      showGlobalRedAnnouncement(payload, 6500);
     }
 
     roundHandlersRef.current.onRoundStarted = onRoundStarted;
@@ -12982,18 +12687,6 @@ export default function App() {
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
-      if (devGlobalAnnouncementHideTimerRef.current) {
-        clearTimeout(devGlobalAnnouncementHideTimerRef.current);
-        devGlobalAnnouncementHideTimerRef.current = null;
-      }
-      if (devGlobalAnnouncementClearTimerRef.current) {
-        clearTimeout(devGlobalAnnouncementClearTimerRef.current);
-        devGlobalAnnouncementClearTimerRef.current = null;
-      }
-      if (devGlobalAnnouncementRafRef.current) {
-        cancelAnimationFrame(devGlobalAnnouncementRafRef.current);
-        devGlobalAnnouncementRafRef.current = null;
-      }
     };
   }, []);
 
@@ -16007,196 +15700,6 @@ export default function App() {
     if (statsTab === "season") return handleSeasonTouchEnd(e);
   }
 
-  function getResultsPages() {
-    if (specialRound?.type === OCID_TYPE || targetSummary?.ocid) {
-      return ["round", "total"];
-    }
-    return isTargetRound
-      ? ["round", "total"]
-      : ["round", "total", "found", "all", "vocab"];
-  }
-
-  function setResultsPageInstant(nextPage) {
-    clearResultsSlideTimers();
-    setResultsSlidePhase("idle");
-    resultsDraggingRef.current = false;
-    setMobileResultsPage(nextPage);
-  }
-
-  function clearResultsSlideTimers() {
-    if (resultsSlideOutTimerRef.current) {
-      clearTimeout(resultsSlideOutTimerRef.current);
-      resultsSlideOutTimerRef.current = null;
-    }
-    if (resultsSlideInTimerRef.current) {
-      clearTimeout(resultsSlideInTimerRef.current);
-      resultsSlideInTimerRef.current = null;
-    }
-  }
-
-  function startResultsSlide(nextPage) {
-    clearResultsSlideTimers();
-    setResultsSlidePhase("out");
-    resultsDraggingRef.current = false;
-    resultsSlideOutTimerRef.current = setTimeout(() => {
-      setMobileResultsPage(nextPage);
-      setResultsSlidePhase("in");
-      resultsSlideInTimerRef.current = setTimeout(() => {
-        setResultsSlidePhase("idle");
-      }, RESULTS_SLIDE_IN_MS);
-    }, RESULTS_SLIDE_OUT_MS);
-  }
-
-  function goToResultsPage(nextIndex) {
-    const pages = getResultsPages();
-    const totalPages = pages.length;
-    if (totalPages <= 1) return;
-    const current = clampValue(mobileResultsPage, 0, totalPages - 1);
-    const next = clampValue(nextIndex, 0, totalPages - 1);
-    if (next === current) return;
-    const currentKey = pages[current];
-    const nextKey = pages[next];
-    const isWordsJump =
-      (currentKey === "found" || currentKey === "all") &&
-      (nextKey === "found" || nextKey === "all");
-    const isRankingJump =
-      (currentKey === "round" || currentKey === "total") &&
-      (nextKey === "round" || nextKey === "total");
-    if (isWordsJump) {
-      setResultsPageInstant(next);
-    } else if (isRankingJump) {
-      triggerResultsReorder();
-      setResultsPageInstant(next);
-    } else {
-      startResultsSlide(next);
-    }
-    playSwipeSound();
-  }
-
-  function shiftResultsPage(delta) {
-    if (!Number.isInteger(delta)) return;
-    goToResultsPage(mobileResultsPage + delta);
-  }
-
-  function triggerResultsReorder() {
-    setResultsReorderTick((prev) => prev + 1);
-  }
-
-  function handleResultsTouchStart(e) {
-    const touch = e?.touches?.[0];
-    if (!touch) return;
-    clearResultsSlideTimers();
-    setResultsSlidePhase("idle");
-    resultsTouchRef.current.startX = touch.clientX;
-    resultsTouchRef.current.startY = touch.clientY;
-    resultsSlideWidthRef.current =
-      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
-    resultsDraggingRef.current = false;
-  }
-
-  function handleResultsTouchMove(e) {
-    const startX = resultsTouchRef.current.startX;
-    const startY = resultsTouchRef.current.startY;
-    if (startX == null || startY == null) return;
-    const touch = e?.touches?.[0];
-    if (!touch) return;
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    if (!resultsDraggingRef.current) {
-      if (Math.abs(deltaX) < 8) return;
-      if (Math.abs(deltaX) < Math.abs(deltaY)) {
-        resultsTouchRef.current.startX = null;
-        resultsTouchRef.current.startY = null;
-        resultsDraggingRef.current = false;
-        return;
-      }
-      resultsDraggingRef.current = true;
-    }
-  }
-
-  function handleResultsTouchEnd(e) {
-    const startX = resultsTouchRef.current.startX;
-    const startY = resultsTouchRef.current.startY;
-    resultsTouchRef.current.startX = null;
-    resultsTouchRef.current.startY = null;
-    const width = resultsSlideWidthRef.current || window.innerWidth || 1;
-    const touch = e?.changedTouches?.[0];
-    resultsDraggingRef.current = false;
-    if (startX == null || startY == null || !touch) return;
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
-    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-      shiftResultsPage(deltaX < 0 ? 1 : -1);
-    }
-  }
-
-  function getFinalePagesCount() {
-    return 1 + FINALE_WEEKLY_BOARDS.length;
-  }
-
-  function goToFinalePage(nextIndex) {
-    const total = getFinalePagesCount();
-    if (total <= 1) return;
-    const current = clampValue(finalePage, 0, total - 1);
-    const next = clampValue(nextIndex, 0, total - 1);
-    if (next === current) return;
-    setFinalePage(next);
-    playSwipeSound();
-  }
-
-  function shiftFinalePage(delta) {
-    if (!Number.isInteger(delta)) return;
-    goToFinalePage(finalePage + delta);
-  }
-
-  function handleFinaleTouchStart(e) {
-    const touch = e?.touches?.[0];
-    if (!touch) return;
-    finaleTouchRef.current.startX = touch.clientX;
-    finaleTouchRef.current.startY = touch.clientY;
-    finaleSlideWidthRef.current =
-      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
-    finaleDraggingRef.current = false;
-  }
-
-  function handleFinaleTouchMove(e) {
-    const startX = finaleTouchRef.current.startX;
-    const startY = finaleTouchRef.current.startY;
-    if (startX == null || startY == null) return;
-    const touch = e?.touches?.[0];
-    if (!touch) return;
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    if (!finaleDraggingRef.current) {
-      if (Math.abs(deltaX) < 8) return;
-      if (Math.abs(deltaX) < Math.abs(deltaY)) {
-        finaleTouchRef.current.startX = null;
-        finaleTouchRef.current.startY = null;
-        finaleDraggingRef.current = false;
-        return;
-      }
-      finaleDraggingRef.current = true;
-    }
-  }
-
-  function handleFinaleTouchEnd(e) {
-    const startX = finaleTouchRef.current.startX;
-    const startY = finaleTouchRef.current.startY;
-    finaleTouchRef.current.startX = null;
-    finaleTouchRef.current.startY = null;
-    const width = finaleSlideWidthRef.current || window.innerWidth || 1;
-    const touch = e?.changedTouches?.[0];
-    finaleDraggingRef.current = false;
-    if (startX == null || startY == null || !touch) return;
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    const threshold = Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.12);
-    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-      shiftFinalePage(deltaX < 0 ? 1 : -1);
-    }
-  }
-
   function applyResumeSnapshot(snapshot) {
     if (!snapshot || typeof snapshot !== "object") return;
     if (snapshot.roomId) {
@@ -16395,6 +15898,16 @@ export default function App() {
             setConnectionError(res?.message || "Accès live temporairement suspendu.");
             return;
           }
+          if (res?.error === "playtime_limit_exhausted") {
+            if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
+            clearSavedSession();
+            setResumeSnapshot(null);
+            setCanResumeSession(false);
+            setConnectionError(
+              res?.message || "Ton temps de jeu live est écoulé pour aujourd'hui."
+            );
+            return;
+          }
           if (res?.ok && res?.available && res?.snapshot) {
             setResumeSnapshot(res.snapshot);
             setCanResumeSession(true);
@@ -16507,6 +16020,25 @@ export default function App() {
             setIsLoggedIn(false);
             return;
           }
+          if (res?.error === "playtime_limit_exhausted") {
+            if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
+            clearSavedSession();
+            const message =
+              res?.message || "Ton temps de jeu live est écoulé pour aujourd'hui.";
+            setConnectionError(message);
+            setLoginError(message);
+            setIsConnecting(false);
+            isLoggedInRef.current = false;
+            setIsLoggedIn(false);
+            showGlobalRedAnnouncement(
+              {
+                title: "Contrôle de temps pour joueurs compulsifs",
+                body: message,
+              },
+              6500
+            );
+            return;
+          }
           if (!res?.ok || !res?.available || !res?.snapshot) {
             clearSavedSession();
             setConnectionError("Session expiree");
@@ -16525,6 +16057,7 @@ export default function App() {
           setIsConnecting(false);
           setLoginError("");
           setConnectionError("");
+          if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
           setResumeSnapshot(null);
           applyResumeSnapshot(res.snapshot);
           void requestTrophyStatus();
@@ -17401,6 +16934,7 @@ export default function App() {
 
   function handleLogin(e) {
     if (e) e.preventDefault();
+    if (loginInFlightRef.current || isConnecting) return;
     if (!ensureAuthenticated({ source: "live" })) {
       return;
     }
@@ -17414,6 +16948,7 @@ export default function App() {
       return;
     }
 
+    loginInFlightRef.current = true;
     setIsConnecting(true);
     setLoginError("");
     setConnectionError("");
@@ -17433,11 +16968,13 @@ export default function App() {
       };
       const loginTimeout = setTimeout(() => {
         finish();
+        loginInFlightRef.current = false;
         setLoginError("Connexion timeout");
         setIsConnecting(false);
       }, 6000);
       socket.emit("login", { nick, roomId, installId }, (res) => {
         finish();
+        loginInFlightRef.current = false;
         if (!res?.ok) {
           if (res?.error === "pseudo_taken") {
             setLoginError("Pseudo deja utilise");
@@ -17453,6 +16990,20 @@ export default function App() {
             clearSavedSession();
             setLoginError(res?.message || "Accès live temporairement suspendu.");
             setConnectionError(res?.message || "Accès live temporairement suspendu.");
+          } else if (res?.error === "playtime_limit_exhausted") {
+            if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
+            clearSavedSession();
+            const message =
+              res?.message || "Ton temps de jeu live est écoulé pour aujourd'hui.";
+            setLoginError(message);
+            setConnectionError(message);
+            showGlobalRedAnnouncement(
+              {
+                title: "Contrôle de temps pour joueurs compulsifs",
+                body: message,
+              },
+              6500
+            );
           } else if (res?.error === "invalid_room") {
             setLoginError("Salle indisponible");
           } else if (res?.error === "invalid_install_id") {
@@ -17465,6 +17016,7 @@ export default function App() {
         }
 
         const joinedRoom = res?.roomId || roomId;
+        if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
         lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
         persistSession({ nick, roomId: joinedRoom, installId });
         autoResumeEnabledRef.current = true;
@@ -17499,6 +17051,7 @@ export default function App() {
     };
 
     const onConnectError = () => {
+      loginInFlightRef.current = false;
       setLoginError("Impossible de joindre le serveur");
       setIsConnecting(false);
       socket.off("connect", attemptLogin);
@@ -17566,98 +17119,6 @@ export default function App() {
 
   function dismissResumePrompt() {
     setResumeSnapshot(null);
-  }
-
-  function hydrateServerSolutionsPayload(payload, options = {}) {
-    const disableRareBonus = !!options.disableRareBonus;
-    const isPackedPayload =
-      payload && !Array.isArray(payload) && Array.isArray(payload.w);
-    const packedPoints = isPackedPayload && Array.isArray(payload.p) ? payload.p : [];
-    const packedMetaByIndex = new Map();
-    if (isPackedPayload && Array.isArray(payload.m)) {
-      for (const row of payload.m) {
-        if (!Array.isArray(row)) continue;
-        const idx = Number(row[0]);
-        if (Number.isInteger(idx) && idx >= 0) {
-          packedMetaByIndex.set(idx, row);
-        }
-      }
-    }
-    const list = isPackedPayload
-      ? payload.w.map((word, idx) => {
-          const metaRow = packedMetaByIndex.get(idx) || [];
-          return [
-            word,
-            packedPoints[idx],
-            [],
-            metaRow[1],
-            metaRow[2],
-            metaRow[3],
-            metaRow[4],
-            metaRow[5],
-            metaRow[6],
-          ];
-        })
-      : Array.isArray(payload)
-      ? payload
-      : [];
-    const solved = new Map();
-    const all = [];
-    for (const entry of list) {
-      const word = normalizeWord(Array.isArray(entry) ? entry[0] : entry?.word);
-      if (!word) continue;
-      const ptsSource = Array.isArray(entry) ? entry[1] : entry?.pts;
-      const pathSource = Array.isArray(entry) ? entry[2] : entry?.path;
-      const usedFakeTwinsSource = Array.isArray(entry) ? entry[3] : entry?.usedFakeTwins;
-      const fakeTwinsCompletionSource = Array.isArray(entry)
-        ? entry[4]
-        : entry?.fakeTwinsCompletionWord;
-      const fakeTwinsBonusOnlySource = Array.isArray(entry)
-        ? entry[5]
-        : entry?.fakeTwinsBonusOnly;
-      const rareBonusWordSource = disableRareBonus
-        ? false
-        : Array.isArray(entry)
-        ? entry[6]
-        : entry?.rareBonusWord;
-      const rareBonusPointsSource = disableRareBonus
-        ? 0
-        : Array.isArray(entry)
-        ? entry[7]
-        : entry?.rareBonusPoints;
-      const rarityBucketSource = disableRareBonus
-        ? ""
-        : Array.isArray(entry)
-        ? entry[8]
-        : entry?.rarityBucket;
-      const numericPts = Number(ptsSource);
-      const pts = Number.isFinite(numericPts) ? numericPts : 0;
-      const path = Array.isArray(pathSource)
-        ? pathSource
-            .map((idx) => Number(idx))
-            .filter((idx) => Number.isInteger(idx) && idx >= 0)
-        : [];
-      const meta = {
-        path,
-        pts,
-        usedFakeTwins: !!usedFakeTwinsSource,
-        fakeTwinsCompletionWord: !!fakeTwinsCompletionSource,
-        fakeTwinsBonusOnly: !!fakeTwinsBonusOnlySource,
-        rareBonusWord: !!rareBonusWordSource,
-        rareBonusPoints: Number(rareBonusPointsSource) || 0,
-        rarityBucket: String(rarityBucketSource || ""),
-      };
-      solved.set(word, meta);
-      all.push({ word, ...meta });
-    }
-    all.sort((a, b) => {
-      const ptsDiff = (Number(b?.pts) || 0) - (Number(a?.pts) || 0);
-      if (ptsDiff !== 0) return ptsDiff;
-      return String(a.word || "").localeCompare(String(b.word || ""), "fr", {
-        sensitivity: "base",
-      });
-    });
-    return { solved, all, ready: Array.isArray(payload) || isPackedPayload };
   }
 
   function startGameFromServer(
@@ -20720,6 +20181,21 @@ function handleTouchEnd(e) {
     return buildPathWordVariants(board, path, specialScoreConfig);
   }
 
+  function hasServerSubmissionSolution(rawWord) {
+    const word = normalizeWord(rawWord || "");
+    return !!word && solutionsRef.current instanceof Map && solutionsRef.current.has(word);
+  }
+
+  function hasClientDictionaryWord(rawWord) {
+    const word = normalizeWord(rawWord || "");
+    return !!word && !!dictionary && dictionary.has(word);
+  }
+
+  function isKnownSubmissionWord(rawWord) {
+    if (serverSolutionsReadyRef.current) return hasServerSubmissionSolution(rawWord);
+    return hasClientDictionaryWord(rawWord);
+  }
+
   function resolveSubmissionCandidatesFromPath(path, preferredDisplay = "") {
     if (!Array.isArray(path) || path.length === 0) return null;
     const preferredRaw = normalizeWord(preferredDisplay || "");
@@ -20732,7 +20208,7 @@ function handleTouchEnd(e) {
         scored: (() => {
           const hasServerSolution = serverSolutions.has(candidate.raw);
           if (serverSolutionsReady && !hasServerSolution) return null;
-          if (!hasServerSolution && (!dictionary || !dictionary.has(candidate.raw))) return null;
+          if (!serverSolutionsReady && !hasClientDictionaryWord(candidate.raw)) return null;
           const scored = scoreWordOnGridWithPath(candidate.raw, board, path, specialScoreConfig);
           const serverMeta = hasServerSolution ? serverSolutions.get(candidate.raw) : null;
           if (!scored) return null;
@@ -20863,8 +20339,11 @@ function handleTouchEnd(e) {
       markDailySlotInvalid(targetSlot, "Mot trop court");
       return;
     }
-    if (!dictionary || !dictionary.has(raw)) {
-      markDailySlotInvalid(targetSlot, "INVALIDE");
+    if (!isKnownSubmissionWord(raw)) {
+      markDailySlotInvalid(
+        targetSlot,
+        serverSolutionsReadyRef.current ? "Mot absent de la grille" : "INVALIDE"
+      );
       return;
     }
     const alreadyUsed = slots.some((slot, idx) => idx !== targetSlot && slot?.word === raw);
@@ -21067,14 +20546,17 @@ function handleTouchEnd(e) {
         specialRound?.type === "target_long" ||
         specialRound?.type === "target_score"
       ) {
-        if (dictionary && !dictionary.has(preferredRaw)) return error("Absent du dico");
         if (serverSolutionsReady && !knownByServer) return error("Mot absent de la grille");
+        if (!serverSolutionsReady && dictionary && !hasClientDictionaryWord(preferredRaw)) {
+          return error("Absent du dico");
+        }
         return error("Mot absent de la grille");
       }
-      if (!serverSolutionsReady && (!dictionary || !dictionary.has(preferredRaw))) {
+      if (serverSolutionsReady && !knownByServer) return error("Mot absent de la grille");
+      if (!serverSolutionsReady && dictionary && !hasClientDictionaryWord(preferredRaw)) {
         return error("Absent du dico");
       }
-      if (serverSolutionsReady && !knownByServer) return error("Absent du dico");
+      if (!serverSolutionsReady && !dictionary) return error("Validation serveur indisponible");
       return error("Mot absent de la grille");
     }
     const raw = resolvedCandidate.raw;
@@ -21908,6 +21390,9 @@ function handleTouchEnd(e) {
       if (!res?.ok) {
         if (res?.error === "muted") {
           showToast("Chat temporairement bloqué");
+        } else if (res?.error === "rate_limited") {
+          const retrySec = Math.max(1, Math.ceil((Number(res.retryMs) || 0) / 1000));
+          showToast(`Trop de messages. Réessaie dans ${retrySec} s.`);
         } else if (res?.error === "empty_nick") {
           setConnectionError("Choisis un pseudo pour discuter.");
         } else {
@@ -22348,8 +21833,7 @@ function handleTouchEnd(e) {
     phase === "playing" &&
     !!dailyLiveWordNorm &&
     dailyLiveWordNorm.length >= 2 &&
-    !!dictionary &&
-    dictionary.has(dailyLiveWordNorm) &&
+    isKnownSubmissionWord(dailyLiveWordNorm) &&
     !dailyLiveWordBlockedReason &&
     Array.isArray(highlightPath) &&
     highlightPath.length > 0;
@@ -22397,7 +21881,10 @@ function handleTouchEnd(e) {
     }),
     [darkMode]
   );
-  const highlightPlayersSet = new Set(highlightPlayers);
+  const highlightPlayersSet = React.useMemo(
+    () => new Set(Array.isArray(highlightPlayers) ? highlightPlayers : []),
+    [highlightPlayers]
+  );
   const acceptedWordSet = React.useMemo(() => new Set(accepted), [accepted]);
   const bestPtsByFoundWord = acceptedBestPtsRef.current;
 
@@ -22428,7 +21915,10 @@ function handleTouchEnd(e) {
     return map;
   }, [pendingWordEntries]);
 
-  const pendingCount = pendingWordEntries.filter((e) => e.status === "pending").length;
+  const pendingCount = React.useMemo(
+    () => pendingWordEntries.filter((e) => e.status === "pending").length,
+    [pendingWordEntries]
+  );
   const foundWordsCount = accepted.length + pendingCount;
   const wordsFoundLabel = formatNumber(foundWordsCount) ?? "0";
   const scoreLabel = formatNumber(score) ?? "0";
@@ -22529,7 +22019,12 @@ function handleTouchEnd(e) {
       : `live:${roundId || "current"}`;
     if (fakeTwinsCompletionCelebratedRef.current === celebrationKey) return;
     fakeTwinsCompletionCelebratedRef.current = celebrationKey;
-    triggerPraiseFlash("BONUS !", { kind: "bonus", shakeGrid: true, force: true });
+    triggerPraiseFlash("BONUS !", {
+      kind: "bonus",
+      shakeGrid: true,
+      force: true,
+      durationMs: 3200,
+    });
     triggerConfettiBurst("target");
   }, [
     dailyBoard?.dateId,
@@ -24818,6 +24313,54 @@ function handleTouchEnd(e) {
     wordListFlipRafIdsRef.current.push(startRaf);
   }, [phase, showAllWords, displayList]);
 
+  const triggerResultsReorder = React.useCallback(() => {
+    setResultsReorderTick((prev) => prev + 1);
+  }, []);
+
+  const {
+    clearResultsSlideTimers,
+    goToResultsPage,
+    handleResultsTouchEnd,
+    handleResultsTouchMove,
+    handleResultsTouchStart,
+    mobileResultsPage,
+    resultsDraggingRef,
+    resultsPages: mobileResultPages,
+    resultsSlidePhase,
+    setMobileResultsPage,
+    setResultsSlidePhase,
+    shiftResultsPage,
+  } = useResultsNavigation({
+    isOcidResult: specialRound?.type === OCID_TYPE || !!targetSummary?.ocid,
+    isTargetRound:
+      specialRound?.type === "target_long" ||
+      specialRound?.type === "target_score" ||
+      (phase === "results" && !!targetSummary),
+    onRankingReorder: triggerResultsReorder,
+    onSwipeSound: playSwipeSound,
+    slideInMs: RESULTS_SLIDE_IN_MS,
+    slideOutMs: RESULTS_SLIDE_OUT_MS,
+    swipeThreshold: RESULTS_SWIPE_THRESHOLD,
+  });
+  useEffect(() => {
+    mobileResultsPageRuntimeRef.current = mobileResultsPage;
+  }, [mobileResultsPage]);
+
+  const {
+    finalePage,
+    finalePagesCount,
+    goToFinalePage,
+    handleFinaleTouchEnd,
+    handleFinaleTouchMove,
+    handleFinaleTouchStart,
+    setFinalePage,
+    shiftFinalePage,
+  } = useFinaleNavigation({
+    onSwipeSound: playSwipeSound,
+    pagesCount: 1 + FINALE_WEEKLY_BOARDS.length,
+    swipeThreshold: RESULTS_SWIPE_THRESHOLD,
+  });
+
   useEffect(() => {
     if (phase === "results") {
       setMobileResultsPage(0);
@@ -24879,6 +24422,22 @@ function handleTouchEnd(e) {
     if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
     socket.emit("ocid:clearProposal", { roundId }, () => {});
   }, [isOcidRound, ocidVote, roundId]);
+  const openSettingsPanel = React.useCallback(() => {
+    setIsSettingsOpen(true);
+  }, []);
+  const handleOcidProposalChange = React.useCallback((value) => {
+    setOcidProposal(value);
+    setOcidProposalPath([]);
+    setOcidProposalSubmitted("");
+  }, []);
+  const handleClearOcidProposal = React.useCallback(() => {
+    setOcidProposal("");
+    setOcidProposalPath([]);
+    ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
+    setOcidProposalSubmitted("");
+    setOcidStatusMessage("");
+    clearOcidProposalServer();
+  }, [clearOcidProposalServer]);
   const syncOcidProposalDraft = React.useCallback(
     ({ manual = false } = {}) => {
       if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
@@ -25156,7 +24715,7 @@ function handleTouchEnd(e) {
     !isTargetRound &&
     !isOcidRound &&
     !showOfflineResultsLabel;
-  const guidedResultsPages = guidedResultsEligible ? getResultsPages() : [];
+  const guidedResultsPages = guidedResultsEligible ? mobileResultPages : [];
   const guidedResultsPageKey = guidedResultsPages.length
     ? guidedResultsPages[clampValue(mobileResultsPage, 0, guidedResultsPages.length - 1)]
     : null;
@@ -25168,13 +24727,13 @@ function handleTouchEnd(e) {
       : null;
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
-    const pages = getResultsPages();
+    const pages = mobileResultPages;
     setMobileResultsPage((prev) => clampValue(prev, 0, pages.length - 1));
-  }, [isMobileLayout, phase, isTargetRound, specialRound, targetSummary]);
+  }, [isMobileLayout, phase, mobileResultPages, setMobileResultsPage]);
 
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
-    const pages = getResultsPages();
+    const pages = mobileResultPages;
     const pageKey = pages[clampValue(mobileResultsPage, 0, pages.length - 1)];
     if (pageKey === "round") setResultsRankingMode("round");
     if (pageKey === "total") setResultsRankingMode("total");
@@ -25189,7 +24748,7 @@ function handleTouchEnd(e) {
   }, [
     isMobileLayout,
     phase,
-    isTargetRound,
+    mobileResultPages,
     mobileResultsPage,
     showAllWords,
     displayList,
@@ -27546,7 +27105,7 @@ function handleTouchEnd(e) {
     return "En attente de la prochaine manche...";
   })();
 
-  const countdownLines = [countdownLabel];
+  const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
   const roundStartDelayed =
     phase === "results" &&
@@ -27736,7 +27295,7 @@ function handleTouchEnd(e) {
       }
       if (e.key === "End") {
         e.preventDefault();
-        goToFinalePage(getFinalePagesCount() - 1);
+        goToFinalePage(finalePagesCount - 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -27745,10 +27304,13 @@ function handleTouchEnd(e) {
     authModalMode,
     definitionModal.open,
     finalePage,
+    finalePagesCount,
+    goToFinalePage,
     isChatRulesOpen,
     isMobileLayout,
     isSettingsOpen,
     roundPlayerModal.open,
+    shiftFinalePage,
     showTournamentFinale,
     tournamentFinaleDismissKey,
     userMenu.open,
@@ -31665,1110 +31227,200 @@ function handleTouchEnd(e) {
   const settingsDangerButtonClass = menuDarkMode
     ? "bg-rose-950/55 border-rose-300/40 text-rose-50 hover:bg-rose-950/70"
     : "bg-rose-50/85 border-rose-300/60 text-rose-800 hover:bg-rose-100";
-  const settingsMenuView = isSettingsOpen ? (
-    <SettingsMenuFrame
+  const settingsMenuView = (
+    <SettingsMenu
+      ACCOUNT_SERVER_BUSY_MESSAGE={ACCOUNT_SERVER_BUSY_MESSAGE}
+      AUTH_MODAL_MODES={AUTH_MODAL_MODES}
+      BONUS_CLASSES={BONUS_CLASSES}
+      GridTileLetter={GridTileLetter}
+      MOBILE_GRID_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
+      MobileGrid={MobileGrid}
+      SOUND_MASTER_VOLUME_DEFAULT={SOUND_MASTER_VOLUME_DEFAULT}
+      TILE_LETTER_SCALE_DEFAULT={TILE_LETTER_SCALE_DEFAULT}
+      TILE_LETTER_SCALE_MAX={TILE_LETTER_SCALE_MAX}
+      TILE_LETTER_SCALE_MIN={TILE_LETTER_SCALE_MIN}
+      allSoundOn={allSoundOn}
+      allVisualOn={allVisualOn}
+      ambientOn={ambientOn}
+      applyModerationAction={applyModerationAction}
+      applyThemeDraftCategory={applyThemeDraftCategory}
+      applyThemeVisualState={applyThemeVisualState}
+      authState={authState}
+      buildThemeDraftWithOption={buildThemeDraftWithOption}
+      canVibrate={canVibrate}
+      clearDevChat={clearDevChat}
+      closeDevMenu={closeDevMenu}
+      closeKeyboardMenu={closeKeyboardMenu}
+      closeModerationMenu={closeModerationMenu}
+      closeSettingsMenu={closeSettingsMenu}
+      closeSoundMenu={closeSoundMenu}
+      closeThemeMenu={closeThemeMenu}
+      closeVisualMenu={closeVisualMenu}
+      computeThemeApplyMeta={computeThemeApplyMeta}
+      confirmThemePurchase={confirmThemePurchase}
+      darkMode={darkMode}
+      defaultTileBaseClass={defaultTileBaseClass}
+      devAccountAllowed={devAccountAllowed}
+      devAccountLabel={devAccountLabel}
+      devBots={devBots}
+      devControls={devControls}
+      devControlsAvailable={devControlsAvailable}
+      devControlsBusy={devControlsBusy}
+      devControlsLocked={devControlsLocked}
+      devError={devError}
+      devMenuUnlocked={devMenuUnlocked}
+      devPassword={devPassword}
+      devPasswordConfigured={devPasswordConfigured}
+      devPasswordRequired={devPasswordRequired}
+      devPlaytimeLimits={devPlaytimeLimits}
+      devRoundTypes={devRoundTypes}
+      enabledSoundCount={enabledSoundCount}
+      enabledVisualCount={enabledVisualCount}
+      fetchDevBots={fetchDevBots}
+      fetchDevPlaytimeLimits={fetchDevPlaytimeLimits}
+      fetchModerationState={fetchModerationState}
+      fillDevChat={fillDevChat}
+      getBonusBadgeClass={getBonusBadgeClass}
+      getBonusLetterRingClass={getBonusLetterRingClass}
+      getThemeUnlockItemKey={getThemeUnlockItemKey}
+      getTileColorSwatchStyle={getTileColorSwatchStyle}
+      getTileColorTextureStyle={getTileColorTextureStyle}
+      gobblarsBadgeUrl={gobblarsBadgeUrl}
+      gobblarsBalance={gobblarsBalance}
+      handleAccountLogout={handleAccountLogout}
+      handleSettingsTitleDevTap={handleSettingsTitleDevTap}
+      handleThemeAction={handleThemeAction}
+      handleThemeOptionBuy={handleThemeOptionBuy}
+      isAccountAuthenticated={isAccountAuthenticated}
+      isAuthServerUnavailable={isAuthServerUnavailable}
+      isAuthStatusPending={isAuthStatusPending}
+      isConnecting={isConnecting}
+      isDevMenuOpen={isDevMenuOpen}
+      isKeyboardMenuOpen={isKeyboardMenuOpen}
+      isMobileLayout={isMobileLayout}
+      isModerationMenuOpen={isModerationMenuOpen}
+      isOpen={isSettingsOpen}
+      isSoundMenuOpen={isSoundMenuOpen}
+      isThemeMenuOpen={isThemeMenuOpen}
+      isThemeOptionLockableGlobal={isThemeOptionLockableGlobal}
+      isThemeOptionUnlocked={isThemeOptionUnlocked}
+      isVibrationEnabled={isVibrationEnabled}
+      isVisualMenuOpen={isVisualMenuOpen}
+      keyboardRecallSubmittedWord={keyboardRecallSubmittedWord}
+      legacyProfileUsername={legacyProfileUsername}
+      lockDevControls={lockDevControls}
+      menuDarkMode={menuDarkMode}
+      moderationAccountLabel={moderationAccountLabel}
+      moderationAvailable={moderationAvailable}
+      moderationBusy={moderationBusy}
+      moderationError={moderationError}
+      moderationPlayers={moderationPlayers}
+      normalizeBonusLabel={normalizeBonusLabel}
+      normalizeLetterKey={normalizeLetterKey}
+      normalizeSoundMasterVolume={normalizeSoundMasterVolume}
+      normalizeThemePreset={normalizeThemePreset}
+      normalizeTileLetterScale={normalizeTileLetterScale}
+      openAuthDialog={openAuthDialog}
+      openDevMenu={openDevMenu}
+      openKeyboardMenu={openKeyboardMenu}
+      openModerationMenu={openModerationMenu}
+      openSoundMenu={openSoundMenu}
+      openThemeMenu={openThemeMenu}
+      openVisualMenu={openVisualMenu}
+      openTutorialFromHome={openTutorialFromHome}
+      patchDevControls={patchDevControls}
+      perfTestEnabled={perfTestEnabled}
+      playtimeLimit={playtimeLimit}
+      playtimeRemainingMs={playtimeRemainingMs}
+      refreshAuthStatus={refreshAuthStatus}
+      setPlaytimeLimitFromSettings={setPlaytimeLimitFromSettings}
+      clearDevPlaytimeLimit={clearDevPlaytimeLimit}
+      requestThemeResetDefault={requestThemeResetDefault}
+      returnToLobby={returnToLobby}
+      sendDevGlobalAnnouncement={sendDevGlobalAnnouncement}
+      setAllDevBotsActive={setAllDevBotsActive}
+      setAllSoundEnabled={setAllSoundEnabled}
+      setAllVisualEnabled={setAllVisualEnabled}
+      setDevBotActive={setDevBotActive}
+      setDevPassword={setDevPassword}
+      setIsAboutOpen={setIsAboutOpen}
+      setIsAmbientMuted={setIsAmbientMuted}
+      setIsSettingsOpen={setIsSettingsOpen}
+      setIsVibrationEnabled={setIsVibrationEnabled}
+      setKeyboardRecallSubmittedWord={setKeyboardRecallSubmittedWord}
+      setPerfTestEnabled={setPerfTestEnabled}
+      setShowHelp={setShowHelp}
+      setSoundGobbleEnabled={setSoundGobbleEnabled}
+      setSoundInvalidErrorEnabled={setSoundInvalidErrorEnabled}
+      setSoundMasterVolume={setSoundMasterVolume}
+      setSoundTileStepEnabled={setSoundTileStepEnabled}
+      setSoundTimerEnabled={setSoundTimerEnabled}
+      setSoundValidationEnabled={setSoundValidationEnabled}
+      setThemeApplied={setThemeApplied}
+      setThemeDraft={setThemeDraft}
+      setThemeLastChangedCategory={setThemeLastChangedCategory}
+      setThemePickerCategory={setThemePickerCategory}
+      setThemePurchaseConfirm={setThemePurchaseConfirm}
+      setTilePointsVisible={setTilePointsVisible}
+      setVisualConfettiEnabled={setVisualConfettiEnabled}
+      setVisualGobbleEnabled={setVisualGobbleEnabled}
+      setVisualInvalidWordsEnabled={setVisualInvalidWordsEnabled}
+      setVisualPraiseEnabled={setVisualPraiseEnabled}
+      setVisualScreenShakeEnabled={setVisualScreenShakeEnabled}
+      showDevDuelWeekRecap={showDevDuelWeekRecap}
       slideStyles={slideStyles}
-      onClose={() => closeSettingsMenu({ animatePanels: true })}
-    >
-      <div
-        className={`relative w-full max-w-xs rounded-2xl border-2 p-4 shadow-2xl ${settingsShellClass}`}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <button
-            type="button"
-            className="text-sm font-extrabold text-left"
-            onClick={handleSettingsTitleDevTap}
-          >
-            Parametres
-          </button>
-          <button
-            type="button"
-            className={`h-7 w-7 rounded-full border flex items-center justify-center ${
-              "bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950"
-            }`}
-            onClick={() => {
-              closeSettingsMenu({ animatePanels: true });
-            }}
-            aria-label="Fermer"
-          >
-            <span className="text-base leading-none">×</span>
-          </button>
-        </div>
-        <div className="flex flex-col gap-2 text-sm">
-          <div
-            className={`rounded-xl border px-3 py-3 ${
-              settingsPanelButtonClass
-            }`}
-          >
-            <div className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${menuDarkMode ? "text-amber-200" : "text-amber-700"}`}>
-              Compte
-            </div>
-            <div className="mt-1 text-sm font-semibold">
-              {isAccountAuthenticated
-                ? authState.user?.usernameDisplay || "Connecté"
-                : isAuthStatusPending
-                ? "Vérification..."
-                : isAuthServerUnavailable
-                ? "Serveur occupé"
-                : authState.status === "legacy_profile_found"
-                ? legacyProfileUsername || "Profil historique reconnu"
-                : "Non connecté"}
-            </div>
-            <div className={`mt-1 text-xs ${menuDarkMode ? "text-amber-50/70" : "text-slate-600"}`}>
-              {isAccountAuthenticated
-                ? "Session persistante active."
-                : isAuthStatusPending
-                ? "Recherche d'un profil existant sur cet appareil."
-                : isAuthServerUnavailable
-                ? ACCOUNT_SERVER_BUSY_MESSAGE
-                : authState.status === "legacy_profile_found"
-                ? "Ton profil a été reconnu. Sécurise-le pour conserver ton identité."
-                : "Connexion / inscription avec pseudo et mot de passe."}
-            </div>
-            <div className="mt-3 flex flex-col gap-2">
-              {isAccountAuthenticated ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
-                  >
-                    Changer le mot de passe
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAccountLogout}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsDangerButtonClass}`}
-                  >
-                    Déconnexion
-                  </button>
-                </>
-              ) : isAuthStatusPending || isAuthServerUnavailable ? (
-                <button
-                  type="button"
-                  disabled={isAuthStatusPending}
-                  onClick={() => refreshAuthStatus({ silent: false })}
-                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold disabled:opacity-60 ${settingsPanelButtonClass}`}
-                >
-                  {isAuthStatusPending ? "Vérification du profil..." : "Réessayer"}
-                </button>
-              ) : authState.status === "legacy_profile_found" ? (
-                <button
-                  type="button"
-                  onClick={() => openAuthDialog(AUTH_MODAL_MODES.CLAIM_LEGACY)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
-                >
-                  Sécuriser mon profil
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => openAuthDialog(AUTH_MODAL_MODES.REGISTER)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
-                  >
-                    Créer un compte
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openAuthDialog(AUTH_MODAL_MODES.LOGIN)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
-                  >
-                    Se connecter
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={openThemeMenu}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsPanelButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${
-                  menuDarkMode
-                    ? "border-amber-200/35 bg-slate-950/45 text-amber-200"
-                    : "border-amber-300/45 bg-white/70 text-amber-700"
-                }`}
-              >
-                {darkMode ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="4" />
-                    <path d="M12 2v2" />
-                    <path d="M12 20v2" />
-                    <path d="m4.93 4.93 1.41 1.41" />
-                    <path d="m17.66 17.66 1.41 1.41" />
-                    <path d="M2 12h2" />
-                    <path d="M20 12h2" />
-                    <path d="m6.34 17.66-1.41 1.41" />
-                    <path d="m19.07 4.93-1.41 1.41" />
-                  </svg>
-                )}
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Thème</span>
-                <span className="text-[10px] opacity-70">
-                  Personnaliser les tuiles et l'interface
-                </span>
-              </span>
-            </span>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold border border-amber-300/40 bg-amber-300/15 ${
-              menuDarkMode ? "text-amber-100" : "text-amber-800"
-            }`}>
-              <img src={gobblarsBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
-              {Math.max(0, Number(gobblarsBalance) || 0)}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={openSoundMenu}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              allSoundOn ? settingsPositiveButtonClass : settingsPanelButtonClass
-            }`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                volume_up
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Son</span>
-                <span className="text-[10px] opacity-70">
-                  {enabledSoundCount}/6 activés
-                </span>
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold opacity-70">
-              {allSoundOn ? "Tout On" : "Configurer"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={openVisualMenu}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              allVisualOn ? settingsPositiveButtonClass : settingsPanelButtonClass
-            }`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                visibility
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Affichage</span>
-                <span className="text-[10px] opacity-70">
-                  {enabledVisualCount}/5 effets actifs
-                </span>
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold opacity-70">
-              {allVisualOn ? "Tout On" : "Configurer"}
-            </span>
-          </button>
-          {!isMobileLayout ? (
-            <button
-              type="button"
-              onClick={openKeyboardMenu}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                keyboardRecallSubmittedWord ? settingsPositiveButtonClass : settingsPanelButtonClass
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">
-                  keyboard
-                </span>
-                <span className="inline-flex flex-col items-start leading-tight">
-                  <span className="font-semibold">Clavier</span>
-                  <span className="text-[10px] opacity-70">
-                    Rappel avec flèche haut
-                  </span>
-                </span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {keyboardRecallSubmittedWord ? "Envoyé" : "Valide"}
-              </span>
-            </button>
-          ) : null}
-          {devMenuUnlocked ? (
-            <button
-              type="button"
-              onClick={openDevMenu}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                devControls?.enabled ? settingsPositiveButtonClass : settingsMutedButtonClass
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">
-                  code
-                </span>
-                <span className="inline-flex flex-col items-start leading-tight">
-                  <span className="font-semibold">Dev</span>
-                  <span className="text-[10px] opacity-70">
-                    Tests locaux et bots
-                  </span>
-                </span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {devControls?.enabled ? "On" : "Off"}
-              </span>
-            </button>
-          ) : null}
-          {moderationAvailable ? (
-            <button
-              type="button"
-              onClick={openModerationMenu}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">
-                  shield
-                </span>
-                <span className="inline-flex flex-col items-start leading-tight">
-                  <span className="font-semibold">Moderation</span>
-                  <span className="text-[10px] opacity-70">
-                    Kick et bans temporaires
-                  </span>
-                </span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {moderationPlayers.length}
-              </span>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              if (!canVibrate) return;
-              setIsVibrationEnabled((v) => !v);
-            }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              !canVibrate
-                ? settingsMutedButtonClass
-                : vibrationOn
-                ? settingsPositiveButtonClass
-                : settingsDangerButtonClass
-            } ${canVibrate ? "" : "opacity-50 cursor-not-allowed"}`}
-            disabled={!canVibrate}
-          >
-            <span className="inline-flex items-center gap-2">
-              {isVibrationEnabled ? (
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m2 8 2 4-2 4" />
-                  <path d="m22 8-2 4 2 4" />
-                  <rect x="8" y="4" width="8" height="16" rx="1" />
-                </svg>
-              ) : (
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m2 8 2 4-2 4" />
-                  <path d="m22 8-2 4 2 4" />
-                  <rect x="8" y="4" width="8" height="16" rx="1" />
-                  <line x1="4" y1="4" x2="20" y2="20" />
-                </svg>
-              )}
-              <span>
-                {canVibrate
-                  ? isVibrationEnabled
-                    ? "Vibrations actives"
-                    : "Vibrations coupées"
-                  : "Vibrations indisponibles"}
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold opacity-70">
-              {canVibrate ? (isVibrationEnabled ? "On" : "Off") : "--"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsSettingsOpen(false);
-              setShowHelp(true);
-            }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                Aide
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              closeSettingsMenu({ animatePanels: true });
-              openTutorialFromHome();
-            }}
-            disabled={isConnecting}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 disabled:opacity-60 ${settingsMutedButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                school
-              </span>
-              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                Relire le didacticiel
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsSettingsOpen(false);
-              setIsAboutOpen(true);
-            }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                À propos
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={returnToLobby}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsGoldButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-              <span>Retour lobby</span>
-            </span>
-          </button>
-        </div>
-      </div>
-      <SettingsPanelHost
-        sound={{
-          isOpen: isSoundMenuOpen,
-          props: {
-            darkMode: menuDarkMode,
-            isOpen: isSoundMenuOpen,
-            enabledSoundCount,
-            allSoundOn,
-            soundMasterVolume,
-            ambientOn,
-            soundValidationEnabled,
-            soundInvalidErrorEnabled,
-            soundTileStepEnabled,
-            soundTimerEnabled,
-            soundGobbleEnabled,
-            onClose: closeSoundMenu,
-            onToggleAll: () => setAllSoundEnabled(!allSoundOn),
-            onMasterVolumeChange: (next) =>
-              setSoundMasterVolume(
-                normalizeSoundMasterVolume(next, SOUND_MASTER_VOLUME_DEFAULT)
-              ),
-            onToggleAmbient: () => setIsAmbientMuted((prev) => !prev),
-            onToggleValidation: () => setSoundValidationEnabled((prev) => !prev),
-            onToggleInvalidError: () => setSoundInvalidErrorEnabled((prev) => !prev),
-            onToggleTileStep: () => setSoundTileStepEnabled((prev) => !prev),
-            onToggleTimer: () => setSoundTimerEnabled((prev) => !prev),
-            onToggleGobble: () => setSoundGobbleEnabled((prev) => !prev),
-          },
-        }}
-        visual={{
-          isOpen: isVisualMenuOpen,
-          props: {
-            darkMode: menuDarkMode,
-            isOpen: isVisualMenuOpen,
-            enabledVisualCount,
-            allVisualOn,
-            visualGobbleEnabled,
-            visualPraiseEnabled,
-            visualInvalidWordsEnabled,
-            visualScreenShakeEnabled,
-            visualConfettiEnabled,
-            onClose: closeVisualMenu,
-            onToggleAll: () => setAllVisualEnabled(!allVisualOn),
-            onToggleGobble: () => setVisualGobbleEnabled((prev) => !prev),
-            onTogglePraise: () => setVisualPraiseEnabled((prev) => !prev),
-            onToggleInvalidWords: () => setVisualInvalidWordsEnabled((prev) => !prev),
-            onToggleScreenShake: () => setVisualScreenShakeEnabled((prev) => !prev),
-            onToggleConfetti: () => setVisualConfettiEnabled((prev) => !prev),
-          },
-        }}
-        keyboard={{
-          isOpen: isKeyboardMenuOpen,
-          props: {
-            darkMode: menuDarkMode,
-            isOpen: isKeyboardMenuOpen,
-            recallSubmittedWord: keyboardRecallSubmittedWord,
-            onClose: closeKeyboardMenu,
-            onToggleRecallSubmittedWord: () =>
-              setKeyboardRecallSubmittedWord((prev) => !prev),
-          },
-        }}
-        dev={{
-          isOpen: isDevMenuOpen,
-          props: {
-            darkMode: menuDarkMode,
-            isOpen: isDevMenuOpen,
-            available: devControlsAvailable,
-            locked: devControlsLocked,
-            accountAllowed: devAccountAllowed,
-            accountLabel: devAccountLabel,
-            passwordRequired: devPasswordRequired,
-            passwordConfigured: devPasswordConfigured,
-            controls: devControls,
-            roundTypes: devRoundTypes,
-            bots: devBots,
-            busy: devControlsBusy,
-            password: devPassword,
-            error: devError,
-            perfTestEnabled,
-            onClose: closeDevMenu,
-            onPerfTestToggle: setPerfTestEnabled,
-            onPasswordChange: setDevPassword,
-            onUnlock: unlockDevControls,
-            onLock: lockDevControls,
-            onPatch: patchDevControls,
-            onFillChat: fillDevChat,
-            onClearChat: clearDevChat,
-            onSendGlobalAnnouncement: sendDevGlobalAnnouncement,
-            onShowWeeklyRecap: showDevDuelWeekRecap,
-            onRefreshBots: fetchDevBots,
-            onSetBotActive: setDevBotActive,
-            onSetAllBotsActive: setAllDevBotsActive,
-          },
-        }}
-        moderation={{
-          isOpen: isModerationMenuOpen,
-          props: {
-            darkMode: menuDarkMode,
-            isOpen: isModerationMenuOpen,
-            available: moderationAvailable,
-            accountLabel: moderationAccountLabel,
-            players: moderationPlayers,
-            busy: moderationBusy,
-            error: moderationError,
-            onClose: closeModerationMenu,
-            onRefresh: fetchModerationState,
-            onAction: applyModerationAction,
-          },
-        }}
-      />
-      <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
-          isThemeMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          <div
-            className="shrink-0 px-4 py-3 border-b border-amber-200/25 bg-amber-300/10"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={closeThemeMenu}
-                className={`h-8 px-2 rounded-lg border text-xs font-semibold ${settingsGoldButtonClass}`}
-              >
-                Retour
-              </button>
-              <div className="text-sm font-extrabold tracking-wide">Thème</div>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold border border-amber-400/40 bg-amber-400/15 text-amber-100">
-                <img src={gobblarsBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
-                {gobblarsBalance}
-              </span>
-            </div>
-          </div>
+      soundGobbleEnabled={soundGobbleEnabled}
+      soundInvalidErrorEnabled={soundInvalidErrorEnabled}
+      soundMasterVolume={soundMasterVolume}
+      soundTileStepEnabled={soundTileStepEnabled}
+      soundTimerEnabled={soundTimerEnabled}
+      soundValidationEnabled={soundValidationEnabled}
+      themeApplying={themeApplying}
+      themeCategoryLabel={themeCategoryLabel}
+      themeControlButtons={themeControlButtons}
+      themeDraftSafe={themeDraftSafe}
+      themeFullActionLabel={themeFullActionLabel}
+      themeFullApplyMeta={themeFullApplyMeta}
+      themeFullChangedSummary={themeFullChangedSummary}
+      themeLastCategoryLabel={themeLastCategoryLabel}
+      themePickerCategory={themePickerCategory}
+      themePickerCurrentValue={themePickerCurrentValue}
+      themePickerOptions={themePickerOptions}
+      themePickerTitle={themePickerTitle}
+      themePickerViewMode={themePickerViewMode}
+      themePreviewBackgroundStyle={themePreviewBackgroundStyle}
+      themePreviewCells={themePreviewCells}
+      themePreviewEmptySet={themePreviewEmptySet}
+      themePreviewGap={themePreviewGap}
+      themePreviewGridRef={themePreviewGridRef}
+      themePreviewIsSquare={themePreviewIsSquare}
+      themePreviewMaterialClass={themePreviewMaterialClass}
+      themePreviewMobileGapPx={themePreviewMobileGapPx}
+      themePreviewMobileGridSide={themePreviewMobileGridSide}
+      themePreviewMobileTileFontPx={themePreviewMobileTileFontPx}
+      themePreviewNoop={themePreviewNoop}
+      themePreviewPadding={themePreviewPadding}
+      themePreviewTileColor={themePreviewTileColor}
+      themePreviewTileRefs={themePreviewTileRefs}
+      themePreviewUseBadge={themePreviewUseBadge}
+      themePreviewUseFill={themePreviewUseFill}
+      themePreviewUseRing={themePreviewUseRing}
+      themePurchaseConfirm={themePurchaseConfirm}
+      themeRecentlyUnlocked={themeRecentlyUnlocked}
+      themeUnlockAnimToken={themeUnlockAnimToken}
+      tileLetterColorValue={tileLetterColorValue}
+      tilePointsVisible={tilePointsVisible}
+      tileScore={tileScore}
+      unlockDevControls={unlockDevControls}
+      vibrationOn={vibrationOn}
+      visualConfettiEnabled={visualConfettiEnabled}
+      visualGobbleEnabled={visualGobbleEnabled}
+      visualInvalidWordsEnabled={visualInvalidWordsEnabled}
+      visualPraiseEnabled={visualPraiseEnabled}
+      visualScreenShakeEnabled={visualScreenShakeEnabled}
+    />
+  );
 
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            <div
-              className={`rounded-2xl border p-3 ${
-                darkMode ? "border-white/10 bg-slate-900/40" : "border-slate-200 bg-white/70"
-              }`}
-              style={themePreviewBackgroundStyle}
-            >
-              <div className="text-[11px] font-semibold uppercase tracking-widest opacity-80 text-center">
-                Aperçu en temps réel
-              </div>
-              {isMobileLayout ? (
-                <div className="mt-2">
-                  <MobileGrid
-                    board={themePreviewCells}
-                    BONUS_CLASSES={BONUS_CLASSES}
-                    bonusLetterKey=""
-                    bonusLetterScore={20}
-                    darkMode={darkMode}
-                    gridRef={themePreviewGridRef}
-                    gridShake={false}
-                    gridSize={4}
-                    gridRotationTurns={0}
-                    handleMouseDown={themePreviewNoop}
-                    handleMouseMove={themePreviewNoop}
-                    handleMouseUp={themePreviewNoop}
-                    handleTouchEnd={themePreviewNoop}
-                    handleTouchMove={themePreviewNoop}
-                    handleTouchStart={themePreviewNoop}
-                    hintCellSet={themePreviewEmptySet}
-                    hintOutlineCellSet={themePreviewEmptySet}
-                    implodeActive={false}
-                    isMobileLayout={true}
-                    lightGridSurfaceStyle={{}}
-                    MOBILE_LAYOUT_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
-                    mobileGapPx={themePreviewMobileGapPx}
-                    mobileGridSide={themePreviewMobileGridSide}
-                    mobileTileFontPx={themePreviewMobileTileFontPx}
-                    normalizeBonusLabel={normalizeBonusLabel}
-                    normalizeLetterKey={normalizeLetterKey}
-                    phase="playing"
-                    specialIndicatorPreset={themeDraftSafe.specialIndicator}
-                    specialSolvedOverlay={false}
-                    introHideTiles={false}
-                    defaultTileBaseClass={defaultTileBaseClass}
-                    tilePointsVisible={tilePointsVisible}
-                    tileRefs={themePreviewTileRefs}
-                    tileMaterialClass={themePreviewMaterialClass}
-                    tileColorPreset={themeDraftSafe.tileColor}
-                    tileScore={tileScore}
-                    tick={0}
-                    usedSet={themePreviewEmptySet}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="mt-2 grid bg-white border rounded-xl w-full"
-                  style={{
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: themePreviewGap,
-                    padding: themePreviewPadding,
-                    maxWidth: "100%",
-                  }}
-                >
-                    {themePreviewCells.map((cell, idx) => {
-                      const displayBonus = normalizeBonusLabel(cell.bonus);
-                      const useFillBonus =
-                        themePreviewUseFill && displayBonus && BONUS_CLASSES[displayBonus];
-                      const tileBaseClass = useFillBonus
-                        ? BONUS_CLASSES[displayBonus]
-                        : defaultTileBaseClass;
-                      const letterRingClass =
-                        themePreviewUseRing && displayBonus
-                          ? getBonusLetterRingClass(displayBonus)
-                          : "";
-                      return (
-                        <button
-                          key={`theme-preview-tile-${idx}`}
-                          type="button"
-                          className={`tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none ${themePreviewMaterialClass} ${tileBaseClass}`}
-                          style={{
-                            width: "100%",
-                            aspectRatio: "1 / 1",
-                            pointerEvents: "none",
-                            fontSize: "clamp(20px, 5vw, 32px)",
-                            borderColor: useFillBonus ? undefined : themePreviewTileColor.border,
-                            backgroundColor: useFillBonus ? undefined : themePreviewTileColor.bg,
-                            ...(getTileColorTextureStyle(idx, 4, themeDraftSafe.tileColor) || {}),
-                          }}
-                          aria-hidden="true"
-                        >
-                          <GridTileLetter cell={cell} className={letterRingClass} />
-                          {tilePointsVisible ? (
-                            <span className="tile-points">{tileScore(cell)}</span>
-                          ) : null}
-                          {displayBonus && (themePreviewUseFill || themePreviewUseBadge) ? (
-                            <span
-                              className={`absolute top-0 right-0 text-[0.6rem] px-1 py-0.5 rounded-full font-black shadow ${getBonusBadgeClass(
-                                displayBonus
-                              )}`}
-                              style={{
-                                transform: themePreviewIsSquare
-                                  ? "translate(-8%, 8%)"
-                                  : "translate(10%, -10%)",
-                              }}
-                            >
-                              {displayBonus}
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                </div>
-              )}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={requestThemeResetDefault}
-                  disabled={themeApplying}
-                  className={`rounded-xl border px-2 py-2 text-left text-[11px] font-semibold disabled:opacity-50 ${settingsPanelButtonClass}`}
-                >
-                  <div className="font-extrabold">Par défaut</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleThemeAction(themeFullApplyMeta)}
-                  disabled={
-                    themeApplying ||
-                    (themeFullApplyMeta.totalCost > 0 && !themeFullApplyMeta.canAfford)
-                  }
-                  className={`rounded-xl border px-2 py-2 text-left text-[11px] font-semibold disabled:opacity-50 ${settingsGoldButtonClass}`}
-                >
-                  <div className="font-extrabold">
-                    {themeFullActionLabel}
-                    {themeFullApplyMeta.totalCost > 0 ? ` (${themeFullApplyMeta.totalCost} G)` : ""}
-                  </div>
-                  <div className="mt-1 text-slate-900/80">
-                    {themeFullApplyMeta.changedCategories.length} paramètre(s) modifié(s)
-                  </div>
-                  <div className="mt-1 text-[10px] leading-4 text-slate-900/80 break-words">
-                    {themeFullChangedSummary}
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              {themeControlButtons.map((entry) => {
-                const selected = entry.kind === "picker" ? themePickerCategory === entry.id : false;
-                const buttonClass = `bg-slate-950/35 border-amber-200/25 text-amber-50 ${
-                  selected ? "ring-2 ring-amber-300 border-amber-300" : ""
-                }`;
-                return (
-                  <button
-                    key={`theme-control-${entry.id}`}
-                    type="button"
-                    title={entry.title}
-                    aria-label={entry.title}
-                    onClick={() => {
-                      if (entry.id === "darkMode") {
-                        const nextDarkMode = !themeDraftSafe.darkMode;
-                        const nextTheme = normalizeThemePreset({
-                          ...themeDraftSafe,
-                          darkMode: nextDarkMode,
-                        });
-                        setThemeLastChangedCategory("darkMode");
-                        setThemeDraft(nextTheme);
-                        setThemeApplied((prev) =>
-                          normalizeThemePreset({
-                            ...prev,
-                            darkMode: nextDarkMode,
-                          })
-                        );
-                        applyThemeVisualState(nextTheme);
-                        return;
-                      }
-                      if (entry.id === "tilePoints") {
-                        setTilePointsVisible((prev) => !prev);
-                        return;
-                      }
-                      setThemePickerCategory(entry.id);
-                    }}
-                    className={`relative aspect-square rounded-xl border ${buttonClass}`}
-                  >
-                    <span className="sr-only">{entry.title}</span>
-                    <span className="inline-flex h-full w-full items-center justify-center">
-                      {entry.id === "darkMode" ? (
-                        themeDraftSafe.darkMode ? (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-                          </svg>
-                        ) : (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="4" />
-                            <path d="M12 2v2" />
-                            <path d="M12 20v2" />
-                            <path d="m4.93 4.93 1.41 1.41" />
-                            <path d="m17.66 17.66 1.41 1.41" />
-                            <path d="M2 12h2" />
-                            <path d="M20 12h2" />
-                            <path d="m6.34 17.66-1.41 1.41" />
-                            <path d="m19.07 4.93-1.41 1.41" />
-                          </svg>
-                        )
-                      ) : null}
-                      {entry.id === "tileColor" ? (
-                        <span
-                          className="inline-flex h-6 w-6 rounded-md border"
-                          style={getTileColorSwatchStyle(themePreviewTileColor)}
-                        />
-                      ) : null}
-                      {entry.id === "font" ? (
-                        <span
-                          className="font-extrabold text-base"
-                          style={{
-                            fontFamily: "\"GobblePerfectPen\", \"KGPerfectPenmanship\", cursive",
-                          }}
-                        >
-                          Aa
-                        </span>
-                      ) : null}
-                      {entry.id === "letterScale" ? (
-                        <svg
-                          width="22"
-                          height="22"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <text
-                            x="7.5"
-                            y="14"
-                            textAnchor="middle"
-                            fontSize="8"
-                            fontWeight="700"
-                            fill="currentColor"
-                            stroke="none"
-                          >
-                            A
-                          </text>
-                          <line x1="15.5" y1="4.5" x2="15.5" y2="19.5" />
-                          <polyline points="13.8,6.2 15.5,4.5 17.2,6.2" />
-                          <polyline points="13.8,17.8 15.5,19.5 17.2,17.8" />
-                        </svg>
-                      ) : null}
-                      {entry.id === "letterColor" ? (
-                        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-                          <text
-                            x="12"
-                            y="16.5"
-                            textAnchor="middle"
-                            fontSize="16"
-                            fontWeight="900"
-                            fill={tileLetterColorValue}
-                            stroke="#111111"
-                            strokeWidth="1.2"
-                            paintOrder="stroke fill"
-                            style={{ filter: "drop-shadow(0 0 0.8px rgba(255,255,255,0.9))" }}
-                          >
-                            A
-                          </text>
-                        </svg>
-                      ) : null}
-                      {entry.id === "background" ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[18px] leading-none">
-                            format_paint
-                          </span>
-                          <span
-                            className="inline-flex h-3.5 w-3.5 rounded-sm border"
-                            style={themePreviewBackgroundStyle}
-                          />
-                        </span>
-                      ) : null}
-                      {entry.id === "material" ? (
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <rect
-                            x="3.5"
-                            y="3.5"
-                            width="12"
-                            height="12"
-                            rx="2.8"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <circle
-                            cx="14.5"
-                            cy="14.5"
-                            r="5.8"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      ) : null}
-                      {entry.id === "specialIndicator" ? (
-                        <span className="material-symbols-outlined text-[20px] leading-none">flare</span>
-                      ) : null}
-                      {entry.id === "tilePoints" ? (
-                        <span className="inline-flex items-center justify-center text-[13px] font-black leading-none">
-                          {tilePointsVisible ? "123" : "123/"}
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {themePickerCategory ? (
-          <div className="absolute inset-0 z-[2] flex items-center justify-center p-3">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setThemePickerCategory("")}
-              aria-label="Fermer sélecteur thème"
-            />
-            <div
-              className="relative w-full max-w-sm rounded-2xl border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] p-3 shadow-2xl text-amber-50"
-            >
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="text-sm font-extrabold">{themePickerTitle}</div>
-                <button
-                  type="button"
-                  onClick={() => setThemePickerCategory("")}
-                  className={`h-7 w-7 rounded-full border flex items-center justify-center ${settingsGoldButtonClass}`}
-                  aria-label="Fermer"
-                >
-                  <span className="text-base leading-none">×</span>
-                </button>
-              </div>
-              {themePickerViewMode === "slider" ? (
-                <div className="space-y-3 px-1 pb-1">
-                  <input
-                    type="range"
-                    min={TILE_LETTER_SCALE_MIN}
-                    max={TILE_LETTER_SCALE_MAX}
-                    step={0.02}
-                    value={normalizeTileLetterScale(themePickerCurrentValue, TILE_LETTER_SCALE_DEFAULT)}
-                    onChange={(e) => {
-                      applyThemeDraftCategory(themePickerCategory, Number(e.target.value));
-                    }}
-                    className="w-full accent-blue-500"
-                    aria-label="Taille des lettres"
-                  />
-                  <div className={`text-xs font-semibold flex items-center justify-between ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                    <span>Petit</span>
-                    <span>
-                      {Math.round(
-                        (normalizeTileLetterScale(
-                          themePickerCurrentValue,
-                          TILE_LETTER_SCALE_DEFAULT
-                        ) /
-                          TILE_LETTER_SCALE_DEFAULT) *
-                          100
-                      )}
-                      %
-                    </span>
-                    <span>Grand</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-h-[54vh] overflow-y-auto space-y-2 pr-1">
-                  {themePickerOptions.map((option) => {
-                    const selected = option.id === themePickerCurrentValue;
-                    const optionUnlockKey = getThemeUnlockItemKey(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionLockable = isThemeOptionLockableGlobal(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionUnlocked = isThemeOptionUnlocked(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionDraft = buildThemeDraftWithOption(
-                      themePickerCategory,
-                      option.id
-                    );
-                    const optionMeta = computeThemeApplyMeta(
-                      "single",
-                      themePickerCategory,
-                      optionDraft
-                    );
-                    const optionBuyCost =
-                      optionLockable && !optionUnlocked ? optionMeta.totalCost : 0;
-                    const optionCanAfford =
-                      optionBuyCost <= 0 ? true : gobblarsBalance >= optionBuyCost;
-                    const justUnlocked =
-                      themeRecentlyUnlocked.includes(optionUnlockKey) &&
-                      themeUnlockAnimToken > 0;
-                    const isPalette =
-                      themePickerViewMode === "palette" &&
-                      (themePickerCategory === "tileColor" ||
-                        themePickerCategory === "letterColor" ||
-                        themePickerCategory === "background");
-                    const optionStyle =
-                      themePickerCategory === "tileColor"
-                        ? getTileColorSwatchStyle(option)
-                        : themePickerCategory === "letterColor"
-                        ? {
-                            background: option.value,
-                            borderColor: "rgba(0, 0, 0, 0.2)",
-                          }
-                        : themePickerCategory === "background"
-                        ? {
-                            backgroundColor: option.style?.color || "#dbeafe",
-                            backgroundImage: option.style?.image || "none",
-                            backgroundSize: option.style?.size || "auto",
-                            borderColor: "rgba(0, 0, 0, 0.2)",
-                          }
-                        : null;
-                    return (
-                      <div
-                        key={`${themePickerCategory}-${option.id}`}
-                        className={`w-full rounded-xl border px-2 py-2 flex items-center justify-between gap-2 ${
-                          selected
-                            ? "border-amber-300 bg-amber-300/15"
-                            : "border-amber-200/25 bg-slate-950/35"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            applyThemeDraftCategory(themePickerCategory, option.id);
-                          }}
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <span className="inline-flex items-center gap-2 min-w-0">
-                            {isPalette ? (
-                              <span
-                                className="inline-flex h-6 w-6 rounded-md border shrink-0"
-                                style={optionStyle || undefined}
-                              />
-                            ) : null}
-                            <span
-                              className="truncate text-sm"
-                              style={
-                                themePickerViewMode === "font-list"
-                                  ? { fontFamily: option.family || undefined }
-                                  : undefined
-                              }
-                            >
-                              {option.label}
-                            </span>
-                          </span>
-                        </button>
-                        <div className="shrink-0 inline-flex items-center gap-1">
-                          {selected ? (
-                            <span className="material-symbols-outlined text-[18px] leading-none text-emerald-500">
-                              check_circle
-                            </span>
-                          ) : null}
-                          {optionLockable && !optionUnlocked ? (
-                            <span
-                              className={`material-symbols-outlined text-[16px] leading-none text-amber-500 ${
-                                justUnlocked ? "theme-unlock-pop" : ""
-                              }`}
-                            >
-                              lock
-                            </span>
-                          ) : null}
-                          {optionLockable && !optionUnlocked ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleThemeOptionBuy(themePickerCategory, option.id);
-                              }}
-                              disabled={themeApplying || !optionCanAfford}
-                              className={`h-7 px-2 rounded-lg border text-[11px] font-semibold ${
-                                darkMode
-                                  ? "bg-amber-600/90 border-amber-300/50 text-slate-950"
-                                  : "bg-amber-500 border-amber-300 text-slate-900"
-                              } disabled:opacity-50`}
-                            >
-                              Acheter{optionBuyCost > 0 ? ` (${optionBuyCost}G)` : ""}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {themePurchaseConfirm ? (
-          <div className="absolute inset-0 z-[3] flex items-center justify-center p-3">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/45"
-              onClick={() => setThemePurchaseConfirm(null)}
-              aria-label="Fermer confirmation achat thème"
-            />
-            <div
-              className="relative w-full max-w-sm rounded-2xl border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] p-4 shadow-2xl text-amber-50"
-            >
-              <div className="text-sm font-extrabold">Confirmation d'achat</div>
-              <div className="mt-2 text-[13px] leading-5 opacity-90">
-                {themePurchaseConfirm.mode === "single"
-                  ? `Déverrouiller ${themeLastCategoryLabel} pour ${themePurchaseConfirm.totalCost} Gobblars ?`
-                  : `Déverrouiller ce thème pour ${themePurchaseConfirm.totalCost} Gobblars ?`}
-              </div>
-              <div className="mt-2 text-[11px] leading-4 opacity-80 break-words">
-                Modifiés: {((themePurchaseConfirm.changedCategories || []).map((key) => themeCategoryLabel(key)).join(" · ")) || "Aucun"}
-              </div>
-              <div className="mt-2 text-[11px] opacity-80">
-                Solde: {gobblarsBalance} G
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setThemePurchaseConfirm(null)}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold ${settingsPanelButtonClass}`}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmThemePurchase}
-                  disabled={themeApplying || gobblarsBalance < themePurchaseConfirm.totalCost}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${settingsGoldButtonClass}`}
-                >
-                  Valider
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </SettingsMenuFrame>
-  ) : null;
   const accountMenuView = isAccountMenuOpen ? (
     <SettingsMenuFrame
       slideStyles={slideStyles}
@@ -33106,32 +31758,15 @@ function handleTouchEnd(e) {
       onClose={dismissBroadcastNotice}
     />
   ) : null;
-  const devGlobalAnnouncementOverlay =
-    devGlobalAnnouncement && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed left-0 right-0 top-4 px-3 pointer-events-none flex justify-center transition-all duration-500 ease-out"
-            style={{
-              zIndex: 2147483000,
-              opacity: devGlobalAnnouncement.visible ? 1 : 0,
-              transform: devGlobalAnnouncement.visible
-                ? "translateY(0)"
-                : "translateY(-14px)",
-            }}
-            aria-live="assertive"
-          >
-            <div className="max-w-3xl rounded-xl border border-red-200/80 bg-red-700/95 px-4 py-3 text-center text-white shadow-[0_18px_60px_rgba(127,29,29,0.45)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-100/90">
-                {devGlobalAnnouncement.title || "Annonce serveur"}
-              </div>
-              <div className="mt-1 whitespace-pre-wrap text-sm sm:text-base font-black leading-snug">
-                {devGlobalAnnouncement.body}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
+  const playtimeCountdownOverlay = (
+    <PlaytimeCountdownOverlay
+      visible={isLoggedIn && appView === "live" && !!playtimeLimit?.active}
+      remainingMs={playtimeRemainingMs}
+    />
+  );
+  const globalRedAnnouncementOverlay = (
+    <GlobalRedAnnouncementOverlay announcement={globalRedAnnouncement} />
+  );
   const perfTestOverlay = perfTestEnabled ? (
     <PerfTestOverlay phase={phase} roundId={roundId} />
   ) : null;
@@ -33470,7 +32105,8 @@ function handleTouchEnd(e) {
       {bootOverlay}
       {duelPopupOverlay}
       {duelWeekRecapOverlay}
-      {devGlobalAnnouncementOverlay}
+      {globalRedAnnouncementOverlay}
+      {playtimeCountdownOverlay}
       {perfTestOverlay}
       {playersOverlay}
       {userMenuView}
@@ -35027,7 +33663,8 @@ function handleTouchEnd(e) {
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
-        {devGlobalAnnouncementOverlay}
+        {globalRedAnnouncementOverlay}
+        {playtimeCountdownOverlay}
         {perfTestOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
@@ -35062,7 +33699,7 @@ function handleTouchEnd(e) {
           onOpenDaily={openDailyHome}
           onOpenDuel={openDuelPage}
           onOpenPlayers={openPlayersOverlayAlpha}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSettings={openSettingsPanel}
           onOpenStats={openWeeklyStatsOverlay}
           onOpenVault={openWordVaultPage}
           onPlay={handleLoginOrResume}
@@ -35082,7 +33719,8 @@ function handleTouchEnd(e) {
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
-        {devGlobalAnnouncementOverlay}
+        {globalRedAnnouncementOverlay}
+        {playtimeCountdownOverlay}
         {perfTestOverlay}
         {broadcastPopupOverlay}
         {vaultWordOfDayOverlay}
@@ -36481,7 +35119,7 @@ function handleTouchEnd(e) {
           }
           mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
           mobileViewportContainerStyle={mobileViewportContainerStyle}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSettings={openSettingsPanel}
           praiseOverlay={praiseOverlay}
           slideStyles={slideStyles}
         />
@@ -36999,7 +35637,7 @@ function handleTouchEnd(e) {
           mobileSpecial3SecondSlotRef={mobileSpecial3SecondSlotRef}
           mobileSpecial3TutorialHostRef={mobileSpecial3TutorialHostRef}
           mobileViewportContainerStyle={mobileViewportContainerStyle}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSettings={openSettingsPanel}
           praiseOverlay={praiseOverlay}
           progressRatio={progressRatio}
           remainingSec={remainingSec}
@@ -37205,7 +35843,7 @@ function handleTouchEnd(e) {
           };
 
     if (isResults) {
-      const resultsPages = getResultsPages();
+      const resultsPages = mobileResultPages;
       const safeResultsPage = clampValue(mobileResultsPage, 0, resultsPages.length - 1);
       const resultsPageKey = resultsPages[safeResultsPage];
       const showVocabPage = resultsPageKey === "vocab";
@@ -37414,7 +36052,7 @@ function handleTouchEnd(e) {
             onGoToResultsPage={goToResultsPage}
             onOpenPlayerProfile={stableOpenPlayerProfile}
             onOpenRoundPlayerModal={openRoundPlayerModal}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={openSettingsPanel}
             onOpenWordInfoModal={openWordInfoModal}
             onSetShowHelp={setShowHelp}
             onToggleDarkMode={toggleDarkModeQuick}
@@ -37538,22 +36176,11 @@ function handleTouchEnd(e) {
         onOpenDefinition={openDefinition}
         onOpenPlayerProfile={stableOpenPlayerProfile}
         onOpenPlayersOverlaySnapshot={openPlayersOverlaySnapshot}
-        onOcidProposalChange={(value) => {
-          setOcidProposal(value);
-          setOcidProposalPath([]);
-          setOcidProposalSubmitted("");
-        }}
-        onClearOcidProposal={() => {
-          setOcidProposal("");
-          setOcidProposalPath([]);
-          ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
-          setOcidProposalSubmitted("");
-          setOcidStatusMessage("");
-          clearOcidProposalServer();
-        }}
+        onOcidProposalChange={handleOcidProposalChange}
+        onClearOcidProposal={handleClearOcidProposal}
         onSubmitOcidProposal={submitOcidProposal}
         onSubmitOcidVote={submitOcidVote}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={openSettingsPanel}
         onRotateGrid={rotateGridClockwise}
         onSetShowHelp={setShowHelp}
         onToggleDarkMode={toggleDarkModeQuick}
@@ -38373,99 +37000,38 @@ function handleTouchEnd(e) {
                   ) : null}
                 </svg>
               ) : null}
-              {boardForRender.map((_, displayIndex) => {
-                const boardIndex = mapDisplayToBoardIndex(
-                  displayIndex,
-                  gridSize,
-                  gridRotationTurns
-                );
-                const cell = boardForRender[boardIndex] || { letter: "?", bonus: null };
-                const { letter, bonus } = cell;
-                const displayBonus = normalizeBonusLabel(bonus);
-                const isUsed = usedSet.has(boardIndex);
-                const isBonusLetterTile =
-                  bonusLetterKey && normalizeLetterKey(letter) === bonusLetterKey;
-                const isHint = hintCellSet.has(boardIndex);
-                const isHintOutline = hintOutlineCellSet.has(boardIndex);
-                const shouldShowHint = isHint;
-                const shouldShowHintOutline = isHintOutline;
-                const letterPts = isBonusLetterTile
-                  ? bonusLetterScore ?? 20
-                  : tileScore(cell);
-                const useFillIndicator = specialIndicatorPreset === "fill";
-                const useRingIndicator = specialIndicatorPreset === "ring";
-                const useBadgeIndicator = specialIndicatorPreset === "badge";
-                const bonusClass = isBonusLetterTile
-                  ? "bonus-letter-tile"
-                  : useFillIndicator && displayBonus
-                  ? BONUS_CLASSES[displayBonus]
-                  : defaultTileBaseClass;
-                const highlightClass = phase === "playing" ? "" : isUsed ? "tile-used" : "";
-                const hintClass = shouldShowHint ? "tile-hint" : "";
-                const hintOutlineClass = shouldShowHintOutline ? "tile-hint-outline" : "";
-                const hintStyle =
-                  (shouldShowHint ? hintCellStyleMap.get(boardIndex) : null) ||
-                  (shouldShowHintOutline ? hintOutlineStyleMap.get(boardIndex) : null) ||
-                  null;
-                const hintOverlayStyle =
-                  (shouldShowHint ? hintCellOverlayStyleMap.get(boardIndex) : null) ||
-                  (shouldShowHintOutline ? hintOutlineOverlayStyleMap.get(boardIndex) : null) ||
-                  null;
-                const letterRingClass =
-                  !isBonusLetterTile && useRingIndicator && displayBonus
-                    ? getBonusLetterRingClass(displayBonus)
-                    : "";
-                const showBonusBadge =
-                  !isBonusLetterTile &&
-                  useBadgeIndicator &&
-                  displayBonus &&
-                  !bonusLetterKey;
-                const isSpecialStartTileLocked = special3LockedStartTileSet.has(boardIndex);
-                const tileClassName = [
-                  "tile-cell relative rounded-lg flex items-center justify-center font-extrabold select-none focus:outline-none focus:ring-0",
-                  tileMaterialClass,
-                  bonusClass,
-                  highlightClass,
-                  hintClass,
-                  hintOutlineClass,
-                  isSpecialStartTileLocked ? "daily-special-start-used" : "",
-                  mobileRoundIntroHideTiles ? "opacity-0 pointer-events-none" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ");
-                const tileStyle = {
-                  width: "100%",
-                  aspectRatio: "1 / 1",
-                  willChange: "transform",
-                  touchAction: "none",
-                  WebkitUserSelect: "none",
-                  WebkitTouchCallout: "none",
-                  fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
-                  ...(hintStyle || {}),
-                  ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
-                };
-
-                return (
-                  <GridTileButton
-                    key={displayIndex}
-                    boardIndex={boardIndex}
-                    cell={cell}
-                    className={tileClassName}
-                    displayBonus={displayBonus}
-                    hintOverlayStyle={hintOverlayStyle}
-                    isSquareMaterial={isSquareMaterial}
-                    isSpecialStartTileLocked={isSpecialStartTileLocked}
-                    letterPts={letterPts}
-                    letterRingClass={letterRingClass}
-                    showBonusBadge={!!(displayBonus && (useFillIndicator || showBonusBadge))}
-                    style={tileStyle}
-                    trackTraceUsed={phase === "playing"}
-                    tilePointsVisible={roundTilePointsVisible}
-                    tileRefs={tileRefs}
-                  />
-
-                );
-              })}
+              <DesktopLiveGrid
+                board={boardForRender}
+                BONUS_CLASSES={BONUS_CLASSES}
+                bonusLetterKey={bonusLetterKey}
+                bonusLetterScore={bonusLetterScore}
+                defaultTileBaseClass={defaultTileBaseClass}
+                getTileColorTextureStyle={getTileColorTextureStyle}
+                gridRotationTurns={gridRotationTurns}
+                gridSize={gridSize}
+                hintCellOverlayStyleMap={hintCellOverlayStyleMap}
+                hintCellSet={hintCellSet}
+                hintCellStyleMap={hintCellStyleMap}
+                hintOutlineCellSet={hintOutlineCellSet}
+                hintOutlineOverlayStyleMap={hintOutlineOverlayStyleMap}
+                hintOutlineStyleMap={hintOutlineStyleMap}
+                isMobileLayout={isMobileLayout}
+                isSquareMaterial={isSquareMaterial}
+                mapDisplayToBoardIndex={mapDisplayToBoardIndex}
+                mobileRoundIntroHideTiles={mobileRoundIntroHideTiles}
+                normalizeBonusLabel={normalizeBonusLabel}
+                normalizeLetterKey={normalizeLetterKey}
+                phase={phase}
+                roundTilePointsVisible={roundTilePointsVisible}
+                special3LockedStartTileSet={special3LockedStartTileSet}
+                specialIndicatorPreset={specialIndicatorPreset}
+                tileColorPreset={tileColorPreset}
+                tileFontPx={tileFontPx}
+                tileMaterialClass={tileMaterialClass}
+                tileRefs={tileRefs}
+                tileScore={tileScore}
+                usedSet={usedSet}
+              />
             </div>
             {!isMobileLayout ? special3DragGhost : null}
             {!isMobileLayout ? special3InGameTutorialCard : null}

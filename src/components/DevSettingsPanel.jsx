@@ -14,6 +14,7 @@ export default function DevSettingsPanel({
   controls = {},
   roundTypes = [],
   bots = [],
+  playtimeLimits = [],
   busy = false,
   password = "",
   error = "",
@@ -28,6 +29,8 @@ export default function DevSettingsPanel({
   onClearChat = null,
   onSendGlobalAnnouncement = null,
   onShowWeeklyRecap = null,
+  onRefreshPlaytimeLimits = null,
+  onClearPlaytimeLimit = null,
   onRefreshBots = null,
   onSetBotActive = null,
   onSetAllBotsActive = null,
@@ -40,6 +43,10 @@ export default function DevSettingsPanel({
     globalAnnouncementDraftCache = safe;
     setGlobalAnnouncementText(safe);
   }, []);
+  React.useEffect(() => {
+    if (!isOpen || locked || !available) return;
+    if (typeof onRefreshPlaytimeLimits === "function") onRefreshPlaytimeLimits();
+  }, [available, isOpen, locked, onRefreshPlaytimeLimits]);
   const panelClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] border-amber-300/70 text-amber-50"
     : "bg-[linear-gradient(180deg,rgba(255,250,232,0.98),rgba(226,238,255,0.99))] border-amber-300/80 text-slate-900";
@@ -68,6 +75,12 @@ export default function DevSettingsPanel({
   const activeBotCount = Array.isArray(bots)
     ? bots.filter((bot) => !!bot?.active).length
     : 0;
+  const formatDurationMs = (value) => {
+    const total = Math.max(0, Math.ceil((Number(value) || 0) / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    return h > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
+  };
   const selectedRoundTypes = Array.isArray(controls?.forcedRoundTypes)
     ? controls.forcedRoundTypes
     : controls?.forcedRoundType
@@ -274,6 +287,56 @@ export default function DevSettingsPanel({
             >
               Envoyer a tous
             </button>
+          </div>
+          <div className={`rounded-xl border px-3 py-3 ${mutedClass}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest opacity-75">
+                Limites de temps
+              </span>
+              <button
+                type="button"
+                disabled={busy || !canUseTools}
+                onClick={onRefreshPlaytimeLimits}
+                className={`rounded-lg border px-2 py-1 text-[11px] font-semibold disabled:opacity-50 ${buttonClass}`}
+              >
+                Maj
+              </button>
+            </div>
+            <div className="mt-2 space-y-1">
+              {Array.isArray(playtimeLimits) && playtimeLimits.length ? (
+                playtimeLimits.map((entry) => (
+                  <div
+                    key={entry.userId}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/25 bg-white/10 px-2 py-1.5 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-bold">
+                        {entry.username || `#${entry.userId}`}
+                      </div>
+                      <div className="text-[10px] opacity-75">
+                        {formatDurationMs(entry.remainingMs)} / {formatDurationMs(entry.limitMs)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy || !canUseTools}
+                      onClick={() =>
+                        typeof onClearPlaytimeLimit === "function"
+                          ? onClearPlaytimeLimit(entry.userId)
+                          : null
+                      }
+                      className={`shrink-0 rounded-lg border px-2 py-1 text-[11px] font-semibold disabled:opacity-50 ${buttonClass}`}
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="py-2 text-xs font-semibold opacity-70">
+                  Aucun joueur avec limite active.
+                </div>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button

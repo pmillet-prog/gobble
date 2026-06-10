@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function MobileHeader({
+function MobileHeader({
   activeRoom,
   countdownLines,
   darkMode,
@@ -157,3 +157,5 @@ export default function MobileHeader({
     </div>
   );
 }
+
+export default React.memo(MobileHeader);

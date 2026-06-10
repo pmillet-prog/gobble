@@ -11,6 +11,9 @@ export default function VisualSettingsPanel({
   visualScreenShakeEnabled = false,
   visualConfettiEnabled = false,
   onClose = null,
+  onOpenTheme = null,
+  themeBalance = 0,
+  themeBadgeUrl = "",
   onToggleAll = null,
   onToggleGobble = null,
   onTogglePraise = null,
@@ -63,13 +66,34 @@ export default function VisualSettingsPanel({
             >
               Retour
             </button>
-            <div className="text-sm font-extrabold tracking-wide">Affichage</div>
+            <div className="text-sm font-extrabold tracking-wide">Apparence</div>
             <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
               {enabledVisualCount}/5
             </span>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
+          <button
+            type="button"
+            onClick={onOpenTheme}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${mutedClass}`}
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] leading-none">
+                palette
+              </span>
+              <span className="inline-flex flex-col items-start leading-tight">
+                <span className="font-semibold">Thème</span>
+                <span className="text-[10px] opacity-70">
+                  Tuiles, lettres et interface
+                </span>
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold border border-amber-300/40 bg-amber-300/15">
+              {themeBadgeUrl ? <img src={themeBadgeUrl} alt="" className="h-3.5 w-3.5 rounded-full" /> : null}
+              {Math.max(0, Number(themeBalance) || 0)}
+            </span>
+          </button>
           <button
             type="button"
             onClick={onToggleAll}

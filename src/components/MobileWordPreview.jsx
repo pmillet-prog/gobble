@@ -7,7 +7,7 @@ import {
 
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 
-export default function MobileWordPreview({
+function MobileWordPreview({
   countdownLines,
   currentDisplay,
   darkMode,
@@ -177,3 +177,5 @@ export default function MobileWordPreview({
     </div>
   );
 }
+
+export default React.memo(MobileWordPreview);

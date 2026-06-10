@@ -147,6 +147,19 @@ function MobileStandardPlaying(props) {
         )
       )
     : specialWordFont;
+  const previewStats = React.useMemo(
+    () => ({
+      show: showPreviewStats,
+      wordsFoundLabel,
+      totalWordsLabel,
+      scoreLabel,
+      totalScoreLabel,
+    }),
+    [showPreviewStats, wordsFoundLabel, totalWordsLabel, scoreLabel, totalScoreLabel]
+  );
+  const closeHelpOverlay = React.useCallback(() => {
+    onSetShowHelp?.(false);
+  }, [onSetShowHelp]);
 
   return (
     <>
@@ -189,7 +202,7 @@ function MobileStandardPlaying(props) {
         <HelpOverlay
           open={showHelp}
           darkMode={darkMode}
-          onClose={() => onSetShowHelp?.(false)}
+          onClose={closeHelpOverlay}
         />
 
         <div
@@ -474,13 +487,7 @@ function MobileStandardPlaying(props) {
               previewBlockHeight={previewBlockHeight}
               previewGapPx={previewGapPx}
               previewTileBaseStyle={previewTileBaseStyle}
-              previewStats={{
-                show: showPreviewStats,
-                wordsFoundLabel,
-                totalWordsLabel,
-                scoreLabel,
-                totalScoreLabel,
-              }}
+              previewStats={previewStats}
               traceBoard={traceBoard}
               shake={shake}
             />

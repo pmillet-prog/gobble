@@ -138,7 +138,7 @@ const HELP_SECTIONS = [
   },
 ];
 
-export default function HelpOverlay({ open = false, darkMode = false, onClose = null }) {
+function HelpOverlay({ open = false, darkMode = false, onClose = null }) {
   React.useEffect(() => {
     if (!open || typeof window === "undefined") return undefined;
     const onKeyDown = (event) => {
@@ -220,3 +220,5 @@ export default function HelpOverlay({ open = false, darkMode = false, onClose = 
     document.body
   );
 }
+
+export default React.memo(HelpOverlay);
