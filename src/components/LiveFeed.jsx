@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export function buildMixedFeed({ announcements = [], lastWords = [] }) {
   const annWithTs = (announcements || [])
-    .map((a) => {
+    .map((a, index) => {
       // IMPORTANT: pas de Date.now() ici (sinon les anciennes annonces "ressortent" en permanence)
       // et cassent la chronologie du flux.
       const rawTs = a?.ts ?? a?.id ?? 0;
@@ -10,6 +10,7 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
       return {
         ...a,
         ts,
+        order: Number.isFinite(a?.order) ? a.order : index,
         id: a?.id ?? `ann-${ts}-${a?.type || "generic"}-${a?.nick || ""}`,
         kind: "announcement",
       };
@@ -47,7 +48,7 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
   const bucket = new Map(); // key -> { idxs: number[], p, types: Set<string> }
   const filteredAnn = [];
   filteredAnnRaw.forEach((a) => {
-    const tsBucket = Math.floor((a.ts || Date.now()) / 1000);
+    const tsBucket = Math.floor((a.ts || 0) / 1000);
     const key = `${a.nick || "_"}|${tsBucket}`;
     const p = PRIORITY[a.type] ?? 0;
     const isSuper = SUPER_TYPES.has(a.type);
@@ -72,12 +73,14 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
     // si priorité plus faible ou égale, on ignore l'annonce courante
   });
 
-  const wordItems = (lastWords || []).map((w) => {
-    const ts = w.ts || w.id || Date.now();
-    const id = w.id ?? ts;
+  const wordItems = (lastWords || []).map((w, index) => {
+    const rawTs = w?.ts ?? w?.id ?? 0;
+    const ts = Number.isFinite(rawTs) ? rawTs : Number(rawTs) || 0;
+    const id = w.id ?? `${ts}-${index}-${w.display || ""}`;
     return {
       id: `word-${id}`,
       ts,
+      order: Number.isFinite(w?.order) ? w.order : index,
       kind: "word",
       display: w.display || "",
       pts: w.pts,
@@ -90,7 +93,9 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
     };
   });
 
-  const merged = [...filteredAnn, ...wordItems].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const merged = [...filteredAnn, ...wordItems].sort(
+    (a, b) => (a.ts || 0) - (b.ts || 0) || (a.order || 0) - (b.order || 0)
+  );
 
   return merged;
 }
@@ -133,7 +138,10 @@ function LiveFeed({
   }, []);
 
   const sortedItems = useMemo(
-    () => [...(items || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0)),
+    () =>
+      [...(items || [])].sort(
+        (a, b) => (b.ts || 0) - (a.ts || 0) || (b.order || 0) - (a.order || 0)
+      ),
     [items]
   );
 

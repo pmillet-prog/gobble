@@ -11,6 +11,7 @@ function MobileChatLayer(props) {
     chatEditTarget = null,
     chatInput = "",
     chatInputDisabled = false,
+    chatFocusPreserveKey = "",
     chatInputPlaceholder = "",
     chatInputRef = null,
     chatInputType = "text",
@@ -64,6 +65,7 @@ function MobileChatLayer(props) {
   return (
     <ChatWidget
       chatInput={chatInput}
+      chatFocusPreserveKey={chatFocusPreserveKey}
       chatInputRef={chatInputRef}
       chatInputType={chatInputType}
       chatInputDisabled={chatInputDisabled}

@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
+import { mkdir, rename, writeFile } from "fs/promises";
 import path from "path";
 
 const PARIS_TIME_ZONE = "Europe/Paris";
@@ -9,6 +10,9 @@ const MIN_LIMIT_MS = 5 * MINUTE_MS;
 
 let dataFilePath = "";
 const limitsByUserId = new Map();
+let persistTimer = null;
+let persistInFlight = false;
+let persistQueued = false;
 
 function normalizeUserId(userId) {
   const safe = Number(userId);
@@ -94,22 +98,52 @@ function toPublicStatus(entry, now = Date.now()) {
   };
 }
 
-function persist() {
+function buildPersistPayload() {
+  const now = Date.now();
+  const limits = Array.from(limitsByUserId.values()).filter((entry) =>
+    isEntryForToday(entry, now)
+  );
+  return JSON.stringify({ version: 1, updatedAt: Date.now(), limits }, null, 2);
+}
+
+async function flushPersistQueue() {
   if (!dataFilePath) return;
+  if (persistInFlight) {
+    persistQueued = true;
+    return;
+  }
+  if (!persistQueued) return;
+
+  persistQueued = false;
+  persistInFlight = true;
   try {
-    mkdirSync(path.dirname(dataFilePath), { recursive: true });
-    const now = Date.now();
-    const limits = Array.from(limitsByUserId.values()).filter((entry) =>
-      isEntryForToday(entry, now)
-    );
-    writeFileSync(
-      dataFilePath,
-      JSON.stringify({ version: 1, updatedAt: Date.now(), limits }, null, 2),
-      "utf8"
-    );
+    await mkdir(path.dirname(dataFilePath), { recursive: true });
+    const tmpPath = `${dataFilePath}.${process.pid}.tmp`;
+    await writeFile(tmpPath, buildPersistPayload(), "utf8");
+    await rename(tmpPath, dataFilePath);
   } catch (err) {
     console.warn("[playtime] save failed", err?.message || err);
+  } finally {
+    persistInFlight = false;
+    if (persistQueued) {
+      void flushPersistQueue();
+    }
   }
+}
+
+function persist({ immediate = false } = {}) {
+  if (!dataFilePath) return;
+  persistQueued = true;
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  const delayMs = immediate ? 0 : 750;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void flushPersistQueue();
+  }, delayMs);
+  persistTimer.unref?.();
 }
 
 export function initPlaytimeLimitService({ dataDir } = {}) {
@@ -136,7 +170,7 @@ export function getPlaytimeLimitStatus(userId, now = Date.now()) {
   if (!entry) return toPublicStatus(null, now);
   if (!isEntryForToday(entry, now)) {
     limitsByUserId.delete(key);
-    persist();
+    persist({ immediate: true });
     return toPublicStatus(null, now);
   }
   return toPublicStatus(entry, now);
@@ -152,7 +186,7 @@ export function setPlaytimeLimit({ userId, username = "", limitMs }) {
       return { ok: false, error: "already_active" };
     }
     limitsByUserId.delete(key);
-    persist();
+    persist({ immediate: true });
   }
   const entry = normalizeEntry(
     {
@@ -168,7 +202,7 @@ export function setPlaytimeLimit({ userId, username = "", limitMs }) {
   );
   if (!entry) return { ok: false, error: "invalid_limit" };
   limitsByUserId.set(key, entry);
-  persist();
+  persist({ immediate: true });
   return { ok: true, status: toPublicStatus(entry, now) };
 }
 
@@ -180,7 +214,7 @@ export function addPlaytimeUsage({ userId, deltaMs, username = "" }) {
   const now = Date.now();
   if (!isEntryForToday(existing, now)) {
     limitsByUserId.delete(key);
-    persist();
+    persist({ immediate: true });
     return { ok: true, status: toPublicStatus(null, now) };
   }
   const safeDelta = Math.max(0, Math.min(5 * MINUTE_MS, Math.round(Number(deltaMs) || 0)));
@@ -199,7 +233,7 @@ export function clearPlaytimeLimit(userId) {
   const key = normalizeUserId(userId);
   if (!key) return { ok: false, error: "invalid_user" };
   const removed = limitsByUserId.delete(key);
-  if (removed) persist();
+  if (removed) persist({ immediate: true });
   return { ok: true, removed };
 }
 

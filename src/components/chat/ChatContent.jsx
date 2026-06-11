@@ -195,6 +195,7 @@ export default function ChatContent({
   selfInstallId,
   chatInput,
   setChatInput,
+  chatFocusPreserveKey = "",
   chatInputRef,
   chatInputDisabled,
   chatInputPlaceholder,
@@ -221,6 +222,8 @@ export default function ChatContent({
   const stickToBottomRef = useRef(true);
   const longPressTimerRef = useRef(null);
   const pointerStateRef = useRef(null);
+  const inputWasFocusedRef = useRef(false);
+  const recentInputFocusUntilRef = useRef(0);
   const suppressClickRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
   const [swipePreview, setSwipePreview] = React.useState(null);
@@ -286,6 +289,19 @@ export default function ChatContent({
       })
       .join("|");
   }, [visibleMessages]);
+  const lastVisibleMessageIsOwn = React.useMemo(() => {
+    if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) return false;
+    const last = visibleMessages[visibleMessages.length - 1];
+    if (!last || typeof last !== "object") return false;
+    const author = String(last.nick || last.author || "").trim();
+    if (isSystemAuthor(author)) return false;
+    const authorInstallId = typeof last.installId === "string" ? last.installId.trim() : "";
+    const ownInstallId = typeof selfInstallId === "string" ? selfInstallId.trim() : "";
+    if (authorInstallId && ownInstallId) return authorInstallId === ownInstallId;
+    const ownNick = typeof selfNick === "string" ? selfNick.trim() : "";
+    return !!author && !!ownNick && author === ownNick;
+  }, [visibleMessages, selfInstallId, selfNick]);
+  const lastForcedOwnAutoScrollKeyRef = useRef("");
 
   const clearLongPressTimer = React.useCallback(() => {
     if (!longPressTimerRef.current) return;
@@ -354,7 +370,7 @@ export default function ChatContent({
         autoScrollRafRef.current = window.requestAnimationFrame(scrollToBottom);
       });
       autoScrollRafRef.current = raf1;
-      [80, 180].forEach((delayMs) => {
+      [80, 180, 360].forEach((delayMs) => {
         const id = window.setTimeout(scrollToBottom, delayMs);
         autoScrollTimersRef.current.push(id);
       });
@@ -381,11 +397,20 @@ export default function ChatContent({
 
   useEffect(() => {
     if (!isOpen) return undefined;
-    scheduleAutoScroll();
+    const shouldForceOwnMessage =
+      !isSystemTab &&
+      lastVisibleMessageIsOwn &&
+      lastVisibleMessageKey !== lastForcedOwnAutoScrollKeyRef.current;
+    if (shouldForceOwnMessage) {
+      lastForcedOwnAutoScrollKeyRef.current = lastVisibleMessageKey;
+    }
+    scheduleAutoScroll({ force: shouldForceOwnMessage });
     return clearAutoScroll;
   }, [
     isOpen,
+    isSystemTab,
     lastVisibleMessageKey,
+    lastVisibleMessageIsOwn,
     visibleMessagesLayoutKey,
     chatKeyboardInsetPx,
     keyboardInsetReservePx,
@@ -399,6 +424,39 @@ export default function ChatContent({
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
   }, [chatInput, chatTab, isOpen, isSystemTab]);
+
+  useEffect(() => {
+    if (!isOpen || isSystemTab || chatInputDisabled || typeof window === "undefined") {
+      return undefined;
+    }
+    const el = localTextareaRef.current;
+    if (!el || typeof document === "undefined") return undefined;
+    if (document.activeElement === el) {
+      inputWasFocusedRef.current = true;
+      return undefined;
+    }
+    const recentlyFocused = recentInputFocusUntilRef.current > Date.now();
+    if (!inputWasFocusedRef.current && !recentlyFocused) return undefined;
+
+    const rafId = window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      const focusMovedElsewhere =
+        active &&
+        active !== document.body &&
+        active !== document.documentElement &&
+        active !== el;
+      if (focusMovedElsewhere) return;
+      try {
+        el.focus({ preventScroll: true });
+      } catch (_) {
+        try {
+          el.focus();
+        } catch (_) {}
+      }
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [chatFocusPreserveKey, isOpen, isSystemTab, chatInputDisabled]);
 
   useEffect(
     () => () => {
@@ -1057,7 +1115,15 @@ export default function ChatContent({
                 aria-label="Message du chat"
                 readOnly={chatInputDisabled}
                 aria-disabled={chatInputDisabled}
-                onFocus={onChatInputFocus}
+                onFocus={() => {
+                  inputWasFocusedRef.current = true;
+                  recentInputFocusUntilRef.current = Date.now() + 2500;
+                  onChatInputFocus?.();
+                }}
+                onBlur={() => {
+                  inputWasFocusedRef.current = false;
+                  recentInputFocusUntilRef.current = Date.now() + 1500;
+                }}
                 value={chatInput}
                 onChange={(e) => setChatInput?.(e.target.value)}
                 onKeyDown={handleKeyDown}

@@ -72,6 +72,7 @@ export default function ChatStyleSlide(props) {
   return createPortal(
     <div
       className="fixed inset-0 z-[20050] flex items-start justify-center overflow-hidden"
+      data-chat-panel="true"
       style={{
         ...(chatViewportStyle || {}),
         ...(chatOverlayStyle || {}),

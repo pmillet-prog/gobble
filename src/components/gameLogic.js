@@ -303,9 +303,12 @@ export function summarizeBonuses(path, board) {
   return counts;
 }
 
-function resolveWordOnBoard(board, wordNorm, special = null, forcedPath = null) {
+function resolveWordOnBoard(board, wordNorm, special = null, forcedPath = null, options = {}) {
   if (!Array.isArray(board) || board.length === 0) return null;
-  if (!wordNorm || wordNorm.length < getMinimumWordLength(special)) return null;
+  const minLength = Number.isFinite(options?.minWordLength)
+    ? Math.max(1, Math.trunc(options.minWordLength))
+    : getMinimumWordLength(special);
+  if (!wordNorm || wordNorm.length < minLength) return null;
   const total = board.length;
   const size = Math.max(1, Math.round(Math.sqrt(total)));
   const used = new Array(total).fill(false);
@@ -399,6 +402,10 @@ function resolveWordOnBoard(board, wordNorm, special = null, forcedPath = null) 
 
 export function findBestPathForWord(board, targetNorm, special = null) {
   return resolveWordOnBoard(board, targetNorm, special)?.path || null;
+}
+
+export function findBestPathForPreview(board, targetNorm, special = null) {
+  return resolveWordOnBoard(board, targetNorm, special, null, { minWordLength: 1 })?.path || null;
 }
 
 export function pathMatchesWord(board, wordNorm, path, special = null) {

@@ -107,6 +107,7 @@ import {
   buildPathWordVariants,
   computeScore,
   filterDictionary,
+  findBestPathForPreview,
   findBestPathForWord,
   neighbors,
   normalizeWord,
@@ -4652,6 +4653,7 @@ export default function App() {
   const statusHoldTimerRef = useRef(null);
   const [, setStatusHoldTick] = useState(0);
   const [lastWords, setLastWords] = useState([]);
+  const liveFeedTsRef = useRef(0);
   const [showAllWords, setShowAllWords] = useState(false);
   const [sortMode, setSortMode] = useState("score");
   const [allWords, setAllWords] = useState([]);
@@ -6210,6 +6212,7 @@ export default function App() {
   // Chat
   const [chatMessages, setChatMessages] = useState(() => readStoredChatMessages());
   const chatMessagesRef = useRef(chatMessages);
+  const chatMessagesPersistTimerRef = useRef(null);
   const [chatInput, setChatInput] = useState("");
   const [chatReplyTarget, setChatReplyTarget] = useState(null);
   const [chatEditTarget, setChatEditTarget] = useState(null);
@@ -6262,12 +6265,25 @@ export default function App() {
     chatMessagesRef.current = chatMessages;
   }, [chatMessages]);
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        CHAT_MESSAGES_STORAGE_KEY,
-        JSON.stringify(capChatMessagesByType(chatMessages))
-      );
-    } catch (_) {}
+    if (typeof window === "undefined") return undefined;
+    if (chatMessagesPersistTimerRef.current) {
+      window.clearTimeout(chatMessagesPersistTimerRef.current);
+    }
+    chatMessagesPersistTimerRef.current = window.setTimeout(() => {
+      chatMessagesPersistTimerRef.current = null;
+      try {
+        localStorage.setItem(
+          CHAT_MESSAGES_STORAGE_KEY,
+          JSON.stringify(capChatMessagesByType(chatMessagesRef.current))
+        );
+      } catch (_) {}
+    }, 650);
+    return () => {
+      if (chatMessagesPersistTimerRef.current) {
+        window.clearTimeout(chatMessagesPersistTimerRef.current);
+        chatMessagesPersistTimerRef.current = null;
+      }
+    };
   }, [chatMessages]);
   useEffect(() => {
     chatReplyTargetRef.current = chatReplyTarget;
@@ -17289,16 +17305,13 @@ export default function App() {
     setConnectionError("");
     setPhase("playing");
     if (!isMobileLayoutRef.current) {
-      setActiveArea("game");
       const chatEl = chatInputRef.current;
-      if (
+      const chatHasFocus =
         chatEl &&
         typeof document !== "undefined" &&
-        document.activeElement === chatEl
-      ) {
-        try {
-          chatEl.blur();
-        } catch (_) {}
+        document.activeElement === chatEl;
+      if (!chatHasFocus) {
+        setActiveArea("game");
       }
     }
   }
@@ -18919,7 +18932,7 @@ export default function App() {
       const raw = normalizeWord(next.join(""));
       if (!raw) return prev;
 
-      const path = findBestPathForWord(board, raw, getPathPreviewScoreConfig());
+      const path = findBestPathForPreview(board, raw, getPathPreviewScoreConfig());
       if (path) {
         highlightPathRef.current = path;
         setHighlightPath(path);
@@ -18955,7 +18968,7 @@ export default function App() {
         setHighlightPath([]);
         return next;
       }
-      const path = findBestPathForWord(board, raw, getPathPreviewScoreConfig());
+      const path = findBestPathForPreview(board, raw, getPathPreviewScoreConfig());
       if (path) {
         highlightPathRef.current = path;
         setHighlightPath(path);
@@ -19006,6 +19019,15 @@ export default function App() {
           return next;
         });
 
+        return;
+      }
+
+      if (
+        targetElement &&
+        targetElement.closest?.(
+          "input, textarea, select, [contenteditable='true'], [data-chat-panel='true']"
+        )
+      ) {
         return;
       }
 
@@ -19214,7 +19236,11 @@ export default function App() {
     const lower = (msg || "").toLowerCase();
     const isDuplicate = lower.includes("déjà") || lower.includes("deja");
     const isInvalidDico =
-      lower.includes("dico") || lower.includes("dictionnaire") || lower.includes("absent");
+      lower.includes("dico") ||
+      lower.includes("dictionnaire") ||
+      lower.includes("absent") ||
+      lower.includes("invalide") ||
+      lower.includes("invalid");
     const isTooShort = lower.includes("trop court");
     const invalidFlashLabel = isTooShort
       ? "TROP COURT"
@@ -19529,6 +19555,13 @@ function handleTouchEnd(e) {
     touchSubmissionState();
   }
 
+  function getNextLiveFeedTs() {
+    const now = Date.now();
+    const next = Math.max(now, (Number(liveFeedTsRef.current) || 0) + 1);
+    liveFeedTsRef.current = next;
+    return next;
+  }
+
   function markRejectedWord(word, reason = "") {
     if (!word) return;
     const meta = submissionStatusRef.current.get(word) || {};
@@ -19738,7 +19771,7 @@ function handleTouchEnd(e) {
     if (!alreadyAccepted) {
       const wordBonuses = path ? summarizeBonuses(path, board) : null;
       setLastWords((prev) => {
-        const now = Date.now();
+        const now = getNextLiveFeedTs();
         const feedLabel = isTargetRoundNow ? "gobble" : null;
         const next = [
           {
@@ -20028,7 +20061,7 @@ function handleTouchEnd(e) {
     const effectiveRareBonusPoints = rareBonusEnabledNow ? Number(rareBonusPoints) || 0 : 0;
     const effectiveRarityBucket = rareBonusEnabledNow ? String(rarityBucket || "") : "";
     const displayStr = display || raw.toUpperCase();
-    const now = Date.now();
+    const now = getNextLiveFeedTs();
     const normalizedPath = Array.isArray(path)
       ? path
           .map((idx) => Number(idx))
@@ -20197,10 +20230,21 @@ function handleTouchEnd(e) {
     return hasClientDictionaryWord(rawWord);
   }
 
+  function isTargetSubmissionRound() {
+    return specialRound?.type === "target_long" || specialRound?.type === "target_score";
+  }
+
+  function getTargetSubmissionErrorMessage(rawWord) {
+    if (!serverSolutionsReadyRef.current && dictionary && !hasClientDictionaryWord(rawWord)) {
+      return "INVALIDE";
+    }
+    return "Pas le mot cible";
+  }
+
   function getMissingSubmissionPathMessage(rawWord) {
     if (specialRound?.type === OCID_TYPE) return "Mot absent de la grille";
-    if (specialRound?.type === "target_long" || specialRound?.type === "target_score") {
-      return "Mot absent de la grille";
+    if (isTargetSubmissionRound()) {
+      return getTargetSubmissionErrorMessage(rawWord);
     }
     if (serverSolutionsReadyRef.current && !hasServerSubmissionSolution(rawWord)) return "INVALIDE";
     if (!serverSolutionsReadyRef.current && dictionary && !hasClientDictionaryWord(rawWord)) {
@@ -20553,15 +20597,8 @@ function handleTouchEnd(e) {
       const serverSolutionsReady = !!serverSolutionsReadyRef.current;
       const knownByServer =
         solutionsRef.current instanceof Map && solutionsRef.current.has(preferredRaw);
-      if (
-        specialRound?.type === "target_long" ||
-        specialRound?.type === "target_score"
-      ) {
-        if (serverSolutionsReady && !knownByServer) return error("Mot absent de la grille");
-        if (!serverSolutionsReady && dictionary && !hasClientDictionaryWord(preferredRaw)) {
-          return error("Absent du dico");
-        }
-        return error("Mot absent de la grille");
+      if (isTargetSubmissionRound()) {
+        return error(getTargetSubmissionErrorMessage(preferredRaw));
       }
       if (serverSolutionsReady && !knownByServer) return error("INVALIDE");
       if (!serverSolutionsReady && dictionary && !hasClientDictionaryWord(preferredRaw)) {
@@ -20588,7 +20625,9 @@ function handleTouchEnd(e) {
         : Array.isArray(path) && path.length > 0
         ? scoreWordOnGridWithPath(raw, board, path, specialScoreConfig)
         : null;
-    if (!scored) return error("Mot absent de la grille");
+    if (!scored) {
+      return error(isTargetSubmissionRound() ? getTargetSubmissionErrorMessage(raw) : "Mot absent de la grille");
+    }
     path = Array.isArray(scored.path) && scored.path.length > 0 ? scored.path : path;
     const resolvedDisplay = String(
       resolvedCandidate.display || display || raw || ""
@@ -20634,7 +20673,7 @@ function handleTouchEnd(e) {
       const isTargetRoundNow =
         specialRound?.type === "target_long" || specialRound?.type === "target_score";
       const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
-      const canOptimisticallyApply = true;
+      const canOptimisticallyApply = !isTargetRoundNow;
 
       playableCandidates.forEach((candidate) => {
         const candidateScored = candidate.scored;
@@ -31532,6 +31571,7 @@ function handleTouchEnd(e) {
     chatEditTarget,
     chatInput,
     chatInputDisabled,
+    chatFocusPreserveKey: `${appView}:${phase}:${roundId || ""}:${serverStatus}:${breakKind || ""}`,
     chatInputPlaceholder,
     chatInputRef,
     chatInputType,

@@ -478,6 +478,9 @@ function makeDefaultState() {
 
 let state = makeDefaultState();
 let saveTimer = null;
+let saveInFlight = false;
+let saveQueued = false;
+let saveSeq = 0;
 let lastBackupAt = 0;
 const weekStateInitPromises = new Map();
 
@@ -650,7 +653,8 @@ async function maybeBackupFile(filePath) {
 
 async function atomicWriteJson(filePath, payload) {
   const json = JSON.stringify(payload, null, 2);
-  const tmpPath = `${filePath}.tmp`;
+  saveSeq = (saveSeq + 1) % 1_000_000;
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${saveSeq}.tmp`;
   await fs.writeFile(tmpPath, json, "utf8");
   try {
     await fs.rename(tmpPath, filePath);
@@ -664,6 +668,9 @@ async function atomicWriteJson(filePath, payload) {
 
 async function saveToDisk() {
   saveTimer = null;
+  if (saveInFlight || !saveQueued) return;
+  saveQueued = false;
+  saveInFlight = true;
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     const diskCandidate = await readDuelStateCandidate(DATA_PATH);
@@ -680,11 +687,16 @@ async function saveToDisk() {
     }
     await maybeBackupFile(DATA_PATH);
     await atomicWriteJson(DATA_PATH, state);
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    saveInFlight = false;
+    if (saveQueued) scheduleSave();
+  }
 }
 
 function scheduleSave() {
-  if (saveTimer) return;
+  saveQueued = true;
+  if (saveTimer || saveInFlight) return;
   saveTimer = setTimeout(saveToDisk, 500);
   saveTimer.unref?.();
 }

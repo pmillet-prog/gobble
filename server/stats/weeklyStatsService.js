@@ -38,6 +38,9 @@ function buildWeekState(weekStartTs) {
 let state = buildWeekState(getWeekStartTs());
 let history = new Map();
 let saveTimer = null;
+let saveInFlight = false;
+let saveQueued = false;
+let saveSeq = 0;
 let lastBackupAt = 0;
 let lastSaveLogAt = 0;
 
@@ -272,7 +275,8 @@ async function replaceFile(tmpPath, targetPath) {
 
 async function atomicWriteJson(filePath, payload) {
   const json = JSON.stringify(payload, null, 2);
-  const tmpPath = `${filePath}.tmp`;
+  saveSeq = (saveSeq + 1) % 1_000_000;
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${saveSeq}.tmp`;
   await fs.writeFile(tmpPath, json, "utf8");
   await replaceFile(tmpPath, filePath);
   return json;
@@ -280,6 +284,9 @@ async function atomicWriteJson(filePath, payload) {
 
 async function saveToDisk() {
   saveTimer = null;
+  if (saveInFlight || !saveQueued) return;
+  saveQueued = false;
+  saveInFlight = true;
   const payload = {
     ...serializeWeekState(state),
     history: serializeHistory(),
@@ -293,11 +300,16 @@ async function saveToDisk() {
       lastSaveLogAt = now;
       console.log(`weeklyStats saving size=${Buffer.byteLength(json, "utf8")}`);
     }
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    saveInFlight = false;
+    if (saveQueued) scheduleSave();
+  }
 }
 
 function scheduleSave() {
-  if (saveTimer) return;
+  saveQueued = true;
+  if (saveTimer || saveInFlight) return;
   saveTimer = setTimeout(saveToDisk, 500);
   saveTimer.unref?.();
 }

@@ -53,6 +53,7 @@ function DesktopChatPanel({
   return (
     <div
       ref={panelRef}
+      data-chat-panel="true"
       className={chatBlockClassName}
       style={desktopChatStyle}
       onClick={(event) => {
