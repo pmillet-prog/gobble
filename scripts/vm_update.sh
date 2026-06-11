@@ -19,7 +19,9 @@ ln -sfn "$RUNTIME_DIR" "$DATA_RUNTIME_PATH"
 export GOBBLE_DATA_DIR="$RUNTIME_DIR"
 
 REPO_DATA_DIR="$REPO_DIR/server/data"
+ROOT_DATA_DIR="$REPO_DIR/data"
 mkdir -p "$REPO_DATA_DIR"
+mkdir -p "$ROOT_DATA_DIR"
 
 migrate_runtime_file() {
   local name="$1"
@@ -47,6 +49,22 @@ ln -sfn "$DAILY_TARGET" "$DAILY_SOURCE"
 migrate_runtime_file "weekly-stats.json"
 migrate_runtime_file "team-duel.json"
 migrate_runtime_file "install-aliases.json"
+
+migrate_root_runtime_file() {
+  local name="$1"
+  local source="$ROOT_DATA_DIR/$name"
+  local target="$RUNTIME_DIR/$name"
+  if [ -e "$source" ] && [ ! -L "$source" ]; then
+    if [ ! -e "$target" ]; then
+      mv "$source" "$target"
+    else
+      rm -f "$source"
+    fi
+  fi
+  ln -sfn "$target" "$source"
+}
+
+migrate_root_runtime_file "playtime-limits.json"
 
 DB_SOURCE="$REPO_DIR/server/data/gobble.db"
 DB_TARGET="$RUNTIME_DIR/gobble.db"
