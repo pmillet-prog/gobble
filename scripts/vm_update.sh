@@ -80,16 +80,6 @@ ln -sfn "$DB_TARGET" "$DB_SOURCE"
 
 # Ce script est exécuté SUR la VM, depuis le repo cloné (ex: ~/gobble_git)
 
-echo "=== Update repo already pulled by caller ==="
-
-echo "=== Front: install + build ==="
-npm ci
-npm run build
-
-echo "=== Server: install ==="
-cd server
-npm ci
-
 stop_port() {
   local port="$1"
   local pids
@@ -108,6 +98,30 @@ stop_port() {
     kill -KILL $pids 2>/dev/null || true
   fi
 }
+
+stop_gobble_service() {
+  local service="$1"
+  local port="$2"
+  if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files "$service" --no-legend 2>/dev/null | grep -q "^$service"; then
+    sudo systemctl stop "$service"
+    return
+  fi
+  stop_port "$port"
+}
+
+echo "=== Update repo already pulled by caller ==="
+
+echo "=== Stop services before build to free RAM ==="
+stop_gobble_service gobble-back.service 4000
+stop_gobble_service gobble-front.service 3000
+
+echo "=== Front: install + build ==="
+npm ci
+npm run build
+
+echo "=== Server: install ==="
+cd server
+npm ci
 
 restart_gobble_service() {
   local service="$1"
