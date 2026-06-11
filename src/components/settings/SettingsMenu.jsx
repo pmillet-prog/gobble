@@ -6,6 +6,8 @@ const PLAYTIME_MIN_MS = 5 * 60 * 1000;
 const PLAYTIME_HOUR_OPTIONS = Array.from({ length: 13 }, (_, value) => value);
 const PLAYTIME_MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => index * 5);
 const PLAYTIME_PRESET_MINUTES = [5, 15, 30, 60, 120];
+const PLAYTIME_ROLL_DURATION_MS = 2000;
+const PLAYTIME_MULTI_ROLL_DURATION_MS = 1000;
 
 function clampOptionValue(options, value) {
   if (!Array.isArray(options) || !options.length) return 0;
@@ -22,6 +24,43 @@ function shiftOptionValue(options, value, delta) {
   const index = options.indexOf(current);
   const nextIndex = Math.min(options.length - 1, Math.max(0, index + delta));
   return options[nextIndex];
+}
+
+function getOptionIndex(options, value) {
+  if (!Array.isArray(options) || !options.length) return -1;
+  return options.indexOf(clampOptionValue(options, value));
+}
+
+function buildPlaytimeRollSegments(steps, totalMs = PLAYTIME_ROLL_DURATION_MS) {
+  const safeSteps = Math.max(0, Math.round(Number(steps) || 0));
+  if (safeSteps <= 0) return [];
+  if (safeSteps <= 3) {
+    const durationMs = Math.max(140, Math.round(totalMs / safeSteps));
+    return Array.from({ length: safeSteps }, (_, index) => ({
+      delayMs: index * durationMs,
+      durationMs,
+    }));
+  }
+
+  const center = (safeSteps - 1) / 2;
+  const weights = Array.from({ length: safeSteps }, (_, index) => {
+    const edgeFactor = center > 0 ? Math.abs(index - center) / center : 0;
+    return 0.65 + edgeFactor * 0.85;
+  });
+  const weightTotal = weights.reduce((sum, value) => sum + value, 0) || 1;
+  let elapsed = 0;
+  return weights.map((weight, index) => {
+    const remainingSteps = safeSteps - index;
+    const remainingMs = Math.max(0, totalMs - elapsed);
+    const rawDuration = Math.round((totalMs * weight) / weightTotal);
+    const durationMs =
+      index === safeSteps - 1
+        ? remainingMs
+        : Math.max(120, Math.min(rawDuration, remainingMs - (remainingSteps - 1) * 120));
+    const segment = { delayMs: elapsed, durationMs };
+    elapsed += durationMs;
+    return segment;
+  });
 }
 
 function SettingsMenu(props) {
@@ -127,6 +166,7 @@ function SettingsMenu(props) {
     openTutorialFromHome,
     patchDevControls,
     perfTestEnabled,
+    playUiClickSound,
     playtimeLimit,
     playtimeRemainingMs,
     refreshAuthStatus,
@@ -238,6 +278,12 @@ function SettingsMenu(props) {
   const [playtimeHours, setPlaytimeHours] = React.useState(1);
   const [playtimeMinutes, setPlaytimeMinutes] = React.useState(0);
   const [playtimeConfirmOpen, setPlaytimeConfirmOpen] = React.useState(false);
+  const [playtimeWheelAnimation, setPlaytimeWheelAnimation] = React.useState({
+    hours: { token: 0, direction: 0, durationMs: PLAYTIME_ROLL_DURATION_MS },
+    minutes: { token: 0, direction: 0, durationMs: PLAYTIME_ROLL_DURATION_MS },
+  });
+  const playtimeRollTimersRef = React.useRef([]);
+  const playtimeRollSequenceRef = React.useRef(0);
   const playtimeLimitActive = !!playtimeLimit?.active;
   const playtimeMinuteOptions =
     Number(playtimeHours) >= 12 ? [0] : PLAYTIME_MINUTE_OPTIONS;
@@ -255,22 +301,153 @@ function SettingsMenu(props) {
       ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
       : `${m}:${String(s).padStart(2, "0")}`;
   };
-  const setPlaytimeFromTotalMinutes = React.useCallback((totalMinutes) => {
-    const safeTotal = Math.max(0, Math.min(12 * 60, Number(totalMinutes) || 0));
-    setPlaytimeHours(Math.floor(safeTotal / 60));
-    setPlaytimeMinutes(clampOptionValue(PLAYTIME_MINUTE_OPTIONS, safeTotal % 60));
+  const clearPlaytimeRollTimers = React.useCallback(() => {
+    playtimeRollSequenceRef.current += 1;
+    for (const timerId of playtimeRollTimersRef.current) {
+      clearTimeout(timerId);
+    }
+    playtimeRollTimersRef.current = [];
   }, []);
-  const shiftPlaytimeHours = React.useCallback((delta) => {
-    setPlaytimeHours((value) => {
-      const next = shiftOptionValue(PLAYTIME_HOUR_OPTIONS, value, delta);
-      if (next >= 12) setPlaytimeMinutes(0);
-      return next;
+  React.useEffect(() => clearPlaytimeRollTimers, [clearPlaytimeRollTimers]);
+  const playPlaytimeRollClick = React.useCallback(() => {
+    if (typeof playUiClickSound === "function") playUiClickSound();
+  }, [playUiClickSound]);
+  const triggerPlaytimeWheelAnimation = React.useCallback((column, direction, durationMs = PLAYTIME_ROLL_DURATION_MS) => {
+    if (direction === 0) return;
+    setPlaytimeWheelAnimation((prev) => {
+      const previous = prev[column] || {
+        token: 0,
+        direction: 0,
+        durationMs: PLAYTIME_ROLL_DURATION_MS,
+      };
+      return {
+        ...prev,
+        [column]: {
+          token: previous.token + 1,
+          direction: direction > 0 ? 1 : -1,
+          durationMs: Math.max(120, Math.round(Number(durationMs) || PLAYTIME_ROLL_DURATION_MS)),
+        },
+      };
     });
   }, []);
+  const setPlaytimeFromTotalMinutes = React.useCallback(
+    (totalMinutes) => {
+      const safeTotal = Math.max(0, Math.min(12 * 60, Number(totalMinutes) || 0));
+      const nextHours = Math.floor(safeTotal / 60);
+      const nextMinutes = clampOptionValue(PLAYTIME_MINUTE_OPTIONS, safeTotal % 60);
+      const currentHourIndex = getOptionIndex(PLAYTIME_HOUR_OPTIONS, playtimeHours);
+      const targetHourIndex = getOptionIndex(PLAYTIME_HOUR_OPTIONS, nextHours);
+      const currentMinuteIndex = getOptionIndex(PLAYTIME_MINUTE_OPTIONS, playtimeMinutes);
+      const targetMinuteIndex = getOptionIndex(PLAYTIME_MINUTE_OPTIONS, nextMinutes);
+      const hourDelta = targetHourIndex - currentHourIndex;
+      const minuteDelta = targetMinuteIndex - currentMinuteIndex;
+      const hourSteps = Math.abs(hourDelta);
+      const minuteSteps = Math.abs(minuteDelta);
+      clearPlaytimeRollTimers();
+      if (hourSteps <= 0 && minuteSteps <= 0) return;
+
+      const hourDirection = Math.sign(hourDelta);
+      const minuteDirection = Math.sign(minuteDelta);
+      const totalRollDurationMs =
+        Math.max(hourSteps, minuteSteps) > 1
+          ? PLAYTIME_MULTI_ROLL_DURATION_MS
+          : PLAYTIME_ROLL_DURATION_MS;
+      const sequenceId = playtimeRollSequenceRef.current;
+
+      const scheduleColumnRoll = ({
+        column,
+        steps,
+        direction,
+        options,
+        currentIndex,
+        setValue,
+      }) => {
+        if (!steps || !direction || currentIndex < 0) return;
+        const segments = buildPlaytimeRollSegments(steps, totalRollDurationMs);
+        for (let step = 1; step <= steps; step += 1) {
+          const segment = segments[step - 1] || {
+            delayMs: Math.round(((step - 1) * totalRollDurationMs) / steps),
+            durationMs: Math.max(140, Math.round(totalRollDurationMs / steps)),
+          };
+          const timerId = setTimeout(() => {
+            if (playtimeRollSequenceRef.current !== sequenceId) return;
+            const value = options[currentIndex + direction * step];
+            if (typeof value === "undefined") return;
+            triggerPlaytimeWheelAnimation(column, direction, segment.durationMs);
+            setValue(value);
+            playPlaytimeRollClick();
+          }, Math.round(segment.delayMs));
+          playtimeRollTimersRef.current.push(timerId);
+        }
+      };
+
+      scheduleColumnRoll({
+        column: "hours",
+        steps: hourSteps,
+        direction: hourDirection,
+        options: PLAYTIME_HOUR_OPTIONS,
+        currentIndex: currentHourIndex,
+        setValue: setPlaytimeHours,
+      });
+      scheduleColumnRoll({
+        column: "minutes",
+        steps: minuteSteps,
+        direction: minuteDirection,
+        options: PLAYTIME_MINUTE_OPTIONS,
+        currentIndex: currentMinuteIndex,
+        setValue: setPlaytimeMinutes,
+      });
+      const cleanupTimerId = setTimeout(() => {
+        if (playtimeRollSequenceRef.current !== sequenceId) return;
+        setPlaytimeHours(nextHours);
+        setPlaytimeMinutes(nextMinutes);
+      }, totalRollDurationMs + 40);
+      playtimeRollTimersRef.current.push(cleanupTimerId);
+    },
+    [
+      clearPlaytimeRollTimers,
+      playPlaytimeRollClick,
+      playtimeHours,
+      playtimeMinutes,
+      triggerPlaytimeWheelAnimation,
+    ]
+  );
+  const shiftPlaytimeHours = React.useCallback((delta) => {
+    clearPlaytimeRollTimers();
+    const current = clampOptionValue(PLAYTIME_HOUR_OPTIONS, playtimeHours);
+    const next = shiftOptionValue(PLAYTIME_HOUR_OPTIONS, current, delta);
+    if (next === current) return;
+    triggerPlaytimeWheelAnimation("hours", delta, PLAYTIME_ROLL_DURATION_MS);
+    if (next >= 12 && playtimeMinutes !== 0) {
+      triggerPlaytimeWheelAnimation("minutes", -1, PLAYTIME_ROLL_DURATION_MS);
+      setPlaytimeMinutes(0);
+    }
+    setPlaytimeHours(next);
+    playPlaytimeRollClick();
+  }, [
+    clearPlaytimeRollTimers,
+    playPlaytimeRollClick,
+    playtimeHours,
+    playtimeMinutes,
+    triggerPlaytimeWheelAnimation,
+  ]);
   const shiftPlaytimeMinutes = React.useCallback((delta) => {
-    setPlaytimeMinutes((value) => shiftOptionValue(playtimeMinuteOptions, value, delta));
-  }, [playtimeMinuteOptions]);
+    clearPlaytimeRollTimers();
+    const current = clampOptionValue(playtimeMinuteOptions, playtimeMinutes);
+    const next = shiftOptionValue(playtimeMinuteOptions, current, delta);
+    if (next === current) return;
+    triggerPlaytimeWheelAnimation("minutes", delta, PLAYTIME_ROLL_DURATION_MS);
+    setPlaytimeMinutes(next);
+    playPlaytimeRollClick();
+  }, [
+    clearPlaytimeRollTimers,
+    playPlaytimeRollClick,
+    playtimeMinuteOptions,
+    playtimeMinutes,
+    triggerPlaytimeWheelAnimation,
+  ]);
   const renderPlaytimeWheelColumn = ({
+    animation,
     label,
     value,
     options,
@@ -281,6 +458,62 @@ function SettingsMenu(props) {
     const index = options.indexOf(current);
     const previous = index > 0 ? options[index - 1] : null;
     const next = index >= 0 && index < options.length - 1 ? options[index + 1] : null;
+    const rollClass =
+      animation?.direction > 0
+        ? "playtime-roll-reel playtime-roll-up"
+        : animation?.direction < 0
+          ? "playtime-roll-reel playtime-roll-down"
+          : "playtime-roll-reel";
+    const rollDurationMs = Math.max(
+      120,
+      Math.round(Number(animation?.durationMs) || PLAYTIME_ROLL_DURATION_MS)
+    );
+    const handleWheelPointerDown = (event) => {
+      if (event.pointerType === "mouse") return;
+      const target = event.currentTarget;
+      target.dataset.playtimeStartX = String(event.clientX);
+      target.dataset.playtimeStartY = String(event.clientY);
+      target.dataset.playtimeSwiped = "";
+      target.setPointerCapture?.(event.pointerId);
+    };
+    const handleWheelPointerMove = (event) => {
+      if (event.pointerType === "mouse") return;
+      const target = event.currentTarget;
+      const startY = Number(target.dataset.playtimeStartY);
+      if (!Number.isFinite(startY)) return;
+      if (Math.abs(event.clientY - startY) > 8) {
+        event.preventDefault();
+      }
+    };
+    const handleWheelPointerUp = (event) => {
+      if (event.pointerType === "mouse") return;
+      const target = event.currentTarget;
+      const startX = Number(target.dataset.playtimeStartX);
+      const startY = Number(target.dataset.playtimeStartY);
+      delete target.dataset.playtimeStartX;
+      delete target.dataset.playtimeStartY;
+      target.releasePointerCapture?.(event.pointerId);
+      if (!Number.isFinite(startX) || !Number.isFinite(startY)) return;
+
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (Math.abs(dy) < 28 || Math.abs(dy) < Math.abs(dx) * 1.15) return;
+
+      target.dataset.playtimeSwiped = "1";
+      onShift(dy < 0 ? 1 : -1);
+    };
+    const clearWheelPointerState = (event) => {
+      const target = event.currentTarget;
+      delete target.dataset.playtimeStartX;
+      delete target.dataset.playtimeStartY;
+      target.releasePointerCapture?.(event.pointerId);
+    };
+    const preventSyntheticClickAfterSwipe = (event) => {
+      if (event.currentTarget.dataset.playtimeSwiped !== "1") return;
+      delete event.currentTarget.dataset.playtimeSwiped;
+      event.preventDefault();
+      event.stopPropagation();
+    };
     return (
       <div className="min-w-0 rounded-2xl border border-amber-300/40 bg-slate-950/25 px-2 py-2 text-center shadow-inner">
         <div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-70">
@@ -297,26 +530,48 @@ function SettingsMenu(props) {
             keyboard_arrow_up
           </span>
         </button>
-        <div className="mt-1 grid h-24 grid-rows-[1fr_1.45fr_1fr] overflow-hidden rounded-xl border border-amber-300/25 bg-black/20">
-          <button
-            type="button"
-            disabled={previous === null}
-            onClick={() => onShift(-1)}
-            className="flex items-center justify-center text-sm font-bold opacity-45 disabled:opacity-20"
-          >
-            {previous === null ? "--" : formatValue(previous)}
-          </button>
-          <div className="flex items-center justify-center border-y border-amber-300/30 bg-amber-200/15 text-3xl font-black tabular-nums">
-            {formatValue(current)}
+        <div
+          className="relative mt-1 h-24 overflow-hidden rounded-xl border border-amber-300/25 bg-black/20"
+          style={{ touchAction: "none" }}
+          onPointerDown={handleWheelPointerDown}
+          onPointerMove={handleWheelPointerMove}
+          onPointerUp={handleWheelPointerUp}
+          onPointerCancel={clearWheelPointerState}
+          onClickCapture={preventSyntheticClickAfterSwipe}
+        >
+          <div className="pointer-events-none absolute inset-0 z-[1] grid h-full grid-rows-[1fr_1.45fr_1fr]">
+            <div />
+            <div className="border-y border-amber-300/30 bg-amber-200/15" />
+            <div />
           </div>
-          <button
-            type="button"
-            disabled={next === null}
-            onClick={() => onShift(1)}
-            className="flex items-center justify-center text-sm font-bold opacity-45 disabled:opacity-20"
+          <div
+            key={`${label}-${animation?.token || 0}`}
+            className={`relative z-[2] grid h-full grid-rows-[1fr_1.45fr_1fr] ${rollClass}`}
+            style={{
+              "--playtime-roll-duration": `${rollDurationMs}ms`,
+              animationDuration: `${rollDurationMs}ms`,
+            }}
           >
-            {next === null ? "--" : formatValue(next)}
-          </button>
+            <button
+              type="button"
+              disabled={previous === null}
+              onClick={() => onShift(-1)}
+              className="flex items-center justify-center text-sm font-bold opacity-45 disabled:opacity-20"
+            >
+              {previous === null ? "--" : formatValue(previous)}
+            </button>
+            <div className="flex items-center justify-center text-3xl font-black tabular-nums">
+              {formatValue(current)}
+            </div>
+            <button
+              type="button"
+              disabled={next === null}
+              onClick={() => onShift(1)}
+              className="flex items-center justify-center text-sm font-bold opacity-45 disabled:opacity-20"
+            >
+              {next === null ? "--" : formatValue(next)}
+            </button>
+          </div>
         </div>
         <button
           type="button"
@@ -619,6 +874,7 @@ function SettingsMenu(props) {
                 <div className="mt-3 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     {renderPlaytimeWheelColumn({
+                      animation: playtimeWheelAnimation.hours,
                       label: "Heures",
                       value: playtimeHours,
                       options: PLAYTIME_HOUR_OPTIONS,
@@ -626,6 +882,7 @@ function SettingsMenu(props) {
                       onShift: shiftPlaytimeHours,
                     })}
                     {renderPlaytimeWheelColumn({
+                      animation: playtimeWheelAnimation.minutes,
                       label: "Minutes",
                       value: playtimeMinutes,
                       options: playtimeMinuteOptions,

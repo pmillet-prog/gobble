@@ -29,6 +29,9 @@ export default function VisualSettingsPanel({
     : "border-amber-300/55 bg-amber-100/65";
   const backButtonClass =
     "bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950";
+  const themeButtonClass = darkMode
+    ? "bg-slate-950/35 border-amber-200/25 text-amber-50"
+    : "bg-white/70 border-amber-300/45 text-slate-900";
   const toggleClass = (enabled) =>
     enabled
       ? darkMode
@@ -76,7 +79,7 @@ export default function VisualSettingsPanel({
           <button
             type="button"
             onClick={onOpenTheme}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${mutedClass}`}
+            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${themeButtonClass}`}
           >
             <span className="inline-flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] leading-none">

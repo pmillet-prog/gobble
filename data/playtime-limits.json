@@ -1,15 +1,5 @@
 {
   "version": 1,
-  "updatedAt": 1781130466366,
-  "limits": [
-    {
-      "userId": "1",
-      "username": "Tigre",
-      "dayId": "2026-06-11",
-      "limitMs": 300000,
-      "usedMs": 195749,
-      "createdAt": 1781130260377,
-      "updatedAt": 1781130466364
-    }
-  ]
+  "updatedAt": 1781203040362,
+  "limits": []
 }

@@ -3983,8 +3983,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-05-25";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-05-25T00:00:00+02:00");
+const PATCH_NOTES_VERSION = "2026-06-11";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-06-11T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
@@ -5099,6 +5099,8 @@ export default function App() {
     if (!key) return "";
     const url = AssetManager.getImage(key).url || "";
     if (url) return url;
+    const fallback = IMAGE_FALLBACKS.get(key) || "";
+    if (fallback) return fallback;
     if (bootProgress?.done) {
       if (DEV_MODE && !missingImageRef.current.has(key)) {
         missingImageRef.current.add(key);
@@ -5106,7 +5108,6 @@ export default function App() {
       }
       return "";
     }
-    const fallback = IMAGE_FALLBACKS.get(key) || "";
     if (fallback && DEV_MODE && !missingImageRef.current.has(key)) {
       missingImageRef.current.add(key);
       console.error(`[asset] image manquante (fallback): ${key}`);
@@ -20196,6 +20197,19 @@ function handleTouchEnd(e) {
     return hasClientDictionaryWord(rawWord);
   }
 
+  function getMissingSubmissionPathMessage(rawWord) {
+    if (specialRound?.type === OCID_TYPE) return "Mot absent de la grille";
+    if (specialRound?.type === "target_long" || specialRound?.type === "target_score") {
+      return "Mot absent de la grille";
+    }
+    if (serverSolutionsReadyRef.current && !hasServerSubmissionSolution(rawWord)) return "INVALIDE";
+    if (!serverSolutionsReadyRef.current && dictionary && !hasClientDictionaryWord(rawWord)) {
+      return "INVALIDE";
+    }
+    if (!serverSolutionsReadyRef.current && !dictionary) return "INVALIDE";
+    return "Mot absent de la grille";
+  }
+
   function resolveSubmissionCandidatesFromPath(path, preferredDisplay = "") {
     if (!Array.isArray(path) || path.length === 0) return null;
     const preferredRaw = normalizeWord(preferredDisplay || "");
@@ -20340,10 +20354,7 @@ function handleTouchEnd(e) {
       return;
     }
     if (!isKnownSubmissionWord(raw)) {
-      markDailySlotInvalid(
-        targetSlot,
-        serverSolutionsReadyRef.current ? "Mot absent de la grille" : "INVALIDE"
-      );
+      markDailySlotInvalid(targetSlot, "INVALIDE");
       return;
     }
     const alreadyUsed = slots.some((slot, idx) => idx !== targetSlot && slot?.word === raw);
@@ -20486,13 +20497,13 @@ function handleTouchEnd(e) {
         Array.isArray(liveScored?.path) && liveScored.path.length > 0
           ? liveScored.path
           : liveHighlightPath;
-      if (!path || path.length === 0) return error("Mot absent de la grille");
+      if (!path || path.length === 0) return error(getMissingSubmissionPathMessage(preferredRaw));
     } else {
       path =
         Array.isArray(liveScored?.path) && liveScored.path.length > 0
           ? liveScored.path
           : findBestPathForWord(board, preferredRaw, specialScoreConfig);
-      if (!path) return error("Mot absent de la grille");
+      if (!path) return error(getMissingSubmissionPathMessage(preferredRaw));
       highlightPathRef.current = path;
       setHighlightPath(path);
     }
@@ -20552,11 +20563,11 @@ function handleTouchEnd(e) {
         }
         return error("Mot absent de la grille");
       }
-      if (serverSolutionsReady && !knownByServer) return error("Mot absent de la grille");
+      if (serverSolutionsReady && !knownByServer) return error("INVALIDE");
       if (!serverSolutionsReady && dictionary && !hasClientDictionaryWord(preferredRaw)) {
-        return error("Absent du dico");
+        return error("INVALIDE");
       }
-      if (!serverSolutionsReady && !dictionary) return error("Validation serveur indisponible");
+      if (!serverSolutionsReady && !dictionary) return error("INVALIDE");
       return error("Mot absent de la grille");
     }
     const raw = resolvedCandidate.raw;
@@ -27731,57 +27742,18 @@ function handleTouchEnd(e) {
     );
   }
 
-  function useNickTruncation(ref, deps = []) {
-    const [isTruncated, setIsTruncated] = useState(false);
-    useLayoutEffect(() => {
-      const el = ref?.current;
-      if (!el) return;
-      const check = () => {
-        const slack = el.clientWidth - el.scrollWidth;
-        setIsTruncated((prev) => {
-          if (slack < -1) return true;
-          if (prev && slack < 24) return true;
-          return false;
-        });
-      };
-      check();
-      let ro = null;
-      if (typeof ResizeObserver !== "undefined") {
-        ro = new ResizeObserver(check);
-        ro.observe(el);
-      } else if (typeof window !== "undefined") {
-        window.addEventListener("resize", check);
-      }
-      return () => {
-        if (ro) ro.disconnect();
-        if (typeof window !== "undefined") {
-          window.removeEventListener("resize", check);
-        }
-      };
-    }, deps);
-    return isTruncated;
-  }
-
   function WeeklyNickLine({
     nick,
     metaLabel,
-    compactMetaLabel,
     vocabMeta,
     showVocabLabel = true,
     crowned = false,
     onOpenProfile = null,
   }) {
-    const nickRef = useRef(null);
-    const isTruncated = useNickTruncation(nickRef, [nick, metaLabel, compactMetaLabel]);
-    const useCompact = Boolean(compactMetaLabel) && isTruncated;
-    const metaText = useCompact ? compactMetaLabel : metaLabel;
-    const metaClass = useCompact
-      ? "text-[9px] opacity-60 truncate leading-tight"
-      : "text-[10px] opacity-60 truncate";
-    const gapClass = useCompact ? "gap-0.5" : "gap-1";
+    const metaClass = "text-[10px] opacity-60 truncate";
 
     return (
-      <div className={`font-semibold truncate flex items-center ${gapClass} text-xs`}>
+      <div className="font-semibold truncate flex items-center gap-1 text-xs">
         {vocabMeta?.imageKey ? (
           <span className="inline-flex shrink-0 items-center gap-1">
             <img
@@ -27800,7 +27772,6 @@ function handleTouchEnd(e) {
         {onOpenProfile ? (
           <button
             type="button"
-            ref={nickRef}
             data-stats-profile-button="true"
             className="min-w-0 truncate text-left hover:underline"
             style={{ touchAction: "manipulation" }}
@@ -27809,12 +27780,12 @@ function handleTouchEnd(e) {
             {nick}
           </button>
         ) : (
-          <span ref={nickRef} className="truncate">
+          <span className="truncate">
             {nick}
           </span>
         )}
         {crowned ? renderCrownIcon("shrink-0") : null}
-        {metaText ? <span className={metaClass}>{metaText}</span> : null}
+        {metaLabel ? <span className={metaClass}>{metaLabel}</span> : null}
       </div>
     );
   }
@@ -27870,7 +27841,6 @@ function handleTouchEnd(e) {
     }
 
     const detailParts = [];
-    const compactDetailParts = [];
     if (boardKey === "medals") {
       detailParts.push(`\u{1F947} ${formatNumber(entry.gold) ?? 0}`);
       detailParts.push(`\u{1F948} ${formatNumber(entry.silver) ?? 0}`);
@@ -27878,7 +27848,6 @@ function handleTouchEnd(e) {
     }
     if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
       detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
-      compactDetailParts.push(`${formatNumber(entry.roundsPlayed)} m`);
     }
     const hasWord =
       (boardKey === "bestWord" ||
@@ -27924,13 +27893,6 @@ function handleTouchEnd(e) {
     if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
     if (achieved) metaTokens.push(achieved);
     const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
-    const compactTokens = [];
-    if (compactDetailParts.length > 0) compactTokens.push(compactDetailParts.join(" \u00b7 "));
-    if (achieved) compactTokens.push(achieved);
-    const compactMetaLabel =
-      compactTokens.length > 0
-        ? `\u00b7 ${compactTokens.join(" \u00b7 ")}`
-        : metaLabel;
     const selfNickLower = selfNick ? String(selfNick).trim().toLowerCase() : "";
     const entryNickLower = entry.nick ? String(entry.nick).trim().toLowerCase() : "";
     const isSelfEntry =
@@ -27965,7 +27927,6 @@ function handleTouchEnd(e) {
             <WeeklyNickLine
               nick={baseNick}
               metaLabel={metaLabel}
-              compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
               showVocabLabel={showVocabLabel}
               crowned={isCrownedEntry(baseNick, entry)}
@@ -28052,7 +28013,6 @@ function handleTouchEnd(e) {
     }
 
     const detailParts = [];
-    const compactDetailParts = [];
     if (boardKey === "medals") {
       detailParts.push(`\u{1F947} ${formatNumber(entry.gold) ?? 0}`);
       detailParts.push(`\u{1F948} ${formatNumber(entry.silver) ?? 0}`);
@@ -28060,7 +28020,6 @@ function handleTouchEnd(e) {
     }
     if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
       detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
-      compactDetailParts.push(`${formatNumber(entry.roundsPlayed)} m`);
     }
     const hasWord =
       (boardKey === "bestWord" ||
@@ -28126,13 +28085,6 @@ function handleTouchEnd(e) {
     if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
     if (achieved) metaTokens.push(achieved);
     const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
-    const compactTokens = [];
-    if (compactDetailParts.length > 0) compactTokens.push(compactDetailParts.join(" \u00b7 "));
-    if (achieved) compactTokens.push(achieved);
-    const compactMetaLabel =
-      compactTokens.length > 0
-        ? `\u00b7 ${compactTokens.join(" \u00b7 ")}`
-        : metaLabel;
     const selfNickLower = selfNick ? String(selfNick).trim().toLowerCase() : "";
     const entryNickLower = entry.nick ? String(entry.nick).trim().toLowerCase() : "";
     const isSelfEntry =
@@ -28165,7 +28117,6 @@ function handleTouchEnd(e) {
             <WeeklyNickLine
               nick={baseNick}
               metaLabel={metaLabel}
-              compactMetaLabel={isTotalScoreBoard ? compactMetaLabel : null}
               vocabMeta={vocabMetaForRow}
               crowned={isCrownedEntry(baseNick, entry)}
               onOpenProfile={openWeeklyProfile}
@@ -31330,6 +31281,7 @@ function handleTouchEnd(e) {
       openTutorialFromHome={openTutorialFromHome}
       patchDevControls={patchDevControls}
       perfTestEnabled={perfTestEnabled}
+      playUiClickSound={playSwipeSound}
       playtimeLimit={playtimeLimit}
       playtimeRemainingMs={playtimeRemainingMs}
       refreshAuthStatus={refreshAuthStatus}

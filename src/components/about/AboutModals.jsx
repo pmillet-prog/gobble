@@ -270,6 +270,77 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 11/06/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  stabilité mobile et validation
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le dictionnaire complet n'est plus chargé au lancement du live : le serveur
+                    envoie les mots utiles à la manche quand c'est possible, ce qui réduit la
+                    mémoire utilisée sur les téléphones modestes.
+                  </li>
+                  <li>
+                    amélioration de la validation des mots : moins de faux messages "mot absent de
+                    la grille", avec un retour "invalide" quand le mot n'appartient pas au lexique
+                    connu de la manche.
+                  </li>
+                  <li>
+                    correction de plusieurs causes de crash liées au menu apparence et à des
+                    rerenders React fragiles.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  contrôle de temps
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout d'un contrôle de temps quotidien pour les joueurs qui veulent se fixer
+                    une limite de live : une fois activée, la limite compte le temps passé en
+                    manche et bloque l'accès au live quand elle arrive à zéro, jusqu'au lendemain.
+                  </li>
+                  <li>
+                    la limite est volontairement difficile à retirer côté joueur : seul un admin
+                    peut l'annuler pour éviter les désactivations impulsives.
+                  </li>
+                  <li>
+                    le réglage de durée utilise des rouleaux heures/minutes, manipulables aux
+                    flèches, au swipe vertical sur téléphone et via des durées prédéfinies.
+                  </li>
+                  <li>
+                    ajout d'une animation de rouleau sur ce sélecteur pour rendre les changements
+                    de durée plus lisibles.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  confort et réglages
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les images de rang vocabulaire s'affichent de nouveau dans les statistiques de
+                    saison de l'accueil, tout en restant chargées plus prudemment.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  maintenance
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le déploiement protège maintenant les données runtime du contrôle de temps afin
+                    qu'une limite quotidienne déjà activée ne soit pas effacée par une mise à jour.
+                  </li>
+                  <li>
+                    premiers nettoyages autour du préchargement d'assets et de la validation côté
+                    client pour limiter les usages mémoire inutiles pendant le live.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 09/06/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
