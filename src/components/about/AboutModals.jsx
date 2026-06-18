@@ -270,6 +270,113 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 18/06/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  chat vivant et nouveaux bots
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    arrivée de vrais bots d'ambiance dans le chat : GrosRobert, WikiMama,
+                    Statatouille, Inspecteur Grille, Oraclettres, CaSuffix, MomoMotus et quelques
+                    autres personnages peuvent maintenant intervenir pendant ou après les manches.
+                  </li>
+                  <li>
+                    ajout d'un réglage permettant de masquer les messages des bots, sans masquer
+                    les messages des joueurs.
+                  </li>
+                  <li>
+                    les messages des bots ont été réécrits pour éviter les doublons avec leur
+                    pseudo dans le chat, réduire les annonces inutiles et varier davantage leurs
+                    formulations.
+                  </li>
+                  <li>
+                    Inspecteur Grille parle moins souvent des longueurs maximales et ne signale
+                    plus les grilles simplement "correctes" : ses annonces sont réservées aux mots
+                    longs plus remarquables.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  bonus WikiMama
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout d'un nouveau bonus de thème sur les manches normales : WikiMama peut
+                    annoncer qu'une grille contient plusieurs mots liés à un même univers, avec un
+                    bonus pour les joueurs qui en trouvent assez.
+                  </li>
+                  <li>
+                    les mots du bonus WikiMama sont maintenant mis en évidence en bleu dans le flux
+                    live et dans les listes, avec un compteur de progression inspiré des manches
+                    faux jumeaux.
+                  </li>
+                  <li>
+                    le bonus est annoncé au début de la manche et récapitulé en fin de manche,
+                    uniquement sur les manches normales.
+                  </li>
+                  <li>
+                    amélioration de la reconnaissance des singuliers, pluriels et mots courts dans
+                    les thèmes : par exemple les familles d'animaux ou de plantes comptent mieux
+                    les formes comme loup/loups, rose/roses ou if/ifs.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  dictionnaire et définitions
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    enrichissement du dictionnaire local avec des informations de thème, de
+                    domaine, de catégories grammaticales, d'étymologie et de relations entre mots
+                    afin de nourrir les bots et les futurs modes spéciaux.
+                  </li>
+                  <li>
+                    amélioration des définitions données par GrosRobert : les étymologies sont
+                    privilégiées quand elles existent, les définitions systématiques sont moins
+                    fréquentes et plusieurs formulations trop pauvres ou tronquées ont été filtrées.
+                  </li>
+                  <li>
+                    correction de plusieurs cas d'homographes et de lemmatisation qui pouvaient
+                    faire classer un mot dans le mauvais sens.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  chat, sécurité et confort
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout d'une protection anti-spam légère dans le chat des manches cibles afin
+                    de limiter les joueurs qui donnent les réponses lettre par lettre.
+                  </li>
+                  <li>
+                    corrections autour du contrôle de temps quotidien : meilleure remise à zéro
+                    d'un jour à l'autre, alertes plus cohérentes et comportement plus stable après
+                    retour lobby/live.
+                  </li>
+                  <li>
+                    correction de plusieurs plantages liés aux menus et aux écrans mobiles, dont
+                    des erreurs sur l'ouverture des résultats ou des réglages.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  maintenance
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le dictionnaire enrichi est maintenant préparé côté serveur, sans envoyer les
+                    gros fichiers de travail aux joueurs ni au dépôt Git.
+                  </li>
+                  <li>
+                    amélioration du script de déploiement pour préserver les données runtime de la
+                    VM et éviter de pousser les réglages locaux du menu développeur.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 11/06/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

@@ -1078,6 +1078,10 @@ function buildPayload(word, summary, source) {
     title: normalizeNfc(summary.title || word),
     definition,
     extract: definition,
+    definitions: Array.isArray(summary.definitions)
+      ? summary.definitions.map((item) => normalizeNfc(String(item || "").trim())).filter(Boolean)
+      : [],
+    etymology: normalizeNfc(String(summary.etymology || "").replace(/\s+/g, " ").trim()),
     source,
     url: summary.url || "",
   };
@@ -1098,9 +1102,14 @@ function localEntryToSummary(entry, maxLen) {
   if (!entry) return null;
   const extract = pickLocalDefinitionText(entry, maxLen);
   if (!extract) return null;
+  const definitions = Array.isArray(entry.definitions)
+    ? entry.definitions.map((item) => clipDefinition(item, maxLen)).filter(Boolean)
+    : [];
   return {
     title: entry.title || entry.word || "",
     extract,
+    definitions,
+    etymology: clipDefinition(entry.etymology || "", FULL_DEFINITION_MAX_LEN),
     url: entry.sourceUrl || "",
     description: "",
   };
@@ -1132,6 +1141,33 @@ function isUsableFormBase(value) {
   const normalized = normalizeLookup(value);
   if (!normalized || normalized.length < 2) return false;
   return !BLOCKED_FORM_BASES.has(normalized);
+}
+
+function isPurelyGrammaticalDefinition(text) {
+  const normalized = normalizeForTextMatch(text);
+  if (!normalized) return true;
+  if (/^(forme|feminin|masculin|pluriel|participe|conjugaison|variante|graphie|orthographe)\b/.test(normalized)) {
+    return true;
+  }
+  if (/^(premiere|deuxieme|troisieme)\s+personne\b/.test(normalized)) return true;
+  if (/\b(forme de|pluriel de|feminin de|masculin de|variante de|ancienne orthographe de)\b/.test(normalized)) {
+    return true;
+  }
+  if (/\b(indicatif|subjonctif|conditionnel|imperatif|pass[eé] simple|imparfait)\b/.test(normalized)) {
+    return true;
+  }
+  return false;
+}
+
+function hasSubstantiveLocalDefinition(entry) {
+  const definitions = [
+    entry?.definition,
+    ...(Array.isArray(entry?.definitions) ? entry.definitions : []),
+  ];
+  return definitions.some((definition) => {
+    const text = String(definition || "").trim();
+    return text && !isPurelyGrammaticalDefinition(text);
+  });
 }
 
 function findLocalFormOfHint(entry) {
@@ -1166,25 +1202,26 @@ async function lookupLocalDefinitionPayload(input, options = {}, seen = new Set(
   payload.local = true;
   if (entry.sourceLicense) payload.sourceLicense = entry.sourceLicense;
 
+  if (hasSubstantiveLocalDefinition(entry)) return payload;
+
   const hint = findLocalFormOfHint(entry);
   if (!hint?.base) return payload;
 
   const seenKey = normalizeLookup(input);
   const baseKey = normalizeLookup(hint.base);
   if (!baseKey || baseKey === seenKey || seen.has(baseKey)) {
-    return applyFormOfMetadata(payload, hint);
+    return null;
   }
 
   seen.add(seenKey);
   const basePayload = await lookupLocalDefinitionPayload(hint.base, options, seen);
-  if (basePayload?.ok) {
-    payload = {
-      ...basePayload,
-      word: input,
-      local: true,
-      displayWord: entry.title && entry.title !== input ? normalizeNfc(entry.title) : basePayload.displayWord,
-    };
-  }
+  if (!basePayload?.ok) return null;
+  payload = {
+    ...basePayload,
+    word: input,
+    local: true,
+    displayWord: entry.title && entry.title !== input ? normalizeNfc(entry.title) : basePayload.displayWord,
+  };
   return applyFormOfMetadata(payload, hint);
 }
 

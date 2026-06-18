@@ -29,6 +29,10 @@ import {
   getOcidTargetCandidates,
   getRareBonusWordMetaMap,
 } from "../stats/wordRarityService.js";
+import {
+  buildWordInsightSummary,
+  pickWordThemeChallenge,
+} from "../definitions/wordInsightService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,6 +60,32 @@ const TARGET_LONG_TOTAL_ATTEMPTS =
   TARGET_LONG_BATCHES_PER_LEN *
   (TARGET_LONG_PREFERRED_LEN - TARGET_LONG_MIN_LEN + 1);
 const TARGET_SCORE_MIN_PTS = 100;
+const CULTURE_THEME_GENERATION_ENABLED =
+  !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_CULTURE_THEME_GENERATION_ENABLED || "1"));
+const CULTURE_THEME_MIN_WORDS = Math.max(
+  2,
+  Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_MIN_WORDS) || 10)
+);
+const CULTURE_THEME_MAX_WORDS = Math.max(
+  CULTURE_THEME_MIN_WORDS,
+  Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_MAX_WORDS) || 24)
+);
+const CULTURE_THEME_COMPLETION_RATIO = Math.min(
+  1,
+  Math.max(0.1, Number(process.env.GOBBLE_CULTURE_THEME_COMPLETION_RATIO) || 0.7)
+);
+const CULTURE_THEME_MAX_LOOKUPS = Math.max(
+  50,
+  Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_MAX_LOOKUPS) || 420)
+);
+const CULTURE_THEME_QUALITY_ATTEMPTS = Math.max(
+  1,
+  Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_QUALITY_ATTEMPTS) || 120)
+);
+const CULTURE_THEME_PREPARE_BUDGET_MS = Math.max(
+  250,
+  Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_PREPARE_BUDGET_MS) || 5000)
+);
 
 let dictionary = null;
 try {
@@ -159,6 +189,47 @@ function serializeSolvedSolutions(solved) {
     fakeTwinsResolvedLetter: data?.fakeTwinsResolvedLetter ?? null,
     fakeTwinsUsesAlt: !!data?.fakeTwinsUsesAlt,
   }));
+}
+
+function shouldPreferCultureThemeCandidate(roundPlan) {
+  if (!CULTURE_THEME_GENERATION_ENABLED) return false;
+  const type = String(roundPlan?.type || "");
+  return type === "normal" && !roundPlan?.isSpecial;
+}
+
+function normalizeCultureThemeOptionList(values) {
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").replace(/\s+/g, " ").trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+}
+
+function hashCultureThemeSeed(input) {
+  const str = String(input ?? "");
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+async function buildCultureThemeChallengeForSolved(solved, options = {}) {
+  if (!solved || typeof solved.keys !== "function" || solved.size < 12) return null;
+  const summary = await buildWordInsightSummary(Array.from(solved.keys()), {
+    maxLookups: CULTURE_THEME_MAX_LOOKUPS,
+  });
+  return pickWordThemeChallenge(summary, {
+    minWords: CULTURE_THEME_MIN_WORDS,
+    maxWords: CULTURE_THEME_MAX_WORDS,
+    completionRatio: CULTURE_THEME_COMPLETION_RATIO,
+    excludedThemes: normalizeCultureThemeOptionList(options.excludedThemes),
+    themeUsageCounts: options.themeUsageCounts,
+    selectionSeed: options.selectionSeed,
+  });
 }
 
 function shouldApplyRareWordBonus(roundPlan) {
@@ -564,7 +635,8 @@ function prepareAnchoredMonstrous({
   return bestCandidate?.quality?.ok ? bestCandidate : null;
 }
 
-function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
+async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureThemeOptions = null }) {
+  const prepareStartedAt = Date.now();
   const minWords = roundPlan?.minWords ?? roomConfig?.minWords ?? 0;
   const maxAttempts = Math.max(
     1,
@@ -584,9 +656,33 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     : needsFakeTwins
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS)
     : maxAttempts;
+  const preferCultureThemeCandidate = shouldPreferCultureThemeCandidate(roundPlan);
+  const cultureThemePrepareBudgetMs = preferCultureThemeCandidate
+    ? CULTURE_THEME_PREPARE_BUDGET_MS
+    : 0;
+  let attemptsRun = 0;
+  let cultureThemeChecks = 0;
+  let cultureThemeMs = 0;
+  let cultureThemeBudgetExceeded = false;
+  const attachPrepareStats = (candidate) => {
+    if (!candidate) return candidate;
+    candidate.prepareStats = {
+      attempts: attemptsRun,
+      maxAttempts: maxAttemptsTotal,
+      elapsedMs: Date.now() - prepareStartedAt,
+      cultureThemeChecks,
+      cultureThemeMs,
+      cultureThemeBudgetMs: cultureThemePrepareBudgetMs,
+      cultureThemeBudgetExceeded,
+      cultureThemeFound: !!candidate.cultureThemeChallenge,
+    };
+    return candidate;
+  };
   const maxAttemptsTotal =
     roundPlan?.type === "target_long"
       ? Math.max(maxAttemptsBase, TARGET_LONG_TOTAL_ATTEMPTS)
+      : preferCultureThemeCandidate
+      ? Math.max(maxAttemptsBase, CULTURE_THEME_QUALITY_ATTEMPTS)
       : maxAttemptsBase;
   const size = roomConfig?.gridSize || 4;
   const effectiveMinWords = dictionary
@@ -658,6 +754,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
   let targetLongBestAtThreshold = null;
 
   for (let attempt = 1; attempt <= maxAttemptsTotal; attempt++) {
+    attemptsRun = attempt;
     let grid = generateGrid(size);
     if (
       roundPlan?.type === "speed" ||
@@ -838,6 +935,27 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       targetPath,
       solutions: serializeSolvedSolutions(solved),
     };
+    if (
+      preferCultureThemeCandidate &&
+      quality.ok &&
+      solved &&
+      (!cultureThemePrepareBudgetMs || Date.now() - prepareStartedAt < cultureThemePrepareBudgetMs)
+    ) {
+      const cultureThemeStartedAt = Date.now();
+      cultureThemeChecks += 1;
+      const cultureThemeChallenge = await buildCultureThemeChallengeForSolved(solved, {
+        ...(cultureThemeOptions || {}),
+        selectionSeed: hashCultureThemeSeed(
+          `${roundNumber || 0}:${attempt}:${grid.map((cell) => cell?.letter || "").join("")}`
+        ),
+      });
+      cultureThemeMs += Date.now() - cultureThemeStartedAt;
+      if (cultureThemeChallenge) {
+        candidate.cultureThemeChallenge = cultureThemeChallenge;
+      }
+    } else if (preferCultureThemeCandidate && quality.ok && solved && cultureThemePrepareBudgetMs) {
+      cultureThemeBudgetExceeded = true;
+    }
     const candidateHasRequiredTarget =
       roundPlan?.type === FAKE_TWINS_TYPE
         ? Number.isInteger(fakeTwinsCandidate?.twinIndex) && !!fakeTwinsCandidate?.altLetter
@@ -919,6 +1037,18 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
       }
 
       if (quality.ok) {
+        if (preferCultureThemeCandidate && !candidate.cultureThemeChallenge) {
+          if (
+            candidateHasRequiredTarget &&
+            cultureThemePrepareBudgetMs &&
+            Date.now() - prepareStartedAt >= cultureThemePrepareBudgetMs
+          ) {
+            cultureThemeBudgetExceeded = true;
+            bestCandidate = candidate;
+            break;
+          }
+          continue;
+        }
         bestCandidate = candidate;
         break;
       }
@@ -929,7 +1059,7 @@ function prepareNextGridJob({ roomConfig, roundPlan, roundNumber }) {
     bestCandidate = fallbackCandidate;
   }
 
-  return bestCandidate;
+  return attachPrepareStats(bestCandidate);
 }
 
 function analyzeGridJob({ grid, roundPlan, roomConfig, scoreConfig }) {
@@ -990,7 +1120,7 @@ if (parentPort) {
             rareBonusWordMetaMap,
           };
         }
-        const result = prepareNextGridJob(nextPayload);
+        const result = await prepareNextGridJob(nextPayload);
         respond({ id, ok: true, result });
         return;
       }

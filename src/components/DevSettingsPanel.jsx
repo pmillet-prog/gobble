@@ -72,9 +72,14 @@ export default function DevSettingsPanel({
   const canUseTools = available && !locked;
   const canSendGlobalAnnouncement =
     canUseTools && !busy && globalAnnouncementText.trim().length > 0;
-  const activeBotCount = Array.isArray(bots)
-    ? bots.filter((bot) => !!bot?.active).length
-    : 0;
+  const regularBots = Array.isArray(bots)
+    ? bots.filter((bot) => bot?.kind !== "animator")
+    : [];
+  const animatorBots = Array.isArray(bots)
+    ? bots.filter((bot) => bot?.kind === "animator")
+    : [];
+  const activeRegularBotCount = regularBots.filter((bot) => !!bot?.active).length;
+  const activeAnimatorBotCount = animatorBots.filter((bot) => !!bot?.active).length;
   const formatDurationMs = (value) => {
     const total = Math.max(0, Math.ceil((Number(value) || 0) / 1000));
     const h = Math.floor(total / 3600);
@@ -373,6 +378,12 @@ export default function DevSettingsPanel({
             <div className="mt-2">
               {renderToggle({ keyName: "botsEnabled", label: "Activer tous les bots" })}
             </div>
+            <div className="mt-2">
+              {renderToggle({
+                keyName: "animatorBotsEnabled",
+                label: "Bots animateurs permanents",
+              })}
+            </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -400,17 +411,23 @@ export default function DevSettingsPanel({
               </button>
             </div>
             <div className="mt-2 text-[10px] font-semibold opacity-70">
-              {activeBotCount}/{Array.isArray(bots) ? bots.length : 0} bots presents. Les choix restent jusqu'au prochain changement manuel.
+              Classiques: {activeRegularBotCount}/{regularBots.length}. Animateurs:{" "}
+              {activeAnimatorBotCount}/{animatorBots.length}. Les boutons tous presents/absents ne touchent que les classiques.
             </div>
             <div className="mt-2 max-h-56 overflow-y-auto pr-1 space-y-1">
-              {(bots || []).length ? (
-                bots.map((bot) => (
+              {regularBots.length || animatorBots.length ? (
+                [...animatorBots, ...regularBots].map((bot) => (
                   <button
                     key={bot.nick}
                     type="button"
-                    disabled={busy || !canUseTools || !controls?.botsEnabled}
+                    disabled={
+                      busy ||
+                      !canUseTools ||
+                      bot?.kind === "animator" ||
+                      !controls?.botsEnabled
+                    }
                     onClick={() =>
-                      typeof onSetBotActive === "function"
+                      bot?.kind !== "animator" && typeof onSetBotActive === "function"
                         ? onSetBotActive(bot.nick, !bot.active)
                         : null
                     }
@@ -420,6 +437,11 @@ export default function DevSettingsPanel({
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{bot.nick}</span>
+                      {bot?.kind === "animator" ? (
+                        <span className="block truncate text-[10px] opacity-75">
+                          animateur permanent, switch separe
+                        </span>
+                      ) : null}
                       {bot.override ? (
                         <span className="block truncate text-[10px] opacity-75">
                           force {bot.override.active ? "present" : "absent"}, manuel

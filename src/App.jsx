@@ -548,6 +548,20 @@ function pickDefinitionText(data) {
   return sanitizeDefinitionText(data.extract);
 }
 
+function pickDefinitionList(data) {
+  if (!data || !Array.isArray(data.definitions)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const raw of data.definitions) {
+    const text = sanitizeDefinitionText(raw);
+    const key = text.toLocaleLowerCase("fr-FR");
+    if (!text || seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+  }
+  return out;
+}
+
 function buildDefinitionFallbacks(clean, data, tried) {
   const out = [];
   const push = (value) => {
@@ -3699,12 +3713,22 @@ const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const MAX_INSTALL_ID_LEN = 128;
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
+const CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY = "gobble_chat_show_bot_messages";
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v3";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
+
+function isChatBotMessage(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message.isBot) return true;
+  const installId = typeof message.installId === "string" ? message.installId : "";
+  if (installId.startsWith("ambient-bot:") || installId.startsWith("dev-bot:")) return true;
+  const kind = typeof message.meta?.kind === "string" ? message.meta.kind : "";
+  return kind === "ambient_bot_chat" || kind === "dev_bot_chat" || kind === "dev_chat_fill";
+}
 
 function getMassiveBoggleFeedbackPoints(points, rawWord) {
   const safePoints = Number.isFinite(points) ? Math.max(0, Number(points)) : 0;
@@ -3984,8 +4008,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-06-11";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-06-11T00:00:00+02:00");
+const PATCH_NOTES_VERSION = "2026-06-18";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-06-18T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
@@ -4657,6 +4681,7 @@ export default function App() {
   const [showAllWords, setShowAllWords] = useState(false);
   const [sortMode, setSortMode] = useState("score");
   const [allWords, setAllWords] = useState([]);
+  const [cultureThemeChallenge, setCultureThemeChallenge] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
@@ -5251,6 +5276,7 @@ export default function App() {
     forcedRoundRandom: false,
     botMedals: false,
     botsEnabled: true,
+    animatorBotsEnabled: true,
     chatFill: false,
     botChat: false,
     botReactions: false,
@@ -5369,6 +5395,13 @@ export default function App() {
       return localStorage.getItem(CHAT_RULES_STORAGE_KEY) === "1";
     } catch (_) {
       return false;
+    }
+  });
+  const [showBotMessages, setShowBotMessages] = useState(() => {
+    try {
+      return localStorage.getItem(CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY) !== "0";
+    } catch (_) {
+      return true;
     }
   });
   const [isChatRulesOpen, setIsChatRulesOpen] = useState(false);
@@ -6188,6 +6221,12 @@ export default function App() {
     breakKindRef.current = breakKind;
   }, [breakKind]);
   useEffect(() => {
+    showBotMessagesRef.current = showBotMessages;
+    try {
+      localStorage.setItem(CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY, showBotMessages ? "1" : "0");
+    } catch (_) {}
+  }, [showBotMessages]);
+  useEffect(() => {
     tickRef.current = tick;
   }, [tick]);
   useEffect(() => {
@@ -6309,6 +6348,8 @@ export default function App() {
     phraseGuess: false,
     title: "",
     definition: "",
+    definitions: [],
+    etymology: "",
     source: "",
     url: "",
     fromWordInfo: false,
@@ -6629,6 +6670,7 @@ export default function App() {
       rareBonusWord = false,
       rareBonusPoints = 0,
       rarityBucket = "",
+      cultureThemeWord = false,
     } = {}
   ) {
     if (!word) return;
@@ -6639,7 +6681,7 @@ export default function App() {
     if (Number.isFinite(bestPts)) {
       acceptedBestPtsRef.current.set(word, bestPts);
     }
-    if (usedFakeTwins || rareBonusWord) {
+    if (usedFakeTwins || rareBonusWord || cultureThemeWord) {
       acceptedWordMetaRef.current.set(word, {
         usedFakeTwins: !!usedFakeTwins,
         fakeTwinsCompletionWord: !!fakeTwinsCompletionWord,
@@ -6647,10 +6689,86 @@ export default function App() {
         rareBonusWord: !!rareBonusWord,
         rareBonusPoints: Number(rareBonusPoints) || 0,
         rarityBucket: String(rarityBucket || ""),
+        cultureThemeWord: !!cultureThemeWord,
       });
     } else if (!acceptedWordMetaRef.current.has(word)) {
-      acceptedWordMetaRef.current.set(word, { usedFakeTwins: false });
+      acceptedWordMetaRef.current.set(word, { usedFakeTwins: false, cultureThemeWord: false });
     }
+  }
+
+  function normalizeCultureThemeChallengePayload(payload) {
+    const source = payload?.challenge && typeof payload.challenge === "object"
+      ? payload.challenge
+      : payload;
+    const words = Array.isArray(source?.words)
+      ? Array.from(new Set(source.words.map((word) => normalizeWord(word)).filter(Boolean)))
+      : [];
+    if (!words.length) return null;
+    return {
+      theme: String(source?.theme || ""),
+      line: String(source?.line || ""),
+      bonus: Math.max(0, Math.trunc(Number(source?.bonus) || 0)),
+      words,
+      requiredCount: Math.max(
+        1,
+        Math.min(words.length, Math.trunc(Number(source?.requiredCount) || Math.ceil(words.length * 0.7)))
+      ),
+      wordSet: new Set(words),
+    };
+  }
+
+  function markEntriesWithCultureTheme(entries, challenge = cultureThemeChallengeRef.current) {
+    const wordSet = challenge?.wordSet instanceof Set ? challenge.wordSet : null;
+    if (!wordSet || !wordSet.size) return Array.isArray(entries) ? entries : [];
+    return (Array.isArray(entries) ? entries : []).map((entry) => {
+      const word = normalizeWord(entry?.word || "");
+      return word && wordSet.has(word) ? { ...entry, cultureThemeWord: true } : entry;
+    });
+  }
+
+  function markSolutionMapWithCultureTheme(map, challenge = cultureThemeChallengeRef.current) {
+    if (!(map instanceof Map)) return map;
+    const wordSet = challenge?.wordSet instanceof Set ? challenge.wordSet : null;
+    if (!wordSet || !wordSet.size) return map;
+    for (const word of wordSet) {
+      const meta = map.get(word);
+      if (meta) {
+        map.set(word, { ...meta, cultureThemeWord: true });
+      }
+    }
+    return map;
+  }
+
+  function isCurrentCultureThemeWord(word) {
+    const norm = normalizeWord(word);
+    if (!norm) return false;
+    return !!cultureThemeChallengeRef.current?.wordSet?.has(norm);
+  }
+
+  function setCultureThemeChallengeRuntime(payload) {
+    const normalized = normalizeCultureThemeChallengePayload(payload);
+    cultureThemeChallengeRef.current = normalized;
+    setCultureThemeChallenge(normalized);
+    return normalized;
+  }
+
+  function applyCultureThemeChallengeToWordStores(payload) {
+    const challenge = setCultureThemeChallengeRuntime(payload);
+    if (!challenge) return;
+    cultureThemeCompletionCelebratedRef.current = "";
+    markSolutionMapWithCultureTheme(solutionsRef.current, challenge);
+    serverAllWordsRef.current = markEntriesWithCultureTheme(serverAllWordsRef.current, challenge);
+    setAllWords((prev) => markEntriesWithCultureTheme(prev, challenge));
+    acceptedRef.current.forEach((word) => {
+      if (!challenge.wordSet.has(normalizeWord(word))) return;
+      const current = acceptedWordMetaRef.current.get(word) || {};
+      acceptedWordMetaRef.current.set(word, { ...current, cultureThemeWord: true });
+    });
+    submissionStatusRef.current.forEach((meta, word) => {
+      if (!challenge.wordSet.has(normalizeWord(word))) return;
+      submissionStatusRef.current.set(word, { ...meta, cultureThemeWord: true });
+    });
+    touchSubmissionState();
   }
   const vocabOverlayWordsRef = useRef([]);
   const lastVocabFetchAtRef = useRef(0);
@@ -6684,6 +6802,7 @@ export default function App() {
   const clearTileIntroAnimationFnRef = useRef(() => {});
   const triggerTileIntroAnimationFnRef = useRef(() => 0);
   const chatTabRef = useRef(chatTab === "system" ? "system" : "messages");
+  const showBotMessagesRef = useRef(showBotMessages);
   const isHomeChatOpenRef = useRef(false);
   const lobbyPresenceRef = useRef(new Set());
   const lobbyChatSubscriptionRef = useRef({
@@ -6713,6 +6832,8 @@ export default function App() {
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
   const fakeTwinsCompletionCelebratedRef = useRef("");
+  const cultureThemeCompletionCelebratedRef = useRef("");
+  const cultureThemeChallengeRef = useRef(null);
   const invalidLastRef = useRef(0);
   const bigScoreLastRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
@@ -9580,6 +9701,7 @@ export default function App() {
             return;
           }
           const definitionText = pickDefinitionText(data);
+          const definitionList = pickDefinitionList(data);
           const ok = !!definitionText || !!data.ok;
           if (!definitionText) {
             const fallbacks = buildDefinitionFallbacks(clean, data, tried);
@@ -11953,6 +12075,7 @@ export default function App() {
       targetLength = null,
       targetHintScheduleMs = [],
       solutions = null,
+      cultureThemeChallenge = null,
       ocidVote: ocidVotePayload = null,
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
@@ -12066,6 +12189,7 @@ export default function App() {
           introMs,
           status: roundStatus,
           solutions,
+          cultureThemeChallenge,
         }
       );
     }
@@ -12157,6 +12281,7 @@ export default function App() {
       const author = (normalizedMessage.author || normalizedMessage.nick || "").trim();
       const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
+      if (!showBotMessagesRef.current && isChatBotMessage(normalizedMessage)) return;
       const currentTab = chatTabRef.current === "system" ? "system" : "messages";
       if (isLoggedInRef.current) {
         const isMobileNow = isMobileLayoutRef.current;
@@ -12312,6 +12437,19 @@ export default function App() {
       );
     }
 
+    function maybeShowCultureThemeCompletionToastFromAnnouncement(entry) {
+      if (!entry || entry.type !== "culture_theme_completed") return;
+      const bonus = Math.max(0, Number(entry?.bonus) || 0);
+      const nick = String(entry?.nick || "").trim();
+      const theme = String(entry?.theme || "").trim();
+      const label = bonus > 0 ? `+${bonus} pts` : "bonus validé";
+      const subject = theme ? `WikiMama ${theme}` : "WikiMama";
+      showToast(
+        nick ? `${nick} complète ${subject} : ${label}` : `${subject} complété : ${label}`,
+        3200
+      );
+    }
+
     function onAnnouncement(data) {
       if (!data) return;
       if (data.type === "big_word" || data.type === "long_word") {
@@ -12321,6 +12459,7 @@ export default function App() {
       maybeTriggerGobbleFromAnnouncement(data);
       maybeShowDuelToastFromAnnouncement(data);
       maybeShowFakeTwinsCompletionToastFromAnnouncement(data);
+      maybeShowCultureThemeCompletionToastFromAnnouncement(data);
       appendAnnouncements([data]);
     }
 
@@ -12336,6 +12475,7 @@ export default function App() {
         maybeTriggerGobbleFromAnnouncement(entry);
         maybeShowDuelToastFromAnnouncement(entry);
         maybeShowFakeTwinsCompletionToastFromAnnouncement(entry);
+        maybeShowCultureThemeCompletionToastFromAnnouncement(entry);
       });
       appendAnnouncements(filtered);
     }
@@ -12517,6 +12657,14 @@ export default function App() {
       }
     }
 
+    function onCultureThemeChallenge(payload = {}) {
+      if (!payload || typeof payload !== "object") return;
+      if (phaseRef.current !== "playing") return;
+      const activeRoundId = roundIdRef.current;
+      if (activeRoundId && payload.roundId && payload.roundId !== activeRoundId) return;
+      applyCultureThemeChallengeToWordStores(payload.challenge || payload);
+    }
+
     function onOcidVoteStarted(payload = {}) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!payload || typeof payload !== "object") return;
@@ -12668,6 +12816,7 @@ export default function App() {
     socket.on("medalsUpdate", onMedalsUpdate);
     socket.on("specialHint", onSpecialHint);
     socket.on("specialSolved", onSpecialSolved);
+    socket.on("cultureThemeChallenge", onCultureThemeChallenge);
     socket.on("ocidVoteStarted", onOcidVoteStarted);
     socket.on("ocidVoteUpdated", onOcidVoteUpdated);
     socket.on("trophiesUpdated", onTrophiesUpdated);
@@ -12695,6 +12844,7 @@ export default function App() {
       socket.off("medalsUpdate", onMedalsUpdate);
       socket.off("specialHint", onSpecialHint);
       socket.off("specialSolved", onSpecialSolved);
+      socket.off("cultureThemeChallenge", onCultureThemeChallenge);
       socket.off("ocidVoteStarted", onOcidVoteStarted);
       socket.off("ocidVoteUpdated", onOcidVoteUpdated);
       socket.off("trophiesUpdated", onTrophiesUpdated);
@@ -17154,6 +17304,15 @@ export default function App() {
     const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions, {
       disableRareBonus: !isRareBonusEnabledForSpecial(specialInfo),
     });
+    const incomingCultureThemeChallenge = setCultureThemeChallengeRuntime(
+      roundLifecycle?.cultureThemeChallenge || null
+    );
+    cultureThemeCompletionCelebratedRef.current = "";
+    markSolutionMapWithCultureTheme(serverSolutions.solved, incomingCultureThemeChallenge);
+    serverSolutions.all = markEntriesWithCultureTheme(
+      serverSolutions.all,
+      incomingCultureThemeChallenge
+    );
     const derivedSize =
       incomingGridSize ||
       Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
@@ -17446,6 +17605,7 @@ export default function App() {
       usedFakeTwins: !!meta?.usedFakeTwins,
       fakeTwinsCompletionWord: !!meta?.usedFakeTwins,
       fakeTwinsBonusOnly: false,
+      cultureThemeWord: isCurrentCultureThemeWord(word),
     }));
 
     all.sort((a, b) => b.pts - a.pts);
@@ -18328,6 +18488,8 @@ export default function App() {
       phraseGuess: false,
       title: "",
       definition: "",
+      definitions: [],
+      etymology: "",
       source: "",
       url: "",
       ok: false,
@@ -18364,6 +18526,7 @@ export default function App() {
               return;
             }
           }
+          const definitionList = pickDefinitionList(data);
           setDefinitionModal({
             open: true,
             loading: false,
@@ -18381,6 +18544,8 @@ export default function App() {
             phraseGuess: !!data.phraseGuess,
             title: data.title || "",
             definition: definitionText,
+            definitions: definitionList,
+            etymology: sanitizeDefinitionText(data.etymology),
             source: data.source || "",
             url: data.url || "",
             ok,
@@ -18553,6 +18718,7 @@ export default function App() {
         rareBonusWord: rareBonusAllowed && !!metaForWord?.rareBonusWord,
         rareBonusPoints: rareBonusAllowed ? Number(metaForWord?.rareBonusPoints) || 0 : 0,
         rarityBucket: rareBonusAllowed ? String(metaForWord?.rarityBucket || "") : "",
+        cultureThemeWord: !!metaForWord?.cultureThemeWord || isCurrentCultureThemeWord(word),
       });
     });
     list.sort((a, b) => {
@@ -18699,6 +18865,7 @@ export default function App() {
                 isRareBonusEnabledForSpecial(specialRound) ? Number(item?.rareBonusPoints) || 0 : 0,
               rarityBucket:
                 isRareBonusEnabledForSpecial(specialRound) ? String(item?.rarityBucket || "") : "",
+              cultureThemeWord: !!item?.cultureThemeWord || isCurrentCultureThemeWord(word),
             };
           })
         : [],
@@ -19668,6 +19835,11 @@ function handleTouchEnd(e) {
     const rarityBucket = rareBonusEnabledNow
       ? String(result?.rarityBucket || meta?.rarityBucket || allWordsMap.get(word)?.rarityBucket || "")
       : "";
+    const cultureThemeWord =
+      !!result?.cultureThemeWord ||
+      !!meta?.cultureThemeWord ||
+      !!allWordsMap.get(word)?.cultureThemeWord ||
+      isCurrentCultureThemeWord(word);
     const totalScore =
       Number.isFinite(result?.totalScore)
         ? result.totalScore
@@ -19695,6 +19867,7 @@ function handleTouchEnd(e) {
       rareBonusWord,
       rareBonusPoints,
       rarityBucket,
+      cultureThemeWord,
       ts: meta.ts || Date.now(),
     });
     pendingWordsRef.current.delete(word);
@@ -19725,6 +19898,7 @@ function handleTouchEnd(e) {
         rareBonusWord,
         rareBonusPoints,
         rarityBucket,
+        cultureThemeWord,
       });
       setLastWords((prev) => {
         if (!Array.isArray(prev) || prev.length === 0) return prev;
@@ -19743,6 +19917,7 @@ function handleTouchEnd(e) {
             rareBonusWord,
             rareBonusPoints,
             rarityBucket,
+            cultureThemeWord,
           };
         });
         return updated ? next : prev;
@@ -19765,6 +19940,7 @@ function handleTouchEnd(e) {
       rareBonusWord,
       rareBonusPoints,
       rarityBucket,
+      cultureThemeWord,
     });
     pushWordHistory(word);
 
@@ -19787,6 +19963,7 @@ function handleTouchEnd(e) {
             rareBonusWord,
             rareBonusPoints,
             rarityBucket,
+            cultureThemeWord,
           },
           ...prev,
         ];
@@ -20036,6 +20213,7 @@ function handleTouchEnd(e) {
       status: "pending",
       ts: Date.now(),
       ...meta,
+      cultureThemeWord: !!meta?.cultureThemeWord || isCurrentCultureThemeWord(word),
     });
     pendingQueueRef.current.push(word);
     touchSubmissionState();
@@ -20052,6 +20230,7 @@ function handleTouchEnd(e) {
     rareBonusWord = false,
     rareBonusPoints = 0,
     rarityBucket = "",
+    cultureThemeWord = false,
     ptsOverride = null,
   }) {
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
@@ -20060,6 +20239,7 @@ function handleTouchEnd(e) {
     const effectiveRareBonusWord = rareBonusEnabledNow && !!rareBonusWord;
     const effectiveRareBonusPoints = rareBonusEnabledNow ? Number(rareBonusPoints) || 0 : 0;
     const effectiveRarityBucket = rareBonusEnabledNow ? String(rarityBucket || "") : "";
+    const effectiveCultureThemeWord = !!cultureThemeWord || isCurrentCultureThemeWord(raw);
     const displayStr = display || raw.toUpperCase();
     const now = getNextLiveFeedTs();
     const normalizedPath = Array.isArray(path)
@@ -20078,6 +20258,7 @@ function handleTouchEnd(e) {
       rareBonusWord: effectiveRareBonusWord,
       rareBonusPoints: effectiveRareBonusPoints,
       rarityBucket: effectiveRarityBucket,
+      cultureThemeWord: effectiveCultureThemeWord,
     });
     dailyAcceptedPathsRef.current.set(raw, {
       word: raw,
@@ -20109,6 +20290,7 @@ function handleTouchEnd(e) {
           rareBonusWord: effectiveRareBonusWord,
           rareBonusPoints: effectiveRareBonusPoints,
           rarityBucket: effectiveRarityBucket,
+          cultureThemeWord: effectiveCultureThemeWord,
         },
         ...prev,
       ];
@@ -20281,9 +20463,10 @@ function handleTouchEnd(e) {
               rareBonusWord: rareBonusAllowed && !!serverMeta.rareBonusWord,
               rareBonusPoints: rareBonusAllowed ? Number(serverMeta.rareBonusPoints) || 0 : 0,
               rarityBucket: rareBonusAllowed ? String(serverMeta.rarityBucket || "") : "",
+              cultureThemeWord: !!serverMeta.cultureThemeWord || isCurrentCultureThemeWord(candidate.raw),
             };
           }
-          return scored;
+          return { ...scored, cultureThemeWord: isCurrentCultureThemeWord(candidate.raw) };
         })(),
       }))
       .filter((candidate) => candidate?.scored);
@@ -22087,6 +22270,77 @@ function handleTouchEnd(e) {
     phase,
     roundId,
   ]);
+  const localCountedCultureThemeWords = React.useMemo(() => {
+    const wordSet = cultureThemeChallenge?.wordSet;
+    const found = new Set();
+    if (!(wordSet instanceof Set) || !wordSet.size) return found;
+    accepted.forEach((word) => {
+      const norm = normalizeWord(word);
+      if (wordSet.has(norm)) found.add(norm);
+    });
+    submissionStatusRef.current.forEach((meta, word) => {
+      if (!meta || meta.status === "rejected") return;
+      const norm = normalizeWord(word);
+      if (wordSet.has(norm)) found.add(norm);
+    });
+    return found;
+  }, [accepted, cultureThemeChallenge, submissionTick]);
+  const cultureThemeProgress = React.useMemo(() => {
+    const total = Array.isArray(cultureThemeChallenge?.words)
+      ? cultureThemeChallenge.words.length
+      : 0;
+    if (!total) return { target: 0, remaining: null };
+    const target = Math.max(
+      1,
+      Math.min(total, Math.trunc(Number(cultureThemeChallenge?.requiredCount) || Math.ceil(total * 0.7)))
+    );
+    return {
+      target,
+      remaining: Math.max(0, target - localCountedCultureThemeWords.size),
+    };
+  }, [cultureThemeChallenge, localCountedCultureThemeWords]);
+  const cultureThemeRemainingLabel = React.useMemo(() => {
+    if (!cultureThemeChallenge || !Number.isFinite(cultureThemeProgress.remaining)) return "";
+    const remaining = cultureThemeProgress.remaining;
+    const theme = cultureThemeChallenge.theme ? ` thème ${cultureThemeChallenge.theme}` : "";
+    const bonus = Number(cultureThemeChallenge.bonus) || 0;
+    const suffix = bonus > 0 ? ` · bonus ${bonus} pts` : "";
+    return `${formatNumber(remaining) ?? remaining} mots WikiMama${theme} restants${suffix}`;
+  }, [
+    cultureThemeChallenge,
+    cultureThemeProgress.remaining,
+    formatNumber,
+  ]);
+  const liveFeedBannerText = React.useMemo(
+    () => [fakeTwinsRemainingLabel, cultureThemeRemainingLabel].filter(Boolean).join(" · "),
+    [fakeTwinsRemainingLabel, cultureThemeRemainingLabel]
+  );
+  React.useEffect(() => {
+    if (phase !== "playing" || !cultureThemeChallenge) {
+      cultureThemeCompletionCelebratedRef.current = "";
+      return;
+    }
+    const remaining = Number(cultureThemeProgress.remaining);
+    const target = Number(cultureThemeProgress.target);
+    if (!Number.isFinite(remaining) || !Number.isFinite(target) || target <= 0) return;
+    if (remaining > 0) return;
+    const celebrationKey = `live:${roundId || "current"}:${cultureThemeChallenge.theme || "theme"}`;
+    if (cultureThemeCompletionCelebratedRef.current === celebrationKey) return;
+    cultureThemeCompletionCelebratedRef.current = celebrationKey;
+    triggerPraiseFlash("BONUS !", {
+      kind: "bonus",
+      shakeGrid: true,
+      force: true,
+      durationMs: 3200,
+    });
+    triggerConfettiBurst("target");
+  }, [
+    cultureThemeChallenge,
+    cultureThemeProgress.remaining,
+    cultureThemeProgress.target,
+    phase,
+    roundId,
+  ]);
   const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
     ? formatNumber(previewTotals.totalWords)
     : "?";
@@ -22696,6 +22950,10 @@ function handleTouchEnd(e) {
             allWordsMap.get(word)?.rarityBucket ||
             ""
           : "",
+      cultureThemeWord:
+        !!acceptedWordMetaRef.current.get(word)?.cultureThemeWord ||
+        !!allWordsMap.get(word)?.cultureThemeWord ||
+        isCurrentCultureThemeWord(word),
     }));
     pendingWordEntries.forEach((entry) => {
       if (acceptedWordSet.has(entry.word)) return;
@@ -22737,6 +22995,11 @@ function handleTouchEnd(e) {
               allWordsMap.get(entry.word)?.rarityBucket ||
               ""
             : "",
+        cultureThemeWord:
+          !!entry?.cultureThemeWord ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.cultureThemeWord ||
+          !!allWordsMap.get(entry.word)?.cultureThemeWord ||
+          isCurrentCultureThemeWord(entry.word),
       });
     });
     return list;
@@ -22811,6 +23074,12 @@ function handleTouchEnd(e) {
               acceptedWordMetaRef.current.get(entry.word)?.rarityBucket ||
               ""
             : "",
+        cultureThemeWord:
+          !!pendingStatusMap.get(entry.word)?.cultureThemeWord ||
+          !!entry?.cultureThemeWord ||
+          !!allWordsMap.get(entry.word)?.cultureThemeWord ||
+          !!acceptedWordMetaRef.current.get(entry.word)?.cultureThemeWord ||
+          isCurrentCultureThemeWord(entry.word),
         userPts: (() => {
           const raw =
             pendingStatusMap.get(entry.word)?.userPts ??
@@ -23991,8 +24260,11 @@ function handleTouchEnd(e) {
     });
   }, [chatMessages, blockedInstallIdSet]);
   const chatMessagesOnly = React.useMemo(
-    () => filteredChatMessages.filter((msg) => !isSystemChatMessage(msg)),
-    [filteredChatMessages]
+    () =>
+      filteredChatMessages.filter(
+        (msg) => !isSystemChatMessage(msg) && (showBotMessages || !isChatBotMessage(msg))
+      ),
+    [filteredChatMessages, showBotMessages]
   );
   const chatSystemMessages = React.useMemo(
     () => filteredChatMessages.filter((msg) => isSystemChatMessage(msg)),
@@ -28924,6 +29196,14 @@ function handleTouchEnd(e) {
   const definitionVaultShowsSavedState = !definitionModal.fromVault && definitionWordInVault;
   const definitionModalDarkMode =
     definitionModal.fromVault || homeSurfaceUsesFixedFantasyTheme ? menuDarkMode : darkMode;
+  const definitionModalDefinitions = Array.isArray(definitionModal.definitions)
+    ? definitionModal.definitions.map((item) => sanitizeDefinitionText(item)).filter(Boolean)
+    : [];
+  const showStructuredDefinitionList =
+    definitionModal.preferLongDefinition && definitionModalDefinitions.length > 1;
+  const definitionModalEtymology = definitionModal.preferLongDefinition
+    ? sanitizeDefinitionText(definitionModal.etymology)
+    : "";
 
   const definitionModalView =
     definitionModal.open && typeof document !== "undefined"
@@ -28975,7 +29255,31 @@ function handleTouchEnd(e) {
                 {definitionModal.loading ? (
                   <span>Chargement...</span>
                 ) : definitionModal.ok && definitionModal.definition ? (
-                  <span>{definitionModal.definition}</span>
+                  <div className="space-y-3">
+                    {showStructuredDefinitionList ? (
+                      <ol className="space-y-2 list-decimal pl-5">
+                        {definitionModalDefinitions.map((definition, index) => (
+                          <li key={`${definition.slice(0, 32)}-${index}`}>{definition}</li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <span>{definitionModal.definition}</span>
+                    )}
+                    {definitionModalEtymology ? (
+                      <div
+                        className={`rounded-lg border px-3 py-2 text-[13px] leading-snug ${
+                          definitionModalDarkMode
+                            ? "border-amber-300/25 bg-amber-300/10 text-amber-50"
+                            : "border-amber-300/50 bg-amber-50/80 text-amber-950"
+                        }`}
+                      >
+                        <div className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">
+                          Étymologie
+                        </div>
+                        <div className="mt-1">{definitionModalEtymology}</div>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
                   <span>Définition non disponible</span>
                 )}
@@ -31571,7 +31875,7 @@ function handleTouchEnd(e) {
     chatEditTarget,
     chatInput,
     chatInputDisabled,
-    chatFocusPreserveKey: `${appView}:${phase}:${roundId || ""}:${serverStatus}:${breakKind || ""}`,
+    chatFocusPreserveKey: `${appView}:${isLoggedIn ? "live" : "guest"}`,
     chatInputPlaceholder,
     chatInputRef,
     chatInputType,
@@ -31615,7 +31919,9 @@ function handleTouchEnd(e) {
     selfNick,
     setChatInput,
     showBlockedList,
+    showBotMessages,
     submitChat,
+    onToggleShowBotMessages: () => setShowBotMessages((prev) => !prev),
     visibleMessages,
   };
   const homeChatVisibleMessages = React.useMemo(() => {
@@ -36139,7 +36445,7 @@ function handleTouchEnd(e) {
         isTargetRound={isTargetRound}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         liveFeedMinHeight={liveFeedMinHeight}
-        liveFeedBannerText={fakeTwinsRemainingLabel}
+        liveFeedBannerText={liveFeedBannerText}
         liveWord={liveWord}
         liveWordTiles={liveWordTiles}
         mobileAnnouncements={mobileAnnouncements}
@@ -37431,7 +37737,7 @@ function handleTouchEnd(e) {
                 items={mixedFeed}
                 darkMode={darkMode}
                 maxHeight="100%"
-                bannerText={fakeTwinsRemainingLabel}
+                bannerText={liveFeedBannerText}
                 getNickClassName={getLiveNickClassName}
               />
             </div>

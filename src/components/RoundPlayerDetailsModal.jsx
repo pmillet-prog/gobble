@@ -253,6 +253,7 @@ export default function RoundPlayerDetailsModal({
         rareBonusWord: !!entry?.rareBonusWord,
         rareBonusPoints: Number(entry?.rareBonusPoints) || 0,
         rarityBucket: entry?.rarityBucket || "",
+        cultureThemeWord: !!entry?.cultureThemeWord,
       });
     });
     return map;
@@ -277,6 +278,7 @@ export default function RoundPlayerDetailsModal({
         rareBonusWord: !!entry?.rareBonusWord,
         rareBonusPoints: Number(entry?.rareBonusPoints) || 0,
         rarityBucket: entry?.rarityBucket || "",
+        cultureThemeWord: !!entry?.cultureThemeWord,
       });
     });
     foundWordsMap.forEach((meta, word) => {
@@ -295,6 +297,7 @@ export default function RoundPlayerDetailsModal({
           rareBonusWord: !!meta?.rareBonusWord,
           rareBonusPoints: Number(meta?.rareBonusPoints) || 0,
           rarityBucket: meta?.rarityBucket || "",
+          cultureThemeWord: !!meta?.cultureThemeWord,
         });
       }
     });
@@ -315,6 +318,7 @@ export default function RoundPlayerDetailsModal({
         rareBonusWord: !!(entry?.rareBonusWord || foundMeta?.rareBonusWord),
         rareBonusPoints: Number(entry?.rareBonusPoints) || Number(foundMeta?.rareBonusPoints) || 0,
         rarityBucket: entry?.rarityBucket || foundMeta?.rarityBucket || "",
+        cultureThemeWord: !!(entry?.cultureThemeWord || foundMeta?.cultureThemeWord),
         gobbleCount: Math.max(
           0,
           Math.trunc(
@@ -874,10 +878,17 @@ export default function RoundPlayerDetailsModal({
                             ? "text-violet-600"
                             : "text-blue-600"
                           : "";
+                      const cultureThemeWordClassName =
+                        entry?.cultureThemeWord && !isRejected
+                          ? darkMode
+                            ? "text-blue-300"
+                            : "text-blue-600"
+                          : "";
                       const shouldUseRareBonusStyle =
                         entry?.rareBonusWord &&
                         !isRejected &&
-                        !entry?.usedFakeTwins;
+                        !entry?.usedFakeTwins &&
+                        !entry?.cultureThemeWord;
                       const rareBonusWordClassName =
                         shouldUseRareBonusStyle
                           ? isFound
@@ -947,7 +958,7 @@ export default function RoundPlayerDetailsModal({
                             )}
                             <span className="flex items-center gap-1 min-w-0">
                               <span
-                                className={`${wordClassName} ${fakeTwinsWordClassName} ${rareBonusWordClassName}`.trim()}
+                                className={`${wordClassName} ${fakeTwinsWordClassName} ${cultureThemeWordClassName} ${rareBonusWordClassName}`.trim()}
                                 style={rareBonusWordStyle}
                               >
                                 {entry.word}

@@ -1,7 +1,7 @@
 import { Worker } from "worker_threads";
 
 export function createComputePool() {
-  const dedicatedWorkers = String(process.env.GOBBLE_COMPUTE_DEDICATED_WORKERS || "")
+  const dedicatedWorkers = String(process.env.GOBBLE_COMPUTE_DEDICATED_WORKERS || "1")
     .trim()
     .toLowerCase();
   const useDedicatedWorkers =
@@ -65,8 +65,6 @@ export function createComputePool() {
         worker = spawnWorker();
       }
     }
-
-    ensureWorker();
 
     return {
       call(type, payload) {

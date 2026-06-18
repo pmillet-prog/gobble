@@ -32,6 +32,12 @@ import {
   clearDefinitionCache,
   peekDefinitionCache,
 } from "./definitions/definitionService.js";
+import { getOfflineWordFact } from "./definitions/wordFactService.js";
+import {
+  buildWordInsightSummary,
+  buildWordInsightChatLines,
+  pickWordThemeChallenge,
+} from "./definitions/wordInsightService.js";
 import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
 import {
   getWeekStartTs,
@@ -1440,6 +1446,35 @@ const CHAT_REPLY_TEXT_MAX_LEN = 280;
 const CHAT_MESSAGE_TEXT_MAX_LEN = 300;
 const TARGET_CHAT_SPOILER_MIN_RUN = 4;
 const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
+const AMBIENT_CHAT_BOTS_ENABLED =
+  !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_AMBIENT_CHAT_BOTS_ENABLED || "1"));
+const AMBIENT_CHAT_BOT_GLOBAL_COOLDOWN_MS = 18 * 1000;
+const AMBIENT_CHAT_BOT_PER_BOT_COOLDOWN_MS = 45 * 1000;
+const AMBIENT_CHAT_BOT_MAX_PER_ROUND = 5;
+const DETECTIVE_MAX_LENGTH_MIN_LEN = Math.max(
+  7,
+  Math.trunc(Number(process.env.GOBBLE_DETECTIVE_MAX_LENGTH_MIN_LEN) || 9)
+);
+const DETECTIVE_MAX_LENGTH_CHANCE = Math.min(
+  1,
+  Math.max(0, Number(process.env.GOBBLE_DETECTIVE_MAX_LENGTH_CHANCE) || 0.35)
+);
+const AMBIENT_TREND_BOT_ENABLED =
+  !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_TREND_BOT_ENABLED || "1"));
+const AMBIENT_TREND_BOT_TIMEOUT_MS = 1400;
+const CULTURE_THEME_BONUS_POINTS = 500;
+const CULTURE_THEME_RECENT_LIMIT = Math.max(
+  0,
+  Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_RECENT_LIMIT) || 2)
+);
+const WIKIMAMA_LIGHT_INSIGHT_CHANCE = Math.min(
+  1,
+  Math.max(0, Number(process.env.GOBBLE_WIKIMAMA_LIGHT_INSIGHT_CHANCE) || 0.35)
+);
+const WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS = Math.max(
+  8,
+  Math.trunc(Number(process.env.GOBBLE_WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS) || 18)
+);
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "👍",
   "❤️",
@@ -1649,6 +1684,7 @@ const DEFAULT_DEV_CONTROLS = Object.freeze({
   forcedRoundRandom: false,
   botMedals: false,
   botsEnabled: true,
+  animatorBotsEnabled: true,
   chatFill: false,
   botChat: false,
   botReactions: false,
@@ -1884,6 +1920,7 @@ function normalizeDevControls(raw = {}) {
     forcedRoundRandom: !!source.forcedRoundRandom,
     botMedals: !!source.botMedals,
     botsEnabled: source.botsEnabled !== false,
+    animatorBotsEnabled: source.animatorBotsEnabled !== false,
     chatFill: !!source.chatFill,
     botChat: !!source.botChat,
     botReactions: !!source.botReactions,
@@ -3253,6 +3290,8 @@ function createRoomState(roomId, config) {
     bufferedPreparedGridPromise: null,
     bufferedPreparedGridPromiseMeta: null,
     ocidRecentTargets: [],
+    cultureThemeRecentThemes: [],
+    cultureThemeUsageCounts: new Map(),
     roundCounter: 0,
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
@@ -3647,13 +3686,15 @@ function compactRoundSubmissionSolution(entry) {
   const rareBonusWord = !!entry?.rareBonusWord;
   const rareBonusPoints = Number.isFinite(entry?.rareBonusPoints) ? entry.rareBonusPoints : 0;
   const rarityBucket = String(entry?.rarityBucket || "");
+  const cultureThemeWord = !!entry?.cultureThemeWord;
   if (
     !usedFakeTwins &&
     !fakeTwinsCompletionWord &&
     !fakeTwinsBonusOnly &&
     !rareBonusWord &&
     !rareBonusPoints &&
-    !rarityBucket
+    !rarityBucket &&
+    !cultureThemeWord
   ) {
     return [word, pts];
   }
@@ -3667,6 +3708,7 @@ function compactRoundSubmissionSolution(entry) {
     rareBonusWord,
     rareBonusPoints,
     rarityBucket,
+    cultureThemeWord,
   ];
 }
 
@@ -3691,10 +3733,18 @@ function packRoundSubmissionSolutions(entries) {
         compact[6] ? 1 : 0,
         Number.isFinite(compact[7]) ? compact[7] : 0,
         String(compact[8] || ""),
+        compact[9] ? 1 : 0,
       ]);
     }
   }
   return { v: 2, w: words, p: points, m: meta };
+}
+
+function isCultureThemeChallengeWord(round, word) {
+  const norm = normalizeWord(word);
+  if (!norm) return false;
+  const wordSet = round?.cultureThemeChallenge?.wordSet;
+  return wordSet instanceof Set && wordSet.has(norm);
 }
 
 function getRoundSolutionsPayloadCount(payload) {
@@ -3753,6 +3803,7 @@ function buildRoundSubmissionSolutions(round) {
         ...rareMeta,
         fakeTwinsCompletionWord: !!entry.fakeTwinsCompletionWord,
         fakeTwinsBonusOnly: !!entry.fakeTwinsBonusOnly,
+        cultureThemeWord: isCultureThemeChallengeWord(round, entry.word),
       });
     }).filter(Boolean));
   }
@@ -3777,6 +3828,7 @@ function buildRoundSubmissionSolutions(round) {
       ...rareMeta,
       fakeTwinsCompletionWord: !!meta?.fakeTwinsCompletionWord,
       fakeTwinsBonusOnly: !!meta?.fakeTwinsBonusOnly,
+      cultureThemeWord: isCultureThemeChallengeWord(round, word),
       fakeTwinsTwinIndex:
         Number.isInteger(meta?.fakeTwinsTwinIndex) ? meta.fakeTwinsTwinIndex : null,
       fakeTwinsResolvedLetter: meta?.fakeTwinsResolvedLetter ?? null,
@@ -3824,6 +3876,7 @@ function buildRoundStartedPayload(room) {
         ? buildPublicOcidVotePayload(room)
         : null,
     solutions: buildRoundSubmissionSolutions(round),
+    cultureThemeChallenge: serializeCultureThemeChallenge(round.cultureThemeChallenge),
     special: round.special?.isSpecial ? round.special : null,
     gridQuality: currentQuality
       ? {
@@ -4537,6 +4590,1151 @@ function broadcastSystemChatMessage(text, opts = {}) {
   }
 }
 
+const AMBIENT_CHAT_BOTS = Object.freeze({
+  linguist: {
+    nick: "GrosRobert",
+    category: "linguist",
+  },
+  statistician: {
+    nick: "Statatouille",
+    category: "statistician",
+  },
+  detective: {
+    nick: "Inspecteur Grille",
+    category: "detective",
+  },
+  commentator: {
+    nick: "RadioBoggle",
+    category: "commentator",
+  },
+  culture: {
+    nick: "WikiMama",
+    category: "culture",
+  },
+  narrator: {
+    nick: "Oraclettres",
+    category: "narrator",
+  },
+  coach: {
+    nick: "CaSuffix",
+    category: "coach",
+  },
+  recordHunter: {
+    nick: "Recordator",
+    category: "record_hunter",
+  },
+  hiddenWord: {
+    nick: "MomoMotus",
+    category: "hidden_word",
+  },
+  trend: {
+    nick: "Webomètre",
+    category: "trend",
+  },
+});
+
+const WORD_FACTS_BY_NORMALIZED_WORD = Object.freeze({
+  algorithme:
+    "Saviez-vous que 'algorithme' vient du nom latinisé du mathématicien persan Al-Khwarizmi ?",
+  bistrot:
+    "'Bistrot' a une origine discutée; l'explication par le russe 'bystro' reste célèbre, mais controversée.",
+  serendipite:
+    "FUN FACT : 'sérendipité' désigne l'art de faire une découverte heureuse sans l'avoir vraiment cherchée.",
+  petrichor:
+    "'Pétrichor' désigne l'odeur de la terre après la pluie.",
+  canicule:
+    "'Canicule' vient de Canicula, la 'petite chienne', nom donné à Sirius dans l'Antiquité.",
+  fusee:
+    "'Fusée' a longtemps désigné une pièce en fuseau avant de viser les engins qui montent très haut.",
+});
+
+const HIDDEN_WORD_LINES = Object.freeze([
+  "Personne n'a trouvé {WORD} ({META}). Celui-là méritait une lampe frontale.",
+  "{WORD} ({META}) est resté dans l'ombre jusqu'au bout.",
+  "Le mot caché de la manche : {WORD} ({META}). Il avait visiblement pris un abonnement discret.",
+  "Aucun joueur n'a débusqué {WORD} ({META}).",
+  "{WORD} ({META}) était là, tranquillement, sans demander son reste.",
+  "{WORD} ({META}) s'était glissé sous le tapis de lettres.",
+  "{WORD} ({META}) a passé la manche en mode camouflage.",
+  "Le coffre à mots garde une trace de {WORD} ({META}), resté bien discret.",
+]);
+
+const MAX_WORD_LENGTH_LINES = Object.freeze([
+  "Cette grille cache au moins un mot de {LEN} lettres. Grande échelle conseillée.",
+  "Longueur maximale repérée: {LEN} lettres. Les diagonales vont chauffer.",
+  "Il y a un mot de {LEN} lettres dans le secteur. Il ne viendra pas tout seul.",
+  "Alerte rallonge: la grille monte jusqu'à {LEN} lettres.",
+  "Plafond de la manche: {LEN} lettres. Beau morceau à déterrer.",
+  "Le plus long suspect fait {LEN} lettres. Il a laissé peu d'indices.",
+  "Dossier ouvert: un mot de {LEN} lettres se balade quelque part.",
+  "Maximum détecté: {LEN} lettres. Les petites routes ne suffiront peut-être pas.",
+  "Cette grille a du coffre, jusqu'à {LEN} lettres.",
+  "Un mot de {LEN} lettres est officiellement en cavale.",
+]);
+
+function isAmbientBotChatMessage(message) {
+  return (
+    message?.meta?.kind === "ambient_bot_chat" ||
+    String(message?.installId || "").startsWith("ambient-bot:")
+  );
+}
+
+function resetAmbientChatBotState(room, roundId) {
+  if (!room) return;
+  room.ambientChatBotState = {
+    roundId,
+    messagesThisRound: 0,
+    lastGlobalAt: 0,
+    lastByBot: new Map(),
+    flags: new Set(),
+  };
+}
+
+function getAmbientChatBotState(room) {
+  if (!room?.currentRound) return null;
+  const roundId = room.currentRound.id;
+  const state = room.ambientChatBotState;
+  if (state?.roundId === roundId) return state;
+  resetAmbientChatBotState(room, roundId);
+  return room.ambientChatBotState || null;
+}
+
+function pushAmbientChatBotMessage(room, botKey, text, opts = {}) {
+  if (!AMBIENT_CHAT_BOTS_ENABLED) return null;
+  if (!room || !room.currentRound) return null;
+  const bot = AMBIENT_CHAT_BOTS[botKey];
+  let trimmed = String(text || "").replace(/\s+/g, " ").trim();
+  if (bot?.nick) {
+    const nickPrefix = `${bot.nick}:`;
+    if (trimmed.toLowerCase().startsWith(nickPrefix.toLowerCase())) {
+      trimmed = trimmed.slice(nickPrefix.length).trim();
+    }
+  }
+  if (!bot || !trimmed) return null;
+  const state = getAmbientChatBotState(room);
+  if (!state) return null;
+  const now = Date.now();
+  const flag = typeof opts.flag === "string" ? opts.flag.trim() : "";
+  if (flag && state.flags.has(flag)) return null;
+  if (!opts.force) {
+    if (state.messagesThisRound >= AMBIENT_CHAT_BOT_MAX_PER_ROUND) return null;
+    if (now - (Number(state.lastGlobalAt) || 0) < AMBIENT_CHAT_BOT_GLOBAL_COOLDOWN_MS) {
+      return null;
+    }
+    const lastBotAt = Number(state.lastByBot.get(botKey)) || 0;
+    if (now - lastBotAt < AMBIENT_CHAT_BOT_PER_BOT_COOLDOWN_MS) return null;
+  }
+
+  if (flag) state.flags.add(flag);
+  state.messagesThisRound += 1;
+  state.lastGlobalAt = now;
+  state.lastByBot.set(botKey, now);
+
+  const message = {
+    id: randomUUID(),
+    t: now,
+    roomId: room.id,
+    nick: bot.nick,
+    author: bot.nick,
+    installId: `ambient-bot:${bot.category}`,
+    text: trimmed.slice(0, CHAT_MESSAGE_TEXT_MAX_LEN),
+    isBot: true,
+    meta: {
+      kind: "ambient_bot_chat",
+      category: bot.category,
+    },
+  };
+  pushChatMessage(room, message);
+  return message;
+}
+
+function scheduleAmbientChatBotMessage(room, botKey, text, opts = {}) {
+  if (!AMBIENT_CHAT_BOTS_ENABLED) return;
+  if (!room?.currentRound) return;
+  const roundId = room.currentRound.id;
+  const state = getAmbientChatBotState(room);
+  const flag = typeof opts.flag === "string" ? opts.flag.trim() : "";
+  if (flag) {
+    if (state?.flags?.has(flag)) return;
+    state?.flags?.add(flag);
+  }
+  const delayMs = Math.max(0, Math.round(Number(opts.delayMs) || 0));
+  const timer = setTimeout(() => {
+    if (!room.currentRound || room.currentRound.id !== roundId) return;
+    const resolvedText = typeof text === "function" ? text() : text;
+    if (!String(resolvedText || "").trim()) return;
+    pushAmbientChatBotMessage(room, botKey, resolvedText, { ...opts, flag: "" });
+  }, delayMs);
+  timer.unref?.();
+  room.currentRound.timers?.push(timer);
+}
+
+function pickAmbientLine(lines, seed = Date.now()) {
+  if (!Array.isArray(lines) || !lines.length) return "";
+  const idx = Math.abs(Math.trunc(Number(seed) || 0)) % lines.length;
+  return lines[idx] || lines[0] || "";
+}
+
+function hashAmbientString(input) {
+  const str = String(input ?? "");
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function isAmbientTargetRoundType(value) {
+  const type = String(value || "");
+  return type === "target_long" || type === "target_score";
+}
+
+function isAmbientTargetRound(room, planUsed = null) {
+  return (
+    isAmbientTargetRoundType(planUsed?.type) ||
+    isAmbientTargetRoundType(room?.currentRound?.special?.type)
+  );
+}
+
+function isAmbientSpeedRoundType(value) {
+  return String(value || "") === "speed";
+}
+
+function isAmbientSpeedRound(room, planUsed = null) {
+  return (
+    isAmbientSpeedRoundType(planUsed?.type) ||
+    isAmbientSpeedRoundType(room?.currentRound?.special?.type)
+  );
+}
+
+function formatUtcDateForWikimedia(date) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
+function getRecentWikimediaDailyRange() {
+  const end = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return {
+    start: formatUtcDateForWikimedia(start),
+    end: formatUtcDateForWikimedia(end),
+  };
+}
+
+async function fetchWikipediaFrPageviewTrend(title) {
+  if (!AMBIENT_TREND_BOT_ENABLED || typeof fetch !== "function") return null;
+  const cleanTitle = String(title || "")
+    .replace(/\s+/g, "_")
+    .trim()
+    .slice(0, 90);
+  if (!cleanTitle || /[#?/:\\]/.test(cleanTitle)) return null;
+  const { start, end } = getRecentWikimediaDailyRange();
+  const url =
+    `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/fr.wikipedia.org/all-access/user/` +
+    `${encodeURIComponent(cleanTitle)}/daily/${start}/${end}`;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => controller.abort(), AMBIENT_TREND_BOT_TIMEOUT_MS)
+    : null;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "GobbleBot/1.0 (https://gobble.fr)",
+      },
+      signal: controller?.signal,
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const views = items.map((item) => Number(item?.views) || 0).filter((value) => value >= 0);
+    if (views.length < 3) return null;
+    const latest = views[views.length - 1] || 0;
+    const previous = views.slice(0, -1);
+    const avgPrevious =
+      previous.reduce((sum, value) => sum + value, 0) / Math.max(1, previous.length);
+    return {
+      title: cleanTitle.replace(/_/g, " "),
+      latest,
+      avgPrevious,
+    };
+  } catch (_) {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function buildTrendBotLine(word, trend) {
+  const latest = Number(trend?.latest) || 0;
+  const avg = Number(trend?.avgPrevious) || 0;
+  if (latest < 120) return "";
+  const display = String(word || trend?.title || "").trim().toUpperCase();
+  if (!display) return "";
+  if (avg > 0 && latest >= avg * 2.2 && latest - avg >= 90) {
+    return `${display} a connu un petit pic de curiosité hier sur Wikipédia FR (${Math.round(latest)} vues).`;
+  }
+  if (latest >= 1800) {
+    return `${display} a été très consulté hier sur Wikipédia FR (${Math.round(latest)} vues).`;
+  }
+  return "";
+}
+
+function maybeScheduleTrendBotForWord(room, word) {
+  if (!AMBIENT_TREND_BOT_ENABLED || !room?.currentRound) return;
+  const norm = normalizeWord(word);
+  if (!norm || norm.length < 5) return;
+  const state = getAmbientChatBotState(room);
+  if (!state || state.flags.has("trend:attempt")) return;
+  state.flags.add("trend:attempt");
+  const roundId = room.currentRound.id;
+  const timer = setTimeout(() => {
+    if (!room.currentRound || room.currentRound.id !== roundId) return;
+    getDefinition(norm, { timeoutMs: 900, definitionMaxLen: 180 })
+      .then(async (definitionPayload) => {
+        if (!room.currentRound || room.currentRound.id !== roundId) return;
+        const title =
+          definitionPayload?.title ||
+          definitionPayload?.displayWord ||
+          definitionPayload?.word ||
+          norm;
+        const trend = await fetchWikipediaFrPageviewTrend(title);
+        if (!room.currentRound || room.currentRound.id !== roundId) return;
+        const line = buildTrendBotLine(title || norm, trend);
+        if (!line) return;
+        pushAmbientChatBotMessage(room, "trend", line, { flag: "trend:message" });
+      })
+      .catch(() => {});
+  }, 2200 + Math.random() * 1800);
+  timer.unref?.();
+  room.currentRound.timers?.push(timer);
+}
+
+function getRoundSolutionCount(round) {
+  const qualityWords = Number(round?.quality?.words);
+  if (Number.isFinite(qualityWords) && qualityWords > 0) return Math.round(qualityWords);
+  if (Array.isArray(round?.solutions)) return round.solutions.length;
+  return 0;
+}
+
+function getRoundFoundWordSet(room, results = null) {
+  const found = new Set();
+  if (Array.isArray(results)) {
+    for (const entry of results) {
+      const words = Array.isArray(entry?.words) ? entry.words : [];
+      words.forEach((word) => {
+        const norm = normalizeWord(word);
+        if (norm) found.add(norm);
+      });
+    }
+    return found;
+  }
+  const roundId = room?.currentRound?.id;
+  const roundSubs = roundId ? room?.submissions?.get?.(roundId) : null;
+  if (!(roundSubs instanceof Map)) return found;
+  for (const data of roundSubs.values()) {
+    const words = data?.words instanceof Set ? Array.from(data.words) : [];
+    words.forEach((word) => {
+      const norm = normalizeWord(word);
+      if (norm) found.add(norm);
+    });
+  }
+  return found;
+}
+
+function getPreparedRoundSolutions(round) {
+  return Array.isArray(round?.solutions)
+    ? round.solutions
+        .map((entry) => {
+          const word = normalizeWord(entry?.word || "");
+          if (!word) return null;
+          return {
+            word,
+            pts: Number(entry?.pts) || 0,
+            path: Array.isArray(entry?.path) ? entry.path : [],
+            rareBonusWord: !!entry?.rareBonusWord,
+            rarityScore: Number(entry?.rarityScore) || 0,
+          };
+        })
+        .filter(Boolean)
+    : [];
+}
+
+function getQuadrantLabelForPath(path, gridSize) {
+  if (!Array.isArray(path) || !path.length || !(gridSize > 0)) return "";
+  const idx = Number(path[0]);
+  if (!Number.isInteger(idx) || idx < 0) return "";
+  const row = Math.floor(idx / gridSize);
+  const col = idx % gridSize;
+  const vertical = row < gridSize / 2 ? "haut" : "bas";
+  const horizontal = col < gridSize / 2 ? "gauche" : "droite";
+  return `${vertical} ${horizontal}`;
+}
+
+const NARRATOR_VOWEL_HEAVY_LINES = Object.freeze([
+  "Beaucoup de voyelles sur cette grille. Les rallonges devraient etre plus accessibles.",
+  "La grille respire cote voyelles. Les terminaisons peuvent rapporter gros.",
+  "Les voyelles prennent de la place. Les mots longs auront de quoi s'etirer.",
+  "Terrain souple aujourd'hui, les voyelles ouvrent pas mal de portes.",
+  "Les voyelles sont genereuses. Cherchez les prolongements avant qu'ils ne filent.",
+  "Grille plutot fluide. Les suites de lettres devraient se laisser apprivoiser.",
+  "Les voyelles menent la danse. Les mots a rallonge sont peut-etre moins loin qu'ils n'en ont l'air.",
+  "Ca chante dans les cases. Les fins de mots peuvent faire grimper le score.",
+  "Atmosphere aeree sur la grille. Les grands mots auront un peu plus d'espace.",
+  "Les voyelles se montrent. Les joueurs patients devraient pouvoir allonger leurs trouvailles.",
+]);
+
+const NARRATOR_CONSONANT_HEAVY_LINES = Object.freeze([
+  "Beaucoup de consonnes sur cette grille. Les mots longs seront plus difficiles a construire.",
+  "Grille serree en consonnes. Les petits mots bien places peuvent faire la difference.",
+  "Les consonnes dominent. Mieux vaut chercher des appuis simples avant les grandes rallonges.",
+  "Peu de voyelles disponibles. Les gros mots demanderont plus de patience.",
+  "Grille rugueuse aujourd'hui. Les rallonges seront moins evidentes.",
+  "Les consonnes se bousculent. Les mots courts peuvent devenir tres rentables.",
+  "Terrain dense en consonnes. Les longues trouvailles risquent d'etre plus rares.",
+  "Pas beaucoup d'air entre les consonnes. Chaque voyelle compte.",
+  "Grille compacte. Les mots longs existent peut-etre, mais il faudra bien les assembler.",
+  "Manche nerveuse en consonnes. Les departages peuvent se jouer sur des trouvailles courtes.",
+]);
+
+function buildNarratorRoundLine(room) {
+  const grid = Array.isArray(room?.currentRound?.grid) ? room.currentRound.grid : [];
+  if (!grid.length) return "";
+  let vowels = 0;
+  let consonants = 0;
+  for (const cell of grid) {
+    const letter = normalizeLetterKey(cell?.letter || "");
+    if (!letter) continue;
+    if (/^[aeiouy]/.test(letter)) vowels += 1;
+    else consonants += 1;
+  }
+  const seed = hashAmbientString(`${room?.currentRound?.id || ""}:narrator:${vowels}:${consonants}`);
+  if (vowels >= consonants + 3) {
+    return pickAmbientLine(NARRATOR_VOWEL_HEAVY_LINES, seed);
+  }
+  if (consonants >= vowels + 5) {
+    return pickAmbientLine(NARRATOR_CONSONANT_HEAVY_LINES, seed);
+  }
+  return "";
+}
+
+const COACH_SUFFIX_MIN_LEN = 4;
+const COACH_SUFFIX_MAX_LEN = 9;
+const COACH_SUFFIX_BLOCKLIST = new Set([
+  "able",
+  "ible",
+  "ique",
+  "ment",
+]);
+
+function rankCoachSuffixes(solutions, gridSize = 4) {
+  const counts = new Map();
+  for (const entry of Array.isArray(solutions) ? solutions : []) {
+    const word = normalizeWord(entry?.word || "");
+    if (!word || word.length < COACH_SUFFIX_MIN_LEN + 2) continue;
+    const maxLen = Math.min(COACH_SUFFIX_MAX_LEN, word.length - 2);
+    for (let len = COACH_SUFFIX_MIN_LEN; len <= maxLen; len += 1) {
+      const suffix = word.slice(-len);
+      if (!/[aeiouy]/.test(suffix)) continue;
+      const item = counts.get(suffix) || { suffix, count: 0, words: [] };
+      item.count += 1;
+      if (item.words.length < 8) item.words.push(word);
+      counts.set(suffix, item);
+    }
+  }
+
+  const minCount = Number(gridSize) >= 5 ? 3 : 2;
+  return Array.from(counts.values())
+    .filter((item) => {
+      if (item.count < minCount) return false;
+      if (COACH_SUFFIX_BLOCKLIST.has(item.suffix) && item.count < minCount + 1) return false;
+      if (item.suffix.length <= 4 && item.count < minCount + 1) return false;
+      return true;
+    })
+    .map((item) => {
+      const len = item.suffix.length;
+      const conjugationBoost =
+        /(aient|ions|iez|asses|assent|assiez|assions|assiaient|erions|eriez|irions|iriez)$/.test(
+          item.suffix
+        )
+          ? 18
+          : 0;
+      const score = len * len + item.count * 5 + conjugationBoost;
+      return { ...item, score };
+    })
+    .sort((a, b) => b.score - a.score || b.suffix.length - a.suffix.length || b.count - a.count);
+}
+
+function buildCoachSuffixLine(solutions, gridSize) {
+  const best = rankCoachSuffixes(solutions, gridSize)[0];
+  if (!best) return "";
+  const label = best.count > 1 ? `${best.count} mots possibles` : "plusieurs mots possibles";
+  if (best.suffix.length >= 7) {
+    return `Je renifle une grosse terminaison: -${best.suffix}. Il y a ${label}, ça vaut le détour.`;
+  }
+  return `Je conseille de tester la terminaison -${best.suffix}: ${label} semblent s'y accrocher.`;
+}
+
+function buildCoachRoundLine(room, planUsed = null) {
+  const round = room?.currentRound;
+  if (isAmbientTargetRound(room, planUsed) || isAmbientSpeedRound(room, planUsed)) return "";
+  const solutions = getPreparedRoundSolutions(round);
+  if (!solutions.length) return "";
+  const gridSize = Number(room?.config?.gridSize) || 0;
+  const suffixLine = buildCoachSuffixLine(solutions, gridSize);
+  if (suffixLine) return suffixLine;
+
+  const longByQuadrant = new Map();
+  solutions
+    .filter((entry) => entry.word.length >= 8)
+    .forEach((entry) => {
+      const label = getQuadrantLabelForPath(entry.path, gridSize);
+      if (!label) return;
+      longByQuadrant.set(label, (longByQuadrant.get(label) || 0) + 1);
+    });
+  const best = Array.from(longByQuadrant.entries()).sort((a, b) => b[1] - a[1])[0];
+  if (best && best[1] >= 2) {
+    return `Indice de coach, sans vendre de mot: plusieurs chemins longs semblent démarrer en zone ${best[0]}.`;
+  }
+  return "";
+}
+
+function buildMaxWordLengthLine(room) {
+  const round = room?.currentRound;
+  const longest = getPreparedRoundSolutions(round).sort(
+    (a, b) => b.word.length - a.word.length || (Number(b.pts) || 0) - (Number(a.pts) || 0)
+  )[0];
+  const len = Number(longest?.word?.length) || 0;
+  if (len < DETECTIVE_MAX_LENGTH_MIN_LEN) return "";
+  const line = pickAmbientLine(
+    MAX_WORD_LENGTH_LINES,
+    hashAmbientString(`${round?.id || ""}:max:${len}`)
+  );
+  return line.replace("{LEN}", String(len));
+}
+
+function scheduleAmbientDetectiveMidRound(room, planUsed = null, roundIntroMs = 0, roundDurationMs = 0) {
+  const round = room?.currentRound;
+  if (!round || isAmbientTargetRound(room, planUsed) || isAmbientSpeedRound(room, planUsed)) return;
+  const solutions = getPreparedRoundSolutions(round);
+  if (!solutions.length) return;
+  if ((hashAmbientString(`${round.id || ""}:detective:max-word-gate`) % 1000) >= DETECTIVE_MAX_LENGTH_CHANCE * 1000) {
+    return;
+  }
+  const delayMs = Math.max(
+    Number(roundIntroMs) + 20_000,
+    Number(roundIntroMs) + Math.round(Math.max(30_000, Number(roundDurationMs) || 0) * 0.32)
+  );
+  scheduleAmbientChatBotMessage(
+    room,
+    "detective",
+    () => buildMaxWordLengthLine(room),
+    { delayMs, flag: "detective:max-word-length" }
+  );
+}
+
+function scheduleAmbientRoundStartBots(room, planUsed, roundIntroMs = 0, roundDurationMs = 0) {
+  if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
+  const round = room.currentRound;
+  const delayMs = Math.max(1200, Number(roundIntroMs) + 2200);
+
+  if (isAmbientTargetRound(room, planUsed)) return;
+
+  const narratorLine = buildNarratorRoundLine(room);
+  if (narratorLine) {
+    scheduleAmbientChatBotMessage(room, "narrator", narratorLine, {
+      delayMs,
+      flag: "narrator:round-start",
+    });
+  }
+
+  const coachLine = buildCoachRoundLine(room, planUsed);
+  if (coachLine) {
+    scheduleAmbientChatBotMessage(room, "coach", coachLine, {
+      delayMs: delayMs + 2800,
+      flag: "coach:round-start",
+    });
+  }
+
+  scheduleAmbientDetectiveMidRound(room, planUsed, roundIntroMs, roundDurationMs);
+}
+
+function maybeScheduleCultureBotForWord(room, word) {
+  if (!room?.currentRound) return false;
+  const norm = normalizeWord(word);
+  if (!norm || norm.length < 5) return false;
+  const state = getAmbientChatBotState(room);
+  if (!state || state.flags.has("culture:word-fact")) return false;
+  const fact = WORD_FACTS_BY_NORMALIZED_WORD[norm];
+  if (!fact) return false;
+  scheduleAmbientChatBotMessage(room, "culture", fact, {
+    delayMs: 1400 + Math.random() * 1800,
+    flag: "culture:word-fact",
+  });
+  return true;
+}
+
+function maybeScheduleOfflineWordFactBotForWord(room, word, opts = {}) {
+  if (!room?.currentRound) return false;
+  const norm = normalizeWord(word);
+  if (!norm || norm.length < 6) return false;
+  const state = getAmbientChatBotState(room);
+  if (!state) return false;
+  const messageFlag = String(opts.flag || "linguist:offline-word-fact").trim();
+  const pendingFlag = `${messageFlag}:pending`;
+  if (state.flags.has(messageFlag) || state.flags.has(pendingFlag)) return false;
+  state.offlineWordFactAttempts = Number(state.offlineWordFactAttempts) || 0;
+  const maxAttempts = Number(opts.maxAttempts) || 4;
+  if (state.offlineWordFactAttempts >= maxAttempts) return false;
+  state.offlineWordFactAttempts += 1;
+  state.flags.add(pendingFlag);
+
+  const roundId = room.currentRound.id;
+  const delayMs = Math.max(0, Math.round(Number(opts.delayMs) || 0));
+  const timer = setTimeout(() => {
+    if (!room.currentRound || room.currentRound.id !== roundId) {
+      const currentState = getAmbientChatBotState(room);
+      currentState?.flags?.delete(pendingFlag);
+      return;
+    }
+    getOfflineWordFact(norm, {
+      minLen: Number(opts.minLen) || 6,
+      allowDefinitions: opts.allowDefinitions !== false,
+    })
+      .then((fact) => {
+        if (!room.currentRound || room.currentRound.id !== roundId) return;
+        if (!fact) return;
+        pushAmbientChatBotMessage(room, "linguist", fact, {
+          flag: messageFlag,
+          force: opts.force !== false,
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        const currentState = getAmbientChatBotState(room);
+        currentState?.flags?.delete(pendingFlag);
+      });
+  }, delayMs);
+  timer.unref?.();
+  room.currentRound.timers?.push(timer);
+  return true;
+}
+
+function notifyAmbientBotsWordAccepted(room, event = {}) {
+  if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
+  if (event.isBotPlayer) return;
+  const len = Number(event.len) || 0;
+  const nick = String(event.nick || "Quelqu'un").trim() || "Quelqu'un";
+  const specialType = String(event.specialType || "");
+  const isTargetRound = isAmbientTargetRoundType(specialType) || isAmbientTargetRound(room);
+
+  if (isTargetRound) return;
+
+  if (len >= 10) {
+    const startedAt = Number(room.currentRound?.startsAt) || Date.now();
+    const elapsedSec = Math.max(0, (Date.now() - startedAt) / 1000);
+    const elapsedLabel = (elapsedSec < 10 ? elapsedSec.toFixed(1) : Math.round(elapsedSec))
+      .toString()
+      .replace(".", ",");
+    scheduleAmbientChatBotMessage(
+      room,
+      "recordHunter",
+      `Premier mot de ${len} lettres trouvé après ${elapsedLabel} secondes.`,
+      { delayMs: 900, flag: "record:first-10plus-word" }
+    );
+  }
+
+  // No word-specific fact during live play: it would reveal a playable word to others.
+}
+
+function collectRoundWordHighlights(results) {
+  const summary = {
+    totalWords: 0,
+    bestWord: null,
+    longestWord: null,
+    rareWord: null,
+    foundByWord: new Map(),
+    humanPlayers: 0,
+  };
+  for (const entry of Array.isArray(results) ? results : []) {
+    if (entry?.isBot) continue;
+    summary.humanPlayers += 1;
+    const words = Array.isArray(entry?.words) ? entry.words : [];
+    const wordScores = entry?.wordScores && typeof entry.wordScores === "object" ? entry.wordScores : {};
+    const wordMeta = entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
+    summary.totalWords += words.length;
+    for (const rawWord of words) {
+      const word = normalizeWord(rawWord);
+      if (!word) continue;
+      const pts = Number(wordScores[word]) || 0;
+      const meta = wordMeta[word] || {};
+      const candidate = { word, nick: entry.nick, pts, len: word.length, meta };
+      const finders = summary.foundByWord.get(word) || new Set();
+      if (entry.nick) finders.add(entry.nick);
+      summary.foundByWord.set(word, finders);
+      if (!summary.bestWord || candidate.pts > summary.bestWord.pts) {
+        summary.bestWord = candidate;
+      }
+      if (!summary.longestWord || candidate.len > summary.longestWord.len) {
+        summary.longestWord = candidate;
+      }
+      if (!summary.rareWord && meta?.rareBonusWord) {
+        summary.rareWord = candidate;
+      }
+    }
+  }
+  return summary;
+}
+
+function pickHiddenRemarkableWord(round, foundWords) {
+  const candidates = getPreparedRoundSolutions(round)
+    .filter((entry) => entry.word && !foundWords.has(entry.word))
+    .map((entry) => ({
+      ...entry,
+      len: entry.word.length,
+      score:
+        (entry.rareBonusWord ? 1000 : 0) +
+        Math.min(999, Number(entry.rarityScore) || 0) +
+        Math.max(0, Number(entry.pts) || 0) * 2 +
+        entry.word.length * 12,
+    }))
+    .sort((a, b) => b.score - a.score);
+  return candidates[0] || null;
+}
+
+function buildStatisticianRoundEndLine(room, highlights, foundWords) {
+  const solutions = getPreparedRoundSolutions(room?.currentRound);
+  const totalPossible = solutions.length;
+  const uniqueFound = foundWords instanceof Set ? foundWords.size : 0;
+  const humanPlayers = Number(highlights?.humanPlayers) || 0;
+  const lines = [];
+  if (totalPossible > 0 && uniqueFound > 0) {
+    const pct = Math.round((uniqueFound / totalPossible) * 100);
+    lines.push(`Stat de manche: ${uniqueFound}/${totalPossible} mots trouvés collectivement (${pct}%).`);
+  }
+  if (humanPlayers > 0 && Number(highlights?.totalWords) > 0) {
+    const avg = Math.round((Number(highlights.totalWords) / humanPlayers) * 10) / 10;
+    const avgLabel = Number.isInteger(avg) ? String(avg) : String(avg).replace(".", ",");
+    lines.push(`Moyenne humaine: ${avgLabel} mots par joueur sur cette manche.`);
+  }
+  const longestPossible = solutions
+    .slice()
+    .sort((a, b) => b.word.length - a.word.length || (Number(b.pts) || 0) - (Number(a.pts) || 0))[0];
+  if (longestPossible?.word && highlights?.longestWord?.word) {
+    if (highlights.longestWord.word === longestPossible.word) {
+      lines.push(`Le plafond a été atteint: ${longestPossible.word.length} lettres trouvées.`);
+    } else if (longestPossible.word.length > highlights.longestWord.len) {
+      lines.push(
+        `Le plus long mot trouvé fait ${highlights.longestWord.len} lettres, la grille montait à ${longestPossible.word.length}.`
+      );
+    }
+  }
+  const picked = pickAmbientLine(
+    lines,
+    hashAmbientString(`${room?.currentRound?.id || ""}:statatouille:${uniqueFound}:${totalPossible}`)
+  );
+  return picked || "";
+}
+
+function buildFamilyWordsLine(results) {
+  const words = [];
+  for (const entry of Array.isArray(results) ? results : []) {
+    if (entry?.isBot) continue;
+    for (const raw of Array.isArray(entry?.words) ? entry.words : []) {
+      const word = normalizeWord(raw);
+      if (word && word.length >= 5) words.push(word);
+    }
+  }
+  const byRoot = new Map();
+  for (const word of words) {
+    const root = word.slice(0, 5);
+    const list = byRoot.get(root) || [];
+    if (!list.includes(word)) list.push(word);
+    byRoot.set(root, list);
+  }
+  const family = Array.from(byRoot.values())
+    .filter((list) => list.length >= 3)
+    .sort((a, b) => b.length - a.length)[0];
+  if (!family) return "";
+  return `${family.slice(0, 4).map((word) => word.toUpperCase()).join(", ")} semblent partager une même famille de formes.`;
+}
+
+function clipBotDefinition(text, maxLen = 170) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  if (clean.length <= maxLen) return clean;
+  return `${clean.slice(0, maxLen).replace(/\s+\S*$/, "").trim()}...`;
+}
+
+function isCultureThemeBonusEligibleRound(room, planUsed = null) {
+  const type = String(planUsed?.type || room?.currentRound?.special?.type || "");
+  return type === "normal" && !planUsed?.isSpecial && !room?.currentRound?.special?.isSpecial;
+}
+
+function isWikiMamaLightInsightEligibleRound(room, planUsed = null) {
+  if (!room?.currentRound) return false;
+  const type = String(planUsed?.type || room.currentRound?.special?.type || "normal");
+  if (type === "target_long" || type === "target_score" || type === OCID_TYPE) return false;
+  return room.currentRound.status === "intro" || room.currentRound.status === "running";
+}
+
+function shouldScheduleWikiMamaLightInsight(room, roundId) {
+  if (WIKIMAMA_LIGHT_INSIGHT_CHANCE <= 0) return false;
+  const hash = hashAmbientString(`${room?.id || "room"}:${roundId}:wikimama-light-insight`);
+  return hash / 0xffffffff <= WIKIMAMA_LIGHT_INSIGHT_CHANCE;
+}
+
+function pickWikiMamaLightInsightLine(summary, seed = Date.now()) {
+  const lines = buildWordInsightChatLines(summary, {
+    minDomainCount: 3,
+    minOriginCount: 4,
+    minFamilyCount: 4,
+  }).filter(Boolean);
+  if (!lines.length) return "";
+  return pickAmbientLine(lines, seed);
+}
+
+function scheduleWikiMamaLightInsight(room, summary, planUsed = null) {
+  const round = room?.currentRound;
+  if (!round || !isWikiMamaLightInsightEligibleRound(room, planUsed)) return false;
+  if (round.cultureThemeChallenge) return false;
+  if (!shouldScheduleWikiMamaLightInsight(room, round.id)) return false;
+  const seed = hashAmbientString(`${room.id}:${round.id}:wikimama-light-line`);
+  const line = pickWikiMamaLightInsightLine(summary, seed);
+  if (!line) return false;
+  const jitterMs = hashAmbientString(`${room.id}:${round.id}:wikimama-light-delay`) % 12000;
+  const delayMs = Math.max(0, Number(round.startsAt) + 9000 + jitterMs - Date.now());
+  scheduleAmbientChatBotMessage(
+    room,
+    "culture",
+    `Indice: ${line}`,
+    { delayMs, flag: "culture:light-insight" }
+  );
+  return true;
+}
+
+function normalizeCultureThemeKey(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function getCultureThemeGenerationOptions(room) {
+  const usageCounts = {};
+  const source = room?.cultureThemeUsageCounts;
+  if (source instanceof Map) {
+    for (const [theme, count] of source.entries()) {
+      const key = normalizeCultureThemeKey(theme);
+      if (key) usageCounts[key] = Math.max(0, Math.trunc(Number(count) || 0));
+    }
+  }
+  return {
+    excludedThemes: Array.isArray(room?.cultureThemeRecentThemes)
+      ? room.cultureThemeRecentThemes.map((theme) => normalizeCultureThemeKey(theme)).filter(Boolean)
+      : [],
+    themeUsageCounts: usageCounts,
+  };
+}
+
+function rememberCultureThemeChallenge(room, challenge) {
+  const theme = normalizeCultureThemeKey(challenge?.theme);
+  if (!room || !theme) return;
+  if (room.currentRound?.cultureThemeRecordedKey === theme) return;
+  if (!(room.cultureThemeUsageCounts instanceof Map)) {
+    room.cultureThemeUsageCounts = new Map();
+  }
+  room.cultureThemeUsageCounts.set(theme, (Number(room.cultureThemeUsageCounts.get(theme)) || 0) + 1);
+  const previous = Array.isArray(room.cultureThemeRecentThemes) ? room.cultureThemeRecentThemes : [];
+  room.cultureThemeRecentThemes = [
+    theme,
+    ...previous.filter((entry) => normalizeCultureThemeKey(entry) !== theme),
+  ].slice(0, CULTURE_THEME_RECENT_LIMIT);
+  if (room.currentRound) {
+    room.currentRound.cultureThemeRecordedKey = theme;
+  }
+}
+
+function serializeCultureThemeChallenge(challenge) {
+  if (!challenge?.wordSet || !(challenge.wordSet instanceof Set) || !challenge.wordSet.size) {
+    return null;
+  }
+  return {
+    theme: String(challenge.theme || ""),
+    line: String(challenge.line || ""),
+    bonus: Math.max(0, Math.trunc(Number(challenge.bonus) || CULTURE_THEME_BONUS_POINTS)),
+    words: Array.from(challenge.wordSet).map((word) => normalizeWord(word)).filter(Boolean),
+    requiredCount: Math.max(
+      1,
+      Math.min(
+        challenge.wordSet.size,
+        Math.trunc(Number(challenge.requiredCount) || Math.ceil(challenge.wordSet.size * 0.7))
+      )
+    ),
+  };
+}
+
+function hydrateCultureThemeChallenge(raw) {
+  const words = Array.from(
+    new Set(
+      (Array.isArray(raw?.words) ? raw.words : [])
+        .map((word) => normalizeWord(word))
+        .filter(Boolean)
+    )
+  );
+  if (!words.length) return null;
+  const requiredCount = Math.max(
+    1,
+    Math.min(
+      words.length,
+      Math.trunc(Number(raw?.requiredCount) || Math.ceil(words.length * 0.7))
+    )
+  );
+  return {
+    type: String(raw?.type || "lexical_domain"),
+    theme: String(raw?.theme || ""),
+    line: String(raw?.line || ""),
+    count: words.length,
+    requiredCount,
+    completionRatio: Number(raw?.completionRatio) || 0.7,
+    words,
+    bonus: CULTURE_THEME_BONUS_POINTS,
+    wordSet: new Set(words),
+  };
+}
+
+function scheduleCultureThemeChallengeStart(room, challenge) {
+  const payload = serializeCultureThemeChallenge(challenge);
+  if (!payload) return null;
+  const delayMs = Math.max(0, Number(room.currentRound?.startsAt) + 1400 - Date.now());
+  scheduleAmbientChatBotMessage(
+    room,
+    "culture",
+    `Défi thème: ${challenge.line} Bonus ${CULTURE_THEME_BONUS_POINTS} pts à qui en trouve ${payload.requiredCount}.`,
+    { delayMs, flag: "culture:theme-challenge-start", force: true }
+  );
+  return payload;
+}
+
+function maybePrepareCultureThemeChallenge(room, planUsed = null) {
+  if (!room?.currentRound) return;
+  const canPrepareBonus = isCultureThemeBonusEligibleRound(room, planUsed);
+  const canPrepareLightInsight = isWikiMamaLightInsightEligibleRound(room, planUsed);
+  if (!canPrepareBonus && !canPrepareLightInsight) return;
+  if (canPrepareBonus && room.currentRound.cultureThemeChallenge) {
+    rememberCultureThemeChallenge(room, room.currentRound.cultureThemeChallenge);
+    scheduleCultureThemeChallengeStart(room, room.currentRound.cultureThemeChallenge);
+    return;
+  }
+  const words = getPreparedRoundSolutions(room.currentRound).map((entry) => entry.word).filter(Boolean);
+  if (words.length < WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS) return;
+  const roundId = room.currentRound.id;
+  buildWordInsightSummary(words, { maxLookups: 420 })
+    .then((summary) => {
+      if (!room.currentRound || room.currentRound.id !== roundId) return;
+      if (canPrepareBonus) {
+        const challenge = pickWordThemeChallenge(summary, {
+          minWords: Math.max(2, Math.trunc(Number(process.env.GOBBLE_CULTURE_THEME_MIN_WORDS) || 10)),
+          maxWords: 24,
+          completionRatio: 0.7,
+          ...getCultureThemeGenerationOptions(room),
+          selectionSeed: roundId,
+        });
+        if (challenge) {
+          room.currentRound.cultureThemeChallenge = {
+            ...challenge,
+            bonus: CULTURE_THEME_BONUS_POINTS,
+            wordSet: new Set(challenge.words.map((word) => normalizeWord(word)).filter(Boolean)),
+            requiredCount: Math.max(1, Math.trunc(Number(challenge.requiredCount) || 0)),
+          };
+          rememberCultureThemeChallenge(room, room.currentRound.cultureThemeChallenge);
+          const payload = serializeCultureThemeChallenge(room.currentRound.cultureThemeChallenge);
+          if (payload) {
+            io.to(room.id).emit("cultureThemeChallenge", {
+              roomId: room.id,
+              roundId,
+              challenge: payload,
+            });
+          }
+          scheduleCultureThemeChallengeStart(room, room.currentRound.cultureThemeChallenge);
+          return;
+        }
+      }
+      scheduleWikiMamaLightInsight(room, summary, planUsed);
+    })
+    .catch(() => {});
+}
+
+function scheduleCultureThemeChallengeRecap(room, results) {
+  const challenge = room?.currentRound?.cultureThemeChallenge;
+  if (!challenge?.wordSet || !(challenge.wordSet instanceof Set) || !challenge.wordSet.size) return;
+  const words = Array.from(challenge.wordSet).sort((a, b) => a.localeCompare(b, "fr"));
+  const winners = (Array.isArray(results) ? results : [])
+    .filter((entry) => Number(entry?.cultureThemeBonus?.bonus) > 0)
+    .map((entry) => entry.nick)
+    .filter(Boolean);
+  const winnerText = winners.length
+    ? ` Bonus empoché par ${winners.slice(0, 4).join(", ")}${winners.length > 4 ? "..." : ""}.`
+    : " Personne n'a raflé le bonus cette fois.";
+  scheduleAmbientChatBotMessage(
+    room,
+    "culture",
+    `Récap thème ${String(challenge.theme || "").toUpperCase()}: ${words.map((word) => word.toUpperCase()).join(", ")}.${winnerText}`,
+    { delayMs: 7600, flag: "culture:theme-challenge-recap", force: true }
+  );
+}
+
+async function applyCultureThemeChallengeBonus(room, results) {
+  if (!isCultureThemeBonusEligibleRound(room)) return;
+  const challenge = room?.currentRound?.cultureThemeChallenge;
+  if (!challenge?.wordSet || !(challenge.wordSet instanceof Set) || !challenge.wordSet.size) return;
+  const bonus = Math.max(0, Math.trunc(Number(challenge.bonus) || CULTURE_THEME_BONUS_POINTS));
+  if (!bonus) return;
+  const requiredCount = Math.max(
+    1,
+    Math.min(
+      challenge.wordSet.size,
+      Math.trunc(Number(challenge.requiredCount) || Math.ceil(challenge.wordSet.size * 0.7))
+    )
+  );
+  for (const entry of Array.isArray(results) ? results : []) {
+    if (!entry || entry.isBot) continue;
+    const found = new Set(
+      (Array.isArray(entry.uniqueWords) ? entry.uniqueWords : entry.words || [])
+        .map((word) => normalizeWord(word))
+        .filter(Boolean)
+    );
+    const missing = Array.from(challenge.wordSet).filter((word) => !found.has(word));
+    entry.cultureTheme = {
+      theme: challenge.theme || "",
+      words: Array.from(challenge.wordSet),
+      found: Array.from(challenge.wordSet).filter((word) => found.has(word)),
+      missing,
+      total: challenge.wordSet.size,
+      requiredCount,
+    };
+    if (!entry.wordMeta || typeof entry.wordMeta !== "object") entry.wordMeta = {};
+    for (const word of entry.cultureTheme.found) {
+      entry.wordMeta[word] = {
+        ...(entry.wordMeta[word] || {}),
+        cultureThemeWord: true,
+      };
+    }
+    if (entry.cultureTheme.found.length < requiredCount) continue;
+    entry.score = (Number(entry.score) || 0) + bonus;
+    entry.cultureThemeBonus = {
+      theme: challenge.theme || "",
+      bonus,
+      words: Array.from(challenge.wordSet),
+      requiredCount,
+    };
+  }
+  const winners = results
+    .filter((entry) => Number(entry?.cultureThemeBonus?.bonus) > 0)
+    .map((entry) => entry.nick)
+    .filter(Boolean);
+  if (!winners.length) return;
+  pushAnnouncement(room, {
+    type: "culture_theme_completed",
+    nick: winners.length === 1 ? winners[0] : "",
+    bonus,
+    theme: challenge.theme || "",
+    nicks: winners,
+    text:
+      winners.length === 1
+        ? `${winners[0]} valide le bonus WikiMama ${challenge.theme} (+${bonus} pts)`
+        : `${winners.length} joueurs valident le bonus WikiMama ${challenge.theme} (+${bonus} pts)`,
+  });
+}
+
+function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
+  if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
+  const highlights = collectRoundWordHighlights(results);
+  const foundWords = getRoundFoundWordSet(room, results);
+  scheduleCultureThemeChallengeRecap(room, results);
+  const statisticianLine = buildStatisticianRoundEndLine(room, highlights, foundWords);
+  if (statisticianLine) {
+    scheduleAmbientChatBotMessage(room, "statistician", statisticianLine, {
+      delayMs: 1200,
+      flag: "statistician:round-end-summary",
+      force: true,
+    });
+  }
+
+  const hidden = pickHiddenRemarkableWord(room.currentRound, foundWords);
+  if (hidden?.word) {
+    const hiddenMeta = `${hidden.len} lettres${hidden.pts ? `, ${hidden.pts} pts` : ""}`;
+    const hiddenLine = pickAmbientLine(
+      HIDDEN_WORD_LINES,
+      hashAmbientString(`${room.currentRound.id}:${hidden.word}`)
+    )
+      .replace("{WORD}", hidden.word.toUpperCase())
+      .replace("{META}", hiddenMeta);
+    scheduleAmbientChatBotMessage(
+      room,
+      "hiddenWord",
+      hiddenLine,
+      { delayMs: 3200, flag: "hidden-word:round-end", force: true }
+    );
+  }
+
+  const familyLine = buildFamilyWordsLine(results);
+  if (familyLine) {
+    scheduleAmbientChatBotMessage(room, "linguist", familyLine, {
+      delayMs: 4700,
+      flag: "linguist:family-round-end",
+    });
+  }
+
+  const definitionWord = hidden?.word
+    ? { word: hidden.word }
+    : highlights.rareWord || highlights.longestWord || highlights.bestWord;
+  if (definitionWord?.word && definitionWord.word.length >= 6) {
+    const fact = WORD_FACTS_BY_NORMALIZED_WORD[definitionWord.word];
+    if (fact && !hidden?.word) {
+      scheduleAmbientChatBotMessage(room, "culture", fact, {
+        delayMs: 5600,
+        flag: "culture:round-end-fact",
+        force: true,
+      });
+      return;
+    }
+    const offlineFactFlag = hidden?.word
+      ? "linguist:hidden-word-offline-word-fact"
+      : "linguist:round-end-offline-word-fact";
+    const allowRoundEndDefinition =
+      hashAmbientString(`${room.currentRound.id}:linguist-definition:${definitionWord.word}`) % 100 < 35;
+    maybeScheduleOfflineWordFactBotForWord(room, definitionWord.word, {
+      delayMs: 5200,
+      flag: offlineFactFlag,
+      minLen: 6,
+      force: true,
+      allowDefinitions: allowRoundEndDefinition,
+    });
+    if (!allowRoundEndDefinition) return;
+    const roundId = room.currentRound.id;
+    const timer = setTimeout(() => {
+      if (!room.currentRound || room.currentRound.id !== roundId) return;
+      getDefinition(definitionWord.word, { timeoutMs: 1200, definitionMaxLen: 220 })
+        .then((payload) => {
+          const state = getAmbientChatBotState(room);
+          if (state?.flags?.has(offlineFactFlag)) return;
+          const definition = clipBotDefinition(payload?.definition || payload?.extract || "");
+          if (!payload?.ok || !definition) return;
+          pushAmbientChatBotMessage(
+            room,
+            "linguist",
+            `J'ouvre mon carnet: ${definitionWord.word.toUpperCase()}, ça donne: ${definition}`,
+            { flag: "linguist:round-end-definition", force: true }
+          );
+        })
+        .catch(() => {});
+    }, 6800);
+    timer.unref?.();
+    room.currentRound.timers?.push(timer);
+  }
+}
+
 function getActiveDevBotNicks(room) {
   if (!room) return [];
   const nicks = [];
@@ -4603,6 +5801,7 @@ function addDevBotReaction(room, message, seed = Date.now()) {
 
 function scheduleDevBotResponseForChat(room, message) {
   if (!room || !message || isSystemChatEntry(message) || isDevBotChatMessage(message)) return;
+  if (message?.isBot || isAmbientBotChatMessage(message)) return;
   if (isBotNick(room, message.nick)) return;
   const now = Date.now();
   if (isDevControlsActive("botReactions")) {
@@ -5711,6 +6910,9 @@ function submitWordForNick(
   const { norm, pts, path: scoredPath } = scored;
   const len = norm.length;
   const scoredRareMeta = buildRareBonusSubmittedWordMeta(room.currentRound, norm);
+  const scoredCultureThemeMeta = {
+    cultureThemeWord: isCultureThemeChallengeWord(room.currentRound, norm),
+  };
   const wordPts =
     computeWordScoreForRound(room.currentRound, norm, scoredPath, pts) +
     (Number(scoredRareMeta.rareBonusPoints) || 0);
@@ -5742,7 +6944,7 @@ function submitWordForNick(
   if (!(data.wordScores instanceof Map)) data.wordScores = new Map();
   if (!data.wordTimes.has(norm)) data.wordTimes.set(norm, Date.now());
   const scoredFakeTwinsMeta = buildFakeTwinsSubmittedWordMeta(room.currentRound, norm, scored);
-  data.wordMeta.set(norm, { ...scoredFakeTwinsMeta, ...scoredRareMeta });
+  data.wordMeta.set(norm, { ...scoredFakeTwinsMeta, ...scoredRareMeta, ...scoredCultureThemeMeta });
   data.wordScores.set(norm, wordPts);
   data.score += wordPts;
   const extraAcceptedWords = [];
@@ -5760,6 +6962,9 @@ function submitWordForNick(
       );
       if (!variantScored?.path) continue;
       const variantRareMeta = buildRareBonusSubmittedWordMeta(room.currentRound, variantScored.norm);
+      const variantCultureThemeMeta = {
+        cultureThemeWord: isCultureThemeChallengeWord(room.currentRound, variantScored.norm),
+      };
       const variantPts =
         computeWordScoreForRound(
         room.currentRound,
@@ -5774,7 +6979,11 @@ function submitWordForNick(
         variantScored.norm,
         variantScored
       );
-      data.wordMeta.set(variantScored.norm, { ...variantFakeTwinsMeta, ...variantRareMeta });
+      data.wordMeta.set(variantScored.norm, {
+        ...variantFakeTwinsMeta,
+        ...variantRareMeta,
+        ...variantCultureThemeMeta,
+      });
       data.wordScores.set(variantScored.norm, variantPts);
       data.score += variantPts;
       extraAcceptedWords.push({
@@ -5782,6 +6991,7 @@ function submitWordForNick(
         wordScore: variantPts,
         ...variantFakeTwinsMeta,
         ...variantRareMeta,
+        ...variantCultureThemeMeta,
       });
     }
   }
@@ -5855,6 +7065,7 @@ function submitWordForNick(
   const specialType = room.currentRound?.special?.type;
   const scoreGobbleAllowed = !isSpeedRound && specialType !== MASSIVE_BOGGLE_TYPE;
   const targetWord = room.currentRound?.targetWord;
+  let targetFoundThisSubmission = false;
   if (
     (specialType === "target_long" || specialType === "target_score") &&
     typeof targetWord === "string" &&
@@ -5865,6 +7076,7 @@ function submitWordForNick(
     if (!room.currentRound.targetFoundAt.has(resolvedNick)) {
       const foundAt = Date.now();
       room.currentRound.targetFoundAt.set(resolvedNick, foundAt);
+      targetFoundThisSubmission = true;
       const startedAt =
         (room.currentRound.endsAt || foundAt) -
         (room.currentRound.durationMs || room.config.durationMs || 0);
@@ -5899,6 +7111,18 @@ function submitWordForNick(
   }
 
   if (isTargetRound) {
+    notifyAmbientBotsWordAccepted(room, {
+      nick: resolvedNick,
+      word: norm,
+      len,
+      pts: wordPts,
+      rareBonusWord: !!scoredRareMeta.rareBonusWord,
+      isMaxPossibleLen,
+      isMaxPossiblePts,
+      isBotPlayer,
+      specialType,
+      targetFound: targetFoundThisSubmission,
+    });
     submitAccepted = true;
     return finish({
       ok: true,
@@ -6038,6 +7262,19 @@ function submitWordForNick(
     broadcastProvisionalRanking(room);
   }
 
+  notifyAmbientBotsWordAccepted(room, {
+    nick: resolvedNick,
+    word: norm,
+    len,
+    pts: wordPts,
+    rareBonusWord: !!scoredRareMeta.rareBonusWord,
+    isMaxPossibleLen,
+    isMaxPossiblePts,
+    isBotPlayer,
+    specialType,
+    targetFound: false,
+  });
+
   submitAccepted = true;
   return finish({
     ok: true,
@@ -6045,6 +7282,7 @@ function submitWordForNick(
     wordScore: wordPts,
     ...scoredFakeTwinsMeta,
     ...scoredRareMeta,
+    ...scoredCultureThemeMeta,
     extraWords: extraAcceptedWords,
   });
 }
@@ -6400,6 +7638,26 @@ function prefetchDefinitionForWord(rawWord) {
   } else {
     setTimeout(run, 0);
   }
+}
+
+function yieldToSocketEventLoop() {
+  return new Promise((resolve) => {
+    if (typeof setImmediate === "function") {
+      setImmediate(resolve);
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+function createEventLoopYielder(minDelayMs = 12) {
+  let lastYieldAt = Date.now();
+  return async function maybeYieldToSocketEvents() {
+    const now = Date.now();
+    if (now - lastYieldAt < minDelayMs) return;
+    lastYieldAt = now;
+    await yieldToSocketEventLoop();
+  };
 }
 
 function computeRoundWordLeaders(round, results) {
@@ -7026,15 +8284,32 @@ async function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   let pendingPromise = null;
   pendingPromise = (async () => {
     try {
+      const prepareStartedAt = Date.now();
       const result = await computePool.prepareNextGrid({
         roomConfig: room.config,
         roundPlan,
         roundNumber,
+        cultureThemeOptions: getCultureThemeGenerationOptions(room),
       });
+      const prepareElapsedMs = Date.now() - prepareStartedAt;
       const prepared = result || null;
       room.nextPreparedGrid = prepared
         ? { ...prepared, plan: prepared.plan || roundPlan, roundNumber }
         : null;
+      const stats = prepared?.prepareStats || null;
+      if (
+        prepareElapsedMs > 750 ||
+        stats?.cultureThemeBudgetExceeded ||
+        Number(stats?.cultureThemeChecks) > 0
+      ) {
+        console.log(
+          `[${room.id}] prepareNextGrid round=${roundNumber} type=${roundPlan?.type || "normal"} ` +
+            `elapsed=${prepareElapsedMs}ms attempts=${Number(stats?.attempts) || "?"}/${Number(stats?.maxAttempts) || "?"} ` +
+            `culture=${stats?.cultureThemeFound ? "yes" : "no"} checks=${Number(stats?.cultureThemeChecks) || 0} ` +
+            `cultureMs=${Number(stats?.cultureThemeMs) || 0} budget=${Number(stats?.cultureThemeBudgetMs) || 0} ` +
+            `budgetExceeded=${stats?.cultureThemeBudgetExceeded ? "yes" : "no"}`
+        );
+      }
 
       if (
         prepared?.targetWord &&
@@ -7193,6 +8468,7 @@ async function startRoundForRoom(room) {
     targetLength: prepared?.targetLength || null,
     targetPath: prepared?.targetPath || null,
     solutions: sanitizePreparedSolutions(prepared?.solutions),
+    cultureThemeChallenge: hydrateCultureThemeChallenge(prepared?.cultureThemeChallenge),
     targetWordCellMap: null,
     targetRevealed: new Set(),
     targetHintScheduleMs: [],
@@ -7207,6 +8483,8 @@ async function startRoundForRoom(room) {
     duelWordTasks: new Set(),
     duelObjectivePointsByNick: new Map(),
   };
+  resetAmbientChatBotState(room, roundId);
+  maybePrepareCultureThemeChallenge(room, planUsed);
   if (planUsed?.type === OCID_TYPE && room.currentRound.targetWord) {
     rememberOcidTarget(room, room.currentRound.targetWord);
   }
@@ -7303,6 +8581,7 @@ async function startRoundForRoom(room) {
   }
 
   broadcastProvisionalRanking(room, { force: true });
+  scheduleAmbientRoundStartBots(room, planUsed, roundIntroMs, roundDurationMs);
 
   if (roundIntroMs > 0) {
     const roundActivationId = roundId;
@@ -7505,6 +8784,7 @@ async function startOcidVotePhase(room) {
 
 async function endRoundForRoom(room) {
   const endRoundStartedAt = Date.now();
+  const maybeYieldEndRound = createEventLoopYielder();
   if (
     !room ||
     !room.currentRound ||
@@ -7543,6 +8823,7 @@ async function endRoundForRoom(room) {
   let ocidSummary = null;
 
   for (const [nick, data] of roundSubs.entries()) {
+    await maybeYieldEndRound();
     const lookup = findPlayerByNick(room, nick);
     const player = lookup?.player || null;
     const connected = isPlayerConnected(player) || isBotNick(room, nick);
@@ -7611,6 +8892,7 @@ async function endRoundForRoom(room) {
     );
     if (totalFakeTwinWords > 0) {
       for (const entry of results) {
+        await maybeYieldEndRound();
         const words = Array.isArray(entry.words) ? entry.words : [];
         const wordMeta = entry?.wordMeta && typeof entry.wordMeta === "object" ? entry.wordMeta : {};
         const foundFakeTwinWords = words.reduce((count, word) => {
@@ -7644,6 +8926,8 @@ async function endRoundForRoom(room) {
     }
   }
 
+  await applyCultureThemeChallengeBonus(room, results);
+
   if (specialType === OCID_TYPE) {
     const ocidComputed = computeOcidRoundResults(room, results);
     if (ocidComputed) {
@@ -7666,6 +8950,7 @@ async function endRoundForRoom(room) {
   const vocabLookups = [];
   const vocabInstallIdsByNick = new Map();
   for (const entry of results) {
+    await maybeYieldEndRound();
     if (specialType === OCID_TYPE || isTargetRound) continue;
     if (entry.isBot) continue;
     const lookup = findPlayerByNick(room, entry.nick);
@@ -7697,6 +8982,7 @@ async function endRoundForRoom(room) {
   const weeklyVocabRankBeforeOverrides = [];
   if (vocabLookups.length) {
     for (const lookup of vocabLookups) {
+      await maybeYieldEndRound();
       const weeklyCountBefore = await getWeeklyVocabularyCountForInstallIds(
         lookup.installIds?.length ? lookup.installIds : [lookup.installId],
         endedAt
@@ -7715,6 +9001,7 @@ async function endRoundForRoom(room) {
     : new Map();
   if (vocabLookups.length) {
     for (const lookup of vocabLookups) {
+      await maybeYieldEndRound();
       const knownWords = await getKnownVocabWordsForInstallIds(
         lookup.installIds?.length ? lookup.installIds : [lookup.installId],
         lookup.words
@@ -7747,6 +9034,7 @@ async function endRoundForRoom(room) {
     const weeklyVocabRankAfterOverrides = [];
     const weeklyVocabCountAfterByPlayerKey = new Map();
     for (const entry of vocabEntries) {
+      await maybeYieldEndRound();
       const summary = vocabSummary[entry.installId];
       if (!summary) continue;
       const playerKey = getMedalKeyForNickLookup(room, entry.nick);
@@ -7768,6 +9056,7 @@ async function endRoundForRoom(room) {
       ? await computeWeeklyVocabRankMap(endedAt, weeklyVocabRankAfterOverrides)
       : new Map();
     for (const entry of vocabEntries) {
+      await maybeYieldEndRound();
       const playerKey = getMedalKeyForNickLookup(room, entry.nick);
       if (!playerKey) continue;
       const resultEntry = resultsByNick.get(entry.nick);
@@ -7805,6 +9094,7 @@ async function endRoundForRoom(room) {
   const duelDateId = getParisDateId(new Date(endedAt));
   const profileStatsUpdates = [];
   for (const entry of results) {
+    await maybeYieldEndRound();
     if (entry.isBot) continue;
     if (!entry.participated) continue;
     const playerKey = getMedalKeyForNickLookup(room, entry.nick);
@@ -7915,6 +9205,7 @@ async function endRoundForRoom(room) {
     const pointsMultiplier = isFinalRound ? 2 : 1;
     targetPointsMultiplier = pointsMultiplier;
     for (const entry of results) {
+      await maybeYieldEndRound();
       const prev = t.totals.get(entry.nick) || {
         points: 0,
         gobbles: 0,
@@ -7940,6 +9231,7 @@ async function endRoundForRoom(room) {
         .map((e) => e.nick);
 
       for (let pos = 1; pos <= foundOrder.length; pos++) {
+        await maybeYieldEndRound();
         const nick = foundOrder[pos - 1];
         const basePts = (TOURNAMENT_POINTS[pos - 1] ?? 0) * pointsMultiplier;
         const gobbles = 0;
@@ -7956,6 +9248,7 @@ async function endRoundForRoom(room) {
     } else {
       let pos = 1;
       for (let i = 0; i < results.length; ) {
+        await maybeYieldEndRound();
         const scoreVal = results[i]?.score ?? 0;
         const tieGroup = [];
         const tieKey = specialType === OCID_TYPE ? getOcidTournamentTieKey(results[i]) : null;
@@ -7970,6 +9263,7 @@ async function endRoundForRoom(room) {
 
         const basePts = (TOURNAMENT_POINTS[pos - 1] ?? 0) * pointsMultiplier;
         for (const entry of tieGroup) {
+          await maybeYieldEndRound();
           const gobbles = roundGobbles.get(entry.nick) || 0;
           const totalEarned = basePts + gobbles;
 
@@ -7989,6 +9283,7 @@ async function endRoundForRoom(room) {
     }
 
     for (const entry of results) {
+      await maybeYieldEndRound();
       const count = Array.isArray(entry.words) ? entry.words.length : 0;
       if (count > (t.records?.mostWords?.count || 0)) {
         t.records.mostWords = { count, nick: entry.nick, round: tournamentRound };
@@ -8036,6 +9331,7 @@ async function endRoundForRoom(room) {
 
     const targetResults = [];
     for (const [nick] of roundSubs.entries()) {
+      await maybeYieldEndRound();
       const lookup = findPlayerByNick(room, nick);
       const player = lookup?.player || null;
       const connected = isPlayerConnected(player) || isBotToken(player?.token);
@@ -8348,6 +9644,8 @@ async function endRoundForRoom(room) {
     targetSummary,
     lastRoundResults: room.lastRoundResults || null,
   };
+
+  scheduleAmbientRoundEndBots(room, results, targetSummary);
 
   scheduleBreakPrecompute(
     room,
@@ -9035,6 +10333,9 @@ io.on("connection", (socket) => {
     if (previous.botsEnabled !== devControls.botsEnabled) {
       botManager?.setBotsEnabled?.(devControls.botsEnabled);
     }
+    if (previous.animatorBotsEnabled !== devControls.animatorBotsEnabled) {
+      botManager?.setAnimatorBotsEnabled?.(devControls.animatorBotsEnabled);
+    }
     for (const room of rooms.values()) {
       room.nextPreparedGrid = null;
       room.nextPreparedGridPromise = null;
@@ -9697,6 +10998,7 @@ botManager = createBotManager({
   emitMedals,
   broadcastProvisionalRanking,
   botsEnabled: devControls.botsEnabled,
+  animatorBotsEnabled: devControls.animatorBotsEnabled,
 });
 
 const PORT = 4000;

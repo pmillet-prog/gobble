@@ -236,10 +236,17 @@ function MobileResultsScreen(props) {
                             ? "text-violet-600"
                             : "text-blue-600"
                           : "";
+                            const cultureThemeWordClassName =
+                              entry?.cultureThemeWord && !isRejected
+                                ? darkMode
+                                  ? "text-blue-300"
+                                  : "text-blue-600"
+                                : "";
                             const shouldUseRareBonusStyle =
                               entry?.rareBonusWord &&
                               !isRejected &&
-                              !entry?.usedFakeTwins;
+                              !entry?.usedFakeTwins &&
+                              !entry?.cultureThemeWord;
                             const rareBonusWordClassName =
                               shouldUseRareBonusStyle
                                 ? isFound
@@ -331,7 +338,7 @@ function MobileResultsScreen(props) {
                                   )}
                                   <span className="flex items-center gap-1 min-w-0">
                                     <span
-                                      className={`${wordClassName} ${fakeTwinsWordClassName} ${rareBonusWordClassName}`.trim()}
+                                      className={`${wordClassName} ${fakeTwinsWordClassName} ${cultureThemeWordClassName} ${rareBonusWordClassName}`.trim()}
                                       style={rareBonusWordStyle}
                                     >
                                       {entry.word}

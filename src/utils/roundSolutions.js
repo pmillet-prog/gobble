@@ -27,6 +27,7 @@ export function hydrateServerSolutionsPayload(payload, options = {}) {
           metaRow[4],
           metaRow[5],
           metaRow[6],
+          metaRow[7],
         ];
       })
     : Array.isArray(payload)
@@ -47,6 +48,7 @@ export function hydrateServerSolutionsPayload(payload, options = {}) {
     const rareBonusWordSource = Array.isArray(entry) ? entry[6] : entry?.rareBonusWord;
     const rareBonusPointsSource = Array.isArray(entry) ? entry[7] : entry?.rareBonusPoints;
     const rarityBucketSource = Array.isArray(entry) ? entry[8] : entry?.rarityBucket;
+    const cultureThemeWordSource = Array.isArray(entry) ? entry[9] : entry?.cultureThemeWord;
     const pts = Number.isFinite(Number(ptsSource)) ? Number(ptsSource) : 0;
     const path = Array.isArray(pathSource)
       ? pathSource.map((idx) => Number(idx)).filter((idx) => Number.isInteger(idx) && idx >= 0)
@@ -60,6 +62,7 @@ export function hydrateServerSolutionsPayload(payload, options = {}) {
       rareBonusWord: !disableRareBonus && !!rareBonusWordSource,
       rareBonusPoints: !disableRareBonus ? Number(rareBonusPointsSource) || 0 : 0,
       rarityBucket: !disableRareBonus ? String(rarityBucketSource || "") : "",
+      cultureThemeWord: !!cultureThemeWordSource,
     };
     solved.set(word, meta);
     all.push({ word, ...meta });

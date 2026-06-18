@@ -1,4 +1,4 @@
-import { OCID_TYPE, solveGrid } from "../../shared/gameLogic.js";
+import { OCID_TYPE, normalizeWord, solveGrid } from "../../shared/gameLogic.js";
 
 const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
@@ -127,6 +127,15 @@ export const BOT_ROSTER_5X5 = [
 
 export const BOT_ROSTER = BOT_ROSTER_4X4;
 
+export const BOT_ANIMATOR_ROSTER = [
+  { nick: "GrosRobert", skill: 0.58, maxWordsPerRound: 44, minWordsPerRound: 8, pointBias: 0.84, rarityBias: 1, pace: 0.68, alwaysPresent: true, animator: true },
+  { nick: "Statatouille", skill: 0.64, maxWordsPerRound: 110, minWordsPerRound: 44, pointBias: 0.36, rarityBias: 0.05, pace: 1.25, alwaysPresent: true, animator: true },
+  { nick: "Inspecteur Grille", skill: 0.56, maxWordsPerRound: 66, minWordsPerRound: 22, pointBias: 0.64, rarityBias: 0.28, pace: 0.95, alwaysPresent: true, animator: true },
+  { nick: "WikiMama", skill: 0.52, maxWordsPerRound: 58, minWordsPerRound: 18, pointBias: 0.54, rarityBias: 0.22, pace: 0.88, alwaysPresent: true, animator: true },
+  { nick: "CaSuffix", skill: 0.58, maxWordsPerRound: 76, minWordsPerRound: 26, pointBias: 0.46, rarityBias: 0.12, pace: 1.08, alwaysPresent: true, animator: true },
+  { nick: "MomoMotus", skill: 0.5, maxWordsPerRound: 50, minWordsPerRound: 14, pointBias: 0.66, rarityBias: 0.42, pace: 0.82, alwaysPresent: true, animator: true },
+];
+
 const BOT_ROSTERS_BY_SIZE = {
   5: BOT_ROSTER_5X5,
   4: BOT_ROSTER_4X4,
@@ -141,6 +150,13 @@ const BOT_NERF = {
   pace: 0.85,
   desired: 0.55,
 };
+
+const RARITY_BUCKET_SORT_WEIGHT = Object.freeze({
+  never_found: 18,
+  extreme: 14,
+  very_rare: 10,
+  rare: 7,
+});
 
 const BOT_STREAK_LIMIT = 999;
 const BOT_REST_MIN_MS = 35 * 60 * 1000;
@@ -307,6 +323,10 @@ function rosterForRoom(room) {
   return BOT_ROSTERS_BY_SIZE[size] || BOT_ROSTER_4X4;
 }
 
+function animatorRosterForRoom(_room) {
+  return BOT_ANIMATOR_ROSTER;
+}
+
 function botStreakKey(roomId, nick) {
   return `${roomId || "room"}::${nick || "bot"}`;
 }
@@ -326,9 +346,45 @@ function tuneBotProfile(bot) {
     maxWordsPerRound: Math.max(8, Math.round((bot?.maxWordsPerRound ?? 0) * BOT_NERF.maxWords)),
     minWordsPerRound: Math.max(4, Math.round((bot?.minWordsPerRound ?? 0) * BOT_NERF.minWords)),
     pointBias: Math.min(0.55, Math.max(0.1, (bot?.pointBias ?? 0.45) * BOT_NERF.pointBias)),
+    rarityBias: clamp01(bot?.rarityBias ?? 0, 0),
     pace: Math.max(0.55, (bot?.pace ?? 1) * BOT_NERF.pace),
     difficultyScale: BOT_NERF.desired,
   };
+}
+
+function raritySortScore(entry) {
+  const bucketScore = RARITY_BUCKET_SORT_WEIGHT[String(entry?.rarityBucket || "")] || 0;
+  const numericScore = Math.min(12, Math.max(0, Number(entry?.rarityScore) || 0) / 80);
+  return (entry?.rareBonusWord ? 8 : 0) + bucketScore + numericScore;
+}
+
+function botWordPriority(entry, botProfile, isSpeedRound) {
+  const word = String(entry?.word || "");
+  const pts = Number(entry?.pts) || 0;
+  const rarityBias = clamp01(botProfile?.rarityBias ?? 0, 0);
+  const rareScore = raritySortScore(entry) * rarityBias;
+  if (isSpeedRound) {
+    return pts * 0.7 - word.length * 4.5 + rareScore * 2.4;
+  }
+  return pts * 2 + word.length * 0.8 + rareScore * 5;
+}
+
+function preparedSolutionsForBotRound(round) {
+  if (!Array.isArray(round?.solutions) || !round.solutions.length) return null;
+  const prepared = new Map();
+  for (const entry of round.solutions) {
+    const word = normalizeWord(entry?.word || "");
+    if (!word) continue;
+    prepared.set(word, {
+      pts: Number(entry?.pts) || 0,
+      path: Array.isArray(entry?.path) ? entry.path : [],
+      rareBonusWord: !!entry?.rareBonusWord,
+      rareBonusPoints: Number(entry?.rareBonusPoints) || 0,
+      rarityBucket: String(entry?.rarityBucket || ""),
+      rarityScore: Number(entry?.rarityScore) || 0,
+    });
+  }
+  return prepared.size ? prepared : null;
 }
 
 export function pickWordsForBot(solutions, botProfile, opts = {}) {
@@ -342,14 +398,20 @@ export function pickWordsForBot(solutions, botProfile, opts = {}) {
 
   const pool = Array.from(
     solutions instanceof Map ? solutions.entries() : solutions || []
-  ).map(([word, data]) => ({ word, pts: data?.pts || 0 }));
+  ).map(([word, data]) => ({
+    word,
+    pts: data?.pts || 0,
+    rareBonusWord: !!data?.rareBonusWord,
+    rarityBucket: String(data?.rarityBucket || ""),
+    rarityScore: Number(data?.rarityScore) || 0,
+  }));
 
   if (!pool.length) return [];
 
   if (isSpeedRound) {
-    pool.sort((a, b) => a.word.length - b.word.length || b.pts - a.pts);
+    pool.sort((a, b) => botWordPriority(b, botProfile, true) - botWordPriority(a, botProfile, true));
   } else {
-    pool.sort((a, b) => b.pts - a.pts || b.word.length - a.word.length);
+    pool.sort((a, b) => botWordPriority(b, botProfile, false) - botWordPriority(a, botProfile, false));
   }
 
   const skill = clamp01(botProfile?.skill, 0.5);
@@ -403,7 +465,11 @@ export function pickWordsForBot(solutions, botProfile, opts = {}) {
     desired,
     Math.min(pool.length, Math.floor(pool.length * (0.22 + skill * 0.22)))
   );
-  const maxTopHits = Math.max(1, Math.round(desired * (isSpeedRound ? 0.12 : 0.32)));
+  const rarityBias = clamp01(botProfile?.rarityBias ?? 0, 0);
+  const topHitRatio = isSpeedRound
+    ? 0.12 + rarityBias * 0.1
+    : 0.32 + rarityBias * 0.28;
+  const maxTopHits = Math.max(1, Math.round(desired * topHitRatio));
 
   const topPool = pool.slice(0, topSliceSize);
   const remainder = pool.slice(topSliceSize);
@@ -412,13 +478,18 @@ export function pickWordsForBot(solutions, botProfile, opts = {}) {
 
   while (chosen.length < desired && (topPool.length || remainder.length)) {
     const pickTop = (rand() < bias && topHits < maxTopHits) || !remainder.length;
-    const source = pickTop ? topPool : remainder;
-    if (!source.length) continue;
+    let source = pickTop ? topPool : remainder;
+    let sourceIsTop = pickTop;
+    if (!source.length) {
+      source = pickTop ? remainder : topPool;
+      sourceIsTop = !pickTop;
+    }
+    if (!source.length) break;
     const idx = Math.floor(rand() * source.length);
     const candidate = source.splice(idx, 1)[0];
     // petite probabilité de passer son tour pour éviter le spam
     if (rand() < (isSpeedRound ? 0.05 : 0.08)) continue;
-    if (pickTop) topHits++;
+    if (sourceIsTop) topHits++;
     chosen.push(candidate);
   }
 
@@ -439,6 +510,7 @@ class BotManager {
     emitMedals,
     broadcastProvisionalRanking,
     botsEnabled = true,
+    animatorBotsEnabled = true,
   }) {
     this.rooms = rooms;
     this.dictionary = dictionary;
@@ -452,6 +524,7 @@ class BotManager {
     this.emitMedals = emitMedals;
     this.broadcastProvisionalRanking = broadcastProvisionalRanking;
     this.botsEnabled = botsEnabled !== false;
+    this.animatorBotsEnabled = animatorBotsEnabled !== false;
     this.roundTimers = new Map();
     this.roomBotSelection = new Map();
     this.roomBotHourKey = new Map();
@@ -468,17 +541,19 @@ class BotManager {
   }
 
   refreshPresence() {
-    if (!this.botsEnabled) return;
+    if (!this.botsEnabled && !this.animatorBotsEnabled) return;
     for (const room of this.rooms.values()) {
       this.refreshPresenceForRoom(room);
     }
   }
 
   refreshPresenceForRoom(room) {
-    if (!this.botsEnabled) return;
+    if (!this.botsEnabled && !this.animatorBotsEnabled) return;
     const now = new Date();
-    const roster = rosterForRoom(room);
-    const allowedKeys = new Set(roster.map((bot) => this.botKey(bot)));
+    const roster = this.botsEnabled ? rosterForRoom(room) : [];
+    const animatorRoster = this.animatorBotsEnabled ? animatorRosterForRoom(room) : [];
+    const regularKeys = new Set(roster.map((bot) => this.botKey(bot)));
+    const allowedKeys = new Set([...roster, ...animatorRoster].map((bot) => this.botKey(bot)));
     const nowMs = Date.now();
     this.cleanupManualBotOverrides(room, nowMs);
     const forcedActiveKeys = new Set();
@@ -503,6 +578,18 @@ class BotManager {
         this.botRestUntil.set(botStreakKey(room.id, bot.nick), nowMs + restMs);
         this.botSessionUntil.delete(sessionKey);
         this.removeBotFromRoom(room, bot);
+      }
+    }
+
+    if (this.animatorBotsEnabled) {
+      for (const bot of animatorRoster) {
+        const key = this.botKey(bot);
+        if (!room.players.has(key)) this.addBotToRoom(room, bot);
+      }
+    } else {
+      for (const bot of animatorRosterForRoom(room)) {
+        const key = this.botKey(bot);
+        if (room.players.has(key)) this.removeBotFromRoom(room, bot);
       }
     }
 
@@ -546,10 +633,12 @@ class BotManager {
         Array.from(room.players.entries())
           .filter(
             ([token, player]) =>
-              player?.token?.startsWith("bot-") && allowedKeys.has(player.token)
+              player?.token?.startsWith("bot-") && regularKeys.has(player.token)
           )
           .map(([token]) => token)
       );
+    } else {
+      selection = new Set(Array.from(selection).filter((key) => regularKeys.has(key)));
     }
     if (selection.size === 0 && desiredBots > 0) {
       const seeded = mulberry32(hashString(`boot-${room.id}-${getParisHour(now)}`));
@@ -639,12 +728,15 @@ class BotManager {
 
   listBotsForRoom(room) {
     const roster = rosterForRoom(room);
+    const animatorRoster = animatorRosterForRoom(room);
     this.cleanupManualBotOverrides(room, Date.now());
-    return roster.map((bot) => {
+    const regularBots = roster.map((bot) => {
       const key = this.botKey(bot);
       const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
       return {
         nick: bot.nick,
+        kind: "regular",
+        permanent: false,
         skill: Number.isFinite(bot.skill) ? bot.skill : null,
         active: !!room?.players?.has?.(key),
         override: override
@@ -658,6 +750,18 @@ class BotManager {
           : null,
       };
     });
+    const animatorBots = animatorRoster.map((bot) => {
+      const key = this.botKey(bot);
+      return {
+        nick: bot.nick,
+        kind: "animator",
+        permanent: true,
+        skill: Number.isFinite(bot.skill) ? bot.skill : null,
+        active: !!room?.players?.has?.(key),
+        override: null,
+      };
+    });
+    return [...animatorBots, ...regularBots];
   }
 
   setBotActive(room, nick, active, duration = "manual") {
@@ -844,7 +948,7 @@ class BotManager {
 
   onRoundStart(room) {
     this.clearTimers(room.id);
-    if (!this.botsEnabled) return;
+    if (!this.botsEnabled && !this.animatorBotsEnabled) return;
     if (!this.dictionary) {
       if (!this.warnedNoDictionary) {
         console.warn("[bots] Aucun dictionnaire, les bots restent passifs");
@@ -853,13 +957,17 @@ class BotManager {
       return;
     }
 
-    const roster = rosterForRoom(room);
+    const roster = [
+      ...(this.botsEnabled ? rosterForRoom(room) : []),
+      ...(this.animatorBotsEnabled ? animatorRosterForRoom(room) : []),
+    ];
     const nowDate = new Date();
     const activeBots = roster.filter((bot) => {
       const key = this.botKey(bot);
       if (!room.players.has(key)) return false;
       const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
       if (override?.active) return true;
+      if (bot?.alwaysPresent || bot?.animator) return true;
       return !isBotSleeping(bot, nowDate);
     });
     if (!activeBots.length) return;
@@ -867,7 +975,7 @@ class BotManager {
     const round = room.currentRound;
     if (!round) return;
 
-    const solutions = solveGridCached(round.grid, this.dictionary);
+    const solutions = preparedSolutionsForBotRound(round) || solveGridCached(round.grid, this.dictionary);
     this.roomSolutions.set(room.id, solutions);
     const now = Date.now();
     const timeBudget = Math.max(1500, round.endsAt - now - 500);
@@ -1009,6 +1117,7 @@ class BotManager {
     if (!round || round?.special?.type !== OCID_TYPE || round.status !== "running") return;
     if (Date.now() >= round.endsAt) return;
     if (typeof this.submitOcidProposalForNick !== "function") return;
+    if (!room.players.has(this.botKey(bot))) return;
 
     this.ensurePlayerInRound(room, bot.nick);
     const res = this.submitOcidProposalForNick(room, {
@@ -1023,12 +1132,15 @@ class BotManager {
   }
 
   onOcidVoteStart(room) {
-    if (!this.botsEnabled) return;
+    if (!this.botsEnabled && !this.animatorBotsEnabled) return;
     const round = room?.currentRound;
     if (!round || round?.special?.type !== OCID_TYPE || round.status !== "ocid_vote") return;
     if (typeof this.submitOcidVoteForNick !== "function") return;
 
-    const roster = rosterForRoom(room);
+    const roster = [
+      ...(this.botsEnabled ? rosterForRoom(room) : []),
+      ...(this.animatorBotsEnabled ? animatorRosterForRoom(room) : []),
+    ];
     const nowDate = new Date();
     const activeBots = roster
       .filter((bot) => {
@@ -1036,6 +1148,7 @@ class BotManager {
         if (!room.players.has(key)) return false;
         const override = this.manualBotOverrides.get(this.manualOverrideKey(room.id, bot.nick));
         if (override?.active) return true;
+        if (bot?.alwaysPresent || bot?.animator) return true;
         return !isBotSleeping(bot, nowDate);
       })
       .map(tuneBotProfile);
@@ -1076,6 +1189,7 @@ class BotManager {
     if (!round || round?.special?.type !== OCID_TYPE || round.status !== "ocid_vote") return;
     if (Date.now() >= round.endsAt) return;
     if (typeof this.submitOcidVoteForNick !== "function") return;
+    if (!room.players.has(this.botKey(bot))) return;
 
     const option = this.chooseOcidVoteOption(round, bot, rand);
     if (!option?.id) return;
@@ -1101,21 +1215,37 @@ class BotManager {
     }
 
     for (const room of this.rooms.values()) {
-      this.clearTimers(room.id);
       this.roomBotSelection.delete(room.id);
+      const regularKeys = new Set(rosterForRoom(room).map((bot) => this.botKey(bot)));
       for (const [key, player] of Array.from(room.players.entries())) {
-        if (!String(key || "").startsWith("bot-") && !String(player?.token || "").startsWith("bot-")) {
-          continue;
-        }
+        const token = String(player?.token || key || "");
+        if (!regularKeys.has(token) && !regularKeys.has(String(key || ""))) continue;
         if (player?.nick) this.removeBotFromRoom(room, { nick: player.nick });
         else room.players.delete(key);
       }
+      this.refreshPresenceForRoom(room);
     }
-    for (const timer of this.presenceTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.presenceTimers.clear();
     return { ok: true, botsEnabled: false };
+  }
+
+  setAnimatorBotsEnabled(enabled) {
+    const next = enabled !== false;
+    this.animatorBotsEnabled = next;
+    for (const room of this.rooms.values()) {
+      const roster = animatorRosterForRoom(room);
+      if (next) {
+        for (const bot of roster) {
+          const key = this.botKey(bot);
+          if (!room.players.has(key)) this.addBotToRoom(room, bot);
+        }
+      } else {
+        for (const bot of roster) {
+          const key = this.botKey(bot);
+          if (room.players.has(key)) this.removeBotFromRoom(room, bot);
+        }
+      }
+    }
+    return { ok: true, animatorBotsEnabled: next };
   }
 
   scheduleBotSpecial3Words(room, bot, words, timeBudget, solutions, rand = Math.random) {
@@ -1156,6 +1286,7 @@ class BotManager {
   playWord(room, bot, word) {
     const round = room.currentRound;
     if (!round || Date.now() >= round.endsAt) return;
+    if (!room.players.has(this.botKey(bot))) return;
 
     const solutions = this.roomSolutions.get(room.id);
     const path = solutions?.get(word)?.path;
@@ -1179,6 +1310,7 @@ class BotManager {
     if (!round || Date.now() >= round.endsAt) return;
     if (round?.special?.type !== "self_specials_3_words") return;
     if (typeof this.submitSpecial3WordsState !== "function") return;
+    if (!room.players.has(this.botKey(bot))) return;
 
     this.ensurePlayerInRound(room, bot.nick);
     const res = this.submitSpecial3WordsState(room, {

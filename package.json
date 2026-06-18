@@ -6,6 +6,8 @@
     "build": "node scripts/generate-music-manifest.js && node ./node_modules/vite/bin/vite.js build",
     "definitions:build": "node scripts/build-wiktionary-definitions.mjs",
     "definitions:import": "node server/scripts/import-definitions-db.mjs",
+    "definitions:themes": "node server/scripts/backfill-game-semantic-themes.mjs",
+    "definitions:semantic-embeddings": "node server/scripts/backfill-game-semantic-themes.mjs",
     "rarity:build": "node server/scripts/build-word-rarity.mjs",
     "ocid:pool:build": "node server/scripts/build-ocid-target-pool.mjs",
     "preview": "vite preview"

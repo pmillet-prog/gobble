@@ -8,6 +8,7 @@ import readline from "readline";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
+import { buildGameSemanticThemes } from "../definitions/gameSemanticThemes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,12 +65,44 @@ function sanitizeEntry(raw) {
   const definitions = Array.isArray(raw.definitions)
     ? raw.definitions.map((entry) => String(entry || "").trim()).filter(Boolean)
     : [definition];
+  const etymology = String(raw.etymology || "").replace(/\s+/g, " ").trim();
+  const jsonArray = (value) =>
+    JSON.stringify(
+      Array.isArray(value)
+        ? value.map((entry) => String(entry || "").trim()).filter(Boolean)
+        : []
+    );
+  const semanticRelations =
+    raw.semanticRelations && typeof raw.semanticRelations === "object" && !Array.isArray(raw.semanticRelations)
+      ? raw.semanticRelations
+      : {};
+  const enrichmentSource = {
+    word: raw.word || key,
+    title: raw.title || raw.word || key,
+    definition,
+    definitions,
+    lexicalDomains: raw.lexicalDomains,
+    semanticRelations,
+    categories: raw.categories,
+  };
+  const gameSemanticThemes = Array.isArray(raw.gameSemanticThemes)
+    ? raw.gameSemanticThemes
+    : buildGameSemanticThemes(enrichmentSource);
   return {
     key,
     word: String(raw.word || key).trim(),
     title: String(raw.title || raw.word || key).trim(),
     definition,
     definitionsJson: JSON.stringify(definitions.length ? definitions : [definition]),
+    etymology,
+    partOfSpeechJson: jsonArray(raw.partOfSpeech),
+    lexicalDomainsJson: jsonArray(raw.lexicalDomains),
+    semanticRelationsJson: JSON.stringify(semanticRelations),
+    categoriesJson: jsonArray(raw.categories),
+    etymologyLangsJson: jsonArray(raw.etymologyLangs),
+    etymonsJson: jsonArray(raw.etymons),
+    curiosityTagsJson: jsonArray(raw.curiosityTags),
+    gameSemanticThemesJson: JSON.stringify(gameSemanticThemes),
     source: String(raw.source || "wiktionary").trim() || "wiktionary",
     sourceUrl: String(raw.sourceUrl || raw.url || "").trim(),
     sourceLicense: String(raw.sourceLicense || "").trim(),
@@ -97,6 +130,16 @@ async function openBuildDb(outputPath) {
       title TEXT NOT NULL,
       definition TEXT NOT NULL,
       definitions_json TEXT NOT NULL,
+      etymology TEXT NOT NULL DEFAULT '',
+      part_of_speech_json TEXT NOT NULL DEFAULT '[]',
+      lexical_domains_json TEXT NOT NULL DEFAULT '[]',
+      semantic_relations_json TEXT NOT NULL DEFAULT '{}',
+      categories_json TEXT NOT NULL DEFAULT '[]',
+      etymology_langs_json TEXT NOT NULL DEFAULT '[]',
+      etymons_json TEXT NOT NULL DEFAULT '[]',
+      curiosity_tags_json TEXT NOT NULL DEFAULT '[]',
+      game_semantic_themes_json TEXT NOT NULL DEFAULT '[]',
+      embedding_semantic_themes_json TEXT NOT NULL DEFAULT '[]',
       source TEXT NOT NULL,
       source_url TEXT NOT NULL,
       source_license TEXT NOT NULL,
@@ -123,6 +166,16 @@ async function flushBatch(db, statement, batch) {
         entry.title,
         entry.definition,
         entry.definitionsJson,
+        entry.etymology,
+        entry.partOfSpeechJson,
+        entry.lexicalDomainsJson,
+        entry.semanticRelationsJson,
+        entry.categoriesJson,
+        entry.etymologyLangsJson,
+        entry.etymonsJson,
+        entry.curiosityTagsJson,
+        entry.gameSemanticThemesJson,
+        "[]",
         entry.source,
         entry.sourceUrl,
         entry.sourceLicense,
@@ -146,9 +199,11 @@ async function importDefinitions(options) {
   const db = await openBuildDb(tmpOutput);
   const insert = await db.prepare(`
     INSERT OR REPLACE INTO definitions
-      (key, word, title, definition, definitions_json, source, source_url,
+      (key, word, title, definition, definitions_json, etymology, part_of_speech_json,
+       lexical_domains_json, semantic_relations_json, categories_json, etymology_langs_json,
+       etymons_json, curiosity_tags_json, game_semantic_themes_json, embedding_semantic_themes_json, source, source_url,
        source_license, is_form_of, form_of)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   let read = 0;
@@ -197,6 +252,11 @@ async function importDefinitions(options) {
       "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
       "source",
       path.relative(ROOT_DIR, options.input)
+    );
+    await db.run(
+      "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+      "enrichmentSchemaVersion",
+      "1"
     );
     await db.exec("PRAGMA optimize");
   } finally {

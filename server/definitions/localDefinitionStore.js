@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
+import { getSemanticWordOverride, mergeSemanticWordOverride } from "./semanticWordOverrides.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,7 @@ const CACHE_MAX = Number(process.env.GOBBLE_DEFINITIONS_LOCAL_CACHE_MAX || 2000)
 let db = null;
 let initPromise = null;
 let unavailableLogged = false;
+let schemaInfo = null;
 const cache = new Map();
 
 export function normalizeDefinitionKey(value) {
@@ -47,6 +49,22 @@ async function ensureDb() {
       await ready.exec("PRAGMA query_only = ON");
       await ready.exec("PRAGMA temp_store = MEMORY");
       await ready.exec("PRAGMA cache_size = -8192");
+      const columns = await ready.all("PRAGMA table_info(definitions)");
+      const columnNames = new Set(
+        (Array.isArray(columns) ? columns : []).map((column) => String(column?.name || ""))
+      );
+      schemaInfo = {
+        hasEtymology: columnNames.has("etymology"),
+        hasPartOfSpeech: columnNames.has("part_of_speech_json"),
+        hasLexicalDomains: columnNames.has("lexical_domains_json"),
+        hasSemanticRelations: columnNames.has("semantic_relations_json"),
+        hasCategories: columnNames.has("categories_json"),
+        hasEtymologyLangs: columnNames.has("etymology_langs_json"),
+        hasEtymons: columnNames.has("etymons_json"),
+        hasCuriosityTags: columnNames.has("curiosity_tags_json"),
+        hasGameSemanticThemes: columnNames.has("game_semantic_themes_json"),
+        hasEmbeddingSemanticThemes: columnNames.has("embedding_semantic_themes_json"),
+      };
       console.log(`definitions DB ready path=${DB_PATH}`);
       db = ready;
       return db;
@@ -79,6 +97,52 @@ function parseDefinitionsJson(value) {
   }
 }
 
+function parseJsonArray(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function parseJsonObject(value) {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function parseJsonObjectArray(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed
+          .map((entry) => {
+            if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+            const id = String(entry.id || "").trim();
+            const label = String(entry.label || id).trim();
+            const score = Math.max(0, Math.trunc(Number(entry.score) || 0));
+            const confidence = String(entry.confidence || "").trim();
+            const sources = Array.isArray(entry.sources)
+              ? entry.sources.map((source) => String(source || "").trim()).filter(Boolean).slice(0, 12)
+              : [];
+            return id && label ? { id, label, score, confidence, sources } : null;
+          })
+          .filter(Boolean)
+      : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 function serializeRow(row) {
   if (!row) return null;
   const definitions = parseDefinitionsJson(row.definitions_json);
@@ -92,6 +156,15 @@ function serializeRow(row) {
     source: String(row.source || "wiktionary").trim() || "wiktionary",
     sourceUrl: String(row.source_url || "").trim(),
     sourceLicense: String(row.source_license || "").trim(),
+    etymology: String(row.etymology || "").trim(),
+    partOfSpeech: parseJsonArray(row.part_of_speech_json),
+    lexicalDomains: parseJsonArray(row.lexical_domains_json),
+    semanticRelations: parseJsonObject(row.semantic_relations_json),
+    categories: parseJsonArray(row.categories_json),
+    etymologyLangs: parseJsonArray(row.etymology_langs_json),
+    etymons: parseJsonArray(row.etymons_json),
+    curiosityTags: parseJsonArray(row.curiosity_tags_json),
+    gameSemanticThemes: parseJsonObjectArray(row.game_semantic_themes_json),
     isFormOf: Number(row.is_form_of) === 1,
     formOf: String(row.form_of || "").trim(),
   };
@@ -109,14 +182,27 @@ export async function getLocalDefinitionEntry(rawWord) {
   const ready = await ensureDb();
   if (!ready) return null;
   try {
+    const etymologySelect = schemaInfo?.hasEtymology ? ", etymology" : ", '' AS etymology";
+    const enrichmentSelect = [
+      schemaInfo?.hasPartOfSpeech ? "part_of_speech_json" : "'[]' AS part_of_speech_json",
+      schemaInfo?.hasLexicalDomains ? "lexical_domains_json" : "'[]' AS lexical_domains_json",
+      schemaInfo?.hasSemanticRelations ? "semantic_relations_json" : "'{}' AS semantic_relations_json",
+      schemaInfo?.hasCategories ? "categories_json" : "'[]' AS categories_json",
+      schemaInfo?.hasEtymologyLangs ? "etymology_langs_json" : "'[]' AS etymology_langs_json",
+      schemaInfo?.hasEtymons ? "etymons_json" : "'[]' AS etymons_json",
+      schemaInfo?.hasCuriosityTags ? "curiosity_tags_json" : "'[]' AS curiosity_tags_json",
+      schemaInfo?.hasGameSemanticThemes
+        ? "game_semantic_themes_json"
+        : "'[]' AS game_semantic_themes_json",
+    ].join(", ");
     const row = await ready.get(
       `SELECT key, word, title, definition, definitions_json, source, source_url,
-              source_license, is_form_of, form_of
+              source_license, is_form_of, form_of${etymologySelect}, ${enrichmentSelect}
          FROM definitions
         WHERE key = ?`,
       key
     );
-    const entry = serializeRow(row);
+    const entry = mergeSemanticWordOverride(serializeRow(row), getSemanticWordOverride(key));
     remember(key, entry);
     return entry;
   } catch (err) {
@@ -135,9 +221,16 @@ export async function getLocalDefinitionStoreStatus() {
     return {
       ok: true,
       path: DB_PATH,
-      entries: Number(row?.count) || 0,
-      cacheSize: cache.size,
-    };
+        entries: Number(row?.count) || 0,
+        cacheSize: cache.size,
+        hasEtymology: !!schemaInfo?.hasEtymology,
+        hasPartOfSpeech: !!schemaInfo?.hasPartOfSpeech,
+        hasLexicalDomains: !!schemaInfo?.hasLexicalDomains,
+        hasSemanticRelations: !!schemaInfo?.hasSemanticRelations,
+        hasEtymologyLangs: !!schemaInfo?.hasEtymologyLangs,
+        hasGameSemanticThemes: !!schemaInfo?.hasGameSemanticThemes,
+        hasEmbeddingSemanticThemes: !!schemaInfo?.hasEmbeddingSemanticThemes,
+      };
   } catch (err) {
     return {
       ok: false,

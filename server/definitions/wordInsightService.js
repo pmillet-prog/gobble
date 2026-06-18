@@ -1,5 +1,6 @@
 import { normalizeWord } from "../../shared/gameLogic.js";
 import { buildGameSemanticThemes, normalizeGameSemanticThemes } from "./gameSemanticThemes.js";
+import { mergeSemanticThemes } from "./semanticEmbeddingThemes.js";
 import { getLocalDefinitionEntry } from "./localDefinitionStore.js";
 
 const DEFAULT_MAX_LOOKUPS = 450;
@@ -64,15 +65,21 @@ const DOMAIN_SENTENCE_LABELS = new Map([
 ]);
 
 const ANIMAL_CATEGORY_RE =
-  /\b(?:animaux|zoologie|oiseaux|insectes|poissons|mammiferes|mammifères|chiens|chats|passereaux|gallinaces|gallinacés|mouches|coleopteres|coléoptères|dipteres|diptères|amphibiens|reptiles|mollusques|crustaces|crustacés)\b/i;
+  /\b(?:animaux|zoologie|oiseaux|insectes|poissons|mammiferes|mammifères|chiens|chats|passereaux|gallinaces|gallinacés|mouches|mustelines|mustélinés|mustelides|mustélidés|coleopteres|coléoptères|dipteres|diptères|amphibiens|reptiles|mollusques|crustaces|crustacés)\b/i;
 const ANIMAL_DOMAIN_RE =
   /\b(?:zoologie|ornithologie|entomologie|ichtyologie|mammalogie)\b/i;
 const ANIMAL_NAME_RE =
-  /\b(?:oiseau|passereau|insecte|coleoptere|coléoptère|diptere|diptère|poisson|mammifere|mammifère|reptile|amphibien|batracien|mollusque|crustace|crustacé|chien|chat|cheval|vache|boeuf|bœuf|taureau|dindon|serpent|papillon|mouche|crapaud|grenouille|scarabee|scarabée|corvide|gallinace|gallinacé)\b/i;
+  /\b(?:animal|oiseau|passereau|insecte|coleoptere|coléoptère|diptere|diptère|poisson|mammifere|mammifère|carnivore|mustelide|mustélidé|reptile|amphibien|batracien|mollusque|crustace|crustacé|chien|chat|cheval|vache|boeuf|bœuf|taureau|dindon|serpent|papillon|mouche|crapaud|grenouille|scarabee|scarabée|corvide|gallinace|gallinacé)\b/i;
 const ANIMAL_DEFINITION_RE =
   /^(?:(?:espece|espèce|genre|race|famille|ordre)\s+(?:de|d'|des)\s+|(?:petit|petite|grand|grande|gros|grosse|jeune|vieux|vieil|vieille)\s+)?[\s\S]{0,80}\b(?:oiseau|passereau|insecte|coleoptere|coléoptère|diptere|diptère|poisson|mammifere|mammifère|reptile|amphibien|batracien|mollusque|crustace|crustacé|chien|chat|cheval|dindon|serpent|papillon|mouche|crapaud|grenouille|scarabee|scarabée|corvide|gallinace|gallinacé)\b/i;
 const ANIMAL_RELATED_BUT_NOT_NAME_RE =
   /\b(?:nourrit|nourrir|alimentaire|nourriture|manger|donne a manger|donne à manger|transporter|contenir|contient|organe|ouverture|branchie|sabot|articulation|fiente|moule|rouste|correction)\b/i;
+const PLANT_CATEGORY_RE =
+  /\b(?:plantes?|botanique|arbres?|fleurs?|fruits?|legumes|légumes|cereales|céréales|graminees|graminées|champignons?|algues?|plantes toxiques)\b/i;
+const PLANT_NAME_RE =
+  /\b(?:plante|vegetal|végétal|arbre|arbuste|fleur|fruit|feuille|racine|tige|graine|pollen|cereale|céréale|herbe|graminee|graminée|champignon|algue|rosier|rose|taxacee|taxacée)\b/i;
+const PLANT_RELATED_BUT_NOT_NAME_RE =
+  /\b(?:couleur|teinte|ornement heraldique|ornement héraldique|forme de|support pour)\b/i;
 
 function normalizeThemeKey(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -124,6 +131,9 @@ function isThemeChallengeCandidate(word, entry, domain) {
   if (domainLabel === "animaux") {
     return isAnimalThemeChallengeCandidate(word, entry);
   }
+  if (domainLabel === "plantes") {
+    return isPlantThemeChallengeCandidate(word, entry);
+  }
   if (!norm || norm.length < 5) return false;
   if (GENERIC_THEME_WORDS.has(norm)) return false;
   const pos = Array.isArray(entry?.partOfSpeech) ? entry.partOfSpeech : [];
@@ -141,6 +151,53 @@ function isThemeChallengeCandidate(word, entry, domain) {
   if (mostlyGrammatical) return false;
 
   return !!domainLabel;
+}
+
+function hasThemeChallengePartOfSpeech(entry) {
+  const pos = Array.isArray(entry?.partOfSpeech) ? entry.partOfSpeech : [];
+  if (pos.length && !pos.some((item) => /^nom(?:\s|$)/i.test(String(item || "")))) {
+    return false;
+  }
+  const mostlyGrammatical =
+    pos.length > 0 &&
+    pos.every((item) =>
+      /^(?:adjectif|adverbe|pronom|déterminant|determinant|article|préposition|preposition|conjonction)$/.test(
+        String(item || "").toLowerCase()
+      )
+    );
+  return !mostlyGrammatical;
+}
+
+function getThemeEmbeddingSignal(theme) {
+  const sources = Array.isArray(theme?.sources) ? theme.sources : [];
+  const cosine = sources.reduce((best, source) => {
+    const match = String(source || "").match(/^embedding:cosine:(0\.\d+)/);
+    return match ? Math.max(best, Number(match[1]) || 0) : best;
+  }, 0);
+  const featureCount = sources.filter((source) => /^embedding:feature:/.test(String(source || ""))).length;
+  return { cosine, featureCount };
+}
+
+function hasStrongThemeEvidence(theme) {
+  const sources = Array.isArray(theme?.sources) ? theme.sources : [];
+  if (sources.some((source) => /^(?:definition|category):/.test(String(source || "")))) return true;
+  const embedding = getThemeEmbeddingSignal(theme);
+  return (
+    Number(theme?.score) >= 13 &&
+    (embedding.cosine >= 0.38 || (embedding.cosine >= 0.3 && embedding.featureCount >= 2))
+  );
+}
+
+function isSemanticThemeChallengeCandidate(word, entry, theme) {
+  const label = String(theme?.label || theme?.id || "").trim();
+  const norm = normalizeWord(word);
+  if (!norm || norm.length < 2) return false;
+  if (GENERIC_THEME_WORDS.has(norm)) return false;
+  if (!hasThemeChallengePartOfSpeech(entry)) return false;
+  if (label.toLowerCase() === "animaux") return isAnimalThemeChallengeCandidate(word, entry);
+  if (label.toLowerCase() === "plantes") return isPlantThemeChallengeCandidate(word, entry);
+  if (norm.length >= 5) return isThemeChallengeCandidate(word, entry, label);
+  return hasStrongThemeEvidence(theme);
 }
 
 function normalizeForThemeText(value) {
@@ -177,6 +234,32 @@ function isAnimalThemeChallengeCandidate(word, entry) {
     if (/nom d.amitie[\s\S]{0,80}\bchats?\b/i.test(definition)) return true;
     if (/\banimal\b/i.test(definition) && ANIMAL_NAME_RE.test(definition)) return true;
     return ANIMAL_DEFINITION_RE.test(definition);
+  });
+}
+
+function isPlantThemeChallengeCandidate(word, entry) {
+  const norm = normalizeWord(word);
+  if (!norm || norm.length < 2) return false;
+  if (GENERIC_THEME_WORDS.has(norm)) return false;
+
+  const pos = Array.isArray(entry?.partOfSpeech) ? entry.partOfSpeech : [];
+  if (pos.length && !pos.some((item) => /^nom(?:\s|$)/i.test(String(item || "")))) return false;
+
+  const categories = normalizeForThemeText((Array.isArray(entry?.categories) ? entry.categories : []).join(" "));
+  if (PLANT_CATEGORY_RE.test(categories)) return true;
+
+  const definitions = Array.isArray(entry?.definitions) ? entry.definitions : [];
+  const firstDefinitions = definitions
+    .slice(0, 3)
+    .map((definition) => normalizeForThemeText(definition))
+    .filter(Boolean);
+  if (!firstDefinitions.length) return false;
+
+  return firstDefinitions.some((definition) => {
+    if (PLANT_RELATED_BUT_NOT_NAME_RE.test(definition) && !/\b(?:plante|arbre|arbuste|fleur)\b/i.test(definition)) {
+      return false;
+    }
+    return PLANT_NAME_RE.test(definition);
   });
 }
 
@@ -229,14 +312,20 @@ function getThemeSourceEntry(entry, baseEntry) {
 
 function getCurrentSemanticThemes(entry) {
   const computed = buildGameSemanticThemes(entry);
-  if (computed.length) return computed;
-  return normalizeGameSemanticThemes(entry?.gameSemanticThemes);
+  return mergeSemanticThemes(computed, normalizeGameSemanticThemes(entry?.gameSemanticThemes));
 }
 
 function isSemanticThemeReliableForChallenge(theme, allThemes) {
   const sources = Array.isArray(theme?.sources) ? theme.sources : [];
-  if (Array.isArray(allThemes) && allThemes.length > 3) return false;
   if (sources.some((source) => /^(?:definition|category):/.test(String(source || "")))) {
+    return true;
+  }
+  if (Array.isArray(allThemes) && allThemes.length > 3) return false;
+  const embedding = getThemeEmbeddingSignal(theme);
+  if (
+    (embedding.cosine >= 0.38 || (embedding.cosine >= 0.3 && embedding.featureCount >= 2)) &&
+    Number(theme?.score) >= 13
+  ) {
     return true;
   }
   const domainSources = sources.filter((source) => /^domain:/.test(String(source || "")));
@@ -313,11 +402,11 @@ export async function buildWordInsightSummary(rawWords, options = {}) {
       const label = String(theme?.label || theme?.id || "").trim();
       const score = Number(theme?.score) || 0;
       const minScore = normalizeThemeKey(label) === "animaux" ? 5 : 7;
-      if (
-        score >= minScore &&
-        isSemanticThemeReliableForChallenge(theme, semanticThemes) &&
-        isThemeChallengeCandidate(word, themeEntry, label)
-      ) {
+      const challengeCandidate = isSemanticThemeChallengeCandidate(word, themeEntry, theme);
+      const reliableTheme =
+        (normalizeThemeKey(label) === "animaux" && challengeCandidate) ||
+        isSemanticThemeReliableForChallenge(theme, semanticThemes);
+      if (score >= minScore && reliableTheme && challengeCandidate) {
         increment(semanticChallengeThemes, label, word);
       }
     }
@@ -430,14 +519,15 @@ export function pickWordThemeChallenge(summary, options = {}) {
   const usageCountFor = (theme) => Number(usageSource.get(normalizeThemeKey(theme))) || 0;
   const seed = Number.isFinite(options.selectionSeed) ? Math.trunc(options.selectionSeed) : 0;
   const domains = Array.isArray(summary?.challengeDomains) ? summary.challengeDomains : [];
-  const candidates = domains
+  const allCandidates = domains
     .filter((entry) => entry.count >= minWords)
-    .filter((entry) => !excludedThemes.has(normalizeThemeKey(entry.key)))
     .sort((a, b) => {
       const usageDelta = usageCountFor(a.key) - usageCountFor(b.key);
       if (usageDelta) return usageDelta;
       return b.count - a.count || String(a.key || "").localeCompare(String(b.key || ""), "fr");
     });
+  const nonExcludedCandidates = allCandidates.filter((entry) => !excludedThemes.has(normalizeThemeKey(entry.key)));
+  const candidates = nonExcludedCandidates.length ? nonExcludedCandidates : allCandidates;
   const lowestUsage = candidates.length ? usageCountFor(candidates[0].key) : 0;
   const lowestUsageCandidates = candidates.filter((entry) => usageCountFor(entry.key) === lowestUsage);
   const picked = lowestUsageCandidates.length

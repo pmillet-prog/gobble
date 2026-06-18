@@ -1,4 +1,4 @@
-function normalizeText(value) {
+export function normalizeGameSemanticText(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/[œ]/g, "oe")
@@ -10,6 +10,8 @@ function normalizeText(value) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+const normalizeText = normalizeGameSemanticText;
 
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -43,7 +45,7 @@ function matchingTerms(text, words, max = 8) {
   return matches;
 }
 
-const THEME_RULES = Object.freeze([
+export const GAME_SEMANTIC_THEME_RULES = Object.freeze([
   {
     id: "animaux",
     label: "animaux",
@@ -645,7 +647,8 @@ function scoreRule(rule, texts) {
 
   const definitionHits = matchingTerms(texts.definitionText, rule.strong, 8);
   if (definitionHits.length) {
-    score += Math.min(10, definitionHits.length * 4);
+    const definitionHitWeight = rule.id === "animaux" ? 6 : 4;
+    score += Math.min(10, definitionHits.length * definitionHitWeight);
     definitionHits.forEach((hit) => sources.push(sourceLabel("definition", hit)));
   }
 
@@ -697,7 +700,7 @@ export function buildGameSemanticThemes(entry) {
     relationText: normalizeText(flattenRelations(entry?.semanticRelations).join(" ")),
   };
 
-  return THEME_RULES.map((rule) => scoreRule(rule, texts))
+  return GAME_SEMANTIC_THEME_RULES.map((rule) => scoreRule(rule, texts))
     .filter(Boolean)
     .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "fr"))
     .slice(0, 5);

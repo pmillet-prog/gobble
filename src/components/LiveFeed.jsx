@@ -87,6 +87,7 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
       label: w.label || null,
       usedFakeTwins: !!w.usedFakeTwins,
       fakeTwinsBonusOnly: !!w.fakeTwinsBonusOnly,
+      cultureThemeWord: !!w.cultureThemeWord,
       rareBonusWord: !!w.rareBonusWord,
       rareBonusPoints: Number(w.rareBonusPoints) || 0,
       rarityBucket: w.rarityBucket || "",
@@ -265,7 +266,11 @@ function LiveFeed({
               >
                 <span
                   className={`font-semibold not-italic truncate ${
-                    item.usedFakeTwins && item.rareBonusWord
+                    item.cultureThemeWord
+                      ? darkMode
+                        ? "text-blue-300"
+                        : "text-blue-600"
+                    : item.usedFakeTwins && item.rareBonusWord
                       ? darkMode
                         ? "text-violet-300"
                         : "text-violet-600"

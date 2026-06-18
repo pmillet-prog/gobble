@@ -212,6 +212,8 @@ export default function ChatContent({
   onReactToMessage,
   reactionEmojis = [],
   getAuthorNickClassName = null,
+  showBotMessages = true,
+  onToggleShowBotMessages = null,
 }) {
   const isSystemTab = chatTab === "system";
   const messagesEndRef = useRef(null);
@@ -738,7 +740,7 @@ export default function ChatContent({
         </div>
       </div>
 
-      <div className="px-3 pt-2">
+      <div className="px-3 pt-2 flex items-center justify-between gap-2">
         <div
           className={`inline-flex rounded-full border p-1 ${panelSurfaceClass}`}
         >
@@ -765,6 +767,28 @@ export default function ChatContent({
             Logs serveur
           </button>
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showBotMessages ? "true" : "false"}
+          aria-label={showBotMessages ? "Masquer les messages bots" : "Afficher les messages bots"}
+          className={`shrink-0 inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-bold transition ${panelSurfaceClass}`}
+          onClick={() => onToggleShowBotMessages?.()}
+        >
+          <span className={darkMode ? "text-amber-50/85" : "text-slate-700"}>Bots</span>
+          <span
+            className={`relative h-5 w-9 rounded-full transition ${
+              showBotMessages ? "bg-emerald-500" : darkMode ? "bg-slate-700" : "bg-slate-300"
+            }`}
+            aria-hidden="true"
+          >
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
+                showBotMessages ? "left-[18px]" : "left-0.5"
+              }`}
+            />
+          </span>
+        </button>
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
