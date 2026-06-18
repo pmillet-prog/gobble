@@ -122,6 +122,14 @@ npm run build
 echo "=== Server: install ==="
 cd server
 npm ci
+cd "$REPO_DIR"
+
+echo "=== Definitions: semantic themes backfill if needed ==="
+if [ -f "$REPO_DIR/data/definitions-fr.sqlite" ]; then
+  node server/scripts/backfill-game-semantic-themes.mjs --if-needed
+else
+  echo "WARN: data/definitions-fr.sqlite not found; skipping semantic themes backfill"
+fi
 
 restart_gobble_service() {
   local service="$1"
@@ -137,10 +145,11 @@ restart_gobble_service() {
 }
 
 echo "=== Restart back (4000) ==="
+cd "$REPO_DIR/server"
 restart_gobble_service gobble-back.service 4000 server.log npm start
 
 echo "=== Restart front (3000) ==="
-cd ..
+cd "$REPO_DIR"
 restart_gobble_service gobble-front.service 3000 front.log npx serve -s dist -l 3000
 
 
