@@ -32,7 +32,11 @@ import {
   clearDefinitionCache,
   peekDefinitionCache,
 } from "./definitions/definitionService.js";
-import { getOfflineWordFact } from "./definitions/wordFactService.js";
+import {
+  getOfflineDoubleDefinitionDetails,
+  getOfflineInventorFactDetails,
+  getOfflineWordFactDetails,
+} from "./definitions/wordFactService.js";
 import {
   buildWordInsightSummary,
   buildWordInsightChatLines,
@@ -1462,6 +1466,10 @@ const DETECTIVE_MAX_LENGTH_CHANCE = Math.min(
 const AMBIENT_TREND_BOT_ENABLED =
   !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_TREND_BOT_ENABLED || "1"));
 const AMBIENT_TREND_BOT_TIMEOUT_MS = 1400;
+const AMBIENT_TREND_BOT_CHANCE = Math.min(
+  1,
+  Math.max(0, Number(process.env.GOBBLE_TREND_BOT_CHANCE) || 0.18)
+);
 const CULTURE_THEME_BONUS_POINTS = 500;
 const CULTURE_THEME_RECENT_LIMIT = Math.max(
   0,
@@ -1474,6 +1482,10 @@ const WIKIMAMA_LIGHT_INSIGHT_CHANCE = Math.min(
 const WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS = Math.max(
   8,
   Math.trunc(Number(process.env.GOBBLE_WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS) || 18)
+);
+const AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE = Math.min(
+  1,
+  Math.max(0, Number(process.env.GOBBLE_ROUND_END_WORD_CURIOSITY_CHANCE) || 0.35)
 );
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "👍",
@@ -4659,6 +4671,129 @@ const HIDDEN_WORD_LINES = Object.freeze([
   "Le coffre à mots garde une trace de {WORD} ({META}), resté bien discret.",
 ]);
 
+const RECORD_HUNTER_RARE_GOBBLE_LINES = Object.freeze([
+  {
+    singular: "{NAMES} a sorti le double gobble. La grille vient de demander un avocat.",
+    plural: "{NAMES} ont sorti le double gobble. La grille vient de demander un avocat.",
+  },
+  {
+    singular: "{NAMES} a mis la main sur le double gobble. Le tableau tousse encore.",
+    plural: "{NAMES} ont mis la main sur le double gobble. Le tableau tousse encore.",
+  },
+  {
+    singular: "Double gobble pour {NAMES}. On note ça au stylo qui brille.",
+    plural: "Double gobble pour {NAMES}. On note ça au stylo qui brille.",
+  },
+  {
+    singular: "{NAMES} a trouvé le mot le plus long et le meilleur score. La paperasse du record est partie.",
+    plural: "{NAMES} ont trouvé le mot le plus long et le meilleur score. La paperasse du record est partie.",
+  },
+  {
+    singular: "{NAMES} a tout gobblé d'un seul coup. Le mot {WORD} n'a pas eu le temps de fuir.",
+    plural: "{NAMES} ont tout gobblé d'un seul coup. Le mot {WORD} n'a pas eu le temps de fuir.",
+  },
+  {
+    singular: "{NAMES} signe un double gobble. Le jury fait semblant de rester calme.",
+    plural: "{NAMES} signent un double gobble. Le jury fait semblant de rester calme.",
+  },
+  {
+    singular: "{NAMES} empoche le double gobble. Le dictionnaire hoche la tête.",
+    plural: "{NAMES} empochent le double gobble. Le dictionnaire hoche la tête.",
+  },
+  {
+    singular: "{NAMES} a trouvé la grosse pièce au fond du canapé alphabétique.",
+    plural: "{NAMES} ont trouvé la grosse pièce au fond du canapé alphabétique.",
+  },
+  {
+    singular: "{NAMES} rafle le double gobble. Les cases demandent une pause syndicale.",
+    plural: "{NAMES} raflent le double gobble. Les cases demandent une pause syndicale.",
+  },
+  {
+    singular: "{NAMES} a coché les deux cases du grand frisson. Propre, net, sans bavure.",
+    plural: "{NAMES} ont coché les deux cases du grand frisson. Propre, net, sans bavure.",
+  },
+  {
+    singular: "{NAMES} a planté le drapeau sur le plus haut sommet de la grille.",
+    plural: "{NAMES} ont planté le drapeau sur le plus haut sommet de la grille.",
+  },
+  {
+    singular: "Gobble du plus long mot pour {NAMES}. {LEN} lettres, et pas une de trop.",
+    plural: "Gobble du plus long mot pour {NAMES}. {LEN} lettres, et pas une de trop.",
+  },
+  {
+    singular: "{NAMES} a dompté le mot le plus long. Le reste de l'alphabet applaudit en silence.",
+    plural: "{NAMES} ont dompté le mot le plus long. Le reste de l'alphabet applaudit en silence.",
+  },
+  {
+    singular: "{NAMES} a trouvé {WORD}. La grille avait pourtant essayé de le ranger très haut.",
+    plural: "{NAMES} ont trouvé {WORD}. La grille avait pourtant essayé de le ranger très haut.",
+  },
+  {
+    singular: "{NAMES} décroche le gobble de longueur. Le mètre ruban est formel.",
+    plural: "{NAMES} décrochent le gobble de longueur. Le mètre ruban est formel.",
+  },
+  {
+    singular: "{NAMES} a sorti le grand modèle. {LEN} lettres, service compris.",
+    plural: "{NAMES} ont sorti le grand modèle. {LEN} lettres, service compris.",
+  },
+  {
+    singular: "{NAMES} a repéré le gratte-ciel lexical de la manche.",
+    plural: "{NAMES} ont repéré le gratte-ciel lexical de la manche.",
+  },
+  {
+    singular: "{NAMES} a pris l'ascenseur jusqu'au mot le plus long.",
+    plural: "{NAMES} ont pris l'ascenseur jusqu'au mot le plus long.",
+  },
+  {
+    singular: "{NAMES} attrape le gobble du plus long mot. La grille fait mine de rien.",
+    plural: "{NAMES} attrapent le gobble du plus long mot. La grille fait mine de rien.",
+  },
+  {
+    singular: "{NAMES} a trouvé le long courrier de la manche: {WORD}.",
+    plural: "{NAMES} ont trouvé le long courrier de la manche: {WORD}.",
+  },
+  {
+    singular: "{NAMES} pose {WORD} et récupère le badge grande longueur.",
+    plural: "{NAMES} posent {WORD} et récupèrent le badge grande longueur.",
+  },
+  {
+    singular: "{NAMES} a gagné le concours du mot qui prend toute la place.",
+    plural: "{NAMES} ont gagné le concours du mot qui prend toute la place.",
+  },
+  {
+    singular: "{NAMES} trouve le gobble de longueur. Les petites trouvailles regardent leurs chaussures.",
+    plural: "{NAMES} trouvent le gobble de longueur. Les petites trouvailles regardent leurs chaussures.",
+  },
+  {
+    singular: "{NAMES} a déroulé {LEN} lettres sans casser le fil.",
+    plural: "{NAMES} ont déroulé {LEN} lettres sans casser le fil.",
+  },
+  {
+    singular: "{NAMES} a sorti le mot extensible de la soirée.",
+    plural: "{NAMES} ont sorti le mot extensible de la soirée.",
+  },
+  {
+    singular: "{NAMES} a trouvé le mot le plus long. La grille prétend que c'était facile.",
+    plural: "{NAMES} ont trouvé le mot le plus long. La grille prétend que c'était facile.",
+  },
+  {
+    singular: "{NAMES} remporte le sprint en escalier lexical.",
+    plural: "{NAMES} remportent le sprint en escalier lexical.",
+  },
+  {
+    singular: "{NAMES} a mis {WORD} sur la table. Le chronomètre peut rentrer dans sa boîte.",
+    plural: "{NAMES} ont mis {WORD} sur la table. Le chronomètre peut rentrer dans sa boîte.",
+  },
+  {
+    singular: "{NAMES} a cueilli le mot perché de la grille.",
+    plural: "{NAMES} ont cueilli le mot perché de la grille.",
+  },
+  {
+    singular: "{NAMES} décroche le grand ruban alphabétique.",
+    plural: "{NAMES} décrochent le grand ruban alphabétique.",
+  },
+]);
+
 const MAX_WORD_LENGTH_LINES = Object.freeze([
   "Cette grille cache au moins un mot de {LEN} lettres. Grande échelle conseillée.",
   "Longueur maximale repérée: {LEN} lettres. Les diagonales vont chauffer.",
@@ -4887,6 +5022,13 @@ function maybeScheduleTrendBotForWord(room, word) {
   if (!AMBIENT_TREND_BOT_ENABLED || !room?.currentRound) return;
   const norm = normalizeWord(word);
   if (!norm || norm.length < 5) return;
+  if (
+    AMBIENT_TREND_BOT_CHANCE <= 0 ||
+    hashAmbientString(`${room.currentRound.id}:trend:${norm}`) / 0xffffffff >
+      AMBIENT_TREND_BOT_CHANCE
+  ) {
+    return;
+  }
   const state = getAmbientChatBotState(room);
   if (!state || state.flags.has("trend:attempt")) return;
   state.flags.add("trend:attempt");
@@ -5177,52 +5319,6 @@ function maybeScheduleCultureBotForWord(room, word) {
   return true;
 }
 
-function maybeScheduleOfflineWordFactBotForWord(room, word, opts = {}) {
-  if (!room?.currentRound) return false;
-  const norm = normalizeWord(word);
-  if (!norm || norm.length < 6) return false;
-  const state = getAmbientChatBotState(room);
-  if (!state) return false;
-  const messageFlag = String(opts.flag || "linguist:offline-word-fact").trim();
-  const pendingFlag = `${messageFlag}:pending`;
-  if (state.flags.has(messageFlag) || state.flags.has(pendingFlag)) return false;
-  state.offlineWordFactAttempts = Number(state.offlineWordFactAttempts) || 0;
-  const maxAttempts = Number(opts.maxAttempts) || 4;
-  if (state.offlineWordFactAttempts >= maxAttempts) return false;
-  state.offlineWordFactAttempts += 1;
-  state.flags.add(pendingFlag);
-
-  const roundId = room.currentRound.id;
-  const delayMs = Math.max(0, Math.round(Number(opts.delayMs) || 0));
-  const timer = setTimeout(() => {
-    if (!room.currentRound || room.currentRound.id !== roundId) {
-      const currentState = getAmbientChatBotState(room);
-      currentState?.flags?.delete(pendingFlag);
-      return;
-    }
-    getOfflineWordFact(norm, {
-      minLen: Number(opts.minLen) || 6,
-      allowDefinitions: opts.allowDefinitions !== false,
-    })
-      .then((fact) => {
-        if (!room.currentRound || room.currentRound.id !== roundId) return;
-        if (!fact) return;
-        pushAmbientChatBotMessage(room, "linguist", fact, {
-          flag: messageFlag,
-          force: opts.force !== false,
-        });
-      })
-      .catch(() => {})
-      .finally(() => {
-        const currentState = getAmbientChatBotState(room);
-        currentState?.flags?.delete(pendingFlag);
-      });
-  }, delayMs);
-  timer.unref?.();
-  room.currentRound.timers?.push(timer);
-  return true;
-}
-
 function notifyAmbientBotsWordAccepted(room, event = {}) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
   if (event.isBotPlayer) return;
@@ -5289,9 +5385,9 @@ function collectRoundWordHighlights(results) {
   return summary;
 }
 
-function pickHiddenRemarkableWord(round, foundWords) {
+async function pickHiddenRemarkableWordWithFact(round, foundWords) {
   const candidates = getPreparedRoundSolutions(round)
-    .filter((entry) => entry.word && !foundWords.has(entry.word))
+    .filter((entry) => entry.word && entry.word.length >= 6 && !foundWords.has(entry.word))
     .map((entry) => ({
       ...entry,
       len: entry.word.length,
@@ -5301,8 +5397,101 @@ function pickHiddenRemarkableWord(round, foundWords) {
         Math.max(0, Number(entry.pts) || 0) * 2 +
         entry.word.length * 12,
     }))
-    .sort((a, b) => b.score - a.score);
-  return candidates[0] || null;
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 18);
+  for (const candidate of candidates) {
+    const factDetails = await getOfflineWordFactDetails(candidate.word, { minLen: 6 });
+    if (factDetails?.definition && factDetails?.etymology) {
+      return { ...candidate, factDetails };
+    }
+  }
+  return null;
+}
+
+function buildDetailedHiddenWordFactLine(details) {
+  if (!details?.definition || !details?.etymology) return "";
+  const word = String(details.displayWord || details.lookupWord || "").trim().toUpperCase();
+  if (!word) return "";
+  const base = String(details.baseWord || "").trim().toUpperCase();
+  const prefix = details.isForm && base && base !== word
+    ? `${word}, forme de ${base}`
+    : word;
+  return `Définition: ${prefix}, ${details.definition}. Étymologie: ${details.etymology}.`;
+}
+
+function buildRoundEndCuriosityCandidateWords(highlights) {
+  const scored = new Map();
+  const add = (word, score) => {
+    const norm = normalizeWord(word);
+    if (!norm || norm.length < 5) return;
+    scored.set(norm, Math.max(Number(scored.get(norm)) || 0, Number(score) || 0));
+  };
+  add(highlights?.rareWord?.word, 1000);
+  add(highlights?.longestWord?.word, 700);
+  add(highlights?.bestWord?.word, 650);
+  if (highlights?.foundByWord instanceof Map) {
+    for (const [word, finders] of highlights.foundByWord.entries()) {
+      const finderCount = finders instanceof Set ? finders.size : 0;
+      add(word, Math.min(500, normalizeWord(word).length * 28 + finderCount * 12));
+    }
+  }
+  return Array.from(scored.entries())
+    .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length || a[0].localeCompare(b[0], "fr"))
+    .map(([word]) => word)
+    .slice(0, 28);
+}
+
+function shouldScheduleRoundEndWordCuriosity(room) {
+  if (AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE <= 0) return false;
+  const roundId = room?.currentRound?.id || "";
+  const hash = hashAmbientString(`${room?.id || "room"}:${roundId}:round-end-word-curiosity`);
+  return hash / 0xffffffff <= AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE;
+}
+
+function buildInventorFactLine(details) {
+  const fact = details?.fact;
+  const word = String(details?.displayWord || details?.lookupWord || "").trim().toUpperCase();
+  const name = String(fact?.name || "").trim();
+  if (!word || !name) return "";
+  const text = String(fact?.text || "").replace(/\s+/g, " ").trim();
+  if (text) return `Note: ${word}, ${text}.`;
+  if (fact.kind === "inventor") return `Note: ${word} porte le nom de ${name}, son inventeur.`;
+  return `Note: ${word} est lié au nom de ${name}.`;
+}
+
+function buildDoubleDefinitionLine(details) {
+  const word = String(details?.displayWord || details?.lookupWord || "").trim().toUpperCase();
+  const definitions = Array.isArray(details?.definitions) ? details.definitions : [];
+  if (!word || definitions.length < 2) return "";
+  const first = definitions[0]?.definition;
+  const second = definitions[1]?.definition;
+  const third = definitions[2]?.definition;
+  if (!first || !second) return "";
+  const suffix = third ? ` Troisième détour: ${third}.` : "";
+  return `Double sens: ${word} joue sur plusieurs tableaux: 1) ${first} 2) ${second}.${suffix}`;
+}
+
+async function pickRoundEndWordCuriosity(room, highlights) {
+  if (!shouldScheduleRoundEndWordCuriosity(room)) return null;
+  const words = buildRoundEndCuriosityCandidateWords(highlights);
+  if (!words.length) return null;
+  const roundId = room?.currentRound?.id || "";
+  const offset = hashAmbientString(`${room?.id || "room"}:${roundId}:curiosity-offset`) % words.length;
+  const orderedWords = [...words.slice(offset), ...words.slice(0, offset)];
+
+  for (const word of orderedWords) {
+    const details = await getOfflineInventorFactDetails(word, { minLen: 5 });
+    const line = buildInventorFactLine(details);
+    if (line) return { botKey: "linguist", line, flag: "linguist:inventor-fact" };
+  }
+
+  for (const word of orderedWords) {
+    const details = await getOfflineDoubleDefinitionDetails(word, { minLen: 5 });
+    const line = buildDoubleDefinitionLine(details);
+    if (line) return { botKey: "culture", line, flag: "culture:double-definition" };
+  }
+
+  return null;
 }
 
 function buildStatisticianRoundEndLine(room, highlights, foundWords) {
@@ -5339,6 +5528,59 @@ function buildStatisticianRoundEndLine(room, highlights, foundWords) {
   return picked || "";
 }
 
+function formatAmbientNameList(names) {
+  const clean = (Array.isArray(names) ? names : [])
+    .map((name) => String(name || "").trim())
+    .filter(Boolean);
+  if (clean.length <= 1) return clean[0] || "";
+  if (clean.length === 2) return `${clean[0]} et ${clean[1]}`;
+  return `${clean.slice(0, -1).join(", ")} et ${clean[clean.length - 1]}`;
+}
+
+function buildRecordHunterRareGobbleLine(room, results) {
+  const flagsByNick =
+    room?.currentRound?.gobbleFlags instanceof Map ? room.currentRound.gobbleFlags : new Map();
+  if (!flagsByNick.size) return "";
+  const humanNicks = (Array.isArray(results) ? results : [])
+    .filter((entry) => entry?.nick && !entry?.isBot)
+    .map((entry) => String(entry.nick).trim())
+    .filter(Boolean);
+  if (!humanNicks.length) return "";
+
+  const doubleNicks = humanNicks.filter((nick) => {
+    const flags = flagsByNick.get(nick) || {};
+    return !!flags.score && !!flags.len;
+  });
+  const longestNicks = humanNicks.filter((nick) => !!(flagsByNick.get(nick) || {}).len);
+  const doubleEligible = doubleNicks.length >= 1 && doubleNicks.length <= 3;
+  const longestEligible = longestNicks.length >= 1 && longestNicks.length <= 3;
+  if (!doubleEligible && !longestEligible) return "";
+
+  const kind = doubleEligible ? "double" : "longest";
+  const names = doubleEligible ? doubleNicks : longestNicks;
+  const lines =
+    kind === "double"
+      ? RECORD_HUNTER_RARE_GOBBLE_LINES.slice(0, 10)
+      : RECORD_HUNTER_RARE_GOBBLE_LINES.slice(10);
+  if (!lines.length) return "";
+  const leaders = computeRoundWordLeaders(room.currentRound, results);
+  const word = String(leaders?.longestWord?.word || "").trim().toUpperCase();
+  const len =
+    Number(leaders?.longestWord?.len) ||
+    Number(room?.bestPossibleStats?.maxLen) ||
+    0;
+  const seed = hashAmbientString(
+    `${room?.currentRound?.id || ""}:recordator:${kind}:${names.join("|")}:${word}:${len}`
+  );
+  const template = pickAmbientLine(lines, seed);
+  const text = (names.length === 1 ? template?.singular : template?.plural) || "";
+  return text
+    .replaceAll("{NAMES}", formatAmbientNameList(names))
+    .replaceAll("{WORD}", word || "LE MOT")
+    .replaceAll("{LEN}", len ? String(len) : "?")
+    .trim();
+}
+
 function buildFamilyWordsLine(results) {
   const words = [];
   for (const entry of Array.isArray(results) ? results : []) {
@@ -5360,13 +5602,6 @@ function buildFamilyWordsLine(results) {
     .sort((a, b) => b.length - a.length)[0];
   if (!family) return "";
   return `${family.slice(0, 4).map((word) => word.toUpperCase()).join(", ")} semblent partager une même famille de formes.`;
-}
-
-function clipBotDefinition(text, maxLen = 170) {
-  const clean = String(text || "").replace(/\s+/g, " ").trim();
-  if (!clean) return "";
-  if (clean.length <= maxLen) return clean;
-  return `${clean.slice(0, maxLen).replace(/\s+\S*$/, "").trim()}...`;
 }
 
 function isCultureThemeBonusEligibleRound(room, planUsed = null) {
@@ -5649,6 +5884,7 @@ async function applyCultureThemeChallengeBonus(room, results) {
 
 function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
+  if (isAmbientTargetRound(room) || targetSummary) return;
   const highlights = collectRoundWordHighlights(results);
   const foundWords = getRoundFoundWordSet(room, results);
   scheduleCultureThemeChallengeRecap(room, results);
@@ -5660,22 +5896,18 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
       force: true,
     });
   }
-
-  const hidden = pickHiddenRemarkableWord(room.currentRound, foundWords);
-  if (hidden?.word) {
-    const hiddenMeta = `${hidden.len} lettres${hidden.pts ? `, ${hidden.pts} pts` : ""}`;
-    const hiddenLine = pickAmbientLine(
-      HIDDEN_WORD_LINES,
-      hashAmbientString(`${room.currentRound.id}:${hidden.word}`)
-    )
-      .replace("{WORD}", hidden.word.toUpperCase())
-      .replace("{META}", hiddenMeta);
-    scheduleAmbientChatBotMessage(
-      room,
-      "hiddenWord",
-      hiddenLine,
-      { delayMs: 3200, flag: "hidden-word:round-end", force: true }
-    );
+  const recordHunterLine = buildRecordHunterRareGobbleLine(room, results);
+  if (recordHunterLine) {
+    scheduleAmbientChatBotMessage(room, "recordHunter", recordHunterLine, {
+      delayMs: 2400,
+      flag: "record-hunter:rare-gobble",
+      force: true,
+    });
+  }
+  const trendWord =
+    highlights.rareWord?.word || highlights.longestWord?.word || highlights.bestWord?.word || "";
+  if (trendWord) {
+    maybeScheduleTrendBotForWord(room, trendWord);
   }
 
   const familyLine = buildFamilyWordsLine(results);
@@ -5686,53 +5918,45 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
     });
   }
 
-  const definitionWord = hidden?.word
-    ? { word: hidden.word }
-    : highlights.rareWord || highlights.longestWord || highlights.bestWord;
-  if (definitionWord?.word && definitionWord.word.length >= 6) {
-    const fact = WORD_FACTS_BY_NORMALIZED_WORD[definitionWord.word];
-    if (fact && !hidden?.word) {
-      scheduleAmbientChatBotMessage(room, "culture", fact, {
-        delayMs: 5600,
-        flag: "culture:round-end-fact",
-        force: true,
-      });
-      return;
-    }
-    const offlineFactFlag = hidden?.word
-      ? "linguist:hidden-word-offline-word-fact"
-      : "linguist:round-end-offline-word-fact";
-    const allowRoundEndDefinition =
-      hashAmbientString(`${room.currentRound.id}:linguist-definition:${definitionWord.word}`) % 100 < 35;
-    maybeScheduleOfflineWordFactBotForWord(room, definitionWord.word, {
-      delayMs: 5200,
-      flag: offlineFactFlag,
-      minLen: 6,
-      force: true,
-      allowDefinitions: allowRoundEndDefinition,
-    });
-    if (!allowRoundEndDefinition) return;
-    const roundId = room.currentRound.id;
-    const timer = setTimeout(() => {
+  const roundId = room.currentRound.id;
+  pickRoundEndWordCuriosity(room, highlights)
+    .then(async (curiosity) => {
       if (!room.currentRound || room.currentRound.id !== roundId) return;
-      getDefinition(definitionWord.word, { timeoutMs: 1200, definitionMaxLen: 220 })
-        .then((payload) => {
-          const state = getAmbientChatBotState(room);
-          if (state?.flags?.has(offlineFactFlag)) return;
-          const definition = clipBotDefinition(payload?.definition || payload?.extract || "");
-          if (!payload?.ok || !definition) return;
-          pushAmbientChatBotMessage(
-            room,
-            "linguist",
-            `J'ouvre mon carnet: ${definitionWord.word.toUpperCase()}, ça donne: ${definition}`,
-            { flag: "linguist:round-end-definition", force: true }
-          );
-        })
-        .catch(() => {});
-    }, 6800);
-    timer.unref?.();
-    room.currentRound.timers?.push(timer);
-  }
+      if (curiosity?.line && curiosity?.botKey) {
+        scheduleAmbientChatBotMessage(
+          room,
+          curiosity.botKey,
+          curiosity.line,
+          { delayMs: 5600, flag: curiosity.flag || "word-curiosity:round-end", force: true }
+        );
+        return;
+      }
+
+      const hidden = await pickHiddenRemarkableWordWithFact(room.currentRound, foundWords);
+      if (!room.currentRound || room.currentRound.id !== roundId || !hidden?.word) return;
+      const hiddenMeta = `${hidden.len} lettres${hidden.pts ? `, ${hidden.pts} pts` : ""}`;
+      const hiddenLine = pickAmbientLine(
+        HIDDEN_WORD_LINES,
+        hashAmbientString(`${room.currentRound.id}:${hidden.word}`)
+      )
+        .replace("{WORD}", hidden.word.toUpperCase())
+        .replace("{META}", hiddenMeta);
+      scheduleAmbientChatBotMessage(
+        room,
+        "hiddenWord",
+        hiddenLine,
+        { delayMs: 3200, flag: "hidden-word:round-end", force: true }
+      );
+      const factLine = buildDetailedHiddenWordFactLine(hidden.factDetails);
+      if (!factLine) return;
+      scheduleAmbientChatBotMessage(
+        room,
+        "linguist",
+        factLine,
+        { delayMs: 5600, flag: "linguist:hidden-word-definition-etymology", force: true }
+      );
+    })
+    .catch(() => {});
 }
 
 function getActiveDevBotNicks(room) {

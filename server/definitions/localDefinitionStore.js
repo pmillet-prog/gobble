@@ -64,6 +64,8 @@ async function ensureDb() {
         hasCuriosityTags: columnNames.has("curiosity_tags_json"),
         hasGameSemanticThemes: columnNames.has("game_semantic_themes_json"),
         hasEmbeddingSemanticThemes: columnNames.has("embedding_semantic_themes_json"),
+        hasInventorFacts: columnNames.has("inventor_facts_json"),
+        hasDoubleDefinitions: columnNames.has("double_definitions_json"),
       };
       console.log(`definitions DB ready path=${DB_PATH}`);
       db = ready;
@@ -143,6 +145,18 @@ function parseJsonObjectArray(value) {
   }
 }
 
+function parseJsonGenericObjectArray(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+      : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 function serializeRow(row) {
   if (!row) return null;
   const definitions = parseDefinitionsJson(row.definitions_json);
@@ -165,6 +179,8 @@ function serializeRow(row) {
     etymons: parseJsonArray(row.etymons_json),
     curiosityTags: parseJsonArray(row.curiosity_tags_json),
     gameSemanticThemes: parseJsonObjectArray(row.game_semantic_themes_json),
+    inventorFacts: parseJsonGenericObjectArray(row.inventor_facts_json),
+    doubleDefinitions: parseJsonGenericObjectArray(row.double_definitions_json),
     isFormOf: Number(row.is_form_of) === 1,
     formOf: String(row.form_of || "").trim(),
   };
@@ -194,6 +210,8 @@ export async function getLocalDefinitionEntry(rawWord) {
       schemaInfo?.hasGameSemanticThemes
         ? "game_semantic_themes_json"
         : "'[]' AS game_semantic_themes_json",
+      schemaInfo?.hasInventorFacts ? "inventor_facts_json" : "'[]' AS inventor_facts_json",
+      schemaInfo?.hasDoubleDefinitions ? "double_definitions_json" : "'[]' AS double_definitions_json",
     ].join(", ");
     const row = await ready.get(
       `SELECT key, word, title, definition, definitions_json, source, source_url,
@@ -230,6 +248,8 @@ export async function getLocalDefinitionStoreStatus() {
         hasEtymologyLangs: !!schemaInfo?.hasEtymologyLangs,
         hasGameSemanticThemes: !!schemaInfo?.hasGameSemanticThemes,
         hasEmbeddingSemanticThemes: !!schemaInfo?.hasEmbeddingSemanticThemes,
+        hasInventorFacts: !!schemaInfo?.hasInventorFacts,
+        hasDoubleDefinitions: !!schemaInfo?.hasDoubleDefinitions,
       };
   } catch (err) {
     return {

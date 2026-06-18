@@ -3714,6 +3714,22 @@ const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const MAX_INSTALL_ID_LEN = 128;
 const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY = "gobble_chat_show_bot_messages";
+const CHAT_BOT_VISIBILITY_STORAGE_KEY = "gobble_chat_bot_visibility_v1";
+const CHAT_BOT_VISIBILITY_OPTIONS = Object.freeze([
+  { key: "linguist", nick: "GrosRobert" },
+  { key: "statistician", nick: "Statatouille" },
+  { key: "detective", nick: "Inspecteur Grille" },
+  { key: "commentator", nick: "RadioBoggle" },
+  { key: "culture", nick: "WikiMama" },
+  { key: "narrator", nick: "Oraclettres" },
+  { key: "coach", nick: "CaSuffix" },
+  { key: "record_hunter", nick: "Recordator" },
+  { key: "hidden_word", nick: "MomoMotus" },
+  { key: "trend", nick: "Webomètre" },
+]);
+const CHAT_BOT_KEY_BY_NICK = Object.freeze(
+  Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => [bot.nick.toLowerCase(), bot.key]))
+);
 const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
 const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v3";
 const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
@@ -3728,6 +3744,32 @@ function isChatBotMessage(message) {
   if (installId.startsWith("ambient-bot:") || installId.startsWith("dev-bot:")) return true;
   const kind = typeof message.meta?.kind === "string" ? message.meta.kind : "";
   return kind === "ambient_bot_chat" || kind === "dev_bot_chat" || kind === "dev_chat_fill";
+}
+
+function normalizeChatBotVisibility(source) {
+  const next = {};
+  for (const bot of CHAT_BOT_VISIBILITY_OPTIONS) {
+    next[bot.key] = source?.[bot.key] !== false;
+  }
+  return next;
+}
+
+function getChatBotVisibilityKey(message) {
+  if (!message || typeof message !== "object") return "";
+  const category = typeof message.meta?.category === "string" ? message.meta.category.trim() : "";
+  if (category) return category;
+  const installId = typeof message.installId === "string" ? message.installId : "";
+  if (installId.startsWith("ambient-bot:")) return installId.slice("ambient-bot:".length).trim();
+  const nick = String(message.nick || message.author || "").trim().toLowerCase();
+  return CHAT_BOT_KEY_BY_NICK[nick] || "";
+}
+
+function shouldDisplayChatMessageForBotSettings(message, showBotMessages, botVisibility) {
+  if (!isChatBotMessage(message)) return true;
+  if (!showBotMessages) return false;
+  const key = getChatBotVisibilityKey(message);
+  if (!key) return true;
+  return botVisibility?.[key] !== false;
 }
 
 function getMassiveBoggleFeedbackPoints(points, rawWord) {
@@ -5385,9 +5427,11 @@ export default function App() {
   const [chatOpenedAtMs, setChatOpenedAtMs] = useState(0);
   const chatCloseTimerRef = useRef(null);
   const [mobileChatUnreadCount, setMobileChatUnreadCount] = useState(0);
+  const [mobileChatBotUnreadCount, setMobileChatBotUnreadCount] = useState(0);
   const [mobileChatReactionToasts, setMobileChatReactionToasts] = useState([]);
   const mobileChatReactionToastTimersRef = useRef([]);
   const [homeChatUnreadCount, setHomeChatUnreadCount] = useState(0);
+  const [homeChatBotUnreadCount, setHomeChatBotUnreadCount] = useState(0);
   const [isHomeChatOpen, setIsHomeChatOpen] = useState(false);
   const [chatTab, setChatTab] = useState("messages");
   const [chatRulesAccepted, setChatRulesAccepted] = useState(() => {
@@ -5402,6 +5446,15 @@ export default function App() {
       return localStorage.getItem(CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY) !== "0";
     } catch (_) {
       return true;
+    }
+  });
+  const [chatBotVisibility, setChatBotVisibility] = useState(() => {
+    try {
+      return normalizeChatBotVisibility(
+        JSON.parse(localStorage.getItem(CHAT_BOT_VISIBILITY_STORAGE_KEY) || "{}")
+      );
+    } catch (_) {
+      return normalizeChatBotVisibility({});
     }
   });
   const [isChatRulesOpen, setIsChatRulesOpen] = useState(false);
@@ -6227,6 +6280,13 @@ export default function App() {
     } catch (_) {}
   }, [showBotMessages]);
   useEffect(() => {
+    const normalized = normalizeChatBotVisibility(chatBotVisibility);
+    chatBotVisibilityRef.current = normalized;
+    try {
+      localStorage.setItem(CHAT_BOT_VISIBILITY_STORAGE_KEY, JSON.stringify(normalized));
+    } catch (_) {}
+  }, [chatBotVisibility]);
+  useEffect(() => {
     tickRef.current = tick;
   }, [tick]);
   useEffect(() => {
@@ -6803,6 +6863,7 @@ export default function App() {
   const triggerTileIntroAnimationFnRef = useRef(() => 0);
   const chatTabRef = useRef(chatTab === "system" ? "system" : "messages");
   const showBotMessagesRef = useRef(showBotMessages);
+  const chatBotVisibilityRef = useRef(chatBotVisibility);
   const isHomeChatOpenRef = useRef(false);
   const lobbyPresenceRef = useRef(new Set());
   const lobbyChatSubscriptionRef = useRef({
@@ -8200,6 +8261,7 @@ export default function App() {
 
     if (chatTab !== "system") {
       setMobileChatUnreadCount(0);
+      setMobileChatBotUnreadCount(0);
     }
     setActiveArea("chat");
   }, [isChatOpenMobile, isMobileLayout, chatTab]);
@@ -8208,6 +8270,7 @@ export default function App() {
     isHomeChatOpenRef.current = isHomeChatOpen;
     if (isHomeChatOpen && chatTab !== "system") {
       setHomeChatUnreadCount(0);
+      setHomeChatBotUnreadCount(0);
     }
   }, [isHomeChatOpen, chatTab]);
 
@@ -8216,6 +8279,7 @@ export default function App() {
     if (chatTab === "system") return;
     if (isMobileLayout && (!isChatOpenMobile || isChatClosing)) return;
     setMobileChatUnreadCount(0);
+    setMobileChatBotUnreadCount(0);
   }, [isLoggedIn, chatTab, isMobileLayout, isChatOpenMobile, isChatClosing]);
 
   useEffect(() => {
@@ -8226,6 +8290,7 @@ export default function App() {
       : isHomeChatOpen;
     if (!messagesVisible) return;
     setHomeChatUnreadCount(0);
+    setHomeChatBotUnreadCount(0);
   }, [
     isLoggedIn,
     chatTab,
@@ -12281,7 +12346,16 @@ export default function App() {
       const author = (normalizedMessage.author || normalizedMessage.nick || "").trim();
       const me = nicknameRef.current.trim();
       if (author && me && author === me) return;
-      if (!showBotMessagesRef.current && isChatBotMessage(normalizedMessage)) return;
+      if (
+        !shouldDisplayChatMessageForBotSettings(
+          normalizedMessage,
+          showBotMessagesRef.current,
+          chatBotVisibilityRef.current
+        )
+      ) {
+        return;
+      }
+      const unreadIsBot = isChatBotMessage(normalizedMessage);
       const currentTab = chatTabRef.current === "system" ? "system" : "messages";
       if (isLoggedInRef.current) {
         const isMobileNow = isMobileLayoutRef.current;
@@ -12292,6 +12366,9 @@ export default function App() {
             : true);
         if (!messagesVisible) {
           setMobileChatUnreadCount((prev) => Math.min(99, prev + 1));
+          if (unreadIsBot) {
+            setMobileChatBotUnreadCount((prev) => Math.min(99, prev + 1));
+          }
         }
       } else {
         const isMobileNow = isMobileLayoutRef.current;
@@ -12302,6 +12379,9 @@ export default function App() {
             : isHomeChatOpenRef.current);
         if (!messagesVisible) {
           setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
+          if (unreadIsBot) {
+            setHomeChatBotUnreadCount((prev) => Math.min(99, prev + 1));
+          }
         }
       }
     }
@@ -16710,6 +16790,7 @@ export default function App() {
     if (isLoggedIn) {
       lobbyPresenceRef.current = new Set();
       setHomeChatUnreadCount(0);
+      setHomeChatBotUnreadCount(0);
       if (isHomeChatOpen) setIsHomeChatOpen(false);
       lobbyChatSubscriptionRef.current = {
         roomId: null,
@@ -18032,6 +18113,7 @@ export default function App() {
     setIsChatClosing(false);
     setChatTab("messages");
     setMobileChatUnreadCount(0);
+    setMobileChatBotUnreadCount(0);
     chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
     captureChatViewportBaseline();
 
@@ -18164,6 +18246,7 @@ export default function App() {
 
   function openHomeChat() {
     setHomeChatUnreadCount(0);
+    setHomeChatBotUnreadCount(0);
     if (isMobileLayout) {
       requestOpenChat();
       return;
@@ -24262,9 +24345,11 @@ function handleTouchEnd(e) {
   const chatMessagesOnly = React.useMemo(
     () =>
       filteredChatMessages.filter(
-        (msg) => !isSystemChatMessage(msg) && (showBotMessages || !isChatBotMessage(msg))
+        (msg) =>
+          !isSystemChatMessage(msg) &&
+          shouldDisplayChatMessageForBotSettings(msg, showBotMessages, chatBotVisibility)
       ),
-    [filteredChatMessages, showBotMessages]
+    [filteredChatMessages, showBotMessages, chatBotVisibility]
   );
   const chatSystemMessages = React.useMemo(
     () => filteredChatMessages.filter((msg) => isSystemChatMessage(msg)),
@@ -24280,6 +24365,10 @@ function handleTouchEnd(e) {
   const chatMessagesUnreadCount = isLoggedIn
     ? mobileChatUnreadCount
     : homeChatUnreadCount;
+  const mobileChatUnreadIsBotOnly =
+    mobileChatUnreadCount > 0 && mobileChatBotUnreadCount >= mobileChatUnreadCount;
+  const homeChatUnreadIsBotOnly =
+    homeChatUnreadCount > 0 && homeChatBotUnreadCount >= homeChatUnreadCount;
 
   const selfNick = nickname.trim();
   const blockedCount = blockedInstallIds.length;
@@ -31554,6 +31643,8 @@ function handleTouchEnd(e) {
       confirmThemePurchase={confirmThemePurchase}
       darkMode={darkMode}
       defaultTileBaseClass={defaultTileBaseClass}
+      chatBotVisibility={chatBotVisibility}
+      chatBotVisibilityOptions={CHAT_BOT_VISIBILITY_OPTIONS}
       devAccountAllowed={devAccountAllowed}
       devAccountLabel={devAccountLabel}
       devBots={devBots}
@@ -31634,6 +31725,7 @@ function handleTouchEnd(e) {
       returnToLobby={returnToLobby}
       sendDevGlobalAnnouncement={sendDevGlobalAnnouncement}
       setAllDevBotsActive={setAllDevBotsActive}
+      setChatBotVisibility={setChatBotVisibility}
       setAllSoundEnabled={setAllSoundEnabled}
       setAllVisualEnabled={setAllVisualEnabled}
       setDevBotActive={setDevBotActive}
@@ -31899,6 +31991,7 @@ function handleTouchEnd(e) {
     isSpecial3WordsMode: phase === "playing" && isSpecial3WordsMode,
     keyboardInsetReservePx,
     mobileChatReactionToasts,
+    mobileChatUnreadIsBotOnly,
     mobileChatUnreadCount,
     getAuthorNickClassName: getLiveNickClassName,
     onChangeChatTab: setChatTab,
@@ -31939,6 +32032,7 @@ function handleTouchEnd(e) {
     onChangeTab: setChatTab,
     onClose: closeHomeChat,
     messagesUnreadCount: homeChatUnreadCount,
+    messagesUnreadIsBotOnly: homeChatUnreadIsBotOnly,
     systemCount: chatSystemCount,
     messages: homeChatVisibleMessages,
     chatInput,
@@ -33987,6 +34081,7 @@ function handleTouchEnd(e) {
           duelBlueScore={duelBlueScore}
           duelRedScore={duelRedScore}
           homeChatUnreadCount={homeChatUnreadCount}
+          homeChatUnreadIsBotOnly={homeChatUnreadIsBotOnly}
           isAuthServerUnavailable={isAuthServerUnavailable}
           isAuthStatusPending={isAuthStatusPending}
           isConnecting={isConnecting}
@@ -34349,8 +34444,14 @@ function handleTouchEnd(e) {
             >
               Chat
               {homeChatUnreadCount > 0 ? (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-[10px] font-extrabold text-white inline-flex items-center justify-center shadow">
-                  {homeChatUnreadCount >= 10 ? "9+" : homeChatUnreadCount}
+                <span
+                  className={`absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-extrabold inline-flex items-center justify-center shadow ${
+                    homeChatUnreadIsBotOnly
+                      ? "bg-amber-400 text-slate-950"
+                      : "bg-red-600 text-white"
+                  }`}
+                >
+                  {homeChatUnreadIsBotOnly ? "?" : homeChatUnreadCount >= 10 ? "9+" : homeChatUnreadCount}
                 </span>
               ) : null}
             </button>
@@ -34922,9 +35023,13 @@ function handleTouchEnd(e) {
                       ? authorInstallId === installId
                       : author === selfNick;
                     const isSystem = isSystemAuthor(author);
+                    const isAmbientBot =
+                      !isSystem &&
+                      (msg?.meta?.kind === "ambient_bot_chat" ||
+                        authorInstallId.startsWith("ambient-bot:"));
                     const isLast = msg.id === lastMessageId;
                     const canOpenMenu =
-                      !isSystem && authorInstallId && authorInstallId !== installId;
+                      !isSystem && !isAmbientBot && authorInstallId && authorInstallId !== installId;
                     const replyPreview = getChatMessageReplyPreview(msg);
                     const reactionEntries = getChatMessageReactionEntries(msg);
                     const replyTargetsSelf = !!(
@@ -34936,6 +35041,10 @@ function handleTouchEnd(e) {
                     );
                     const authorNickClass = isWeeklyVocabChampionEntry(author, msg)
                       ? "text-amber-300 font-black"
+                      : isAmbientBot
+                      ? darkMode
+                        ? "text-slate-400"
+                        : "text-amber-900/75"
                       : isYou
                       ? "text-white"
                       : darkMode
@@ -34969,16 +35078,23 @@ function handleTouchEnd(e) {
                           <div className={`w-full flex ${isYou ? "justify-end" : "justify-start"}`}>
 	                          <div
 	                            className={[
-	                              "group/chatmsg max-w-[88%] px-2 py-1 rounded-lg",
+	                              "group/chatmsg max-w-[88%] px-2 rounded-lg",
                                 isYou
                                   ? darkMode
                                     ? "bg-blue-500 text-white"
                                     : "bg-blue-600 text-white"
+                                  : isAmbientBot
+                                  ? darkMode
+                                    ? "py-0.5 italic bg-slate-950/45 text-slate-400 border border-slate-800"
+                                    : "py-0.5 italic bg-amber-50/60 text-amber-900/70 border border-amber-100"
 	                                  : darkMode
-	                                  ? "bg-slate-800 text-slate-100 border border-slate-700"
-	                                  : "bg-slate-100 text-slate-900 border border-slate-200",
+	                                  ? "py-1 bg-slate-800 text-slate-100 border border-slate-700"
+	                                  : "py-1 bg-slate-100 text-slate-900 border border-slate-200",
 	                            ].join(" ")}
-                              style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}
+                              style={{
+                                fontSize: `${isAmbientBot ? Math.max(11, desktopChatFontPx - 2) : desktopChatFontPx}px`,
+                                lineHeight: `${isAmbientBot ? Math.max(14, desktopChatLineHeightPx - 3) : desktopChatLineHeightPx}px`,
+                              }}
 	                          >
                             {replyPreview ? (
                               <div
@@ -35044,6 +35160,10 @@ function handleTouchEnd(e) {
                                   className={
                                     isYou
                                       ? "text-white"
+                                      : isAmbientBot
+                                      ? darkMode
+                                        ? "text-slate-400"
+                                        : "text-amber-900/70"
                                       : darkMode
                                       ? "text-slate-100"
                                       : "text-black"
@@ -35052,7 +35172,7 @@ function handleTouchEnd(e) {
                                   {msg.text}
                                 </span>
 	                            </div>
-                            {!isYou ? (
+                            {!isYou && !isAmbientBot ? (
                               <div className="mt-1 flex items-center gap-2">
                                 <button
                                   type="button"
@@ -35883,6 +36003,7 @@ function handleTouchEnd(e) {
           isDailyPlay={isDailyPlay}
           isLoggedIn={isLoggedIn}
           liveWord={liveWord}
+          mobileChatUnreadIsBotOnly={mobileChatUnreadIsBotOnly}
           mobileChatUnreadCount={mobileChatUnreadCount}
           mobileGridProps={{
           board: boardForRender,
@@ -37918,6 +38039,8 @@ function handleTouchEnd(e) {
             quickReplies={QUICK_REPLIES}
             selfNick={selfNick}
             showBlockedList={showBlockedList}
+            showBotMessages={showBotMessages}
+            onToggleShowBotMessages={() => setShowBotMessages((prev) => !prev)}
             visibleMessages={visibleMessages}
           />
         )}

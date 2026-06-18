@@ -24,6 +24,7 @@ function MobileSpecial3Playing(props) {
     isDailyPlay = false,
     isLoggedIn = false,
     liveWord = "",
+    mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
     mobileGridProps = {},
     mobileResultsPhaseFadeOverlay = null,
@@ -214,7 +215,11 @@ function MobileSpecial3Playing(props) {
                   />
                   {mobileChatUnreadCount > 0 ? (
                     <span
-                      className="absolute px-1 rounded-full bg-red-600 font-extrabold text-white flex items-center justify-center shadow-md"
+                      className={`absolute px-1 rounded-full font-extrabold flex items-center justify-center shadow-md ${
+                        mobileChatUnreadIsBotOnly
+                          ? "bg-amber-400 text-slate-950"
+                          : "bg-red-600 text-white"
+                      }`}
                       style={{
                         minWidth: `${special3ChatBadgeSide}px`,
                         height: `${special3ChatBadgeSide}px`,
@@ -224,7 +229,11 @@ function MobileSpecial3Playing(props) {
                         transform: "translate(32%, -24%)",
                       }}
                     >
-                      {mobileChatUnreadCount >= 10 ? "9+" : String(mobileChatUnreadCount)}
+                      {mobileChatUnreadIsBotOnly
+                        ? "?"
+                        : mobileChatUnreadCount >= 10
+                        ? "9+"
+                        : String(mobileChatUnreadCount)}
                     </span>
                   ) : null}
                 </button>

@@ -35,6 +35,7 @@ function MobileChatLayer(props) {
     isSpecial3WordsMode = false,
     keyboardInsetReservePx = 0,
     mobileChatReactionToasts = [],
+    mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
     getAuthorNickClassName = null,
     onChangeChatTab = null,
@@ -98,6 +99,7 @@ function MobileChatLayer(props) {
       getAuthorNickClassName={getAuthorNickClassName}
       isChatOpenMobile={isChatOpenMobile}
       isChatClosing={isChatClosing}
+      mobileChatUnreadIsBotOnly={mobileChatUnreadIsBotOnly}
       mobileChatUnreadCount={mobileChatUnreadCount}
       mobileReactionToasts={mobileChatReactionToasts}
       blockedCount={blockedCount}

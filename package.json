@@ -8,6 +8,7 @@
     "definitions:import": "node server/scripts/import-definitions-db.mjs",
     "definitions:themes": "node server/scripts/backfill-game-semantic-themes.mjs",
     "definitions:semantic-embeddings": "node server/scripts/backfill-game-semantic-themes.mjs",
+    "definitions:facts": "node server/scripts/backfill-word-linguistic-facts.mjs",
     "rarity:build": "node server/scripts/build-word-rarity.mjs",
     "ocid:pool:build": "node server/scripts/build-ocid-target-pool.mjs",
     "preview": "vite preview"

@@ -4,6 +4,7 @@ import { createReadStream, createWriteStream } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { buildGameSemanticThemes } from "../server/definitions/gameSemanticThemes.js";
+import { buildWordLinguisticFacts } from "../server/definitions/wordLinguisticFacts.js";
 
 const DEFAULT_DICTIONARY = "public/dico.txt";
 const DEFAULT_OUTPUT = "data/definitions-fr.jsonl";
@@ -802,6 +803,8 @@ async function processDump(options, dictionaryInfo) {
     entriesWithEtymologyLanguages: 0,
     entriesWithEtymons: 0,
     entriesWithCuriosityTags: 0,
+    entriesWithInventorFacts: 0,
+    entriesWithDoubleDefinitions: 0,
     duplicateKeysSkipped: 0,
     capitalizedTitlesSkipped: 0,
     pagesWithoutFrenchDefinition: 0,
@@ -884,6 +887,9 @@ async function processDump(options, dictionaryInfo) {
       formOf: formOf?.base || null,
     };
     entry.gameSemanticThemes = buildGameSemanticThemes(entry);
+    const linguisticFacts = buildWordLinguisticFacts(entry);
+    entry.inventorFacts = linguisticFacts.inventorFacts;
+    entry.doubleDefinitions = linguisticFacts.doubleDefinitions;
 
     output.write(`${JSON.stringify(entry)}\n`);
     writtenKeys.add(key);
@@ -897,6 +903,8 @@ async function processDump(options, dictionaryInfo) {
     if (etymologyLangs.length) stats.entriesWithEtymologyLanguages += 1;
     if (etymons.length) stats.entriesWithEtymons += 1;
     if (curiosityTags.length) stats.entriesWithCuriosityTags += 1;
+    if (entry.inventorFacts.length) stats.entriesWithInventorFacts += 1;
+    if (entry.doubleDefinitions.length) stats.entriesWithDoubleDefinitions += 1;
 
     if (options.limit && stats.definitionsWritten >= options.limit) {
       shouldStop = true;

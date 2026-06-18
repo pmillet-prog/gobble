@@ -1,5 +1,12 @@
 import React from "react";
 
+function isAmbientBotMessage(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message?.meta?.kind === "ambient_bot_chat") return true;
+  const installId = typeof message.installId === "string" ? message.installId : "";
+  return installId.startsWith("ambient-bot:");
+}
+
 function DesktopChatPanel({
   blockedCount = 0,
   blockedEntries = [],
@@ -34,6 +41,7 @@ function DesktopChatPanel({
   quickReplies = [],
   selfNick = "",
   showBlockedList = false,
+  showBotMessages = true,
   visibleMessages = [],
   actionsRef,
   chatInputRef,
@@ -41,6 +49,7 @@ function DesktopChatPanel({
   chatScaleMin = 0.85,
   chatScaleStep = 0.05,
   getAuthorNickClassName = null,
+  onToggleShowBotMessages = null,
 }) {
   const helpers = helpersRef?.current || {};
   const formatChatUnreadSuffix = helpers.formatChatUnreadSuffix || (() => "");
@@ -151,6 +160,34 @@ function DesktopChatPanel({
           />
         </label>
       </div>
+      <div className="mb-2 flex justify-end">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showBotMessages ? "true" : "false"}
+          aria-label={showBotMessages ? "Masquer les messages bots" : "Afficher les messages bots"}
+          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+            darkMode
+              ? "border-white/10 bg-slate-800/70 text-slate-100"
+              : "border-slate-200 bg-slate-100 text-slate-700"
+          }`}
+          onClick={() => onToggleShowBotMessages?.()}
+        >
+          <span>Bots</span>
+          <span
+            className={`relative h-5 w-9 rounded-full transition ${
+              showBotMessages ? "bg-emerald-500" : darkMode ? "bg-slate-700" : "bg-slate-300"
+            }`}
+            aria-hidden="true"
+          >
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
+                showBotMessages ? "left-[18px]" : "left-0.5"
+              }`}
+            />
+          </span>
+        </button>
+      </div>
 
       {showBlockedList ? (
         <div
@@ -203,8 +240,9 @@ function DesktopChatPanel({
           const isEdited = isEditedChatMessage(msg);
           const isYou = authorInstallId ? authorInstallId === installId : author === selfNick;
           const isSystem = isSystemAuthor(author);
+          const isAmbientBot = !isSystem && isAmbientBotMessage(msg);
           const isLast = msg.id === lastMessageId;
-          const canOpenMenu = !isSystem && authorInstallId && authorInstallId !== installId;
+          const canOpenMenu = !isSystem && !isAmbientBot && authorInstallId && authorInstallId !== installId;
           const replyPreview = getChatMessageReplyPreview(msg);
           const reactionEntries = getChatMessageReactionEntries(msg);
           const replyTargetsSelf = !!(
@@ -220,6 +258,10 @@ function DesktopChatPanel({
               : "") ||
             (msg?.isWeeklyVocabChampion
               ? "text-amber-300 font-black"
+              : isAmbientBot
+              ? darkMode
+                ? "text-slate-400"
+                : "text-amber-900/75"
               : isYou
             ? "text-white"
             : darkMode
@@ -262,16 +304,23 @@ function DesktopChatPanel({
                   <div
                     data-chat-message-id={msg?.id || undefined}
                     className={[
-                      "group/chatmsg max-w-[88%] px-2 py-1 rounded-lg",
+                      "group/chatmsg max-w-[88%] px-2 rounded-lg",
                       isYou
                         ? darkMode
                           ? "bg-blue-500 text-white"
                           : "bg-blue-600 text-white"
+                        : isAmbientBot
+                        ? darkMode
+                          ? "py-0.5 italic bg-slate-950/45 text-slate-400 border border-slate-800"
+                          : "py-0.5 italic bg-amber-50/60 text-amber-900/70 border border-amber-100"
                         : darkMode
-                        ? "bg-slate-800 text-slate-100 border border-slate-700"
-                        : "bg-slate-100 text-slate-900 border border-slate-200",
+                        ? "py-1 bg-slate-800 text-slate-100 border border-slate-700"
+                        : "py-1 bg-slate-100 text-slate-900 border border-slate-200",
                     ].join(" ")}
-                    style={{ fontSize: `${desktopChatFontPx}px`, lineHeight: `${desktopChatLineHeightPx}px` }}
+                    style={{
+                      fontSize: `${isAmbientBot ? Math.max(11, desktopChatFontPx - 2) : desktopChatFontPx}px`,
+                      lineHeight: `${isAmbientBot ? Math.max(14, desktopChatLineHeightPx - 3) : desktopChatLineHeightPx}px`,
+                    }}
                   >
                     {replyPreview ? (
                       <div
@@ -338,13 +387,21 @@ function DesktopChatPanel({
                       ) : null}
                       <span
                         className={
-                          isYou ? "text-white" : darkMode ? "text-slate-100" : "text-black"
+                          isYou
+                            ? "text-white"
+                            : isAmbientBot
+                            ? darkMode
+                              ? "text-slate-400"
+                              : "text-amber-900/70"
+                            : darkMode
+                            ? "text-slate-100"
+                            : "text-black"
                         }
                       >
                         {msg.text}
                       </span>
                     </div>
-                    {!isYou ? (
+                    {!isYou && !isAmbientBot ? (
                       <div className="mt-1 flex items-center gap-2">
                         <button
                           type="button"

@@ -11,6 +11,13 @@ function isSystemAuthor(rawAuthor) {
   return simplified === "system" || simplified === "systeme";
 }
 
+function isAmbientBotMessage(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message?.meta?.kind === "ambient_bot_chat") return true;
+  const installId = typeof message.installId === "string" ? message.installId : "";
+  return installId.startsWith("ambient-bot:");
+}
+
 function formatUnreadSuffix(count) {
   const n = Number(count) || 0;
   if (n <= 0) return "";
@@ -229,8 +236,9 @@ export default function HomeChatModal({
                   ? authorInstallId === selfInstallId
                   : author === selfNick;
                 const isSystem = isSystemAuthor(author);
+                const isAmbientBot = !isSystem && isAmbientBotMessage(msg);
                 const profileUserId = getProfileUserId(msg);
-                const canOpenProfile = !isSystem && profileUserId && onOpenPlayerProfile;
+                const canOpenProfile = !isSystem && !isAmbientBot && profileUserId && onOpenPlayerProfile;
                 if (isSystem) {
                   return (
                     <div
@@ -253,12 +261,16 @@ export default function HomeChatModal({
                   <div
                     key={key}
                     data-chat-message-id={msg?.id || undefined}
-                    className={`rounded-lg px-2 py-1.5 text-xs ${
+                    className={`rounded-lg px-2 text-xs ${
                       isYou
-                        ? "bg-blue-600 text-white"
+                        ? "py-1.5 bg-blue-600 text-white"
+                        : isAmbientBot
+                        ? darkMode
+                          ? "py-1 italic bg-slate-950/45 text-slate-400 border border-slate-800"
+                          : "py-1 italic bg-amber-50/60 text-amber-900/70 border border-amber-100"
                         : darkMode
-                        ? "bg-slate-950/50 text-amber-50 border border-amber-200/20"
-                        : "bg-white/80 text-slate-900 border border-amber-300/35"
+                        ? "py-1.5 bg-slate-950/50 text-amber-50 border border-amber-200/20"
+                        : "py-1.5 bg-white/80 text-slate-900 border border-amber-300/35"
                     }`}
                   >
                     <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -276,7 +288,7 @@ export default function HomeChatModal({
                           {author}:
                         </button>
                       ) : (
-                        <span className="font-bold">{author}:</span>
+                        <span className={isAmbientBot ? "font-bold not-italic" : "font-bold"}>{author}:</span>
                       )}
                       {messageTime ? (
                         <span className="text-[10px] leading-none opacity-70">

@@ -198,6 +198,12 @@ const styles = `
   text-shadow: 0 2px 2px rgba(0, 0, 0, 0.6);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.42);
 }
+.home-count-badge-help {
+  background: radial-gradient(circle at 35% 25%, #fde68a, #f59e0b 72%);
+  border-color: #fff3bf;
+  color: #1f2937;
+  text-shadow: none;
+}
 .home-bottom-nav {
   width: min(92vw, 620px);
   display: grid;
@@ -423,6 +429,7 @@ function HomeLobby({
   duelBlueScore = 0,
   duelRedScore = 0,
   homeChatUnreadCount = 0,
+  homeChatUnreadIsBotOnly = false,
   isAuthServerUnavailable = false,
   isAuthStatusPending = false,
   isConnecting = false,
@@ -575,7 +582,9 @@ function HomeLobby({
             disabled={isConnecting}
           >
             {homeChatUnreadCount > 0 ? (
-              <span className="home-count-badge">{formatBadgeCount(homeChatUnreadCount)}</span>
+              <span className={`home-count-badge ${homeChatUnreadIsBotOnly ? "home-count-badge-help" : ""}`}>
+                {homeChatUnreadIsBotOnly ? "?" : formatBadgeCount(homeChatUnreadCount)}
+              </span>
             ) : null}
           </HomeImageButton>
           <HomeImageButton

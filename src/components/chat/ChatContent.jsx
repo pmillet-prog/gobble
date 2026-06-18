@@ -29,6 +29,13 @@ function isSystemAuthor(rawAuthor) {
   return simplified === "system" || simplified === "systeme";
 }
 
+function isAmbientBotMessage(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message?.meta?.kind === "ambient_bot_chat") return true;
+  const installId = typeof message.installId === "string" ? message.installId : "";
+  return installId.startsWith("ambient-bot:");
+}
+
 function formatUnreadSuffix(unreadCount) {
   const value = Number(unreadCount) || 0;
   if (value <= 0) return "";
@@ -876,8 +883,9 @@ export default function ChatContent({
                 : author === selfNick;
               const isOwn = !!isYou;
               const isSystem = isSystemAuthor(author);
+              const isAmbientBot = !isSystem && isAmbientBotMessage(msg);
               const canOpenMenu =
-                !isSystem && authorInstallId && authorInstallId !== selfInstallId;
+                !isSystem && !isAmbientBot && authorInstallId && authorInstallId !== selfInstallId;
               const replyPreview = getReplyPreview(msg);
               const replyTargetsSelf = !!(
                 replyPreview &&
@@ -897,7 +905,9 @@ export default function ChatContent({
                 (typeof getAuthorNickClassName === "function"
                   ? getAuthorNickClassName(msg, author)
                   : "") || (msg?.isWeeklyVocabChampion ? "text-amber-300 font-black" : "");
-              const authorBaseClass = authorNickClass || "font-semibold";
+              const authorBaseClass = isAmbientBot
+                ? "font-semibold not-italic"
+                : authorNickClass || "font-semibold";
 
               return (
                 <div
@@ -906,6 +916,12 @@ export default function ChatContent({
                   className={
                     isSystem
                       ? "px-2 py-0.5 text-sm italic text-orange-700 dark:text-amber-300"
+                      : isAmbientBot
+                      ? `px-2 py-0.5 text-[12px] italic rounded-md border select-none ${
+                          darkMode
+                            ? "bg-slate-950/45 border-slate-800 text-slate-400"
+                            : "bg-amber-50/55 border-amber-100 text-amber-900/70"
+                        }`
                       : `px-2 py-1 rounded-lg transition-transform duration-75 select-none ${
                           isYou
                             ? "bg-blue-600 text-white self-end"

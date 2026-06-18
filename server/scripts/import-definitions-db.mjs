@@ -9,6 +9,7 @@ import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
 import { buildGameSemanticThemes } from "../definitions/gameSemanticThemes.js";
+import { buildWordLinguisticFacts } from "../definitions/wordLinguisticFacts.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +89,18 @@ function sanitizeEntry(raw) {
   const gameSemanticThemes = Array.isArray(raw.gameSemanticThemes)
     ? raw.gameSemanticThemes
     : buildGameSemanticThemes(enrichmentSource);
+  const linguisticFacts =
+    Array.isArray(raw.inventorFacts) || Array.isArray(raw.doubleDefinitions)
+      ? {
+          inventorFacts: Array.isArray(raw.inventorFacts) ? raw.inventorFacts : [],
+          doubleDefinitions: Array.isArray(raw.doubleDefinitions) ? raw.doubleDefinitions : [],
+        }
+      : buildWordLinguisticFacts({
+          ...enrichmentSource,
+          etymology,
+          partOfSpeech: raw.partOfSpeech,
+          source: raw.source,
+        });
   return {
     key,
     word: String(raw.word || key).trim(),
@@ -103,6 +116,8 @@ function sanitizeEntry(raw) {
     etymonsJson: jsonArray(raw.etymons),
     curiosityTagsJson: jsonArray(raw.curiosityTags),
     gameSemanticThemesJson: JSON.stringify(gameSemanticThemes),
+    inventorFactsJson: JSON.stringify(linguisticFacts.inventorFacts || []),
+    doubleDefinitionsJson: JSON.stringify(linguisticFacts.doubleDefinitions || []),
     source: String(raw.source || "wiktionary").trim() || "wiktionary",
     sourceUrl: String(raw.sourceUrl || raw.url || "").trim(),
     sourceLicense: String(raw.sourceLicense || "").trim(),
@@ -140,6 +155,8 @@ async function openBuildDb(outputPath) {
       curiosity_tags_json TEXT NOT NULL DEFAULT '[]',
       game_semantic_themes_json TEXT NOT NULL DEFAULT '[]',
       embedding_semantic_themes_json TEXT NOT NULL DEFAULT '[]',
+      inventor_facts_json TEXT NOT NULL DEFAULT '[]',
+      double_definitions_json TEXT NOT NULL DEFAULT '[]',
       source TEXT NOT NULL,
       source_url TEXT NOT NULL,
       source_license TEXT NOT NULL,
@@ -176,6 +193,8 @@ async function flushBatch(db, statement, batch) {
         entry.curiosityTagsJson,
         entry.gameSemanticThemesJson,
         "[]",
+        entry.inventorFactsJson,
+        entry.doubleDefinitionsJson,
         entry.source,
         entry.sourceUrl,
         entry.sourceLicense,
@@ -201,9 +220,10 @@ async function importDefinitions(options) {
     INSERT OR REPLACE INTO definitions
       (key, word, title, definition, definitions_json, etymology, part_of_speech_json,
        lexical_domains_json, semantic_relations_json, categories_json, etymology_langs_json,
-       etymons_json, curiosity_tags_json, game_semantic_themes_json, embedding_semantic_themes_json, source, source_url,
+       etymons_json, curiosity_tags_json, game_semantic_themes_json, embedding_semantic_themes_json,
+       inventor_facts_json, double_definitions_json, source, source_url,
        source_license, is_form_of, form_of)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   let read = 0;
@@ -256,7 +276,7 @@ async function importDefinitions(options) {
     await db.run(
       "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
       "enrichmentSchemaVersion",
-      "1"
+      "2"
     );
     await db.exec("PRAGMA optimize");
   } finally {

@@ -10,6 +10,7 @@ export default function ChatWidget(props) {
     chatEditTarget = null,
     chatReplyTarget = null,
     showLauncherButton = true,
+    mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
     onOpenChat,
     ...restProps
@@ -44,7 +45,9 @@ export default function ChatWidget(props) {
 
   const unreadBadge =
     mobileChatUnreadCount > 0
-      ? mobileChatUnreadCount >= 10
+      ? mobileChatUnreadIsBotOnly
+        ? "?"
+        : mobileChatUnreadCount >= 10
         ? "9+"
         : String(mobileChatUnreadCount)
       : "";
@@ -79,7 +82,9 @@ export default function ChatWidget(props) {
               />
               {mobileChatUnreadCount > 0 ? (
                 <span
-                  className="absolute h-3.5 w-3.5 rounded-full bg-amber-400 animate-pulse"
+                  className={`absolute h-3.5 w-3.5 rounded-full animate-pulse ${
+                    mobileChatUnreadIsBotOnly ? "bg-amber-300" : "bg-amber-400"
+                  }`}
                   style={{
                     top: "12%",
                     right: "12%",
@@ -89,7 +94,11 @@ export default function ChatWidget(props) {
               ) : null}
               {mobileChatUnreadCount > 0 ? (
                 <span
-                  className="absolute min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-[11px] font-extrabold text-white flex items-center justify-center shadow-md"
+                  className={`absolute min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-extrabold flex items-center justify-center shadow-md ${
+                    mobileChatUnreadIsBotOnly
+                      ? "bg-amber-400 text-slate-950"
+                      : "bg-red-600 text-white"
+                  }`}
                   style={{
                     top: "10%",
                     right: "10%",

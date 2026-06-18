@@ -45,6 +45,17 @@ function cleanFactDefinition(text, maxLen = 155) {
   return `${clean.slice(0, maxLen).replace(/\s+\S*$/, "").trim()}...`;
 }
 
+function cleanShortFactText(text, maxLen = 180) {
+  let clean = String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+  clean = clean.replace(/\.\s*:.*$/g, ".").replace(/[.;:,\s]+$/g, "").trim();
+  if (!clean) return "";
+  if (clean.length <= maxLen) return clean;
+  return `${clean.slice(0, maxLen).replace(/\s+\S*$/, "").trim()}...`;
+}
+
 function clipBotFactText(text, maxLen) {
   const clean = String(text || "").trim();
   if (!clean || clean.length <= maxLen) return clean;
@@ -75,6 +86,7 @@ function cleanEtymologyFact(text, maxLen = 260) {
     .replace(/:\s+([a-zA-ZÀ-ÿ-]+-,)/g, ": $1")
     .replace(/\bet:\s+/gi, "et ")
     .replace(/:\s{2,}/g, ": ")
+    .replace(/\.\s*:?\s*[-–—]\s*:\s*.*$/g, ".")
     .replace(/\s+([,.;:!?])/g, "$1")
     .replace(/([,;:])\s*([,;:])/g, "$1");
   clean = clean.replace(/^[\s:;*#-]+/g, "").trim();
@@ -216,6 +228,185 @@ function formatOfflineWordFact(rawWord, entry, definition, formHint = null) {
   return `Définition: ${formLabel}, c'est ${clean}.`;
 }
 
+function buildOfflineWordFactDetails(rawWord, entry, definition, formHint = null) {
+  const lookupWord = normalizeWord(rawWord);
+  const title = String(entry?.title || formHint?.base || rawWord || "").trim();
+  const displayWord = String(rawWord || title || "").trim().toUpperCase();
+  const baseWord = String(formHint?.base || title || "").trim().toUpperCase();
+  const cleanDefinition = cleanFactDefinition(definition, 135);
+  const etymology = cleanEtymologyFact(entry?.etymology || "", 220);
+  if (!lookupWord || !displayWord || !cleanDefinition || !etymology) return null;
+  if (isTautologicalScientificNameEtymology(etymology, rawWord, entry)) return null;
+  return {
+    lookupWord,
+    displayWord,
+    baseWord,
+    isForm: !!formHint?.base,
+    definition: cleanDefinition,
+    etymology,
+  };
+}
+
+async function resolveOfflineWordFactDetails(norm, minLen, seen = new Set()) {
+  if (!norm || norm.length < minLen) return null;
+  if (seen.has(norm)) return null;
+  seen.add(norm);
+
+  const cacheKey = `${norm}|details:v1`;
+  if (factCache.has(cacheKey)) {
+    const value = factCache.get(cacheKey);
+    factCache.delete(cacheKey);
+    factCache.set(cacheKey, value);
+    return value;
+  }
+
+  const entry = await getLocalDefinitionEntry(norm);
+  if (!entry) {
+    remember(cacheKey, null);
+    return null;
+  }
+
+  if (entry.isFormOf) {
+    const lemma = extractLemmaFromFormEntry(entry);
+    if (lemma && lemma !== norm) {
+      const lemmaEntry = await getLocalDefinitionEntry(lemma);
+      if (lemmaEntry) {
+        const definition = pickDefinitionForFact(lemmaEntry);
+        const details = definition
+          ? buildOfflineWordFactDetails(norm, lemmaEntry, definition, { base: lemma })
+          : null;
+        remember(cacheKey, details);
+        return details;
+      }
+    }
+    remember(cacheKey, null);
+    return null;
+  }
+
+  const definition = pickDefinitionForFact(entry);
+  const details = definition ? buildOfflineWordFactDetails(norm, entry, definition) : null;
+  remember(cacheKey, details);
+  return details;
+}
+
+function pickInventorFact(entry) {
+  const facts = Array.isArray(entry?.inventorFacts) ? entry.inventorFacts : [];
+  return facts
+    .map((fact) => ({
+      kind: String(fact?.kind || "").trim(),
+      name: String(fact?.name || "").trim(),
+      text: cleanShortFactText(fact?.text || "", 190),
+      source: String(fact?.source || "").trim(),
+    }))
+    .filter((fact) => fact.name && fact.text)
+    .sort((a, b) => {
+      const rank = (kind) => (kind === "inventor" ? 0 : kind === "named_after" ? 1 : 2);
+      return rank(a.kind) - rank(b.kind);
+    })[0] || null;
+}
+
+function pickDoubleDefinitions(entry) {
+  const senses = Array.isArray(entry?.doubleDefinitions) ? entry.doubleDefinitions : [];
+  const cleaned = [];
+  const seen = new Set();
+  for (const sense of senses) {
+    const definition = cleanShortFactText(sense?.definition || "", 145);
+    const label = cleanShortFactText(sense?.label || "", 42);
+    const key = normalizeForMatching(definition);
+    if (!definition || seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push({ definition, label });
+    if (cleaned.length >= 3) break;
+  }
+  return cleaned.length >= 2 ? cleaned : [];
+}
+
+async function resolveOfflineInventorFactDetails(norm, minLen, seen = new Set()) {
+  if (!norm || norm.length < minLen) return null;
+  if (seen.has(norm)) return null;
+  seen.add(norm);
+  const cacheKey = `${norm}|inventor:v1`;
+  if (factCache.has(cacheKey)) {
+    const value = factCache.get(cacheKey);
+    factCache.delete(cacheKey);
+    factCache.set(cacheKey, value);
+    return value;
+  }
+
+  const entry = await getLocalDefinitionEntry(norm);
+  if (!entry) {
+    remember(cacheKey, null);
+    return null;
+  }
+  if (entry.isFormOf) {
+    const lemma = extractLemmaFromFormEntry(entry);
+    if (lemma && lemma !== norm) {
+      const details = await resolveOfflineInventorFactDetails(lemma, minLen, seen);
+      const value = details ? { ...details, lookupWord: norm, isForm: true, baseWord: lemma } : null;
+      remember(cacheKey, value);
+      return value;
+    }
+    remember(cacheKey, null);
+    return null;
+  }
+  const fact = pickInventorFact(entry);
+  const title = String(entry?.title || norm || "").trim();
+  const details = fact
+    ? {
+        lookupWord: norm,
+        displayWord: title || norm,
+        baseWord: title || norm,
+        isForm: false,
+        fact,
+      }
+    : null;
+  remember(cacheKey, details);
+  return details;
+}
+
+async function resolveOfflineDoubleDefinitionDetails(norm, minLen, seen = new Set()) {
+  if (!norm || norm.length < minLen) return null;
+  if (seen.has(norm)) return null;
+  seen.add(norm);
+  const cacheKey = `${norm}|double-defs:v1`;
+  if (factCache.has(cacheKey)) {
+    const value = factCache.get(cacheKey);
+    factCache.delete(cacheKey);
+    factCache.set(cacheKey, value);
+    return value;
+  }
+
+  const entry = await getLocalDefinitionEntry(norm);
+  if (!entry) {
+    remember(cacheKey, null);
+    return null;
+  }
+  if (entry.isFormOf) {
+    const lemma = extractLemmaFromFormEntry(entry);
+    if (lemma && lemma !== norm) {
+      const details = await resolveOfflineDoubleDefinitionDetails(lemma, minLen, seen);
+      const value = details ? { ...details, lookupWord: norm, isForm: true, baseWord: lemma } : null;
+      remember(cacheKey, value);
+      return value;
+    }
+    remember(cacheKey, null);
+    return null;
+  }
+  const definitions = pickDoubleDefinitions(entry);
+  const title = String(entry?.title || norm || "").trim();
+  const details = definitions.length
+    ? {
+        lookupWord: norm,
+        displayWord: title || norm,
+        baseWord: title || norm,
+        isForm: false,
+        definitions,
+      }
+    : null;
+  remember(cacheKey, details);
+  return details;
+}
+
 async function resolveOfflineWordFact(norm, minLen, seen = new Set(), options = {}) {
   if (!norm || norm.length < minLen) return null;
   if (seen.has(norm)) return null;
@@ -279,6 +470,24 @@ export async function getOfflineWordFact(rawWord, options = {}) {
   const norm = normalizeWord(rawWord);
   const minLen = Number(options.minLen) || 6;
   return resolveOfflineWordFact(norm, minLen, new Set(), options);
+}
+
+export async function getOfflineWordFactDetails(rawWord, options = {}) {
+  const norm = normalizeWord(rawWord);
+  const minLen = Number(options.minLen) || 6;
+  return resolveOfflineWordFactDetails(norm, minLen, new Set());
+}
+
+export async function getOfflineInventorFactDetails(rawWord, options = {}) {
+  const norm = normalizeWord(rawWord);
+  const minLen = Number(options.minLen) || 5;
+  return resolveOfflineInventorFactDetails(norm, minLen, new Set());
+}
+
+export async function getOfflineDoubleDefinitionDetails(rawWord, options = {}) {
+  const norm = normalizeWord(rawWord);
+  const minLen = Number(options.minLen) || 5;
+  return resolveOfflineDoubleDefinitionDetails(norm, minLen, new Set());
 }
 
 export function getOfflineWordFactCacheSize() {
