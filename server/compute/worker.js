@@ -656,7 +656,9 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
     : needsFakeTwins
     ? Math.max(maxAttempts, SPECIAL_QUALITY_ATTEMPTS)
     : maxAttempts;
-  const preferCultureThemeCandidate = shouldPreferCultureThemeCandidate(roundPlan);
+  const cultureThemeDisabled = !!cultureThemeOptions?.disabled;
+  const preferCultureThemeCandidate =
+    !cultureThemeDisabled && shouldPreferCultureThemeCandidate(roundPlan);
   const cultureThemePrepareBudgetMs = preferCultureThemeCandidate
     ? CULTURE_THEME_PREPARE_BUDGET_MS
     : 0;

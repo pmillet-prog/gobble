@@ -878,14 +878,14 @@ export default function ChatContent({
               const messageTime = formatMessageTime(msg);
               const isEdited = isEditedMessage(msg);
               const systemAuthor = author || "Système";
-              const isYou = authorInstallId
-                ? authorInstallId === selfInstallId
-                : author === selfNick;
-              const isOwn = !!isYou;
               const isSystem = isSystemAuthor(author);
               const isAmbientBot = !isSystem && isAmbientBotMessage(msg);
+              const isYou =
+                !isAmbientBot &&
+                (authorInstallId ? authorInstallId === selfInstallId : author === selfNick);
+              const isOwn = !!isYou;
               const canOpenMenu =
-                !isSystem && !isAmbientBot && authorInstallId && authorInstallId !== selfInstallId;
+                !isSystem && authorInstallId && authorInstallId !== selfInstallId;
               const replyPreview = getReplyPreview(msg);
               const replyTargetsSelf = !!(
                 replyPreview &&
@@ -937,7 +937,10 @@ export default function ChatContent({
                           ...NON_SELECTABLE_TOUCH_STYLE,
                         }
                   }
-                  onPointerDown={(event) => handleMessagePointerDown(event, msg, isSystem, isOwn)}
+                  onPointerDown={(event) => {
+                    if (isAmbientBot) return;
+                    handleMessagePointerDown(event, msg, isSystem, isOwn);
+                  }}
                   onPointerMove={(event) => handleMessagePointerMove(event, msg)}
                   onPointerUp={(event) => handleMessagePointerUp(event, msg)}
                   onPointerCancel={(event) => handleMessagePointerCancel(event, msg)}

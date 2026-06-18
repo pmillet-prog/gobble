@@ -232,11 +232,11 @@ export default function HomeChatModal({
                 const authorInstallId =
                   typeof msg?.installId === "string" ? msg.installId : "";
                 const messageTime = formatMessageTime(msg);
-                const isYou = authorInstallId
-                  ? authorInstallId === selfInstallId
-                  : author === selfNick;
                 const isSystem = isSystemAuthor(author);
                 const isAmbientBot = !isSystem && isAmbientBotMessage(msg);
+                const isYou =
+                  !isAmbientBot &&
+                  (authorInstallId ? authorInstallId === selfInstallId : author === selfNick);
                 const profileUserId = getProfileUserId(msg);
                 const canOpenProfile = !isSystem && !isAmbientBot && profileUserId && onOpenPlayerProfile;
                 if (isSystem) {

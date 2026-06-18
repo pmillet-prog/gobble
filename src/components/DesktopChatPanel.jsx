@@ -238,11 +238,12 @@ function DesktopChatPanel({
           const authorInstallId = typeof msg.installId === "string" ? msg.installId : "";
           const messageTime = formatChatMessageTime(msg);
           const isEdited = isEditedChatMessage(msg);
-          const isYou = authorInstallId ? authorInstallId === installId : author === selfNick;
           const isSystem = isSystemAuthor(author);
           const isAmbientBot = !isSystem && isAmbientBotMessage(msg);
+          const isYou =
+            !isAmbientBot && (authorInstallId ? authorInstallId === installId : author === selfNick);
           const isLast = msg.id === lastMessageId;
-          const canOpenMenu = !isSystem && !isAmbientBot && authorInstallId && authorInstallId !== installId;
+          const canOpenMenu = !isSystem && authorInstallId && authorInstallId !== installId;
           const replyPreview = getChatMessageReplyPreview(msg);
           const reactionEntries = getChatMessageReactionEntries(msg);
           const replyTargetsSelf = !!(
@@ -420,7 +421,7 @@ function DesktopChatPanel({
                           Réagir
                         </button>
                       </div>
-                    ) : (
+                    ) : isYou ? (
                       <div className="mt-1 flex items-center gap-2">
                         <button
                           type="button"
@@ -437,7 +438,7 @@ function DesktopChatPanel({
                           Supprimer
                         </button>
                       </div>
-                    )}
+                    ) : null}
                     {reactionEntries.length ? (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {reactionEntries.map((entry) => (

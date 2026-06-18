@@ -6337,7 +6337,8 @@ export default function App() {
       if (!Array.isArray(parsed)) return [];
       return parsed
         .filter((id) => typeof id === "string" && id.trim())
-        .map((id) => id.trim());
+        .map((id) => id.trim())
+        .filter((id) => !id.startsWith("dev-bot:"));
     } catch (_) {
       return [];
     }
@@ -8581,7 +8582,9 @@ export default function App() {
     );
     const activeMessages = (Array.isArray(chatMessages) ? chatMessages : []).filter((msg) => {
       const authorInstallId = typeof msg?.installId === "string" ? msg.installId : "";
-      if (authorInstallId && blockedSet.has(authorInstallId)) return false;
+      if (authorInstallId && blockedSet.has(authorInstallId)) {
+        return false;
+      }
       const isSystem = isSystemChatMessage(msg);
       return safeTab === "system" ? isSystem : !isSystem;
     });
@@ -18065,7 +18068,17 @@ export default function App() {
     setBlockedInstallIds((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       const sanitized = Array.isArray(next)
-        ? Array.from(new Set(next.map(normalizeInstallId).filter(Boolean)))
+        ? Array.from(
+            new Set(
+              next
+                .map(normalizeInstallId)
+                .filter(
+                  (entry) =>
+                    entry &&
+                    !entry.startsWith("dev-bot:")
+                )
+            )
+          )
         : [];
       try {
         localStorage.setItem(
@@ -18080,6 +18093,7 @@ export default function App() {
   function blockInstallId(targetInstallId, nick = "") {
     const key = normalizeInstallId(targetInstallId);
     if (!key || key === installId) return;
+    if (key.startsWith("dev-bot:")) return;
     updateBlockedInstallIds((prev) =>
       prev.includes(key) ? prev : [...prev, key]
     );
@@ -18389,6 +18403,7 @@ export default function App() {
   function openUserMenu(e, { nick, userId: targetUserId = null, installId: targetInstallId, messageId = null }) {
     const key = normalizeInstallId(targetInstallId);
     if (!key || key === installId) return;
+    if (key.startsWith("dev-bot:")) return;
     const profileUserId =
       normalizeUserIdForProfile(targetUserId) || normalizeUserIdForProfile(targetInstallId);
     if (e?.preventDefault) e.preventDefault();
@@ -35019,17 +35034,17 @@ function handleTouchEnd(e) {
                     const messageTime = formatChatMessageTime(msg);
                     const isEdited = isEditedChatMessage(msg);
                     const systemAuthor = author || "Système";
-                    const isYou = authorInstallId
-                      ? authorInstallId === installId
-                      : author === selfNick;
                     const isSystem = isSystemAuthor(author);
                     const isAmbientBot =
                       !isSystem &&
                       (msg?.meta?.kind === "ambient_bot_chat" ||
                         authorInstallId.startsWith("ambient-bot:"));
+                    const isYou =
+                      !isAmbientBot &&
+                      (authorInstallId ? authorInstallId === installId : author === selfNick);
                     const isLast = msg.id === lastMessageId;
                     const canOpenMenu =
-                      !isSystem && !isAmbientBot && authorInstallId && authorInstallId !== installId;
+                      !isSystem && authorInstallId && authorInstallId !== installId;
                     const replyPreview = getChatMessageReplyPreview(msg);
                     const reactionEntries = getChatMessageReactionEntries(msg);
                     const replyTargetsSelf = !!(
@@ -35189,7 +35204,7 @@ function handleTouchEnd(e) {
                                   Réagir
                                 </button>
                               </div>
-                            ) : (
+                            ) : isYou ? (
                               <div className="mt-1 flex items-center gap-2">
                                 <button
                                   type="button"
@@ -35206,7 +35221,7 @@ function handleTouchEnd(e) {
                                   Supprimer
                                 </button>
                               </div>
-                            )}
+                            ) : null}
 	                            {reactionEntries.length ? (
 	                              <div className="mt-1 flex flex-wrap gap-1">
 	                                {reactionEntries.map((entry) => (

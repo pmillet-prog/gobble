@@ -1452,6 +1452,12 @@ const TARGET_CHAT_SPOILER_MIN_RUN = 4;
 const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
 const AMBIENT_CHAT_BOTS_ENABLED =
   !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_AMBIENT_CHAT_BOTS_ENABLED || "1"));
+const AMBIENT_CHAT_BOT_ENABLED_KEYS = new Set(
+  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist")
+    .split(",")
+    .map((key) => key.trim())
+    .filter(Boolean)
+);
 const AMBIENT_CHAT_BOT_GLOBAL_COOLDOWN_MS = 18 * 1000;
 const AMBIENT_CHAT_BOT_PER_BOT_COOLDOWN_MS = 45 * 1000;
 const AMBIENT_CHAT_BOT_MAX_PER_ROUND = 5;
@@ -1485,8 +1491,10 @@ const WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS = Math.max(
 );
 const AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE = Math.min(
   1,
-  Math.max(0, Number(process.env.GOBBLE_ROUND_END_WORD_CURIOSITY_CHANCE) || 0.35)
+  Math.max(0, Number(process.env.GOBBLE_ROUND_END_WORD_CURIOSITY_CHANCE) || 0.06)
 );
+const CULTURE_THEME_BONUS_ENABLED =
+  /^(1|true|on|yes)$/i.test(String(process.env.GOBBLE_CULTURE_THEME_BONUS_ENABLED || "0"));
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
   "👍",
   "❤️",
@@ -4836,6 +4844,7 @@ function getAmbientChatBotState(room) {
 
 function pushAmbientChatBotMessage(room, botKey, text, opts = {}) {
   if (!AMBIENT_CHAT_BOTS_ENABLED) return null;
+  if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has(botKey)) return null;
   if (!room || !room.currentRound) return null;
   const bot = AMBIENT_CHAT_BOTS[botKey];
   let trimmed = String(text || "").replace(/\s+/g, " ").trim();
@@ -4885,6 +4894,7 @@ function pushAmbientChatBotMessage(room, botKey, text, opts = {}) {
 
 function scheduleAmbientChatBotMessage(room, botKey, text, opts = {}) {
   if (!AMBIENT_CHAT_BOTS_ENABLED) return;
+  if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has(botKey)) return;
   if (!room?.currentRound) return;
   const roundId = room.currentRound.id;
   const state = getAmbientChatBotState(room);
@@ -5285,23 +5295,13 @@ function scheduleAmbientRoundStartBots(room, planUsed, roundIntroMs = 0, roundDu
 
   if (isAmbientTargetRound(room, planUsed)) return;
 
-  const narratorLine = buildNarratorRoundLine(room);
-  if (narratorLine) {
-    scheduleAmbientChatBotMessage(room, "narrator", narratorLine, {
-      delayMs,
-      flag: "narrator:round-start",
-    });
-  }
-
   const coachLine = buildCoachRoundLine(room, planUsed);
   if (coachLine) {
     scheduleAmbientChatBotMessage(room, "coach", coachLine, {
-      delayMs: delayMs + 2800,
+      delayMs,
       flag: "coach:round-start",
     });
   }
-
-  scheduleAmbientDetectiveMidRound(room, planUsed, roundIntroMs, roundDurationMs);
 }
 
 function maybeScheduleCultureBotForWord(room, word) {
@@ -5605,6 +5605,7 @@ function buildFamilyWordsLine(results) {
 }
 
 function isCultureThemeBonusEligibleRound(room, planUsed = null) {
+  if (!CULTURE_THEME_BONUS_ENABLED) return false;
   const type = String(planUsed?.type || room?.currentRound?.special?.type || "");
   return type === "normal" && !planUsed?.isSpecial && !room?.currentRound?.special?.isSpecial;
 }
@@ -5753,8 +5754,9 @@ function scheduleCultureThemeChallengeStart(room, challenge) {
 
 function maybePrepareCultureThemeChallenge(room, planUsed = null) {
   if (!room?.currentRound) return;
-  const canPrepareBonus = isCultureThemeBonusEligibleRound(room, planUsed);
-  const canPrepareLightInsight = isWikiMamaLightInsightEligibleRound(room, planUsed);
+  const cultureBotEnabled = AMBIENT_CHAT_BOT_ENABLED_KEYS.has("culture");
+  const canPrepareBonus = cultureBotEnabled && isCultureThemeBonusEligibleRound(room, planUsed);
+  const canPrepareLightInsight = cultureBotEnabled && isWikiMamaLightInsightEligibleRound(room, planUsed);
   if (!canPrepareBonus && !canPrepareLightInsight) return;
   if (canPrepareBonus && room.currentRound.cultureThemeChallenge) {
     rememberCultureThemeChallenge(room, room.currentRound.cultureThemeChallenge);
@@ -5886,41 +5888,10 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
   if (isAmbientTargetRound(room) || targetSummary) return;
   const highlights = collectRoundWordHighlights(results);
-  const foundWords = getRoundFoundWordSet(room, results);
-  scheduleCultureThemeChallengeRecap(room, results);
-  const statisticianLine = buildStatisticianRoundEndLine(room, highlights, foundWords);
-  if (statisticianLine) {
-    scheduleAmbientChatBotMessage(room, "statistician", statisticianLine, {
-      delayMs: 1200,
-      flag: "statistician:round-end-summary",
-      force: true,
-    });
-  }
-  const recordHunterLine = buildRecordHunterRareGobbleLine(room, results);
-  if (recordHunterLine) {
-    scheduleAmbientChatBotMessage(room, "recordHunter", recordHunterLine, {
-      delayMs: 2400,
-      flag: "record-hunter:rare-gobble",
-      force: true,
-    });
-  }
-  const trendWord =
-    highlights.rareWord?.word || highlights.longestWord?.word || highlights.bestWord?.word || "";
-  if (trendWord) {
-    maybeScheduleTrendBotForWord(room, trendWord);
-  }
-
-  const familyLine = buildFamilyWordsLine(results);
-  if (familyLine) {
-    scheduleAmbientChatBotMessage(room, "linguist", familyLine, {
-      delayMs: 4700,
-      flag: "linguist:family-round-end",
-    });
-  }
 
   const roundId = room.currentRound.id;
   pickRoundEndWordCuriosity(room, highlights)
-    .then(async (curiosity) => {
+    .then((curiosity) => {
       if (!room.currentRound || room.currentRound.id !== roundId) return;
       if (curiosity?.line && curiosity?.botKey) {
         scheduleAmbientChatBotMessage(
@@ -5931,30 +5902,6 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
         );
         return;
       }
-
-      const hidden = await pickHiddenRemarkableWordWithFact(room.currentRound, foundWords);
-      if (!room.currentRound || room.currentRound.id !== roundId || !hidden?.word) return;
-      const hiddenMeta = `${hidden.len} lettres${hidden.pts ? `, ${hidden.pts} pts` : ""}`;
-      const hiddenLine = pickAmbientLine(
-        HIDDEN_WORD_LINES,
-        hashAmbientString(`${room.currentRound.id}:${hidden.word}`)
-      )
-        .replace("{WORD}", hidden.word.toUpperCase())
-        .replace("{META}", hiddenMeta);
-      scheduleAmbientChatBotMessage(
-        room,
-        "hiddenWord",
-        hiddenLine,
-        { delayMs: 3200, flag: "hidden-word:round-end", force: true }
-      );
-      const factLine = buildDetailedHiddenWordFactLine(hidden.factDetails);
-      if (!factLine) return;
-      scheduleAmbientChatBotMessage(
-        room,
-        "linguist",
-        factLine,
-        { delayMs: 5600, flag: "linguist:hidden-word-definition-etymology", force: true }
-      );
     })
     .catch(() => {});
 }
@@ -8509,11 +8456,15 @@ async function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
   pendingPromise = (async () => {
     try {
       const prepareStartedAt = Date.now();
+      const cultureThemeGenerationEnabled =
+        CULTURE_THEME_BONUS_ENABLED && AMBIENT_CHAT_BOT_ENABLED_KEYS.has("culture");
       const result = await computePool.prepareNextGrid({
         roomConfig: room.config,
         roundPlan,
         roundNumber,
-        cultureThemeOptions: getCultureThemeGenerationOptions(room),
+        cultureThemeOptions: cultureThemeGenerationEnabled
+          ? getCultureThemeGenerationOptions(room)
+          : { disabled: true },
       });
       const prepareElapsedMs = Date.now() - prepareStartedAt;
       const prepared = result || null;
