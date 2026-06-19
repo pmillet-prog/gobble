@@ -1453,7 +1453,7 @@ const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
 const AMBIENT_CHAT_BOTS_ENABLED =
   !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_AMBIENT_CHAT_BOTS_ENABLED || "1"));
 const AMBIENT_CHAT_BOT_ENABLED_KEYS = new Set(
-  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist")
+  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist,trend")
     .split(",")
     .map((key) => key.trim())
     .filter(Boolean)
@@ -1493,6 +1493,12 @@ const AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE = Math.min(
   1,
   Math.max(0, Number(process.env.GOBBLE_ROUND_END_WORD_CURIOSITY_CHANCE) || 0.06)
 );
+const GROSROBERT_TOURNAMENT_CHANCE = Math.min(
+  1,
+  Math.max(0, Number(process.env.GOBBLE_GROSROBERT_TOURNAMENT_CHANCE) || 0.45)
+);
+const GROSROBERT_FORCE_FINAL_ROUND =
+  !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_GROSROBERT_FORCE_FINAL_ROUND || "1"));
 const CULTURE_THEME_BONUS_ENABLED =
   /^(1|true|on|yes)$/i.test(String(process.env.GOBBLE_CULTURE_THEME_BONUS_ENABLED || "0"));
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
@@ -4932,7 +4938,7 @@ function hashAmbientString(input) {
 
 function isAmbientTargetRoundType(value) {
   const type = String(value || "");
-  return type === "target_long" || type === "target_score";
+  return type === "target_long" || type === "target_score" || type === OCID_TYPE;
 }
 
 function isAmbientTargetRound(room, planUsed = null) {
@@ -5441,6 +5447,40 @@ function buildRoundEndCuriosityCandidateWords(highlights) {
     .slice(0, 28);
 }
 
+function buildGrosRobertCandidateWords(room, highlights) {
+  const scored = new Map();
+  const add = (word, score) => {
+    const norm = normalizeWord(word);
+    if (!norm || norm.length < 5) return;
+    scored.set(norm, Math.max(Number(scored.get(norm)) || 0, Number(score) || 0));
+  };
+
+  add(highlights?.rareWord?.word, 1400);
+  add(highlights?.longestWord?.word, 1000);
+  add(highlights?.bestWord?.word, 900);
+  if (highlights?.foundByWord instanceof Map) {
+    for (const [word, finders] of highlights.foundByWord.entries()) {
+      const finderCount = finders instanceof Set ? finders.size : 0;
+      add(word, normalizeWord(word).length * 35 + finderCount * 18 + 250);
+    }
+  }
+
+  for (const entry of getPreparedRoundSolutions(room?.currentRound)) {
+    add(
+      entry.word,
+      (entry.rareBonusWord ? 850 : 0) +
+        Math.min(700, Number(entry.rarityScore) || 0) +
+        Math.max(0, Number(entry.pts) || 0) * 2 +
+        entry.word.length * 24
+    );
+  }
+
+  return Array.from(scored.entries())
+    .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length || a[0].localeCompare(b[0], "fr"))
+    .map(([word]) => word)
+    .slice(0, 60);
+}
+
 function shouldScheduleRoundEndWordCuriosity(room) {
   if (AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE <= 0) return false;
   const roundId = room?.currentRound?.id || "";
@@ -5469,6 +5509,58 @@ function buildDoubleDefinitionLine(details) {
   if (!first || !second) return "";
   const suffix = third ? ` Troisième détour: ${third}.` : "";
   return `Double sens: ${word} joue sur plusieurs tableaux: 1) ${first} 2) ${second}.${suffix}`;
+}
+
+function getGrosRobertTournamentKey(room) {
+  return String(room?.currentRound?.tournamentId || room?.tournament?.id || "");
+}
+
+function hasGrosRobertSpokenThisTournament(room) {
+  const key = getGrosRobertTournamentKey(room);
+  return !!key && room?.grosRobertAmbientTournamentId === key && !!room?.grosRobertAmbientSpoken;
+}
+
+function markGrosRobertSpokenThisTournament(room) {
+  const key = getGrosRobertTournamentKey(room);
+  if (!room || !key) return;
+  room.grosRobertAmbientTournamentId = key;
+  room.grosRobertAmbientSpoken = true;
+}
+
+function shouldAttemptGrosRobertRoundEnd(room) {
+  if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has("linguist")) return false;
+  if (hasGrosRobertSpokenThisTournament(room)) return false;
+  const round = room?.currentRound;
+  if (!round || isAmbientTargetRound(room)) return false;
+  const tournamentRound = Number(round.tournamentRound) || 0;
+  const totalRounds = Number(room?.tournament?.totalRounds) || TOURNAMENT_TOTAL_ROUNDS;
+  if (GROSROBERT_FORCE_FINAL_ROUND && tournamentRound >= totalRounds) return true;
+  if (GROSROBERT_TOURNAMENT_CHANCE <= 0) return false;
+  const hash = hashAmbientString(`${room?.id || "room"}:${round.id || ""}:grosrobert-master`);
+  return hash / 0xffffffff <= GROSROBERT_TOURNAMENT_CHANCE;
+}
+
+async function pickGrosRobertRoundEndLine(room, highlights) {
+  if (!shouldAttemptGrosRobertRoundEnd(room)) return "";
+  const words = buildGrosRobertCandidateWords(room, highlights);
+  if (!words.length) return "";
+  const roundId = room?.currentRound?.id || "";
+  const offset = hashAmbientString(`${room?.id || "room"}:${roundId}:grosrobert-offset`) % words.length;
+  const orderedWords = [...words.slice(offset), ...words.slice(0, offset)];
+
+  for (const word of orderedWords) {
+    const inventorDetails = await getOfflineInventorFactDetails(word, { minLen: 5 });
+    const inventorLine = buildInventorFactLine(inventorDetails);
+    if (inventorLine) return inventorLine;
+  }
+
+  for (const word of orderedWords) {
+    const details = await getOfflineWordFactDetails(word, { minLen: 6 });
+    const line = buildDetailedHiddenWordFactLine(details);
+    if (line) return line;
+  }
+
+  return "";
 }
 
 async function pickRoundEndWordCuriosity(room, highlights) {
@@ -5888,20 +5980,24 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
   if (isAmbientTargetRound(room) || targetSummary) return;
   const highlights = collectRoundWordHighlights(results);
+  const trendWord =
+    highlights.rareWord?.word || highlights.longestWord?.word || highlights.bestWord?.word || "";
+  if (trendWord) {
+    maybeScheduleTrendBotForWord(room, trendWord);
+  }
 
   const roundId = room.currentRound.id;
-  pickRoundEndWordCuriosity(room, highlights)
-    .then((curiosity) => {
+  pickGrosRobertRoundEndLine(room, highlights)
+    .then((line) => {
       if (!room.currentRound || room.currentRound.id !== roundId) return;
-      if (curiosity?.line && curiosity?.botKey) {
-        scheduleAmbientChatBotMessage(
-          room,
-          curiosity.botKey,
-          curiosity.line,
-          { delayMs: 5600, flag: curiosity.flag || "word-curiosity:round-end", force: true }
-        );
-        return;
-      }
+      if (!line) return;
+      markGrosRobertSpokenThisTournament(room);
+      scheduleAmbientChatBotMessage(
+        room,
+        "linguist",
+        line,
+        { delayMs: 5600, flag: "linguist:grosrobert-master", force: true }
+      );
     })
     .catch(() => {});
 }
