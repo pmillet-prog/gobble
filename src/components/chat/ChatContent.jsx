@@ -901,10 +901,19 @@ export default function ChatContent({
                 swipePreview?.messageId === msg.id && Number.isFinite(swipePreview?.dx)
                   ? swipePreview.dx
                   : 0;
+              const podiumRank = Number(msg?.weeklyVocabPodiumRank) || (msg?.isWeeklyVocabChampion ? 1 : 0);
+              const podiumClass =
+                podiumRank === 1
+                  ? "text-amber-300 font-black"
+                  : podiumRank === 2
+                  ? "nick-podium-silver"
+                  : podiumRank === 3
+                  ? "text-orange-300 font-black"
+                  : "";
               const authorNickClass =
                 (typeof getAuthorNickClassName === "function"
                   ? getAuthorNickClassName(msg, author)
-                  : "") || (msg?.isWeeklyVocabChampion ? "text-amber-300 font-black" : "");
+                  : "") || podiumClass;
               const authorBaseClass = isAmbientBot
                 ? "font-semibold not-italic"
                 : authorNickClass || "font-semibold";

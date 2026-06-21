@@ -118,6 +118,32 @@ export default function DevSettingsPanel({
       </button>
     );
   };
+  const renderPodiumNickToggle = ({ keyName, label, disabled = false }) => {
+    const enabled = !!controls?.[keyName];
+    const nextBase = {
+      selfGoldNick: false,
+      selfSilverNick: false,
+      selfBronzeNick: false,
+    };
+    return (
+      <button
+        type="button"
+        disabled={disabled || busy || !canUseTools}
+        onClick={() =>
+          patch({
+            ...nextBase,
+            [keyName]: !enabled,
+          })
+        }
+        className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 disabled:opacity-50 ${toggleClass(
+          enabled
+        )}`}
+      >
+        <span>{label}</span>
+        <span className="text-[10px] font-semibold opacity-80">{enabled ? "On" : "Off"}</span>
+      </button>
+    );
+  };
 
   return (
     <div
@@ -255,9 +281,19 @@ export default function DevSettingsPanel({
             label: "Me donner la couronne",
             disabled: !controls?.enabled,
           })}
-          {renderToggle({
+          {renderPodiumNickToggle({
             keyName: "selfGoldNick",
             label: "Me donner le pseudo dore",
+            disabled: !controls?.enabled,
+          })}
+          {renderPodiumNickToggle({
+            keyName: "selfSilverNick",
+            label: "Me donner le pseudo argent",
+            disabled: !controls?.enabled,
+          })}
+          {renderPodiumNickToggle({
+            keyName: "selfBronzeNick",
+            label: "Me donner le pseudo bronze",
             disabled: !controls?.enabled,
           })}
           <button

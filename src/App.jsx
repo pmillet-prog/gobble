@@ -37,6 +37,7 @@ import PlaytimeCountdownOverlay from "./components/PlaytimeCountdownOverlay.jsx"
 import SettingsMenu from "./components/settings/SettingsMenu.jsx";
 import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
+import DuelWeekRecapOverlay from "./components/DuelWeekRecapOverlay.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
@@ -905,8 +906,8 @@ function buildRankingSignature(list) {
     const rank = Number.isFinite(entry.rank) ? entry.rank : i + 1;
     const gobbles = Number.isFinite(entry.gobbles) ? entry.gobbles : 0;
     const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
-    const weeklyVocabChampion = entry.isWeeklyVocabChampion ? "1" : "0";
-    out += `${nick}:${userId}:${rank}:${score}:${gobbles}:${dailyChampion}:${weeklyVocabChampion}|`;
+    const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
+    out += `${nick}:${userId}:${rank}:${score}:${gobbles}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return out;
 }
@@ -923,8 +924,8 @@ function buildPlayersSignature(list) {
     const team = String(entry.team || "");
     const bot = entry.isBot ? "1" : "0";
     const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
-    const weeklyVocabChampion = entry.isWeeklyVocabChampion ? "1" : "0";
-    out += `${nick}:${userId}:${team}:${bot}:${dailyChampion}:${weeklyVocabChampion}|`;
+    const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
+    out += `${nick}:${userId}:${team}:${bot}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return out;
 }
@@ -5324,6 +5325,8 @@ export default function App() {
     botReactions: false,
     selfCrown: false,
     selfGoldNick: false,
+    selfSilverNick: false,
+    selfBronzeNick: false,
   });
   const [devRoundTypes, setDevRoundTypes] = useState([]);
   const [moderationAvailable, setModerationAvailable] = useState(false);
@@ -5617,7 +5620,7 @@ export default function App() {
     weekId: null,
   });
   const [duelWeekRecapOpen, setDuelWeekRecapOpen] = useState(false);
-  const [duelWeekRecapExpanded, setDuelWeekRecapExpanded] = useState(false);
+  const [duelWeekRecapPage, setDuelWeekRecapPage] = useState(0);
   const [duelWeekRecapPreviewMode, setDuelWeekRecapPreviewMode] = useState(false);
   const duelWeekRecapOpenAfterRefreshRef = useRef(false);
   const [duelObjectivesPopupDismissedDateId, setDuelObjectivesPopupDismissedDateId] = useState("");
@@ -10747,6 +10750,7 @@ export default function App() {
                 delta,
                 isBot: !!e.isBot,
                 isDailyChampion: !!e.isDailyChampion,
+                weeklyVocabPodiumRank: Number(e.weeklyVocabPodiumRank) || 0,
                 isWeeklyVocabChampion: !!e.isWeeklyVocabChampion,
               };
             })
@@ -14059,7 +14063,7 @@ export default function App() {
       if (localStorage.getItem(key) === "1") return;
     } catch (_) {}
     setDuelWeekRecapPreviewMode(false);
-    setDuelWeekRecapExpanded(false);
+    setDuelWeekRecapPage(0);
     setDuelWeekRecapOpen(true);
   }, [duelStatus?.lastWeekSummary, duelWeekRecapOpen, installId, isAccountAuthenticated]);
 
@@ -15522,6 +15526,7 @@ export default function App() {
         team: entry?.team || null,
         isBot: !!entry?.isBot,
         isDailyChampion: !!entry?.isDailyChampion,
+        weeklyVocabPodiumRank: Number(entry?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!entry?.isWeeklyVocabChampion,
         rank: Number.isFinite(entry?.rank) ? entry.rank : idx + 1,
         score: typeof entry?.score === "number" ? entry.score : null,
@@ -24431,6 +24436,7 @@ function handleTouchEnd(e) {
         playerKey: player?.playerKey ? String(player.playerKey) : "",
         team: player?.team || null,
         isBot: !!player?.isBot,
+        weeklyVocabPodiumRank: Number(player?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
         isDailyChampion:
           !!player?.isDailyChampion ||
@@ -24479,6 +24485,7 @@ function handleTouchEnd(e) {
         team: player?.team || null,
         isBot: !!player?.isBot,
         isDailyChampion: !!player?.isDailyChampion,
+        weeklyVocabPodiumRank: Number(player?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
       });
     });
@@ -24500,6 +24507,8 @@ function handleTouchEnd(e) {
         rank: typeof entry.rank === "number" ? entry.rank : null,
         team: entry?.team || identity.team || null,
         isBot: !!entry?.isBot || !!identity.isBot,
+        weeklyVocabPodiumRank:
+          Number(entry?.weeklyVocabPodiumRank) || Number(identity.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion:
           !!entry.isWeeklyVocabChampion || !!identity.isWeeklyVocabChampion,
         isDailyChampion:
@@ -24531,6 +24540,8 @@ function handleTouchEnd(e) {
         rank: null,
         team: player?.team || identity.team || null,
         isBot: !!player?.isBot || !!identity.isBot,
+        weeklyVocabPodiumRank:
+          Number(player?.weeklyVocabPodiumRank) || Number(identity.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion:
           !!player.isWeeklyVocabChampion || !!identity.isWeeklyVocabChampion,
         isDailyChampion:
@@ -26631,6 +26642,7 @@ function handleTouchEnd(e) {
             Number(entry.tieGroupSize) || tieMetaByNick.get(entry.nick)?.tieGroupSize || 0,
           isBot: !!entry.isBot,
           isDailyChampion: !!entry.isDailyChampion,
+          weeklyVocabPodiumRank: Number(entry.weeklyVocabPodiumRank) || 0,
           isWeeklyVocabChampion: !!entry.isWeeklyVocabChampion,
         }));
       return {
@@ -26655,64 +26667,65 @@ function handleTouchEnd(e) {
     return map;
   }, [tournamentFinaleSummary]);
 
-  const weeklyVocabChampionNickSet = React.useMemo(() => {
-    const set = new Set();
-    const add = (entry, force = false) => {
-      if (!force && !entry?.isWeeklyVocabChampion) return;
-      const nick = entry?.nick ? String(entry.nick).trim().toLowerCase() : "";
-      if (nick) set.add(nick);
-    };
-    add(weeklyStats?.previousWeeklyVocabChampion, true);
-    players.forEach(add);
-    lobbyPlayersList.forEach(add);
-    provisionalRanking.forEach(add);
-    finalResults.forEach(add);
-    (tournamentRanking || []).forEach(add);
-    (tournamentFinaleSummary?.ranking || []).forEach(add);
-    return set;
-  }, [
-    players,
-    lobbyPlayersList,
-    provisionalRanking,
-    finalResults,
-    tournamentRanking,
-    tournamentFinaleSummary,
-    weeklyStats?.previousWeeklyVocabChampion,
-  ]);
-  const weeklyVocabChampionIdentity = React.useMemo(() => {
-    const champion = weeklyStats?.previousWeeklyVocabChampion;
-    if (!champion || typeof champion !== "object") {
-      return { nick: "", playerKey: "", installId: "", userId: "" };
+  const devSelfSilverNickEnabled = !!devControls?.enabled && !!devControls?.selfSilverNick;
+  const devSelfBronzeNickEnabled = !!devControls?.enabled && !!devControls?.selfBronzeNick;
+  const weeklyVocabPodiumEntries = React.useMemo(() => {
+    const podium = Array.isArray(weeklyStats?.previousWeeklyVocabPodium)
+      ? weeklyStats.previousWeeklyVocabPodium
+      : [];
+    if (podium.length) {
+      return podium
+        .map((entry, index) => ({ ...entry, rank: Number(entry?.rank) || index + 1 }))
+        .filter((entry) => entry.rank >= 1 && entry.rank <= 3);
     }
-    const playerKey = String(champion.playerKey || "").trim();
-    const installId = String(
-      champion.installId ||
-        (playerKey.startsWith("install:") ? playerKey.slice("install:".length) : "")
-    ).trim();
-    const userId =
-      Number.isInteger(Number(champion.userId)) && Number(champion.userId) > 0
-        ? String(Number(champion.userId))
-        : /^[1-9]\d*$/.test(installId)
-        ? installId
-        : "";
-    return {
-      nick: String(champion.nick || "").trim().toLowerCase(),
-      playerKey,
-      installId,
-      userId,
-    };
-  }, [weeklyStats?.previousWeeklyVocabChampion]);
-  const weeklyVocabChampionNickClass = darkMode
-    ? "text-amber-300 font-black"
-    : "text-amber-600 font-black";
+    const champion = weeklyStats?.previousWeeklyVocabChampion;
+    return champion && typeof champion === "object" ? [{ ...champion, rank: 1 }] : [];
+  }, [weeklyStats?.previousWeeklyVocabChampion, weeklyStats?.previousWeeklyVocabPodium]);
+  const weeklyVocabPodiumIdentities = React.useMemo(
+    () =>
+      weeklyVocabPodiumEntries.map((entry) => {
+        const playerKey = String(entry?.playerKey || "").trim();
+        const installId = String(
+          entry?.installId ||
+            (playerKey.startsWith("install:") ? playerKey.slice("install:".length) : "")
+        ).trim();
+        const userId =
+          Number.isInteger(Number(entry?.userId)) && Number(entry.userId) > 0
+            ? String(Number(entry.userId))
+            : /^[1-9]\d*$/.test(installId)
+            ? installId
+            : "";
+        return {
+          rank: Number(entry?.rank) || 0,
+          nick: String(entry?.nick || "").trim().toLowerCase(),
+          playerKey,
+          installId,
+          userId,
+        };
+      }),
+    [weeklyVocabPodiumEntries]
+  );
+  const weeklyVocabPodiumNickClassByRank = React.useMemo(
+    () => ({
+      1: darkMode ? "text-amber-300 font-black" : "text-amber-600 font-black",
+      2: "nick-podium-silver",
+      3: darkMode ? "text-orange-300 font-black" : "text-orange-700 font-black",
+    }),
+    [darkMode]
+  );
 
-  function isWeeklyVocabChampionEntry(nick, entry = null) {
-    if (entry?.isBot) return false;
+  function getWeeklyVocabPodiumRank(entry = null, nick = "") {
+    if (entry?.isBot) return 0;
     const cleanNick = nick ? String(nick).trim().toLowerCase() : "";
     const cleanSelfNick = selfNick ? String(selfNick).trim().toLowerCase() : "";
-    if (devSelfGoldNickEnabled && cleanNick && cleanSelfNick && cleanNick === cleanSelfNick) {
-      return true;
+    if (cleanNick && cleanSelfNick && cleanNick === cleanSelfNick) {
+      if (devSelfGoldNickEnabled) return 1;
+      if (devSelfSilverNickEnabled) return 2;
+      if (devSelfBronzeNickEnabled) return 3;
     }
+    const explicitRank = Number(entry?.weeklyVocabPodiumRank) || 0;
+    if (explicitRank >= 1 && explicitRank <= 3) return explicitRank;
+    if (entry?.isWeeklyVocabChampion) return 1;
     const entryPlayerKey = String(entry?.playerKey || "").trim();
     const entryInstallId = String(
       entry?.installId ||
@@ -26726,40 +26739,31 @@ function handleTouchEnd(e) {
         : /^[1-9]\d*$/.test(entryInstallId)
         ? entryInstallId
         : "";
-    if (
-      weeklyVocabChampionIdentity.playerKey &&
-      entryPlayerKey &&
-      weeklyVocabChampionIdentity.playerKey === entryPlayerKey
-    ) {
-      return true;
+    for (const identity of weeklyVocabPodiumIdentities) {
+      if (!identity.rank) continue;
+      if (identity.playerKey && entryPlayerKey && identity.playerKey === entryPlayerKey) {
+        return identity.rank;
+      }
+      if (identity.installId && entryInstallId && identity.installId === entryInstallId) {
+        return identity.rank;
+      }
+      if (identity.userId && entryUserId && identity.userId === entryUserId) {
+        return identity.rank;
+      }
+      if (identity.nick && cleanNick && identity.nick === cleanNick) {
+        return identity.rank;
+      }
     }
-    if (
-      weeklyVocabChampionIdentity.installId &&
-      entryInstallId &&
-      weeklyVocabChampionIdentity.installId === entryInstallId
-    ) {
-      return true;
-    }
-    if (
-      weeklyVocabChampionIdentity.userId &&
-      entryUserId &&
-      weeklyVocabChampionIdentity.userId === entryUserId
-    ) {
-      return true;
-    }
-    if (entry?.isWeeklyVocabChampion && weeklyVocabChampionIdentity.nick) {
-      return cleanNick === weeklyVocabChampionIdentity.nick;
-    }
-    if (weeklyVocabChampionIdentity.playerKey || weeklyVocabChampionIdentity.installId) {
-      return false;
-    }
-    return !!cleanNick && weeklyVocabChampionNickSet.has(cleanNick);
+    return 0;
+  }
+
+  function isWeeklyVocabChampionEntry(nick, entry = null) {
+    return getWeeklyVocabPodiumRank(entry, nick || entry?.nick) === 1;
   }
 
   function getLiveNickClassName(entry = null, nick = "") {
-    return isWeeklyVocabChampionEntry(nick || entry?.nick, entry)
-      ? weeklyVocabChampionNickClass
-      : "";
+    const rank = getWeeklyVocabPodiumRank(entry, nick || entry?.nick);
+    return weeklyVocabPodiumNickClassByRank[rank] || "";
   }
 
   const botNickSet = React.useMemo(() => {
@@ -26868,16 +26872,15 @@ function handleTouchEnd(e) {
     return [
       devSelfCrownEnabled ? "dc1" : "dc0",
       devSelfGoldNickEnabled ? "dg1" : "dg0",
+      devSelfSilverNickEnabled ? "ds1" : "ds0",
+      devSelfBronzeNickEnabled ? "db1" : "db0",
       selfNick || "",
       phase,
       breakKind || "",
       tournamentSummaryAt || 0,
       tournamentFinaleHoldUntil || 0,
       setSignature(crownedNickSet),
-      setSignature(weeklyVocabChampionNickSet),
-      weeklyVocabChampionIdentity.playerKey,
-      weeklyVocabChampionIdentity.installId,
-      weeklyVocabChampionIdentity.userId,
+      JSON.stringify(weeklyVocabPodiumIdentities),
       setSignature(botNickSet),
       setSignature(humanNickSet),
       teamSignature,
@@ -26890,6 +26893,8 @@ function handleTouchEnd(e) {
     crownedNickSet,
     devSelfCrownEnabled,
     devSelfGoldNickEnabled,
+    devSelfSilverNickEnabled,
+    devSelfBronzeNickEnabled,
     humanNickSet,
     medals,
     phase,
@@ -26898,8 +26903,7 @@ function handleTouchEnd(e) {
     tournamentFinaleMedals,
     tournamentFinaleHoldUntil,
     tournamentSummaryAt,
-    weeklyVocabChampionIdentity,
-    weeklyVocabChampionNickSet,
+    weeklyVocabPodiumIdentities,
   ]);
 
   function renderMedalsInline(nick, fallbackMedals) {
@@ -28686,7 +28690,7 @@ function handleTouchEnd(e) {
             Course vocabulaire hebdo
           </div>
           <div className="mt-0.5 text-xs font-semibold leading-snug">
-            Le gagnant de la semaine affichera son pseudo en or la semaine suivante.
+            Le podium de la semaine affichera son pseudo en or, argent et bronze la semaine suivante.
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -31140,7 +31144,7 @@ function handleTouchEnd(e) {
       return;
     }
     setDuelWeekRecapPreviewMode(true);
-    setDuelWeekRecapExpanded(false);
+    setDuelWeekRecapPage(0);
     if (duelStatus?.lastWeekSummary) {
       setDuelWeekRecapOpen(true);
       return;
@@ -31191,7 +31195,7 @@ function handleTouchEnd(e) {
     if (summary) {
       duelWeekRecapOpenAfterRefreshRef.current = false;
       setDuelWeekRecapPreviewMode(true);
-      setDuelWeekRecapExpanded(false);
+      setDuelWeekRecapPage(0);
       setDuelWeekRecapOpen(true);
       return;
     }
@@ -32280,20 +32284,14 @@ function handleTouchEnd(e) {
         )
       : null;
   const duelWeekSummary = duelStatus?.lastWeekSummary || null;
-  const duelWeekWinner = duelWeekSummary?.winnerTeam || null;
-  const duelWeekRedScore = Number(duelWeekSummary?.totalsByTeam?.red) || 0;
-  const duelWeekBlueScore = Number(duelWeekSummary?.totalsByTeam?.blue) || 0;
-  const duelWeekScoreGap = Math.abs(duelWeekRedScore - duelWeekBlueScore);
-  const duelWeekMyContribution = duelWeekSummary?.myContribution || null;
-  const duelWeekTopContributors = React.useMemo(() => {
-    const red = Array.isArray(duelWeekSummary?.contributorsByTeam?.red)
-      ? duelWeekSummary.contributorsByTeam.red.slice(0, 5)
+  const duelWeekRacePodium = React.useMemo(() => {
+    const podium = Array.isArray(weeklyStats?.previousWeeklyVocabPodium)
+      ? weeklyStats.previousWeeklyVocabPodium
       : [];
-    const blue = Array.isArray(duelWeekSummary?.contributorsByTeam?.blue)
-      ? duelWeekSummary.contributorsByTeam.blue.slice(0, 5)
-      : [];
-    return { red, blue };
-  }, [duelWeekSummary]);
+    if (podium.length) return podium;
+    const champion = weeklyStats?.previousWeeklyVocabChampion;
+    return champion && typeof champion === "object" ? [{ ...champion, rank: 1 }] : [];
+  }, [weeklyStats?.previousWeeklyVocabChampion, weeklyStats?.previousWeeklyVocabPodium]);
   const closeDuelWeekRecap = React.useCallback(() => {
     const weekId = String(duelWeekSummary?.weekId || "").trim();
     if (!duelWeekRecapPreviewMode && installId && weekId) {
@@ -32302,201 +32300,23 @@ function handleTouchEnd(e) {
       } catch (_) {}
     }
     setDuelWeekRecapOpen(false);
-    setDuelWeekRecapExpanded(false);
+    setDuelWeekRecapPage(0);
     setDuelWeekRecapPreviewMode(false);
   }, [duelWeekRecapPreviewMode, duelWeekSummary?.weekId, installId]);
-  const renderDuelWeekTeamContributors = React.useCallback(
-    (team) => {
-      const list = duelWeekTopContributors[team] || [];
-      const colorClass = team === "red" ? "text-red-400" : "text-blue-400";
-      if (!list.length) {
-        return <div className="text-xs opacity-60">Aucune contribution enregistrée.</div>;
-      }
-      return (
-        <div className="space-y-1">
-          {list.map((entry, idx) => (
-            <div
-              key={`${team}-${entry?.installId || entry?.nick || idx}`}
-              className="flex items-center justify-between gap-2 rounded-lg bg-white/8 px-2 py-1.5 text-xs"
-            >
-              <span className="min-w-0 truncate">
-                <span className={`font-black ${colorClass}`}>#{idx + 1}</span>{" "}
-                <span className="font-semibold">{entry?.nick || "Joueur"}</span>
-              </span>
-              <span className="shrink-0 font-black tabular-nums">
-                {formatNumber(Number(entry?.points) || 0)}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    },
-    [duelWeekTopContributors, formatNumber]
+  const nextDuelWeekRecapPage = React.useCallback(() => {
+    setDuelWeekRecapPage((prev) => Math.min(prev + 1, 2));
+  }, []);
+  const duelWeekRecapOverlay = (
+    <DuelWeekRecapOverlay
+      open={duelWeekRecapOpen}
+      summary={duelWeekSummary}
+      page={duelWeekRecapPage}
+      weeklyVocabPodium={duelWeekRacePodium}
+      onNext={nextDuelWeekRecapPage}
+      onClose={closeDuelWeekRecap}
+      formatNumber={formatNumber}
+    />
   );
-  const duelWeekRecapOverlay =
-    duelWeekRecapOpen && duelWeekSummary && typeof document !== "undefined"
-      ? createPortal(
-          <div className="fixed inset-0 z-[20145] flex items-center justify-center bg-black/60 px-4 py-6">
-            <button
-              type="button"
-              className="absolute inset-0"
-              onClick={closeDuelWeekRecap}
-              aria-label="Fermer le récap duel"
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Récapitulatif du duel hebdomadaire"
-              className="relative w-full max-w-lg overflow-hidden rounded-2xl border-2 border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.98),rgba(7,22,55,0.99))] text-amber-50 shadow-2xl"
-            >
-              <div
-                className={`h-2 w-full ${
-                  duelWeekWinner === "red"
-                    ? "bg-red-500"
-                    : duelWeekWinner === "blue"
-                    ? "bg-blue-500"
-                    : "bg-amber-400"
-                }`}
-              />
-              <div className="p-4 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-black uppercase tracking-[0.22em] opacity-65">
-                      Duel hebdomadaire terminé
-                    </div>
-                    <div className="mt-1 text-2xl font-black leading-tight">
-                      {duelWeekWinner === "red"
-                        ? "Victoire des Rouges"
-                        : duelWeekWinner === "blue"
-                        ? "Victoire des Bleus"
-                        : "Égalité parfaite"}
-                    </div>
-                    <div className="mt-1 text-xs opacity-70">{duelWeekSummary.weekId}</div>
-                  </div>
-                  <button
-                    type="button"
-                    className="h-8 w-8 rounded-full border border-amber-200/30 bg-slate-950/35 text-sm font-black"
-                    onClick={closeDuelWeekRecap}
-                    aria-label="Fermer"
-                  >
-                    x
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 px-3 py-3 text-center">
-                  <div>
-                    <div className="text-[11px] font-black uppercase tracking-wide text-red-300">
-                      Rouges
-                    </div>
-                    <div className="text-2xl font-black tabular-nums text-red-400">
-                      {formatNumber(duelWeekRedScore)}
-                    </div>
-                  </div>
-                  <div className="text-xs font-black opacity-50">VS</div>
-                  <div>
-                    <div className="text-[11px] font-black uppercase tracking-wide text-blue-300">
-                      Bleus
-                    </div>
-                    <div className="text-2xl font-black tabular-nums text-blue-400">
-                      {formatNumber(duelWeekBlueScore)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
-                    <div className="text-[10px] font-black uppercase tracking-wide opacity-55">
-                      Écart final
-                    </div>
-                    <div className="mt-1 font-black tabular-nums">
-                      {formatNumber(duelWeekScoreGap)} pts
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2">
-                    <div className="text-[10px] font-black uppercase tracking-wide opacity-55">
-                      Ta contribution
-                    </div>
-                    <div className="mt-1 font-black tabular-nums">
-                      {formatNumber(Number(duelWeekMyContribution?.points) || 0)} pts
-                    </div>
-                  </div>
-                </div>
-
-                {duelWeekMyContribution ? (
-                  <div className="rounded-xl border border-amber-200/20 bg-amber-300/10 px-3 py-2 text-sm">
-                    <div className="font-semibold">
-                      Tu étais dans l'équipe{" "}
-                      <span className={duelWeekMyContribution.team === "red" ? "text-red-300" : "text-blue-300"}>
-                        {duelWeekMyContribution.team === "red" ? "Rouge" : "Bleue"}
-                      </span>
-                      {duelWeekMyContribution.rank ? `, rang #${duelWeekMyContribution.rank}` : ""}.
-                    </div>
-                    {duelWeekRecapExpanded ? (
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                        <div>
-                          <div className="opacity-60">Objectifs</div>
-                          <div className="font-black">{formatNumber(Number(duelWeekMyContribution.objectivePoints) || 0)}</div>
-                        </div>
-                        <div>
-                          <div className="opacity-60">Gobbles</div>
-                          <div className="font-black">{formatNumber(Number(duelWeekMyContribution.gobblePoints) || 0)}</div>
-                        </div>
-                        <div>
-                          <div className="opacity-60">Médailles</div>
-                          <div className="font-black">{formatNumber(Number(duelWeekMyContribution.medalPoints) || 0)}</div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {duelWeekRecapExpanded ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <div className="mb-1 text-xs font-black uppercase tracking-wide text-red-300">
-                        Top rouges
-                      </div>
-                      {renderDuelWeekTeamContributors("red")}
-                    </div>
-                    <div>
-                      <div className="mb-1 text-xs font-black uppercase tracking-wide text-blue-300">
-                        Top bleus
-                      </div>
-                      {renderDuelWeekTeamContributors("blue")}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="flex-1 rounded-xl border border-amber-300/60 bg-amber-400 px-3 py-2 text-sm font-black text-slate-950"
-                    onClick={() => {
-                      if (duelWeekRecapExpanded) {
-                        closeDuelWeekRecap();
-                      } else {
-                        setDuelWeekRecapExpanded(true);
-                      }
-                    }}
-                  >
-                    {duelWeekRecapExpanded ? "Continuer" : "Voir le détail"}
-                  </button>
-                  {!duelWeekRecapExpanded ? (
-                    <button
-                      type="button"
-                      className="rounded-xl border border-white/15 bg-slate-950/30 px-3 py-2 text-sm font-semibold"
-                      onClick={closeDuelWeekRecap}
-                    >
-                      Fermer
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
   const isBootBlocking = !bootProgress.done;
   const shouldShowBootOverlay = isBootBlocking || bootOverlayVisible;
   const bootOverlay = shouldShowBootOverlay ? (
@@ -34578,6 +34398,7 @@ function handleTouchEnd(e) {
         showTieBreakBadge: true,
         delta,
         isDailyChampion: !!e.isDailyChampion,
+        weeklyVocabPodiumRank: Number(e.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!e.isWeeklyVocabChampion,
       };
     });
@@ -34710,7 +34531,7 @@ function handleTouchEnd(e) {
                 <div className="min-w-0 text-[11px] font-semibold leading-snug">
                   <span className="font-black uppercase tracking-widest">Course vocab</span>
                   <span className="block opacity-85">
-                    Le gagnant de la semaine aura son pseudo en or la semaine suivante.
+                    Le podium de la semaine aura son pseudo en or, argent et bronze la semaine suivante.
                   </span>
                 </div>
                 <div className="shrink-0 rounded-full border border-amber-400 bg-amber-100 px-2 py-1 text-xs font-black tabular-nums text-amber-800 dark:border-amber-200/70 dark:bg-amber-300/20 dark:text-amber-100">
@@ -35054,8 +34875,8 @@ function handleTouchEnd(e) {
                         (!replyPreview.installId &&
                           String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
                     );
-                    const authorNickClass = isWeeklyVocabChampionEntry(author, msg)
-                      ? "text-amber-300 font-black"
+                    const authorNickClass = getLiveNickClassName(msg, author)
+                      ? getLiveNickClassName(msg, author)
                       : isAmbientBot
                       ? darkMode
                         ? "text-slate-400"

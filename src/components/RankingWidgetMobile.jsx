@@ -22,6 +22,7 @@ function areRankingListsEquivalent(left, right) {
     if (!!a.isDailyChampion !== !!b.isDailyChampion) return false;
     if (!!a.crowned !== !!b.crowned) return false;
     if (!!a.isWeeklyChampion !== !!b.isWeeklyChampion) return false;
+    if ((Number(a.weeklyVocabPodiumRank) || 0) !== (Number(b.weeklyVocabPodiumRank) || 0)) return false;
     if (!!a.isWeeklyVocabChampion !== !!b.isWeeklyVocabChampion) return false;
     if ((a.team || "") !== (b.team || "")) return false;
     if ((a.gobbles || 0) !== (b.gobbles || 0)) return false;

@@ -253,12 +253,21 @@ function DesktopChatPanel({
               (!replyPreview.installId &&
                 String(replyPreview.nick || "").trim() === String(selfNick || "").trim()))
           );
+          const podiumRank = Number(msg?.weeklyVocabPodiumRank) || (msg?.isWeeklyVocabChampion ? 1 : 0);
+          const podiumClass =
+            podiumRank === 1
+              ? "text-amber-300 font-black"
+              : podiumRank === 2
+              ? "nick-podium-silver"
+              : podiumRank === 3
+              ? "text-orange-300 font-black"
+              : "";
           const authorNickClass =
             (typeof getAuthorNickClassName === "function"
               ? getAuthorNickClassName(msg, author)
               : "") ||
-            (msg?.isWeeklyVocabChampion
-              ? "text-amber-300 font-black"
+            (podiumClass
+              ? podiumClass
               : isAmbientBot
               ? darkMode
                 ? "text-slate-400"

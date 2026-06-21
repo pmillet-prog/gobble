@@ -1,6 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
+import { BOT_ANIMATOR_ROSTER, BOT_ROSTER_4X4, BOT_ROSTER_5X5 } from "../bots/botManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,11 @@ const DUEL_STATE_REGRESSION_SCORE_MARGIN = 1000;
 const DUEL_START_WEEK_ID = String(process.env.GOBBLE_DUEL_START_WEEK_ID || "2026-W08").trim();
 
 const TEAM_VALUES = ["red", "blue"];
+const BOT_NICK_SET = new Set(
+  [...BOT_ROSTER_4X4, ...BOT_ROSTER_5X5, ...BOT_ANIMATOR_ROSTER]
+    .map((bot) => bot?.nick)
+    .filter(Boolean)
+);
 const OBJECTIVE_BUCKETS = ["easy", "medium", "hard"];
 const OBJECTIVE_POINTS_BY_BUCKET = {
   easy: 10,
@@ -810,6 +816,74 @@ async function readWeeklyStatsForWeek(previousWeekId) {
     return Object.values(merged);
   } catch (_) {
     return [];
+  }
+}
+
+function sortWeeklyRecordEntries(entries, valueKey, asc = false) {
+  return [...(Array.isArray(entries) ? entries : [])]
+    .filter((entry) => entry && typeof entry === "object")
+    .filter((entry) => !BOT_NICK_SET.has(entry?.nick))
+    .sort((a, b) => {
+      const diff = (Number(b?.[valueKey]) || 0) - (Number(a?.[valueKey]) || 0);
+      if (diff !== 0) return asc ? -diff : diff;
+      const timeDiff = (Number(a?.achievedAt) || 0) - (Number(b?.achievedAt) || 0);
+      if (timeDiff !== 0) return timeDiff;
+      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+    });
+}
+
+async function readWeeklyRecordBoardsForWeek(targetWeekId) {
+  const empty = { medals: [], mostWordsInGame: [], totalScore: [] };
+  try {
+    const raw = await fs.readFile(WEEKLY_STATS_PATH, "utf8");
+    const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+    const parsed = JSON.parse(cleaned);
+    if (!parsed || typeof parsed !== "object") return empty;
+    const weeks = [];
+    const scanWeek = (value) => {
+      if (!value || typeof value !== "object") return;
+      const ts = Number(value.weekStartTs);
+      if (!Number.isFinite(ts) || ts <= 0) return;
+      if (getParisWeekId(new Date(ts)) !== targetWeekId) return;
+      weeks.push(value);
+    };
+    scanWeek(parsed);
+    const history = parsed.history && typeof parsed.history === "object" ? parsed.history : {};
+    Object.values(history).forEach((value) => scanWeek(value));
+    if (!weeks.length) return empty;
+
+    const mergeBoard = (boardKey, valueKey) => {
+      const merged = {};
+      for (const week of weeks) {
+        const board = week?.[boardKey] && typeof week[boardKey] === "object" ? week[boardKey] : {};
+        for (const [playerKey, entry] of Object.entries(board)) {
+          if (!entry || typeof entry !== "object") continue;
+          const key = String(entry.playerKey || playerKey || "").trim();
+          if (!key) continue;
+          const current = merged[key];
+          const nextValue = Number(entry?.[valueKey]) || 0;
+          if (!current || nextValue > (Number(current?.[valueKey]) || 0)) {
+            merged[key] = {
+              ...entry,
+              playerKey: key,
+              nick: normalizeNick(entry?.nick) || "Joueur",
+            };
+          }
+        }
+      }
+      return Object.values(merged);
+    };
+
+    return {
+      medals: sortWeeklyRecordEntries(mergeBoard("medals", "total"), "total").slice(0, 3),
+      mostWordsInGame: sortWeeklyRecordEntries(
+        mergeBoard("mostWordsInGame", "wordsCount"),
+        "wordsCount"
+      ).slice(0, 3),
+      totalScore: sortWeeklyRecordEntries(mergeBoard("totalScore", "totalScore"), "totalScore").slice(0, 3),
+    };
+  } catch (_) {
+    return empty;
   }
 }
 
@@ -1850,6 +1924,7 @@ export async function getWeeklyDuelRecap(weekId = null, installId = "", { finali
   if (!week) return null;
   const totals = getTeamTotals(week);
   const contributorsByTeam = await buildWeeklyContributorsByTeam(week);
+  const weeklyRecords = await readWeeklyRecordBoardsForWeek(safeWeekId);
   const winnerTeam =
     totals.totalByTeam.red === totals.totalByTeam.blue
       ? null
@@ -1899,6 +1974,7 @@ export async function getWeeklyDuelRecap(weekId = null, installId = "", { finali
     dailyBonusPointsByTeam: totals.dailyBonusByTeam,
     medalPointsByTeam: totals.medalByTeam,
     contributorsByTeam,
+    weeklyRecords,
     winnerTeam,
     myContribution,
   };

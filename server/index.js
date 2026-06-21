@@ -46,6 +46,7 @@ import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
 import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
+  getPreviousWeeklyVocabPodium,
   getWeeklyStats,
   recordBestSpecial3Score,
   recordBestRoundScore,
@@ -1334,6 +1335,7 @@ app.get("/api/players", async (req, res) => {
       team: getTeamForInstallCached(p?.installId),
       isBot: isBotToken(p?.token),
       isDailyChampion: isDailyChampionPlayer(p),
+      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(p),
       isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(p),
     }))
     .filter((p) => p.nick)
@@ -1716,12 +1718,20 @@ const DEFAULT_DEV_CONTROLS = Object.freeze({
   botReactions: false,
   selfCrown: false,
   selfGoldNick: false,
+  selfSilverNick: false,
+  selfBronzeNick: false,
   selfCrownTargetUserId: "",
   selfCrownTargetInstallId: "",
   selfCrownTargetNick: "",
   selfGoldNickTargetUserId: "",
   selfGoldNickTargetInstallId: "",
   selfGoldNickTargetNick: "",
+  selfSilverNickTargetUserId: "",
+  selfSilverNickTargetInstallId: "",
+  selfSilverNickTargetNick: "",
+  selfBronzeNickTargetUserId: "",
+  selfBronzeNickTargetInstallId: "",
+  selfBronzeNickTargetNick: "",
 });
 let devControls = loadDevControls();
 const moderationInstallBans = new Map();
@@ -1952,12 +1962,20 @@ function normalizeDevControls(raw = {}) {
     botReactions: !!source.botReactions,
     selfCrown: !!source.selfCrown,
     selfGoldNick: !!source.selfGoldNick,
+    selfSilverNick: !!source.selfSilverNick,
+    selfBronzeNick: !!source.selfBronzeNick,
     selfCrownTargetUserId: String(source.selfCrownTargetUserId || "").trim(),
     selfCrownTargetInstallId: normalizeInstallIdRaw(source.selfCrownTargetInstallId || ""),
     selfCrownTargetNick: String(source.selfCrownTargetNick || "").trim(),
     selfGoldNickTargetUserId: String(source.selfGoldNickTargetUserId || "").trim(),
     selfGoldNickTargetInstallId: normalizeInstallIdRaw(source.selfGoldNickTargetInstallId || ""),
     selfGoldNickTargetNick: String(source.selfGoldNickTargetNick || "").trim(),
+    selfSilverNickTargetUserId: String(source.selfSilverNickTargetUserId || "").trim(),
+    selfSilverNickTargetInstallId: normalizeInstallIdRaw(source.selfSilverNickTargetInstallId || ""),
+    selfSilverNickTargetNick: String(source.selfSilverNickTargetNick || "").trim(),
+    selfBronzeNickTargetUserId: String(source.selfBronzeNickTargetUserId || "").trim(),
+    selfBronzeNickTargetInstallId: normalizeInstallIdRaw(source.selfBronzeNickTargetInstallId || ""),
+    selfBronzeNickTargetNick: String(source.selfBronzeNickTargetNick || "").trim(),
   };
 }
 
@@ -2037,7 +2055,7 @@ function ensureDevSelfRewardTarget(controls, prefix, socket) {
 
 function applyDevSelfRewardTargetPatch(previousControls, nextControls, payload, socket) {
   const patch = payload && typeof payload === "object" ? payload : {};
-  for (const prefix of ["selfCrown", "selfGoldNick"]) {
+  for (const prefix of ["selfCrown", "selfGoldNick", "selfSilverNick", "selfBronzeNick"]) {
     if (!Object.prototype.hasOwnProperty.call(patch, prefix)) {
       continue;
     }
@@ -2052,6 +2070,12 @@ function applyDevSelfRewardTargetPatch(previousControls, nextControls, payload, 
   }
   if (nextControls.selfGoldNick && !previousControls.selfGoldNick) {
     ensureDevSelfRewardTarget(nextControls, "selfGoldNick", socket);
+  }
+  if (nextControls.selfSilverNick && !previousControls.selfSilverNick) {
+    ensureDevSelfRewardTarget(nextControls, "selfSilverNick", socket);
+  }
+  if (nextControls.selfBronzeNick && !previousControls.selfBronzeNick) {
+    ensureDevSelfRewardTarget(nextControls, "selfBronzeNick", socket);
   }
 }
 
@@ -2476,43 +2500,60 @@ function isDailyChampionPlayer(player) {
   return isDailyChampionInstallId(player?.installId);
 }
 
-let weeklyVocabChampionCache = { checkedAt: 0, champion: null };
+let weeklyVocabPodiumCache = { checkedAt: 0, podium: [] };
 
-function getCachedPreviousWeeklyVocabChampion() {
+function getCachedPreviousWeeklyVocabPodium() {
   const now = Date.now();
-  if (now - weeklyVocabChampionCache.checkedAt < 5000) {
-    return weeklyVocabChampionCache.champion;
+  if (now - weeklyVocabPodiumCache.checkedAt < 5000) {
+    return weeklyVocabPodiumCache.podium;
   }
-  const champion = getPreviousWeeklyVocabChampion(now);
-  weeklyVocabChampionCache = { checkedAt: now, champion };
-  return champion;
+  const podium = getPreviousWeeklyVocabPodium(now, 3);
+  weeklyVocabPodiumCache = { checkedAt: now, podium: Array.isArray(podium) ? podium : [] };
+  return weeklyVocabPodiumCache.podium;
+}
+
+function getDevWeeklyVocabPodiumRank(subject = {}) {
+  if (isDevSelfRewardTarget("selfGoldNick", subject)) return 1;
+  if (isDevSelfRewardTarget("selfSilverNick", subject)) return 2;
+  if (isDevSelfRewardTarget("selfBronzeNick", subject)) return 3;
+  return 0;
+}
+
+function getWeeklyVocabPodiumRankForSubject(subject = {}) {
+  if (subject?.isBot) return 0;
+  const devRank = getDevWeeklyVocabPodiumRank(subject);
+  if (devRank) return devRank;
+  const podium = getCachedPreviousWeeklyVocabPodium();
+  if (!podium.length) return 0;
+  const playerKey = getMedalKeyForPlayer(subject);
+  const installId = normalizeInstallId(subject?.installId);
+  const nick = typeof subject?.nick === "string" ? subject.nick.trim() : "";
+  for (const entry of podium) {
+    const rank = Number(entry?.rank) || 0;
+    if (!rank) continue;
+    if (entry?.playerKey && playerKey && entry.playerKey === playerKey) return rank;
+    if (entry?.installId && installId && entry.installId === installId) return rank;
+    if (!entry?.playerKey && !entry?.installId && entry?.nick && nick && entry.nick === nick) {
+      return rank;
+    }
+  }
+  return 0;
 }
 
 function isWeeklyVocabChampionPlayer(player) {
-  if (player?.isBot) return false;
-  if (isDevSelfRewardTarget("selfGoldNick", player)) return true;
-  const champion = getCachedPreviousWeeklyVocabChampion();
-  if (!champion) return false;
-  const playerKey = getMedalKeyForPlayer(player);
-  if (champion.playerKey && playerKey && champion.playerKey === playerKey) return true;
-  const installId = normalizeInstallId(player?.installId);
-  if (champion.installId && installId && champion.installId === installId) return true;
-  if (champion.playerKey || champion.installId) return false;
-  const nick = typeof player?.nick === "string" ? player.nick.trim() : "";
-  return !!champion.nick && !!nick && champion.nick === nick;
+  return getWeeklyVocabPodiumRankForSubject(player) === 1;
 }
 
 function isWeeklyVocabChampionInstallId(raw, fallbackNick = "") {
-  if (isDevSelfRewardTarget("selfGoldNick", { installId: raw, fallbackNick })) return true;
-  const champion = getCachedPreviousWeeklyVocabChampion();
-  if (!champion) return false;
-  const playerKey = getMedalKeyForInstallId(raw);
-  if (champion.playerKey && playerKey && champion.playerKey === playerKey) return true;
-  const installId = normalizeInstallId(raw);
-  if (champion.installId && installId && champion.installId === installId) return true;
-  if (champion.playerKey || champion.installId) return false;
-  const nick = typeof fallbackNick === "string" ? fallbackNick.trim() : "";
-  return !!champion.nick && !!nick && champion.nick === nick;
+  return getWeeklyVocabPodiumRankForSubject({ installId: raw, fallbackNick }) === 1;
+}
+
+function getWeeklyVocabPodiumRankForPlayer(player) {
+  return getWeeklyVocabPodiumRankForSubject(player);
+}
+
+function getWeeklyVocabPodiumRankForInstallId(raw, fallbackNick = "") {
+  return getWeeklyVocabPodiumRankForSubject({ installId: raw, fallbackNick });
 }
 
 function getTeamForInstallCached(rawInstallId) {
@@ -3420,6 +3461,7 @@ function emitPlayers(room) {
         isBot: isBotToken(p?.token),
         connected: isPlayerConnected(p) || isBotToken(p?.token),
         isDailyChampion: isDailyChampionPlayer(p),
+        weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(p),
         isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(p),
       }))
   );
@@ -3971,6 +4013,7 @@ function buildLiveRanking(room, roundId) {
       gobbles: Number(roundGobbles.get(player.nick)) || 0,
       team: getTeamForInstallCached(player.installId),
       isDailyChampion: isDailyChampionPlayer(player),
+      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(player),
       isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     });
   }
@@ -3983,6 +4026,7 @@ function buildLiveRanking(room, roundId) {
     gobbles: Number(entry.gobbles) || 0,
     team: entry.team || null,
     isDailyChampion: !!entry.isDailyChampion,
+    weeklyVocabPodiumRank: Number(entry.weeklyVocabPodiumRank) || 0,
     isWeeklyVocabChampion: !!entry.isWeeklyVocabChampion,
   }));
 }
@@ -4037,6 +4081,7 @@ function buildSessionSnapshot(room, player) {
     participated,
     team: getTeamForInstallCached(player.installId),
     isDailyChampion: isDailyChampionPlayer(player),
+    weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(player),
     isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     special3Words,
   };
@@ -4099,6 +4144,7 @@ function buildRankingUpdatePayload(room) {
       gobbles: Number(roundGobbles.get(player.nick)) || 0,
       team: getTeamForInstallCached(player.installId),
       isDailyChampion: isDailyChampionPlayer(player),
+      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(player),
       isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     });
   }
@@ -4112,12 +4158,13 @@ function buildRankingUpdatePayload(room) {
     gobbles: Number(entry.gobbles) || 0,
     team: entry.team || null,
     isDailyChampion: entry.isDailyChampion || false,
+    weeklyVocabPodiumRank: Number(entry.weeklyVocabPodiumRank) || 0,
     isWeeklyVocabChampion: entry.isWeeklyVocabChampion || false,
   }));
   const signature = ranking
     .map(
       (entry) =>
-        `${entry.nick}:${Number(entry.score) || 0}:${Number(entry.gobbles) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}:${entry.isWeeklyVocabChampion ? 1 : 0}`
+        `${entry.nick}:${Number(entry.score) || 0}:${Number(entry.gobbles) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}:${Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0)}`
     )
     .join("|");
 
@@ -6209,6 +6256,7 @@ function getFullRanking(room) {
       gobbles: Number(roundGobbles.get(nick)) || 0,
       team: getTeamForInstallCached(lookup?.player?.installId),
       isDailyChampion: isDailyChampionInstallId(lookup?.player?.installId),
+      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForInstallId(lookup?.player?.installId, nick),
       isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(lookup?.player?.installId, nick),
     });
   }
@@ -6630,6 +6678,7 @@ function computeOcidRoundResults(room, baseResults) {
         team: getTeamForInstallCached(player?.installId),
         isBot: isBotNick(room, player.nick),
         isDailyChampion: isDailyChampionPlayer(player),
+        weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(player),
         isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
         connected,
         roundEligible,
@@ -9142,6 +9191,7 @@ async function endRoundForRoom(room) {
       team: getTeamForInstallCached(player?.installId),
       isBot: isBotNick(room, nick),
       isDailyChampion: isDailyChampionPlayer(player),
+      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForInstallId(player?.installId, nick),
       isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(player?.installId, nick),
       connected,
       participated,
@@ -9619,6 +9669,7 @@ async function endRoundForRoom(room) {
         team: getTeamForInstallCached(player?.installId),
         isBot: isBotToken(player?.token),
         isDailyChampion: isDailyChampionPlayer(player),
+        weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(player),
         isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
         connected,
         participated: !!meta,
@@ -9696,6 +9747,7 @@ async function endRoundForRoom(room) {
           team: getTeamForInstallCached(installId),
           isBot: isBotNick(room, nick),
           isDailyChampion: isDailyChampionInstallId(installId),
+          weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForInstallId(installId, nick),
           isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(installId, nick),
         };
       })
@@ -10354,6 +10406,7 @@ io.on("connection", (socket) => {
       text: safeText,
       team: getTeamForInstallCached(installId),
       isDailyChampion: isDailyChampionInstallId(installId),
+      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForInstallId(installId, authorNick),
       isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(installId, authorNick),
     };
     if (replyTo) {
@@ -10574,6 +10627,8 @@ io.on("connection", (socket) => {
     let targetChanged = false;
     targetChanged = ensureDevSelfRewardTarget(devControls, "selfCrown", socket) || targetChanged;
     targetChanged = ensureDevSelfRewardTarget(devControls, "selfGoldNick", socket) || targetChanged;
+    targetChanged = ensureDevSelfRewardTarget(devControls, "selfSilverNick", socket) || targetChanged;
+    targetChanged = ensureDevSelfRewardTarget(devControls, "selfBronzeNick", socket) || targetChanged;
     if (targetChanged) {
       persistDevControls();
       broadcastCrownUpdate();
@@ -10625,12 +10680,20 @@ io.on("connection", (socket) => {
     if (
       previous.selfCrown !== devControls.selfCrown ||
       previous.selfGoldNick !== devControls.selfGoldNick ||
+      previous.selfSilverNick !== devControls.selfSilverNick ||
+      previous.selfBronzeNick !== devControls.selfBronzeNick ||
       previous.selfCrownTargetUserId !== devControls.selfCrownTargetUserId ||
       previous.selfCrownTargetInstallId !== devControls.selfCrownTargetInstallId ||
       previous.selfCrownTargetNick !== devControls.selfCrownTargetNick ||
       previous.selfGoldNickTargetUserId !== devControls.selfGoldNickTargetUserId ||
       previous.selfGoldNickTargetInstallId !== devControls.selfGoldNickTargetInstallId ||
-      previous.selfGoldNickTargetNick !== devControls.selfGoldNickTargetNick
+      previous.selfGoldNickTargetNick !== devControls.selfGoldNickTargetNick ||
+      previous.selfSilverNickTargetUserId !== devControls.selfSilverNickTargetUserId ||
+      previous.selfSilverNickTargetInstallId !== devControls.selfSilverNickTargetInstallId ||
+      previous.selfSilverNickTargetNick !== devControls.selfSilverNickTargetNick ||
+      previous.selfBronzeNickTargetUserId !== devControls.selfBronzeNickTargetUserId ||
+      previous.selfBronzeNickTargetInstallId !== devControls.selfBronzeNickTargetInstallId ||
+      previous.selfBronzeNickTargetNick !== devControls.selfBronzeNickTargetNick
     ) {
       broadcastCrownUpdate();
     }

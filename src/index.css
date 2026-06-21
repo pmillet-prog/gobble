@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+.nick-podium-silver {
+  font-weight: 900;
+  color: #334155;
+  background-image: linear-gradient(180deg, #0f172a 0%, #64748b 42%, #1d4ed8 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.62),
+    0 0 1px rgba(29, 78, 216, 0.42);
+}
+
+.dark .nick-podium-silver {
+  color: #f8fafc;
+  background-image: linear-gradient(180deg, #ffffff 0%, #e2e8f0 44%, #94a3b8 100%);
+  text-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.95),
+    0 0 1px rgba(255, 255, 255, 0.72);
+}
+
 [class*="grid-"] {
   display: grid;
 }

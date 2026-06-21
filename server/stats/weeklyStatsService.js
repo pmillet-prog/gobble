@@ -631,13 +631,13 @@ function sortEntries(arr, key, asc = false) {
   });
 }
 
-export function getPreviousWeeklyVocabChampion(now = Date.now()) {
+export function getPreviousWeeklyVocabPodium(now = Date.now(), limit = 3) {
   ensureCurrentWeek();
   const currentWeekStart = state.weekStartTs || getWeekStartTs(now);
   const previousWeekStart = getWeekStartTs(currentWeekStart - 60 * 1000);
   const previousWeek = history.get(previousWeekStart);
-  if (!previousWeek?.weeklyVocab || previousWeek.weeklyVocab.size === 0) return null;
-  const winner = Array.from(previousWeek.weeklyVocab.values())
+  if (!previousWeek?.weeklyVocab || previousWeek.weeklyVocab.size === 0) return [];
+  return Array.from(previousWeek.weeklyVocab.values())
     .filter((entry) => Number(entry?.weeklyVocabCount) > 0)
     .sort((a, b) => {
       const countDiff =
@@ -646,17 +646,29 @@ export function getPreviousWeeklyVocabChampion(now = Date.now()) {
       const timeDiff = (Number(a?.achievedAt) || 0) - (Number(b?.achievedAt) || 0);
       if (timeDiff !== 0) return timeDiff;
       return String(a?.nick || "").localeCompare(String(b?.nick || ""));
-    })[0];
+    })
+    .slice(0, Math.max(1, Math.trunc(Number(limit) || 3)))
+    .map((entry, index) => {
+      const playerKey = typeof entry.playerKey === "string" ? entry.playerKey.trim() : "";
+      const installId = playerKey.startsWith("install:") ? playerKey.slice("install:".length) : "";
+      return {
+        rank: index + 1,
+        nick: typeof entry.nick === "string" ? entry.nick.trim() : "",
+        playerKey,
+        installId,
+        weeklyVocabCount: Number(entry.weeklyVocabCount) || 0,
+        achievedAt: Number(entry.achievedAt) || 0,
+        weekStartTs: Number(previousWeek.weekStartTs) || 0,
+      };
+    });
+}
+
+export function getPreviousWeeklyVocabChampion(now = Date.now()) {
+  const winner = getPreviousWeeklyVocabPodium(now, 1)[0];
   if (!winner) return null;
-  const playerKey = typeof winner.playerKey === "string" ? winner.playerKey.trim() : "";
-  const installId = playerKey.startsWith("install:") ? playerKey.slice("install:".length) : "";
   return {
-    nick: typeof winner.nick === "string" ? winner.nick.trim() : "",
-    playerKey,
-    installId,
-    weeklyVocabCount: Number(winner.weeklyVocabCount) || 0,
-    achievedAt: Number(winner.achievedAt) || 0,
-    weekStartTs: Number(previousWeek.weekStartTs) || 0,
+    ...winner,
+    rank: 1,
   };
 }
 
@@ -666,7 +678,8 @@ export function getWeeklyStats(topN = TOP_N) {
   const activeState = state;
   const weekStartTs = activeState.weekStartTs;
   const nextResetTs = getNextResetTs(weekStartTs);
-  const previousWeeklyVocabChampion = getPreviousWeeklyVocabChampion();
+  const previousWeeklyVocabPodium = getPreviousWeeklyVocabPodium();
+  const previousWeeklyVocabChampion = previousWeeklyVocabPodium[0] || null;
   const mostWords = Array.from(activeState.mostWordsInGame.values()).filter(
     (entry) => Number(entry?.wordsCount) > 0
   );
@@ -682,6 +695,7 @@ export function getWeeklyStats(topN = TOP_N) {
     nextResetTs,
     nextResetISO: new Date(nextResetTs).toISOString(),
     previousWeeklyVocabChampion,
+    previousWeeklyVocabPodium,
     topN,
     boards: {
       medals: sortEntries(Array.from(activeState.medals.values()), "total", false).slice(0, topN),
