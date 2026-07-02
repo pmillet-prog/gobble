@@ -1,6 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
+import { pruneTimestampedBackups } from "../persistence/backupRetention.js";
 import { BOT_ANIMATOR_ROSTER, BOT_ROSTER_4X4, BOT_ROSTER_5X5 } from "../bots/botManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -654,6 +655,7 @@ async function maybeBackupFile(filePath) {
   try {
     await fs.copyFile(filePath, backupPath);
     lastBackupAt = now;
+    await pruneTimestampedBackups(filePath);
   } catch (_) {}
 }
 
@@ -833,7 +835,12 @@ function sortWeeklyRecordEntries(entries, valueKey, asc = false) {
 }
 
 async function readWeeklyRecordBoardsForWeek(targetWeekId) {
-  const empty = { medals: [], mostWordsInGame: [], totalScore: [] };
+  const empty = {
+    medals: [],
+    mostWordsInGame: [],
+    totalScore: [],
+    weeklyVocabPodium: [],
+  };
   try {
     const raw = await fs.readFile(WEEKLY_STATS_PATH, "utf8");
     const cleaned = raw.length > 0 && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
@@ -881,6 +888,16 @@ async function readWeeklyRecordBoardsForWeek(targetWeekId) {
         "wordsCount"
       ).slice(0, 3),
       totalScore: sortWeeklyRecordEntries(mergeBoard("totalScore", "totalScore"), "totalScore").slice(0, 3),
+      weeklyVocabPodium: sortWeeklyRecordEntries(
+        mergeBoard("weeklyVocab", "weeklyVocabCount"),
+        "weeklyVocabCount"
+      )
+        .slice(0, 3)
+        .map((entry, index) => ({
+          ...entry,
+          rank: index + 1,
+          weeklyVocabCount: Number(entry?.weeklyVocabCount) || 0,
+        })),
     };
   } catch (_) {
     return empty;
@@ -1924,7 +1941,15 @@ export async function getWeeklyDuelRecap(weekId = null, installId = "", { finali
   if (!week) return null;
   const totals = getTeamTotals(week);
   const contributorsByTeam = await buildWeeklyContributorsByTeam(week);
-  const weeklyRecords = await readWeeklyRecordBoardsForWeek(safeWeekId);
+  const weeklySnapshot = await readWeeklyRecordBoardsForWeek(safeWeekId);
+  const weeklyVocabPodium = Array.isArray(weeklySnapshot?.weeklyVocabPodium)
+    ? weeklySnapshot.weeklyVocabPodium
+    : [];
+  const weeklyRecords = {
+    medals: weeklySnapshot?.medals || [],
+    mostWordsInGame: weeklySnapshot?.mostWordsInGame || [],
+    totalScore: weeklySnapshot?.totalScore || [],
+  };
   const winnerTeam =
     totals.totalByTeam.red === totals.totalByTeam.blue
       ? null
@@ -1975,6 +2000,7 @@ export async function getWeeklyDuelRecap(weekId = null, installId = "", { finali
     medalPointsByTeam: totals.medalByTeam,
     contributorsByTeam,
     weeklyRecords,
+    weeklyVocabPodium,
     winnerTeam,
     myContribution,
   };

@@ -5,7 +5,6 @@ import GridTileLetter from "./GridTileLetter.jsx";
 import {
   isTraceTileHighlighted,
   registerTraceTile,
-  syncTraceTileClasses,
 } from "./traceStateStore.js";
 
 export function getBonusBadgeClass(displayBonus) {
@@ -57,24 +56,11 @@ function GridTileButton({
     },
     [boardIndex, tileRefs, trackTraceUsed]
   );
-  React.useEffect(
-    () => () => {
-      if (unregisterTraceTileRef.current) {
-        unregisterTraceTileRef.current();
-        unregisterTraceTileRef.current = null;
-      }
-    },
-    []
-  );
   const isFakeTwinsTile = cell?.specialType === FAKE_TWINS_TYPE && cell?.altLetter;
   const isTraceUsed = trackTraceUsed && isTraceTileHighlighted(boardIndex);
   const resolvedClassName = `${className}${isFakeTwinsTile ? " fake-twins-tile" : ""}${
     isTraceUsed ? " tile-used" : ""
   }`.trim();
-
-  React.useLayoutEffect(() => {
-    if (trackTraceUsed) syncTraceTileClasses();
-  }, [boardIndex, resolvedClassName, trackTraceUsed]);
 
   return (
     <button

@@ -150,6 +150,43 @@ const styles = `
 .home-duel-score-blue {
   left: 23%;
 }
+.home-week-recap {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  margin-top: -4px;
+  margin-bottom: 2px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 224, 138, 0.72);
+  border-radius: 8px;
+  background: rgba(8, 29, 70, 0.82);
+  color: #fff1bd;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition: transform 130ms ease, filter 130ms ease, opacity 130ms ease;
+  z-index: 3;
+}
+.home-week-recap:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+.home-week-recap:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.home-week-recap:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+.home-week-recap .material-icons-outlined {
+  font-size: 18px;
+  line-height: 1;
+}
 .home-play {
   width: min(68vw, 390px);
   z-index: 1;
@@ -340,6 +377,19 @@ const styles = `
     width: 35vw;
     margin: 0;
   }
+  .home-week-recap {
+    position: absolute;
+    left: 68.4vw;
+    top: 35.4vh;
+    min-height: 2vw;
+    margin: 0;
+    padding: 0.35vw 0.55vw;
+    gap: 0.3vw;
+    font-size: 0.65vw;
+  }
+  .home-week-recap .material-icons-outlined {
+    font-size: 1vw;
+  }
   .home-duel-score { font-size: 1.34vw; }
   .home-status-panel {
     position: absolute;
@@ -443,6 +493,7 @@ function HomeLobby({
   onOpenSettings,
   onOpenStats,
   onOpenVault,
+  onOpenWeeklyRecap,
   onPlay,
   onResume,
   playerTeam = "",
@@ -450,6 +501,7 @@ function HomeLobby({
   resumePhaseLabel = "",
   resumeRoomLabel = "",
   savedSessionNick = "",
+  weeklyRecapLoading = false,
 }) {
   const statusText =
     loginError ||
@@ -504,6 +556,19 @@ function HomeLobby({
             {formatDuelScore(duelRedScore)}
           </span>
         </HomeImageButton>
+        <button
+          type="button"
+          className="home-week-recap"
+          onClick={onOpenWeeklyRecap}
+          disabled={weeklyRecapLoading}
+          aria-label="Revoir le récapitulatif de la semaine"
+          title="Récapitulatif de la semaine"
+        >
+          <span className="material-icons-outlined" aria-hidden="true">
+            {weeklyRecapLoading ? "hourglass_top" : "emoji_events"}
+          </span>
+          <span>{weeklyRecapLoading ? "Chargement..." : "Récap semaine"}</span>
+        </button>
 
         <div
           className={`home-status-panel ${

@@ -150,6 +150,7 @@ function isThemeOptionUnlocked(unlocks, category, optionId) {
 }
 
 let db = null;
+let initPromise = null;
 const SQLITE_BUSY_MAX_RETRIES = 30;
 const SQLITE_BUSY_RETRY_BASE_MS = 80;
 
@@ -416,52 +417,76 @@ async function applyGlobalGrantToAllExistingProfilesOnce() {
 
 export async function initGobblarsService({ applyGlobalGrant = true } = {}) {
   if (db) return;
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-    await runSerializedWrite(async () => {
-      await db.exec("PRAGMA journal_mode = WAL;");
-      await db.exec("PRAGMA busy_timeout = 15000;");
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS gobblar_profiles (
-          installId TEXT PRIMARY KEY,
-          balance INTEGER NOT NULL DEFAULT 0,
-          themeApplied TEXT NOT NULL DEFAULT '{}',
-          themeUnlocks TEXT NOT NULL DEFAULT '{}',
-          updatedAt INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS gobblar_ledger (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          installId TEXT NOT NULL,
-          ts INTEGER NOT NULL,
-          delta INTEGER NOT NULL,
-          reason TEXT NOT NULL,
-          meta TEXT
-        );
-        CREATE TABLE IF NOT EXISTS gobblar_week_rewards (
-          installId TEXT NOT NULL,
-          weekId TEXT NOT NULL,
-          source TEXT NOT NULL,
-          amount INTEGER NOT NULL,
-          awardedAt INTEGER NOT NULL,
-          PRIMARY KEY(installId, weekId, source)
-        );
-        CREATE TABLE IF NOT EXISTS gobblar_global_grants (
-          installId TEXT NOT NULL,
-          grantKey TEXT NOT NULL,
-          amount INTEGER NOT NULL,
-          awardedAt INTEGER NOT NULL,
-          PRIMARY KEY(installId, grantKey)
-        );
-      `);
-    });
-    if (applyGlobalGrant) {
-      await applyGlobalGrantToAllExistingProfilesOnce();
-    }
-  } catch (err) {
-    console.warn("Gobblars service init failed", err);
-    db = null;
+  if (initPromise) {
+    await initPromise;
+    return;
   }
+
+  initPromise = (async () => {
+    let openedDb = null;
+    try {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      openedDb = await open({ filename: DB_PATH, driver: sqlite3.Database });
+      await runSerializedWrite(async () => {
+        await openedDb.exec("PRAGMA journal_mode = WAL;");
+        await openedDb.exec("PRAGMA busy_timeout = 15000;");
+        await openedDb.exec(`
+          CREATE TABLE IF NOT EXISTS gobblar_profiles (
+            installId TEXT PRIMARY KEY,
+            balance INTEGER NOT NULL DEFAULT 0,
+            themeApplied TEXT NOT NULL DEFAULT '{}',
+            themeUnlocks TEXT NOT NULL DEFAULT '{}',
+            updatedAt INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS gobblar_ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            installId TEXT NOT NULL,
+            ts INTEGER NOT NULL,
+            delta INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            meta TEXT
+          );
+          CREATE TABLE IF NOT EXISTS gobblar_week_rewards (
+            installId TEXT NOT NULL,
+            weekId TEXT NOT NULL,
+            source TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            awardedAt INTEGER NOT NULL,
+            PRIMARY KEY(installId, weekId, source)
+          );
+          CREATE TABLE IF NOT EXISTS gobblar_global_grants (
+            installId TEXT NOT NULL,
+            grantKey TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            awardedAt INTEGER NOT NULL,
+            PRIMARY KEY(installId, grantKey)
+          );
+        `);
+      });
+      db = openedDb;
+      console.log(`gobblars DB ready path=${DB_PATH}`);
+      if (applyGlobalGrant) {
+        await applyGlobalGrantToAllExistingProfilesOnce();
+      }
+    } catch (err) {
+      if (db === openedDb) db = null;
+      await openedDb?.close().catch(() => {});
+      throw err;
+    }
+  })();
+
+  try {
+    await initPromise;
+  } finally {
+    initPromise = null;
+  }
+}
+
+async function ensureGobblarsServiceReady() {
+  if (!db) {
+    await initGobblarsService({ applyGlobalGrant: false });
+  }
+  return !!db;
 }
 
 export async function getGobblarProfileReadOnly(installId) {
@@ -476,8 +501,8 @@ export async function getGobblarProfileReadOnly(installId) {
     lockableCategories: LOCKABLE_THEME_CATEGORIES,
     unlockCost: THEME_UNLOCK_COST,
   };
-  if (!db) return fallback;
   try {
+    await ensureGobblarsServiceReady();
     const row = await runWithBusyRetry(() =>
       db.get(
         "SELECT installId, balance, themeApplied, themeUnlocks, updatedAt FROM gobblar_profiles WHERE installId = ?",
@@ -500,23 +525,19 @@ export async function getGobblarProfileReadOnly(installId) {
     };
   } catch (err) {
     console.warn("Gobblars profile read failed", err);
-    return fallback;
+    return null;
   }
 }
 
 export async function getGobblarProfile(installId) {
   if (!installId) return null;
   if (!db) {
-    const fallbackTheme = sanitizeThemeInput(DEFAULT_THEME);
-    return {
-      installId,
-      balance: 0,
-      themeApplied: fallbackTheme,
-      themeUnlocks: sanitizeUnlocksInput({}, fallbackTheme),
-      updatedAt: Date.now(),
-      lockableCategories: LOCKABLE_THEME_CATEGORIES,
-      unlockCost: THEME_UNLOCK_COST,
-    };
+    try {
+      await ensureGobblarsServiceReady();
+    } catch (err) {
+      console.warn("Gobblars profile initialization failed", err);
+      return null;
+    }
   }
   const profile = await getProfileParsed(installId);
   if (!profile) return null;
@@ -534,7 +555,8 @@ export async function addGobblars({
   meta = null,
   ts = Date.now(),
 } = {}) {
-  if (!db || !installId) return null;
+  if (!installId) return null;
+  await ensureGobblarsServiceReady();
   const safeAmount = Math.trunc(Number(amount) || 0);
   if (!safeAmount) {
     return getProfileParsed(installId);
@@ -574,7 +596,8 @@ export async function grantWeeklyWinnerGobblars({
   weekId,
   amount = WEEKLY_WIN_GOBBLARS_BONUS,
 } = {}) {
-  if (!db || !installId || !weekId) return null;
+  if (!installId || !weekId) return null;
+  await ensureGobblarsServiceReady();
   const safeAmount = Math.max(0, Math.trunc(Number(amount) || 0));
   if (!safeAmount) return getProfileParsed(installId);
   const ts = Date.now();
@@ -645,7 +668,8 @@ export async function applyThemeSelection({
   category = "",
   unlockCost = THEME_UNLOCK_COST,
 } = {}) {
-  if (!db || !installId) return null;
+  if (!installId) return null;
+  await ensureGobblarsServiceReady();
   const safeMode = mode === "single" ? "single" : "full";
   const safeCategory = String(category || "").trim();
   const themeDraft = sanitizeThemeInput(draftTheme || {});
@@ -752,11 +776,12 @@ export async function migrateGobblarProfile(targetInstallId, sourceInstallIds = 
         .filter((installId) => installId && installId !== target)
     )
   );
-  if (!db || !target || sources.length === 0) {
+  if (!target || sources.length === 0) {
     return getGobblarProfile(target);
   }
 
   try {
+    await ensureGobblarsServiceReady();
     await runSerializedWrite(async () => {
       await runInImmediateTransaction(async () => {
         const rows = await db.all(

@@ -1,6 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
+import { pruneTimestampedBackups } from "../persistence/backupRetention.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,6 +67,7 @@ async function maybeBackupFile(filePath) {
   try {
     await fs.copyFile(filePath, backupPath);
     lastBackupAt = now;
+    await pruneTimestampedBackups(filePath);
   } catch (_) {}
 }
 

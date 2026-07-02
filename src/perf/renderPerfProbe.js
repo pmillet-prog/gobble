@@ -1,6 +1,9 @@
 const STATE_KEY = "__gobblePerfState";
 const PUBLIC_KEY = "__gobblePerf";
 const TILE_SELECTOR = "[data-board-index], .tile-cell";
+const MAX_SESSIONS = 200;
+
+let probeEnabled = false;
 
 function getNow() {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -79,12 +82,27 @@ function attachTraceListeners(state) {
   window.addEventListener("mouseup", stopTrace, true);
   window.addEventListener("touchend", stopTrace, true);
   window.addEventListener("touchcancel", stopTrace, true);
+  state.detachTraceListeners = () => {
+    window.removeEventListener("pointerdown", startTrace, true);
+    window.removeEventListener("mousedown", startTrace, true);
+    window.removeEventListener("touchstart", startTrace, true);
+    window.removeEventListener("pointermove", moveTrace, true);
+    window.removeEventListener("mousemove", moveTrace, true);
+    window.removeEventListener("touchmove", moveTrace, true);
+    window.removeEventListener("pointerup", stopTrace, true);
+    window.removeEventListener("mouseup", stopTrace, true);
+    window.removeEventListener("touchend", stopTrace, true);
+    window.removeEventListener("touchcancel", stopTrace, true);
+    state.listenersAttached = false;
+    state.detachTraceListeners = null;
+  };
 }
 
 function createState() {
   return {
     activeSession: null,
     autoTrace: true,
+    detachTraceListeners: null,
     listenersAttached: false,
     nextTileId: 1,
     sessions: [],
@@ -111,7 +129,7 @@ function getState() {
     window[STATE_KEY] = createState();
   }
   const state = window[STATE_KEY];
-  attachTraceListeners(state);
+  if (probeEnabled) attachTraceListeners(state);
   if (!window[PUBLIC_KEY]) {
     window[PUBLIC_KEY] = {
       reset() {
@@ -177,20 +195,29 @@ function stopSession(state, reason = "stop") {
     tileCount: session.tileKeys?.size || 0,
   };
   state.sessions.push(result);
-  state.activeSession = null;
-  if (typeof console !== "undefined" && typeof console.table === "function") {
-    console.table([result]);
+  if (state.sessions.length > MAX_SESSIONS) {
+    state.sessions.splice(0, state.sessions.length - MAX_SESSIONS);
   }
+  state.activeSession = null;
   return result;
 }
 
 export function recordAppRender() {
+  if (!probeEnabled) return;
   const state = getState();
   if (!state) return;
   state.totalAppRenders += 1;
 }
 
 export function getPerfSnapshot() {
+  if (!probeEnabled) {
+    return {
+      active: null,
+      autoTrace: false,
+      sessions: [],
+      totalAppRenders: 0,
+    };
+  }
   const state = getState();
   if (!state || typeof window === "undefined" || !window[PUBLIC_KEY]) {
     return {
@@ -204,9 +231,32 @@ export function getPerfSnapshot() {
 }
 
 export function resetPerfProbe() {
+  if (!probeEnabled) return getPerfSnapshot();
   const state = getState();
   if (!state || typeof window === "undefined" || !window[PUBLIC_KEY]) {
     return getPerfSnapshot();
   }
   return window[PUBLIC_KEY].reset();
+}
+
+export function setPerfProbeEnabled(enabled) {
+  const wasEnabled = probeEnabled;
+  probeEnabled = Boolean(enabled);
+  if (typeof window === "undefined") return;
+  const state = window[STATE_KEY];
+  if (probeEnabled) {
+    const nextState = getState();
+    if (!wasEnabled && nextState) {
+      nextState.activeSession = null;
+      nextState.sessions = [];
+      nextState.totalAppRenders = 0;
+    }
+    attachTraceListeners(nextState);
+    return;
+  }
+  if (!state) return;
+  if (state.stopTimer) window.clearTimeout(state.stopTimer);
+  state.stopTimer = null;
+  state.activeSession = null;
+  state.detachTraceListeners?.();
 }

@@ -36,11 +36,6 @@ function emit(next) {
   listeners.forEach((listener) => listener());
 }
 
-function getHighlightSet(highlightPath) {
-  if (!Array.isArray(highlightPath) || !highlightPath.length) return new Set();
-  return new Set(highlightPath);
-}
-
 function getHighlightOrderMap(highlightPath) {
   const orderMap = new Map();
   if (!Array.isArray(highlightPath) || !highlightPath.length) return orderMap;
@@ -90,13 +85,27 @@ function applyTraceTileStyle(element, traceInfo) {
   element.style.setProperty("--trace-ring", `hsla(${hue.toFixed(1)}, 86%, 58%, 0.5)`);
 }
 
+function traceInfoEqual(left, right) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return left.order === right.order && left.progress === right.progress;
+}
+
 function applyTraceTileClasses(highlightPath) {
-  highlightedTiles = getHighlightSet(highlightPath);
-  highlightedTileOrder = getHighlightOrderMap(highlightPath);
-  traceTileElements.forEach((elements, boardIndex) => {
-    const traceInfo = highlightedTileOrder.get(boardIndex) || null;
+  const previousOrder = highlightedTileOrder;
+  const nextOrder = getHighlightOrderMap(highlightPath);
+  const changedIndices = new Set([...previousOrder.keys(), ...nextOrder.keys()]);
+
+  highlightedTiles = new Set(nextOrder.keys());
+  highlightedTileOrder = nextOrder;
+  changedIndices.forEach((boardIndex) => {
+    const previousTraceInfo = previousOrder.get(boardIndex) || null;
+    const nextTraceInfo = nextOrder.get(boardIndex) || null;
+    if (traceInfoEqual(previousTraceInfo, nextTraceInfo)) return;
+    const elements = traceTileElements.get(boardIndex);
+    if (!elements) return;
     elements.forEach((element) => {
-      applyTraceTileStyle(element, traceInfo);
+      applyTraceTileStyle(element, nextTraceInfo);
     });
   });
 }
@@ -112,20 +121,6 @@ export function getTraceStateSnapshot() {
 
 export function isTraceTileHighlighted(boardIndex) {
   return highlightedTiles.has(boardIndex);
-}
-
-export function syncTraceTileClasses() {
-  applyTraceTileClasses(snapshot.highlightPath);
-}
-
-export function syncTraceTilesInContainer(container, highlightPath = snapshot.highlightPath) {
-  if (!container || typeof container.querySelectorAll !== "function") return;
-  const orderMap = getHighlightOrderMap(highlightPath);
-  container.querySelectorAll("[data-board-index]").forEach((element) => {
-    const boardIndex = Number(element?.getAttribute?.("data-board-index"));
-    const traceInfo = Number.isFinite(boardIndex) ? orderMap.get(boardIndex) || null : null;
-    applyTraceTileStyle(element, traceInfo);
-  });
 }
 
 export function setTraceState(next) {

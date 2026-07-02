@@ -2,7 +2,10 @@
 // 
 import React, { Suspense, useEffect, useState, useRef, useLayoutEffect } from "react";
 import confetti from "canvas-confetti";
-import { recordAppRender } from "./perf/renderPerfProbe.js";
+import {
+  recordAppRender,
+  setPerfProbeEnabled,
+} from "./perf/renderPerfProbe.js";
 import PerfTestOverlay from "./perf/PerfTestOverlay.jsx";
 import {
   AMBIENT_MUSIC_TRACKS_DEFAULT,
@@ -23,6 +26,14 @@ import ASSET_MANIFEST_BASE from "./assets/assetManifest";
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
+import {
+  LIVE_CONNECTION_INTERRUPTED_MESSAGE,
+  capturePendingSubmissions,
+  queuePendingSubmissionWords,
+  reconcilePendingSubmissions,
+  restorePendingSubmissionState,
+  takeInFlightSubmissionWords,
+} from "./network/liveSubmissionRecovery.js";
 import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
 import GlobalChatLayer from "./components/chat/GlobalChatLayer.jsx";
@@ -50,7 +61,6 @@ import {
   getTraceStateSnapshot,
   subscribeTraceState,
   setTraceState,
-  syncTraceTilesInContainer,
 } from "./components/traceStateStore.js";
 import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
@@ -119,6 +129,14 @@ import {
 } from "./components/gameLogic";
 import { generateGrid } from "./components/gridGeneration";
 import { hydrateServerSolutionsPayload } from "./utils/roundSolutions";
+import {
+  buildTargetHintOverlayStyleMap,
+  buildTargetHintStyleMap,
+} from "./utils/targetHintStyles.js";
+import {
+  isWeeklyRecapPodiumReady,
+  resolveWeeklyRecapPodium,
+} from "./utils/weeklyRecap.js";
 
 const DuelObjectivesPanel = React.lazy(() => import("./components/DuelObjectivesPanel.jsx"));
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
@@ -1267,107 +1285,6 @@ function buildCompletedTargetPattern(pattern, word) {
 function buildTargetBlankPattern(length) {
   if (!Number.isFinite(length) || length <= 0) return "";
   return Array.from({ length }).map(() => "_").join(" ");
-}
-
-function interpolateColorChannel(start, end, ratio) {
-  const safeRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
-  return Math.round(start + (end - start) * safeRatio);
-}
-
-function buildTargetHintEntries(cells, wordIndices) {
-  const entries = [];
-  const seen = new Set();
-  const safeCells = Array.isArray(cells) ? cells : [];
-  const safeWordIndices = Array.isArray(wordIndices) ? wordIndices : [];
-  for (let i = 0; i < safeCells.length; i += 1) {
-    const boardIndex = safeCells[i];
-    const wordIndex = safeWordIndices[i];
-    if (!Number.isInteger(boardIndex) || boardIndex < 0 || seen.has(boardIndex)) continue;
-    seen.add(boardIndex);
-    entries.push({
-      boardIndex,
-      wordIndex: Number.isInteger(wordIndex) && wordIndex >= 0 ? wordIndex : null,
-    });
-  }
-  return entries;
-}
-
-function buildTargetHintStyleMap(cells, wordIndices, wordLength) {
-  const entries = buildTargetHintEntries(cells, wordIndices);
-  if (!entries.length) return new Map();
-  const map = new Map();
-  const lastWordIndex = Math.max(
-    1,
-    Number.isFinite(wordLength) && wordLength > 1
-      ? Math.trunc(wordLength) - 1
-      : entries.reduce((max, entry) => Math.max(max, entry.wordIndex ?? 0), 0)
-  );
-  for (const entry of entries) {
-    const boardIndex = entry.boardIndex;
-    const ratio =
-      entry.wordIndex == null ? 0 : Math.max(0, Math.min(1, entry.wordIndex / lastWordIndex));
-    const red = interpolateColorChannel(6, 92, ratio);
-    const green = interpolateColorChannel(116, 214, ratio);
-    const blue = interpolateColorChannel(60, 170, ratio);
-    const fillAlpha = 0.4 - ratio * 0.16;
-    const fillEdgeAlpha = 0.56 - ratio * 0.18;
-    const insetAlpha = 0.7 - ratio * 0.2;
-    const outlineAlpha = 0.98 - ratio * 0.14;
-    const glowAlpha = 0.56 - ratio * 0.18;
-    map.set(boardIndex, {
-      "--tile-hint-rgb": `${red}, ${green}, ${blue}`,
-      "--tile-hint-fill-alpha": fillAlpha.toFixed(3),
-      "--tile-hint-fill-edge-alpha": fillEdgeAlpha.toFixed(3),
-      "--tile-hint-inset-alpha": insetAlpha.toFixed(3),
-      "--tile-hint-outline-alpha": outlineAlpha.toFixed(3),
-      "--tile-hint-glow-alpha": glowAlpha.toFixed(3),
-    });
-  }
-  return map;
-}
-
-function buildTargetHintOverlayStyleMap(cells, wordIndices, wordLength, variant = "fill") {
-  const entries = buildTargetHintEntries(cells, wordIndices);
-  if (!entries.length) return new Map();
-  const map = new Map();
-  const lastWordIndex = Math.max(
-    1,
-    Number.isFinite(wordLength) && wordLength > 1
-      ? Math.trunc(wordLength) - 1
-      : entries.reduce((max, entry) => Math.max(max, entry.wordIndex ?? 0), 0)
-  );
-  for (const entry of entries) {
-    const boardIndex = entry.boardIndex;
-    const ratio =
-      entry.wordIndex == null ? 0 : Math.max(0, Math.min(1, entry.wordIndex / lastWordIndex));
-    const red = interpolateColorChannel(8, 118, ratio);
-    const green = interpolateColorChannel(126, 228, ratio);
-    const blue = interpolateColorChannel(64, 176, ratio);
-    const strongAlpha = 0.76 - ratio * 0.34;
-    const midAlpha = 0.44 - ratio * 0.18;
-    const glowAlpha = 0.56 - ratio * 0.18;
-    const style =
-      variant === "outline"
-        ? {
-            background:
-              `linear-gradient(135deg, rgba(${red}, ${green}, ${blue}, ${strongAlpha * 0.42}) 0%, ` +
-              `rgba(${red}, ${green}, ${blue}, ${midAlpha * 0.2}) 58%, rgba(255, 255, 255, 0.12) 100%)`,
-            boxShadow:
-              `inset 0 0 0 3px rgba(${red}, ${green}, ${blue}, ${0.98 - ratio * 0.12}), ` +
-              `0 0 16px 3px rgba(${red}, ${green}, ${blue}, ${glowAlpha})`,
-          }
-        : {
-            background:
-              `linear-gradient(135deg, rgba(${red}, ${green}, ${blue}, ${strongAlpha}) 0%, ` +
-              `rgba(${red}, ${green}, ${blue}, ${midAlpha}) 50%, rgba(255, 255, 255, 0.22) 100%)`,
-            boxShadow:
-              `0 0 0 3px rgba(${red}, ${green}, ${blue}, ${0.5 - ratio * 0.12}), ` +
-              `inset 0 0 0 2px rgba(${red}, ${green}, ${blue}, ${0.78 - ratio * 0.18}), ` +
-              `inset 0 10px 16px rgba(255, 255, 255, ${0.16 - ratio * 0.05})`,
-          };
-    map.set(boardIndex, style);
-  }
-  return map;
 }
 
 const BONUS_CLASSES = {
@@ -2899,15 +2816,22 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
 
 .tile-hint {
   box-shadow:
-    0 0 0 3px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-fill-edge-alpha, 0.35)),
-    inset 0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-inset-alpha, 0.45));
+    0 0 0 3px rgba(var(--tile-hint-rgb, 22, 163, 74), 0.72),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.24);
   background:
     linear-gradient(
-      135deg,
-      rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-fill-edge-alpha, 0.35)) 0%,
-      rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-fill-alpha, 0.22)) 44%,
-      rgba(255, 255, 255, 0.18) 100%
-    ) !important;
+      145deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.04) 48%,
+      rgba(15, 23, 42, 0.14) 100%
+    ),
+    rgb(var(--tile-hint-rgb, 22, 163, 74)) !important;
+  border-color: rgba(var(--tile-hint-rgb, 22, 163, 74), 0.96) !important;
+}
+
+.tile-hint .tile-letter {
+  color: #0f172a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .daily-special-start-lock {
@@ -2944,7 +2868,7 @@ body.theme-dark .daily-special-start-lock {
 
 .tile-hint-outline {
   position: relative;
-  outline: 4px solid rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-outline-alpha, 0.9));
+  outline: 4px solid rgba(var(--tile-hint-rgb, 22, 163, 74), 0.98);
   outline-offset: -4px;
 }
 
@@ -2955,8 +2879,8 @@ body.theme-dark .daily-special-start-lock {
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-outline-alpha, 0.95)),
-    0 0 12px 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-glow-alpha, 0.45));
+    0 0 0 2px rgba(var(--tile-hint-rgb, 22, 163, 74), 0.98),
+    0 0 12px 2px rgba(var(--tile-hint-rgb, 22, 163, 74), var(--tile-hint-glow-alpha, 0.52));
   animation: tileHintOutlineGlow 1.4s ease-in-out infinite;
 }
 
@@ -2964,14 +2888,14 @@ body.theme-dark .daily-special-start-lock {
   0%,
   100% {
     box-shadow:
-      0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), var(--tile-hint-outline-alpha, 0.95)),
-      0 0 12px 2px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) * 0.9));
+      0 0 0 2px rgba(var(--tile-hint-rgb, 22, 163, 74), 0.98),
+      0 0 12px 2px rgba(var(--tile-hint-rgb, 22, 163, 74), calc(var(--tile-hint-glow-alpha, 0.52) * 0.9));
   }
   50% {
     box-shadow:
-      0 0 0 3px rgba(var(--tile-hint-rgb, 16, 185, 129), 1),
-      0 0 18px 4px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) + 0.18)),
-      0 0 30px 10px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) * 0.68));
+      0 0 0 3px rgba(var(--tile-hint-rgb, 22, 163, 74), 1),
+      0 0 18px 4px rgba(var(--tile-hint-rgb, 22, 163, 74), calc(var(--tile-hint-glow-alpha, 0.52) + 0.18)),
+      0 0 30px 10px rgba(var(--tile-hint-rgb, 22, 163, 74), calc(var(--tile-hint-glow-alpha, 0.52) * 0.68));
   }
 }
 
@@ -2982,26 +2906,27 @@ body.theme-dark .daily-special-start-lock {
 }
 
 body.theme-dark .tile-hint-outline {
-  outline-color: rgba(var(--tile-hint-rgb, 52, 211, 153), 0.98);
+  outline-color: rgba(var(--tile-hint-rgb, 22, 163, 74), 1);
 }
 
 body.theme-dark .tile-hint-outline::after {
   box-shadow:
-    0 0 0 2px rgba(var(--tile-hint-rgb, 52, 211, 153), 0.95),
-    0 0 14px 3px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-glow-alpha, 0.45) + 0.12));
+    0 0 0 2px rgba(var(--tile-hint-rgb, 22, 163, 74), 1),
+    0 0 14px 3px rgba(var(--tile-hint-rgb, 22, 163, 74), calc(var(--tile-hint-glow-alpha, 0.52) + 0.12));
 }
 
 body.theme-dark .tile-hint {
   box-shadow:
-    0 0 0 3px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-fill-edge-alpha, 0.35) + 0.2)),
-    inset 0 0 0 2px rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-inset-alpha, 0.45) + 0.12));
+    0 0 0 3px rgba(var(--tile-hint-rgb, 22, 163, 74), 0.88),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.2);
   background:
     linear-gradient(
-      135deg,
-      rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-fill-edge-alpha, 0.35) + 0.24)) 0%,
-      rgba(var(--tile-hint-rgb, 16, 185, 129), calc(var(--tile-hint-fill-alpha, 0.22) + 0.18)) 44%,
-      rgba(226, 232, 240, 0.26) 100%
-    ) !important;
+      145deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.03) 48%,
+      rgba(2, 6, 23, 0.22) 100%
+    ),
+    rgb(var(--tile-hint-rgb, 22, 163, 74)) !important;
 }
 
 .tile-letter {
@@ -3278,7 +3203,7 @@ body.theme-dark .tile-points {
 
 .tile-hint.theme-material-square {
   box-shadow:
-    0 0 0 2px rgba(59, 130, 246, 0.6),
+    0 0 0 3px rgba(var(--tile-hint-rgb, 22, 163, 74), 0.82),
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
     inset 0 -6px 10px rgba(0, 0, 0, 0.2),
     0 6px 12px rgba(0, 0, 0, 0.2) !important;
@@ -3690,9 +3615,16 @@ body.theme-dark .board-tile::after {
 
 body.theme-dark .tile-hint {
   box-shadow:
-    0 0 0 3px rgba(16, 185, 129, 0.7),
-    inset 0 0 0 2px rgba(16, 185, 129, 0.7);
-  background: rgba(167, 243, 208, 0.9) !important;
+    0 0 0 3px rgba(var(--tile-hint-rgb, 22, 163, 74), 0.88),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.03) 48%,
+      rgba(2, 6, 23, 0.22) 100%
+    ),
+    rgb(var(--tile-hint-rgb, 22, 163, 74)) !important;
 }
 
 `;
@@ -3789,8 +3721,6 @@ const ACCOUNT_SESSION_UNAVAILABLE_MESSAGE =
   "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.";
 const ACCOUNT_SERVER_BUSY_MESSAGE =
   "Le serveur met plus de temps que prévu à répondre. Ce n'est pas ta connexion : on réessaie automatiquement.";
-const LIVE_SERVER_BUSY_MESSAGE =
-  "Serveur momentanément saturé. Ta partie est conservée, reconnexion automatique en cours...";
 const AUTH_MODAL_MODES = {
   LOGIN: "login",
   REGISTER: "register",
@@ -4632,25 +4562,6 @@ function TraceAwareDesktopPreviewContent({
   return <span className="text-gray-700 dark:text-slate-200">{READY_LABEL}</span>;
 }
 
-function TraceGridDomSync({ gridRef, phase }) {
-  const traceSnapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
-  );
-
-  React.useLayoutEffect(() => {
-    const container = gridRef?.current;
-    if (!container) return;
-    syncTraceTilesInContainer(
-      container,
-      phase === "playing" ? traceSnapshot.highlightPath : []
-    );
-  }, [gridRef, phase, traceSnapshot.highlightPath]);
-
-  return null;
-}
-
 function useStableEvent(handler) {
   const handlerRef = React.useRef(handler);
   React.useLayoutEffect(() => {
@@ -4685,6 +4596,7 @@ export default function App() {
   );
   const currentTilesRef = useRef([]);
   const highlightPathRef = useRef([]);
+  const shouldForceTraceRenderRef = useRef(true);
   const [, forceTraceRender] = useState(0);
   const currentTiles = currentTilesRef.current;
   const highlightPath = highlightPathRef.current;
@@ -4694,21 +4606,19 @@ export default function App() {
       highlightPath: highlightPathRef.current,
     });
   }
-  function setCurrentTiles(nextOrUpdater) {
-    const prev = currentTilesRef.current;
-    const next =
-      typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
-    currentTilesRef.current = Array.isArray(next) ? next : [];
+  function commitTraceSelection(nextTiles, nextPath) {
+    currentTilesRef.current = Array.isArray(nextTiles) ? nextTiles : [];
+    highlightPathRef.current = Array.isArray(nextPath) ? nextPath : [];
     publishTraceState();
-    if (phase !== "playing" || isSpecial3WordsMode) forceTraceRender((tick) => tick + 1);
+    if (shouldForceTraceRenderRef.current) {
+      forceTraceRender((tick) => tick + 1);
+    }
   }
   function setHighlightPath(nextOrUpdater) {
     const prev = highlightPathRef.current;
     const next =
       typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
-    highlightPathRef.current = Array.isArray(next) ? next : [];
-    publishTraceState();
-    if (phase !== "playing" || isSpecial3WordsMode) forceTraceRender((tick) => tick + 1);
+    commitTraceSelection(currentTilesRef.current, next);
   }
   const [dictionary, setDictionary] = useState(null);
   const [accepted, setAccepted] = useState([]);
@@ -5312,6 +5222,10 @@ export default function App() {
   const [devBots, setDevBots] = useState([]);
   const [devControlsBusy, setDevControlsBusy] = useState(false);
   const [perfTestEnabled, setPerfTestEnabled] = useState(false);
+  useEffect(() => {
+    setPerfProbeEnabled(perfTestEnabled);
+    return () => setPerfProbeEnabled(false);
+  }, [perfTestEnabled]);
   const [devControls, setDevControls] = useState({
     enabled: false,
     forcedRoundType: "",
@@ -5622,7 +5536,8 @@ export default function App() {
   const [duelWeekRecapOpen, setDuelWeekRecapOpen] = useState(false);
   const [duelWeekRecapPage, setDuelWeekRecapPage] = useState(0);
   const [duelWeekRecapPreviewMode, setDuelWeekRecapPreviewMode] = useState(false);
-  const duelWeekRecapOpenAfterRefreshRef = useRef(false);
+  const duelWeekRecapOpenAfterRefreshRef = useRef(null);
+  const duelWeekRecapWeeklyRefreshRef = useRef("");
   const [duelObjectivesPopupDismissedDateId, setDuelObjectivesPopupDismissedDateId] = useState("");
   const [duelConsumedValidatedByView, setDuelConsumedValidatedByView] = useState({
     popup: { dateId: "", keys: [] },
@@ -5715,6 +5630,7 @@ export default function App() {
   const isLiveSpecial3WordsMode =
     !isDailyPlay && phase === "playing" && specialRound?.type === DAILY_SPECIAL_MODE;
   const isSpecial3WordsMode = isDailySpecialMode || isLiveSpecial3WordsMode;
+  shouldForceTraceRenderRef.current = phase !== "playing" || isSpecial3WordsMode;
   const desktopColumnBaseDefs = isDailyPlay
     ? DAILY_DESKTOP_COLUMN_DEFS
     : LIVE_DESKTOP_COLUMN_DEFS;
@@ -5829,6 +5745,7 @@ export default function App() {
     // Désactive immédiatement les events "manche live" pour éviter
     // qu'un roundEnded en transit relance un outro/blackhole après retour lobby.
     isLoggedInRef.current = false;
+    liveSessionReadyRef.current = false;
     phaseRef.current = "lobby";
     appViewRef.current = "home";
     roundStartPendingRef.current = null;
@@ -6675,6 +6592,7 @@ export default function App() {
   const pendingWordsRef = useRef(new Set());
   const pendingQueueRef = useRef([]);
   const inFlightBatchesRef = useRef(new Map());
+  const pendingSubmissionRecoveryRef = useRef(null);
   const batchTimerRef = useRef(null);
   const batchSeqRef = useRef(1);
   const batchUnsupportedRef = useRef(false);
@@ -6916,6 +6834,7 @@ export default function App() {
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(false);
   const reconnectToastPendingRef = useRef(false);
+  const liveSessionReadyRef = useRef(false);
   const intentionalDisconnectRef = useRef(false);
   const isBackgroundedRef = useRef(false);
   const foregroundAttemptRef = useRef(0);
@@ -10611,10 +10530,7 @@ export default function App() {
   }, [clearImplodeAnimation]);
 
   const clearSelection = React.useCallback(() => {
-    setCurrentTiles([]);
-    currentTilesRef.current = [];
-    setHighlightPath([]);
-    highlightPathRef.current = [];
+    commitTraceSelection([], []);
     activeTraceStartedAtRef.current = null;
   }, []);
 
@@ -11789,6 +11705,43 @@ export default function App() {
     };
   }
 
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const gridElement = gridRef.current;
+    if (!gridElement) {
+      clearGridHitboxCache();
+      return undefined;
+    }
+
+    let rafId = null;
+    const refreshMetrics = () => {
+      if (rafId != null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        if (draggingRef.current || gridRef.current !== gridElement) return;
+        buildGridHitboxMetrics();
+      });
+    };
+
+    clearGridHitboxCache();
+    refreshMetrics();
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(refreshMetrics)
+        : null;
+    resizeObserver?.observe(gridElement);
+    window.addEventListener("resize", refreshMetrics, { passive: true });
+    window.addEventListener("scroll", refreshMetrics, true);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", refreshMetrics);
+      window.removeEventListener("scroll", refreshMetrics, true);
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      clearGridHitboxCache();
+    };
+  }, [phase, isMobileLayout, isUltraCompact, gridSize, gridRotationTurns, board]);
+
   useEffect(() => {
     const shouldLoadClientDictionary = isDailyPlay || appView === "daily_play";
     if (!shouldLoadClientDictionary || dictionary) return undefined;
@@ -12152,6 +12105,19 @@ export default function App() {
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!grid || !Array.isArray(grid)) return;
+      const pendingSnapshot = capturePendingSubmissions(
+        submissionStatusRef.current,
+        roundIdRef.current
+      );
+      if (pendingSnapshot.entries.length > 0) {
+        pendingSubmissionRecoveryRef.current = pendingSnapshot;
+      } else if (
+        roundIdRef.current != null &&
+        incomingRoundId != null &&
+        String(roundIdRef.current) !== String(incomingRoundId)
+      ) {
+        pendingSubmissionRecoveryRef.current = null;
+      }
       clearQueuedRankingUpdate();
       stopImplodePhase();
       pendingBreakStartRef.current = null;
@@ -12568,6 +12534,7 @@ export default function App() {
     }
 
     function onConnectError() {
+      liveSessionReadyRef.current = false;
       setIsConnecting(false);
       const hasSession = hasSavedSession() || autoResumeEnabledRef.current;
       if (!hasSession && !isLoggedInRef.current) {
@@ -12578,7 +12545,7 @@ export default function App() {
         setPlayers([]);
         setProvisionalRanking([]);
       } else {
-        setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
       }
       resumeLockRef.current = false;
       resumeLockAtRef.current = 0;
@@ -12586,6 +12553,7 @@ export default function App() {
     }
 
     function onConnect() {
+      liveSessionReadyRef.current = false;
       if (disconnectGraceTimerRef.current) {
         clearTimeout(disconnectGraceTimerRef.current);
         disconnectGraceTimerRef.current = null;
@@ -12618,6 +12586,8 @@ export default function App() {
     }
 
     function onDisconnect() {
+      liveSessionReadyRef.current = false;
+      requeueInFlightSubmissions();
       const wasIntentional = intentionalDisconnectRef.current;
       intentionalDisconnectRef.current = false;
       lobbyChatSubscriptionRef.current.subscribed = false;
@@ -12638,7 +12608,7 @@ export default function App() {
         setServerStatus("waiting");
         setProvisionalRanking([]);
         setFinalResults([]);
-        setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
         setPlayers([]);
         setMedals({});
         setTournament(null);
@@ -12673,17 +12643,17 @@ export default function App() {
           disconnectGraceTimerRef.current = null;
           if (socket.connected || isBackgroundedRef.current) return;
           if (hasSavedSession() || isLoggedInRef.current || autoResumeEnabledRef.current) {
-            setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+            setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
             reconnectToastPendingRef.current = true;
             attemptSilentReconnectRef.current?.("disconnect_grace");
             return;
           }
           hardReset();
         }, DISCONNECT_GRACE_MS);
-        setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
         if (isLoggedInRef.current && !reconnectToastPendingRef.current) {
           reconnectToastPendingRef.current = true;
-          showToast("Serveur saturé, reconnexion automatique...", 3600);
+          showToast("Connexion interrompue, jeu local actif", 3600);
         }
         attemptSilentReconnectRef.current?.("disconnect");
       }
@@ -14057,15 +14027,45 @@ export default function App() {
     const summary = duelStatus?.lastWeekSummary;
     const weekId = String(summary?.weekId || "").trim();
     if (!isAccountAuthenticated || !installId || !weekId) return;
+    if (isLoggedIn || isDailyPlay || appView !== "home") return;
     if (duelWeekRecapOpen) return;
     try {
       const key = `${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`;
       if (localStorage.getItem(key) === "1") return;
     } catch (_) {}
+    if (!isWeeklyRecapPodiumReady(summary, weeklyStats)) {
+      if (
+        !weeklyStatsLoading &&
+        duelWeekRecapWeeklyRefreshRef.current !== weekId
+      ) {
+        duelWeekRecapWeeklyRefreshRef.current = weekId;
+        fetchWeeklyStats(true);
+      }
+      return;
+    }
+    duelWeekRecapWeeklyRefreshRef.current = "";
     setDuelWeekRecapPreviewMode(false);
     setDuelWeekRecapPage(0);
     setDuelWeekRecapOpen(true);
-  }, [duelStatus?.lastWeekSummary, duelWeekRecapOpen, installId, isAccountAuthenticated]);
+  }, [
+    appView,
+    duelStatus?.lastWeekSummary,
+    duelWeekRecapOpen,
+    installId,
+    isAccountAuthenticated,
+    isDailyPlay,
+    isLoggedIn,
+    weeklyStats,
+    weeklyStatsLoading,
+  ]);
+
+  useEffect(() => {
+    if (!duelWeekRecapOpen) return;
+    if (!isLoggedIn && !isDailyPlay && appView === "home") return;
+    setDuelWeekRecapOpen(false);
+    setDuelWeekRecapPage(0);
+    setDuelWeekRecapPreviewMode(false);
+  }, [appView, duelWeekRecapOpen, isDailyPlay, isLoggedIn]);
 
   function rerollDuelObjective(bucket) {
     if (!installId || !bucket) return;
@@ -15966,6 +15966,14 @@ export default function App() {
     const breakState = snapshot.breakState || null;
     const lastRound = snapshot.lastRoundResults || null;
     const playerState = snapshot.player || null;
+    const currentPendingSnapshot = capturePendingSubmissions(
+      submissionStatusRef.current,
+      roundIdRef.current
+    );
+    const pendingSnapshot =
+      currentPendingSnapshot.entries.length > 0
+        ? currentPendingSnapshot
+        : pendingSubmissionRecoveryRef.current;
 
     if (phase === "playing" && currentRound?.grid && Array.isArray(currentRound.grid)) {
       roundHandlersRef.current.onRoundStarted?.(currentRound);
@@ -15990,9 +15998,15 @@ export default function App() {
       if (Array.isArray(snapshot.ranking)) {
         setProvisionalRanking(snapshot.ranking);
       }
-      const words = Array.isArray(playerState?.words)
+      const serverWords = Array.isArray(playerState?.words)
         ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
         : [];
+      const pendingRecovery = reconcilePendingSubmissions({
+        serverWords,
+        pendingSnapshot,
+        activeRoundId: currentRound.roundId,
+      });
+      const words = pendingRecovery.acceptedWords;
       setAccepted(words);
       const scores = new Map();
       const scoreConfig =
@@ -16024,10 +16038,26 @@ export default function App() {
       } else {
         dailyAcceptedPathsRef.current = new Map();
       }
+      for (const entry of pendingRecovery.pendingEntries) {
+        const word = entry.word;
+        const meta = entry.meta || {};
+        if (Number.isFinite(meta.optimisticPts)) {
+          scores.set(word, Number(meta.optimisticPts));
+        }
+        if (Array.isArray(meta.path) && meta.path.length > 0) {
+          dailyAcceptedPathsRef.current.set(word, {
+            word,
+            path: [...meta.path],
+          });
+        }
+      }
       syncAcceptedRuntimeCaches(words, { scoreMap: scores });
-      setScore(Number(playerState?.score) || 0);
-      submissionStatusRef.current.clear();
-      resetSubmissionQueue();
+      setScore((Number(playerState?.score) || 0) + pendingRecovery.optimisticScore);
+      restorePendingSubmissionEntries(
+        pendingRecovery.pendingEntries,
+        currentRound.roundId
+      );
+      pendingSubmissionRecoveryRef.current = null;
       return;
     }
 
@@ -16100,12 +16130,15 @@ export default function App() {
       setScore(Number(playerState?.score) || 0);
       submissionStatusRef.current.clear();
       resetSubmissionQueue();
+      pendingSubmissionRecoveryRef.current = null;
       return;
     }
 
     if (breakState) {
       roundHandlersRef.current.onBreakStarted?.(breakState);
     }
+    pendingSubmissionRecoveryRef.current = null;
+    resetSubmissionQueue();
   }
 
   function requestSessionResumeSnapshot(reason = "probe") {
@@ -16213,8 +16246,9 @@ export default function App() {
     }
     resumeLockRef.current = true;
     resumeLockAtRef.current = now;
+    liveSessionReadyRef.current = false;
     setLoginError("");
-    setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+    setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
     setIsConnecting(true);
 
     let settled = false;
@@ -16234,15 +16268,34 @@ export default function App() {
       }
     };
     const onResumeError = () => {
-      setConnectionError("Connexion au serveur impossible");
+      setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
       setIsConnecting(false);
       finish();
     };
     let resumeTimeout = setTimeout(() => {
-      setConnectionError("Connexion au serveur impossible");
+      setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
       setIsConnecting(false);
       finish();
     }, 8000);
+
+    const rejoinCurrentRoom = () => {
+      socket.emit("login", { nick, roomId: roomToUse, installId: install }, (loginRes) => {
+        if (!loginRes?.ok) {
+          setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
+          setIsConnecting(false);
+          liveSessionReadyRef.current = false;
+          return;
+        }
+        const joinedRoom = loginRes?.roomId || roomToUse;
+        persistSession({ nick, roomId: joinedRoom, installId: install });
+        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
+        setCurrentRoomId(joinedRoom);
+        setRoomId(joinedRoom);
+        setTimeout(() => {
+          resumeLoginFromSessionRef.current?.("session_rejoin");
+        }, 0);
+      });
+    };
 
     const doResume = () => {
       socket.emit(
@@ -16294,7 +16347,12 @@ export default function App() {
             );
             return;
           }
-          if (!res?.ok || !res?.available || !res?.snapshot) {
+          if (res?.ok && !res?.available) {
+            setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
+            rejoinCurrentRoom();
+            return;
+          }
+          if (!res?.ok || !res?.snapshot) {
             clearSavedSession();
             setConnectionError("Session expiree");
             setIsConnecting(false);
@@ -16315,6 +16373,8 @@ export default function App() {
           if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
           setResumeSnapshot(null);
           applyResumeSnapshot(res.snapshot);
+          liveSessionReadyRef.current = true;
+          scheduleBatchFlush({ immediate: true });
           void requestTrophyStatus();
         }
       );
@@ -16352,7 +16412,7 @@ export default function App() {
     setServerRoundDurationMs(null);
     setServerStatus("waiting");
     setPhase("lobby");
-    setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+    setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
     resumeLoginFromSessionRef.current?.("daily_to_live");
   }, [appView, clearSelection, isAccountAuthenticated]);
 
@@ -16423,27 +16483,6 @@ export default function App() {
     return () => {
     };
   }, [isAccountAuthenticated, isDailyView]);
-
-  useEffect(() => {
-    const onConnect = () => {
-      batchUnsupportedRef.current = false;
-      const queue = pendingQueueRef.current;
-      const queued = new Set(queue);
-      submissionStatusRef.current.forEach((meta, word) => {
-        if (meta?.status !== "pending") return;
-        if (queued.has(word)) return;
-        queued.add(word);
-        queue.push(word);
-      });
-      if (queue.length) {
-        scheduleBatchFlush({ immediate: true });
-      }
-    };
-    socket.on("connect", onConnect);
-    return () => {
-      socket.off("connect", onConnect);
-    };
-  }, []);
 
   useEffect(() => {
     fetchWeeklyStats(true);
@@ -17205,6 +17244,7 @@ export default function App() {
     }
 
     loginInFlightRef.current = true;
+    liveSessionReadyRef.current = false;
     setIsConnecting(true);
     setLoginError("");
     setConnectionError("");
@@ -17286,6 +17326,7 @@ export default function App() {
         appViewRef.current = "live";
         setAppView("live");
         isLoggedInRef.current = true;
+        liveSessionReadyRef.current = true;
         setIsLoggedIn(true);
         setIsConnecting(false);
         setServerStatus("waiting");
@@ -17411,9 +17452,7 @@ export default function App() {
       setCurrentRoomId(sourceRoomId);
     }
     setBoard(serverGrid);
-    setCurrentTiles([]);
-    currentTilesRef.current = [];
-    setHighlightPath([]);
+    commitTraceSelection([], []);
     setAnalysis(null);
     setHighlightPlayers([]);
     setBigScoreFlash(null);
@@ -17749,7 +17788,7 @@ export default function App() {
   function attemptSilentReconnect(reason = "reconnect") {
     if (reconnectAttemptRef.current) return;
     reconnectAttemptRef.current = true;
-    setConnectionError(LIVE_SERVER_BUSY_MESSAGE);
+    setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
     const finishAttempt = () => {
       setTimeout(() => {
         reconnectAttemptRef.current = false;
@@ -17757,7 +17796,7 @@ export default function App() {
     };
     const restoreSession = (connected) => {
       if (!connected) {
-        setConnectionError("Connexion au serveur impossible");
+        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
         return;
       }
       const shouldRestoreLive =
@@ -17781,7 +17820,7 @@ export default function App() {
         restoreSession(connected);
       })
       .catch(() => {
-        setConnectionError("Connexion au serveur impossible");
+        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
       })
       .finally(() => {
         finishAttempt();
@@ -17798,9 +17837,7 @@ export default function App() {
     const base = generateGrid(gridSize);
 
     setBoard(base);
-    setCurrentTiles([]);
-    currentTilesRef.current = [];
-    setHighlightPath([]);
+    commitTraceSelection([], []);
     setAnalysis(null);
     setHighlightPlayers([]);
     setBigScoreFlash(null);
@@ -17911,10 +17948,7 @@ export default function App() {
           .toUpperCase()
           .split("");
     activeTraceStartedAtRef.current = getNowServerMs();
-    highlightPathRef.current = hasPath ? path : [];
-    setCurrentTiles(letters);
-    currentTilesRef.current = letters;
-    setHighlightPath(hasPath ? path : []);
+    commitTraceSelection(letters, hasPath ? path : []);
     clearStatusMessage();
     setActiveArea("game");
   }
@@ -19188,66 +19222,38 @@ export default function App() {
    */
   function addLetterFromKeyboard(label) {
     clearStatusMessage();
+    const previous = currentTilesRef.current;
+    if (!previous.length) {
+      activeTraceStartedAtRef.current = getNowServerMs();
+    }
+    const next = [...previous, label];
+    const step = Math.max(0, next.length - 1);
+    tileStepRef.current = step;
+    playTileStepSound(step);
 
-    setCurrentTiles((prev) => {
-      if (!prev.length) {
-        activeTraceStartedAtRef.current = getNowServerMs();
-      }
-      const next = [...prev, label];
-      currentTilesRef.current = next;
-      const step = Math.max(0, next.length - 1);
-      tileStepRef.current = step;
-      playTileStepSound(step);
-
-      const raw = normalizeWord(next.join(""));
-      if (!raw) return prev;
-
-      const path = findBestPathForPreview(board, raw, getPathPreviewScoreConfig());
-      if (path) {
-        highlightPathRef.current = path;
-        setHighlightPath(path);
-      } else {
-        highlightPathRef.current = [];
-        setHighlightPath([]);
-      }
-
-      return next;
-    });
+    const raw = normalizeWord(next.join(""));
+    if (!raw) return;
+    const path = findBestPathForPreview(board, raw, getPathPreviewScoreConfig());
+    commitTraceSelection(next, path || []);
   }
 
   function removeLastLetterFromKeyboard() {
     clearStatusMessage();
-    setCurrentTiles((prev) => {
-      if (!prev.length) return prev;
-      const next = prev.slice(0, -1);
-      currentTilesRef.current = next;
-      if (next.length > 0) {
-        const step = Math.max(0, next.length - 1);
-        tileStepRef.current = step;
-        playTileStepSound(step);
-      }
-      if (!next.length) {
-        activeTraceStartedAtRef.current = null;
-        highlightPathRef.current = [];
-        setHighlightPath([]);
-        return next;
-      }
-      const raw = normalizeWord(next.join(""));
-      if (!raw) {
-        highlightPathRef.current = [];
-        setHighlightPath([]);
-        return next;
-      }
-      const path = findBestPathForPreview(board, raw, getPathPreviewScoreConfig());
-      if (path) {
-        highlightPathRef.current = path;
-        setHighlightPath(path);
-      } else {
-        highlightPathRef.current = [];
-        setHighlightPath([]);
-      }
-      return next;
-    });
+    const previous = currentTilesRef.current;
+    if (!previous.length) return;
+    const next = previous.slice(0, -1);
+    if (next.length > 0) {
+      const step = Math.max(0, next.length - 1);
+      tileStepRef.current = step;
+      playTileStepSound(step);
+    } else {
+      activeTraceStartedAtRef.current = null;
+    }
+    const raw = normalizeWord(next.join(""));
+    const path = raw
+      ? findBestPathForPreview(board, raw, getPathPreviewScoreConfig())
+      : null;
+    commitTraceSelection(next, path || []);
   }
 
   /**
@@ -19549,7 +19555,7 @@ export default function App() {
   function handleMouseDown(index, mode = "mouse") {
     if (phase !== "playing" || inputLocked) return;
     resetDragMovePipeline();
-    dragGridMetricsRef.current = buildGridHitboxMetrics() || getGridHitboxMetrics();
+    dragGridMetricsRef.current = gridHitboxRef.current || buildGridHitboxMetrics();
     setActiveArea("game");
     draggingRef.current = true;
     activeTraceStartedAtRef.current = getNowServerMs();
@@ -19559,13 +19565,10 @@ export default function App() {
     clearStatusMessage();
 
     const letter = board[index].letter;
-      tileStepRef.current = 0;                 // <-- reset
-       playTileStepSound(tileStepRef.current);
+    tileStepRef.current = 0;
+    playTileStepSound(tileStepRef.current);
 
-    setCurrentTiles([letter]);
-    currentTilesRef.current = [letter];
-    highlightPathRef.current = [index];
-    setHighlightPath([index]);
+    commitTraceSelection([letter], [index]);
   }
 
   /**
@@ -19573,115 +19576,89 @@ export default function App() {
    */
   function handleMouseEnter(index, e) {
     if (!draggingRef.current) return;
+    const prevPath = highlightPathRef.current;
+    const prevLetters = currentTilesRef.current;
+    if (prevPath.length === 0) {
+      commitTraceSelection([board[index].letter], [index]);
+      return;
+    }
 
-    setHighlightPath((prevPath) => {
-      if (prevPath.length === 0) {
-        const letter = board[index].letter;
-        setCurrentTiles([letter]);
-        currentTilesRef.current = [letter];
-        highlightPathRef.current = [index];
-        return [index];
-      }
+    const lastIndex = prevPath[prevPath.length - 1];
+    const prevIndex = prevPath[prevPath.length - 2];
 
-      const lastIndex = prevPath[prevPath.length - 1];
-      const prevIndex = prevPath[prevPath.length - 2];
-
-      if (prevPath.length >= 2 && index === prevIndex) {
-        // Safe zone: only allow backtrack when pointer is close to the previous tile center.
-        if (lastInputMode === "touch" || lastInputMode === "mouse") {
-          const geom = getTileGeometryByBoardIndex(index);
-          if (geom && e) {
-            const dx = (e.clientX ?? geom.cx) - geom.cx;
-            const dy = (e.clientY ?? geom.cy) - geom.cy;
-            const dist = Math.hypot(dx, dy);
-            const safeRadius = Math.min(geom.width, geom.height) * 0.38;
-            if (dist > safeRadius) return prevPath;
-          }
-        }
-        const nextPath = prevPath.slice(0, -1);
-        highlightPathRef.current = nextPath;
-        setCurrentTiles((prevLetters) => {
-          const newLetters = prevLetters.slice(0, -1);
-          currentTilesRef.current = newLetters;
-          const step = Math.max(0, newLetters.length - 1);
-          tileStepRef.current = step;
-          if (newLetters.length > 0) {
-            playTileStepSound(step);
-          }
-          return newLetters;
-        });
-        return nextPath;
-      }
-
-      const neigh = neighbors(lastIndex, gridSize);
-      if (!neigh.includes(index)) return prevPath;
-      if (prevPath.includes(index)) return prevPath;
-
-      {
+    if (prevPath.length >= 2 && index === prevIndex) {
+      // Safe zone: only allow backtrack when pointer is close to the previous tile center.
+      if (lastInputModeRef.current === "touch" || lastInputModeRef.current === "mouse") {
         const geom = getTileGeometryByBoardIndex(index);
         if (geom && e) {
           const dx = (e.clientX ?? geom.cx) - geom.cx;
           const dy = (e.clientY ?? geom.cy) - geom.cy;
           const dist = Math.hypot(dx, dy);
-          const safeRadius = Math.min(geom.width, geom.height) * 0.5; // si plus petit, moins permissif
-          if (dist > safeRadius) return prevPath;
+          const safeRadius = Math.min(geom.width, geom.height) * 0.38;
+          if (dist > safeRadius) return;
         }
       }
-
-      const lastRow = Math.floor(lastIndex / gridSize);
-      const lastCol = lastIndex % gridSize;
-      const row = Math.floor(index / gridSize);
-      const col = index % gridSize;
-      const dr = row - lastRow;
-      const dc = col - lastCol;
-
-      const isOrthogonal = Math.abs(dr) + Math.abs(dc) === 1;
-
-      if (isOrthogonal) {
-        const geom = getTileGeometryByBoardIndex(index);
-        if (geom && e) {
-          const dx = e.clientX - geom.cx;
-          const dy = e.clientY - geom.cy;
-          const halfW = geom.width / 2;
-          const halfH = geom.height / 2;
-
-          const nx = dx / halfW;
-          const ny = dy / halfH;
-
-          // Zone "anti-corner" : on ignore UNIQUEMENT le coin du voisin orthogonal
-          // du côté d'où l'on arrive (pour faciliter les diagonales sans rendre
-          // les cases trop difficiles ‡ sélectionner au doigt).
-          const CORNER_THRESHOLD = 0.5; //si plus petit, moins permissif
-          const inRejectedCorner =
-            (dc === 1 && nx < -CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
-            (dc === -1 && nx > CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
-            (dr === 1 && ny < -CORNER_THRESHOLD && Math.abs(nx) > CORNER_THRESHOLD) ||
-            (dr === -1 && ny > CORNER_THRESHOLD && Math.abs(nx) > CORNER_THRESHOLD);
-
-          if (inRejectedCorner) {
-            return prevPath;
-          }
-        }
-      }
-
-      const letter = board[index].letter;
-      setCurrentTiles((prevLetters) => {
-        const newLetters = [...prevLetters, letter];
-        currentTilesRef.current = newLetters;
-
-        // son progressif : index de la tuile dans le mot
-        const step = newLetters.length - 1; // 0 pour la première, 1 pour la 2e, etc.
-        tileStepRef.current = step;
+      const nextPath = prevPath.slice(0, -1);
+      const nextLetters = prevLetters.slice(0, -1);
+      const step = Math.max(0, nextLetters.length - 1);
+      tileStepRef.current = step;
+      if (nextLetters.length > 0) {
         playTileStepSound(step);
+      }
+      commitTraceSelection(nextLetters, nextPath);
+      return;
+    }
 
-        return newLetters;
-      });
+    const neigh = neighbors(lastIndex, gridSize);
+    if (!neigh.includes(index) || prevPath.includes(index)) return;
 
-      const nextPath = [...prevPath, index];
-      highlightPathRef.current = nextPath;
-      return nextPath;
+    {
+      const geom = getTileGeometryByBoardIndex(index);
+      if (geom && e) {
+        const dx = (e.clientX ?? geom.cx) - geom.cx;
+        const dy = (e.clientY ?? geom.cy) - geom.cy;
+        const dist = Math.hypot(dx, dy);
+        const safeRadius = Math.min(geom.width, geom.height) * 0.5;
+        if (dist > safeRadius) return;
+      }
+    }
 
-    });
+    const lastRow = Math.floor(lastIndex / gridSize);
+    const lastCol = lastIndex % gridSize;
+    const row = Math.floor(index / gridSize);
+    const col = index % gridSize;
+    const dr = row - lastRow;
+    const dc = col - lastCol;
+    const isOrthogonal = Math.abs(dr) + Math.abs(dc) === 1;
+
+    if (isOrthogonal) {
+      const geom = getTileGeometryByBoardIndex(index);
+      if (geom && e) {
+        const dx = e.clientX - geom.cx;
+        const dy = e.clientY - geom.cy;
+        const halfW = geom.width / 2;
+        const halfH = geom.height / 2;
+
+        const nx = dx / halfW;
+        const ny = dy / halfH;
+
+        const CORNER_THRESHOLD = 0.5;
+        const inRejectedCorner =
+          (dc === 1 && nx < -CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
+          (dc === -1 && nx > CORNER_THRESHOLD && Math.abs(ny) > CORNER_THRESHOLD) ||
+          (dr === 1 && ny < -CORNER_THRESHOLD && Math.abs(nx) > CORNER_THRESHOLD) ||
+          (dr === -1 && ny > CORNER_THRESHOLD && Math.abs(nx) > CORNER_THRESHOLD);
+
+        if (inRejectedCorner) return;
+      }
+    }
+
+    const nextLetters = [...prevLetters, board[index].letter];
+    const nextPath = [...prevPath, index];
+    const step = nextLetters.length - 1;
+    tileStepRef.current = step;
+    playTileStepSound(step);
+    commitTraceSelection(nextLetters, nextPath);
   }
 
   function handleMouseUp() {
@@ -19705,7 +19682,7 @@ function handleTouchStart(e, index) {
 
   bumpSamsungDiagCounter("touchStart");
   resetDragMovePipeline();
-  dragGridMetricsRef.current = buildGridHitboxMetrics() || getGridHitboxMetrics();
+  dragGridMetricsRef.current = gridHitboxRef.current || buildGridHitboxMetrics();
   setActiveArea("game");
   draggingRef.current = true;
   activeTraceStartedAtRef.current = getNowServerMs();
@@ -19717,10 +19694,7 @@ function handleTouchStart(e, index) {
   const letter = board[index].letter;
   tileStepRef.current = 0;
   playTileStepSound(0);
-  setCurrentTiles([letter]);
-  currentTilesRef.current = [letter];
-  highlightPathRef.current = [index];
-  setHighlightPath([index]);
+  commitTraceSelection([letter], [index]);
   const startTouch = e.touches[0];
   lastTouchMoveSampleRef.current = {
     x: Number.isFinite(startTouch?.clientX) ? startTouch.clientX : null,
@@ -20154,9 +20128,48 @@ function handleTouchEnd(e) {
     }, 0);
   }
 
+  function queuePendingWordsForRetry(words) {
+    queuePendingSubmissionWords({
+      words,
+      pendingQueue: pendingQueueRef.current,
+      pendingWords: pendingWordsRef.current,
+      statusMap: submissionStatusRef.current,
+    });
+    touchSubmissionState();
+  }
+
+  function requeueInFlightSubmissions() {
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+    }
+    const words = takeInFlightSubmissionWords(inFlightBatchesRef.current);
+    queuePendingWordsForRetry(words);
+  }
+
+  function restorePendingSubmissionEntries(entries, activeRoundId) {
+    const restored = restorePendingSubmissionState({
+      entries,
+      activeRoundId,
+      statusMap: submissionStatusRef.current,
+      pendingWords: pendingWordsRef.current,
+      pendingQueue: pendingQueueRef.current,
+    });
+    touchSubmissionState();
+    return restored;
+  }
+
   function sendFallbackWords(words, roundIdValue) {
     if (!Array.isArray(words) || words.length === 0) return;
-    if (!socket.connected || !isLoggedIn || !roundIdValue) return;
+    if (
+      !socket.connected ||
+      !isLoggedInRef.current ||
+      !liveSessionReadyRef.current ||
+      !roundIdValue
+    ) {
+      queuePendingWordsForRetry(words);
+      return;
+    }
     for (const word of words) {
       if (!word) continue;
       const meta = submissionStatusRef.current.get(word) || {};
@@ -20177,6 +20190,12 @@ function handleTouchEnd(e) {
           traceStartedAt: meta.traceStartedAt ?? null,
         },
         (res) => {
+          if (res?.error === "not_logged_in") {
+            liveSessionReadyRef.current = false;
+            queuePendingWordsForRetry([word]);
+            attemptSilentReconnectRef.current?.("submit_session_lost");
+            return;
+          }
           applyServerWordResult(word, res);
           if (res?.ok && Array.isArray(res.extraWords)) {
             res.extraWords.forEach((extra) => {
@@ -20204,6 +20223,10 @@ function handleTouchEnd(e) {
       (word) => submissionStatusRef.current.get(word)?.status === "pending"
     );
     if (!pending.length) return;
+    if (!socket.connected || !liveSessionReadyRef.current) {
+      queuePendingWordsForRetry(pending);
+      return;
+    }
     batchUnsupportedRef.current = true;
     sendFallbackWords(pending, roundIdRef.current);
   }
@@ -20213,14 +20236,29 @@ function handleTouchEnd(e) {
     if (!inFlight) return;
     if (inFlight.timeoutId) clearTimeout(inFlight.timeoutId);
     inFlightBatchesRef.current.delete(clientSeq);
+    if (res?.error === "not_logged_in") {
+      liveSessionReadyRef.current = false;
+      queuePendingWordsForRetry(inFlight.words);
+      attemptSilentReconnectRef.current?.("batch_session_lost");
+      return;
+    }
     if (res?.ok) {
       batchUnsupportedRef.current = false;
     }
     const results = Array.isArray(res?.results) ? res.results : [];
     const byWord = new Map();
+    let authoritativeTotalScore = null;
     results.forEach((entry) => {
       const norm = normalizeWord(entry?.word || "");
       if (norm) byWord.set(norm, entry);
+      const totalScore = Number.isFinite(entry?.totalScore)
+        ? Number(entry.totalScore)
+        : Number.isFinite(entry?.score)
+        ? Number(entry.score)
+        : null;
+      if (Number.isFinite(totalScore)) {
+        authoritativeTotalScore = totalScore;
+      }
     });
     inFlight.words.forEach((word) => {
       const result = byWord.get(word) || { word, ok: false, reason: "no_response" };
@@ -20239,10 +20277,27 @@ function handleTouchEnd(e) {
         });
       }
     });
+    if (Number.isFinite(authoritativeTotalScore)) {
+      let remainingOptimisticScore = 0;
+      submissionStatusRef.current.forEach((meta) => {
+        if (
+          meta?.status === "pending" &&
+          meta?.optimisticApplied &&
+          Number.isFinite(meta?.optimisticPts)
+        ) {
+          remainingOptimisticScore += Number(meta.optimisticPts);
+        }
+      });
+      setScore(authoritativeTotalScore + remainingOptimisticScore);
+    }
   }
 
   function flushPendingBatch() {
-    if (!socket.connected || !isLoggedIn) return;
+    if (
+      !socket.connected ||
+      !isLoggedInRef.current ||
+      !liveSessionReadyRef.current
+    ) return;
     const activeRoundId = roundIdRef.current;
     if (!activeRoundId) return;
     const queue = pendingQueueRef.current;
@@ -20316,6 +20371,7 @@ function handleTouchEnd(e) {
       status: "pending",
       ts: Date.now(),
       ...meta,
+      roundId: meta?.roundId ?? roundIdRef.current ?? null,
       cultureThemeWord: !!meta?.cultureThemeWord || isCurrentCultureThemeWord(word),
     });
     pendingQueueRef.current.push(word);
@@ -20772,6 +20828,57 @@ function handleTouchEnd(e) {
     clearSelection();
   }
 
+  function queueLiveSubmissionCandidates(playableCandidates, fallbackPath, { flush = true } = {}) {
+    const isTargetRoundNow =
+      specialRound?.type === "target_long" || specialRound?.type === "target_score";
+    const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
+    const canOptimisticallyApply = !isTargetRoundNow;
+
+    playableCandidates.forEach((candidate) => {
+      const candidateScored = candidate.scored;
+      const candidatePath =
+        Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
+          ? candidateScored.path
+          : fallbackPath;
+      const optimisticPts = isTargetRoundNow
+        ? 0
+        : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
+        ? specialRound.fixedWordScore
+        : candidateScored.pts;
+      enqueuePendingWord(candidate.raw, {
+        display: candidate.display,
+        path: candidatePath,
+        roundId: roundIdRef.current,
+        optimisticPts,
+        usedFakeTwins: !!candidateScored?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
+        rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
+        rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
+        rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
+        traceStartedAt: getSubmissionTraceStartedAt(),
+        optimisticApplied: canOptimisticallyApply,
+      });
+      if (!canOptimisticallyApply) return;
+      applyLocalWordScoring({
+        raw: candidate.raw,
+        display: candidate.display,
+        path: candidatePath,
+        usedFakeTwins: !!candidateScored?.usedFakeTwins,
+        fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
+        rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
+        rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
+        rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
+        ptsOverride: optimisticPts,
+      });
+    });
+
+    if (flush && !isMobileLayoutRef.current) {
+      scheduleBatchFlush({ immediate: true });
+    }
+  }
+
   function submit()  {
   if (inputLockedRef.current) return;
   if (!isDailyPlayRef.current && appViewRef.current !== "live") return;
@@ -20954,61 +21061,21 @@ function handleTouchEnd(e) {
     }
     if (!playableCandidates.length) return error("Déjà trouvé");
 
-    // Mode en ligne : envoi optimiste + batch
-    if (roundId && socket.connected && isLoggedIn) {
-      const isTargetRoundNow =
-        specialRound?.type === "target_long" || specialRound?.type === "target_score";
-      const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
-      const canOptimisticallyApply = !isTargetRoundNow;
-
-      playableCandidates.forEach((candidate) => {
-        const candidateScored = candidate.scored;
-        const optimisticPts = isTargetRoundNow
-          ? 0
-          : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
-          ? specialRound.fixedWordScore
-          : candidateScored.pts;
-        enqueuePendingWord(candidate.raw, {
-          display: candidate.display,
-          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
-            ? candidateScored.path
-            : path,
-          optimisticPts,
-          usedFakeTwins: !!candidateScored?.usedFakeTwins,
-          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
-          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
-          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
-          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
-          traceStartedAt: getSubmissionTraceStartedAt(),
-          optimisticApplied: canOptimisticallyApply,
-        });
-        if (!canOptimisticallyApply) return;
-        applyLocalWordScoring({
-          raw: candidate.raw,
-          display: candidate.display,
-          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
-            ? candidateScored.path
-            : path,
-          usedFakeTwins: !!candidateScored?.usedFakeTwins,
-          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
-          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
-          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
-          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
-          ptsOverride: optimisticPts,
-        });
-      });
-      if (!isMobileLayoutRef.current) {
-        scheduleBatchFlush({ immediate: true });
-      }
+    // Mode en ligne : envoi optimiste + batch une fois la session rattachee.
+    if (roundId && socket.connected && isLoggedIn && liveSessionReadyRef.current) {
+      queueLiveSubmissionCandidates(playableCandidates, path, { flush: true });
       return;
     }
 
-    if (roundId && (!socket.connected || !isLoggedIn)) {
+    if (
+      roundId &&
+      (!socket.connected || !isLoggedIn || !liveSessionReadyRef.current)
+    ) {
+      queueLiveSubmissionCandidates(playableCandidates, path, { flush: false });
       handleForeground("submit_disconnected");
       scheduleForegroundRetry("submit_retry", 1200);
-      return error("Reconnecte-toi au serveur pour valider");
+      setStatusMessageWithHold("Mot conservé hors ligne", 1200);
+      return;
     }
 
     // Mode solo local : on garde le scoring existant
@@ -21128,53 +21195,18 @@ function handleTouchEnd(e) {
     resetDragMovePipeline();
 
     const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
-    if (roundId && socket.connected && isLoggedIn) {
-      const isTargetRoundNow =
-        specialRound?.type === "target_long" || specialRound?.type === "target_score";
-
-      playableCandidates.forEach((candidate) => {
-        const candidateScored = candidate.scored;
-        const candidatePts = isTargetRoundNow
-          ? 0
-          : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
-          ? specialRound.fixedWordScore
-          : candidateScored.pts;
-        enqueuePendingWord(candidate.raw, {
-          display: candidate.display,
-          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
-            ? candidateScored.path
-            : path,
-          optimisticPts: candidatePts,
-          usedFakeTwins: !!candidateScored?.usedFakeTwins,
-          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
-          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
-          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
-          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
-          traceStartedAt: getSubmissionTraceStartedAt(),
-          optimisticApplied: true,
-        });
-        applyLocalWordScoring({
-          raw: candidate.raw,
-          display: candidate.display,
-          path: Array.isArray(candidateScored?.path) && candidateScored.path.length > 0
-            ? candidateScored.path
-            : path,
-          usedFakeTwins: !!candidateScored?.usedFakeTwins,
-          fakeTwinsCompletionWord: !!candidateScored?.fakeTwinsCompletionWord,
-          fakeTwinsBonusOnly: !!candidateScored?.fakeTwinsBonusOnly,
-          rareBonusWord: rareBonusAllowedNow && !!candidateScored?.rareBonusWord,
-          rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
-          rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
-          ptsOverride: candidatePts,
-        });
-      });
-      scheduleBatchFlush({ immediate: true });
+    if (roundId && socket.connected && isLoggedIn && liveSessionReadyRef.current) {
+      queueLiveSubmissionCandidates(playableCandidates, path, { flush: true });
       return true;
     }
 
-    if (roundId && (!socket.connected || !isLoggedIn)) {
-      return false;
+    if (
+      roundId &&
+      (!socket.connected || !isLoggedIn || !liveSessionReadyRef.current)
+    ) {
+      queueLiveSubmissionCandidates(playableCandidates, path, { flush: false });
+      handleForeground("round_end_submit_disconnected");
+      return true;
     }
 
     playableCandidates.forEach((candidate) => {
@@ -23021,7 +23053,9 @@ function handleTouchEnd(e) {
   const speedWordScore = isSpeedRound
     ? specialRound?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
     : null;
+  const shouldBuildResultsWordData = phase !== "playing";
   const foundList = React.useMemo(() => {
+    if (!shouldBuildResultsWordData) return [];
     const list = accepted.map((word) => ({
       word,
       isFound: true,
@@ -23113,6 +23147,7 @@ function handleTouchEnd(e) {
     bestPtsByFoundWord,
     pendingWordEntries,
     rareBonusEnabledForResults,
+    shouldBuildResultsWordData,
   ]);
   const suppressWordListScores = specialRound?.type === DAILY_SPECIAL_MODE;
   const isMassiveBoggleRoundForResults = specialRound?.type === MASSIVE_BOGGLE_TYPE;
@@ -23132,10 +23167,15 @@ function handleTouchEnd(e) {
       ? compareWordsByLengthAlpha(a, b)
       : scoreForSort(b) - scoreForSort(a)
   );
-  const baseList = allWords.length > 0 ? allWords : foundList;
+  const baseList = shouldBuildResultsWordData
+    ? allWords.length > 0
+      ? allWords
+      : foundList
+    : [];
   const displayList = React.useMemo(
-    () =>
-      baseList.map((entry) => ({
+    () => {
+      if (!shouldBuildResultsWordData) return [];
+      return baseList.map((entry) => ({
         word: entry.word,
         isFound: acceptedWordSet.has(entry.word),
         status: pendingStatusMap.get(entry.word)?.status || entry.status || "idle",
@@ -23199,8 +23239,16 @@ function handleTouchEnd(e) {
               ? entry.pts
               : entry.bestPts
             : speedWordScore,
-      })),
-    [acceptedWordSet, baseList, pendingStatusMap, rareBonusEnabledForResults, speedWordScore]
+      }));
+    },
+    [
+      acceptedWordSet,
+      baseList,
+      pendingStatusMap,
+      rareBonusEnabledForResults,
+      shouldBuildResultsWordData,
+      speedWordScore,
+    ]
   );
   if (sortResultsWordsByLength) {
     displayList.sort(compareWordsByLengthAlpha);
@@ -31138,21 +31186,37 @@ function handleTouchEnd(e) {
       if (!res?.ok) showToast("Nettoyage chat indisponible.");
     });
   }, [showToast]);
-  const showDevDuelWeekRecap = React.useCallback(() => {
+  const requestDuelWeekRecap = React.useCallback((previewMode = false) => {
     if (!isAccountAuthenticated || !installId) {
       showToast("Connecte-toi avec un compte pour charger le recap hebdo.", 2400);
       return;
     }
-    setDuelWeekRecapPreviewMode(true);
+    setDuelWeekRecapPreviewMode(!!previewMode);
     setDuelWeekRecapPage(0);
-    if (duelStatus?.lastWeekSummary) {
+    if (
+      duelStatus?.lastWeekSummary &&
+      isWeeklyRecapPodiumReady(duelStatus.lastWeekSummary, weeklyStats)
+    ) {
       setDuelWeekRecapOpen(true);
       return;
     }
-    duelWeekRecapOpenAfterRefreshRef.current = true;
+    duelWeekRecapOpenAfterRefreshRef.current = previewMode ? "dev" : "public";
     showToast("Chargement du recap hebdo...", 1600);
     void fetchDuelStatus({ force: true });
-  }, [duelStatus?.lastWeekSummary, installId, isAccountAuthenticated, showToast]);
+    fetchWeeklyStats(true);
+  }, [
+    duelStatus?.lastWeekSummary,
+    installId,
+    isAccountAuthenticated,
+    showToast,
+    weeklyStats,
+  ]);
+  const showDevDuelWeekRecap = React.useCallback(() => {
+    requestDuelWeekRecap(true);
+  }, [requestDuelWeekRecap]);
+  const showPublicDuelWeekRecap = React.useCallback(() => {
+    requestDuelWeekRecap(false);
+  }, [requestDuelWeekRecap]);
 
   const sendDevGlobalAnnouncement = React.useCallback(
     (message) =>
@@ -31189,21 +31253,30 @@ function handleTouchEnd(e) {
   );
 
   useEffect(() => {
-    if (!duelWeekRecapOpenAfterRefreshRef.current) return;
-    if (duelStatus?.loading) return;
+    const pendingMode = duelWeekRecapOpenAfterRefreshRef.current;
+    if (!pendingMode) return;
+    if (duelStatus?.loading || weeklyStatsLoading) return;
     const summary = duelStatus?.lastWeekSummary;
-    if (summary) {
-      duelWeekRecapOpenAfterRefreshRef.current = false;
-      setDuelWeekRecapPreviewMode(true);
+    if (summary && isWeeklyRecapPodiumReady(summary, weeklyStats)) {
+      duelWeekRecapOpenAfterRefreshRef.current = null;
+      setDuelWeekRecapPreviewMode(pendingMode === "dev");
       setDuelWeekRecapPage(0);
       setDuelWeekRecapOpen(true);
       return;
     }
-    if (duelStatus?.error || duelStatus?.loading === false) {
-      duelWeekRecapOpenAfterRefreshRef.current = false;
+    if (duelStatus?.error || weeklyStatsError || duelStatus?.loading === false) {
+      duelWeekRecapOpenAfterRefreshRef.current = null;
       showToast("Aucun recap hebdo disponible pour l'instant.", 2400);
     }
-  }, [duelStatus?.error, duelStatus?.lastWeekSummary, duelStatus?.loading, showToast]);
+  }, [
+    duelStatus?.error,
+    duelStatus?.lastWeekSummary,
+    duelStatus?.loading,
+    showToast,
+    weeklyStats,
+    weeklyStatsError,
+    weeklyStatsLoading,
+  ]);
   const applyModerationAction = React.useCallback(
     (player, action) => {
       if (!socket?.connected || !player) return;
@@ -32284,14 +32357,10 @@ function handleTouchEnd(e) {
         )
       : null;
   const duelWeekSummary = duelStatus?.lastWeekSummary || null;
-  const duelWeekRacePodium = React.useMemo(() => {
-    const podium = Array.isArray(weeklyStats?.previousWeeklyVocabPodium)
-      ? weeklyStats.previousWeeklyVocabPodium
-      : [];
-    if (podium.length) return podium;
-    const champion = weeklyStats?.previousWeeklyVocabChampion;
-    return champion && typeof champion === "object" ? [{ ...champion, rank: 1 }] : [];
-  }, [weeklyStats?.previousWeeklyVocabChampion, weeklyStats?.previousWeeklyVocabPodium]);
+  const duelWeekRacePodium = React.useMemo(
+    () => resolveWeeklyRecapPodium(duelWeekSummary, weeklyStats),
+    [duelWeekSummary, weeklyStats]
+  );
   const closeDuelWeekRecap = React.useCallback(() => {
     const weekId = String(duelWeekSummary?.weekId || "").trim();
     if (!duelWeekRecapPreviewMode && installId && weekId) {
@@ -33930,6 +33999,7 @@ function handleTouchEnd(e) {
           onOpenSettings={openSettingsPanel}
           onOpenStats={openWeeklyStatsOverlay}
           onOpenVault={openWordVaultPage}
+          onOpenWeeklyRecap={showPublicDuelWeekRecap}
           onPlay={handleLoginOrResume}
           onResume={handleResumeFromPrompt}
           playerTeam={duelTeam}
@@ -33937,6 +34007,11 @@ function handleTouchEnd(e) {
           resumePhaseLabel={resumePhaseLabel}
           resumeRoomLabel={resumeRoomLabel}
           savedSessionNick={savedSessionNick}
+          weeklyRecapLoading={
+            !!duelWeekRecapOpenAfterRefreshRef.current ||
+            duelStatus?.loading ||
+            weeklyStatsLoading
+          }
         />
       </>
     );
@@ -36621,7 +36696,13 @@ function handleTouchEnd(e) {
       </div>
 
       {connectionError && (
-        <div className="mb-4 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+        <div
+          className={`mb-4 px-3 py-2 rounded-lg border text-sm ${
+            connectionError === LIVE_CONNECTION_INTERRUPTED_MESSAGE
+              ? "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
           {connectionError}
         </div>
       )}
@@ -37132,7 +37213,6 @@ function handleTouchEnd(e) {
               onTouchEnd={handleTouchEnd}
               onTouchCancel={handleTouchEnd}
             >
-              {!isMobileLayout ? <TraceGridDomSync gridRef={gridRef} phase={phase} /> : null}
               {praiseOverlay}
               {showResultsWordPath &&
               resultsPathPreview?.points?.length &&
