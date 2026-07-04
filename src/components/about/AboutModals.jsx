@@ -270,6 +270,100 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 04/07/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  récapitulatif et course hebdomadaire
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le récapitulatif du lundi se déroule maintenant en plusieurs pages obligatoires :
+                    bilan du duel, meilleurs records de la semaine puis grand podium de la course
+                    vocabulaire.
+                  </li>
+                  <li>
+                    les trois meilleurs joueurs des catégories médailles, mots par manche et score
+                    total sont désormais mis à l'honneur dans le récapitulatif.
+                  </li>
+                  <li>
+                    le podium de la course hebdomadaire affiche maintenant les trois premiers, avec
+                    des pseudos or, argent et bronze pendant la semaine suivante.
+                  </li>
+                  <li>
+                    ajout d'un bouton sur l'accueil pour revoir le récapitulatif ; son ouverture
+                    automatique attend désormais le retour à l'accueil et son podium a été
+                    fiabilisé.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  connexion et sauvegarde
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    en cas de coupure temporaire, la manche continue sur l'appareil et les mots
+                    validés hors ligne sont conservés puis synchronisés automatiquement au retour
+                    de la connexion.
+                  </li>
+                  <li>
+                    le message de connexion interrompue remplace l'ancien avertissement trompeur
+                    de serveur saturé, avec une reprise plus fiable sans devoir rafraîchir la page.
+                  </li>
+                  <li>
+                    après une longue pause ou une nouvelle ouverture du jeu, l'arrivée se fait de
+                    nouveau sur l'accueil ; les reconnexions courtes d'une partie active restent
+                    automatiques.
+                  </li>
+                  <li>
+                    la sauvegarde des thèmes, des déblocages et des gobblars a été consolidée, avec
+                    une meilleure conservation des données et des sauvegardes serveur plus sûres.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  grille, indices et fluidité
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les indices des manches cible utilisent maintenant un dégradé vert, jaune et
+                    orange sur le plateau ; les lettres révélées reprennent les mêmes couleurs dans
+                    l'affichage du mot mystère.
+                  </li>
+                  <li>
+                    le tracé des mots a été optimisé pour ne mettre à jour que les tuiles réellement
+                    modifiées, avec plusieurs calculs inutiles retirés pendant les manches.
+                  </li>
+                  <li>
+                    correction de la disparition du chemin tracé sur téléphone et ordinateur après
+                    ces optimisations.
+                  </li>
+                  <li>
+                    correction du swipe des pages de classement lorsqu'un geste commence sur un
+                    pseudo cliquable.
+                  </li>
+                  <li>
+                    l'accueil est mieux isolé des mises à jour du live : le bouton de récapitulatif
+                    ne passe plus périodiquement en chargement pendant les rafraîchissements de fond.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  chat et bots
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les bots d'ambiance peuvent maintenant être affichés ou masqués individuellement
+                    depuis les réglages du chat.
+                  </li>
+                  <li>
+                    leurs interventions de fin de manche ont été affinées : remarques plus variées,
+                    meilleure sélection des mots remarquables et commentaires linguistiques plus
+                    précis.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 18/06/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

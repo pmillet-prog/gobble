@@ -41,6 +41,7 @@ import ChatReactionToastLayer from "./components/chat/ChatReactionToastLayer.jsx
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
+import TargetHintPattern from "./components/TargetHintPattern.jsx";
 import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import GlobalRedAnnouncementOverlay from "./components/GlobalRedAnnouncementOverlay.jsx";
@@ -79,6 +80,7 @@ import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalon
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
+import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
 import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
@@ -133,6 +135,7 @@ import {
   buildTargetHintOverlayStyleMap,
   buildTargetHintStyleMap,
 } from "./utils/targetHintStyles.js";
+import { isLiveSessionFreshForBoot } from "./utils/liveSessionFreshness.js";
 import {
   isWeeklyRecapPodiumReady,
   resolveWeeklyRecapPodium,
@@ -3981,8 +3984,8 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-06-18";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-06-18T00:00:00+02:00");
+const PATCH_NOTES_VERSION = "2026-07-04";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-04T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
@@ -13120,15 +13123,36 @@ export default function App() {
     if (!session?.nick || !session?.roomId) return;
     const nextInstallId = normalizeStoredPlayerIdentityKey(session.installId || installId);
     if (!nextInstallId) return;
+    const now = Date.now();
+    const previousLoginAt = Number(session?.lastLoginAt ?? sessionRef.current?.lastLoginAt);
     const payload = {
       nick: String(session.nick || "").trim(),
       roomId: session.roomId,
       installId: nextInstallId,
-      lastLoginAt: Date.now(),
+      lastLoginAt:
+        Number.isFinite(previousLoginAt) && previousLoginAt > 0 ? previousLoginAt : now,
+      lastActiveAt: now,
     };
     sessionRef.current = payload;
     setCanResumeSession(true);
     autoResumeEnabledRef.current = true;
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  function touchSavedSessionActivity(now = Date.now()) {
+    const session = sessionRef.current;
+    if (!session?.nick || !session?.roomId || !session?.installId) return;
+    const timestamp = Number(now);
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return;
+    const previousActivityAt = Number(session.lastActiveAt);
+    if (Number.isFinite(previousActivityAt) && timestamp - previousActivityAt < 5000) return;
+    const payload = {
+      ...session,
+      lastActiveAt: timestamp,
+    };
+    sessionRef.current = payload;
     try {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
     } catch (_) {}
@@ -13151,6 +13175,20 @@ export default function App() {
     const s = sessionRef.current;
     return Boolean(s?.nick && s?.roomId && s?.installId);
   }
+
+  useEffect(() => {
+    if (!isLoggedIn || appView !== "live") return undefined;
+    touchSavedSessionActivity();
+    const timer = window.setInterval(() => {
+      touchSavedSessionActivity();
+    }, 15000);
+    const onPageHide = () => touchSavedSessionActivity();
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [appView, isLoggedIn]);
 
   function clearQueuedRankingUpdate() {
     if (rankingQueueTimerRef.current) {
@@ -16456,7 +16494,7 @@ export default function App() {
         setNickname(stored.nick);
       }
       setCanResumeSession(true);
-      autoResumeEnabledRef.current = true;
+      autoResumeEnabledRef.current = isLiveSessionFreshForBoot(stored);
     }
     return () => {
     };
@@ -16474,6 +16512,10 @@ export default function App() {
     const attemptKey = `${authenticatedUserId || "anon"}|${nick}|${roomToUse}|${install}`;
     if (bootResumeAttemptKeyRef.current === attemptKey) return;
     bootResumeAttemptKeyRef.current = attemptKey;
+    if (!isLiveSessionFreshForBoot(stored)) {
+      autoResumeEnabledRef.current = false;
+      return;
+    }
     setTimeout(() => {
       resumeLoginFromSessionRef.current?.("boot");
     }, 0);
@@ -17416,6 +17458,20 @@ export default function App() {
 
   function dismissResumePrompt() {
     setResumeSnapshot(null);
+  }
+
+  function openHomeAccount() {
+    if (isAccountAuthenticated || isAuthStatusPending || isAuthServerUnavailable) {
+      setIsAccountMenuOpen(true);
+      return;
+    }
+    const nextMode =
+      authState.status === "legacy_profile_found"
+        ? AUTH_MODAL_MODES.CLAIM_LEGACY
+        : authState.status === "login_required"
+        ? AUTH_MODAL_MODES.LOGIN
+        : AUTH_MODAL_MODES.REGISTER;
+    openAuthDialog(nextMode);
   }
 
   function startGameFromServer(
@@ -28241,7 +28297,7 @@ function handleTouchEnd(e) {
             type="button"
             data-stats-profile-button="true"
             className="min-w-0 truncate text-left hover:underline"
-            style={{ touchAction: "manipulation" }}
+            style={{ touchAction: "pan-y" }}
             onClick={onOpenProfile}
           >
             {nick}
@@ -32386,6 +32442,20 @@ function handleTouchEnd(e) {
       formatNumber={formatNumber}
     />
   );
+  const homeLobbyActions = useHomeLobbyActions({
+    onDismissResume: dismissResumePrompt,
+    onOpenAccount: openHomeAccount,
+    onOpenChat: openHomeChat,
+    onOpenDaily: openDailyHome,
+    onOpenDuel: openDuelPage,
+    onOpenPlayers: openPlayersOverlayAlpha,
+    onOpenSettings: openSettingsPanel,
+    onOpenStats: openWeeklyStatsOverlay,
+    onOpenVault: openWordVaultPage,
+    onOpenWeeklyRecap: showPublicDuelWeekRecap,
+    onPlay: handleLoginOrResume,
+    onResume: handleResumeFromPrompt,
+  });
   const isBootBlocking = !bootProgress.done;
   const shouldShowBootOverlay = isBootBlocking || bootOverlayVisible;
   const bootOverlay = shouldShowBootOverlay ? (
@@ -33935,23 +34005,6 @@ function handleTouchEnd(e) {
       savedSessionNick ||
       nickname ||
       "Compte";
-    const openHomeAccount = () => {
-      if (isAccountAuthenticated) {
-        setIsAccountMenuOpen(true);
-        return;
-      }
-      if (isAuthStatusPending || isAuthServerUnavailable) {
-        setIsAccountMenuOpen(true);
-        return;
-      }
-      const nextMode =
-        authState.status === "legacy_profile_found"
-          ? AUTH_MODAL_MODES.CLAIM_LEGACY
-          : authState.status === "login_required"
-          ? AUTH_MODAL_MODES.LOGIN
-          : AUTH_MODAL_MODES.REGISTER;
-      openAuthDialog(nextMode);
-    };
 
     return (
       <>
@@ -33990,28 +34043,13 @@ function handleTouchEnd(e) {
           isAuthStatusPending={isAuthStatusPending}
           isConnecting={isConnecting}
           loginError={loginError}
-          onDismissResume={dismissResumePrompt}
-          onOpenAccount={openHomeAccount}
-          onOpenChat={openHomeChat}
-          onOpenDaily={openDailyHome}
-          onOpenDuel={openDuelPage}
-          onOpenPlayers={openPlayersOverlayAlpha}
-          onOpenSettings={openSettingsPanel}
-          onOpenStats={openWeeklyStatsOverlay}
-          onOpenVault={openWordVaultPage}
-          onOpenWeeklyRecap={showPublicDuelWeekRecap}
-          onPlay={handleLoginOrResume}
-          onResume={handleResumeFromPrompt}
+          {...homeLobbyActions}
           playerTeam={duelTeam}
           playersCount={playersCountForLobby}
           resumePhaseLabel={resumePhaseLabel}
           resumeRoomLabel={resumeRoomLabel}
           savedSessionNick={savedSessionNick}
-          weeklyRecapLoading={
-            !!duelWeekRecapOpenAfterRefreshRef.current ||
-            duelStatus?.loading ||
-            weeklyStatsLoading
-          }
+          weeklyRecapLoading={!!duelWeekRecapOpenAfterRefreshRef.current}
         />
       </>
     );
@@ -36860,7 +36898,11 @@ function handleTouchEnd(e) {
                   solvedTargetWord ? "max-w-full min-w-0" : ""
                 }`}
               >
-                <span
+                <TargetHintPattern
+                  display={specialHintDisplay}
+                  revealedWordIndices={specialHint?.wordIndices}
+                  solved={!!solvedTargetWord}
+                  wordLength={specialHint?.length}
                   className={
                     solvedTargetWord
                       ? "block max-w-full whitespace-nowrap tracking-normal"
@@ -36877,9 +36919,7 @@ function handleTouchEnd(e) {
                         }
                       : undefined
                   }
-                >
-                  {specialHintDisplay}
-                </span>
+                />
                 {showSolvedTargetLoupe && (
                   <button
                     type="button"

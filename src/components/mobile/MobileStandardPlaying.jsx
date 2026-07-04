@@ -6,6 +6,7 @@ import MobileGrid from "../MobileGrid.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
+import TargetHintPattern from "../TargetHintPattern.jsx";
 
 function MobileStandardPlaying(props) {
   const {
@@ -328,7 +329,11 @@ function MobileStandardPlaying(props) {
                       isSolvedTargetDisplay ? "max-w-full min-w-0" : ""
                     }`}
                   >
-                    <span
+                    <TargetHintPattern
+                      display={specialHintDisplay}
+                      revealedWordIndices={specialHint?.wordIndices}
+                      solved={isSolvedTargetDisplay}
+                      wordLength={specialHint?.length}
                       className={
                         isSolvedTargetDisplay
                           ? "block max-w-full whitespace-nowrap tracking-normal"
@@ -342,9 +347,7 @@ function MobileStandardPlaying(props) {
                             }
                           : undefined
                       }
-                    >
-                      {specialHintDisplay}
-                    </span>
+                    />
                     {showSolvedTargetLoupe && (
                       <button
                         type="button"

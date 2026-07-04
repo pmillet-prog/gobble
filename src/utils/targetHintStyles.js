@@ -76,6 +76,32 @@ export function buildTargetHintStyleMap(cells, wordIndices, wordLength) {
   );
 }
 
+export function buildTargetHintPreviewStyleMap(wordIndices, wordLength) {
+  const safeIndices = Array.isArray(wordIndices) ? wordIndices : [];
+  const uniqueIndices = Array.from(
+    new Set(safeIndices.filter((wordIndex) => Number.isInteger(wordIndex) && wordIndex >= 0))
+  );
+  if (!uniqueIndices.length) return new Map();
+
+  const lastWordIndex =
+    Number.isFinite(wordLength) && wordLength > 1
+      ? Math.trunc(wordLength) - 1
+      : Math.max(1, ...uniqueIndices);
+  return new Map(
+    uniqueIndices.map((wordIndex) => {
+      const ratio = Math.max(0, Math.min(1, wordIndex / lastWordIndex));
+      const [red, green, blue] = getGradientColor(ratio);
+      return [
+        wordIndex,
+        {
+          color: `rgb(${red}, ${green}, ${blue})`,
+          textShadow: `0 0 10px rgba(${red}, ${green}, ${blue}, 0.28)`,
+        },
+      ];
+    })
+  );
+}
+
 export function buildTargetHintOverlayStyleMap(
   cells,
   wordIndices,
