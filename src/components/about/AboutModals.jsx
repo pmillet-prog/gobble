@@ -352,6 +352,11 @@ export default function AboutModals({
                 </div>
                 <ul className="mt-1 list-disc pl-5 space-y-2">
                   <li>
+                    le chat de l'accueil utilise désormais le même composant interactif que le chat
+                    mobile : les réactions peuvent y être envoyées, reçues et consultées, avec les
+                    mêmes fonctions de réponse et de gestion des messages.
+                  </li>
+                  <li>
                     les bots d'ambiance peuvent maintenant être affichés ou masqués individuellement
                     depuis les réglages du chat.
                   </li>

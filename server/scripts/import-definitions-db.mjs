@@ -16,6 +16,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "../..");
 const DEFAULT_INPUT = path.join(ROOT_DIR, "data/definitions-fr.jsonl");
 const DEFAULT_OUTPUT = path.join(ROOT_DIR, "data/definitions-fr.sqlite");
+const DEFAULT_SUPPLEMENTS = path.join(ROOT_DIR, "data/definition-supplements.jsonl");
 const BATCH_SIZE = 1000;
 
 function printHelp() {
@@ -25,6 +26,7 @@ function printHelp() {
 Options:
   --input <path>       JSONL source (defaut: data/definitions-fr.jsonl)
   --output <path>      SQLite generee (defaut: data/definitions-fr.sqlite)
+  --supplements <path> JSONL de complements locaux (defaut: data/definition-supplements.jsonl)
   --help               Affiche cette aide
 `);
 }
@@ -33,6 +35,7 @@ function parseArgs(argv) {
   const options = {
     input: DEFAULT_INPUT,
     output: DEFAULT_OUTPUT,
+    supplements: DEFAULT_SUPPLEMENTS,
     help: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -48,6 +51,7 @@ function parseArgs(argv) {
     if (arg === "--help" || arg === "-h") options.help = true;
     else if (arg === "--input") options.input = readValue();
     else if (arg === "--output") options.output = readValue();
+    else if (arg === "--supplements") options.supplements = readValue();
     else throw new Error(`Option inconnue: ${arg}`);
   }
   return options;
@@ -259,6 +263,35 @@ async function importDefinitions(options) {
       }
       if (written > 0 && written % 50000 === 0) {
         console.error(`[definitions-db] written=${written} read=${read}`);
+      }
+    }
+    if (options.supplements) {
+      try {
+        const supplementRaw = await fs.readFile(options.supplements, "utf8");
+        for (const line of supplementRaw.split(/\r?\n/)) {
+          read += 1;
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          let parsed = null;
+          try {
+            parsed = JSON.parse(trimmed);
+          } catch (_) {
+            skipped += 1;
+            continue;
+          }
+          const entry = sanitizeEntry(parsed);
+          if (!entry) {
+            skipped += 1;
+            continue;
+          }
+          batch.push(entry);
+          written += 1;
+          if (batch.length >= BATCH_SIZE) {
+            await flushBatch(db, insert, batch);
+          }
+        }
+      } catch (err) {
+        if (err?.code !== "ENOENT") throw err;
       }
     }
     await flushBatch(db, insert, batch);

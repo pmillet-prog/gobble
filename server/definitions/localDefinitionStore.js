@@ -5,6 +5,7 @@ import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
 import { getSemanticWordOverride, mergeSemanticWordOverride } from "./semanticWordOverrides.js";
+import { getDefinitionSupplementEntry } from "./definitionSupplements.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -220,7 +221,11 @@ export async function getLocalDefinitionEntry(rawWord) {
         WHERE key = ?`,
       key
     );
-    const entry = mergeSemanticWordOverride(serializeRow(row), getSemanticWordOverride(key));
+    const supplement = row ? null : await getDefinitionSupplementEntry(rawWord);
+    const entry = mergeSemanticWordOverride(
+      serializeRow(row) || supplement,
+      getSemanticWordOverride(key)
+    );
     remember(key, entry);
     return entry;
   } catch (err) {

@@ -712,6 +712,24 @@ export default function ChatContent({
     });
   }, []);
 
+  const openReactionPickerFromButton = React.useCallback((event, messageId) => {
+    const safeMessageId = typeof messageId === "string" ? messageId.trim() : "";
+    if (!safeMessageId) return;
+    event?.stopPropagation?.();
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    const point = clampToViewport(
+      Number.isFinite(rect?.left) ? rect.left + (rect.width || 0) / 2 : 0,
+      Number.isFinite(rect?.top) ? rect.top - 8 : 0,
+      { marginX: 88, marginY: 68 }
+    );
+    setReactionPicker({
+      messageId: safeMessageId,
+      x: point.x,
+      y: point.y,
+      openedAt: Date.now(),
+    });
+  }, []);
+
   return (
     <div className="flex flex-col h-full min-h-0 relative">
       <div
@@ -1041,6 +1059,26 @@ export default function ChatContent({
                           </span>
                         ) : null}
                         <span style={NON_SELECTABLE_TOUCH_STYLE}>{msg.text}</span>
+                        {!isAmbientBot && !isOwn ? (
+                          <button
+                            type="button"
+                            className={`hidden md:inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border opacity-70 transition hover:opacity-100 ${
+                              darkMode
+                                ? "border-amber-200/25 bg-slate-950/45 text-amber-50"
+                                : "border-amber-300/45 bg-white/80 text-slate-700"
+                            }`}
+                            onClick={(event) => openReactionPickerFromButton(event, msg.id)}
+                            aria-label="Réagir au message"
+                            title="Réagir"
+                          >
+                            <span
+                              className="material-icons-outlined text-[15px] leading-none"
+                              aria-hidden="true"
+                            >
+                              add_reaction
+                            </span>
+                          </button>
+                        ) : null}
                       </div>
                       {reactions.length ? (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">

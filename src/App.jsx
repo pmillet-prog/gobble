@@ -32177,23 +32177,38 @@ function handleTouchEnd(e) {
     open: isHomeChatOpen,
     darkMode: menuDarkMode,
     chatTab: safeChatTab,
-    onChangeTab: setChatTab,
+    onChangeChatTab: setChatTab,
     onClose: closeHomeChat,
     messagesUnreadCount: homeChatUnreadCount,
-    messagesUnreadIsBotOnly: homeChatUnreadIsBotOnly,
-    systemCount: chatSystemCount,
-    messages: homeChatVisibleMessages,
+    visibleMessages: homeChatVisibleMessages,
+    showBlockedList,
+    blockedEntries,
+    blockedCount,
+    onToggleBlockedList: () => setShowBlockedList((prev) => !prev),
+    onUnblockInstallId: unblockInstallId,
+    onOpenRules: () => setIsChatRulesOpen(true),
+    onOpenUserMenu: openUserMenu,
     chatInput,
     setChatInput,
-    onInputFocus: handleChatInputFocus,
-    onSubmit: (text) => submitChat(null, text),
+    chatFocusPreserveKey: `${appView}:home`,
+    chatInputRef,
     chatInputDisabled,
     chatInputPlaceholder,
+    onChatInputFocus: handleChatInputFocus,
+    submitChat,
+    cycleChatHistory,
     chatEditTarget,
     onClearChatEdit: clearChatEditTarget,
     chatReplyTarget,
     onClearChatReply: clearChatReplyTarget,
-    onOpenPlayerProfile: openPlayerProfile,
+    onEditOwnMessage: beginChatEditFromMessage,
+    onDeleteOwnMessage: deleteOwnChatMessage,
+    onSelectChatReply: setChatReplyTargetFromMessage,
+    onReactToMessage: sendChatReaction,
+    reactionEmojis: CHAT_REACTION_EMOJIS,
+    getAuthorNickClassName: getLiveNickClassName,
+    showBotMessages,
+    onToggleShowBotMessages: () => setShowBotMessages((prev) => !prev),
     selfNick,
     selfInstallId: installId,
   };
@@ -34019,6 +34034,9 @@ function handleTouchEnd(e) {
         {vaultWordOfDayOverlay}
         {playersOverlay}
         {playerProfileModalView}
+        {userMenuView}
+        {reportModal}
+        {chatRulesModal}
         {definitionModalView}
         {tutorialOverlay}
         {authDialogView}
@@ -34026,6 +34044,8 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         {quickHelpOverlay}
+        <ChatReactionToastLayer toasts={mobileChatReactionToasts} />
+        <ToastStack toasts={toasts} darkMode={menuDarkMode} />
         {globalChatLayer}
         <HomeLobby
           accountLabel={homeAccountLabel}

@@ -1111,6 +1111,7 @@ function localEntryToSummary(entry, maxLen) {
     definitions,
     etymology: clipDefinition(entry.etymology || "", FULL_DEFINITION_MAX_LEN),
     url: entry.sourceUrl || "",
+    source: entry.source || "wiktionary",
     description: "",
   };
 }
@@ -1196,7 +1197,7 @@ async function lookupLocalDefinitionPayload(input, options = {}, seen = new Set(
 
   const maxLen = resolveDefinitionMaxLen(options);
   const summary = localEntryToSummary(entry, maxLen);
-  let payload = buildPayload(input, summary, "wiktionary");
+  let payload = buildPayload(input, summary, summary.source || "wiktionary");
   if (!payload) return null;
 
   payload.local = true;
@@ -1223,6 +1224,56 @@ async function lookupLocalDefinitionPayload(input, options = {}, seen = new Set(
     displayWord: entry.title && entry.title !== input ? normalizeNfc(entry.title) : basePayload.displayWord,
   };
   return applyFormOfMetadata(payload, hint);
+}
+
+async function lookupLocalGuessedDefinitionPayload(input, options = {}) {
+  if (!LOCAL_DEFINITIONS_ENABLED) return null;
+  const normalized = normalizeLookup(input);
+  if (!normalized) return null;
+
+  const guesses = [
+    ...guessLemmasFR(input).map((base) => ({
+      base,
+      apply(payload) {
+        payload.lemma = base;
+        payload.lemmaGuess = true;
+      },
+    })),
+    ...guessInflectionsFR(input).map((guess) => ({
+      base: guess.base,
+      apply(payload) {
+        payload.inflectionBase = guess.base;
+        payload.inflectionLabel = guess.label;
+        payload.inflectionGuess = true;
+      },
+    })),
+    ...guessParticiplesFR(input).map((guess) => ({
+      base: guess.base,
+      apply(payload) {
+        payload.participleBase = guess.base;
+        payload.participleLabel = guess.label;
+        payload.participleGuess = true;
+      },
+    })),
+  ];
+
+  const seen = new Set([normalized]);
+  for (const guess of guesses) {
+    const base = String(guess?.base || "").trim();
+    const baseKey = normalizeLookup(base);
+    if (!base || !baseKey || seen.has(baseKey)) continue;
+    seen.add(baseKey);
+    const basePayload = await lookupLocalDefinitionPayload(base, options, new Set([normalized]));
+    if (!basePayload?.ok) continue;
+    const payload = {
+      ...basePayload,
+      word: input,
+      local: true,
+    };
+    guess.apply(payload);
+    return payload;
+  }
+  return null;
 }
 
 export function peekDefinitionCache(word) {
@@ -1276,6 +1327,9 @@ export async function getDefinition(
 
     try {
       payload = await lookupLocalDefinitionPayload(input, options);
+      if (!payload) {
+        payload = await lookupLocalGuessedDefinitionPayload(input, options);
+      }
 
       if (!payload && WEB_FALLBACK_ENABLED) {
       const baseCandidates = buildDefineCandidates(input);
