@@ -270,6 +270,87 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
+                  patch du 15/07/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  faux jumeaux
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>la manche Faux jumeaux devient plus accessible.</li>
+                  <li>
+                    les mots de 2 lettres et plus sont maintenant acceptés. Avant, il en fallait au
+                    moins 4. Trop de paramètres différents dans une manche spéciale peuvent vite
+                    déboussoler les nouveaux joueurs, donc on se rapproche des règles de la majorité
+                    des autres manches. On verra plus tard si une manche spéciale autour des mots
+                    longs se fait ressentir.
+                  </li>
+                  <li>
+                    pour avancer vers le bonus, il suffit de trouver des mots qui utilisent la tuile
+                    jumelle, quelle que soit leur rareté.
+                  </li>
+                  <li>
+                    le bonus n’est plus basé uniquement sur certains mots communs. Il faut maintenant
+                    trouver environ 40% des mots possibles qui utilisent la tuile jumelle.
+                  </li>
+                  <li>
+                    les grilles Faux jumeaux sont générées avec ces nouvelles règles, pour que
+                    l’objectif soit plus cohérent avec le nombre réel de mots trouvables.
+                  </li>
+                  <li>
+                    en fin de manche, le bonus est plus visible : un B orange apparaît après les G
+                    du joueur, et les 500 points du bonus sont affichés en bleu dans le détail du
+                    score.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  sons et célébrations
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>nouveau son de bonus quand l’objectif Faux jumeaux est atteint.</li>
+                  <li>l’image de célébration « BONUS ! » reste affichée plus longtemps.</li>
+                  <li>
+                    en manche live Faux jumeaux, quand un autre joueur atteint le bonus, les autres
+                    joueurs entendent aussi le son de cymbales.
+                  </li>
+                  <li>le réglage sonore « gobble » couvre maintenant aussi le son de bonus.</li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  grilles du jour
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>les futures grilles du jour Faux jumeaux utilisent les nouvelles règles.</li>
+                  <li>
+                    les grilles déjà jouées le jour même restent conservées, pour ne pas changer une
+                    grille après que des joueurs l’ont commencée.
+                  </li>
+                  <li>
+                    la préparation automatique des grilles du jour a été allégée. Elle ne vérifie
+                    plus inutilement toutes les 5 minutes, ce qui limite les risques de petits
+                    ralentissements pendant les manches live.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  dictionnaire et affichage
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>quelques définitions locales ont été corrigées ou complétées.</li>
+                  <li>
+                    les mots STRACCHINO et STRACCHINOS sont maintenant reconnus comme des fromages
+                    dans les définitions.
+                  </li>
+                  <li>
+                    plusieurs textes d’aide et d’introduction ont été mis à jour pour expliquer les
+                    nouvelles règles Faux jumeaux.
+                  </li>
+                  <li>le bilan de fin de manche rend mieux visibles les bonus obtenus.</li>
+                  <li>ajout de Voggle dans la liste des donateurs.</li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 04/07/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

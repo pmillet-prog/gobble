@@ -8,6 +8,7 @@ import {
   pushCrashBreadcrumb,
   sendCrashReport,
 } from "./utils/crashReporter.js";
+import { maybeRecoverFromStaleChunk } from "./utils/staleChunkRecovery.js";
 import "./index.css";
 
 function persistGlobalCrash(kind, payload) {
@@ -58,6 +59,10 @@ if (typeof window !== "undefined") {
   document.addEventListener("visibilitychange", onVisibility);
 
   window.addEventListener("error", (event) => {
+    if (maybeRecoverFromStaleChunk(event?.error || event?.message || "")) {
+      event.preventDefault?.();
+      return;
+    }
     pushCrashBreadcrumb("window-error", {
       message: String(event?.message || ""),
       source: String(event?.filename || ""),
@@ -75,6 +80,10 @@ if (typeof window !== "undefined") {
 
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event?.reason;
+    if (maybeRecoverFromStaleChunk(reason)) {
+      event.preventDefault?.();
+      return;
+    }
     let message = "";
     let stack = "";
     if (typeof reason === "string") {

@@ -3985,9 +3985,9 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-07-04";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-04T00:00:00+02:00");
-const FRONT_BUILD_TAG = "2026-03-09-chat-refresh-1";
+const PATCH_NOTES_VERSION = "2026-07-15";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-15T00:00:00+02:00");
+const FRONT_BUILD_TAG = "2026-07-15-stale-chunk-recovery-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
 const readLocalSettings = () => {

@@ -6,6 +6,7 @@ import {
   persistCrashReport,
   sendCrashReport,
 } from "../utils/crashReporter.js";
+import { maybeRecoverFromStaleChunk } from "../utils/staleChunkRecovery.js";
 
 export default class AppCrashBoundary extends React.Component {
   constructor(props) {
@@ -29,6 +30,9 @@ export default class AppCrashBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
+    if (maybeRecoverFromStaleChunk(error)) {
+      return;
+    }
     const report = buildCrashReport("react-error-boundary", {
       message: String(error?.message || error || "unknown_error"),
       stack: String(error?.stack || ""),
