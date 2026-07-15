@@ -8,15 +8,21 @@ export const SIZE = 4;
 export const MOVABLE_BONUS_KEYS = Object.freeze(["L2", "L3", "M2", "M3"]);
 export const OCID_TYPE = "ocid";
 export const FAKE_TWINS_TYPE = "fake_twins";
-export const FAKE_TWINS_MIN_WORD_LENGTH = 4;
+export const FAKE_TWINS_MIN_WORD_LENGTH = 2;
 export const FAKE_TWINS_WORD_BONUS = 50;
 export const FAKE_TWINS_COMPLETION_BONUS = 500;
-export const FAKE_TWINS_MIN_WORDS = 15;
-export const FAKE_TWINS_MAX_WORDS = 25;
+export const FAKE_TWINS_COMPLETION_TARGET_RATIO = 0.4;
+export const FAKE_TWINS_MIN_WORDS = 25;
+export const FAKE_TWINS_MAX_WORDS = 90;
 export const FAKE_TWINS_MIN_SIDE_WORD_RATIO = 0.2;
 const FAKE_TWINS_MIN_PRIMARY_WORDS = 3;
 const FAKE_TWINS_PREFERRED_MAX_PRIMARY_WORDS = 12;
 const FAKE_TWINS_RARE_LETTERS = new Set(["k", "w", "x", "y", "z"]);
+
+export function getFakeTwinsCompletionTarget(totalWords) {
+  const safeTotal = Math.max(0, Math.trunc(Number(totalWords) || 0));
+  return safeTotal > 0 ? Math.ceil(safeTotal * FAKE_TWINS_COMPLETION_TARGET_RATIO) : 0;
+}
 
 export const LETTER_BAG =
   "EEEEEEAAAAAAIIIIIIOOOOONNNNNRRRRRTTTTTLLLLSSSSSSSUUUUDDDDGGBBCCMMFPPHVWYKJXQZ";
@@ -890,6 +896,7 @@ function summarizeFakeTwinsCandidate(
   return {
     fakeTwinWords,
     fakeTwinCompletionWords: fakeTwinWords,
+    fakeTwinCompletionTarget: getFakeTwinsCompletionTarget(fakeTwinWords),
     fakeTwinBonusWords,
     altOnlyWords: Math.max(0, Number(altLetterWords) || 0),
     primaryLetterWords: Math.max(0, Number(primaryLetterWords) || 0),
@@ -988,6 +995,7 @@ function summarizeSolvedFakeTwinsWords(solved, baseSolvedKeys, grid, completionW
   return {
     fakeTwinWords: fakeTwinCompletionWords,
     fakeTwinCompletionWords,
+    fakeTwinCompletionTarget: getFakeTwinsCompletionTarget(fakeTwinCompletionWords),
     fakeTwinBonusWords,
     fakeTwinUniquePaths: fakeTwinPaths.size,
     fakeTwinDuplicatePathWords: duplicatePathWords,
@@ -1031,6 +1039,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
       totalWords: 0,
       fakeTwinWords: 0,
       fakeTwinCompletionWords: 0,
+      fakeTwinCompletionTarget: 0,
       fakeTwinBonusWords: 0,
       fakeTwinUniquePaths: 0,
       fakeTwinDuplicatePathWords: 0,
@@ -1067,14 +1076,9 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
     Math.trunc(options?.maxAltLetters || FAKE_TWINS_LETTER_POOL.length)
   );
   const maxWords = Math.max(1, Math.trunc(options?.maxWords || FAKE_TWINS_MAX_WORDS));
-  const completionWordSet =
-    options?.fakeTwinsCompletionWordSet instanceof Set
-      ? options.fakeTwinsCompletionWordSet
-      : null;
-  const hasCompletionFilter = completionWordSet instanceof Set && completionWordSet.size > 0;
-  const candidateDictionaryEntries = hasCompletionFilter
-    ? getFakeTwinsCompletionDictionaryEntries(dictionaryEntries, completionWordSet)
-    : dictionaryEntries;
+  const completionWordSet = null;
+  const hasCompletionFilter = false;
+  const candidateDictionaryEntries = dictionaryEntries;
   const rand = mulberry32(Number(options?.candidateSeed) || 0);
   const { indices: candidateIndices } = collectCandidateTwinIndices(
     sourceGrid,
@@ -1127,6 +1131,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
         totalWords: summary.fakeTwinWords,
         fakeTwinWords: summary.fakeTwinWords,
         fakeTwinCompletionWords: summary.fakeTwinCompletionWords,
+        fakeTwinCompletionTarget: summary.fakeTwinCompletionTarget,
         fakeTwinBonusWords: summary.fakeTwinBonusWords,
         fakeTwinUniquePaths: summary.fakeTwinWords,
         fakeTwinDuplicatePathWords: 0,
@@ -1159,6 +1164,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
           totalWords: solved.size,
           fakeTwinWords: resolvedSummary.fakeTwinWords,
           fakeTwinCompletionWords: resolvedSummary.fakeTwinCompletionWords,
+          fakeTwinCompletionTarget: resolvedSummary.fakeTwinCompletionTarget,
           fakeTwinBonusWords: resolvedSummary.fakeTwinBonusWords,
           fakeTwinUniquePaths: resolvedSummary.fakeTwinUniquePaths,
           fakeTwinDuplicatePathWords: resolvedSummary.fakeTwinDuplicatePathWords,
@@ -1198,6 +1204,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
       totalWords: baseSolved.size,
       fakeTwinWords: 0,
       fakeTwinCompletionWords: 0,
+      fakeTwinCompletionTarget: 0,
       fakeTwinBonusWords: 0,
       fakeTwinUniquePaths: 0,
       fakeTwinDuplicatePathWords: 0,
@@ -1230,6 +1237,7 @@ export function buildFakeTwinsGrid(baseGrid, dictionary, options = {}) {
     totalWords: solved.size,
     fakeTwinWords: summary.fakeTwinWords,
     fakeTwinCompletionWords: summary.fakeTwinCompletionWords,
+    fakeTwinCompletionTarget: summary.fakeTwinCompletionTarget,
     fakeTwinBonusWords: summary.fakeTwinBonusWords,
     fakeTwinUniquePaths: summary.fakeTwinUniquePaths,
     fakeTwinDuplicatePathWords: summary.fakeTwinDuplicatePathWords,

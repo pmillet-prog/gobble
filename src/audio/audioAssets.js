@@ -32,13 +32,14 @@ export const AUDIO_COOLDOWNS_MS = {
   error: 120,
   duplicate: 120,
   gobbleVoice: 1200,
+  bonusVoice: 1200,
 };
 export const VOCAB_SAMPLE_BASE_FREQ = 440;
 
-const MEDIA_CACHE_PURGE_VERSION = "2026-02-26-audio-hotfix-2";
+const MEDIA_CACHE_PURGE_VERSION = "2026-07-14-bonus-sfx-1";
 export const MEDIA_CACHE_PURGE_STORAGE_KEY = `gobbleMediaCachePurged:${MEDIA_CACHE_PURGE_VERSION}`;
 export const SW_MEDIA_CACHE_PREFIX = "gobble-cache-media-";
-export const SOUND_ASSET_VERSION = "2026-02-26-audio-hotfix-2";
+export const SOUND_ASSET_VERSION = "2026-07-14-bonus-sfx-1";
 export const SOUND_ROOT = "/sound";
 const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
 const AMBIENT_MUSIC_TRACKS_BASE = [
@@ -131,6 +132,7 @@ function withSoundAssetVersion(url) {
 const SOUND_PATHS = {
   gobbleVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/gobble.mp3`),
   doubleGobbleVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/doublegobble.mp3`),
+  bonusVoice: withSoundAssetVersion(`${SOUND_ROOT}/game/bonus.mp3`),
   blackHole: withSoundAssetVersion(`${SOUND_ROOT}/game/chasse.mp3`),
   chebabeu: withSoundAssetVersion(`${SOUND_ROOT}/game/chebabeu.wav`),
   clavier: withSoundAssetVersion(`${SOUND_ROOT}/game/clavier.wav`),
@@ -162,6 +164,7 @@ export const SCORE2_SFX_KEYS = SCORE2_SOUND_PATHS.map((src) => {
 const BOOT_ASSET_SOUNDS_BASE = [
   { key: SFX_KEYS.gobbleVoice, url: SOUND_PATHS.gobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
   { key: SFX_KEYS.doubleGobbleVoice, url: SOUND_PATHS.doubleGobbleVoice, priority: "high", meta: { eqKey: "gobbleVoice" } },
+  { key: SFX_KEYS.bonusVoice, url: SOUND_PATHS.bonusVoice, priority: "high", meta: { eqKey: "bonusVoice" } },
   { key: SFX_KEYS.blackHole, url: SOUND_PATHS.blackHole, priority: "low", meta: { eqKey: "blackHole" } },
   { key: SFX_KEYS.chebabeu, url: SOUND_PATHS.chebabeu, priority: "low", meta: { eqKey: "chebabeu" } },
   { key: SFX_KEYS.clavier, url: SOUND_PATHS.clavier, priority: "low", meta: { eqKey: "clavier" } },
@@ -189,6 +192,7 @@ const BOOT_ASSET_SOUNDS_BASE = [
 const ESSENTIAL_SFX_KEYS = new Set([
   SFX_KEYS.gobbleVoice,
   SFX_KEYS.doubleGobbleVoice,
+  SFX_KEYS.bonusVoice,
   SFX_KEYS.roundStart,
   SFX_KEYS.specialFound,
   SFX_KEYS.tictac10,

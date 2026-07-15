@@ -121,7 +121,7 @@ function GameCelebrationOverlay({
             ["--celebration-size"]: `${gobbleImageSizePx}px`,
             ["--celebration-duration"]: `${Math.max(
               lite ? 650 : 1600,
-              Math.min(lite ? 950 : 3000, gobbleFlash.durationMs || 2200)
+              Math.min(lite ? 1200 : 3400, gobbleFlash.durationMs || 2200)
             )}ms`,
           }}
         >
@@ -161,7 +161,7 @@ function GameCelebrationOverlay({
               ["--celebration-duration"]: `${Math.max(
                 lite ? 560 : 1200,
                 Math.min(
-                  praiseFlash?.kind === "bonus" ? (lite ? 1800 : 3600) : lite ? 900 : 2600,
+                  praiseFlash?.kind === "bonus" ? (lite ? 2600 : 5600) : lite ? 1200 : 3400,
                   praiseFlash.durationMs || 1500
                 )
               )}ms`,

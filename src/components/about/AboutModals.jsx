@@ -1178,7 +1178,7 @@ export default function AboutModals({
                 <ul className="mt-1 list-disc pl-5 space-y-2">
                   <li>
                     introduction d’une nouvelle manche spéciale « faux jumeaux », avec une lettre
-                    double. attention ! pour cette manche, seuls les mots de 4 lettres ou plus
+                    double. attention ! pour cette manche, les mots de 2 lettres ou plus
                     sont acceptés. une grille du jour faux jumeaux est également mise en place.
                     les mots utilisant l’une ou l’autre des lettres jumelles rapportent 20 points
                     bonus.

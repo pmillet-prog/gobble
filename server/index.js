@@ -16,6 +16,7 @@ import {
   OCID_TYPE,
   buildPathWordVariants,
   generateGrid,
+  getFakeTwinsCompletionTarget,
   MOVABLE_BONUS_KEYS,
   scoreWordOnGrid,
   scoreWordOnGridWithPath,
@@ -3111,7 +3112,7 @@ function buildFakeTwinsTournamentPlan(tournamentRound, roomConfig) {
     type: FAKE_TWINS_TYPE,
     label: FAKE_TWINS_LABEL,
     description:
-      "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Seuls les mots de 4 lettres ou plus sont valides",
+      "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Les mots de 2 lettres ou plus sont valides",
     minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
     disableBonuses: true,
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
@@ -3320,7 +3321,7 @@ function buildSpecialWarning(plan) {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (3 mots, tuiles de départ différentes)`;
   }
   if (plan.type === FAKE_TWINS_TYPE) {
-    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (une case vaut 2 lettres, mots de 4+ lettres)`;
+    return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (une case vaut 2 lettres, mots de 2+ lettres)`;
   }
   if (plan.type === MASSIVE_BOGGLE_TYPE) {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (mots de 3+ lettres)`;
@@ -7426,6 +7427,46 @@ function submitWordForNick(
     }
   }
 
+  if (specialType === FAKE_TWINS_TYPE) {
+    const totalFakeTwinWords = Math.max(
+      0,
+      Number(
+        room.currentRound?.quality?.fakeTwinBonusWords ??
+          room.currentRound?.quality?.fakeTwinCompletionWords ??
+          room.currentRound?.quality?.fakeTwinWords
+      ) || 0
+    );
+    const fakeTwinsCompletionTarget = Math.max(
+      0,
+      Number(room.currentRound?.quality?.fakeTwinCompletionTarget) ||
+        getFakeTwinsCompletionTarget(totalFakeTwinWords)
+    );
+    if (fakeTwinsCompletionTarget > 0) {
+      if (!room.currentRound.fakeTwinsCompletionAt) {
+        room.currentRound.fakeTwinsCompletionAt = new Map();
+      }
+      const foundFakeTwinWords = Array.from(data.words || []).reduce((count, word) => {
+        const meta = data.wordMeta?.get?.(word);
+        return meta?.usedFakeTwins ? count + 1 : count;
+      }, 0);
+      if (
+        foundFakeTwinWords >= fakeTwinsCompletionTarget &&
+        !room.currentRound.fakeTwinsCompletionAt.has(resolvedNick)
+      ) {
+        const foundAt = Date.now();
+        room.currentRound.fakeTwinsCompletionAt.set(resolvedNick, foundAt);
+        io.to(room.id).emit("specialSolved", {
+          roomId: room.id,
+          roundId,
+          nick: resolvedNick,
+          kind: FAKE_TWINS_TYPE,
+          found: foundFakeTwinWords,
+          target: fakeTwinsCompletionTarget,
+        });
+      }
+    }
+  }
+
   if (isTargetRound) {
     notifyAmbientBotsWordAccepted(room, {
       nick: resolvedNick,
@@ -8799,6 +8840,7 @@ async function startRoundForRoom(room) {
     ocidVoteEndsAt: null,
     gobbles: new Map(),
     gobbleFlags: new Map(),
+    fakeTwinsCompletionAt: new Map(),
     duelWordAcceptedQueues: new Map(),
     duelWordTasks: new Set(),
     duelObjectivePointsByNick: new Map(),
@@ -8937,7 +8979,7 @@ async function startRoundForRoom(room) {
         : planUsed.type === SELF_SPECIAL_3_WORDS_TYPE
         ? `MANCHE SPECIALE : ${planUsed.label} - place les bonus et garde 3 mots avec des tuiles de départ différentes`
         : planUsed.type === FAKE_TWINS_TYPE
-        ? `MANCHE SPECIALE : ${planUsed.label} - une case vaut 2 lettres, seuls les mots de 4 lettres ou plus sont valides`
+        ? `MANCHE SPECIALE : ${planUsed.label} - une case vaut 2 lettres, mots de 2 lettres ou plus`
         : planUsed.type === OCID_TYPE
         ? `MANCHE SPECIALE : ${planUsed.label} - propose un mot pour pieger les autres joueurs`
         : planUsed.type === "target_long"
@@ -9203,15 +9245,21 @@ async function endRoundForRoom(room) {
     const totalFakeTwinWords = Math.max(
       0,
       Number(
-        room.currentRound?.quality?.fakeTwinCompletionWords ??
+        room.currentRound?.quality?.fakeTwinBonusWords ??
+          room.currentRound?.quality?.fakeTwinCompletionWords ??
           room.currentRound?.quality?.fakeTwinWords
       ) || 0
+    );
+    const fakeTwinsCompletionTarget = Math.max(
+      0,
+      Number(room.currentRound?.quality?.fakeTwinCompletionTarget) ||
+        getFakeTwinsCompletionTarget(totalFakeTwinWords)
     );
     const totalFakeTwinBonusWords = Math.max(
       0,
       Number(room.currentRound?.quality?.fakeTwinBonusWords) || 0
     );
-    if (totalFakeTwinWords > 0) {
+    if (fakeTwinsCompletionTarget > 0) {
       for (const entry of results) {
         await maybeYieldEndRound();
         const words = Array.isArray(entry.words) ? entry.words : [];
@@ -9219,28 +9267,24 @@ async function endRoundForRoom(room) {
         const foundFakeTwinWords = words.reduce((count, word) => {
           const norm = normalizeWord(word);
           const meta = wordMeta?.[norm];
-          const hasCompletionFlag =
-            meta && Object.prototype.hasOwnProperty.call(meta, "fakeTwinsCompletionWord");
-          return meta?.usedFakeTwins && (hasCompletionFlag ? meta.fakeTwinsCompletionWord : true)
-            ? count + 1
-            : count;
+          return meta?.usedFakeTwins ? count + 1 : count;
         }, 0);
         const foundFakeTwinBonusWords = words.reduce((count, word) => {
           const norm = normalizeWord(word);
           return wordMeta?.[norm]?.usedFakeTwins ? count + 1 : count;
         }, 0);
         entry.fakeTwinWordsFound = foundFakeTwinWords;
-        entry.fakeTwinWordsTotal = totalFakeTwinWords;
+        entry.fakeTwinWordsTotal = fakeTwinsCompletionTarget;
         entry.fakeTwinBonusWordsFound = foundFakeTwinBonusWords;
         entry.fakeTwinBonusWordsTotal = totalFakeTwinBonusWords || totalFakeTwinWords;
-        if (foundFakeTwinWords >= totalFakeTwinWords) {
+        if (foundFakeTwinWords >= fakeTwinsCompletionTarget) {
           entry.score = (Number(entry.score) || 0) + FAKE_TWINS_COMPLETION_BONUS;
           entry.fakeTwinsCompletionBonus = FAKE_TWINS_COMPLETION_BONUS;
           pushAnnouncement(room, {
             type: "fake_twins_completed",
             nick: entry.nick,
             bonus: FAKE_TWINS_COMPLETION_BONUS,
-            text: `${entry.nick} a trouvé tous les mots faux jumeaux (+${FAKE_TWINS_COMPLETION_BONUS} pts)`,
+            text: `${entry.nick} a atteint l'objectif faux jumeaux (+${FAKE_TWINS_COMPLETION_BONUS} pts)`,
           });
         }
       }
@@ -11348,17 +11392,55 @@ const dailyToday = getParisDateId();
 void ensureDaily(dailyToday);
 void refreshConnectedPlayersDuelCache();
 
+const DAILY_TOMORROW_PREP_DELAY_MS = 90 * 1000;
 setTimeout(() => {
   const tomorrow = addDaysToDateId(getParisDateId(), 1);
   void ensureDaily(tomorrow);
-}, 90 * 1000).unref?.();
+}, DAILY_TOMORROW_PREP_DELAY_MS).unref?.();
 
-const DAILY_MAINTENANCE_MS = 5 * 60 * 1000;
-const dailyMaintenanceTimer = setInterval(() => {
+const DAILY_MAINTENANCE_PARIS_HOUR = 4;
+const DAILY_MAINTENANCE_PARIS_MINUTE = 15;
+
+function getParisTimeParts(date = new Date()) {
+  const dtf = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = dtf.formatToParts(date);
+  return {
+    hour: Number(parts.find((part) => part.type === "hour")?.value || 0),
+    minute: Number(parts.find((part) => part.type === "minute")?.value || 0),
+    second: Number(parts.find((part) => part.type === "second")?.value || 0),
+  };
+}
+
+function getDelayUntilNextDailyMaintenanceMs() {
+  const { hour, minute, second } = getParisTimeParts();
+  const nowSeconds = hour * 3600 + minute * 60 + second;
+  const targetSeconds =
+    DAILY_MAINTENANCE_PARIS_HOUR * 3600 + DAILY_MAINTENANCE_PARIS_MINUTE * 60;
+  const delaySeconds =
+    nowSeconds < targetSeconds
+      ? targetSeconds - nowSeconds
+      : 24 * 3600 - nowSeconds + targetSeconds;
+  return Math.max(60 * 1000, delaySeconds * 1000);
+}
+
+function runDailyMaintenance() {
   const today = getParisDateId();
   const tomorrow = addDaysToDateId(today, 1);
   void ensureDaily(today);
   void ensureDaily(tomorrow);
   void refreshConnectedPlayersDuelCache();
-}, DAILY_MAINTENANCE_MS);
-dailyMaintenanceTimer.unref?.();
+  scheduleDailyMaintenance();
+}
+
+function scheduleDailyMaintenance() {
+  const timer = setTimeout(runDailyMaintenance, getDelayUntilNextDailyMaintenanceMs());
+  timer.unref?.();
+}
+
+scheduleDailyMaintenance();

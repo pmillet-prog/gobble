@@ -11,13 +11,13 @@ import {
   FAKE_TWINS_MIN_WORDS as FAKE_TWINS_MIN_TARGET_WORDS,
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
+  getFakeTwinsCompletionTarget,
   LETTER_BAG,
   normalizeWord,
   scoreWordOnGrid,
   scoreWordOnGridWithPath,
   solveGrid,
 } from "../../shared/gameLogic.js";
-import { getFakeTwinsCompletionWordSet } from "../stats/wordRarityService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -663,7 +663,6 @@ function buildDailyModeGrid(
   {
     avoidGridKey = null,
     maxAttempts = DAILY_GENERATION_MAX_ATTEMPTS,
-    fakeTwinsCompletionWordSet = null,
   } = {}
 ) {
   const safeMode = normalizeDailyMode(mode);
@@ -681,7 +680,6 @@ function buildDailyModeGrid(
         maxCellCandidates: grid.length,
         maxAltLetters: 26,
         candidateSeed: seed,
-        fakeTwinsCompletionWordSet,
       });
       if (!Number.isInteger(fakeTwinsStats?.twinIndex) || !fakeTwinsStats?.altLetter) continue;
       grid = fakeTwinsStats.grid;
@@ -727,6 +725,9 @@ function buildDailyModeGrid(
               ...quality,
               fakeTwinWords,
               fakeTwinCompletionWords: Number(fakeTwinsStats?.fakeTwinCompletionWords) || fakeTwinWords,
+              fakeTwinCompletionTarget:
+                Number(fakeTwinsStats?.fakeTwinCompletionTarget) ||
+                getFakeTwinsCompletionTarget(fakeTwinWords),
               fakeTwinBonusWords: Number(fakeTwinsStats?.fakeTwinBonusWords) || fakeTwinWords,
               fakeTwinUniquePaths: Number(fakeTwinsStats?.fakeTwinUniquePaths) || 0,
               fakeTwinDuplicatePathWords: Number(fakeTwinsStats?.fakeTwinDuplicatePathWords) || 0,
@@ -758,7 +759,7 @@ function buildDailyModeGrid(
   throw new Error(`daily_${safeMode}_generation_failed`);
 }
 
-function buildFallbackFakeTwinsEntry(dateId, payload, dictionary, fakeTwinsCompletionWordSet = null) {
+function buildFallbackFakeTwinsEntry(dateId, payload, dictionary) {
   if (!dictionary || dictionary.size === 0) return null;
   const candidateSources = [];
   if (Array.isArray(payload?.specialGrid) && payload.specialGrid.length > 0) {
@@ -786,7 +787,6 @@ function buildFallbackFakeTwinsEntry(dateId, payload, dictionary, fakeTwinsCompl
       maxCellCandidates: baseGrid.length,
       maxAltLetters: 26,
       candidateSeed: bonusSeed,
-      fakeTwinsCompletionWordSet,
     });
     if (!Array.isArray(fakeTwins?.grid) || !Number.isInteger(fakeTwins?.twinIndex)) {
       continue;
@@ -816,6 +816,9 @@ function buildFallbackFakeTwinsEntry(dateId, payload, dictionary, fakeTwinsCompl
         ...quality,
         fakeTwinWords,
         fakeTwinCompletionWords: Number(fakeTwins?.fakeTwinCompletionWords) || fakeTwinWords,
+        fakeTwinCompletionTarget:
+          Number(fakeTwins?.fakeTwinCompletionTarget) ||
+          getFakeTwinsCompletionTarget(fakeTwinWords),
         fakeTwinBonusWords: Number(fakeTwins?.fakeTwinBonusWords) || fakeTwinWords,
         fakeTwinUniquePaths: Number(fakeTwins?.fakeTwinUniquePaths) || 0,
         fakeTwinDuplicatePathWords: Number(fakeTwins?.fakeTwinDuplicatePathWords) || 0,
@@ -858,7 +861,11 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
   const fakeTwinsWordCount = Number.isFinite(Number(payload.fakeTwinsWordCount))
     ? Number(payload.fakeTwinsWordCount)
     : Number(fakeTwinsQuality.words) || 0;
-  const fakeTwinsSpecialWordCount = Number(fakeTwinsQuality.fakeTwinWords) || 0;
+  const fakeTwinsSpecialWordCount = Number(
+    fakeTwinsQuality.fakeTwinBonusWords ??
+      fakeTwinsQuality.fakeTwinCompletionWords ??
+      fakeTwinsQuality.fakeTwinWords
+  ) || 0;
   const fakeTwinsSpecialOutOfTarget =
     fakeTwinsSpecialWordCount < FAKE_TWINS_MIN_TARGET_WORDS ||
     fakeTwinsSpecialWordCount > FAKE_TWINS_MAX_WORDS;
@@ -938,20 +945,13 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
   }
   let fakeTwinsEntry = null;
   if (needsFakeTwinsGrid && dictionary && dictionary.size > 0) {
-    const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
     try {
       fakeTwinsEntry = buildDailyModeGrid(dateId, DAILY_FAKE_TWINS_MODE, dictionary, {
         avoidGridKey: getGridLettersKey(cloneGridWithoutBonuses(migratedGrid)),
         maxAttempts: DAILY_FAKE_TWINS_PRIMARY_MAX_ATTEMPTS,
-        fakeTwinsCompletionWordSet,
       });
     } catch (_) {
-      fakeTwinsEntry = buildFallbackFakeTwinsEntry(
-        dateId,
-        payload,
-        dictionary,
-        fakeTwinsCompletionWordSet
-      );
+      fakeTwinsEntry = buildFallbackFakeTwinsEntry(dateId, payload, dictionary);
     }
     if (!fakeTwinsEntry) {
       console.warn(`[daily] unable to complete fake_twins grid for ${dateId}`);
@@ -975,15 +975,11 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
       minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
       disableBonuses: true,
     });
-    const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
     const fakeTwinRows = Array.from(fakeTwinsSolved.entries()).filter(
       ([, entry]) => entry?.usedFakeTwins
     );
     const fakeTwinBonusWords = fakeTwinRows.length;
-    const fakeTwinWords =
-      fakeTwinsCompletionWordSet instanceof Set && fakeTwinsCompletionWordSet.size > 0
-        ? fakeTwinRows.filter(([word]) => fakeTwinsCompletionWordSet.has(normalizeWord(word))).length
-        : fakeTwinBonusWords;
+    const fakeTwinWords = fakeTwinBonusWords;
     migratedFakeTwinsGridQuality = {
       ...(payload.fakeTwinsGridQuality && typeof payload.fakeTwinsGridQuality === "object"
         ? payload.fakeTwinsGridQuality
@@ -991,6 +987,7 @@ async function migrateLegacyDailyGridIfNeeded(dateId, payload) {
       ...summarizeSolvedGrid(fakeTwinsSolved),
       fakeTwinWords,
       fakeTwinCompletionWords: fakeTwinWords,
+      fakeTwinCompletionTarget: getFakeTwinsCompletionTarget(fakeTwinWords),
       fakeTwinBonusWords,
     };
   }
@@ -1200,21 +1197,17 @@ async function buildDailyFakeTwinsStartSolutions(grid, dictionary) {
     minWordLength: FAKE_TWINS_MIN_WORD_LENGTH,
     disableBonuses: true,
   });
-  const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
-  const hasCompletionSet =
-    fakeTwinsCompletionWordSet instanceof Set && fakeTwinsCompletionWordSet.size > 0;
   return Array.from(solved.entries()).map(([word, entry]) => {
     const normalizedWord = normalizeWord(word);
     const usedFakeTwins = !!entry?.usedFakeTwins;
-    const fakeTwinsCompletionWord =
-      usedFakeTwins && (!hasCompletionSet || fakeTwinsCompletionWordSet.has(normalizedWord));
+    const fakeTwinsCompletionWord = usedFakeTwins;
     return [
       normalizedWord,
       Number(entry?.pts) || 0,
       Array.isArray(entry?.path) ? entry.path : [],
       usedFakeTwins,
       fakeTwinsCompletionWord,
-      usedFakeTwins && !fakeTwinsCompletionWord,
+      false,
     ];
   });
 }
@@ -1854,20 +1847,14 @@ export async function submitDailyResult({
   let fakeTwinsCompletionBonus = 0;
   let fakeTwinWordsFound = 0;
   let fakeTwinWordsTotal = 0;
+  let fakeTwinBonusWordsTotal = 0;
   if (safeMode === DAILY_FAKE_TWINS_MODE) {
-    const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
-    const countsForFakeTwinsCompletion = (word) => {
-      if (!(fakeTwinsCompletionWordSet instanceof Set) || fakeTwinsCompletionWordSet.size === 0) {
-        return true;
-      }
-      return fakeTwinsCompletionWordSet.has(normalizeWord(word));
-    };
-    fakeTwinWordsTotal = Array.from(solved.entries()).filter(
-      ([word, entry]) => entry?.usedFakeTwins && countsForFakeTwinsCompletion(word)
+    fakeTwinBonusWordsTotal = Array.from(solved.values()).filter(
+      (entry) => entry?.usedFakeTwins
     ).length;
+    fakeTwinWordsTotal = getFakeTwinsCompletionTarget(fakeTwinBonusWordsTotal);
     fakeTwinWordsFound = validatedWords.reduce(
-      (count, word) =>
-        solved.get(word)?.usedFakeTwins && countsForFakeTwinsCompletion(word) ? count + 1 : count,
+      (count, word) => (solved.get(word)?.usedFakeTwins ? count + 1 : count),
       0
     );
     if (fakeTwinWordsTotal > 0 && fakeTwinWordsFound >= fakeTwinWordsTotal) {
@@ -1891,6 +1878,7 @@ export async function submitDailyResult({
     fakeTwinsCompletionBonus,
     fakeTwinWordsFound,
     fakeTwinWordsTotal,
+    fakeTwinBonusWordsTotal,
     durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : null,
     submittedAt,
   };
@@ -1936,6 +1924,10 @@ export async function submitDailyResult({
     mode: safeMode,
     score,
     gobbles,
+    fakeTwinsCompletionBonus,
+    fakeTwinWordsFound,
+    fakeTwinWordsTotal,
+    fakeTwinBonusWordsTotal,
     rank: rank >= 0 ? rank + 1 : null,
     totalPlayers: sorted.length,
     board: buildDailyBoardEntries(submitState.results, thresholdsByMode),

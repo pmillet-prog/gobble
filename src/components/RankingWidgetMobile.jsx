@@ -28,6 +28,7 @@ function areRankingListsEquivalent(left, right) {
     if ((a.gobbles || 0) !== (b.gobbles || 0)) return false;
     if ((a.roundGobbles || 0) !== (b.roundGobbles || 0)) return false;
     if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
+    if ((a.fakeTwinsCompletionBonus || 0) !== (b.fakeTwinsCompletionBonus || 0)) return false;
   }
   return true;
 }
@@ -791,6 +792,20 @@ function RankingWidgetMobile({
     if (!count) return null;
     return renderGobbleCountBadge(count, `gobble-award-${nick}`, "ml-1");
   };
+  const renderFakeTwinsBonusBadge = (entry, keyPrefix = "fake-twins-bonus", className = "ml-1") => {
+    const bonus = Math.max(0, Math.trunc(Number(entry?.fakeTwinsCompletionBonus) || 0));
+    if (bonus <= 0) return null;
+    return (
+      <span
+        key={`${keyPrefix}-bonus`}
+        className={`${className} inline-flex h-[1.15em] min-w-[1.15em] items-center justify-center rounded-full bg-orange-500 px-[0.28em] text-[0.72em] font-black leading-none text-white shadow-sm ring-1 ring-orange-200/70`}
+        title={`Bonus faux jumeaux +${bonus}`}
+        aria-label={`Bonus faux jumeaux +${bonus}`}
+      >
+        B
+      </span>
+    );
+  };
 
   const flatList = (
     <div
@@ -859,6 +874,11 @@ function RankingWidgetMobile({
           roundGobbles > 0
             ? renderGobbleCountBadge(roundGobbles, `flat-round-gobble-${entry.nick}`, "ml-1")
             : null;
+        const fakeTwinsBonusBadge = renderFakeTwinsBonusBadge(
+          entry,
+          `flat-fake-twins-bonus-${entry.nick}`,
+          "ml-1"
+        );
         const scoreContent = (
           <>
             {roundPoints != null && roundPoints > 0 ? (
@@ -911,7 +931,7 @@ function RankingWidgetMobile({
           : null;
         const hasSecondaryNickLine =
           shouldStackNickDecorations &&
-          (nickDecorations || gobblesBadge || roundGobblesBadge || gobbleWordBadges);
+          (nickDecorations || gobblesBadge || roundGobblesBadge || fakeTwinsBonusBadge || gobbleWordBadges);
         const anchorNick = String(entry?.nick || "");
         const handleOpenPlayerDetails = (event, sourceElement = null) => {
           if (!nickClickable) return;
@@ -985,6 +1005,7 @@ function RankingWidgetMobile({
                           {nickDecorations ? <span className="min-w-0 max-w-full overflow-hidden">{nickDecorations}</span> : null}
                           {gobblesBadge}
                           {roundGobblesBadge}
+                          {fakeTwinsBonusBadge}
                           {gobbleWordBadges ? <span className="min-w-0 max-w-full overflow-hidden">{gobbleWordBadges}</span> : null}
                         </span>
                       ) : null}
@@ -1002,6 +1023,7 @@ function RankingWidgetMobile({
                       {nickDecorations ? <span className="flex-none">{nickDecorations}</span> : null}
                       {gobblesBadge}
                       {roundGobblesBadge}
+                      {fakeTwinsBonusBadge}
                       {gobbleWordBadges}
                     </span>
                   )}
@@ -1352,6 +1374,11 @@ function RankingWidgetMobile({
                 showRoundAward && typeof labelEntry?.roundGobbles === "number"
                   ? labelEntry.roundGobbles
                   : 0;
+              const fakeTwinsBonusBadge = renderFakeTwinsBonusBadge(
+                labelEntry,
+                `wheel-fake-twins-bonus-${displayNick || index}`,
+                "ml-1"
+              );
               const liveGobbleCount = !showRoundAward
                 ? Math.max(
                     Number.isFinite(labelEntry?.gobbles) ? Number(labelEntry.gobbles) : 0,
@@ -1504,6 +1531,7 @@ function RankingWidgetMobile({
                             "ml-1"
                           )
                         : null}
+                      {fakeTwinsBonusBadge}
                       {showGobbleWordAwards &&
                       row.type !== "empty" &&
                       liveGobbleCount <= 0 &&

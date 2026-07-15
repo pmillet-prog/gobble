@@ -8,6 +8,7 @@ import {
   buildFakeTwinsGrid,
   FAKE_TWINS_MIN_WORD_LENGTH,
   FAKE_TWINS_TYPE,
+  getFakeTwinsCompletionTarget,
   generateGrid,
   MOVABLE_BONUS_KEYS,
   OCID_TYPE,
@@ -25,7 +26,6 @@ import {
   tokenizeBoggleWord,
 } from "./anchoredGeneration.js";
 import {
-  getFakeTwinsCompletionWordSet,
   getOcidTargetCandidates,
   getRareBonusWordMetaMap,
 } from "../stats/wordRarityService.js";
@@ -372,7 +372,6 @@ function buildPreparedCandidate({
   }
   quality.ok = ok;
   const {
-    fakeTwinsCompletionWordSet,
     ocidExcludedTargets,
     ocidTargetCandidates,
     rareBonusWordMetaMap,
@@ -645,10 +644,6 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
   const needsClassicBoggle = roundPlan?.type === MASSIVE_BOGGLE_TYPE;
   const needsFakeTwins = roundPlan?.type === FAKE_TWINS_TYPE;
-  const fakeTwinsCompletionWordSet =
-    roundPlan?.fakeTwinsCompletionWordSet instanceof Set
-      ? roundPlan.fakeTwinsCompletionWordSet
-      : null;
   const rareBonusWordMetaMap =
     roundPlan?.rareBonusWordMetaMap instanceof Map ? roundPlan.rareBonusWordMetaMap : null;
   const maxAttemptsBase = needsClassicBoggle
@@ -775,7 +770,6 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
         maxCellCandidates: grid.length,
         maxAltLetters: 26,
         candidateSeed: attempt,
-        fakeTwinsCompletionWordSet,
       });
       if (fakeTwinsCandidate?.grid?.length) {
         grid = fakeTwinsCandidate.grid;
@@ -844,6 +838,9 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
         !!fakeTwinsCandidate?.meetsTwinWordTarget;
       quality.fakeTwinWords = Number(fakeTwinsCandidate?.fakeTwinWords) || 0;
       quality.fakeTwinCompletionWords = Number(fakeTwinsCandidate?.fakeTwinCompletionWords) || 0;
+      quality.fakeTwinCompletionTarget =
+        Number(fakeTwinsCandidate?.fakeTwinCompletionTarget) ||
+        getFakeTwinsCompletionTarget(quality.fakeTwinCompletionWords);
       quality.fakeTwinBonusWords = Number(fakeTwinsCandidate?.fakeTwinBonusWords) || 0;
       quality.fakeTwinUniquePaths = Number(fakeTwinsCandidate?.fakeTwinUniquePaths) || 0;
       quality.fakeTwinDuplicatePathWords =
@@ -1102,13 +1099,7 @@ if (parentPort) {
     try {
       if (type === "prepareNextGrid") {
         const nextPayload = payload || {};
-        if (nextPayload?.roundPlan?.type === FAKE_TWINS_TYPE) {
-          const fakeTwinsCompletionWordSet = await getFakeTwinsCompletionWordSet();
-          nextPayload.roundPlan = {
-            ...nextPayload.roundPlan,
-            fakeTwinsCompletionWordSet,
-          };
-        } else if (nextPayload?.roundPlan?.type === OCID_TYPE) {
+        if (nextPayload?.roundPlan?.type === OCID_TYPE) {
           const ocidTargetCandidates = await getOcidTargetCandidates({ dictionary });
           nextPayload.roundPlan = {
             ...nextPayload.roundPlan,

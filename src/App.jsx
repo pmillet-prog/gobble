@@ -122,6 +122,7 @@ import {
   filterDictionary,
   findBestPathForPreview,
   findBestPathForWord,
+  getFakeTwinsCompletionTarget,
   neighbors,
   normalizeWord,
   scoreWordOnGridWithPath,
@@ -4461,7 +4462,7 @@ function getSpecialRoundDescription(specialInfo) {
     return specialInfo.description.trim();
   }
   if (specialInfo.type === FAKE_TWINS_TYPE || specialInfo.type === DAILY_FAKE_TWINS_MODE) {
-    return "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Seuls les mots de 4 lettres ou plus sont valides.";
+    return "Une case de la grille peut valoir l'une ou l'autre de deux lettres. Les mots de 2 lettres ou plus sont valides.";
   }
   if (specialInfo.type === OCID_TYPE) {
     return "Propose un mot qui semble correspondre a la definition, puis vote pour le vrai mot cible.";
@@ -6966,6 +6967,7 @@ export default function App() {
     roundStartRetryRef,
     maybePlayAnnouncementSound,
     playAlreadyPlayedSound,
+    playBonusVoice,
     playCloseSound,
     playCountdownTickSound,
     playDailySpecialLockValidationSound,
@@ -12698,6 +12700,13 @@ export default function App() {
       const me = nicknameRef.current.trim();
       const solvedNick = payload.nick || "";
       const isSelf = me && solvedNick === me;
+      if (payload.kind === FAKE_TWINS_TYPE) {
+        if (isSelf) return;
+        if (isDailyPlayRef.current) return;
+        if (appViewRef.current !== "live") return;
+        playSpecialFoundSound();
+        return;
+      }
       if (isSelf) {
         setFoundTargetThisRound(true);
         setSpecialSolvedOverlay({
@@ -15275,6 +15284,9 @@ export default function App() {
           : null,
         fakeTwinWordsTotal: Number.isFinite(data?.fakeTwinWordsTotal)
           ? data.fakeTwinWordsTotal
+          : null,
+        fakeTwinBonusWordsTotal: Number.isFinite(data?.fakeTwinBonusWordsTotal)
+          ? data.fakeTwinBonusWordsTotal
           : null,
       });
       const fakeTwinsCompletionBonus = Number(data?.fakeTwinsCompletionBonus) || 0;
@@ -22356,17 +22368,12 @@ function handleTouchEnd(e) {
     );
     accepted.forEach((word) => {
       const meta = acceptedWordMetaRef.current.get(word) || fakeTwinsMetaByWord.get(word);
-      if (meta?.usedFakeTwins && (meta.fakeTwinsCompletionWord ?? true)) {
+      if (meta?.usedFakeTwins) {
         words.add(word);
       }
     });
     submissionStatusRef.current.forEach((meta, word) => {
       if (!meta || meta.status === "rejected" || !meta.usedFakeTwins) return;
-      if (
-        !(meta.fakeTwinsCompletionWord ?? fakeTwinsMetaByWord.get(word)?.fakeTwinsCompletionWord ?? true)
-      ) {
-        return;
-      }
       words.add(word);
     });
     return words;
@@ -22376,31 +22383,37 @@ function handleTouchEnd(e) {
       return { target: 0, remaining: null };
     }
     if (Array.isArray(allWords) && allWords.length > 0) {
-      const remaining = allWords.filter((entry) => {
+      const total = allWords.filter((entry) => {
         if (!entry?.usedFakeTwins || !entry?.word) return false;
-        if (!(entry.fakeTwinsCompletionWord ?? true)) return false;
-        return !localCountedFakeTwinsWords.has(entry.word);
+        return true;
       }).length;
-      const target = allWords.filter((entry) => {
-        if (!entry?.usedFakeTwins || !entry?.word) return false;
-        return entry.fakeTwinsCompletionWord ?? true;
-      }).length;
+      const target = getFakeTwinsCompletionTarget(total);
+      const remaining = Math.max(0, target - localCountedFakeTwinsWords.size);
       return { target, remaining };
     }
-    const statsTarget = Number(
-      roundStats?.fakeTwinCompletionWords ?? roundStats?.fakeTwinWords
+    const statsTarget = Number(roundStats?.fakeTwinCompletionTarget);
+    const statsTwinWords = Number(
+      roundStats?.fakeTwinBonusWords ??
+        roundStats?.fakeTwinCompletionWords ??
+        roundStats?.fakeTwinWords
     );
-    if (!Number.isFinite(statsTarget) || statsTarget <= 0) {
+    const target =
+      Number.isFinite(statsTarget) && statsTarget > 0
+        ? statsTarget
+        : getFakeTwinsCompletionTarget(statsTwinWords);
+    if (!Number.isFinite(target) || target <= 0) {
       return { target: 0, remaining: null };
     }
     return {
-      target: statsTarget,
-      remaining: Math.max(0, statsTarget - localCountedFakeTwinsWords.size),
+      target,
+      remaining: Math.max(0, target - localCountedFakeTwinsWords.size),
     };
   }, [
     allWords,
     isFakeTwinsModeActive,
     localCountedFakeTwinsWords,
+    roundStats?.fakeTwinBonusWords,
+    roundStats?.fakeTwinCompletionTarget,
     roundStats?.fakeTwinCompletionWords,
     roundStats?.fakeTwinWords,
   ]);
@@ -22422,7 +22435,7 @@ function handleTouchEnd(e) {
       return "";
     }
     const remaining = fakeTwinsCompletionProgress.remaining;
-    return `${formatNumber(remaining) ?? remaining} mots communs utilisent ${twinLetters}`;
+    return `${formatNumber(remaining) ?? remaining} mots avec ${twinLetters} avant bonus`;
   }, [
     fakeTwinsLetterPairLabel,
     fakeTwinsCompletionProgress.remaining,
@@ -22443,11 +22456,12 @@ function handleTouchEnd(e) {
       : `live:${roundId || "current"}`;
     if (fakeTwinsCompletionCelebratedRef.current === celebrationKey) return;
     fakeTwinsCompletionCelebratedRef.current = celebrationKey;
+    playBonusVoice();
     triggerPraiseFlash("BONUS !", {
       kind: "bonus",
       shakeGrid: true,
       force: true,
-      durationMs: 3200,
+      durationMs: 5200,
     });
     triggerConfettiBurst("target");
   }, [
@@ -22459,6 +22473,7 @@ function handleTouchEnd(e) {
     isDailyPlay,
     isFakeTwinsModeActive,
     phase,
+    playBonusVoice,
     roundId,
   ]);
   const localCountedCultureThemeWords = React.useMemo(() => {
@@ -22518,11 +22533,12 @@ function handleTouchEnd(e) {
     const celebrationKey = `live:${roundId || "current"}:${cultureThemeChallenge.theme || "theme"}`;
     if (cultureThemeCompletionCelebratedRef.current === celebrationKey) return;
     cultureThemeCompletionCelebratedRef.current = celebrationKey;
+    playBonusVoice();
     triggerPraiseFlash("BONUS !", {
       kind: "bonus",
       shakeGrid: true,
       force: true,
-      durationMs: 3200,
+      durationMs: 5200,
     });
     triggerConfettiBurst("target");
   }, [
@@ -22530,6 +22546,7 @@ function handleTouchEnd(e) {
     cultureThemeProgress.remaining,
     cultureThemeProgress.target,
     phase,
+    playBonusVoice,
     roundId,
   ]);
   const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
@@ -25495,6 +25512,15 @@ function handleTouchEnd(e) {
       </span>
     );
   };
+  const renderFakeTwinsCompletionBonusInline = (points) => {
+    const value = Math.max(0, Math.trunc(Number(points) || 0));
+    if (value <= 0) return null;
+    return (
+      <span className="text-blue-600 dark:text-blue-300 font-black tabular-nums">
+        ({formatNumber(value)})
+      </span>
+    );
+  };
   const renderTournamentTotalRightLabel = (points, gobbles) => {
     const safePoints = Math.max(0, Number(points) || 0);
     const safeGobbles = Math.max(0, Number(gobbles) || 0);
@@ -25519,6 +25545,19 @@ function handleTouchEnd(e) {
             typeof roundAward?.points === "number" ? roundAward.points : null;
           const roundGobbles =
             typeof roundAward?.gobbles === "number" ? roundAward.gobbles : 0;
+          const rareBonusInline = renderRareBonusInline(entry?.rareBonusPoints);
+          const fakeTwinsCompletionBonusInline =
+            specialRound?.type === FAKE_TWINS_TYPE
+              ? renderFakeTwinsCompletionBonusInline(entry?.fakeTwinsCompletionBonus)
+              : null;
+          const bonusInline = rareBonusInline || fakeTwinsCompletionBonusInline
+            ? (
+              <span className="inline-flex items-baseline gap-1">
+                {rareBonusInline}
+                {fakeTwinsCompletionBonusInline}
+              </span>
+            )
+            : null;
           if (targetSummary?.ocid) {
             const detail = entry?.ocid || {};
             const parts = [];
@@ -25613,8 +25652,7 @@ function handleTouchEnd(e) {
                   <>
                     {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
                     2L {entry.fakeTwinWordsFound}/{entry.fakeTwinWordsTotal} ·{" "}
-                    {renderRareBonusInline(entry?.rareBonusPoints)}
-                    {Number(entry?.rareBonusPoints) > 0 ? " " : ""}
+                    {bonusInline ? <>{bonusInline} </> : null}
                     {entry.score || 0} pts
                   </>
                 )
@@ -25622,7 +25660,7 @@ function handleTouchEnd(e) {
                 ? (
                   <>
                     {Array.isArray(entry.words) ? entry.words.length : 0} mots ·{" "}
-                    {renderRareBonusInline(entry?.rareBonusPoints)} {entry.score || 0} pts
+                    {bonusInline} {entry.score || 0} pts
                   </>
                 )
                 : undefined,
@@ -29989,7 +30027,7 @@ function handleTouchEnd(e) {
         lead: "Une case de la grille peut valoir l'une ou l'autre de deux lettres.",
         bullets: [
           "Un mot est valide si cette case peut être lue avec l'une ou l'autre lettre.",
-          "Seuls les mots de 4 lettres ou plus sont valides.",
+          "Les mots de 2 lettres ou plus sont valides.",
         ],
       }];
     }
@@ -32561,7 +32599,7 @@ function handleTouchEnd(e) {
         shortLabel: "Faux jumeaux",
         accentClass: "from-teal-500 via-emerald-500 to-green-600",
         buttonClass: "bg-teal-600 hover:bg-teal-500 text-white",
-        description: "Une case vaut deux lettres possibles, avec un minimum de 4 lettres.",
+        description: "Une case vaut deux lettres possibles, avec les mots de 2 lettres et plus.",
       };
     }
     if (section === DAILY_FUTURE_SECTION) {
@@ -37665,7 +37703,7 @@ function handleTouchEnd(e) {
                         : isSpecial3WordsMode
                           ? "3 mots, tuiles de départ différentes"
                           : specialRound?.type === FAKE_TWINS_TYPE
-                          ? "une case vaut 2 lettres, mots de 4 lettres min"
+                          ? "une case vaut 2 lettres, mots de 2 lettres min"
                           : specialRound?.type === "bonus_letter"
                           ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                           : specialRound?.type === MASSIVE_BOGGLE_TYPE

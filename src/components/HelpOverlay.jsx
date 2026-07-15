@@ -77,7 +77,7 @@ const HELP_SECTIONS = [
     title: "Faux jumeaux",
     rules: [
       "Une tuile peut représenter deux lettres possibles.",
-      "Les mots de 4 lettres ou plus qui utilisent cette tuile gagnent le bonus faux jumeaux.",
+      "Les mots de 2 lettres ou plus qui utilisent cette tuile gagnent le bonus faux jumeaux.",
       "Le bonus de complétion demande de trouver assez de mots communs ou peu communs utilisant la tuile jumelle.",
     ],
     scoring: [

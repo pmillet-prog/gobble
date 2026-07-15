@@ -30,6 +30,7 @@ export const IMAGE_KEYS = {
 export const SFX_KEYS = {
   gobbleVoice: "sfx_gobble_voice",
   doubleGobbleVoice: "sfx_double_gobble_voice",
+  bonusVoice: "sfx_bonus_voice",
   blackHole: "sfx_black_hole",
   chebabeu: "sfx_chebabeu",
   clavier: "sfx_clavier",

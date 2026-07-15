@@ -1,7 +1,13 @@
 export const OCID_TYPE = "ocid";
 export const FAKE_TWINS_TYPE = "fake_twins";
-export const FAKE_TWINS_MIN_WORD_LENGTH = 4;
+export const FAKE_TWINS_MIN_WORD_LENGTH = 2;
 export const FAKE_TWINS_WORD_BONUS = 50;
+export const FAKE_TWINS_COMPLETION_TARGET_RATIO = 0.4;
+
+export function getFakeTwinsCompletionTarget(totalWords) {
+  const safeTotal = Math.max(0, Math.trunc(Number(totalWords) || 0));
+  return safeTotal > 0 ? Math.ceil(safeTotal * FAKE_TWINS_COMPLETION_TARGET_RATIO) : 0;
+}
 
 export function normalizeWord(str) {
   return str

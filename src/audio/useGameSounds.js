@@ -89,6 +89,16 @@ export default function useGameSounds({
     });
   }
 
+  function playBonusVoice() {
+    if (!isPlayingContext()) return;
+    if (!hasPlayableSession()) return;
+    if (!soundGobbleEnabled) return;
+    playOneShotAudio?.(SFX_KEYS.bonusVoice, {
+      cooldownKey: "bonusVoice",
+      eqKey: "bonusVoice",
+    });
+  }
+
   function playTileStepSound(step) {
     if (!soundTileStepEnabled) return;
     if (!Number.isFinite(step)) return;
@@ -639,6 +649,7 @@ export default function useGameSounds({
     roundStartRetryRef,
     maybePlayAnnouncementSound,
     playAlreadyPlayedSound,
+    playBonusVoice,
     playCloseSound,
     playCountdownTickSound,
     playDailySpecialLockValidationSound,

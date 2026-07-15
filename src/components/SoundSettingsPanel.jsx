@@ -137,7 +137,7 @@ export default function SoundSettingsPanel({
           })}
           {renderToggle({
             enabled: soundGobbleEnabled,
-            label: "Son gobble (incl. double)",
+            label: "Son gobble / bonus",
             onClick: onToggleGobble,
           })}
         </div>
