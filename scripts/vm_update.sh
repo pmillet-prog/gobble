@@ -117,7 +117,18 @@ stop_gobble_service gobble-front.service 3000
 
 echo "=== Front: install + build ==="
 npm ci
+ASSET_COMPAT_DIR="$REPO_DIR/.deploy-asset-compat"
+rm -rf "$ASSET_COMPAT_DIR"
+mkdir -p "$ASSET_COMPAT_DIR"
+if [ -d "$REPO_DIR/dist/assets" ]; then
+  find "$REPO_DIR/dist/assets" -maxdepth 1 -type f \( -name "*.js" -o -name "*.css" \) -mtime -7 -exec cp -p {} "$ASSET_COMPAT_DIR"/ \; 2>/dev/null || true
+fi
 npm run build
+if [ -d "$ASSET_COMPAT_DIR" ] && [ -d "$REPO_DIR/dist/assets" ]; then
+  find "$ASSET_COMPAT_DIR" -maxdepth 1 -type f -exec cp -n {} "$REPO_DIR/dist/assets"/ \; 2>/dev/null || true
+  find "$REPO_DIR/dist/assets" -maxdepth 1 -type f \( -name "*.js" -o -name "*.css" \) -mtime +14 -delete 2>/dev/null || true
+fi
+rm -rf "$ASSET_COMPAT_DIR"
 
 echo "=== Server: install ==="
 cd server
