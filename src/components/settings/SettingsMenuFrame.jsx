@@ -1,10 +1,9 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
-function SettingsMenuFrame({ slideStyles = "", onClose, children }) {
+function SettingsMenuFrame({ onClose, children }) {
   const frame = (
     <div className="fixed inset-0 z-[20090] flex items-start justify-end p-4">
-      <style>{slideStyles}</style>
       <button
         type="button"
         className="absolute inset-0 bg-black/58 backdrop-blur-[1px]"

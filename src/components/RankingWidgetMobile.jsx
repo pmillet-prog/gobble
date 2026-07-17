@@ -926,6 +926,11 @@ function RankingWidgetMobile({
           ? renderNickSuffix(entry.nick, entry)
           : null;
         const nickClassName = resolveNickClassName(entry, entry.nick);
+        const afkBadge = entry?.afk ? (
+          <span className="shrink-0 text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
+            AFK
+          </span>
+        ) : null;
         const gobbleWordBadges = showGobbleWordAwards && gobbles <= 0 && roundGobbles <= 0
           ? renderGobbleWordBadges(entry.nick)
           : null;
@@ -997,6 +1002,7 @@ function RankingWidgetMobile({
                       >
                         {entry.nick}
                       </span>
+                      {afkBadge}
                       {hasSecondaryNickLine ? (
                         <span
                           className="min-w-0 max-w-full flex flex-wrap items-center gap-1 leading-tight opacity-90"
@@ -1020,6 +1026,7 @@ function RankingWidgetMobile({
                       >
                         {entry.nick}
                       </span>
+                      {afkBadge}
                       {nickDecorations ? <span className="flex-none">{nickDecorations}</span> : null}
                       {gobblesBadge}
                       {roundGobblesBadge}

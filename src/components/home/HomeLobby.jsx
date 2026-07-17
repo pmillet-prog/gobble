@@ -152,6 +152,10 @@ const styles = `
 }
 .home-week-recap {
   flex: 0 0 auto;
+  position: absolute;
+  left: 50%;
+  top: calc(50% + min(9vw, 60px));
+  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -173,11 +177,11 @@ const styles = `
   z-index: 3;
 }
 .home-week-recap:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translateX(-50%) translateY(-1px);
   filter: brightness(1.1);
 }
 .home-week-recap:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateX(-50%) translateY(1px);
 }
 .home-week-recap:disabled {
   cursor: wait;
@@ -379,8 +383,9 @@ const styles = `
   }
   .home-week-recap {
     position: absolute;
-    left: 68.4vw;
-    top: 35.4vh;
+    left: 50%;
+    top: 5.55vw;
+    transform: translateX(-50%);
     min-height: 2vw;
     margin: 0;
     padding: 0.35vw 0.55vw;
@@ -484,6 +489,7 @@ function HomeLobby({
   isAuthStatusPending = false,
   isConnecting = false,
   loginError = "",
+  maintenanceMode = false,
   onDismissResume,
   onOpenAccount,
   onOpenChat,
@@ -505,6 +511,7 @@ function HomeLobby({
 }) {
   const statusText =
     loginError ||
+    (maintenanceMode ? "Maintenance en cours" : "") ||
     accountNotice ||
     (isAuthStatusPending
       ? "Vérification du compte..."
@@ -556,19 +563,6 @@ function HomeLobby({
             {formatDuelScore(duelRedScore)}
           </span>
         </HomeImageButton>
-        <button
-          type="button"
-          className="home-week-recap"
-          onClick={onOpenWeeklyRecap}
-          disabled={weeklyRecapLoading}
-          aria-label="Revoir le récapitulatif de la semaine"
-          title="Récapitulatif de la semaine"
-        >
-          <span className="material-icons-outlined" aria-hidden="true">
-            {weeklyRecapLoading ? "hourglass_top" : "emoji_events"}
-          </span>
-          <span>{weeklyRecapLoading ? "Chargement..." : "Récap semaine"}</span>
-        </button>
 
         <div
           className={`home-status-panel ${
@@ -602,6 +596,19 @@ function HomeLobby({
             onClick={onPlay}
             disabled={disabled}
           />
+          <button
+            type="button"
+            className="home-week-recap"
+            onClick={onOpenWeeklyRecap}
+            disabled={weeklyRecapLoading}
+            aria-label="Revoir le récapitulatif de la semaine"
+            title="Récapitulatif de la semaine"
+          >
+            <span className="material-icons-outlined" aria-hidden="true">
+              {weeklyRecapLoading ? "hourglass_top" : "emoji_events"}
+            </span>
+            <span>{weeklyRecapLoading ? "Chargement..." : "Récap semaine"}</span>
+          </button>
           <HomeImageButton
             alt="Joueurs en ligne"
             className="home-players"
@@ -633,7 +640,7 @@ function HomeLobby({
             className="home-icon-button"
             src={HOME_ASSETS.daily}
             onClick={onOpenDaily}
-            disabled={isConnecting}
+            disabled={isConnecting || maintenanceMode}
           >
             {dailyRemainingCount > 0 ? (
               <span className="home-count-badge">{formatBadgeCount(dailyRemainingCount)}</span>

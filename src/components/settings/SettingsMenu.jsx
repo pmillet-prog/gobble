@@ -1,6 +1,8 @@
 import React from "react";
 import SettingsMenuFrame from "./SettingsMenuFrame.jsx";
 import SettingsPanelHost from "./SettingsPanelHost.jsx";
+import { FacebookLogo } from "../FacebookGroupInviteModal.jsx";
+import { openFacebookGroup } from "../../utils/facebookGroup.js";
 
 const PLAYTIME_MIN_MS = 5 * 60 * 1000;
 const PLAYTIME_HOUR_OPTIONS = Array.from({ length: 13 }, (_, value) => value);
@@ -174,6 +176,7 @@ function SettingsMenu(props) {
     refreshAuthStatus,
     requestThemeResetDefault,
     returnToLobby,
+    returnToLiveLobbyDev,
     sendDevGlobalAnnouncement,
     setPlaytimeLimitFromSettings,
     clearDevPlaytimeLimit,
@@ -208,7 +211,6 @@ function SettingsMenu(props) {
     setChatBotVisibility,
     setDevBotActive,
     showDevDuelWeekRecap,
-    slideStyles,
     soundGobbleEnabled,
     soundInvalidErrorEnabled,
     soundMasterVolume,
@@ -599,7 +601,6 @@ function SettingsMenu(props) {
 
   return (
     <SettingsMenuFrame
-      slideStyles={slideStyles}
       onClose={() => closeSettingsMenu({ animatePanels: true })}
     >
       <div
@@ -805,6 +806,23 @@ function SettingsMenu(props) {
               <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
                 À propos
               </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={openFacebookGroup}
+            className="w-full flex items-center justify-between gap-3 rounded-xl border border-blue-300/45 bg-[#1877f2] px-3 py-2 text-white shadow transition hover:bg-[#0f6de0] active:scale-[0.99]"
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#1877f2]">
+                <FacebookLogo className="h-6 w-6" />
+              </span>
+              <span className="text-[11px] font-extrabold uppercase tracking-wide">
+                Rejoignez-nous sur Facebook
+              </span>
+            </span>
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+              open_in_new
             </span>
           </button>
           <button
@@ -1141,6 +1159,7 @@ function SettingsMenu(props) {
             onRefreshBots: fetchDevBots,
             onSetBotActive: setDevBotActive,
             onSetAllBotsActive: setAllDevBotsActive,
+            onReturnToLiveLobby: returnToLiveLobbyDev,
           },
         }}
         moderation={{

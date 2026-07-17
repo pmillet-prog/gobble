@@ -1,0 +1,5 @@
+OpenMoji
+Emoji artwork by the OpenMoji project (HfG Schwäbisch Gmünd and contributors).
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+https://openmoji.org/
+https://creativecommons.org/licenses/by-sa/4.0/

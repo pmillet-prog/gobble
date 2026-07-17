@@ -52,6 +52,7 @@ import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelWeekRecapOverlay from "./components/DuelWeekRecapOverlay.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
+import FacebookGroupInviteModal from "./components/FacebookGroupInviteModal.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import {
   clearAllCelebrationFlashes,
@@ -68,6 +69,11 @@ import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
+import InterTournamentLobby from "./components/live/InterTournamentLobby.jsx";
+import LiveSalonScene from "./components/live/LiveSalonScene.jsx";
+import LiveSalonUtilityBar from "./components/live/LiveSalonUtilityBar.jsx";
+import MiniTournamentStartOverlay from "./components/live/MiniTournamentStartOverlay.jsx";
+import TrainingRoundPicker from "./components/live/TrainingRoundPicker.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
 import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
@@ -927,9 +933,10 @@ function buildRankingSignature(list) {
       Number.isFinite(entry.score) ? entry.score : Number.isFinite(entry.points) ? entry.points : 0;
     const rank = Number.isFinite(entry.rank) ? entry.rank : i + 1;
     const gobbles = Number.isFinite(entry.gobbles) ? entry.gobbles : 0;
+    const afk = entry.afk ? "1" : "0";
     const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
     const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    out += `${nick}:${userId}:${rank}:${score}:${gobbles}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
+    out += `${nick}:${userId}:${rank}:${score}:${gobbles}:${afk}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return out;
 }
@@ -945,9 +952,11 @@ function buildPlayersSignature(list) {
     const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
     const team = String(entry.team || "");
     const bot = entry.isBot ? "1" : "0";
+    const afk = entry.afk ? "1" : "0";
+    const ready = entry.readyForTournament ? "1" : "0";
     const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
     const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    out += `${nick}:${userId}:${team}:${bot}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
+    out += `${nick}:${userId}:${team}:${bot}:${afk}:${ready}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return out;
 }
@@ -3985,10 +3994,12 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-07-15";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-15T00:00:00+02:00");
-const FRONT_BUILD_TAG = "2026-07-15-stale-chunk-recovery-1";
+const PATCH_NOTES_VERSION = "2026-07-17";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-17T00:00:00+02:00");
+const FRONT_BUILD_TAG = "2026-07-17-live-lobby-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
+const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
+const FACEBOOK_INVITE_SEEN_STORAGE_PREFIX = "gobble_facebook_invite_seen";
 const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -4248,6 +4259,12 @@ function getPatchNotesSeenStorageKey(audienceKey, version = PATCH_NOTES_VERSION)
   const safeAudienceKey = typeof audienceKey === "string" ? audienceKey.trim() : "";
   if (!safeAudienceKey) return "";
   return `${PATCH_NOTES_SEEN_STORAGE_PREFIX}:${version}:${safeAudienceKey}`;
+}
+
+function getFacebookInviteSeenStorageKey(audienceKey) {
+  const safeAudienceKey = typeof audienceKey === "string" ? audienceKey.trim() : "";
+  if (!safeAudienceKey) return "";
+  return `${FACEBOOK_INVITE_SEEN_STORAGE_PREFIX}:${FACEBOOK_INVITE_VERSION}:${safeAudienceKey}`;
 }
 
 function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
@@ -5238,6 +5255,7 @@ export default function App() {
     botMedals: false,
     botsEnabled: true,
     animatorBotsEnabled: true,
+    trainingEnabled: true,
     chatFill: false,
     botChat: false,
     botReactions: false,
@@ -5255,6 +5273,7 @@ export default function App() {
   const settingsCloseTimerRef = useRef(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
+  const [isFacebookInviteOpen, setIsFacebookInviteOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [supportModalSection, setSupportModalSection] = useState("support");
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
@@ -5288,6 +5307,9 @@ export default function App() {
   const [resumePending, setResumePending] = useState(false);
   const autoResumeEnabledRef = useRef(false);
   const [serverStatus, setServerStatus] = useState("waiting");
+  const [tournamentLobby, setTournamentLobby] = useState(null);
+  const [trainingBusy, setTrainingBusy] = useState(false);
+  const [trainingConfirm, setTrainingConfirm] = useState(null);
   const serverTimeOffsetRef = useRef(0); // ms: serverNow - clientNow
   const [announcements, setAnnouncements] = useState([]);
   const [roundStats, setRoundStats] = useState(null);
@@ -5504,6 +5526,8 @@ export default function App() {
     mySpecialResult: null,
     myFakeTwinsResult: null,
     champion: null,
+    maintenanceMode: false,
+    maintenanceMessage: "",
     error: "",
   });
   const [duelStatus, setDuelStatus] = useState({
@@ -5905,6 +5929,7 @@ export default function App() {
   const playersQueuedRef = useRef(null);
   const playersLastApplyAtRef = useRef(0);
   const playersLastSignatureRef = useRef("");
+  const playerActivityLastSentAtRef = useRef(0);
   const clearPhaseLoopTimer = React.useCallback(() => {
     if (phaseLoopTimerRef.current) {
       clearTimeout(phaseLoopTimerRef.current);
@@ -5927,6 +5952,49 @@ export default function App() {
   useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
+  const signalLivePlayerActivity = React.useCallback((kind = "interaction", options = {}) => {
+    if (!isLoggedInRef.current || appViewRef.current !== "live" || !socket.connected) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    const now = Date.now();
+    const force = !!options?.force;
+    if (!force && now - playerActivityLastSentAtRef.current < 1_200) return;
+    playerActivityLastSentAtRef.current = now;
+    socket.emit("player:activity", {
+      roomId: currentRoomIdRef.current || roomIdRef.current,
+      kind,
+    });
+  }, []);
+  useEffect(() => {
+    if (!isLoggedIn || appView !== "live" || typeof window === "undefined") {
+      return undefined;
+    }
+    const onPointerActivity = () => signalLivePlayerActivity("pointer");
+    const onWheelActivity = () => signalLivePlayerActivity("wheel");
+    const onKeyboardActivity = () => signalLivePlayerActivity("keyboard");
+    const onScrollActivity = (event) => {
+      if (event?.isTrusted === false) return;
+      signalLivePlayerActivity("scroll");
+    };
+    const onVisibilityActivity = () => {
+      if (document.visibilityState === "visible") {
+        signalLivePlayerActivity("visible", { force: true });
+      }
+    };
+    const passiveCapture = { passive: true, capture: true };
+    window.addEventListener("pointerdown", onPointerActivity, passiveCapture);
+    window.addEventListener("wheel", onWheelActivity, passiveCapture);
+    window.addEventListener("keydown", onKeyboardActivity, true);
+    document.addEventListener("scroll", onScrollActivity, passiveCapture);
+    document.addEventListener("visibilitychange", onVisibilityActivity);
+    signalLivePlayerActivity("live_open", { force: true });
+    return () => {
+      window.removeEventListener("pointerdown", onPointerActivity, passiveCapture);
+      window.removeEventListener("wheel", onWheelActivity, passiveCapture);
+      window.removeEventListener("keydown", onKeyboardActivity, true);
+      document.removeEventListener("scroll", onScrollActivity, passiveCapture);
+      document.removeEventListener("visibilitychange", onVisibilityActivity);
+    };
+  }, [appView, isLoggedIn, signalLivePlayerActivity]);
   useEffect(() => () => clearPhaseLoopTimer(), [clearPhaseLoopTimer]);
   useEffect(() => {
     isDailyPlayRef.current = isDailyPlay;
@@ -6831,6 +6899,7 @@ export default function App() {
   const vaultWordOfDayRequestIdRef = useRef(0);
   const vaultWordOfDayAttemptedRef = useRef(new Set());
   const patchNotesOpeningRef = useRef(false);
+  const facebookInviteAttemptedAudienceRef = useRef("");
   const disconnectGraceTimerRef = useRef(null);
   const lastBackgroundTimeRef = useRef(0);
   const manualRefreshTimerRef = useRef(null);
@@ -11190,6 +11259,7 @@ export default function App() {
       if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
       syncServerTime();
       setNextStartAt(nextTs || null);
+      setTournamentLobby(null);
       setRoundPreparing(null);
       setBreakKind(bk);
       const isTournamentEndBreak = bk === "tournament_end";
@@ -12107,6 +12177,7 @@ export default function App() {
       solutions = null,
       cultureThemeChallenge = null,
       ocidVote: ocidVotePayload = null,
+      training = false,
     }) {
       if (!shouldHandleLiveRoundSocketEvents()) return;
       if (!grid || !Array.isArray(grid)) return;
@@ -12140,6 +12211,8 @@ export default function App() {
       setProvisionalRanking([]);
       setAnnouncements([]);
       setNextStartAt(null);
+      setTournamentLobby(null);
+      setTrainingBusy(false);
       setRoundPreparing(null);
       setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
       setBreakKind(null);
@@ -12865,6 +12938,17 @@ export default function App() {
       showGlobalRedAnnouncement(payload, 6500);
     }
 
+    function onTournamentLobbyUpdate(payload = {}) {
+      if (!payload || typeof payload !== "object") return;
+      const activeRoomId = currentRoomIdRef.current;
+      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
+      setTournamentLobby(payload);
+      if (payload.isOpen && (payload.phase === "ready" || payload.phase === "countdown" || payload.phase === "intro")) {
+        setPhase("lobby");
+        setServerStatus("waiting");
+      }
+    }
+
     roundHandlersRef.current.onRoundStarted = onRoundStarted;
     roundHandlersRef.current.onRoundEnded = onRoundEnded;
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
@@ -12892,6 +12976,7 @@ export default function App() {
     socket.on("gobblarsAwarded", onGobblarsAwarded);
     socket.on("moderation:notice", onModerationNotice);
     socket.on("dev:globalAnnouncement", onDevGlobalAnnouncement);
+    socket.on("tournamentLobbyUpdate", onTournamentLobbyUpdate);
     socket.on("connect", onConnect);
     socket.on("connect_error", onConnectError);
     socket.on("disconnect", onDisconnect);
@@ -12920,6 +13005,7 @@ export default function App() {
       socket.off("gobblarsAwarded", onGobblarsAwarded);
       socket.off("moderation:notice", onModerationNotice);
       socket.off("dev:globalAnnouncement", onDevGlobalAnnouncement);
+      socket.off("tournamentLobbyUpdate", onTournamentLobbyUpdate);
       socket.off("connect", onConnect);
       socket.off("connect_error", onConnectError);
       socket.off("disconnect", onDisconnect);
@@ -13847,6 +13933,8 @@ export default function App() {
           mySpecialResult: data?.mySpecialResult || null,
           myFakeTwinsResult: data?.myFakeTwinsResult || null,
           champion: data?.champion || null,
+          maintenanceMode: !!data?.maintenanceMode,
+          maintenanceMessage: data?.maintenanceMessage || "",
           error: "",
         });
         if (data?.duel && typeof data.duel === "object") {
@@ -15120,6 +15208,12 @@ export default function App() {
         throw new Error("bad_payload");
       }
       if (!res.ok) {
+        if (data?.error === "maintenance_mode") {
+          setDailyStartError("Maintenance en cours");
+          fetchDailyStatus();
+          fetchDailyBoard();
+          return;
+        }
         if (data?.error === "already_played") {
           setDailyStartError(
             modeToStart === DAILY_MONSTROUS_MODE
@@ -15183,6 +15277,8 @@ export default function App() {
               setDailyStartError("E_DAILY_BAD_GRID");
             } else if (socketError === "not_ready") {
               setDailyStartError("E503");
+            } else if (socketError === "maintenance_mode") {
+              setDailyStartError("Maintenance en cours");
             } else if (socketError === "bad_request") {
               setDailyStartError("E400");
             } else {
@@ -15401,6 +15497,10 @@ export default function App() {
   }
 
   function openDailyLaunchDialog(mode) {
+    if (dailyStatus?.maintenanceMode) {
+      setDailyStartError("Maintenance en cours");
+      return;
+    }
     const safeMode =
       mode === DAILY_SPECIAL_MODE
         ? DAILY_SPECIAL_MODE
@@ -15609,6 +15709,9 @@ export default function App() {
         const list = Array.isArray(data?.players) ? data.players : [];
         setLobbyPlayersList(list);
         setLobbyRoomStatus(data?.status && typeof data.status === "object" ? data.status : null);
+        if (!isLoggedInRef.current && data?.status?.tournamentLobby) {
+          setTournamentLobby(data.status.tournamentLobby);
+        }
         if (!isLoggedInRef.current) {
           const nextNicks = new Set(
             list
@@ -16016,6 +16119,7 @@ export default function App() {
     const breakState = snapshot.breakState || null;
     const lastRound = snapshot.lastRoundResults || null;
     const playerState = snapshot.player || null;
+    setTournamentLobby(snapshot.tournamentLobby || null);
     const currentPendingSnapshot = capturePendingSubmissions(
       submissionStatusRef.current,
       roundIdRef.current
@@ -16111,7 +16215,22 @@ export default function App() {
       return;
     }
 
-    if (lastRound?.payload) {
+    if (phase === "lobby") {
+      setPhase("lobby");
+      setServerStatus("waiting");
+      setNextStartAt(null);
+      setBreakCountdown(null);
+      setBreakKind(null);
+      setFinalResults([]);
+      setProvisionalRanking([]);
+      setRoundPreparing(null);
+      setUpcomingSpecial(null);
+      pendingSubmissionRecoveryRef.current = null;
+      resetSubmissionQueue();
+      return;
+    }
+
+    if (phase === "results" && lastRound?.payload) {
       // Reprise en cours de phase results: ne pas rejouer l'overlay vocab depuis zero.
       skipVocabOverlayOnceRef.current = true;
       processRoundEndedRef.current?.(lastRound.payload);
@@ -16606,6 +16725,58 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    const isLobbyView =
+      phase === "lobby" &&
+      appView !== "daily" &&
+      appView !== "daily_play" &&
+      appView !== "daily_results" &&
+      appView !== "stats" &&
+      appView !== "duel" &&
+      appView !== "vault";
+    if (!isLobbyView || !bootProgress.done || bootOverlayVisible) return;
+    if (
+      shouldShowTutorial ||
+      isPatchNotesOpen ||
+      patchNotesOpeningRef.current ||
+      isFacebookInviteOpen ||
+      duelPopupState?.mode ||
+      isSettingsOpen ||
+      isAboutOpen ||
+      isSupportOpen
+    ) {
+      return;
+    }
+    const audienceKey = getPatchNotesSeenAudienceKey(
+      authenticatedUserId,
+      installId || deviceInstallId
+    );
+    const storageKey = getFacebookInviteSeenStorageKey(audienceKey);
+    if (!storageKey) return;
+    if (facebookInviteAttemptedAudienceRef.current === audienceKey) return;
+    facebookInviteAttemptedAudienceRef.current = audienceKey;
+    try {
+      if (localStorage.getItem(storageKey) === "1") return;
+      localStorage.setItem(storageKey, "1");
+    } catch (_) {}
+    setIsFacebookInviteOpen(true);
+  }, [
+    appView,
+    authenticatedUserId,
+    bootOverlayVisible,
+    bootProgress.done,
+    deviceInstallId,
+    duelPopupState?.mode,
+    installId,
+    isAboutOpen,
+    isFacebookInviteOpen,
+    isPatchNotesOpen,
+    isSettingsOpen,
+    isSupportOpen,
+    phase,
+    shouldShowTutorial,
+  ]);
+
+  useEffect(() => {
     if (!installId) return;
     const isLobbyView =
       phase === "lobby" &&
@@ -16657,6 +16828,7 @@ export default function App() {
       appView !== "duel" &&
       appView !== "vault";
     if (!isLobbyView) return;
+    if (isFacebookInviteOpen) return;
     if (duelPopupState?.mode) return;
     const weekStorageKey = `gobble_duel_week_seen:${installId}`;
     const tutorialStorageKey = `gobble_duel_tutorial_seen:${installId}`;
@@ -16703,6 +16875,7 @@ export default function App() {
     duelObjectivesPopupDismissedDateId,
     phase,
     appView,
+    isFacebookInviteOpen,
     duelPopupState?.mode,
   ]);
 
@@ -16739,6 +16912,7 @@ export default function App() {
       shouldShowTutorial ||
       isPatchNotesOpen ||
       patchNotesOpeningRef.current ||
+      isFacebookInviteOpen ||
       duelPopupState?.mode ||
       definitionModal.open ||
       isAccountMenuOpen ||
@@ -16815,6 +16989,7 @@ export default function App() {
     isAccountAuthenticated,
     isAccountMenuOpen,
     isHomeChatOpen,
+    isFacebookInviteOpen,
     isLoggedIn,
     isPatchNotesOpen,
     isPlayersOverlayOpen,
@@ -21852,6 +22027,64 @@ function handleTouchEnd(e) {
     return true;
   }
 
+  function setTournamentReady(nextReady) {
+    if (!socket.connected || !isLoggedInRef.current) {
+      setConnectionError("Connecte-toi au live pour te signaler pret.");
+      return;
+    }
+    socket.emit(
+      "tournament:ready",
+      { roomId: currentRoomIdRef.current || roomIdRef.current, ready: !!nextReady },
+      (res) => {
+        if (!res?.ok) {
+          const message =
+            res?.error === "maintenance_mode"
+              ? "Maintenance en cours."
+              : res?.error === "room_busy"
+              ? "Une manche est deja en cours."
+              : "Impossible de changer le statut pret.";
+          showToast(message, 2600);
+          if (res?.lobby) setTournamentLobby(res.lobby);
+          return;
+        }
+        if (res?.lobby) setTournamentLobby(res.lobby);
+      }
+    );
+  }
+
+  function startTrainingRound(type, label = "") {
+    if (!socket.connected || !isLoggedInRef.current) {
+      setConnectionError("Connecte-toi au live pour lancer un entrainement.");
+      return;
+    }
+    const cleanLabel = String(label || type || "cette manche").trim();
+    setTrainingConfirm({ type, label: cleanLabel });
+  }
+
+  function confirmTrainingRound() {
+    const pending = trainingConfirm;
+    if (!pending?.type) return;
+    setTrainingConfirm(null);
+    setTrainingBusy(true);
+    socket.emit(
+      "training:start",
+      { roomId: currentRoomIdRef.current || roomIdRef.current, type: pending.type },
+      (res) => {
+        setTrainingBusy(false);
+        if (res?.ok) return;
+        const message =
+          res?.error === "maintenance_mode"
+            ? "Maintenance en cours."
+            : res?.error === "training_unavailable"
+            ? "L'entrainement est disponible seulement quand tu es seul dans le salon."
+            : res?.error === "room_busy"
+            ? "Une manche est deja en cours."
+            : "Impossible de lancer l'entrainement.";
+        showToast(message, 3200);
+      }
+    );
+  }
+
   function handleChatInputFocus() {
     setActiveArea("chat");
     restoreDesktopChatAfterInputFocus(chatDesktopFocusWasAtBottomRef.current);
@@ -24535,6 +24768,15 @@ function handleTouchEnd(e) {
       label: labelMap.get(id) || `Joueur ${id.slice(0, 6)}`,
     }));
   }, [blockedInstallIds, players, chatMessages]);
+  const selfReadyForTournament = React.useMemo(() => {
+    const cleanSelf = selfNick.trim();
+    if (!cleanSelf && !installId) return false;
+    return (Array.isArray(players) ? players : []).some((player) => {
+      if (!player?.readyForTournament) return false;
+      if (installId && String(player?.installId || "") === String(installId)) return true;
+      return cleanSelf && String(player?.nick || "").trim() === cleanSelf;
+    });
+  }, [installId, players, selfNick]);
   const visiblePlayerList = React.useMemo(() => {
     if (!blockedInstallIdSet.size) return players;
     return players.filter((player) => {
@@ -24557,6 +24799,8 @@ function handleTouchEnd(e) {
         playerKey: player?.playerKey ? String(player.playerKey) : "",
         team: player?.team || null,
         isBot: !!player?.isBot,
+        afk: !!player?.afk,
+        readyForTournament: !!player?.readyForTournament,
         weeklyVocabPodiumRank: Number(player?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
         isDailyChampion:
@@ -24573,11 +24817,14 @@ function handleTouchEnd(e) {
     const safeRooms = Array.isArray(roomsStats) ? roomsStats : [];
     const lobbyRoomId = roomId || getDefaultRoomId();
     const roomEntry = safeRooms.find((entry) => entry?.roomId === lobbyRoomId);
-    if (Number.isFinite(roomEntry?.players)) return roomEntry.players;
-    if (lobbyPlayersList.length) return lobbyPlayersList.length;
+    if (Number.isFinite(roomEntry?.humanPlayers)) return roomEntry.humanPlayers;
+    if (lobbyPlayersList.length) {
+      return lobbyPlayersList.filter((player) => !player?.isBot).length;
+    }
     const safe = Array.isArray(players) ? players : [];
     const seen = new Set();
     safe.forEach((player) => {
+      if (player?.isBot) return;
       const nick = player?.nick ? String(player.nick).trim() : "";
       if (!nick) return;
       seen.add(nick);
@@ -24605,6 +24852,8 @@ function handleTouchEnd(e) {
           : "",
         team: player?.team || null,
         isBot: !!player?.isBot,
+        afk: !!player?.afk,
+        readyForTournament: !!player?.readyForTournament,
         isDailyChampion: !!player?.isDailyChampion,
         weeklyVocabPodiumRank: Number(player?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
@@ -26905,7 +27154,14 @@ function handleTouchEnd(e) {
 
   function getLiveNickClassName(entry = null, nick = "") {
     const rank = getWeeklyVocabPodiumRank(entry, nick || entry?.nick);
-    return weeklyVocabPodiumNickClassByRank[rank] || "";
+    const classes = [];
+    if (weeklyVocabPodiumNickClassByRank[rank]) {
+      classes.push(weeklyVocabPodiumNickClassByRank[rank]);
+    }
+    if (entry?.afk) {
+      classes.push("text-red-600 dark:text-red-300 italic");
+    }
+    return classes.join(" ");
   }
 
   const botNickSet = React.useMemo(() => {
@@ -29214,12 +29470,13 @@ function handleTouchEnd(e) {
       </FantasyPanelShell>
     ) : null;
 
-  const playersOverlayEntries =
+  const playersOverlayEntries = (
     playersOverlayMode === "snapshot"
       ? playersOverlaySnapshot
       : isLoggedIn
       ? playersAlphaList
-      : lobbyPlayersList;
+      : lobbyPlayersList
+  ).filter((entry) => !entry?.isBot);
   const activeRoomKey = currentRoomId || roomId;
   const roomMeta = ROOM_OPTIONS[activeRoomKey] || {};
   const lobbyStatusNow = lobbyRoomStatus?.serverNow || Date.now();
@@ -29334,6 +29591,10 @@ function handleTouchEnd(e) {
                   <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
                     {playersOverlayEntries.map((entry, idx) => {
                       const nick = entry?.nick ? String(entry.nick) : "";
+                      const isReady =
+                        !!entry?.readyForTournament ||
+                        (Array.isArray(tournamentLobby?.readyPlayers) &&
+                          tournamentLobby.readyPlayers.includes(nick));
                       const profileAvailable = canOpenPlayerProfile(entry);
                       const rank = playersOverlayMode === "snapshot"
                         ? Number.isFinite(entry?.rank)
@@ -29371,6 +29632,16 @@ function handleTouchEnd(e) {
                               <span className={`font-semibold truncate ${nickClassName}`}>
                                 {nick || "Joueur"}
                               </span>
+                              {entry?.afk ? (
+                                <span className="text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
+                                  AFK
+                                </span>
+                              ) : null}
+                              {isReady ? (
+                                <span className="rounded-full border border-emerald-500/55 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-emerald-700 dark:text-emerald-300">
+                                  PRÊT
+                                </span>
+                              ) : null}
                               {renderHumanDot(nick)}
                               {gobbleAwards}
                             </div>
@@ -29412,6 +29683,56 @@ function handleTouchEnd(e) {
                 )}
               </div>
             </FantasyPanelShell>
+          </div>,
+          document.body
+        )
+      : null;
+
+  const trainingConfirmModal =
+    trainingConfirm && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[21100] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
+            onClick={() => setTrainingConfirm(null)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className={`w-full max-w-sm rounded-xl border p-4 shadow-2xl ${
+                darkMode
+                  ? "border-white/10 bg-slate-950 text-slate-100"
+                  : "border-slate-200 bg-white text-slate-900"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-xs font-extrabold uppercase tracking-widest text-orange-500">
+                Entrainement solo
+              </div>
+              <div className="mt-2 text-xl font-black leading-tight">
+                Lancer {trainingConfirm.label || "cette manche"} ?
+              </div>
+              <div className={`mt-2 text-sm font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                Une seule manche, hors mini-tournoi, sans medaille.
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTrainingConfirm(null)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-bold ${
+                    darkMode ? "border-slate-600 bg-slate-900" : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmTrainingRound}
+                  className="rounded-lg border border-orange-400 bg-orange-500 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20"
+                >
+                  Lancer
+                </button>
+              </div>
+            </div>
           </div>,
           document.body
         )
@@ -31163,6 +31484,24 @@ function handleTouchEnd(e) {
     },
     [applyDevControlsResponse, fetchDevBots, showToast]
   );
+  const returnToLiveLobbyDev = React.useCallback(() => {
+    if (!socket?.connected) return;
+    setDevControlsBusy(true);
+    setDevError("");
+    socket.emit(
+      "dev:returnToLiveLobby",
+      { roomId: currentRoomIdRef.current || roomIdRef.current },
+      (res) => {
+        setDevControlsBusy(false);
+        applyDevControlsResponse(res);
+        if (res?.ok) {
+          showToast("Retour au lobby live.");
+          return;
+        }
+        showToast("Retour au lobby impossible.");
+      }
+    );
+  }, [applyDevControlsResponse, showToast]);
   const openDevMenu = React.useCallback(() => {
     setIsThemeMenuOpen(false);
     setIsSoundMenuOpen(false);
@@ -31909,6 +32248,7 @@ function handleTouchEnd(e) {
       clearDevPlaytimeLimit={clearDevPlaytimeLimit}
       requestThemeResetDefault={requestThemeResetDefault}
       returnToLobby={returnToLobby}
+      returnToLiveLobbyDev={returnToLiveLobbyDev}
       sendDevGlobalAnnouncement={sendDevGlobalAnnouncement}
       setAllDevBotsActive={setAllDevBotsActive}
       setChatBotVisibility={setChatBotVisibility}
@@ -31941,7 +32281,6 @@ function handleTouchEnd(e) {
       setVisualPraiseEnabled={setVisualPraiseEnabled}
       setVisualScreenShakeEnabled={setVisualScreenShakeEnabled}
       showDevDuelWeekRecap={showDevDuelWeekRecap}
-      slideStyles={slideStyles}
       soundGobbleEnabled={soundGobbleEnabled}
       soundInvalidErrorEnabled={soundInvalidErrorEnabled}
       soundMasterVolume={soundMasterVolume}
@@ -31996,7 +32335,6 @@ function handleTouchEnd(e) {
 
   const accountMenuView = isAccountMenuOpen ? (
     <SettingsMenuFrame
-      slideStyles={slideStyles}
       onClose={() => setIsAccountMenuOpen(false)}
     >
       <div
@@ -32123,28 +32461,39 @@ function handleTouchEnd(e) {
       </div>
     </SettingsMenuFrame>
   ) : null;
-  const aboutModalView = isAboutOpen || isSupportOpen || isPatchNotesOpen ? (
-    <Suspense fallback={null}>
-      <AboutModals
-        isAboutOpen={isAboutOpen}
-        isSupportOpen={isSupportOpen}
-        isPatchNotesOpen={isPatchNotesOpen}
-        menuDarkMode={menuDarkMode}
-        darkMode={darkMode}
-        supportModalSection={supportModalSection}
-        setIsAboutOpen={setIsAboutOpen}
-        setIsSupportOpen={setIsSupportOpen}
-        setIsPatchNotesOpen={setIsPatchNotesOpen}
-        setSupportModalSection={setSupportModalSection}
-        closePatchNotes={closePatchNotes}
+  const aboutModalView = (
+    <>
+      {isAboutOpen || isSupportOpen || isPatchNotesOpen ? (
+        <Suspense fallback={null}>
+          <AboutModals
+            isAboutOpen={isAboutOpen}
+            isSupportOpen={isSupportOpen}
+            isPatchNotesOpen={isPatchNotesOpen}
+            menuDarkMode={menuDarkMode}
+            darkMode={darkMode}
+            supportModalSection={supportModalSection}
+            setIsAboutOpen={setIsAboutOpen}
+            setIsSupportOpen={setIsSupportOpen}
+            setIsPatchNotesOpen={setIsPatchNotesOpen}
+            setSupportModalSection={setSupportModalSection}
+            closePatchNotes={closePatchNotes}
+          />
+        </Suspense>
+      ) : null}
+      <FacebookGroupInviteModal
+        open={isFacebookInviteOpen}
+        darkMode={menuDarkMode}
+        onClose={() => setIsFacebookInviteOpen(false)}
       />
-    </Suspense>
-  ) : null;
+    </>
+  );
 
   const quickHelpOverlay = showHelp ? (
     <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
   ) : null;
 
+  const isLiveLobbyMobileView =
+    isMobileLayout && isLoggedIn && appView === "live" && phase === "lobby";
   const mobileChatProps = {
     appView,
     blockedCount,
@@ -32170,8 +32519,8 @@ function handleTouchEnd(e) {
     cycleChatHistory,
     darkMode: appView === "home" ? true : darkMode,
     installId,
-    isChatClosing,
-    isChatOpenMobile,
+    isChatClosing: isLiveLobbyMobileView ? false : isChatClosing,
+    isChatOpenMobile: isLiveLobbyMobileView ? false : isChatOpenMobile,
     isLoggedIn,
     isMobileLayout,
     isSpecial3WordsMode: phase === "playing" && isSpecial3WordsMode,
@@ -32197,6 +32546,7 @@ function handleTouchEnd(e) {
     reactionEmojis: CHAT_REACTION_EMOJIS,
     selfNick,
     setChatInput,
+    showLauncherButton: !isLiveLobbyMobileView,
     showBlockedList,
     showBotMessages,
     submitChat,
@@ -32416,7 +32766,7 @@ function handleTouchEnd(e) {
                     Compris
                   </button>
                 </>
-              ) : duelPopupState.mode === "objectives" ? (
+              ) : duelPopupState.mode === "objectives" || duelPopupState.mode === "objectives_manual" ? (
                 <>
                   <div className="text-lg font-black">Objectifs du jour</div>
                   <div className="text-sm opacity-80">
@@ -32533,6 +32883,7 @@ function handleTouchEnd(e) {
       {desktopChatReactionDetailsView}
       {reportModal}
       {playerProfileModalView}
+      {trainingConfirmModal}
       {chatRulesModal}
       {definitionModalView}
       {wordInfoModalView}
@@ -32813,27 +33164,28 @@ function handleTouchEnd(e) {
   const dailyTodayBlueEntries = filteredDailyEntries
     .filter((entry) => entry?.team === "blue")
     .sort(dailyEntrySort);
+  const dailyMaintenanceActive = !!dailyStatus?.maintenanceMode;
   const dailySections = shouldPrepareDailyStandaloneView
     ? [
         { key: DAILY_OVERVIEW_SECTION, playable: false, available: true },
         {
           key: DAILY_MONSTROUS_MODE,
           playable: true,
-          available: !!dailyStatus.ready,
+          available: !!dailyStatus.ready && !dailyMaintenanceActive,
           played: !!dailyStatus.hasPlayedMonstrous,
           result: getDailyModeResult(DAILY_MONSTROUS_MODE),
         },
         {
           key: DAILY_SPECIAL_MODE,
           playable: true,
-          available: !!dailyStatus.ready,
+          available: !!dailyStatus.ready && !dailyMaintenanceActive,
           played: !!dailyStatus.hasPlayedSpecial,
           result: getDailyModeResult(DAILY_SPECIAL_MODE),
         },
         {
           key: DAILY_FAKE_TWINS_MODE,
           playable: true,
-          available: !!dailyStatus.ready,
+          available: !!dailyStatus.ready && !dailyMaintenanceActive,
           played: !!dailyStatus.hasPlayedFakeTwins,
           result: getDailyModeResult(DAILY_FAKE_TWINS_MODE),
         },
@@ -33639,6 +33991,11 @@ function handleTouchEnd(e) {
             {!dailyBoard.ready ? (
               <div className="text-sm font-semibold text-amber-500">Grilles en préparation...</div>
             ) : null}
+            {dailyMaintenanceActive ? (
+              <div className="rounded-xl border border-orange-300/50 bg-orange-500/15 px-3 py-2 text-sm font-extrabold text-orange-300">
+                Maintenance en cours
+              </div>
+            ) : null}
             {dailyStatus.error ? (
               <div className="text-xs text-red-500">Erreur daily ({dailyStatus.error})</div>
             ) : null}
@@ -34101,6 +34458,7 @@ function handleTouchEnd(e) {
           isAuthStatusPending={isAuthStatusPending}
           isConnecting={isConnecting}
           loginError={loginError}
+          maintenanceMode={!!(tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode)}
           {...homeLobbyActions}
           playerTeam={duelTeam}
           playersCount={playersCountForLobby}
@@ -35380,6 +35738,113 @@ function handleTouchEnd(e) {
   // === Mise en page mobile dédiée pendant la manche ===
   // ??cran unique : classement + prévisualisation du mot + grille en bas + bouton de chat
   const useUltraCompactLayout = isUltraCompact;
+  if (isLoggedIn && appView === "vault") {
+    return (
+      <>
+        {chatOverlays}
+        <Suspense fallback={null}>
+          <WordVaultPage
+            backgroundDesktop={homeBackgroundDesktop}
+            backgroundMobile={homeBackgroundMobile}
+            darkMode={menuDarkMode}
+            loading={wordVault.loading}
+            error={wordVault.error}
+            words={wordVault.words}
+            accountLabel={authState.user?.usernameDisplay || ""}
+            standaloneWarning={isIosStandalone}
+            sortMode={wordVault.sortMode}
+            onSortChange={setWordVaultSortMode}
+            onOpenWord={(word) =>
+              openDefinition(word, { fromVault: true, preferLongDefinition: true })
+            }
+            onRetry={() => fetchWordVault()}
+            onClose={() => setAppView("live")}
+          />
+        </Suspense>
+      </>
+    );
+  }
+  if (isLoggedIn && appView === "live" && phase === "lobby") {
+    return (
+      <>
+        <LiveSalonScene
+          blockedCount={blockedCount}
+          blockedEntries={blockedEntries}
+          chatEditTarget={chatEditTarget}
+          chatInput={chatInput}
+          chatInputDisabled={chatInputDisabled}
+          chatInputPlaceholder={chatInputPlaceholder}
+          chatInputRef={chatInputRef}
+          chatReplyTarget={chatReplyTarget}
+          chatTab="messages"
+          className="fixed inset-0 z-[1200] live-salon-scene-fullscreen"
+          cycleChatHistory={cycleChatHistory}
+          darkMode={darkMode}
+          getAuthorNickClassName={getLiveNickClassName}
+          messagesUnreadCount={mobileChatUnreadCount}
+          onChangeChatTab={setChatTab}
+          onChatInputFocus={handleChatInputFocus}
+          onClearChatEdit={clearChatEditTarget}
+          onClearChatReply={clearChatReplyTarget}
+          onDeleteOwnMessage={deleteOwnChatMessage}
+          onEditOwnMessage={beginChatEditFromMessage}
+          onOpenRules={() => setIsChatRulesOpen(true)}
+          onOpenUserMenu={openUserMenu}
+          onReactToMessage={sendChatReaction}
+          onSelectChatReply={setChatReplyTargetFromMessage}
+          onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
+          onToggleShowBotMessages={() => setShowBotMessages((prev) => !prev)}
+          onUnblockInstallId={unblockInstallId}
+          onUserActivity={signalLivePlayerActivity}
+          reactionEmojis={CHAT_REACTION_EMOJIS}
+          salonControls={
+            <InterTournamentLobby
+              lobby={tournamentLobby}
+              onBack={returnToLobby}
+              onReady={setTournamentReady}
+              selfReady={selfReadyForTournament}
+              team={duelTeam}
+              trainingControl={
+                <TrainingRoundPicker
+                  darkMode={darkMode}
+                  devRoundTypes={devRoundTypes}
+                  lobby={tournamentLobby}
+                  onTrainingStart={startTrainingRound}
+                  team={duelTeam}
+                  trainingBusy={trainingBusy}
+                  variant="art"
+                />
+              }
+            />
+          }
+          selfInstallId={installId}
+          selfNick={selfNick}
+          setChatInput={setChatInput}
+          showBlockedList={showBlockedList}
+          showBotMessages={showBotMessages}
+          submitChat={submitChat}
+          team={duelTeam}
+          utilityControls={
+            <LiveSalonUtilityBar
+              humanCount={
+                Number.isFinite(tournamentLobby?.totalHumanCount)
+                  ? tournamentLobby.totalHumanCount
+                  : playersAlphaList.filter((entry) => !entry?.isBot).length
+              }
+              onOpenPlayers={openPlayersOverlayAlpha}
+              onOpenSettings={openSettingsPanel}
+              onOpenStats={openWeeklyStatsOverlay}
+              onOpenVault={openWordVaultPage}
+            />
+          }
+          visibleMessages={chatMessagesOnly}
+        />
+        {chatOverlays}
+        <MiniTournamentStartOverlay lobby={tournamentLobby} />
+      </>
+    );
+  }
+
   if (isMobileLayout && useUltraCompactLayout && phase === "playing" && !isSpecial3WordsMode) {
     const compactRankingList = rankingSource;
     const compactPlayerRankingList = Array.isArray(compactRankingList)
@@ -36524,9 +36989,119 @@ function handleTouchEnd(e) {
       );
     }
 
-   return (
-    <>
-      <MobileStandardPlaying
+    if (phase === "lobby") {
+      const mobileSalonTopControls = (
+        <div className={`rounded-xl border px-3 py-2 ${darkMode ? "border-white/10 bg-slate-950/70 text-slate-100" : "border-amber-200/70 bg-white/75 text-slate-900"}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-black tracking-[0.16em]">GOBBLE</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleSoundQuick}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border ${
+                  darkMode ? "border-white/10 bg-slate-900/85" : "border-amber-200/80 bg-white/75"
+                }`}
+                aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
+                title={allSoundOn ? "Son actif" : "Son coupe"}
+              >
+                <span className="material-symbols-outlined text-[21px]" aria-hidden="true">
+                  {allSoundOn ? "volume_up" : "volume_off"}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={openSettingsPanel}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border ${
+                  darkMode ? "border-white/10 bg-slate-900/85" : "border-amber-200/80 bg-white/75"
+                }`}
+                aria-label="Ouvrir les réglages"
+                title="Réglages"
+              >
+                <span className="material-symbols-outlined text-[21px]" aria-hidden="true">
+                  settings
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+      const mobileSalonPlayersControls = (
+        <div className={`rounded-xl border p-3 ${darkMode ? "border-white/10 bg-slate-950/70 text-slate-100" : "border-amber-200/70 bg-white/75 text-slate-900"}`}>
+          <div className="mb-2 text-xs font-bold uppercase tracking-widest opacity-70">
+            Joueurs connectés
+          </div>
+          {visiblePlayerList.length > 0 ? (
+            <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto">
+              {visiblePlayerList.map((p) => {
+                const nickClassName = getLiveNickClassName(p, p.nick);
+                return (
+                  <span
+                    key={p.nick}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                      darkMode ? "border-white/10 bg-slate-900/80" : "border-amber-200/80 bg-white/75"
+                    }`}
+                  >
+                    <span className={nickClassName}>{p.nick}</span>
+                    {p?.afk ? (
+                      <span className="ml-1 text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
+                        AFK
+                      </span>
+                    ) : null}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-sm font-semibold opacity-60">Aucun joueur connecté.</div>
+          )}
+        </div>
+      );
+      return (
+        <>
+          <LiveSalonScene
+            chatInput={chatInput}
+            chatInputDisabled={chatInputDisabled}
+            chatInputPlaceholder={chatInputPlaceholder}
+            className="fixed inset-0 z-[1200] live-salon-scene-fullscreen"
+            getAuthorNickClassName={getLiveNickClassName}
+            isMobile={true}
+            onChatInputFocus={handleChatInputFocus}
+            playersControls={mobileSalonPlayersControls}
+            salonControls={
+              <InterTournamentLobby
+                darkMode={darkMode}
+                lobby={tournamentLobby}
+                onReady={setTournamentReady}
+                selfReady={selfReadyForTournament}
+                team={duelTeam}
+              />
+            }
+            setChatInput={setChatInput}
+            selfInstallId={installId}
+            selfNick={selfNick}
+            submitChat={submitChat}
+            team={duelTeam}
+            topControls={mobileSalonTopControls}
+            trainingControls={
+              <TrainingRoundPicker
+                darkMode={darkMode}
+                devRoundTypes={devRoundTypes}
+                lobby={tournamentLobby}
+                onTrainingStart={startTrainingRound}
+                trainingBusy={trainingBusy}
+              />
+            }
+            visibleMessages={visibleMessages}
+          />
+          {chatOverlays}
+          <MiniTournamentStartOverlay lobby={tournamentLobby} />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <MobileStandardPlaying
         MOBILE_GRID_MAX_WIDTH={MOBILE_GRID_MAX_WIDTH}
         BONUS_CLASSES={BONUS_CLASSES}
         activeRoom={activeRoom}
@@ -36804,6 +37379,7 @@ function handleTouchEnd(e) {
       )}
 
       {quickHelpOverlay}
+      <MiniTournamentStartOverlay lobby={tournamentLobby} />
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
       <div className={`relative ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
@@ -37151,6 +37727,11 @@ function handleTouchEnd(e) {
                   const content = (
                     <>
                       <span className={nickClassName}>{p.nick}</span>
+                      {p?.afk ? (
+                        <span className="ml-1 text-[10px] font-extrabold italic text-red-600">
+                          AFK
+                        </span>
+                      ) : null}
                       {p.nick ? renderMedals(p.nick, p) : null}
                     </>
                   );
@@ -37227,8 +37808,68 @@ function handleTouchEnd(e) {
               </div>
             </div>
           )}
+          {phase === "lobby" ? (
+            <div className="w-full flex-1 min-h-0 overflow-hidden px-2 py-2">
+              <LiveSalonScene
+                chatInput={chatInput}
+                chatInputDisabled={chatInputDisabled}
+                chatInputPlaceholder={chatInputPlaceholder}
+                className="h-full min-h-[520px] rounded-xl border border-slate-900/20 shadow-sm"
+                getAuthorNickClassName={getLiveNickClassName}
+                isMobile={false}
+                onChatInputFocus={handleChatInputFocus}
+                salonControls={
+                  <InterTournamentLobby
+                    darkMode={darkMode}
+                    lobby={tournamentLobby}
+                    onReady={setTournamentReady}
+                    selfReady={selfReadyForTournament}
+                    team={duelTeam}
+                  />
+                }
+                setChatInput={setChatInput}
+                selfInstallId={installId}
+                selfNick={selfNick}
+                submitChat={submitChat}
+                team={duelTeam}
+                trainingControls={
+                  <TrainingRoundPicker
+                    darkMode={darkMode}
+                    devRoundTypes={devRoundTypes}
+                    lobby={tournamentLobby}
+                    onTrainingStart={startTrainingRound}
+                    trainingBusy={trainingBusy}
+                  />
+                }
+                infoControls={
+                  <div className={`rounded-xl border p-3 text-sm ${darkMode ? "border-white/10 bg-slate-950/75 text-slate-100" : "border-amber-200/70 bg-white/75 text-slate-800"}`}>
+                    <div className="font-extrabold uppercase tracking-widest text-[11px] opacity-70">
+                      Infos utiles
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={openWeeklyStatsOverlay}
+                        className={`rounded-lg border px-3 py-2 text-xs font-bold ${darkMode ? "border-slate-600 bg-slate-900" : "border-amber-200/80 bg-white/75"}`}
+                      >
+                        Stats
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDuelPopupState({ mode: "objectives_manual", step: 0, team: duelStatus?.team || null, weekId: duelStatus?.weekId || null })}
+                        className={`rounded-lg border px-3 py-2 text-xs font-bold ${darkMode ? "border-slate-600 bg-slate-900" : "border-amber-200/80 bg-white/75"}`}
+                      >
+                        Missions du jour
+                      </button>
+                    </div>
+                  </div>
+                }
+                visibleMessages={visibleMessages}
+              />
+            </div>
+          ) : null}
                    <div
-            className={isMobileLayout ? "relative w-full" : "relative w-fit"}
+            className={`${isMobileLayout ? "relative w-full" : "relative w-fit"} ${phase === "lobby" ? "hidden" : ""}`}
             style={
               isMobileLayout
                 ? undefined
@@ -37471,7 +38112,7 @@ function handleTouchEnd(e) {
           </div>
 
             <div
-              className={`${gameBlockClasses} relative overflow-hidden ${
+              className={`${gameBlockClasses} relative overflow-hidden ${phase === "lobby" ? "hidden" : ""} ${
                 !isMobileLayout && isSpecial3WordsMode && (special3TutorialStep === 0 || special3TutorialStep === 1)
                   ? "special3-tutorial-focus"
                 : ""
@@ -38114,6 +38755,14 @@ function handleTouchEnd(e) {
       {desktopResultsSummaryDrawer}
       {roundPreparationOverlay}
       {mobileRoundIntroOverlay}
+      {isWeeklyOpen && appView === "stats" && isLoggedIn ? (
+        <div
+          className="fixed inset-0 z-[12150] flex items-stretch justify-center overflow-hidden bg-black/70 px-2 py-2 sm:px-4"
+          style={weeklyOverlayStyle}
+        >
+          {weeklyStatsPage}
+        </div>
+      ) : null}
       {chatOverlays}
     </>
   );

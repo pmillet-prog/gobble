@@ -34,6 +34,7 @@ export default function DevSettingsPanel({
   onRefreshBots = null,
   onSetBotActive = null,
   onSetAllBotsActive = null,
+  onReturnToLiveLobby = null,
 }) {
   const [globalAnnouncementText, setGlobalAnnouncementText] = React.useState(
     () => globalAnnouncementDraftCache
@@ -185,6 +186,41 @@ export default function DevSettingsPanel({
           {available && !locked ? (
             <>
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
+          <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
+            <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">
+              Live operation
+            </span>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                disabled={busy || !canUseTools}
+                onClick={() => patch({ maintenanceMode: !controls?.maintenanceMode })}
+                className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${toggleClass(
+                  !!controls?.maintenanceMode
+                )}`}
+              >
+                <span>Mise a jour</span>
+                <span className="text-[10px] font-semibold opacity-80">
+                  {controls?.maintenanceMode ? "On" : "Off"}
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={busy || !canUseTools}
+                onClick={() =>
+                  typeof onReturnToLiveLobby === "function" ? onReturnToLiveLobby() : null
+                }
+                className={`w-full rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${buttonClass}`}
+              >
+                Retour au lobby live
+              </button>
+            </div>
+            {controls?.maintenanceMode ? (
+              <div className="mt-2 text-[10px] font-semibold text-orange-500">
+                Maintenance active: daily, mini-tournoi et entrainement bloques.
+              </div>
+            ) : null}
+          </div>
           <button
             type="button"
             disabled={busy || !canUseTools}
@@ -418,6 +454,12 @@ export default function DevSettingsPanel({
               {renderToggle({
                 keyName: "animatorBotsEnabled",
                 label: "Bots animateurs permanents",
+              })}
+            </div>
+            <div className="mt-2">
+              {renderToggle({
+                keyName: "trainingEnabled",
+                label: "Entrainement solo",
               })}
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2">

@@ -268,6 +268,103 @@ export default function AboutModals({
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <div className={`rounded-xl border p-3 ${
+                menuDarkMode
+                  ? "border-blue-300/20 bg-blue-400/10"
+                  : "border-blue-200 bg-blue-50/70"
+              }`}>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-90">
+                  patch du 17/07/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  nouveau salon live
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    création d'un véritable salon entre les mini-tournois, avec des décors rouge et
+                    bleu adaptés séparément à l'ordinateur et au téléphone.
+                  </li>
+                  <li>
+                    ajout du statut Prêt : le prochain tournoi se prépare selon le nombre de joueurs
+                    humains actifs, sans compter les bots ni les joueurs AFK.
+                  </li>
+                  <li>
+                    ajout d'un bouton d'entraînement solo permettant de choisir un type de manche
+                    lorsque l'on est seul dans le salon.
+                  </li>
+                  <li>
+                    ajout des accès rapides au retour à l'accueil, aux statistiques, à la liste des
+                    joueurs, au coffre-fort et aux réglages.
+                  </li>
+                  <li>
+                    la liste des joueurs indique désormais qui est prêt et ne présente plus les bots
+                    comme des joueurs connectés.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  chat du salon
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le chat est intégré directement au bloc-notes du décor avec une perspective et
+                    des dimensions propres à chaque écran.
+                  </li>
+                  <li>
+                    réponses par glissement, réactions, clic sur les pseudos, modification et
+                    suppression utilisent maintenant les mêmes mécanismes dans tous les chats.
+                  </li>
+                  <li>
+                    nouvelle présentation manuscrite : encre de stylo-plume, citations intégrées et
+                    réactions monochromes OpenMoji en brun sépia façon croquis.
+                  </li>
+                  <li>
+                    l'envoi de son propre message ramène toujours en bas, tandis qu'un message reçu
+                    ne coupe plus une lecture remontée dans l'historique.
+                  </li>
+                  <li>
+                    sur téléphone, le fond reste stable pendant l'ouverture du clavier, le champ de
+                    saisie reste visible et le clavier se referme après l'envoi.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  présence et fiabilité
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le statut AFK devient événementiel : chaque interaction réarme un délai précis de
+                    deux minutes et les compteurs sont actualisés dès un changement d'état.
+                  </li>
+                  <li>
+                    amélioration de la reprise du salon, du décompte des humains connectés et des
+                    transitions avant le début d'un mini-tournoi.
+                  </li>
+                  <li>
+                    ajout d'outils de test pour revenir proprement au salon live et contrôler les
+                    entraînements sans perturber une partie publique.
+                  </li>
+                  <li>
+                    ajout d'un mode mise à jour qui bloque les nouveaux départs de grille du jour,
+                    de mini-tournoi et d'entraînement, tout en laissant les parties déjà lancées se
+                    terminer et enregistrer leurs résultats.
+                  </li>
+                  <li>
+                    correction de plusieurs changements visuels temporaires lors de l'ouverture du
+                    clavier mobile ou du menu des réglages.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  communauté
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    ajout du groupe Facebook Gobble dans les paramètres et d'une invitation unique
+                    pour suivre les nouvelles du jeu.
+                  </li>
+                </ul>
+              </div>
               <div>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-80">
                   patch du 15/07/2026

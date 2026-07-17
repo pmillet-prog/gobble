@@ -55,6 +55,7 @@ function MobileChatLayer(props) {
     reactionEmojis = [],
     selfNick = "",
     setChatInput = null,
+    showLauncherButton = true,
     showBotMessages = true,
     showBlockedList = false,
     submitChat = null,
@@ -118,7 +119,7 @@ function MobileChatLayer(props) {
       setIsChatOpenMobile={closeChatPanel}
       submitChat={submitChat}
       onToggleShowBotMessages={onToggleShowBotMessages}
-      showLauncherButton={isLoggedIn && !isSpecial3WordsMode}
+      showLauncherButton={showLauncherButton && isLoggedIn && !isSpecial3WordsMode}
       visibleMessages={visibleMessages}
       reactionEmojis={reactionEmojis}
     />

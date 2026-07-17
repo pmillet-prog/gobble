@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import useChatAutoScroll from "./useChatAutoScroll.js";
+import NotebookReactionEmoji from "./NotebookReactionEmoji.jsx";
 
 const LONG_PRESS_MS = 420;
 const SWIPE_REPLY_TRIGGER_PX = 72;
@@ -7,7 +9,6 @@ const SWIPE_REPLY_MAX_PX = 96;
 const GESTURE_MOVE_CANCEL_PX = 10;
 const POST_GESTURE_CLICK_SUPPRESS_MS = 380;
 const FLOATING_MENU_CLOSE_GUARD_MS = 320;
-const CHAT_BOTTOM_EPSILON_PX = 36;
 
 function setCompositeRef(targetRef, value) {
   if (typeof targetRef === "function") {
@@ -221,14 +222,12 @@ export default function ChatContent({
   getAuthorNickClassName = null,
   showBotMessages = true,
   onToggleShowBotMessages = null,
+  onUserActivity = null,
+  variant = "default",
 }) {
   const isSystemTab = chatTab === "system";
-  const messagesEndRef = useRef(null);
-  const messagesListRef = useRef(null);
+  const isNotebookVariant = variant === "notebook";
   const localTextareaRef = useRef(null);
-  const autoScrollRafRef = useRef(null);
-  const autoScrollTimersRef = useRef([]);
-  const stickToBottomRef = useRef(true);
   const longPressTimerRef = useRef(null);
   const pointerStateRef = useRef(null);
   const inputWasFocusedRef = useRef(false);
@@ -269,19 +268,6 @@ export default function ChatContent({
       ? filtered
       : ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
   }, [reactionEmojis]);
-  const lastVisibleMessageKey = React.useMemo(() => {
-    if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {
-      return "empty";
-    }
-    const last = visibleMessages[visibleMessages.length - 1];
-    if (!last || typeof last !== "object") return "missing";
-    const id = typeof last.id === "string" ? last.id.trim() : "";
-    if (id) return `id:${id}`;
-    const ts = parseMessageTimestampMs(last);
-    const author = String(last.nick || last.author || "").trim();
-    const text = String(last.text || "");
-    return `fallback:${ts || 0}:${author}:${text}`;
-  }, [visibleMessages]);
   const visibleMessagesLayoutKey = React.useMemo(() => {
     if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) {
       return "empty";
@@ -298,20 +284,39 @@ export default function ChatContent({
       })
       .join("|");
   }, [visibleMessages]);
-  const lastVisibleMessageIsOwn = React.useMemo(() => {
-    if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) return false;
-    const last = visibleMessages[visibleMessages.length - 1];
-    if (!last || typeof last !== "object") return false;
-    const author = String(last.nick || last.author || "").trim();
-    if (isSystemAuthor(author)) return false;
-    const authorInstallId = typeof last.installId === "string" ? last.installId.trim() : "";
-    const ownInstallId = typeof selfInstallId === "string" ? selfInstallId.trim() : "";
-    if (authorInstallId && ownInstallId) return authorInstallId === ownInstallId;
-    const ownNick = typeof selfNick === "string" ? selfNick.trim() : "";
-    return !!author && !!ownNick && author === ownNick;
-  }, [visibleMessages, selfInstallId, selfNick]);
-  const lastForcedOwnAutoScrollKeyRef = useRef("");
-
+  const {
+    clearAutoScroll,
+    endRef: messagesEndRef,
+    handleScroll: handleMessagesScroll,
+    listRef: messagesListRef,
+    scheduleAutoScroll,
+  } = useChatAutoScroll({
+    enabled: isOpen,
+    layoutKey: `${visibleMessagesLayoutKey}:${chatKeyboardInsetPx}:${keyboardInsetReservePx}`,
+    messages: visibleMessages,
+    resetKey: chatTab,
+    selfInstallId,
+    selfNick,
+    shouldForceOwnMessage: !isSystemTab,
+  });
+  const dismissNotebookMobileKeyboard = React.useCallback(() => {
+    if (
+      !isNotebookVariant ||
+      typeof window === "undefined" ||
+      !window.matchMedia("(pointer: coarse) and (max-width: 900px)").matches
+    ) {
+      return false;
+    }
+    inputWasFocusedRef.current = false;
+    recentInputFocusUntilRef.current = 0;
+    window.setTimeout(() => {
+      localTextareaRef.current?.blur?.();
+      scheduleAutoScroll({ force: true });
+    }, 0);
+    window.setTimeout(() => scheduleAutoScroll({ force: true }), 180);
+    window.setTimeout(() => scheduleAutoScroll({ force: true }), 420);
+    return true;
+  }, [isNotebookVariant, scheduleAutoScroll]);
   const clearLongPressTimer = React.useCallback(() => {
     if (!longPressTimerRef.current) return;
     window.clearTimeout(longPressTimerRef.current);
@@ -335,58 +340,6 @@ export default function ChatContent({
     suppressClickUntilRef.current = 0;
   }, [resetPointerGesture]);
 
-  const clearAutoScroll = React.useCallback(() => {
-    if (typeof window !== "undefined" && autoScrollRafRef.current != null) {
-      window.cancelAnimationFrame(autoScrollRafRef.current);
-    }
-    autoScrollRafRef.current = null;
-    autoScrollTimersRef.current.forEach((id) => window.clearTimeout(id));
-    autoScrollTimersRef.current = [];
-  }, []);
-
-  const isNearBottom = React.useCallback((listEl) => {
-    if (!listEl) return true;
-    const remaining = listEl.scrollHeight - listEl.clientHeight - listEl.scrollTop;
-    return remaining <= CHAT_BOTTOM_EPSILON_PX;
-  }, []);
-
-  const handleMessagesScroll = React.useCallback(
-    (event) => {
-      const listEl = event?.currentTarget || messagesListRef.current;
-      stickToBottomRef.current = isNearBottom(listEl);
-    },
-    [isNearBottom]
-  );
-
-  const scheduleAutoScroll = React.useCallback(
-    ({ force = false } = {}) => {
-      if (typeof window === "undefined" || !isOpen) return;
-      if (!force && !stickToBottomRef.current) return;
-      const scrollToBottom = () => {
-        const listEl = messagesListRef.current;
-        if (listEl) {
-          listEl.scrollTop = listEl.scrollHeight;
-        } else {
-          messagesEndRef.current?.scrollIntoView({ block: "end" });
-        }
-        stickToBottomRef.current = true;
-      };
-
-      clearAutoScroll();
-      scrollToBottom();
-      const raf1 = window.requestAnimationFrame(() => {
-        scrollToBottom();
-        autoScrollRafRef.current = window.requestAnimationFrame(scrollToBottom);
-      });
-      autoScrollRafRef.current = raf1;
-      [80, 180, 360].forEach((delayMs) => {
-        const id = window.setTimeout(scrollToBottom, delayMs);
-        autoScrollTimersRef.current.push(id);
-      });
-    },
-    [clearAutoScroll, isOpen]
-  );
-
   useEffect(() => {
     if (!isOpen) {
       setReactionPicker(null);
@@ -396,36 +349,6 @@ export default function ChatContent({
       resetPointerGesture();
     }
   }, [isOpen, resetPointerGesture]);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    stickToBottomRef.current = true;
-    scheduleAutoScroll({ force: true });
-    return clearAutoScroll;
-  }, [isOpen, chatTab, scheduleAutoScroll, clearAutoScroll]);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const shouldForceOwnMessage =
-      !isSystemTab &&
-      lastVisibleMessageIsOwn &&
-      lastVisibleMessageKey !== lastForcedOwnAutoScrollKeyRef.current;
-    if (shouldForceOwnMessage) {
-      lastForcedOwnAutoScrollKeyRef.current = lastVisibleMessageKey;
-    }
-    scheduleAutoScroll({ force: shouldForceOwnMessage });
-    return clearAutoScroll;
-  }, [
-    isOpen,
-    isSystemTab,
-    lastVisibleMessageKey,
-    lastVisibleMessageIsOwn,
-    visibleMessagesLayoutKey,
-    chatKeyboardInsetPx,
-    keyboardInsetReservePx,
-    scheduleAutoScroll,
-    clearAutoScroll,
-  ]);
 
   useEffect(() => {
     const el = localTextareaRef.current;
@@ -513,6 +436,7 @@ export default function ChatContent({
       e.preventDefault();
       if (!chatInput.trim() || chatInputDisabled) return;
       submitChat?.(null);
+      dismissNotebookMobileKeyboard();
     }
   };
 
@@ -731,9 +655,9 @@ export default function ChatContent({
   }, []);
 
   return (
-    <div className="flex flex-col h-full min-h-0 relative">
+    <div className={`chat-content chat-content-${variant} flex flex-col h-full min-h-0 relative`}>
       <div
-        className={`flex items-center justify-between px-4 py-3 border-b ${panelHeaderClass}`}
+        className={`chat-content-header flex items-center justify-between px-4 py-3 border-b ${panelHeaderClass}`}
       >
         <div className="font-extrabold text-base">Chat</div>
         <div className="flex items-center gap-2">
@@ -765,7 +689,7 @@ export default function ChatContent({
         </div>
       </div>
 
-      <div className="px-3 pt-2 flex items-center justify-between gap-2">
+      <div className="chat-content-toolbar px-3 pt-2 flex items-center justify-between gap-2">
         <div
           className={`inline-flex rounded-full border p-1 ${panelSurfaceClass}`}
         >
@@ -816,10 +740,10 @@ export default function ChatContent({
         </button>
       </div>
 
-      <div className="flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
+      <div className="chat-content-body flex flex-col flex-1 min-h-0 px-3 py-2 gap-2">
         {showBlockedList ? (
           <div
-            className={`rounded-lg border px-2 py-2 text-[11px] ${softSurfaceClass}`}
+            className={`chat-content-blocked rounded-lg border px-2 py-2 text-[11px] ${softSurfaceClass}`}
           >
             {blockedEntries.length === 0 ? (
               <div className="text-center">Aucun joueur bloque.</div>
@@ -844,7 +768,7 @@ export default function ChatContent({
 
         <div
           ref={messagesListRef}
-          className={`flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 text-sm rounded-lg border p-2 ${panelSurfaceClass}`}
+          className={`chat-content-messages flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 text-sm rounded-lg border p-2 ${panelSurfaceClass}`}
           style={{
             overscrollBehavior: "contain",
             touchAction: "pan-y",
@@ -868,7 +792,12 @@ export default function ChatContent({
           onContextMenu={(event) => {
             event.preventDefault();
           }}
-          onScroll={handleMessagesScroll}
+          onScroll={(event) => {
+            handleMessagesScroll(event);
+            if (event?.nativeEvent?.isTrusted !== false) {
+              onUserActivity?.("chat_scroll");
+            }
+          }}
           onClick={(event) => {
             if (isClickSuppressed()) {
               event.preventDefault();
@@ -940,6 +869,9 @@ export default function ChatContent({
                 <div
                   key={messageKey}
                   data-chat-message-id={!isSystem && msg?.id ? msg.id : undefined}
+                  data-chat-own={isOwn ? "true" : "false"}
+                  data-chat-system={isSystem ? "true" : "false"}
+                  data-chat-ambient={isAmbientBot ? "true" : "false"}
                   className={
                     isSystem
                       ? "px-2 py-0.5 text-sm italic text-orange-700 dark:text-amber-300"
@@ -1002,7 +934,7 @@ export default function ChatContent({
                     <>
                       {replyPreview ? (
                         <div
-                          className={`mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
+                          className={`chat-message-reply-preview mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
                             replyTargetsSelf
                               ? "border-blue-500 bg-blue-50 text-slate-700"
                               : darkMode
@@ -1016,6 +948,7 @@ export default function ChatContent({
                           </div>
                           <div style={{ ...THREE_LINE_CLAMP_STYLE, ...NON_SELECTABLE_TOUCH_STYLE }}>
                             {replyPreview.text}
+                            <span className="chat-quote-close" aria-hidden="true">”</span>
                           </div>
                         </div>
                       ) : null}
@@ -1023,7 +956,7 @@ export default function ChatContent({
                         {canOpenMenu ? (
                           <button
                             type="button"
-                            className={`${authorBaseClass} hover:underline`}
+                            className={`chat-message-author ${authorBaseClass} hover:underline`}
                             style={NON_SELECTABLE_TOUCH_STYLE}
                             data-chat-author-button="true"
                             onClick={(e) =>
@@ -1038,7 +971,7 @@ export default function ChatContent({
                             {author}:
                           </button>
                         ) : (
-                          <span className={authorBaseClass} style={NON_SELECTABLE_TOUCH_STYLE}>
+                          <span className={`chat-message-author ${authorBaseClass}`} style={NON_SELECTABLE_TOUCH_STYLE}>
                             {author}:
                           </span>
                         )}
@@ -1058,11 +991,11 @@ export default function ChatContent({
                             (modifié)
                           </span>
                         ) : null}
-                        <span style={NON_SELECTABLE_TOUCH_STYLE}>{msg.text}</span>
+                        <span className="chat-message-text" style={NON_SELECTABLE_TOUCH_STYLE}>{msg.text}</span>
                         {!isAmbientBot && !isOwn ? (
                           <button
                             type="button"
-                            className={`hidden md:inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border opacity-70 transition hover:opacity-100 ${
+                            className={`${isNotebookVariant ? "inline-flex" : "hidden md:inline-flex"} chat-message-reaction-trigger h-6 w-6 shrink-0 items-center justify-center rounded-full border opacity-70 transition hover:opacity-100 ${
                               darkMode
                                 ? "border-amber-200/25 bg-slate-950/45 text-amber-50"
                                 : "border-amber-300/45 bg-white/80 text-slate-700"
@@ -1077,6 +1010,35 @@ export default function ChatContent({
                             >
                               add_reaction
                             </span>
+                          </button>
+                        ) : null}
+                        {!isAmbientBot && isOwn && isNotebookVariant ? (
+                          <button
+                            type="button"
+                            className="chat-message-edit-trigger inline-flex h-6 w-6 shrink-0 items-center justify-center"
+                            onPointerDown={(event) => event.preventDefault()}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onEditOwnMessage?.(msg);
+                            }}
+                            aria-label="Modifier mon message"
+                            title="Modifier"
+                          >
+                            <svg
+                              width="17"
+                              height="17"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M20.5 3.5c-4.8.3-8.8 2.1-11.6 5.4-2.5 2.9-3.6 6.4-3.4 10.6" />
+                              <path d="M20.5 3.5c-.2 4.6-2 8.2-5.2 10.7-2.4 1.8-5.3 2.8-8.8 2.8" />
+                              <path d="M6 19c2.8-3.6 6-6.5 9.7-8.8" />
+                            </svg>
                           </button>
                         ) : null}
                       </div>
@@ -1099,14 +1061,21 @@ export default function ChatContent({
                               <button
                                 key={`${msg.id || messageKey}:${entry.emoji}`}
                                 type="button"
-                                className={badgeClass}
+                                className={`chat-message-reaction-badge ${badgeClass}`}
                                 style={NON_SELECTABLE_TOUCH_STYLE}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   openReactionDetails(msg, entry.emoji);
                                 }}
                               >
-                                <span>{entry.emoji}</span>
+                                {isNotebookVariant ? (
+                                  <NotebookReactionEmoji
+                                    className="chat-message-reaction-emoji"
+                                    emoji={entry.emoji}
+                                  />
+                                ) : (
+                                  <span className="chat-message-reaction-emoji">{entry.emoji}</span>
+                                )}
                                 <span>{entry.count}</span>
                               </button>
                             );
@@ -1123,10 +1092,10 @@ export default function ChatContent({
         </div>
 
         {!isSystemTab ? (
-          <div className="shrink-0">
+          <div className="chat-content-compose shrink-0">
             {chatEditTarget ? (
               <div
-                className={`mb-2 rounded-lg border px-2 py-1.5 ${
+                className={`chat-content-reply-target mb-2 rounded-lg border px-2 py-1.5 ${
                   softSurfaceClass
                 }`}
               >
@@ -1167,6 +1136,7 @@ export default function ChatContent({
                     </div>
                     <div className="text-[11px]" style={THREE_LINE_CLAMP_STYLE}>
                       {chatReplyTarget.text || ""}
+                      <span className="chat-quote-close" aria-hidden="true">”</span>
                     </div>
                   </div>
                   <button
@@ -1184,7 +1154,7 @@ export default function ChatContent({
                 </div>
               </div>
             ) : null}
-            <div className={`flex items-end gap-2 pt-1 pb-1 border-t ${panelBorderClass}`}>
+            <div className={`chat-content-compose-row flex items-end gap-2 pt-1 pb-1 border-t ${panelBorderClass}`}>
               <textarea
                 ref={(el) => {
                   localTextareaRef.current = el;
@@ -1215,20 +1185,24 @@ export default function ChatContent({
                   recentInputFocusUntilRef.current = Date.now() + 1500;
                 }}
                 value={chatInput}
-                onChange={(e) => setChatInput?.(e.target.value)}
+                onChange={(e) => {
+                  setChatInput?.(e.target.value);
+                  onUserActivity?.("chat_input");
+                }}
                 onKeyDown={handleKeyDown}
-                className={`flex-1 border rounded px-3 py-2 text-sm ios-input chat-input resize-none min-h-[44px] max-h-[168px] ${inputSurfaceClass}`}
+                className={`chat-content-input flex-1 border rounded px-3 py-2 text-sm ios-input chat-input resize-none min-h-[44px] max-h-[168px] ${inputSurfaceClass}`}
                 placeholder={chatInputPlaceholder}
               />
               <button
                 type="button"
-                className={`px-3 py-2 text-sm rounded border disabled:opacity-50 select-none ${goldButtonClass}`}
+                className={`chat-content-send px-3 py-2 text-sm rounded border disabled:opacity-50 select-none ${goldButtonClass}`}
                 style={NON_SELECTABLE_TOUCH_STYLE}
                 disabled={!chatInput.trim() || chatInputDisabled}
                 onPointerDown={(e) => {
                   if (!chatInput.trim() || chatInputDisabled) return;
                   e.preventDefault();
                   submitChat?.();
+                  if (dismissNotebookMobileKeyboard()) return;
                   const el = localTextareaRef.current;
                   if (!el) return;
                   try {
@@ -1251,7 +1225,9 @@ export default function ChatContent({
       {ownMessageMenu && !isSystemTab && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[20130]"
+              className={`chat-reaction-portal fixed inset-0 z-[20130] ${
+                isNotebookVariant ? "chat-reaction-portal-notebook" : ""
+              }`}
               style={NON_SELECTABLE_TOUCH_STYLE}
               onClick={() => {
                 if (!isFloatingMenuCloseAllowed(ownMessageMenu)) return;
@@ -1343,7 +1319,9 @@ export default function ChatContent({
       {reactionPicker && !isSystemTab && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[20130]"
+              className={`fixed inset-0 z-[20130] ${
+                isNotebookVariant ? "chat-reaction-portal-notebook" : ""
+              }`}
               style={NON_SELECTABLE_TOUCH_STYLE}
               onClick={() => {
                 if (!isFloatingMenuCloseAllowed(reactionPicker)) return;
@@ -1357,7 +1335,7 @@ export default function ChatContent({
                 const sideInset = "max(10px, env(safe-area-inset-left), env(safe-area-inset-right))";
                 return (
               <div
-                className={`fixed -translate-x-1/2 -translate-y-full rounded-2xl border px-2 py-2 shadow-xl ${
+                className={`chat-reaction-picker fixed -translate-x-1/2 -translate-y-full rounded-2xl border px-2 py-2 shadow-xl ${
                   darkMode
                     ? "bg-slate-800 border-slate-600 text-slate-100"
                     : "bg-white border-slate-200 text-slate-900"
@@ -1388,7 +1366,7 @@ export default function ChatContent({
                   <button
                     key={`chat-react-${emoji}`}
                     type="button"
-                    className={`rounded-full text-xl leading-none flex items-center justify-center ${
+                    className={`chat-reaction-choice rounded-full text-xl leading-none flex items-center justify-center ${
                       isMobileViewport ? "h-11 w-full" : "h-9 w-9"
                     } ${
                       darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
@@ -1401,7 +1379,14 @@ export default function ChatContent({
                     }}
                     aria-label={`Reagir avec ${emoji}`}
                   >
-                    {emoji}
+                    {isNotebookVariant ? (
+                      <NotebookReactionEmoji
+                        className="chat-reaction-choice-ink"
+                        emoji={emoji}
+                      />
+                    ) : (
+                      <span className="chat-reaction-choice-ink">{emoji}</span>
+                    )}
                   </button>
                   ))}
                 </div>
@@ -1416,11 +1401,13 @@ export default function ChatContent({
       {reactionDetails && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[20140] bg-black/45 flex items-center justify-center px-4"
+              className={`chat-reaction-details-portal fixed inset-0 z-[20140] bg-black/45 flex items-center justify-center px-4 ${
+                isNotebookVariant ? "chat-reaction-portal-notebook" : ""
+              }`}
               onClick={() => setReactionDetails(null)}
             >
               <div
-                className={`w-full max-w-sm rounded-xl border p-3 shadow-xl ${
+                className={`chat-reaction-details-panel w-full max-w-sm rounded-xl border p-3 shadow-xl ${
                   darkMode
                     ? "bg-slate-900 border-slate-700 text-slate-100"
                     : "bg-white border-slate-200 text-slate-900"
@@ -1429,7 +1416,15 @@ export default function ChatContent({
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="font-bold text-sm">
-                    {reactionDetails.emoji} Reactions ({reactionDetails.users.length})
+                    {isNotebookVariant ? (
+                      <NotebookReactionEmoji
+                        className="chat-reaction-details-emoji"
+                        emoji={reactionDetails.emoji}
+                      />
+                    ) : (
+                      <span className="chat-reaction-details-emoji">{reactionDetails.emoji}</span>
+                    )}{" "}
+                    Reactions ({reactionDetails.users.length})
                   </div>
                   <button
                     type="button"
