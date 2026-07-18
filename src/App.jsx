@@ -29470,13 +29470,15 @@ function handleTouchEnd(e) {
       </FantasyPanelShell>
     ) : null;
 
+  const hideBotsFromPlayersOverlay =
+    isLoggedIn && appView === "live" && phase === "lobby";
   const playersOverlayEntries = (
     playersOverlayMode === "snapshot"
       ? playersOverlaySnapshot
       : isLoggedIn
       ? playersAlphaList
       : lobbyPlayersList
-  ).filter((entry) => !entry?.isBot);
+  ).filter((entry) => !hideBotsFromPlayersOverlay || !entry?.isBot);
   const activeRoomKey = currentRoomId || roomId;
   const roomMeta = ROOM_OPTIONS[activeRoomKey] || {};
   const lobbyStatusNow = lobbyRoomStatus?.serverNow || Date.now();

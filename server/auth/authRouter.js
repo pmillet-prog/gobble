@@ -220,6 +220,21 @@ export function createAuthRouter({
           user: recognizedUsers.length === 1 ? sessionPayload(recognizedUsers[0]) : null,
         });
       }
+
+      const reservation = await findLegacyReservationForInstallPair(
+        rawInstallId,
+        resolvedInstallId
+      );
+      if (reservation && !reservation.claimed_user_id) {
+        return res.json({
+          ok: true,
+          status: "legacy_profile_found",
+          authenticated: false,
+          legacyProfile: {
+            usernameDisplay: reservation.username_display,
+          },
+        });
+      }
     }
 
     return res.json({
