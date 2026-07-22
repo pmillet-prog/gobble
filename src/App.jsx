@@ -144,6 +144,16 @@ import {
 } from "./utils/targetHintStyles.js";
 import { isLiveSessionFreshForBoot } from "./utils/liveSessionFreshness.js";
 import {
+  formatApproximateMinutes,
+  getCompactLiveRoundLabel,
+} from "./utils/liveRoundStatus.js";
+import {
+  FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS,
+  isAudienceEligibleForPatchNotes,
+  isNewPlayerPopupQuietPeriod,
+  recordDistinctVisitDay,
+} from "./utils/popupAudience.js";
+import {
   isWeeklyRecapPodiumReady,
   resolveWeeklyRecapPodium,
 } from "./utils/weeklyRecap.js";
@@ -3994,9 +4004,9 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-07-17";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-17T00:00:00+02:00");
-const FRONT_BUILD_TAG = "2026-07-17-live-lobby-1";
+const PATCH_NOTES_VERSION = "2026-07-22";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-22T00:00:00+02:00");
+const FRONT_BUILD_TAG = "2026-07-22-live-lobby-vault-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 const FACEBOOK_INVITE_SEEN_STORAGE_PREFIX = "gobble_facebook_invite_seen";
@@ -4265,18 +4275,6 @@ function getFacebookInviteSeenStorageKey(audienceKey) {
   const safeAudienceKey = typeof audienceKey === "string" ? audienceKey.trim() : "";
   if (!safeAudienceKey) return "";
   return `${FACEBOOK_INVITE_SEEN_STORAGE_PREFIX}:${FACEBOOK_INVITE_VERSION}:${safeAudienceKey}`;
-}
-
-function isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs) {
-  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
-  if (!safeInstallId) return false;
-  if (PATCH_NOTES_VERSION === "2026-05-05") return true;
-  if (!Number.isFinite(PATCH_NOTES_RELEASE_TS)) return true;
-  if (!Number.isFinite(installIdCreatedAtTs)) {
-    // Legacy installs without timestamp are considered existing installs.
-    return true;
-  }
-  return installIdCreatedAtTs < PATCH_NOTES_RELEASE_TS;
 }
 
 function intersectViewportRects(a, b) {
@@ -5471,6 +5469,17 @@ export default function App() {
     : null;
   const installId = authenticatedUserId ? buildUserScopedInstallId(authenticatedUserId) : "";
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
+  const popupAudienceKey = getPatchNotesSeenAudienceKey(
+    authenticatedUserId,
+    installId || deviceInstallId
+  );
+  const isNewPlayerPopupQuiet = isNewPlayerPopupQuietPeriod({
+    accountCreatedAt: authState.user?.createdAt,
+    installCreatedAt: installIdCreatedAtTs,
+    isAuthenticated: isAccountAuthenticated,
+    isLegacyConverted: !!authState.user?.isLegacyConverted,
+  });
+  const [popupDistinctVisitDays, setPopupDistinctVisitDays] = useState(0);
   const isAuthStatusPending = authState.loading || authState.status === "loading";
   const isAuthServerUnavailable = authState.status === "unavailable";
   const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
@@ -12943,7 +12952,15 @@ export default function App() {
       const activeRoomId = currentRoomIdRef.current;
       if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
       setTournamentLobby(payload);
-      if (payload.isOpen && (payload.phase === "ready" || payload.phase === "countdown" || payload.phase === "intro")) {
+      const clientRoundInProgress =
+        phaseRef.current === "playing" ||
+        !!pendingRoundEndRef.current ||
+        !!outroInFlightRef.current;
+      if (
+        !clientRoundInProgress &&
+        payload.isOpen &&
+        (payload.phase === "ready" || payload.phase === "countdown" || payload.phase === "intro")
+      ) {
         setPhase("lobby");
         setServerStatus("waiting");
       }
@@ -13464,15 +13481,6 @@ export default function App() {
     const whole = Math.floor(seconds);
     const mins = Math.floor(whole / 60);
     const secs = whole % 60;
-    return `${mins}m${secs.toString().padStart(2, "0")}s`;
-  }
-
-  function formatSecondsShort(totalSeconds) {
-    if (!Number.isFinite(totalSeconds)) return "";
-    const rounded = Math.max(0, Math.round(totalSeconds));
-    const mins = Math.floor(rounded / 60);
-    const secs = rounded % 60;
-    if (mins <= 0) return `${secs}s`;
     return `${mins}m${secs.toString().padStart(2, "0")}s`;
   }
 
@@ -14162,6 +14170,7 @@ export default function App() {
     const summary = duelStatus?.lastWeekSummary;
     const weekId = String(summary?.weekId || "").trim();
     if (!isAccountAuthenticated || !installId || !weekId) return;
+    if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
     if (isLoggedIn || isDailyPlay || appView !== "home") return;
     if (duelWeekRecapOpen) return;
     try {
@@ -14189,7 +14198,9 @@ export default function App() {
     installId,
     isAccountAuthenticated,
     isDailyPlay,
+    isNewPlayerPopupQuiet,
     isLoggedIn,
+    shouldShowTutorial,
     weeklyStats,
     weeklyStatsLoading,
   ]);
@@ -14585,10 +14596,19 @@ export default function App() {
         ok: !!(res.ok && parsed?.data && typeof parsed.data === "object" && parsed.data.ok !== false),
         status: res.status,
         data: parsed?.data && typeof parsed.data === "object" ? parsed.data : null,
+        parseOk: !!parsed?.parseOk,
+        isLikelyHtml: !!parsed?.isLikelyHtml,
+        diagnosticRef: String(res.headers.get("x-gobble-vault-ref") || "").trim(),
       };
     } catch (err) {
       if (err?.name === "AbortError") {
         throw new Error("request_timeout");
+      }
+      if (err && typeof err === "object") {
+        err.requestKind =
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? "offline"
+            : "network";
       }
       throw err;
     } finally {
@@ -16675,6 +16695,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!popupAudienceKey) {
+      setPopupDistinctVisitDays(0);
+      return;
+    }
+    const recordVisit = () => {
+      const visit = recordDistinctVisitDay(
+        popupAudienceKey,
+        typeof localStorage !== "undefined" ? localStorage : null
+      );
+      setPopupDistinctVisitDays(visit.count);
+    };
+    recordVisit();
+    socket.on("connect", recordVisit);
+    window.addEventListener("pageshow", recordVisit);
+    return () => {
+      socket.off("connect", recordVisit);
+      window.removeEventListener("pageshow", recordVisit);
+    };
+  }, [popupAudienceKey]);
+
+  useEffect(() => {
     if (!installId || !isAccountAuthenticated) return;
     fetchDuelStatus();
     const timer = setInterval(() => {
@@ -16699,11 +16740,19 @@ export default function App() {
       appView !== "duel" &&
       appView !== "vault";
     if (!isLobbyView) return;
-    if (shouldShowTutorial) return;
-    if (!isInstallEligibleForPatchNotes(installId, installIdCreatedAtTs)) return;
-    const seenStorageKey = getPatchNotesSeenStorageKey(
-      getPatchNotesSeenAudienceKey(authenticatedUserId, installId)
-    );
+    if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
+    if (
+      !isAudienceEligibleForPatchNotes({
+        accountCreatedAt: authState.user?.createdAt,
+        installCreatedAt: installIdCreatedAtTs,
+        isAuthenticated: isAccountAuthenticated,
+        isLegacyConverted: !!authState.user?.isLegacyConverted,
+        releaseTimestamp: PATCH_NOTES_RELEASE_TS,
+      })
+    ) {
+      return;
+    }
+    const seenStorageKey = getPatchNotesSeenStorageKey(popupAudienceKey);
     if (!seenStorageKey) return;
     let alreadySeen = false;
     try {
@@ -16717,8 +16766,13 @@ export default function App() {
     } catch (_) {}
   }, [
     authenticatedUserId,
+    authState.user?.createdAt,
+    authState.user?.isLegacyConverted,
     installId,
     installIdCreatedAtTs,
+    isAccountAuthenticated,
+    isNewPlayerPopupQuiet,
+    popupAudienceKey,
     shouldShowTutorial,
     phase,
     appView,
@@ -16734,8 +16788,10 @@ export default function App() {
       appView !== "duel" &&
       appView !== "vault";
     if (!isLobbyView || !bootProgress.done || bootOverlayVisible) return;
+    if (popupDistinctVisitDays < FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS) return;
     if (
       shouldShowTutorial ||
+      isNewPlayerPopupQuiet ||
       isPatchNotesOpen ||
       patchNotesOpeningRef.current ||
       isFacebookInviteOpen ||
@@ -16746,10 +16802,7 @@ export default function App() {
     ) {
       return;
     }
-    const audienceKey = getPatchNotesSeenAudienceKey(
-      authenticatedUserId,
-      installId || deviceInstallId
-    );
+    const audienceKey = popupAudienceKey;
     const storageKey = getFacebookInviteSeenStorageKey(audienceKey);
     if (!storageKey) return;
     if (facebookInviteAttemptedAudienceRef.current === audienceKey) return;
@@ -16769,10 +16822,13 @@ export default function App() {
     installId,
     isAboutOpen,
     isFacebookInviteOpen,
+    isNewPlayerPopupQuiet,
     isPatchNotesOpen,
     isSettingsOpen,
     isSupportOpen,
     phase,
+    popupAudienceKey,
+    popupDistinctVisitDays,
     shouldShowTutorial,
   ]);
 
@@ -16828,6 +16884,7 @@ export default function App() {
       appView !== "duel" &&
       appView !== "vault";
     if (!isLobbyView) return;
+    if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
     if (isFacebookInviteOpen) return;
     if (duelPopupState?.mode) return;
     const weekStorageKey = `gobble_duel_week_seen:${installId}`;
@@ -16876,6 +16933,8 @@ export default function App() {
     phase,
     appView,
     isFacebookInviteOpen,
+    isNewPlayerPopupQuiet,
+    shouldShowTutorial,
     duelPopupState?.mode,
   ]);
 
@@ -16910,6 +16969,7 @@ export default function App() {
     if (vaultWordOfDayPopup.open) return;
     if (
       shouldShowTutorial ||
+      isNewPlayerPopupQuiet ||
       isPatchNotesOpen ||
       patchNotesOpeningRef.current ||
       isFacebookInviteOpen ||
@@ -16991,6 +17051,7 @@ export default function App() {
     isHomeChatOpen,
     isFacebookInviteOpen,
     isLoggedIn,
+    isNewPlayerPopupQuiet,
     isPatchNotesOpen,
     isPlayersOverlayOpen,
     isSettingsOpen,
@@ -29526,7 +29587,12 @@ function handleTouchEnd(e) {
       : typeof lobbyRoomStatus?.tournamentRound === "number"
       ? lobbyRoomStatus.tournamentRound
       : tournamentRoundValue || 0;
+  const serverTournamentEtaSeconds =
+    !isLoggedIn && Number.isFinite(lobbyRoomStatus?.nextTournamentEtaMs)
+      ? Math.max(0, lobbyRoomStatus.nextTournamentEtaMs / 1000)
+      : null;
   const tournamentEtaSeconds = (() => {
+    if (Number.isFinite(serverTournamentEtaSeconds)) return serverTournamentEtaSeconds;
     if (!tournamentRoundValue || !tournamentTotalRounds) return null;
     if (overlayBreakKind === "tournament_end") {
       return Number.isFinite(overlayBreakCountdown)
@@ -29553,11 +29619,26 @@ function handleTouchEnd(e) {
     return null;
   })();
   const tournamentInfoLine =
-    tournamentRoundValue && tournamentTotalRounds
+    !(!isLoggedIn && lobbyRoomStatus?.isTrainingRound) &&
+    tournamentRoundValue &&
+    tournamentTotalRounds
       ? `Manche ${tournamentRoundValue}/${tournamentTotalRounds}`
       : null;
-  const tournamentEtaLine = Number.isFinite(tournamentEtaSeconds)
-    ? `Nouveau mini-tournoi dans ~${formatSecondsShort(tournamentEtaSeconds)}`
+  const currentRoundTypeLabel =
+    !isLoggedIn && lobbyRoomStatus?.isRoundRunning
+      ? getCompactLiveRoundLabel(
+          lobbyRoomStatus?.roundType,
+          lobbyRoomStatus?.roundLabel
+        )
+      : "";
+  const currentRoundInfoLine = currentRoundTypeLabel
+    ? lobbyRoomStatus?.isTrainingRound
+      ? `Entraînement - ${currentRoundTypeLabel}`
+      : `Manche en cours : ${currentRoundTypeLabel}`
+    : null;
+  const tournamentEtaLabel = formatApproximateMinutes(tournamentEtaSeconds);
+  const tournamentEtaLine = tournamentEtaLabel
+    ? `Nouveau mini-tournoi dans ${tournamentEtaLabel}`
     : null;
   const playersOverlay =
     isPlayersOverlayOpen && typeof document !== "undefined"
@@ -29576,6 +29657,7 @@ function handleTouchEnd(e) {
                   playersOverlayMode === "snapshot"
                     ? "Photo du classement en cours (figee)"
                     : "Liste alphabetique (sans score)",
+                  currentRoundInfoLine,
                   tournamentInfoLine,
                   tournamentEtaLine,
                 ]
@@ -32693,6 +32775,9 @@ function handleTouchEnd(e) {
   const isHomeLobbyView = !isLoggedIn && appView === "home";
   const shouldShowBroadcastPopup =
     isHomeLobbyView &&
+    !shouldShowTutorial &&
+    !isTutorialOpen &&
+    !isNewPlayerPopupQuiet &&
     !duelPopupState?.mode &&
     !!broadcastNotice?.message &&
     !broadcastAlreadySeen;

@@ -1224,21 +1224,55 @@ app.get("/api/vault/words", async (req, res) => {
 });
 
 app.post("/api/vault/words", async (req, res) => {
+  const diagnosticRef = `CF-${randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+  const startedAt = Date.now();
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
-  const identity = await requireRequestPlayerIdentity(req, res);
-  if (!identity) return;
-  const result = await addWordVaultEntryForUser(identity.userId, req.body?.word);
-  if (!result?.ok) {
-    res.status(
-      result?.error === "word_required" || result?.error === "word_invalid"
-        ? 400
-        : result?.error === "vault_busy" || result?.error === "vault_unavailable"
-        ? 503
-        : 500
+  res.set("X-Gobble-Vault-Ref", diagnosticRef);
+  let userId = null;
+  try {
+    const identity = await requireRequestPlayerIdentity(req, res);
+    if (!identity) {
+      console.warn(`[vault:add] ref=${diagnosticRef} outcome=auth_required`);
+      return;
+    }
+    userId = identity.userId;
+    const rawWord = typeof req.body?.word === "string" ? req.body.word : "";
+    console.log(
+      `[vault:add] ref=${diagnosticRef} user=${userId} stage=received wordLength=${rawWord.length}`
     );
+    const result = await addWordVaultEntryForUser(userId, rawWord);
+    if (!result?.ok) {
+      const errorCode = String(result?.error || "");
+      const temporarilyUnavailable = new Set([
+        "vault_busy",
+        "vault_unavailable",
+        "vault_cannot_open",
+        "vault_io_error",
+      ]);
+      res.status(
+        errorCode === "word_required" || errorCode === "word_invalid"
+          ? 400
+          : errorCode === "vault_storage_full"
+          ? 507
+          : temporarilyUnavailable.has(errorCode)
+          ? 503
+          : 500
+      );
+    }
+    console.log(
+      `[vault:add] ref=${diagnosticRef} user=${userId} outcome=${result?.ok ? "ok" : "failed"} error=${result?.error || "none"} alreadyExists=${!!result?.alreadyExists} durationMs=${Date.now() - startedAt}`
+    );
+    return res.json({ ...result, diagnosticRef });
+  } catch (err) {
+    console.error(
+      `[vault:add] ref=${diagnosticRef} user=${userId || "unknown"} outcome=exception durationMs=${Date.now() - startedAt}`,
+      err
+    );
+    if (res.headersSent) return;
+    res.status(500);
+    return res.json({ ok: false, error: "vault_request_failed", diagnosticRef });
   }
-  return res.json(result);
 });
 
 app.delete("/api/vault/words", async (req, res) => {
@@ -1361,6 +1395,9 @@ app.get("/api/players", async (req, res) => {
   const status = {
     serverNow: now,
     roundNumber: currentRound?.roundNumber ?? null,
+    roundType: currentRound?.special?.type || (currentRound ? "normal" : null),
+    roundLabel: currentRound?.special?.label || "",
+    isTrainingRound: !!currentRound?.training,
     roundEndsAt: currentRound?.endsAt ?? null,
     roundStartsAt: currentRound?.startsAt ?? null,
     roundIntroMs: currentRound?.introMs ?? 0,
@@ -1372,6 +1409,7 @@ app.get("/api/players", async (req, res) => {
     breakEndsAt: breakState?.nextStartAt ?? null,
     breakDurationMs: room.config?.breakMs ?? DEFAULT_BREAK_DURATION_MS,
     isRoundRunning: isRoundActive(currentRound),
+    nextTournamentEtaMs: getNextMiniTournamentEtaMs(room, now),
     tournamentLobby: buildTournamentLobbyPayload(room),
   };
   return res.json({
@@ -3373,8 +3411,108 @@ function getTrainingRoundPlan(room, rawType) {
   }
 }
 
+function getEstimatedRoundDurationMs(room, plan) {
+  const type = String(plan?.type || "normal");
+  if (type === OCID_TYPE) {
+    return ROUND_INTRO_DURATION_MS + OCID_PROPOSAL_DURATION_MS + OCID_VOTE_DURATION_MS;
+  }
+  if (type === "target_long" || type === "target_score") {
+    return ROUND_INTRO_DURATION_MS + TARGET_SPECIAL_ROUND_DURATION_MS;
+  }
+  if (type === "speed" || type === "monstrous" || type === MASSIVE_BOGGLE_TYPE) {
+    return ROUND_INTRO_DURATION_MS + LIVE_SPECIAL_ROUND_DURATION_MS;
+  }
+  return ROUND_INTRO_DURATION_MS + (room?.config?.durationMs || DEFAULT_ROUND_DURATION_MS);
+}
+
+function getEstimatedPostRoundBreakMs(room, plan, { finalRound = false } = {}) {
+  if (finalRound) return TOURNAMENT_END_TOTAL_BREAK_MS;
+  const configuredBreakMs = room?.config?.breakMs || DEFAULT_BREAK_DURATION_MS;
+  const type = String(plan?.type || "normal");
+  if (type === "target_long" || type === "target_score") {
+    return Math.min(configuredBreakMs, TARGET_BREAK_DURATION_MS);
+  }
+  return configuredBreakMs;
+}
+
+function getCurrentRoundRemainingMs(round, now = Date.now()) {
+  if (!round) return 0;
+  let remainingMs = Math.max(0, (Number(round.endsAt) || now) - now);
+  if (
+    round.special?.type === OCID_TYPE &&
+    round.status !== "ocid_vote" &&
+    round.status !== "finished"
+  ) {
+    remainingMs += OCID_VOTE_DURATION_MS;
+  }
+  return remainingMs;
+}
+
+function getNextMiniTournamentEtaMs(room, now = Date.now()) {
+  if (!room) return null;
+  const lobby = ensureTournamentLobby(room);
+
+  if (!room.currentRound && !room.breakState) {
+    if (lobby.introEndsAt) {
+      return Math.max(0, Number(lobby.introEndsAt) - now);
+    }
+    if (lobby.countdownEndsAt) {
+      return Math.max(0, Number(lobby.countdownEndsAt) - now) + MINI_TOURNAMENT_INTRO_MS;
+    }
+    return room.roundStartPending ? 0 : null;
+  }
+
+  if (room.breakState) {
+    let etaMs = Math.max(0, (Number(room.breakState.nextStartAt) || now) - now);
+    if (
+      room.breakState.breakKind === "tournament_end" ||
+      room.breakState.breakKind === "training_end"
+    ) {
+      return etaMs;
+    }
+    const totalRounds = room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
+    const nextRound = Math.max(
+      1,
+      Number(room.breakState.tournament?.nextRound) ||
+        (Number(room.tournament?.currentRound) || 0) + 1
+    );
+    for (let roundNumber = nextRound; roundNumber <= totalRounds; roundNumber += 1) {
+      const plan = getTournamentRoundPlan(room, roundNumber);
+      etaMs += getEstimatedRoundDurationMs(room, plan);
+      etaMs += getEstimatedPostRoundBreakMs(room, plan, {
+        finalRound: roundNumber === totalRounds,
+      });
+    }
+    return etaMs;
+  }
+
+  const currentRound = room.currentRound;
+  let etaMs = getCurrentRoundRemainingMs(currentRound, now);
+  if (currentRound?.training) {
+    return etaMs + TRAINING_BREAK_MS;
+  }
+  const totalRounds = room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
+  const currentTournamentRound = Math.max(1, Number(currentRound?.tournamentRound) || 1);
+  const currentPlan = currentRound?.special || getTournamentRoundPlan(room, currentTournamentRound);
+  etaMs += getEstimatedPostRoundBreakMs(room, currentPlan, {
+    finalRound: currentTournamentRound === totalRounds,
+  });
+  for (
+    let roundNumber = currentTournamentRound + 1;
+    roundNumber <= totalRounds;
+    roundNumber += 1
+  ) {
+    const plan = getTournamentRoundPlan(room, roundNumber);
+    etaMs += getEstimatedRoundDurationMs(room, plan);
+    etaMs += getEstimatedPostRoundBreakMs(room, plan, {
+      finalRound: roundNumber === totalRounds,
+    });
+  }
+  return etaMs;
+}
+
 function maybeStartTournamentCountdown(room) {
-  if (!room || isRoomInActiveRound(room) || room.breakState) return false;
+  if (!isInterTournamentLobbyOpen(room)) return false;
   const lobby = ensureTournamentLobby(room);
   if (lobby.countdownEndsAt || lobby.introEndsAt) return false;
   const state = buildTournamentLobbyPayload(room);
@@ -3389,7 +3527,7 @@ function maybeStartTournamentCountdown(room) {
 }
 
 function startMiniTournamentIntro(room) {
-  if (!room || isRoomInActiveRound(room) || room.breakState) return;
+  if (!isInterTournamentLobbyOpen(room)) return;
   const lobby = ensureTournamentLobby(room);
   if (lobby.countdownTimer) clearTimeout(lobby.countdownTimer);
   lobby.countdownTimer = null;
@@ -3405,7 +3543,7 @@ function startMiniTournamentIntro(room) {
 }
 
 async function beginReadyMiniTournament(room) {
-  if (!room || isRoomInActiveRound(room)) return;
+  if (!isInterTournamentLobbyOpen(room)) return;
   if (isMaintenanceModeActive()) {
     resetTournamentLobby(room);
     emitTournamentLobby(room);
@@ -3431,7 +3569,7 @@ async function startTrainingRound(room, rawType) {
   if (isMaintenanceModeActive()) {
     return buildMaintenanceBlockedPayload();
   }
-  if (!room || isRoomInActiveRound(room) || room.breakState) {
+  if (!isInterTournamentLobbyOpen(room)) {
     return { ok: false, error: "room_busy" };
   }
   const state = buildTournamentLobbyPayload(room);
@@ -3500,6 +3638,7 @@ function createRoomState(roomId, config) {
     roundCounter: 0,
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
+    roundStartPending: false,
     tournamentLobby: {
       readyKeys: new Set(),
       countdownEndsAt: null,
@@ -3682,8 +3821,8 @@ function resetTournamentLobby(room, { keepReady = false } = {}) {
   if (!keepReady) lobby.readyKeys.clear();
 }
 
-function isRoomInActiveRound(room) {
-  return !!(room?.currentRound && isRoundActive(room.currentRound));
+function isInterTournamentLobbyOpen(room) {
+  return !!room && !room.roundStartPending && !room.currentRound && !room.breakState;
 }
 
 function getConnectedHumanPlayers(room, now = Date.now()) {
@@ -3705,12 +3844,15 @@ function buildTournamentLobbyPayload(room) {
   const activeHumanCount = activeHumans.length;
   const readyThreshold = Math.max(1, Math.ceil(activeHumanCount * 0.5));
   const maintenanceMode = isMaintenanceModeActive();
-  const canStart = !maintenanceMode && activeHumanCount > 0 && readyActive.length >= readyThreshold;
-  const isLobbyOpen = !isRoomInActiveRound(room) && !room.breakState;
+  const isLobbyOpen = isInterTournamentLobbyOpen(room);
+  const canStart =
+    isLobbyOpen && !maintenanceMode && activeHumanCount > 0 && readyActive.length >= readyThreshold;
   const phase = lobby.introEndsAt
     ? "intro"
     : lobby.countdownEndsAt
     ? "countdown"
+    : room.roundStartPending
+    ? "starting"
     : isLobbyOpen
     ? "ready"
     : "closed";
@@ -3726,6 +3868,7 @@ function buildTournamentLobbyPayload(room) {
     afkHumanCount: Math.max(0, humans.length - activeHumans.length),
     countdownEndsAt: lobby.countdownEndsAt || null,
     introEndsAt: lobby.introEndsAt || null,
+    roundStartPending: !!room.roundStartPending,
     canStart,
     maintenanceMode,
     maintenanceMessage: maintenanceMode ? "Maintenance en cours" : "",
@@ -3742,6 +3885,7 @@ function emitTournamentLobby(room) {
 
 function enterInterTournamentLobby(room) {
   if (!room) return;
+  room.roundStartPending = false;
   clearPendingRankingBroadcast(room);
   if (room.currentRound?.timers) {
     room.currentRound.timers.forEach((timer) => clearTimeout(timer));
@@ -4382,7 +4526,11 @@ function buildSessionSnapshot(room, player) {
   if (!room || !player) return null;
   const round = room.currentRound;
   const hasActiveRound = isRoundActive(round);
-  const phase = hasActiveRound ? "playing" : room.breakState ? "results" : "lobby";
+  const phase = hasActiveRound
+    ? "playing"
+    : room.breakState || room.currentRound || room.roundStartPending
+    ? "results"
+    : "lobby";
   const currentRoundPayload = hasActiveRound ? buildRoundStartedPayload(room) : null;
   let score = 0;
   let words = [];
@@ -9091,6 +9239,20 @@ function resetRoomRecords(room) {
 
 async function startRoundForRoom(room, options = {}) {
   if (!room) return;
+  room.roundStartPending = true;
+  emitTournamentLobby(room);
+  try {
+    return await runStartRoundForRoom(room, options);
+  } finally {
+    room.roundStartPending = false;
+    if (!room.currentRound && !room.breakState) {
+      emitTournamentLobby(room);
+    }
+  }
+}
+
+async function runStartRoundForRoom(room, options = {}) {
+  if (!room) return;
   const trainingRound = !!options?.training;
   const planOverride = options?.planOverride || null;
   clearPendingRankingBroadcast(room);
@@ -10796,7 +10958,7 @@ io.on("connection", (socket) => {
       emitTournamentLobby(room);
       return;
     }
-    if (isRoomInActiveRound(room) || room.breakState) {
+    if (!isInterTournamentLobbyOpen(room)) {
       cb?.({ ok: false, error: "room_busy", lobby: buildTournamentLobbyPayload(room) });
       return;
     }

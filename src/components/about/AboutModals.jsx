@@ -274,6 +274,142 @@ export default function AboutModals({
                   : "border-blue-200 bg-blue-50/70"
               }`}>
                 <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-90">
+                  patch du 22/07/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  salon live et transitions
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    correction des retours intempestifs vers le salon live pendant une partie,
+                    notamment à la fin des phases de vote OCID et juste avant l’affichage des
+                    résultats.
+                  </li>
+                  <li>
+                    le salon ne peut plus se rouvrir ni relancer un décompte « Prêt » pendant que
+                    la grille suivante est encore en préparation.
+                  </li>
+                  <li>
+                    ajout d’un écran « Préparation de la grille » entre le décompte du
+                    mini-tournoi et le véritable lancement de la manche, afin d’éviter un bref
+                    retour visuel au salon.
+                  </li>
+                  <li>
+                    la reprise d’une session en cours distingue maintenant plus sûrement une
+                    partie, une phase de résultats et un véritable retour au salon.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  liste des joueurs et partie en cours
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les bots sont de nouveau visibles dans la liste des joueurs depuis l’accueil
+                    principal et lorsqu’une partie est en cours. Ils restent masqués dans le salon
+                    live lorsqu’aucune partie n’est lancée.
+                  </li>
+                  <li>
+                    depuis l’accueil, la liste des joueurs précise désormais le type de manche en
+                    cours : Classique, OCID, Faux jumeaux, MLPL, 3 mots, etc.
+                  </li>
+                  <li>
+                    lorsqu’un joueur a lancé une manche d’entraînement, la mention « Entraînement »
+                    est clairement affichée avec le type de manche choisi.
+                  </li>
+                  <li>
+                    l’estimation avant le prochain mini-tournoi est maintenant exprimée simplement
+                    en minutes.
+                  </li>
+                  <li>
+                    cette estimation tient mieux compte de la durée réelle des différentes manches
+                    spéciales, des votes OCID, des résultats et des pauses entre les manches.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  nouveaux joueurs et messages d’accueil
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    l’arrivée d’un nouveau joueur est maintenant beaucoup plus calme : le tutoriel
+                    de démarrage reste prioritaire et les autres fenêtres ne s’enchaînent plus
+                    immédiatement.
+                  </li>
+                  <li>
+                    les notes d’une mise à jour antérieure à la création du compte ne sont plus
+                    imposées aux nouveaux joueurs.
+                  </li>
+                  <li>
+                    l’invitation à rejoindre le groupe Facebook Gobble est différée jusqu’au
+                    cinquième jour distinct de connexion.
+                  </li>
+                  <li>
+                    les récapitulatifs, annonces et autres fenêtres automatiques attendent
+                    désormais que la découverte initiale du jeu soit terminée.
+                  </li>
+                  <li>
+                    amélioration de la reconnaissance des profils historiques encore présents sur
+                    un appareil, afin de mieux proposer leur sécurisation et d’éviter la création
+                    accidentelle d’un compte concurrent.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  coffre-fort et diagnostic
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le message générique « Ajout impossible » est remplacé par des explications
+                    beaucoup plus précises.
+                  </li>
+                  <li>
+                    le jeu distingue maintenant notamment : session expirée, appareil hors ligne,
+                    délai serveur dépassé, connexion interrompue ou bloquée, réponse web illisible,
+                    service indisponible, base momentanément verrouillée et différents problèmes
+                    d’écriture ou d’accès à la base.
+                  </li>
+                  <li>
+                    lorsqu’une première tentative dépasse le délai prévu, la seconde tentative
+                    indique désormais sa véritable erreur au lieu de toujours afficher un simple
+                    problème de connexion.
+                  </li>
+                  <li>
+                    chaque demande arrivée au serveur reçoit une courte référence de diagnostic,
+                    également affichée dans le message d’erreur, afin de retrouver précisément
+                    l’opération concernée.
+                  </li>
+                  <li>
+                    en cas d’échec, un diagnostic technique est transmis automatiquement et associé
+                    au compte lorsque cela est possible. Il contient le contexte utile — appareil,
+                    navigateur, réseau, réponse serveur et référence — mais jamais le mot que le
+                    joueur essayait d’ajouter.
+                  </li>
+                  <li>
+                    ces informations doivent permettre d’identifier la cause des problèmes de
+                    coffre-fort sans demander aux joueurs d’enchaîner des grilles ou des
+                    manipulations au hasard.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  stabilité générale
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    plusieurs garde-fous supplémentaires empêchent désormais le salon, un
+                    entraînement ou un nouveau décompte de démarrer pendant qu’une autre transition
+                    de partie est déjà engagée.
+                  </li>
+                  <li>
+                    amélioration des informations conservées lors des reconnexions et des
+                    changements de phase, afin de limiter les incohérences visuelles entre le
+                    serveur et l’écran du joueur.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-90">
                   patch du 17/07/2026
                 </div>
                 <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { normalizeWord } from "../components/gameLogic";
+import {
+  describeWordVaultFailure,
+  reportWordVaultFailure,
+} from "./wordVaultErrors.js";
 
 const WORD_VAULT_ENDPOINT = "/api/vault/words";
 
@@ -18,6 +22,12 @@ function normalizeWordVaultEntry(rawEntry) {
 function getWordVaultWordKey(rawWord) {
   const word = typeof rawWord === "string" ? rawWord.trim() : "";
   return word ? normalizeWord(word) : "";
+}
+
+function surfaceWordVaultFailure(showToast, details = {}) {
+  const message = describeWordVaultFailure(details);
+  showToast?.(message);
+  reportWordVaultFailure({ ...details, message });
 }
 
 export default function useWordVault({
@@ -148,20 +158,17 @@ export default function useWordVault({
         if (retryPayload?.error === "auth_required") {
           await refreshAuthStatus?.({ silent: true });
           ensureAuthenticated?.({ source: "action" });
-          showToast?.("Reconnecte-toi pour ajouter ce mot au coffre fort");
-        } else if (retryPayload?.error === "word_required" || retryPayload?.error === "word_invalid") {
-          showToast?.("Ce mot ne peut pas être ajouté au coffre fort");
-        } else if (retryPayload?.error === "vault_busy" || retryPayload?.error === "vault_unavailable") {
-          showToast?.("Coffre fort temporairement indisponible, réessaie dans quelques secondes");
-        } else {
-          showToast?.("Ajout au coffre fort impossible");
         }
+        surfaceWordVaultFailure(showToast, { response });
         return false;
       }
       const successPayload = response?.data || {};
       const entry = normalizeWordVaultEntry(successPayload?.entry);
       if (!entry) {
-        showToast?.("Ajout au coffre fort impossible");
+        surfaceWordVaultFailure(showToast, {
+          response,
+          invalidSuccessPayload: true,
+        });
         void fetchWordVault({ silent: true });
         return false;
       }
@@ -184,6 +191,8 @@ export default function useWordVault({
     } catch (err) {
       const code = String(err?.message || "");
       if (code === "request_timeout") {
+        let retryFailureResponse = null;
+        let retryFailureError = err;
         try {
           const retryResponse = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
           const retryPayload = retryResponse?.data || {};
@@ -204,11 +213,18 @@ export default function useWordVault({
               return true;
             }
           }
-        } catch (_) {}
-        showToast?.("Connexion trop lente, ajout au coffre fort non confirmé");
-      } else {
-        showToast?.("Ajout au coffre fort impossible");
+          retryFailureResponse = retryResponse;
+        } catch (retryErr) {
+          retryFailureError = retryErr;
+        }
+        surfaceWordVaultFailure(showToast, {
+          response: retryFailureResponse,
+          error: retryFailureResponse ? null : retryFailureError,
+          invalidSuccessPayload: !!retryFailureResponse?.ok,
+        });
+        return false;
       }
+      surfaceWordVaultFailure(showToast, { error: err });
       return false;
     } finally {
       setWordVaultActionPending(false);

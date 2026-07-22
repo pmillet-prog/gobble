@@ -19,9 +19,10 @@ export default function MiniTournamentStartOverlay({ lobby = null }) {
   const phase = lobby?.phase || "";
   const countdownLeft = getRemainingSeconds(lobby?.countdownEndsAt, now);
   const introLeft = getRemainingSeconds(lobby?.introEndsAt, now);
-  const showCountdown = phase === "countdown" && countdownLeft > 0;
+  const showCountdown = phase === "countdown";
   const showIntro = phase === "intro" && introLeft > 0;
-  if (!showCountdown && !showIntro) return null;
+  const showPreparing = phase === "starting" || (phase === "intro" && introLeft <= 0);
+  if (!showCountdown && !showIntro && !showPreparing) return null;
 
   return (
     <div className="fixed inset-0 z-[21000] flex items-center justify-center bg-slate-950/90 px-4 text-white backdrop-blur-sm transition-opacity duration-500">
@@ -35,13 +36,13 @@ export default function MiniTournamentStartOverlay({ lobby = null }) {
         {showCountdown ? (
           <>
             <div className="text-[96px] font-black leading-none tabular-nums sm:text-[128px]">
-              {countdownLeft}
+              {Math.max(1, countdownLeft)}
             </div>
             <div className="mt-4 text-sm font-bold uppercase tracking-[0.35em] text-orange-200">
               Mini-tournoi
             </div>
           </>
-        ) : (
+        ) : showIntro ? (
           <>
             <div className="text-3xl font-black uppercase tracking-[0.16em] sm:text-5xl">
               Debut de mini TOURNOI
@@ -50,6 +51,13 @@ export default function MiniTournamentStartOverlay({ lobby = null }) {
               5 manches. Les meilleurs scores gagnent des points, la derniere manche compte double.
               Les gobbles departagent et peuvent faire basculer le classement.
             </div>
+          </>
+        ) : (
+          <>
+            <div className="text-3xl font-black uppercase tracking-[0.16em] sm:text-5xl">
+              Preparation de la grille
+            </div>
+            <div className="mx-auto mt-6 h-10 w-10 animate-spin rounded-full border-4 border-white/25 border-t-orange-300" />
           </>
         )}
       </div>

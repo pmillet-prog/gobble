@@ -23,18 +23,60 @@ const SQLITE_BUSY_MAX_RETRIES = 30;
 const SQLITE_BUSY_RETRY_BASE_MS = 80;
 const MAX_VAULT_WORD_LEN = 80;
 
-function isSqliteBusyError(err) {
+function classifyVaultWriteError(err) {
   const code = String(err?.code || "").toUpperCase();
-  const msg = String(err?.message || "").toLowerCase();
-  return (
+  const message = String(err?.message || "").toLowerCase();
+  if (
     code === "SQLITE_BUSY" ||
-    msg.includes("database is locked") ||
-    msg.includes("sqlite_busy")
-  );
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+    code === "SQLITE_LOCKED" ||
+    message.includes("database is locked") ||
+    message.includes("sqlite_busy") ||
+    message.includes("sqlite_locked")
+  ) {
+    return "vault_busy";
+  }
+  if (code.startsWith("SQLITE_READONLY") || message.includes("readonly database")) {
+    return "vault_readonly";
+  }
+  if (code === "SQLITE_FULL" || message.includes("database or disk is full")) {
+    return "vault_storage_full";
+  }
+  if (code.startsWith("SQLITE_IOERR") || message.includes("disk i/o error")) {
+    return "vault_io_error";
+  }
+  if (
+    code === "SQLITE_CORRUPT" ||
+    code === "SQLITE_NOTADB" ||
+    message.includes("database disk image is malformed") ||
+    message.includes("file is not a database")
+  ) {
+    return "vault_corrupt";
+  }
+  if (code === "SQLITE_CANTOPEN" || message.includes("unable to open database file")) {
+    return "vault_cannot_open";
+  }
+  if (
+    code === "SQLITE_PERM" ||
+    code === "SQLITE_AUTH" ||
+    message.includes("permission denied") ||
+    message.includes("not authorized")
+  ) {
+    return "vault_permission";
+  }
+  if (code.startsWith("SQLITE_CONSTRAINT") || message.includes("constraint failed")) {
+    return "vault_constraint";
+  }
+  if (
+    code === "SQLITE_SCHEMA" ||
+    code === "SQLITE_ERROR" ||
+    code === "SQLITE_MISUSE" ||
+    message.includes("no such table") ||
+    message.includes("no such column") ||
+    message.includes("syntax error")
+  ) {
+    return "vault_query_failed";
+  }
+  return "vault_add_failed";
 }
 
 async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
@@ -201,7 +243,7 @@ export async function addWordVaultEntryForUser(userId, rawWord) {
     return result;
   } catch (err) {
     console.warn("Word vault add failed", err);
-    return { ok: false, error: isSqliteBusyError(err) ? "vault_busy" : "vault_add_failed" };
+    return { ok: false, error: classifyVaultWriteError(err) };
   }
 }
 
