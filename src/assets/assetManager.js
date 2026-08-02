@@ -545,6 +545,60 @@ async function tryCandidates(candidates, handler) {
 async function preloadImage(entry) {
   const candidates = uniqueList(entry.candidates || []);
   const attempt = async (url) => {
+    if (entry?.meta?.browserManaged && typeof Image !== "undefined") {
+      const img = new Image();
+      img.decoding = "async";
+      if (entry.priority === "critical") img.fetchPriority = "high";
+      let resolveLoaded = null;
+      let rejectLoaded = null;
+      let loadTimeoutId = null;
+      const loaded = new Promise((resolve, reject) => {
+        resolveLoaded = resolve;
+        rejectLoaded = reject;
+      });
+      const clearLoadTimeout = () => {
+        if (loadTimeoutId !== null) {
+          clearTimeout(loadTimeoutId);
+          loadTimeoutId = null;
+        }
+      };
+      img.onload = () => {
+        clearLoadTimeout();
+        resolveLoaded?.(true);
+      };
+      img.onerror = () => {
+        clearLoadTimeout();
+        rejectLoaded?.(new Error("image-error"));
+      };
+      loadTimeoutId = setTimeout(() => {
+        loadTimeoutId = null;
+        rejectLoaded?.(new Error("image-timeout"));
+      }, 8000);
+      loaded.catch(() => {});
+      img.src = url;
+      try {
+        if (img.decode) {
+          try {
+            await Promise.race([img.decode(), loaded]);
+          } catch (_) {
+            await loaded;
+          }
+        } else {
+          await loaded;
+        }
+      } catch (err) {
+        throw err;
+      } finally {
+        clearLoadTimeout();
+      }
+      return {
+        bitmap: null,
+        objectUrl: false,
+        url,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      };
+    }
     const res = await fetchWithTimeout(url, 8000);
     if (!res) throw new Error("image-fetch-null");
     const contentType = getContentType(res);
@@ -608,7 +662,7 @@ async function preloadImage(entry) {
       width = img.naturalWidth;
       height = img.naturalHeight;
     }
-    return { bitmap, url: objectUrl, width, height };
+    return { bitmap, objectUrl: true, url: objectUrl, width, height };
   };
   const loaded = await tryCandidates(candidates, attempt);
   if (!loaded.ok) {
@@ -625,7 +679,7 @@ async function preloadImage(entry) {
   const { result, url } = loaded;
   state.images.set(entry.key, result);
   state.resolvedUrls.set(entry.key, url);
-  if (result?.url) state.objectUrls.add(result.url);
+  if (result?.objectUrl && result?.url) state.objectUrls.add(result.url);
   return true;
 }
 
@@ -918,6 +972,7 @@ export async function preload({
   concurrency = 4,
   includeTypes = null,
   excludeTypes = null,
+  keys = null,
 } = {}) {
   const entries = Array.from(state.manifest.values());
   const filtered = selectByPriority(entries, priority === "all" ? "low" : priority);
@@ -929,13 +984,20 @@ export async function preload({
     Array.isArray(excludeTypes) && excludeTypes.length
       ? new Set(excludeTypes.map((type) => normalizeAssetType(type)).filter(Boolean))
       : null;
+  const keySet =
+    Array.isArray(keys) && keys.length
+      ? new Set(keys.map((key) => String(key || "")).filter(Boolean))
+      : null;
   const queue = filtered.filter((entry) => {
     if (isLoaded(entry)) return false;
+    if (keySet && !keySet.has(entry.key)) return false;
     const type = normalizeAssetType(entry?.type);
     if (includeSet && !includeSet.has(type)) return false;
     if (excludeSet && excludeSet.has(type)) return false;
     return true;
   });
+  const marksWholeManifestReady =
+    priority === "all" && !keySet && !includeSet && !excludeSet;
   const total = queue.length;
   let loaded = 0;
   const notify = (payload) => {
@@ -944,7 +1006,7 @@ export async function preload({
     }
   };
   if (!queue.length) {
-    if (priority === "all") state.devGuard.readyAll = true;
+    if (marksWholeManifestReady) state.devGuard.readyAll = true;
     return;
   }
   const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
@@ -972,7 +1034,7 @@ export async function preload({
     }
   });
   await Promise.all(workers);
-  if (priority === "all") state.devGuard.readyAll = true;
+  if (marksWholeManifestReady) state.devGuard.readyAll = true;
 }
 
 export function isReady(key) {

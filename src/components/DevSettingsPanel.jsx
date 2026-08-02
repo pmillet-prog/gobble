@@ -35,6 +35,9 @@ export default function DevSettingsPanel({
   onSetBotActive = null,
   onSetAllBotsActive = null,
   onReturnToLiveLobby = null,
+  onOpenTargetWaitPlayground = null,
+  targetWaitDevActive = false,
+  targetWaitDevArmed = false,
 }) {
   const [globalAnnouncementText, setGlobalAnnouncementText] = React.useState(
     () => globalAnnouncementDraftCache
@@ -213,6 +216,22 @@ export default function DevSettingsPanel({
                 className={`w-full rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${buttonClass}`}
               >
                 Retour au lobby live
+              </button>
+              <button
+                type="button"
+                disabled={busy || !canUseTools || targetWaitDevActive}
+                onClick={() =>
+                  typeof onOpenTargetWaitPlayground === "function"
+                    ? onOpenTargetWaitPlayground()
+                    : null
+                }
+                className={`w-full rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${buttonClass}`}
+              >
+                {targetWaitDevActive
+                  ? "Mini-jeu cible · simulation en cours"
+                  : targetWaitDevArmed
+                  ? "Annuler le test mini-jeu armé"
+                  : "Mini-jeu cible · prochaine manche (90 s)"}
               </button>
             </div>
             {controls?.maintenanceMode ? (

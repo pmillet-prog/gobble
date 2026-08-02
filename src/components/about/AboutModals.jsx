@@ -270,6 +270,137 @@ export default function AboutModals({
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
               <div className={`rounded-xl border p-3 ${
                 menuDarkMode
+                  ? "border-amber-300/25 bg-amber-400/10"
+                  : "border-amber-200 bg-amber-50/75"
+              }`}>
+                <div className="text-[12px] font-extrabold uppercase tracking-wide opacity-90">
+                  patch du 02/08/2026
+                </div>
+                <div className="mt-2 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  manche finale renforcée
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    la cinquième manche conserve les points de classement du mini-tournoi doublés
+                    et double maintenant aussi l'effet des tuiles spéciales : L2 devient L4, L3
+                    devient L6, M2 devient M4 et M3 devient M6.
+                  </li>
+                  <li>
+                    les grilles de finale visent 50 % de mots supplémentaires par rapport à une
+                    manche classique et au moins 12 000 points possibles avec le barème renforcé.
+                  </li>
+                  <li>
+                    un joli badge ×2 apparaît directement sur chaque tuile spéciale pendant la
+                    finale. Les introductions, tutoriels et écrans d'information ont été mis à
+                    jour avec les nouvelles règles.
+                  </li>
+                  <li>
+                    la manche finale est désormais disponible en entraînement, avec la même
+                    génération de grille et les mêmes bonus doublés que dans le mini-tournoi.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  fluidité pendant les manches
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    le rendu et le tracé de la grille ont été profondément allégés : seules les
+                    tuiles réellement concernées sont actualisées pendant le geste, avec moins de
+                    calculs et de mesures visuelles répétées.
+                  </li>
+                  <li>
+                    les mots validés sont enregistrés immédiatement sur l'appareil puis envoyés au
+                    serveur par petits groupes, sans attendre une réponse avant de pouvoir tracer
+                    le mot suivant.
+                  </li>
+                  <li>
+                    les mises à jour du classement restent en quasi-temps réel, y compris pendant
+                    un tracé, mais sont regroupées juste assez pour éviter les rafales de calculs et
+                    les petits gels d'animation.
+                  </li>
+                  <li>
+                    les actualisations non essentielles du chat et de l'interface attendent la fin
+                    du geste lorsqu'elles risqueraient de gêner le tracé.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  OCID et entraînement
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    pendant le vote OCID, toutes les propositions des joueurs sont désormais
+                    visibles simultanément sur téléphone comme sur ordinateur, sans avoir à faire
+                    défiler une liste.
+                  </li>
+                  <li>
+                    lorsque les propositions sont vraiment trop nombreuses, seules celles qui
+                    proviennent exclusivement des bots sont masquées afin de toujours donner la
+                    même visibilité aux joueurs humains.
+                  </li>
+                  <li>
+                    les manches d'entraînement n'enregistrent désormais aucune progression : ni
+                    record personnel, ni vocabulaire, ni score hebdomadaire, ni objectif du duel,
+                    ni gobblar. Les résultats restent uniquement consultables pour la manche jouée.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  images et démarrage
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les décors et boutons principaux de l'accueil et du salon sont maintenant
+                    préchargés et décodés avant leur affichage, afin d'éviter qu'ils apparaissent
+                    progressivement comme s'ils venaient d'être téléchargés.
+                  </li>
+                  <li>
+                    des versions WebP plus légères et un cache dédié accélèrent les ouvertures
+                    suivantes. Les images adaptées à l'écran utilisé sont prioritaires, puis les
+                    autres sont chargées discrètement lorsque l'appareil est disponible.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  podium de la course hebdomadaire
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    les pseudos or, argent et bronze possèdent désormais trois rendus métalliques
+                    plus distincts, tout en conservant l'aspect argenté apprécié.
+                  </li>
+                  <li>
+                    le pseudo du vainqueur en or gagne un reflet lumineux animé et une aura dédiée
+                    pour rendre la première place beaucoup plus spectaculaire.
+                  </li>
+                  <li>
+                    cet effet peut être désactivé avec l'option « Pseudo or spectaculaire » dans
+                    les préférences visuelles et suit aussi l'interrupteur général des effets.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-[11px] font-extrabold uppercase tracking-wide opacity-75 underline underline-offset-2">
+                  plein écran et jeu sur navigateur
+                </div>
+                <ul className="mt-1 list-disc pl-5 space-y-2">
+                  <li>
+                    un bouton « Jouer en plein écran » est proposé dès l'accueil dans les
+                    navigateurs compatibles, puis permet de quitter proprement ce mode.
+                  </li>
+                  <li>
+                    le bouton est automatiquement masqué dans l'application Android et lorsqu'une
+                    version installée de Gobble est déjà utilisée.
+                  </li>
+                  <li>
+                    sur iPhone, où le plein écran classique n'est pas disponible pour le jeu, une
+                    aide « Jouer comme une appli » explique comment ajouter Gobble à l'écran
+                    d'accueil pour jouer sans les barres du navigateur.
+                  </li>
+                </ul>
+              </div>
+              <div className={`rounded-xl border p-3 ${
+                menuDarkMode
                   ? "border-blue-300/20 bg-blue-400/10"
                   : "border-blue-200 bg-blue-50/70"
               }`}>

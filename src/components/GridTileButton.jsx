@@ -2,6 +2,7 @@ import React from "react";
 
 import { FAKE_TWINS_TYPE } from "./gameLogic";
 import GridTileLetter from "./GridTileLetter.jsx";
+import FinaleBonusMultiplierBadge from "./finale/FinaleBonusMultiplierBadge.jsx";
 import {
   isTraceTileHighlighted,
   registerTraceTile,
@@ -28,6 +29,7 @@ function GridTileButton({
   cell,
   className = "",
   displayBonus = "",
+  bonusEffectMultiplier = 1,
   hintOverlayStyle = null,
   isSquareMaterial = false,
   isSpecialStartTileLocked = false,
@@ -98,6 +100,9 @@ function GridTileButton({
           {displayBonus}
         </span>
       ) : null}
+      {displayBonus ? (
+        <FinaleBonusMultiplierBadge multiplier={bonusEffectMultiplier} />
+      ) : null}
     </button>
   );
 }
@@ -122,6 +127,7 @@ function areGridTileButtonPropsEqual(prev, next) {
     prev.cell === next.cell &&
     prev.className === next.className &&
     prev.displayBonus === next.displayBonus &&
+    prev.bonusEffectMultiplier === next.bonusEffectMultiplier &&
     shallowEqualObject(prev.hintOverlayStyle, next.hintOverlayStyle) &&
     prev.isSquareMaterial === next.isSquareMaterial &&
     prev.isSpecialStartTileLocked === next.isSpecialStartTileLocked &&

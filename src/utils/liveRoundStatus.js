@@ -11,6 +11,7 @@ const COMPACT_ROUND_LABELS = Object.freeze({
   ocid: "OCID",
   bonus_letter: "Lettre en or",
   massive_boggle: "Massive Boggle",
+  finale: "Finale · bonus ×2",
 });
 
 export function getCompactLiveRoundLabel(roundType, fallbackLabel = "") {

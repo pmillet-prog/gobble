@@ -1,7 +1,11 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
-import { getPerfSnapshot, resetPerfProbe } from "./renderPerfProbe.js";
+import {
+  getPerfSnapshot,
+  recordPerfFrameGap,
+  resetPerfProbe,
+} from "./renderPerfProbe.js";
 
 function round1(value) {
   return Number.isFinite(value) ? Math.round(value * 10) / 10 : 0;
@@ -84,6 +88,9 @@ export default function PerfTestOverlay({ phase = "", roundId = "" }) {
       if (cancelled) return;
       const state = fpsRef.current;
       if (!state.firstAt) state.firstAt = now;
+      if (state.lastAt > 0) {
+        recordPerfFrameGap(now - state.lastAt);
+      }
       state.frames += 1;
       state.lastAt = now;
       state.samples.push(now);
@@ -128,6 +135,11 @@ export default function PerfTestOverlay({ phase = "", roundId = "" }) {
   const lastSessions = sessions.slice(-3).reverse();
   const last = lastSessions[0] || null;
   const active = snapshot?.active || null;
+  const frameGaps = snapshot?.frameGaps || {};
+  const recentEvents = Array.isArray(snapshot?.events) ? snapshot.events : [];
+  const lastNonGapEvent = [...recentEvents]
+    .reverse()
+    .find((event) => event?.label && event.label !== "frame-gap");
 
   return createPortal(
     <div
@@ -179,6 +191,14 @@ export default function PerfTestOverlay({ phase = "", roundId = "" }) {
         App/tuile moy: {stats.avgRendersPerTile} r / tuiles moy: {stats.avgTiles}
       </div>
       <div>FPS: {fps.rolling} live / {fps.avg} moy</div>
+      <div>
+        Gels ≥50 ms: {frameGaps.count || 0} / max {round1(frameGaps.maxMs || 0)} ms
+      </div>
+      <div>
+        Dernier gel: {round1(frameGaps.lastMs || 0)} ms
+        {frameGaps.lastAfter ? ` après ${frameGaps.lastAfter}` : ""}
+      </div>
+      <div>Dernier événement: {lastNonGapEvent?.label || "aucun"}</div>
       <div>Duree moy: {stats.avgDurationMs} ms</div>
       <div>App total: {snapshot?.totalAppRenders || 0}</div>
       <div>Active: {active ? formatSession(active) : "non"}</div>

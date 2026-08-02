@@ -16,6 +16,10 @@ import {
   solveGrid,
 } from "../../shared/gameLogic.js";
 import {
+  FINALE_TILE_BONUS_MULTIPLIER,
+  FINALE_TYPE,
+} from "../../shared/finaleRules.js";
+import {
   buildAnchoredGrid,
   buildAnchoredGridCandidate,
   buildRandomPath,
@@ -357,6 +361,8 @@ function buildPreparedCandidate({
       quality.possibleScore >= minTotal &&
       quality.maxLen >= minLen &&
       quality.longWords >= minLongWords;
+  } else if (roundPlan?.type === FINALE_TYPE) {
+    ok = ok && quality.possibleScore >= (roundPlan?.minTotalScore || 0);
   } else if (
     roundPlan?.type === "target_long" ||
     roundPlan?.type === "target_score" ||
@@ -644,6 +650,14 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
   const needsBonusLetter = roundPlan?.type === "bonus_letter";
   const needsClassicBoggle = roundPlan?.type === MASSIVE_BOGGLE_TYPE;
   const needsFakeTwins = roundPlan?.type === FAKE_TWINS_TYPE;
+  const needsFinaleScoring = roundPlan?.type === FINALE_TYPE;
+  const finaleScoreConfig = needsFinaleScoring
+    ? {
+        type: FINALE_TYPE,
+        tileBonusMultiplier:
+          Number(roundPlan?.tileBonusMultiplier) || FINALE_TILE_BONUS_MULTIPLIER,
+      }
+    : null;
   const rareBonusWordMetaMap =
     roundPlan?.rareBonusWordMetaMap instanceof Map ? roundPlan.rareBonusWordMetaMap : null;
   const maxAttemptsBase = needsClassicBoggle
@@ -792,7 +806,7 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
                     classicBoggleScoring: true,
                     disableBonuses: true,
                   }
-                : null
+                : finaleScoreConfig
             ),
             rareBonusWordMetaMap,
             roundPlan
@@ -816,6 +830,11 @@ async function prepareNextGridJob({ roomConfig, roundPlan, roundNumber, cultureT
         quality.possibleScore >= minTotal &&
         quality.maxLen >= minLen &&
         quality.longWords >= minLongWords;
+    } else if (needsFinaleScoring) {
+      ok =
+        ok &&
+        !!dictionary &&
+        quality.possibleScore >= (roundPlan?.minTotalScore || 0);
     } else if (needsClassicBoggle) {
       ok =
         ok &&
@@ -1077,12 +1096,22 @@ function analyzeGridJob({ grid, roundPlan, roomConfig, scoreConfig }) {
           classicBoggleScoring: true,
           disableBonuses: true,
         }
+      : roundPlan?.type === FINALE_TYPE
+      ? {
+          type: FINALE_TYPE,
+          tileBonusMultiplier:
+            Number(roundPlan?.tileBonusMultiplier) || FINALE_TILE_BONUS_MULTIPLIER,
+        }
       : null);
   const solved = dictionary ? solveGrid(grid, dictionary, effectiveScoreConfig) : null;
   const quality = analyzeGridQualityFromSolved(solved, effectiveMinWords, qualityOpts);
   quality.possibleScore = roundPlan?.fixedWordScore
     ? (quality.words || 0) * roundPlan.fixedWordScore
     : quality.totalPts;
+  if (roundPlan?.type === FINALE_TYPE) {
+    quality.ok =
+      quality.ok && quality.possibleScore >= (roundPlan?.minTotalScore || 0);
+  }
   return { quality };
 }
 

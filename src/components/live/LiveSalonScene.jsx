@@ -1,9 +1,9 @@
 import React from "react";
 import ChatContent from "../chat/ChatContent.jsx";
-
-function getTeamColor(team) {
-  return team === "red" ? "rouge" : "bleu";
-}
+import {
+  getLiveBackgroundKey,
+  getUiImageUrl,
+} from "../../assets/uiAssetManifest.js";
 
 const styles = `
 .live-salon-scene {
@@ -428,10 +428,8 @@ export default function LiveSalonScene({
 }) {
   const sceneRef = React.useRef(null);
   const safeMessages = Array.isArray(visibleMessages) ? visibleMessages : [];
-  const teamColor = getTeamColor(team);
-  // Les espaces doivent être encodés dans srcSet, sinon la source desktop est rejetée.
-  const desktopBackgroundUrl = `/background/lobby%20desk%20${teamColor}.png`;
-  const mobileBackgroundUrl = `/background/lobby%20smart%20${teamColor}.png`;
+  const desktopBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "wide"));
+  const mobileBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "tall"));
 
   React.useEffect(() => {
     const scene = sceneRef.current;

@@ -1,11 +1,30 @@
-const SW_VERSION = "v5";
+const SW_VERSION = "v6";
 const CACHE_PREFIX = "gobble-cache";
 const MEDIA_CACHE = `${CACHE_PREFIX}-media-${SW_VERSION}`;
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${SW_VERSION}`;
-const CACHE_NAMES = new Set([MEDIA_CACHE, SHELL_CACHE]);
+const UI_CACHE = `${CACHE_PREFIX}-ui-${SW_VERSION}`;
+const CACHE_NAMES = new Set([MEDIA_CACHE, SHELL_CACHE, UI_CACHE]);
 const MEDIA_CACHE_MAX_ENTRIES = 180;
 
 const SHELL_URLS = ["/", "/index.html", "/manifest.webmanifest", "/favicon.png", "/icon.svg"];
+const UI_URLS = [
+  "/introgobble.gif",
+  "/buttons/titre%20gobble.webp",
+  "/buttons/compte.webp",
+  "/buttons/duels.webp",
+  "/buttons/bouton%20jouer%20bleu.webp",
+  "/buttons/bouton%20jouer%20rouge.webp",
+  "/buttons/bouton%20joueurs.webp",
+  "/buttons/coffre%20fort.webp",
+  "/buttons/stats.webp",
+  "/buttons/daily.webp",
+  "/buttons/chat%20accueil.webp",
+  "/buttons/settings.webp",
+  "/background/desktop%20bleu.webp",
+  "/background/desktop%20rouge.webp",
+  "/background/mobile%20bleu.webp",
+  "/background/mobile%20rouge.webp",
+];
 
 function isGetRequest(request) {
   return request && request.method === "GET";
@@ -89,8 +108,11 @@ async function mediaCacheFirst(request, url) {
   if (request.headers.get("range")) {
     return fetch(request);
   }
-  const cache = await caches.open(MEDIA_CACHE);
   const key = makeCacheKey(url, true);
+  const uiCache = await caches.open(UI_CACHE);
+  const uiCached = await uiCache.match(key);
+  if (uiCached) return uiCached;
+  const cache = await caches.open(MEDIA_CACHE);
   const cached = await cache.match(key);
   if (cached) return cached;
   try {
@@ -120,8 +142,11 @@ async function navigationNetworkFirst(request) {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(SHELL_CACHE);
-      await cache.addAll(SHELL_URLS);
+      const [shellCache, uiCache] = await Promise.all([
+        caches.open(SHELL_CACHE),
+        caches.open(UI_CACHE),
+      ]);
+      await Promise.all([shellCache.addAll(SHELL_URLS), uiCache.addAll(UI_URLS)]);
       await self.skipWaiting();
     })()
   );

@@ -15,18 +15,14 @@ const MOBILE_GRID_COMPARE_PROPS = [
   "BONUS_CLASSES",
   "bonusLetterKey",
   "bonusLetterScore",
+  "bonusEffectMultiplier",
   "celebrationOverlay",
   "darkMode",
   "gridRef",
   "gridShake",
   "gridSize",
   "gridRotationTurns",
-  "handleMouseDown",
-  "handleMouseMove",
-  "handleMouseUp",
-  "handleTouchEnd",
-  "handleTouchMove",
-  "handleTouchStart",
+  "inputControllerRef",
   "hintCellSet",
   "hintCellOverlayStyleMap",
   "hintCellStyleMap",
@@ -100,6 +96,19 @@ function areMobileGridPropsEqual(prevProps, nextProps) {
     if (!Object.is(prevProps[prop], nextProps[prop])) return false;
   }
 
+  if (!nextProps.inputControllerRef) {
+    for (const prop of [
+      "handleMouseDown",
+      "handleMouseMove",
+      "handleMouseUp",
+      "handleTouchEnd",
+      "handleTouchMove",
+      "handleTouchStart",
+    ]) {
+      if (!Object.is(prevProps[prop], nextProps[prop])) return false;
+    }
+  }
+
   if (
     !prevProps.specialSolvedOverlay &&
     !nextProps.specialSolvedOverlay &&
@@ -117,6 +126,7 @@ function MobileGrid({
   BONUS_CLASSES,
   bonusLetterKey,
   bonusLetterScore,
+  bonusEffectMultiplier = 1,
   celebrationOverlay = null,
   darkMode,
   gridRef,
@@ -129,6 +139,7 @@ function MobileGrid({
   handleTouchEnd,
   handleTouchMove,
   handleTouchStart,
+  inputControllerRef = null,
   hintCellSet,
   hintCellOverlayStyleMap,
   hintCellStyleMap,
@@ -177,17 +188,53 @@ function MobileGrid({
     (event) => {
       const index = readBoardIndexFromEvent(event);
       if (index == null) return;
-      handleMouseDown(index);
+      const controller = inputControllerRef?.current;
+      if (controller?.handleMouseDown) controller.handleMouseDown(index);
+      else handleMouseDown?.(index);
     },
-    [handleMouseDown, readBoardIndexFromEvent]
+    [handleMouseDown, inputControllerRef, readBoardIndexFromEvent]
   );
   const handleGridTouchStart = React.useCallback(
     (event) => {
       const index = readBoardIndexFromEvent(event);
       if (index == null) return;
-      handleTouchStart(event, index);
+      const controller = inputControllerRef?.current;
+      if (controller?.handleTouchStart) controller.handleTouchStart(event, index);
+      else handleTouchStart?.(event, index);
     },
-    [handleTouchStart, readBoardIndexFromEvent]
+    [handleTouchStart, inputControllerRef, readBoardIndexFromEvent]
+  );
+  const handleGridMouseMove = React.useCallback(
+    (event) => {
+      const controller = inputControllerRef?.current;
+      if (controller?.handleMouseMove) controller.handleMouseMove(event);
+      else handleMouseMove?.(event);
+    },
+    [handleMouseMove, inputControllerRef]
+  );
+  const handleGridMouseUp = React.useCallback(
+    () => {
+      const controller = inputControllerRef?.current;
+      if (controller?.handleMouseUp) controller.handleMouseUp();
+      else handleMouseUp?.();
+    },
+    [handleMouseUp, inputControllerRef]
+  );
+  const handleGridTouchMove = React.useCallback(
+    (event) => {
+      const controller = inputControllerRef?.current;
+      if (controller?.handleTouchMove) controller.handleTouchMove(event);
+      else handleTouchMove?.(event);
+    },
+    [handleTouchMove, inputControllerRef]
+  );
+  const handleGridTouchEnd = React.useCallback(
+    (event) => {
+      const controller = inputControllerRef?.current;
+      if (controller?.handleTouchEnd) controller.handleTouchEnd(event);
+      else handleTouchEnd?.(event);
+    },
+    [handleTouchEnd, inputControllerRef]
   );
   return (
     <div
@@ -218,13 +265,13 @@ function MobileGrid({
           willChange: gridShake ? "transform" : undefined,
           ...lightGridSurfaceStyle,
         }}
-        onMouseUp={handleMouseUp}
+        onMouseUp={handleGridMouseUp}
         onMouseDown={handleGridMouseDown}
-        onMouseMove={handleMouseMove}
+        onMouseMove={handleGridMouseMove}
         onTouchStart={handleGridTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onTouchMove={handleGridTouchMove}
+        onTouchEnd={handleGridTouchEnd}
+        onTouchCancel={handleGridTouchEnd}
       >
         {celebrationOverlay}
         {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
@@ -309,6 +356,7 @@ function MobileGrid({
             <GridTileButton
               key={displayIndex}
               boardIndex={boardIndex}
+              bonusEffectMultiplier={bonusEffectMultiplier}
               cell={cell}
               className={tileClassName}
               displayBonus={displayBonus}

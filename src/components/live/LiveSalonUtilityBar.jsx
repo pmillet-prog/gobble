@@ -1,10 +1,11 @@
 import React from "react";
+import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 
 const ACTIONS = [
-  { key: "stats", label: "Statistiques", src: "/buttons/stats.png" },
-  { key: "players", label: "Joueurs", src: "/buttons/bouton%20joueurs.png" },
-  { key: "vault", label: "Coffre-fort", src: "/buttons/coffre%20fort.png" },
-  { key: "settings", label: "Réglages", src: "/buttons/settings.png" },
+  { key: "stats", label: "Statistiques", imageKey: UI_IMAGE_KEYS.home.stats },
+  { key: "players", label: "Joueurs", imageKey: UI_IMAGE_KEYS.home.players },
+  { key: "vault", label: "Coffre-fort", imageKey: UI_IMAGE_KEYS.home.vault },
+  { key: "settings", label: "Réglages", imageKey: UI_IMAGE_KEYS.home.settings },
 ];
 
 const styles = `
@@ -105,7 +106,7 @@ export default function LiveSalonUtilityBar({
           title={action.label}
           onClick={() => callbacks[action.key]?.()}
         >
-          <img src={action.src} alt="" draggable="false" />
+          <img src={getUiImageUrl(action.imageKey)} alt="" draggable="false" />
           {action.key === "players" ? (
             <span className="live-salon-utility-count" aria-label={`${humanCount} joueurs humains`}>
               {Math.max(0, Number(humanCount) || 0)}

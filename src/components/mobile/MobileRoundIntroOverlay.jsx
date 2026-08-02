@@ -136,7 +136,10 @@ function MobileRoundIntroOverlay({
   const showsCountdown = stage === "countdown";
   const countdownIsGo =
     typeof countdown === "string" && countdown.trim().toUpperCase() === String(goLabel).trim();
-  const isSpecial = String(roundTypeLabel || "").toUpperCase().startsWith("MANCHE SPECIALE");
+  const normalizedRoundTypeLabel = String(roundTypeLabel || "").toUpperCase();
+  const isSpecial =
+    normalizedRoundTypeLabel.startsWith("MANCHE SPECIALE") ||
+    normalizedRoundTypeLabel.startsWith("FINALE");
 
   const styleForRender = squareStyle
     ? {

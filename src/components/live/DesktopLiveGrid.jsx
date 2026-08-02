@@ -6,6 +6,7 @@ function DesktopLiveGrid({
   BONUS_CLASSES,
   bonusLetterKey,
   bonusLetterScore,
+  bonusEffectMultiplier = 1,
   defaultTileBaseClass,
   getTileColorTextureStyle,
   gridRotationTurns,
@@ -91,7 +92,6 @@ function DesktopLiveGrid({
         const tileStyle = {
           width: "100%",
           aspectRatio: "1 / 1",
-          willChange: "transform",
           touchAction: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
@@ -104,6 +104,7 @@ function DesktopLiveGrid({
           <GridTileButton
             key={displayIndex}
             boardIndex={boardIndex}
+            bonusEffectMultiplier={bonusEffectMultiplier}
             cell={cell}
             className={tileClassName}
             displayBonus={displayBonus}

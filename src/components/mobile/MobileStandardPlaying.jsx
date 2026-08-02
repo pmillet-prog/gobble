@@ -7,6 +7,7 @@ import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import TargetHintPattern from "../TargetHintPattern.jsx";
+import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 
 function MobileStandardPlaying(props) {
   const {
@@ -18,6 +19,7 @@ function MobileStandardPlaying(props) {
     boardForRender = [],
     bonusLetterKey = "",
     bonusLetterScore = 0,
+    bonusEffectMultiplier = 1,
     chatOverlays = null,
     countdownLines = null,
     currentDisplay = "",
@@ -47,6 +49,7 @@ function MobileStandardPlaying(props) {
     hintOutlineOverlayStyleMap = null,
     hintOutlineStyleMap = null,
     implodeActive = false,
+    inputControllerRef = null,
     isChatOpenMobile = false,
     isDailyPlay = false,
     isFinaleBanner = false,
@@ -123,6 +126,9 @@ function MobileStandardPlaying(props) {
     specialTitleFont = 9,
     specialWordFont = 16,
     targetScoreMax = 0,
+    targetWaitDevActive = false,
+    onTargetWaitDevGridHostChange = null,
+    onTargetWaitDevSideHostChange = null,
     tick = 0,
     tileColorPreset = null,
     tileMaterialClass = "",
@@ -213,7 +219,12 @@ function MobileStandardPlaying(props) {
             paddingTop: mobileBodyPaddingTop,
           }}
         >
-          {phase === "playing" && isOcidRound ? (
+          {targetWaitDevActive ? (
+            <div
+              ref={onTargetWaitDevSideHostChange}
+              className="relative h-[250px] max-h-[34vh] min-h-[220px] flex-none overflow-hidden rounded-xl"
+            />
+          ) : phase === "playing" && isOcidRound ? (
             <div
               ref={mobileRankingRef}
               className={`relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm overflow-hidden box-border ${
@@ -227,31 +238,14 @@ function MobileStandardPlaying(props) {
                 {ocidVote?.definition || specialRound?.ocidDefinition || "Definition indisponible"}
               </div>
               {ocidVote ? (
-                <div
-                  className="mt-2 grid flex-1 min-h-0 content-start grid-cols-1 gap-1.5 overflow-y-auto pr-1 overscroll-contain"
-                >
-                  {(ocidVote.options || []).map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => onSubmitOcidVote?.(option.id)}
-                      className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-[12px] font-bold ${
-                        ocidSelectedOptionId === option.id
-                          ? "bg-emerald-600 text-white border-emerald-400"
-                          : darkMode
-                          ? "bg-slate-800 border-slate-700 text-slate-100"
-                          : "bg-slate-50 border-slate-200 text-slate-800"
-                      }`}
-                    >
-                      <span className="min-w-0 truncate text-left">{option.display}</span>
-                      {Number(option?.voteCount) > 0 ? (
-                        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black text-white shadow-sm">
-                          {Number(option.voteCount)}
-                        </span>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
+                <OcidVoteOptionsGrid
+                  className="mt-2"
+                  compact={true}
+                  darkMode={darkMode}
+                  onSelect={onSubmitOcidVote}
+                  options={ocidVote.options || []}
+                  selectedOptionId={ocidSelectedOptionId}
+                />
               ) : (
                 <div className="mt-2">
                   <div
@@ -477,7 +471,7 @@ function MobileStandardPlaying(props) {
             </div>
           )}
 
-          {!isOcidRound ? (
+          {!isOcidRound && !targetWaitDevActive ? (
             <MobileWordPreview
               countdownLines={countdownLines}
               currentDisplay={currentDisplay}
@@ -497,11 +491,13 @@ function MobileStandardPlaying(props) {
           ) : null}
           {!hideOcidVotePlaySurface ? (
           <div className="flex-1 min-h-0 flex flex-col gap-1">
+            <div className="relative w-full shrink-0">
             <MobileGrid
               board={boardForRender}
               BONUS_CLASSES={BONUS_CLASSES}
               bonusLetterKey={bonusLetterKey}
               bonusLetterScore={bonusLetterScore}
+              bonusEffectMultiplier={bonusEffectMultiplier}
               celebrationOverlay={praiseOverlay}
               darkMode={darkMode}
               gridRef={gridRef}
@@ -515,6 +511,7 @@ function MobileStandardPlaying(props) {
               handleTouchEnd={handleTouchEnd}
               handleTouchMove={handleTouchMove}
               handleTouchStart={handleTouchStart}
+              inputControllerRef={inputControllerRef}
               hintCellSet={hintCellSet}
               hintCellOverlayStyleMap={hintCellOverlayStyleMap}
               hintCellStyleMap={hintCellStyleMap}
@@ -543,6 +540,13 @@ function MobileStandardPlaying(props) {
               usedSet={usedSet}
               specialStartTileSet={special3LockedStartTileSet}
             />
+            {targetWaitDevActive ? (
+              <div
+                ref={onTargetWaitDevGridHostChange}
+                className="absolute inset-0 z-[45] overflow-hidden rounded-xl"
+              />
+            ) : null}
+            </div>
             <div
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
               style={{

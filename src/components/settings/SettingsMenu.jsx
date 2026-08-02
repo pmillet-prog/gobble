@@ -114,6 +114,8 @@ function SettingsMenu(props) {
     devPasswordRequired,
     devPlaytimeLimits = [],
     devRoundTypes,
+    targetWaitDevActive,
+    targetWaitDevArmed,
     enabledSoundCount,
     enabledVisualCount,
     fetchDevBots,
@@ -162,6 +164,7 @@ function SettingsMenu(props) {
     normalizeTileLetterScale,
     openAuthDialog,
     openDevMenu,
+    openTargetWaitDevPlayground,
     openKeyboardMenu,
     openModerationMenu,
     openSoundMenu,
@@ -203,6 +206,7 @@ function SettingsMenu(props) {
     setThemePurchaseConfirm,
     setTilePointsVisible,
     setVisualConfettiEnabled,
+    setVisualGoldNickFxEnabled,
     setVisualGobbleEnabled,
     setVisualInvalidWordsEnabled,
     setVisualPraiseEnabled,
@@ -256,6 +260,7 @@ function SettingsMenu(props) {
     unlockDevControls,
     vibrationOn,
     visualConfettiEnabled,
+    visualGoldNickFxEnabled,
     visualGobbleEnabled,
     visualInvalidWordsEnabled,
     visualPraiseEnabled,
@@ -664,7 +669,7 @@ function SettingsMenu(props) {
               <span className="inline-flex flex-col items-start leading-tight">
                 <span className="font-semibold">Apparence</span>
                 <span className="text-[10px] opacity-70">
-                  {enabledVisualCount}/5 effets actifs
+                  {enabledVisualCount}/6 effets actifs
                 </span>
               </span>
             </span>
@@ -1102,6 +1107,7 @@ function SettingsMenu(props) {
             visualInvalidWordsEnabled,
             visualScreenShakeEnabled,
             visualConfettiEnabled,
+            visualGoldNickFxEnabled,
             onClose: closeVisualMenu,
             onOpenTheme: openThemeMenu,
             themeBalance: gobblarsBalance,
@@ -1112,6 +1118,7 @@ function SettingsMenu(props) {
             onToggleInvalidWords: () => setVisualInvalidWordsEnabled((prev) => !prev),
             onToggleScreenShake: () => setVisualScreenShakeEnabled((prev) => !prev),
             onToggleConfetti: () => setVisualConfettiEnabled((prev) => !prev),
+            onToggleGoldNickFx: () => setVisualGoldNickFxEnabled((prev) => !prev),
           },
         }}
         keyboard={{
@@ -1160,6 +1167,9 @@ function SettingsMenu(props) {
             onSetBotActive: setDevBotActive,
             onSetAllBotsActive: setAllDevBotsActive,
             onReturnToLiveLobby: returnToLiveLobbyDev,
+            onOpenTargetWaitPlayground: openTargetWaitDevPlayground,
+            targetWaitDevActive,
+            targetWaitDevArmed,
           },
         }}
         moderation={{

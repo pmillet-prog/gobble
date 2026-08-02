@@ -8,7 +8,7 @@ const HELP_SECTIONS = [
       "Trace un mot en reliant des tuiles voisines, diagonales comprises.",
       "Une même tuile ne peut pas être réutilisée dans un mot.",
       "Les mots rares ou jamais trouvés par les joueurs donnent un bonus dédié sur les manches concernées.",
-      "En mini-tournoi : manches normales en 1 et 5, manches spéciales en 2 et 4, Massive Boggle en 3.",
+      "En mini-tournoi : manche normale en 1, manches spéciales en 2 et 4, Massive Boggle en 3, finale renforcée en 5.",
     ],
     scoring: [
       "Score d'un mot classique : valeur des lettres + bonus de longueur.",
@@ -26,6 +26,19 @@ const HELP_SECTIONS = [
     scoring: [
       "Chaque mot rapporte son score de grille.",
       "En mini-tournoi, le classement de manche attribue 10, 9, 8... points aux meilleurs scores.",
+    ],
+  },
+  {
+    title: "Manche finale",
+    rules: [
+      "Elle se joue comme une manche classique, sur une grille d'au moins 225 mots possibles.",
+      "La grille vise au moins 12 000 points possibles avec le barème de finale.",
+      "Les points attribués au classement du mini-tournoi sont doublés.",
+    ],
+    scoring: [
+      "L'effet de chaque tuile spéciale est doublé : L2 devient L4, L3 devient L6, M2 devient M4 et M3 devient M6.",
+      "Le bonus de longueur et le bonus de mot rare conservent leur valeur habituelle.",
+      "Un joli badge ×2 rappelle ce renforcement sur chaque tuile spéciale.",
     ],
   },
   {

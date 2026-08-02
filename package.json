@@ -11,6 +11,7 @@
     "definitions:facts": "node server/scripts/backfill-word-linguistic-facts.mjs",
     "rarity:build": "node server/scripts/build-word-rarity.mjs",
     "ocid:pool:build": "node server/scripts/build-ocid-target-pool.mjs",
+    "target-wait:build": "node server/scripts/build-target-wait-puzzles.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

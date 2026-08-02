@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import ChatStyleSlide from "./ChatStyleSlide";
+import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 
 export default function ChatWidget(props) {
   const {
@@ -74,7 +75,7 @@ export default function ChatWidget(props) {
               style={chatButtonStyle}
             >
               <img
-                src="/buttons/chat.png"
+                src={getUiImageUrl(UI_IMAGE_KEYS.live.chat)}
                 alt=""
                 aria-hidden="true"
                 className="h-full w-full object-contain drop-shadow-md"

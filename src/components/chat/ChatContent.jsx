@@ -851,11 +851,11 @@ export default function ChatContent({
               const podiumRank = Number(msg?.weeklyVocabPodiumRank) || (msg?.isWeeklyVocabChampion ? 1 : 0);
               const podiumClass =
                 podiumRank === 1
-                  ? "text-amber-300 font-black"
+                  ? "nick-podium-gold"
                   : podiumRank === 2
                   ? "nick-podium-silver"
                   : podiumRank === 3
-                  ? "text-orange-300 font-black"
+                  ? "nick-podium-bronze"
                   : "";
               const authorNickClass =
                 (typeof getAuthorNickClassName === "function"

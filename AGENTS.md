@@ -13,6 +13,9 @@
 - Passwords may be useful as a second barrier, but should not be the primary authorization model.
 - Prefer allowlists by authenticated account/user id for live-only powers.
 - Keep test/dev controls and real moderation powers separate.
+- Never stop, restart, start, replace, or kill the Gobble backend without Paul's explicit prior approval.
+- This includes `systemctl` actions, process signals, deployment or maintenance scripts that restart the backend, and system operations likely to trigger an indirect restart.
+- A request to diagnose, edit code, deploy code, or correct live data is not by itself permission to restart the backend. Stop and ask first, explicitly warning that players may be in an active game.
 
 ## Dev Menu
 

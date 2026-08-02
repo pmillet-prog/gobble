@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState, useRef, useLayoutEffect } from "r
 import confetti from "canvas-confetti";
 import {
   recordAppRender,
+  recordPerfEvent,
   setPerfProbeEnabled,
 } from "./perf/renderPerfProbe.js";
 import PerfTestOverlay from "./perf/PerfTestOverlay.jsx";
@@ -23,9 +24,17 @@ import useGameSounds from "./audio/useGameSounds";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import ASSET_MANIFEST_BASE from "./assets/assetManifest";
+import {
+  buildUiAssetManifest,
+  detectWideUiViewport,
+  getHomeBackgroundKey,
+  getUiImageUrl,
+  scheduleDeferredUiAssetPreload,
+} from "./assets/uiAssetManifest.js";
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
+import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
 import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
   capturePendingSubmissions,
@@ -80,7 +89,13 @@ import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
 import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPlaying.jsx";
-import DesktopLiveGrid from "./components/live/DesktopLiveGrid.jsx";
+import DesktopGameGrid from "./components/live/DesktopGameGrid.jsx";
+import DesktopSpecial3WordsPanel from "./components/live/DesktopSpecial3WordsPanel.jsx";
+import FinaleBonusTilesDemo from "./components/finale/FinaleBonusTilesDemo.jsx";
+import { getFinaleTutorialSteps } from "./components/finale/finalePresentation.js";
+import OcidVoteOptionsGrid from "./components/ocid/OcidVoteOptionsGrid.jsx";
+import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
+import useGridHitboxController from "./components/grid/useGridHitboxController.js";
 import HelpOverlay from "./components/HelpOverlay.jsx";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
@@ -93,6 +108,13 @@ import useWordVault from "./utils/useWordVault";
 import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
 import { usePlaytimeLimit } from "./hooks/usePlaytimeLimit.js";
 import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNavigation.js";
+import useDisplayMode from "./hooks/useDisplayMode.js";
+import {
+  isAndroidWebViewUserAgent,
+  isAppleMobileUserAgent,
+  isLikelyNativeWrapper,
+  isStandaloneDisplayMode,
+} from "./utils/displayMode.js";
 import {
   CHAT_MESSAGES_HISTORY_MAX,
   CHAT_MESSAGES_STORAGE_KEY,
@@ -136,6 +158,10 @@ import {
   summarizeBonuses,
   tileScore,
 } from "./components/gameLogic";
+import {
+  FINALE_TILE_BONUS_MULTIPLIER,
+  FINALE_TYPE,
+} from "../shared/finaleRules.js";
 import { generateGrid } from "./components/gridGeneration";
 import { hydrateServerSolutionsPayload } from "./utils/roundSolutions";
 import {
@@ -143,6 +169,7 @@ import {
   buildTargetHintStyleMap,
 } from "./utils/targetHintStyles.js";
 import { isLiveSessionFreshForBoot } from "./utils/liveSessionFreshness.js";
+import { shouldProcessLiveRoomEvent } from "./utils/liveEventScope.js";
 import {
   formatApproximateMinutes,
   getCompactLiveRoundLabel,
@@ -162,6 +189,9 @@ const DuelObjectivesPanel = React.lazy(() => import("./components/DuelObjectives
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
 const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"));
 const WordVaultPage = React.lazy(() => import("./components/WordVaultPage.jsx"));
+const TargetWaitDevPlayground = React.lazy(() =>
+  import("./components/targetWait/TargetWaitDevPlayground.jsx")
+);
 
 
 const ROOM_OPTIONS = {
@@ -273,6 +303,7 @@ const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
 const RANKING_UI_UPDATE_MIN_MS = 180;
+const RANKING_TRACE_HOLD_MAX_MS = 600;
 const PLAYERS_UI_UPDATE_MIN_MS = 120;
 const LIVE_ROUND_END_PAYLOAD_WAIT_MS = 4500;
 const SAMSUNG_RANKING_UI_UPDATE_MIN_MS = 260;
@@ -691,19 +722,6 @@ function computeIsUltraCompact() {
   );
 }
 
-function isStandaloneDisplayMode() {
-  if (typeof window === "undefined") return false;
-  return (
-    window.matchMedia?.("(display-mode: standalone)")?.matches ||
-    window.matchMedia?.("(display-mode: fullscreen)")?.matches ||
-    window.navigator?.standalone === true
-  );
-}
-
-function isAppleMobileUserAgent(ua) {
-  return /iPhone|iPad|iPod/i.test(String(ua || ""));
-}
-
 function computeIsIosStandalone() {
   if (typeof navigator === "undefined") return false;
   return isAppleMobileUserAgent(navigator.userAgent || "") && isStandaloneDisplayMode();
@@ -714,17 +732,7 @@ function computeIsAndroidWebBrowser() {
   const ua = navigator.userAgent || "";
   const isAndroid = /Android/i.test(ua);
   if (!isAndroid) return false;
-  return !isStandaloneDisplayMode();
-}
-
-function isAndroidWebViewUserAgent(ua) {
-  const value = String(ua || "");
-  if (!/Android/i.test(value)) return false;
-  if (/; wv\)/i.test(value) || /\bwv\b/i.test(value)) return true;
-  const hasVersionChrome = /Version\/[\d.]+\s+Chrome\/[\d.]+/i.test(value);
-  const hasMobileSafari = /Mobile Safari\/[\d.]+/i.test(value);
-  const looksBrowser = /(SamsungBrowser|CriOS|FxiOS|EdgA|OPR|YaBrowser|DuckDuckGo|UCBrowser)/i.test(value);
-  return hasVersionChrome && hasMobileSafari && !looksBrowser;
+  return !isStandaloneDisplayMode() && !isLikelyNativeWrapper();
 }
 
 function isLikelySamsungDeviceUserAgent(ua) {
@@ -2810,18 +2818,11 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
   }
 }
 
-.tile-used {
-  transform: scale(1.03);
-  /* Réhausse fortement la couleur SANS assombrir. */
-  filter: saturate(1.9);
-  transition: transform 60ms linear, filter 60ms linear;
-  outline: none;
-}
-
 /* --- Contraste fort sur les tuiles sélectionnées --- */
 .tile-used {
-  transform: translateY(-1px) scale(1.08);
-  transition: transform 80ms ease, box-shadow 120ms ease;
+  transform: translateY(-1px) scale(1.055);
+  transition: transform 70ms ease;
+  outline: none;
   background:
     linear-gradient(
       180deg,
@@ -2830,11 +2831,15 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
       var(--trace-bg-bottom, #60a5fa) 100%
     ) !important;
   border-color: rgba(255, 255, 255, 0.92) !important;
-  border-width: 3px !important;
+  border-width: 2px !important;
   box-shadow:
-    0 10px 26px var(--trace-glow, rgba(37, 99, 235, 0.35)),
-    0 0 0 3px var(--trace-ring, rgba(59, 130, 246, 0.55)),
-    inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+    0 4px 10px var(--trace-glow, rgba(37, 99, 235, 0.3)),
+    0 0 0 2px var(--trace-ring, rgba(59, 130, 246, 0.5));
+}
+
+.game-grid-surface {
+  contain: layout style;
+  isolation: isolate;
 }
 
 .tile-hint {
@@ -3650,6 +3655,14 @@ body.theme-dark .tile-hint {
     rgb(var(--tile-hint-rgb, 22, 163, 74)) !important;
 }
 
+/* Le tracé actif reste volontairement sur deux ombres simples : les matériaux
+   plus détaillés ne doivent pas réintroduire leurs empilements pendant le drag. */
+.tile-cell.tile-used {
+  box-shadow:
+    0 4px 10px var(--trace-glow, rgba(37, 99, 235, 0.3)),
+    0 0 0 2px var(--trace-ring, rgba(59, 130, 246, 0.5)) !important;
+}
+
 `;
 
 const DEFAULT_CHAT_VISIBLE_LINES = 18;
@@ -4004,9 +4017,9 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-07-22";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-07-22T00:00:00+02:00");
-const FRONT_BUILD_TAG = "2026-07-22-live-lobby-vault-1";
+const PATCH_NOTES_VERSION = "2026-08-02";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-02T00:00:00+02:00");
+const FRONT_BUILD_TAG = "2026-08-02-finale-performance-ui-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 const FACEBOOK_INVITE_SEEN_STORAGE_PREFIX = "gobble_facebook_invite_seen";
@@ -4468,6 +4481,7 @@ function getSpecialRoundDisplayLabel(specialInfo) {
   if (specialInfo.type === OCID_TYPE) return "Manche OCID";
   if (specialInfo.type === "bonus_letter") return "Lettre en or";
   if (specialInfo.type === MASSIVE_BOGGLE_TYPE) return "Massive Boggle";
+  if (specialInfo.type === FINALE_TYPE) return "Manche finale";
   return "Manche speciale";
 }
 
@@ -4481,6 +4495,9 @@ function getSpecialRoundDescription(specialInfo) {
   }
   if (specialInfo.type === OCID_TYPE) {
     return "Propose un mot qui semble correspondre a la definition, puis vote pour le vrai mot cible.";
+  }
+  if (specialInfo.type === FINALE_TYPE) {
+    return "Points du mini-tournoi ×2 et effets des tuiles spéciales ×2 : L2→L4, L3→L6, M2→M4, M3→M6.";
   }
   return "";
 }
@@ -4544,7 +4561,13 @@ function TraceAwareDesktopPreviewContent({
 
   if (traceChunks.length) {
     return (
-      <AutoScaleInline minScale={0.42} measurePaddingPx={8} reserveScaledWidth className="gap-1 py-1">
+      <AutoScaleInline
+        minScale={0.42}
+        estimatedContentWidth={traceChunks.length * 32 + Math.max(0, traceChunks.length - 1) * 4}
+        measurePaddingPx={8}
+        reserveScaledWidth
+        className="gap-1 py-1"
+      >
         {traceChunks.map((ch, idx) => {
           const angle = ((idx * 17 + traceChunks.length * 13) % 11) - 5;
           return (
@@ -4657,8 +4680,20 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
-  const gridHitboxRef = useRef(null);
   const dragGridMetricsRef = useRef(null);
+  const gridInputControllerRef = useRef(null);
+  const special3TraceResolverRef = useRef(() => ({
+    blockedReason: "",
+    highlightPath: [],
+    liveWord: "",
+    normalizedWord: "",
+    score: null,
+    valid: false,
+  }));
+  const resolveSpecial3LiveTrace = React.useCallback(
+    (snapshot) => special3TraceResolverRef.current(snapshot),
+    []
+  );
   const activeTraceStartedAtRef = useRef(null);
   const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
@@ -4745,6 +4780,10 @@ export default function App() {
     typeof initialSettings.visualConfettiEnabled === "boolean"
       ? initialSettings.visualConfettiEnabled
       : true;
+  const initialVisualGoldNickFxEnabled =
+    typeof initialSettings.visualGoldNickFxEnabled === "boolean"
+      ? initialSettings.visualGoldNickFxEnabled
+      : true;
   const initialChatDesktopFontScale = normalizeChatDesktopFontScale(
     initialSettings.chatDesktopFontScale,
     CHAT_DESKTOP_FONT_SCALE_DEFAULT
@@ -4793,6 +4832,9 @@ export default function App() {
   );
   const [visualConfettiEnabled, setVisualConfettiEnabled] = useState(
     () => initialVisualConfettiEnabled
+  );
+  const [visualGoldNickFxEnabled, setVisualGoldNickFxEnabled] = useState(
+    () => initialVisualGoldNickFxEnabled
   );
   const [preferLiteVisualEffects] = useState(() => computePreferLiteVisualEffects());
   const [chatDesktopFontScale, setChatDesktopFontScale] = useState(
@@ -4943,6 +4985,7 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     let cancelled = false;
+    let cancelDeferredUiPreload = () => {};
     const run = async () => {
       const params = new URLSearchParams(window.location.search || "");
       const forceCachePurge = params.get(CACHE_PURGE_QUERY_PARAM) === "1";
@@ -4969,8 +5012,10 @@ export default function App() {
         ? []
         : buildFileManifest(resolvedAmbientTracks || []);
       const sfxManifest = buildSfxManifest(REGISTERED_SFX_MANIFEST);
+      const preferWideUi = detectWideUiViewport();
       const bootManifest = dedupeManifest([
         ...BOOT_ASSET_MANIFEST_BASE,
+        ...buildUiAssetManifest({ preferWide: preferWideUi }),
         ...sfxManifest,
         ...ambientManifest,
       ]);
@@ -5037,6 +5082,11 @@ export default function App() {
           concurrency: 4,
         });
       }
+      if (!cancelled) {
+        cancelDeferredUiPreload = scheduleDeferredUiAssetPreload({
+          preferWide: preferWideUi,
+        });
+      }
       const elapsed = performance.now() - startedAt;
       const delay = Math.max(0, BOOT_MIN_HOLD_MS - elapsed);
       window.setTimeout(() => {
@@ -5053,6 +5103,7 @@ export default function App() {
     run();
     return () => {
       cancelled = true;
+      cancelDeferredUiPreload();
     };
   }, []);
   useEffect(() => {
@@ -5227,6 +5278,21 @@ export default function App() {
   const [isVisualMenuOpen, setIsVisualMenuOpen] = useState(false);
   const [isKeyboardMenuOpen, setIsKeyboardMenuOpen] = useState(false);
   const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
+  const [targetWaitDevArmed, setTargetWaitDevArmed] = useState(false);
+  const [targetWaitDevActiveRoundId, setTargetWaitDevActiveRoundId] = useState(null);
+  const [targetWaitDevGridHost, setTargetWaitDevGridHost] = useState(null);
+  const [targetWaitDevSideHost, setTargetWaitDevSideHost] = useState(null);
+  const [targetWaitDevSessionState, setTargetWaitDevSessionState] = useState({
+    phase: "idle",
+    remainingSeconds: 90,
+    wordLength: 0,
+    score: 0,
+    streak: 0,
+    bestStreak: 0,
+    correctCount: 0,
+    wrongCount: 0,
+  });
+  const targetWaitDevArmedRoundIdRef = useRef(null);
   const [isModerationMenuOpen, setIsModerationMenuOpen] = useState(false);
   const [devMenuTapCount, setDevMenuTapCount] = useState(0);
   const [devMenuUnlocked, setDevMenuUnlocked] = useState(false);
@@ -5325,7 +5391,8 @@ export default function App() {
   const [isAndroidWebBrowser, setIsAndroidWebBrowser] = useState(() =>
     computeIsAndroidWebBrowser()
   );
-  const [isFullscreen] = useState(false);
+  const displayMode = useDisplayMode();
+  const isFullscreen = displayMode.isFullscreen;
   const [mobileHeaderOffsetPx, setMobileHeaderOffsetPx] = useState(0);
   const [isMobileLayout, setIsMobileLayout] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -5429,7 +5496,7 @@ export default function App() {
   const ocidLatestProposalRef = useRef({ roundId: null, word: "", path: [] });
   const ocidResultToastKeyRef = useRef("");
   const ocidResultToastDelayTimersRef = useRef([]);
-  const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end
+  const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end | training_end
   const breakKindRef = useRef(breakKind);
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
   const [desktopResultsSummaryExpanded, setDesktopResultsSummaryExpanded] = useState(true);
@@ -5667,7 +5734,7 @@ export default function App() {
   const isLiveSpecial3WordsMode =
     !isDailyPlay && phase === "playing" && specialRound?.type === DAILY_SPECIAL_MODE;
   const isSpecial3WordsMode = isDailySpecialMode || isLiveSpecial3WordsMode;
-  shouldForceTraceRenderRef.current = phase !== "playing" || isSpecial3WordsMode;
+  shouldForceTraceRenderRef.current = phase !== "playing";
   const desktopColumnBaseDefs = isDailyPlay
     ? DAILY_DESKTOP_COLUMN_DEFS
     : LIVE_DESKTOP_COLUMN_DEFS;
@@ -5915,6 +5982,7 @@ export default function App() {
   const isDailyPlayRef = useRef(isDailyPlay);
   const nicknameRef = useRef(nickname);
   const phaseRef = useRef(phase);
+  const currentRoundTrainingRef = useRef(false);
   const previousPhaseRef = useRef(phase);
   const currentRoomIdRef = useRef(currentRoomId);
   const roundIdRef = useRef(roundId);
@@ -5931,6 +5999,7 @@ export default function App() {
   const mobileExitGuardLeavingRef = useRef(false);
   const mobileExitGuardActiveRef = useRef(false);
   const rankingQueueTimerRef = useRef(null);
+  const rankingTraceHoldTimerRef = useRef(null);
   const rankingQueuedRef = useRef(null);
   const rankingLastApplyAtRef = useRef(0);
   const rankingLastSignatureRef = useRef("");
@@ -5938,6 +6007,7 @@ export default function App() {
   const playersQueuedRef = useRef(null);
   const playersLastApplyAtRef = useRef(0);
   const playersLastSignatureRef = useRef("");
+  const deferredTraceUiTasksRef = useRef([]);
   const playerActivityLastSentAtRef = useRef(0);
   const clearPhaseLoopTimer = React.useCallback(() => {
     if (phaseLoopTimerRef.current) {
@@ -6165,6 +6235,12 @@ export default function App() {
       } catch (_) {}
     }
   }, [visualConfettiEnabled]);
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const root = document.documentElement;
+    root.classList.toggle("gold-nick-fx-enabled", visualGoldNickFxEnabled);
+    return () => root.classList.remove("gold-nick-fx-enabled");
+  }, [visualGoldNickFxEnabled]);
 
   useEffect(() => {
     preferLiteVisualEffectsRef.current = preferLiteVisualEffects;
@@ -6206,6 +6282,7 @@ export default function App() {
           visualInvalidWordsEnabled,
           visualScreenShakeEnabled,
           visualConfettiEnabled,
+          visualGoldNickFxEnabled,
           chatDesktopFontScale: normalizeChatDesktopFontScale(
             chatDesktopFontScale,
             CHAT_DESKTOP_FONT_SCALE_DEFAULT
@@ -6241,6 +6318,7 @@ export default function App() {
     visualInvalidWordsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
+    visualGoldNickFxEnabled,
     chatDesktopFontScale,
     keyboardRecallSubmittedWord,
     isVibrationEnabled,
@@ -6265,7 +6343,17 @@ export default function App() {
         clearTimeout(rankingQueueTimerRef.current);
         rankingQueueTimerRef.current = null;
       }
+      if (rankingTraceHoldTimerRef.current) {
+        clearTimeout(rankingTraceHoldTimerRef.current);
+        rankingTraceHoldTimerRef.current = null;
+      }
+      if (playersQueueTimerRef.current) {
+        clearTimeout(playersQueueTimerRef.current);
+        playersQueueTimerRef.current = null;
+      }
       rankingQueuedRef.current = null;
+      playersQueuedRef.current = null;
+      deferredTraceUiTasksRef.current = [];
     };
   }, []);
   useEffect(() => {
@@ -6564,6 +6652,7 @@ export default function App() {
         invalidWords: !!visualInvalidWordsEnabled,
         screenShake: !!visualScreenShakeEnabled,
         confetti: !!visualConfettiEnabled,
+        goldNickFx: !!visualGoldNickFxEnabled,
       },
       specialTutorialOpen: !!isSpecialTutorialOpen,
       guidedResultsStep: guidedResultsStep || null,
@@ -6656,6 +6745,7 @@ export default function App() {
     visualInvalidWordsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
+    visualGoldNickFxEnabled,
     isSpecialTutorialOpen,
     guidedResultsStep,
     installId,
@@ -6892,6 +6982,7 @@ export default function App() {
   const gridShakeAnimationRef = useRef(null);
   const submissionTickRafRef = useRef(null);
   const submissionTickPendingRef = useRef(false);
+  const submissionTickDeferredByTraceRef = useRef(false);
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
@@ -6958,9 +7049,6 @@ export default function App() {
   const samsungSafeModeRef = useRef(false);
   const samsungSafeModeSourceRef = useRef("off");
   const perfLogLastAtRef = useRef(0);
-  const dragMoveRafRef = useRef(null);
-  const dragPendingPointRef = useRef(null);
-  const lastTouchMoveSampleRef = useRef({ x: null, y: null, at: 0 });
   const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
@@ -7093,6 +7181,13 @@ export default function App() {
   );
 
   const specialScoreConfig = React.useMemo(() => {
+    if (specialRound?.type === FINALE_TYPE) {
+      return {
+        type: FINALE_TYPE,
+        tileBonusMultiplier:
+          Number(specialRound?.tileBonusMultiplier) || FINALE_TILE_BONUS_MULTIPLIER,
+      };
+    }
     if (specialRound?.type === "bonus_letter" && specialRound?.bonusLetter) {
       return {
         bonusLetter: specialRound.bonusLetter,
@@ -7225,6 +7320,38 @@ export default function App() {
 
   // drag souris
   const draggingRef = useRef(false);
+  const {
+    buildGridHitboxMetrics,
+    clearGridHitboxCache,
+    getTileGeometryByBoardIndex,
+    getTileIndexFromPoint,
+    gridHitboxRef,
+  } = useGridHitboxController({
+    activeMetricsRef: dragGridMetricsRef,
+    board,
+    gridRef,
+    gridRotationTurns,
+    gridSize,
+    isDraggingRef: draggingRef,
+    isMobileLayout,
+    isUltraCompact,
+    phase,
+  });
+  const {
+    dragMoveRafRef,
+    dragPendingPointRef,
+    flushPendingDragMove,
+    lastTouchMoveSampleRef,
+    queueDragMove,
+    resetDragMovePipeline,
+  } = useGridDragPipeline({
+    draggingRef,
+    getNow: getSamsungDiagNowMs,
+    getTileIndexFromPoint,
+    onCounter: bumpSamsungDiagCounter,
+    onEvent: pushSamsungDiagEvent,
+    onTileEnter: handleMouseEnter,
+  });
   const mainGridDesktopRef = useRef(null);
   const playColumnRef = useRef(null);
   const countdownRef = useRef(null);
@@ -9218,7 +9345,9 @@ export default function App() {
         ? `MANCHE ${roundNow}`
         : "MANCHE";
     const specialLabel = specialRound?.isSpecial
-      ? `MANCHE SPECIALE : ${String(getSpecialRoundDisplayLabel(specialRound)).toUpperCase()}`
+      ? specialRound?.type === FINALE_TYPE
+        ? "FINALE : BONUS DE TUILES ×2"
+        : `MANCHE SPECIALE : ${String(getSpecialRoundDisplayLabel(specialRound)).toUpperCase()}`
       : "manche classique";
     const specialDescription = specialRound?.isSpecial
       ? getSpecialRoundDescription(specialRound)
@@ -9525,6 +9654,7 @@ export default function App() {
     if (!visualConfettiEnabledRef.current) return;
     if (typeof window === "undefined") return;
     if (isMobileLayoutRef.current && preferLiteVisualEffectsRef.current) return;
+    recordPerfEvent("confetti", { kind });
     const burstToken = ++confettiBurstTokenRef.current;
     const isMobileFirefox =
       isMobileLayoutRef.current &&
@@ -10681,11 +10811,24 @@ export default function App() {
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
       teamDuel: teamDuelPayload = null,
+      training = false,
     }) => {
+      if (
+        !shouldProcessLiveRoomEvent({
+          appView: appViewRef.current,
+          isLoggedIn: isLoggedInRef.current,
+          activeRoomId: currentRoomIdRef.current,
+          incomingRoomId: endedRoomId,
+        })
+      ) {
+        return;
+      }
       if (endedRoomId) {
         setCurrentRoomId(endedRoomId);
         setRoomId(endedRoomId);
       }
+      const isTrainingResults = !!training || currentRoundTrainingRef.current;
+      currentRoundTrainingRef.current = false;
       roundStartAtRef.current = 0;
       setInputLocked(false);
       inputLockedRef.current = false;
@@ -10835,7 +10978,7 @@ export default function App() {
         }
       }
       const isTargetResults = !!targetSummaryPayload;
-      if (isTargetResults) {
+      if (isTrainingResults || isTargetResults) {
         vocabResultsPendingRef.current = null;
         setVocabRoundDelta(null);
         setVocabWeeklyRoundDelta(null);
@@ -10946,7 +11089,9 @@ export default function App() {
           setScore(selfScore);
         }
       }
-      void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
+      if (!isTrainingResults) {
+        void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
+      }
     },
     []
   );
@@ -10962,10 +11107,13 @@ export default function App() {
       // Garde-fou: un outro provenant du live socket ne doit jamais se déclencher
       // hors session tournoi active (retour lobby / daily en cours).
       if (isLivePayload) {
-        const view = appViewRef.current;
-        const isDailyViewNow =
-          view === "daily" || view === "daily_play" || view === "daily_results";
-        if (!isLoggedInRef.current || isDailyViewNow || phaseRef.current !== "playing") {
+        const isActiveLiveEvent = shouldProcessLiveRoomEvent({
+          appView: appViewRef.current,
+          isLoggedIn: isLoggedInRef.current,
+          activeRoomId: currentRoomIdRef.current,
+          incomingRoomId: payload?.roomId,
+        });
+        if (!isActiveLiveEvent || phaseRef.current !== "playing") {
           return;
         }
       }
@@ -11264,8 +11412,16 @@ export default function App() {
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
     }) => {
-      const activeRoomId = currentRoomIdRef.current;
-      if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
+      if (
+        !shouldProcessLiveRoomEvent({
+          appView: appViewRef.current,
+          isLoggedIn: isLoggedInRef.current,
+          activeRoomId: currentRoomIdRef.current,
+          incomingRoomId,
+        })
+      ) {
+        return;
+      }
       syncServerTime();
       setNextStartAt(nextTs || null);
       setTournamentLobby(null);
@@ -11437,11 +11593,6 @@ export default function App() {
       clearToasts();
     };
   }, []);
-
-  function clearGridHitboxCache() {
-    gridHitboxRef.current = null;
-    dragGridMetricsRef.current = null;
-  }
 
   function getSamsungDiagNowMs() {
     if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -11626,205 +11777,6 @@ export default function App() {
       );
     }
   }
-
-  function resolveGridAxisIndex(pos, start, cellSize, gapSize, count, useTolerance = true) {
-    if (
-      !Number.isFinite(pos) ||
-      !Number.isFinite(start) ||
-      !Number.isFinite(cellSize) ||
-      !Number.isFinite(gapSize) ||
-      !Number.isFinite(count) ||
-      count <= 0 ||
-      cellSize <= 0
-    ) {
-      return null;
-    }
-    const gap = Math.max(0, gapSize);
-    const stride = cellSize + gap;
-    const fullSize = cellSize * count + gap * (count - 1);
-    let rel = pos - start;
-    const edgeTolerance = Math.max(4, cellSize * 0.35);
-    if (rel < 0) {
-      if (!useTolerance || Math.abs(rel) > edgeTolerance) return null;
-      rel = 0;
-    } else if (rel > fullSize) {
-      if (!useTolerance || Math.abs(rel - fullSize) > edgeTolerance) return null;
-      rel = Math.max(0, fullSize - 0.0001);
-    }
-    let axis = Math.floor(rel / stride);
-    axis = Math.max(0, Math.min(count - 1, axis));
-    const inStride = rel - axis * stride;
-    if (inStride <= cellSize) return axis;
-    if (!useTolerance || gap <= 0) return null;
-    const inGap = inStride - cellSize;
-    const gapTolerance = Math.max(2, Math.min(cellSize * 0.4, Math.max(gap * 0.5, 6)));
-    if (inGap <= gapTolerance) return axis;
-    if (inGap >= gap - gapTolerance) return Math.min(count - 1, axis + 1);
-    return null;
-  }
-
-  function buildGridHitboxMetrics() {
-    const gridEl = gridRef.current;
-    if (!gridEl) return null;
-    const rect = gridEl.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-    const style = window.getComputedStyle(gridEl);
-    const borderLeft = parseFloat(style.borderLeftWidth) || 0;
-    const borderRight = parseFloat(style.borderRightWidth) || 0;
-    const borderTop = parseFloat(style.borderTopWidth) || 0;
-    const borderBottom = parseFloat(style.borderBottomWidth) || 0;
-    const paddingLeft = parseFloat(style.paddingLeft) || 0;
-    const paddingRight = parseFloat(style.paddingRight) || 0;
-    const paddingTop = parseFloat(style.paddingTop) || 0;
-    const paddingBottom = parseFloat(style.paddingBottom) || 0;
-    const contentLeft = rect.left + borderLeft + paddingLeft;
-    const contentTop = rect.top + borderTop + paddingTop;
-    const contentWidth = Math.max(
-      0,
-      rect.width - borderLeft - borderRight - paddingLeft - paddingRight
-    );
-    const contentHeight = Math.max(
-      0,
-      rect.height - borderTop - borderBottom - paddingTop - paddingBottom
-    );
-    const fallbackGap = isMobileLayout ? 4 : tileGapPx || 0;
-    const colGap = Number.isFinite(parseFloat(style.columnGap))
-      ? parseFloat(style.columnGap)
-      : fallbackGap;
-    const rowGap = Number.isFinite(parseFloat(style.rowGap))
-      ? parseFloat(style.rowGap)
-      : fallbackGap;
-    const size = Math.max(1, Number(gridSize) || 1);
-    const cellWidth = (contentWidth - colGap * (size - 1)) / size;
-    const cellHeight = (contentHeight - rowGap * (size - 1)) / size;
-    if (cellWidth <= 0 || cellHeight <= 0) return null;
-    const metrics = {
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      size,
-      contentLeft,
-      contentTop,
-      colGap,
-      rowGap,
-      cellWidth,
-      cellHeight,
-    };
-    gridHitboxRef.current = metrics;
-    return metrics;
-  }
-
-  function getGridHitboxMetrics() {
-    const cached = gridHitboxRef.current;
-    if (!cached) return buildGridHitboxMetrics();
-    const gridEl = gridRef.current;
-    if (!gridEl) return buildGridHitboxMetrics();
-    const rect = gridEl.getBoundingClientRect();
-    const sizeNow = Math.max(1, Number(gridSize) || 1);
-    const stale =
-      cached.size !== sizeNow ||
-      Math.abs(rect.left - cached.left) > 0.5 ||
-      Math.abs(rect.top - cached.top) > 0.5 ||
-      Math.abs(rect.width - cached.width) > 0.5 ||
-      Math.abs(rect.height - cached.height) > 0.5;
-    return stale ? buildGridHitboxMetrics() : cached;
-  }
-
-  function getTileIndexFromPoint(x, y, useTolerance = true) {
-    const metrics =
-      draggingRef.current && dragGridMetricsRef.current
-        ? dragGridMetricsRef.current
-        : getGridHitboxMetrics();
-    if (!metrics) {
-      bumpSamsungDiagCounter("tileHitMiss");
-      return null;
-    }
-    const col = resolveGridAxisIndex(
-      x,
-      metrics.contentLeft,
-      metrics.cellWidth,
-      metrics.colGap,
-      metrics.size,
-      useTolerance
-    );
-    const row = resolveGridAxisIndex(
-      y,
-      metrics.contentTop,
-      metrics.cellHeight,
-      metrics.rowGap,
-      metrics.size,
-      useTolerance
-    );
-    if (row == null || col == null) {
-      bumpSamsungDiagCounter("tileHitMiss");
-      return null;
-    }
-    const displayIndex = row * metrics.size + col;
-    if (displayIndex < 0 || displayIndex >= metrics.size * metrics.size) return null;
-    return mapDisplayToBoardIndex(displayIndex, metrics.size, gridRotationTurns);
-  }
-
-  function getTileGeometryByBoardIndex(index) {
-    const metrics =
-      draggingRef.current && dragGridMetricsRef.current
-        ? dragGridMetricsRef.current
-        : getGridHitboxMetrics();
-    if (!metrics) return null;
-    if (!Number.isInteger(index) || index < 0 || index >= metrics.size * metrics.size) return null;
-    const displayIndex = rotateIndexByTurns(index, metrics.size, gridRotationTurns);
-    const row = Math.floor(displayIndex / metrics.size);
-    const col = displayIndex % metrics.size;
-    const left = metrics.contentLeft + col * (metrics.cellWidth + metrics.colGap);
-    const top = metrics.contentTop + row * (metrics.cellHeight + metrics.rowGap);
-    const width = metrics.cellWidth;
-    const height = metrics.cellHeight;
-    return {
-      left,
-      top,
-      width,
-      height,
-      cx: left + width / 2,
-      cy: top + height / 2,
-    };
-  }
-
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const gridElement = gridRef.current;
-    if (!gridElement) {
-      clearGridHitboxCache();
-      return undefined;
-    }
-
-    let rafId = null;
-    const refreshMetrics = () => {
-      if (rafId != null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        if (draggingRef.current || gridRef.current !== gridElement) return;
-        buildGridHitboxMetrics();
-      });
-    };
-
-    clearGridHitboxCache();
-    refreshMetrics();
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(refreshMetrics)
-        : null;
-    resizeObserver?.observe(gridElement);
-    window.addEventListener("resize", refreshMetrics, { passive: true });
-    window.addEventListener("scroll", refreshMetrics, true);
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", refreshMetrics);
-      window.removeEventListener("scroll", refreshMetrics, true);
-      if (rafId != null) window.cancelAnimationFrame(rafId);
-      clearGridHitboxCache();
-    };
-  }, [phase, isMobileLayout, isUltraCompact, gridSize, gridRotationTurns, board]);
 
   useEffect(() => {
     const shouldLoadClientDictionary = isDailyPlay || appView === "daily_play";
@@ -12140,19 +12092,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const shouldHandleLiveRoundSocketEvents = () => {
+    const shouldHandleLiveRoundSocketEvents = (incomingRoomId = null) => {
       if (phaseLoopTestEnabledRef.current) return false;
-      if (!isLoggedInRef.current) return false;
-      const view = appViewRef.current;
-      // Les events des mini-tournois ne doivent jamais s'appliquer dans les vues daily/front.
-      return view !== "daily" && view !== "daily_play" && view !== "daily_results";
+      return shouldProcessLiveRoomEvent({
+        appView: appViewRef.current,
+        isLoggedIn: isLoggedInRef.current,
+        activeRoomId: currentRoomIdRef.current,
+        incomingRoomId,
+      });
     };
 
     function onRoundPreparing(payload = {}) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
       const activeRoomId = currentRoomIdRef.current;
-      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
       setRoundPreparing({
         roomId: payload.roomId || activeRoomId || null,
         roundNumber: Number.isFinite(payload.roundNumber) ? payload.roundNumber : null,
@@ -12188,8 +12141,9 @@ export default function App() {
       ocidVote: ocidVotePayload = null,
       training = false,
     }) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!shouldHandleLiveRoundSocketEvents(incomingRoomId)) return;
       if (!grid || !Array.isArray(grid)) return;
+      currentRoundTrainingRef.current = !!training;
       const pendingSnapshot = capturePendingSubmissions(
         submissionStatusRef.current,
         roundIdRef.current
@@ -12275,7 +12229,7 @@ export default function App() {
       setVocabWeeklyRoundDelta(null);
       setVocabResultsReadyKey(null);
       vocabResultsPendingRef.current = null;
-      if (special?.type === OCID_TYPE) {
+      if (training || special?.type === OCID_TYPE) {
         vocabBaselineRoundRef.current = null;
         vocabBaselineRef.current = null;
         vocabWeeklyBaselineRoundRef.current = null;
@@ -12328,8 +12282,9 @@ export default function App() {
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
       teamDuel: teamDuelPayload = null,
+      training = false,
     }) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!shouldHandleLiveRoundSocketEvents(endedRoomId)) return;
       const payload = {
         roomId: endedRoomId,
         roundId: endedId,
@@ -12339,6 +12294,7 @@ export default function App() {
         tournamentSummaryAt: summaryAt,
         targetSummary: targetSummaryPayload,
         teamDuel: teamDuelPayload,
+        training,
       };
       if (targetSummaryPayload?.ocid) {
         processRoundEndedRef.current?.(payload);
@@ -12355,7 +12311,7 @@ export default function App() {
     }
 
     function onBreakStarted(payload = {}) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
       if (pendingRoundEndRef.current || inputLockedRef.current) {
         pendingBreakStartRef.current = payload;
@@ -12369,21 +12325,24 @@ export default function App() {
     }
 
     function onPlayersUpdate(list = []) {
+      if (!shouldHandleLiveRoundSocketEvents()) return;
       const sanitized = Array.isArray(list) ? list : [];
       bumpSamsungDiagCounter("socketPlayersUpdate");
+      recordPerfEvent("players-received", { count: sanitized.length });
       queuePlayersUpdate(sanitized);
     }
 
     function onRankingUpdate({ roomId: incomingRoomId, roundId: rid, ranking = [] } = {}) {
-      const activeRoomId = currentRoomIdRef.current;
+      if (!shouldHandleLiveRoundSocketEvents(incomingRoomId)) return;
       const activeRoundId = roundIdRef.current;
-      if (incomingRoomId && activeRoomId && incomingRoomId !== activeRoomId) return;
       if (activeRoundId && rid && rid !== activeRoundId) return;
       bumpSamsungDiagCounter("socketRankingUpdate");
+      recordPerfEvent("ranking-received", { count: Array.isArray(ranking) ? ranking.length : 0 });
       queueRankingUpdate(ranking);
     }
 
     function onChatHistory(history = []) {
+      if (deferNonessentialUiDuringTrace(() => onChatHistory(history), "chat-history")) return;
       if (!Array.isArray(history)) return;
       const normalizedHistory = history
         .map((entry) => normalizeChatMessageShape(entry))
@@ -12394,6 +12353,7 @@ export default function App() {
     }
 
     function onChatNew(msg) {
+      if (deferNonessentialUiDuringTrace(() => onChatNew(msg), "chat-message")) return;
       const normalizedMessage = normalizeChatMessageShape(msg);
       if (!normalizedMessage) return;
       setChatMessages((prev) => capChatMessagesByType([...prev, normalizedMessage]));
@@ -12447,6 +12407,14 @@ export default function App() {
     }
 
     function onChatReactionUpdate(patch) {
+      if (
+        deferNonessentialUiDuringTrace(
+          () => onChatReactionUpdate(patch),
+          "chat-reaction"
+        )
+      ) {
+        return;
+      }
       const messageId = typeof patch?.messageId === "string" ? patch.messageId.trim() : "";
       const selfInstallId =
         typeof installIdRef.current === "string" ? installIdRef.current.trim() : "";
@@ -12493,6 +12461,14 @@ export default function App() {
     }
 
     function onChatMessageUpdate(payload) {
+      if (
+        deferNonessentialUiDuringTrace(
+          () => onChatMessageUpdate(payload),
+          "chat-update"
+        )
+      ) {
+        return;
+      }
       const updatedMessage = payload?.message;
       if (!updatedMessage || typeof updatedMessage !== "object") return;
       setChatMessages((prev) =>
@@ -12507,6 +12483,14 @@ export default function App() {
     }
 
     function onChatMessageDelete(payload) {
+      if (
+        deferNonessentialUiDuringTrace(
+          () => onChatMessageDelete(payload),
+          "chat-delete"
+        )
+      ) {
+        return;
+      }
       const deletedId =
         typeof payload?.messageId === "string" ? payload.messageId.trim() : "";
       if (!deletedId) return;
@@ -12592,6 +12576,7 @@ export default function App() {
 
     function onAnnouncement(data) {
       if (!data) return;
+      if (!shouldHandleLiveRoundSocketEvents(data?.roomId)) return;
       if (data.type === "big_word" || data.type === "long_word") {
         return;
       }
@@ -12607,7 +12592,10 @@ export default function App() {
       if (!Array.isArray(batch) || batch.length === 0) return;
       const filtered = batch.filter(
         (entry) =>
-          entry && entry.type !== "big_word" && entry.type !== "long_word"
+          entry &&
+          shouldHandleLiveRoundSocketEvents(entry?.roomId) &&
+          entry.type !== "big_word" &&
+          entry.type !== "long_word"
       );
       if (!filtered.length) return;
       filtered.forEach((entry) => {
@@ -12747,10 +12735,12 @@ export default function App() {
     }
 
     function onMedalsUpdate(payload) {
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       setMedals(payload && typeof payload === "object" ? payload : {});
     }
 
     function onSpecialHint(payload) {
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
       if (phaseRef.current !== "playing") return;
       const activeRoundId = roundIdRef.current;
@@ -12775,6 +12765,7 @@ export default function App() {
     }
 
     function onSpecialSolved(payload) {
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
       if (phaseRef.current !== "playing") return;
       const activeRoundId = roundIdRef.current;
@@ -12809,6 +12800,7 @@ export default function App() {
     }
 
     function onCultureThemeChallenge(payload = {}) {
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
       if (phaseRef.current !== "playing") return;
       const activeRoundId = roundIdRef.current;
@@ -12817,10 +12809,8 @@ export default function App() {
     }
 
     function onOcidVoteStarted(payload = {}) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
-      const activeRoomId = currentRoomIdRef.current;
-      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
       setOcidVote(payload);
       setOcidSelectedOptionId("");
       setOcidStatusMessage("");
@@ -12836,10 +12826,8 @@ export default function App() {
     }
 
     function onOcidVoteUpdated(payload = {}) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
-      const activeRoomId = currentRoomIdRef.current;
-      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
       setOcidVote((prev) => {
         if (!prev || (payload.roundId && prev.roundId && payload.roundId !== prev.roundId)) {
           return payload;
@@ -12854,6 +12842,7 @@ export default function App() {
     }
 
     function onTrophiesUpdated(payload) {
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       const updates = Array.isArray(payload?.updates) ? payload.updates : [];
       if (!updates.length) return;
       const selfId = installId;
@@ -12894,6 +12883,7 @@ export default function App() {
         setGobblarsBalance(Math.max(0, Math.trunc(balance)));
         gobblarsKnownBalanceRef.current = Math.max(0, Math.trunc(balance));
       }
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!amount) return;
       const awardKind = String(payload?.kind || "").toLowerCase();
       if (awardKind === "live_gobble") {
@@ -12948,9 +12938,8 @@ export default function App() {
     }
 
     function onTournamentLobbyUpdate(payload = {}) {
+      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
-      const activeRoomId = currentRoomIdRef.current;
-      if (payload.roomId && activeRoomId && payload.roomId !== activeRoomId) return;
       setTournamentLobby(payload);
       const clientRoundInProgress =
         phaseRef.current === "playing" ||
@@ -13307,12 +13296,84 @@ export default function App() {
       clearTimeout(rankingQueueTimerRef.current);
       rankingQueueTimerRef.current = null;
     }
+    if (rankingTraceHoldTimerRef.current) {
+      clearTimeout(rankingTraceHoldTimerRef.current);
+      rankingTraceHoldTimerRef.current = null;
+    }
     rankingQueuedRef.current = null;
     if (playersQueueTimerRef.current) {
       clearTimeout(playersQueueTimerRef.current);
       playersQueueTimerRef.current = null;
     }
     playersQueuedRef.current = null;
+    deferredTraceUiTasksRef.current = [];
+  }
+
+  function shouldHoldLiveUiDuringTrace() {
+    return phaseRef.current === "playing" && !!draggingRef.current;
+  }
+
+  function deferNonessentialUiDuringTrace(task, label = "ui") {
+    if (!shouldHoldLiveUiDuringTrace() || typeof task !== "function") return false;
+    deferredTraceUiTasksRef.current.push(task);
+    recordPerfEvent(`${label}-held`);
+    return true;
+  }
+
+  function scheduleRankingFreshnessFlush() {
+    if (rankingTraceHoldTimerRef.current) return;
+    rankingTraceHoldTimerRef.current = setTimeout(() => {
+      rankingTraceHoldTimerRef.current = null;
+      const pendingRanking = rankingQueuedRef.current;
+      rankingQueuedRef.current = null;
+      if (!pendingRanking) return;
+      recordPerfEvent("ranking-freshness-flush", {
+        count: pendingRanking.length,
+      });
+      React.startTransition(() => {
+        applyRankingUpdateNow(pendingRanking);
+      });
+    }, RANKING_TRACE_HOLD_MAX_MS);
+  }
+
+  function flushDeferredLiveUiAfterTrace() {
+    if (shouldHoldLiveUiDuringTrace()) return;
+    if (rankingQueueTimerRef.current) {
+      clearTimeout(rankingQueueTimerRef.current);
+      rankingQueueTimerRef.current = null;
+    }
+    if (rankingTraceHoldTimerRef.current) {
+      clearTimeout(rankingTraceHoldTimerRef.current);
+      rankingTraceHoldTimerRef.current = null;
+    }
+    if (playersQueueTimerRef.current) {
+      clearTimeout(playersQueueTimerRef.current);
+      playersQueueTimerRef.current = null;
+    }
+    const pendingPlayers = playersQueuedRef.current;
+    const pendingRanking = rankingQueuedRef.current;
+    const pendingUiTasks = deferredTraceUiTasksRef.current;
+    playersQueuedRef.current = null;
+    rankingQueuedRef.current = null;
+    deferredTraceUiTasksRef.current = [];
+    if (pendingPlayers || pendingRanking || pendingUiTasks.length) {
+      recordPerfEvent("live-ui-flush", {
+        players: pendingPlayers ? pendingPlayers.length : 0,
+        ranking: pendingRanking ? pendingRanking.length : 0,
+        tasks: pendingUiTasks.length,
+      });
+    }
+    if (pendingPlayers) applyPlayersUpdateNow(pendingPlayers);
+    if (pendingRanking) applyRankingUpdateNow(pendingRanking);
+    if (submissionTickDeferredByTraceRef.current) {
+      submissionTickDeferredByTraceRef.current = false;
+      touchSubmissionState();
+    }
+    pendingUiTasks.forEach((task) => {
+      try {
+        task();
+      } catch (_) {}
+    });
   }
 
   function applyRankingUpdateNow(nextRanking = []) {
@@ -13321,6 +13382,7 @@ export default function App() {
     if (nextSig && nextSig === rankingLastSignatureRef.current) return;
     rankingLastSignatureRef.current = nextSig;
     rankingLastApplyAtRef.current = Date.now();
+    recordPerfEvent("ranking-applied", { count: safe.length });
     setProvisionalRanking(safe);
   }
 
@@ -13330,6 +13392,7 @@ export default function App() {
     if (nextSig && nextSig === playersLastSignatureRef.current) return;
     playersLastSignatureRef.current = nextSig;
     playersLastApplyAtRef.current = Date.now();
+    recordPerfEvent("players-applied", { count: safe.length });
     setPlayers(safe);
     const current = new Set(
       safe
@@ -13354,6 +13417,14 @@ export default function App() {
       return;
     }
     playersQueuedRef.current = safePlayers;
+    if (shouldHoldLiveUiDuringTrace()) {
+      recordPerfEvent("players-held", { count: safePlayers.length });
+      if (playersQueueTimerRef.current) {
+        clearTimeout(playersQueueTimerRef.current);
+        playersQueueTimerRef.current = null;
+      }
+      return;
+    }
     const minInterval = isSamsungBrowserRef.current
       ? SAMSUNG_PLAYERS_UI_UPDATE_MIN_MS
       : PLAYERS_UI_UPDATE_MIN_MS;
@@ -13370,6 +13441,7 @@ export default function App() {
     playersQueueTimerRef.current = setTimeout(() => {
       playersQueueTimerRef.current = null;
       const pending = playersQueuedRef.current;
+      if (shouldHoldLiveUiDuringTrace()) return;
       playersQueuedRef.current = null;
       if (pending) {
         applyPlayersUpdateNow(pending);
@@ -13388,6 +13460,15 @@ export default function App() {
     }
 
     rankingQueuedRef.current = safeRanking;
+    if (shouldHoldLiveUiDuringTrace()) {
+      recordPerfEvent("ranking-held", { count: safeRanking.length });
+      if (rankingQueueTimerRef.current) {
+        clearTimeout(rankingQueueTimerRef.current);
+        rankingQueueTimerRef.current = null;
+      }
+      scheduleRankingFreshnessFlush();
+      return;
+    }
     const minInterval = isSamsungBrowserRef.current
       ? SAMSUNG_RANKING_UI_UPDATE_MIN_MS
       : RANKING_UI_UPDATE_MIN_MS;
@@ -13404,6 +13485,10 @@ export default function App() {
     rankingQueueTimerRef.current = setTimeout(() => {
       rankingQueueTimerRef.current = null;
       const pending = rankingQueuedRef.current;
+      if (shouldHoldLiveUiDuringTrace()) {
+        scheduleRankingFreshnessFlush();
+        return;
+      }
       rankingQueuedRef.current = null;
       if (pending) {
         applyRankingUpdateNow(pending);
@@ -16685,6 +16770,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (phase === "playing") return undefined;
     fetchBroadcastNotice();
     const timer = setInterval(() => {
       fetchBroadcastNotice();
@@ -16692,7 +16778,7 @@ export default function App() {
     return () => {
       clearInterval(timer);
     };
-  }, []);
+  }, [phase]);
 
   useEffect(() => {
     if (!popupAudienceKey) {
@@ -16717,6 +16803,7 @@ export default function App() {
 
   useEffect(() => {
     if (!installId || !isAccountAuthenticated) return;
+    if (phase === "playing") return undefined;
     fetchDuelStatus();
     const timer = setInterval(() => {
       fetchDuelStatus();
@@ -16727,7 +16814,7 @@ export default function App() {
       clearInterval(timer);
       socket.off("connect", onConnect);
     };
-  }, [installId, isAccountAuthenticated]);
+  }, [installId, isAccountAuthenticated, phase]);
 
   useEffect(() => {
     if (!installId || !isAccountAuthenticated) return;
@@ -19725,87 +19812,6 @@ export default function App() {
     }
   }
 
-  function resetDragMovePipeline() {
-    if (dragMoveRafRef.current != null) {
-      pushSamsungDiagEvent("drag-raf-cancelled");
-    }
-    if (dragMoveRafRef.current != null && typeof window !== "undefined") {
-      window.cancelAnimationFrame(dragMoveRafRef.current);
-    }
-    if (dragPendingPointRef.current) {
-      pushSamsungDiagEvent("drag-pending-cleared");
-    }
-    dragMoveRafRef.current = null;
-    dragPendingPointRef.current = null;
-    lastTouchMoveSampleRef.current = { x: null, y: null, at: 0 };
-  }
-
-  function queueDragMove(clientX, clientY, useTolerance) {
-    if (!draggingRef.current) return;
-    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
-    bumpSamsungDiagCounter("queueDragMove");
-    dragPendingPointRef.current = {
-      clientX,
-      clientY,
-      useTolerance,
-      queuedAt: getSamsungDiagNowMs(),
-    };
-    if (dragMoveRafRef.current != null) {
-      bumpSamsungDiagCounter("queueDragCoalesced");
-      return;
-    }
-    dragMoveRafRef.current = requestAnimationFrame(() => {
-      bumpSamsungDiagCounter("rafFired");
-      dragMoveRafRef.current = null;
-      if (!draggingRef.current) {
-        bumpSamsungDiagCounter("rafNotDragging");
-        return;
-      }
-      const pending = dragPendingPointRef.current;
-      dragPendingPointRef.current = null;
-      if (!pending) {
-        bumpSamsungDiagCounter("rafNoPending");
-        return;
-      }
-      const lagMs = Math.round(getSamsungDiagNowMs() - (pending.queuedAt || 0));
-      if (lagMs >= 100) {
-        bumpSamsungDiagCounter("rafLagged");
-        pushSamsungDiagEvent("drag-raf-lag", { lagMs, drag: true });
-      }
-      const idx = getTileIndexFromPoint(
-        pending.clientX,
-        pending.clientY,
-        pending.useTolerance
-      );
-      if (idx == null) {
-        bumpSamsungDiagCounter("tileHitMiss");
-        return;
-      }
-      handleMouseEnter(idx, pending);
-    });
-  }
-
-  function flushPendingDragMove() {
-    if (dragMoveRafRef.current != null && typeof window !== "undefined") {
-      window.cancelAnimationFrame(dragMoveRafRef.current);
-      dragMoveRafRef.current = null;
-    }
-    const pending = dragPendingPointRef.current;
-    dragPendingPointRef.current = null;
-    if (!pending) return false;
-    const idx = getTileIndexFromPoint(
-      pending.clientX,
-      pending.clientY,
-      pending.useTolerance
-    );
-    if (idx == null) {
-      bumpSamsungDiagCounter("tileHitMiss");
-      return false;
-    }
-    handleMouseEnter(idx, pending);
-    return true;
-  }
-
     function error(msg) {
     setStatusMessageWithHold(msg);
     setShake(false);
@@ -19863,6 +19869,7 @@ export default function App() {
     setActiveArea("game");
     draggingRef.current = true;
     activeTraceStartedAtRef.current = getNowServerMs();
+    recordPerfEvent("trace-start", { index, mode });
     pushSamsungDiagEvent("drag-start", { mode, index });
     lastInputModeRef.current = mode;
     setLastInputMode(mode);
@@ -19968,15 +19975,21 @@ export default function App() {
   function handleMouseUp() {
     if (!draggingRef.current) return;
     const hadPendingDragMove = flushPendingDragMove();
+    const tracedTiles = highlightPathRef.current.length;
     draggingRef.current = false;
     dragGridMetricsRef.current = null;
     pushSamsungDiagEvent("drag-stop", { mode: "mouse" });
+    recordPerfEvent("trace-end", { mode: "mouse", tiles: tracedTiles });
     resetDragMovePipeline();
     if (hadPendingDragMove && typeof window !== "undefined") {
-      window.setTimeout(() => submit(), 0);
+      window.setTimeout(() => {
+        submit();
+        flushDeferredLiveUiAfterTrace();
+      }, 0);
       return;
     }
     submit();
+    flushDeferredLiveUiAfterTrace();
   }
 
 function handleTouchStart(e, index) {
@@ -19990,6 +20003,7 @@ function handleTouchStart(e, index) {
   setActiveArea("game");
   draggingRef.current = true;
   activeTraceStartedAtRef.current = getNowServerMs();
+  recordPerfEvent("trace-start", { index, mode: "touch" });
   pushSamsungDiagEvent("drag-start", { mode: "touch", index });
   lastInputModeRef.current = "touch";
   setLastInputMode("touch");
@@ -20047,17 +20061,32 @@ function handleTouchEnd(e) {
   if (e?.cancelable) e.preventDefault();
   bumpSamsungDiagCounter("touchEnd");
   const hadPendingDragMove = flushPendingDragMove();
+  const tracedTiles = highlightPathRef.current.length;
   draggingRef.current = false;
   dragGridMetricsRef.current = null;
   pushSamsungDiagEvent("drag-stop", { mode: "touch" });
+  recordPerfEvent("trace-end", { mode: "touch", tiles: tracedTiles });
   flushSamsungDiagSnapshot("touch-end");
   resetDragMovePipeline();
   if (hadPendingDragMove && typeof window !== "undefined") {
-    window.setTimeout(() => submit(), 0);
+    window.setTimeout(() => {
+      submit();
+      flushDeferredLiveUiAfterTrace();
+    }, 0);
     return;
   }
   submit();
+  flushDeferredLiveUiAfterTrace();
 }
+
+  gridInputControllerRef.current = {
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleTouchEnd,
+    handleTouchMove,
+    handleTouchStart,
+  };
 
   useEffect(() => {
     return () => {
@@ -20069,10 +20098,16 @@ function handleTouchEnd(e) {
         submissionTickRafRef.current = null;
       }
       submissionTickPendingRef.current = false;
+      submissionTickDeferredByTraceRef.current = false;
     };
   }, []);
 
-  function touchSubmissionState() {
+  function touchSubmissionState({ deferDuringTrace = false } = {}) {
+    if (deferDuringTrace && shouldHoldLiveUiDuringTrace()) {
+      submissionTickDeferredByTraceRef.current = true;
+      recordPerfEvent("submission-status-held");
+      return;
+    }
     if (submissionTickPendingRef.current) return;
     submissionTickPendingRef.current = true;
     if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
@@ -20238,26 +20273,25 @@ function handleTouchEnd(e) {
       specialRound?.type === "target_long" || specialRound?.type === "target_score";
 
     const alreadyAccepted = acceptedWordSetRef.current.has(word);
-    submissionStatusRef.current.set(word, {
-      ...meta,
-      status: "accepted",
-      reason: "",
-      usedFakeTwins,
-      fakeTwinsCompletionWord,
-      fakeTwinsBonusOnly,
-      rareBonusWord,
-      rareBonusPoints,
-      rarityBucket,
-      cultureThemeWord,
-      ts: meta.ts || Date.now(),
-    });
-    pendingWordsRef.current.delete(word);
-    touchSubmissionState();
-    if (Number.isFinite(totalScore)) {
-      setScore(totalScore);
-    } else if (!alreadyAccepted && Number.isFinite(safePts)) {
-      setScore((s) => s + safePts);
+    if (meta.optimisticApplied) {
+      submissionStatusRef.current.delete(word);
+    } else {
+      submissionStatusRef.current.set(word, {
+        ...meta,
+        status: "accepted",
+        reason: "",
+        usedFakeTwins,
+        fakeTwinsCompletionWord,
+        fakeTwinsBonusOnly,
+        rareBonusWord,
+        rareBonusPoints,
+        rarityBucket,
+        cultureThemeWord,
+        ts: meta.ts || Date.now(),
+      });
     }
+    pendingWordsRef.current.delete(word);
+    touchSubmissionState({ deferDuringTrace: !!meta.optimisticApplied });
 
     const computedBestPts =
       Array.isArray(path) && path.length > 0
@@ -20281,15 +20315,11 @@ function handleTouchEnd(e) {
         rarityBucket,
         cultureThemeWord,
       });
-      setLastWords((prev) => {
-        if (!Array.isArray(prev) || prev.length === 0) return prev;
-        let updated = false;
-        const next = prev.map((entry) => {
-          if (updated) return entry;
-          if (normalizeWord(entry?.display || "") !== word) return entry;
-          updated = true;
-          return {
-            ...entry,
+      setLastWords((prev) =>
+        patchFirstMatchingFeedEntry(
+          prev,
+          (entry) => normalizeWord(entry?.display || "") === word,
+          {
             pts: safePts,
             display,
             usedFakeTwins,
@@ -20299,18 +20329,15 @@ function handleTouchEnd(e) {
             rareBonusPoints,
             rarityBucket,
             cultureThemeWord,
-          };
-        });
-        return updated ? next : prev;
-      });
-      setTimeout(() => {
-        const current = submissionStatusRef.current.get(word);
-        if (current?.status === "accepted") {
-          submissionStatusRef.current.delete(word);
-          touchSubmissionState();
-        }
-      }, 0);
+          }
+        )
+      );
       return;
+    }
+    if (Number.isFinite(totalScore)) {
+      setScore(totalScore);
+    } else if (!alreadyAccepted && Number.isFinite(safePts)) {
+      setScore((s) => s + safePts);
     }
     registerAcceptedWordRuntime(word, {
       score: Number.isFinite(pts) ? pts : null,
@@ -20387,7 +20414,6 @@ function handleTouchEnd(e) {
             shakeGrid: true,
             force: isDoubleGobbleNow,
           });
-          triggerConfettiBurst("gobble");
         } else if (!isSpeedRound) {
           if (feedbackPts > 29) {
             triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
@@ -20485,6 +20511,7 @@ function handleTouchEnd(e) {
         applyServerWordResult(word, { ok: false, reason: "invalid_word" });
         continue;
       }
+      const sentAt = Date.now();
       socket.emit(
         "submitWord",
         {
@@ -20494,6 +20521,11 @@ function handleTouchEnd(e) {
           traceStartedAt: meta.traceStartedAt ?? null,
         },
         (res) => {
+          recordPerfEvent("word-ack", {
+            count: 1,
+            latencyMs: Math.max(0, Date.now() - sentAt),
+            ok: !!res?.ok,
+          });
           if (res?.error === "not_logged_in") {
             liveSessionReadyRef.current = false;
             queuePendingWordsForRetry([word]);
@@ -20538,6 +20570,11 @@ function handleTouchEnd(e) {
   function handleBatchAck(clientSeq, res) {
     const inFlight = inFlightBatchesRef.current.get(clientSeq);
     if (!inFlight) return;
+    recordPerfEvent("word-ack", {
+      count: Array.isArray(inFlight.words) ? inFlight.words.length : 0,
+      latencyMs: Math.max(0, Date.now() - (Number(inFlight.sentAt) || Date.now())),
+      ok: !!res?.ok,
+    });
     if (inFlight.timeoutId) clearTimeout(inFlight.timeoutId);
     inFlightBatchesRef.current.delete(clientSeq);
     if (res?.error === "not_logged_in") {
@@ -20627,7 +20664,11 @@ function handleTouchEnd(e) {
       () => handleBatchTimeout(clientSeq),
       WORD_BATCH_ACK_TIMEOUT_MS
     );
-    inFlightBatchesRef.current.set(clientSeq, { words: unique, timeoutId });
+    inFlightBatchesRef.current.set(clientSeq, {
+      words: unique,
+      timeoutId,
+      sentAt: Date.now(),
+    });
 
     const items = unique.map((word) => {
       const meta = submissionStatusRef.current.get(word) || {};
@@ -20696,6 +20737,10 @@ function handleTouchEnd(e) {
     cultureThemeWord = false,
     ptsOverride = null,
   }) {
+    recordPerfEvent("word-local", {
+      length: String(raw || "").length,
+      pathLength: Array.isArray(path) ? path.length : 0,
+    });
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
     const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
     const rareBonusEnabledNow = isRareBonusEnabledForSpecial(specialRound);
@@ -20792,7 +20837,6 @@ function handleTouchEnd(e) {
         shakeGrid: true,
         force: isDoubleGobbleNow,
       });
-      triggerConfettiBurst("gobble");
     } else if (!isTargetRoundNow && !isSpeedRound) {
       if (feedbackPts > 29) {
         triggerPraiseFlash("EPIQUE !", { kind: "epic", shakeGrid: true });
@@ -22575,6 +22619,44 @@ function handleTouchEnd(e) {
         specialScoreConfig
       )
     : null;
+  special3TraceResolverRef.current = (snapshot) => {
+    const tracePath = Array.isArray(snapshot?.highlightPath)
+      ? snapshot.highlightPath
+      : [];
+    const traceTiles = Array.isArray(snapshot?.currentTiles)
+      ? snapshot.currentTiles
+      : [];
+    const traceWord = traceTiles.join("");
+    const normalizedWord = normalizeWord(traceWord);
+    const blockedReason = getDailySpecialWordBlockedReason(
+      normalizedWord,
+      tracePath,
+      dailyWordSlots,
+      safeDailySlotIndex
+    );
+    const valid =
+      isSpecial3WordsMode &&
+      phase === "playing" &&
+      normalizedWord.length >= 2 &&
+      isKnownSubmissionWord(normalizedWord) &&
+      !blockedReason &&
+      tracePath.length > 0;
+    return {
+      blockedReason,
+      highlightPath: tracePath,
+      liveWord: traceWord,
+      normalizedWord,
+      score: valid
+        ? computeScore(
+            normalizedWord,
+            tracePath,
+            isSpecial3WordsMode ? dailyBoardForScore : board,
+            specialScoreConfig
+          )
+        : null,
+      valid,
+    };
+  };
   const previewTotals = React.useMemo(() => {
     if (isTargetHintRound) {
       return { totalWords: null, totalScore: null };
@@ -23417,6 +23499,10 @@ function handleTouchEnd(e) {
   const isSpeedRound = specialRound?.type === "speed";
   const rareBonusEnabledForResults = isRareBonusEnabledForSpecial(specialRound);
   const roundTilePointsVisible = tilePointsVisible && !isSpeedRound;
+  const bonusEffectMultiplier =
+    specialRound?.type === FINALE_TYPE
+      ? Number(specialRound?.tileBonusMultiplier) || FINALE_TILE_BONUS_MULTIPLIER
+      : 1;
   const speedWordScore = isSpeedRound
     ? specialRound?.fixedWordScore ?? SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
     : null;
@@ -23760,7 +23846,8 @@ function handleTouchEnd(e) {
     })();
 
     const nextRoundLabel = (() => {
-      if (breakKind === "tournament_end") return "Nouveau tournoi";
+      if (breakKind === "training_end") return "Fin de l’entraînement";
+      if (breakKind === "tournament_end") return "Retour au salon";
       if (tournament?.nextRound && tournament?.totalRounds) {
         if (tournament.nextRound === tournament.totalRounds) return "Manche finale";
         return `Manche ${tournament.nextRound}`;
@@ -24250,7 +24337,8 @@ function handleTouchEnd(e) {
     })();
 
     const nextRoundLabel = (() => {
-      if (breakKind === "tournament_end") return "Nouveau tournoi";
+      if (breakKind === "training_end") return "Fin de l’entraînement";
+      if (breakKind === "tournament_end") return "Retour au salon";
       if (tournament?.nextRound && tournament?.totalRounds) {
         if (tournament.nextRound === tournament.totalRounds) return "Manche finale";
         return `Manche ${tournament.nextRound}`;
@@ -27159,11 +27247,11 @@ function handleTouchEnd(e) {
   );
   const weeklyVocabPodiumNickClassByRank = React.useMemo(
     () => ({
-      1: darkMode ? "text-amber-300 font-black" : "text-amber-600 font-black",
+      1: "nick-podium-gold",
       2: "nick-podium-silver",
-      3: darkMode ? "text-orange-300 font-black" : "text-orange-700 font-black",
+      3: "nick-podium-bronze",
     }),
-    [darkMode]
+    []
   );
 
   function getWeeklyVocabPodiumRank(entry = null, nick = "") {
@@ -27701,7 +27789,7 @@ function handleTouchEnd(e) {
   const previewBarMinHeight = 56;
   const previewTileStyle = {};
   const lightPanelStyle = darkMode ? {} : { backgroundColor: "#ffffff" };
-  const lightGridSurfaceStyle = {};
+  const lightGridSurfaceStyle = undefined;
   const clampGridWidth = (raw) => {
     if (!raw || Number.isNaN(raw)) return null;
     const adjusted = raw - 24; // laisse un peu d'air avec les bordures/paddings
@@ -27811,6 +27899,10 @@ function handleTouchEnd(e) {
         <AutoScaleInline
           minScale={minScale}
           align={align}
+          estimatedContentWidth={
+            tiles.length * (compact ? 22 : 28) +
+            Math.max(0, tiles.length - 1) * (compact ? 2 : 4)
+          }
           measurePaddingPx={edgePadding ? 4 : 1}
           reserveScaledWidth={reserveScaledWidth}
           className={compact ? "gap-0.5 py-0.5" : `gap-1 ${edgePadding ? "px-1" : ""}`}
@@ -27979,10 +28071,11 @@ function handleTouchEnd(e) {
     }
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
     if (bc !== null) {
+      if (breakKind === "training_end") {
+        return `Fin de l’entraînement dans : ${bc}s`;
+      }
       if (breakKind === "tournament_end") {
-        if (bc === 0) return `Nouveau tournoi dans : ${bc}s`;
-        if (bc > 10) return `Nouveau tournoi dans : ${bc}s`;
-        return `Nouveau tournoi dans : ${bc}s`;
+        return `Retour au salon dans : ${bc}s`;
       }
       if (bc === 0) return `Depart dans : ${bc}s`;
       if (bc > 10) return `Depart dans : ${bc}s`;
@@ -28026,11 +28119,10 @@ function handleTouchEnd(e) {
         <div className="mt-2 text-sm font-semibold leading-snug">
           {roundPreparationMessage}
         </div>
-        <div className="mt-3 flex justify-center gap-1.5" aria-hidden="true">
-          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-500 [animation-delay:-0.2s]" />
-          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-500 [animation-delay:-0.1s]" />
-          <span className="h-2 w-2 animate-bounce rounded-full bg-amber-500" />
-        </div>
+        <div
+          className="mx-auto mt-3 h-8 w-8 animate-spin rounded-full border-4 border-amber-500/25 border-t-amber-500"
+          aria-hidden="true"
+        />
       </div>
     </div>
   ) : null;
@@ -30334,6 +30426,9 @@ function handleTouchEnd(e) {
   const monstrousMinTotalScore = specialTutorialPlan?.minTotalScore ?? null;
   const specialTutorialSteps = (() => {
     if (!specialTutorialType) return null;
+    if (specialTutorialType === FINALE_TYPE) {
+      return getFinaleTutorialSteps(specialTutorialPlan);
+    }
     if (specialTutorialType === DAILY_SPECIAL_MODE) {
       return [
         {
@@ -30462,8 +30557,11 @@ function handleTouchEnd(e) {
     }
     setSpecialTutorialPlan(null);
   }, [markSpecialTutorialSeen, specialTutorialPlan]);
-  const specialTutorialDemo =
-    specialTutorialType === DAILY_SPECIAL_MODE && specialTutorialContent?.demoKind ? (
+  const specialTutorialDemo = specialTutorialContent?.showFinaleBonusDemo ? (
+    <FinaleBonusTilesDemo
+      multiplier={specialTutorialPlan?.tileBonusMultiplier || FINALE_TILE_BONUS_MULTIPLIER}
+    />
+  ) : specialTutorialType === DAILY_SPECIAL_MODE && specialTutorialContent?.demoKind ? (
       <div
         className={`mt-4 rounded-xl border p-3 ${
           darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white/90 border-slate-200"
@@ -30993,7 +31091,7 @@ function handleTouchEnd(e) {
               }`}
             >
               <div className="text-[11px] font-extrabold tracking-widest uppercase text-amber-500">
-                Manche spéciale
+                {specialTutorialType === FINALE_TYPE ? "Manche finale" : "Manche spéciale"}
               </div>
               <div className="mt-1 flex items-center justify-between gap-3">
                 <div className="text-lg font-black">{specialTutorialLabel}</div>
@@ -31101,13 +31199,15 @@ function handleTouchEnd(e) {
     visualPraiseEnabled &&
     visualInvalidWordsEnabled &&
     visualScreenShakeEnabled &&
-    visualConfettiEnabled;
+    visualConfettiEnabled &&
+    visualGoldNickFxEnabled;
   const enabledVisualCount = [
     visualGobbleEnabled,
     visualPraiseEnabled,
     visualInvalidWordsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
+    visualGoldNickFxEnabled,
   ].filter(Boolean).length;
   const vibrationOn = isVibrationEnabled && canVibrate;
   const setAllSoundEnabled = React.useCallback((enabled) => {
@@ -31126,6 +31226,7 @@ function handleTouchEnd(e) {
     setVisualInvalidWordsEnabled(next);
     setVisualScreenShakeEnabled(next);
     setVisualConfettiEnabled(next);
+    setVisualGoldNickFxEnabled(next);
   }, []);
   const toggleSoundQuick = React.useCallback(
     (event) => {
@@ -31598,6 +31699,49 @@ function handleTouchEnd(e) {
   const closeDevMenu = React.useCallback(() => {
     setIsDevMenuOpen(false);
   }, []);
+  const openTargetWaitDevPlayground = React.useCallback(() => {
+    setIsDevMenuOpen(false);
+    setIsSettingsOpen(false);
+    if (targetWaitDevArmed) {
+      targetWaitDevArmedRoundIdRef.current = null;
+      setTargetWaitDevArmed(false);
+      showToast("Simulation du mini-jeu annulée.", 2200);
+      return;
+    }
+    targetWaitDevArmedRoundIdRef.current = roundIdRef.current;
+    setTargetWaitDevArmed(true);
+    showToast("Mini-jeu armé : démarrage à la prochaine manche.", 3000);
+  }, [targetWaitDevArmed]);
+  React.useEffect(() => {
+    if (!targetWaitDevArmed || phase !== "playing" || roundId == null) return;
+    const currentRoundKey = String(roundId);
+    const armedRoundKey =
+      targetWaitDevArmedRoundIdRef.current == null
+        ? ""
+        : String(targetWaitDevArmedRoundIdRef.current);
+    if (armedRoundKey && armedRoundKey === currentRoundKey) return;
+    setTargetWaitDevActiveRoundId(currentRoundKey);
+    setTargetWaitDevArmed(false);
+    targetWaitDevArmedRoundIdRef.current = null;
+    showToast("Simulation cible active : la cible est considérée comme trouvée.", 3200);
+  }, [phase, roundId, targetWaitDevArmed]);
+  React.useEffect(() => {
+    if (targetWaitDevActiveRoundId == null) return;
+    if (phase === "playing" && String(roundId ?? "") === targetWaitDevActiveRoundId) return;
+    setTargetWaitDevActiveRoundId(null);
+    setTargetWaitDevGridHost(null);
+    setTargetWaitDevSideHost(null);
+    setTargetWaitDevSessionState((previous) => ({
+      ...previous,
+      phase: "idle",
+      remainingSeconds: 90,
+      wordLength: 0,
+    }));
+  }, [phase, roundId, targetWaitDevActiveRoundId]);
+  const targetWaitDevActive =
+    targetWaitDevActiveRoundId != null &&
+    phase === "playing" &&
+    String(roundId ?? "") === targetWaitDevActiveRoundId;
   const applyModerationResponse = React.useCallback((res) => {
     if (!res || typeof res !== "object") return;
     setModerationAvailable(!!res.available);
@@ -32268,6 +32412,8 @@ function handleTouchEnd(e) {
       devPasswordRequired={devPasswordRequired}
       devPlaytimeLimits={devPlaytimeLimits}
       devRoundTypes={devRoundTypes}
+      targetWaitDevArmed={targetWaitDevArmed}
+      targetWaitDevActive={targetWaitDevActive}
       enabledSoundCount={enabledSoundCount}
       enabledVisualCount={enabledVisualCount}
       fetchDevBots={fetchDevBots}
@@ -32316,6 +32462,7 @@ function handleTouchEnd(e) {
       normalizeTileLetterScale={normalizeTileLetterScale}
       openAuthDialog={openAuthDialog}
       openDevMenu={openDevMenu}
+      openTargetWaitDevPlayground={openTargetWaitDevPlayground}
       openKeyboardMenu={openKeyboardMenu}
       openModerationMenu={openModerationMenu}
       openSoundMenu={openSoundMenu}
@@ -32360,6 +32507,7 @@ function handleTouchEnd(e) {
       setThemePurchaseConfirm={setThemePurchaseConfirm}
       setTilePointsVisible={setTilePointsVisible}
       setVisualConfettiEnabled={setVisualConfettiEnabled}
+      setVisualGoldNickFxEnabled={setVisualGoldNickFxEnabled}
       setVisualGobbleEnabled={setVisualGobbleEnabled}
       setVisualInvalidWordsEnabled={setVisualInvalidWordsEnabled}
       setVisualPraiseEnabled={setVisualPraiseEnabled}
@@ -32410,6 +32558,7 @@ function handleTouchEnd(e) {
       unlockDevControls={unlockDevControls}
       vibrationOn={vibrationOn}
       visualConfettiEnabled={visualConfettiEnabled}
+      visualGoldNickFxEnabled={visualGoldNickFxEnabled}
       visualGobbleEnabled={visualGobbleEnabled}
       visualInvalidWordsEnabled={visualInvalidWordsEnabled}
       visualPraiseEnabled={visualPraiseEnabled}
@@ -32746,9 +32895,8 @@ function handleTouchEnd(e) {
   const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
   const duelBlueScore = Number(duelWeeklyTotals?.blue) || 0;
   const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
-  const homeBackgroundColor = duelTeam === "red" ? "rouge" : "bleu";
-  const homeBackgroundDesktop = `/background/desktop ${homeBackgroundColor}.png`;
-  const homeBackgroundMobile = `/background/mobile ${homeBackgroundColor}.png`;
+  const homeBackgroundDesktop = getUiImageUrl(getHomeBackgroundKey(duelTeam, "wide"));
+  const homeBackgroundMobile = getUiImageUrl(getHomeBackgroundKey(duelTeam, "tall"));
   const dailyRemainingCount = dailyStatus?.ready
     ? [
         !dailyStatus?.hasPlayedMonstrous,
@@ -32981,6 +33129,22 @@ function handleTouchEnd(e) {
       {authDialogView}
       {specialTutorialOverlay}
       {settingsMenuView}
+      {targetWaitDevActive ? (
+        <Suspense fallback={null}>
+          <TargetWaitDevPlayground
+            active
+            gridHost={targetWaitDevGridHost}
+            sideHost={targetWaitDevSideHost}
+            socket={socket}
+            darkMode={darkMode}
+            liveFeedItems={mixedFeed}
+            getNickClassName={getLiveNickClassName}
+            onToast={showToast}
+            onSessionStateChange={setTargetWaitDevSessionState}
+            compact={isMobileLayout}
+          />
+        </Suspense>
+      ) : null}
       {aboutModalView}
       <ChatReactionToastLayer toasts={mobileChatReactionToasts} />
       <ToastStack toasts={toasts} darkMode={darkMode} />
@@ -34533,8 +34697,6 @@ function handleTouchEnd(e) {
           accountLabel={homeAccountLabel}
           accountOnline={isAccountAuthenticated}
           accountNotice={accountNotice}
-          backgroundDesktop={homeBackgroundDesktop}
-          backgroundMobile={homeBackgroundMobile}
           canResumeNow={canResumeNow}
           dailyRemainingCount={dailyRemainingCount}
           duelBlueScore={duelBlueScore}
@@ -34546,6 +34708,8 @@ function handleTouchEnd(e) {
           isConnecting={isConnecting}
           loginError={loginError}
           maintenanceMode={!!(tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode)}
+          displayModeAction={displayMode.homeAction}
+          onToggleFullscreen={displayMode.toggleFullscreen}
           {...homeLobbyActions}
           playerTeam={duelTeam}
           playersCount={playersCountForLobby}
@@ -35237,8 +35401,8 @@ function handleTouchEnd(e) {
                 </div>
                 <div className="mt-2 text-sm font-bold opacity-90">
                   {bc != null
-                    ? `Nouveau tournoi dans : ${bc}s`
-                    : "Nouveau tournoi imminent..."}
+                    ? `Retour au salon dans : ${bc}s`
+                    : "Retour au salon imminent..."}
                 </div>
                 <div
                   className={`mt-2 mx-auto w-full max-w-[820px] rounded-xl border px-3 py-2 ${
@@ -36055,11 +36219,13 @@ function handleTouchEnd(e) {
           BONUS_CLASSES,
           bonusLetterKey,
           bonusLetterScore,
+          bonusEffectMultiplier,
           darkMode,
           gridRef,
           gridShake,
           gridSize,
           gridRotationTurns,
+          inputControllerRef: gridInputControllerRef,
           implodeActive,
           handleMouseDown,
           handleMouseMove,
@@ -36411,7 +36577,14 @@ function handleTouchEnd(e) {
           className="flex items-center overflow-hidden"
           style={{ minHeight: 0, maxHeight: "100%" }}
         >
-          <AutoScaleInline minScale={0.42} className="gap-1">
+          <AutoScaleInline
+            minScale={0.42}
+            estimatedContentWidth={
+              tiles.length * special3PreviewTileHeightPx +
+              Math.max(0, tiles.length - 1) * 4
+            }
+            className="gap-1"
+          >
             {tiles.map((tile, idx) => {
               const angle = ((idx * 17 + tiles.length * 13) % 11) - 5;
               const displayBonus = tile.bonus;
@@ -36569,12 +36742,14 @@ function handleTouchEnd(e) {
           BONUS_CLASSES,
           bonusLetterKey,
           bonusLetterScore,
+          bonusEffectMultiplier,
           darkMode,
           gridRef,
           gridShake,
           gridSize,
           implodeActive,
           gridRotationTurns,
+          inputControllerRef: gridInputControllerRef,
           handleMouseDown,
           handleMouseMove,
           handleMouseUp,
@@ -36622,6 +36797,7 @@ function handleTouchEnd(e) {
           renderSpecial3LengthGobbleBadge={renderSpecial3LengthGobbleBadge}
           renderSpecialChip={renderSpecialChip}
           renderWordPreviewTiles={renderWordPreviewTiles}
+          resolveLiveTrace={resolveSpecial3LiveTrace}
           requestOpenChat={requestOpenChat}
           setDailyActiveSlot={setDailyActiveSlot}
           slideStyles={slideStyles}
@@ -37197,6 +37373,7 @@ function handleTouchEnd(e) {
         boardForRender={boardForRender}
         bonusLetterKey={bonusLetterKey}
         bonusLetterScore={bonusLetterScore}
+        bonusEffectMultiplier={bonusEffectMultiplier}
         chatOverlays={chatOverlays}
         countdownLines={countdownLines}
         currentDisplay={currentDisplay}
@@ -37213,6 +37390,7 @@ function handleTouchEnd(e) {
         gridRotationTurns={gridRotationTurns}
         gridShake={gridShake}
         gridSize={gridSize}
+        inputControllerRef={gridInputControllerRef}
         handleMouseDown={handleMouseDown}
         handleMouseMove={handleMouseMove}
         handleMouseUp={handleMouseUp}
@@ -37232,7 +37410,7 @@ function handleTouchEnd(e) {
         isFinaleBanner={isFinaleBanner}
         isMobileLayout={isMobileLayout}
         isOcidRound={isOcidRound}
-        isTargetRound={isTargetRound}
+        isTargetRound={isTargetRound || targetWaitDevActive}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         liveFeedMinHeight={liveFeedMinHeight}
         liveFeedBannerText={liveFeedBannerText}
@@ -37304,7 +37482,14 @@ function handleTouchEnd(e) {
         specialTitleFont={specialTitleFont}
         specialWordFont={specialWordFont}
         targetScoreMax={targetScoreMax}
-        tick={tick}
+        targetWaitDevActive={targetWaitDevActive}
+        onTargetWaitDevGridHostChange={setTargetWaitDevGridHost}
+        onTargetWaitDevSideHostChange={setTargetWaitDevSideHost}
+        tick={
+          targetWaitDevActive
+            ? targetWaitDevSessionState.remainingSeconds
+            : tick
+        }
         tileColorPreset={tileColorPreset}
         tileMaterialClass={tileMaterialClass}
         tileRefs={tileRefs}
@@ -37316,6 +37501,7 @@ function handleTouchEnd(e) {
         usedSet={usedSet}
         wordsFoundLabel={wordsFoundLabel}
       />
+      {roundPreparationOverlay}
       {globalChatLayer}
     </>
   );
@@ -37523,26 +37709,14 @@ function handleTouchEnd(e) {
             {ocidVote?.definition || specialRound?.ocidDefinition || "Definition indisponible"}
           </div>
           {ocidVote ? (
-            <div className="mt-2 grid grid-cols-1 gap-1.5">
-              {(ocidVote.options || []).map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => submitOcidVote(option.id)}
-                  className={`rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
-                    ocidSelectedOptionId === option.id
-                      ? darkMode
-                        ? "bg-emerald-900/60 border-emerald-300/50 text-emerald-50"
-                        : "bg-emerald-50 border-emerald-300 text-emerald-800"
-                      : darkMode
-                      ? "bg-slate-800/70 border-slate-700 text-slate-100"
-                      : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
-                >
-                  {option.display}
-                </button>
-              ))}
-            </div>
+            <OcidVoteOptionsGrid
+              className="mt-2"
+              compact={true}
+              darkMode={darkMode}
+              onSelect={submitOcidVote}
+              options={ocidVote.options || []}
+              selectedOptionId={ocidSelectedOptionId}
+            />
           ) : (
             <form
               className="mt-2 flex gap-2"
@@ -37874,7 +38048,7 @@ function handleTouchEnd(e) {
                 {phase === "playing" ? (
                   <div className="flex flex-col items-center justify-center">
                     <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-70">
-                      Temps restant
+                      {targetWaitDevActive ? "Mini-jeu · temps restant" : "Temps restant"}
                     </div>
                     <div
                       className={`mt-1 font-black tabular-nums leading-none ${
@@ -37882,7 +38056,9 @@ function handleTouchEnd(e) {
                       }`}
                       style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
                     >
-                      {Math.max(0, Number(tick) || 0)}
+                      {targetWaitDevActive
+                        ? Math.max(0, Number(targetWaitDevSessionState.remainingSeconds) || 0)
+                        : Math.max(0, Number(tick) || 0)}
                     </div>
                   </div>
                 ) : (
@@ -37970,28 +38146,14 @@ function handleTouchEnd(e) {
             }
           >
 
-            {phase === "playing" && specialSolvedOverlay && (
+            {targetWaitDevActive ? (
               <div
-                className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl backdrop-blur-sm ${
-                  darkMode ? "bg-[#0b1020]/80" : "bg-white/75"
-                }`}
-              >
-                <div className="text-center px-4 py-6">
-                  <div className="text-2xl font-black tracking-tight">
-                    Bravo, vous avez trouvé !
-                  </div>
-                  {typeof tick === "number" && (
-                    <div className="mt-3 text-4xl font-black tabular-nums">
-                      Temps restant : {Math.max(0, tick)}s
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
-            <div
-            
-              ref={gridRef}
+                ref={setTargetWaitDevGridHost}
+                className="absolute inset-0 z-[45] overflow-hidden rounded-xl"
+              />
+            ) : null}
+            <DesktopGameGrid
+              gridRef={gridRef}
               className={
                 (isMobileLayout
                   ? "relative grid bg-white border rounded-xl px-2 py-2 w-full"
@@ -38021,179 +38183,49 @@ function handleTouchEnd(e) {
                     }),
                 ...lightGridSurfaceStyle,
               }}
-              onMouseUp={handleMouseUp}
-              onMouseMove={handleMouseMove}
-              onMouseDown={(event) => {
-                const target = event.target instanceof Element ? event.target : null;
-                const tile = target?.closest?.("[data-board-index]");
-                const index = Number(tile?.getAttribute?.("data-board-index"));
-                if (Number.isInteger(index)) handleMouseDown(index);
+              darkMode={darkMode}
+              implodeActive={implodeActive}
+              inputControllerRef={gridInputControllerRef}
+              praiseOverlay={praiseOverlay}
+              resultsPathGradientId={resultsPathGradientIdRef.current}
+              resultsPathPreview={resultsPathPreview}
+              showResultsWordPath={showResultsWordPath}
+              specialSolvedOverlay={phase === "playing" && specialSolvedOverlay}
+              tick={tick}
+              liveGridProps={{
+                board: boardForRender,
+                BONUS_CLASSES,
+                bonusLetterKey,
+                bonusLetterScore,
+                bonusEffectMultiplier,
+                defaultTileBaseClass,
+                getTileColorTextureStyle,
+                gridRotationTurns,
+                gridSize,
+                hintCellOverlayStyleMap,
+                hintCellSet,
+                hintCellStyleMap,
+                hintOutlineCellSet,
+                hintOutlineOverlayStyleMap,
+                hintOutlineStyleMap,
+                isMobileLayout,
+                isSquareMaterial,
+                mapDisplayToBoardIndex,
+                mobileRoundIntroHideTiles,
+                normalizeBonusLabel,
+                normalizeLetterKey,
+                phase,
+                roundTilePointsVisible,
+                special3LockedStartTileSet,
+                specialIndicatorPreset,
+                tileColorPreset,
+                tileFontPx,
+                tileMaterialClass,
+                tileRefs,
+                tileScore,
+                usedSet,
               }}
-              onTouchStart={(event) => {
-                const target = event.target instanceof Element ? event.target : null;
-                const tile = target?.closest?.("[data-board-index]");
-                const index = Number(tile?.getAttribute?.("data-board-index"));
-                if (Number.isInteger(index)) handleTouchStart(event, index);
-              }}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onTouchCancel={handleTouchEnd}
-            >
-              {praiseOverlay}
-              {showResultsWordPath &&
-              resultsPathPreview?.points?.length &&
-              Number.isFinite(resultsPathPreview?.width) &&
-              Number.isFinite(resultsPathPreview?.height) ? (
-                <svg
-                  className="pointer-events-none absolute inset-0 z-20"
-                  viewBox={`0 0 ${resultsPathPreview.width} ${resultsPathPreview.height}`}
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <defs>
-                    <linearGradient
-                      id={resultsPathGradientIdRef.current}
-                      gradientUnits="userSpaceOnUse"
-                      x1={resultsPathPreview.points[0]?.x || 0}
-                      y1={resultsPathPreview.points[0]?.y || 0}
-                      x2={
-                        resultsPathPreview.points[resultsPathPreview.points.length - 1]?.x || 0
-                      }
-                      y2={
-                        resultsPathPreview.points[resultsPathPreview.points.length - 1]?.y || 0
-                      }
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor={
-                          !isMobileLayout
-                            ? "rgba(22, 101, 52, 0.92)"
-                            : darkMode
-                            ? "#34d399"
-                            : "#2563eb"
-                        }
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={
-                          !isMobileLayout
-                            ? "rgba(110, 231, 183, 0.34)"
-                            : darkMode
-                            ? "#f59e0b"
-                            : "#ef4444"
-                        }
-                      />
-                    </linearGradient>
-                  </defs>
-                  {resultsPathPreview.points.length > 1 ? (
-                    <>
-                      <polyline
-                        points={resultsPathPreview.points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                        fill="none"
-                        stroke={
-                          !isMobileLayout
-                            ? "rgba(2, 44, 34, 0.14)"
-                            : darkMode
-                            ? "rgba(15,23,42,0.58)"
-                            : "rgba(15,23,42,0.22)"
-                        }
-                        strokeWidth={!isMobileLayout ? "22" : "8"}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <polyline
-                        points={resultsPathPreview.points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                        fill="none"
-                        stroke={`url(#${resultsPathGradientIdRef.current})`}
-                        strokeWidth={!isMobileLayout ? "14" : "4.5"}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </>
-                  ) : null}
-                  <circle
-                    cx={resultsPathPreview.points[0]?.x || 0}
-                    cy={resultsPathPreview.points[0]?.y || 0}
-                    r={!isMobileLayout ? "11.5" : "6"}
-                    fill={
-                      !isMobileLayout
-                        ? "rgba(22, 163, 74, 0.5)"
-                        : darkMode
-                        ? "#22d3ee"
-                        : "#1d4ed8"
-                    }
-                    stroke={
-                      !isMobileLayout
-                        ? "rgba(167, 243, 208, 0.88)"
-                        : darkMode
-                        ? "#082f49"
-                        : "#bfdbfe"
-                    }
-                    strokeWidth={!isMobileLayout ? "3.5" : "2"}
-                  />
-                  {resultsPathPreview.points.length > 1 ? (
-                    <g
-                      transform={`translate(${
-                        resultsPathPreview.points[resultsPathPreview.points.length - 1]?.x || 0
-                      } ${resultsPathPreview.points[resultsPathPreview.points.length - 1]?.y || 0}) rotate(${
-                        resultsPathPreview.endAngleDeg || 0
-                      })`}
-                    >
-                      <polygon
-                        points={!isMobileLayout ? "-22,-13 0,0 -22,13 -13,0" : "-12,-7 0,0 -12,7 -8,0"}
-                        fill={
-                          !isMobileLayout
-                            ? "rgba(16, 185, 129, 0.52)"
-                            : darkMode
-                            ? "#f59e0b"
-                            : "#dc2626"
-                        }
-                        stroke={
-                          !isMobileLayout
-                            ? "rgba(167, 243, 208, 0.88)"
-                            : darkMode
-                            ? "#451a03"
-                            : "#fee2e2"
-                        }
-                        strokeWidth={!isMobileLayout ? "2.4" : "1.5"}
-                      />
-                    </g>
-                  ) : null}
-                </svg>
-              ) : null}
-              <DesktopLiveGrid
-                board={boardForRender}
-                BONUS_CLASSES={BONUS_CLASSES}
-                bonusLetterKey={bonusLetterKey}
-                bonusLetterScore={bonusLetterScore}
-                defaultTileBaseClass={defaultTileBaseClass}
-                getTileColorTextureStyle={getTileColorTextureStyle}
-                gridRotationTurns={gridRotationTurns}
-                gridSize={gridSize}
-                hintCellOverlayStyleMap={hintCellOverlayStyleMap}
-                hintCellSet={hintCellSet}
-                hintCellStyleMap={hintCellStyleMap}
-                hintOutlineCellSet={hintOutlineCellSet}
-                hintOutlineOverlayStyleMap={hintOutlineOverlayStyleMap}
-                hintOutlineStyleMap={hintOutlineStyleMap}
-                isMobileLayout={isMobileLayout}
-                isSquareMaterial={isSquareMaterial}
-                mapDisplayToBoardIndex={mapDisplayToBoardIndex}
-                mobileRoundIntroHideTiles={mobileRoundIntroHideTiles}
-                normalizeBonusLabel={normalizeBonusLabel}
-                normalizeLetterKey={normalizeLetterKey}
-                phase={phase}
-                roundTilePointsVisible={roundTilePointsVisible}
-                special3LockedStartTileSet={special3LockedStartTileSet}
-                specialIndicatorPreset={specialIndicatorPreset}
-                tileColorPreset={tileColorPreset}
-                tileFontPx={tileFontPx}
-                tileMaterialClass={tileMaterialClass}
-                tileRefs={tileRefs}
-                tileScore={tileScore}
-                usedSet={usedSet}
-              />
-            </div>
+            />
             {!isMobileLayout ? special3DragGhost : null}
             {!isMobileLayout ? special3InGameTutorialCard : null}
           </div>
@@ -38309,6 +38341,12 @@ function handleTouchEnd(e) {
             ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("side") || 3 }),
           }}
         >
+          {targetWaitDevActive ? (
+            <div
+              ref={setTargetWaitDevSideHost}
+              className="absolute inset-0 z-[45] overflow-hidden rounded-xl"
+            />
+          ) : null}
           {/* bloc score */}
           <div
             className={`bg-white dark:bg-slate-950/80 border dark:border-slate-700 rounded-xl p-3 w-full relative overflow-hidden ${
@@ -38332,33 +38370,12 @@ function handleTouchEnd(e) {
                   {ocidDefinitionText || "Définition indisponible"}
                 </div>
                 {ocidVote ? (
-                  <div
-                    className="grid flex-1 min-h-0 content-start grid-cols-1 gap-1.5 overflow-y-auto pr-1 overscroll-contain"
-                  >
-                    {(ocidVote.options || []).map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => submitOcidVote(option.id)}
-                        className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-sm font-bold transition ${
-                          ocidSelectedOptionId === option.id
-                            ? darkMode
-                              ? "bg-emerald-900/60 border-emerald-300/50 text-emerald-50"
-                              : "bg-emerald-50 border-emerald-300 text-emerald-800"
-                            : darkMode
-                            ? "bg-slate-800/70 border-slate-700 text-slate-100"
-                            : "bg-slate-50 border-slate-200 text-slate-800"
-                        }`}
-                      >
-                        <span className="min-w-0 truncate text-left">{option.display}</span>
-                        {Number(option?.voteCount) > 0 ? (
-                          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black text-white shadow-sm">
-                            {Number(option.voteCount)}
-                          </span>
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
+                  <OcidVoteOptionsGrid
+                    darkMode={darkMode}
+                    onSelect={submitOcidVote}
+                    options={ocidVote.options || []}
+                    selectedOptionId={ocidSelectedOptionId}
+                  />
                 ) : (
                   <form
                     className="flex gap-2"
@@ -38456,144 +38473,24 @@ function handleTouchEnd(e) {
           </div>
 
           {phase === "playing" && isSpecial3WordsMode ? (
-            <div className="relative flex flex-col flex-1 min-h-0 gap-2">
-              <div className="text-xs font-semibold text-center text-orange-700">
-                Place les bonus sur la grille, puis garde 3 mots avec des tuiles de départ différentes.
-              </div>
-              <div
-                className={`rounded-lg border px-2 py-2 space-y-1.5 ${
-                  darkMode
-                    ? "bg-slate-900/90 border-slate-700"
-                    : "bg-white/90 border-slate-200"
-                } ${
-                  special3TutorialStep >= 1 ? "special3-tutorial-focus" : ""
-                }`}
-              >
-                {special3Slots.map((slot, idx) => {
-                  const slotWord = String(slot?.word || "").trim();
-                  const isActiveSlot = idx === special3ActiveSlotIndex;
-                  const showLiveWord = isActiveSlot && !slotWord && !!liveWord;
-                  const displayWord = showLiveWord
-                    ? String(liveWord || "").toUpperCase()
-                    : String(slot?.display || slotWord || "").toUpperCase();
-                  const displayPath = showLiveWord
-                    ? highlightPath
-                    : Array.isArray(slot?.path)
-                    ? slot.path
-                    : [];
-                  const liveInvalid = showLiveWord && !dailyLiveWordValid;
-                  const numericScoreLabel = slotWord
-                    ? Number.isFinite(slot?.pts)
-                      ? formatNumber(slot.pts)
-                      : "0"
-                    : showLiveWord && dailyLiveWordValid
-                    ? formatNumber(dailyLiveWordScore || 0)
-                    : null;
-                  const scoreLabel = slotWord
-                    ? Number.isFinite(slot?.pts)
-                      ? `${formatNumber(slot.pts)} pts`
-                      : "0 pt"
-                    : showLiveWord
-                    ? dailyLiveWordValid
-                      ? `${formatNumber(dailyLiveWordScore || 0)} pts`
-                      : dailyLiveWordBlockedReason || "INVALIDE"
-                    : "—";
-                  const rowIsInvalid = dailyInvalidSlot === idx && dailyInvalidPulseKey > 0;
-                  return (
-                    <div
-                      key={`live-special3-slot-${idx}-${rowIsInvalid ? dailyInvalidPulseKey : 0}`}
-                      className={[
-                        "rounded-md border-l-4 px-1.5 py-1.5",
-                        isActiveSlot
-                          ? darkMode
-                            ? "border-amber-400 bg-slate-800/60"
-                            : "border-amber-400 bg-amber-50"
-                          : darkMode
-                          ? "border-transparent bg-slate-900/35"
-                          : "border-transparent bg-slate-50/70",
-                        rowIsInvalid && visualScreenShakeEnabled ? "daily-invalid-shake" : "",
-                      ].join(" ")}
-                    >
-                      <button
-                        type="button"
-                        className="block w-full text-left min-w-0"
-                        onClick={() => {
-                          if (!slotWord) setDailyActiveSlot(idx);
-                        }}
-                      >
-                        <div className="text-[10px] uppercase tracking-wide opacity-60">Mot {idx + 1}</div>
-                        <div className="mt-0.5 min-h-[24px] min-w-0">
-                          {displayWord ? (
-                            renderSpecial3PreviewTiles(
-                              displayWord,
-                              `desktop-special3-slot-${idx}`,
-                              displayPath,
-                              null,
-                              {
-                                align: "left",
-                                disableRotation: true,
-                                compact: true,
-                                minScale: 0.28,
-                                reserveScaledWidth: true,
-                              }
-                            )
-                          ) : (
-                            <div className="h-6 flex items-center text-sm font-black opacity-50">—</div>
-                          )}
-                        </div>
-                      </button>
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <span
-                          title={scoreLabel}
-                          className={`min-w-0 text-xs font-black ${liveInvalid ? "text-red-500" : ""}`}
-                        >
-                          <span className="inline-flex items-center justify-end gap-1">
-                            <span className={numericScoreLabel ? "inline-block min-w-[3ch] text-right tabular-nums" : ""}>
-                              {numericScoreLabel || scoreLabel}
-                            </span>
-                            {slotWord
-                              ? renderSpecial3LengthGobbleBadge(slotWord)
-                              : showLiveWord && dailyLiveWordValid
-                              ? renderSpecial3LengthGobbleBadge(dailyLiveWordNorm)
-                              : null}
-                          </span>
-                        </span>
-                        {slotWord ? (
-                          <button
-                            type="button"
-                            className="h-6 min-w-6 px-1 rounded-full border text-xs font-black"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearDailyWordSlot(idx);
-                            }}
-                          >
-                            x
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="pt-1 text-right text-sm font-black">
-                  Total : {formatNumber(dailyTotalScore)} pts
-                </div>
-              </div>
-              {isDailyPlay ? (
-                <button
-                  type="button"
-                  className={`w-full rounded-xl px-3 py-2 text-sm font-black shadow-sm transition ${
-                    darkMode
-                      ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
-                      : "bg-emerald-500 text-white hover:bg-emerald-600"
-                  }`}
-                  onClick={() => {
-                    void submitDailyScore();
-                  }}
-                >
-                  Valider
-                </button>
-              ) : null}
-            </div>
+            <DesktopSpecial3WordsPanel
+              activeSlotIndex={special3ActiveSlotIndex}
+              clearSlot={clearDailyWordSlot}
+              darkMode={darkMode}
+              dailyInvalidPulseKey={dailyInvalidPulseKey}
+              dailyInvalidSlot={dailyInvalidSlot}
+              dailyTotalScore={dailyTotalScore}
+              formatNumber={formatNumber}
+              isDailyPlay={isDailyPlay}
+              onSelectSlot={setDailyActiveSlot}
+              onSubmit={submitDailyScore}
+              renderLengthBadge={renderSpecial3LengthGobbleBadge}
+              renderPreviewTiles={renderSpecial3PreviewTiles}
+              resolveLiveTrace={resolveSpecial3LiveTrace}
+              slots={special3Slots}
+              tutorialStep={special3TutorialStep}
+              visualScreenShakeEnabled={visualScreenShakeEnabled}
+            />
           ) : phase === "playing" && isOcidRound ? null : phase === "playing" ? (
             <div className="flex flex-col flex-1 min-h-0">
               <LiveFeed

@@ -1,4 +1,9 @@
 import React from "react";
+import {
+  UI_IMAGE_KEYS,
+  getLiveTeamImageKey,
+  getUiImageUrl,
+} from "../../assets/uiAssetManifest.js";
 
 function getReadyLine(lobby) {
   const ready = Number(lobby?.readyCount) || 0;
@@ -170,11 +175,10 @@ export default function InterTournamentLobby({
   const isCountdown = lobby?.phase === "countdown";
   const isIntro = lobby?.phase === "intro";
   const readyDisabled = isCountdown || isIntro || !!lobby?.maintenanceMode;
-  const teamColor = team === "red" ? "rouge" : "bleu";
-  const titleSrc = `/buttons/salon%20${teamColor}.png`;
-  const idleSrc = `/buttons/pret%20${teamColor}.png`;
-  const readySrc = "/buttons/pret%20valid%C3%A9.png";
-  const backSrc = `/buttons/bouton%20retour%20${teamColor}.png`;
+  const titleSrc = getUiImageUrl(getLiveTeamImageKey("salon", team));
+  const idleSrc = getUiImageUrl(getLiveTeamImageKey("ready", team));
+  const readySrc = getUiImageUrl(UI_IMAGE_KEYS.live.readyValidated);
+  const backSrc = getUiImageUrl(getLiveTeamImageKey("return", team));
 
   return (
     <div className="inter-lobby-art">

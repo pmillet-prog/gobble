@@ -1,8 +1,10 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { getLiveTeamImageKey, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 
 const DEFAULT_TRAINING_ROUNDS = [
   { value: "normal", label: "Classique" },
+  { value: "finale", label: "Finale · bonus ×2" },
   { value: "self_specials_3_words", label: "3 mots" },
   { value: "speed", label: "Rapidite" },
   { value: "monstrous", label: "Grille monstrueuse" },
@@ -44,11 +46,7 @@ export default function TrainingRoundPicker({
     : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100";
 
   if (variant === "art") {
-    const teamColor = team === "red" ? "rouge" : "bleu";
-    const imageSrc =
-      teamColor === "rouge"
-        ? "/buttons/eintra%C3%AEnement%20rouge.png"
-        : "/buttons/entra%C3%AEnement%20bleu.png";
+    const imageSrc = getUiImageUrl(getLiveTeamImageKey("training", team));
     const picker =
       open && typeof document !== "undefined"
         ? createPortal(

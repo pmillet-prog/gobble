@@ -10,6 +10,7 @@ export default function VisualSettingsPanel({
   visualInvalidWordsEnabled = false,
   visualScreenShakeEnabled = false,
   visualConfettiEnabled = false,
+  visualGoldNickFxEnabled = false,
   onClose = null,
   onOpenTheme = null,
   themeBalance = 0,
@@ -20,6 +21,7 @@ export default function VisualSettingsPanel({
   onToggleInvalidWords = null,
   onToggleScreenShake = null,
   onToggleConfetti = null,
+  onToggleGoldNickFx = null,
 }) {
   const panelClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] border-amber-300/70 text-amber-50"
@@ -71,7 +73,7 @@ export default function VisualSettingsPanel({
             </button>
             <div className="text-sm font-extrabold tracking-wide">Apparence</div>
             <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
-              {enabledVisualCount}/5
+              {enabledVisualCount}/6
             </span>
           </div>
         </div>
@@ -133,6 +135,11 @@ export default function VisualSettingsPanel({
             enabled: visualConfettiEnabled,
             label: "Confettis",
             onClick: onToggleConfetti,
+          })}
+          {renderToggle({
+            enabled: visualGoldNickFxEnabled,
+            label: "Pseudo or spectaculaire",
+            onClick: onToggleGoldNickFx,
           })}
         </div>
       </div>

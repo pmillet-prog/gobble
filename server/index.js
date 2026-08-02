@@ -24,6 +24,14 @@ import {
   findBestPathForWord,
   normalizeWord,
 } from "../shared/gameLogic.js";
+import {
+  FINALE_DESCRIPTION,
+  FINALE_MIN_TOTAL_SCORE,
+  FINALE_TILE_BONUS_MULTIPLIER,
+  FINALE_TYPE,
+  getFinaleMinWords,
+} from "../shared/finaleRules.js";
+import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
@@ -44,6 +52,10 @@ import {
   pickWordThemeChallenge,
 } from "./definitions/wordInsightService.js";
 import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
+import {
+  emitChatSocketEvent,
+  joinSocketToChatRoom,
+} from "./chat/chatSocketRooms.js";
 import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
@@ -132,6 +144,7 @@ import {
   initPlayerProfileService,
   getPublicPlayerProfileByUserId,
 } from "./stats/playerProfileService.js";
+import { getTargetWaitDevCatalog } from "./targetMiniGame/targetWaitCatalogService.js";
 import {
   clearBroadcastMessage,
   getActiveBroadcast,
@@ -375,6 +388,10 @@ function buildSolveCacheKey(grid, special) {
     Number.isFinite(special?.bonusLetterScore) ? special.bonusLetterScore : "";
   const disableBonuses = special?.disableBonuses ? 1 : 0;
   const classicBoggleScoring = special?.classicBoggleScoring ? 1 : 0;
+  const tileBonusMultiplier =
+    Number.isFinite(special?.tileBonusMultiplier) && special.tileBonusMultiplier > 0
+      ? special.tileBonusMultiplier
+      : "";
   const minWordLength =
     Number.isFinite(special?.minWordLength) && special.minWordLength > 0
       ? Math.trunc(special.minWordLength)
@@ -386,6 +403,7 @@ function buildSolveCacheKey(grid, special) {
     bonusLetterScore,
     disableBonuses,
     classicBoggleScoring,
+    tileBonusMultiplier,
     minWordLength,
   ].join("|");
 }
@@ -1754,6 +1772,7 @@ let duelWeekCacheKey = getDuelParisWeekId();
 const DEV_FORCED_ROUND_TYPES = new Set([
   "",
   "normal",
+  FINALE_TYPE,
   "self_specials_3_words",
   "speed",
   "monstrous",
@@ -2218,6 +2237,7 @@ function buildDevControlsPayload(socket = null) {
     roundTypes: [
       { value: "", label: "Cycle normal" },
       { value: "normal", label: "Manches normales" },
+      { value: FINALE_TYPE, label: "Finale · bonus ×2" },
       { value: "self_specials_3_words", label: "3 mots en boucle" },
       { value: "speed", label: "Rapidite en boucle" },
       { value: "monstrous", label: "Grille monstrueuse" },
@@ -3082,12 +3102,24 @@ function buildBaseTournamentPlan(tournamentRound, roomConfig) {
     gridSize: size,
     isSpecial: false,
     type: "normal",
-    label:
-      tournamentRound === TOURNAMENT_TOTAL_ROUNDS
-        ? "Manche finale"
-        : "Manche classique",
+    label: "Manche classique",
     description: null,
     minWords: roomConfig?.minWords || 0,
+  };
+}
+
+function buildFinaleTournamentPlan(tournamentRound, roomConfig) {
+  const base = buildBaseTournamentPlan(tournamentRound, roomConfig);
+  return {
+    ...base,
+    isSpecial: true,
+    type: FINALE_TYPE,
+    label: "Manche finale",
+    description: FINALE_DESCRIPTION,
+    minWords: getFinaleMinWords(roomConfig?.minWords || 0),
+    minTotalScore: FINALE_MIN_TOTAL_SCORE,
+    tileBonusMultiplier: FINALE_TILE_BONUS_MULTIPLIER,
+    qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
 }
 
@@ -3333,6 +3365,8 @@ function getTournamentRoundPlan(room, tournamentRound) {
     switch (forcedRoundType) {
       case "normal":
         return buildBaseTournamentPlan(tournamentRound, room.config);
+      case FINALE_TYPE:
+        return buildFinaleTournamentPlan(tournamentRound, room.config);
       case SELF_SPECIAL_3_WORDS_TYPE:
         return buildSelfSpecial3WordsTournamentPlan(tournamentRound, room.config);
       case "speed":
@@ -3374,9 +3408,9 @@ function getTournamentRoundPlan(room, tournamentRound) {
     return buildMassiveBoggleTournamentPlan(tournamentRound, room.config);
   }
   const total = room?.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS;
-  // La manche finale n'est jamais une manche spéciale.
+  // La finale conserve le jeu classique, avec une grille plus riche et des bonus renforcés.
   if (tournamentRound === total) {
-    return buildBaseTournamentPlan(tournamentRound, room.config);
+    return buildFinaleTournamentPlan(tournamentRound, room.config);
   }
   const special = room?.tournament?.specials?.get(tournamentRound);
   if (special) return special;
@@ -3387,6 +3421,8 @@ function getTrainingRoundPlan(room, rawType) {
   const type = String(rawType || "normal").trim();
   const roundNumber = 1;
   switch (type) {
+    case FINALE_TYPE:
+      return buildFinaleTournamentPlan(roundNumber, room.config);
     case SELF_SPECIAL_3_WORDS_TYPE:
       return buildSelfSpecial3WordsTournamentPlan(roundNumber, room.config);
     case "speed":
@@ -3586,6 +3622,9 @@ async function startTrainingRound(room, rawType) {
 function buildSpecialWarning(plan) {
   if (!plan?.isSpecial) return null;
   const label = plan.label || "manche speciale";
+  if (plan.type === FINALE_TYPE) {
+    return "FINALE À SUIVRE : points du classement ×2 et tuiles spéciales ×2 (L2→L4, L3→L6, M2→M4, M3→M6)";
+  }
   if (plan.type === "speed") {
     return `ATTENTION, MANCHE SPECIALE A SUIVRE : ${label} (mots fixes à ${SPEED_WORD_SCORE} pts)`;
   }
@@ -4333,6 +4372,7 @@ function buildRoundSubmissionSolutions(round) {
     const shouldRescorePrepared =
       !!scoreConfig?.bonusLetter ||
       !!scoreConfig?.classicBoggleScoring ||
+      Number(scoreConfig?.tileBonusMultiplier) > 1 ||
       round.special?.type === "bonus_letter" ||
       round.special?.type === MASSIVE_BOGGLE_TYPE;
     return packRoundSubmissionSolutions(preparedSolutions.map((entry) => {
@@ -4402,7 +4442,9 @@ function buildRoundStartedPayload(room) {
   const nextPlan = isTrainingRound ? null : getTournamentRoundPlan(room, nextTournamentRound);
   const currentQuality = round.quality;
   const isCustomScoredSpecialRound =
-    round.special?.type === "bonus_letter" || round.special?.type === MASSIVE_BOGGLE_TYPE;
+    round.special?.type === "bonus_letter" ||
+    round.special?.type === MASSIVE_BOGGLE_TYPE ||
+    round.special?.type === FINALE_TYPE;
   const isSpecial3WordsRound = round.special?.type === "self_specials_3_words";
   const bonusBestPts = Number(room?.bestPossibleStats?.maxPts) || 0;
   const bonusPossibleScore = Number(room?.bestPossibleStats?.totalPts) || 0;
@@ -5127,7 +5169,7 @@ function pushChatMessage(room, message) {
   });
   room.chatMessages = merged;
 
-  io.to(room.id).emit("chatMessage", message);
+  emitChatSocketEvent(io, room.id, "chatMessage", message);
   scheduleDevBotResponseForChat(room, message);
 }
 
@@ -6605,7 +6647,7 @@ function addDevBotReaction(room, message, seed = Date.now()) {
     nick,
   });
   if (!result.ok) return;
-  io.to(room.id).emit("chat:message_reaction", {
+  emitChatSocketEvent(io, room.id, "chat:message_reaction", {
     roomId: room.id,
     messageId: message.id,
     reactions: result.reactions,
@@ -6694,7 +6736,7 @@ function clearDevChat(room) {
   if (removed > 0) {
     removedMessages.forEach((message) => {
       if (!message?.id) return;
-      io.to(room.id).emit("chat:message_delete", {
+      emitChatSocketEvent(io, room.id, "chat:message_delete", {
         roomId: room.id,
         messageId: message.id,
         deletedAt: Date.now(),
@@ -6781,6 +6823,13 @@ function computeBestPossible(grid, special = null) {
 }
 
 function getSpecialScoreConfigFromPlan(plan) {
+  if (plan?.type === FINALE_TYPE) {
+    return {
+      type: FINALE_TYPE,
+      tileBonusMultiplier:
+        Number(plan?.tileBonusMultiplier) || FINALE_TILE_BONUS_MULTIPLIER,
+    };
+  }
   if (plan?.type === "bonus_letter" && plan?.bonusLetter) {
     return {
       bonusLetter: plan.bonusLetter,
@@ -6806,29 +6855,7 @@ function getSpecialScoreConfigFromPlan(plan) {
 }
 
 function getSpecialScoreConfig(round) {
-  const plan = round?.special;
-  if (plan?.type === "bonus_letter" && plan?.bonusLetter) {
-    return {
-      bonusLetter: plan.bonusLetter,
-      bonusLetterScore: plan.bonusLetterScore || BONUS_LETTER_SCORE,
-      disableBonuses: true,
-    };
-  }
-  if (plan?.type === MASSIVE_BOGGLE_TYPE) {
-    return {
-      classicBoggleScoring: true,
-      minWordLength: plan?.minWordLength || 3,
-      disableBonuses: true,
-    };
-  }
-  if (plan?.type === FAKE_TWINS_TYPE) {
-    return {
-      type: FAKE_TWINS_TYPE,
-      minWordLength: plan?.minWordLength || FAKE_TWINS_MIN_WORD_LENGTH,
-      disableBonuses: true,
-    };
-  }
-  return null;
+  return getSpecialScoreConfigFromPlan(round?.special);
 }
 
 function getLiveHeadToHeadRoundType(round) {
@@ -6933,7 +6960,8 @@ function shuffleOcidOptions(options) {
   return out;
 }
 
-function buildOcidVoteOptions(round) {
+function buildOcidVoteOptions(room) {
+  const round = room?.currentRound;
   if (!round || round.special?.type !== OCID_TYPE) return [];
   if (Array.isArray(round.ocidOptions) && round.ocidOptions.length) return round.ocidOptions;
   const targetNorm = normalizeWord(round.targetWord || "");
@@ -6946,6 +6974,8 @@ function buildOcidVoteOptions(round) {
       display: targetDisplay || targetNorm.toUpperCase(),
       isTarget: true,
       authors: [],
+      hasBotAuthor: false,
+      hasHumanAuthor: false,
     });
   }
   const proposals =
@@ -6959,13 +6989,18 @@ function buildOcidVoteOptions(round) {
       display: (String(proposal?.display || normalized).trim() || normalized).toUpperCase(),
       isTarget: false,
       authors: [],
+      hasBotAuthor: false,
+      hasHumanAuthor: false,
     };
     if (!existing.authors.includes(nick)) existing.authors.push(nick);
+    if (isBotNick(room, nick)) existing.hasBotAuthor = true;
+    else existing.hasHumanAuthor = true;
     byNorm.set(normalized, existing);
   }
   const options = shuffleOcidOptions(Array.from(byNorm.values())).map((option, idx) => ({
     ...option,
     id: `ocid-option-${idx}-${option.word}`,
+    botOnly: !option.isTarget && option.hasBotAuthor && !option.hasHumanAuthor,
   }));
   round.ocidOptions = options;
   return options;
@@ -6974,7 +7009,7 @@ function buildOcidVoteOptions(round) {
 function buildPublicOcidVotePayload(room) {
   const round = room?.currentRound;
   if (!round || round.special?.type !== OCID_TYPE) return null;
-  const options = buildOcidVoteOptions(round);
+  const options = buildOcidVoteOptions(room);
   const voteCounts = new Map();
   if (round.ocidVotes instanceof Map) {
     for (const optionId of round.ocidVotes.values()) {
@@ -6990,6 +7025,7 @@ function buildPublicOcidVotePayload(room) {
     options: options.map((option) => ({
       id: option.id,
       display: option.display,
+      botOnly: !!option.botOnly,
       voteCount: Number(voteCounts.get(option.id)) || 0,
     })),
   };
@@ -7065,7 +7101,7 @@ function submitOcidVoteForNick(room, { roundId, nick, optionId }) {
     return { ok: false, error: "not_logged_in" };
   }
   const selectedOptionId = String(optionId || "");
-  const options = buildOcidVoteOptions(round);
+  const options = buildOcidVoteOptions(room);
   const selectedOption = options.find((option) => option.id === selectedOptionId);
   if (!selectedOption) {
     return { ok: false, error: "invalid_option" };
@@ -7081,7 +7117,7 @@ function submitOcidVoteForNick(room, { roundId, nick, optionId }) {
 function computeOcidRoundResults(room, baseResults) {
   const round = room?.currentRound;
   if (!round || round.special?.type !== OCID_TYPE) return null;
-  const options = buildOcidVoteOptions(round);
+  const options = buildOcidVoteOptions(room);
   const targetNorm = normalizeWord(round.targetWord || "");
   const proposalStartedAt =
     Number.isFinite(round.startsAt)
@@ -7626,7 +7662,7 @@ async function waitForDuelWordTasksBeforeResults(room, tasks) {
 function enqueueDuelWordAccepted(room, payload) {
   const roundRef = room?.currentRound;
   const installId = normalizeInstallId(payload?.installId);
-  if (!room || !roundRef || !installId) return;
+  if (!room || !roundRef || !installId || !shouldPersistRoundProgress(roundRef)) return;
   if (!(roundRef.duelWordAcceptedQueues instanceof Map)) {
     roundRef.duelWordAcceptedQueues = new Map();
   }
@@ -7711,6 +7747,7 @@ function submitWordForNick(
 
   const roundSpecialType = room.currentRound?.special?.type;
   const isTargetRound = roundSpecialType === "target_long" || roundSpecialType === "target_score";
+  const persistentProgressAllowed = shouldPersistRoundProgress(room.currentRound);
   if (roundSpecialType === OCID_TYPE) {
     return { ok: false, error: "ocid_use_proposal" };
   }
@@ -7841,7 +7878,7 @@ function submitWordForNick(
   const playerInstallId = normalizeInstallId(playerObj?.installId);
   const playerKey = getMedalKeyForPlayer(playerObj) || getMedalKeyForNick(resolvedNick);
   const isBotPlayer = isBotToken(playerObj?.token);
-  if (!isBotPlayer && playerKey && !isTargetRound) {
+  if (persistentProgressAllowed && !isBotPlayer && playerKey && !isTargetRound) {
     const achievedAt = Date.now();
     recordBestWord(playerKey, resolvedNick, norm, wordPts, achievedAt);
     recordLongestWord(playerKey, resolvedNick, norm, len, achievedAt);
@@ -7938,7 +7975,7 @@ function submitWordForNick(
         nick: resolvedNick,
         kind: specialType,
       });
-      if (!isBotPlayer && playerKey) {
+      if (persistentProgressAllowed && !isBotPlayer && playerKey) {
         recordBestTargetTime(
           specialType,
           playerKey,
@@ -8015,7 +8052,7 @@ function submitWordForNick(
     });
   }
 
-  if (!isBotPlayer && playerInstallId) {
+  if (persistentProgressAllowed && !isBotPlayer && playerInstallId) {
     const usedBonusTile = Array.isArray(scoredPath)
       ? scoredPath.some((idx) => {
           const cell = room.currentRound?.grid?.[idx];
@@ -8108,7 +8145,7 @@ function submitWordForNick(
 
   const liveGobblarsNow =
     (scoreGobbleAllowed && isMaxPossiblePts ? 1 : 0) + (isMaxPossibleLen ? 1 : 0);
-  if (!isBotPlayer && playerInstallId && liveGobblarsNow > 0) {
+  if (persistentProgressAllowed && !isBotPlayer && playerInstallId && liveGobblarsNow > 0) {
     void persistenceClient.addGobblars({
       installId: playerInstallId,
       amount: liveGobblarsNow,
@@ -8826,6 +8863,7 @@ function getPreparedPlanCacheKey(plan) {
     bonusLetter: plan.bonusLetter || "",
     bonusLetterScore: plan.bonusLetterScore || 0,
     classicBoggleScoring: !!plan.classicBoggleScoring,
+    tileBonusMultiplier: Number(plan.tileBonusMultiplier) || 0,
     fixedWordScore: plan.fixedWordScore || 0,
     disableBonuses: !!plan.disableBonuses,
     ocidExcludedTargets: Array.isArray(plan.ocidExcludedTargets)
@@ -8883,7 +8921,9 @@ function emitRoundPreparing(room, plan, roundNumber, tournamentRound) {
       round: tournamentRound || room.tournament?.currentRound || 0,
       totalRounds: room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
     },
-    message: plan?.isSpecial
+    message: plan?.type === FINALE_TYPE
+      ? "La grille finale renforcée met un peu plus de temps à générer."
+      : plan?.isSpecial
       ? `La manche spéciale ${plan.label || ""} met un peu plus de temps à générer.`
       : "La prochaine grille met un peu plus de temps à générer.",
     startedAt: Date.now(),
@@ -9313,10 +9353,10 @@ async function runStartRoundForRoom(room, options = {}) {
     }
   }
   if (!prepared) {
-    // Startup path: ensure the very first round also goes through worker quality/solver.
-    if (planNeedsPreparedGrid(planUsed) || planUsed?.isSpecial) {
-      emitRoundPreparing(room, planUsed, roundNumber, tournamentRound);
-    }
+    // Any cache miss means the server must wait for the worker before it can
+    // start the round, including a normal grid or a preparation already in
+    // progress. Keep players on the preparation screen for that whole wait.
+    emitRoundPreparing(room, planUsed, roundNumber, tournamentRound);
     prepared = await prepareNextGrid(room, planUsed, roundNumber);
     if (prepared?.roundNumber === roundNumber && room.nextPreparedGrid?.roundNumber === roundNumber) {
       room.nextPreparedGrid = null;
@@ -9437,7 +9477,9 @@ async function runStartRoundForRoom(room, options = {}) {
       }
     }
     if (
-      (planUsed?.type === "bonus_letter" || planUsed?.type === MASSIVE_BOGGLE_TYPE) &&
+      (planUsed?.type === "bonus_letter" ||
+        planUsed?.type === MASSIVE_BOGGLE_TYPE ||
+        planUsed?.type === FINALE_TYPE) &&
       dictionary
     ) {
       const scoreConfig = getSpecialScoreConfigFromPlan(planUsed);
@@ -9520,7 +9562,9 @@ async function runStartRoundForRoom(room, options = {}) {
 
   if (planUsed?.isSpecial) {
     const specialText =
-      planUsed.type === "speed"
+      planUsed.type === FINALE_TYPE
+        ? "MANCHE FINALE : points du classement ×2 et tuiles spéciales ×2 (L2→L4, L3→L6, M2→M4, M3→M6)"
+        : planUsed.type === "speed"
         ? `MANCHE SPECIALE : ${planUsed.label} - tous les mots valent ${planUsed.fixedWordScore} pts`
         : planUsed.type === "monstrous"
         ? `MANCHE SPECIALE : ${planUsed.label} - gros potentiel de points et de mots longs`
@@ -9727,7 +9771,7 @@ async function endRoundForRoom(room) {
   const roundSubs = room.submissions.get(room.currentRound.id) || new Map();
   const results = [];
   const specialType = room.currentRound?.special?.type;
-  const isTrainingRound = !!room.currentRound?.training;
+  const isTrainingRound = !shouldPersistRoundProgress(room.currentRound);
   const isTargetRound = specialType === "target_long" || specialType === "target_score";
   let targetPointsMultiplier = 1;
   let targetSummary = null;
@@ -10496,6 +10540,7 @@ async function endRoundForRoom(room) {
   const roundEndedPayload = {
     roomId: room.id,
     roundId: room.currentRound.id,
+    training: isTrainingRound,
     results,
     tournament: {
       id: tournamentId,
@@ -10586,7 +10631,7 @@ async function endRoundForRoom(room) {
       nextRoundNumber
     );
   }
-  if (nextPlan?.isSpecial && planNeedsPreparedGrid(nextPlan)) {
+  if (nextPlan && breakKind !== "tournament_end" && breakKind !== "training_end") {
     const preparingNoticeDelayMs = Math.max(0, breakMs - 900);
     setTimeout(() => {
       if (room.breakState?.nextStartAt !== nextStartAt) return;
@@ -10744,6 +10789,7 @@ io.on("connection", (socket) => {
       socket.data.playtimeUsageLastAt = Date.now();
       socket.roomId = room.id;
       socket.join(room.id);
+      joinSocketToChatRoom(socket, room.id);
       emitPlayers(room);
       emitTournamentLobby(room);
       emitMedals(room);
@@ -10848,6 +10894,7 @@ io.on("connection", (socket) => {
     socket.data.playtimeUsageLastAt = Date.now();
     socket.roomId = room.id;
     socket.join(room.id);
+    joinSocketToChatRoom(socket, room.id);
     if (!isBotToken(token) && !isResumeLogin) {
       const team = getTeamForInstallCached(installId);
       pushSystemChatMessage(
@@ -11077,8 +11124,7 @@ io.on("connection", (socket) => {
     if (isLobbyPayload) {
       socket.data.chatInstallId = installId;
       socket.data.chatNick = authorNick;
-      socket.data.chatRoomId = room.id;
-      socket.join(room.id);
+      joinSocketToChatRoom(socket, room.id);
     } else if (!player) {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
@@ -11174,8 +11220,7 @@ io.on("connection", (socket) => {
     if (isLobbyPayload) {
       socket.data.chatInstallId = installId;
       socket.data.chatNick = authorNick;
-      socket.data.chatRoomId = room.id;
-      socket.join(room.id);
+      joinSocketToChatRoom(socket, room.id);
     } else if (!player && !socket.data?.chatInstallId) {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
@@ -11192,7 +11237,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    io.to(room.id).emit("chat:message_reaction", {
+    emitChatSocketEvent(io, room.id, "chat:message_reaction", {
       roomId: room.id,
       messageId,
       reactions: result.reactions,
@@ -11230,8 +11275,7 @@ io.on("connection", (socket) => {
     }
     if (isLobbyPayload) {
       socket.data.chatInstallId = installId;
-      socket.data.chatRoomId = room.id;
-      socket.join(room.id);
+      joinSocketToChatRoom(socket, room.id);
     } else if (!player && !socket.data?.chatInstallId) {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
@@ -11245,7 +11289,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: result.error || "edit_failed" });
       return;
     }
-    io.to(room.id).emit("chat:message_update", {
+    emitChatSocketEvent(io, room.id, "chat:message_update", {
       roomId: room.id,
       message: result.message,
     });
@@ -11281,8 +11325,7 @@ io.on("connection", (socket) => {
     }
     if (isLobbyPayload) {
       socket.data.chatInstallId = installId;
-      socket.data.chatRoomId = room.id;
-      socket.join(room.id);
+      joinSocketToChatRoom(socket, room.id);
     } else if (!player && !socket.data?.chatInstallId) {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
@@ -11295,7 +11338,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: result.error || "delete_failed" });
       return;
     }
-    io.to(room.id).emit("chat:message_delete", {
+    emitChatSocketEvent(io, room.id, "chat:message_delete", {
       roomId: room.id,
       messageId: result.messageId,
       deletedAt: result.deletedAt,
@@ -11315,8 +11358,7 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "invalid_room" });
       return;
     }
-    socket.data.chatRoomId = room.id;
-    socket.join(room.id);
+    joinSocketToChatRoom(socket, room.id);
     socket.emit("chat:history", Array.isArray(room.chatMessages) ? room.chatMessages : []);
     const identity = getSocketPlayerIdentity(socket);
     cb?.({
@@ -11355,6 +11397,17 @@ io.on("connection", (socket) => {
   socket.on("dev:lock", (_payload, cb) => {
     socket.data.devToolsUnlocked = true;
     cb?.({ ok: true, ...buildDevControlsPayload(socket) });
+  });
+
+  socket.on("dev:targetWait:catalog", (payload, cb) => {
+    if (!requireDevToolsAccess(socket, cb)) return;
+    try {
+      const catalog = getTargetWaitDevCatalog({ limit: payload?.limit });
+      cb?.({ ok: true, ...catalog });
+    } catch (error) {
+      console.warn("[target-wait] catalogue dev indisponible", error?.message || error);
+      cb?.({ ok: false, error: "target_wait_catalog_unavailable" });
+    }
   });
 
   socket.on("dev:controls:set", (payload, cb) => {

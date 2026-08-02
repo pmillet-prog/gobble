@@ -2,6 +2,7 @@ const STATE_KEY = "__gobblePerfState";
 const PUBLIC_KEY = "__gobblePerf";
 const TILE_SELECTOR = "[data-board-index], .tile-cell";
 const MAX_SESSIONS = 200;
+const MAX_EVENTS = 160;
 
 let probeEnabled = false;
 
@@ -103,6 +104,13 @@ function createState() {
     activeSession: null,
     autoTrace: true,
     detachTraceListeners: null,
+    events: [],
+    frameGaps: {
+      count: 0,
+      lastAfter: "",
+      lastMs: 0,
+      maxMs: 0,
+    },
     listenersAttached: false,
     nextTileId: 1,
     sessions: [],
@@ -129,11 +137,17 @@ function getState() {
     window[STATE_KEY] = createState();
   }
   const state = window[STATE_KEY];
+  if (!Array.isArray(state.events)) state.events = [];
+  if (!state.frameGaps || typeof state.frameGaps !== "object") {
+    state.frameGaps = { count: 0, lastAfter: "", lastMs: 0, maxMs: 0 };
+  }
   if (probeEnabled) attachTraceListeners(state);
   if (!window[PUBLIC_KEY]) {
     window[PUBLIC_KEY] = {
       reset() {
         state.activeSession = null;
+        state.events = [];
+        state.frameGaps = { count: 0, lastAfter: "", lastMs: 0, maxMs: 0 };
         state.sessions = [];
         state.totalAppRenders = 0;
         if (state.stopTimer) window.clearTimeout(state.stopTimer);
@@ -144,6 +158,8 @@ function getState() {
         return {
           active: snapshotSession(state.activeSession, state.totalAppRenders),
           autoTrace: state.autoTrace,
+          events: [...state.events],
+          frameGaps: { ...state.frameGaps },
           sessions: [...state.sessions],
           totalAppRenders: state.totalAppRenders,
         };
@@ -209,11 +225,58 @@ export function recordAppRender() {
   state.totalAppRenders += 1;
 }
 
+function pushPerfEvent(state, label, payload = {}, atMs = getNow()) {
+  const event = {
+    atMs: roundMs(atMs),
+    label: String(label || "event"),
+    payload: payload && typeof payload === "object" ? payload : {},
+  };
+  state.events.push(event);
+  if (state.events.length > MAX_EVENTS) {
+    state.events.splice(0, state.events.length - MAX_EVENTS);
+  }
+  return event;
+}
+
+export function recordPerfEvent(label, payload = {}) {
+  if (!probeEnabled) return null;
+  const state = getState();
+  if (!state) return null;
+  return pushPerfEvent(state, label, payload);
+}
+
+export function recordPerfFrameGap(gapMs) {
+  if (!probeEnabled) return null;
+  const numericGap = Math.max(0, Number(gapMs) || 0);
+  if (numericGap < 50) return null;
+  const state = getState();
+  if (!state) return null;
+  const now = getNow();
+  const recent = [...state.events]
+    .reverse()
+    .find((event) => event?.label !== "frame-gap" && now - Number(event?.atMs || 0) <= 500);
+  const after = String(recent?.label || "");
+  state.frameGaps = {
+    count: state.frameGaps.count + 1,
+    lastAfter: after,
+    lastMs: roundMs(numericGap),
+    maxMs: Math.max(state.frameGaps.maxMs, roundMs(numericGap)),
+  };
+  return pushPerfEvent(
+    state,
+    "frame-gap",
+    { after, gapMs: roundMs(numericGap) },
+    now
+  );
+}
+
 export function getPerfSnapshot() {
   if (!probeEnabled) {
     return {
       active: null,
       autoTrace: false,
+      events: [],
+      frameGaps: { count: 0, lastAfter: "", lastMs: 0, maxMs: 0 },
       sessions: [],
       totalAppRenders: 0,
     };
@@ -223,6 +286,8 @@ export function getPerfSnapshot() {
     return {
       active: null,
       autoTrace: true,
+      events: [],
+      frameGaps: { count: 0, lastAfter: "", lastMs: 0, maxMs: 0 },
       sessions: [],
       totalAppRenders: 0,
     };

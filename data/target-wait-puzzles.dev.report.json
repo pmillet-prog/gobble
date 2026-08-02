@@ -1,0 +1,3348 @@
+{
+  "generatedAt": "2026-07-28T09:11:27.737Z",
+  "durationMs": 23819,
+  "trie": {
+    "words": 408063,
+    "nodes": 775208,
+    "buildDurationMs": 672
+  },
+  "pools": {
+    "dictionaryWords": 411430,
+    "targetWords": 3703,
+    "commonWords": 12044
+  },
+  "generator": "target-wait-v1",
+  "seed": 1233935030,
+  "seedText": "gobble-target-wait-v1",
+  "source": {
+    "dictionary": "public\\dico.txt",
+    "rarityDb": "data\\word-rarity.sqlite"
+  },
+  "config": {
+    "count": 500,
+    "maxAttempts": 40000,
+    "choices": 5,
+    "minLength": 7,
+    "maxLength": 11,
+    "maxPerTarget": 4,
+    "minTargetFound": 1,
+    "minCommonFound": 2,
+    "minCorrectOtherWords": 2,
+    "minDecoyCommonWords": 2,
+    "minDecoyBlankWords": 3,
+    "minDecoyMaxLength": 4,
+    "strictGlobalUnique": false
+  },
+  "generation": {
+    "schemaVersion": 1,
+    "requested": 500,
+    "accepted": 500,
+    "attempts": 7251,
+    "acceptanceRate": 0.06895600606812853,
+    "exhausted": false,
+    "seed": 1233935030,
+    "choices": 5,
+    "requireGlobalUniqueness": false,
+    "averageCompetingLetters": 4.224,
+    "acceptedByLength": {
+      "7": 136,
+      "8": 179,
+      "9": 104,
+      "10": 53,
+      "11": 28
+    },
+    "correctLetters": {
+      "A": 51,
+      "B": 9,
+      "C": 13,
+      "D": 17,
+      "E": 74,
+      "F": 2,
+      "G": 12,
+      "H": 1,
+      "I": 37,
+      "L": 33,
+      "M": 10,
+      "N": 33,
+      "O": 28,
+      "P": 11,
+      "R": 54,
+      "S": 34,
+      "T": 53,
+      "U": 21,
+      "V": 4,
+      "X": 3
+    },
+    "targetUsage": {
+      "abietinee": 1,
+      "accortise": 1,
+      "accrocher": 1,
+      "agnosique": 2,
+      "aleatoire": 2,
+      "allegeance": 4,
+      "anodique": 1,
+      "anomalie": 1,
+      "anormale": 1,
+      "antilogie": 1,
+      "antipode": 2,
+      "apeurant": 1,
+      "aphidides": 2,
+      "apostasier": 3,
+      "apraxie": 1,
+      "aquatinte": 2,
+      "argenteuse": 1,
+      "arnaque": 1,
+      "artiste": 1,
+      "assidument": 2,
+      "assieger": 1,
+      "assoiffer": 1,
+      "attaquer": 1,
+      "avalent": 1,
+      "backroom": 2,
+      "badasse": 1,
+      "bakelite": 1,
+      "baliseur": 1,
+      "barriere": 1,
+      "batailler": 1,
+      "batterie": 1,
+      "bearnais": 1,
+      "bearnaise": 2,
+      "beignet": 1,
+      "beliere": 1,
+      "beloteur": 1,
+      "berneuse": 1,
+      "betisier": 1,
+      "bienseant": 2,
+      "bistourne": 1,
+      "blamage": 1,
+      "blasant": 1,
+      "bloquer": 1,
+      "blottir": 1,
+      "blouson": 1,
+      "bordure": 1,
+      "bottine": 1,
+      "boudoir": 1,
+      "bouquete": 2,
+      "bragues": 1,
+      "brassage": 1,
+      "bringues": 1,
+      "broutant": 1,
+      "brouter": 1,
+      "butteur": 1,
+      "cabosse": 1,
+      "cadrage": 1,
+      "cailletage": 1,
+      "calendos": 2,
+      "calineur": 1,
+      "calorique": 2,
+      "canadair": 1,
+      "canaille": 1,
+      "candidater": 1,
+      "canoeiste": 1,
+      "canoteuse": 3,
+      "cantique": 1,
+      "capitale": 1,
+      "caquette": 1,
+      "carmine": 1,
+      "cartonner": 1,
+      "caseine": 1,
+      "cassissier": 1,
+      "castille": 1,
+      "catimini": 2,
+      "caudale": 1,
+      "celtique": 1,
+      "centrer": 1,
+      "centreur": 1,
+      "chirologie": 1,
+      "citronne": 1,
+      "clairure": 1,
+      "claquet": 1,
+      "cliquant": 1,
+      "cliques": 1,
+      "coffrer": 1,
+      "collete": 1,
+      "colosse": 1,
+      "comater": 1,
+      "congestion": 1,
+      "congolais": 1,
+      "connasse": 1,
+      "contrelames": 2,
+      "copulative": 1,
+      "corsage": 1,
+      "cortisone": 1,
+      "cousette": 1,
+      "couture": 1,
+      "crailler": 1,
+      "craquette": 1,
+      "cremant": 1,
+      "crepidule": 2,
+      "crepinette": 1,
+      "criquer": 1,
+      "crispant": 1,
+      "croqueur": 1,
+      "croquis": 1,
+      "crosser": 1,
+      "crotale": 1,
+      "croupier": 1,
+      "crouton": 1,
+      "danseur": 1,
+      "daubiere": 1,
+      "deballage": 3,
+      "debattue": 1,
+      "debouter": 2,
+      "decalquer": 1,
+      "decerner": 1,
+      "decolore": 1,
+      "decorner": 1,
+      "decreter": 1,
+      "defaite": 1,
+      "defenseuse": 2,
+      "degouter": 1,
+      "degraisse": 1,
+      "delaisser": 1,
+      "dematant": 1,
+      "deniaiser": 1,
+      "denteler": 1,
+      "desireux": 2,
+      "desosser": 1,
+      "detordre": 1,
+      "detordu": 1,
+      "dialectiser": 3,
+      "diluant": 1,
+      "disette": 1,
+      "dominatrice": 2,
+      "dormeuse": 1,
+      "doudoune": 1,
+      "druidesse": 1,
+      "duveter": 1,
+      "ecumant": 1,
+      "effilure": 1,
+      "elevage": 1,
+      "eliminer": 1,
+      "emergees": 1,
+      "emondage": 1,
+      "emotion": 1,
+      "emotteur": 1,
+      "encorder": 1,
+      "enculeur": 1,
+      "endocytose": 2,
+      "endormi": 1,
+      "endurant": 1,
+      "engluer": 1,
+      "enjouee": 1,
+      "enliasser": 1,
+      "ennoyage": 1,
+      "enrobant": 1,
+      "entabler": 1,
+      "entetees": 1,
+      "entubage": 1,
+      "enuquer": 1,
+      "envolee": 1,
+      "epointer": 1,
+      "equanime": 1,
+      "equeuter": 1,
+      "eremitique": 1,
+      "esbroufe": 1,
+      "esquisser": 1,
+      "etagement": 1,
+      "etourdie": 1,
+      "etourdir": 1,
+      "etripage": 1,
+      "eveille": 1,
+      "excuser": 1,
+      "exposant": 1,
+      "extrados": 3,
+      "febrile": 1,
+      "fission": 1,
+      "fleurie": 1,
+      "fleurir": 1,
+      "flirter": 1,
+      "foirasse": 1,
+      "forcage": 1,
+      "fossette": 1,
+      "fossile": 1,
+      "foutage": 1,
+      "fragile": 2,
+      "fratricide": 2,
+      "frisage": 1,
+      "froidure": 1,
+      "frondee": 1,
+      "galactose": 1,
+      "gousset": 1,
+      "grailler": 1,
+      "granulaire": 4,
+      "grimace": 1,
+      "haleuse": 1,
+      "haridelle": 1,
+      "helicoptere": 4,
+      "hotelier": 2,
+      "iguanodon": 2,
+      "implorant": 1,
+      "inactinique": 1,
+      "indolent": 1,
+      "installer": 1,
+      "insularite": 1,
+      "internat": 1,
+      "intervenir": 2,
+      "invitatoire": 1,
+      "ionisant": 1,
+      "isolable": 1,
+      "jaqueline": 2,
+      "jeuneur": 1,
+      "jeuniste": 1,
+      "joliesse": 1,
+      "jungien": 1,
+      "lamaserie": 3,
+      "laurentien": 1,
+      "legionnaire": 3,
+      "lentillon": 2,
+      "lessive": 1,
+      "libanais": 1,
+      "ligneur": 1,
+      "ligoter": 1,
+      "limiteur": 2,
+      "linotte": 1,
+      "lipotrope": 1,
+      "longere": 2,
+      "loqueteuse": 2,
+      "louvetier": 1,
+      "luminosite": 3,
+      "maculer": 1,
+      "magique": 1,
+      "maltage": 2,
+      "maltose": 1,
+      "marquais": 1,
+      "marquette": 2,
+      "marqueuse": 1,
+      "marquis": 1,
+      "masquant": 1,
+      "masseur": 1,
+      "mastoide": 1,
+      "maurrassien": 1,
+      "mechant": 1,
+      "merciere": 1,
+      "minoritaire": 1,
+      "minuter": 1,
+      "molester": 1,
+      "mollasse": 1,
+      "monospace": 1,
+      "moqueuse": 2,
+      "muletieres": 2,
+      "musarder": 1,
+      "musiquer": 1,
+      "myometre": 1,
+      "namibien": 1,
+      "nilgaut": 1,
+      "nocturnal": 2,
+      "nominer": 1,
+      "normalien": 1,
+      "noviciat": 2,
+      "nullite": 1,
+      "onglette": 1,
+      "opilion": 2,
+      "oppressif": 2,
+      "orageux": 1,
+      "ordinal": 1,
+      "oreiller": 1,
+      "organiser": 1,
+      "organite": 1,
+      "orniere": 1,
+      "ostendais": 1,
+      "ostinato": 1,
+      "outille": 1,
+      "paillis": 1,
+      "paroles": 1,
+      "parraineuse": 2,
+      "partisan": 1,
+      "pataouete": 1,
+      "pedestre": 1,
+      "pelotage": 1,
+      "penseur": 1,
+      "personne": 1,
+      "pianoter": 2,
+      "piapiater": 1,
+      "pilleuse": 1,
+      "pinailler": 1,
+      "pipasse": 1,
+      "piratage": 1,
+      "pistolet": 1,
+      "placette": 1,
+      "plaider": 1,
+      "plaisir": 1,
+      "plaqueuse": 1,
+      "plonger": 1,
+      "polisson": 2,
+      "pollueur": 1,
+      "polonais": 1,
+      "poudrin": 1,
+      "poulette": 1,
+      "pourrir": 1,
+      "poussines": 2,
+      "prendre": 1,
+      "princesse": 1,
+      "priseur": 1,
+      "prodigalite": 2,
+      "propitheque": 1,
+      "quadriennal": 1,
+      "quatrain": 1,
+      "rabattu": 1,
+      "raisonner": 1,
+      "rallides": 2,
+      "ramasser": 1,
+      "rancuniere": 1,
+      "ratonade": 1,
+      "ravaler": 1,
+      "rebondir": 2,
+      "recognition": 1,
+      "redonner": 2,
+      "regardeuse": 1,
+      "reglisse": 1,
+      "rejeter": 1,
+      "remasticage": 1,
+      "remueuse": 1,
+      "renoncer": 1,
+      "repreneuse": 1,
+      "retiger": 1,
+      "rissoler": 1,
+      "rixdale": 1,
+      "rosserie": 1,
+      "rotisseur": 2,
+      "rouquin": 1,
+      "rouquine": 1,
+      "roussir": 1,
+      "rupicole": 2,
+      "rustine": 1,
+      "rutiler": 1,
+      "saborder": 1,
+      "saboteuse": 1,
+      "saigneur": 1,
+      "saillant": 1,
+      "salissant": 1,
+      "sangler": 1,
+      "saurage": 1,
+      "sauternes": 1,
+      "scabinal": 1,
+      "servitude": 2,
+      "silicium": 1,
+      "simplet": 1,
+      "singerie": 1,
+      "siroter": 1,
+      "snobisme": 1,
+      "solitaire": 2,
+      "soliton": 1,
+      "souillard": 1,
+      "soulageant": 4,
+      "soulager": 1,
+      "souriant": 1,
+      "sourire": 1,
+      "soutier": 1,
+      "stimuler": 1,
+      "stipulant": 1,
+      "stomatique": 1,
+      "sucrerie": 1,
+      "sucrier": 1,
+      "surales": 1,
+      "tabasco": 1,
+      "talonnais": 1,
+      "tamisant": 1,
+      "tatonner": 2,
+      "taximetre": 4,
+      "telegramme": 1,
+      "terrasser": 2,
+      "thomiste": 1,
+      "tissulaire": 1,
+      "titubant": 1,
+      "toilette": 1,
+      "toilettes": 1,
+      "tondeur": 1,
+      "tontine": 1,
+      "toundra": 1,
+      "touraine": 1,
+      "tourisme": 1,
+      "tousserie": 1,
+      "trabouler": 4,
+      "trainasse": 1,
+      "traitant": 1,
+      "traquenard": 2,
+      "trattoria": 1,
+      "treillisse": 1,
+      "trepidant": 1,
+      "tressautant": 2,
+      "triller": 1,
+      "trisser": 1,
+      "triture": 1,
+      "trouille": 1,
+      "ulterieur": 1,
+      "unissant": 1,
+      "vagabond": 3,
+      "vagabonder": 1,
+      "valseuse": 1,
+      "verdict": 1,
+      "versant": 1,
+      "videuse": 1,
+      "visiteur": 2,
+      "voltage": 1,
+      "votante": 1
+    },
+    "rejections": {
+      "target_not_unique_longest": 6698,
+      "insufficient_decoys": 35,
+      "correct_letter_lacks_other_words": 18
+    }
+  },
+  "samples": [
+    {
+      "id": "tw-000001",
+      "grid": "YRIOLSLU_ANGERAR",
+      "blankIndex": 8,
+      "choices": [
+        "P",
+        "G",
+        "E",
+        "M",
+        "I"
+      ],
+      "answer": "I",
+      "word": "GRANULAIRE",
+      "path": [
+        11,
+        15,
+        14,
+        10,
+        7,
+        6,
+        9,
+        8,
+        13,
+        12
+      ],
+      "difficulty": 4,
+      "quality": {
+        "targetLength": 10,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "anglais",
+          "lunaire",
+          "glaire",
+          "lisier",
+          "loisir",
+          "naira",
+          "salir",
+          "aire"
+        ],
+        "decoys": {
+          "E": {
+            "maxLength": 8,
+            "blankWordCount": 86,
+            "commonWords": [
+              "resalir",
+              "ganser",
+              "lisere",
+              "louise",
+              "alise",
+              "anale",
+              "arase",
+              "ganse"
+            ]
+          },
+          "P": {
+            "maxLength": 8,
+            "blankWordCount": 48,
+            "commonWords": [
+              "palois",
+              "alper",
+              "aspre",
+              "laper",
+              "lapsi",
+              "palir",
+              "palis",
+              "panga"
+            ]
+          },
+          "G": {
+            "maxLength": 8,
+            "blankWordCount": 47,
+            "commonWords": [
+              "garage",
+              "lisage",
+              "argan",
+              "argas",
+              "ganga",
+              "graal",
+              "grana",
+              "lager"
+            ]
+          },
+          "M": {
+            "maxLength": 8,
+            "blankWordCount": 45,
+            "commonWords": [
+              "slamer",
+              "islam",
+              "lamer",
+              "larme",
+              "manga",
+              "amer",
+              "arma",
+              "arme"
+            ]
+          }
+        },
+        "competingLetterCount": 2
+      }
+    },
+    {
+      "id": "tw-000002",
+      "grid": "ETILIEOSLIDRQAG_",
+      "blankIndex": 15,
+      "choices": [
+        "I",
+        "A",
+        "U",
+        "P",
+        "E"
+      ],
+      "answer": "P",
+      "word": "PRODIGALITE",
+      "path": [
+        15,
+        11,
+        6,
+        10,
+        9,
+        14,
+        13,
+        8,
+        4,
+        1,
+        5
+      ],
+      "difficulty": 5,
+      "quality": {
+        "targetLength": 11,
+        "targetPlayersFound": 7,
+        "correctOtherWords": [
+          "protee",
+          "proie",
+          "prote",
+          "prod"
+        ],
+        "decoys": {
+          "U": {
+            "maxLength": 8,
+            "blankWordCount": 16,
+            "commonWords": [
+              "tordu",
+              "aigu",
+              "durs",
+              "gurs",
+              "rude"
+            ]
+          },
+          "E": {
+            "maxLength": 8,
+            "blankWordCount": 53,
+            "commonWords": [
+              "egalite",
+              "toilage",
+              "tordage",
+              "elider",
+              "regale",
+              "rodage",
+              "aider",
+              "aigre"
+            ]
+          },
+          "A": {
+            "maxLength": 8,
+            "blankWordCount": 43,
+            "commonWords": [
+              "adagio",
+              "argile",
+              "quadra",
+              "radial",
+              "radiee",
+              "garde",
+              "grade",
+              "lidar"
+            ]
+          },
+          "I": {
+            "maxLength": 8,
+            "blankWordCount": 15,
+            "commonWords": [
+              "idiote",
+              "rigide",
+              "tiedir",
+              "aigri",
+              "idiot",
+              "agir",
+              "lori",
+              "ride"
+            ]
+          }
+        },
+        "competingLetterCount": 0
+      }
+    },
+    {
+      "id": "tw-000003",
+      "grid": "ACEULB_IDRLNTRUL",
+      "blankIndex": 6,
+      "choices": [
+        "D",
+        "G",
+        "U",
+        "T",
+        "L"
+      ],
+      "answer": "T",
+      "word": "NULLITE",
+      "path": [
+        11,
+        14,
+        15,
+        10,
+        7,
+        6,
+        2
+      ],
+      "difficulty": 2,
+      "quality": {
+        "targetLength": 7,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "abeti",
+          "lacet",
+          "lacte",
+          "unite",
+          "acte",
+          "actu",
+          "beti",
+          "etui"
+        ],
+        "decoys": {
+          "U": {
+            "maxLength": 6,
+            "blankWordCount": 40,
+            "commonWords": [
+              "labeur",
+              "laceur",
+              "bruni",
+              "lieur",
+              "truie",
+              "acul",
+              "beur",
+              "brun"
+            ]
+          },
+          "L": {
+            "maxLength": 6,
+            "blankWordCount": 29,
+            "commonWords": [
+              "bacle",
+              "bleui",
+              "cable",
+              "celui",
+              "label",
+              "nille",
+              "nulle",
+              "able"
+            ]
+          },
+          "D": {
+            "maxLength": 6,
+            "blankWordCount": 21,
+            "commonWords": [
+              "blinde",
+              "deuil",
+              "lundi",
+              "cedi",
+              "deca",
+              "dieu",
+              "inde",
+              "indu"
+            ]
+          },
+          "G": {
+            "maxLength": 6,
+            "blankWordCount": 14,
+            "commonWords": [
+              "beguin",
+              "lingue",
+              "ligue",
+              "linge",
+              "begu",
+              "glie",
+              "igue",
+              "lige"
+            ]
+          }
+        },
+        "competingLetterCount": 10
+      }
+    },
+    {
+      "id": "tw-000004",
+      "grid": "_EILENGSGOUKYAAM",
+      "blankIndex": 0,
+      "choices": [
+        "R",
+        "T",
+        "Z",
+        "E",
+        "N"
+      ],
+      "answer": "N",
+      "word": "ENNOYAGE",
+      "path": [
+        1,
+        0,
+        5,
+        9,
+        12,
+        13,
+        8,
+        4
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 4,
+        "correctOtherWords": [
+          "sienne",
+          "negus",
+          "gene",
+          "inne",
+          "lien",
+          "nene",
+          "neon",
+          "sien"
+        ],
+        "decoys": {
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 36,
+            "commonWords": [
+              "lingere",
+              "ligner",
+              "linger",
+              "signer",
+              "singer",
+              "usiner",
+              "auner",
+              "gener"
+            ]
+          },
+          "E": {
+            "maxLength": 7,
+            "blankWordCount": 29,
+            "commonWords": [
+              "enouage",
+              "lignee",
+              "augee",
+              "aunee",
+              "ligne",
+              "signe",
+              "usine",
+              "agee"
+            ]
+          },
+          "T": {
+            "maxLength": 7,
+            "blankWordCount": 25,
+            "commonWords": [
+              "agente",
+              "signet",
+              "teigne",
+              "agent",
+              "genet",
+              "tenge",
+              "ente",
+              "gent"
+            ]
+          },
+          "Z": {
+            "maxLength": 7,
+            "blankWordCount": 24,
+            "commonWords": [
+              "gunz",
+              "onze"
+            ]
+          }
+        },
+        "competingLetterCount": 2
+      }
+    },
+    {
+      "id": "tw-000005",
+      "grid": "GMOSIEDENEIW_QQU",
+      "blankIndex": 12,
+      "choices": [
+        "R",
+        "A",
+        "C",
+        "T",
+        "U"
+      ],
+      "answer": "A",
+      "word": "EQUANIME",
+      "path": [
+        9,
+        13,
+        12,
+        8,
+        4,
+        1,
+        5
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "anemie",
+          "domina",
+          "anime",
+          "quena",
+          "aede",
+          "anee",
+          "mina"
+        ],
+        "decoys": {
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 22,
+            "commonWords": [
+              "deminer",
+              "dominer",
+              "moderne",
+              "denier",
+              "eider",
+              "emier",
+              "gener",
+              "genre"
+            ]
+          },
+          "T": {
+            "maxLength": 7,
+            "blankWordCount": 19,
+            "commonWords": [
+              "edente",
+              "genet",
+              "minet",
+              "quiet",
+              "dent",
+              "ente",
+              "gent",
+              "niet"
+            ]
+          },
+          "U": {
+            "maxLength": 7,
+            "blankWordCount": 14,
+            "commonWords": [
+              "denue",
+              "nuque",
+              "dieu",
+              "menu",
+              "nuee"
+            ]
+          },
+          "C": {
+            "maxLength": 7,
+            "blankWordCount": 7,
+            "commonWords": [
+              "emince",
+              "mince",
+              "cede",
+              "cedi"
+            ]
+          }
+        },
+        "competingLetterCount": 3
+      }
+    },
+    {
+      "id": "tw-000006",
+      "grid": "MFDRC_ENDULYDLWE",
+      "blankIndex": 5,
+      "choices": [
+        "R",
+        "N",
+        "B",
+        "A",
+        "U"
+      ],
+      "answer": "A",
+      "word": "MACULER",
+      "path": [
+        0,
+        5,
+        4,
+        9,
+        10,
+        6,
+        3
+      ],
+      "difficulty": 2,
+      "quality": {
+        "targetLength": 7,
+        "targetPlayersFound": 8,
+        "correctOtherWords": [
+          "aduler",
+          "ducale",
+          "fallue",
+          "macule",
+          "adule",
+          "aulne",
+          "cadre",
+          "caler"
+        ],
+        "decoys": {
+          "U": {
+            "maxLength": 6,
+            "blankWordCount": 34,
+            "commonWords": [
+              "eluder",
+              "culer",
+              "eluer",
+              "fendu",
+              "reduc",
+              "rendu",
+              "duel",
+              "elue"
+            ]
+          },
+          "R": {
+            "maxLength": 6,
+            "blankWordCount": 24,
+            "commonWords": [
+              "cruel",
+              "curer",
+              "durer",
+              "ferle",
+              "frele",
+              "lucre",
+              "crue",
+              "cure"
+            ]
+          },
+          "N": {
+            "maxLength": 6,
+            "blankWordCount": 21,
+            "commonWords": [
+              "encule",
+              "fendu",
+              "nulle",
+              "rendu",
+              "dune",
+              "lune",
+              "nell",
+              "nerd"
+            ]
+          },
+          "B": {
+            "maxLength": 6,
+            "blankWordCount": 21,
+            "commonWords": [
+              "buller",
+              "bulle",
+              "cuber",
+              "bele",
+              "bled",
+              "bleu",
+              "bull",
+              "cube"
+            ]
+          }
+        },
+        "competingLetterCount": 3
+      }
+    },
+    {
+      "id": "tw-000007",
+      "grid": "RBTVRTAKWAGGBO_D",
+      "blankIndex": 14,
+      "choices": [
+        "R",
+        "I",
+        "N",
+        "E",
+        "S"
+      ],
+      "answer": "N",
+      "word": "VAGABOND",
+      "path": [
+        3,
+        6,
+        10,
+        9,
+        12,
+        13,
+        14,
+        15
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "brand",
+          "ganga",
+          "tanga",
+          "tango",
+          "wagon",
+          "bang",
+          "bond",
+          "bran"
+        ],
+        "decoys": {
+          "I": {
+            "maxLength": 7,
+            "blankWordCount": 23,
+            "commonWords": [
+              "taiga",
+              "aboi",
+              "agio",
+              "brai",
+              "giga",
+              "raid"
+            ]
+          },
+          "E": {
+            "maxLength": 7,
+            "blankWordCount": 17,
+            "commonWords": [
+              "bagage",
+              "ratage",
+              "degat",
+              "boge",
+              "gage",
+              "rage"
+            ]
+          },
+          "S": {
+            "maxLength": 7,
+            "blankWordCount": 32,
+            "commonWords": [
+              "abras",
+              "bras",
+              "saga",
+              "sart"
+            ]
+          },
+          "R": {
+            "maxLength": 6,
+            "blankWordCount": 17,
+            "commonWords": [
+              "batard",
+              "abord",
+              "agora",
+              "bard",
+              "bora",
+              "bord",
+              "drag",
+              "gord"
+            ]
+          }
+        },
+        "competingLetterCount": 0
+      }
+    },
+    {
+      "id": "tw-000008",
+      "grid": "PULTEMI_NDEELBRS",
+      "blankIndex": 7,
+      "choices": [
+        "S",
+        "E",
+        "P",
+        "L",
+        "R"
+      ],
+      "answer": "E",
+      "word": "MULETIERES",
+      "path": [
+        5,
+        1,
+        2,
+        7,
+        3,
+        6,
+        11,
+        14,
+        10,
+        15
+      ],
+      "difficulty": 5,
+      "quality": {
+        "targetLength": 10,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "dereel",
+          "elider",
+          "elimer",
+          "medite",
+          "redite",
+          "semite",
+          "deite",
+          "demie"
+        ],
+        "decoys": {
+          "S": {
+            "maxLength": 9,
+            "blankWordCount": 153,
+            "commonWords": [
+              "epuiser",
+              "bresil",
+              "demise",
+              "depuis",
+              "dieser",
+              "epuise",
+              "estime",
+              "lisere"
+            ]
+          },
+          "R": {
+            "maxLength": 9,
+            "blankWordCount": 118,
+            "commonWords": [
+              "mendier",
+              "merdier",
+              "berlue",
+              "desert",
+              "dieser",
+              "litrer",
+              "medire",
+              "redire"
+            ]
+          },
+          "L": {
+            "maxLength": 9,
+            "blankWordCount": 72,
+            "commonWords": [
+              "demeler",
+              "sellier",
+              "belier",
+              "delier",
+              "demele",
+              "diesel",
+              "elider",
+              "elimer"
+            ]
+          },
+          "P": {
+            "maxLength": 9,
+            "blankWordCount": 71,
+            "commonWords": [
+              "deplier",
+              "plumee",
+              "plumer",
+              "depit",
+              "epier",
+              "perse",
+              "peser",
+              "plier"
+            ]
+          }
+        },
+        "competingLetterCount": 2
+      }
+    },
+    {
+      "id": "tw-000009",
+      "grid": "DMEZEJOGN_AFEQET",
+      "blankIndex": 9,
+      "choices": [
+        "I",
+        "S",
+        "R",
+        "L",
+        "T"
+      ],
+      "answer": "T",
+      "word": "ETAGEMENT",
+      "path": [
+        14,
+        15,
+        10,
+        7,
+        2,
+        1,
+        4,
+        8,
+        9
+      ],
+      "difficulty": 4,
+      "quality": {
+        "targetLength": 9,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "enquete",
+          "jaquet",
+          "jetage",
+          "taquet",
+          "atome",
+          "etage",
+          "fagot",
+          "megot"
+        ],
+        "decoys": {
+          "L": {
+            "maxLength": 8,
+            "blankWordCount": 74,
+            "commonWords": [
+              "galene",
+              "molene",
+              "alene",
+              "atele",
+              "eloge",
+              "etale",
+              "galet",
+              "geole"
+            ]
+          },
+          "R": {
+            "maxLength": 8,
+            "blankWordCount": 70,
+            "commonWords": [
+              "derate",
+              "enrage",
+              "forage",
+              "morene",
+              "quater",
+              "taquer",
+              "arene",
+              "arome"
+            ]
+          },
+          "I": {
+            "maxLength": 8,
+            "blankWordCount": 64,
+            "commonWords": [
+              "egoine",
+              "enieme",
+              "taquin",
+              "equin",
+              "etaie",
+              "etain",
+              "faine",
+              "gaine"
+            ]
+          },
+          "S": {
+            "maxLength": 8,
+            "blankWordCount": 55,
+            "commonWords": [
+              "asque",
+              "dense",
+              "mense",
+              "osque",
+              "squat",
+              "mesa",
+              "sage",
+              "seme"
+            ]
+          }
+        },
+        "competingLetterCount": 1
+      }
+    },
+    {
+      "id": "tw-000010",
+      "grid": "IGGIURRN_NVETISR",
+      "blankIndex": 8,
+      "choices": [
+        "O",
+        "F",
+        "S",
+        "A",
+        "E"
+      ],
+      "answer": "E",
+      "word": "INTERVENIR",
+      "path": [
+        13,
+        9,
+        12,
+        8,
+        5,
+        10,
+        11,
+        7,
+        3,
+        6
+      ],
+      "difficulty": 5,
+      "quality": {
+        "targetLength": 10,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "enivrer",
+          "resiner",
+          "revient",
+          "terrine",
+          "envers",
+          "envier",
+          "eviter",
+          "guerre"
+        ],
+        "decoys": {
+          "A": {
+            "maxLength": 9,
+            "blankWordCount": 124,
+            "commonWords": [
+              "engrais",
+              "serrant",
+              "taniser",
+              "aniser",
+              "errant",
+              "granit",
+              "gratin",
+              "gratis"
+            ]
+          },
+          "O": {
+            "maxLength": 9,
+            "blankWordCount": 63,
+            "commonWords": [
+              "tournis",
+              "version",
+              "nourri",
+              "toiser",
+              "verrou",
+              "giron",
+              "groin",
+              "inoui"
+            ]
+          },
+          "S": {
+            "maxLength": 8,
+            "blankWordCount": 38,
+            "commonWords": [
+              "surgir",
+              "vernis",
+              "sevis",
+              "sinus",
+              "ursin",
+              "gurs",
+              "insu",
+              "suri"
+            ]
+          },
+          "F": {
+            "maxLength": 8,
+            "blankWordCount": 18,
+            "commonWords": [
+              "revif",
+              "fins",
+              "fuir",
+              "funs",
+              "unif"
+            ]
+          }
+        },
+        "competingLetterCount": 0
+      }
+    },
+    {
+      "id": "tw-000011",
+      "grid": "OAA_JTGARINUREAL",
+      "blankIndex": 3,
+      "choices": [
+        "R",
+        "L",
+        "N",
+        "C",
+        "T"
+      ],
+      "answer": "R",
+      "word": "GRANULAIRE",
+      "path": [
+        6,
+        3,
+        7,
+        10,
+        11,
+        15,
+        14,
+        9,
+        8,
+        13
+      ],
+      "difficulty": 5,
+      "quality": {
+        "targetLength": 10,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "garantir",
+          "gratiner",
+          "garanti",
+          "granita",
+          "gratine",
+          "ratiner",
+          "garant",
+          "granit"
+        ],
+        "decoys": {
+          "C": {
+            "maxLength": 9,
+            "blankWordCount": 36,
+            "commonWords": [
+              "catiner",
+              "cantre",
+              "cagna",
+              "cagne",
+              "canal",
+              "caner",
+              "catin",
+              "catir"
+            ]
+          },
+          "N": {
+            "maxLength": 9,
+            "blankWordCount": 23,
+            "commonWords": [
+              "angine",
+              "nantie",
+              "nantir",
+              "antan",
+              "gitan",
+              "nanti",
+              "tanga",
+              "naan"
+            ]
+          },
+          "L": {
+            "maxLength": 9,
+            "blankWordCount": 30,
+            "commonWords": [
+              "galant",
+              "glaner",
+              "lanier",
+              "latina",
+              "algie",
+              "glane",
+              "latin",
+              "renal"
+            ]
+          },
+          "T": {
+            "maxLength": 9,
+            "blankWordCount": 38,
+            "commonWords": [
+              "tagine",
+              "tatane",
+              "tagua",
+              "tanga",
+              "tatin",
+              "tang",
+              "tant",
+              "tata"
+            ]
+          }
+        },
+        "competingLetterCount": 0
+      }
+    },
+    {
+      "id": "tw-000012",
+      "grid": "JYOSLNLIEIUTW_EE",
+      "blankIndex": 13,
+      "choices": [
+        "S",
+        "M",
+        "V",
+        "P",
+        "R"
+      ],
+      "answer": "M",
+      "word": "LUMINOSITE",
+      "path": [
+        6,
+        10,
+        13,
+        9,
+        5,
+        2,
+        3,
+        7,
+        11,
+        14
+      ],
+      "difficulty": 5,
+      "quality": {
+        "targetLength": 10,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "emeute",
+          "menuet",
+          "meulon",
+          "minois",
+          "minuit",
+          "minute",
+          "emeut",
+          "lumen"
+        ],
+        "decoys": {
+          "V": {
+            "maxLength": 9,
+            "blankWordCount": 47,
+            "commonWords": [
+              "solive",
+              "etuve",
+              "eveil",
+              "levee",
+              "livet",
+              "neveu",
+              "olive",
+              "veine"
+            ]
+          },
+          "S": {
+            "maxLength": 8,
+            "blankWordCount": 98,
+            "commonWords": [
+              "senilite",
+              "enlisee",
+              "ionise",
+              "lieuse",
+              "luites",
+              "nolise",
+              "suitee",
+              "elise"
+            ]
+          },
+          "R": {
+            "maxLength": 8,
+            "blankWordCount": 60,
+            "commonWords": [
+              "literie",
+              "enlier",
+              "silure",
+              "situer",
+              "tuerie",
+              "tuiler",
+              "uterin",
+              "elier"
+            ]
+          },
+          "P": {
+            "maxLength": 8,
+            "blankWordCount": 58,
+            "commonWords": [
+              "epieu",
+              "epine",
+              "lupin",
+              "peine",
+              "penil",
+              "petun",
+              "peuls",
+              "piete"
+            ]
+          }
+        },
+        "competingLetterCount": 1
+      }
+    },
+    {
+      "id": "tw-000013",
+      "grid": "IVENTJLDTTA_ACSN",
+      "blankIndex": 11,
+      "choices": [
+        "U",
+        "O",
+        "R",
+        "T",
+        "B"
+      ],
+      "answer": "O",
+      "word": "CALENDOS",
+      "path": [
+        13,
+        10,
+        6,
+        2,
+        3,
+        7,
+        11,
+        14
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 7,
+        "correctOtherWords": [
+          "calendo",
+          "soldat",
+          "anode",
+          "endos",
+          "jalon",
+          "loden",
+          "ndole",
+          "nodal"
+        ],
+        "decoys": {
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 38,
+            "commonWords": [
+              "carde",
+              "jarde",
+              "rasta",
+              "sarde",
+              "tatar",
+              "jard",
+              "jars",
+              "lard"
+            ]
+          },
+          "B": {
+            "maxLength": 7,
+            "blankWordCount": 32,
+            "commonWords": [
+              "stable",
+              "basta",
+              "blast",
+              "cable",
+              "jable",
+              "nable",
+              "sable",
+              "table"
+            ]
+          },
+          "U": {
+            "maxLength": 7,
+            "blankWordCount": 56,
+            "commonWords": [
+              "canule",
+              "sultan",
+              "adule",
+              "aulne",
+              "calus",
+              "caude",
+              "saule",
+              "talus"
+            ]
+          },
+          "T": {
+            "maxLength": 7,
+            "blankWordCount": 12,
+            "commonWords": [
+              "actant",
+              "cant",
+              "stat",
+              "tant"
+            ]
+          }
+        },
+        "competingLetterCount": 3
+      }
+    },
+    {
+      "id": "tw-000014",
+      "grid": "OIMWCRCZELR_TLIN",
+      "blankIndex": 11,
+      "choices": [
+        "T",
+        "B",
+        "A",
+        "G",
+        "S"
+      ],
+      "answer": "A",
+      "word": "CRAILLER",
+      "path": [
+        6,
+        10,
+        11,
+        14,
+        13,
+        9,
+        8,
+        5
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "cailler",
+          "railler",
+          "terrain",
+          "ailler",
+          "aillet",
+          "anille",
+          "arille",
+          "caille"
+        ],
+        "decoys": {
+          "B": {
+            "maxLength": 7,
+            "blankWordCount": 15,
+            "commonWords": [
+              "briller",
+              "biller",
+              "billet",
+              "biler",
+              "bille",
+              "bile",
+              "bill",
+              "birr"
+            ]
+          },
+          "G": {
+            "maxLength": 7,
+            "blankWordCount": 9,
+            "commonWords": [
+              "griller",
+              "grille",
+              "gilet",
+              "gille",
+              "grill",
+              "girl",
+              "gril",
+              "ring"
+            ]
+          },
+          "T": {
+            "maxLength": 7,
+            "blankWordCount": 17,
+            "commonWords": [
+              "triller",
+              "tiller",
+              "tilter",
+              "trille",
+              "tille",
+              "tilt",
+              "trin"
+            ]
+          },
+          "S": {
+            "maxLength": 7,
+            "blankWordCount": 19,
+            "commonWords": [
+              "sillet",
+              "siler",
+              "cris",
+              "silt"
+            ]
+          }
+        },
+        "competingLetterCount": 2
+      }
+    },
+    {
+      "id": "tw-000015",
+      "grid": "LOSNUADUJ_IARELE",
+      "blankIndex": 9,
+      "choices": [
+        "P",
+        "M",
+        "V",
+        "C",
+        "G"
+      ],
+      "answer": "G",
+      "word": "SOULAGER",
+      "path": [
+        2,
+        1,
+        4,
+        0,
+        5,
+        9,
+        13,
+        12
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "dolage",
+          "dosage",
+          "jauger",
+          "louage",
+          "solage",
+          "souage",
+          "usager",
+          "adage"
+        ],
+        "decoys": {
+          "M": {
+            "maxLength": 7,
+            "blankWordCount": 94,
+            "commonWords": [
+              "damier",
+              "elimer",
+              "jumele",
+              "lamier",
+              "aimer",
+              "damer",
+              "douma",
+              "email"
+            ]
+          },
+          "P": {
+            "maxLength": 7,
+            "blankWordCount": 82,
+            "commonWords": [
+              "diapre",
+              "jupier",
+              "louper",
+              "souper",
+              "souple",
+              "alper",
+              "laper",
+              "lapie"
+            ]
+          },
+          "V": {
+            "maxLength": 7,
+            "blankWordCount": 65,
+            "commonWords": [
+              "louver",
+              "sauver",
+              "suivre",
+              "alevi",
+              "douve",
+              "laver",
+              "livre",
+              "louve"
+            ]
+          },
+          "C": {
+            "maxLength": 7,
+            "blankWordCount": 63,
+            "commonWords": [
+              "saucier",
+              "soucier",
+              "adouci",
+              "casual",
+              "diacre",
+              "saucer",
+              "acier",
+              "claie"
+            ]
+          }
+        },
+        "competingLetterCount": 6
+      }
+    },
+    {
+      "id": "tw-000016",
+      "grid": "ROQXUUTDRIPOI_AL",
+      "blankIndex": 13,
+      "choices": [
+        "D",
+        "S",
+        "T",
+        "P",
+        "R"
+      ],
+      "answer": "S",
+      "word": "PLAISIR",
+      "path": [
+        10,
+        15,
+        14,
+        9,
+        13,
+        12,
+        8
+      ],
+      "difficulty": 2,
+      "quality": {
+        "targetLength": 7,
+        "targetPlayersFound": 6,
+        "correctOtherWords": [
+          "dolais",
+          "lapis",
+          "lapsi",
+          "salop",
+          "apis",
+          "aspi",
+          "iris",
+          "lais"
+        ],
+        "decoys": {
+          "T": {
+            "maxLength": 6,
+            "blankWordCount": 36,
+            "commonWords": [
+              "tripot",
+              "opiat",
+              "patir",
+              "rital",
+              "tapir",
+              "trial",
+              "pati",
+              "pita"
+            ]
+          },
+          "D": {
+            "maxLength": 6,
+            "blankWordCount": 23,
+            "commonWords": [
+              "dalot",
+              "diapo",
+              "laird",
+              "plaid",
+              "tourd",
+              "dial",
+              "dito",
+              "laid"
+            ]
+          },
+          "R": {
+            "maxLength": 6,
+            "blankWordCount": 24,
+            "commonWords": [
+              "polar",
+              "tolar",
+              "lari",
+              "pari",
+              "prao",
+              "rapt",
+              "tira"
+            ]
+          },
+          "P": {
+            "maxLength": 6,
+            "blankWordCount": 14,
+            "commonWords": [
+              "pipa",
+              "pipi",
+              "pipo",
+              "tipi"
+            ]
+          }
+        },
+        "competingLetterCount": 7
+      }
+    },
+    {
+      "id": "tw-000017",
+      "grid": "_RSKSULETTRNUEWX",
+      "blankIndex": 0,
+      "choices": [
+        "A",
+        "C",
+        "F",
+        "E",
+        "O"
+      ],
+      "answer": "A",
+      "word": "SAUTERNES",
+      "path": [
+        4,
+        0,
+        5,
+        8,
+        13,
+        10,
+        11,
+        7,
+        2
+      ],
+      "difficulty": 4,
+      "quality": {
+        "targetLength": 9,
+        "targetPlayersFound": 4,
+        "correctOtherWords": [
+          "austere",
+          "sauret",
+          "sauter",
+          "aster",
+          "astre",
+          "aulne",
+          "autre",
+          "saule"
+        ],
+        "decoys": {
+          "E": {
+            "maxLength": 8,
+            "blankWordCount": 41,
+            "commonWords": [
+              "rester",
+              "eluer",
+              "ester",
+              "reste",
+              "seule",
+              "tetue",
+              "elue",
+              "erse"
+            ]
+          },
+          "F": {
+            "maxLength": 8,
+            "blankWordCount": 21,
+            "commonWords": [
+              "furet",
+              "fusel",
+              "fuser",
+              "fuste",
+              "fuse",
+              "fute",
+              "surf",
+              "turf"
+            ]
+          },
+          "O": {
+            "maxLength": 7,
+            "blankWordCount": 39,
+            "commonWords": [
+              "rostres",
+              "ourler",
+              "rostre",
+              "rouler",
+              "rouste",
+              "router",
+              "souler",
+              "soulte"
+            ]
+          },
+          "C": {
+            "maxLength": 7,
+            "blankWordCount": 23,
+            "commonWords": [
+              "scruter",
+              "cutter",
+              "culer",
+              "culte",
+              "cure",
+              "stuc",
+              "truc",
+              "turc"
+            ]
+          }
+        },
+        "competingLetterCount": 0
+      }
+    },
+    {
+      "id": "tw-000018",
+      "grid": "ABEDELPND_EDAGVK",
+      "blankIndex": 9,
+      "choices": [
+        "S",
+        "R",
+        "I",
+        "O",
+        "L"
+      ],
+      "answer": "L",
+      "word": "DEBALLAGE",
+      "path": [
+        8,
+        4,
+        1,
+        0,
+        5,
+        9,
+        12,
+        13,
+        10
+      ],
+      "difficulty": 4,
+      "quality": {
+        "targetLength": 9,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "deballe",
+          "allene",
+          "galene",
+          "pelade",
+          "balle",
+          "belga",
+          "belge",
+          "belle"
+        ],
+        "decoys": {
+          "I": {
+            "maxLength": 8,
+            "blankWordCount": 98,
+            "commonWords": [
+              "aliene",
+              "delien",
+              "devide",
+              "epiage",
+              "pliage",
+              "agile",
+              "alevi",
+              "alien"
+            ]
+          },
+          "R": {
+            "maxLength": 8,
+            "blankWordCount": 87,
+            "commonWords": [
+              "aerage",
+              "dealer",
+              "epeler",
+              "plevre",
+              "alper",
+              "arene",
+              "beler",
+              "berge"
+            ]
+          },
+          "S": {
+            "maxLength": 8,
+            "blankWordCount": 66,
+            "commonWords": [
+              "alesage",
+              "pegase",
+              "pesade",
+              "alese",
+              "alpes",
+              "balsa",
+              "aspe",
+              "baes"
+            ]
+          },
+          "O": {
+            "maxLength": 8,
+            "blankWordCount": 47,
+            "commonWords": [
+              "eloge",
+              "geode",
+              "geole",
+              "lodge",
+              "poele",
+              "blog",
+              "doge",
+              "dole"
+            ]
+          }
+        },
+        "competingLetterCount": 0
+      }
+    },
+    {
+      "id": "tw-000019",
+      "grid": "ISDNBKJUERSCRI_R",
+      "blankIndex": 14,
+      "choices": [
+        "R",
+        "T",
+        "A",
+        "E",
+        "U"
+      ],
+      "answer": "E",
+      "word": "SUCRERIE",
+      "path": [
+        10,
+        7,
+        11,
+        15,
+        14,
+        9,
+        13,
+        8
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "briser",
+          "serier",
+          "sucrer",
+          "brise",
+          "errer",
+          "ibere",
+          "riser",
+          "serbe"
+        ],
+        "decoys": {
+          "A": {
+            "maxLength": 7,
+            "blankWordCount": 67,
+            "commonWords": [
+              "brasier",
+              "braire",
+              "carier",
+              "casier",
+              "sierra",
+              "airer",
+              "braie",
+              "brais"
+            ]
+          },
+          "U": {
+            "maxLength": 7,
+            "blankWordCount": 29,
+            "commonWords": [
+              "bruire",
+              "bruir",
+              "cuire",
+              "curer",
+              "curie",
+              "surir",
+              "usure",
+              "cuir"
+            ]
+          },
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 6,
+            "commonWords": [
+              "sucrier",
+              "crier",
+              "brrr",
+              "cris"
+            ]
+          },
+          "T": {
+            "maxLength": 6,
+            "blankWordCount": 15,
+            "commonWords": [
+              "strier",
+              "strie",
+              "tiers",
+              "tirer",
+              "trier",
+              "tire",
+              "tirs",
+              "trek"
+            ]
+          }
+        },
+        "competingLetterCount": 1
+      }
+    },
+    {
+      "id": "tw-000020",
+      "grid": "NSVIBTYWAPETG_IR",
+      "blankIndex": 13,
+      "choices": [
+        "M",
+        "U",
+        "V",
+        "E",
+        "R"
+      ],
+      "answer": "E",
+      "word": "ETRIPAGE",
+      "path": [
+        10,
+        11,
+        15,
+        14,
+        9,
+        8,
+        12,
+        13
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 11,
+        "correctOtherWords": [
+          "gaterie",
+          "epater",
+          "epitre",
+          "petage",
+          "ripage",
+          "epate",
+          "epier",
+          "epite"
+        ],
+        "decoys": {
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 105,
+            "commonWords": [
+              "pirater",
+              "parier",
+              "parite",
+              "petrir",
+              "pirate",
+              "starie",
+              "tarier",
+              "triper"
+            ]
+          },
+          "M": {
+            "maxLength": 7,
+            "blankWordCount": 50,
+            "commonWords": [
+              "gamer",
+              "gamet",
+              "imper",
+              "mater",
+              "miter",
+              "mitre",
+              "pamer",
+              "trema"
+            ]
+          },
+          "V": {
+            "maxLength": 7,
+            "blankWordCount": 38,
+            "commonWords": [
+              "averti",
+              "pivert",
+              "baver",
+              "gaver",
+              "paver",
+              "rivet",
+              "vetir",
+              "vitre"
+            ]
+          },
+          "U": {
+            "maxLength": 7,
+            "blankWordCount": 36,
+            "commonWords": [
+              "baguier",
+              "baguer",
+              "guiper",
+              "taguer",
+              "tauper",
+              "bague",
+              "gaupe",
+              "gueri"
+            ]
+          }
+        },
+        "competingLetterCount": 6
+      }
+    },
+    {
+      "id": "tw-000021",
+      "grid": "RGV_DKAENLOWETAC",
+      "blankIndex": 3,
+      "choices": [
+        "P",
+        "A",
+        "N",
+        "M",
+        "H"
+      ],
+      "answer": "A",
+      "word": "AVALENT",
+      "path": [
+        3,
+        2,
+        6,
+        9,
+        12,
+        8,
+        13
+      ],
+      "difficulty": 2,
+      "quality": {
+        "targetLength": 7,
+        "targetPlayersFound": 6,
+        "correctOtherWords": [
+          "aval",
+          "kava"
+        ],
+        "decoys": {
+          "P": {
+            "maxLength": 6,
+            "blankWordCount": 14,
+            "commonWords": [
+              "paleta",
+              "palet",
+              "palot",
+              "pala",
+              "pale",
+              "pave",
+              "vape"
+            ]
+          },
+          "N": {
+            "maxLength": 6,
+            "blankWordCount": 15,
+            "commonWords": [
+              "venal",
+              "aven",
+              "elan",
+              "koan",
+              "nave"
+            ]
+          },
+          "M": {
+            "maxLength": 6,
+            "blankWordCount": 14,
+            "commonWords": [
+              "calame",
+              "malte",
+              "lame",
+              "malt"
+            ]
+          },
+          "H": {
+            "maxLength": 6,
+            "blankWordCount": 12,
+            "commonWords": [
+              "halte",
+              "hale",
+              "halo",
+              "have"
+            ]
+          }
+        },
+        "competingLetterCount": 8
+      }
+    },
+    {
+      "id": "tw-000022",
+      "grid": "ESPECN_RALIBUMRB",
+      "blankIndex": 6,
+      "choices": [
+        "P",
+        "S",
+        "A",
+        "T",
+        "G"
+      ],
+      "answer": "S",
+      "word": "PRINCESSE",
+      "path": [
+        2,
+        7,
+        10,
+        5,
+        4,
+        0,
+        1,
+        6,
+        3
+      ],
+      "difficulty": 4,
+      "quality": {
+        "targetLength": 9,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "acenser",
+          "canisse",
+          "enliser",
+          "acense",
+          "anesse",
+          "aniser",
+          "bresil",
+          "briser"
+        ],
+        "decoys": {
+          "A": {
+            "maxLength": 8,
+            "blankWordCount": 274,
+            "commonWords": [
+              "eclaire",
+              "praline",
+              "amiral",
+              "animal",
+              "bancal",
+              "barine",
+              "canape",
+              "canari"
+            ]
+          },
+          "T": {
+            "maxLength": 8,
+            "blankWordCount": 109,
+            "commonWords": [
+              "secante",
+              "aliter",
+              "calter",
+              "canter",
+              "cantre",
+              "centre",
+              "esprit",
+              "linter"
+            ]
+          },
+          "P": {
+            "maxLength": 8,
+            "blankWordCount": 80,
+            "commonWords": [
+              "scalper",
+              "alpine",
+              "nipper",
+              "pepine",
+              "spinal",
+              "alper",
+              "alpin",
+              "biper"
+            ]
+          },
+          "G": {
+            "maxLength": 8,
+            "blankWordCount": 70,
+            "commonWords": [
+              "grimace",
+              "langer",
+              "linger",
+              "manger",
+              "bigre",
+              "cange",
+              "glace",
+              "glane"
+            ]
+          }
+        },
+        "competingLetterCount": 7
+      }
+    },
+    {
+      "id": "tw-000023",
+      "grid": "ASOMADR_DOEUVDSH",
+      "blankIndex": 7,
+      "choices": [
+        "E",
+        "P",
+        "G",
+        "M",
+        "N"
+      ],
+      "answer": "E",
+      "word": "DORMEUSE",
+      "path": [
+        8,
+        9,
+        6,
+        3,
+        7,
+        11,
+        14,
+        10
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "doreuse",
+          "dedore",
+          "modere",
+          "mordee",
+          "derme",
+          "doree",
+          "drome",
+          "heure"
+        ],
+        "decoys": {
+          "P": {
+            "maxLength": 7,
+            "blankWordCount": 66,
+            "commonWords": [
+              "dopeur",
+              "doper",
+              "drupe",
+              "perso",
+              "prose",
+              "repos",
+              "repus",
+              "rompu"
+            ]
+          },
+          "M": {
+            "maxLength": 7,
+            "blankWordCount": 61,
+            "commonWords": [
+              "sommer",
+              "domus",
+              "drome",
+              "humer",
+              "modem",
+              "muser",
+              "serum",
+              "somme"
+            ]
+          },
+          "N": {
+            "maxLength": 7,
+            "blankWordCount": 56,
+            "commonWords": [
+              "sermon",
+              "surnom",
+              "doner",
+              "drone",
+              "heron",
+              "huron",
+              "morne",
+              "norde"
+            ]
+          },
+          "G": {
+            "maxLength": 7,
+            "blankWordCount": 50,
+            "commonWords": [
+              "drogue",
+              "morgue",
+              "dogue",
+              "goder",
+              "gores",
+              "morge",
+              "orges",
+              "orgue"
+            ]
+          }
+        },
+        "competingLetterCount": 4
+      }
+    },
+    {
+      "id": "tw-000024",
+      "grid": "TSRETUSDS_LIARRS",
+      "blankIndex": 9,
+      "choices": [
+        "L",
+        "M",
+        "F",
+        "R",
+        "N"
+      ],
+      "answer": "L",
+      "word": "RALLIDES",
+      "path": [
+        13,
+        12,
+        9,
+        10,
+        11,
+        7,
+        3,
+        6
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 4,
+        "correctOtherWords": [
+          "allure",
+          "lasure",
+          "salure",
+          "lusse",
+          "salse",
+          "salut"
+        ],
+        "decoys": {
+          "M": {
+            "maxLength": 7,
+            "blankWordCount": 45,
+            "commonWords": [
+              "amuser",
+              "armure",
+              "masure",
+              "musser",
+              "ramure",
+              "amure",
+              "drums",
+              "marli"
+            ]
+          },
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 22,
+            "commonWords": [
+              "arriser",
+              "ruser",
+              "stras",
+              "trust",
+              "sart",
+              "sras",
+              "tsar"
+            ]
+          },
+          "N": {
+            "maxLength": 7,
+            "blankWordCount": 22,
+            "commonWords": [
+              "nurse",
+              "usant",
+              "anse",
+              "anus",
+              "sans",
+              "ulna"
+            ]
+          },
+          "F": {
+            "maxLength": 7,
+            "blankWordCount": 22,
+            "commonWords": [
+              "friser",
+              "frise",
+              "fuser",
+              "fusil",
+              "fuse",
+              "raft"
+            ]
+          }
+        },
+        "competingLetterCount": 11
+      }
+    },
+    {
+      "id": "tw-000025",
+      "grid": "IDOERH_TUIPKONER",
+      "blankIndex": 6,
+      "choices": [
+        "E",
+        "A",
+        "L",
+        "R",
+        "S"
+      ],
+      "answer": "L",
+      "word": "HOTELIER",
+      "path": [
+        5,
+        2,
+        7,
+        3,
+        6,
+        9,
+        14,
+        15
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "doline",
+          "pilote",
+          "replet",
+          "tolier",
+          "elier",
+          "hotel",
+          "huile",
+          "idole"
+        ],
+        "decoys": {
+          "A": {
+            "maxLength": 7,
+            "blankWordCount": 76,
+            "commonWords": [
+              "tapiner",
+              "ahurie",
+              "ahuri",
+              "apion",
+              "daine",
+              "epair",
+              "epate",
+              "etaie"
+            ]
+          },
+          "S": {
+            "maxLength": 7,
+            "blankWordCount": 60,
+            "commonWords": [
+              "eosine",
+              "espion",
+              "ouiste",
+              "irise",
+              "noise",
+              "osier",
+              "penis",
+              "piste"
+            ]
+          },
+          "E": {
+            "maxLength": 7,
+            "blankWordCount": 60,
+            "commonWords": [
+              "penurie",
+              "epiner",
+              "peiner",
+              "repete",
+              "epier",
+              "epine",
+              "peine",
+              "piete"
+            ]
+          },
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 49,
+            "commonWords": [
+              "etriper",
+              "dorien",
+              "etrier",
+              "triper",
+              "dorin",
+              "doter",
+              "noire",
+              "nuire"
+            ]
+          }
+        },
+        "competingLetterCount": 3
+      }
+    },
+    {
+      "id": "tw-000026",
+      "grid": "UTPELOYLSI_NOSAO",
+      "blankIndex": 10,
+      "choices": [
+        "R",
+        "E",
+        "A",
+        "O",
+        "M"
+      ],
+      "answer": "O",
+      "word": "POLISSON",
+      "path": [
+        2,
+        5,
+        4,
+        9,
+        8,
+        13,
+        10,
+        11
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "poisson",
+          "poison",
+          "toison",
+          "isole",
+          "oasis",
+          "oison",
+          "ploye",
+          "polio"
+        ],
+        "decoys": {
+          "R": {
+            "maxLength": 7,
+            "blankWordCount": 86,
+            "commonWords": [
+              "assoir",
+              "norois",
+              "ornais",
+              "roulis",
+              "liron",
+              "loris",
+              "noria",
+              "polir"
+            ]
+          },
+          "M": {
+            "maxLength": 7,
+            "blankWordCount": 76,
+            "commonWords": [
+              "moulis",
+              "liman",
+              "limon",
+              "mossi",
+              "moult",
+              "soman",
+              "toman",
+              "amis"
+            ]
+          },
+          "E": {
+            "maxLength": 7,
+            "blankWordCount": 65,
+            "commonWords": [
+              "oasien",
+              "poisse",
+              "poulie",
+              "eleis",
+              "liane",
+              "lisse",
+              "loess",
+              "oeils"
+            ]
+          },
+          "A": {
+            "maxLength": 7,
+            "blankWordCount": 82,
+            "commonWords": [
+              "planais",
+              "nasale",
+              "anale",
+              "lassi",
+              "lasso",
+              "loyal",
+              "naias",
+              "nasal"
+            ]
+          }
+        },
+        "competingLetterCount": 9
+      }
+    },
+    {
+      "id": "tw-000027",
+      "grid": "PCNFORZNQOPRA_EI",
+      "blankIndex": 13,
+      "choices": [
+        "N",
+        "U",
+        "E",
+        "S",
+        "I"
+      ],
+      "answer": "U",
+      "word": "CROUPIER",
+      "path": [
+        1,
+        5,
+        9,
+        13,
+        10,
+        15,
+        14,
+        11
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 3,
+        "correctOtherWords": [
+          "croupir",
+          "croupe",
+          "croupi",
+          "roupie",
+          "croup",
+          "proue",
+          "ripou",
+          "rouer"
+        ],
+        "decoys": {
+          "S": {
+            "maxLength": 7,
+            "blankWordCount": 48,
+            "commonWords": [
+              "aspre",
+              "corps",
+              "poser",
+              "prose",
+              "repos",
+              "roser",
+              "spire",
+              "aspe"
+            ]
+          },
+          "E": {
+            "maxLength": 7,
+            "blankWordCount": 22,
+            "commonWords": [
+              "croque",
+              "epoque",
+              "poquee",
+              "porque",
+              "coque",
+              "epier",
+              "orque",
+              "poque"
+            ]
+          },
+          "N": {
+            "maxLength": 7,
+            "blankWordCount": 22,
+            "commonWords": [
+              "proner",
+              "coron",
+              "prone",
+              "zoner",
+              "open",
+              "peno",
+              "peon",
+              "rien"
+            ]
+          },
+          "I": {
+            "maxLength": 7,
+            "blankWordCount": 23,
+            "commonWords": [
+              "proie",
+              "epoi",
+              "pier",
+              "quai",
+              "quia",
+              "quoi"
+            ]
+          }
+        },
+        "competingLetterCount": 2
+      }
+    },
+    {
+      "id": "tw-000028",
+      "grid": "JRJGO_TIEIBEISDI",
+      "blankIndex": 5,
+      "choices": [
+        "S",
+        "O",
+        "P",
+        "R",
+        "L"
+      ],
+      "answer": "R",
+      "word": "BETISIER",
+      "path": [
+        10,
+        11,
+        6,
+        9,
+        13,
+        12,
+        8,
+        5
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "betiser",
+          "debris",
+          "disert",
+          "gibier",
+          "orbite",
+          "tiedir",
+          "biser",
+          "bride"
+        ],
+        "decoys": {
+          "S": {
+            "maxLength": 7,
+            "blankWordCount": 77,
+            "commonWords": [
+              "betise",
+              "bistro",
+              "sieste",
+              "sortie",
+              "bitis",
+              "rosie",
+              "rosti",
+              "seide"
+            ]
+          },
+          "L": {
+            "maxLength": 7,
+            "blankWordCount": 49,
+            "commonWords": [
+              "debile",
+              "edile",
+              "elide",
+              "elite",
+              "trole",
+              "bile",
+              "diol",
+              "iles"
+            ]
+          },
+          "O": {
+            "maxLength": 7,
+            "blankWordCount": 41,
+            "commonWords": [
+              "idiote",
+              "biote",
+              "boide",
+              "boise",
+              "boite",
+              "edito",
+              "idiot",
+              "rotie"
+            ]
+          },
+          "P": {
+            "maxLength": 7,
+            "blankWordCount": 39,
+            "commonWords": [
+              "epite",
+              "epois",
+              "pitie",
+              "poids",
+              "poise",
+              "porte",
+              "proie",
+              "trope"
+            ]
+          }
+        },
+        "competingLetterCount": 8
+      }
+    },
+    {
+      "id": "tw-000029",
+      "grid": "A_LPCTYSLIDAIJQE",
+      "blankIndex": 1,
+      "choices": [
+        "N",
+        "I",
+        "H",
+        "U",
+        "O"
+      ],
+      "answer": "N",
+      "word": "CANTIQUE",
+      "path": [
+        4,
+        0,
+        1,
+        5,
+        9,
+        14,
+        15
+      ],
+      "difficulty": 3,
+      "quality": {
+        "targetLength": 8,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "antique",
+          "cant"
+        ],
+        "decoys": {
+          "I": {
+            "maxLength": 7,
+            "blankWordCount": 32,
+            "commonWords": [
+              "cati",
+              "syli"
+            ]
+          },
+          "O": {
+            "maxLength": 7,
+            "blankWordCount": 29,
+            "commonWords": [
+              "clito",
+              "coati",
+              "edito",
+              "licol",
+              "colt",
+              "dico",
+              "dito",
+              "loti"
+            ]
+          },
+          "U": {
+            "maxLength": 7,
+            "blankWordCount": 18,
+            "commonWords": [
+              "lucide",
+              "actu",
+              "acul",
+              "cuti"
+            ]
+          },
+          "H": {
+            "maxLength": 7,
+            "blankWordCount": 7,
+            "commonWords": [
+              "chat",
+              "chti"
+            ]
+          }
+        },
+        "competingLetterCount": 7
+      }
+    },
+    {
+      "id": "tw-000030",
+      "grid": "NLIEA_SROMAQAUVM",
+      "blankIndex": 5,
+      "choices": [
+        "E",
+        "A",
+        "I",
+        "O",
+        "T"
+      ],
+      "answer": "E",
+      "word": "LAMASERIE",
+      "path": [
+        1,
+        4,
+        9,
+        10,
+        6,
+        3,
+        7,
+        2,
+        5
+      ],
+      "difficulty": 4,
+      "quality": {
+        "targetLength": 9,
+        "targetPlayersFound": 2,
+        "correctOtherWords": [
+          "enliser",
+          "aleser",
+          "enlier",
+          "malien",
+          "reseau",
+          "seriel",
+          "squame",
+          "alese"
+        ],
+        "decoys": {
+          "I": {
+            "maxLength": 8,
+            "blankWordCount": 129,
+            "commonWords": [
+              "ailier",
+              "aniser",
+              "lisier",
+              "moiser",
+              "moisir",
+              "mouais",
+              "serail",
+              "alias"
+            ]
+          },
+          "T": {
+            "maxLength": 8,
+            "blankWordCount": 124,
+            "commonWords": [
+              "marital",
+              "altier",
+              "amatir",
+              "aristo",
+              "otarie",
+              "ramant",
+              "restau",
+              "satire"
+            ]
+          },
+          "A": {
+            "maxLength": 8,
+            "blankWordCount": 120,
+            "commonWords": [
+              "malaise",
+              "alaise",
+              "malais",
+              "marial",
+              "serial",
+              "alias",
+              "laser",
+              "maire"
+            ]
+          },
+          "O": {
+            "maxLength": 8,
+            "blankWordCount": 106,
+            "commonWords": [
+              "noliser",
+              "somalie",
+              "manoir",
+              "mariol",
+              "moiser",
+              "nolise",
+              "saumon",
+              "alios"
+            ]
+          }
+        },
+        "competingLetterCount": 9
+      }
+    }
+  ]
+}

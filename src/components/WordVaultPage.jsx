@@ -102,8 +102,8 @@ function buildGroups(words, sortMode) {
 }
 
 export default function WordVaultPage({
-  backgroundDesktop = "/background/desktop bleu.png",
-  backgroundMobile = "/background/mobile bleu.png",
+  backgroundDesktop = "/background/desktop%20bleu.webp",
+  backgroundMobile = "/background/mobile%20bleu.webp",
   darkMode = false,
   loading = false,
   error = "",

@@ -1,18 +1,23 @@
 import React from "react";
+import {
+  UI_IMAGE_KEYS,
+  getHomeBackgroundKey,
+  getUiImageUrl,
+} from "../../assets/uiAssetManifest.js";
+import { HOME_DISPLAY_ACTIONS } from "../../utils/displayMode.js";
 
-const HOME_ASSET_ROOT = "/buttons";
 const HOME_ASSETS = {
-  title: `${HOME_ASSET_ROOT}/titre gobble.png`,
-  account: `${HOME_ASSET_ROOT}/compte.png`,
-  duel: `${HOME_ASSET_ROOT}/duels.png`,
-  playBlue: `${HOME_ASSET_ROOT}/bouton jouer bleu.png`,
-  playRed: `${HOME_ASSET_ROOT}/bouton jouer rouge.png`,
-  players: `${HOME_ASSET_ROOT}/bouton joueurs.png`,
-  vault: `${HOME_ASSET_ROOT}/coffre fort.png`,
-  stats: `${HOME_ASSET_ROOT}/stats.png`,
-  daily: `${HOME_ASSET_ROOT}/daily.png`,
-  homeChat: `${HOME_ASSET_ROOT}/chat accueil.png`,
-  settings: `${HOME_ASSET_ROOT}/settings.png`,
+  title: UI_IMAGE_KEYS.home.title,
+  account: UI_IMAGE_KEYS.home.account,
+  duel: UI_IMAGE_KEYS.home.duel,
+  playBlue: UI_IMAGE_KEYS.home.playBlue,
+  playRed: UI_IMAGE_KEYS.home.playRed,
+  players: UI_IMAGE_KEYS.home.players,
+  vault: UI_IMAGE_KEYS.home.vault,
+  stats: UI_IMAGE_KEYS.home.stats,
+  daily: UI_IMAGE_KEYS.home.daily,
+  homeChat: UI_IMAGE_KEYS.home.chat,
+  settings: UI_IMAGE_KEYS.home.settings,
 };
 
 const styles = `
@@ -270,6 +275,86 @@ const styles = `
   font-weight: 800;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.72);
 }
+.home-status-panel-with-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.home-display-mode-button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid rgba(255, 224, 138, 0.72);
+  border-radius: 999px;
+  background: rgba(8, 29, 70, 0.84);
+  color: #fff1bd;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.82);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
+  transition: transform 130ms ease, filter 130ms ease;
+}
+.home-display-mode-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+.home-display-mode-button:active {
+  transform: translateY(1px) scale(0.98);
+}
+.home-display-mode-button .material-symbols-outlined {
+  font-size: 17px;
+  line-height: 1;
+}
+.home-install-guide-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(2, 8, 23, 0.72);
+  backdrop-filter: blur(5px);
+}
+.home-install-guide {
+  width: min(92vw, 390px);
+  padding: 18px;
+  border: 2px solid rgba(253, 224, 71, 0.78);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(18, 47, 103, 0.98), rgba(7, 22, 55, 0.99));
+  color: #fff7d6;
+  text-align: left;
+  text-shadow: none;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
+}
+.home-install-guide-title {
+  font-size: 18px;
+  font-weight: 1000;
+}
+.home-install-guide ol {
+  margin: 14px 0 0;
+  padding-left: 22px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+.home-install-guide-close {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 244, 189, 0.72);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffe68f, #d99518);
+  color: #311900;
+  font-size: 14px;
+  font-weight: 1000;
+}
 .home-resume-card {
   display: flex;
   align-items: center;
@@ -467,7 +552,7 @@ function HomeImageButton({
       aria-label={alt}
       title={alt}
     >
-      <img className="home-lobby-img" src={src} alt="" draggable="false" />
+      <img className="home-lobby-img" src={getUiImageUrl(src)} alt="" draggable="false" />
       {children}
     </button>
   );
@@ -477,10 +562,11 @@ function HomeLobby({
   accountLabel = "",
   accountOnline = false,
   accountNotice = "",
-  backgroundDesktop = "/background/desktop bleu.png",
-  backgroundMobile = "/background/mobile bleu.png",
+  backgroundDesktop = "",
+  backgroundMobile = "",
   canResumeNow = false,
   dailyRemainingCount = 0,
+  displayModeAction = HOME_DISPLAY_ACTIONS.none,
   duelBlueScore = 0,
   duelRedScore = 0,
   homeChatUnreadCount = 0,
@@ -502,6 +588,7 @@ function HomeLobby({
   onOpenWeeklyRecap,
   onPlay,
   onResume,
+  onToggleFullscreen,
   playerTeam = "",
   playersCount = 0,
   resumePhaseLabel = "",
@@ -509,6 +596,7 @@ function HomeLobby({
   savedSessionNick = "",
   weeklyRecapLoading = false,
 }) {
+  const [isIosInstallHelpOpen, setIsIosInstallHelpOpen] = React.useState(false);
   const statusText =
     loginError ||
     (maintenanceMode ? "Maintenance en cours" : "") ||
@@ -521,9 +609,33 @@ function HomeLobby({
   const safeAccountLabel = accountLabel || savedSessionNick || "Compte";
   const disabled = isConnecting || isAuthStatusPending;
   const playButtonSrc = playerTeam === "red" ? HOME_ASSETS.playRed : HOME_ASSETS.playBlue;
+  const hasDisplayModeAction = displayModeAction !== HOME_DISPLAY_ACTIONS.none;
+  const displayModeLabel =
+    displayModeAction === HOME_DISPLAY_ACTIONS.exitFullscreen
+      ? "Quitter le plein écran"
+      : displayModeAction === HOME_DISPLAY_ACTIONS.iosInstall
+      ? "Jouer comme une appli"
+      : "Jouer en plein écran";
+  const displayModeIcon =
+    displayModeAction === HOME_DISPLAY_ACTIONS.exitFullscreen
+      ? "fullscreen_exit"
+      : displayModeAction === HOME_DISPLAY_ACTIONS.iosInstall
+      ? "add_to_home_screen"
+      : "fullscreen";
+  const handleDisplayModeAction = async () => {
+    if (displayModeAction === HOME_DISPLAY_ACTIONS.iosInstall) {
+      setIsIosInstallHelpOpen(true);
+      return;
+    }
+    await onToggleFullscreen?.();
+  };
+  const resolvedBackgroundDesktop =
+    backgroundDesktop || getUiImageUrl(getHomeBackgroundKey(playerTeam, "wide"));
+  const resolvedBackgroundMobile =
+    backgroundMobile || getUiImageUrl(getHomeBackgroundKey(playerTeam, "tall"));
   const screenStyle = {
-    "--home-bg-mobile": `url("${backgroundMobile}")`,
-    "--home-bg-desktop": `url("${backgroundDesktop}")`,
+    "--home-bg-mobile": `url("${resolvedBackgroundMobile}")`,
+    "--home-bg-desktop": `url("${resolvedBackgroundDesktop}")`,
   };
 
   return (
@@ -532,7 +644,7 @@ function HomeLobby({
       <div className="home-lobby-shell">
         <img
           className="home-title home-lobby-img"
-          src={HOME_ASSETS.title}
+          src={getUiImageUrl(HOME_ASSETS.title)}
           alt="Gobble"
           draggable="false"
         />
@@ -567,7 +679,7 @@ function HomeLobby({
         <div
           className={`home-status-panel ${
             canResumeNow ? "home-status-panel-resume" : "home-status-panel-message"
-          }`}
+          } ${hasDisplayModeAction ? "home-status-panel-with-action" : ""}`}
         >
           {canResumeNow ? (
             <span className="home-resume-card">
@@ -586,6 +698,18 @@ function HomeLobby({
           ) : (
             statusText
           )}
+          {hasDisplayModeAction ? (
+            <button
+              type="button"
+              className="home-display-mode-button"
+              onClick={handleDisplayModeAction}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">
+                {displayModeIcon}
+              </span>
+              <span>{displayModeLabel}</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="home-play-row">
@@ -667,6 +791,35 @@ function HomeLobby({
             disabled={isConnecting}
           />
         </div>
+        {isIosInstallHelpOpen ? (
+          <div
+            className="home-install-guide-backdrop"
+            role="presentation"
+            onClick={() => setIsIosInstallHelpOpen(false)}
+          >
+            <div
+              className="home-install-guide"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Jouer à Gobble comme une application"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="home-install-guide-title">Jouer sans les barres de Safari</div>
+              <ol>
+                <li>Touche le bouton Partager de ton navigateur.</li>
+                <li>Choisis « Sur l’écran d’accueil ».</li>
+                <li>Ajoute Gobble, puis lance-le depuis sa nouvelle icône.</li>
+              </ol>
+              <button
+                type="button"
+                className="home-install-guide-close"
+                onClick={() => setIsIosInstallHelpOpen(false)}
+              >
+                Compris
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

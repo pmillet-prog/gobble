@@ -45,17 +45,18 @@ export default function MiniTournamentStartOverlay({ lobby = null }) {
         ) : showIntro ? (
           <>
             <div className="text-3xl font-black uppercase tracking-[0.16em] sm:text-5xl">
-              Debut de mini TOURNOI
+              Début du mini-tournoi
             </div>
             <div className="mx-auto mt-5 max-w-md text-sm font-semibold leading-relaxed text-slate-200">
-              5 manches. Les meilleurs scores gagnent des points, la derniere manche compte double.
-              Les gobbles departagent et peuvent faire basculer le classement.
+              5 manches. En finale, les points du classement et les effets des tuiles spéciales
+              sont doublés : L2→L4, L3→L6, M2→M4, M3→M6. Les gobbles peuvent faire basculer
+              le classement.
             </div>
           </>
         ) : (
           <>
             <div className="text-3xl font-black uppercase tracking-[0.16em] sm:text-5xl">
-              Preparation de la grille
+              Préparation de la grille
             </div>
             <div className="mx-auto mt-6 h-10 w-10 animate-spin rounded-full border-4 border-white/25 border-t-orange-300" />
           </>

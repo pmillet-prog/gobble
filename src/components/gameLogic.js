@@ -1,3 +1,5 @@
+import { getTileBonusFactor } from "../../shared/finaleRules.js";
+
 export const OCID_TYPE = "ocid";
 export const FAKE_TWINS_TYPE = "fake_twins";
 export const FAKE_TWINS_MIN_WORD_LENGTH = 2;
@@ -264,14 +266,14 @@ export function computeScore(word, path, board, special = null, resolvedLettersB
       continue;
     }
 
-    if (bonus === "L2") base += letterValue * 2;
-    else if (bonus === "L3") base += letterValue * 3;
-    else if (bonus === "M2") {
+    if (bonus === "L2" || bonus === "L3") {
+      base += letterValue * getTileBonusFactor(bonus, special);
+    } else if (bonus === "M2") {
       base += letterValue;
-      wordMultiplier *= 2;
+      wordMultiplier *= getTileBonusFactor(bonus, special);
     } else if (bonus === "M3") {
       base += letterValue;
-      wordMultiplier *= 3;
+      wordMultiplier *= getTileBonusFactor(bonus, special);
     } else base += letterValue;
   }
 

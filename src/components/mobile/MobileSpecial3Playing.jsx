@@ -1,6 +1,11 @@
 import React from "react";
 
 import MobileGrid from "../MobileGrid.jsx";
+import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
+import {
+  getTraceStateSnapshot,
+  subscribeTraceState,
+} from "../traceStateStore.js";
 
 function MobileSpecial3Playing(props) {
   const {
@@ -12,18 +17,18 @@ function MobileSpecial3Playing(props) {
     clearDailyWordSlot = null,
     dailyInvalidPulseKey = 0,
     dailyInvalidSlot = -1,
-    dailyLiveWordBlockedReason = "",
-    dailyLiveWordNorm = "",
-    dailyLiveWordScore = 0,
-    dailyLiveWordValid = false,
+    dailyLiveWordBlockedReason: fallbackBlockedReason = "",
+    dailyLiveWordNorm: fallbackNormalizedWord = "",
+    dailyLiveWordScore: fallbackScore = 0,
+    dailyLiveWordValid: fallbackValid = false,
     dailyTotalScore = 0,
     darkMode = false,
     filledCount = 0,
     formatNumber = (value) => String(value ?? ""),
-    highlightPath = [],
+    highlightPath: fallbackHighlightPath = [],
     isDailyPlay = false,
     isLoggedIn = false,
-    liveWord = "",
+    liveWord: fallbackLiveWord = "",
     mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
     mobileGridProps = {},
@@ -42,6 +47,7 @@ function MobileSpecial3Playing(props) {
     renderSpecial3LengthGobbleBadge = null,
     renderSpecialChip = null,
     renderWordPreviewTiles = null,
+    resolveLiveTrace = null,
     requestOpenChat = null,
     setDailyActiveSlot = null,
     slideStyles = "",
@@ -87,6 +93,29 @@ function MobileSpecial3Playing(props) {
     toggleSoundQuick = null,
     visualScreenShakeEnabled = true,
   } = props;
+
+  const traceSnapshot = React.useSyncExternalStore(
+    subscribeTraceState,
+    getTraceStateSnapshot,
+    getTraceStateSnapshot
+  );
+  const resolvedTrace =
+    typeof resolveLiveTrace === "function" ? resolveLiveTrace(traceSnapshot) || {} : {};
+  const highlightPath = Array.isArray(resolvedTrace.highlightPath)
+    ? resolvedTrace.highlightPath
+    : fallbackHighlightPath;
+  const liveWord = String(resolvedTrace.liveWord ?? fallbackLiveWord ?? "");
+  const dailyLiveWordNorm = String(
+    resolvedTrace.normalizedWord ?? fallbackNormalizedWord ?? ""
+  );
+  const dailyLiveWordBlockedReason = String(
+    resolvedTrace.blockedReason ?? fallbackBlockedReason ?? ""
+  );
+  const dailyLiveWordValid =
+    resolvedTrace.valid == null ? Boolean(fallbackValid) : Boolean(resolvedTrace.valid);
+  const dailyLiveWordScore = Number.isFinite(resolvedTrace.score)
+    ? resolvedTrace.score
+    : fallbackScore;
 
   return (
     <>
@@ -207,7 +236,7 @@ function MobileSpecial3Playing(props) {
                   }}
                 >
                   <img
-                    src="/buttons/chat.png"
+                    src={getUiImageUrl(UI_IMAGE_KEYS.live.chat)}
                     alt=""
                     aria-hidden="true"
                     className="h-full w-full object-contain drop-shadow-md"
