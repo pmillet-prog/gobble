@@ -34,6 +34,7 @@ import {
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
+import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
 import { getMetrics, resetMetrics } from "./observability/metrics.js";
 import {
@@ -8731,6 +8732,28 @@ function recomputeRoundGobblesFromResults(room, results) {
   }
 
   const scoreConfig = getSpecialScoreConfig(room.currentRound);
+  if (specialType === SELF_SPECIAL_3_WORDS_TYPE) {
+    const validWordsByPlayer = [];
+    for (const entry of results) {
+      const nick = String(entry?.nick || "").trim();
+      if (!nick) continue;
+      const scoringBoard = applySpecial3Placements(board, entry?.specialPlacements).board;
+      const validWords = [];
+      for (const raw of Array.isArray(entry?.words) ? entry.words : []) {
+        const scored = scoreWordOnGrid(raw, scoringBoard, scoreConfig);
+        if (scored?.norm) validWords.push(scored.norm);
+      }
+      validWordsByPlayer.push({ nick, words: validWords });
+    }
+    const special3Awards = computeSpecial3GobbleAwards(
+      validWordsByPlayer,
+      Number(room.bestPossibleStats?.maxLen) || 0
+    );
+    room.currentRound.gobbles = special3Awards.gobbles;
+    room.currentRound.gobbleFlags = special3Awards.gobbleFlags;
+    return;
+  }
+
   const maxLenPossible = Number(room.bestPossibleStats?.maxLen) || 0;
   const maxPtsPossible = getEffectiveMaxPossibleScoreForRound(
     room.currentRound,

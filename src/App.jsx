@@ -19232,7 +19232,11 @@ export default function App() {
         Number.isFinite(maxPts) &&
         userPts === maxPts;
       const hasLongest = Number.isFinite(stats.len) && maxLen > 0 && stats.len === maxLen;
-      const gobbleCount = (hasBestScore ? 1 : 0) + (hasLongest ? 1 : 0);
+      const gobbleCount = isSpecial3Round
+        ? hasLongest
+          ? 1
+          : 0
+        : (hasBestScore ? 1 : 0) + (hasLongest ? 1 : 0);
       const gobbleActive = isSpeedRound ? hasLongest : gobbleCount > 0;
       list.push({
         word,
@@ -20396,7 +20400,10 @@ function handleTouchEnd(e) {
       const isSpeedRound = specialRound?.type === "speed";
       const maxPossiblePts = bestGridMaxRef.current || 0;
       const maxPossibleLen = bestGridMaxLenRef.current || 0;
-      const allowScoreGobble = !isSpeedRound && !isMassiveBoggleRoundNow;
+      const allowScoreGobble =
+        !isSpeedRound &&
+        !isMassiveBoggleRoundNow &&
+        specialRound?.type !== DAILY_SPECIAL_MODE;
       const allowLenGobble = true;
       const isScoreGobbleNow =
         allowScoreGobble && maxPossiblePts > 0 && safePts === maxPossiblePts;
@@ -20820,7 +20827,10 @@ function handleTouchEnd(e) {
     const isSpeedRound = specialRound?.type === "speed";
     const maxPossiblePts = bestGridMaxRef.current || 0;
     const maxPossibleLen = bestGridMaxLenRef.current || 0;
-    const allowScoreGobble = !isSpeedRound && !isMassiveBoggleRoundNow;
+    const allowScoreGobble =
+      !isSpeedRound &&
+      !isMassiveBoggleRoundNow &&
+      specialRound?.type !== DAILY_SPECIAL_MODE;
     const allowLenGobble = true;
     const isScoreGobbleNow =
       allowScoreGobble && maxPossiblePts > 0 && pts === maxPossiblePts;
@@ -26108,7 +26118,9 @@ function handleTouchEnd(e) {
 
     const isSpeedRoundNow = specialRound?.type === "speed";
     const isMassiveBoggleRoundNow = specialRound?.type === MASSIVE_BOGGLE_TYPE;
-    const allowScoreGobble = !isSpeedRoundNow && !isMassiveBoggleRoundNow;
+    const isSpecial3RoundNow = specialRound?.type === DAILY_SPECIAL_MODE;
+    const allowScoreGobble =
+      !isSpeedRoundNow && !isMassiveBoggleRoundNow && !isSpecial3RoundNow;
     const winner = [...finalResults].sort((a, b) => (b?.score || 0) - (a?.score || 0))[0];
 
     const solverEntriesByNorm = new Map();
@@ -30218,7 +30230,10 @@ function handleTouchEnd(e) {
       canOpenPlayerProfile={stableCanOpenPlayerProfile}
       gobbleBadgeUrl={getImageUrl(IMAGE_KEYS.gobbleBadge)}
       isSpeedRound={specialRound?.type === "speed"}
-      allowScoreGobble={specialRound?.type !== MASSIVE_BOGGLE_TYPE}
+      allowScoreGobble={
+        specialRound?.type !== MASSIVE_BOGGLE_TYPE &&
+        specialRound?.type !== DAILY_SPECIAL_MODE
+      }
       isSpecial3Round={specialRound?.type === DAILY_SPECIAL_MODE}
       renderSpecial3PreviewTiles={renderSpecial3PreviewTiles}
       showWordScores={specialRound?.type !== "speed" && specialRound?.type !== DAILY_SPECIAL_MODE}
@@ -30454,6 +30469,7 @@ function handleTouchEnd(e) {
           bullets: [
             "Une tuile de départ déjà utilisée est hachurée sur la grille.",
             "Tu peux réutiliser la même lettre si elle vient d'une autre case.",
+            "Un seul Gobble est attribué si l'un de tes mots fait partie des plus longs possibles de la grille.",
           ],
           demoKind: "special3_start_tile",
         },

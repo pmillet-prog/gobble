@@ -11,5 +11,9 @@ export const SUPPORT_DONORS = Object.freeze([
     id: "voggle",
     name: "Voggle",
   },
+  {
+    id: "beerman",
+    name: "Beerman",
+  },
 ]);
 

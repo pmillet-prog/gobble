@@ -492,6 +492,30 @@ const styles = `
   .home-status-panel-message {
     top: calc(47.5vh + 6.25vw);
   }
+  .home-status-panel-with-action .home-display-mode-button {
+    position: absolute;
+    left: 50%;
+    top: 2.75vw;
+    z-index: 3;
+    min-height: 1.6vw;
+    padding: 0.28vw 0.55vw;
+    gap: 0.3vw;
+    font-size: 0.58vw;
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+  .home-status-panel-resume.home-status-panel-with-action .home-display-mode-button {
+    top: calc(4.9vh + 9vw);
+  }
+  .home-status-panel-with-action .home-display-mode-button:hover {
+    transform: translateX(-50%) translateY(-0.06vw);
+  }
+  .home-status-panel-with-action .home-display-mode-button:active {
+    transform: translateX(-50%) translateY(0.06vw) scale(0.98);
+  }
+  .home-status-panel-with-action .home-display-mode-button .material-symbols-outlined {
+    font-size: 0.9vw;
+  }
   .home-play-row {
     position: absolute;
     left: 0;
