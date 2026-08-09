@@ -296,8 +296,11 @@ function LiveFeed({
                     {item.label}
                   </span>
                 ) : (
-                  <span className="text-orange-700 dark:text-amber-300 font-bold whitespace-nowrap">
-                    +{item.pts} pts
+                  <span
+                    className="text-orange-700 dark:text-amber-300 font-bold whitespace-nowrap"
+                    data-score-flight-target={String(item.id || "")}
+                  >
+                    +{item.pts}
                   </span>
                 )}
               </div>

@@ -73,12 +73,12 @@ function DesktopChatPanel({
         actionsRef?.current?.focusChatInput?.();
       }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="font-bold text-center">Chat</h2>
-        <div className="flex items-center gap-3">
+      <div className="desktop-column-heading flex items-center justify-between mb-2">
+        <h2 className="desktop-column-title font-bold text-center">Chat</h2>
+        <div className="desktop-chat-header-actions flex items-center">
           <button
             type="button"
-            className={`text-[11px] font-semibold ${
+            className={`desktop-chat-header-button font-semibold ${
               darkMode ? "text-slate-300" : "text-slate-600"
             }`}
             onClick={() => actionsRef?.current?.openChatRules?.()}
@@ -87,7 +87,7 @@ function DesktopChatPanel({
           </button>
           <button
             type="button"
-            className={`text-[11px] font-semibold ${
+            className={`desktop-chat-header-button font-semibold ${
               darkMode ? "text-amber-300" : "text-blue-600"
             }`}
             onClick={() => actionsRef?.current?.toggleBlockedList?.()}
@@ -96,15 +96,15 @@ function DesktopChatPanel({
           </button>
         </div>
       </div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="desktop-chat-toolbar mb-2 flex items-center justify-between">
         <div
-          className={`inline-flex rounded-full border p-1 ${
+          className={`desktop-chat-tabs inline-flex rounded-full border ${
             darkMode ? "border-white/10 bg-slate-800/70" : "border-slate-200 bg-slate-100"
           }`}
         >
           <button
             type="button"
-            className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+            className={`desktop-chat-tab-button rounded-full font-bold transition ${
               desktopChatTab === "messages"
                 ? "bg-blue-600 text-white"
                 : darkMode
@@ -117,7 +117,7 @@ function DesktopChatPanel({
           </button>
           <button
             type="button"
-            className={`px-3 py-1 rounded-full text-[11px] font-bold transition ${
+            className={`desktop-chat-tab-button rounded-full font-bold transition ${
               desktopChatTab === "system"
                 ? "bg-orange-500 text-white"
                 : darkMode
@@ -130,7 +130,7 @@ function DesktopChatPanel({
           </button>
         </div>
         <label
-          className={`ml-auto inline-flex max-w-full min-w-[7rem] items-center gap-2 rounded-full border px-2 py-1 ${
+          className={`desktop-chat-font-control ml-auto inline-flex max-w-full items-center rounded-full border ${
             darkMode
               ? "border-white/10 bg-slate-800/70 text-slate-100"
               : "border-slate-200 bg-slate-100 text-slate-700"
@@ -160,13 +160,13 @@ function DesktopChatPanel({
           />
         </label>
       </div>
-      <div className="mb-2 flex justify-end">
+      <div className="desktop-chat-bot-row flex justify-end">
         <button
           type="button"
           role="switch"
           aria-checked={showBotMessages ? "true" : "false"}
           aria-label={showBotMessages ? "Masquer les messages bots" : "Afficher les messages bots"}
-          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+          className={`desktop-chat-bot-button inline-flex items-center rounded-full border font-bold transition ${
             darkMode
               ? "border-white/10 bg-slate-800/70 text-slate-100"
               : "border-slate-200 bg-slate-100 text-slate-700"
@@ -175,15 +175,14 @@ function DesktopChatPanel({
         >
           <span>Bots</span>
           <span
-            className={`relative h-5 w-9 rounded-full transition ${
+            data-enabled={showBotMessages ? "true" : "false"}
+            className={`desktop-chat-switch-track relative rounded-full transition ${
               showBotMessages ? "bg-emerald-500" : darkMode ? "bg-slate-700" : "bg-slate-300"
             }`}
             aria-hidden="true"
           >
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
-                showBotMessages ? "left-[18px]" : "left-0.5"
-              }`}
+              className="desktop-chat-switch-knob absolute rounded-full bg-white shadow transition"
             />
           </span>
         </button>
@@ -328,8 +327,8 @@ function DesktopChatPanel({
                         : "py-1 bg-slate-100 text-slate-900 border border-slate-200",
                     ].join(" ")}
                     style={{
-                      fontSize: `${isAmbientBot ? Math.max(11, desktopChatFontPx - 2) : desktopChatFontPx}px`,
-                      lineHeight: `${isAmbientBot ? Math.max(14, desktopChatLineHeightPx - 3) : desktopChatLineHeightPx}px`,
+                      fontSize: `${isAmbientBot ? Math.max(7, desktopChatFontPx - 2) : desktopChatFontPx}px`,
+                      lineHeight: `${isAmbientBot ? Math.max(9, desktopChatLineHeightPx - 3) : desktopChatLineHeightPx}px`,
                     }}
                   >
                     {replyPreview ? (
@@ -545,14 +544,14 @@ function DesktopChatPanel({
               </div>
             </div>
           ) : null}
-          <div className="mt-2 flex flex-nowrap items-center gap-1.5">
+          <div className="desktop-chat-quick-row mt-2 flex flex-nowrap items-center overflow-hidden">
             {quickReplies.map((txt, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => actionsRef?.current?.submitChat?.(null, txt)}
                 disabled={chatInputDisabled}
-                className="px-1.5 py-0.5 leading-4 rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                className="desktop-chat-quick-button rounded-full border bg-gray-100 hover:bg-gray-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontSize: `${desktopChatQuickReplyFontPx}px` }}
               >
                 {txt}
@@ -583,12 +582,12 @@ function DesktopChatPanel({
             </div>
           ) : null}
 
-          <div className="mt-3 flex items-end gap-2">
+          <div className="desktop-chat-input-row mt-3 flex items-end">
             <button
               type="button"
               onClick={() => actionsRef?.current?.toggleDesktopEmojiPicker?.()}
               disabled={chatInputDisabled}
-              className={`px-2 py-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`desktop-chat-input-button rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
                 darkMode
                   ? "bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700"
                   : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
@@ -621,7 +620,7 @@ function DesktopChatPanel({
               onFocus={() => actionsRef?.current?.handleChatInputFocus?.()}
               readOnly={chatInputDisabled}
               aria-disabled={chatInputDisabled}
-              className="flex-1 min-w-0 border rounded px-3 py-2 ios-input chat-input resize-none min-h-[40px] max-h-[140px]"
+              className="desktop-chat-input flex-1 min-w-0 border rounded ios-input chat-input resize-none"
               style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
               placeholder={chatInputPlaceholder}
               value={chatInput}
@@ -632,7 +631,7 @@ function DesktopChatPanel({
             />
             <button
               type="button"
-              className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+              className="desktop-chat-send-button rounded bg-blue-600 text-white disabled:opacity-50 whitespace-nowrap"
               style={{ fontSize: `${desktopChatInputFontPx}px`, lineHeight: `${desktopChatInputLineHeightPx}px` }}
               disabled={!chatInput.trim() || chatInputDisabled}
               onClick={() => actionsRef?.current?.submitChat?.(null)}

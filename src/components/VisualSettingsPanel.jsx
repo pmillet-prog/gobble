@@ -7,6 +7,7 @@ export default function VisualSettingsPanel({
   allVisualOn = false,
   visualGobbleEnabled = false,
   visualPraiseEnabled = false,
+  visualScoreFlightsEnabled = false,
   visualInvalidWordsEnabled = false,
   visualScreenShakeEnabled = false,
   visualConfettiEnabled = false,
@@ -18,6 +19,7 @@ export default function VisualSettingsPanel({
   onToggleAll = null,
   onToggleGobble = null,
   onTogglePraise = null,
+  onToggleScoreFlights = null,
   onToggleInvalidWords = null,
   onToggleScreenShake = null,
   onToggleConfetti = null,
@@ -73,7 +75,7 @@ export default function VisualSettingsPanel({
             </button>
             <div className="text-sm font-extrabold tracking-wide">Apparence</div>
             <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
-              {enabledVisualCount}/6
+              {enabledVisualCount}/7
             </span>
           </div>
         </div>
@@ -120,6 +122,11 @@ export default function VisualSettingsPanel({
             enabled: visualPraiseEnabled,
             label: "Gros scores",
             onClick: onTogglePraise,
+          })}
+          {renderToggle({
+            enabled: visualScoreFlightsEnabled,
+            label: "Capsules de score",
+            onClick: onToggleScoreFlights,
           })}
           {renderToggle({
             enabled: visualInvalidWordsEnabled,

@@ -6,12 +6,18 @@ cd /d "%~dp0"
 echo === 1) GOBBLE: commit + push ===
 
 git add -A
+if !errorlevel! neq 0 (
+  echo ERREUR: git add a echoue. Verifie notamment la presence de .git\index.lock
+  pause
+  exit /b 1
+)
 
 REM Si rien n'a change, on skip le commit
 git diff --cached --quiet
-if !errorlevel! == 0 (
+set "DIFF_EXIT=!errorlevel!"
+if "!DIFF_EXIT!"=="0" (
   echo Rien a commit.
-) else (
+) else if "!DIFF_EXIT!"=="1" (
   set "MSG=%*"
   if "!MSG!"=="" set "MSG=update"
   git commit -m "!MSG!"
@@ -20,6 +26,10 @@ if !errorlevel! == 0 (
     pause
     exit /b 1
   )
+) else (
+  echo ERREUR: impossible de verifier les changements Git
+  pause
+  exit /b 1
 )
 
 git push origin HEAD:main

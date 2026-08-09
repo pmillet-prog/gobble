@@ -240,6 +240,7 @@ export async function recordPlayerRoundStats({
   isTargetRound = false,
   targetFound = false,
   isSpecial3Round = false,
+  scoreRecordsEligible = true,
   ts = Date.now(),
 } = {}) {
   const safeUserId = normalizeUserId(userId);
@@ -251,8 +252,14 @@ export async function recordPlayerRoundStats({
   const safeScore = finiteInt(score);
   const safeWordsCount = finiteInt(wordsCount);
   const safeRoundId = String(roundId || "").slice(0, 120);
-  const bestWordText = isTargetRound ? "" : String(bestWord?.word || "").trim().slice(0, 40);
-  const bestWordScore = isTargetRound ? 0 : finiteInt(bestWord?.pts);
+  const allowScoreRecords = scoreRecordsEligible !== false;
+  const safeBestRoundScore = allowScoreRecords ? safeScore : 0;
+  const safeBestRoundId = allowScoreRecords ? safeRoundId : "";
+  const bestWordText =
+    isTargetRound || !allowScoreRecords
+      ? ""
+      : String(bestWord?.word || "").trim().slice(0, 40);
+  const bestWordScore = isTargetRound || !allowScoreRecords ? 0 : finiteInt(bestWord?.pts);
   const longestWordText = isTargetRound
     ? ""
     : String(longestWord?.word || "").trim().slice(0, 40);
@@ -319,8 +326,8 @@ export async function recordPlayerRoundStats({
       safeWordsCount,
       safeWordsCount,
       safeWordsCount > 0 ? safeRoundId : "",
-      safeScore,
-      safeRoundId,
+      safeBestRoundScore,
+      safeBestRoundId,
       bestWordText,
       bestWordScore,
       longestWordText,

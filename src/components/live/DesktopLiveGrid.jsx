@@ -41,6 +41,23 @@ function DesktopLiveGrid({
   const useFillIndicator = specialIndicatorPreset === "fill";
   const useRingIndicator = specialIndicatorPreset === "ring";
   const useBadgeIndicator = specialIndicatorPreset === "badge";
+  const safeTileFontPx = Math.max(1, Number(tileFontPx) || 16);
+  const desktopTilePointStyle = !isMobileLayout
+    ? {
+        "--tile-points-font-size": `${Math.max(
+          3.5,
+          Math.min(10, safeTileFontPx * 0.4)
+        )}px`,
+        "--tile-points-offset": `${Math.max(
+          1,
+          Math.min(6, safeTileFontPx * 0.24)
+        )}px`,
+        "--tile-points-bubble-offset": `${Math.max(
+          1.5,
+          Math.min(10, safeTileFontPx * 0.32)
+        )}px`,
+      }
+    : null;
 
   return (
     <>
@@ -95,7 +112,8 @@ function DesktopLiveGrid({
           touchAction: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
-          fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${tileFontPx}px`,
+          fontSize: isMobileLayout ? "clamp(18px, 7vw, 30px)" : `${safeTileFontPx}px`,
+          ...(desktopTilePointStyle || {}),
           ...(hintStyle || {}),
           ...(getTileColorTextureStyle(boardIndex, gridSize, tileColorPreset) || {}),
         };

@@ -78,51 +78,12 @@ function MobileRoundIntroOverlay({
   const sidePx = Number(squareStyle?.__sidePx) || 0;
   const countdownFontPx = sidePx ? clampValue(Math.round(sidePx * 0.45), 104, 260) : 180;
   const goFontPx = sidePx ? clampValue(Math.round(sidePx * 0.19), 28, 108) : 72;
-  const goldGradient =
-    "linear-gradient(180deg, #6f4300 0%, #f0b81e 16%, #fff4b5 30%, #d48a05 46%, #fff2aa 63%, #b16d00 80%, #fff8cf 100%)";
-  const useMobileTextTuning = isMobileLayout;
   const titleGoldTextStyle = {
-    backgroundImage: goldGradient,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    color: "transparent",
-    WebkitTextFillColor: "transparent",
-    WebkitTextStroke:
-      !darkMode && useMobileTextTuning
-        ? "0.85px rgba(0,0,0,0.88)"
-        : useMobileTextTuning
-        ? "0px transparent"
-        : "1px rgba(100,55,0,0.42)",
-    textShadow: useMobileTextTuning
-      ? !darkMode
-        ? "0 1px 0 rgba(255,244,194,0.36), 0 2px 8px rgba(0,0,0,0.44)"
-        : "0 1px 0 rgba(255,244,194,0.42), 0 2px 8px rgba(0,0,0,0.38)"
-      : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
     position: "relative",
-    animation: "goldPulse 2.2s ease-in-out infinite",
   };
   const countdownGoldTextStyle = {
-    backgroundImage: goldGradient,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    color: "transparent",
-    WebkitTextFillColor: "transparent",
-    WebkitTextStroke:
-      !darkMode && useMobileTextTuning
-        ? "1px rgba(0,0,0,0.92)"
-        : useMobileTextTuning
-        ? "0px transparent"
-        : "1px rgba(100,55,0,0.42)",
-    textShadow: useMobileTextTuning
-      ? !darkMode
-        ? "0 1px 0 rgba(255,244,194,0.4), 0 3px 10px rgba(0,0,0,0.46), 0 0 10px rgba(255,210,85,0.18)"
-        : "0 1px 0 rgba(255,244,194,0.46), 0 3px 10px rgba(0,0,0,0.42), 0 0 10px rgba(255,210,85,0.2)"
-      : "0 0 2px rgba(255,255,255,0.42), 0 0 14px rgba(255,215,90,0.26), 0 0 24px rgba(255,190,40,0.14), 0 8px 18px rgba(0,0,0,0.42)",
     position: "relative",
-    filter: useMobileTextTuning
-      ? "drop-shadow(0 0 4px rgba(255,210,80,0.14))"
-      : "drop-shadow(0 0 8px rgba(255,210,80,0.18))",
-    opacity: 0.92,
+    opacity: 1,
   };
   const showsBackdrop =
     isMobileLayout && (stage === "results_fade_out" || stage === "intro_fade_in");
@@ -169,18 +130,18 @@ function MobileRoundIntroOverlay({
           }}
         >
           <div
-            className="text-[clamp(14px,1.3vw,19px)] font-black tracking-[0.22em]"
+            className="nick-podium-gold text-[clamp(14px,1.3vw,19px)] font-black tracking-[0.22em]"
             style={titleGoldTextStyle}
           >
             {roundLabel || "MANCHE"}
           </div>
           <div
-            className={`mt-3 text-[clamp(15px,1.5vw,23px)] font-black tracking-[0.08em] uppercase ${
+            className={`nick-podium-gold mt-3 text-[clamp(15px,1.5vw,23px)] font-black tracking-[0.08em] uppercase ${
               isSpecial ? "" : ""
             }`}
             style={{
               ...titleGoldTextStyle,
-              opacity: isSpecial ? 0.95 : 0.9,
+              opacity: isSpecial ? 1 : 0.98,
             }}
           >
             {roundTypeLabel || "manche classique"}
@@ -196,7 +157,7 @@ function MobileRoundIntroOverlay({
         <div className="fixed flex items-center justify-center" style={styleForRender}>
           <span
             key={`intro-count-${countdown ?? "x"}`}
-            className={`font-black tabular-nums leading-none text-amber-300 ${
+            className={`nick-podium-gold font-black tabular-nums leading-none ${
               countdownIsGo
                 ? "round-intro-go-fade whitespace-nowrap tracking-[0.03em]"
                 : "round-intro-countdown-pop"

@@ -10,7 +10,7 @@ const styles = `
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 520px;
+  min-height: 0;
   overflow: hidden;
   background: #120b06;
   isolation: isolate;

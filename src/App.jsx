@@ -1,6 +1,7 @@
 // Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
 // 
 import React, { Suspense, useEffect, useState, useRef, useLayoutEffect } from "react";
+import "./styles/desktopResponsive.css";
 import confetti from "canvas-confetti";
 import {
   recordAppRender,
@@ -21,6 +22,16 @@ import {
 import useAudioEngine from "./audio/useAudioEngine";
 import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
+import useElementSize from "./hooks/useElementSize.js";
+import {
+  clampDesktopColumnResizeDelta,
+  computeDesktopColumnUiScales,
+  computeDesktopGridChrome,
+  computeDesktopGridResizeMaxTrackWidth,
+  computeDesktopUiScale,
+  computeDesktopViewportHeight,
+  shouldUseMobileLayout,
+} from "./utils/desktopResponsiveLayout.js";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import ASSET_MANIFEST_BASE from "./assets/assetManifest";
@@ -63,6 +74,8 @@ import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
 import FacebookGroupInviteModal from "./components/FacebookGroupInviteModal.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
+import ScoreFlightLayer from "./components/score/ScoreFlightLayer.jsx";
+import { getScoreFlightOrigin } from "./components/score/scoreFlightGeometry.js";
 import {
   clearAllCelebrationFlashes,
   clearCelebrationFlash,
@@ -91,6 +104,7 @@ import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx
 import MobileUltraCompactPlaying from "./components/mobile/MobileUltraCompactPlaying.jsx";
 import DesktopGameGrid from "./components/live/DesktopGameGrid.jsx";
 import DesktopSpecial3WordsPanel from "./components/live/DesktopSpecial3WordsPanel.jsx";
+import WeeklyNickLine from "./components/stats/WeeklyNickLine.jsx";
 import FinaleBonusTilesDemo from "./components/finale/FinaleBonusTilesDemo.jsx";
 import { getFinaleTutorialSteps } from "./components/finale/finalePresentation.js";
 import OcidVoteOptionsGrid from "./components/ocid/OcidVoteOptionsGrid.jsx";
@@ -175,6 +189,20 @@ import {
   getCompactLiveRoundLabel,
 } from "./utils/liveRoundStatus.js";
 import {
+  ROUND_PREPARATION_FALLBACK_GRACE_MS,
+  isRoundStartPreparationDelayed,
+} from "./utils/roundPreparation.js";
+import {
+  createMonotonicDeadline,
+  createServerClockState,
+  getDeadlineRemainingSeconds,
+  getDelayUntilDeadlineWindow,
+  getMonotonicNowMs,
+  getNextDeadlineTickDelay,
+  readServerClockMs,
+  updateServerClockFromSample,
+} from "./utils/realtimeClock.js";
+import {
   FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS,
   isAudienceEligibleForPatchNotes,
   isNewPlayerPopupQuietPeriod,
@@ -221,8 +249,10 @@ const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
 const DAILY_SPECIAL_WORD_TARGET = 3;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
-// Hauteur cible du bloc principal : clamp sur la fenêtre pour éviter les colonnes infinies en zoom/d?zoom
-const MAIN_GRID_HEIGHT = "max(360px, calc(100vh - 180px))";
+// Le viewport reste la seule autorité en hauteur sur desktop : une hauteur
+// minimale visuelle recréerait un scroll global aux forts niveaux de zoom.
+const DESKTOP_MAIN_GRID_MIN_HEIGHT = 1;
+const MAIN_GRID_HEIGHT = `max(${DESKTOP_MAIN_GRID_MIN_HEIGHT}px, calc(100vh - 180px))`;
 const CHAT_DRAWER_FIXED_HEIGHT_RATIO = 0.58;
 const CHAT_DRAWER_MIN_HEIGHT_PX = 320;
 const CHAT_DRAWER_MAX_HEIGHT_PX = 560;
@@ -234,7 +264,7 @@ const CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX = 120;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
-  minHeight: "360px",
+  minHeight: `${DESKTOP_MAIN_GRID_MIN_HEIGHT}px`,
 };
 const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
 const DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 0.85, 1.05];
@@ -691,15 +721,21 @@ function hasFinePointer() {
 function computeIsMobileLayout() {
   if (typeof window === "undefined") return false;
   const { width, height } = getViewportSize();
-  const minDim = Math.min(width, height);
-  const isNarrow = width <= MOBILE_LAYOUT_MAX_WIDTH;
+  const coarsePointer = hasCoarsePointer();
+  const finePointer = hasFinePointer();
   const isTouch =
-    hasCoarsePointer() ||
+    coarsePointer ||
     "ontouchstart" in window ||
     (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
-  const isHybridDesktop = hasFinePointer() && width >= 900;
-  const isTouchCompact = isTouch && !isHybridDesktop && minDim <= TOUCH_LAYOUT_MAX_MIN_DIM;
-  return isNarrow || isTouchCompact;
+  return shouldUseMobileLayout({
+    coarsePointer,
+    finePointer,
+    mobileMaxWidth: MOBILE_LAYOUT_MAX_WIDTH,
+    touchCapable: isTouch,
+    touchMaxMinDimension: TOUCH_LAYOUT_MAX_MIN_DIM,
+    viewportHeight: height,
+    viewportWidth: width,
+  });
 }
 
 function computeIsUltraCompact() {
@@ -2641,16 +2677,6 @@ body.theme-dark .special-hint-tile.special-hint-fill::before {
     cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes goldPulse {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 8px rgba(255, 210, 80, 0.18));
-  }
-  50% {
-    filter: drop-shadow(0 0 14px rgba(255, 220, 110, 0.26));
-  }
-}
-
 @keyframes tileIntroIn {
   0% {
     opacity: 0;
@@ -3109,9 +3135,9 @@ body.theme-dark .fake-twins-badge {
 
 .tile-points {
   position: absolute;
-  right: 6px;
-  bottom: 6px;
-  font-size: 0.60rem;
+  right: var(--tile-points-offset, 6px);
+  bottom: var(--tile-points-offset, 6px);
+  font-size: var(--tile-points-font-size, 0.60rem);
   line-height: 1;
   font-weight: 900;
   padding: 0;
@@ -3204,8 +3230,8 @@ body.theme-dark .tile-points {
 }
 
 .theme-material-bubble .tile-points {
-  right: 10px;
-  bottom: 10px;
+  right: var(--tile-points-bubble-offset, 10px);
+  bottom: var(--tile-points-bubble-offset, 10px);
 }
 
 .theme-material-rounded-square {
@@ -3267,13 +3293,6 @@ body.theme-dark .tile-points {
 .bonus-badge.bonus-l {
   background: rgba(37, 99, 235, 0.15);
   color: #1d4ed8;
-}
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  backdrop-filter: blur(6px);
 }
 
 body.theme-dark {
@@ -3439,28 +3458,6 @@ body.theme-dark textarea::placeholder {
   color: #9ca3af !important;
 }
 
-@keyframes popGlow {
-  0% { transform: translate(20%, -10%) scale(0.6); opacity: 0; }
-  35% { transform: translate(-4%, -40%) scale(1.05) rotate(-3deg); opacity: 1; }
-  70% { transform: translate(-6%, -55%) scale(1); opacity: 0.9; }
-  100% { transform: translate(-6%, -70%) scale(0.9); opacity: 0; }
-}
-
-.big-score-burst {
-  position: absolute;
-  top: -6px;
-  right: 6px;
-  padding: 8px 12px;
-  border-radius: 9999px;
-  font-weight: 900;
-  font-size: 0.95rem;
-  color: #1f1300;
-  background: linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b);
-  box-shadow: 0 12px 26px rgba(245, 158, 11, 0.35);
-  animation: popGlow 0.95s ease-out forwards;
-  pointer-events: none;
-}
-
 @keyframes celebrationDrift {
   0% { transform: translate3d(-50%, -50%, 0) scale(0.16); opacity: 0; }
   18% { transform: translate3d(-50%, -50%, 0) scale(1); opacity: 1; }
@@ -3468,6 +3465,11 @@ body.theme-dark textarea::placeholder {
     transform: translate3d(calc(-50% + var(--celebration-x, 0px)), calc(-50% + var(--celebration-y, 0px)), 0) scale(var(--celebration-scale, 1.6));
     opacity: 0;
   }
+}
+
+@keyframes celebrationPraiseOpacity {
+  0%, 20% { opacity: 0.76; }
+  38%, 100% { opacity: 1; }
 }
 
 @keyframes celebrationGobbleDrift {
@@ -3524,6 +3526,9 @@ body.theme-dark textarea::placeholder {
   width: var(--celebration-size, 240px);
   height: auto;
   display: block;
+}
+.celebration-praise-pop .celebration-image {
+  animation: celebrationPraiseOpacity var(--celebration-duration, 1500ms) linear forwards;
 }
 .celebration-text-pop {
   display: flex;
@@ -3670,8 +3675,6 @@ const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
 const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
 const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
-const BIG_SCORE_THRESHOLD = 100;
-const MASSIVE_BOGGLE_BIG_FEEDBACK_THRESHOLD = 20;
 const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
@@ -4017,9 +4020,9 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-08-02";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-02T00:00:00+02:00");
-const FRONT_BUILD_TAG = "2026-08-02-finale-performance-ui-1";
+const PATCH_NOTES_VERSION = "2026-08-09";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-09T00:00:00+02:00");
+const FRONT_BUILD_TAG = "2026-08-09-live-flow-score-feedback-1";
 const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 const FACEBOOK_INVITE_SEEN_STORAGE_PREFIX = "gobble_facebook_invite_seen";
@@ -4269,11 +4272,17 @@ function normalizeAuthUsernameInput(raw) {
     .trim();
 }
 
-function getPatchNotesSeenAudienceKey(userId, installId) {
+function getPatchNotesSeenAudienceKey(userId) {
   const safeUserId = Number(userId);
   if (Number.isInteger(safeUserId) && safeUserId > 0) {
     return `user:${safeUserId}`;
   }
+  return "";
+}
+
+function getPopupAudienceKey(userId, installId) {
+  const userKey = getPatchNotesSeenAudienceKey(userId);
+  if (userKey) return userKey;
   const safeInstallId = typeof installId === "string" ? installId.trim() : "";
   return safeInstallId ? `install:${safeInstallId}` : "";
 }
@@ -4768,6 +4777,10 @@ export default function App() {
     typeof initialSettings.visualPraiseEnabled === "boolean"
       ? initialSettings.visualPraiseEnabled
       : true;
+  const initialVisualScoreFlightsEnabled =
+    typeof initialSettings.visualScoreFlightsEnabled === "boolean"
+      ? initialSettings.visualScoreFlightsEnabled
+      : true;
   const initialVisualInvalidWordsEnabled =
     typeof initialSettings.visualInvalidWordsEnabled === "boolean"
       ? initialSettings.visualInvalidWordsEnabled
@@ -4824,6 +4837,9 @@ export default function App() {
   const [visualPraiseEnabled, setVisualPraiseEnabled] = useState(
     () => initialVisualPraiseEnabled
   );
+  const [visualScoreFlightsEnabled, setVisualScoreFlightsEnabled] = useState(
+    () => initialVisualScoreFlightsEnabled
+  );
   const [visualInvalidWordsEnabled, setVisualInvalidWordsEnabled] = useState(
     () => initialVisualInvalidWordsEnabled
   );
@@ -4849,6 +4865,7 @@ export default function App() {
   const soundMasterVolumeRef = useRef(soundMasterVolume);
   const visualGobbleEnabledRef = useRef(visualGobbleEnabled);
   const visualPraiseEnabledRef = useRef(visualPraiseEnabled);
+  const visualScoreFlightsEnabledRef = useRef(visualScoreFlightsEnabled);
   const visualInvalidWordsEnabledRef = useRef(visualInvalidWordsEnabled);
   const visualScreenShakeEnabledRef = useRef(visualScreenShakeEnabled);
   const visualConfettiEnabledRef = useRef(visualConfettiEnabled);
@@ -5195,7 +5212,10 @@ export default function App() {
   const mobileHelpRef = useRef(null);
   const safeAreaProbeRef = useRef(null);
   const safeAreaTopProbeRef = useRef(null);
-  const [bigScoreFlash, setBigScoreFlash] = useState(null);
+  const [scoreFlights, setScoreFlights] = useState([]);
+  const completeScoreFlight = React.useCallback((flightId) => {
+    setScoreFlights((current) => current.filter((flight) => flight.id !== flightId));
+  }, []);
   const [gridShake, setGridShake] = useState(false);
   const [resultsReorderTick, setResultsReorderTick] = useState(0);
   const [mobileRoundIntroStage, setMobileRoundIntroStage] = useState("idle");
@@ -5232,7 +5252,7 @@ export default function App() {
   const [roundId, setRoundId] = useState(null);
   const roundStartSoundRef = useRef(null);
   const tickRef = useRef(tick);
-  const tickIntervalRef = useRef(null);
+  const tickTimerRef = useRef(null);
   const [serverEndsAt, setServerEndsAt] = useState(null);
   const [serverRoundDurationMs, setServerRoundDurationMs] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -5374,7 +5394,7 @@ export default function App() {
   const [tournamentLobby, setTournamentLobby] = useState(null);
   const [trainingBusy, setTrainingBusy] = useState(false);
   const [trainingConfirm, setTrainingConfirm] = useState(null);
-  const serverTimeOffsetRef = useRef(0); // ms: serverNow - clientNow
+  const serverClockRef = useRef(createServerClockState());
   const [announcements, setAnnouncements] = useState([]);
   const [roundStats, setRoundStats] = useState(null);
   const [specialRound, setSpecialRound] = useState(null);
@@ -5536,7 +5556,8 @@ export default function App() {
     : null;
   const installId = authenticatedUserId ? buildUserScopedInstallId(authenticatedUserId) : "";
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
-  const popupAudienceKey = getPatchNotesSeenAudienceKey(
+  const patchNotesAudienceKey = getPatchNotesSeenAudienceKey(authenticatedUserId);
+  const popupAudienceKey = getPopupAudienceKey(
     authenticatedUserId,
     installId || deviceInstallId
   );
@@ -5837,7 +5858,7 @@ export default function App() {
     gridShakeAnimationRef.current = null;
     confettiBurstTokenRef.current += 1;
     clearAllCelebrationFlashes();
-    setBigScoreFlash(null);
+    setScoreFlights([]);
     setGridShake(false);
     try {
       confetti.reset?.();
@@ -5861,9 +5882,9 @@ export default function App() {
     implodeFallbackRef.current = false;
     outroInFlightRef.current = false;
     outroRoundRef.current = null;
-    if (tickIntervalRef.current) {
-      clearInterval(tickIntervalRef.current);
-      tickIntervalRef.current = null;
+    if (tickTimerRef.current) {
+      clearTimeout(tickTimerRef.current);
+      tickTimerRef.current = null;
     }
     if (disconnectGraceTimerRef.current) {
       clearTimeout(disconnectGraceTimerRef.current);
@@ -6206,9 +6227,18 @@ export default function App() {
     visualPraiseEnabledRef.current = visualPraiseEnabled;
     if (!visualPraiseEnabled) {
       clearCelebrationFlash("praiseFlash");
-      setBigScoreFlash(null);
     }
   }, [visualPraiseEnabled]);
+  useEffect(() => {
+    visualScoreFlightsEnabledRef.current = visualScoreFlightsEnabled;
+    if (!visualScoreFlightsEnabled) {
+      setScoreFlights([]);
+    }
+  }, [visualScoreFlightsEnabled]);
+  useEffect(() => {
+    if (phase === "playing") return;
+    setScoreFlights((current) => (current.length > 0 ? [] : current));
+  }, [phase]);
   useEffect(() => {
     visualInvalidWordsEnabledRef.current = visualInvalidWordsEnabled;
     if (!visualInvalidWordsEnabled) {
@@ -6279,6 +6309,7 @@ export default function App() {
           ),
           visualGobbleEnabled,
           visualPraiseEnabled,
+          visualScoreFlightsEnabled,
           visualInvalidWordsEnabled,
           visualScreenShakeEnabled,
           visualConfettiEnabled,
@@ -6315,6 +6346,7 @@ export default function App() {
     soundMasterVolume,
     visualGobbleEnabled,
     visualPraiseEnabled,
+    visualScoreFlightsEnabled,
     visualInvalidWordsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
@@ -6649,6 +6681,7 @@ export default function App() {
       visualEffects: {
         gobble: !!visualGobbleEnabled,
         praise: !!visualPraiseEnabled,
+        scoreFlights: !!visualScoreFlightsEnabled,
         invalidWords: !!visualInvalidWordsEnabled,
         screenShake: !!visualScreenShakeEnabled,
         confetti: !!visualConfettiEnabled,
@@ -6742,6 +6775,7 @@ export default function App() {
     preferLiteVisualEffects,
     visualGobbleEnabled,
     visualPraiseEnabled,
+    visualScoreFlightsEnabled,
     visualInvalidWordsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
@@ -6990,7 +7024,7 @@ export default function App() {
   const cultureThemeCompletionCelebratedRef = useRef("");
   const cultureThemeChallengeRef = useRef(null);
   const invalidLastRef = useRef(0);
-  const bigScoreLastRef = useRef(0);
+  const scoreFlightSequenceRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
   const chatScrollLockRef = useRef(0);
@@ -7354,8 +7388,7 @@ export default function App() {
   });
   const mainGridDesktopRef = useRef(null);
   const playColumnRef = useRef(null);
-  const countdownRef = useRef(null);
-  const previewRef = useRef(null);
+  const desktopGridResizeMaxTrackWidthRef = useRef(Number.POSITIVE_INFINITY);
   const mobileSpecial3TutorialHostRef = useRef(null);
   const mobileSpecial3FirstSlotRef = useRef(null);
   const mobileSpecial3SecondSlotRef = useRef(null);
@@ -7851,10 +7884,9 @@ export default function App() {
     desktopColumnFractionsPersistSignatureRef.current = signature;
   }, [installId, desktopColumnFractions, desktopColumnDefaultFractions, desktopColumnStorageScope]);
   const [playColumnHeight, setPlayColumnHeight] = useState(null);
-  const [countdownHeight, setCountdownHeight] = useState(0);
-  const [previewHeight, setPreviewHeight] = useState(0);
   const [desktopResultsDrawerLayout, setDesktopResultsDrawerLayout] = useState(null);
   const [desktopMainGridHeight, setDesktopMainGridHeight] = useState(null);
+  const [setDesktopGridStageNode, desktopGridStageSize] = useElementSize(!isMobileLayout);
   const [mobileSpecial3Step2OverlayStyle, setMobileSpecial3Step2OverlayStyle] = useState(null);
   const [mobileSpecial3Step1GhostStyle, setMobileSpecial3Step1GhostStyle] = useState(null);
 
@@ -7951,50 +7983,6 @@ export default function App() {
       if (h) commitPlayColumnHeight(h);
     });
 
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isMobileLayout, appView, phase, isLoggedIn]);
-
-  useEffect(() => {
-    const el = countdownRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-
-    const commitCountdownHeight = (value) => {
-      const nextHeight = normalizeMeasuredPx(value);
-      if (!nextHeight) return;
-      setCountdownHeight((prev) => (isSameMeasuredPx(prev, nextHeight) ? prev : nextHeight));
-    };
-
-    const initialHeight = el.getBoundingClientRect().height;
-    if (initialHeight) commitCountdownHeight(initialHeight);
-    const observer = new ResizeObserver((entries) => {
-      const target = entries[0]?.target;
-      if (!target) return;
-      const h = target.getBoundingClientRect().height;
-      if (h) commitCountdownHeight(h);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isMobileLayout, appView, phase, isLoggedIn]);
-
-  useEffect(() => {
-    const el = previewRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-
-    const commitPreviewHeight = (value) => {
-      const nextHeight = normalizeMeasuredPx(value);
-      if (!nextHeight) return;
-      setPreviewHeight((prev) => (isSameMeasuredPx(prev, nextHeight) ? prev : nextHeight));
-    };
-
-    const initialHeight = el.getBoundingClientRect().height;
-    if (initialHeight) commitPreviewHeight(initialHeight);
-    const observer = new ResizeObserver((entries) => {
-      const target = entries[0]?.target;
-      if (!target) return;
-      const h = target.getBoundingClientRect().height;
-      if (h) commitPreviewHeight(h);
-    });
     observer.observe(el);
     return () => observer.disconnect();
   }, [isMobileLayout, appView, phase, isLoggedIn]);
@@ -9314,6 +9302,11 @@ export default function App() {
     const targetStartAt = Number.isFinite(serverStartsAt)
       ? serverStartsAt
       : nowServerMs + introMsFallback;
+    const targetStartMonotonicMs = createMonotonicDeadline({
+      deadlineServerMs: targetStartAt,
+      monotonicNowMs: getMonotonicNowMs(),
+      serverNowMs: nowServerMs,
+    });
     const hasTimedIntro =
       Number.isFinite(targetStartAt) && targetStartAt > nowServerMs + 80;
     if (!hasTimedIntro) {
@@ -9389,48 +9382,43 @@ export default function App() {
     };
     const runCountdownPhase = () => {
       if (isStale()) return;
-      const nowMs = getNowServerMs();
-      const remainingMsToStart = Math.max(0, targetStartAt - nowMs);
-      if (remainingMsToStart <= 120) {
-        finishIntro();
-        return;
-      }
-      const maxCountdownMs = MOBILE_ROUND_INTRO_COUNTDOWN_TOTAL_MS;
-      const waitBeforeCountdownMs =
-        remainingMsToStart > maxCountdownMs ? remainingMsToStart - maxCountdownMs : 0;
-      const shouldKeepFullCountdown =
-        remainingMsToStart >= maxCountdownMs - 650;
-      const countdownWindowMs = shouldKeepFullCountdown
-        ? maxCountdownMs
-        : Math.min(
-            maxCountdownMs,
-            Math.max(420, remainingMsToStart - waitBeforeCountdownMs)
-          );
-      const stepMs = shouldKeepFullCountdown
-        ? MOBILE_ROUND_INTRO_COUNTDOWN_STEP_MS
-        : Math.max(
-            150,
-            countdownWindowMs / Math.max(1, MOBILE_ROUND_INTRO_COUNTDOWN_FROM)
-          );
-      const sequence = [3, 2, 1, 0];
-      const runSequenceAt = (index) => {
+      let lastValue = null;
+      const updateCountdown = () => {
         if (isStale()) return;
-        const value = sequence[index] ?? 0;
-        setMobileRoundIntroCountdown(value);
-        if (value > 0) {
-          playCountdownTickSound(value, token);
+        const now = getMonotonicNowMs();
+        const waitUntilCountdownWindowMs = getDelayUntilDeadlineWindow({
+          deadlineMonotonicMs: targetStartMonotonicMs,
+          monotonicNowMs: now,
+          windowMs: MOBILE_ROUND_INTRO_COUNTDOWN_TOTAL_MS,
+        });
+        if (waitUntilCountdownWindowMs > 0) {
+          scheduleStep(updateCountdown, waitUntilCountdownWindowMs);
+          return;
         }
-        if (index >= sequence.length - 1) {
+        const value = getDeadlineRemainingSeconds({
+          deadlineMonotonicMs: targetStartMonotonicMs,
+          maxSeconds: MOBILE_ROUND_INTRO_COUNTDOWN_FROM,
+          monotonicNowMs: now,
+        });
+        if (value <= 0) {
           finishIntro();
           return;
         }
-        scheduleStep(() => runSequenceAt(index + 1), stepMs);
+        if (value !== lastValue) {
+          lastValue = value;
+          setMobileRoundIntroCountdown(value);
+          playCountdownTickSound(value, token);
+        }
+        scheduleStep(
+          updateCountdown,
+          getNextDeadlineTickDelay({
+            deadlineMonotonicMs: targetStartMonotonicMs,
+            displayedSeconds: value,
+            monotonicNowMs: now,
+          })
+        );
       };
-      if (waitBeforeCountdownMs > 0) {
-        scheduleStep(() => runSequenceAt(0), waitBeforeCountdownMs);
-      } else {
-        runSequenceAt(0);
-      }
+      updateCountdown();
     };
 
     scheduleStep(() => {
@@ -9471,18 +9459,32 @@ export default function App() {
     stopMobileRoundIntro,
   ]);
 
-  function triggerBigScoreFlash(pts) {
-    if (!visualPraiseEnabledRef.current) return;
-    const now = Date.now();
-    if (now - bigScoreLastRef.current < 420) return;
-    bigScoreLastRef.current = now;
-    const lite = !!preferLiteVisualEffectsRef.current;
-    const durationMs = lite ? 620 : 950;
-    setBigScoreFlash({ pts, id: now, durationMs, lite });
-    setTimeout(() => setBigScoreFlash(null), durationMs);
+  function triggerScoreFlight({ feedItemId, path, points }) {
+    if (!visualScoreFlightsEnabledRef.current) return;
+    if (!feedItemId || !Number.isFinite(Number(points))) return;
+    const safePath = Array.isArray(path) ? path : [];
+    const lastTileIndex = Number(safePath[safePath.length - 1]);
+    const lastTile = Number.isInteger(lastTileIndex) ? tileRefs.current[lastTileIndex] : null;
+    const origin = getScoreFlightOrigin({
+      tileRect: lastTile?.getBoundingClientRect?.(),
+      gridRect: gridRef.current?.getBoundingClientRect?.(),
+    });
+    if (!origin) return;
+    scoreFlightSequenceRef.current += 1;
+    const id = `score-flight-${Date.now()}-${scoreFlightSequenceRef.current}`;
+    const flight = {
+      id,
+      lite: !!preferLiteVisualEffectsRef.current,
+      points: Number(points),
+      sourceX: origin.x,
+      sourceY: origin.y,
+      targetId: String(feedItemId),
+    };
+    setScoreFlights((current) => [...current.slice(-5), flight]);
   }
 
   function triggerGridShake() {
+    const mobileNow = !!isMobileLayoutRef.current;
     if (!visualScreenShakeEnabledRef.current) {
       if (gridShakeTimerRef.current) {
         clearTimeout(gridShakeTimerRef.current);
@@ -9492,7 +9494,7 @@ export default function App() {
         gridShakeAnimationRef.current?.cancel?.();
       } catch (_) {}
       gridShakeAnimationRef.current = null;
-      setGridShake(false);
+      if (mobileNow) setGridShake(false);
       try {
         if (
           canVibrateRef.current &&
@@ -9513,24 +9515,25 @@ export default function App() {
       gridShakeAnimationRef.current?.cancel?.();
     } catch (_) {}
     gridShakeAnimationRef.current = null;
-    setGridShake(false);
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(() => setGridShake(true));
-    } else {
-      setGridShake(true);
+    if (mobileNow) {
+      setGridShake(false);
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => setGridShake(true));
+      } else {
+        setGridShake(true);
+      }
     }
     try {
       const gridEl = gridRef.current;
-      const mobileNow = !!isMobileLayoutRef.current;
       if (!mobileNow && gridEl instanceof HTMLElement && typeof gridEl.animate === "function") {
         const keyframes = [
-          { transform: "translateX(0px)" },
-          { transform: "translateX(-2px)" },
-          { transform: "translateX(4px)" },
-          { transform: "translateX(-6px)" },
-          { transform: "translateX(6px)" },
-          { transform: "translateX(-4px)" },
-          { transform: "translateX(0px)" },
+          { translate: "0px 0px" },
+          { translate: "-2px 0px" },
+          { translate: "4px 0px" },
+          { translate: "-6px 0px" },
+          { translate: "6px 0px" },
+          { translate: "-4px 0px" },
+          { translate: "0px 0px" },
         ];
         const animation = gridEl.animate(keyframes, {
           duration: 340,
@@ -9559,10 +9562,12 @@ export default function App() {
         navigator.vibrate(50);
       }
     } catch (_) {}
-    gridShakeTimerRef.current = setTimeout(() => {
-      setGridShake(false);
-      gridShakeTimerRef.current = null;
-    }, 520);
+    if (mobileNow) {
+      gridShakeTimerRef.current = setTimeout(() => {
+        setGridShake(false);
+        gridShakeTimerRef.current = null;
+      }, 520);
+    }
   }
 
   function triggerPraiseFlash(
@@ -11422,7 +11427,6 @@ export default function App() {
       ) {
         return;
       }
-      syncServerTime();
       setNextStartAt(nextTs || null);
       setTournamentLobby(null);
       setRoundPreparing(null);
@@ -12164,7 +12168,6 @@ export default function App() {
       outroInFlightRef.current = false;
       outroRoundRef.current = null;
       setInputLocked(false);
-      syncServerTime();
       if (incomingRoomId) {
         setCurrentRoomId(incomingRoomId);
         setRoomId(incomingRoomId);
@@ -12820,7 +12823,7 @@ export default function App() {
       if (Number.isFinite(voteEndsAt)) {
         setServerEndsAt(voteEndsAt);
         setServerRoundDurationMs(Math.max(1, voteEndsAt - getNowServerMs()));
-        setTick(Math.max(0, Math.round((voteEndsAt - getNowServerMs()) / 1000)));
+        setTick(Math.max(0, Math.ceil((voteEndsAt - getNowServerMs()) / 1000)));
       }
       setStatusMessageWithHold("Vote OCID", 1800);
     }
@@ -13022,10 +13025,10 @@ export default function App() {
   useEffect(() => {
     let id = null;
 
-    // Guard: ensure only one timer interval at a time.
-    if (tickIntervalRef.current) {
-      clearInterval(tickIntervalRef.current);
-      tickIntervalRef.current = null;
+    // Guard: ensure only one timer callback at a time.
+    if (tickTimerRef.current) {
+      clearTimeout(tickTimerRef.current);
+      tickTimerRef.current = null;
     }
 
     const finalizeRound = () => {
@@ -13041,28 +13044,15 @@ export default function App() {
       completeFinalizeRound();
     };
 
-    const setIntervalSafe = (fn) => {
-      id = setInterval(fn, 1000);
-      tickIntervalRef.current = id;
-    };
-
     if (phase === "countdown") {
       setTick(COUNTDOWN);
-      setIntervalSafe(() => {
-        setTick((t) => {
-          if (t <= 1) {
-            clearInterval(id);
-            startGame();
-            return 0;
-          }
-          return t - 1;
-        });
-      });
+      id = setTimeout(startGame, 1000);
+      tickTimerRef.current = id;
     } else if (phase === "playing") {
       if (isDailySpecial3TutorialActive) {
         return () => {
-          if (id) clearInterval(id);
-          if (tickIntervalRef.current === id) tickIntervalRef.current = null;
+          if (id) clearTimeout(id);
+          if (tickTimerRef.current === id) tickTimerRef.current = null;
         };
       }
       const maxDuration =
@@ -13070,38 +13060,55 @@ export default function App() {
           ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
           : ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION;
 
-      // Guard: always derive remaining time from a fixed end timestamp.
+      // L'échéance serveur est convertie une seule fois vers l'horloge locale
+      // monotone. Les resynchronisations réseau suivantes ne déplacent donc
+      // jamais un chrono déjà lancé.
       const endTimeMs = serverEndsAt ?? getNowServerMs() + maxDuration * 1000;
+      const monotonicNowMs = getMonotonicNowMs();
+      const deadlineMonotonicMs = createMonotonicDeadline({
+        deadlineServerMs: endTimeMs,
+        monotonicNowMs,
+        serverNowMs: getNowServerMs(),
+      });
+      let elapsedHandled = false;
       const updateRemaining = () => {
-        const now = getNowServerMs();
-        const remaining = Math.min(
-          maxDuration,
-          Math.max(0, Math.round((endTimeMs - now) / 1000))
-        );
+        if (!Number.isFinite(deadlineMonotonicMs)) return;
+        const now = getMonotonicNowMs();
+        const remaining = getDeadlineRemainingSeconds({
+          deadlineMonotonicMs,
+          maxSeconds: maxDuration,
+          monotonicNowMs: now,
+        });
+        setTick(remaining);
 
         if (remaining <= 0) {
+          if (elapsedHandled) return;
+          elapsedHandled = true;
+          tickTimerRef.current = null;
           if (specialRound?.type === OCID_TYPE) {
-            clearInterval(id);
             stopRoundEndTickSound({ fadeMs: 80 });
-            return 0;
+            return;
           }
-          clearInterval(id);
           finalizeRound();
-          return 0;
+          return;
         }
 
-        return remaining;
+        id = setTimeout(
+          updateRemaining,
+          getNextDeadlineTickDelay({
+            deadlineMonotonicMs,
+            displayedSeconds: remaining,
+            monotonicNowMs: now,
+          })
+        );
+        tickTimerRef.current = id;
       };
-
-      setTick(updateRemaining());
-      setIntervalSafe(() => {
-        setTick(updateRemaining);
-      });
+      updateRemaining();
     }
 
     return () => {
-      if (id) clearInterval(id);
-      if (tickIntervalRef.current === id) tickIntervalRef.current = null;
+      if (id) clearTimeout(id);
+      if (tickTimerRef.current === id) tickTimerRef.current = null;
     };
   }, [
     phase,
@@ -13111,7 +13118,6 @@ export default function App() {
     roomId,
     isDailySpecial3TutorialActive,
     specialRound,
-    ocidVote,
     stopRoundEndTickSound,
   ]);
 
@@ -13176,7 +13182,7 @@ export default function App() {
   // Médailles : gérées côté serveur (événement "medalsUpdate")
 
   function getNowServerMs() {
-    return Date.now() + (serverTimeOffsetRef.current || 0);
+    return readServerClockMs(serverClockRef.current);
   }
 
   function syncServerTime(next) {
@@ -13184,7 +13190,7 @@ export default function App() {
       next?.();
       return;
     }
-    const t0 = Date.now();
+    const t0 = getMonotonicNowMs();
     let done = false;
     const timer = setTimeout(() => {
       if (done) return;
@@ -13195,11 +13201,12 @@ export default function App() {
       if (done) return;
       done = true;
       clearTimeout(timer);
-      const t1 = Date.now();
+      const t1 = getMonotonicNowMs();
       if (res?.ok && typeof res.serverNow === "number") {
         const rtt = Math.max(0, t1 - t0);
-        const offset = res.serverNow + rtt / 2 - t1;
-        serverTimeOffsetRef.current = offset;
+        serverClockRef.current = updateServerClockFromSample(serverClockRef.current, {
+          sampledServerNowMs: res.serverNow + rtt / 2,
+        });
       }
       next?.();
     });
@@ -13503,21 +13510,23 @@ export default function App() {
     if (pingInFlightRef.current) return pingInFlightRef.current;
     const promise = new Promise((resolve, reject) => {
       let done = false;
+      const startedAt = getMonotonicNowMs();
       const timer = setTimeout(() => {
         if (done) return;
         done = true;
         reject(new Error("timeout"));
       }, PING_SERVER_TIMEOUT_MS);
-      const t0 = Date.now();
       socket.emit("timeSync", null, (res) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
         if (res?.ok && typeof res.serverNow === "number") {
-          const t1 = Date.now();
-          const rtt = Math.max(0, t1 - t0);
-          const offset = res.serverNow + rtt / 2 - t1;
-          serverTimeOffsetRef.current = offset;
+          const completedAt = getMonotonicNowMs();
+          const rtt = Math.max(0, completedAt - startedAt);
+          serverClockRef.current = updateServerClockFromSample(serverClockRef.current, {
+            monotonicNowMs: completedAt,
+            sampledServerNowMs: res.serverNow + rtt / 2,
+          });
           resolve(res);
         } else {
           reject(new Error("bad_response"));
@@ -16839,7 +16848,7 @@ export default function App() {
     ) {
       return;
     }
-    const seenStorageKey = getPatchNotesSeenStorageKey(popupAudienceKey);
+    const seenStorageKey = getPatchNotesSeenStorageKey(patchNotesAudienceKey);
     if (!seenStorageKey) return;
     let alreadySeen = false;
     try {
@@ -16859,7 +16868,7 @@ export default function App() {
     installIdCreatedAtTs,
     isAccountAuthenticated,
     isNewPlayerPopupQuiet,
-    popupAudienceKey,
+    patchNotesAudienceKey,
     shouldShowTutorial,
     phase,
     appView,
@@ -17402,13 +17411,34 @@ export default function App() {
       setBreakCountdown(null);
       return;
     }
-    const update = () =>
-      setBreakCountdown(
-        Math.max(0, Math.round((nextStartAt - getNowServerMs()) / 1000))
+    const monotonicNowMs = getMonotonicNowMs();
+    const deadlineMonotonicMs = createMonotonicDeadline({
+      deadlineServerMs: nextStartAt,
+      monotonicNowMs,
+      serverNowMs: getNowServerMs(),
+    });
+    let timerId = null;
+    const update = () => {
+      const now = getMonotonicNowMs();
+      const remaining = getDeadlineRemainingSeconds({
+        deadlineMonotonicMs,
+        monotonicNowMs: now,
+      });
+      setBreakCountdown(remaining);
+      if (remaining <= 0) return;
+      timerId = setTimeout(
+        update,
+        getNextDeadlineTickDelay({
+          deadlineMonotonicMs,
+          displayedSeconds: remaining,
+          monotonicNowMs: now,
+        })
       );
+    };
     update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
+    return () => {
+      if (timerId !== null) clearTimeout(timerId);
+    };
   }, [nextStartAt]);
 
   useEffect(() => {
@@ -17419,7 +17449,10 @@ export default function App() {
     ) {
       return undefined;
     }
-    const delayMs = Math.max(0, Number(nextStartAt) + 650 - getNowServerMs());
+    const delayMs = Math.max(
+      0,
+      Number(nextStartAt) + ROUND_PREPARATION_FALLBACK_GRACE_MS + 10 - getNowServerMs()
+    );
     const timerId = setTimeout(() => {
       setRoundStartDelayTick(Date.now());
     }, delayMs);
@@ -17846,7 +17879,7 @@ export default function App() {
     commitTraceSelection([], []);
     setAnalysis(null);
     setHighlightPlayers([]);
-    setBigScoreFlash(null);
+    setScoreFlights([]);
     clearToasts();
     solutionsRef.current = new Map();
     serverAllWordsRef.current = [];
@@ -17936,7 +17969,7 @@ export default function App() {
       ? getNowServerMs() + normalizedDurationMs
       : null;
     const initialTick = Number.isFinite(effectiveEndsAt)
-      ? Math.max(0, Math.round((effectiveEndsAt - getNowServerMs()) / 1000))
+      ? Math.max(0, Math.ceil((effectiveEndsAt - getNowServerMs()) / 1000))
       : maxDuration;
     const roundKey = newRoundId || null;
     const startsAtMs = Number.isFinite(roundLifecycle?.startsAt)
@@ -18231,7 +18264,7 @@ export default function App() {
     commitTraceSelection([], []);
     setAnalysis(null);
     setHighlightPlayers([]);
-    setBigScoreFlash(null);
+    setScoreFlights([]);
     clearToasts();
     solutionsRef.current = new Map();
     serverAllWordsRef.current = [];
@@ -20358,13 +20391,14 @@ function handleTouchEnd(e) {
 
     if (!alreadyAccepted) {
       const wordBonuses = path ? summarizeBonuses(path, board) : null;
+      const feedTs = getNextLiveFeedTs();
+      const feedItemId = `word-${feedTs}`;
       setLastWords((prev) => {
-        const now = getNextLiveFeedTs();
         const feedLabel = isTargetRoundNow ? "gobble" : null;
         const next = [
           {
-            id: now,
-            ts: now,
+            id: feedTs,
+            ts: feedTs,
             display,
             pts: safePts,
             label: feedLabel,
@@ -20381,6 +20415,9 @@ function handleTouchEnd(e) {
         ];
         return next.slice(0, 24);
       });
+      if (!isTargetRoundNow) {
+        triggerScoreFlight({ feedItemId, path, points: safePts });
+      }
 
       const wordLen = normalizeWord(display || word || "").length || 3;
       const isMassiveBoggleRoundNow = specialRound?.type === MASSIVE_BOGGLE_TYPE;
@@ -20430,12 +20467,6 @@ function handleTouchEnd(e) {
             triggerPraiseFlash("FABULEUX !", { kind: "purple" });
           } else if (feedbackPts > 5) {
             triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
-          }
-          if (
-            safePts >= BIG_SCORE_THRESHOLD ||
-            (isMassiveBoggleRoundNow && feedbackPts >= MASSIVE_BOGGLE_BIG_FEEDBACK_THRESHOLD)
-          ) {
-            triggerBigScoreFlash(safePts);
           }
         }
       }
@@ -20743,6 +20774,7 @@ function handleTouchEnd(e) {
     rarityBucket = "",
     cultureThemeWord = false,
     ptsOverride = null,
+    scoreFlightPoints = null,
   }) {
     recordPerfEvent("word-local", {
       length: String(raw || "").length,
@@ -20750,6 +20782,9 @@ function handleTouchEnd(e) {
     });
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
     const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
+    const flightPoints = Number.isFinite(scoreFlightPoints)
+      ? Number(scoreFlightPoints)
+      : pts;
     const rareBonusEnabledNow = isRareBonusEnabledForSpecial(specialRound);
     const effectiveRareBonusWord = rareBonusEnabledNow && !!rareBonusWord;
     const effectiveRareBonusPoints = rareBonusEnabledNow ? Number(rareBonusPoints) || 0 : 0;
@@ -20811,6 +20846,13 @@ function handleTouchEnd(e) {
       ];
       return next.slice(0, 24);
     });
+    if (!isTargetRoundNow) {
+      triggerScoreFlight({
+        feedItemId: `word-${now}`,
+        path: normalizedPath,
+        points: flightPoints,
+      });
+    }
 
     const wordLen = normalizeWord(displayStr || raw || "").length || 3;
     const isMassiveBoggleRoundNow = specialRound?.type === MASSIVE_BOGGLE_TYPE;
@@ -20856,12 +20898,6 @@ function handleTouchEnd(e) {
         triggerPraiseFlash("FABULEUX !", { kind: "purple" });
       } else if (feedbackPts > 5) {
         triggerPraiseFlash("EXCELLENT !", { kind: "blue" });
-      }
-      if (
-        pts >= BIG_SCORE_THRESHOLD ||
-        (isMassiveBoggleRoundNow && feedbackPts >= MASSIVE_BOGGLE_BIG_FEEDBACK_THRESHOLD)
-      ) {
-        triggerBigScoreFlash(pts);
       }
     }
 
@@ -20973,6 +21009,7 @@ function handleTouchEnd(e) {
             const rareBonusAllowed = isRareBonusEnabledForSpecial(specialRound);
             return {
               ...scored,
+              tracedPathPts: scored.pts,
               pts: serverMeta.pts,
               usedFakeTwins: !!scored.usedFakeTwins || !!serverMeta.usedFakeTwins,
               fakeTwinsCompletionWord: !!serverMeta.fakeTwinsCompletionWord,
@@ -21203,6 +21240,9 @@ function handleTouchEnd(e) {
         : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
         ? specialRound.fixedWordScore
         : candidateScored.pts;
+      const scoreFlightPoints = Number.isFinite(candidate?.scoreFlightPoints)
+        ? Number(candidate.scoreFlightPoints)
+        : optimisticPts;
       enqueuePendingWord(candidate.raw, {
         display: candidate.display,
         path: candidatePath,
@@ -21229,6 +21269,7 @@ function handleTouchEnd(e) {
         rareBonusPoints: rareBonusAllowedNow ? Number(candidateScored?.rareBonusPoints) || 0 : 0,
         rarityBucket: rareBonusAllowedNow ? String(candidateScored?.rarityBucket || "") : "",
         ptsOverride: optimisticPts,
+        scoreFlightPoints,
       });
     });
 
@@ -21400,6 +21441,10 @@ function handleTouchEnd(e) {
         return {
           ...candidate,
           scored: candidateScored,
+          scoreFlightPoints:
+            usesManualPath && Number.isFinite(candidateScored.tracedPathPts)
+              ? Number(candidateScored.tracedPathPts)
+              : Number(candidateScored.pts),
           display: String(candidate.display || candidateRaw || "").toUpperCase(),
         };
       })
@@ -21449,6 +21494,7 @@ function handleTouchEnd(e) {
         rareBonusWord: rareBonusAllowedNow && !!candidate.scored?.rareBonusWord,
         rareBonusPoints: rareBonusAllowedNow ? Number(candidate.scored?.rareBonusPoints) || 0 : 0,
         rarityBucket: rareBonusAllowedNow ? String(candidate.scored?.rarityBucket || "") : "",
+        scoreFlightPoints: candidate.scoreFlightPoints,
       });
     });
   }
@@ -21532,6 +21578,10 @@ function handleTouchEnd(e) {
         return {
           ...candidate,
           scored: candidateScored,
+          scoreFlightPoints:
+            usesManualPath && Number.isFinite(candidateScored.tracedPathPts)
+              ? Number(candidateScored.tracedPathPts)
+              : Number(candidateScored.pts),
           display: String(candidate.display || candidateRaw || "").toUpperCase(),
         };
       })
@@ -21578,6 +21628,7 @@ function handleTouchEnd(e) {
         rareBonusWord: rareBonusAllowedNow && !!candidate.scored?.rareBonusWord,
         rareBonusPoints: rareBonusAllowedNow ? Number(candidate.scored?.rareBonusPoints) || 0 : 0,
         rarityBucket: rareBonusAllowedNow ? String(candidate.scored?.rarityBucket || "") : "",
+        scoreFlightPoints: candidate.scoreFlightPoints,
       });
     });
     return true;
@@ -25616,6 +25667,7 @@ function handleTouchEnd(e) {
           bluffDetail={selfOcidBluffPanelText}
           voters={selfOcidVoters}
           bluffPoints={selfOcidBluffPoints}
+          gobbleEarned={!!selfOcidDetail?.gobbleEarned}
           onClose={() => setOcidMobileResultDismissedKey(ocidMobileResultKey)}
         />
       </Suspense>
@@ -25645,6 +25697,14 @@ function handleTouchEnd(e) {
       Number(selfOcidDetail.correctVotePoints) ||
       (selfOcidDetail.correctVote ? Number(ocidScoring?.correctVote) || 0 : 0);
     const bluffPointValue = Number(ocidScoring?.bluffVote) || 0;
+    if (selfOcidDetail.gobbleEarned) {
+      queue.push("GOBBLE ! +1 point au classement du mini-tournoi");
+      try {
+        playGobbleVoice();
+        triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: false });
+        triggerConfettiBurst("gobble");
+      } catch (_) {}
+    }
     if (validPoints > 0) queue.push(`+${validPoints} points pour mot valide`);
     if (exactPoints > 0) queue.push(`+${exactPoints} bravo ! mot cible trouvé`);
     if (votePoints > 0) queue.push(`+${votePoints} points pour ton vote`);
@@ -26528,8 +26588,23 @@ function handleTouchEnd(e) {
       const rightStart = baseWidths[separatorIndex + 1] || 0;
       const leftMin = minWidths[separatorIndex] || 120;
       const rightMin = minWidths[separatorIndex + 1] || 120;
-      const maxLeftShift = leftStart - leftMin;
-      const maxRightShift = rightStart - rightMin;
+      const currentOrder = normalizeDesktopColumnOrder(
+        desktopColumnOrderRef.current,
+        desktopColumnBaseDefs
+      );
+      const gridColumnIndex = currentOrder.indexOf("grid");
+      const gridMaxTrackWidth = Math.max(
+        baseWidths[gridColumnIndex] || 0,
+        Number(desktopGridResizeMaxTrackWidthRef.current) || 0
+      );
+      const leftMax =
+        separatorIndex === gridColumnIndex
+          ? gridMaxTrackWidth
+          : Number.POSITIVE_INFINITY;
+      const rightMax =
+        separatorIndex + 1 === gridColumnIndex
+          ? gridMaxTrackWidth
+          : Number.POSITIVE_INFINITY;
 
       const resizeState = desktopColumnResizeRef.current;
       resizeState.active = true;
@@ -26546,7 +26621,15 @@ function handleTouchEnd(e) {
         const clientX = Number(moveEvent.clientX);
         if (!Number.isFinite(clientX)) return;
         const delta = clientX - startX;
-        const clampedDelta = clampValue(delta, -maxLeftShift, maxRightShift);
+        const clampedDelta = clampDesktopColumnResizeDelta({
+          delta,
+          leftMax,
+          leftMin,
+          leftStart,
+          rightMax,
+          rightMin,
+          rightStart,
+        });
         const leftNext = leftStart + clampedDelta;
         const rightNext = rightStart - clampedDelta;
         const nextWidths = [...baseWidths];
@@ -26568,7 +26651,13 @@ function handleTouchEnd(e) {
       window.addEventListener("pointerup", resizeState.upHandler);
       window.addEventListener("pointercancel", resizeState.upHandler);
     },
-    [isMobileLayout, desktopColumnDefaultFractions, desktopColumnMinWidthsPx, stopDesktopColumnResize]
+    [
+      desktopColumnBaseDefs,
+      desktopColumnDefaultFractions,
+      desktopColumnMinWidthsPx,
+      isMobileLayout,
+      stopDesktopColumnResize,
+    ]
   );
 
   useEffect(() => () => stopDesktopColumnResize(), [stopDesktopColumnResize]);
@@ -26642,8 +26731,11 @@ function handleTouchEnd(e) {
       const rect = host.getBoundingClientRect?.();
       if (!rect) return;
       const top = Math.max(0, Math.round(rect.top));
-      const available = viewportHeight - top - 16;
-      const nextHeight = Math.max(360, Math.round(available));
+      const nextHeight = computeDesktopViewportHeight({
+        bottomInset: 16,
+        hostTop: top,
+        viewportHeight,
+      });
       setDesktopMainGridHeight((prev) => {
         if (Number.isFinite(prev) && Math.abs(prev - nextHeight) <= 1) return prev;
         return nextHeight;
@@ -27798,7 +27890,82 @@ function handleTouchEnd(e) {
         maxHeight: `${globalChatSheetHeightPx}px`,
       }
     : undefined;
-  const previewBarMinHeight = 56;
+  const desktopGridColumnHeight = Math.max(
+    0,
+    Number(playColumnHeight) || Number(desktopMainGridHeight) || 0
+  );
+  const desktopUiScale = isMobileLayout
+    ? 1
+    : computeDesktopUiScale({
+        hostWidth: desktopGridMetrics.width,
+        columnHeight: desktopGridColumnHeight,
+        isDailyPlay,
+      });
+  const desktopResponsiveColumnFractions = normalizeDesktopColumnFractions(
+    desktopColumnFractions,
+    desktopColumnDefaultFractions
+  );
+  const desktopColumnUiScaleById = computeDesktopColumnUiScales({
+    columnDefs: desktopColumnBaseDefs,
+    columnFractions: desktopResponsiveColumnFractions,
+    columnOrder: desktopColumnOrderSafe,
+    gapPx: desktopGridMetrics.gapPx,
+    globalScale: desktopUiScale,
+    hostWidth: desktopGridMetrics.width,
+    isDailyPlay,
+  });
+  const desktopGridUiScale = isMobileLayout
+    ? 1
+    : desktopColumnUiScaleById.grid || desktopUiScale;
+  const desktopPlayersUiScale = isMobileLayout
+    ? 1
+    : desktopColumnUiScaleById.players || desktopUiScale;
+  const desktopSideUiScale = isMobileLayout
+    ? 1
+    : desktopColumnUiScaleById.side || desktopUiScale;
+  const desktopChatUiScale = isMobileLayout
+    ? 1
+    : desktopColumnUiScaleById.chat || desktopUiScale;
+  const isCompactDesktopGridLayout =
+    !isMobileLayout && desktopGridUiScale < 0.82;
+  const desktopGridChrome = computeDesktopGridChrome(desktopGridUiScale);
+  const desktopDefaultColumnUiScaleById = computeDesktopColumnUiScales({
+    columnDefs: desktopColumnBaseDefs,
+    columnFractions: desktopColumnDefaultFractions,
+    columnOrder: desktopColumnOrderSafe,
+    gapPx: desktopGridMetrics.gapPx,
+    globalScale: desktopUiScale,
+    hostWidth: desktopGridMetrics.width,
+    isDailyPlay,
+  });
+  const desktopDefaultGridChrome = computeDesktopGridChrome(
+    desktopDefaultColumnUiScaleById.grid || desktopUiScale
+  );
+  const desktopResponsiveBaseHeightPx = isMobileLayout
+    ? 0
+    : Math.max(
+        DESKTOP_MAIN_GRID_MIN_HEIGHT,
+        Number(desktopMainGridHeight) || 0
+      );
+  const desktopGridHeightBoundTrackWidthPx =
+    computeDesktopGridResizeMaxTrackWidth({
+      columnHeight: desktopResponsiveBaseHeightPx,
+      gridChrome: desktopDefaultGridChrome,
+      maxGridWidth: MAX_GRID_WIDTH,
+    });
+  const desktopGridTrackWidthLimitPx = desktopGridHeightBoundTrackWidthPx;
+  desktopGridResizeMaxTrackWidthRef.current = desktopGridTrackWidthLimitPx;
+  const desktopGridVisualWidthLimitPx = Math.max(
+    1,
+    Math.min(
+      MAX_GRID_WIDTH,
+      desktopGridTrackWidthLimitPx - desktopDefaultGridChrome.columnPadding - 12
+    )
+  );
+  const previewBarMinHeight = desktopGridChrome.previewBarHeight;
+  const validationBarPaddingPx = desktopGridChrome.validationPadding;
+  const validationBarHeightPx = desktopGridChrome.validationBarHeight;
+  const countdownBarHeightPx = desktopGridChrome.countdownBarHeight;
   const previewTileStyle = {};
   const lightPanelStyle = darkMode ? {} : { backgroundColor: "#ffffff" };
   const lightGridSurfaceStyle = undefined;
@@ -27807,43 +27974,31 @@ function handleTouchEnd(e) {
     const adjusted = raw - 24; // laisse un peu d'air avec les bordures/paddings
     return Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, adjusted));
   };
-  const clampGridSide = (raw) => {
-    if (!raw || Number.isNaN(raw)) return null;
-    return Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, raw));
-  };
   const measuredWidth = clampGridWidth(gridWidth);
   const fallbackWidth = clampGridWidth(
     playColumnRef.current?.getBoundingClientRect?.().width ||
       560
   );
-  const playColumnGapPx = isMobileLayout ? 0 : 24;
-  const playColumnPaddingPx = isMobileLayout ? 0 : 16;
-  const effectiveCountdownHeight = isMobileLayout ? 0 : countdownHeight;
-  const effectivePreviewHeight = isMobileLayout
-    ? 0
-    : Math.max(previewHeight, previewBarMinHeight);
-  const availableGridHeight =
-    !isMobileLayout && playColumnHeight
-      ? Math.max(
-          MIN_GRID_WIDTH,
-          playColumnHeight -
-            effectiveCountdownHeight -
-            effectivePreviewHeight -
-            playColumnPaddingPx -
-            playColumnGapPx * 2
-        )
-      : null;
-  const maxGridSideByHeight = clampGridSide(availableGridHeight);
   const widthCandidate =
     measuredWidth ??
     fallbackWidth ??
     Math.min(MAX_GRID_WIDTH, 360);
-  const effectiveGridWidth = maxGridSideByHeight
-    ? Math.min(widthCandidate, maxGridSideByHeight)
-    : widthCandidate;
+  const desktopGridStageWidth =
+    !isMobileLayout &&
+    desktopGridStageSize.width > 0
+      ? desktopGridStageSize.width
+      : null;
+  const effectiveGridWidth = desktopGridStageWidth
+    ? Math.min(
+        desktopGridVisualWidthLimitPx,
+        Math.max(1, desktopGridStageWidth - 12)
+      )
+    : Math.min(widthCandidate, desktopGridVisualWidthLimitPx);
   const isSquareMaterial = tileMaterialPreset === "square";
   const gapRatio = Math.max(0.08, Math.min(0.18, BASE_GAP_RATIO));
-  const effectiveDesktopPaddingPx = isSquareMaterial ? 0 : GRID_PADDING_PX;
+  const effectiveDesktopPaddingPx = isSquareMaterial
+    ? 0
+    : Math.min(GRID_PADDING_PX, Math.max(0, effectiveGridWidth * 0.12));
   const effectiveGapRatio = isSquareMaterial ? 0 : gapRatio;
   const innerGridWidth = Math.max(
     0,
@@ -27853,12 +28008,17 @@ function handleTouchEnd(e) {
     innerGridWidth > 0
       ? innerGridWidth / (gridSize + effectiveGapRatio * (gridSize - 1))
       : BASE_TILE_PX;
-  const tileSizePx = Math.max(MIN_TILE_SIZE, tileSizeRaw);
-  const tileGapPx = isSquareMaterial ? 0 : clampValue(tileSizePx * gapRatio, 4, 10);
+  const tileSizePx = Math.max(isMobileLayout ? MIN_TILE_SIZE : 1, tileSizeRaw);
+  const tileGapPx = isSquareMaterial
+    ? 0
+    : clampValue(tileSizePx * gapRatio, isMobileLayout ? 4 : 0, 10);
   const computedGridWidth =
     tileSizePx * gridSize + tileGapPx * (gridSize - 1) + effectiveDesktopPaddingPx;
   const fontScale = 1;
-  const tileFontPx = Math.max(14, Math.min(38, tileSizePx * 0.35 * fontScale));
+  const tileFontPx = Math.max(
+    isMobileLayout ? 14 : 8,
+    Math.min(38, tileSizePx * 0.35 * fontScale)
+  );
   const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
   const special3PreviewIsSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
   const renderSpecial3PreviewTiles = (
@@ -28067,13 +28227,13 @@ function handleTouchEnd(e) {
         </div>
       </div>
     ) : null;
+  const roundStartDelayed = isRoundStartPreparationDelayed({
+    breakKind,
+    nextStartAt,
+    nowMs: getNowServerMs(),
+    phase,
+  });
   const countdownLabel = (() => {
-    const roundStartDelayed =
-      phase === "results" &&
-      breakKind !== "tournament_end" &&
-      Number.isFinite(nextStartAt) &&
-      roundStartDelayTick >= 0 &&
-      getNowServerMs() > Number(nextStartAt) + 600;
     if (roundPreparing || roundStartDelayed) {
       return "Grille en préparation, démarrage imminent...";
     }
@@ -28101,12 +28261,6 @@ function handleTouchEnd(e) {
 
   const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
-  const roundStartDelayed =
-    phase === "results" &&
-    breakKind !== "tournament_end" &&
-    Number.isFinite(nextStartAt) &&
-    roundStartDelayTick >= 0 &&
-    getNowServerMs() > Number(nextStartAt) + 600;
   const showRoundPreparationWaiting = !!roundPreparing || roundStartDelayed;
   const preparingSpecial = roundPreparing?.special || upcomingSpecial || null;
   const roundPreparationTitle = preparingSpecial?.isSpecial
@@ -28724,54 +28878,6 @@ function handleTouchEnd(e) {
     );
   }
 
-  function WeeklyNickLine({
-    nick,
-    metaLabel,
-    vocabMeta,
-    showVocabLabel = true,
-    crowned = false,
-    onOpenProfile = null,
-  }) {
-    const metaClass = "text-[10px] opacity-60 truncate";
-
-    return (
-      <div className="font-semibold truncate flex items-center gap-1 text-xs">
-        {vocabMeta?.imageKey ? (
-          <span className="inline-flex shrink-0 items-center gap-1">
-            <img
-              src={getImageUrl(vocabMeta.imageKey)}
-              alt={vocabMeta.label || "Niveau"}
-              className="h-5 w-5 shrink-0"
-              draggable={false}
-            />
-            {showVocabLabel ? (
-              <span className="text-[10px] font-black opacity-75">
-                {vocabMeta.label || "Niveau"}
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-        {onOpenProfile ? (
-          <button
-            type="button"
-            data-stats-profile-button="true"
-            className="min-w-0 truncate text-left hover:underline"
-            style={{ touchAction: "pan-y" }}
-            onClick={onOpenProfile}
-          >
-            {nick}
-          </button>
-        ) : (
-          <span className="truncate">
-            {nick}
-          </span>
-        )}
-        {crowned ? renderCrownIcon("shrink-0") : null}
-        {metaLabel ? <span className={metaClass}>{metaLabel}</span> : null}
-      </div>
-    );
-  }
-
   function renderWeeklyRow(
     boardKey,
     entry,
@@ -28909,9 +29015,14 @@ function handleTouchEnd(e) {
             <WeeklyNickLine
               nick={baseNick}
               metaLabel={metaLabel}
-              vocabMeta={vocabMetaForRow}
+              vocabImageUrl={
+                vocabMetaForRow?.imageKey ? getImageUrl(vocabMetaForRow.imageKey) : ""
+              }
+              vocabLabel={vocabMetaForRow?.label || "Niveau"}
               showVocabLabel={showVocabLabel}
-              crowned={isCrownedEntry(baseNick, entry)}
+              crownIcon={
+                isCrownedEntry(baseNick, entry) ? renderCrownIcon("shrink-0") : null
+              }
               onOpenProfile={openWeeklyProfile}
             />
             {hasWord ? (
@@ -29099,8 +29210,13 @@ function handleTouchEnd(e) {
             <WeeklyNickLine
               nick={baseNick}
               metaLabel={metaLabel}
-              vocabMeta={vocabMetaForRow}
-              crowned={isCrownedEntry(baseNick, entry)}
+              vocabImageUrl={
+                vocabMetaForRow?.imageKey ? getImageUrl(vocabMetaForRow.imageKey) : ""
+              }
+              vocabLabel={vocabMetaForRow?.label || "Niveau"}
+              crownIcon={
+                isCrownedEntry(baseNick, entry) ? renderCrownIcon("shrink-0") : null
+              }
               onOpenProfile={openWeeklyProfile}
             />
             {hasWord ? (
@@ -31213,6 +31329,7 @@ function handleTouchEnd(e) {
   const allVisualOn =
     visualGobbleEnabled &&
     visualPraiseEnabled &&
+    visualScoreFlightsEnabled &&
     visualInvalidWordsEnabled &&
     visualScreenShakeEnabled &&
     visualConfettiEnabled &&
@@ -31220,6 +31337,7 @@ function handleTouchEnd(e) {
   const enabledVisualCount = [
     visualGobbleEnabled,
     visualPraiseEnabled,
+    visualScoreFlightsEnabled,
     visualInvalidWordsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
@@ -31239,6 +31357,7 @@ function handleTouchEnd(e) {
     const next = !!enabled;
     setVisualGobbleEnabled(next);
     setVisualPraiseEnabled(next);
+    setVisualScoreFlightsEnabled(next);
     setVisualInvalidWordsEnabled(next);
     setVisualScreenShakeEnabled(next);
     setVisualConfettiEnabled(next);
@@ -32527,6 +32646,7 @@ function handleTouchEnd(e) {
       setVisualGobbleEnabled={setVisualGobbleEnabled}
       setVisualInvalidWordsEnabled={setVisualInvalidWordsEnabled}
       setVisualPraiseEnabled={setVisualPraiseEnabled}
+      setVisualScoreFlightsEnabled={setVisualScoreFlightsEnabled}
       setVisualScreenShakeEnabled={setVisualScreenShakeEnabled}
       showDevDuelWeekRecap={showDevDuelWeekRecap}
       soundGobbleEnabled={soundGobbleEnabled}
@@ -32578,6 +32698,7 @@ function handleTouchEnd(e) {
       visualGobbleEnabled={visualGobbleEnabled}
       visualInvalidWordsEnabled={visualInvalidWordsEnabled}
       visualPraiseEnabled={visualPraiseEnabled}
+      visualScoreFlightsEnabled={visualScoreFlightsEnabled}
       visualScreenShakeEnabled={visualScreenShakeEnabled}
     />
   );
@@ -35123,13 +35244,22 @@ function handleTouchEnd(e) {
   const shouldMountCelebrationOverlay =
     phase === "playing" &&
     (visualGobbleEnabled || visualPraiseEnabled || visualInvalidWordsEnabled);
-  const praiseOverlay = shouldMountCelebrationOverlay ? (
-    <GameCelebrationOverlay
-      assetsReady={!!bootProgress?.done}
-      isMobileLayout={isMobileLayout}
-      liteVisualEffects={preferLiteVisualEffects}
-      phase={phase}
-    />
+  const shouldMountScoreFlightLayer = phase === "playing" && visualScoreFlightsEnabled;
+  const praiseOverlay = shouldMountCelebrationOverlay || shouldMountScoreFlightLayer ? (
+    <>
+      {shouldMountCelebrationOverlay ? (
+        <GameCelebrationOverlay
+          assetsReady={!!bootProgress?.done}
+          hostRef={gridRef}
+          isMobileLayout={isMobileLayout}
+          liteVisualEffects={preferLiteVisualEffects}
+          phase={phase}
+        />
+      ) : null}
+      {shouldMountScoreFlightLayer ? (
+        <ScoreFlightLayer flights={scoreFlights} onComplete={completeScoreFlight} />
+      ) : null}
+    </>
   ) : null;
   const desktopResultsSummaryDrawer = (
     <DesktopResultsSummaryDrawer
@@ -36107,7 +36237,11 @@ function handleTouchEnd(e) {
           visibleMessages={chatMessagesOnly}
         />
         {chatOverlays}
-        <MiniTournamentStartOverlay lobby={tournamentLobby} />
+        <MiniTournamentStartOverlay
+          lobby={tournamentLobby}
+          preparing={!!roundPreparing}
+          serverNowMs={getNowServerMs()}
+        />
       </>
     );
   }
@@ -37373,7 +37507,11 @@ function handleTouchEnd(e) {
             visibleMessages={visibleMessages}
           />
           {chatOverlays}
-          <MiniTournamentStartOverlay lobby={tournamentLobby} />
+          <MiniTournamentStartOverlay
+            lobby={tournamentLobby}
+            preparing={!!roundPreparing}
+            serverNowMs={getNowServerMs()}
+          />
         </>
       );
     }
@@ -37526,16 +37664,19 @@ function handleTouchEnd(e) {
   
   const desktopGridHeightPx =
     !isMobileLayout && Number.isFinite(desktopMainGridHeight)
-      ? Math.max(360, Math.round(desktopMainGridHeight))
+      ? Math.max(
+          DESKTOP_MAIN_GRID_MIN_HEIGHT,
+          Math.round(desktopMainGridHeight)
+        )
       : null;
   const desktopResizeEnabled = !isMobileLayout;
-  const desktopColumnFractionsSafe = normalizeDesktopColumnFractions(
-    desktopColumnFractions,
-    desktopColumnDefaultFractions
-  );
+  const desktopColumnFractionsSafe = desktopResponsiveColumnFractions;
   const desktopGridTemplateColumns = desktopResizeEnabled
     ? desktopColumnFractionsSafe
-        .map((fraction) => `${Math.max(0.0001, fraction).toFixed(6)}fr`)
+        .map(
+          (fraction) =>
+            `minmax(0, ${Math.max(0.0001, fraction).toFixed(6)}fr)`
+        )
         .join(" ")
     : isDailyPlay
     ? DAILY_DESKTOP_COLUMN_TEMPLATE
@@ -37562,9 +37703,12 @@ function handleTouchEnd(e) {
     ? {}
     : {
         height: desktopGridHeightPx ? `${desktopGridHeightPx}px` : MAIN_GRID_HEIGHT,
-        minHeight: desktopGridHeightPx ? `${desktopGridHeightPx}px` : "360px",
+        minHeight: desktopGridHeightPx
+          ? `${desktopGridHeightPx}px`
+          : `${DESKTOP_MAIN_GRID_MIN_HEIGHT}px`,
         maxHeight: desktopGridHeightPx ? `${desktopGridHeightPx}px` : MAIN_GRID_HEIGHT,
         gridTemplateColumns: desktopGridTemplateColumns,
+        "--desktop-ui-scale": desktopUiScale,
       };
   const desktopColumnHeightStyle =
     !isMobileLayout && desktopGridHeightPx
@@ -37576,29 +37720,33 @@ function handleTouchEnd(e) {
       : COLUMN_HEIGHT_STYLE;
   const desktopWordsScrollMaxHeight =
     !isMobileLayout && desktopGridHeightPx
-      ? `${Math.max(220, desktopGridHeightPx - 230)}px`
+      ? `${Math.max(80, desktopGridHeightPx - 230)}px`
       : WORDS_SCROLL_MAX_HEIGHT;
-  const desktopChatPanelClassName = `${chatBlockClasses} card w-full min-h-0 order-4 relative transition-opacity duration-150 ${
+  const desktopChatPanelClassName = `${chatBlockClasses} desktop-ui-column desktop-chat-column card w-full min-h-0 order-4 relative transition-opacity duration-150 ${
     desktopColumnDragId === "chat" ? "opacity-25" : ""
   }`;
   const desktopChatPanelStyle = {
     ...desktopColumnHeightStyle,
     overflow: "hidden",
     ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("chat") || 4 }),
+    ...(!isMobileLayout ? { "--desktop-ui-scale": desktopChatUiScale } : {}),
   };
   return (
     <>
-      <div className="w-full px-6 pt-6 pb-4">
+      <div
+        className="desktop-game-shell w-full"
+        style={{ "--desktop-ui-scale": desktopUiScale }}
+      >
         <style>{slideStyles}</style>
-      <div className="topbar mb-4">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 bg-white border rounded-xl px-3 py-2 shadow-sm">
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="text-base sm:text-lg font-extrabold tracking-tight leading-none">GOBBLE</div>
-            <div className="text-[0.7rem] sm:text-xs text-gray-500 leading-none">Boggle en ligne</div>
+      <div className="desktop-game-topbar">
+        <div className="desktop-game-topbar-inner flex items-center bg-white border shadow-sm">
+          <div className="desktop-game-brand flex min-w-0 items-center shrink-0">
+            <div className="desktop-game-brand-title font-extrabold tracking-tight leading-none">GOBBLE</div>
+            <div className="desktop-game-brand-subtitle min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-gray-500 leading-none">Boggle en ligne</div>
           </div>
 
-          <div className="flex items-center gap-1 text-[11px] sm:text-xs text-gray-700">
-            <span className="px-2 py-1 rounded-full bg-gray-100 border border-gray-200">
+          <div className="desktop-game-room-wrap flex min-w-0 items-center text-gray-700">
+            <span className="desktop-game-room max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full bg-gray-100 border border-gray-200">
               {tournament?.round && tournament?.totalRounds ? (
                 <>
                   {isFinaleBanner ? (
@@ -37621,32 +37769,32 @@ function handleTouchEnd(e) {
 
           <div className="flex-1" />
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="desktop-game-top-actions flex shrink-0 items-center">
             <button
               onClick={toggleDarkModeQuick}
-              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+              className="desktop-game-top-button font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
               title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
               aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
             >
-              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
+              <span className="desktop-game-top-icon material-icons-outlined leading-none" aria-hidden="true">
                 {darkMode ? "light_mode" : "dark_mode"}
               </span>
             </button>
             <button
               onClick={toggleSoundQuick}
-              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+              className="desktop-game-top-button font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
               title={allSoundOn ? "Couper le son" : "Activer le son"}
               aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
             >
-              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
+              <span className="desktop-game-top-icon material-icons-outlined leading-none" aria-hidden="true">
                 {allSoundOn ? "volume_up" : "volume_off"}
               </span>
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+              className="desktop-game-top-button font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
             >
-              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
+              <span className="desktop-game-top-icon material-icons-outlined leading-none" aria-hidden="true">
                 settings
               </span>
               <span className="sr-only">Parametres</span>
@@ -37668,13 +37816,17 @@ function handleTouchEnd(e) {
       )}
 
       {quickHelpOverlay}
-      <MiniTournamentStartOverlay lobby={tournamentLobby} />
+      <MiniTournamentStartOverlay
+        lobby={tournamentLobby}
+        preparing={!!roundPreparing}
+        serverNowMs={getNowServerMs()}
+      />
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
-      <div className={`relative ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
+      <div className={`desktop-game-content relative flex-1 min-h-0 overflow-hidden ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
       <div
         ref={mainGridDesktopRef}
-        className={`main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 ${
+        className={`desktop-responsive-grid main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 ${
           isDailyPlay ? "md:grid-cols-3 xl:grid-cols-3" : "md:grid-cols-3 xl:grid-cols-4"
         }`}
         style={desktopMainGridStyle}
@@ -37683,7 +37835,7 @@ function handleTouchEnd(e) {
         {/* Colonne 1 : Joueurs */}
         <div
           ref={(node) => setDesktopColumnNode("players", node)}
-          className={`card bg-white border rounded-xl p-4 w-full flex flex-col gap-3 min-h-0 order-2 md:order-1 relative transition-opacity duration-150 ${
+          className={`desktop-ui-column card bg-white border rounded-xl p-4 w-full flex flex-col gap-3 min-h-0 order-2 md:order-1 relative transition-opacity duration-150 ${
             desktopColumnDragId === "players" ? "opacity-25" : ""
           }`}
                     style={
@@ -37694,15 +37846,16 @@ function handleTouchEnd(e) {
                   ...desktopColumnHeightStyle,
                   overflow: "hidden",
                   order: desktopColumnOrderIndexById.get("players") || 1,
+                  "--desktop-ui-scale": desktopPlayersUiScale,
                 }
           }
         >
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold">
+          <div className="desktop-column-heading flex items-center justify-between">
+            <h2 className="desktop-column-title font-bold">
               {activeRoom?.label || "Salon"}{" "}
               {Array.isArray(players) && players.length > 0 ? `(${players.length})` : ""}
             </h2>
-            <span className="text-xs px-2 py-1 rounded-full bg-gray-100 border border-gray-200">
+            <span className="desktop-column-status rounded-full bg-gray-100 border border-gray-200">
               {serverStatus === "running"
                 ? "Manche en cours"
                 : serverStatus === "break"
@@ -37713,7 +37866,7 @@ function handleTouchEnd(e) {
 
 {phase === "playing" && (
   <div className="flex flex-col gap-2 flex-1 min-h-0">
-    <div className="text-sm font-semibold">Classement provisoire</div>
+    <div className="desktop-column-title font-semibold">Classement provisoire</div>
 
     <div className="flex-1 min-h-0">
       {isOcidRound && isMobileLayout && (
@@ -37790,8 +37943,8 @@ function handleTouchEnd(e) {
         </div>
       )}
       {isTargetRound && (
-        <div className={`mb-2 rounded-xl border px-3 py-2 ${darkMode ? "bg-slate-900/70 border-white/10" : "bg-white border-slate-200"}`}>
-          <div className="text-[11px] font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300">
+        <div className={`desktop-target-card mb-2 min-w-0 overflow-hidden rounded-xl border ${darkMode ? "bg-slate-900/70 border-white/10" : "bg-white border-slate-200"}`}>
+          <div className="desktop-target-title font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300">
             {specialRound?.type === "target_long"
               ? "TROUVE LE PLUS LONG MOT"
               : specialRound?.type === "target_score"
@@ -37799,42 +37952,32 @@ function handleTouchEnd(e) {
               : "MANCHE SPECIALE"}
           </div>
           <div
-            className={`mt-3 text-center font-black text-xl sm:text-2xl tabular-nums ${
+            className={`desktop-target-pattern w-full min-w-0 text-center font-black tabular-nums ${
               solvedTargetWord ? "tracking-normal" : "tracking-widest"
             }`}
           >
             {specialHintDisplay ? (
-              <span
-                className={`inline-flex items-center justify-center gap-2 ${
-                  solvedTargetWord ? "max-w-full min-w-0" : ""
-                }`}
-              >
-                <TargetHintPattern
-                  display={specialHintDisplay}
-                  revealedWordIndices={specialHint?.wordIndices}
-                  solved={!!solvedTargetWord}
-                  wordLength={specialHint?.length}
-                  className={
-                    solvedTargetWord
-                      ? "block max-w-full whitespace-nowrap tracking-normal"
-                      : ""
-                  }
-                  style={
-                    solvedTargetWord
-                      ? {
-                          letterSpacing: 0,
-                          fontSize:
-                            solvedTargetWord.length >= 13
-                              ? "clamp(1rem, 3.8vw, 1.5rem)"
-                              : undefined,
-                        }
-                      : undefined
-                  }
-                />
+              <div className="flex w-full min-w-0 items-center justify-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <AutoScaleInline minScale={0.25} measurePaddingPx={2}>
+                    <TargetHintPattern
+                      display={specialHintDisplay}
+                      revealedWordIndices={specialHint?.wordIndices}
+                      solved={!!solvedTargetWord}
+                      wordLength={specialHint?.length}
+                      className={
+                        solvedTargetWord
+                          ? "block whitespace-nowrap tracking-normal"
+                          : "block whitespace-nowrap"
+                      }
+                      style={solvedTargetWord ? { letterSpacing: 0 } : undefined}
+                    />
+                  </AutoScaleInline>
+                </div>
                 {showSolvedTargetLoupe && (
                   <button
                     type="button"
-                    className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
+                    className={`inline-flex shrink-0 items-center justify-center rounded-full border px-2 py-1 ${
                       darkMode
                         ? "bg-slate-800 border-slate-600 text-slate-100"
                         : "bg-white border-gray-300 text-gray-700"
@@ -37862,7 +38005,7 @@ function handleTouchEnd(e) {
                     </svg>
                   </button>
                 )}
-              </span>
+              </div>
             ) : (
               <span className="text-[13px] sm:text-sm tracking-normal opacity-80">
                 MOT MYSTÈRE
@@ -37870,11 +38013,11 @@ function handleTouchEnd(e) {
             )}
           </div>
           {specialHint?.length ? (
-            <div className="mt-1 text-[11px] font-semibold opacity-70 text-center">
+            <div className="desktop-target-meta font-semibold opacity-70 text-center">
               {specialHint.length} lettres
             </div>
           ) : null}
-          <div className="mt-2 text-[11px] font-semibold opacity-80 text-center">
+          <div className="desktop-target-meta font-semibold opacity-80 text-center">
             {nextHintLabel}
           </div>
         </div>
@@ -37910,15 +38053,15 @@ function handleTouchEnd(e) {
 
   {phase === "results" && (finalRanking.length > 0 || (tournamentRanking || []).length > 0) && (
     <div className="flex flex-col gap-2 flex-1 min-h-0">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-semibold">Classement</div>
-        <div className="inline-flex rounded-full border border-gray-300 overflow-hidden text-xs">
+      <div className="desktop-column-heading flex items-center justify-between">
+        <div className="desktop-column-title font-semibold">Classement</div>
+        <div className="desktop-segmented-control inline-flex rounded-full border border-gray-300 overflow-hidden">
           <button
             type="button"
             onClick={() => {
               setResultsRankingModeWithPulse("round");
             }}
-            className={`px-3 py-1 transition ${
+            className={`transition ${
               resultsRankingMode === "round" ? "bg-blue-600 text-white" : "bg-white text-gray-600"
             }`}
           >
@@ -37929,7 +38072,7 @@ function handleTouchEnd(e) {
             onClick={() => {
               setResultsRankingModeWithPulse("total");
             }}
-            className={`px-3 py-1 transition ${
+            className={`transition ${
               resultsRankingMode === "total" ? "bg-blue-600 text-white" : "bg-white text-gray-600"
             }`}
           >
@@ -38037,7 +38180,7 @@ function handleTouchEnd(e) {
             playColumnRef.current = node;
             setDesktopColumnNode("grid", node);
           }}
-          className={`card bg-white border rounded-xl flex flex-col items-center space-y-6 w-full min-h-0 order-1 md:order-2 p-2 relative transition-opacity duration-150 ${
+          className={`desktop-ui-column desktop-grid-column card bg-white border rounded-xl flex flex-col items-center gap-3 w-full min-h-0 order-1 md:order-2 p-2 relative transition-opacity duration-150 ${
             desktopColumnDragId === "grid" ? "opacity-25" : ""
           }`}
                     style={
@@ -38047,14 +38190,23 @@ function handleTouchEnd(e) {
                   ...desktopColumnHeightStyle,
                   overflow: "hidden",
                   order: desktopColumnOrderIndexById.get("grid") || 2,
+                  "--desktop-ui-scale": desktopGridUiScale,
                 }
           }
         >
           {!isMobileLayout && (
-            <div className={`w-full flex justify-center ${phase === "playing" ? "mb-3 pt-2" : ""}`}>
+            <div
+              className="w-full shrink-0 flex justify-center overflow-hidden"
+              style={{
+                height: `${countdownBarHeightPx}px`,
+                minHeight: `${countdownBarHeightPx}px`,
+                maxHeight: `${countdownBarHeightPx}px`,
+              }}
+            >
               <div
-                ref={countdownRef}
-                className={`text-center font-bold ${darkMode ? "text-slate-200" : "text-slate-700"}`}
+                className={`h-full flex items-center justify-center overflow-hidden text-center font-bold ${
+                  darkMode ? "text-slate-200" : "text-slate-700"
+                }`}
                 style={
                   computedGridWidth
                     ? { width: computedGridWidth, minWidth: computedGridWidth, maxWidth: computedGridWidth }
@@ -38062,15 +38214,18 @@ function handleTouchEnd(e) {
                 }
               >
                 {phase === "playing" ? (
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] opacity-70">
-                      {targetWaitDevActive ? "Mini-jeu · temps restant" : "Temps restant"}
-                    </div>
+                  <div className="flex items-center justify-center">
                     <div
-                      className={`mt-1 font-black tabular-nums leading-none ${
+                      className={`font-black tabular-nums leading-none ${
                         darkMode ? "text-slate-50" : "text-slate-800"
                       }`}
-                      style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
+                      aria-label="Temps restant"
+                      style={{
+                        fontSize: `${Math.max(
+                          18,
+                          Math.round(52 * desktopGridUiScale)
+                        )}px`,
+                      }}
                     >
                       {targetWaitDevActive
                         ? Math.max(0, Number(targetWaitDevSessionState.remainingSeconds) || 0)
@@ -38078,11 +38233,21 @@ function handleTouchEnd(e) {
                     </div>
                   </div>
                 ) : (
-                  countdownLines.map((line, idx) => (
-                    <div key={`${line}-${idx}`} className="text-sm">
-                      {line}
+                  <AutoScaleInline minScale={0.5} measurePaddingPx={2}>
+                    <div
+                      className="inline-flex items-center gap-2 whitespace-nowrap"
+                      style={{
+                        fontSize: `${Math.max(
+                          8,
+                          Math.round(14 * desktopGridUiScale)
+                        )}px`,
+                      }}
+                    >
+                      {countdownLines.map((line, idx) => (
+                        <span key={`${line}-${idx}`}>{line}</span>
+                      ))}
                     </div>
-                  ))
+                  </AutoScaleInline>
                 )}
               </div>
             </div>
@@ -38147,20 +38312,28 @@ function handleTouchEnd(e) {
               />
             </div>
           ) : null}
-                   <div
-            className={`${isMobileLayout ? "relative w-full" : "relative w-fit"} ${phase === "lobby" ? "hidden" : ""}`}
-            style={
+          <div
+            ref={setDesktopGridStageNode}
+            className={`${
               isMobileLayout
-                ? undefined
-                : computedGridWidth
-                ? {
-                    width: computedGridWidth,
-                    minWidth: computedGridWidth,
-                    maxWidth: computedGridWidth,
-                  }
-                : undefined
-            }
+                ? "relative w-full"
+                : "relative flex w-full flex-1 min-h-0 items-center justify-center overflow-visible"
+            } ${phase === "lobby" ? "hidden" : ""}`}
           >
+            <div
+              className={isMobileLayout ? "relative w-full" : "relative w-fit flex-none"}
+              style={
+                isMobileLayout
+                  ? undefined
+                  : computedGridWidth
+                  ? {
+                      width: computedGridWidth,
+                      minWidth: computedGridWidth,
+                      maxWidth: computedGridWidth,
+                    }
+                  : undefined
+              }
+            >
 
             {targetWaitDevActive ? (
               <div
@@ -38175,7 +38348,7 @@ function handleTouchEnd(e) {
                   ? "relative grid bg-white border rounded-xl px-2 py-2 w-full"
                   : "relative grid p-4 bg-white border rounded-xl w-fit mx-auto") +
                 (isInGameSpecial3Tutorial && special3TutorialStep === 0 ? " special3-tutorial-focus" : "") +
-                (gridShake ? " shake" : "")
+                (gridShake && isMobileLayout ? " shake" : "")
               }
               style={{
                 gridTemplateColumns: isMobileLayout
@@ -38202,7 +38375,7 @@ function handleTouchEnd(e) {
               darkMode={darkMode}
               implodeActive={implodeActive}
               inputControllerRef={gridInputControllerRef}
-              praiseOverlay={praiseOverlay}
+              praiseOverlay={null}
               resultsPathGradientId={resultsPathGradientIdRef.current}
               resultsPathPreview={resultsPathPreview}
               showResultsWordPath={showResultsWordPath}
@@ -38242,8 +38415,10 @@ function handleTouchEnd(e) {
                 usedSet,
               }}
             />
+            {praiseOverlay}
             {!isMobileLayout ? special3DragGhost : null}
             {!isMobileLayout ? special3InGameTutorialCard : null}
+            </div>
           </div>
 
             <div
@@ -38252,9 +38427,18 @@ function handleTouchEnd(e) {
                   ? "special3-tutorial-focus"
                 : ""
             }`}
-            ref={previewRef}
             style={
-              computedGridWidth
+              !isMobileLayout
+                ? {
+                    width: "100%",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    height: `${validationBarHeightPx}px`,
+                    minHeight: `${validationBarHeightPx}px`,
+                    maxHeight: `${validationBarHeightPx}px`,
+                    padding: `${validationBarPaddingPx}px`,
+                  }
+                : computedGridWidth
                 ? {
                     width: computedGridWidth,
                     minWidth: computedGridWidth,
@@ -38269,38 +38453,34 @@ function handleTouchEnd(e) {
               }
             }}
           >
-            {visualPraiseEnabled && bigScoreFlash && (
-              <div
-                className="big-score-burst"
-                style={{
-                  top: 6,
-                  right: 8,
-                  animationDuration: `${Math.max(
-                    420,
-                    Math.min(1200, Number(bigScoreFlash?.durationMs) || 950)
-                  )}ms`,
-                  boxShadow: bigScoreFlash?.lite ? "0 6px 14px rgba(245, 158, 11, 0.24)" : undefined,
-                }}
-              >
-                +{bigScoreFlash.pts}
-              </div>
-            )}
             <div
               className="w-full flex items-center"
-              style={{ minHeight: `${previewBarMinHeight}px` }}
+              style={{
+                height: `${previewBarMinHeight}px`,
+                minHeight: `${previewBarMinHeight}px`,
+                maxHeight: `${previewBarMinHeight}px`,
+              }}
             >
-              <div className="w-9 shrink-0" />
+              <div
+                className="shrink-0"
+                style={{ width: `${Math.max(24, Math.round(36 * desktopGridUiScale))}px` }}
+              />
               <div
                 className={`flex-1 min-w-0 overflow-visible text-center font-bold text-lg leading-none flex items-center justify-center ${
                   shake ? "shake" : ""
                 }`}
+                style={{
+                  fontSize: `${Math.max(11, Math.round(18 * desktopGridUiScale))}px`,
+                }}
               >
                   {!isMobileLayout && isSpecial3WordsMode ? (
     <div className="flex flex-wrap items-center justify-center gap-2 py-1">
       {DAILY_SPECIAL_BONUSES.map((bonusKey) =>
         renderSpecial3BonusChipButton(bonusKey, {
           keyPrefix: "desktop-preview-special3",
-          sizeClass: "h-10 min-w-10 px-3",
+          sizeClass: isCompactDesktopGridLayout
+            ? "h-7 min-w-7 px-2 text-xs"
+            : "h-10 min-w-10 px-3",
           pulse: special3TutorialStep === 0,
         })
       )}
@@ -38330,10 +38510,17 @@ function handleTouchEnd(e) {
                   rotateGridClockwise();
                 }}
                 className="w-9 h-9 shrink-0 rounded-lg border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:bg-white flex items-center justify-center dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800/80"
+                style={{
+                  width: `${Math.max(24, Math.round(36 * desktopGridUiScale))}px`,
+                  height: `${Math.max(24, Math.round(36 * desktopGridUiScale))}px`,
+                }}
                 title="Rotation 90 deg"
               >
                 <span
-                  className="material-icons-outlined text-[18px] leading-none"
+                  className="material-icons-outlined leading-none"
+                  style={{
+                    fontSize: `${Math.max(12, Math.round(18 * desktopGridUiScale))}px`,
+                  }}
                   aria-hidden="true"
                 >
                   autorenew
@@ -38348,13 +38535,14 @@ function handleTouchEnd(e) {
        {/* Colonne 3 : Score et résultats */}
         <div
           ref={(node) => setDesktopColumnNode("side", node)}
-          className={`card bg-white border rounded-xl p-4 w-full flex flex-col overflow-hidden min-h-0 order-3 relative transition-opacity duration-150 ${
+          className={`desktop-ui-column desktop-side-column card bg-white border rounded-xl p-4 w-full flex flex-col overflow-hidden min-h-0 order-3 relative transition-opacity duration-150 ${
             desktopColumnDragId === "side" ? "opacity-25" : ""
           }`}
           style={{
             ...lightPanelStyle,
             ...desktopColumnHeightStyle,
             ...(isMobileLayout ? {} : { order: desktopColumnOrderIndexById.get("side") || 3 }),
+            ...(!isMobileLayout ? { "--desktop-ui-scale": desktopSideUiScale } : {}),
           }}
         >
           {targetWaitDevActive ? (
@@ -38365,7 +38553,7 @@ function handleTouchEnd(e) {
           ) : null}
           {/* bloc score */}
           <div
-            className={`bg-white dark:bg-slate-950/80 border dark:border-slate-700 rounded-xl p-3 w-full relative overflow-hidden ${
+            className={`desktop-score-block bg-white dark:bg-slate-950/80 border dark:border-slate-700 rounded-xl p-3 w-full relative overflow-hidden ${
               phase === "playing" && isOcidRound
                 ? "flex flex-col flex-1 min-h-0 mb-0"
                 : "space-y-2 mb-4 shrink-0"
@@ -38449,9 +38637,17 @@ function handleTouchEnd(e) {
               </div>
             ) : (
               <>
-                <div className="text-lg font-bold text-center">Score total : {score}</div>
+                <AutoScaleInline minScale={0.55} measurePaddingPx={2}>
+                  <div className="desktop-score-total font-bold text-center">
+                    Score total : {score}
+                  </div>
+                </AutoScaleInline>
                 {(specialRound?.isSpecial || isSpecial3WordsMode) && (
-                  <div className="text-center text-xs font-semibold text-orange-700">
+                  <AutoScaleInline
+                    minScale={0.5}
+                    measurePaddingPx={2}
+                    className="desktop-score-special font-semibold text-orange-700"
+                  >
                     {specialRound?.type === "monstrous" ? (
                       <div className="font-extrabold uppercase tracking-[0.12em] text-amber-500">
                         GRILLE MONSTRUEUSE
@@ -38469,12 +38665,16 @@ function handleTouchEnd(e) {
                           ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                           : specialRound?.type === MASSIVE_BOGGLE_TYPE
                           ? "mots de 3 lettres min"
-                          : "objectif : 1 seul mot"}
+                        : "objectif : 1 seul mot"}
                       </div>
                     )}
-                  </div>
+                  </AutoScaleInline>
                 )}
-                <div className="text-center text-sm text-gray-600">
+                <AutoScaleInline
+                  minScale={0.5}
+                  measurePaddingPx={2}
+                  className="desktop-score-detail text-gray-600"
+                >
                   {roundStats && !isTargetRound ? (
                     <span>
                       {roundStats.words ?? "?"} mots possibles {" "}
@@ -38483,7 +38683,7 @@ function handleTouchEnd(e) {
                   ) : (
                     <span>{isTargetRound ? "Stats masquées (manche cible)" : "Stats de grille indisponibles"}</span>
                   )}
-                </div>
+                </AutoScaleInline>
               </>
             )}
           </div>
@@ -38529,6 +38729,11 @@ function handleTouchEnd(e) {
                 <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   {selfOcidTargetDetail}
                 </div>
+                {selfOcidDetail?.gobbleEarned ? (
+                  <div className="mt-2 inline-flex rounded-full bg-amber-500 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-sm">
+                    Gobble · +1 au mini-tournoi
+                  </div>
+                ) : null}
               </div>
               <div className={`rounded-xl border p-3 ${darkMode ? "bg-slate-900/80 border-slate-700" : "bg-white border-slate-200"}`}>
                 <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -38581,23 +38786,23 @@ function handleTouchEnd(e) {
             <div className="flex flex-col flex-1 min-h-0" />
           ) : (
             <div className="flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div>
-                    <h2 className="text-lg font-bold">Mots</h2>
-                    <div className="text-xs text-gray-500">
+                <div className="desktop-column-heading flex items-center justify-between mb-2 shrink-0">
+                  <div className="min-w-0">
+                    <h2 className="desktop-column-title font-bold">Mots</h2>
+                    <div className="desktop-column-title text-gray-500">
                       {showAllWords ? `Tous (${allWords.length})` : `Trouvés (${foundWordsCount})`}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className={`inline-flex rounded-full overflow-hidden ${darkMode ? "border border-slate-700" : "border border-gray-300"}`}>
+                  <div className="flex flex-none items-center">
+                    <div className={`desktop-segmented-control inline-flex rounded-full overflow-hidden ${darkMode ? "border border-slate-700" : "border border-gray-300"}`}>
                       <button
                         type="button"
                         onClick={() => {
                           prepareWordListFlip(displayList);
                           setShowAllWords(false);
                         }}
-                        className={`px-3 py-1 transition ${
+                        className={`transition ${
                           !showAllWords
                             ? darkMode
                               ? "bg-blue-700 text-white"
@@ -38615,7 +38820,7 @@ function handleTouchEnd(e) {
                           prepareWordListFlip(displayList);
                           setShowAllWords(true);
                         }}
-                        className={`px-3 py-1 transition ${
+                        className={`transition ${
                           showAllWords
                             ? darkMode
                               ? "bg-blue-700 text-white"
@@ -38671,14 +38876,14 @@ function handleTouchEnd(e) {
             chatScaleMin={CHAT_DESKTOP_FONT_SCALE_MIN}
             chatScaleStep={CHAT_DESKTOP_FONT_SCALE_STEP}
             darkMode={darkMode}
-            desktopChatFontPx={desktopChatFontPx}
-            desktopChatInputFontPx={desktopChatInputFontPx}
-            desktopChatInputLineHeightPx={desktopChatInputLineHeightPx}
-            desktopChatLineHeightPx={desktopChatLineHeightPx}
-            desktopChatMetaFontPx={desktopChatMetaFontPx}
-            desktopChatMetaLineHeightPx={desktopChatMetaLineHeightPx}
-            desktopChatMicroFontPx={desktopChatMicroFontPx}
-            desktopChatQuickReplyFontPx={desktopChatQuickReplyFontPx}
+            desktopChatFontPx={desktopChatFontPx * desktopChatUiScale}
+            desktopChatInputFontPx={desktopChatInputFontPx * desktopChatUiScale}
+            desktopChatInputLineHeightPx={desktopChatInputLineHeightPx * desktopChatUiScale}
+            desktopChatLineHeightPx={desktopChatLineHeightPx * desktopChatUiScale}
+            desktopChatMetaFontPx={desktopChatMetaFontPx * desktopChatUiScale}
+            desktopChatMetaLineHeightPx={desktopChatMetaLineHeightPx * desktopChatUiScale}
+            desktopChatMicroFontPx={desktopChatMicroFontPx * desktopChatUiScale}
+            desktopChatQuickReplyFontPx={desktopChatQuickReplyFontPx * desktopChatUiScale}
             desktopChatScaleLabel={desktopChatScaleLabel}
             desktopChatStyle={desktopChatPanelStyle}
             desktopChatTab={safeChatTab}

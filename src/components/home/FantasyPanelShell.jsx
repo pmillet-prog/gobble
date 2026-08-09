@@ -92,9 +92,9 @@ function FantasyPanelShell({
   return (
     <div
       className={`fantasy-panel-shell overflow-hidden flex flex-col min-h-0 ${className}`}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
+      onTouchStartCapture={onTouchStart}
+      onTouchMoveCapture={onTouchMove}
+      onTouchEndCapture={onTouchEnd}
       onClick={onClick}
     >
       <style>{styles}</style>

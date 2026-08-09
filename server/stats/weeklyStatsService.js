@@ -446,6 +446,31 @@ function ensureCurrentWeek() {
 
 await loadFromDisk();
 
+export async function replaceWeeklyScoreRecordBoards({ weeks } = {}) {
+  ensureCurrentWeek();
+  const replacements = Array.isArray(weeks) ? weeks : [];
+  if (!replacements.length) throw new Error("Weekly score-record rollback has no week data");
+  for (const replacement of replacements) {
+    const weekStartTs = Number(replacement?.weekStartTs) || 0;
+    const target = weekStartTs === state.weekStartTs ? state : history.get(weekStartTs);
+    if (!weekStartTs || !target) {
+      throw new Error(`Weekly score-record rollback week is absent: ${weekStartTs}`);
+    }
+    target.bestWord = reviveMap(replacement.bestWord);
+    target.bestRoundScore = reviveMap(replacement.bestRoundScore);
+  }
+  saveQueued = true;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+  await saveToDisk();
+  return {
+    weekStartTs: state.weekStartTs,
+    bestWord: state.bestWord.size,
+    bestRoundScore: state.bestRoundScore.size,
+    weeks: replacements.length,
+  };
+}
+
 function shouldReplace(current, valueKey, newValue, achievedAt, asc = false) {
   if (!current) return true;
   const currentValue = current[valueKey] ?? 0;

@@ -1,0 +1,291 @@
+.desktop-game-shell {
+  --desktop-ui-scale: 1;
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: clamp(8px, 1.5vw, 24px)
+    clamp(8px, 1.5vw, 24px)
+    clamp(8px, 1vw, 16px);
+}
+
+.desktop-game-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.desktop-game-topbar {
+  position: relative;
+  z-index: 1;
+  margin-bottom: clamp(8px, 1vw, 16px);
+}
+
+.desktop-game-topbar-inner {
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  gap: calc(16px * var(--desktop-ui-scale));
+  padding: calc(8px * var(--desktop-ui-scale)) calc(12px * var(--desktop-ui-scale));
+  border-radius: calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-game-brand {
+  gap: calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-game-brand-title {
+  font-size: calc(18px * var(--desktop-ui-scale));
+}
+
+.desktop-game-brand-subtitle,
+.desktop-game-room {
+  font-size: calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-game-room-wrap {
+  flex: 0 1 auto;
+}
+
+.desktop-game-room {
+  padding: calc(4px * var(--desktop-ui-scale)) calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-game-top-actions {
+  gap: calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-game-top-button {
+  flex: 0 0 auto;
+  width: max(24px, calc(32px * var(--desktop-ui-scale)));
+  height: max(24px, calc(28px * var(--desktop-ui-scale)));
+  padding: calc(4px * var(--desktop-ui-scale)) calc(8px * var(--desktop-ui-scale));
+  font-size: calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-game-top-icon {
+  font-size: max(13px, calc(16px * var(--desktop-ui-scale)));
+}
+
+.desktop-responsive-grid {
+  --desktop-ui-scale: 1;
+  gap: calc(24px * var(--desktop-ui-scale)) !important;
+}
+
+.desktop-responsive-grid .desktop-ui-column {
+  min-width: 0;
+  padding: calc(16px * var(--desktop-ui-scale)) !important;
+  border-radius: calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-grid-column {
+  padding: calc(8px * var(--desktop-ui-scale)) !important;
+  gap: calc(12px * var(--desktop-ui-scale)) !important;
+}
+
+.desktop-responsive-grid .desktop-column-heading {
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: calc(8px * var(--desktop-ui-scale));
+  font-size: calc(14px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-column-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(14px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-column-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: calc(4px * var(--desktop-ui-scale)) calc(8px * var(--desktop-ui-scale));
+  font-size: calc(12px * var(--desktop-ui-scale));
+  line-height: 1;
+}
+
+.desktop-responsive-grid .desktop-segmented-control {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: calc(12px * var(--desktop-ui-scale));
+  line-height: 1;
+}
+
+.desktop-responsive-grid .desktop-segmented-control > button {
+  white-space: nowrap;
+  padding: calc(4px * var(--desktop-ui-scale)) calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-target-card {
+  margin-bottom: calc(8px * var(--desktop-ui-scale));
+  padding: calc(8px * var(--desktop-ui-scale)) calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-target-title,
+.desktop-responsive-grid .desktop-target-meta {
+  font-size: calc(11px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-target-pattern {
+  margin-top: calc(12px * var(--desktop-ui-scale));
+  font-size: calc(24px * var(--desktop-ui-scale));
+  line-height: 1;
+}
+
+.desktop-responsive-grid .desktop-target-meta {
+  margin-top: calc(6px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-score-block {
+  padding: calc(12px * var(--desktop-ui-scale)) !important;
+  margin-bottom: calc(16px * var(--desktop-ui-scale)) !important;
+  gap: calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-score-total {
+  white-space: nowrap;
+  font-size: calc(18px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-score-special {
+  white-space: nowrap;
+  font-size: calc(12px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-score-detail {
+  white-space: nowrap;
+  font-size: calc(14px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-chat-column {
+  gap: calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-header-actions,
+.desktop-responsive-grid .desktop-chat-toolbar {
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: calc(6px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-header-actions {
+  max-width: 78%;
+  overflow: hidden;
+}
+
+.desktop-responsive-grid .desktop-chat-header-button,
+.desktop-responsive-grid .desktop-chat-tab-button,
+.desktop-responsive-grid .desktop-chat-bot-button {
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(11px * var(--desktop-ui-scale));
+  line-height: 1;
+}
+
+.desktop-responsive-grid .desktop-chat-tabs {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: calc(4px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-tab-button {
+  flex: 1 1 0;
+  padding: calc(4px * var(--desktop-ui-scale)) calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-font-control {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: calc(4px * var(--desktop-ui-scale)) calc(8px * var(--desktop-ui-scale));
+  gap: calc(6px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-font-control > span {
+  font-size: calc(16px * var(--desktop-ui-scale)) !important;
+}
+
+.desktop-responsive-grid .desktop-chat-font-control input[type="range"] {
+  min-width: 24px;
+  max-width: calc(96px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-bot-row {
+  margin-bottom: calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-bot-button {
+  gap: calc(6px * var(--desktop-ui-scale));
+  padding: calc(4px * var(--desktop-ui-scale)) calc(10px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-switch-track {
+  width: calc(36px * var(--desktop-ui-scale));
+  height: calc(20px * var(--desktop-ui-scale));
+  min-width: calc(36px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-switch-knob {
+  top: calc(2px * var(--desktop-ui-scale));
+  left: calc(2px * var(--desktop-ui-scale));
+  width: calc(16px * var(--desktop-ui-scale));
+  height: calc(16px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-switch-track[data-enabled="true"] .desktop-chat-switch-knob {
+  left: calc(18px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-quick-row {
+  gap: calc(6px * var(--desktop-ui-scale));
+  margin-top: calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-quick-button {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: calc(2px * var(--desktop-ui-scale)) calc(6px * var(--desktop-ui-scale));
+  line-height: 1.1;
+}
+
+.desktop-responsive-grid .desktop-chat-input-row {
+  gap: calc(8px * var(--desktop-ui-scale));
+  margin-top: calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-input-button {
+  flex: 0 0 auto;
+  padding: calc(8px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-input {
+  min-height: calc(40px * var(--desktop-ui-scale));
+  max-height: calc(140px * var(--desktop-ui-scale));
+  padding: calc(8px * var(--desktop-ui-scale)) calc(12px * var(--desktop-ui-scale));
+}
+
+.desktop-responsive-grid .desktop-chat-send-button {
+  flex: 0 0 auto;
+  padding: calc(8px * var(--desktop-ui-scale)) calc(12px * var(--desktop-ui-scale));
+}

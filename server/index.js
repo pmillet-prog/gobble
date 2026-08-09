@@ -32,11 +32,17 @@ import {
   getFinaleMinWords,
 } from "../shared/finaleRules.js";
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
+import {
+  INTER_TOURNAMENT_MIN_COOLDOWN_MS,
+  getTournamentLobbyCooldownStatus,
+} from "./tournamentLobbyCooldownPolicy.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { createComputePool } from "./compute/computePool.js";
+import { computeOcidGobbleAwards } from "./compute/ocidGobblePolicy.js";
 import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
 import { getMetrics, resetMetrics } from "./observability/metrics.js";
+import { isScoreRecordEligibleRound } from "./stats/roundRecordPolicy.js";
 import {
   getDefinition,
   clearDefinitionCache,
@@ -145,6 +151,7 @@ import {
   initPlayerProfileService,
   getPublicPlayerProfileByUserId,
 } from "./stats/playerProfileService.js";
+import { applyPendingScoreRecordRollback } from "./stats/scoreRecordRollbackService.js";
 import { getTargetWaitDevCatalog } from "./targetMiniGame/targetWaitCatalogService.js";
 import {
   clearBroadcastMessage,
@@ -175,6 +182,14 @@ import {
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection", reason);
 });
+
+await applyPendingScoreRecordRollback()
+  .then((result) => {
+    if (result?.status === "applied") {
+      console.log("Score-record rollback applied", result);
+    }
+  })
+  .catch((err) => console.warn("Score-record rollback failed", err));
 
 const computePool = createComputePool();
 const persistenceClient = createPersistenceClient();
@@ -3554,6 +3569,19 @@ function maybeStartTournamentCountdown(room) {
   if (lobby.countdownEndsAt || lobby.introEndsAt) return false;
   const state = buildTournamentLobbyPayload(room);
   if (!state.canStart) return false;
+  if (lobby.cooldownTimer) clearTimeout(lobby.cooldownTimer);
+  lobby.cooldownTimer = null;
+  lobby.cooldownEndsAt = null;
+  resetTournament(room);
+  const openingTournamentRound = 1;
+  const openingRoundNumber = (room.roundCounter || 0) + 1;
+  const openingPlan = getTournamentRoundPlan(room, openingTournamentRound);
+  void prepareNextGrid(room, openingPlan, openingRoundNumber).catch((err) => {
+    console.warn(
+      `[${room.id}] Failed to prepare opening tournament grid during countdown:`,
+      err?.message || err
+    );
+  });
   lobby.countdownEndsAt = Date.now() + INTER_TOURNAMENT_COUNTDOWN_MS;
   emitTournamentLobby(room);
   io.to(room.id).emit("miniTournamentCountdownStarted", buildTournamentLobbyPayload(room));
@@ -3587,7 +3615,6 @@ async function beginReadyMiniTournament(room) {
     return;
   }
   resetTournamentLobby(room);
-  resetTournament(room);
   await startRoundForRoom(room);
 }
 
@@ -3681,8 +3708,10 @@ function createRoomState(roomId, config) {
     roundStartPending: false,
     tournamentLobby: {
       readyKeys: new Set(),
+      cooldownEndsAt: null,
       countdownEndsAt: null,
       introEndsAt: null,
+      cooldownTimer: null,
       countdownTimer: null,
       introTimer: null,
     },
@@ -3833,8 +3862,10 @@ function ensureTournamentLobby(room) {
   if (!room.tournamentLobby) {
     room.tournamentLobby = {
       readyKeys: new Set(),
+      cooldownEndsAt: null,
       countdownEndsAt: null,
       introEndsAt: null,
+      cooldownTimer: null,
       countdownTimer: null,
       introTimer: null,
     };
@@ -3847,10 +3878,13 @@ function ensureTournamentLobby(room) {
 
 function clearTournamentLobbyTimers(room) {
   const lobby = ensureTournamentLobby(room);
+  if (lobby.cooldownTimer) clearTimeout(lobby.cooldownTimer);
   if (lobby.countdownTimer) clearTimeout(lobby.countdownTimer);
   if (lobby.introTimer) clearTimeout(lobby.introTimer);
+  lobby.cooldownTimer = null;
   lobby.countdownTimer = null;
   lobby.introTimer = null;
+  lobby.cooldownEndsAt = null;
   lobby.countdownEndsAt = null;
   lobby.introEndsAt = null;
 }
@@ -3859,6 +3893,27 @@ function resetTournamentLobby(room, { keepReady = false } = {}) {
   const lobby = ensureTournamentLobby(room);
   clearTournamentLobbyTimers(room);
   if (!keepReady) lobby.readyKeys.clear();
+}
+
+function armInterTournamentCooldown(
+  room,
+  durationMs = INTER_TOURNAMENT_MIN_COOLDOWN_MS
+) {
+  const lobby = ensureTournamentLobby(room);
+  const safeDurationMs = Math.max(0, Number(durationMs) || 0);
+  if (!(safeDurationMs > 0)) return;
+  if (lobby.cooldownTimer) clearTimeout(lobby.cooldownTimer);
+  const cooldownEndsAt = Date.now() + safeDurationMs;
+  lobby.cooldownEndsAt = cooldownEndsAt;
+  lobby.cooldownTimer = setTimeout(() => {
+    if (Number(lobby.cooldownEndsAt) !== cooldownEndsAt) return;
+    lobby.cooldownTimer = null;
+    lobby.cooldownEndsAt = null;
+    if (!maybeStartTournamentCountdown(room)) {
+      emitTournamentLobby(room);
+    }
+  }, safeDurationMs);
+  lobby.cooldownTimer.unref?.();
 }
 
 function isInterTournamentLobbyOpen(room) {
@@ -3883,10 +3938,21 @@ function buildTournamentLobbyPayload(room) {
   const readyTotal = humans.filter((player) => lobby.readyKeys.has(getPlayerReadyKey(player)));
   const activeHumanCount = activeHumans.length;
   const readyThreshold = Math.max(1, Math.ceil(activeHumanCount * 0.5));
+  const cooldown = getTournamentLobbyCooldownStatus({
+    cooldownEndsAt: lobby.cooldownEndsAt,
+    humanCount: humans.length,
+    now,
+    readyCount: readyActive.length,
+    readyThreshold,
+  });
   const maintenanceMode = isMaintenanceModeActive();
   const isLobbyOpen = isInterTournamentLobbyOpen(room);
   const canStart =
-    isLobbyOpen && !maintenanceMode && activeHumanCount > 0 && readyActive.length >= readyThreshold;
+    isLobbyOpen &&
+    !maintenanceMode &&
+    !cooldown.active &&
+    activeHumanCount > 0 &&
+    cooldown.readyThresholdMet;
   const phase = lobby.introEndsAt
     ? "intro"
     : lobby.countdownEndsAt
@@ -3898,6 +3964,7 @@ function buildTournamentLobbyPayload(room) {
     : "closed";
   return {
     roomId: room.id,
+    serverNow: now,
     phase,
     isOpen: isLobbyOpen,
     readyCount: readyActive.length,
@@ -3906,6 +3973,9 @@ function buildTournamentLobbyPayload(room) {
     activeHumanCount,
     totalHumanCount: humans.length,
     afkHumanCount: Math.max(0, humans.length - activeHumans.length),
+    cooldownActive: cooldown.active,
+    cooldownEndsAt: cooldown.endsAt,
+    readyThresholdMet: cooldown.readyThresholdMet,
     countdownEndsAt: lobby.countdownEndsAt || null,
     introEndsAt: lobby.introEndsAt || null,
     roundStartPending: !!room.roundStartPending,
@@ -3923,7 +3993,7 @@ function emitTournamentLobby(room) {
   io.to(room.id).emit("tournamentLobbyUpdate", buildTournamentLobbyPayload(room));
 }
 
-function enterInterTournamentLobby(room) {
+function enterInterTournamentLobby(room, { cooldownMs = 0 } = {}) {
   if (!room) return;
   room.roundStartPending = false;
   clearPendingRankingBroadcast(room);
@@ -3936,6 +4006,9 @@ function enterInterTournamentLobby(room) {
   room.breakState = null;
   cancelBufferedPreparedGrid(room);
   resetTournamentLobby(room);
+  if (Number(cooldownMs) > 0) {
+    armInterTournamentCooldown(room, cooldownMs);
+  }
   emitTournamentLobby(room);
   emitPlayers(room);
   emitRoomsStats();
@@ -7147,6 +7220,7 @@ function computeOcidRoundResults(room, baseResults) {
         vote: "",
         targetFoundAt: null,
         targetFoundMs: null,
+        gobbleEarned: false,
       });
     }
     return details.get(nick);
@@ -7163,6 +7237,7 @@ function computeOcidRoundResults(room, baseResults) {
       detail.exactTargetPoints += OCID_EXACT_TARGET_POINTS;
       detail.targetFoundAt = submittedAt;
       detail.targetFoundMs = elapsedMs;
+      detail.gobbleEarned = true;
       ocidTargetFoundAt.set(nick, submittedAt);
     } else if (normalized && dictionary?.has?.(normalized)) {
       scores.set(nick, (scores.get(nick) || 0) + OCID_VALID_PROPOSAL_POINTS);
@@ -7881,9 +7956,11 @@ function submitWordForNick(
   const isBotPlayer = isBotToken(playerObj?.token);
   if (persistentProgressAllowed && !isBotPlayer && playerKey && !isTargetRound) {
     const achievedAt = Date.now();
-    recordBestWord(playerKey, resolvedNick, norm, wordPts, achievedAt);
+    if (isScoreRecordEligibleRound(room.currentRound)) {
+      recordBestWord(playerKey, resolvedNick, norm, wordPts, achievedAt);
+      recordBestRoundScore(playerKey, resolvedNick, data.score, `${room.id}#${roundId}`, achievedAt);
+    }
     recordLongestWord(playerKey, resolvedNick, norm, len, achievedAt);
-    recordBestRoundScore(playerKey, resolvedNick, data.score, `${room.id}#${roundId}`, achievedAt);
   }
 
   // Records du mini-tournoi
@@ -8721,6 +8798,13 @@ function recomputeRoundGobblesFromResults(room, results) {
   if (isTargetRound) {
     room.currentRound.gobbles = gobbles;
     room.currentRound.gobbleFlags = gobbleFlags;
+    return;
+  }
+
+  if (specialType === OCID_TYPE) {
+    const ocidAwards = computeOcidGobbleAwards(results);
+    room.currentRound.gobbles = ocidAwards.gobbles;
+    room.currentRound.gobbleFlags = ocidAwards.gobbleFlags;
     return;
   }
 
@@ -10072,6 +10156,7 @@ async function endRoundForRoom(room) {
   const targetFoundAt = room.currentRound.targetFoundAt || new Map();
   const targetScoreForWeekly = 1000;
   const isSpecial3Round = room.currentRound?.special?.type === SELF_SPECIAL_3_WORDS_TYPE;
+  const scoreRecordsEligible = isScoreRecordEligibleRound(room.currentRound);
   const teamDuelUpdates = new Map();
   const duelDateId = getParisDateId(new Date(endedAt));
   const profileStatsUpdates = [];
@@ -10084,11 +10169,13 @@ async function endRoundForRoom(room) {
     if (!playerKey) continue;
     const wordsCount = Array.isArray(entry.words) ? entry.words.length : 0;
     recordMostWordsInGame(playerKey, entry.nick, wordsCount, roundId, endedAt);
-    recordBestRoundScore(playerKey, entry.nick, entry.score, roundId, endedAt);
+    if (scoreRecordsEligible) {
+      recordBestRoundScore(playerKey, entry.nick, entry.score, roundId, endedAt);
+    }
     const highlights = isTargetRound
       ? { bestWord: null, longestWord: null }
       : computePlayerWordHighlightsForProfile(room.currentRound, entry);
-    if (highlights.bestWord?.word) {
+    if (scoreRecordsEligible && highlights.bestWord?.word) {
       recordBestWord(
         playerKey,
         entry.nick,
@@ -10134,6 +10221,7 @@ async function endRoundForRoom(room) {
         isTargetRound,
         targetFound: targetFoundAt.has(entry.nick),
         isSpecial3Round,
+        scoreRecordsEligible,
         ts: endedAt,
       });
     }
@@ -10673,7 +10761,10 @@ async function endRoundForRoom(room) {
   setTimeout(() => {
     if (room.breakState?.nextStartAt !== nextStartAt) return;
     if (breakKind === "tournament_end" || breakKind === "training_end") {
-      enterInterTournamentLobby(room);
+      enterInterTournamentLobby(room, {
+        cooldownMs:
+          breakKind === "tournament_end" ? INTER_TOURNAMENT_MIN_COOLDOWN_MS : 0,
+      });
       return;
     }
     startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
@@ -12091,6 +12182,7 @@ io.on("connection", (socket) => {
     emitPlayers(room);
     emitTournamentLobby(room);
     emitRoomsStats();
+    maybeStartTournamentCountdown(room);
     const timer = setTimeout(() => {
       clearPendingDisconnect(room, socket.id);
       const current = room.players.get(socket.id);

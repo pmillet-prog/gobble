@@ -1,5 +1,6 @@
 import React from "react";
 import { SUPPORT_DONORS } from "../../constants/supportDonors";
+import PatchNotes20260809 from "./patchNotes/PatchNotes20260809";
 
 export default function AboutModals({
   isAboutOpen,
@@ -268,6 +269,7 @@ export default function AboutModals({
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <PatchNotes20260809 menuDarkMode={menuDarkMode} />
               <div className={`rounded-xl border p-3 ${
                 menuDarkMode
                   ? "border-amber-300/25 bg-amber-400/10"

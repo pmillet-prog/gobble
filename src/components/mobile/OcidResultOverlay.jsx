@@ -10,6 +10,7 @@ function OcidResultOverlay({
   bluffDetail = "",
   voters = [],
   bluffPoints = 0,
+  gobbleEarned = false,
   onClose = null,
 }) {
   if (typeof document === "undefined") return null;
@@ -56,6 +57,11 @@ function OcidResultOverlay({
             <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
               {targetDetail || "Pas trouvé cette fois."}
             </div>
+            {gobbleEarned ? (
+              <div className="mt-2 inline-flex rounded-full bg-amber-500 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-sm">
+                Gobble · +1 au mini-tournoi
+              </div>
+            ) : null}
           </div>
 
           <div className={`rounded-xl border p-3 ${blockClass}`}>

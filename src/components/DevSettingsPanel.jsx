@@ -1,4 +1,5 @@
 import React from "react";
+import PodiumTypographyTuner from "./dev/PodiumTypographyTuner.jsx";
 
 let globalAnnouncementDraftCache = "";
 
@@ -351,6 +352,7 @@ export default function DevSettingsPanel({
             label: "Me donner le pseudo bronze",
             disabled: !controls?.enabled,
           })}
+          <PodiumTypographyTuner darkMode={darkMode} />
           <button
             type="button"
             disabled={busy || !canUseTools}

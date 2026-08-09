@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
@@ -27,6 +28,7 @@ function getBigwordImageUrl(key, assetsReady) {
 
 function GameCelebrationOverlay({
   assetsReady = false,
+  hostRef = null,
   isMobileLayout = false,
   liteVisualEffects = false,
   phase = "",
@@ -96,8 +98,33 @@ function GameCelebrationOverlay({
 
   if (!isActive) return null;
 
-  return (
-    <div className="celebration-layer" aria-hidden="true">
+  const hostRect = hostRef?.current?.getBoundingClientRect?.();
+  const portalReady =
+    typeof document !== "undefined" &&
+    hostRect &&
+    Number.isFinite(hostRect.left) &&
+    Number.isFinite(hostRect.top) &&
+    hostRect.width > 0 &&
+    hostRect.height > 0;
+
+  const overlay = (
+    <div
+      className="celebration-layer"
+      aria-hidden="true"
+      style={
+        portalReady
+          ? {
+              position: "fixed",
+              inset: "auto",
+              left: `${hostRect.left}px`,
+              top: `${hostRect.top}px`,
+              width: `${hostRect.width}px`,
+              height: `${hostRect.height}px`,
+              zIndex: 21460,
+            }
+          : undefined
+      }
+    >
       {gobbleFlash && showFlashRing ? (
         <div
           key={`flash-gobble-${gobbleFlash.id}`}
@@ -152,7 +179,7 @@ function GameCelebrationOverlay({
           ) : null}
           <div
             key={praiseFlash.id}
-            className="celebration-pop celebration-image-pop"
+            className="celebration-pop celebration-image-pop celebration-praise-pop"
             style={{
               ["--celebration-x"]: `${Math.round(praiseFlash.dx || 0)}px`,
               ["--celebration-y"]: `${Math.round(praiseFlash.dy || 0)}px`,
@@ -216,6 +243,7 @@ function GameCelebrationOverlay({
       ) : null}
     </div>
   );
+  return portalReady ? createPortal(overlay, document.body) : overlay;
 }
 
 export default React.memo(GameCelebrationOverlay);

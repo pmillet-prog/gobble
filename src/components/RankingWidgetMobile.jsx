@@ -1369,6 +1369,9 @@ function RankingWidgetMobile({
 
               const labelEntry = isSelfLine && youEntry ? youEntry : row.entry;
               const wheelNickClassName = resolveNickClassName(labelEntry, displayNick);
+              const wheelNickHasPodiumStyle = /(?:^|\s)nick-podium-(?:gold|silver|bronze)(?:\s|$)/.test(
+                wheelNickClassName
+              );
               const isPalier = !!labelEntry?.isPalier;
               const wordsCount =
                 typeof labelEntry?.wordsCount === "number" ? labelEntry.wordsCount : null;
@@ -1425,7 +1428,7 @@ function RankingWidgetMobile({
                 (lineBg ? " " + lineBg : "");
 
               const rightStyle = {
-                opacity: row.type === "empty" ? 0 : cfg.opacity,
+                opacity: row.type === "empty" ? 0 : wheelNickHasPodiumStyle ? 1 : cfg.opacity,
                 fontSize: cfg.pseudoFontPx ? `${cfg.pseudoFontPx}px` : undefined,
                 ...(rowStyle || {}),
                 lineHeight: effectiveRowPx ? `${effectiveRowPx}px` : undefined,

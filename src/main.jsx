@@ -9,7 +9,10 @@ import {
   sendCrashReport,
 } from "./utils/crashReporter.js";
 import { maybeRecoverFromStaleChunk } from "./utils/staleChunkRecovery.js";
+import { initializePodiumTypographySettings } from "./utils/podiumTypographySettings.js";
 import "./index.css";
+
+initializePodiumTypographySettings();
 
 function persistGlobalCrash(kind, payload) {
   const report = buildCrashReport(kind, payload);

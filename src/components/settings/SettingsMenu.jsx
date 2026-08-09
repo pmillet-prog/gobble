@@ -210,6 +210,7 @@ function SettingsMenu(props) {
     setVisualGobbleEnabled,
     setVisualInvalidWordsEnabled,
     setVisualPraiseEnabled,
+    setVisualScoreFlightsEnabled,
     setVisualScreenShakeEnabled,
     setAllDevBotsActive,
     setChatBotVisibility,
@@ -264,6 +265,7 @@ function SettingsMenu(props) {
     visualGobbleEnabled,
     visualInvalidWordsEnabled,
     visualPraiseEnabled,
+    visualScoreFlightsEnabled,
     visualScreenShakeEnabled,
   } = props;
 
@@ -669,7 +671,7 @@ function SettingsMenu(props) {
               <span className="inline-flex flex-col items-start leading-tight">
                 <span className="font-semibold">Apparence</span>
                 <span className="text-[10px] opacity-70">
-                  {enabledVisualCount}/6 effets actifs
+                  {enabledVisualCount}/7 effets actifs
                 </span>
               </span>
             </span>
@@ -1104,6 +1106,7 @@ function SettingsMenu(props) {
             allVisualOn,
             visualGobbleEnabled,
             visualPraiseEnabled,
+            visualScoreFlightsEnabled,
             visualInvalidWordsEnabled,
             visualScreenShakeEnabled,
             visualConfettiEnabled,
@@ -1115,6 +1118,7 @@ function SettingsMenu(props) {
             onToggleAll: () => setAllVisualEnabled(!allVisualOn),
             onToggleGobble: () => setVisualGobbleEnabled((prev) => !prev),
             onTogglePraise: () => setVisualPraiseEnabled((prev) => !prev),
+            onToggleScoreFlights: () => setVisualScoreFlightsEnabled((prev) => !prev),
             onToggleInvalidWords: () => setVisualInvalidWordsEnabled((prev) => !prev),
             onToggleScreenShake: () => setVisualScreenShakeEnabled((prev) => !prev),
             onToggleConfetti: () => setVisualConfettiEnabled((prev) => !prev),
