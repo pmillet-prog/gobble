@@ -41,6 +41,7 @@ import { createComputePool } from "./compute/computePool.js";
 import { computeOcidGobbleAwards } from "./compute/ocidGobblePolicy.js";
 import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
+import { createShortLivedRequestCache } from "./shortLivedRequestCache.js";
 import { getMetrics, resetMetrics } from "./observability/metrics.js";
 import { isScoreRecordEligibleRound } from "./stats/roundRecordPolicy.js";
 import {
@@ -577,12 +578,17 @@ app.use((req, res, next) => {
     host.startsWith("::1");
   if (!isGobbleHost || isLocal) return next();
 
+  const requestPath = String(req.path || req.originalUrl || "");
+  if (requestPath.startsWith("/api/") || requestPath.startsWith("/socket.io/")) {
+    return next();
+  }
+
   const needsHttps = !req.secure;
   const needsNonWww = host.startsWith("www.");
   if (!needsHttps && !needsNonWww) return next();
 
   const target = `https://gobble.fr${req.originalUrl || "/"}`;
-  return res.redirect(301, target);
+  return res.redirect(308, target);
 });
 
 app.get("/api/define", async (req, res) => {
@@ -611,14 +617,8 @@ app.get("/api/define", async (req, res) => {
   return res.json(payload);
 });
 
-app.get("/api/stats/weekly", async (req, res) => {
-  res.set("Content-Type", "application/json; charset=utf-8");
-  res.set("Cache-Control", "public, max-age=60");
-  const rawTop = Number(req.query?.topN);
-  const topN =
-    Number.isFinite(rawTop) && rawTop > 0 ? Math.min(200, Math.max(1, Math.round(rawTop))) : undefined;
-  try {
-    const payload = getWeeklyStats(topN);
+async function buildWeeklyStatsResponse(topN) {
+  const payload = getWeeklyStats(topN);
     const boards = payload?.boards || {};
     const normalizeWeeklyNick = (rawNick) =>
       typeof rawNick === "string" ? rawNick.trim().toLowerCase() : "";
@@ -792,7 +792,25 @@ app.get("/api/stats/weekly", async (req, res) => {
       ),
       mostGobbles: withUserIds(filterBots(boards.mostGobbles)),
     };
-    return res.json({ ...payload, boards: filteredBoards });
+  return { ...payload, boards: filteredBoards };
+}
+
+const weeklyStatsResponseCache = createShortLivedRequestCache({
+  ttlMs: 1500,
+  maxEntries: 16,
+});
+
+app.get("/api/stats/weekly", async (req, res) => {
+  res.set("Content-Type", "application/json; charset=utf-8");
+  res.set("Cache-Control", "private, no-store");
+  const rawTop = Number(req.query?.topN);
+  const topN =
+    Number.isFinite(rawTop) && rawTop > 0 ? Math.min(200, Math.max(1, Math.round(rawTop))) : undefined;
+  try {
+    const responsePayload = await weeklyStatsResponseCache.getOrLoad(topN ?? 50, () =>
+      buildWeeklyStatsResponse(topN)
+    );
+    return res.json(responsePayload);
   } catch (_) {
     const weekStartTs = getWeekStartTs();
     const nextResetTs = weekStartTs + 7 * 24 * 60 * 60 * 1000;
@@ -2371,6 +2389,9 @@ function requireSocketPlayerIdentity(socket, cb) {
 
 const migratedUserSignatures = new Map();
 const userMigrationPromises = new Map();
+const userMigrationCheckCache = new Map();
+const USER_MIGRATION_RECHECK_MS = 30 * 1000;
+const USER_MIGRATION_FAILURE_RETRY_MS = 5 * 1000;
 
 async function ensureUserIdentityMigration(user) {
   const userId = Number(user?.id);
@@ -2378,29 +2399,61 @@ async function ensureUserIdentityMigration(user) {
   const targetInstallId = buildUserPlayerId(userId);
   if (!targetInstallId) return;
   const primaryInstallId = normalizeInstallIdRaw(user?.primaryInstallId);
-  const devices = await listDevicesForUser(userId).catch(() => []);
-  const sourceInstallIds = Array.from(
-    new Set(
-      [primaryInstallId, ...(Array.isArray(devices) ? devices.map((entry) => entry?.installId) : [])]
-        .map((installId) => normalizeInstallIdRaw(installId))
-        .filter((installId) => installId && installId !== targetInstallId)
-    )
-  ).sort();
-  const migrationSignature = `${targetInstallId}|${sourceInstallIds.join(",")}`;
-  if (migratedUserSignatures.get(userId) === migrationSignature) return;
-  const persistedSignature = await getUserIdentityMigrationSignature(userId).catch(() => "");
-  if (persistedSignature === migrationSignature) {
-    migratedUserSignatures.set(userId, migrationSignature);
-    return;
-  }
   const inFlight = userMigrationPromises.get(userId);
   if (inFlight) {
     await inFlight;
     return;
   }
+  const cachedCheck = userMigrationCheckCache.get(userId);
+  if (
+    cachedCheck?.targetInstallId === targetInstallId &&
+    cachedCheck?.primaryInstallId === primaryInstallId &&
+    Number(cachedCheck.expiresAt) > Date.now()
+  ) {
+    return;
+  }
 
   const task = (async () => {
     let hadFailure = false;
+    const devices = await listDevicesForUser(userId).catch((err) => {
+      hadFailure = true;
+      console.warn(`identity device lookup failed user=${userId}`, err);
+      return null;
+    });
+    if (!Array.isArray(devices)) {
+      userMigrationCheckCache.set(userId, {
+        targetInstallId,
+        primaryInstallId,
+        expiresAt: Date.now() + USER_MIGRATION_FAILURE_RETRY_MS,
+      });
+      return;
+    }
+    const sourceInstallIds = Array.from(
+      new Set(
+        [primaryInstallId, ...devices.map((entry) => entry?.installId)]
+          .map((installId) => normalizeInstallIdRaw(installId))
+          .filter((installId) => installId && installId !== targetInstallId)
+      )
+    ).sort();
+    const migrationSignature = `${targetInstallId}|${sourceInstallIds.join(",")}`;
+    if (migratedUserSignatures.get(userId) === migrationSignature) {
+      userMigrationCheckCache.set(userId, {
+        targetInstallId,
+        primaryInstallId,
+        expiresAt: Date.now() + USER_MIGRATION_RECHECK_MS,
+      });
+      return;
+    }
+    const persistedSignature = await getUserIdentityMigrationSignature(userId).catch(() => "");
+    if (persistedSignature === migrationSignature) {
+      migratedUserSignatures.set(userId, migrationSignature);
+      userMigrationCheckCache.set(userId, {
+        targetInstallId,
+        primaryInstallId,
+        expiresAt: Date.now() + USER_MIGRATION_RECHECK_MS,
+      });
+      return;
+    }
     if (sourceInstallIds.length > 0) {
       const migrations = [
         ["vocabulary", migrateVocabularyProfile],
@@ -2427,6 +2480,13 @@ async function ensureUserIdentityMigration(user) {
       });
       migratedUserSignatures.set(userId, migrationSignature);
     }
+    userMigrationCheckCache.set(userId, {
+      targetInstallId,
+      primaryInstallId,
+      expiresAt:
+        Date.now() +
+        (hadFailure ? USER_MIGRATION_FAILURE_RETRY_MS : USER_MIGRATION_RECHECK_MS),
+    });
   })().finally(() => {
     userMigrationPromises.delete(userId);
   });

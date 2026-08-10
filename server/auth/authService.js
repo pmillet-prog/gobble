@@ -30,10 +30,15 @@ const USERNAME_MIN_LEN = 3;
 const USERNAME_MAX_LEN = 25;
 const PASSWORD_MIN_LEN = 3;
 const SESSION_TOUCH_MIN_MS = 5 * 60 * 1000;
+const SESSION_LOOKUP_CACHE_TTL_MS = 3 * 1000;
+const SESSION_LOOKUP_CACHE_MAX_ENTRIES = 1000;
 
 let db = null;
 let initPromise = null;
 const sessionTouchCache = new Map();
+const sessionLookupCache = new Map();
+const sessionLookupPromises = new Map();
+let sessionLookupGeneration = 0;
 
 function nowTs() {
   return Date.now();
@@ -69,6 +74,36 @@ function scheduleSessionTouch(ready, sessionId, previousLastSeenAt, timestamp) {
       safeSessionId
     )
   ).catch(() => {});
+}
+
+function pruneSessionLookupCache(now = nowTs()) {
+  for (const [tokenHash, entry] of sessionLookupCache.entries()) {
+    if (!entry || Number(entry.expiresAt) <= now) {
+      sessionLookupCache.delete(tokenHash);
+    }
+  }
+  while (sessionLookupCache.size > SESSION_LOOKUP_CACHE_MAX_ENTRIES) {
+    const oldestKey = sessionLookupCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    sessionLookupCache.delete(oldestKey);
+  }
+}
+
+function clearSessionLookupCache({ tokenHash = "", userId = null } = {}) {
+  sessionLookupGeneration += 1;
+  sessionLookupPromises.clear();
+  const safeTokenHash = String(tokenHash || "").trim();
+  if (safeTokenHash) {
+    sessionLookupCache.delete(safeTokenHash);
+  }
+  const safeUserId = Number(userId);
+  if (Number.isInteger(safeUserId) && safeUserId > 0) {
+    for (const [cachedTokenHash, entry] of sessionLookupCache.entries()) {
+      if (Number(entry?.auth?.user?.id) === safeUserId) {
+        sessionLookupCache.delete(cachedTokenHash);
+      }
+    }
+  }
 }
 
 function createPrimaryInstallId() {
@@ -821,6 +856,7 @@ export async function updatePassword({
     clearMustResetPassword ? 0 : 1,
     Number(userId)
   );
+  clearSessionLookupCache({ userId });
   return { ok: true };
 }
 
@@ -845,6 +881,7 @@ export async function markMustResetPassword(userId, { invalidateSessions = true 
       Number(userId)
     );
   }
+  clearSessionLookupCache({ userId });
   return { ok: true };
 }
 
@@ -909,50 +946,90 @@ export async function createSession(userId) {
 }
 
 export async function getSessionByToken(token) {
-  const ready = await ensureDb();
   const safeToken = String(token || "").trim();
   if (!safeToken) return null;
   const tokenHash = sha256Hex(safeToken);
   const timestamp = nowTs();
-  const row = await ready.get(
-    `SELECT
-        s.id AS session_id,
-        s.user_id AS session_user_id,
-        s.created_at AS session_created_at,
-        s.last_seen_at AS session_last_seen_at,
-        s.expires_at AS session_expires_at,
-        u.id AS user_id,
-        u.username_display,
-        u.username_normalized,
-        u.password_hash,
-        u.email,
-        u.primary_install_id,
-        u.created_at,
-        u.updated_at,
-        u.last_login_at,
-        u.is_legacy_converted,
-        u.must_reset_password
-     FROM user_sessions s
-     JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ?
-       AND s.invalidated_at IS NULL
-       AND s.expires_at > ?
-     LIMIT 1`,
-    tokenHash,
-    timestamp
-  );
-  if (!row) return null;
-  scheduleSessionTouch(ready, row.session_id, Number(row.session_last_seen_at) || 0, timestamp);
-  return {
-    session: {
-      id: row.session_id,
-      userId: Number(row.session_user_id),
-      createdAt: Number(row.session_created_at) || null,
-      lastSeenAt: Number(row.session_last_seen_at) || null,
-      expiresAt: Number(row.session_expires_at) || null,
-    },
-    user: serializeUser(row),
-  };
+  const cached = sessionLookupCache.get(tokenHash);
+  if (
+    cached?.auth &&
+    Number(cached.expiresAt) > timestamp &&
+    Number(cached.auth?.session?.expiresAt) > timestamp
+  ) {
+    if (db) {
+      scheduleSessionTouch(
+        db,
+        cached.auth.session.id,
+        Number(cached.auth.session.lastSeenAt) || 0,
+        timestamp
+      );
+    }
+    return cached.auth;
+  }
+  if (cached) sessionLookupCache.delete(tokenHash);
+
+  const inFlight = sessionLookupPromises.get(tokenHash);
+  if (inFlight) return await inFlight;
+
+  const lookupGeneration = sessionLookupGeneration;
+  const lookupPromise = (async () => {
+    const ready = await ensureDb();
+    const row = await ready.get(
+      `SELECT
+          s.id AS session_id,
+          s.user_id AS session_user_id,
+          s.created_at AS session_created_at,
+          s.last_seen_at AS session_last_seen_at,
+          s.expires_at AS session_expires_at,
+          u.id AS user_id,
+          u.username_display,
+          u.username_normalized,
+          u.password_hash,
+          u.email,
+          u.primary_install_id,
+          u.created_at,
+          u.updated_at,
+          u.last_login_at,
+          u.is_legacy_converted,
+          u.must_reset_password
+       FROM user_sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token_hash = ?
+         AND s.invalidated_at IS NULL
+         AND s.expires_at > ?
+       LIMIT 1`,
+      tokenHash,
+      timestamp
+    );
+    if (!row) return null;
+    scheduleSessionTouch(ready, row.session_id, Number(row.session_last_seen_at) || 0, timestamp);
+    const auth = {
+      session: {
+        id: row.session_id,
+        userId: Number(row.session_user_id),
+        createdAt: Number(row.session_created_at) || null,
+        lastSeenAt: Number(row.session_last_seen_at) || null,
+        expiresAt: Number(row.session_expires_at) || null,
+      },
+      user: serializeUser(row),
+    };
+    if (lookupGeneration === sessionLookupGeneration) {
+      sessionLookupCache.delete(tokenHash);
+      sessionLookupCache.set(tokenHash, {
+        auth,
+        expiresAt: nowTs() + SESSION_LOOKUP_CACHE_TTL_MS,
+      });
+      pruneSessionLookupCache();
+    }
+    return auth;
+  })().finally(() => {
+    if (sessionLookupPromises.get(tokenHash) === lookupPromise) {
+      sessionLookupPromises.delete(tokenHash);
+    }
+  });
+
+  sessionLookupPromises.set(tokenHash, lookupPromise);
+  return await lookupPromise;
 }
 
 export async function invalidateSessionByToken(token) {
@@ -960,14 +1037,16 @@ export async function invalidateSessionByToken(token) {
   const safeToken = String(token || "").trim();
   if (!safeToken) return false;
   const timestamp = nowTs();
+  const tokenHash = sha256Hex(safeToken);
   const result = await runAuthStatement(
     ready,
     `UPDATE user_sessions
      SET invalidated_at = COALESCE(invalidated_at, ?)
      WHERE token_hash = ? AND invalidated_at IS NULL`,
     timestamp,
-    sha256Hex(safeToken)
+    tokenHash
   );
+  clearSessionLookupCache({ tokenHash });
   return Number(result?.changes) > 0;
 }
 
@@ -984,6 +1063,7 @@ export async function invalidateSessionsForUser(userId, { exceptSessionId = null
       Number(userId),
       String(exceptSessionId)
     );
+    clearSessionLookupCache({ userId });
     return true;
   }
   await runAuthStatement(
@@ -994,6 +1074,7 @@ export async function invalidateSessionsForUser(userId, { exceptSessionId = null
     timestamp,
     Number(userId)
   );
+  clearSessionLookupCache({ userId });
   return true;
 }
 

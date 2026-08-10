@@ -7,6 +7,7 @@ export default function AutoScaleInline({
   estimatedContentWidth = null,
   measurePaddingPx = 0,
   reserveScaledWidth = false,
+  scaleMode = "uniform",
   children,
 }) {
   const viewportRef = React.useRef(null);
@@ -117,6 +118,8 @@ export default function AutoScaleInline({
     align === "left" ? "left top" : align === "right" ? "right top" : "center top";
   const safeMeasurePadding = Math.max(0, Number(measurePaddingPx) || 0);
   const scaledLineWidth = lineWidth > 0 ? Math.ceil(lineWidth * scale) : null;
+  const scaleTransform =
+    scaleMode === "horizontal" ? `scaleX(${scale})` : `scale(${scale})`;
   const viewportStyle =
     safeMeasurePadding
       ? {
@@ -133,7 +136,7 @@ export default function AutoScaleInline({
           ref={lineRef}
           className={`inline-flex items-center justify-center whitespace-nowrap ${className}`}
           style={{
-            transform: `scale(${scale})`,
+            transform: scaleTransform,
             transformOrigin,
           }}
         >
@@ -158,7 +161,7 @@ export default function AutoScaleInline({
           className={`inline-flex items-center justify-center whitespace-nowrap ${className}`}
           style={{
             maxWidth: "none",
-            transform: `scale(${scale})`,
+            transform: scaleTransform,
             transformOrigin: "left center",
           }}
         >

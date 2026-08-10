@@ -4,6 +4,7 @@ import {
   describeWordVaultFailure,
   reportWordVaultFailure,
 } from "./wordVaultErrors.js";
+import { postWordVaultAddWithRetry } from "./wordVaultRequest.js";
 
 const WORD_VAULT_ENDPOINT = "/api/vault/words";
 
@@ -141,12 +142,12 @@ export default function useWordVault({
     }
     setWordVaultActionPending(true);
     try {
-      let response = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
+      let response = await postWordVaultAddWithRetry(postAuthJson, WORD_VAULT_ENDPOINT, word);
       const payload = response?.data || {};
       if (!response?.ok && payload?.error === "auth_required") {
         const refreshed = await refreshAuthStatus?.({ silent: true });
         if (refreshed?.status === "authenticated" && refreshed?.user) {
-          response = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
+          response = await postWordVaultAddWithRetry(postAuthJson, WORD_VAULT_ENDPOINT, word);
         } else {
           ensureAuthenticated?.({ source: "action" });
           showToast?.("Reconnecte-toi pour ajouter ce mot au coffre fort");
@@ -189,41 +190,6 @@ export default function useWordVault({
       }
       return true;
     } catch (err) {
-      const code = String(err?.message || "");
-      if (code === "request_timeout") {
-        let retryFailureResponse = null;
-        let retryFailureError = err;
-        try {
-          const retryResponse = await postAuthJson?.(WORD_VAULT_ENDPOINT, { word });
-          const retryPayload = retryResponse?.data || {};
-          if (retryResponse?.ok) {
-            const entry = normalizeWordVaultEntry(retryPayload?.entry);
-            if (entry) {
-              setWordVault((prev) => {
-                const existingWords = Array.isArray(prev?.words) ? prev.words : [];
-                return {
-                  ...prev,
-                  loaded: true,
-                  error: "",
-                  words: [entry, ...existingWords.filter((item) => item.wordKey !== entry.wordKey)],
-                };
-              });
-              void fetchWordVault({ silent: true });
-              showToast?.(retryPayload?.alreadyExists ? "Mot déjà ajouté au coffre fort" : "Mot ajouté au coffre fort");
-              return true;
-            }
-          }
-          retryFailureResponse = retryResponse;
-        } catch (retryErr) {
-          retryFailureError = retryErr;
-        }
-        surfaceWordVaultFailure(showToast, {
-          response: retryFailureResponse,
-          error: retryFailureResponse ? null : retryFailureError,
-          invalidSuccessPayload: !!retryFailureResponse?.ok,
-        });
-        return false;
-      }
       surfaceWordVaultFailure(showToast, { error: err });
       return false;
     } finally {

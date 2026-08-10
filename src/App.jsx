@@ -37959,9 +37959,14 @@ function handleTouchEnd(e) {
             {specialHintDisplay ? (
               <div className="flex w-full min-w-0 items-center justify-center gap-2">
                 <div className="min-w-0 flex-1">
-                  <AutoScaleInline minScale={0.25} measurePaddingPx={2}>
+                  <AutoScaleInline
+                    minScale={0.25}
+                    measurePaddingPx={2}
+                    scaleMode="horizontal"
+                  >
                     <TargetHintPattern
                       display={specialHintDisplay}
+                      renderBlankRules
                       revealedWordIndices={specialHint?.wordIndices}
                       solved={!!solvedTargetWord}
                       wordLength={specialHint?.length}
