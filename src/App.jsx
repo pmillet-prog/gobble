@@ -96,6 +96,10 @@ import LiveSalonScene from "./components/live/LiveSalonScene.jsx";
 import LiveSalonUtilityBar from "./components/live/LiveSalonUtilityBar.jsx";
 import MiniTournamentStartOverlay from "./components/live/MiniTournamentStartOverlay.jsx";
 import TrainingRoundPicker from "./components/live/TrainingRoundPicker.jsx";
+import TrainingJoinLiveDialog from "./components/training/TrainingJoinLiveDialog.jsx";
+import TrainingPlayerBadge from "./components/training/TrainingPlayerBadge.jsx";
+import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
+import StandaloneTrainingPicker from "./components/training/StandaloneTrainingPicker.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
 import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
@@ -122,7 +126,9 @@ import useWordVault from "./utils/useWordVault";
 import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
 import { usePlaytimeLimit } from "./hooks/usePlaytimeLimit.js";
 import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNavigation.js";
+import useStandaloneTraining from "./hooks/useStandaloneTraining.js";
 import useDisplayMode from "./hooks/useDisplayMode.js";
+import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
 import {
   isAndroidWebViewUserAgent,
   isAppleMobileUserAgent,
@@ -179,6 +185,11 @@ import {
 import { generateGrid } from "./components/gridGeneration";
 import { hydrateServerSolutionsPayload } from "./utils/roundSolutions";
 import {
+  buildStandaloneTrainingTargetSummary,
+  buildTrainingTargetHint,
+  buildTrainingTargetHintSchedule,
+} from "./training/standaloneTraining.js";
+import {
   buildTargetHintOverlayStyleMap,
   buildTargetHintStyleMap,
 } from "./utils/targetHintStyles.js";
@@ -208,6 +219,18 @@ import {
   isNewPlayerPopupQuietPeriod,
   recordDistinctVisitDay,
 } from "./utils/popupAudience.js";
+import {
+  ACCOUNT_SEEN_MARKERS,
+  buildBroadcastSeenMarker,
+  buildDuelTutorialSeenMarker,
+  buildDuelWeekRecapSeenMarker,
+  buildDuelWeekSeenMarker,
+  buildFacebookInviteSeenMarker,
+  buildPatchNotesSeenMarker,
+  buildSpecialTutorialSeenMarker,
+  buildVaultWordOfDaySeenMarker,
+  buildVocabOverlaySeenMarker,
+} from "./utils/accountSeenMarkers.js";
 import {
   isWeeklyRecapPodiumReady,
   resolveWeeklyRecapPodium,
@@ -488,13 +511,6 @@ function getParisDateIdClient(date = new Date()) {
     if (year && month && day) return `${year}-${month}-${day}`;
   } catch (_) {}
   return formatIsoDateId(date);
-}
-
-function getVaultWordOfDaySeenStorageKey(audienceKey, dateId) {
-  const safeAudience = String(audienceKey || "").trim();
-  const safeDateId = String(dateId || "").trim();
-  if (!safeAudience || !safeDateId) return "";
-  return `${VAULT_WORD_OF_DAY_SEEN_STORAGE_PREFIX}:${safeAudience}:${safeDateId}`;
 }
 
 function pickVaultWordOfDayCandidates(words, limit = VAULT_WORD_OF_DAY_MAX_DEFINITION_ATTEMPTS) {
@@ -1008,9 +1024,10 @@ function buildPlayersSignature(list) {
     const bot = entry.isBot ? "1" : "0";
     const afk = entry.afk ? "1" : "0";
     const ready = entry.readyForTournament ? "1" : "0";
+    const training = entry.inTraining ? `1:${String(entry.trainingMode || "")}` : "0";
     const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
     const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    out += `${nick}:${userId}:${team}:${bot}:${afk}:${ready}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
+    out += `${nick}:${userId}:${team}:${bot}:${afk}:${ready}:${training}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return out;
 }
@@ -3684,7 +3701,6 @@ const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", 
 const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
 const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
 const MAX_INSTALL_ID_LEN = 128;
-const CHAT_RULES_STORAGE_KEY = "gobble_chat_rules_accepted";
 const CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY = "gobble_chat_show_bot_messages";
 const CHAT_BOT_VISIBILITY_STORAGE_KEY = "gobble_chat_bot_visibility_v1";
 const CHAT_BOT_VISIBILITY_OPTIONS = Object.freeze([
@@ -3702,11 +3718,7 @@ const CHAT_BOT_VISIBILITY_OPTIONS = Object.freeze([
 const CHAT_BOT_KEY_BY_NICK = Object.freeze(
   Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => [bot.nick.toLowerCase(), bot.key]))
 );
-const TUTORIAL_SEEN_STORAGE_KEY = "gobble_tutorial_seen_install_id";
-const GUIDED_RESULTS_SEEN_STORAGE_KEY = "gobble_guided_results_seen_install_id_v3";
-const SPECIAL_TUTORIAL_SEEN_STORAGE_KEY = "gobble_special_tutorial_seen_install_id_v2";
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
-const BROADCAST_SEEN_STORAGE_PREFIX = "gobble_broadcast_seen";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 
 function isChatBotMessage(message) {
@@ -3767,9 +3779,7 @@ const AUTH_MODAL_MODES = {
   FORGOT_PASSWORD: "forgot-password",
   CHANGE_PASSWORD: "change-password",
 };
-const VAULT_WORD_OF_DAY_SEEN_STORAGE_PREFIX = "gobble_vault_word_of_day_seen";
 const VAULT_WORD_OF_DAY_MAX_DEFINITION_ATTEMPTS = 8;
-const VOCAB_OVERLAY_SEEN_STORAGE_KEY = "gobble_vocab_overlay_seen_key_v1";
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
 const THEME_UNLOCK_COST_DEFAULT = 500;
 const THEME_LOCKABLE_CATEGORIES = [
@@ -4023,10 +4033,7 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
 const PATCH_NOTES_VERSION = "2026-08-09";
 const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-09T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-08-09-live-flow-score-feedback-1";
-const PATCH_NOTES_SEEN_STORAGE_PREFIX = "gobble_patchnotes_seen";
 const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
-const FACEBOOK_INVITE_SEEN_STORAGE_PREFIX = "gobble_facebook_invite_seen";
-const DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX = "gobble_duel_week_recap_seen";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
     return {};
@@ -4280,23 +4287,8 @@ function getPatchNotesSeenAudienceKey(userId) {
   return "";
 }
 
-function getPopupAudienceKey(userId, installId) {
-  const userKey = getPatchNotesSeenAudienceKey(userId);
-  if (userKey) return userKey;
-  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
-  return safeInstallId ? `install:${safeInstallId}` : "";
-}
-
-function getPatchNotesSeenStorageKey(audienceKey, version = PATCH_NOTES_VERSION) {
-  const safeAudienceKey = typeof audienceKey === "string" ? audienceKey.trim() : "";
-  if (!safeAudienceKey) return "";
-  return `${PATCH_NOTES_SEEN_STORAGE_PREFIX}:${version}:${safeAudienceKey}`;
-}
-
-function getFacebookInviteSeenStorageKey(audienceKey) {
-  const safeAudienceKey = typeof audienceKey === "string" ? audienceKey.trim() : "";
-  if (!safeAudienceKey) return "";
-  return `${FACEBOOK_INVITE_SEEN_STORAGE_PREFIX}:${FACEBOOK_INVITE_VERSION}:${safeAudienceKey}`;
+function getPopupAudienceKey(userId) {
+  return getPatchNotesSeenAudienceKey(userId);
 }
 
 function intersectViewportRects(a, b) {
@@ -4405,13 +4397,6 @@ function getBroadcastMessageKey(message) {
   if (idPart) return idPart.slice(0, 140);
   if (updatedPart) return updatedPart.slice(0, 140);
   return "";
-}
-
-function getBroadcastSeenStorageKey(installId, messageKey) {
-  const safeInstallId = typeof installId === "string" ? installId.trim() : "";
-  const safeMessageKey = typeof messageKey === "string" ? messageKey.trim() : "";
-  if (!safeInstallId || !safeMessageKey) return "";
-  return `${BROADCAST_SEEN_STORAGE_PREFIX}:${safeInstallId}:${safeMessageKey}`;
 }
 
 const formatNumber = (value) =>
@@ -5462,13 +5447,7 @@ export default function App() {
   const [homeChatBotUnreadCount, setHomeChatBotUnreadCount] = useState(0);
   const [isHomeChatOpen, setIsHomeChatOpen] = useState(false);
   const [chatTab, setChatTab] = useState("messages");
-  const [chatRulesAccepted, setChatRulesAccepted] = useState(() => {
-    try {
-      return localStorage.getItem(CHAT_RULES_STORAGE_KEY) === "1";
-    } catch (_) {
-      return false;
-    }
-  });
+  const [chatRulesAccepted, setChatRulesAccepted] = useState(false);
   const [showBotMessages, setShowBotMessages] = useState(() => {
     try {
       return localStorage.getItem(CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY) !== "0";
@@ -5556,11 +5535,24 @@ export default function App() {
     : null;
   const installId = authenticatedUserId ? buildUserScopedInstallId(authenticatedUserId) : "";
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
-  const patchNotesAudienceKey = getPatchNotesSeenAudienceKey(authenticatedUserId);
-  const popupAudienceKey = getPopupAudienceKey(
-    authenticatedUserId,
-    installId || deviceInstallId
-  );
+  const {
+    ready: accountSeenReady,
+    markers: accountSeenMarkers,
+    markSeen: markAccountSeen,
+  } = useAccountSeenMarkers({ authenticatedUserId, isAuthenticated: isAccountAuthenticated });
+  useEffect(() => {
+    if (!isAccountAuthenticated) {
+      setChatRulesAccepted(false);
+      return;
+    }
+    if (!accountSeenReady) return;
+    setChatRulesAccepted(accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.chatRules));
+  }, [
+    accountSeenMarkers,
+    accountSeenReady,
+    isAccountAuthenticated,
+  ]);
+  const popupAudienceKey = getPopupAudienceKey(authenticatedUserId);
   const isNewPlayerPopupQuiet = isNewPlayerPopupQuietPeriod({
     accountCreatedAt: authState.user?.createdAt,
     installCreatedAt: installIdCreatedAtTs,
@@ -5609,7 +5601,6 @@ export default function App() {
     announcement: globalRedAnnouncement,
     showGlobalRedAnnouncement,
   } = useGlobalRedAnnouncement();
-  const [broadcastSeenNonce, setBroadcastSeenNonce] = useState(0);
   const [dailyStatus, setDailyStatus] = useState({
     loading: false,
     ready: false,
@@ -5702,50 +5693,16 @@ export default function App() {
   const dailySessionRef = useRef({ dateId: null, startedAt: null });
   const dailySubmitRef = useRef({ inFlight: false });
   const dailySpecialTutorialPauseStartedAtRef = useRef(null);
-  const [tutorialSeenInstallId, setTutorialSeenInstallId] = useState(() => {
-    try {
-      return normalizeStoredPlayerIdentityKey(localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) || "");
-    } catch (_) {
-      return "";
-    }
-  });
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [tutorialPendingLogin, setTutorialPendingLogin] = useState(false);
-  const [guidedResultsSeenInstallId, setGuidedResultsSeenInstallId] = useState(() => {
-    try {
-      return normalizeStoredPlayerIdentityKey(
-        localStorage.getItem(GUIDED_RESULTS_SEEN_STORAGE_KEY) || ""
-      );
-    } catch (_) {
-      return "";
-    }
-  });
   const [guidedResultsStep, setGuidedResultsStep] = useState(null);
-  const [specialTutorialSeen, setSpecialTutorialSeen] = useState(() => {
-    try {
-      const raw = localStorage.getItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed === "object") {
-        const installId = normalizeStoredPlayerIdentityKey(parsed.installId);
-        const types =
-          parsed.types && typeof parsed.types === "object" && !Array.isArray(parsed.types)
-            ? parsed.types
-            : {};
-        return { installId, types };
-      }
-    } catch (_) {}
-    return { installId: "", types: {} };
-  });
   const [specialTutorialPlan, setSpecialTutorialPlan] = useState(null);
   const [isSpecialTutorialOpen, setIsSpecialTutorialOpen] = useState(false);
   const [specialTutorialStepIndex, setSpecialTutorialStepIndex] = useState(0);
-  const normalizedLegacyInstallId = normalizeStoredPlayerIdentityKey(deviceInstallId);
-  const matchesCurrentPlayerIdentity = (value) => {
-    const normalized = normalizeStoredPlayerIdentityKey(value);
-    if (!normalized) return false;
-    return normalized === installId || normalized === normalizedLegacyInstallId;
-  };
-  const shouldShowTutorial = installId ? !matchesCurrentPlayerIdentity(tutorialSeenInstallId) : false;
+  const shouldShowTutorial =
+    isAccountAuthenticated &&
+    accountSeenReady &&
+    !accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.mainTutorial);
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
   const shouldProtectMobileLiveExit =
@@ -5776,28 +5733,15 @@ export default function App() {
     specialTutorialPlan?.type === DAILY_SPECIAL_MODE &&
     (isSpecial3WordsMode || specialRound?.type === DAILY_SPECIAL_MODE);
   const completeGuidedResultsTutorial = React.useCallback(() => {
-    if (!installId) return;
-    try {
-      localStorage.setItem(GUIDED_RESULTS_SEEN_STORAGE_KEY, installId);
-    } catch (_) {}
-    setGuidedResultsSeenInstallId(installId);
+    markAccountSeen(ACCOUNT_SEEN_MARKERS.guidedResultsTutorial);
     setGuidedResultsStep(null);
-  }, [installId]);
+  }, [markAccountSeen]);
   const markSpecialTutorialSeen = React.useCallback(
     (type) => {
       if (!type) return;
-      setSpecialTutorialSeen((prev) => {
-        const nextInstallId = normalizeStoredPlayerIdentityKey(installId || prev?.installId || "");
-        const nextTypes = { ...(prev?.types || {}) };
-        nextTypes[type] = true;
-        const next = { installId: nextInstallId, types: nextTypes };
-        try {
-          localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
-        } catch (_) {}
-        return next;
-      });
+      markAccountSeen(buildSpecialTutorialSeenMarker(type));
     },
-    [installId]
+    [markAccountSeen]
   );
   useEffect(() => {
     if (!installId) return;
@@ -5811,30 +5755,6 @@ export default function App() {
     const matchesLegacy = (value) =>
       legacyKeys.has(normalizeStoredPlayerIdentityKey(value));
 
-    if (matchesLegacy(tutorialSeenInstallId) && tutorialSeenInstallId !== installId) {
-      try {
-        localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, installId);
-      } catch (_) {}
-      setTutorialSeenInstallId(installId);
-    }
-
-    if (matchesLegacy(guidedResultsSeenInstallId) && guidedResultsSeenInstallId !== installId) {
-      try {
-        localStorage.setItem(GUIDED_RESULTS_SEEN_STORAGE_KEY, installId);
-      } catch (_) {}
-      setGuidedResultsSeenInstallId(installId);
-    }
-
-    if (matchesLegacy(specialTutorialSeen?.installId) && specialTutorialSeen?.installId !== installId) {
-      setSpecialTutorialSeen((prev) => {
-        const next = { installId, types: { ...(prev?.types || {}) } };
-        try {
-          localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
-        } catch (_) {}
-        return next;
-      });
-    }
-
     const savedSession = sessionRef.current || loadSessionFromStorage();
     if (savedSession?.nick && savedSession?.roomId && matchesLegacy(savedSession.installId)) {
       persistSession({ ...savedSession, installId });
@@ -5842,9 +5762,6 @@ export default function App() {
   }, [
     installId,
     deviceInstallId,
-    tutorialSeenInstallId,
-    guidedResultsSeenInstallId,
-    specialTutorialSeen?.installId,
   ]);
 
   function clearCelebrationFx() {
@@ -5866,6 +5783,15 @@ export default function App() {
   }
 
   function returnToLobby() {
+    if (standaloneTrainingSessionRef.current) {
+      if (socket.connected) {
+        socket.emit("training:standalone:stop", {
+          roomId: roomIdRef.current,
+          joinLive: false,
+        });
+      }
+      standaloneTrainingController.clearSession();
+    }
     setIsSettingsOpen(false);
     // Désactive immédiatement les events "manche live" pour éviter
     // qu'un roundEnded en transit relance un outro/blackhole après retour lobby.
@@ -6009,12 +5935,63 @@ export default function App() {
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
   const startGameFromServerRef = useRef(null);
+  const standaloneTrainingController = useStandaloneTraining({
+    ensureConnection: connectSocketWithAuth,
+    getIdentityPayload: () => ({
+      installId: installIdRef.current,
+      nick: nicknameRef.current.trim(),
+      roomId: roomIdRef.current,
+    }),
+    onJoinLive: joinStandaloneTrainingLive,
+    onLaunch: launchStandaloneTraining,
+    onReturnLobby: returnToLobby,
+    roomIdRef,
+    showToast,
+    socket,
+  });
+  const standaloneTrainingSession = standaloneTrainingController.session;
+  const standaloneTrainingSessionRef = standaloneTrainingController.sessionRef;
+  useEffect(() => {
+    const training = standaloneTrainingSession;
+    const isTarget = training?.mode === "target_long" || training?.mode === "target_score";
+    if (!training || !isTarget || phase !== "playing") return undefined;
+    const schedule = buildTrainingTargetHintSchedule(
+      training.durationMs,
+      training.targetLength
+    );
+    const timers = [];
+    const reveal = (count) => {
+      setSpecialHint(
+        buildTrainingTargetHint({
+          word: training.targetWord,
+          path: training.targetPath,
+          grid: training.grid,
+          revealCount: count,
+          kind: training.mode,
+          seed: training.gridId,
+        })
+      );
+    };
+    const elapsed = Math.max(0, getNowServerMs() - Number(training.startedAt || 0));
+    let alreadyRevealed = 0;
+    schedule.forEach((atMs, index) => {
+      if (atMs <= elapsed) {
+        alreadyRevealed = index + 1;
+        return;
+      }
+      timers.push(window.setTimeout(() => reveal(index + 1), atMs - elapsed));
+    });
+    if (alreadyRevealed > 0) reveal(alreadyRevealed);
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [phase, standaloneTrainingSession]);
   const requestSessionResumeSnapshotRef = useRef(null);
   const resumeLoginFromSessionRef = useRef(null);
   const previousAppViewRef = useRef(appView);
   const bootResumeAttemptKeyRef = useRef("");
   const attemptSilentReconnectRef = useRef(null);
   const pingInFlightRef = useRef(false);
+  const liveStateSyncInFlightRef = useRef(null);
+  const handleForegroundRef = useRef(null);
   const watchdogTimerRef = useRef(null);
   const watchdogFailureCountRef = useRef(0);
   const mobileExitGuardLeavingRef = useRef(false);
@@ -6049,6 +6026,9 @@ export default function App() {
   useEffect(() => {
     installIdRef.current = installId;
   }, [installId]);
+  useEffect(() => {
+    isAccountAuthenticatedRef.current = isAccountAuthenticated;
+  }, [isAccountAuthenticated]);
   useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
@@ -6413,19 +6393,6 @@ export default function App() {
   useEffect(() => {
     tournamentRef.current = tournament;
   }, [tournament]);
-  useEffect(() => {
-    if (!installId) return;
-    setSpecialTutorialSeen((prev) => {
-      const previousInstallId = normalizeStoredPlayerIdentityKey(prev?.installId || "");
-      if (previousInstallId === installId) return prev;
-      const next = { installId, types: { ...(prev?.types || {}) } };
-      try {
-        localStorage.setItem(SPECIAL_TUTORIAL_SEEN_STORAGE_KEY, JSON.stringify(next));
-      } catch (_) {}
-      return next;
-    });
-  }, [installId]);
-
   // Zone active pour le clavier : "game" ou "chat"
   const [activeArea, setActiveArea] = useState("game");
 
@@ -6976,6 +6943,7 @@ export default function App() {
   const isChatClosingRef = useRef(isChatClosing);
   const isMobileLayoutRef = useRef(isMobileLayout);
   const installIdRef = useRef(installId);
+  const isAccountAuthenticatedRef = useRef(isAccountAuthenticated);
   const mobileRoundIntroTokenRef = useRef(0);
   const mobileRoundIntroTimersRef = useRef([]);
   const mobileRoundIntroSuppressRoundStartRef = useRef(false);
@@ -10282,31 +10250,18 @@ export default function App() {
       stopVocabOverlayAnimation();
       return;
     }
+    if (!isAccountAuthenticated || !accountSeenReady) return;
     if (!Number.isFinite(vocabCount)) return;
     if (!vocabResultsReadyKey) return;
     const overlayKey = vocabResultsReadyKey;
     if (vocabOverlayRoundRef.current === overlayKey) return;
-    const vocabSeenStorageKey = installId
-      ? `${VOCAB_OVERLAY_SEEN_STORAGE_KEY}:${installId}`
-      : VOCAB_OVERLAY_SEEN_STORAGE_KEY;
-    let overlayAlreadySeen = false;
-    try {
-      overlayAlreadySeen =
-        typeof localStorage !== "undefined" &&
-        localStorage.getItem(vocabSeenStorageKey) === overlayKey;
-    } catch (_) {
-      overlayAlreadySeen = false;
-    }
-    if (overlayAlreadySeen) {
+    const accountMarker = buildVocabOverlaySeenMarker(overlayKey);
+    if (accountSeenMarkers.has(accountMarker)) {
       vocabOverlayRoundRef.current = overlayKey;
       return;
     }
     vocabOverlayRoundRef.current = overlayKey;
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(vocabSeenStorageKey, overlayKey);
-      }
-    } catch (_) {}
+    markAccountSeen(accountMarker);
 
     const selfKey = (nicknameRef.current || nickname || "").trim();
     const selfResult =
@@ -10432,12 +10387,15 @@ export default function App() {
     });
   }, [
     accepted,
+    accountSeenMarkers,
+    accountSeenReady,
     finalResults,
     phase,
     roundId,
     nickname,
     tournamentSummaryAt,
-    installId,
+    isAccountAuthenticated,
+    markAccountSeen,
     vocabCount,
     vocabWeeklyCount,
     vocabRoundDelta,
@@ -11341,7 +11299,8 @@ export default function App() {
         !pending &&
         shouldFallback &&
         isLoggedInRef.current &&
-        !isDailyPlayRef.current
+        !isDailyPlayRef.current &&
+        !standaloneTrainingSessionRef.current
       ) {
         setServerStatus("break");
         const fallbackRoundKey = roundKey || null;
@@ -11365,6 +11324,9 @@ export default function App() {
         setServerStatus("break");
         setInputLocked(false);
         inputLockedRef.current = false;
+        if (standaloneTrainingSessionRef.current) {
+          setAllWords(Array.isArray(serverAllWordsRef.current) ? serverAllWordsRef.current : []);
+        }
         setPhase("results");
       }
 
@@ -12098,12 +12060,20 @@ export default function App() {
   useEffect(() => {
     const shouldHandleLiveRoundSocketEvents = (incomingRoomId = null) => {
       if (phaseLoopTestEnabledRef.current) return false;
+      if (standaloneTrainingSessionRef.current) return false;
       return shouldProcessLiveRoomEvent({
         appView: appViewRef.current,
         isLoggedIn: isLoggedInRef.current,
         activeRoomId: currentRoomIdRef.current,
         incomingRoomId,
       });
+    };
+    const shouldHandleLiveFeedSocketEvent = (incomingRoomId = null) => {
+      if (!standaloneTrainingSessionRef.current) {
+        return shouldHandleLiveRoundSocketEvents(incomingRoomId);
+      }
+      const activeRoomId = currentRoomIdRef.current || roomIdRef.current;
+      return !incomingRoomId || !activeRoomId || incomingRoomId === activeRoomId;
     };
 
     function onRoundPreparing(payload = {}) {
@@ -12579,7 +12549,7 @@ export default function App() {
 
     function onAnnouncement(data) {
       if (!data) return;
-      if (!shouldHandleLiveRoundSocketEvents(data?.roomId)) return;
+      if (!shouldHandleLiveFeedSocketEvent(data?.roomId)) return;
       if (data.type === "big_word" || data.type === "long_word") {
         return;
       }
@@ -12596,7 +12566,7 @@ export default function App() {
       const filtered = batch.filter(
         (entry) =>
           entry &&
-          shouldHandleLiveRoundSocketEvents(entry?.roomId) &&
+          shouldHandleLiveFeedSocketEvent(entry?.roomId) &&
           entry.type !== "big_word" &&
           entry.type !== "long_word"
       );
@@ -12614,6 +12584,11 @@ export default function App() {
     function onConnectError() {
       liveSessionReadyRef.current = false;
       setIsConnecting(false);
+      if (standaloneTrainingSessionRef.current) {
+        setConnectionError("");
+        reconnectAttemptRef.current = false;
+        return;
+      }
       const hasSession = hasSavedSession() || autoResumeEnabledRef.current;
       if (!hasSession && !isLoggedInRef.current) {
         isLoggedInRef.current = false;
@@ -12671,6 +12646,10 @@ export default function App() {
       lobbyChatSubscriptionRef.current.subscribed = false;
       lobbyChatSubscriptionRef.current.inFlight = false;
       lobbyChatSubscriptionRef.current.connectPending = false;
+      if (standaloneTrainingSessionRef.current) {
+        setConnectionError("");
+        return;
+      }
       if (isBackgroundedRef.current) {
         return;
       }
@@ -14102,22 +14081,12 @@ export default function App() {
 
   function dismissBroadcastNotice() {
     const messageKey = getBroadcastMessageKey(broadcastNotice?.message);
-    if (!messageKey || !installId) return;
-    const storageKey = getBroadcastSeenStorageKey(installId, messageKey);
-    if (!storageKey) return;
-    try {
-      localStorage.setItem(storageKey, "1");
-    } catch (_) {}
-    setBroadcastSeenNonce((value) => value + 1);
+    if (!messageKey) return;
+    markAccountSeen(buildBroadcastSeenMarker(messageKey));
   }
 
   function markVaultWordOfDaySeen(dateId = vaultWordOfDayPopup.dateId) {
-    const audienceKey = authenticatedUserId || installId || deviceInstallId;
-    const storageKey = getVaultWordOfDaySeenStorageKey(audienceKey, dateId);
-    if (!storageKey) return;
-    try {
-      localStorage.setItem(storageKey, "1");
-    } catch (_) {}
+    markAccountSeen(buildVaultWordOfDaySeenMarker(dateId));
   }
 
   function closeVaultWordOfDayPopup() {
@@ -14263,14 +14232,23 @@ export default function App() {
   useEffect(() => {
     const summary = duelStatus?.lastWeekSummary;
     const weekId = String(summary?.weekId || "").trim();
-    if (!isAccountAuthenticated || !installId || !weekId) return;
+    if (!isAccountAuthenticated || !weekId) return;
+    if (!accountSeenReady) return;
     if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
     if (isLoggedIn || isDailyPlay || appView !== "home") return;
     if (duelWeekRecapOpen) return;
-    try {
-      const key = `${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`;
-      if (localStorage.getItem(key) === "1") return;
-    } catch (_) {}
+    const accountMarker = buildDuelWeekRecapSeenMarker(weekId);
+    if (
+      accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.legacyBaseline) &&
+      !accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.legacyDuelRecapConsumed)
+    ) {
+      markAccountSeen([
+        accountMarker,
+        ACCOUNT_SEEN_MARKERS.legacyDuelRecapConsumed,
+      ]);
+      return;
+    }
+    if (accountSeenMarkers.has(accountMarker)) return;
     if (!isWeeklyRecapPodiumReady(summary, weeklyStats)) {
       if (
         !weeklyStatsLoading &&
@@ -14286,15 +14264,17 @@ export default function App() {
     setDuelWeekRecapPage(0);
     setDuelWeekRecapOpen(true);
   }, [
+    accountSeenMarkers,
+    accountSeenReady,
     appView,
     duelStatus?.lastWeekSummary,
     duelWeekRecapOpen,
-    installId,
     isAccountAuthenticated,
     isDailyPlay,
     isNewPlayerPopupQuiet,
     isLoggedIn,
     shouldShowTutorial,
+    markAccountSeen,
     weeklyStats,
     weeklyStatsLoading,
   ]);
@@ -14419,19 +14399,13 @@ export default function App() {
   }
 
   function acknowledgeDuelTeamPopup() {
-    if (!installId || !duelStatus?.weekId) {
+    if (!isAccountAuthenticated || !duelStatus?.weekId) {
       setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
       return;
     }
-    try {
-      localStorage.setItem(`gobble_duel_week_seen:${installId}`, duelStatus.weekId);
-    } catch (_) {}
+    markAccountSeen(buildDuelWeekSeenMarker(duelStatus.weekId));
     const version = duelStatus?.tutorialVersion || "duel-v1";
-    let seenTutorial = "";
-    try {
-      seenTutorial = localStorage.getItem(`gobble_duel_tutorial_seen:${installId}`) || "";
-    } catch (_) {}
-    if (seenTutorial !== version) {
+    if (!accountSeenMarkers.has(buildDuelTutorialSeenMarker(version))) {
       setDuelPopupState({
         mode: "tutorial",
         step: 0,
@@ -14457,11 +14431,7 @@ export default function App() {
       const nextStep = Number(prev?.step || 0) + 1;
       if (nextStep >= DUEL_TUTORIAL_STEPS.length) {
         const version = duelStatus?.tutorialVersion || "duel-v1";
-        if (installId) {
-          try {
-            localStorage.setItem(`gobble_duel_tutorial_seen:${installId}`, version);
-          } catch (_) {}
-        }
+        markAccountSeen(buildDuelTutorialSeenMarker(version));
         if (canShowDuelObjectivesPopup()) {
           return {
             mode: "objectives",
@@ -15789,6 +15759,8 @@ export default function App() {
         playerKey,
         team: entry?.team || null,
         isBot: !!entry?.isBot,
+        inTraining: !!entry?.inTraining,
+        trainingMode: entry?.trainingMode || null,
         isDailyChampion: !!entry?.isDailyChampion,
         weeklyVocabPodiumRank: Number(entry?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!entry?.isWeeklyVocabChampion,
@@ -16224,6 +16196,7 @@ export default function App() {
 
   function applyResumeSnapshot(snapshot) {
     if (!snapshot || typeof snapshot !== "object") return;
+    if (standaloneTrainingSessionRef.current) return;
     if (snapshot.roomId) {
       setCurrentRoomId(snapshot.roomId);
       setRoomId(snapshot.roomId);
@@ -16422,6 +16395,55 @@ export default function App() {
     }
     pendingSubmissionRecoveryRef.current = null;
     resetSubmissionQueue();
+  }
+
+  function syncLiveStateFromServer(reason = "foreground") {
+    if (
+      !isAccountAuthenticatedRef.current ||
+      !socket.connected ||
+      !isLoggedInRef.current ||
+      appViewRef.current !== "live" ||
+      standaloneTrainingSessionRef.current
+    ) {
+      return Promise.resolve(false);
+    }
+    if (liveStateSyncInFlightRef.current) {
+      return liveStateSyncInFlightRef.current;
+    }
+    const session = sessionRef.current || loadSessionFromStorage();
+    const nick = String(nicknameRef.current || session?.nick || "").trim();
+    const roomToUse =
+      currentRoomIdRef.current || session?.roomId || roomIdRef.current;
+    const install = installIdRef.current || session?.installId;
+    if (!nick || !roomToUse || !install) {
+      return Promise.reject(new Error("missing_live_session"));
+    }
+
+    let requestPromise = null;
+    requestPromise = emitSocketAck(
+      "session:resume",
+      { roomId: roomToUse, installId: install, nick, takeover: false },
+      { timeoutMs: 5000 }
+    ).then((res) => {
+      if (!res?.available || res?.attached === false || !res?.snapshot) {
+        throw new Error(res?.error || "live_state_unavailable");
+      }
+      if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
+      setResumeSnapshot(null);
+      applyResumeSnapshot(res.snapshot);
+      liveSessionReadyRef.current = true;
+      setConnectionError("");
+      watchdogFailureCountRef.current = 0;
+      scheduleBatchFlush({ immediate: true });
+      console.debug(`[foreground] live state synchronized (${reason})`);
+      return true;
+    }).finally(() => {
+      if (liveStateSyncInFlightRef.current === requestPromise) {
+        liveStateSyncInFlightRef.current = null;
+      }
+    });
+    liveStateSyncInFlightRef.current = requestPromise;
+    return requestPromise;
   }
 
   function requestSessionResumeSnapshot(reason = "probe") {
@@ -16811,7 +16833,7 @@ export default function App() {
   }, [popupAudienceKey]);
 
   useEffect(() => {
-    if (!installId || !isAccountAuthenticated) return;
+    if (!isAccountAuthenticated) return;
     if (phase === "playing") return undefined;
     fetchDuelStatus();
     const timer = setInterval(() => {
@@ -16826,7 +16848,8 @@ export default function App() {
   }, [installId, isAccountAuthenticated, phase]);
 
   useEffect(() => {
-    if (!installId || !isAccountAuthenticated) return;
+    if (!isAccountAuthenticated) return;
+    if (!accountSeenReady) return;
     const isLobbyView =
       phase === "lobby" &&
       appView !== "daily" &&
@@ -16840,7 +16863,6 @@ export default function App() {
     if (
       !isAudienceEligibleForPatchNotes({
         accountCreatedAt: authState.user?.createdAt,
-        installCreatedAt: installIdCreatedAtTs,
         isAuthenticated: isAccountAuthenticated,
         isLegacyConverted: !!authState.user?.isLegacyConverted,
         releaseTimestamp: PATCH_NOTES_RELEASE_TS,
@@ -16848,27 +16870,19 @@ export default function App() {
     ) {
       return;
     }
-    const seenStorageKey = getPatchNotesSeenStorageKey(patchNotesAudienceKey);
-    if (!seenStorageKey) return;
-    let alreadySeen = false;
-    try {
-      alreadySeen = localStorage.getItem(seenStorageKey) === "1";
-    } catch (_) {}
-    if (alreadySeen) return;
+    const accountMarker = buildPatchNotesSeenMarker(PATCH_NOTES_VERSION);
+    if (accountSeenMarkers.has(accountMarker)) return;
     patchNotesOpeningRef.current = true;
     setIsPatchNotesOpen(true);
-    try {
-      localStorage.setItem(seenStorageKey, "1");
-    } catch (_) {}
+    markAccountSeen(accountMarker);
   }, [
-    authenticatedUserId,
+    accountSeenMarkers,
+    accountSeenReady,
     authState.user?.createdAt,
     authState.user?.isLegacyConverted,
-    installId,
-    installIdCreatedAtTs,
     isAccountAuthenticated,
     isNewPlayerPopupQuiet,
-    patchNotesAudienceKey,
+    markAccountSeen,
     shouldShowTutorial,
     phase,
     appView,
@@ -16884,6 +16898,7 @@ export default function App() {
       appView !== "duel" &&
       appView !== "vault";
     if (!isLobbyView || !bootProgress.done || bootOverlayVisible) return;
+    if (!isAccountAuthenticated || !accountSeenReady) return;
     if (popupDistinctVisitDays < FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS) return;
     if (
       shouldShowTutorial ||
@@ -16898,24 +16913,20 @@ export default function App() {
     ) {
       return;
     }
-    const audienceKey = popupAudienceKey;
-    const storageKey = getFacebookInviteSeenStorageKey(audienceKey);
-    if (!storageKey) return;
-    if (facebookInviteAttemptedAudienceRef.current === audienceKey) return;
-    facebookInviteAttemptedAudienceRef.current = audienceKey;
-    try {
-      if (localStorage.getItem(storageKey) === "1") return;
-      localStorage.setItem(storageKey, "1");
-    } catch (_) {}
+    const accountMarker = buildFacebookInviteSeenMarker(FACEBOOK_INVITE_VERSION);
+    if (facebookInviteAttemptedAudienceRef.current === accountMarker) return;
+    if (accountSeenMarkers.has(accountMarker)) return;
+    facebookInviteAttemptedAudienceRef.current = accountMarker;
+    markAccountSeen(accountMarker);
     setIsFacebookInviteOpen(true);
   }, [
+    accountSeenMarkers,
+    accountSeenReady,
     appView,
-    authenticatedUserId,
     bootOverlayVisible,
     bootProgress.done,
-    deviceInstallId,
     duelPopupState?.mode,
-    installId,
+    isAccountAuthenticated,
     isAboutOpen,
     isFacebookInviteOpen,
     isNewPlayerPopupQuiet,
@@ -16923,8 +16934,8 @@ export default function App() {
     isSettingsOpen,
     isSupportOpen,
     phase,
-    popupAudienceKey,
     popupDistinctVisitDays,
+    markAccountSeen,
     shouldShowTutorial,
   ]);
 
@@ -16969,7 +16980,7 @@ export default function App() {
   }, [installId, duelStatus?.objectives?.dateId, duelStatus?.dateId, duelConsumedValidatedByView]);
 
   useEffect(() => {
-    if (!installId) return;
+    if (!isAccountAuthenticated || !accountSeenReady) return;
     if (!duelStatus?.weekId || !duelStatus?.team) return;
     const isLobbyView =
       phase === "lobby" &&
@@ -16983,15 +16994,20 @@ export default function App() {
     if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
     if (isFacebookInviteOpen) return;
     if (duelPopupState?.mode) return;
-    const weekStorageKey = `gobble_duel_week_seen:${installId}`;
-    const tutorialStorageKey = `gobble_duel_tutorial_seen:${installId}`;
-    let seenWeek = "";
-    let seenTutorial = "";
-    try {
-      seenWeek = localStorage.getItem(weekStorageKey) || "";
-      seenTutorial = localStorage.getItem(tutorialStorageKey) || "";
-    } catch (_) {}
-    if (seenWeek !== duelStatus.weekId) {
+    const weekMarker = buildDuelWeekSeenMarker(duelStatus.weekId);
+    const tutorialVersion = duelStatus?.tutorialVersion || "duel-v1";
+    const tutorialMarker = buildDuelTutorialSeenMarker(tutorialVersion);
+    if (
+      accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.legacyBaseline) &&
+      !accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.legacyDuelWeekConsumed)
+    ) {
+      markAccountSeen([
+        weekMarker,
+        ACCOUNT_SEEN_MARKERS.legacyDuelWeekConsumed,
+      ]);
+      return;
+    }
+    if (!accountSeenMarkers.has(weekMarker)) {
       setDuelPopupState({
         mode: "team",
         step: 0,
@@ -17000,8 +17016,7 @@ export default function App() {
       });
       return;
     }
-    const tutorialVersion = duelStatus?.tutorialVersion || "duel-v1";
-    if (seenTutorial !== tutorialVersion) {
+    if (!accountSeenMarkers.has(tutorialMarker)) {
       setDuelPopupState({
         mode: "tutorial",
         step: 0,
@@ -17019,7 +17034,8 @@ export default function App() {
       });
     }
   }, [
-    installId,
+    accountSeenMarkers,
+    accountSeenReady,
     duelStatus?.weekId,
     duelStatus?.team,
     duelStatus?.tutorialVersion,
@@ -17029,7 +17045,9 @@ export default function App() {
     phase,
     appView,
     isFacebookInviteOpen,
+    isAccountAuthenticated,
     isNewPlayerPopupQuiet,
+    markAccountSeen,
     shouldShowTutorial,
     duelPopupState?.mode,
   ]);
@@ -17060,6 +17078,7 @@ export default function App() {
     const isHomeLobby = !isLoggedIn && phase === "lobby" && appView === "home";
     if (!isHomeLobby) return;
     if (!isAccountAuthenticated) return;
+    if (!accountSeenReady) return;
     if (!wordVault.loaded || wordVault.loading || wordVault.error) return;
     if (!Array.isArray(wordVault.words) || wordVault.words.length === 0) return;
     if (vaultWordOfDayPopup.open) return;
@@ -17085,24 +17104,16 @@ export default function App() {
     }
 
     const broadcastKey = getBroadcastMessageKey(broadcastNotice?.message);
-    if (broadcastKey && installId) {
-      const broadcastStorageKey = getBroadcastSeenStorageKey(installId, broadcastKey);
-      if (broadcastStorageKey) {
-        try {
-          if (localStorage.getItem(broadcastStorageKey) !== "1") return;
-        } catch (_) {}
-      }
+    if (broadcastKey) {
+      const broadcastMarker = buildBroadcastSeenMarker(broadcastKey);
+      if (!accountSeenMarkers.has(broadcastMarker)) return;
     }
 
     const dateId = getParisDateIdClient();
-    const audienceKey = authenticatedUserId || installId || deviceInstallId;
-    const storageKey = getVaultWordOfDaySeenStorageKey(audienceKey, dateId);
-    if (!storageKey) return;
-    try {
-      if (localStorage.getItem(storageKey) === "1") return;
-    } catch (_) {}
-    if (vaultWordOfDayAttemptedRef.current.has(storageKey)) return;
-    vaultWordOfDayAttemptedRef.current.add(storageKey);
+    const accountMarker = buildVaultWordOfDaySeenMarker(dateId);
+    if (accountSeenMarkers.has(accountMarker)) return;
+    if (vaultWordOfDayAttemptedRef.current.has(accountMarker)) return;
+    vaultWordOfDayAttemptedRef.current.add(accountMarker);
 
     const requestId = ++vaultWordOfDayRequestIdRef.current;
     let cancelled = false;
@@ -17130,17 +17141,15 @@ export default function App() {
       cancelled = true;
     };
   }, [
+    accountSeenMarkers,
+    accountSeenReady,
     appView,
-    authenticatedUserId,
     bootOverlayVisible,
     bootProgress.done,
     broadcastNotice.loading,
     broadcastNotice?.message,
-    broadcastSeenNonce,
     definitionModal.open,
-    deviceInstallId,
     duelPopupState?.mode,
-    installId,
     isAboutOpen,
     isAccountAuthenticated,
     isAccountMenuOpen,
@@ -17493,7 +17502,7 @@ export default function App() {
     const now = Date.now();
     if (now - foregroundAttemptRef.current < 800) return;
     foregroundAttemptRef.current = now;
-    if (!isAccountAuthenticated) {
+    if (!isAccountAuthenticatedRef.current) {
       lastBackgroundTimeRef.current = 0;
       return;
     }
@@ -17501,10 +17510,30 @@ export default function App() {
       lastBackgroundTimeRef.current = 0;
       return;
     }
-    const canAutoResume = isLoggedInRef.current && !isDailyView;
+    const currentView = appViewRef.current;
+    const isCurrentDailyView =
+      currentView === "daily" ||
+      currentView === "daily_play" ||
+      currentView === "daily_results";
+    const canAutoResume =
+      isLoggedInRef.current &&
+      !isCurrentDailyView &&
+      !standaloneTrainingSessionRef.current;
     const shouldRestoreSession =
       canAutoResume ||
-      (!!hasSavedSession() && appViewRef.current === "live");
+      (!!hasSavedSession() && currentView === "live");
+    const synchronizeOrRecoverLive = (syncReason) => {
+      if (!canAutoResume || !socket.connected) {
+        runHealthCheck(syncReason);
+        return;
+      }
+      syncLiveStateFromServer(syncReason).catch((error) => {
+        console.warn(`[foreground] live state sync failed (${syncReason})`, error);
+        intentionalDisconnectRef.current = true;
+        socket.disconnect();
+        resumeLoginFromSessionRef.current?.(`${syncReason}_reconnect`);
+      });
+    };
     const lastBackgroundTime = lastBackgroundTimeRef.current;
     const timeSinceBackground =
       lastBackgroundTime > 0 ? Date.now() - lastBackgroundTime : 0;
@@ -17519,7 +17548,7 @@ export default function App() {
         }
         return;
       }
-      runHealthCheck(`${reason}_post_bg`);
+      synchronizeOrRecoverLive(`${reason}_post_bg`);
       return;
     }
     if (lastBackgroundTime) {
@@ -17533,8 +17562,10 @@ export default function App() {
       }
       return;
     }
-    runHealthCheck(reason);
+    synchronizeOrRecoverLive(reason);
   }
+
+  handleForegroundRef.current = handleForeground;
 
   function scheduleForegroundRetry(reason = "foreground_retry", delayMs = 1200) {
     if (foregroundRetryTimerRef.current) {
@@ -17543,7 +17574,7 @@ export default function App() {
     }
     foregroundRetryTimerRef.current = setTimeout(() => {
       foregroundRetryTimerRef.current = null;
-      handleForeground(reason);
+      handleForegroundRef.current?.(reason);
     }, Math.max(200, Number(delayMs) || 1200));
   }
 
@@ -17571,21 +17602,21 @@ export default function App() {
       }
       if (document.visibilityState === "visible") {
         isBackgroundedRef.current = false;
-        handleForeground("visibility");
+        handleForegroundRef.current?.("visibility");
         scheduleForegroundRetry("visibility_retry", 1400);
       }
     };
-    const onFocus = () => handleForeground("focus");
-    const onOnline = () => handleForeground("online");
+    const onFocus = () => handleForegroundRef.current?.("focus");
+    const onOnline = () => handleForegroundRef.current?.("online");
     const onPageShow = () => {
       isBackgroundedRef.current = false;
-      handleForeground("pageshow");
+      handleForegroundRef.current?.("pageshow");
       scheduleForegroundRetry("pageshow_retry", 1200);
     };
     const onInteraction = () => {
       if (!isLoggedInRef.current) return;
       if (socket.connected) return;
-      handleForeground("interaction");
+      handleForegroundRef.current?.("interaction");
     };
     window.addEventListener("focus", onFocus);
     window.addEventListener("online", onOnline);
@@ -17612,7 +17643,7 @@ export default function App() {
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (socket.connected) return;
-      handleForeground("retry_timer");
+      handleForegroundRef.current?.("retry_timer");
     }, 5500);
     return () => clearInterval(id);
   }, [isLoggedIn, isDailyView]);
@@ -17622,7 +17653,7 @@ export default function App() {
       clearInterval(watchdogTimerRef.current);
       watchdogTimerRef.current = null;
     }
-    if (phase === "playing") {
+    if (phase === "playing" && !standaloneTrainingSession) {
       watchdogTimerRef.current = setInterval(
         () => runHealthCheck("watchdog_playing"),
         15000
@@ -17634,7 +17665,7 @@ export default function App() {
         watchdogTimerRef.current = null;
       }
     };
-  }, [phase]);
+  }, [phase, standaloneTrainingSession]);
 
 
   function handleLogin(e) {
@@ -17788,13 +17819,7 @@ export default function App() {
   function completeTutorial() {
     setIsTutorialOpen(false);
     setTutorialPendingLogin(false);
-    const nextInstallId = normalizeStoredPlayerIdentityKey(installId);
-    if (nextInstallId) {
-      try {
-        localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, nextInstallId);
-      } catch (_) {}
-      setTutorialSeenInstallId(nextInstallId);
-    }
+    markAccountSeen(ACCOUNT_SEEN_MARKERS.mainTutorial);
     if (tutorialPendingLogin) {
       handleLogin();
     }
@@ -17807,6 +17832,10 @@ export default function App() {
   function handleLoginOrResume(e) {
     if (e) e.preventDefault();
     requestAudioUnlock(e);
+    if (isAccountAuthenticated && !accountSeenReady) {
+      showToast("Synchronisation du compte en cours…", 1800);
+      return;
+    }
     if (!isTutorialOpen && shouldShowTutorial) {
       openTutorial({ pendingLogin: true });
       return;
@@ -18679,6 +18708,10 @@ export default function App() {
   }
 
   function requestOpenChat() {
+    if (isAccountAuthenticated && !accountSeenReady) {
+      showToast("Synchronisation du compte en cours…", 1800);
+      return;
+    }
     openChatPanel();
     if (!isLoggedInRef.current) {
       subscribeLobbyChat();
@@ -18740,9 +18773,7 @@ export default function App() {
   }
 
   function confirmChatRules() {
-    try {
-      localStorage.setItem(CHAT_RULES_STORAGE_KEY, "1");
-    } catch (_) {}
+    markAccountSeen(ACCOUNT_SEEN_MARKERS.chatRules);
     setChatRulesAccepted(true);
     setIsChatRulesOpen(false);
   }
@@ -20910,6 +20941,9 @@ function handleTouchEnd(e) {
 
     setStatusMessageWithHold(isTargetRoundNow ? "Trouvé !" : `+${pts} pts`);
     clearSelection();
+    if (isTargetRoundNow && standaloneTrainingSessionRef.current) {
+      finishStandaloneTraining({ skipAutoSubmit: true });
+    }
   }
 
   function getSubmissionTraceStartedAt() {
@@ -21280,7 +21314,11 @@ function handleTouchEnd(e) {
 
   function submit()  {
   if (inputLockedRef.current) return;
-  if (!isDailyPlayRef.current && appViewRef.current !== "live") return;
+  if (
+    !isDailyPlayRef.current &&
+    appViewRef.current !== "live" &&
+    !standaloneTrainingSessionRef.current
+  ) return;
   if (typeof window !== "undefined") {
     window.scrollTo(0, 0);
   }
@@ -21383,7 +21421,16 @@ function handleTouchEnd(e) {
       return;
     }
 
-    const resolvedCandidates = resolveSubmissionCandidatesFromPath(path, display) || [];
+    const resolvedCandidatesForPath = resolveSubmissionCandidatesFromPath(path, display) || [];
+    const standaloneTargetWord = normalizeWord(
+      standaloneTrainingSessionRef.current?.targetWord || ""
+    );
+    const resolvedCandidates =
+      standaloneTargetWord && isTargetSubmissionRound()
+        ? resolvedCandidatesForPath.filter(
+            (candidate) => normalizeWord(candidate?.raw) === standaloneTargetWord
+          )
+        : resolvedCandidatesForPath;
     const resolvedCandidate = resolvedCandidates[0] || null;
     if (!resolvedCandidate) {
       const serverSolutionsReady = !!serverSolutionsReadyRef.current;
@@ -21542,7 +21589,16 @@ function handleTouchEnd(e) {
       }
     }
     if (!Array.isArray(path) || path.length === 0) return false;
-    const resolvedCandidates = resolveSubmissionCandidatesFromPath(path, display) || [];
+    const resolvedCandidatesForPath = resolveSubmissionCandidatesFromPath(path, display) || [];
+    const standaloneTargetWord = normalizeWord(
+      standaloneTrainingSessionRef.current?.targetWord || ""
+    );
+    const resolvedCandidates =
+      standaloneTargetWord && isTargetSubmissionRound()
+        ? resolvedCandidatesForPath.filter(
+            (candidate) => normalizeWord(candidate?.raw) === standaloneTargetWord
+          )
+        : resolvedCandidatesForPath;
     const resolvedCandidate = resolvedCandidates[0] || null;
     if (!resolvedCandidate) return false;
     const raw = resolvedCandidate.raw;
@@ -22248,6 +22304,164 @@ function handleTouchEnd(e) {
             : "Impossible de lancer l'entrainement.";
         showToast(message, 3200);
       }
+    );
+  }
+
+  function startStandaloneTrainingFromHome(type, label, durationMs) {
+    if (!ensureAuthenticated({ source: "training" })) return;
+    standaloneTrainingController.start(type, label, durationMs);
+  }
+
+  function launchStandaloneTraining(training, liveStatus = null) {
+    if (!training?.grid || !Array.isArray(training.grid)) return;
+    const trainingRoomId = liveStatus?.roomId || roomIdRef.current || roomId;
+    if (trainingRoomId) {
+      setCurrentRoomId(trainingRoomId);
+      setRoomId(trainingRoomId);
+    }
+    appViewRef.current = "training";
+    setAppView("training");
+    isLoggedInRef.current = true;
+    setIsLoggedIn(true);
+    liveSessionReadyRef.current = false;
+    autoResumeEnabledRef.current = false;
+    clearSavedSession();
+    setResumeSnapshot(null);
+    setCanResumeSession(false);
+    manualDisconnectRef.current = false;
+    setConnectionError("");
+    setLoginError("");
+    currentRoundTrainingRef.current = true;
+    setTournament(null);
+    setTournamentTotals({});
+    setTournamentRanking([]);
+    setTournamentRoundPoints({});
+    setTournamentSummary(null);
+    setTournamentLobby(null);
+    setBreakKind(null);
+    setNextStartAt(null);
+    setRoundPreparing(null);
+    setUpcomingSpecial(null);
+    setFinalResults([]);
+    setProvisionalRanking([]);
+    setTargetSummary(null);
+    setAnnouncements([]);
+    vocabBaselineRoundRef.current = null;
+    vocabBaselineRef.current = null;
+    vocabWeeklyBaselineRoundRef.current = null;
+    vocabWeeklyBaselineRef.current = null;
+    vocabWeeklyRankBaselineRef.current = null;
+    const plan = training.plan?.isSpecial ? training.plan : null;
+    if (training.mode === "self_specials_3_words") {
+      setDailySpecialPlacements(createDailySpecialPlacements());
+      setDailyWordSlots(createDailyWordSlots());
+      setDailyActiveSlot(0);
+      setDailyInvalidSlot(null);
+      setDailySpecialDrag(null);
+      dailySpecialDragRef.current = null;
+    }
+    const targetSchedule =
+      training.mode === "target_long" || training.mode === "target_score"
+        ? buildTrainingTargetHintSchedule(training.durationMs, training.targetLength)
+        : [];
+    if (targetSchedule.length) {
+      setSpecialHint({
+        kind: training.mode,
+        pattern: "",
+        length: training.targetLength || String(training.targetWord || "").length,
+        cells: [],
+        wordIndices: [],
+      });
+    }
+    const endsAt = getNowServerMs() + training.durationMs;
+    roundStartAtRef.current = getNowServerMs();
+    startGameFromServerRef.current?.(
+      training.grid,
+      null,
+      training.durationMs,
+      endsAt,
+      currentRoomIdRef.current || roomIdRef.current,
+      4,
+      plan,
+      training.quality || null,
+      null,
+      targetSchedule,
+      {
+        startsAt: endsAt - training.durationMs,
+        introMs: 0,
+        status: "running",
+        solutions: training.solutions,
+      }
+    );
+  }
+
+  function joinStandaloneTrainingLive(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return;
+    if (tickTimerRef.current) {
+      clearTimeout(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+    resetSubmissionQueue();
+    clearSelection();
+    currentRoundTrainingRef.current = false;
+    const joinedRoom = snapshot.roomId || roomIdRef.current || roomId;
+    const joinedNick = String(snapshot?.player?.nick || nicknameRef.current || "").trim();
+    if (joinedRoom) {
+      setCurrentRoomId(joinedRoom);
+      setRoomId(joinedRoom);
+    }
+    if (joinedNick && joinedRoom) {
+      persistSession({ nick: joinedNick, roomId: joinedRoom, installId });
+      lastLoginPayloadRef.current = { nick: joinedNick, roomId: joinedRoom };
+    }
+    autoResumeEnabledRef.current = true;
+    manualDisconnectRef.current = false;
+    appViewRef.current = "live";
+    setAppView("live");
+    isLoggedInRef.current = true;
+    setIsLoggedIn(true);
+    liveSessionReadyRef.current = true;
+    setConnectionError("");
+    setLoginError("");
+    setServerEndsAt(null);
+    setServerRoundDurationMs(null);
+    setRoundId(null);
+    setSpecialHint(null);
+    setTargetHintScheduleMs([]);
+    setSpecialSolvedOverlay(null);
+    setFoundTargetThisRound(false);
+    setFoundTargetWord("");
+    applyResumeSnapshot(snapshot);
+    scheduleBatchFlush({ immediate: true });
+  }
+
+  function finishStandaloneTraining(options = {}) {
+    const training = standaloneTrainingSessionRef.current;
+    if (!training || phaseRef.current !== "playing") return;
+    if (!options?.skipAutoSubmit) {
+      tryAutoSubmitCurrentWordAtRoundEnd();
+    }
+    if (tickTimerRef.current) {
+      clearTimeout(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+    setTick(0);
+    setServerEndsAt(null);
+    setServerStatus("break");
+    setInputLocked(false);
+    inputLockedRef.current = false;
+    setAllWords(Array.isArray(serverAllWordsRef.current) ? serverAllWordsRef.current : []);
+    setTargetSummary(buildStandaloneTrainingTargetSummary(training));
+    setPhase("results");
+  }
+
+  function replayStandaloneTraining() {
+    const training = standaloneTrainingSessionRef.current;
+    if (!training) return;
+    standaloneTrainingController.start(
+      training.mode,
+      training.label,
+      training.durationMs
     );
   }
 
@@ -23930,7 +24144,7 @@ function handleTouchEnd(e) {
       selfNickForResults && Array.isArray(finalResults)
         ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
         : null;
-    const showOfflineLabel = !selfResultEntry;
+    const showOfflineLabel = !standaloneTrainingSession && !selfResultEntry;
     const compactPillClass = darkMode
       ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-gray-100 text-[11px] sm:text-xs"
       : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-800 text-[11px] sm:text-xs";
@@ -24721,7 +24935,7 @@ function handleTouchEnd(e) {
       selfNickForResults && Array.isArray(finalResults)
         ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
         : null;
-    const showOfflineLabel = !selfResultEntry;
+    const showOfflineLabel = !standaloneTrainingSession && !selfResultEntry;
 
     return (
       <div className={`rounded-2xl border p-3 shadow-lg space-y-2 ${panelClass}`}>
@@ -24988,11 +25202,16 @@ function handleTouchEnd(e) {
     });
   }, [installId, players, selfNick]);
   const visiblePlayerList = React.useMemo(() => {
-    if (!blockedInstallIdSet.size) return players;
-    return players.filter((player) => {
-      if (!player?.installId) return true;
-      return !blockedInstallIdSet.has(player.installId);
-    });
+    const safe = Array.isArray(players) ? players : [];
+    const filtered = !blockedInstallIdSet.size
+      ? safe
+      : safe.filter((player) => {
+          if (!player?.installId) return true;
+          return !blockedInstallIdSet.has(player.installId);
+        });
+    return [...filtered].sort(
+      (a, b) => Number(!!a?.inTraining) - Number(!!b?.inTraining)
+    );
   }, [players, blockedInstallIdSet]);
   const playersAlphaList = React.useMemo(() => {
     const safe = Array.isArray(visiblePlayerList) ? visiblePlayerList : [];
@@ -25011,6 +25230,8 @@ function handleTouchEnd(e) {
         isBot: !!player?.isBot,
         afk: !!player?.afk,
         readyForTournament: !!player?.readyForTournament,
+        inTraining: !!player?.inTraining,
+        trainingMode: player?.trainingMode || null,
         weeklyVocabPodiumRank: Number(player?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
         isDailyChampion:
@@ -25020,7 +25241,10 @@ function handleTouchEnd(e) {
               (selfNick && nick === selfNick))),
       });
     });
-    entries.sort((a, b) => a.nick.localeCompare(b.nick));
+    entries.sort((a, b) => {
+      const trainingDiff = Number(!!a?.inTraining) - Number(!!b?.inTraining);
+      return trainingDiff || a.nick.localeCompare(b.nick, "fr", { sensitivity: "base" });
+    });
     return entries;
   }, [visiblePlayerList]);
   const playersCountForLobby = React.useMemo(() => {
@@ -25064,6 +25288,8 @@ function handleTouchEnd(e) {
         isBot: !!player?.isBot,
         afk: !!player?.afk,
         readyForTournament: !!player?.readyForTournament,
+        inTraining: !!player?.inTraining,
+        trainingMode: player?.trainingMode || null,
         isDailyChampion: !!player?.isDailyChampion,
         weeklyVocabPodiumRank: Number(player?.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion: !!player?.isWeeklyVocabChampion,
@@ -25082,11 +25308,28 @@ function handleTouchEnd(e) {
           : userId
           ? `install:${userId}`
           : identity.playerKey || "",
-        score: typeof entry.score === "number" ? entry.score : null,
-        gobbles: Number.isFinite(entry?.gobbles) ? Number(entry.gobbles) : 0,
-        rank: typeof entry.rank === "number" ? entry.rank : null,
+        score:
+          entry?.inTraining || identity.inTraining
+            ? null
+            : typeof entry.score === "number"
+            ? entry.score
+            : null,
+        gobbles:
+          entry?.inTraining || identity.inTraining
+            ? 0
+            : Number.isFinite(entry?.gobbles)
+            ? Number(entry.gobbles)
+            : 0,
+        rank:
+          entry?.inTraining || identity.inTraining
+            ? null
+            : typeof entry.rank === "number"
+            ? entry.rank
+            : null,
         team: entry?.team || identity.team || null,
         isBot: !!entry?.isBot || !!identity.isBot,
+        inTraining: !!entry?.inTraining || !!identity.inTraining,
+        trainingMode: entry?.trainingMode || identity.trainingMode || null,
         weeklyVocabPodiumRank:
           Number(entry?.weeklyVocabPodiumRank) || Number(identity.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion:
@@ -25115,11 +25358,23 @@ function handleTouchEnd(e) {
           : userId
           ? `install:${userId}`
           : identity.playerKey || "",
-        score: typeof player.score === "number" ? player.score : null,
-        gobbles: Number.isFinite(player?.gobbles) ? Number(player.gobbles) : 0,
+        score:
+          player?.inTraining || identity.inTraining
+            ? null
+            : typeof player.score === "number"
+            ? player.score
+            : null,
+        gobbles:
+          player?.inTraining || identity.inTraining
+            ? 0
+            : Number.isFinite(player?.gobbles)
+            ? Number(player.gobbles)
+            : 0,
         rank: null,
         team: player?.team || identity.team || null,
         isBot: !!player?.isBot || !!identity.isBot,
+        inTraining: !!player?.inTraining || !!identity.inTraining,
+        trainingMode: player?.trainingMode || identity.trainingMode || null,
         weeklyVocabPodiumRank:
           Number(player?.weeklyVocabPodiumRank) || Number(identity.weeklyVocabPodiumRank) || 0,
         isWeeklyVocabChampion:
@@ -25181,6 +25436,8 @@ function handleTouchEnd(e) {
     }
 
     entries.sort((a, b) => {
+      const trainingDiff = Number(!!a?.inTraining) - Number(!!b?.inTraining);
+      if (trainingDiff) return trainingDiff;
       const aRank = typeof a.rank === "number" ? a.rank : Infinity;
       const bRank = typeof b.rank === "number" ? b.rank : Infinity;
       if (aRank !== bRank) return aRank - bRank;
@@ -25349,6 +25606,7 @@ function handleTouchEnd(e) {
     shiftResultsPage,
   } = useResultsNavigation({
     isOcidResult: specialRound?.type === OCID_TYPE || !!targetSummary?.ocid,
+    isStandaloneTraining: !!standaloneTrainingSession,
     isTargetRound:
       specialRound?.type === "target_long" ||
       specialRound?.type === "target_score" ||
@@ -25733,7 +25991,8 @@ function handleTouchEnd(e) {
     phase === "results" && selfNickForResults && Array.isArray(finalResults)
       ? finalResults.some((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
       : false;
-  const showOfflineResultsLabel = phase === "results" && !selfHasResultsThisRound;
+  const showOfflineResultsLabel =
+    phase === "results" && !standaloneTrainingSession && !selfHasResultsThisRound;
   const guidedResultsEligible =
     !isDailyView &&
     isMobileLayout &&
@@ -25785,9 +26044,9 @@ function handleTouchEnd(e) {
     if (phase !== "playing" || !specialRound?.isSpecial) return;
     if (inputLocked) return;
     if (isMobileLayout && mobileRoundIntroStage !== "idle") return;
-    if (!installId) return;
-    const seenTypes = specialTutorialSeen?.types || {};
-    if (seenTypes[specialRound.type]) return;
+    if (!isAccountAuthenticated) return;
+    if (!accountSeenReady) return;
+    if (accountSeenMarkers.has(buildSpecialTutorialSeenMarker(specialRound.type))) return;
     if (isSpecialTutorialOpen) return;
     setSpecialTutorialPlan(specialRound);
     setSpecialTutorialStepIndex(0);
@@ -25796,12 +26055,13 @@ function handleTouchEnd(e) {
     phase,
     roundId,
     specialRound,
-    specialTutorialSeen,
-    installId,
+    isAccountAuthenticated,
     isSpecialTutorialOpen,
     inputLocked,
     isMobileLayout,
     mobileRoundIntroStage,
+    accountSeenReady,
+    accountSeenMarkers,
   ]);
   useEffect(() => {
     if (phase === "playing" && (specialRound?.isSpecial || (isDailyPlay && dailyPlayMode === DAILY_SPECIAL_MODE))) {
@@ -25816,9 +26076,9 @@ function handleTouchEnd(e) {
   }, [phase, specialRound, isSpecialTutorialOpen, specialTutorialPlan, isDailyPlay, dailyPlayMode]);
   useEffect(() => {
     if (!isDailyPlay || dailyPlayMode !== DAILY_SPECIAL_MODE) return;
-    if (!installId) return;
-    const seenTypes = specialTutorialSeen?.types || {};
-    if (seenTypes[DAILY_SPECIAL_MODE]) return;
+    if (!isAccountAuthenticated) return;
+    if (!accountSeenReady) return;
+    if (accountSeenMarkers.has(buildSpecialTutorialSeenMarker(DAILY_SPECIAL_MODE))) return;
     if (isSpecialTutorialOpen) return;
     setSpecialTutorialPlan({
       isSpecial: true,
@@ -25828,7 +26088,14 @@ function handleTouchEnd(e) {
     });
     setSpecialTutorialStepIndex(0);
     setIsSpecialTutorialOpen(true);
-  }, [isDailyPlay, dailyPlayMode, installId, specialTutorialSeen, isSpecialTutorialOpen]);
+  }, [
+    isDailyPlay,
+    dailyPlayMode,
+    isAccountAuthenticated,
+    isSpecialTutorialOpen,
+    accountSeenReady,
+    accountSeenMarkers,
+  ]);
   useEffect(() => {
     const shouldPause = isDailySpecial3TutorialActive;
     if (shouldPause) {
@@ -25947,10 +26214,16 @@ function handleTouchEnd(e) {
     };
   }, [isMobileLayout, isSpecial3TutorialInteractiveActive, specialTutorialStepIndex]);
   useEffect(() => {
-    if (!guidedResultsEligible || !installId) return;
-    if (matchesCurrentPlayerIdentity(guidedResultsSeenInstallId)) return;
+    if (!guidedResultsEligible || !isAccountAuthenticated) return;
+    if (!accountSeenReady) return;
+    if (accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.guidedResultsTutorial)) return;
     setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.TAP_PSEUDO);
-  }, [guidedResultsEligible, guidedResultsSeenInstallId, installId, normalizedLegacyInstallId]);
+  }, [
+    guidedResultsEligible,
+    isAccountAuthenticated,
+    accountSeenReady,
+    accountSeenMarkers,
+  ]);
   useEffect(() => {
     if (!guidedResultsEligible || !guidedResultsPageKey) return;
     const targetStep = GUIDED_RESULTS_PAGE_TO_STEP[guidedResultsPageKey];
@@ -26171,6 +26444,7 @@ function handleTouchEnd(e) {
     () => buildMixedFeed({ announcements, lastWords }),
     [announcements, lastWords]
   );
+  const mobileAnnouncements = mixedFeed.slice(-8);
 
   const endStats = React.useMemo(() => {
     if (!Array.isArray(finalResults) || finalResults.length === 0) return null;
@@ -28234,6 +28508,14 @@ function handleTouchEnd(e) {
     phase,
   });
   const countdownLabel = (() => {
+    if (standaloneTrainingSession) {
+      if (phase === "playing") {
+        const sec = Math.max(0, tick || 0);
+        return `Temps restant : ${sec}s`;
+      }
+      if (phase === "results") return "Entraînement terminé";
+      return "Entraînement";
+    }
     if (roundPreparing || roundStartDelayed) {
       return "Grille en préparation, démarrage imminent...";
     }
@@ -28261,7 +28543,8 @@ function handleTouchEnd(e) {
 
   const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
-  const showRoundPreparationWaiting = !!roundPreparing || roundStartDelayed;
+  const showRoundPreparationWaiting =
+    !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
   const preparingSpecial = roundPreparing?.special || upcomingSpecial || null;
   const roundPreparationTitle = preparingSpecial?.isSpecial
     ? `Préparation : ${getSpecialRoundDisplayLabel(preparingSpecial)}`
@@ -29941,6 +30224,7 @@ function handleTouchEnd(e) {
                                   AFK
                                 </span>
                               ) : null}
+                              {entry?.inTraining ? <TrainingPlayerBadge /> : null}
                               {isReady ? (
                                 <span className="rounded-full border border-emerald-500/55 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-emerald-700 dark:text-emerald-300">
                                   PRÊT
@@ -30007,7 +30291,7 @@ function handleTouchEnd(e) {
                   ? "border-white/10 bg-slate-950 text-slate-100"
                   : "border-slate-200 bg-white text-slate-900"
               }`}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
               <div className="text-xs font-extrabold uppercase tracking-widest text-orange-500">
                 Entrainement solo
@@ -30015,7 +30299,11 @@ function handleTouchEnd(e) {
               <div className="mt-2 text-xl font-black leading-tight">
                 Lancer {trainingConfirm.label || "cette manche"} ?
               </div>
-              <div className={`mt-2 text-sm font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+              <div
+                className={`mt-2 text-sm font-semibold ${
+                  darkMode ? "text-slate-300" : "text-slate-600"
+                }`}
+              >
                 Une seule manche, hors mini-tournoi, sans medaille.
               </div>
               <div className="mt-4 flex justify-end gap-2">
@@ -30023,7 +30311,9 @@ function handleTouchEnd(e) {
                   type="button"
                   onClick={() => setTrainingConfirm(null)}
                   className={`rounded-lg border px-3 py-2 text-sm font-bold ${
-                    darkMode ? "border-slate-600 bg-slate-900" : "border-slate-200 bg-slate-50"
+                    darkMode
+                      ? "border-slate-600 bg-slate-900"
+                      : "border-slate-200 bg-slate-50"
                   }`}
                 >
                   Annuler
@@ -33041,6 +33331,9 @@ function handleTouchEnd(e) {
         !dailyStatus?.hasPlayedFakeTwins,
       ].filter(Boolean).length
     : 0;
+  const homeMaintenanceActive = !!(
+    tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode
+  );
   const {
     duelContributorsBlue,
     duelContributorsRed,
@@ -33048,15 +33341,12 @@ function handleTouchEnd(e) {
     shouldPrepareDailyStandaloneView,
   } = useDailyDuelStandalonePrep({ appView, duelStatus, isLoggedIn });
   const broadcastMessageKey = getBroadcastMessageKey(broadcastNotice?.message);
-  const broadcastSeenStorageKey = getBroadcastSeenStorageKey(installId, broadcastMessageKey);
-  const broadcastAlreadySeen = React.useMemo(() => {
-    if (!broadcastSeenStorageKey) return true;
-    try {
-      return localStorage.getItem(broadcastSeenStorageKey) === "1";
-    } catch (_) {
-      return false;
-    }
-  }, [broadcastSeenStorageKey, broadcastSeenNonce]);
+  const broadcastAccountMarker = buildBroadcastSeenMarker(broadcastMessageKey);
+  const broadcastAlreadySeen =
+    !isAccountAuthenticated ||
+    !accountSeenReady ||
+    !broadcastAccountMarker ||
+    accountSeenMarkers.has(broadcastAccountMarker);
   const isHomeLobbyView = !isLoggedIn && appView === "home";
   const shouldShowBroadcastPopup =
     isHomeLobbyView &&
@@ -33194,15 +33484,13 @@ function handleTouchEnd(e) {
   );
   const closeDuelWeekRecap = React.useCallback(() => {
     const weekId = String(duelWeekSummary?.weekId || "").trim();
-    if (!duelWeekRecapPreviewMode && installId && weekId) {
-      try {
-        localStorage.setItem(`${DUEL_WEEK_RECAP_SEEN_STORAGE_PREFIX}:${installId}:${weekId}`, "1");
-      } catch (_) {}
+    if (!duelWeekRecapPreviewMode && weekId) {
+      markAccountSeen(buildDuelWeekRecapSeenMarker(weekId));
     }
     setDuelWeekRecapOpen(false);
     setDuelWeekRecapPage(0);
     setDuelWeekRecapPreviewMode(false);
-  }, [duelWeekRecapPreviewMode, duelWeekSummary?.weekId, installId]);
+  }, [duelWeekRecapPreviewMode, duelWeekSummary?.weekId, markAccountSeen]);
   const nextDuelWeekRecapPage = React.useCallback(() => {
     setDuelWeekRecapPage((prev) => Math.min(prev + 1, 2));
   }, []);
@@ -33241,6 +33529,16 @@ function handleTouchEnd(e) {
       fadeDurationMs={BOOT_TRANSITION_MS}
     />
   ) : null;
+  const trainingSessionControls = standaloneTrainingSession ? (
+    <TrainingSessionControls
+      compact={isMobileLayout}
+      phase={phase}
+      onJoinLive={standaloneTrainingController.requestJoinLive}
+      onFinish={finishStandaloneTraining}
+      onReplay={replayStandaloneTraining}
+      onReturnLobby={standaloneTrainingController.returnToLobby}
+    />
+  ) : null;
   const chatOverlays = (
     <>
       {bootOverlay}
@@ -33250,12 +33548,19 @@ function handleTouchEnd(e) {
       {playtimeCountdownOverlay}
       {perfTestOverlay}
       {playersOverlay}
+      {trainingConfirmModal}
+      <TrainingJoinLiveDialog
+        busy={standaloneTrainingController.busy}
+        darkMode={darkMode}
+        status={standaloneTrainingController.joinDialog}
+        onCancel={standaloneTrainingController.cancelJoinDialog}
+        onConfirm={standaloneTrainingController.confirmJoinLive}
+      />
       {userMenuView}
       {desktopChatReactionPickerView}
       {desktopChatReactionDetailsView}
       {reportModal}
       {playerProfileModalView}
-      {trainingConfirmModal}
       {chatRulesModal}
       {definitionModalView}
       {wordInfoModalView}
@@ -34844,7 +35149,7 @@ function handleTouchEnd(e) {
           isAuthStatusPending={isAuthStatusPending}
           isConnecting={isConnecting}
           loginError={loginError}
-          maintenanceMode={!!(tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode)}
+          maintenanceMode={homeMaintenanceActive}
           displayModeAction={displayMode.homeAction}
           onToggleFullscreen={displayMode.toggleFullscreen}
           {...homeLobbyActions}
@@ -34853,6 +35158,17 @@ function handleTouchEnd(e) {
           resumePhaseLabel={resumePhaseLabel}
           resumeRoomLabel={resumeRoomLabel}
           savedSessionNick={savedSessionNick}
+          trainingControl={
+            <StandaloneTrainingPicker
+              busy={standaloneTrainingController.busy}
+              darkMode={menuDarkMode}
+              disabled={isAuthStatusPending || isConnecting || homeMaintenanceActive}
+              onRequestOpen={() => ensureAuthenticated({ source: "training" })}
+              onStart={startStandaloneTrainingFromHome}
+              playUiClickSound={playSwipeSound}
+              team={duelTeam}
+            />
+          }
           weeklyRecapLoading={!!duelWeekRecapOpenAfterRefreshRef.current}
         />
       </>
@@ -36246,7 +36562,13 @@ function handleTouchEnd(e) {
     );
   }
 
-  if (isMobileLayout && useUltraCompactLayout && phase === "playing" && !isSpecial3WordsMode) {
+  if (
+    isMobileLayout &&
+    useUltraCompactLayout &&
+    phase === "playing" &&
+    !isSpecial3WordsMode &&
+    !standaloneTrainingSession
+  ) {
     const compactRankingList = rankingSource;
     const compactPlayerRankingList = Array.isArray(compactRankingList)
       ? compactRankingList.filter((entry) => !entry?.isPalier)
@@ -36884,6 +37206,7 @@ function handleTouchEnd(e) {
           highlightPath={highlightPath}
           isDailyPlay={isDailyPlay}
           isLoggedIn={isLoggedIn}
+          isStandaloneTraining={!!standaloneTrainingSession}
           liveWord={liveWord}
           mobileChatUnreadIsBotOnly={mobileChatUnreadIsBotOnly}
           mobileChatUnreadCount={mobileChatUnreadCount}
@@ -36944,6 +37267,10 @@ function handleTouchEnd(e) {
           praiseOverlay={praiseOverlay}
           progressRatio={progressRatio}
           remainingSec={remainingSec}
+          trainingControls={trainingSessionControls}
+          trainingFeedItems={mobileAnnouncements}
+          trainingFeedBannerText={liveFeedBannerText}
+          getNickClassName={getLiveNickClassName}
           renderSpecial3LengthGobbleBadge={renderSpecial3LengthGobbleBadge}
           renderSpecialChip={renderSpecialChip}
           renderWordPreviewTiles={renderWordPreviewTiles}
@@ -37005,7 +37332,6 @@ function handleTouchEnd(e) {
         ? tournamentRanking || []
         : finalRanking || []
       : rankingSource || [];
-    const mobileAnnouncements = mixedFeed.slice(-8);
     const lockedGameViewportWidth =
       Number(mobileGameViewportLockRef.current?.width) || 0;
     const lockedGameViewportHeight =
@@ -37164,7 +37490,9 @@ function handleTouchEnd(e) {
           : resultsSlidePhase === "in"
           ? "results-fade-in"
           : "";
-      const resultsHeaderLabel = showResultsWords
+      const resultsHeaderLabel = resultsPageKey === "target"
+        ? "Résultat cible"
+        : showResultsWords
         ? "Mots"
         : showVocabPage
         ? "Vocabulaire"
@@ -37258,12 +37586,14 @@ function handleTouchEnd(e) {
           </div>
         </div>
       ) : null;
-      const isTargetResults = isTargetRound;
+      const isTargetResults = isTargetRound && !standaloneTrainingSession;
       const resultsCardClassName = `relative rounded-xl px-3 py-2 flex flex-col gap-2 overflow-hidden ${
         isTargetResults ? "flex-none" : "flex-1 min-h-0"
       } ${darkMode ? "bg-slate-900/90" : "bg-white/90"} box-border`;
       const resultsCardStyle = isTargetResults
         ? { height: "46vh", minHeight: "38vh", maxHeight: "52vh" }
+        : standaloneTrainingSession
+        ? { minHeight: 0 }
         : { minHeight: "320px" };
       const showResultsDots = resultsPages.length > 1;
       const summaryWrapperClass = isTargetResults
@@ -37337,6 +37667,7 @@ function handleTouchEnd(e) {
             handleResultsTouchStart={handleResultsTouchStart}
             isFinaleBanner={isFinaleBanner}
             isSpeedRound={isSpeedRound}
+            isStandaloneTraining={!!standaloneTrainingSession}
             isTargetRound={isTargetRound}
             listItemRefs={listItemRefs}
             mobileBodyHeightStyle={mobileBodyHeightStyle}
@@ -37374,6 +37705,7 @@ function handleTouchEnd(e) {
             resultsFadeClass={resultsFadeClass}
             resultsHeaderLabel={resultsHeaderLabel}
             resultsHeaderSuffix={resultsHeaderSuffix}
+            roundTypeLabel={standaloneTrainingSession?.label || ""}
             resultsPageKey={resultsPageKey}
             resultsRankingList={resultsRankingList}
             resultsRankingModeForMobile={resultsRankingModeForMobile}
@@ -37392,7 +37724,11 @@ function handleTouchEnd(e) {
             suppressWordListScores={suppressWordListScores}
             targetSummary={targetSummary}
             tick={tick}
-            tournament={tournament}
+            tournament={standaloneTrainingSession ? null : tournament}
+            trainingControls={trainingSessionControls}
+            trainingFeedItems={mobileAnnouncements}
+            trainingFeedBannerText={liveFeedBannerText}
+            trainingFeedNickClassName={getLiveNickClassName}
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
             wordsEmpty={wordsEmpty}
           />
@@ -37455,6 +37791,7 @@ function handleTouchEnd(e) {
                     }`}
                   >
                     <span className={nickClassName}>{p.nick}</span>
+                    {p?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact /></span> : null}
                     {p?.afk ? (
                       <span className="ml-1 text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
                         AFK
@@ -37564,6 +37901,7 @@ function handleTouchEnd(e) {
         isFinaleBanner={isFinaleBanner}
         isMobileLayout={isMobileLayout}
         isOcidRound={isOcidRound}
+        isStandaloneTraining={!!standaloneTrainingSession}
         isTargetRound={isTargetRound || targetWaitDevActive}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         liveFeedMinHeight={liveFeedMinHeight}
@@ -37612,6 +37950,7 @@ function handleTouchEnd(e) {
         previewTileBaseStyle={previewTileBaseStyle}
         renderNickSuffix={renderMobileNickSuffix}
         canOpenPlayerProfile={stableCanOpenPlayerProfile}
+        roundTypeLabel={standaloneTrainingSession?.label || ""}
         roundStats={roundStats}
         roundTilePointsVisible={roundTilePointsVisible}
         scoreLabel={scoreLabel}
@@ -37651,7 +37990,8 @@ function handleTouchEnd(e) {
         traceBoard={boardForRender}
         totalScoreLabel={totalScoreLabel}
         totalWordsLabel={totalWordsLabel}
-        tournament={tournament}
+        tournament={standaloneTrainingSession ? null : tournament}
+        trainingControls={trainingSessionControls}
         usedSet={usedSet}
         wordsFoundLabel={wordsFoundLabel}
       />
@@ -37747,7 +38087,9 @@ function handleTouchEnd(e) {
 
           <div className="desktop-game-room-wrap flex min-w-0 items-center text-gray-700">
             <span className="desktop-game-room max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full bg-gray-100 border border-gray-200">
-              {tournament?.round && tournament?.totalRounds ? (
+              {standaloneTrainingSession?.label ? (
+                <>{standaloneTrainingSession.label}</>
+              ) : tournament?.round && tournament?.totalRounds ? (
                 <>
                   {isFinaleBanner ? (
                     <>Manche finale</>
@@ -37816,11 +38158,13 @@ function handleTouchEnd(e) {
       )}
 
       {quickHelpOverlay}
-      <MiniTournamentStartOverlay
-        lobby={tournamentLobby}
-        preparing={!!roundPreparing}
-        serverNowMs={getNowServerMs()}
-      />
+      {!standaloneTrainingSession ? (
+        <MiniTournamentStartOverlay
+          lobby={tournamentLobby}
+          preparing={!!roundPreparing}
+          serverNowMs={getNowServerMs()}
+        />
+      ) : null}
 
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
       <div className={`desktop-game-content relative flex-1 min-h-0 overflow-hidden ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
@@ -37857,7 +38201,9 @@ function handleTouchEnd(e) {
             </h2>
             <span className="desktop-column-status rounded-full bg-gray-100 border border-gray-200">
               {serverStatus === "running"
-                ? "Manche en cours"
+                ? standaloneTrainingSession
+                  ? "Entraînement"
+                  : "Manche en cours"
                 : serverStatus === "break"
                 ? "Pause"
                 : "En attente"}
@@ -37866,7 +38212,25 @@ function handleTouchEnd(e) {
 
 {phase === "playing" && (
   <div className="flex flex-col gap-2 flex-1 min-h-0">
-    <div className="desktop-column-title font-semibold">Classement provisoire</div>
+    <div className="desktop-column-title font-semibold">
+      {standaloneTrainingSession ? standaloneTrainingSession.label : "Classement provisoire"}
+    </div>
+
+    {standaloneTrainingSession ? (
+      <div className="space-y-3">
+        {trainingSessionControls}
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/70">
+            <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Score</div>
+            <div className="mt-1 text-2xl font-black tabular-nums">{formatNumber(score)}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/70">
+            <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Mots</div>
+            <div className="mt-1 text-2xl font-black tabular-nums">{accepted.length}</div>
+          </div>
+        </div>
+      </div>
+    ) : null}
 
     <div className="flex-1 min-h-0">
       {isOcidRound && isMobileLayout && (
@@ -38027,7 +38391,7 @@ function handleTouchEnd(e) {
           </div>
         </div>
       )}
-      {!isTargetRound && !isOcidRound && (
+      {!standaloneTrainingSession && !isTargetRound && !isOcidRound && (
         <RankingWidgetMobile
           fullRanking={rankingSource || []}
           selfNick={selfNick}
@@ -38056,7 +38420,7 @@ function handleTouchEnd(e) {
 
 
 
-  {phase === "results" && (finalRanking.length > 0 || (tournamentRanking || []).length > 0) && (
+  {phase === "results" && !standaloneTrainingSession && (finalRanking.length > 0 || (tournamentRanking || []).length > 0) && (
     <div className="flex flex-col gap-2 flex-1 min-h-0">
       <div className="desktop-column-heading flex items-center justify-between">
         <div className="desktop-column-title font-semibold">Classement</div>
@@ -38135,7 +38499,24 @@ function handleTouchEnd(e) {
     </div>
   )}
 
-          {phase !== "playing" && finalRanking.length === 0 && (
+          {phase === "results" && standaloneTrainingSession ? (
+            <div className="flex flex-1 flex-col gap-3 min-h-0">
+              <div className="desktop-column-title font-semibold">Résultats de l’entraînement</div>
+              {trainingSessionControls}
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Score</div>
+                  <div className="mt-1 text-2xl font-black tabular-nums">{formatNumber(score)}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Mots trouvés</div>
+                  <div className="mt-1 text-2xl font-black tabular-nums">{accepted.length}</div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {phase !== "playing" && !standaloneTrainingSession && finalRanking.length === 0 && (
             <div className="flex flex-col gap-2 flex-1 min-h-0">
               <div className="text-sm font-semibold">Joueurs connectés</div>
               <div className="flex flex-wrap gap-2 flex-1 min-h-0 overflow-auto content-start items-start">
@@ -38152,6 +38533,7 @@ function handleTouchEnd(e) {
                   const content = (
                     <>
                       <span className={nickClassName}>{p.nick}</span>
+                      {p?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact /></span> : null}
                       {p?.afk ? (
                         <span className="ml-1 text-[10px] font-extrabold italic text-red-600">
                           AFK
@@ -38712,7 +39094,8 @@ function handleTouchEnd(e) {
               tutorialStep={special3TutorialStep}
               visualScreenShakeEnabled={visualScreenShakeEnabled}
             />
-          ) : phase === "playing" && isOcidRound ? null : phase === "playing" ? (
+          ) : phase === "playing" && isOcidRound ? null : phase === "playing" &&
+            (!standaloneTrainingSession || !isTargetRound) ? (
             <div className="flex flex-col flex-1 min-h-0">
               <LiveFeed
                 items={mixedFeed}

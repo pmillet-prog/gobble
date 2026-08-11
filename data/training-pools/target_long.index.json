@@ -1,0 +1,1512 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:03.294Z",
+  "mode": "target_long",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "count": 300,
+  "dataFile": "target_long.jsonl",
+  "records": [
+    {
+      "id": "tr-target_long-f1eb948aa12d9d23",
+      "offset": 0,
+      "length": 64743
+    },
+    {
+      "id": "tr-target_long-b8ab74829b6f6267",
+      "offset": 64743,
+      "length": 75248
+    },
+    {
+      "id": "tr-target_long-2434143b8edd94df",
+      "offset": 139991,
+      "length": 94061
+    },
+    {
+      "id": "tr-target_long-f14456bdcd1511f5",
+      "offset": 234052,
+      "length": 103277
+    },
+    {
+      "id": "tr-target_long-3c00a45de05afbab",
+      "offset": 337329,
+      "length": 72370
+    },
+    {
+      "id": "tr-target_long-02032366d7653835",
+      "offset": 409699,
+      "length": 111028
+    },
+    {
+      "id": "tr-target_long-88b265d0e9224ec9",
+      "offset": 520727,
+      "length": 69834
+    },
+    {
+      "id": "tr-target_long-291129af62e01ca4",
+      "offset": 590561,
+      "length": 78241
+    },
+    {
+      "id": "tr-target_long-72d296d2ff324306",
+      "offset": 668802,
+      "length": 57794
+    },
+    {
+      "id": "tr-target_long-125b5d6e1927efd5",
+      "offset": 726596,
+      "length": 55393
+    },
+    {
+      "id": "tr-target_long-026fddff16ae0eaf",
+      "offset": 781989,
+      "length": 56480
+    },
+    {
+      "id": "tr-target_long-2187990cb4682d23",
+      "offset": 838469,
+      "length": 64795
+    },
+    {
+      "id": "tr-target_long-0c6d62c95d9c12ee",
+      "offset": 903264,
+      "length": 55172
+    },
+    {
+      "id": "tr-target_long-937ce8e6f593736b",
+      "offset": 958436,
+      "length": 49453
+    },
+    {
+      "id": "tr-target_long-e2661d4b0df98fca",
+      "offset": 1007889,
+      "length": 77107
+    },
+    {
+      "id": "tr-target_long-3ce6729debfddc8e",
+      "offset": 1084996,
+      "length": 46212
+    },
+    {
+      "id": "tr-target_long-d0a3fc532691dac5",
+      "offset": 1131208,
+      "length": 86404
+    },
+    {
+      "id": "tr-target_long-97b74604ff8fdd3a",
+      "offset": 1217612,
+      "length": 82464
+    },
+    {
+      "id": "tr-target_long-e86255ac9d347aea",
+      "offset": 1300076,
+      "length": 111164
+    },
+    {
+      "id": "tr-target_long-f4c55026d18cd08f",
+      "offset": 1411240,
+      "length": 100261
+    },
+    {
+      "id": "tr-target_long-f736f1ee54ca482c",
+      "offset": 1511501,
+      "length": 50247
+    },
+    {
+      "id": "tr-target_long-c7eb06ef4e0d2b92",
+      "offset": 1561748,
+      "length": 91363
+    },
+    {
+      "id": "tr-target_long-779df8bc30c3e4e2",
+      "offset": 1653111,
+      "length": 58071
+    },
+    {
+      "id": "tr-target_long-ba602ebb54bb76dd",
+      "offset": 1711182,
+      "length": 67091
+    },
+    {
+      "id": "tr-target_long-01ec9b81ca6db954",
+      "offset": 1778273,
+      "length": 50437
+    },
+    {
+      "id": "tr-target_long-6b4eb528821ac71d",
+      "offset": 1828710,
+      "length": 70001
+    },
+    {
+      "id": "tr-target_long-d51866fd226ee4e2",
+      "offset": 1898711,
+      "length": 64973
+    },
+    {
+      "id": "tr-target_long-53faee2caeec21e2",
+      "offset": 1963684,
+      "length": 48203
+    },
+    {
+      "id": "tr-target_long-c6a5213313a96881",
+      "offset": 2011887,
+      "length": 57863
+    },
+    {
+      "id": "tr-target_long-12b639aab7f33832",
+      "offset": 2069750,
+      "length": 56618
+    },
+    {
+      "id": "tr-target_long-1f26011678ff5b8d",
+      "offset": 2126368,
+      "length": 90733
+    },
+    {
+      "id": "tr-target_long-3046b557bd95fc39",
+      "offset": 2217101,
+      "length": 50434
+    },
+    {
+      "id": "tr-target_long-2700ac0d4feac33c",
+      "offset": 2267535,
+      "length": 52955
+    },
+    {
+      "id": "tr-target_long-0af74008776b8ef4",
+      "offset": 2320490,
+      "length": 96382
+    },
+    {
+      "id": "tr-target_long-8c8ed828247f4cab",
+      "offset": 2416872,
+      "length": 100663
+    },
+    {
+      "id": "tr-target_long-269bb0333d1832ea",
+      "offset": 2517535,
+      "length": 69387
+    },
+    {
+      "id": "tr-target_long-1333b58a5c915e76",
+      "offset": 2586922,
+      "length": 80299
+    },
+    {
+      "id": "tr-target_long-933f40e45c58ab88",
+      "offset": 2667221,
+      "length": 70761
+    },
+    {
+      "id": "tr-target_long-57cbef3a1406dd1f",
+      "offset": 2737982,
+      "length": 62465
+    },
+    {
+      "id": "tr-target_long-ca7ad0ebfa18454a",
+      "offset": 2800447,
+      "length": 83386
+    },
+    {
+      "id": "tr-target_long-406b1625a214af09",
+      "offset": 2883833,
+      "length": 54215
+    },
+    {
+      "id": "tr-target_long-22a128e9358c8d4a",
+      "offset": 2938048,
+      "length": 44318
+    },
+    {
+      "id": "tr-target_long-797604b4a65c13f6",
+      "offset": 2982366,
+      "length": 71120
+    },
+    {
+      "id": "tr-target_long-40be404847a194f6",
+      "offset": 3053486,
+      "length": 64721
+    },
+    {
+      "id": "tr-target_long-bef0c05a22086b2e",
+      "offset": 3118207,
+      "length": 49216
+    },
+    {
+      "id": "tr-target_long-52f1491580e7e59f",
+      "offset": 3167423,
+      "length": 77206
+    },
+    {
+      "id": "tr-target_long-89162448dbff5a2c",
+      "offset": 3244629,
+      "length": 68284
+    },
+    {
+      "id": "tr-target_long-1d3609fac2b1edbc",
+      "offset": 3312913,
+      "length": 57093
+    },
+    {
+      "id": "tr-target_long-066b0131f82163ff",
+      "offset": 3370006,
+      "length": 68678
+    },
+    {
+      "id": "tr-target_long-f949e3b0ca1a6148",
+      "offset": 3438684,
+      "length": 46723
+    },
+    {
+      "id": "tr-target_long-cb5dd7bf71584c74",
+      "offset": 3485407,
+      "length": 58436
+    },
+    {
+      "id": "tr-target_long-4e53647b6e9e9ede",
+      "offset": 3543843,
+      "length": 66647
+    },
+    {
+      "id": "tr-target_long-39ae676a84953f93",
+      "offset": 3610490,
+      "length": 98323
+    },
+    {
+      "id": "tr-target_long-22d3a22be98835e7",
+      "offset": 3708813,
+      "length": 82462
+    },
+    {
+      "id": "tr-target_long-f59e29d4a452dcb6",
+      "offset": 3791275,
+      "length": 54722
+    },
+    {
+      "id": "tr-target_long-e4fa83fc8ed67d96",
+      "offset": 3845997,
+      "length": 109253
+    },
+    {
+      "id": "tr-target_long-b43846ea16f10f3c",
+      "offset": 3955250,
+      "length": 101041
+    },
+    {
+      "id": "tr-target_long-c01401a6ce7b69e1",
+      "offset": 4056291,
+      "length": 56905
+    },
+    {
+      "id": "tr-target_long-98cffcf9c08084e6",
+      "offset": 4113196,
+      "length": 86909
+    },
+    {
+      "id": "tr-target_long-b20e9ae49f9a8c41",
+      "offset": 4200105,
+      "length": 68385
+    },
+    {
+      "id": "tr-target_long-4bd4ce9530dc9774",
+      "offset": 4268490,
+      "length": 48690
+    },
+    {
+      "id": "tr-target_long-36d3da29189207b5",
+      "offset": 4317180,
+      "length": 109954
+    },
+    {
+      "id": "tr-target_long-6adc348561ed401f",
+      "offset": 4427134,
+      "length": 87124
+    },
+    {
+      "id": "tr-target_long-ad824482a7ed15bf",
+      "offset": 4514258,
+      "length": 49175
+    },
+    {
+      "id": "tr-target_long-e46a8bea9ad7a06c",
+      "offset": 4563433,
+      "length": 82818
+    },
+    {
+      "id": "tr-target_long-0fd51a1ef2a1586a",
+      "offset": 4646251,
+      "length": 73503
+    },
+    {
+      "id": "tr-target_long-73729179f834d3e6",
+      "offset": 4719754,
+      "length": 101692
+    },
+    {
+      "id": "tr-target_long-c8988ffa667e368a",
+      "offset": 4821446,
+      "length": 63449
+    },
+    {
+      "id": "tr-target_long-b709f431cea693f4",
+      "offset": 4884895,
+      "length": 62690
+    },
+    {
+      "id": "tr-target_long-40b2f3eddb36a099",
+      "offset": 4947585,
+      "length": 64475
+    },
+    {
+      "id": "tr-target_long-d0eefdd40dd41891",
+      "offset": 5012060,
+      "length": 99940
+    },
+    {
+      "id": "tr-target_long-4fc9c1a416d939cf",
+      "offset": 5112000,
+      "length": 115497
+    },
+    {
+      "id": "tr-target_long-e6f821587cb987eb",
+      "offset": 5227497,
+      "length": 82888
+    },
+    {
+      "id": "tr-target_long-eec4f57a79a45921",
+      "offset": 5310385,
+      "length": 60851
+    },
+    {
+      "id": "tr-target_long-5ba28e8bebcb3c95",
+      "offset": 5371236,
+      "length": 56936
+    },
+    {
+      "id": "tr-target_long-12dcfe380fd4065f",
+      "offset": 5428172,
+      "length": 47522
+    },
+    {
+      "id": "tr-target_long-0e32d25d9e912a5c",
+      "offset": 5475694,
+      "length": 57658
+    },
+    {
+      "id": "tr-target_long-18229f35d4d5ed71",
+      "offset": 5533352,
+      "length": 72629
+    },
+    {
+      "id": "tr-target_long-7331b4ac2644d5f2",
+      "offset": 5605981,
+      "length": 88709
+    },
+    {
+      "id": "tr-target_long-e95d6e9f622a810e",
+      "offset": 5694690,
+      "length": 74847
+    },
+    {
+      "id": "tr-target_long-2d29851b47c9a0c6",
+      "offset": 5769537,
+      "length": 49590
+    },
+    {
+      "id": "tr-target_long-167d26ddcaecf29d",
+      "offset": 5819127,
+      "length": 46472
+    },
+    {
+      "id": "tr-target_long-d60365b4cea9f8cb",
+      "offset": 5865599,
+      "length": 81990
+    },
+    {
+      "id": "tr-target_long-1322c13bf39e5cd6",
+      "offset": 5947589,
+      "length": 152859
+    },
+    {
+      "id": "tr-target_long-eea6f80639d0c0ae",
+      "offset": 6100448,
+      "length": 61523
+    },
+    {
+      "id": "tr-target_long-32b01f4cad4cec46",
+      "offset": 6161971,
+      "length": 75879
+    },
+    {
+      "id": "tr-target_long-6991105f07884dc8",
+      "offset": 6237850,
+      "length": 105817
+    },
+    {
+      "id": "tr-target_long-2c1a0c1a695256c4",
+      "offset": 6343667,
+      "length": 55921
+    },
+    {
+      "id": "tr-target_long-7fa308af53d7f511",
+      "offset": 6399588,
+      "length": 79138
+    },
+    {
+      "id": "tr-target_long-89eed9d26db053f6",
+      "offset": 6478726,
+      "length": 73053
+    },
+    {
+      "id": "tr-target_long-2aa957df7cf96501",
+      "offset": 6551779,
+      "length": 50158
+    },
+    {
+      "id": "tr-target_long-045f31d3d359a246",
+      "offset": 6601937,
+      "length": 65161
+    },
+    {
+      "id": "tr-target_long-f5bad5aefe606301",
+      "offset": 6667098,
+      "length": 71296
+    },
+    {
+      "id": "tr-target_long-f9c83f04cd24686b",
+      "offset": 6738394,
+      "length": 91475
+    },
+    {
+      "id": "tr-target_long-ccd689e9f410ed3d",
+      "offset": 6829869,
+      "length": 48702
+    },
+    {
+      "id": "tr-target_long-d469994408fe6e8c",
+      "offset": 6878571,
+      "length": 45933
+    },
+    {
+      "id": "tr-target_long-932b38b14d52bde7",
+      "offset": 6924504,
+      "length": 71366
+    },
+    {
+      "id": "tr-target_long-97a77692fd0ba72f",
+      "offset": 6995870,
+      "length": 102280
+    },
+    {
+      "id": "tr-target_long-4adcbcd483c4e989",
+      "offset": 7098150,
+      "length": 80550
+    },
+    {
+      "id": "tr-target_long-afd43c1f99e78b8a",
+      "offset": 7178700,
+      "length": 73470
+    },
+    {
+      "id": "tr-target_long-d350ee5000e0d09a",
+      "offset": 7252170,
+      "length": 64164
+    },
+    {
+      "id": "tr-target_long-72a7be6f71875738",
+      "offset": 7316334,
+      "length": 81559
+    },
+    {
+      "id": "tr-target_long-2abd078fc917c182",
+      "offset": 7397893,
+      "length": 76080
+    },
+    {
+      "id": "tr-target_long-c1e8346637fa4f6a",
+      "offset": 7473973,
+      "length": 47889
+    },
+    {
+      "id": "tr-target_long-6f8f25d5fd0564be",
+      "offset": 7521862,
+      "length": 65247
+    },
+    {
+      "id": "tr-target_long-a50fde311a687baa",
+      "offset": 7587109,
+      "length": 126796
+    },
+    {
+      "id": "tr-target_long-f098eddfd54608db",
+      "offset": 7713905,
+      "length": 72325
+    },
+    {
+      "id": "tr-target_long-bf92701d24af6301",
+      "offset": 7786230,
+      "length": 59295
+    },
+    {
+      "id": "tr-target_long-51ffe452e247a8ce",
+      "offset": 7845525,
+      "length": 46265
+    },
+    {
+      "id": "tr-target_long-d68fea78bd511aea",
+      "offset": 7891790,
+      "length": 50941
+    },
+    {
+      "id": "tr-target_long-537b1b86f203f308",
+      "offset": 7942731,
+      "length": 54777
+    },
+    {
+      "id": "tr-target_long-e4f7c2f003cf6593",
+      "offset": 7997508,
+      "length": 44127
+    },
+    {
+      "id": "tr-target_long-96566db02051631b",
+      "offset": 8041635,
+      "length": 67240
+    },
+    {
+      "id": "tr-target_long-316866d03d11d4fd",
+      "offset": 8108875,
+      "length": 79030
+    },
+    {
+      "id": "tr-target_long-3098049ea87d5740",
+      "offset": 8187905,
+      "length": 73565
+    },
+    {
+      "id": "tr-target_long-0ec4e719871955b6",
+      "offset": 8261470,
+      "length": 83245
+    },
+    {
+      "id": "tr-target_long-91b23ad6f84c0574",
+      "offset": 8344715,
+      "length": 56051
+    },
+    {
+      "id": "tr-target_long-af79f31f92b0ec95",
+      "offset": 8400766,
+      "length": 49828
+    },
+    {
+      "id": "tr-target_long-889b877acc7d5503",
+      "offset": 8450594,
+      "length": 63414
+    },
+    {
+      "id": "tr-target_long-13e00d7cbdbdf81e",
+      "offset": 8514008,
+      "length": 67418
+    },
+    {
+      "id": "tr-target_long-8ec7c7bf9bd8f634",
+      "offset": 8581426,
+      "length": 76598
+    },
+    {
+      "id": "tr-target_long-27f875b26d086c18",
+      "offset": 8658024,
+      "length": 70983
+    },
+    {
+      "id": "tr-target_long-7d8a0605f8d99c6e",
+      "offset": 8729007,
+      "length": 80407
+    },
+    {
+      "id": "tr-target_long-6e4a00d05825ed75",
+      "offset": 8809414,
+      "length": 81656
+    },
+    {
+      "id": "tr-target_long-805dcd8938370577",
+      "offset": 8891070,
+      "length": 64899
+    },
+    {
+      "id": "tr-target_long-774360711bb755c7",
+      "offset": 8955969,
+      "length": 45109
+    },
+    {
+      "id": "tr-target_long-dc8c1c3e211869a6",
+      "offset": 9001078,
+      "length": 107246
+    },
+    {
+      "id": "tr-target_long-baa4c4cf7658d7f3",
+      "offset": 9108324,
+      "length": 63610
+    },
+    {
+      "id": "tr-target_long-406d6fc0473a57f1",
+      "offset": 9171934,
+      "length": 77714
+    },
+    {
+      "id": "tr-target_long-d7ab917fdfaf9b99",
+      "offset": 9249648,
+      "length": 121154
+    },
+    {
+      "id": "tr-target_long-4ff0899976eb5179",
+      "offset": 9370802,
+      "length": 58785
+    },
+    {
+      "id": "tr-target_long-90bc1138e5c114ce",
+      "offset": 9429587,
+      "length": 71966
+    },
+    {
+      "id": "tr-target_long-2dc1d8b4fb10b3b6",
+      "offset": 9501553,
+      "length": 53757
+    },
+    {
+      "id": "tr-target_long-68fe193c64c4e4ef",
+      "offset": 9555310,
+      "length": 89436
+    },
+    {
+      "id": "tr-target_long-fae1f3d6d6812aa0",
+      "offset": 9644746,
+      "length": 89542
+    },
+    {
+      "id": "tr-target_long-edb7f8982a67434a",
+      "offset": 9734288,
+      "length": 45906
+    },
+    {
+      "id": "tr-target_long-95dfdc1e6e2f4ac3",
+      "offset": 9780194,
+      "length": 45038
+    },
+    {
+      "id": "tr-target_long-34830df156769b43",
+      "offset": 9825232,
+      "length": 52509
+    },
+    {
+      "id": "tr-target_long-548e721af2ff16c0",
+      "offset": 9877741,
+      "length": 57572
+    },
+    {
+      "id": "tr-target_long-e79d14870d9dde48",
+      "offset": 9935313,
+      "length": 77434
+    },
+    {
+      "id": "tr-target_long-9761c2efa2d71b60",
+      "offset": 10012747,
+      "length": 134472
+    },
+    {
+      "id": "tr-target_long-79885cc801743246",
+      "offset": 10147219,
+      "length": 65228
+    },
+    {
+      "id": "tr-target_long-56a1a3fef3051b14",
+      "offset": 10212447,
+      "length": 70438
+    },
+    {
+      "id": "tr-target_long-80093f8d158e8524",
+      "offset": 10282885,
+      "length": 99170
+    },
+    {
+      "id": "tr-target_long-3e8299f5c59a0fa9",
+      "offset": 10382055,
+      "length": 85035
+    },
+    {
+      "id": "tr-target_long-649f407bdd88d174",
+      "offset": 10467090,
+      "length": 52529
+    },
+    {
+      "id": "tr-target_long-f3aeb8de2e9b6a8b",
+      "offset": 10519619,
+      "length": 66933
+    },
+    {
+      "id": "tr-target_long-093f54df0ff81392",
+      "offset": 10586552,
+      "length": 60010
+    },
+    {
+      "id": "tr-target_long-27a4fafd416a0cbf",
+      "offset": 10646562,
+      "length": 51305
+    },
+    {
+      "id": "tr-target_long-ee8a8d7c41cc6886",
+      "offset": 10697867,
+      "length": 60915
+    },
+    {
+      "id": "tr-target_long-d104a8bd60f50baf",
+      "offset": 10758782,
+      "length": 80651
+    },
+    {
+      "id": "tr-target_long-cb1cf8156e4d6590",
+      "offset": 10839433,
+      "length": 70156
+    },
+    {
+      "id": "tr-target_long-82b2f907d7fa676e",
+      "offset": 10909589,
+      "length": 67513
+    },
+    {
+      "id": "tr-target_long-3e607eb5b6ba265a",
+      "offset": 10977102,
+      "length": 88961
+    },
+    {
+      "id": "tr-target_long-846f382c3d0008e0",
+      "offset": 11066063,
+      "length": 180510
+    },
+    {
+      "id": "tr-target_long-7124b774693929bd",
+      "offset": 11246573,
+      "length": 92979
+    },
+    {
+      "id": "tr-target_long-6c88f8a1a2398026",
+      "offset": 11339552,
+      "length": 57220
+    },
+    {
+      "id": "tr-target_long-d32ab17e06297760",
+      "offset": 11396772,
+      "length": 107694
+    },
+    {
+      "id": "tr-target_long-199a1d53464f3ffa",
+      "offset": 11504466,
+      "length": 78096
+    },
+    {
+      "id": "tr-target_long-8747cb38193239b2",
+      "offset": 11582562,
+      "length": 56624
+    },
+    {
+      "id": "tr-target_long-51ec3bd03ce76d06",
+      "offset": 11639186,
+      "length": 107162
+    },
+    {
+      "id": "tr-target_long-ee95da437e51599a",
+      "offset": 11746348,
+      "length": 50610
+    },
+    {
+      "id": "tr-target_long-c62303e867cd55fd",
+      "offset": 11796958,
+      "length": 75602
+    },
+    {
+      "id": "tr-target_long-a63a09fa14520f65",
+      "offset": 11872560,
+      "length": 70191
+    },
+    {
+      "id": "tr-target_long-1b4e69f90921210a",
+      "offset": 11942751,
+      "length": 59245
+    },
+    {
+      "id": "tr-target_long-45397a74306410bb",
+      "offset": 12001996,
+      "length": 48718
+    },
+    {
+      "id": "tr-target_long-511d4a36a7b892d3",
+      "offset": 12050714,
+      "length": 159539
+    },
+    {
+      "id": "tr-target_long-b002b39cd3c8e1d3",
+      "offset": 12210253,
+      "length": 80190
+    },
+    {
+      "id": "tr-target_long-c1ede4cf214a7245",
+      "offset": 12290443,
+      "length": 53261
+    },
+    {
+      "id": "tr-target_long-969f41dbdc34a965",
+      "offset": 12343704,
+      "length": 58662
+    },
+    {
+      "id": "tr-target_long-23dff090cb104133",
+      "offset": 12402366,
+      "length": 138786
+    },
+    {
+      "id": "tr-target_long-d6f234d6067eddbd",
+      "offset": 12541152,
+      "length": 51399
+    },
+    {
+      "id": "tr-target_long-0e966bd0836697c0",
+      "offset": 12592551,
+      "length": 85923
+    },
+    {
+      "id": "tr-target_long-1ef50d1d050e39d0",
+      "offset": 12678474,
+      "length": 78106
+    },
+    {
+      "id": "tr-target_long-bdfae66b70f02b1c",
+      "offset": 12756580,
+      "length": 80503
+    },
+    {
+      "id": "tr-target_long-6db45eb5acfb25d8",
+      "offset": 12837083,
+      "length": 84451
+    },
+    {
+      "id": "tr-target_long-cb7cc06ff7dc78a0",
+      "offset": 12921534,
+      "length": 116372
+    },
+    {
+      "id": "tr-target_long-bc472c22b8ed3ad6",
+      "offset": 13037906,
+      "length": 47581
+    },
+    {
+      "id": "tr-target_long-74d7937130702d74",
+      "offset": 13085487,
+      "length": 77341
+    },
+    {
+      "id": "tr-target_long-aa61ee6b15b94e90",
+      "offset": 13162828,
+      "length": 62656
+    },
+    {
+      "id": "tr-target_long-522503a138edf619",
+      "offset": 13225484,
+      "length": 45973
+    },
+    {
+      "id": "tr-target_long-1e6e1941561e1aa1",
+      "offset": 13271457,
+      "length": 83970
+    },
+    {
+      "id": "tr-target_long-16e05ced878217f6",
+      "offset": 13355427,
+      "length": 73756
+    },
+    {
+      "id": "tr-target_long-741325c3d534004b",
+      "offset": 13429183,
+      "length": 60533
+    },
+    {
+      "id": "tr-target_long-e1e85f305b015bd0",
+      "offset": 13489716,
+      "length": 45909
+    },
+    {
+      "id": "tr-target_long-5bf633a4ebee6e51",
+      "offset": 13535625,
+      "length": 58348
+    },
+    {
+      "id": "tr-target_long-875e885f3215f300",
+      "offset": 13593973,
+      "length": 82251
+    },
+    {
+      "id": "tr-target_long-3cd1384a9f838b0e",
+      "offset": 13676224,
+      "length": 44970
+    },
+    {
+      "id": "tr-target_long-5298c2af71deb873",
+      "offset": 13721194,
+      "length": 51095
+    },
+    {
+      "id": "tr-target_long-b2ec4dd382a293cb",
+      "offset": 13772289,
+      "length": 48322
+    },
+    {
+      "id": "tr-target_long-6fd33a9b35775e54",
+      "offset": 13820611,
+      "length": 113503
+    },
+    {
+      "id": "tr-target_long-dc80e73b6ab194bd",
+      "offset": 13934114,
+      "length": 127172
+    },
+    {
+      "id": "tr-target_long-e0c68dc46e39aba6",
+      "offset": 14061286,
+      "length": 103427
+    },
+    {
+      "id": "tr-target_long-5d7565ced2f8c03e",
+      "offset": 14164713,
+      "length": 105691
+    },
+    {
+      "id": "tr-target_long-9a8c1428b9db870e",
+      "offset": 14270404,
+      "length": 86492
+    },
+    {
+      "id": "tr-target_long-635095b35e864e43",
+      "offset": 14356896,
+      "length": 156145
+    },
+    {
+      "id": "tr-target_long-418073487f79e841",
+      "offset": 14513041,
+      "length": 64076
+    },
+    {
+      "id": "tr-target_long-af79ce9036f91992",
+      "offset": 14577117,
+      "length": 56483
+    },
+    {
+      "id": "tr-target_long-6d9f61bb47b5c715",
+      "offset": 14633600,
+      "length": 131775
+    },
+    {
+      "id": "tr-target_long-4d060fee90be7134",
+      "offset": 14765375,
+      "length": 66307
+    },
+    {
+      "id": "tr-target_long-c5f8bc278365838b",
+      "offset": 14831682,
+      "length": 112161
+    },
+    {
+      "id": "tr-target_long-f2d651dcb53dd927",
+      "offset": 14943843,
+      "length": 94609
+    },
+    {
+      "id": "tr-target_long-3f9c7ca0db9b7269",
+      "offset": 15038452,
+      "length": 53064
+    },
+    {
+      "id": "tr-target_long-b409648053a60a8a",
+      "offset": 15091516,
+      "length": 43652
+    },
+    {
+      "id": "tr-target_long-ed19dcc99e727a30",
+      "offset": 15135168,
+      "length": 70810
+    },
+    {
+      "id": "tr-target_long-1b7a2171b54e3f5c",
+      "offset": 15205978,
+      "length": 88302
+    },
+    {
+      "id": "tr-target_long-d6a50d13f4985c6a",
+      "offset": 15294280,
+      "length": 51640
+    },
+    {
+      "id": "tr-target_long-52cf85c39f57b79a",
+      "offset": 15345920,
+      "length": 84229
+    },
+    {
+      "id": "tr-target_long-09fd952ed41b2686",
+      "offset": 15430149,
+      "length": 49585
+    },
+    {
+      "id": "tr-target_long-8a41d20b71c194db",
+      "offset": 15479734,
+      "length": 53006
+    },
+    {
+      "id": "tr-target_long-7826aa5c133de507",
+      "offset": 15532740,
+      "length": 89861
+    },
+    {
+      "id": "tr-target_long-87a0875e5b71a389",
+      "offset": 15622601,
+      "length": 49855
+    },
+    {
+      "id": "tr-target_long-926db19e9f7276ae",
+      "offset": 15672456,
+      "length": 94676
+    },
+    {
+      "id": "tr-target_long-e8fd0b8898dca12b",
+      "offset": 15767132,
+      "length": 65850
+    },
+    {
+      "id": "tr-target_long-f18c9408a5071dcd",
+      "offset": 15832982,
+      "length": 44946
+    },
+    {
+      "id": "tr-target_long-4f9ed3c4c1c6badf",
+      "offset": 15877928,
+      "length": 161599
+    },
+    {
+      "id": "tr-target_long-2dc992f51521e09a",
+      "offset": 16039527,
+      "length": 70085
+    },
+    {
+      "id": "tr-target_long-fd86472d27b48bd4",
+      "offset": 16109612,
+      "length": 124338
+    },
+    {
+      "id": "tr-target_long-0722ea5bfb9218ea",
+      "offset": 16233950,
+      "length": 89470
+    },
+    {
+      "id": "tr-target_long-1a3cbf96b67df633",
+      "offset": 16323420,
+      "length": 44880
+    },
+    {
+      "id": "tr-target_long-f9b2c690bcf7de49",
+      "offset": 16368300,
+      "length": 74433
+    },
+    {
+      "id": "tr-target_long-cb190a5c616aa3d5",
+      "offset": 16442733,
+      "length": 46449
+    },
+    {
+      "id": "tr-target_long-a9b78225af43b453",
+      "offset": 16489182,
+      "length": 119497
+    },
+    {
+      "id": "tr-target_long-57d7c1cac92f0617",
+      "offset": 16608679,
+      "length": 61238
+    },
+    {
+      "id": "tr-target_long-76d06caba0075687",
+      "offset": 16669917,
+      "length": 65733
+    },
+    {
+      "id": "tr-target_long-82adc048d67955d0",
+      "offset": 16735650,
+      "length": 43484
+    },
+    {
+      "id": "tr-target_long-e67f6b6206657228",
+      "offset": 16779134,
+      "length": 74902
+    },
+    {
+      "id": "tr-target_long-6955ba74f7300cb4",
+      "offset": 16854036,
+      "length": 109746
+    },
+    {
+      "id": "tr-target_long-21f913a7efb25ba0",
+      "offset": 16963782,
+      "length": 82732
+    },
+    {
+      "id": "tr-target_long-40e28a10c0a273c1",
+      "offset": 17046514,
+      "length": 65751
+    },
+    {
+      "id": "tr-target_long-4cb4ab9f54a02f58",
+      "offset": 17112265,
+      "length": 53436
+    },
+    {
+      "id": "tr-target_long-fedba5b090854ddf",
+      "offset": 17165701,
+      "length": 96805
+    },
+    {
+      "id": "tr-target_long-297afa05e6458a6a",
+      "offset": 17262506,
+      "length": 53825
+    },
+    {
+      "id": "tr-target_long-c8db1dad9be55f11",
+      "offset": 17316331,
+      "length": 58366
+    },
+    {
+      "id": "tr-target_long-a932c89c2ad3530d",
+      "offset": 17374697,
+      "length": 52026
+    },
+    {
+      "id": "tr-target_long-97b031feaf14542d",
+      "offset": 17426723,
+      "length": 91199
+    },
+    {
+      "id": "tr-target_long-b1c6f61785a3ae4f",
+      "offset": 17517922,
+      "length": 54723
+    },
+    {
+      "id": "tr-target_long-54e05168fc139747",
+      "offset": 17572645,
+      "length": 109013
+    },
+    {
+      "id": "tr-target_long-1b8146ef5c41e4c8",
+      "offset": 17681658,
+      "length": 66009
+    },
+    {
+      "id": "tr-target_long-52e0de4323ece048",
+      "offset": 17747667,
+      "length": 57838
+    },
+    {
+      "id": "tr-target_long-b821286529fed139",
+      "offset": 17805505,
+      "length": 90290
+    },
+    {
+      "id": "tr-target_long-ee7d9388ff5b356b",
+      "offset": 17895795,
+      "length": 104446
+    },
+    {
+      "id": "tr-target_long-c78d07f0df8c96a9",
+      "offset": 18000241,
+      "length": 46007
+    },
+    {
+      "id": "tr-target_long-1a91a747fc08a7b5",
+      "offset": 18046248,
+      "length": 100044
+    },
+    {
+      "id": "tr-target_long-71e8d6e4bda17353",
+      "offset": 18146292,
+      "length": 45446
+    },
+    {
+      "id": "tr-target_long-75995fc40411466c",
+      "offset": 18191738,
+      "length": 73798
+    },
+    {
+      "id": "tr-target_long-478a4e90ee18e9ee",
+      "offset": 18265536,
+      "length": 146819
+    },
+    {
+      "id": "tr-target_long-3a4ee1018250cd98",
+      "offset": 18412355,
+      "length": 50152
+    },
+    {
+      "id": "tr-target_long-73fc0ed9832182bb",
+      "offset": 18462507,
+      "length": 72348
+    },
+    {
+      "id": "tr-target_long-098023e9765cf5cd",
+      "offset": 18534855,
+      "length": 101170
+    },
+    {
+      "id": "tr-target_long-253b6081b1819b63",
+      "offset": 18636025,
+      "length": 64251
+    },
+    {
+      "id": "tr-target_long-01d3eaef78131d1e",
+      "offset": 18700276,
+      "length": 68774
+    },
+    {
+      "id": "tr-target_long-85538bf16e858f89",
+      "offset": 18769050,
+      "length": 54307
+    },
+    {
+      "id": "tr-target_long-5ab2a96f5ef1b890",
+      "offset": 18823357,
+      "length": 59500
+    },
+    {
+      "id": "tr-target_long-05a458ba24c5cef3",
+      "offset": 18882857,
+      "length": 120595
+    },
+    {
+      "id": "tr-target_long-b8a2c0cb5bbde0c5",
+      "offset": 19003452,
+      "length": 76656
+    },
+    {
+      "id": "tr-target_long-9330effdaa8ad11c",
+      "offset": 19080108,
+      "length": 52193
+    },
+    {
+      "id": "tr-target_long-eb341f300351f908",
+      "offset": 19132301,
+      "length": 46190
+    },
+    {
+      "id": "tr-target_long-0a4e2a8ce00b661e",
+      "offset": 19178491,
+      "length": 88031
+    },
+    {
+      "id": "tr-target_long-0368cd181078767a",
+      "offset": 19266522,
+      "length": 53862
+    },
+    {
+      "id": "tr-target_long-d57aa9823dc3b13f",
+      "offset": 19320384,
+      "length": 54042
+    },
+    {
+      "id": "tr-target_long-2cb8b746d02b48a7",
+      "offset": 19374426,
+      "length": 54624
+    },
+    {
+      "id": "tr-target_long-2ed8aab95fdc8ba2",
+      "offset": 19429050,
+      "length": 56467
+    },
+    {
+      "id": "tr-target_long-34e8483ce3c95786",
+      "offset": 19485517,
+      "length": 72369
+    },
+    {
+      "id": "tr-target_long-06e339d8a3180a89",
+      "offset": 19557886,
+      "length": 83749
+    },
+    {
+      "id": "tr-target_long-880ac101ad8cdce8",
+      "offset": 19641635,
+      "length": 55386
+    },
+    {
+      "id": "tr-target_long-d7a3152f6be6fa12",
+      "offset": 19697021,
+      "length": 49858
+    },
+    {
+      "id": "tr-target_long-6a3d080f373214c0",
+      "offset": 19746879,
+      "length": 58860
+    },
+    {
+      "id": "tr-target_long-e9508eee7b8a21ae",
+      "offset": 19805739,
+      "length": 104898
+    },
+    {
+      "id": "tr-target_long-5c2ea1b13031d8bd",
+      "offset": 19910637,
+      "length": 49168
+    },
+    {
+      "id": "tr-target_long-97c731d49f923bea",
+      "offset": 19959805,
+      "length": 94684
+    },
+    {
+      "id": "tr-target_long-f1242ee9e1f2e690",
+      "offset": 20054489,
+      "length": 66921
+    },
+    {
+      "id": "tr-target_long-34849a016bb01b83",
+      "offset": 20121410,
+      "length": 139144
+    },
+    {
+      "id": "tr-target_long-cb10a4d1dc537f64",
+      "offset": 20260554,
+      "length": 74235
+    },
+    {
+      "id": "tr-target_long-215f748682b0e553",
+      "offset": 20334789,
+      "length": 45446
+    },
+    {
+      "id": "tr-target_long-467ee6ee5ca6fcd8",
+      "offset": 20380235,
+      "length": 46622
+    },
+    {
+      "id": "tr-target_long-845c38ba67d8fa41",
+      "offset": 20426857,
+      "length": 69749
+    },
+    {
+      "id": "tr-target_long-4a652d68d3330af5",
+      "offset": 20496606,
+      "length": 54894
+    },
+    {
+      "id": "tr-target_long-c0b406a886f0c087",
+      "offset": 20551500,
+      "length": 98973
+    },
+    {
+      "id": "tr-target_long-47e86dab85974ec0",
+      "offset": 20650473,
+      "length": 77183
+    },
+    {
+      "id": "tr-target_long-52fbb4587e1a255e",
+      "offset": 20727656,
+      "length": 75250
+    },
+    {
+      "id": "tr-target_long-a1e02298401c5aaa",
+      "offset": 20802906,
+      "length": 68439
+    },
+    {
+      "id": "tr-target_long-7df3d2ae7072061c",
+      "offset": 20871345,
+      "length": 57854
+    },
+    {
+      "id": "tr-target_long-3168cf39f22af48b",
+      "offset": 20929199,
+      "length": 156812
+    },
+    {
+      "id": "tr-target_long-3ecbaabae087b9df",
+      "offset": 21086011,
+      "length": 88517
+    },
+    {
+      "id": "tr-target_long-b319b9e2322f970f",
+      "offset": 21174528,
+      "length": 55819
+    },
+    {
+      "id": "tr-target_long-531f4fae3a22f8d2",
+      "offset": 21230347,
+      "length": 89756
+    },
+    {
+      "id": "tr-target_long-7b968f68a988a64c",
+      "offset": 21320103,
+      "length": 76159
+    },
+    {
+      "id": "tr-target_long-794514e9d7312a26",
+      "offset": 21396262,
+      "length": 67653
+    },
+    {
+      "id": "tr-target_long-6b1aa0527d18489d",
+      "offset": 21463915,
+      "length": 97118
+    },
+    {
+      "id": "tr-target_long-7d37b77718444aef",
+      "offset": 21561033,
+      "length": 91148
+    },
+    {
+      "id": "tr-target_long-951d43a133dabe7f",
+      "offset": 21652181,
+      "length": 85806
+    },
+    {
+      "id": "tr-target_long-41673dd2766174e1",
+      "offset": 21737987,
+      "length": 105895
+    },
+    {
+      "id": "tr-target_long-07dfd9d90a0220d0",
+      "offset": 21843882,
+      "length": 53369
+    },
+    {
+      "id": "tr-target_long-8f0dc758e6e38316",
+      "offset": 21897251,
+      "length": 111000
+    },
+    {
+      "id": "tr-target_long-fdee540702ee7103",
+      "offset": 22008251,
+      "length": 70279
+    },
+    {
+      "id": "tr-target_long-e171afd9852e06b3",
+      "offset": 22078530,
+      "length": 43691
+    },
+    {
+      "id": "tr-target_long-690c27c38d7dbab0",
+      "offset": 22122221,
+      "length": 72862
+    },
+    {
+      "id": "tr-target_long-b40a516de8f83356",
+      "offset": 22195083,
+      "length": 96458
+    },
+    {
+      "id": "tr-target_long-5d34637a4d50f356",
+      "offset": 22291541,
+      "length": 47341
+    }
+  ]
+}

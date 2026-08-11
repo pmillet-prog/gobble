@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:37.419Z",
+  "mode": "target_score",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 300,
+  "elapsedMs": 411155,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 150,
+      "max": 424,
+      "average": 207.9
+    },
+    "possibleScore": {
+      "min": 1807,
+      "max": 19382,
+      "average": 4720.1
+    },
+    "maxLength": {
+      "min": 6,
+      "max": 11,
+      "average": 8.5
+    },
+    "solutions": {
+      "min": 150,
+      "max": 424,
+      "average": 207.9
+    },
+    "targetLength": {
+      "min": 4,
+      "max": 11,
+      "average": 7.6
+    },
+    "targetLengths": {
+      "4": 3,
+      "5": 12,
+      "6": 27,
+      "7": 91,
+      "8": 110,
+      "9": 40,
+      "10": 13,
+      "11": 4
+    }
+  },
+  "samples": [
+    {
+      "id": "tr-target_score-9e64884fb21805dc",
+      "letters": "ANESTRCSATAXYWGU",
+      "words": 269,
+      "possibleScore": 12590,
+      "maxLength": 9,
+      "targetWord": "centraux"
+    },
+    {
+      "id": "tr-target_score-ebcbc6678c926859",
+      "letters": "OHISBTUPJUENSIAB",
+      "words": 165,
+      "possibleScore": 3042,
+      "maxLength": 8,
+      "targetWord": "petunais"
+    },
+    {
+      "id": "tr-target_score-58ced43b206cb5d0",
+      "letters": "UAQuENTXTTAPANEST",
+      "words": 189,
+      "possibleScore": 4430,
+      "maxLength": 8,
+      "targetWord": "textates"
+    },
+    {
+      "id": "tr-target_score-830d38048c2bbbda",
+      "letters": "DKTMSUNDGIEEJXSE",
+      "words": 158,
+      "possibleScore": 3364,
+      "maxLength": 8,
+      "targetWord": "guindees"
+    },
+    {
+      "id": "tr-target_score-f5ecd9a9b3fbfc0a",
+      "letters": "SPAATSUTVOAOLELL",
+      "words": 164,
+      "possibleScore": 3654,
+      "maxLength": 8,
+      "targetWord": "veloutas"
+    },
+    {
+      "id": "tr-target_score-087bdcf92c423774",
+      "letters": "NREPUEAIHTILVAUE",
+      "words": 319,
+      "possibleScore": 6615,
+      "maxLength": 9,
+      "targetWord": "epilateur"
+    },
+    {
+      "id": "tr-target_score-774b1b595c61f0da",
+      "letters": "DRBTEAIPPFNODZOJ",
+      "words": 176,
+      "possibleScore": 4844,
+      "maxLength": 7,
+      "targetWord": "zonarde"
+    },
+    {
+      "id": "tr-target_score-746e14fdcb6b2827",
+      "letters": "NRESTRETUASMAUBR",
+      "words": 255,
+      "possibleScore": 6759,
+      "maxLength": 8,
+      "targetWord": "austeres"
+    },
+    {
+      "id": "tr-target_score-058afab9c0c1caba",
+      "letters": "SURTUNDIATEIUCQuN",
+      "words": 154,
+      "possibleScore": 3120,
+      "maxLength": 7,
+      "targetWord": "surdent"
+    },
+    {
+      "id": "tr-target_score-054324c313070ec1",
+      "letters": "NTGSNIANASAIYECN",
+      "words": 187,
+      "possibleScore": 3487,
+      "maxLength": 8,
+      "targetWord": "aisance"
+    },
+    {
+      "id": "tr-target_score-02d2b306d7d43aff",
+      "letters": "RDAUMTFMTRISTIEL",
+      "words": 172,
+      "possibleScore": 2940,
+      "maxLength": 8,
+      "targetWord": "attitres"
+    },
+    {
+      "id": "tr-target_score-d8f92229b1ebe056",
+      "letters": "MBELOIMNTZATMUIC",
+      "words": 150,
+      "possibleScore": 2561,
+      "maxLength": 7,
+      "targetWord": "azobe"
+    }
+  ],
+  "catalogBytes": 17991412,
+  "dataBytes": 17958657,
+  "indexBytes": 32755
+}

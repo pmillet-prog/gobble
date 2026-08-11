@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:45.086Z",
+  "mode": "self_specials_3_words",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 150,
+  "elapsedMs": 113197,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 150,
+      "max": 612,
+      "average": 200.1
+    },
+    "possibleScore": {
+      "min": 1048,
+      "max": 24919,
+      "average": 4102.7
+    },
+    "maxLength": {
+      "min": 6,
+      "max": 12,
+      "average": 8.3
+    },
+    "solutions": {
+      "min": 150,
+      "max": 612,
+      "average": 200.1
+    },
+    "targetLength": {
+      "min": 0,
+      "max": 0,
+      "average": 0
+    },
+    "targetLengths": {}
+  },
+  "samples": [
+    {
+      "id": "tr-self_specials_3_words-a23e917b018caa66",
+      "letters": "REANOLISUNRWTRAR",
+      "words": 194,
+      "possibleScore": 1962,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-14f613699045d9ed",
+      "letters": "INOWMEOULETIASAS",
+      "words": 224,
+      "possibleScore": 4023,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-9d55c62823dc2021",
+      "letters": "EATSSRTURTRANAYO",
+      "words": 156,
+      "possibleScore": 3660,
+      "maxLength": 10,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-2d9c3f930da37842",
+      "letters": "ALOATNTSEETALTBI",
+      "words": 256,
+      "possibleScore": 4347,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-ed28b95f5a0b7076",
+      "letters": "RSEMAEDDDOEBFMRY",
+      "words": 161,
+      "possibleScore": 4513,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-039e42bbe7f4d379",
+      "letters": "LXSEGMSTRENIXBAA",
+      "words": 204,
+      "possibleScore": 3279,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-2086eaf538ed6ff5",
+      "letters": "OESCNTEUSRAARHST",
+      "words": 287,
+      "possibleScore": 3835,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-c07dc7b19747bab9",
+      "letters": "ORDLOAIEBPMLNUDO",
+      "words": 198,
+      "possibleScore": 3809,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-bce08d98eff54f4a",
+      "letters": "FICIOUAPARNTAIVD",
+      "words": 158,
+      "possibleScore": 1958,
+      "maxLength": 7,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-7f6fe14ffbbf8d16",
+      "letters": "TNAGUSIEPNARNTEL",
+      "words": 401,
+      "possibleScore": 6211,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-3bce6afb507e4b02",
+      "letters": "SNNIAUGSRAILMUNA",
+      "words": 219,
+      "possibleScore": 4368,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-self_specials_3_words-c6434f89f678c4ed",
+      "letters": "IRDAOIMLTRAIALAU",
+      "words": 171,
+      "possibleScore": 3158,
+      "maxLength": 9,
+      "targetWord": null
+    }
+  ],
+  "catalogBytes": 17327177,
+  "dataBytes": 17291705,
+  "indexBytes": 35472
+}

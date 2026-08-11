@@ -14,6 +14,7 @@ function MobileHeader({
   playingSeconds = null,
   playerTeam = null,
   phase,
+  roundTypeLabel = "",
   roundStatsText,
   roomLabelSeparator = " ",
   soundEnabled = true,
@@ -54,7 +55,9 @@ function MobileHeader({
         <div className="flex flex-col">
           <div className="text-lg font-extrabold tracking-tight leading-none">GOBBLE</div>
           <div className={`text-[0.7rem] leading-tight ${metaTextClass}`}>
-            {tournament?.round && tournament?.totalRounds ? (
+            {roundTypeLabel ? (
+              <>{roundTypeLabel}</>
+            ) : tournament?.round && tournament?.totalRounds ? (
               <>
                 {isFinaleBanner || tournament.round === tournament.totalRounds ? (
                   <>Manche finale</>

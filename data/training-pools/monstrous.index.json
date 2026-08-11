@@ -1,0 +1,1512 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:41:15.414Z",
+  "mode": "monstrous",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "count": 300,
+  "dataFile": "monstrous.jsonl",
+  "records": [
+    {
+      "id": "tr-monstrous-4ec0031d00cab1ae",
+      "offset": 0,
+      "length": 59542
+    },
+    {
+      "id": "tr-monstrous-833069c1e923722a",
+      "offset": 59542,
+      "length": 76305
+    },
+    {
+      "id": "tr-monstrous-b51ebd37434c8aac",
+      "offset": 135847,
+      "length": 132161
+    },
+    {
+      "id": "tr-monstrous-aa78e9531ca8a462",
+      "offset": 268008,
+      "length": 136188
+    },
+    {
+      "id": "tr-monstrous-3a6385ce3d39bec7",
+      "offset": 404196,
+      "length": 81406
+    },
+    {
+      "id": "tr-monstrous-6749ceccee9f431d",
+      "offset": 485602,
+      "length": 89879
+    },
+    {
+      "id": "tr-monstrous-a1131a090b5679b9",
+      "offset": 575481,
+      "length": 59114
+    },
+    {
+      "id": "tr-monstrous-8d648ea41e0e1b09",
+      "offset": 634595,
+      "length": 103731
+    },
+    {
+      "id": "tr-monstrous-edae317b18f239a6",
+      "offset": 738326,
+      "length": 61277
+    },
+    {
+      "id": "tr-monstrous-6153cd0a405d0dca",
+      "offset": 799603,
+      "length": 91901
+    },
+    {
+      "id": "tr-monstrous-6feef1c1b15c31e7",
+      "offset": 891504,
+      "length": 72889
+    },
+    {
+      "id": "tr-monstrous-df5e45b988196298",
+      "offset": 964393,
+      "length": 99237
+    },
+    {
+      "id": "tr-monstrous-751a47cc79f73983",
+      "offset": 1063630,
+      "length": 74079
+    },
+    {
+      "id": "tr-monstrous-cf5914d6d0684c07",
+      "offset": 1137709,
+      "length": 68761
+    },
+    {
+      "id": "tr-monstrous-ebc1293f09828836",
+      "offset": 1206470,
+      "length": 62280
+    },
+    {
+      "id": "tr-monstrous-e45051399f5153b7",
+      "offset": 1268750,
+      "length": 58743
+    },
+    {
+      "id": "tr-monstrous-955db24043e96e8c",
+      "offset": 1327493,
+      "length": 78937
+    },
+    {
+      "id": "tr-monstrous-3ec43f44cf36a735",
+      "offset": 1406430,
+      "length": 94666
+    },
+    {
+      "id": "tr-monstrous-a1f9951fab235877",
+      "offset": 1501096,
+      "length": 77230
+    },
+    {
+      "id": "tr-monstrous-639166c0030202d4",
+      "offset": 1578326,
+      "length": 62878
+    },
+    {
+      "id": "tr-monstrous-e04a749a0c7ca74c",
+      "offset": 1641204,
+      "length": 58432
+    },
+    {
+      "id": "tr-monstrous-261991d907329a62",
+      "offset": 1699636,
+      "length": 67189
+    },
+    {
+      "id": "tr-monstrous-d664f86808352a84",
+      "offset": 1766825,
+      "length": 58461
+    },
+    {
+      "id": "tr-monstrous-04ca75f87d7ef830",
+      "offset": 1825286,
+      "length": 77840
+    },
+    {
+      "id": "tr-monstrous-5ba9c2c8ed1c9a63",
+      "offset": 1903126,
+      "length": 148398
+    },
+    {
+      "id": "tr-monstrous-7154996ac81de4ac",
+      "offset": 2051524,
+      "length": 82419
+    },
+    {
+      "id": "tr-monstrous-7bb45d6d7555cf68",
+      "offset": 2133943,
+      "length": 75076
+    },
+    {
+      "id": "tr-monstrous-2a2ab9794c714bef",
+      "offset": 2209019,
+      "length": 77125
+    },
+    {
+      "id": "tr-monstrous-2db1f97e15a59df4",
+      "offset": 2286144,
+      "length": 59570
+    },
+    {
+      "id": "tr-monstrous-59c4a95a51c920a5",
+      "offset": 2345714,
+      "length": 66548
+    },
+    {
+      "id": "tr-monstrous-9dde13d74aac9ef9",
+      "offset": 2412262,
+      "length": 79098
+    },
+    {
+      "id": "tr-monstrous-133fff8b2bb274c0",
+      "offset": 2491360,
+      "length": 98758
+    },
+    {
+      "id": "tr-monstrous-01bc41f990490049",
+      "offset": 2590118,
+      "length": 112052
+    },
+    {
+      "id": "tr-monstrous-6d6e5daeadcf9ee4",
+      "offset": 2702170,
+      "length": 72725
+    },
+    {
+      "id": "tr-monstrous-0652a9b8d220b755",
+      "offset": 2774895,
+      "length": 86049
+    },
+    {
+      "id": "tr-monstrous-fe922d90a7be5b8e",
+      "offset": 2860944,
+      "length": 102087
+    },
+    {
+      "id": "tr-monstrous-0fc5adcdaea64955",
+      "offset": 2963031,
+      "length": 86494
+    },
+    {
+      "id": "tr-monstrous-45ecad7c66355d5d",
+      "offset": 3049525,
+      "length": 89928
+    },
+    {
+      "id": "tr-monstrous-b96d23c1873ca843",
+      "offset": 3139453,
+      "length": 79502
+    },
+    {
+      "id": "tr-monstrous-a0e46403ea2eca9d",
+      "offset": 3218955,
+      "length": 84258
+    },
+    {
+      "id": "tr-monstrous-553730929b506d26",
+      "offset": 3303213,
+      "length": 108236
+    },
+    {
+      "id": "tr-monstrous-7b2567af296653de",
+      "offset": 3411449,
+      "length": 73332
+    },
+    {
+      "id": "tr-monstrous-8309ced1d71e7ba5",
+      "offset": 3484781,
+      "length": 60609
+    },
+    {
+      "id": "tr-monstrous-2f3382e4d96e23ea",
+      "offset": 3545390,
+      "length": 108907
+    },
+    {
+      "id": "tr-monstrous-5cfbd0724bd49354",
+      "offset": 3654297,
+      "length": 64080
+    },
+    {
+      "id": "tr-monstrous-7403b672a746edb9",
+      "offset": 3718377,
+      "length": 81656
+    },
+    {
+      "id": "tr-monstrous-6183245dd8825803",
+      "offset": 3800033,
+      "length": 86729
+    },
+    {
+      "id": "tr-monstrous-8338a8ddb8fe9400",
+      "offset": 3886762,
+      "length": 68092
+    },
+    {
+      "id": "tr-monstrous-d25846e7ab439724",
+      "offset": 3954854,
+      "length": 102783
+    },
+    {
+      "id": "tr-monstrous-5d2d830054969f7f",
+      "offset": 4057637,
+      "length": 77402
+    },
+    {
+      "id": "tr-monstrous-abb4e45d3bff0b25",
+      "offset": 4135039,
+      "length": 82070
+    },
+    {
+      "id": "tr-monstrous-4c2c64789534ace7",
+      "offset": 4217109,
+      "length": 111037
+    },
+    {
+      "id": "tr-monstrous-14a8f9f063f2faa1",
+      "offset": 4328146,
+      "length": 85213
+    },
+    {
+      "id": "tr-monstrous-f002314404040e01",
+      "offset": 4413359,
+      "length": 83490
+    },
+    {
+      "id": "tr-monstrous-6793410666a6984b",
+      "offset": 4496849,
+      "length": 113532
+    },
+    {
+      "id": "tr-monstrous-25b60ce49eb1daf4",
+      "offset": 4610381,
+      "length": 91310
+    },
+    {
+      "id": "tr-monstrous-2b7a2bd32ee691aa",
+      "offset": 4701691,
+      "length": 75470
+    },
+    {
+      "id": "tr-monstrous-ee6fd0733ae70779",
+      "offset": 4777161,
+      "length": 61231
+    },
+    {
+      "id": "tr-monstrous-eeea89fd36c10551",
+      "offset": 4838392,
+      "length": 105870
+    },
+    {
+      "id": "tr-monstrous-9e5f725866a22f36",
+      "offset": 4944262,
+      "length": 69291
+    },
+    {
+      "id": "tr-monstrous-5360180696775600",
+      "offset": 5013553,
+      "length": 70833
+    },
+    {
+      "id": "tr-monstrous-5a3345fa0a9bd176",
+      "offset": 5084386,
+      "length": 70980
+    },
+    {
+      "id": "tr-monstrous-14ccdb51d07cbfbd",
+      "offset": 5155366,
+      "length": 61391
+    },
+    {
+      "id": "tr-monstrous-a0fc13765da0cd93",
+      "offset": 5216757,
+      "length": 83296
+    },
+    {
+      "id": "tr-monstrous-c7e4d6cede2d32e0",
+      "offset": 5300053,
+      "length": 173778
+    },
+    {
+      "id": "tr-monstrous-240e5804e3142874",
+      "offset": 5473831,
+      "length": 102461
+    },
+    {
+      "id": "tr-monstrous-a816f03e7bbd8fcb",
+      "offset": 5576292,
+      "length": 90924
+    },
+    {
+      "id": "tr-monstrous-42e6b61947619463",
+      "offset": 5667216,
+      "length": 76418
+    },
+    {
+      "id": "tr-monstrous-36039a8515c632a9",
+      "offset": 5743634,
+      "length": 102472
+    },
+    {
+      "id": "tr-monstrous-0bd2eca258dacd7f",
+      "offset": 5846106,
+      "length": 80905
+    },
+    {
+      "id": "tr-monstrous-c27d693c02c151dd",
+      "offset": 5927011,
+      "length": 63984
+    },
+    {
+      "id": "tr-monstrous-12e8b1a138a8c286",
+      "offset": 5990995,
+      "length": 61555
+    },
+    {
+      "id": "tr-monstrous-e39cc42697267e9c",
+      "offset": 6052550,
+      "length": 82346
+    },
+    {
+      "id": "tr-monstrous-311fd91b48d09961",
+      "offset": 6134896,
+      "length": 77421
+    },
+    {
+      "id": "tr-monstrous-4a057cf2efd1e99d",
+      "offset": 6212317,
+      "length": 62216
+    },
+    {
+      "id": "tr-monstrous-f814b2aa54630c25",
+      "offset": 6274533,
+      "length": 102930
+    },
+    {
+      "id": "tr-monstrous-20870306c9c9e1dd",
+      "offset": 6377463,
+      "length": 84766
+    },
+    {
+      "id": "tr-monstrous-721bd9038a0f2c6a",
+      "offset": 6462229,
+      "length": 128107
+    },
+    {
+      "id": "tr-monstrous-3b323d63c9d955f9",
+      "offset": 6590336,
+      "length": 73315
+    },
+    {
+      "id": "tr-monstrous-a44e73f14d238cd9",
+      "offset": 6663651,
+      "length": 62252
+    },
+    {
+      "id": "tr-monstrous-b6a143095e32bb15",
+      "offset": 6725903,
+      "length": 107400
+    },
+    {
+      "id": "tr-monstrous-42d40904bf28ee2e",
+      "offset": 6833303,
+      "length": 139693
+    },
+    {
+      "id": "tr-monstrous-eabf6d8d2927aea6",
+      "offset": 6972996,
+      "length": 75248
+    },
+    {
+      "id": "tr-monstrous-ded5c84cd6e0c801",
+      "offset": 7048244,
+      "length": 81448
+    },
+    {
+      "id": "tr-monstrous-6ea572c75a1a7baa",
+      "offset": 7129692,
+      "length": 65519
+    },
+    {
+      "id": "tr-monstrous-0d1bacd2123943dc",
+      "offset": 7195211,
+      "length": 101108
+    },
+    {
+      "id": "tr-monstrous-792a245cad51a09d",
+      "offset": 7296319,
+      "length": 115764
+    },
+    {
+      "id": "tr-monstrous-a10d65a61a763d11",
+      "offset": 7412083,
+      "length": 78202
+    },
+    {
+      "id": "tr-monstrous-6b155cb53b955f90",
+      "offset": 7490285,
+      "length": 67268
+    },
+    {
+      "id": "tr-monstrous-bc5680ca1db7993e",
+      "offset": 7557553,
+      "length": 78665
+    },
+    {
+      "id": "tr-monstrous-d32c18eaaee2a284",
+      "offset": 7636218,
+      "length": 65796
+    },
+    {
+      "id": "tr-monstrous-e4ca6c598292bd62",
+      "offset": 7702014,
+      "length": 82491
+    },
+    {
+      "id": "tr-monstrous-0bbb9fcad61817c7",
+      "offset": 7784505,
+      "length": 86056
+    },
+    {
+      "id": "tr-monstrous-84edf1b8a80d6e97",
+      "offset": 7870561,
+      "length": 104850
+    },
+    {
+      "id": "tr-monstrous-1539374eed3babe2",
+      "offset": 7975411,
+      "length": 128317
+    },
+    {
+      "id": "tr-monstrous-b0ec3b4fcfa4c9cb",
+      "offset": 8103728,
+      "length": 61373
+    },
+    {
+      "id": "tr-monstrous-dd9833bb66ee0a37",
+      "offset": 8165101,
+      "length": 67949
+    },
+    {
+      "id": "tr-monstrous-c13f29280fd41354",
+      "offset": 8233050,
+      "length": 110888
+    },
+    {
+      "id": "tr-monstrous-1c82013e0d0f4243",
+      "offset": 8343938,
+      "length": 65529
+    },
+    {
+      "id": "tr-monstrous-a7a6132fc11bfb78",
+      "offset": 8409467,
+      "length": 84114
+    },
+    {
+      "id": "tr-monstrous-b0ae8842a7e65c46",
+      "offset": 8493581,
+      "length": 73840
+    },
+    {
+      "id": "tr-monstrous-6345c6cf3593ab8d",
+      "offset": 8567421,
+      "length": 96524
+    },
+    {
+      "id": "tr-monstrous-f5b80b6df1c62246",
+      "offset": 8663945,
+      "length": 113575
+    },
+    {
+      "id": "tr-monstrous-41fcd32a0d059cd2",
+      "offset": 8777520,
+      "length": 67789
+    },
+    {
+      "id": "tr-monstrous-170aa9c07fa65b65",
+      "offset": 8845309,
+      "length": 81249
+    },
+    {
+      "id": "tr-monstrous-6b45ebcd8c43f009",
+      "offset": 8926558,
+      "length": 102571
+    },
+    {
+      "id": "tr-monstrous-82476a9bd9cec403",
+      "offset": 9029129,
+      "length": 82642
+    },
+    {
+      "id": "tr-monstrous-10a93be79cf2992e",
+      "offset": 9111771,
+      "length": 116755
+    },
+    {
+      "id": "tr-monstrous-e03ac49e75ff4539",
+      "offset": 9228526,
+      "length": 76418
+    },
+    {
+      "id": "tr-monstrous-1a9a3f6a03a04dba",
+      "offset": 9304944,
+      "length": 109616
+    },
+    {
+      "id": "tr-monstrous-1a00718ee6f86fad",
+      "offset": 9414560,
+      "length": 66171
+    },
+    {
+      "id": "tr-monstrous-2ed2419632c2f465",
+      "offset": 9480731,
+      "length": 93896
+    },
+    {
+      "id": "tr-monstrous-2d6968674c9081c2",
+      "offset": 9574627,
+      "length": 82630
+    },
+    {
+      "id": "tr-monstrous-1599d27c03c1cc72",
+      "offset": 9657257,
+      "length": 75211
+    },
+    {
+      "id": "tr-monstrous-9d4010508a6e8add",
+      "offset": 9732468,
+      "length": 121804
+    },
+    {
+      "id": "tr-monstrous-7045af4946e4b79e",
+      "offset": 9854272,
+      "length": 117344
+    },
+    {
+      "id": "tr-monstrous-038738a1e9a325b2",
+      "offset": 9971616,
+      "length": 98720
+    },
+    {
+      "id": "tr-monstrous-d4c0df1f1caf48bf",
+      "offset": 10070336,
+      "length": 82828
+    },
+    {
+      "id": "tr-monstrous-304777dafd7752c1",
+      "offset": 10153164,
+      "length": 96196
+    },
+    {
+      "id": "tr-monstrous-b78f6396f2991ed0",
+      "offset": 10249360,
+      "length": 79768
+    },
+    {
+      "id": "tr-monstrous-09a564341282997b",
+      "offset": 10329128,
+      "length": 94016
+    },
+    {
+      "id": "tr-monstrous-d554c04b04ed64e7",
+      "offset": 10423144,
+      "length": 88715
+    },
+    {
+      "id": "tr-monstrous-0390c62d06c65942",
+      "offset": 10511859,
+      "length": 61297
+    },
+    {
+      "id": "tr-monstrous-3d8035ebe1f365df",
+      "offset": 10573156,
+      "length": 84467
+    },
+    {
+      "id": "tr-monstrous-da623d3017f6c5e7",
+      "offset": 10657623,
+      "length": 83492
+    },
+    {
+      "id": "tr-monstrous-188ddc900432042c",
+      "offset": 10741115,
+      "length": 78999
+    },
+    {
+      "id": "tr-monstrous-007387bddc48906a",
+      "offset": 10820114,
+      "length": 101791
+    },
+    {
+      "id": "tr-monstrous-d475da95e5a47aac",
+      "offset": 10921905,
+      "length": 77754
+    },
+    {
+      "id": "tr-monstrous-9e980a4e5dea1a61",
+      "offset": 10999659,
+      "length": 94451
+    },
+    {
+      "id": "tr-monstrous-6dd1c9ea82b547af",
+      "offset": 11094110,
+      "length": 63387
+    },
+    {
+      "id": "tr-monstrous-dafe427c2460ad0e",
+      "offset": 11157497,
+      "length": 80580
+    },
+    {
+      "id": "tr-monstrous-0540fc69fac73403",
+      "offset": 11238077,
+      "length": 78815
+    },
+    {
+      "id": "tr-monstrous-b82857d395c230a2",
+      "offset": 11316892,
+      "length": 92277
+    },
+    {
+      "id": "tr-monstrous-8510f029cc7e0596",
+      "offset": 11409169,
+      "length": 87260
+    },
+    {
+      "id": "tr-monstrous-1679ac03b616f378",
+      "offset": 11496429,
+      "length": 65969
+    },
+    {
+      "id": "tr-monstrous-8121a4c0f900a9c3",
+      "offset": 11562398,
+      "length": 126769
+    },
+    {
+      "id": "tr-monstrous-0e3d1cee308cfff1",
+      "offset": 11689167,
+      "length": 70283
+    },
+    {
+      "id": "tr-monstrous-088aabf1c7f9e28d",
+      "offset": 11759450,
+      "length": 114114
+    },
+    {
+      "id": "tr-monstrous-42924bfadce8db7c",
+      "offset": 11873564,
+      "length": 74065
+    },
+    {
+      "id": "tr-monstrous-f249dc0fdf5e69c7",
+      "offset": 11947629,
+      "length": 80631
+    },
+    {
+      "id": "tr-monstrous-16a3351d92817b54",
+      "offset": 12028260,
+      "length": 120320
+    },
+    {
+      "id": "tr-monstrous-0c0ad89e635204c3",
+      "offset": 12148580,
+      "length": 78521
+    },
+    {
+      "id": "tr-monstrous-1c1ae02641468545",
+      "offset": 12227101,
+      "length": 73531
+    },
+    {
+      "id": "tr-monstrous-4606831245142e50",
+      "offset": 12300632,
+      "length": 93232
+    },
+    {
+      "id": "tr-monstrous-702395a447683eb9",
+      "offset": 12393864,
+      "length": 124433
+    },
+    {
+      "id": "tr-monstrous-f6fab5e13ffee291",
+      "offset": 12518297,
+      "length": 104361
+    },
+    {
+      "id": "tr-monstrous-b75685871b134bc1",
+      "offset": 12622658,
+      "length": 96846
+    },
+    {
+      "id": "tr-monstrous-cb01fb35afd8c390",
+      "offset": 12719504,
+      "length": 78942
+    },
+    {
+      "id": "tr-monstrous-e841db6462cdfdf6",
+      "offset": 12798446,
+      "length": 106594
+    },
+    {
+      "id": "tr-monstrous-e24dc36cb5d63d99",
+      "offset": 12905040,
+      "length": 95415
+    },
+    {
+      "id": "tr-monstrous-53ea34d7a98fecd2",
+      "offset": 13000455,
+      "length": 71691
+    },
+    {
+      "id": "tr-monstrous-ad0abefe4e926f9d",
+      "offset": 13072146,
+      "length": 77065
+    },
+    {
+      "id": "tr-monstrous-cef836251953f64d",
+      "offset": 13149211,
+      "length": 64667
+    },
+    {
+      "id": "tr-monstrous-c8f6223b6a50547b",
+      "offset": 13213878,
+      "length": 117410
+    },
+    {
+      "id": "tr-monstrous-cd38b11476f234f4",
+      "offset": 13331288,
+      "length": 58387
+    },
+    {
+      "id": "tr-monstrous-958064b29c59cff7",
+      "offset": 13389675,
+      "length": 96197
+    },
+    {
+      "id": "tr-monstrous-3f6c1d1c204276ce",
+      "offset": 13485872,
+      "length": 68004
+    },
+    {
+      "id": "tr-monstrous-8b94ac9544aa0703",
+      "offset": 13553876,
+      "length": 72626
+    },
+    {
+      "id": "tr-monstrous-0e47f895753d8f22",
+      "offset": 13626502,
+      "length": 59659
+    },
+    {
+      "id": "tr-monstrous-dde41f5145acb235",
+      "offset": 13686161,
+      "length": 69044
+    },
+    {
+      "id": "tr-monstrous-95f8cfbb1ca7f452",
+      "offset": 13755205,
+      "length": 63266
+    },
+    {
+      "id": "tr-monstrous-2bcfee465527b0a8",
+      "offset": 13818471,
+      "length": 110545
+    },
+    {
+      "id": "tr-monstrous-1a4b945ab128364f",
+      "offset": 13929016,
+      "length": 64913
+    },
+    {
+      "id": "tr-monstrous-ffc3b36804081114",
+      "offset": 13993929,
+      "length": 73415
+    },
+    {
+      "id": "tr-monstrous-8a42cc6c7f3ccc5e",
+      "offset": 14067344,
+      "length": 68976
+    },
+    {
+      "id": "tr-monstrous-3665feabf9e6378b",
+      "offset": 14136320,
+      "length": 73841
+    },
+    {
+      "id": "tr-monstrous-49963c9be53897b3",
+      "offset": 14210161,
+      "length": 72251
+    },
+    {
+      "id": "tr-monstrous-da50b2c31af2eb1b",
+      "offset": 14282412,
+      "length": 63868
+    },
+    {
+      "id": "tr-monstrous-462dfe47c0419468",
+      "offset": 14346280,
+      "length": 64675
+    },
+    {
+      "id": "tr-monstrous-a4c98e160ffe0330",
+      "offset": 14410955,
+      "length": 85666
+    },
+    {
+      "id": "tr-monstrous-4cb87c00897c258b",
+      "offset": 14496621,
+      "length": 104857
+    },
+    {
+      "id": "tr-monstrous-a4020ae612a48522",
+      "offset": 14601478,
+      "length": 87335
+    },
+    {
+      "id": "tr-monstrous-8150f3502bed5095",
+      "offset": 14688813,
+      "length": 86198
+    },
+    {
+      "id": "tr-monstrous-ad174de327ac75bb",
+      "offset": 14775011,
+      "length": 96873
+    },
+    {
+      "id": "tr-monstrous-78bafc5928e4b01b",
+      "offset": 14871884,
+      "length": 67655
+    },
+    {
+      "id": "tr-monstrous-4d71b8c9b1c23b48",
+      "offset": 14939539,
+      "length": 129414
+    },
+    {
+      "id": "tr-monstrous-4fcc032d7bb6dfb6",
+      "offset": 15068953,
+      "length": 93051
+    },
+    {
+      "id": "tr-monstrous-d87e2b25e03986da",
+      "offset": 15162004,
+      "length": 65414
+    },
+    {
+      "id": "tr-monstrous-4551d583ee189ebe",
+      "offset": 15227418,
+      "length": 83001
+    },
+    {
+      "id": "tr-monstrous-62f0ba6770e8239b",
+      "offset": 15310419,
+      "length": 70003
+    },
+    {
+      "id": "tr-monstrous-b14acf879be623f9",
+      "offset": 15380422,
+      "length": 66169
+    },
+    {
+      "id": "tr-monstrous-ce58c5ac45f28a71",
+      "offset": 15446591,
+      "length": 81085
+    },
+    {
+      "id": "tr-monstrous-a3473fdd1cf81d1a",
+      "offset": 15527676,
+      "length": 64405
+    },
+    {
+      "id": "tr-monstrous-eee71d43ce042af2",
+      "offset": 15592081,
+      "length": 84410
+    },
+    {
+      "id": "tr-monstrous-b4d7621edbd323df",
+      "offset": 15676491,
+      "length": 140792
+    },
+    {
+      "id": "tr-monstrous-3e68abbc65634bc6",
+      "offset": 15817283,
+      "length": 85918
+    },
+    {
+      "id": "tr-monstrous-0bb3b619ca23bae3",
+      "offset": 15903201,
+      "length": 109339
+    },
+    {
+      "id": "tr-monstrous-7f15f9a4b8e295c8",
+      "offset": 16012540,
+      "length": 77062
+    },
+    {
+      "id": "tr-monstrous-1b5329b0fdfc2a01",
+      "offset": 16089602,
+      "length": 95541
+    },
+    {
+      "id": "tr-monstrous-c93ab4d22cd1b1bb",
+      "offset": 16185143,
+      "length": 109945
+    },
+    {
+      "id": "tr-monstrous-249cfe6036d0d422",
+      "offset": 16295088,
+      "length": 115321
+    },
+    {
+      "id": "tr-monstrous-6f42774d25b1eff8",
+      "offset": 16410409,
+      "length": 108083
+    },
+    {
+      "id": "tr-monstrous-0bb4ab4fe04a0538",
+      "offset": 16518492,
+      "length": 71951
+    },
+    {
+      "id": "tr-monstrous-98d57e6ac8109907",
+      "offset": 16590443,
+      "length": 89015
+    },
+    {
+      "id": "tr-monstrous-1fe44db277691894",
+      "offset": 16679458,
+      "length": 84021
+    },
+    {
+      "id": "tr-monstrous-e1af3ce1557d4dca",
+      "offset": 16763479,
+      "length": 78658
+    },
+    {
+      "id": "tr-monstrous-64cc9daa0a3a415c",
+      "offset": 16842137,
+      "length": 84034
+    },
+    {
+      "id": "tr-monstrous-a8be6a4eac6380ee",
+      "offset": 16926171,
+      "length": 91220
+    },
+    {
+      "id": "tr-monstrous-40892cc9f4c161ee",
+      "offset": 17017391,
+      "length": 80650
+    },
+    {
+      "id": "tr-monstrous-063eb488cc13e0f4",
+      "offset": 17098041,
+      "length": 118076
+    },
+    {
+      "id": "tr-monstrous-1f46530d880ea8aa",
+      "offset": 17216117,
+      "length": 72155
+    },
+    {
+      "id": "tr-monstrous-3c8d71c9b38305e5",
+      "offset": 17288272,
+      "length": 149558
+    },
+    {
+      "id": "tr-monstrous-e90fc0ef09ce8540",
+      "offset": 17437830,
+      "length": 113845
+    },
+    {
+      "id": "tr-monstrous-a12f04c57e564d75",
+      "offset": 17551675,
+      "length": 102485
+    },
+    {
+      "id": "tr-monstrous-e7dd9a7044eca5ff",
+      "offset": 17654160,
+      "length": 159812
+    },
+    {
+      "id": "tr-monstrous-f73cac2e17122d82",
+      "offset": 17813972,
+      "length": 81199
+    },
+    {
+      "id": "tr-monstrous-ebcf069fe6ca6354",
+      "offset": 17895171,
+      "length": 73256
+    },
+    {
+      "id": "tr-monstrous-e98e735e96fdb4a2",
+      "offset": 17968427,
+      "length": 81324
+    },
+    {
+      "id": "tr-monstrous-0fe0141589a45134",
+      "offset": 18049751,
+      "length": 59740
+    },
+    {
+      "id": "tr-monstrous-5203b99d34d6c983",
+      "offset": 18109491,
+      "length": 108621
+    },
+    {
+      "id": "tr-monstrous-367a7e9cbd76bc86",
+      "offset": 18218112,
+      "length": 85221
+    },
+    {
+      "id": "tr-monstrous-ad34894e605fe198",
+      "offset": 18303333,
+      "length": 70315
+    },
+    {
+      "id": "tr-monstrous-b3701de1e8b4e840",
+      "offset": 18373648,
+      "length": 63625
+    },
+    {
+      "id": "tr-monstrous-f0a8802411d458b4",
+      "offset": 18437273,
+      "length": 81612
+    },
+    {
+      "id": "tr-monstrous-55c48849352320fe",
+      "offset": 18518885,
+      "length": 62334
+    },
+    {
+      "id": "tr-monstrous-7ca8e281b21fb6f9",
+      "offset": 18581219,
+      "length": 95118
+    },
+    {
+      "id": "tr-monstrous-13344493a53c09bc",
+      "offset": 18676337,
+      "length": 67465
+    },
+    {
+      "id": "tr-monstrous-dfcf7d328099051e",
+      "offset": 18743802,
+      "length": 59745
+    },
+    {
+      "id": "tr-monstrous-6dfc230119e454e1",
+      "offset": 18803547,
+      "length": 84904
+    },
+    {
+      "id": "tr-monstrous-dd15dd7dec4318b3",
+      "offset": 18888451,
+      "length": 128090
+    },
+    {
+      "id": "tr-monstrous-6215d1f9396295bd",
+      "offset": 19016541,
+      "length": 61779
+    },
+    {
+      "id": "tr-monstrous-e92af3e67910a170",
+      "offset": 19078320,
+      "length": 64567
+    },
+    {
+      "id": "tr-monstrous-9c65703c340925c4",
+      "offset": 19142887,
+      "length": 95373
+    },
+    {
+      "id": "tr-monstrous-12bed4352ce06511",
+      "offset": 19238260,
+      "length": 138168
+    },
+    {
+      "id": "tr-monstrous-0a9d4a27e5a2307a",
+      "offset": 19376428,
+      "length": 108196
+    },
+    {
+      "id": "tr-monstrous-b1bed93cf3baca98",
+      "offset": 19484624,
+      "length": 68310
+    },
+    {
+      "id": "tr-monstrous-8b45ececacb0a579",
+      "offset": 19552934,
+      "length": 72686
+    },
+    {
+      "id": "tr-monstrous-7efef5dbf96185eb",
+      "offset": 19625620,
+      "length": 63748
+    },
+    {
+      "id": "tr-monstrous-a06dc6ec59b980af",
+      "offset": 19689368,
+      "length": 69802
+    },
+    {
+      "id": "tr-monstrous-2f54c71bfc6988b2",
+      "offset": 19759170,
+      "length": 71501
+    },
+    {
+      "id": "tr-monstrous-10d42e27a08669bf",
+      "offset": 19830671,
+      "length": 71976
+    },
+    {
+      "id": "tr-monstrous-3494d1a232f398e0",
+      "offset": 19902647,
+      "length": 84485
+    },
+    {
+      "id": "tr-monstrous-e01d7f1dd086ad9b",
+      "offset": 19987132,
+      "length": 60422
+    },
+    {
+      "id": "tr-monstrous-ee466882794e92a4",
+      "offset": 20047554,
+      "length": 62597
+    },
+    {
+      "id": "tr-monstrous-7fc5eeb78143fd34",
+      "offset": 20110151,
+      "length": 95355
+    },
+    {
+      "id": "tr-monstrous-d005dc7c16b53430",
+      "offset": 20205506,
+      "length": 66409
+    },
+    {
+      "id": "tr-monstrous-057a735863ccfa26",
+      "offset": 20271915,
+      "length": 76928
+    },
+    {
+      "id": "tr-monstrous-12d3be3adc6f6610",
+      "offset": 20348843,
+      "length": 59186
+    },
+    {
+      "id": "tr-monstrous-21bf3898afa67a12",
+      "offset": 20408029,
+      "length": 115949
+    },
+    {
+      "id": "tr-monstrous-dc48e5c2eb88c101",
+      "offset": 20523978,
+      "length": 108699
+    },
+    {
+      "id": "tr-monstrous-bb9b4d6b431eb06e",
+      "offset": 20632677,
+      "length": 77191
+    },
+    {
+      "id": "tr-monstrous-53afe4b54aca5740",
+      "offset": 20709868,
+      "length": 69030
+    },
+    {
+      "id": "tr-monstrous-987c09e648568ad8",
+      "offset": 20778898,
+      "length": 90616
+    },
+    {
+      "id": "tr-monstrous-3358a7135915a742",
+      "offset": 20869514,
+      "length": 79154
+    },
+    {
+      "id": "tr-monstrous-968128c9c7790126",
+      "offset": 20948668,
+      "length": 61539
+    },
+    {
+      "id": "tr-monstrous-0674f65058d59942",
+      "offset": 21010207,
+      "length": 71384
+    },
+    {
+      "id": "tr-monstrous-fbdeffc12abff9b5",
+      "offset": 21081591,
+      "length": 122965
+    },
+    {
+      "id": "tr-monstrous-f65c5a6333699988",
+      "offset": 21204556,
+      "length": 118790
+    },
+    {
+      "id": "tr-monstrous-5772affc0c10b8c1",
+      "offset": 21323346,
+      "length": 63397
+    },
+    {
+      "id": "tr-monstrous-129280c564176e4d",
+      "offset": 21386743,
+      "length": 70795
+    },
+    {
+      "id": "tr-monstrous-52bfcd7076b39f57",
+      "offset": 21457538,
+      "length": 71582
+    },
+    {
+      "id": "tr-monstrous-6045ff614f365a53",
+      "offset": 21529120,
+      "length": 129027
+    },
+    {
+      "id": "tr-monstrous-f03ef0acd5f75984",
+      "offset": 21658147,
+      "length": 120212
+    },
+    {
+      "id": "tr-monstrous-bda69e85ac0cd222",
+      "offset": 21778359,
+      "length": 114961
+    },
+    {
+      "id": "tr-monstrous-7a8bf189bc491172",
+      "offset": 21893320,
+      "length": 100696
+    },
+    {
+      "id": "tr-monstrous-69116e1897f0ecea",
+      "offset": 21994016,
+      "length": 65860
+    },
+    {
+      "id": "tr-monstrous-969a0ea5262a6160",
+      "offset": 22059876,
+      "length": 99082
+    },
+    {
+      "id": "tr-monstrous-e8af0f3b7177dee3",
+      "offset": 22158958,
+      "length": 62899
+    },
+    {
+      "id": "tr-monstrous-321f89b002de92e3",
+      "offset": 22221857,
+      "length": 70161
+    },
+    {
+      "id": "tr-monstrous-574051b691cd7910",
+      "offset": 22292018,
+      "length": 60227
+    },
+    {
+      "id": "tr-monstrous-56c196fb273512d4",
+      "offset": 22352245,
+      "length": 66519
+    },
+    {
+      "id": "tr-monstrous-dd5bf8e7b2f12cc9",
+      "offset": 22418764,
+      "length": 85655
+    },
+    {
+      "id": "tr-monstrous-ddb2615a48b139a8",
+      "offset": 22504419,
+      "length": 59210
+    },
+    {
+      "id": "tr-monstrous-c6c0a78e2c1184a2",
+      "offset": 22563629,
+      "length": 107073
+    },
+    {
+      "id": "tr-monstrous-7d864213786fe045",
+      "offset": 22670702,
+      "length": 61437
+    },
+    {
+      "id": "tr-monstrous-f3055ad174163659",
+      "offset": 22732139,
+      "length": 82169
+    },
+    {
+      "id": "tr-monstrous-d8f0d51d1cc155eb",
+      "offset": 22814308,
+      "length": 79982
+    },
+    {
+      "id": "tr-monstrous-41c3b2199c8c4989",
+      "offset": 22894290,
+      "length": 65820
+    },
+    {
+      "id": "tr-monstrous-5cb37249e8ff50b6",
+      "offset": 22960110,
+      "length": 67123
+    },
+    {
+      "id": "tr-monstrous-8b3a209563c90616",
+      "offset": 23027233,
+      "length": 96327
+    },
+    {
+      "id": "tr-monstrous-41c63aea9873bf01",
+      "offset": 23123560,
+      "length": 64840
+    },
+    {
+      "id": "tr-monstrous-bcb5dd7e07f241c5",
+      "offset": 23188400,
+      "length": 77650
+    },
+    {
+      "id": "tr-monstrous-3920d5792cff3367",
+      "offset": 23266050,
+      "length": 87929
+    },
+    {
+      "id": "tr-monstrous-802b2716270a0484",
+      "offset": 23353979,
+      "length": 66341
+    },
+    {
+      "id": "tr-monstrous-415d1a2f631c45e5",
+      "offset": 23420320,
+      "length": 69226
+    },
+    {
+      "id": "tr-monstrous-efc8f5ef52d13c0e",
+      "offset": 23489546,
+      "length": 83656
+    },
+    {
+      "id": "tr-monstrous-d4196d48b358658a",
+      "offset": 23573202,
+      "length": 113424
+    },
+    {
+      "id": "tr-monstrous-b729e785627ffe0c",
+      "offset": 23686626,
+      "length": 76446
+    },
+    {
+      "id": "tr-monstrous-547f323e6ef43bf3",
+      "offset": 23763072,
+      "length": 61274
+    },
+    {
+      "id": "tr-monstrous-7026c8f06305851c",
+      "offset": 23824346,
+      "length": 60566
+    },
+    {
+      "id": "tr-monstrous-f46c391d252d1a1c",
+      "offset": 23884912,
+      "length": 65734
+    },
+    {
+      "id": "tr-monstrous-b32d15ee2be96016",
+      "offset": 23950646,
+      "length": 81290
+    },
+    {
+      "id": "tr-monstrous-43ebf105ed88a045",
+      "offset": 24031936,
+      "length": 62603
+    },
+    {
+      "id": "tr-monstrous-a4b34331500fd513",
+      "offset": 24094539,
+      "length": 67864
+    },
+    {
+      "id": "tr-monstrous-e48330cf4c5ee439",
+      "offset": 24162403,
+      "length": 96586
+    },
+    {
+      "id": "tr-monstrous-de92b64c41f03c0e",
+      "offset": 24258989,
+      "length": 67474
+    },
+    {
+      "id": "tr-monstrous-0ff84c88ee5f667c",
+      "offset": 24326463,
+      "length": 76299
+    },
+    {
+      "id": "tr-monstrous-8be4208501f9e0c5",
+      "offset": 24402762,
+      "length": 104152
+    },
+    {
+      "id": "tr-monstrous-fe90d43c7693272b",
+      "offset": 24506914,
+      "length": 74346
+    },
+    {
+      "id": "tr-monstrous-7f4d3bb6b958651a",
+      "offset": 24581260,
+      "length": 63881
+    },
+    {
+      "id": "tr-monstrous-64256263a084d9fd",
+      "offset": 24645141,
+      "length": 71125
+    },
+    {
+      "id": "tr-monstrous-007351ec5ef6388a",
+      "offset": 24716266,
+      "length": 178190
+    },
+    {
+      "id": "tr-monstrous-736d9a0409a06f58",
+      "offset": 24894456,
+      "length": 126401
+    },
+    {
+      "id": "tr-monstrous-d55a4adee4277eb0",
+      "offset": 25020857,
+      "length": 59044
+    },
+    {
+      "id": "tr-monstrous-cbd9e944fc0c06b5",
+      "offset": 25079901,
+      "length": 88006
+    },
+    {
+      "id": "tr-monstrous-9d6da431a7e936b7",
+      "offset": 25167907,
+      "length": 81993
+    },
+    {
+      "id": "tr-monstrous-42967b8a2c554d6b",
+      "offset": 25249900,
+      "length": 93156
+    },
+    {
+      "id": "tr-monstrous-927b2eddace25263",
+      "offset": 25343056,
+      "length": 82327
+    },
+    {
+      "id": "tr-monstrous-73395f130834259a",
+      "offset": 25425383,
+      "length": 112674
+    },
+    {
+      "id": "tr-monstrous-79deb33d03286e1a",
+      "offset": 25538057,
+      "length": 58952
+    }
+  ]
+}

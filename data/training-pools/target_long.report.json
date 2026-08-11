@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:06.629Z",
+  "mode": "target_long",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 130,
+  "elapsedMs": 73863,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 150,
+      "max": 629,
+      "average": 258
+    },
+    "possibleScore": {
+      "min": 1023,
+      "max": 7464,
+      "average": 2582.8
+    },
+    "maxLength": {
+      "min": 10,
+      "max": 16,
+      "average": 12
+    },
+    "solutions": {
+      "min": 150,
+      "max": 629,
+      "average": 258
+    },
+    "targetLength": {
+      "min": 10,
+      "max": 16,
+      "average": 12
+    },
+    "targetLengths": {
+      "10": 44,
+      "11": 69,
+      "12": 90,
+      "13": 62,
+      "14": 21,
+      "15": 13,
+      "16": 1
+    }
+  },
+  "samples": [
+    {
+      "id": "tr-target_long-f1eb948aa12d9d23",
+      "letters": "ANIEYMASDLTOEWEB",
+      "words": 226,
+      "possibleScore": 1687,
+      "maxLength": 12,
+      "targetWord": "teledynamies"
+    },
+    {
+      "id": "tr-target_long-b8ab74829b6f6267",
+      "letters": "UOTATUORNRAJESSC",
+      "words": 260,
+      "possibleScore": 2592,
+      "maxLength": 11,
+      "targetWord": "raturassent"
+    },
+    {
+      "id": "tr-target_long-2434143b8edd94df",
+      "letters": "OMAPEROHLSTOOAPS",
+      "words": 329,
+      "possibleScore": 2618,
+      "maxLength": 13,
+      "targetWord": "apostrophames"
+    },
+    {
+      "id": "tr-target_long-f14456bdcd1511f5",
+      "letters": "SAUARECXNTACONEH",
+      "words": 357,
+      "possibleScore": 4541,
+      "maxLength": 13,
+      "targetWord": "cachetonneras"
+    },
+    {
+      "id": "tr-target_long-3c00a45de05afbab",
+      "letters": "TEEIDINABMRTREXJ",
+      "words": 251,
+      "possibleScore": 2357,
+      "maxLength": 14,
+      "targetWord": "detimbreraient"
+    },
+    {
+      "id": "tr-target_long-02032366d7653835",
+      "letters": "IREESARISENVEDFO",
+      "words": 384,
+      "possibleScore": 4687,
+      "maxLength": 13,
+      "targetWord": "desenivrerais"
+    },
+    {
+      "id": "tr-target_long-88b265d0e9224ec9",
+      "letters": "OSVLEACAGESEASNT",
+      "words": 240,
+      "possibleScore": 2949,
+      "maxLength": 15,
+      "targetWord": "esclavageassent"
+    },
+    {
+      "id": "tr-target_long-291129af62e01ca4",
+      "letters": "JENCDSERRSSAEAIM",
+      "words": 269,
+      "possibleScore": 3146,
+      "maxLength": 14,
+      "targetWord": "desencrasserai"
+    },
+    {
+      "id": "tr-target_long-72d296d2ff324306",
+      "letters": "IAJOSIOESOLAIECL",
+      "words": 200,
+      "possibleScore": 1647,
+      "maxLength": 10,
+      "targetWord": "alcoolisai"
+    },
+    {
+      "id": "tr-target_long-125b5d6e1927efd5",
+      "letters": "STREUNHCMCAHRELA",
+      "words": 191,
+      "possibleScore": 2187,
+      "maxLength": 11,
+      "targetWord": "recherchant"
+    },
+    {
+      "id": "tr-target_long-026fddff16ae0eaf",
+      "letters": "SSTUNSAIOSRAEMBR",
+      "words": 195,
+      "possibleScore": 1790,
+      "maxLength": 12,
+      "targetWord": "embarrassons"
+    },
+    {
+      "id": "tr-target_long-2187990cb4682d23",
+      "letters": "SAIOLITNTIBSPSTU",
+      "words": 225,
+      "possibleScore": 1905,
+      "maxLength": 13,
+      "targetWord": "subtilisation"
+    }
+  ],
+  "catalogBytes": 22371409,
+  "dataBytes": 22338882,
+  "indexBytes": 32527
+}

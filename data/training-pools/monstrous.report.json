@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:41:17.747Z",
+  "mode": "monstrous",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 300,
+  "elapsedMs": 451905,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 200,
+      "max": 616,
+      "average": 292.2
+    },
+    "possibleScore": {
+      "min": 4188,
+      "max": 24273,
+      "average": 8950.9
+    },
+    "maxLength": {
+      "min": 10,
+      "max": 16,
+      "average": 12.3
+    },
+    "solutions": {
+      "min": 200,
+      "max": 616,
+      "average": 292.2
+    },
+    "targetLength": {
+      "min": 0,
+      "max": 0,
+      "average": 0
+    },
+    "targetLengths": {}
+  },
+  "samples": [
+    {
+      "id": "tr-monstrous-4ec0031d00cab1ae",
+      "letters": "ILASLSORSOIEQuAYZ",
+      "words": 204,
+      "possibleScore": 7625,
+      "maxLength": 14,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-833069c1e923722a",
+      "letters": "AERIDRIAIESRRXSE",
+      "words": 261,
+      "possibleScore": 7056,
+      "maxLength": 11,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-b51ebd37434c8aac",
+      "letters": "GONICASTERSAIPEE",
+      "words": 454,
+      "possibleScore": 17637,
+      "maxLength": 10,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-aa78e9531ca8a462",
+      "letters": "CXEOIARUSTTSANES",
+      "words": 467,
+      "possibleScore": 17822,
+      "maxLength": 13,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-3a6385ce3d39bec7",
+      "letters": "TCJLIEBDVSRAEEIG",
+      "words": 280,
+      "possibleScore": 6466,
+      "maxLength": 11,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-6749ceccee9f431d",
+      "letters": "XESNDHTARASSKECI",
+      "words": 307,
+      "possibleScore": 5476,
+      "maxLength": 11,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-a1131a090b5679b9",
+      "letters": "TRAAATTOESNCRONS",
+      "words": 202,
+      "possibleScore": 5258,
+      "maxLength": 13,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-8d648ea41e0e1b09",
+      "letters": "NNIATEOFISLCAIAI",
+      "words": 358,
+      "possibleScore": 6377,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-edae317b18f239a6",
+      "letters": "SALLSNIESQuEMJIEZ",
+      "words": 210,
+      "possibleScore": 5988,
+      "maxLength": 13,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-6153cd0a405d0dca",
+      "letters": "IDTUANIONSAMNIES",
+      "words": 317,
+      "possibleScore": 5728,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-6feef1c1b15c31e7",
+      "letters": "URUSCOTRNNICSLFE",
+      "words": 250,
+      "possibleScore": 5070,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-monstrous-df5e45b988196298",
+      "letters": "SADSRISSUEDEOBNT",
+      "words": 341,
+      "possibleScore": 5608,
+      "maxLength": 13,
+      "targetWord": null
+    }
+  ],
+  "catalogBytes": 25628981,
+  "dataBytes": 25597009,
+  "indexBytes": 31972
+}

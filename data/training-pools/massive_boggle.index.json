@@ -1,0 +1,1512 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:56.423Z",
+  "mode": "massive_boggle",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "count": 300,
+  "dataFile": "massive_boggle.jsonl",
+  "records": [
+    {
+      "id": "tr-massive_boggle-dfc77297a07bac45",
+      "offset": 0,
+      "length": 62057
+    },
+    {
+      "id": "tr-massive_boggle-0acea1214efe8b38",
+      "offset": 62057,
+      "length": 97102
+    },
+    {
+      "id": "tr-massive_boggle-6e8e17ae1e0bb175",
+      "offset": 159159,
+      "length": 69355
+    },
+    {
+      "id": "tr-massive_boggle-2edd2b572a9f5829",
+      "offset": 228514,
+      "length": 70616
+    },
+    {
+      "id": "tr-massive_boggle-6940f15df9949a57",
+      "offset": 299130,
+      "length": 70179
+    },
+    {
+      "id": "tr-massive_boggle-f86be1d41f52c771",
+      "offset": 369309,
+      "length": 68124
+    },
+    {
+      "id": "tr-massive_boggle-56767fc8ac619f11",
+      "offset": 437433,
+      "length": 88452
+    },
+    {
+      "id": "tr-massive_boggle-5b1a10021f65f892",
+      "offset": 525885,
+      "length": 98913
+    },
+    {
+      "id": "tr-massive_boggle-951bdbc162896e36",
+      "offset": 624798,
+      "length": 82464
+    },
+    {
+      "id": "tr-massive_boggle-d918fab175e91b9c",
+      "offset": 707262,
+      "length": 58270
+    },
+    {
+      "id": "tr-massive_boggle-646f51e2cf14512f",
+      "offset": 765532,
+      "length": 98138
+    },
+    {
+      "id": "tr-massive_boggle-2d191ce571e5de08",
+      "offset": 863670,
+      "length": 69732
+    },
+    {
+      "id": "tr-massive_boggle-e91677b850346b2d",
+      "offset": 933402,
+      "length": 92353
+    },
+    {
+      "id": "tr-massive_boggle-f88c920e2e2be4ef",
+      "offset": 1025755,
+      "length": 68435
+    },
+    {
+      "id": "tr-massive_boggle-59ee30e66a7d6669",
+      "offset": 1094190,
+      "length": 69084
+    },
+    {
+      "id": "tr-massive_boggle-d27030f8bde1ae72",
+      "offset": 1163274,
+      "length": 63352
+    },
+    {
+      "id": "tr-massive_boggle-45c4bbc27b285764",
+      "offset": 1226626,
+      "length": 58582
+    },
+    {
+      "id": "tr-massive_boggle-0f630e7850ec0dad",
+      "offset": 1285208,
+      "length": 86879
+    },
+    {
+      "id": "tr-massive_boggle-8b253420c2962df9",
+      "offset": 1372087,
+      "length": 102215
+    },
+    {
+      "id": "tr-massive_boggle-99fb07875b3a75fc",
+      "offset": 1474302,
+      "length": 60851
+    },
+    {
+      "id": "tr-massive_boggle-1f43fbec5c7dd4fc",
+      "offset": 1535153,
+      "length": 69607
+    },
+    {
+      "id": "tr-massive_boggle-84d3df3c8771cb0a",
+      "offset": 1604760,
+      "length": 74093
+    },
+    {
+      "id": "tr-massive_boggle-945f6c7970999529",
+      "offset": 1678853,
+      "length": 68652
+    },
+    {
+      "id": "tr-massive_boggle-e904f16e7fef738f",
+      "offset": 1747505,
+      "length": 57812
+    },
+    {
+      "id": "tr-massive_boggle-36ddea0d6f368c01",
+      "offset": 1805317,
+      "length": 95127
+    },
+    {
+      "id": "tr-massive_boggle-808930acf7ae0fc3",
+      "offset": 1900444,
+      "length": 79975
+    },
+    {
+      "id": "tr-massive_boggle-d344acb81a7ba234",
+      "offset": 1980419,
+      "length": 106909
+    },
+    {
+      "id": "tr-massive_boggle-644a428d8f949afa",
+      "offset": 2087328,
+      "length": 97965
+    },
+    {
+      "id": "tr-massive_boggle-45125ff9f95730d0",
+      "offset": 2185293,
+      "length": 59721
+    },
+    {
+      "id": "tr-massive_boggle-88faa4cf257f6779",
+      "offset": 2245014,
+      "length": 77144
+    },
+    {
+      "id": "tr-massive_boggle-c3ae4fefe7f16489",
+      "offset": 2322158,
+      "length": 99847
+    },
+    {
+      "id": "tr-massive_boggle-b12217df308c3528",
+      "offset": 2422005,
+      "length": 102223
+    },
+    {
+      "id": "tr-massive_boggle-83b1f62fe4c3c136",
+      "offset": 2524228,
+      "length": 67564
+    },
+    {
+      "id": "tr-massive_boggle-03ed89ed34b7235b",
+      "offset": 2591792,
+      "length": 66848
+    },
+    {
+      "id": "tr-massive_boggle-0335bec6c7d72150",
+      "offset": 2658640,
+      "length": 87816
+    },
+    {
+      "id": "tr-massive_boggle-de850661b5edef71",
+      "offset": 2746456,
+      "length": 77766
+    },
+    {
+      "id": "tr-massive_boggle-8680e1785df1f308",
+      "offset": 2824222,
+      "length": 58838
+    },
+    {
+      "id": "tr-massive_boggle-0d9dc6ef800ff10a",
+      "offset": 2883060,
+      "length": 75285
+    },
+    {
+      "id": "tr-massive_boggle-ae250747b49e9093",
+      "offset": 2958345,
+      "length": 82451
+    },
+    {
+      "id": "tr-massive_boggle-235a87f4026fc4e7",
+      "offset": 3040796,
+      "length": 63899
+    },
+    {
+      "id": "tr-massive_boggle-ff025914700b3e0a",
+      "offset": 3104695,
+      "length": 65221
+    },
+    {
+      "id": "tr-massive_boggle-5b3a7ebb182735f0",
+      "offset": 3169916,
+      "length": 71298
+    },
+    {
+      "id": "tr-massive_boggle-a2c064e95d4baf96",
+      "offset": 3241214,
+      "length": 92763
+    },
+    {
+      "id": "tr-massive_boggle-d1f908e707087f6a",
+      "offset": 3333977,
+      "length": 76748
+    },
+    {
+      "id": "tr-massive_boggle-e346865733cd3e68",
+      "offset": 3410725,
+      "length": 94499
+    },
+    {
+      "id": "tr-massive_boggle-e4579f3452efa76b",
+      "offset": 3505224,
+      "length": 92835
+    },
+    {
+      "id": "tr-massive_boggle-2824edba01b64f1c",
+      "offset": 3598059,
+      "length": 62022
+    },
+    {
+      "id": "tr-massive_boggle-9ebb7760de9da4d1",
+      "offset": 3660081,
+      "length": 59287
+    },
+    {
+      "id": "tr-massive_boggle-10c0a8cd753ac3bb",
+      "offset": 3719368,
+      "length": 107186
+    },
+    {
+      "id": "tr-massive_boggle-d3cd72a40ffb1c55",
+      "offset": 3826554,
+      "length": 111798
+    },
+    {
+      "id": "tr-massive_boggle-8e95dddbae191ce4",
+      "offset": 3938352,
+      "length": 61382
+    },
+    {
+      "id": "tr-massive_boggle-b30b3462f0dd0186",
+      "offset": 3999734,
+      "length": 96696
+    },
+    {
+      "id": "tr-massive_boggle-46214563987cef0a",
+      "offset": 4096430,
+      "length": 62274
+    },
+    {
+      "id": "tr-massive_boggle-251eb69618a7d07a",
+      "offset": 4158704,
+      "length": 104698
+    },
+    {
+      "id": "tr-massive_boggle-983d5690be995c82",
+      "offset": 4263402,
+      "length": 70095
+    },
+    {
+      "id": "tr-massive_boggle-2e8bb894b902b4d8",
+      "offset": 4333497,
+      "length": 111515
+    },
+    {
+      "id": "tr-massive_boggle-b124e6bb4a87db94",
+      "offset": 4445012,
+      "length": 62240
+    },
+    {
+      "id": "tr-massive_boggle-dfd01b63e5258d1d",
+      "offset": 4507252,
+      "length": 81593
+    },
+    {
+      "id": "tr-massive_boggle-11c4e5baadde63eb",
+      "offset": 4588845,
+      "length": 89861
+    },
+    {
+      "id": "tr-massive_boggle-b728f000307328d7",
+      "offset": 4678706,
+      "length": 132823
+    },
+    {
+      "id": "tr-massive_boggle-35f51c84a7629bb8",
+      "offset": 4811529,
+      "length": 124850
+    },
+    {
+      "id": "tr-massive_boggle-8943032e1ffc434c",
+      "offset": 4936379,
+      "length": 76165
+    },
+    {
+      "id": "tr-massive_boggle-e21bd685ce1c2c16",
+      "offset": 5012544,
+      "length": 59324
+    },
+    {
+      "id": "tr-massive_boggle-18c4dfeab7ea2954",
+      "offset": 5071868,
+      "length": 99854
+    },
+    {
+      "id": "tr-massive_boggle-a1f5b3f774893311",
+      "offset": 5171722,
+      "length": 95109
+    },
+    {
+      "id": "tr-massive_boggle-a3e076b39e71769d",
+      "offset": 5266831,
+      "length": 68132
+    },
+    {
+      "id": "tr-massive_boggle-1d2bda1391419a25",
+      "offset": 5334963,
+      "length": 76301
+    },
+    {
+      "id": "tr-massive_boggle-5a5a785a922de0aa",
+      "offset": 5411264,
+      "length": 67247
+    },
+    {
+      "id": "tr-massive_boggle-4590e26b5d74d815",
+      "offset": 5478511,
+      "length": 112374
+    },
+    {
+      "id": "tr-massive_boggle-f981bbb3ff404717",
+      "offset": 5590885,
+      "length": 58130
+    },
+    {
+      "id": "tr-massive_boggle-984138e77ee8f09e",
+      "offset": 5649015,
+      "length": 66405
+    },
+    {
+      "id": "tr-massive_boggle-2459b85ad560a3cd",
+      "offset": 5715420,
+      "length": 83490
+    },
+    {
+      "id": "tr-massive_boggle-fd852f02cd893dd1",
+      "offset": 5798910,
+      "length": 79555
+    },
+    {
+      "id": "tr-massive_boggle-0abf3700705a4c6a",
+      "offset": 5878465,
+      "length": 67244
+    },
+    {
+      "id": "tr-massive_boggle-9c6841dbe0efa33f",
+      "offset": 5945709,
+      "length": 121986
+    },
+    {
+      "id": "tr-massive_boggle-a8263607de60db94",
+      "offset": 6067695,
+      "length": 75106
+    },
+    {
+      "id": "tr-massive_boggle-b03dd778bf90e351",
+      "offset": 6142801,
+      "length": 88497
+    },
+    {
+      "id": "tr-massive_boggle-fb47919e00358bdb",
+      "offset": 6231298,
+      "length": 80060
+    },
+    {
+      "id": "tr-massive_boggle-cd9aa8302f7db779",
+      "offset": 6311358,
+      "length": 73864
+    },
+    {
+      "id": "tr-massive_boggle-951b99335bd3f3ec",
+      "offset": 6385222,
+      "length": 95762
+    },
+    {
+      "id": "tr-massive_boggle-ad934a5befc88437",
+      "offset": 6480984,
+      "length": 94623
+    },
+    {
+      "id": "tr-massive_boggle-307c801d53e36408",
+      "offset": 6575607,
+      "length": 59971
+    },
+    {
+      "id": "tr-massive_boggle-f473618eb7f357bb",
+      "offset": 6635578,
+      "length": 60112
+    },
+    {
+      "id": "tr-massive_boggle-aa935ba959d82fd4",
+      "offset": 6695690,
+      "length": 89656
+    },
+    {
+      "id": "tr-massive_boggle-b785f54f5eca7aa0",
+      "offset": 6785346,
+      "length": 80420
+    },
+    {
+      "id": "tr-massive_boggle-b000ef4abaac2664",
+      "offset": 6865766,
+      "length": 72928
+    },
+    {
+      "id": "tr-massive_boggle-f201fe04feac617d",
+      "offset": 6938694,
+      "length": 59392
+    },
+    {
+      "id": "tr-massive_boggle-9cc948457c234024",
+      "offset": 6998086,
+      "length": 122945
+    },
+    {
+      "id": "tr-massive_boggle-9fc2cb3930800e2b",
+      "offset": 7121031,
+      "length": 77993
+    },
+    {
+      "id": "tr-massive_boggle-5e73e340e76bf7c6",
+      "offset": 7199024,
+      "length": 90985
+    },
+    {
+      "id": "tr-massive_boggle-766e5fa25f8ad40d",
+      "offset": 7290009,
+      "length": 104480
+    },
+    {
+      "id": "tr-massive_boggle-87a7c93629da2fa5",
+      "offset": 7394489,
+      "length": 117641
+    },
+    {
+      "id": "tr-massive_boggle-9b78d2147835f12b",
+      "offset": 7512130,
+      "length": 90940
+    },
+    {
+      "id": "tr-massive_boggle-c4ae15267aac0ec7",
+      "offset": 7603070,
+      "length": 72151
+    },
+    {
+      "id": "tr-massive_boggle-a80154567d2b8c6d",
+      "offset": 7675221,
+      "length": 70143
+    },
+    {
+      "id": "tr-massive_boggle-25460f3294a22609",
+      "offset": 7745364,
+      "length": 132202
+    },
+    {
+      "id": "tr-massive_boggle-c81db0ee2ef0166d",
+      "offset": 7877566,
+      "length": 121774
+    },
+    {
+      "id": "tr-massive_boggle-faa28ce092a0ccd1",
+      "offset": 7999340,
+      "length": 124103
+    },
+    {
+      "id": "tr-massive_boggle-c80d5676ed679520",
+      "offset": 8123443,
+      "length": 60552
+    },
+    {
+      "id": "tr-massive_boggle-072e08152d8912fe",
+      "offset": 8183995,
+      "length": 106014
+    },
+    {
+      "id": "tr-massive_boggle-8ac28644b8062d55",
+      "offset": 8290009,
+      "length": 80857
+    },
+    {
+      "id": "tr-massive_boggle-15101e6a8b30f44e",
+      "offset": 8370866,
+      "length": 114726
+    },
+    {
+      "id": "tr-massive_boggle-adfa2a473c365a27",
+      "offset": 8485592,
+      "length": 64040
+    },
+    {
+      "id": "tr-massive_boggle-51176ca5a4d2d576",
+      "offset": 8549632,
+      "length": 60379
+    },
+    {
+      "id": "tr-massive_boggle-e97332275eb8108a",
+      "offset": 8610011,
+      "length": 65012
+    },
+    {
+      "id": "tr-massive_boggle-f38abbd2e1621a8b",
+      "offset": 8675023,
+      "length": 78487
+    },
+    {
+      "id": "tr-massive_boggle-6062921cb2d0f8ad",
+      "offset": 8753510,
+      "length": 130696
+    },
+    {
+      "id": "tr-massive_boggle-45ab52c7cfeccc03",
+      "offset": 8884206,
+      "length": 134031
+    },
+    {
+      "id": "tr-massive_boggle-f564239b17fc17b1",
+      "offset": 9018237,
+      "length": 112700
+    },
+    {
+      "id": "tr-massive_boggle-8fdaad25239cbfe8",
+      "offset": 9130937,
+      "length": 102698
+    },
+    {
+      "id": "tr-massive_boggle-6429b368e4016d2f",
+      "offset": 9233635,
+      "length": 87589
+    },
+    {
+      "id": "tr-massive_boggle-b077e5eadef804be",
+      "offset": 9321224,
+      "length": 92540
+    },
+    {
+      "id": "tr-massive_boggle-22b7d446c0555658",
+      "offset": 9413764,
+      "length": 99035
+    },
+    {
+      "id": "tr-massive_boggle-db490f49dbf2c623",
+      "offset": 9512799,
+      "length": 101891
+    },
+    {
+      "id": "tr-massive_boggle-2f1ccf4a8b7b3767",
+      "offset": 9614690,
+      "length": 88061
+    },
+    {
+      "id": "tr-massive_boggle-041830ff7cfbcd9b",
+      "offset": 9702751,
+      "length": 67639
+    },
+    {
+      "id": "tr-massive_boggle-a3649cc04d12b6f7",
+      "offset": 9770390,
+      "length": 92110
+    },
+    {
+      "id": "tr-massive_boggle-f0ee0da250918405",
+      "offset": 9862500,
+      "length": 59554
+    },
+    {
+      "id": "tr-massive_boggle-9cb97e110b6d30a0",
+      "offset": 9922054,
+      "length": 105178
+    },
+    {
+      "id": "tr-massive_boggle-fda995a6ebc88c5c",
+      "offset": 10027232,
+      "length": 156828
+    },
+    {
+      "id": "tr-massive_boggle-081c4daf32399b68",
+      "offset": 10184060,
+      "length": 65626
+    },
+    {
+      "id": "tr-massive_boggle-ddd013c0e73f1b3c",
+      "offset": 10249686,
+      "length": 92155
+    },
+    {
+      "id": "tr-massive_boggle-601f18928494e6b9",
+      "offset": 10341841,
+      "length": 62732
+    },
+    {
+      "id": "tr-massive_boggle-a924ca5579b92ef4",
+      "offset": 10404573,
+      "length": 59660
+    },
+    {
+      "id": "tr-massive_boggle-96f0fd94d0e1d431",
+      "offset": 10464233,
+      "length": 64028
+    },
+    {
+      "id": "tr-massive_boggle-36a4865d9b865ea6",
+      "offset": 10528261,
+      "length": 59589
+    },
+    {
+      "id": "tr-massive_boggle-378237b67fe207cb",
+      "offset": 10587850,
+      "length": 66581
+    },
+    {
+      "id": "tr-massive_boggle-e99cf922b179a1ae",
+      "offset": 10654431,
+      "length": 117121
+    },
+    {
+      "id": "tr-massive_boggle-bda369792095e127",
+      "offset": 10771552,
+      "length": 94394
+    },
+    {
+      "id": "tr-massive_boggle-5b6837c81cbd95cd",
+      "offset": 10865946,
+      "length": 105173
+    },
+    {
+      "id": "tr-massive_boggle-6941a99c2202201b",
+      "offset": 10971119,
+      "length": 65641
+    },
+    {
+      "id": "tr-massive_boggle-3699c29615baf39a",
+      "offset": 11036760,
+      "length": 101723
+    },
+    {
+      "id": "tr-massive_boggle-e0561892a33173cf",
+      "offset": 11138483,
+      "length": 137373
+    },
+    {
+      "id": "tr-massive_boggle-84690152322466c7",
+      "offset": 11275856,
+      "length": 67733
+    },
+    {
+      "id": "tr-massive_boggle-71df7ac0eaeb0f84",
+      "offset": 11343589,
+      "length": 72311
+    },
+    {
+      "id": "tr-massive_boggle-16a453970c5614f8",
+      "offset": 11415900,
+      "length": 72723
+    },
+    {
+      "id": "tr-massive_boggle-ed97196a8828a8eb",
+      "offset": 11488623,
+      "length": 79306
+    },
+    {
+      "id": "tr-massive_boggle-1ea09c8b0f82cb15",
+      "offset": 11567929,
+      "length": 78392
+    },
+    {
+      "id": "tr-massive_boggle-ed98cb39208730a9",
+      "offset": 11646321,
+      "length": 80750
+    },
+    {
+      "id": "tr-massive_boggle-5a6d9d4f292db968",
+      "offset": 11727071,
+      "length": 90756
+    },
+    {
+      "id": "tr-massive_boggle-3c2cdade6cdc3b6f",
+      "offset": 11817827,
+      "length": 174879
+    },
+    {
+      "id": "tr-massive_boggle-99d74666e8eea9a0",
+      "offset": 11992706,
+      "length": 104274
+    },
+    {
+      "id": "tr-massive_boggle-a59e6165d5bdaf4c",
+      "offset": 12096980,
+      "length": 81586
+    },
+    {
+      "id": "tr-massive_boggle-a80d013609a1973a",
+      "offset": 12178566,
+      "length": 107972
+    },
+    {
+      "id": "tr-massive_boggle-421fdff4d7f3120b",
+      "offset": 12286538,
+      "length": 60282
+    },
+    {
+      "id": "tr-massive_boggle-f13995b374af7520",
+      "offset": 12346820,
+      "length": 80523
+    },
+    {
+      "id": "tr-massive_boggle-868970a8b5ab118a",
+      "offset": 12427343,
+      "length": 84649
+    },
+    {
+      "id": "tr-massive_boggle-06c3914b6e96b523",
+      "offset": 12511992,
+      "length": 69488
+    },
+    {
+      "id": "tr-massive_boggle-554ba2504fda382b",
+      "offset": 12581480,
+      "length": 73119
+    },
+    {
+      "id": "tr-massive_boggle-be98a8ba164f14c0",
+      "offset": 12654599,
+      "length": 65729
+    },
+    {
+      "id": "tr-massive_boggle-85beb11c95fc60a4",
+      "offset": 12720328,
+      "length": 78598
+    },
+    {
+      "id": "tr-massive_boggle-5b59ebd982a392f8",
+      "offset": 12798926,
+      "length": 58157
+    },
+    {
+      "id": "tr-massive_boggle-bd625a6d16cb544a",
+      "offset": 12857083,
+      "length": 114009
+    },
+    {
+      "id": "tr-massive_boggle-09c1a9401885d119",
+      "offset": 12971092,
+      "length": 81683
+    },
+    {
+      "id": "tr-massive_boggle-fa6a2c7e421636bc",
+      "offset": 13052775,
+      "length": 83759
+    },
+    {
+      "id": "tr-massive_boggle-aec90f8016c923e0",
+      "offset": 13136534,
+      "length": 96827
+    },
+    {
+      "id": "tr-massive_boggle-cbb676d3fca8f595",
+      "offset": 13233361,
+      "length": 61679
+    },
+    {
+      "id": "tr-massive_boggle-aae596123447b624",
+      "offset": 13295040,
+      "length": 107226
+    },
+    {
+      "id": "tr-massive_boggle-024aa45c4ead2a24",
+      "offset": 13402266,
+      "length": 75843
+    },
+    {
+      "id": "tr-massive_boggle-b05cb368960d80e4",
+      "offset": 13478109,
+      "length": 83457
+    },
+    {
+      "id": "tr-massive_boggle-ec53137ebf2c0449",
+      "offset": 13561566,
+      "length": 82110
+    },
+    {
+      "id": "tr-massive_boggle-43ebc479b38dd802",
+      "offset": 13643676,
+      "length": 99856
+    },
+    {
+      "id": "tr-massive_boggle-70ddf277e177b6f7",
+      "offset": 13743532,
+      "length": 125666
+    },
+    {
+      "id": "tr-massive_boggle-0fcd23c62ee72d00",
+      "offset": 13869198,
+      "length": 88012
+    },
+    {
+      "id": "tr-massive_boggle-73f4c7147bb92796",
+      "offset": 13957210,
+      "length": 58798
+    },
+    {
+      "id": "tr-massive_boggle-0604346987ec2129",
+      "offset": 14016008,
+      "length": 96109
+    },
+    {
+      "id": "tr-massive_boggle-6675f27f7e46a2f0",
+      "offset": 14112117,
+      "length": 66502
+    },
+    {
+      "id": "tr-massive_boggle-ef96f15f6b59e745",
+      "offset": 14178619,
+      "length": 66991
+    },
+    {
+      "id": "tr-massive_boggle-b284f0c6ab320502",
+      "offset": 14245610,
+      "length": 86363
+    },
+    {
+      "id": "tr-massive_boggle-be092967f16de257",
+      "offset": 14331973,
+      "length": 116210
+    },
+    {
+      "id": "tr-massive_boggle-3bdb4ac89c676e58",
+      "offset": 14448183,
+      "length": 119103
+    },
+    {
+      "id": "tr-massive_boggle-82f36caffe3c9997",
+      "offset": 14567286,
+      "length": 102936
+    },
+    {
+      "id": "tr-massive_boggle-598f5a920765986a",
+      "offset": 14670222,
+      "length": 74877
+    },
+    {
+      "id": "tr-massive_boggle-aa324c12cd5e8fa9",
+      "offset": 14745099,
+      "length": 92967
+    },
+    {
+      "id": "tr-massive_boggle-66fee13a14ea9e45",
+      "offset": 14838066,
+      "length": 73197
+    },
+    {
+      "id": "tr-massive_boggle-a706e8267dae7d9f",
+      "offset": 14911263,
+      "length": 73045
+    },
+    {
+      "id": "tr-massive_boggle-e9b813a4afdd2846",
+      "offset": 14984308,
+      "length": 80414
+    },
+    {
+      "id": "tr-massive_boggle-8b7fa72863d60631",
+      "offset": 15064722,
+      "length": 71504
+    },
+    {
+      "id": "tr-massive_boggle-76bf69035d02a0ff",
+      "offset": 15136226,
+      "length": 78030
+    },
+    {
+      "id": "tr-massive_boggle-91f79f89fdbf88e6",
+      "offset": 15214256,
+      "length": 164023
+    },
+    {
+      "id": "tr-massive_boggle-426073ff5ed9beb7",
+      "offset": 15378279,
+      "length": 67142
+    },
+    {
+      "id": "tr-massive_boggle-3a04a4a41aa77eb5",
+      "offset": 15445421,
+      "length": 96393
+    },
+    {
+      "id": "tr-massive_boggle-aec64e3c9df0cc5e",
+      "offset": 15541814,
+      "length": 71189
+    },
+    {
+      "id": "tr-massive_boggle-0592e0f488361e05",
+      "offset": 15613003,
+      "length": 74640
+    },
+    {
+      "id": "tr-massive_boggle-08e622c6bbd4b5ed",
+      "offset": 15687643,
+      "length": 73329
+    },
+    {
+      "id": "tr-massive_boggle-85f672b616be43ee",
+      "offset": 15760972,
+      "length": 60793
+    },
+    {
+      "id": "tr-massive_boggle-34d27c730b258f05",
+      "offset": 15821765,
+      "length": 85488
+    },
+    {
+      "id": "tr-massive_boggle-c15d7fb2a21f3bc0",
+      "offset": 15907253,
+      "length": 74215
+    },
+    {
+      "id": "tr-massive_boggle-b2cb60411f0a2678",
+      "offset": 15981468,
+      "length": 101725
+    },
+    {
+      "id": "tr-massive_boggle-ec34c6f18d8f9158",
+      "offset": 16083193,
+      "length": 86764
+    },
+    {
+      "id": "tr-massive_boggle-97e10c2ab7f35e0b",
+      "offset": 16169957,
+      "length": 64517
+    },
+    {
+      "id": "tr-massive_boggle-54d4427a6d89c318",
+      "offset": 16234474,
+      "length": 74596
+    },
+    {
+      "id": "tr-massive_boggle-7fb7dbed320172eb",
+      "offset": 16309070,
+      "length": 85041
+    },
+    {
+      "id": "tr-massive_boggle-ca3257b469faf3c3",
+      "offset": 16394111,
+      "length": 125682
+    },
+    {
+      "id": "tr-massive_boggle-431476c67547cc28",
+      "offset": 16519793,
+      "length": 62303
+    },
+    {
+      "id": "tr-massive_boggle-4fa68643d6ae797e",
+      "offset": 16582096,
+      "length": 98995
+    },
+    {
+      "id": "tr-massive_boggle-40f212a7b0fb2e9c",
+      "offset": 16681091,
+      "length": 71528
+    },
+    {
+      "id": "tr-massive_boggle-e1f5ba0c70dcf287",
+      "offset": 16752619,
+      "length": 85808
+    },
+    {
+      "id": "tr-massive_boggle-86f511abf98f3113",
+      "offset": 16838427,
+      "length": 96710
+    },
+    {
+      "id": "tr-massive_boggle-3788e344a74c32ec",
+      "offset": 16935137,
+      "length": 66638
+    },
+    {
+      "id": "tr-massive_boggle-4e40a56564b7bf42",
+      "offset": 17001775,
+      "length": 59883
+    },
+    {
+      "id": "tr-massive_boggle-6ef6440f6912cd09",
+      "offset": 17061658,
+      "length": 174910
+    },
+    {
+      "id": "tr-massive_boggle-5104af0e92b08e84",
+      "offset": 17236568,
+      "length": 125969
+    },
+    {
+      "id": "tr-massive_boggle-9c8c9c66d4632167",
+      "offset": 17362537,
+      "length": 64181
+    },
+    {
+      "id": "tr-massive_boggle-252c6cba37f11144",
+      "offset": 17426718,
+      "length": 97330
+    },
+    {
+      "id": "tr-massive_boggle-8f07de28ee18f863",
+      "offset": 17524048,
+      "length": 141871
+    },
+    {
+      "id": "tr-massive_boggle-45fb411ba4221b8c",
+      "offset": 17665919,
+      "length": 75097
+    },
+    {
+      "id": "tr-massive_boggle-6869aadde993a3ed",
+      "offset": 17741016,
+      "length": 97490
+    },
+    {
+      "id": "tr-massive_boggle-ffd931e031b33c83",
+      "offset": 17838506,
+      "length": 79660
+    },
+    {
+      "id": "tr-massive_boggle-b3c5334259a30e40",
+      "offset": 17918166,
+      "length": 61418
+    },
+    {
+      "id": "tr-massive_boggle-172c973f7900ab9b",
+      "offset": 17979584,
+      "length": 92614
+    },
+    {
+      "id": "tr-massive_boggle-07e125fba99b78cf",
+      "offset": 18072198,
+      "length": 67419
+    },
+    {
+      "id": "tr-massive_boggle-1608eb2b5d1226b3",
+      "offset": 18139617,
+      "length": 90633
+    },
+    {
+      "id": "tr-massive_boggle-601502778fa520d1",
+      "offset": 18230250,
+      "length": 135281
+    },
+    {
+      "id": "tr-massive_boggle-b78a5b9733fff00b",
+      "offset": 18365531,
+      "length": 103692
+    },
+    {
+      "id": "tr-massive_boggle-b97856c6a6fb3e11",
+      "offset": 18469223,
+      "length": 70145
+    },
+    {
+      "id": "tr-massive_boggle-c489f4733a6d7be3",
+      "offset": 18539368,
+      "length": 121556
+    },
+    {
+      "id": "tr-massive_boggle-2970853264259b4c",
+      "offset": 18660924,
+      "length": 97300
+    },
+    {
+      "id": "tr-massive_boggle-e451200bc1faab6b",
+      "offset": 18758224,
+      "length": 114951
+    },
+    {
+      "id": "tr-massive_boggle-b547ce37151b2a8a",
+      "offset": 18873175,
+      "length": 79988
+    },
+    {
+      "id": "tr-massive_boggle-940ee68c90548e8c",
+      "offset": 18953163,
+      "length": 74727
+    },
+    {
+      "id": "tr-massive_boggle-fd6d25aa4e52e613",
+      "offset": 19027890,
+      "length": 68805
+    },
+    {
+      "id": "tr-massive_boggle-17f2abb150232e46",
+      "offset": 19096695,
+      "length": 71317
+    },
+    {
+      "id": "tr-massive_boggle-636c824edc220774",
+      "offset": 19168012,
+      "length": 105721
+    },
+    {
+      "id": "tr-massive_boggle-b97771fde76d027b",
+      "offset": 19273733,
+      "length": 82870
+    },
+    {
+      "id": "tr-massive_boggle-37df4f6bfe182c19",
+      "offset": 19356603,
+      "length": 116012
+    },
+    {
+      "id": "tr-massive_boggle-baa04e4eab6c711c",
+      "offset": 19472615,
+      "length": 62256
+    },
+    {
+      "id": "tr-massive_boggle-7ca681ff4bc30212",
+      "offset": 19534871,
+      "length": 58856
+    },
+    {
+      "id": "tr-massive_boggle-041cb8838131fd3c",
+      "offset": 19593727,
+      "length": 90212
+    },
+    {
+      "id": "tr-massive_boggle-d713de8e336ad6f8",
+      "offset": 19683939,
+      "length": 102728
+    },
+    {
+      "id": "tr-massive_boggle-df7ad0c8b3f01823",
+      "offset": 19786667,
+      "length": 68100
+    },
+    {
+      "id": "tr-massive_boggle-2dbdec983fa091da",
+      "offset": 19854767,
+      "length": 60071
+    },
+    {
+      "id": "tr-massive_boggle-6ad47967cb2ee34e",
+      "offset": 19914838,
+      "length": 67106
+    },
+    {
+      "id": "tr-massive_boggle-15482f7e2648ba4f",
+      "offset": 19981944,
+      "length": 69516
+    },
+    {
+      "id": "tr-massive_boggle-3aef151747b33cec",
+      "offset": 20051460,
+      "length": 143585
+    },
+    {
+      "id": "tr-massive_boggle-4eb2c3e381309e26",
+      "offset": 20195045,
+      "length": 63423
+    },
+    {
+      "id": "tr-massive_boggle-f01db6641c825362",
+      "offset": 20258468,
+      "length": 68353
+    },
+    {
+      "id": "tr-massive_boggle-8f0333bb7cdb9cba",
+      "offset": 20326821,
+      "length": 61535
+    },
+    {
+      "id": "tr-massive_boggle-39fa8515e112f14b",
+      "offset": 20388356,
+      "length": 61192
+    },
+    {
+      "id": "tr-massive_boggle-1b9bda0dbd8e0dcd",
+      "offset": 20449548,
+      "length": 59032
+    },
+    {
+      "id": "tr-massive_boggle-cc4930eb815b582e",
+      "offset": 20508580,
+      "length": 113663
+    },
+    {
+      "id": "tr-massive_boggle-87c8260339109869",
+      "offset": 20622243,
+      "length": 101697
+    },
+    {
+      "id": "tr-massive_boggle-fba8ac3b2889c2db",
+      "offset": 20723940,
+      "length": 123316
+    },
+    {
+      "id": "tr-massive_boggle-ab8b24b4eeb6c6c5",
+      "offset": 20847256,
+      "length": 61638
+    },
+    {
+      "id": "tr-massive_boggle-38a893434b237ee9",
+      "offset": 20908894,
+      "length": 64872
+    },
+    {
+      "id": "tr-massive_boggle-5674cba98cbd0c38",
+      "offset": 20973766,
+      "length": 69092
+    },
+    {
+      "id": "tr-massive_boggle-de8cbf8b6412ef2e",
+      "offset": 21042858,
+      "length": 95994
+    },
+    {
+      "id": "tr-massive_boggle-e7ae671388440964",
+      "offset": 21138852,
+      "length": 67453
+    },
+    {
+      "id": "tr-massive_boggle-adf009791c47d20d",
+      "offset": 21206305,
+      "length": 89867
+    },
+    {
+      "id": "tr-massive_boggle-65ada48f1651539b",
+      "offset": 21296172,
+      "length": 92706
+    },
+    {
+      "id": "tr-massive_boggle-3f62e85e021b199a",
+      "offset": 21388878,
+      "length": 163599
+    },
+    {
+      "id": "tr-massive_boggle-4e0c216f4c5da895",
+      "offset": 21552477,
+      "length": 129264
+    },
+    {
+      "id": "tr-massive_boggle-ce75cbdc68f92354",
+      "offset": 21681741,
+      "length": 65560
+    },
+    {
+      "id": "tr-massive_boggle-8b9f1d34da1c6647",
+      "offset": 21747301,
+      "length": 62509
+    },
+    {
+      "id": "tr-massive_boggle-6669210c1879f3b8",
+      "offset": 21809810,
+      "length": 68687
+    },
+    {
+      "id": "tr-massive_boggle-1bec627f799eb47a",
+      "offset": 21878497,
+      "length": 68343
+    },
+    {
+      "id": "tr-massive_boggle-ca16a70364143c7a",
+      "offset": 21946840,
+      "length": 104160
+    },
+    {
+      "id": "tr-massive_boggle-f5cfd6a1344fc47c",
+      "offset": 22051000,
+      "length": 70939
+    },
+    {
+      "id": "tr-massive_boggle-280088e61dffccb1",
+      "offset": 22121939,
+      "length": 112116
+    },
+    {
+      "id": "tr-massive_boggle-f6fbc99071ea8da6",
+      "offset": 22234055,
+      "length": 62026
+    },
+    {
+      "id": "tr-massive_boggle-facbd6fcef5d4b39",
+      "offset": 22296081,
+      "length": 60745
+    },
+    {
+      "id": "tr-massive_boggle-17f9bb35bcd65b3d",
+      "offset": 22356826,
+      "length": 68582
+    },
+    {
+      "id": "tr-massive_boggle-a1633b333b903e0e",
+      "offset": 22425408,
+      "length": 108094
+    },
+    {
+      "id": "tr-massive_boggle-ed68b6b7aeb0ae45",
+      "offset": 22533502,
+      "length": 63291
+    },
+    {
+      "id": "tr-massive_boggle-808c68fedf9967ca",
+      "offset": 22596793,
+      "length": 91175
+    },
+    {
+      "id": "tr-massive_boggle-cbc411a88d11a1ce",
+      "offset": 22687968,
+      "length": 99770
+    },
+    {
+      "id": "tr-massive_boggle-0ecc817a4aab58e1",
+      "offset": 22787738,
+      "length": 60767
+    },
+    {
+      "id": "tr-massive_boggle-705a26b4b6c10317",
+      "offset": 22848505,
+      "length": 94064
+    },
+    {
+      "id": "tr-massive_boggle-e8ac29ae7b225c57",
+      "offset": 22942569,
+      "length": 127523
+    },
+    {
+      "id": "tr-massive_boggle-185f5505037fd49a",
+      "offset": 23070092,
+      "length": 63422
+    },
+    {
+      "id": "tr-massive_boggle-e3d7625adb661bdc",
+      "offset": 23133514,
+      "length": 109469
+    },
+    {
+      "id": "tr-massive_boggle-ff8eb6976b52f7b8",
+      "offset": 23242983,
+      "length": 71956
+    },
+    {
+      "id": "tr-massive_boggle-7b928d9185b1d3cd",
+      "offset": 23314939,
+      "length": 99266
+    },
+    {
+      "id": "tr-massive_boggle-2024c3b794962e74",
+      "offset": 23414205,
+      "length": 135478
+    },
+    {
+      "id": "tr-massive_boggle-6b4dcc700df72b29",
+      "offset": 23549683,
+      "length": 75343
+    },
+    {
+      "id": "tr-massive_boggle-26f931dae2766452",
+      "offset": 23625026,
+      "length": 70405
+    },
+    {
+      "id": "tr-massive_boggle-f5992d3376d5d3ad",
+      "offset": 23695431,
+      "length": 58543
+    },
+    {
+      "id": "tr-massive_boggle-273ea7596ba670e4",
+      "offset": 23753974,
+      "length": 82086
+    },
+    {
+      "id": "tr-massive_boggle-3babe59da6793c71",
+      "offset": 23836060,
+      "length": 77930
+    },
+    {
+      "id": "tr-massive_boggle-b6c861c0e414a4ed",
+      "offset": 23913990,
+      "length": 95398
+    },
+    {
+      "id": "tr-massive_boggle-4fcd2bfbb4a2b88a",
+      "offset": 24009388,
+      "length": 85376
+    },
+    {
+      "id": "tr-massive_boggle-9715db4d9d40d2c1",
+      "offset": 24094764,
+      "length": 109722
+    },
+    {
+      "id": "tr-massive_boggle-801155aea5a50334",
+      "offset": 24204486,
+      "length": 58532
+    },
+    {
+      "id": "tr-massive_boggle-cfb7c525dc466e62",
+      "offset": 24263018,
+      "length": 71970
+    },
+    {
+      "id": "tr-massive_boggle-9e10af95576be26d",
+      "offset": 24334988,
+      "length": 94544
+    },
+    {
+      "id": "tr-massive_boggle-af72857d5911d917",
+      "offset": 24429532,
+      "length": 58147
+    },
+    {
+      "id": "tr-massive_boggle-d90d98c8f0cd96a5",
+      "offset": 24487679,
+      "length": 115021
+    },
+    {
+      "id": "tr-massive_boggle-23842702e23c205f",
+      "offset": 24602700,
+      "length": 61964
+    },
+    {
+      "id": "tr-massive_boggle-16f530dd31b32ec9",
+      "offset": 24664664,
+      "length": 85911
+    },
+    {
+      "id": "tr-massive_boggle-a6d859629f86e428",
+      "offset": 24750575,
+      "length": 66740
+    },
+    {
+      "id": "tr-massive_boggle-b6abb8419b0c8740",
+      "offset": 24817315,
+      "length": 125334
+    },
+    {
+      "id": "tr-massive_boggle-16d5f9f0b27ce534",
+      "offset": 24942649,
+      "length": 94356
+    },
+    {
+      "id": "tr-massive_boggle-d241ebf653fcf65d",
+      "offset": 25037005,
+      "length": 64025
+    },
+    {
+      "id": "tr-massive_boggle-a152d565b87633f9",
+      "offset": 25101030,
+      "length": 102010
+    },
+    {
+      "id": "tr-massive_boggle-5263b3dfb720f817",
+      "offset": 25203040,
+      "length": 72354
+    },
+    {
+      "id": "tr-massive_boggle-cbf6912f6624e209",
+      "offset": 25275394,
+      "length": 70904
+    },
+    {
+      "id": "tr-massive_boggle-c77cd2fee7c583df",
+      "offset": 25346298,
+      "length": 107194
+    },
+    {
+      "id": "tr-massive_boggle-1c664dd91c76e065",
+      "offset": 25453492,
+      "length": 96404
+    },
+    {
+      "id": "tr-massive_boggle-64580fad1df50503",
+      "offset": 25549896,
+      "length": 121436
+    },
+    {
+      "id": "tr-massive_boggle-c8b1b762c5264e5c",
+      "offset": 25671332,
+      "length": 67787
+    }
+  ]
+}

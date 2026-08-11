@@ -55,6 +55,7 @@ function MobileStandardPlaying(props) {
     isFinaleBanner = false,
     isMobileLayout = true,
     isOcidRound = false,
+    isStandaloneTraining = false,
     isTargetRound = false,
     lightGridSurfaceStyle = undefined,
     liveFeedMinHeight = 0,
@@ -102,6 +103,7 @@ function MobileStandardPlaying(props) {
     getNickClassName = null,
     nickDecorationKey = "",
     renderNickSuffix = null,
+    roundTypeLabel = "",
     roundStats = null,
     roundTilePointsVisible = false,
     scoreLabel = "",
@@ -138,6 +140,7 @@ function MobileStandardPlaying(props) {
     totalScoreLabel = "",
     totalWordsLabel = "",
     tournament = null,
+    trainingControls = null,
     usedSet = null,
     wordsFoundLabel = "",
   } = props;
@@ -193,6 +196,7 @@ function MobileStandardPlaying(props) {
           playingSeconds={phase === "playing" ? Math.max(0, Number(tick) || 0) : null}
           playerTeam={duelTeam}
           phase={phase}
+          roundTypeLabel={roundTypeLabel}
           roomLabelSeparator=" - "
           roundStatsText={
             phase === "playing" && roundStats && !isTargetRound && !isOcidRound
@@ -219,7 +223,19 @@ function MobileStandardPlaying(props) {
             paddingTop: mobileBodyPaddingTop,
           }}
         >
-          {targetWaitDevActive ? (
+          {isStandaloneTraining ? trainingControls : null}
+          {isStandaloneTraining && !isTargetRound ? (
+            <div className="h-[92px] min-h-[76px] flex-none rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+              <LiveFeed
+                items={mobileAnnouncements}
+                darkMode={darkMode}
+                maxHeight="100%"
+                bannerText={liveFeedBannerText}
+                getNickClassName={getNickClassName}
+              />
+            </div>
+          ) : null}
+          {isStandaloneTraining && !isTargetRound ? null : targetWaitDevActive ? (
             <div
               ref={onTargetWaitDevSideHostChange}
               className="relative h-[250px] max-h-[34vh] min-h-[220px] flex-none overflow-hidden rounded-xl"
@@ -547,7 +563,7 @@ function MobileStandardPlaying(props) {
               />
             ) : null}
             </div>
-            <div
+            {!isStandaloneTraining ? <div
               className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
               style={{
                 minHeight: `${liveFeedMinHeight}px`,
@@ -564,7 +580,7 @@ function MobileStandardPlaying(props) {
                 wrapAroundWidth="clamp(44px, 11vw, 68px)"
                 wrapAroundHeight="clamp(44px, 11vw, 68px)"
               />
-            </div>
+            </div> : null}
           </div>
           ) : null}
         </div>

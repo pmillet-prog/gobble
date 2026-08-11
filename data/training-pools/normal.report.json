@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:50:29.084Z",
+  "mode": "normal",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 110,
+  "elapsedMs": 420815,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 150,
+      "max": 412,
+      "average": 203.6
+    },
+    "possibleScore": {
+      "min": 1425,
+      "max": 14858,
+      "average": 4114.5
+    },
+    "maxLength": {
+      "min": 6,
+      "max": 11,
+      "average": 8.3
+    },
+    "solutions": {
+      "min": 150,
+      "max": 412,
+      "average": 203.6
+    },
+    "targetLength": {
+      "min": 0,
+      "max": 0,
+      "average": 0
+    },
+    "targetLengths": {}
+  },
+  "samples": [
+    {
+      "id": "tr-normal-8f8f485327e13347",
+      "letters": "IAOUNSOEIATRISTR",
+      "words": 165,
+      "possibleScore": 2281,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-790533e01f68b24f",
+      "letters": "DELYHUOASIPOSERT",
+      "words": 287,
+      "possibleScore": 3959,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-56f28d3ebb386d2a",
+      "letters": "INCDURQuMSEIAEOEC",
+      "words": 173,
+      "possibleScore": 4985,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-fdce8b168d7a7fcb",
+      "letters": "NGBUOTAFOISULSHO",
+      "words": 205,
+      "possibleScore": 1850,
+      "maxLength": 7,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-6df79186738eb5b9",
+      "letters": "OLILHUARTNSVICNP",
+      "words": 166,
+      "possibleScore": 2240,
+      "maxLength": 7,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-cc2de6a607a65d1f",
+      "letters": "SISTOMAOTRHOIRAS",
+      "words": 213,
+      "possibleScore": 3629,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-96e772ad27c91628",
+      "letters": "BEARSSCRSURUGATC",
+      "words": 214,
+      "possibleScore": 4688,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-f0a5d974cf5ce91a",
+      "letters": "NGSULITSRTABLUDU",
+      "words": 185,
+      "possibleScore": 3272,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-fdf6e44b7a0d5a3e",
+      "letters": "CEAQuGRJDDASIRNTN",
+      "words": 160,
+      "possibleScore": 3519,
+      "maxLength": 7,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-efa86e5c4f4140b2",
+      "letters": "SEIURSPSRABNSCOA",
+      "words": 252,
+      "possibleScore": 6034,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-ffe656a5da0adf71",
+      "letters": "ANSSASIOBESKLAIM",
+      "words": 222,
+      "possibleScore": 5567,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-normal-529be122890e6426",
+      "letters": "ISPEWOSRMAIPRDOR",
+      "words": 220,
+      "possibleScore": 6119,
+      "maxLength": 8,
+      "targetWord": null
+    }
+  ],
+  "catalogBytes": 17678038,
+  "dataBytes": 17647095,
+  "indexBytes": 30943
+}

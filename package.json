@@ -12,6 +12,8 @@
     "rarity:build": "node server/scripts/build-word-rarity.mjs",
     "ocid:pool:build": "node server/scripts/build-ocid-target-pool.mjs",
     "target-wait:build": "node server/scripts/build-target-wait-puzzles.mjs",
+    "training:pool:build": "node server/scripts/build-training-pools.mjs",
+    "training:pool:verify": "node server/scripts/verify-training-pools.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

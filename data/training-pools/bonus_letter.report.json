@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:52:21.482Z",
+  "mode": "bonus_letter",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 300,
+  "elapsedMs": 1115218,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 150,
+      "max": 423,
+      "average": 203.5
+    },
+    "possibleScore": {
+      "min": 827,
+      "max": 4062,
+      "average": 1641.6
+    },
+    "maxLength": {
+      "min": 6,
+      "max": 11,
+      "average": 8.3
+    },
+    "solutions": {
+      "min": 150,
+      "max": 423,
+      "average": 203.5
+    },
+    "targetLength": {
+      "min": 0,
+      "max": 0,
+      "average": 0
+    },
+    "targetLengths": {}
+  },
+  "samples": [
+    {
+      "id": "tr-bonus_letter-de0a9fbc6865a5dd",
+      "letters": "OTVSETOIKSSUIEED",
+      "words": 163,
+      "possibleScore": 1270,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-a9164c951415f3d9",
+      "letters": "PSORPTILSIAZLDLE",
+      "words": 216,
+      "possibleScore": 1599,
+      "maxLength": 9,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-570bd68e6e8a7a8d",
+      "letters": "OSFEPIESDSRWSIED",
+      "words": 184,
+      "possibleScore": 1762,
+      "maxLength": 10,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-b81a77d9810b3104",
+      "letters": "TNOOVUISLTFUIERI",
+      "words": 193,
+      "possibleScore": 1305,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-eb2bf1622a31376d",
+      "letters": "POWEEUSITJNAIELL",
+      "words": 191,
+      "possibleScore": 1355,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-b100fea57ec81431",
+      "letters": "QuEEISRELYBRHUSAC",
+      "words": 227,
+      "possibleScore": 2651,
+      "maxLength": 11,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-c203546fab608327",
+      "letters": "OAZMNSRFIIELUTTN",
+      "words": 212,
+      "possibleScore": 1541,
+      "maxLength": 7,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-c3127ccd0e2eb060",
+      "letters": "NWBDGAREIKACORSP",
+      "words": 185,
+      "possibleScore": 1552,
+      "maxLength": 7,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-2f2df8a62d0eaefc",
+      "letters": "AAEOBRAEITTDERCE",
+      "words": 165,
+      "possibleScore": 1522,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-6c4be3d8ba9c0a13",
+      "letters": "SBSADIOBITACOBTE",
+      "words": 184,
+      "possibleScore": 1422,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-b3018fe5ffbbadb9",
+      "letters": "FLAHNAURTIENSFNG",
+      "words": 284,
+      "possibleScore": 2321,
+      "maxLength": 8,
+      "targetWord": null
+    },
+    {
+      "id": "tr-bonus_letter-84b1db982a32d096",
+      "letters": "SENLQuTLIIFIACTRS",
+      "words": 314,
+      "possibleScore": 2800,
+      "maxLength": 10,
+      "targetWord": null
+    }
+  ],
+  "catalogBytes": 17694439,
+  "dataBytes": 17661684,
+  "indexBytes": 32755
+}

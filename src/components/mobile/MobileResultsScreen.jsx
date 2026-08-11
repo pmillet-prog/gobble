@@ -1,6 +1,7 @@
 import React from "react";
 
 import HelpOverlay from "../HelpOverlay.jsx";
+import LiveFeed from "../LiveFeed.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import WordPointsLabel from "../WordPointsLabel.jsx";
@@ -32,6 +33,7 @@ function MobileResultsScreen(props) {
     handleResultsTouchStart = null,
     isFinaleBanner = false,
     isSpeedRound = false,
+    isStandaloneTraining = false,
     isTargetRound = false,
     listItemRefs = null,
     mobileBodyHeightStyle = undefined,
@@ -65,6 +67,7 @@ function MobileResultsScreen(props) {
     resultsFadeClass = "",
     resultsHeaderLabel = "",
     resultsHeaderSuffix = "",
+    roundTypeLabel = "",
     resultsPageKey = "round",
     resultsRankingList = [],
     resultsRankingModeForMobile = "round",
@@ -82,6 +85,10 @@ function MobileResultsScreen(props) {
     targetSummary = null,
     tick = 0,
     tournament = null,
+    trainingControls = null,
+    trainingFeedBannerText = "",
+    trainingFeedItems = [],
+    trainingFeedNickClassName = null,
     visibleWordGuidance = false,
     wordsEmpty = false,
   } = props;
@@ -112,6 +119,7 @@ function MobileResultsScreen(props) {
           playingSeconds={null}
           playerTeam={duelTeam}
           phase="results"
+          roundTypeLabel={roundTypeLabel}
           roomLabelSeparator=" - "
           showHelpButton={false}
           tournament={tournament}
@@ -121,6 +129,22 @@ function MobileResultsScreen(props) {
           darkMode={darkMode}
           onClose={() => onSetShowHelp?.(false)}
         />
+        {isStandaloneTraining ? (
+          <div className="shrink-0 space-y-1 px-3 pt-1">
+            {trainingControls}
+            {!isTargetRound ? (
+              <div className="h-[88px] overflow-hidden rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900/90">
+                <LiveFeed
+                  items={trainingFeedItems}
+                  darkMode={darkMode}
+                  maxHeight="100%"
+                  bannerText={trainingFeedBannerText}
+                  getNickClassName={trainingFeedNickClassName}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div
           className="flex-1 flex flex-col gap-1 px-3 pt-1 pb-2 overflow-hidden box-border"
           style={{
@@ -173,7 +197,11 @@ function MobileResultsScreen(props) {
                   </div>
                 ) : null}
 
-                {showVocabPage ? (
+                {isStandaloneTraining && isTargetRound ? (
+                  <div className="flex-1 min-h-0 overflow-y-auto py-1">
+                    {renderDesktopResultsDockPanel?.()}
+                  </div>
+                ) : showVocabPage ? (
                   renderVocabPanel?.({ panelClassName: "flex-1 min-h-0 pt-2" })
                 ) : showResultsWords && !isTargetRound ? (
                   <div className="flex flex-col gap-2 flex-1 min-h-0">
@@ -467,7 +495,8 @@ function MobileResultsScreen(props) {
           </div>
 
           {resultsDots}
-          {(isTargetRound ? targetSummary : endStats) && (
+          {!(isStandaloneTraining && isTargetRound) &&
+          (isTargetRound ? targetSummary : endStats) && (
             <div className={summaryWrapperClass} style={mobileResultsSummaryStyle}>
               {renderDesktopResultsDockPanel?.()}
             </div>

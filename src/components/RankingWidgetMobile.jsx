@@ -1,6 +1,7 @@
 import React from "react";
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
+import TrainingPlayerBadge from "./training/TrainingPlayerBadge.jsx";
 
 function clampValue(value, min, max) {
   if (!Number.isFinite(value)) return min;
@@ -29,6 +30,8 @@ function areRankingListsEquivalent(left, right) {
     if ((a.roundGobbles || 0) !== (b.roundGobbles || 0)) return false;
     if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
     if ((a.fakeTwinsCompletionBonus || 0) !== (b.fakeTwinsCompletionBonus || 0)) return false;
+    if (!!a.inTraining !== !!b.inTraining) return false;
+    if ((a.trainingMode || "") !== (b.trainingMode || "")) return false;
   }
   return true;
 }
@@ -931,12 +934,13 @@ function RankingWidgetMobile({
             AFK
           </span>
         ) : null;
+        const trainingBadge = entry?.inTraining ? <TrainingPlayerBadge /> : null;
         const gobbleWordBadges = showGobbleWordAwards && gobbles <= 0 && roundGobbles <= 0
           ? renderGobbleWordBadges(entry.nick)
           : null;
         const hasSecondaryNickLine =
           shouldStackNickDecorations &&
-          (nickDecorations || gobblesBadge || roundGobblesBadge || fakeTwinsBonusBadge || gobbleWordBadges);
+          (trainingBadge || nickDecorations || gobblesBadge || roundGobblesBadge || fakeTwinsBonusBadge || gobbleWordBadges);
         const anchorNick = String(entry?.nick || "");
         const handleOpenPlayerDetails = (event, sourceElement = null) => {
           if (!nickClickable) return;
@@ -1009,6 +1013,7 @@ function RankingWidgetMobile({
                           style={flatSecondaryTextStyle}
                         >
                           {nickDecorations ? <span className="min-w-0 max-w-full overflow-hidden">{nickDecorations}</span> : null}
+                          {trainingBadge}
                           {gobblesBadge}
                           {roundGobblesBadge}
                           {fakeTwinsBonusBadge}
@@ -1027,6 +1032,7 @@ function RankingWidgetMobile({
                         {entry.nick}
                       </span>
                       {afkBadge}
+                      {trainingBadge}
                       {nickDecorations ? <span className="flex-none">{nickDecorations}</span> : null}
                       {gobblesBadge}
                       {roundGobblesBadge}
@@ -1519,6 +1525,7 @@ function RankingWidgetMobile({
                         >
                           {row.type === "empty" ? "" : displayNick}
                         </span>
+                      {labelEntry?.inTraining ? <TrainingPlayerBadge compact /> : null}
                       {showNickDecorations && renderNickSuffix && row.type !== "empty" ? (
                         <span className="flex-none">
                           {renderNickSuffix(

@@ -1,0 +1,1512 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:34.851Z",
+  "mode": "target_score",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "count": 300,
+  "dataFile": "target_score.jsonl",
+  "records": [
+    {
+      "id": "tr-target_score-9e64884fb21805dc",
+      "offset": 0,
+      "length": 77694
+    },
+    {
+      "id": "tr-target_score-ebcbc6678c926859",
+      "offset": 77694,
+      "length": 47354
+    },
+    {
+      "id": "tr-target_score-58ced43b206cb5d0",
+      "offset": 125048,
+      "length": 54625
+    },
+    {
+      "id": "tr-target_score-830d38048c2bbbda",
+      "offset": 179673,
+      "length": 45696
+    },
+    {
+      "id": "tr-target_score-f5ecd9a9b3fbfc0a",
+      "offset": 225369,
+      "length": 47149
+    },
+    {
+      "id": "tr-target_score-087bdcf92c423774",
+      "offset": 272518,
+      "length": 91279
+    },
+    {
+      "id": "tr-target_score-774b1b595c61f0da",
+      "offset": 363797,
+      "length": 50423
+    },
+    {
+      "id": "tr-target_score-746e14fdcb6b2827",
+      "offset": 414220,
+      "length": 73308
+    },
+    {
+      "id": "tr-target_score-058afab9c0c1caba",
+      "offset": 487528,
+      "length": 44295
+    },
+    {
+      "id": "tr-target_score-054324c313070ec1",
+      "offset": 531823,
+      "length": 53864
+    },
+    {
+      "id": "tr-target_score-02d2b306d7d43aff",
+      "offset": 585687,
+      "length": 49688
+    },
+    {
+      "id": "tr-target_score-d8f92229b1ebe056",
+      "offset": 635375,
+      "length": 43195
+    },
+    {
+      "id": "tr-target_score-260d3fbc65570285",
+      "offset": 678570,
+      "length": 77679
+    },
+    {
+      "id": "tr-target_score-f3d6cd77158ea24c",
+      "offset": 756249,
+      "length": 66222
+    },
+    {
+      "id": "tr-target_score-dfe503295f142ebb",
+      "offset": 822471,
+      "length": 66281
+    },
+    {
+      "id": "tr-target_score-d5209400dc330289",
+      "offset": 888752,
+      "length": 46501
+    },
+    {
+      "id": "tr-target_score-730d9bea32edef25",
+      "offset": 935253,
+      "length": 53488
+    },
+    {
+      "id": "tr-target_score-956acb46e56fc4dc",
+      "offset": 988741,
+      "length": 121665
+    },
+    {
+      "id": "tr-target_score-6b1e75753797c6b0",
+      "offset": 1110406,
+      "length": 51325
+    },
+    {
+      "id": "tr-target_score-0305782855c0ba9b",
+      "offset": 1161731,
+      "length": 60661
+    },
+    {
+      "id": "tr-target_score-a174624eca1af59f",
+      "offset": 1222392,
+      "length": 47013
+    },
+    {
+      "id": "tr-target_score-a927de4e616ac6ca",
+      "offset": 1269405,
+      "length": 46194
+    },
+    {
+      "id": "tr-target_score-17f1c10cafe566c3",
+      "offset": 1315599,
+      "length": 49898
+    },
+    {
+      "id": "tr-target_score-cc175de1b7356125",
+      "offset": 1365497,
+      "length": 92858
+    },
+    {
+      "id": "tr-target_score-9ec1cb13535bbcb8",
+      "offset": 1458355,
+      "length": 49328
+    },
+    {
+      "id": "tr-target_score-93c200100065c43c",
+      "offset": 1507683,
+      "length": 46649
+    },
+    {
+      "id": "tr-target_score-64fb364b61582a83",
+      "offset": 1554332,
+      "length": 65875
+    },
+    {
+      "id": "tr-target_score-c5b2e06e3bd2f7a3",
+      "offset": 1620207,
+      "length": 77131
+    },
+    {
+      "id": "tr-target_score-03e68514b44df639",
+      "offset": 1697338,
+      "length": 58414
+    },
+    {
+      "id": "tr-target_score-a7b859070f95e684",
+      "offset": 1755752,
+      "length": 69936
+    },
+    {
+      "id": "tr-target_score-75b370608a3be06a",
+      "offset": 1825688,
+      "length": 65322
+    },
+    {
+      "id": "tr-target_score-373274362148ad0b",
+      "offset": 1891010,
+      "length": 45616
+    },
+    {
+      "id": "tr-target_score-b9c6cd6ffdaa8426",
+      "offset": 1936626,
+      "length": 56058
+    },
+    {
+      "id": "tr-target_score-1020cc2c356cd330",
+      "offset": 1992684,
+      "length": 58522
+    },
+    {
+      "id": "tr-target_score-d45452a752f8a692",
+      "offset": 2051206,
+      "length": 43198
+    },
+    {
+      "id": "tr-target_score-60eb6106458c92fa",
+      "offset": 2094404,
+      "length": 88895
+    },
+    {
+      "id": "tr-target_score-a4c9a5c52c19a5c2",
+      "offset": 2183299,
+      "length": 59182
+    },
+    {
+      "id": "tr-target_score-2f500b0b361c8e48",
+      "offset": 2242481,
+      "length": 47199
+    },
+    {
+      "id": "tr-target_score-af1641e8f3dad906",
+      "offset": 2289680,
+      "length": 66685
+    },
+    {
+      "id": "tr-target_score-ef606ff3b4153d0f",
+      "offset": 2356365,
+      "length": 50837
+    },
+    {
+      "id": "tr-target_score-4b3ef9ac0ead8ed8",
+      "offset": 2407202,
+      "length": 43770
+    },
+    {
+      "id": "tr-target_score-fe677988ad2a73dc",
+      "offset": 2450972,
+      "length": 62052
+    },
+    {
+      "id": "tr-target_score-c86af8cac698bc73",
+      "offset": 2513024,
+      "length": 56023
+    },
+    {
+      "id": "tr-target_score-baad56b131839ef1",
+      "offset": 2569047,
+      "length": 51375
+    },
+    {
+      "id": "tr-target_score-06f80ebdd43fad9e",
+      "offset": 2620422,
+      "length": 45916
+    },
+    {
+      "id": "tr-target_score-c4817267f5ab7fbb",
+      "offset": 2666338,
+      "length": 55575
+    },
+    {
+      "id": "tr-target_score-ee6739f9285028d4",
+      "offset": 2721913,
+      "length": 84962
+    },
+    {
+      "id": "tr-target_score-c4b2d8ff663e0b66",
+      "offset": 2806875,
+      "length": 56543
+    },
+    {
+      "id": "tr-target_score-e8f9def996f4c2ac",
+      "offset": 2863418,
+      "length": 51952
+    },
+    {
+      "id": "tr-target_score-17d44b9a56fd0b71",
+      "offset": 2915370,
+      "length": 54413
+    },
+    {
+      "id": "tr-target_score-05e85ad0db7a4a08",
+      "offset": 2969783,
+      "length": 57071
+    },
+    {
+      "id": "tr-target_score-8077a0de185d14af",
+      "offset": 3026854,
+      "length": 44898
+    },
+    {
+      "id": "tr-target_score-a7137543e3eab690",
+      "offset": 3071752,
+      "length": 91292
+    },
+    {
+      "id": "tr-target_score-df649b0745ca98ec",
+      "offset": 3163044,
+      "length": 56334
+    },
+    {
+      "id": "tr-target_score-b97095cf96e710f3",
+      "offset": 3219378,
+      "length": 48869
+    },
+    {
+      "id": "tr-target_score-2a8d62916daa65da",
+      "offset": 3268247,
+      "length": 55731
+    },
+    {
+      "id": "tr-target_score-6cad901f218be858",
+      "offset": 3323978,
+      "length": 74254
+    },
+    {
+      "id": "tr-target_score-8e115761ea00b2ba",
+      "offset": 3398232,
+      "length": 45786
+    },
+    {
+      "id": "tr-target_score-0e885b7efd9fddec",
+      "offset": 3444018,
+      "length": 44601
+    },
+    {
+      "id": "tr-target_score-6d2c34e4c1b2f77d",
+      "offset": 3488619,
+      "length": 49749
+    },
+    {
+      "id": "tr-target_score-4c343b040457daef",
+      "offset": 3538368,
+      "length": 46772
+    },
+    {
+      "id": "tr-target_score-e7e2750e30193c24",
+      "offset": 3585140,
+      "length": 57982
+    },
+    {
+      "id": "tr-target_score-30709ceb0de90f13",
+      "offset": 3643122,
+      "length": 47601
+    },
+    {
+      "id": "tr-target_score-9fc4e5166b06f753",
+      "offset": 3690723,
+      "length": 54452
+    },
+    {
+      "id": "tr-target_score-33718874bb0cef8f",
+      "offset": 3745175,
+      "length": 50795
+    },
+    {
+      "id": "tr-target_score-e9db01bc3b89f330",
+      "offset": 3795970,
+      "length": 44206
+    },
+    {
+      "id": "tr-target_score-4398aa73aa2cad07",
+      "offset": 3840176,
+      "length": 58067
+    },
+    {
+      "id": "tr-target_score-c69bc22086f19eaa",
+      "offset": 3898243,
+      "length": 47764
+    },
+    {
+      "id": "tr-target_score-6da83d8979ecd442",
+      "offset": 3946007,
+      "length": 52197
+    },
+    {
+      "id": "tr-target_score-468e1b34ee8bc6d0",
+      "offset": 3998204,
+      "length": 49244
+    },
+    {
+      "id": "tr-target_score-9bdcb3773fd09add",
+      "offset": 4047448,
+      "length": 62905
+    },
+    {
+      "id": "tr-target_score-cb0950d1c022b72b",
+      "offset": 4110353,
+      "length": 44173
+    },
+    {
+      "id": "tr-target_score-3c2013517c1330a5",
+      "offset": 4154526,
+      "length": 49370
+    },
+    {
+      "id": "tr-target_score-678aa2e81db6a58b",
+      "offset": 4203896,
+      "length": 71864
+    },
+    {
+      "id": "tr-target_score-f98216817719a6dd",
+      "offset": 4275760,
+      "length": 51308
+    },
+    {
+      "id": "tr-target_score-ddfe0785fc8375c8",
+      "offset": 4327068,
+      "length": 89956
+    },
+    {
+      "id": "tr-target_score-d084515377cfa993",
+      "offset": 4417024,
+      "length": 43769
+    },
+    {
+      "id": "tr-target_score-f64db194ca35be37",
+      "offset": 4460793,
+      "length": 63356
+    },
+    {
+      "id": "tr-target_score-7dc57a6ffe01838f",
+      "offset": 4524149,
+      "length": 57283
+    },
+    {
+      "id": "tr-target_score-1c208e888081b6c7",
+      "offset": 4581432,
+      "length": 75420
+    },
+    {
+      "id": "tr-target_score-d2db6b75b04a2167",
+      "offset": 4656852,
+      "length": 46373
+    },
+    {
+      "id": "tr-target_score-7b2693b1b20eb485",
+      "offset": 4703225,
+      "length": 78854
+    },
+    {
+      "id": "tr-target_score-fb91711a31a1a1e6",
+      "offset": 4782079,
+      "length": 48454
+    },
+    {
+      "id": "tr-target_score-1e67078f2785dd05",
+      "offset": 4830533,
+      "length": 43788
+    },
+    {
+      "id": "tr-target_score-e20ff4a78c7d5b0b",
+      "offset": 4874321,
+      "length": 47981
+    },
+    {
+      "id": "tr-target_score-dbb98e4eea82754f",
+      "offset": 4922302,
+      "length": 45452
+    },
+    {
+      "id": "tr-target_score-aacd600aa34eaf31",
+      "offset": 4967754,
+      "length": 73334
+    },
+    {
+      "id": "tr-target_score-a0dd57c762067de0",
+      "offset": 5041088,
+      "length": 43607
+    },
+    {
+      "id": "tr-target_score-9b02db24a1918031",
+      "offset": 5084695,
+      "length": 48396
+    },
+    {
+      "id": "tr-target_score-e9156f7d7894ad71",
+      "offset": 5133091,
+      "length": 56580
+    },
+    {
+      "id": "tr-target_score-e157f9783b3ad482",
+      "offset": 5189671,
+      "length": 54164
+    },
+    {
+      "id": "tr-target_score-d29df41e0c452cf8",
+      "offset": 5243835,
+      "length": 114994
+    },
+    {
+      "id": "tr-target_score-d23e43671702ebf4",
+      "offset": 5358829,
+      "length": 52396
+    },
+    {
+      "id": "tr-target_score-32c76cd8b4c691e3",
+      "offset": 5411225,
+      "length": 76512
+    },
+    {
+      "id": "tr-target_score-511cf2b53ff9fd0b",
+      "offset": 5487737,
+      "length": 67076
+    },
+    {
+      "id": "tr-target_score-cb01454d0a6e90b8",
+      "offset": 5554813,
+      "length": 47694
+    },
+    {
+      "id": "tr-target_score-b452447642a46ab2",
+      "offset": 5602507,
+      "length": 64549
+    },
+    {
+      "id": "tr-target_score-8128548ee94d88a3",
+      "offset": 5667056,
+      "length": 44992
+    },
+    {
+      "id": "tr-target_score-11d6fc1e26be9ff0",
+      "offset": 5712048,
+      "length": 51502
+    },
+    {
+      "id": "tr-target_score-02e27cf2215bb9ac",
+      "offset": 5763550,
+      "length": 55776
+    },
+    {
+      "id": "tr-target_score-8a52589b6ef00857",
+      "offset": 5819326,
+      "length": 71205
+    },
+    {
+      "id": "tr-target_score-1b8ceea68aaabd6a",
+      "offset": 5890531,
+      "length": 48151
+    },
+    {
+      "id": "tr-target_score-d8ccab5abe0ab6d1",
+      "offset": 5938682,
+      "length": 46866
+    },
+    {
+      "id": "tr-target_score-1363a402e0f7d71b",
+      "offset": 5985548,
+      "length": 50252
+    },
+    {
+      "id": "tr-target_score-b4d19cde640a37df",
+      "offset": 6035800,
+      "length": 44304
+    },
+    {
+      "id": "tr-target_score-a43ecf4b48ab7dd9",
+      "offset": 6080104,
+      "length": 45793
+    },
+    {
+      "id": "tr-target_score-4003beb339560a00",
+      "offset": 6125897,
+      "length": 46162
+    },
+    {
+      "id": "tr-target_score-41f7e330f791df0b",
+      "offset": 6172059,
+      "length": 47544
+    },
+    {
+      "id": "tr-target_score-dfc0fa5a99e0257b",
+      "offset": 6219603,
+      "length": 48345
+    },
+    {
+      "id": "tr-target_score-e5e10a7829debca9",
+      "offset": 6267948,
+      "length": 47384
+    },
+    {
+      "id": "tr-target_score-bf573674e8ec7272",
+      "offset": 6315332,
+      "length": 113536
+    },
+    {
+      "id": "tr-target_score-24d92b30a7b716b9",
+      "offset": 6428868,
+      "length": 57967
+    },
+    {
+      "id": "tr-target_score-273a6e74f4ad98da",
+      "offset": 6486835,
+      "length": 43964
+    },
+    {
+      "id": "tr-target_score-6c3f22d1362a1551",
+      "offset": 6530799,
+      "length": 77677
+    },
+    {
+      "id": "tr-target_score-744600d70ad263a9",
+      "offset": 6608476,
+      "length": 48550
+    },
+    {
+      "id": "tr-target_score-657290aa789f3287",
+      "offset": 6657026,
+      "length": 59153
+    },
+    {
+      "id": "tr-target_score-d25bdcb9ade5df8a",
+      "offset": 6716179,
+      "length": 47557
+    },
+    {
+      "id": "tr-target_score-3b51e5d8c593d497",
+      "offset": 6763736,
+      "length": 75174
+    },
+    {
+      "id": "tr-target_score-41b23f1d2b23f5b5",
+      "offset": 6838910,
+      "length": 72120
+    },
+    {
+      "id": "tr-target_score-88a0ad486bf77aa7",
+      "offset": 6911030,
+      "length": 78167
+    },
+    {
+      "id": "tr-target_score-58f3306f33d27fba",
+      "offset": 6989197,
+      "length": 53196
+    },
+    {
+      "id": "tr-target_score-5a4f5e36f212570e",
+      "offset": 7042393,
+      "length": 72207
+    },
+    {
+      "id": "tr-target_score-d41a60c244689019",
+      "offset": 7114600,
+      "length": 55970
+    },
+    {
+      "id": "tr-target_score-c4b9976945217c1c",
+      "offset": 7170570,
+      "length": 44200
+    },
+    {
+      "id": "tr-target_score-764c615d604c65f0",
+      "offset": 7214770,
+      "length": 63058
+    },
+    {
+      "id": "tr-target_score-af0df4b1aca3dd59",
+      "offset": 7277828,
+      "length": 44238
+    },
+    {
+      "id": "tr-target_score-0671c8a43db455f3",
+      "offset": 7322066,
+      "length": 67273
+    },
+    {
+      "id": "tr-target_score-c9356bbbead88d0c",
+      "offset": 7389339,
+      "length": 46292
+    },
+    {
+      "id": "tr-target_score-cd760480411e1078",
+      "offset": 7435631,
+      "length": 66495
+    },
+    {
+      "id": "tr-target_score-8775dc15e886d904",
+      "offset": 7502126,
+      "length": 55026
+    },
+    {
+      "id": "tr-target_score-bc142829062f1acf",
+      "offset": 7557152,
+      "length": 48766
+    },
+    {
+      "id": "tr-target_score-357861a0ed582e98",
+      "offset": 7605918,
+      "length": 56269
+    },
+    {
+      "id": "tr-target_score-e2e9fc0bb7c95926",
+      "offset": 7662187,
+      "length": 69394
+    },
+    {
+      "id": "tr-target_score-33f4dc28a7539518",
+      "offset": 7731581,
+      "length": 71990
+    },
+    {
+      "id": "tr-target_score-f26eae4c123285cb",
+      "offset": 7803571,
+      "length": 43633
+    },
+    {
+      "id": "tr-target_score-21fc7e10dfdad468",
+      "offset": 7847204,
+      "length": 62477
+    },
+    {
+      "id": "tr-target_score-40cecf4bd85d5591",
+      "offset": 7909681,
+      "length": 50903
+    },
+    {
+      "id": "tr-target_score-68d81a3e50a334fd",
+      "offset": 7960584,
+      "length": 43939
+    },
+    {
+      "id": "tr-target_score-070125d694505181",
+      "offset": 8004523,
+      "length": 52062
+    },
+    {
+      "id": "tr-target_score-9a52b12bc31b6ea0",
+      "offset": 8056585,
+      "length": 48775
+    },
+    {
+      "id": "tr-target_score-238e01f38aacb512",
+      "offset": 8105360,
+      "length": 46902
+    },
+    {
+      "id": "tr-target_score-95fa4d8a950e93cf",
+      "offset": 8152262,
+      "length": 97841
+    },
+    {
+      "id": "tr-target_score-138f02ddaae5d544",
+      "offset": 8250103,
+      "length": 54514
+    },
+    {
+      "id": "tr-target_score-9afdb0838edd4637",
+      "offset": 8304617,
+      "length": 55491
+    },
+    {
+      "id": "tr-target_score-7d94e437bbd7e0e9",
+      "offset": 8360108,
+      "length": 69686
+    },
+    {
+      "id": "tr-target_score-8547635127ca0106",
+      "offset": 8429794,
+      "length": 48468
+    },
+    {
+      "id": "tr-target_score-ca7ac24b5fc01187",
+      "offset": 8478262,
+      "length": 73176
+    },
+    {
+      "id": "tr-target_score-e60128ce5b6afcbe",
+      "offset": 8551438,
+      "length": 69258
+    },
+    {
+      "id": "tr-target_score-f6644b53207f36ce",
+      "offset": 8620696,
+      "length": 50660
+    },
+    {
+      "id": "tr-target_score-8a63aa2032cb2a67",
+      "offset": 8671356,
+      "length": 102760
+    },
+    {
+      "id": "tr-target_score-5646b20ec01f021a",
+      "offset": 8774116,
+      "length": 46232
+    },
+    {
+      "id": "tr-target_score-a7b02429a2e2e12a",
+      "offset": 8820348,
+      "length": 71216
+    },
+    {
+      "id": "tr-target_score-89e8dcd112364f80",
+      "offset": 8891564,
+      "length": 87242
+    },
+    {
+      "id": "tr-target_score-a44eb7751d1825af",
+      "offset": 8978806,
+      "length": 46265
+    },
+    {
+      "id": "tr-target_score-602582aa7ccb67cd",
+      "offset": 9025071,
+      "length": 89493
+    },
+    {
+      "id": "tr-target_score-d745198aa6f8fedb",
+      "offset": 9114564,
+      "length": 46666
+    },
+    {
+      "id": "tr-target_score-203c21fb0f8a9217",
+      "offset": 9161230,
+      "length": 43869
+    },
+    {
+      "id": "tr-target_score-a3ee1e9924df144c",
+      "offset": 9205099,
+      "length": 54764
+    },
+    {
+      "id": "tr-target_score-649d508595d51dfa",
+      "offset": 9259863,
+      "length": 97532
+    },
+    {
+      "id": "tr-target_score-934c7ac56a666917",
+      "offset": 9357395,
+      "length": 45450
+    },
+    {
+      "id": "tr-target_score-671d722b4a4bdfc5",
+      "offset": 9402845,
+      "length": 58588
+    },
+    {
+      "id": "tr-target_score-f661e82a27814181",
+      "offset": 9461433,
+      "length": 61205
+    },
+    {
+      "id": "tr-target_score-0773c0baa3f39f04",
+      "offset": 9522638,
+      "length": 55552
+    },
+    {
+      "id": "tr-target_score-d809d95128847df4",
+      "offset": 9578190,
+      "length": 50313
+    },
+    {
+      "id": "tr-target_score-db1f8bd1849c35a1",
+      "offset": 9628503,
+      "length": 87462
+    },
+    {
+      "id": "tr-target_score-f771940f4a0aaa99",
+      "offset": 9715965,
+      "length": 84427
+    },
+    {
+      "id": "tr-target_score-5dedb0188d94bb66",
+      "offset": 9800392,
+      "length": 60855
+    },
+    {
+      "id": "tr-target_score-d54e46aa9dfb5f5a",
+      "offset": 9861247,
+      "length": 56934
+    },
+    {
+      "id": "tr-target_score-543a92842a1871ad",
+      "offset": 9918181,
+      "length": 48727
+    },
+    {
+      "id": "tr-target_score-86cdbd21f1e9f5bb",
+      "offset": 9966908,
+      "length": 97774
+    },
+    {
+      "id": "tr-target_score-f1b14c76d3192c88",
+      "offset": 10064682,
+      "length": 51691
+    },
+    {
+      "id": "tr-target_score-bd7bb46d86e269c5",
+      "offset": 10116373,
+      "length": 58513
+    },
+    {
+      "id": "tr-target_score-42c08bf005736d1b",
+      "offset": 10174886,
+      "length": 47564
+    },
+    {
+      "id": "tr-target_score-fc747f8947b90b51",
+      "offset": 10222450,
+      "length": 46676
+    },
+    {
+      "id": "tr-target_score-8c18a56f6839dc91",
+      "offset": 10269126,
+      "length": 57419
+    },
+    {
+      "id": "tr-target_score-3c2a9d2f330fd31b",
+      "offset": 10326545,
+      "length": 55618
+    },
+    {
+      "id": "tr-target_score-fc246e503bf4e164",
+      "offset": 10382163,
+      "length": 55211
+    },
+    {
+      "id": "tr-target_score-f821aca4e57c2165",
+      "offset": 10437374,
+      "length": 85681
+    },
+    {
+      "id": "tr-target_score-3b9911cb54cd8d87",
+      "offset": 10523055,
+      "length": 80035
+    },
+    {
+      "id": "tr-target_score-d9b0dae2a5d05e31",
+      "offset": 10603090,
+      "length": 60605
+    },
+    {
+      "id": "tr-target_score-a0670e886441eb86",
+      "offset": 10663695,
+      "length": 43657
+    },
+    {
+      "id": "tr-target_score-a4d9cfd293bf9cce",
+      "offset": 10707352,
+      "length": 78263
+    },
+    {
+      "id": "tr-target_score-0b55043713357ade",
+      "offset": 10785615,
+      "length": 48219
+    },
+    {
+      "id": "tr-target_score-7a92f69f339cf615",
+      "offset": 10833834,
+      "length": 82140
+    },
+    {
+      "id": "tr-target_score-f420ea668fd40dd9",
+      "offset": 10915974,
+      "length": 54717
+    },
+    {
+      "id": "tr-target_score-23dcef074b2cfbb5",
+      "offset": 10970691,
+      "length": 53337
+    },
+    {
+      "id": "tr-target_score-57dc3c31e65eab91",
+      "offset": 11024028,
+      "length": 74722
+    },
+    {
+      "id": "tr-target_score-c1bb4d1717a3f57e",
+      "offset": 11098750,
+      "length": 60631
+    },
+    {
+      "id": "tr-target_score-b60b500cd0dec96f",
+      "offset": 11159381,
+      "length": 78439
+    },
+    {
+      "id": "tr-target_score-46eb9bb0c0134a0c",
+      "offset": 11237820,
+      "length": 79007
+    },
+    {
+      "id": "tr-target_score-13df025b54999e01",
+      "offset": 11316827,
+      "length": 90192
+    },
+    {
+      "id": "tr-target_score-52c9763e5f6c4119",
+      "offset": 11407019,
+      "length": 77089
+    },
+    {
+      "id": "tr-target_score-199595a2a160ebef",
+      "offset": 11484108,
+      "length": 50207
+    },
+    {
+      "id": "tr-target_score-d7b824ce42d0ae74",
+      "offset": 11534315,
+      "length": 43962
+    },
+    {
+      "id": "tr-target_score-b9dadc03fab406f2",
+      "offset": 11578277,
+      "length": 86421
+    },
+    {
+      "id": "tr-target_score-005591cdb89f3eb9",
+      "offset": 11664698,
+      "length": 52000
+    },
+    {
+      "id": "tr-target_score-594784d62f9b0ec2",
+      "offset": 11716698,
+      "length": 67501
+    },
+    {
+      "id": "tr-target_score-a84cd710c3d11d91",
+      "offset": 11784199,
+      "length": 69468
+    },
+    {
+      "id": "tr-target_score-c8d600669120da7d",
+      "offset": 11853667,
+      "length": 46475
+    },
+    {
+      "id": "tr-target_score-4450b195a16db987",
+      "offset": 11900142,
+      "length": 90031
+    },
+    {
+      "id": "tr-target_score-0ee07d4e9f86c9c0",
+      "offset": 11990173,
+      "length": 67021
+    },
+    {
+      "id": "tr-target_score-2058421213e1620a",
+      "offset": 12057194,
+      "length": 50033
+    },
+    {
+      "id": "tr-target_score-57cb136a1bcd6506",
+      "offset": 12107227,
+      "length": 94092
+    },
+    {
+      "id": "tr-target_score-b2120883a2418a75",
+      "offset": 12201319,
+      "length": 50710
+    },
+    {
+      "id": "tr-target_score-c7f3f204399c7b5b",
+      "offset": 12252029,
+      "length": 55920
+    },
+    {
+      "id": "tr-target_score-18da45a4467febf4",
+      "offset": 12307949,
+      "length": 51931
+    },
+    {
+      "id": "tr-target_score-9c5682a1b2f61a04",
+      "offset": 12359880,
+      "length": 48977
+    },
+    {
+      "id": "tr-target_score-10387ead78b06b03",
+      "offset": 12408857,
+      "length": 59545
+    },
+    {
+      "id": "tr-target_score-50a432257830e6ef",
+      "offset": 12468402,
+      "length": 64440
+    },
+    {
+      "id": "tr-target_score-c7467cd7b5ffb26a",
+      "offset": 12532842,
+      "length": 50732
+    },
+    {
+      "id": "tr-target_score-99421c7997d9402a",
+      "offset": 12583574,
+      "length": 45049
+    },
+    {
+      "id": "tr-target_score-af16af1eec3ae6bf",
+      "offset": 12628623,
+      "length": 47217
+    },
+    {
+      "id": "tr-target_score-d7ffadb2ade798cd",
+      "offset": 12675840,
+      "length": 67795
+    },
+    {
+      "id": "tr-target_score-44fb6bb0cd7a1595",
+      "offset": 12743635,
+      "length": 63107
+    },
+    {
+      "id": "tr-target_score-3ac19fb182ddd686",
+      "offset": 12806742,
+      "length": 46914
+    },
+    {
+      "id": "tr-target_score-0df9c58db1c3d329",
+      "offset": 12853656,
+      "length": 59812
+    },
+    {
+      "id": "tr-target_score-ec9b3b3497cb9400",
+      "offset": 12913468,
+      "length": 60591
+    },
+    {
+      "id": "tr-target_score-eb49004b0f7652c3",
+      "offset": 12974059,
+      "length": 55306
+    },
+    {
+      "id": "tr-target_score-d309200eee02ced8",
+      "offset": 13029365,
+      "length": 56939
+    },
+    {
+      "id": "tr-target_score-6dff05bac8a8e3ff",
+      "offset": 13086304,
+      "length": 47218
+    },
+    {
+      "id": "tr-target_score-fbe5b8bd957e9156",
+      "offset": 13133522,
+      "length": 67414
+    },
+    {
+      "id": "tr-target_score-566ce0b1d53e4590",
+      "offset": 13200936,
+      "length": 81949
+    },
+    {
+      "id": "tr-target_score-030aa6d98ec6344e",
+      "offset": 13282885,
+      "length": 50500
+    },
+    {
+      "id": "tr-target_score-615fd76cd9f06dbd",
+      "offset": 13333385,
+      "length": 53652
+    },
+    {
+      "id": "tr-target_score-5d1bd5f7bf2d0df3",
+      "offset": 13387037,
+      "length": 57660
+    },
+    {
+      "id": "tr-target_score-52b3dee1a598bc68",
+      "offset": 13444697,
+      "length": 65025
+    },
+    {
+      "id": "tr-target_score-dff877037c0f1de6",
+      "offset": 13509722,
+      "length": 63516
+    },
+    {
+      "id": "tr-target_score-36eff8a0caed2f6c",
+      "offset": 13573238,
+      "length": 49491
+    },
+    {
+      "id": "tr-target_score-f48bf3be674663e9",
+      "offset": 13622729,
+      "length": 71871
+    },
+    {
+      "id": "tr-target_score-89e9df6c9d28741f",
+      "offset": 13694600,
+      "length": 52951
+    },
+    {
+      "id": "tr-target_score-ac331519aebcf66a",
+      "offset": 13747551,
+      "length": 72059
+    },
+    {
+      "id": "tr-target_score-f8f4d10012837add",
+      "offset": 13819610,
+      "length": 80010
+    },
+    {
+      "id": "tr-target_score-53f449cd8eb1bee8",
+      "offset": 13899620,
+      "length": 48915
+    },
+    {
+      "id": "tr-target_score-5b54454cea743f92",
+      "offset": 13948535,
+      "length": 44897
+    },
+    {
+      "id": "tr-target_score-61d04fa014860ac2",
+      "offset": 13993432,
+      "length": 49389
+    },
+    {
+      "id": "tr-target_score-c8930982b8fe06f7",
+      "offset": 14042821,
+      "length": 50918
+    },
+    {
+      "id": "tr-target_score-7f65fcad682df173",
+      "offset": 14093739,
+      "length": 53160
+    },
+    {
+      "id": "tr-target_score-1e6ceb6b36684643",
+      "offset": 14146899,
+      "length": 47023
+    },
+    {
+      "id": "tr-target_score-71889e1f997cf6f2",
+      "offset": 14193922,
+      "length": 50366
+    },
+    {
+      "id": "tr-target_score-ce31c18468118291",
+      "offset": 14244288,
+      "length": 66604
+    },
+    {
+      "id": "tr-target_score-af7747ae05c7a6d9",
+      "offset": 14310892,
+      "length": 55424
+    },
+    {
+      "id": "tr-target_score-a1afe69b391dfd10",
+      "offset": 14366316,
+      "length": 52988
+    },
+    {
+      "id": "tr-target_score-ad0d7473e7682cc8",
+      "offset": 14419304,
+      "length": 71586
+    },
+    {
+      "id": "tr-target_score-372e0a70c2473726",
+      "offset": 14490890,
+      "length": 55949
+    },
+    {
+      "id": "tr-target_score-42657602a070aa55",
+      "offset": 14546839,
+      "length": 48056
+    },
+    {
+      "id": "tr-target_score-5ea507d3152b6165",
+      "offset": 14594895,
+      "length": 44242
+    },
+    {
+      "id": "tr-target_score-cdbdec200ff300dc",
+      "offset": 14639137,
+      "length": 62770
+    },
+    {
+      "id": "tr-target_score-6ee2f4fba4bf0bff",
+      "offset": 14701907,
+      "length": 63501
+    },
+    {
+      "id": "tr-target_score-a614d007b8a52473",
+      "offset": 14765408,
+      "length": 49722
+    },
+    {
+      "id": "tr-target_score-79725038ee23758e",
+      "offset": 14815130,
+      "length": 52287
+    },
+    {
+      "id": "tr-target_score-57361b7474597f83",
+      "offset": 14867417,
+      "length": 52278
+    },
+    {
+      "id": "tr-target_score-f565426e2dead6d7",
+      "offset": 14919695,
+      "length": 94457
+    },
+    {
+      "id": "tr-target_score-694d010979a0946e",
+      "offset": 15014152,
+      "length": 57823
+    },
+    {
+      "id": "tr-target_score-d2bffac9f4cf8d1e",
+      "offset": 15071975,
+      "length": 77420
+    },
+    {
+      "id": "tr-target_score-202c8a17b9a0d819",
+      "offset": 15149395,
+      "length": 53994
+    },
+    {
+      "id": "tr-target_score-1defbf0312668550",
+      "offset": 15203389,
+      "length": 59261
+    },
+    {
+      "id": "tr-target_score-5189214e20189adb",
+      "offset": 15262650,
+      "length": 52140
+    },
+    {
+      "id": "tr-target_score-50c3c901927f99a8",
+      "offset": 15314790,
+      "length": 57333
+    },
+    {
+      "id": "tr-target_score-f7c3a78ee196c937",
+      "offset": 15372123,
+      "length": 48516
+    },
+    {
+      "id": "tr-target_score-a2958828a923aef5",
+      "offset": 15420639,
+      "length": 92141
+    },
+    {
+      "id": "tr-target_score-9b1366c0a37649ff",
+      "offset": 15512780,
+      "length": 61636
+    },
+    {
+      "id": "tr-target_score-882395e3defdd20f",
+      "offset": 15574416,
+      "length": 47463
+    },
+    {
+      "id": "tr-target_score-c2ea9c43de9e8cd9",
+      "offset": 15621879,
+      "length": 75496
+    },
+    {
+      "id": "tr-target_score-18a4bed573202635",
+      "offset": 15697375,
+      "length": 61661
+    },
+    {
+      "id": "tr-target_score-61c40421d2dfe1c6",
+      "offset": 15759036,
+      "length": 49990
+    },
+    {
+      "id": "tr-target_score-fd23a089a14f3613",
+      "offset": 15809026,
+      "length": 58700
+    },
+    {
+      "id": "tr-target_score-d0b098199d43e285",
+      "offset": 15867726,
+      "length": 58207
+    },
+    {
+      "id": "tr-target_score-4836dfa7d87bc104",
+      "offset": 15925933,
+      "length": 50892
+    },
+    {
+      "id": "tr-target_score-316cc147dd78a60a",
+      "offset": 15976825,
+      "length": 67342
+    },
+    {
+      "id": "tr-target_score-b95853a776589a81",
+      "offset": 16044167,
+      "length": 47735
+    },
+    {
+      "id": "tr-target_score-a18d8f4c6558aa12",
+      "offset": 16091902,
+      "length": 62569
+    },
+    {
+      "id": "tr-target_score-50ef270c90247dbd",
+      "offset": 16154471,
+      "length": 59852
+    },
+    {
+      "id": "tr-target_score-8efb7b2141c4b550",
+      "offset": 16214323,
+      "length": 48829
+    },
+    {
+      "id": "tr-target_score-0ace2e9c728168b9",
+      "offset": 16263152,
+      "length": 47028
+    },
+    {
+      "id": "tr-target_score-11f3e7a310275d66",
+      "offset": 16310180,
+      "length": 53646
+    },
+    {
+      "id": "tr-target_score-321c97fc999a7367",
+      "offset": 16363826,
+      "length": 61633
+    },
+    {
+      "id": "tr-target_score-7023aae33c9c2ca7",
+      "offset": 16425459,
+      "length": 49266
+    },
+    {
+      "id": "tr-target_score-071faf9ed2210031",
+      "offset": 16474725,
+      "length": 55444
+    },
+    {
+      "id": "tr-target_score-f20196d3cf4a40f5",
+      "offset": 16530169,
+      "length": 60949
+    },
+    {
+      "id": "tr-target_score-17f7cfaf4bb77897",
+      "offset": 16591118,
+      "length": 53316
+    },
+    {
+      "id": "tr-target_score-b3ad2b92ced0e923",
+      "offset": 16644434,
+      "length": 63889
+    },
+    {
+      "id": "tr-target_score-26aeaf0ee2c8719e",
+      "offset": 16708323,
+      "length": 96265
+    },
+    {
+      "id": "tr-target_score-b0779244e29f127c",
+      "offset": 16804588,
+      "length": 55706
+    },
+    {
+      "id": "tr-target_score-9228c684091895e8",
+      "offset": 16860294,
+      "length": 77973
+    },
+    {
+      "id": "tr-target_score-b215a871c9110064",
+      "offset": 16938267,
+      "length": 51420
+    },
+    {
+      "id": "tr-target_score-e560adf0c2f17cb3",
+      "offset": 16989687,
+      "length": 43200
+    },
+    {
+      "id": "tr-target_score-536caf00a21a2abb",
+      "offset": 17032887,
+      "length": 51566
+    },
+    {
+      "id": "tr-target_score-bdaa6e876db14a30",
+      "offset": 17084453,
+      "length": 68919
+    },
+    {
+      "id": "tr-target_score-1f325a9574a8bca8",
+      "offset": 17153372,
+      "length": 96181
+    },
+    {
+      "id": "tr-target_score-bd225714c0f33ee5",
+      "offset": 17249553,
+      "length": 72720
+    },
+    {
+      "id": "tr-target_score-5a126387a621ae20",
+      "offset": 17322273,
+      "length": 108384
+    },
+    {
+      "id": "tr-target_score-d96d39312818d209",
+      "offset": 17430657,
+      "length": 62795
+    },
+    {
+      "id": "tr-target_score-95619a6973ba417b",
+      "offset": 17493452,
+      "length": 53304
+    },
+    {
+      "id": "tr-target_score-57f5c99e11704624",
+      "offset": 17546756,
+      "length": 90335
+    },
+    {
+      "id": "tr-target_score-436dbb26f6f43572",
+      "offset": 17637091,
+      "length": 45471
+    },
+    {
+      "id": "tr-target_score-ced2e8ebe7f032ae",
+      "offset": 17682562,
+      "length": 43691
+    },
+    {
+      "id": "tr-target_score-c99da2679a991d51",
+      "offset": 17726253,
+      "length": 55489
+    },
+    {
+      "id": "tr-target_score-b209eff9194a2d44",
+      "offset": 17781742,
+      "length": 61624
+    },
+    {
+      "id": "tr-target_score-6fca2b536f1c00a2",
+      "offset": 17843366,
+      "length": 55774
+    },
+    {
+      "id": "tr-target_score-36b71db18f48b561",
+      "offset": 17899140,
+      "length": 59517
+    }
+  ]
+}

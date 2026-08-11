@@ -58,6 +58,53 @@ const styles = `
   align-items: center;
   justify-items: center;
 }
+.home-maintenance-banner {
+  position: absolute;
+  z-index: 30;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  width: min(calc(100% - 18px), 900px);
+  min-height: 54px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 18px;
+  overflow: hidden;
+  border: 3px solid rgba(255, 230, 230, 0.96);
+  border-radius: 14px;
+  background:
+    linear-gradient(105deg, rgba(90, 0, 0, 0.96), rgba(220, 24, 36, 0.98) 48%, rgba(112, 0, 0, 0.96));
+  color: #fff;
+  font-size: clamp(18px, 4.8vw, 28px);
+  font-weight: 1000;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 2px 2px rgba(70, 0, 0, 0.9);
+  box-shadow:
+    0 10px 28px rgba(70, 0, 0, 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  isolation: isolate;
+}
+.home-maintenance-banner::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 18px,
+    rgba(255, 255, 255, 0.08) 18px 30px
+  );
+}
+.home-maintenance-banner .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 1.25em;
+  font-variation-settings: "FILL" 1, "wght" 700;
+}
 .home-lobby-button {
   appearance: none;
   border: 0;
@@ -207,6 +254,19 @@ const styles = `
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
+}
+.home-training {
+  width: clamp(72px, 20vw, 112px);
+  position: absolute;
+  right: calc(50% + min(34vw, 195px) - min(8vw, 34px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.home-training > * {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .home-players:hover:not(:disabled) {
   transform: translateY(-50%) translateY(-2px) scale(1.025);
@@ -393,6 +453,10 @@ const styles = `
     width: min(16vw, 92px);
     left: calc(50% + min(27vw, 160px) - min(6vw, 26px));
   }
+  .home-training {
+    width: min(16vw, 92px);
+    right: calc(50% + min(27vw, 160px) - min(6vw, 26px));
+  }
 }
 @media (max-width: 520px) {
   .home-lobby-shell { padding-left: 10px; padding-right: 10px; }
@@ -428,6 +492,10 @@ const styles = `
     width: 18.5vw;
     left: calc(50% + 32vw - 7vw);
   }
+  .home-training {
+    width: 18.5vw;
+    right: calc(50% + 32vw - 7vw);
+  }
   .home-icon-button { width: 18vw; }
   .home-count-badge { min-width: 30px; height: 30px; font-size: 14px; border-width: 2px; }
 }
@@ -449,6 +517,14 @@ const styles = `
     width: 31.5vw;
     margin: 0;
     transform: translateX(-50%);
+  }
+  .home-maintenance-banner {
+    top: 1.2vh;
+    width: min(58vw, 900px);
+    min-height: clamp(46px, 4.2vw, 66px);
+    padding: 0.55vw 1.2vw;
+    border-radius: clamp(10px, 0.8vw, 16px);
+    font-size: clamp(20px, 1.45vw, 30px);
   }
   .home-account {
     position: absolute;
@@ -529,6 +605,10 @@ const styles = `
   .home-players {
     width: 5.15vw;
     left: calc(50% + 4.65vw);
+  }
+  .home-training {
+    width: 5.15vw;
+    right: calc(50% + 4.65vw);
   }
   .home-bottom-nav {
     position: absolute;
@@ -619,11 +699,11 @@ function HomeLobby({
   resumeRoomLabel = "",
   savedSessionNick = "",
   weeklyRecapLoading = false,
+  trainingControl = null,
 }) {
   const [isIosInstallHelpOpen, setIsIosInstallHelpOpen] = React.useState(false);
   const statusText =
     loginError ||
-    (maintenanceMode ? "Maintenance en cours" : "") ||
     accountNotice ||
     (isAuthStatusPending
       ? "Vérification du compte..."
@@ -631,7 +711,7 @@ function HomeLobby({
       ? "Serveur occupé, réessaie dans quelques secondes."
       : "");
   const safeAccountLabel = accountLabel || savedSessionNick || "Compte";
-  const disabled = isConnecting || isAuthStatusPending;
+  const disabled = isConnecting || isAuthStatusPending || maintenanceMode;
   const playButtonSrc = playerTeam === "red" ? HOME_ASSETS.playRed : HOME_ASSETS.playBlue;
   const hasDisplayModeAction = displayModeAction !== HOME_DISPLAY_ACTIONS.none;
   const displayModeLabel =
@@ -666,6 +746,14 @@ function HomeLobby({
     <div className="home-lobby-screen" style={screenStyle}>
       <style>{styles}</style>
       <div className="home-lobby-shell">
+        {maintenanceMode ? (
+          <div className="home-maintenance-banner" role="status" aria-live="polite">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              construction
+            </span>
+            <span>Maintenance en cours</span>
+          </div>
+        ) : null}
         <img
           className="home-title home-lobby-img"
           src={getUiImageUrl(HOME_ASSETS.title)}
@@ -737,6 +825,7 @@ function HomeLobby({
         </div>
 
         <div className="home-play-row">
+          {trainingControl ? <div className="home-training">{trainingControl}</div> : null}
           <HomeImageButton
             alt="Jouer"
             className="home-play"

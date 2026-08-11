@@ -6,13 +6,19 @@ function clampValue(value, min, max) {
   return Math.min(max, Math.max(min, num));
 }
 
-export function getResultsPagesForRound({ isOcidResult = false, isTargetRound = false } = {}) {
+export function getResultsPagesForRound({
+  isOcidResult = false,
+  isStandaloneTraining = false,
+  isTargetRound = false,
+} = {}) {
+  if (isStandaloneTraining) return isTargetRound ? ["target"] : ["found", "all"];
   if (isOcidResult) return ["round", "total"];
   return isTargetRound ? ["round", "total"] : ["round", "total", "found", "all", "vocab"];
 }
 
 export function useResultsNavigation({
   isOcidResult = false,
+  isStandaloneTraining = false,
   isTargetRound = false,
   onRankingReorder,
   onSwipeSound,
@@ -29,8 +35,8 @@ export function useResultsNavigation({
   const resultsSlideInTimerRef = useRef(null);
 
   const resultsPages = useMemo(
-    () => getResultsPagesForRound({ isOcidResult, isTargetRound }),
-    [isOcidResult, isTargetRound]
+    () => getResultsPagesForRound({ isOcidResult, isStandaloneTraining, isTargetRound }),
+    [isOcidResult, isStandaloneTraining, isTargetRound]
   );
 
   const clearResultsSlideTimers = useCallback(() => {

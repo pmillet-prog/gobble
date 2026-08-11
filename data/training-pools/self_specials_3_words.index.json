@@ -1,0 +1,1512 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:43.295Z",
+  "mode": "self_specials_3_words",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "count": 300,
+  "dataFile": "self_specials_3_words.jsonl",
+  "records": [
+    {
+      "id": "tr-self_specials_3_words-a23e917b018caa66",
+      "offset": 0,
+      "length": 55569
+    },
+    {
+      "id": "tr-self_specials_3_words-14f613699045d9ed",
+      "offset": 55569,
+      "length": 64395
+    },
+    {
+      "id": "tr-self_specials_3_words-9d55c62823dc2021",
+      "offset": 119964,
+      "length": 45274
+    },
+    {
+      "id": "tr-self_specials_3_words-2d9c3f930da37842",
+      "offset": 165238,
+      "length": 73648
+    },
+    {
+      "id": "tr-self_specials_3_words-ed28b95f5a0b7076",
+      "offset": 238886,
+      "length": 46800
+    },
+    {
+      "id": "tr-self_specials_3_words-039e42bbe7f4d379",
+      "offset": 285686,
+      "length": 59025
+    },
+    {
+      "id": "tr-self_specials_3_words-2086eaf538ed6ff5",
+      "offset": 344711,
+      "length": 82297
+    },
+    {
+      "id": "tr-self_specials_3_words-c07dc7b19747bab9",
+      "offset": 427008,
+      "length": 56641
+    },
+    {
+      "id": "tr-self_specials_3_words-bce08d98eff54f4a",
+      "offset": 483649,
+      "length": 45486
+    },
+    {
+      "id": "tr-self_specials_3_words-7f6fe14ffbbf8d16",
+      "offset": 529135,
+      "length": 115124
+    },
+    {
+      "id": "tr-self_specials_3_words-3bce6afb507e4b02",
+      "offset": 644259,
+      "length": 62966
+    },
+    {
+      "id": "tr-self_specials_3_words-c6434f89f678c4ed",
+      "offset": 707225,
+      "length": 49358
+    },
+    {
+      "id": "tr-self_specials_3_words-1373d00ad14b3f0a",
+      "offset": 756583,
+      "length": 52888
+    },
+    {
+      "id": "tr-self_specials_3_words-a5373cda636aa294",
+      "offset": 809471,
+      "length": 57604
+    },
+    {
+      "id": "tr-self_specials_3_words-570c5eb7fb288f26",
+      "offset": 867075,
+      "length": 72343
+    },
+    {
+      "id": "tr-self_specials_3_words-1455d21189212879",
+      "offset": 939418,
+      "length": 44423
+    },
+    {
+      "id": "tr-self_specials_3_words-9fdabaefbee1f895",
+      "offset": 983841,
+      "length": 48487
+    },
+    {
+      "id": "tr-self_specials_3_words-e2367327642425fd",
+      "offset": 1032328,
+      "length": 78336
+    },
+    {
+      "id": "tr-self_specials_3_words-923c28aadfbca2d9",
+      "offset": 1110664,
+      "length": 60976
+    },
+    {
+      "id": "tr-self_specials_3_words-c017b46b52157ada",
+      "offset": 1171640,
+      "length": 54478
+    },
+    {
+      "id": "tr-self_specials_3_words-c9323ac367a3387c",
+      "offset": 1226118,
+      "length": 64851
+    },
+    {
+      "id": "tr-self_specials_3_words-504ae6a13ecf124b",
+      "offset": 1290969,
+      "length": 96509
+    },
+    {
+      "id": "tr-self_specials_3_words-88dcb240e30a5c07",
+      "offset": 1387478,
+      "length": 59430
+    },
+    {
+      "id": "tr-self_specials_3_words-d497db3911b5ca60",
+      "offset": 1446908,
+      "length": 45976
+    },
+    {
+      "id": "tr-self_specials_3_words-8bcf6a0b570f76e1",
+      "offset": 1492884,
+      "length": 51328
+    },
+    {
+      "id": "tr-self_specials_3_words-a70c92ab8316c69c",
+      "offset": 1544212,
+      "length": 54075
+    },
+    {
+      "id": "tr-self_specials_3_words-13322291d82afbba",
+      "offset": 1598287,
+      "length": 54203
+    },
+    {
+      "id": "tr-self_specials_3_words-d9e57ebeea291f01",
+      "offset": 1652490,
+      "length": 44553
+    },
+    {
+      "id": "tr-self_specials_3_words-90ee7af96657db70",
+      "offset": 1697043,
+      "length": 46691
+    },
+    {
+      "id": "tr-self_specials_3_words-c8e71cc984825b10",
+      "offset": 1743734,
+      "length": 82699
+    },
+    {
+      "id": "tr-self_specials_3_words-b7b28bee32f3e004",
+      "offset": 1826433,
+      "length": 47322
+    },
+    {
+      "id": "tr-self_specials_3_words-65a6d90b01237a6b",
+      "offset": 1873755,
+      "length": 54703
+    },
+    {
+      "id": "tr-self_specials_3_words-6b8d9b29103eb5ef",
+      "offset": 1928458,
+      "length": 54257
+    },
+    {
+      "id": "tr-self_specials_3_words-d15b7649f13440e7",
+      "offset": 1982715,
+      "length": 56059
+    },
+    {
+      "id": "tr-self_specials_3_words-33df8b30a1247b49",
+      "offset": 2038774,
+      "length": 60761
+    },
+    {
+      "id": "tr-self_specials_3_words-b81509131b707642",
+      "offset": 2099535,
+      "length": 43735
+    },
+    {
+      "id": "tr-self_specials_3_words-83baa0deeb9b329e",
+      "offset": 2143270,
+      "length": 56161
+    },
+    {
+      "id": "tr-self_specials_3_words-d777a3588bf706b9",
+      "offset": 2199431,
+      "length": 51381
+    },
+    {
+      "id": "tr-self_specials_3_words-89a3e88c839346de",
+      "offset": 2250812,
+      "length": 73819
+    },
+    {
+      "id": "tr-self_specials_3_words-865c20b7ab0de321",
+      "offset": 2324631,
+      "length": 50301
+    },
+    {
+      "id": "tr-self_specials_3_words-b6e616adfa7ac080",
+      "offset": 2374932,
+      "length": 60109
+    },
+    {
+      "id": "tr-self_specials_3_words-145a6fb28580f17f",
+      "offset": 2435041,
+      "length": 61144
+    },
+    {
+      "id": "tr-self_specials_3_words-772d1a46d3e18f07",
+      "offset": 2496185,
+      "length": 63222
+    },
+    {
+      "id": "tr-self_specials_3_words-372cdfe6ab5c6713",
+      "offset": 2559407,
+      "length": 43379
+    },
+    {
+      "id": "tr-self_specials_3_words-2fed36e58950db8d",
+      "offset": 2602786,
+      "length": 46665
+    },
+    {
+      "id": "tr-self_specials_3_words-98016d583dd17df5",
+      "offset": 2649451,
+      "length": 46243
+    },
+    {
+      "id": "tr-self_specials_3_words-5ce13f4bb43ada5c",
+      "offset": 2695694,
+      "length": 44706
+    },
+    {
+      "id": "tr-self_specials_3_words-80f45dfc4828cf99",
+      "offset": 2740400,
+      "length": 79310
+    },
+    {
+      "id": "tr-self_specials_3_words-63504211dc39416f",
+      "offset": 2819710,
+      "length": 49153
+    },
+    {
+      "id": "tr-self_specials_3_words-0bb5c9d862e05fa6",
+      "offset": 2868863,
+      "length": 51747
+    },
+    {
+      "id": "tr-self_specials_3_words-e1c6ffbafae4e320",
+      "offset": 2920610,
+      "length": 47100
+    },
+    {
+      "id": "tr-self_specials_3_words-b39c6b7960f9843c",
+      "offset": 2967710,
+      "length": 50364
+    },
+    {
+      "id": "tr-self_specials_3_words-b585655d47908543",
+      "offset": 3018074,
+      "length": 67611
+    },
+    {
+      "id": "tr-self_specials_3_words-ff09f0d0dc0e2d0e",
+      "offset": 3085685,
+      "length": 62846
+    },
+    {
+      "id": "tr-self_specials_3_words-75acd275ddc4d7c7",
+      "offset": 3148531,
+      "length": 61205
+    },
+    {
+      "id": "tr-self_specials_3_words-8e94b966c0b44d5d",
+      "offset": 3209736,
+      "length": 55249
+    },
+    {
+      "id": "tr-self_specials_3_words-a545be419822bad2",
+      "offset": 3264985,
+      "length": 49960
+    },
+    {
+      "id": "tr-self_specials_3_words-6d1d78cff72e63dd",
+      "offset": 3314945,
+      "length": 52211
+    },
+    {
+      "id": "tr-self_specials_3_words-25e04fcd774a7e6a",
+      "offset": 3367156,
+      "length": 59208
+    },
+    {
+      "id": "tr-self_specials_3_words-9420b7eb914d484d",
+      "offset": 3426364,
+      "length": 52854
+    },
+    {
+      "id": "tr-self_specials_3_words-557b09b87c87a7d8",
+      "offset": 3479218,
+      "length": 54203
+    },
+    {
+      "id": "tr-self_specials_3_words-f5b429fccaa9bc08",
+      "offset": 3533421,
+      "length": 50026
+    },
+    {
+      "id": "tr-self_specials_3_words-3311b57142a7316e",
+      "offset": 3583447,
+      "length": 54708
+    },
+    {
+      "id": "tr-self_specials_3_words-6eb2d3e557fa81c3",
+      "offset": 3638155,
+      "length": 76862
+    },
+    {
+      "id": "tr-self_specials_3_words-364f038617f2d272",
+      "offset": 3715017,
+      "length": 61460
+    },
+    {
+      "id": "tr-self_specials_3_words-b8294042ae024587",
+      "offset": 3776477,
+      "length": 72762
+    },
+    {
+      "id": "tr-self_specials_3_words-08b672ac44ee7286",
+      "offset": 3849239,
+      "length": 56215
+    },
+    {
+      "id": "tr-self_specials_3_words-f2d3d9e2e8e74e05",
+      "offset": 3905454,
+      "length": 56920
+    },
+    {
+      "id": "tr-self_specials_3_words-fd27a630ca7d2bf5",
+      "offset": 3962374,
+      "length": 60691
+    },
+    {
+      "id": "tr-self_specials_3_words-497d48affe46bab7",
+      "offset": 4023065,
+      "length": 48595
+    },
+    {
+      "id": "tr-self_specials_3_words-0253ab18f39cd6a6",
+      "offset": 4071660,
+      "length": 71600
+    },
+    {
+      "id": "tr-self_specials_3_words-e3710c217ecc812a",
+      "offset": 4143260,
+      "length": 63452
+    },
+    {
+      "id": "tr-self_specials_3_words-530cda33c3f41c53",
+      "offset": 4206712,
+      "length": 59280
+    },
+    {
+      "id": "tr-self_specials_3_words-ec5b38239ce296df",
+      "offset": 4265992,
+      "length": 44493
+    },
+    {
+      "id": "tr-self_specials_3_words-7657d3a5742ba90e",
+      "offset": 4310485,
+      "length": 44910
+    },
+    {
+      "id": "tr-self_specials_3_words-3e4742db227980fa",
+      "offset": 4355395,
+      "length": 45753
+    },
+    {
+      "id": "tr-self_specials_3_words-18c69c635d857e8c",
+      "offset": 4401148,
+      "length": 46057
+    },
+    {
+      "id": "tr-self_specials_3_words-077ba49b9fdcb69d",
+      "offset": 4447205,
+      "length": 52879
+    },
+    {
+      "id": "tr-self_specials_3_words-36cd2b11d2af5325",
+      "offset": 4500084,
+      "length": 47029
+    },
+    {
+      "id": "tr-self_specials_3_words-aedde9646be80f7f",
+      "offset": 4547113,
+      "length": 55935
+    },
+    {
+      "id": "tr-self_specials_3_words-85bb69f0910473ca",
+      "offset": 4603048,
+      "length": 43381
+    },
+    {
+      "id": "tr-self_specials_3_words-b5518b1273f8e99b",
+      "offset": 4646429,
+      "length": 45208
+    },
+    {
+      "id": "tr-self_specials_3_words-42c95ab38e2b613d",
+      "offset": 4691637,
+      "length": 75555
+    },
+    {
+      "id": "tr-self_specials_3_words-fc924cd66b80baa1",
+      "offset": 4767192,
+      "length": 49092
+    },
+    {
+      "id": "tr-self_specials_3_words-de76bb91bf5f7af1",
+      "offset": 4816284,
+      "length": 56131
+    },
+    {
+      "id": "tr-self_specials_3_words-4c64405293525dbd",
+      "offset": 4872415,
+      "length": 69369
+    },
+    {
+      "id": "tr-self_specials_3_words-042696c1955f68cb",
+      "offset": 4941784,
+      "length": 49035
+    },
+    {
+      "id": "tr-self_specials_3_words-8f68f13b260e62c9",
+      "offset": 4990819,
+      "length": 48799
+    },
+    {
+      "id": "tr-self_specials_3_words-f14c1663cfd97abd",
+      "offset": 5039618,
+      "length": 95739
+    },
+    {
+      "id": "tr-self_specials_3_words-4ba84db7270ddac5",
+      "offset": 5135357,
+      "length": 54518
+    },
+    {
+      "id": "tr-self_specials_3_words-6c08a7b9d01c38cd",
+      "offset": 5189875,
+      "length": 53368
+    },
+    {
+      "id": "tr-self_specials_3_words-a18c1ef0909cc64d",
+      "offset": 5243243,
+      "length": 64330
+    },
+    {
+      "id": "tr-self_specials_3_words-55f7599655c7f6cb",
+      "offset": 5307573,
+      "length": 48419
+    },
+    {
+      "id": "tr-self_specials_3_words-5d1c0a1f4eee0ff2",
+      "offset": 5355992,
+      "length": 82984
+    },
+    {
+      "id": "tr-self_specials_3_words-c18b8024dbb6190d",
+      "offset": 5438976,
+      "length": 52497
+    },
+    {
+      "id": "tr-self_specials_3_words-7b67c1a275b1f064",
+      "offset": 5491473,
+      "length": 79990
+    },
+    {
+      "id": "tr-self_specials_3_words-4d641520c09e7e84",
+      "offset": 5571463,
+      "length": 83258
+    },
+    {
+      "id": "tr-self_specials_3_words-98799ee127cc1ee8",
+      "offset": 5654721,
+      "length": 64532
+    },
+    {
+      "id": "tr-self_specials_3_words-6242754085dd295f",
+      "offset": 5719253,
+      "length": 43175
+    },
+    {
+      "id": "tr-self_specials_3_words-40fdbe9e42e6e13c",
+      "offset": 5762428,
+      "length": 50169
+    },
+    {
+      "id": "tr-self_specials_3_words-e3907330fa71a5ca",
+      "offset": 5812597,
+      "length": 45823
+    },
+    {
+      "id": "tr-self_specials_3_words-efa24fda7ba0fe09",
+      "offset": 5858420,
+      "length": 116268
+    },
+    {
+      "id": "tr-self_specials_3_words-870de5bc691548a3",
+      "offset": 5974688,
+      "length": 57645
+    },
+    {
+      "id": "tr-self_specials_3_words-259ce518ae19b747",
+      "offset": 6032333,
+      "length": 61545
+    },
+    {
+      "id": "tr-self_specials_3_words-b20ac277b936d8d2",
+      "offset": 6093878,
+      "length": 52236
+    },
+    {
+      "id": "tr-self_specials_3_words-4088c35ffa8714d2",
+      "offset": 6146114,
+      "length": 53016
+    },
+    {
+      "id": "tr-self_specials_3_words-618600d169455bf0",
+      "offset": 6199130,
+      "length": 55043
+    },
+    {
+      "id": "tr-self_specials_3_words-1f07e44333eb73d5",
+      "offset": 6254173,
+      "length": 45973
+    },
+    {
+      "id": "tr-self_specials_3_words-75659614bb1d925f",
+      "offset": 6300146,
+      "length": 55815
+    },
+    {
+      "id": "tr-self_specials_3_words-5763fcd3237e2ad2",
+      "offset": 6355961,
+      "length": 62738
+    },
+    {
+      "id": "tr-self_specials_3_words-e73c836d92dd0d11",
+      "offset": 6418699,
+      "length": 71868
+    },
+    {
+      "id": "tr-self_specials_3_words-433afebc788edb03",
+      "offset": 6490567,
+      "length": 48564
+    },
+    {
+      "id": "tr-self_specials_3_words-43f03dd421cc666c",
+      "offset": 6539131,
+      "length": 48715
+    },
+    {
+      "id": "tr-self_specials_3_words-d0657dca482ca474",
+      "offset": 6587846,
+      "length": 60497
+    },
+    {
+      "id": "tr-self_specials_3_words-e3902e71bff2e8fb",
+      "offset": 6648343,
+      "length": 176503
+    },
+    {
+      "id": "tr-self_specials_3_words-03f16d2f823ce771",
+      "offset": 6824846,
+      "length": 48859
+    },
+    {
+      "id": "tr-self_specials_3_words-8a9aff518302c07c",
+      "offset": 6873705,
+      "length": 61258
+    },
+    {
+      "id": "tr-self_specials_3_words-bf61cb22c2292e53",
+      "offset": 6934963,
+      "length": 68577
+    },
+    {
+      "id": "tr-self_specials_3_words-65ef247f73bd85e7",
+      "offset": 7003540,
+      "length": 56812
+    },
+    {
+      "id": "tr-self_specials_3_words-0b1dbd2ebbaa1d64",
+      "offset": 7060352,
+      "length": 46250
+    },
+    {
+      "id": "tr-self_specials_3_words-6c0a6aea05087a0c",
+      "offset": 7106602,
+      "length": 87196
+    },
+    {
+      "id": "tr-self_specials_3_words-05a76f90249881dc",
+      "offset": 7193798,
+      "length": 49860
+    },
+    {
+      "id": "tr-self_specials_3_words-2436e4d7e535d389",
+      "offset": 7243658,
+      "length": 51867
+    },
+    {
+      "id": "tr-self_specials_3_words-adf94122dfa16f8e",
+      "offset": 7295525,
+      "length": 46756
+    },
+    {
+      "id": "tr-self_specials_3_words-f78c6e4809df1c2e",
+      "offset": 7342281,
+      "length": 65573
+    },
+    {
+      "id": "tr-self_specials_3_words-406ea3b399c7aa61",
+      "offset": 7407854,
+      "length": 63816
+    },
+    {
+      "id": "tr-self_specials_3_words-9d78f84cf1ad6596",
+      "offset": 7471670,
+      "length": 86694
+    },
+    {
+      "id": "tr-self_specials_3_words-816c02bc71de3d5b",
+      "offset": 7558364,
+      "length": 91426
+    },
+    {
+      "id": "tr-self_specials_3_words-9cae55bd6092bccc",
+      "offset": 7649790,
+      "length": 68827
+    },
+    {
+      "id": "tr-self_specials_3_words-ae7641c50d07777a",
+      "offset": 7718617,
+      "length": 57062
+    },
+    {
+      "id": "tr-self_specials_3_words-8d5f093fc1885b52",
+      "offset": 7775679,
+      "length": 44365
+    },
+    {
+      "id": "tr-self_specials_3_words-141f2f30a1593a4a",
+      "offset": 7820044,
+      "length": 48411
+    },
+    {
+      "id": "tr-self_specials_3_words-0a98f33563fbec9f",
+      "offset": 7868455,
+      "length": 48881
+    },
+    {
+      "id": "tr-self_specials_3_words-1df06cc6ff39bca7",
+      "offset": 7917336,
+      "length": 80311
+    },
+    {
+      "id": "tr-self_specials_3_words-c25aedc207cb2e85",
+      "offset": 7997647,
+      "length": 49327
+    },
+    {
+      "id": "tr-self_specials_3_words-2c9ec39e08df536f",
+      "offset": 8046974,
+      "length": 69468
+    },
+    {
+      "id": "tr-self_specials_3_words-ee4ab5e5fe3f5983",
+      "offset": 8116442,
+      "length": 47308
+    },
+    {
+      "id": "tr-self_specials_3_words-9a875cb391db56dd",
+      "offset": 8163750,
+      "length": 43767
+    },
+    {
+      "id": "tr-self_specials_3_words-274a1cfa3b071202",
+      "offset": 8207517,
+      "length": 57773
+    },
+    {
+      "id": "tr-self_specials_3_words-aea98c5b88c91db3",
+      "offset": 8265290,
+      "length": 48523
+    },
+    {
+      "id": "tr-self_specials_3_words-99e5c9b8ae47efa8",
+      "offset": 8313813,
+      "length": 46154
+    },
+    {
+      "id": "tr-self_specials_3_words-c631b0bb2e278d8d",
+      "offset": 8359967,
+      "length": 46406
+    },
+    {
+      "id": "tr-self_specials_3_words-ee33f39807f27e2e",
+      "offset": 8406373,
+      "length": 52707
+    },
+    {
+      "id": "tr-self_specials_3_words-930f7a23e13d154b",
+      "offset": 8459080,
+      "length": 51105
+    },
+    {
+      "id": "tr-self_specials_3_words-fbb6e99982ddde07",
+      "offset": 8510185,
+      "length": 47011
+    },
+    {
+      "id": "tr-self_specials_3_words-e1f85d34048bb12f",
+      "offset": 8557196,
+      "length": 47418
+    },
+    {
+      "id": "tr-self_specials_3_words-fd7281e5e4642cf6",
+      "offset": 8604614,
+      "length": 53632
+    },
+    {
+      "id": "tr-self_specials_3_words-9f21953aa61fffdd",
+      "offset": 8658246,
+      "length": 57418
+    },
+    {
+      "id": "tr-self_specials_3_words-cb1cd00f3df061b9",
+      "offset": 8715664,
+      "length": 62216
+    },
+    {
+      "id": "tr-self_specials_3_words-9f73bc6bbc4a9158",
+      "offset": 8777880,
+      "length": 60990
+    },
+    {
+      "id": "tr-self_specials_3_words-0434e1504c01b941",
+      "offset": 8838870,
+      "length": 63262
+    },
+    {
+      "id": "tr-self_specials_3_words-97d2c8b95ea347a8",
+      "offset": 8902132,
+      "length": 62409
+    },
+    {
+      "id": "tr-self_specials_3_words-bf672c9d985260a5",
+      "offset": 8964541,
+      "length": 53134
+    },
+    {
+      "id": "tr-self_specials_3_words-deb49ad6d26f2954",
+      "offset": 9017675,
+      "length": 45857
+    },
+    {
+      "id": "tr-self_specials_3_words-d46510e2d88dc9bf",
+      "offset": 9063532,
+      "length": 57318
+    },
+    {
+      "id": "tr-self_specials_3_words-ae1778944540ad5d",
+      "offset": 9120850,
+      "length": 47214
+    },
+    {
+      "id": "tr-self_specials_3_words-dce5960d02d5e744",
+      "offset": 9168064,
+      "length": 54018
+    },
+    {
+      "id": "tr-self_specials_3_words-4a9e3d3e526e9e5a",
+      "offset": 9222082,
+      "length": 52498
+    },
+    {
+      "id": "tr-self_specials_3_words-59be2919ef1b825f",
+      "offset": 9274580,
+      "length": 73514
+    },
+    {
+      "id": "tr-self_specials_3_words-e9f1eaef1df25e09",
+      "offset": 9348094,
+      "length": 72869
+    },
+    {
+      "id": "tr-self_specials_3_words-bb1080682a4e0c01",
+      "offset": 9420963,
+      "length": 65028
+    },
+    {
+      "id": "tr-self_specials_3_words-892eba1f3d87d507",
+      "offset": 9485991,
+      "length": 55940
+    },
+    {
+      "id": "tr-self_specials_3_words-452efe14b3053407",
+      "offset": 9541931,
+      "length": 52278
+    },
+    {
+      "id": "tr-self_specials_3_words-6b3bc69bd99b9efe",
+      "offset": 9594209,
+      "length": 43118
+    },
+    {
+      "id": "tr-self_specials_3_words-a3443bf26243e8a7",
+      "offset": 9637327,
+      "length": 53323
+    },
+    {
+      "id": "tr-self_specials_3_words-208b55d12bc24c9f",
+      "offset": 9690650,
+      "length": 46575
+    },
+    {
+      "id": "tr-self_specials_3_words-f5d79a6c95a3502a",
+      "offset": 9737225,
+      "length": 53416
+    },
+    {
+      "id": "tr-self_specials_3_words-1341a4382517198c",
+      "offset": 9790641,
+      "length": 59733
+    },
+    {
+      "id": "tr-self_specials_3_words-1f9c2b4004d2ad8f",
+      "offset": 9850374,
+      "length": 45515
+    },
+    {
+      "id": "tr-self_specials_3_words-a4c09badee0e8474",
+      "offset": 9895889,
+      "length": 71311
+    },
+    {
+      "id": "tr-self_specials_3_words-078751588fa070aa",
+      "offset": 9967200,
+      "length": 56017
+    },
+    {
+      "id": "tr-self_specials_3_words-f9fbaa5962d98aa2",
+      "offset": 10023217,
+      "length": 46958
+    },
+    {
+      "id": "tr-self_specials_3_words-326365dd01a044b5",
+      "offset": 10070175,
+      "length": 54494
+    },
+    {
+      "id": "tr-self_specials_3_words-e2b8ead94b4410ae",
+      "offset": 10124669,
+      "length": 55419
+    },
+    {
+      "id": "tr-self_specials_3_words-61597126f118956e",
+      "offset": 10180088,
+      "length": 43181
+    },
+    {
+      "id": "tr-self_specials_3_words-7ab750868dd84457",
+      "offset": 10223269,
+      "length": 44317
+    },
+    {
+      "id": "tr-self_specials_3_words-6b177f63458c13c2",
+      "offset": 10267586,
+      "length": 73277
+    },
+    {
+      "id": "tr-self_specials_3_words-a4dd20bb2c80e048",
+      "offset": 10340863,
+      "length": 87704
+    },
+    {
+      "id": "tr-self_specials_3_words-8affb06043a41ecf",
+      "offset": 10428567,
+      "length": 53979
+    },
+    {
+      "id": "tr-self_specials_3_words-c31f291f01cea5b0",
+      "offset": 10482546,
+      "length": 44226
+    },
+    {
+      "id": "tr-self_specials_3_words-2b4e91fc0f1d17ba",
+      "offset": 10526772,
+      "length": 65590
+    },
+    {
+      "id": "tr-self_specials_3_words-4a59702908993fe0",
+      "offset": 10592362,
+      "length": 75614
+    },
+    {
+      "id": "tr-self_specials_3_words-be99be31725d02df",
+      "offset": 10667976,
+      "length": 71994
+    },
+    {
+      "id": "tr-self_specials_3_words-c33cd4e8210b748c",
+      "offset": 10739970,
+      "length": 43844
+    },
+    {
+      "id": "tr-self_specials_3_words-5864e41b029ebb4e",
+      "offset": 10783814,
+      "length": 98971
+    },
+    {
+      "id": "tr-self_specials_3_words-dd0a418ecfec09fd",
+      "offset": 10882785,
+      "length": 49200
+    },
+    {
+      "id": "tr-self_specials_3_words-a8164609062dadcf",
+      "offset": 10931985,
+      "length": 44938
+    },
+    {
+      "id": "tr-self_specials_3_words-89e82fd966bba12e",
+      "offset": 10976923,
+      "length": 57761
+    },
+    {
+      "id": "tr-self_specials_3_words-a5fe8c19df0ff936",
+      "offset": 11034684,
+      "length": 68336
+    },
+    {
+      "id": "tr-self_specials_3_words-c98a318ccbd0e500",
+      "offset": 11103020,
+      "length": 55537
+    },
+    {
+      "id": "tr-self_specials_3_words-569f6df2c33f3401",
+      "offset": 11158557,
+      "length": 69638
+    },
+    {
+      "id": "tr-self_specials_3_words-a67fa8fcf1b05526",
+      "offset": 11228195,
+      "length": 50483
+    },
+    {
+      "id": "tr-self_specials_3_words-51d7cf58171bac88",
+      "offset": 11278678,
+      "length": 79204
+    },
+    {
+      "id": "tr-self_specials_3_words-527eade85bc00338",
+      "offset": 11357882,
+      "length": 85488
+    },
+    {
+      "id": "tr-self_specials_3_words-c787461dc6d10ada",
+      "offset": 11443370,
+      "length": 58141
+    },
+    {
+      "id": "tr-self_specials_3_words-8aa1a042dabf96ab",
+      "offset": 11501511,
+      "length": 47190
+    },
+    {
+      "id": "tr-self_specials_3_words-35648083859f19d3",
+      "offset": 11548701,
+      "length": 67994
+    },
+    {
+      "id": "tr-self_specials_3_words-262896d18d023c52",
+      "offset": 11616695,
+      "length": 70196
+    },
+    {
+      "id": "tr-self_specials_3_words-c7fd911350f0492a",
+      "offset": 11686891,
+      "length": 56781
+    },
+    {
+      "id": "tr-self_specials_3_words-7df7a2b7a0f369ed",
+      "offset": 11743672,
+      "length": 53480
+    },
+    {
+      "id": "tr-self_specials_3_words-9863263167f892aa",
+      "offset": 11797152,
+      "length": 45973
+    },
+    {
+      "id": "tr-self_specials_3_words-59aecd1c715867ef",
+      "offset": 11843125,
+      "length": 54592
+    },
+    {
+      "id": "tr-self_specials_3_words-afed975cf50dcba8",
+      "offset": 11897717,
+      "length": 44235
+    },
+    {
+      "id": "tr-self_specials_3_words-90fce11521317b4c",
+      "offset": 11941952,
+      "length": 44302
+    },
+    {
+      "id": "tr-self_specials_3_words-d0c5aad03874ea60",
+      "offset": 11986254,
+      "length": 49994
+    },
+    {
+      "id": "tr-self_specials_3_words-c0b5fbc63984d60c",
+      "offset": 12036248,
+      "length": 45300
+    },
+    {
+      "id": "tr-self_specials_3_words-29661c326b22e820",
+      "offset": 12081548,
+      "length": 59219
+    },
+    {
+      "id": "tr-self_specials_3_words-208ff84ca00240e4",
+      "offset": 12140767,
+      "length": 47963
+    },
+    {
+      "id": "tr-self_specials_3_words-62302de5277beb80",
+      "offset": 12188730,
+      "length": 44884
+    },
+    {
+      "id": "tr-self_specials_3_words-ba854f784235e81a",
+      "offset": 12233614,
+      "length": 68947
+    },
+    {
+      "id": "tr-self_specials_3_words-96525180d2c53457",
+      "offset": 12302561,
+      "length": 44043
+    },
+    {
+      "id": "tr-self_specials_3_words-8e1c91ffe38e6ac7",
+      "offset": 12346604,
+      "length": 45497
+    },
+    {
+      "id": "tr-self_specials_3_words-fbd5347674eb0183",
+      "offset": 12392101,
+      "length": 68412
+    },
+    {
+      "id": "tr-self_specials_3_words-b23d3f1af0bd19bc",
+      "offset": 12460513,
+      "length": 46300
+    },
+    {
+      "id": "tr-self_specials_3_words-8ec92632dc56ea31",
+      "offset": 12506813,
+      "length": 59064
+    },
+    {
+      "id": "tr-self_specials_3_words-64fa5ccf8cc51dad",
+      "offset": 12565877,
+      "length": 56737
+    },
+    {
+      "id": "tr-self_specials_3_words-823d36dc1851e3d4",
+      "offset": 12622614,
+      "length": 65463
+    },
+    {
+      "id": "tr-self_specials_3_words-b10706110840f8a0",
+      "offset": 12688077,
+      "length": 63913
+    },
+    {
+      "id": "tr-self_specials_3_words-a54e32b78c8abb8d",
+      "offset": 12751990,
+      "length": 74092
+    },
+    {
+      "id": "tr-self_specials_3_words-8a5461bdb15d1c78",
+      "offset": 12826082,
+      "length": 46220
+    },
+    {
+      "id": "tr-self_specials_3_words-abf999a70a7f0f0d",
+      "offset": 12872302,
+      "length": 46346
+    },
+    {
+      "id": "tr-self_specials_3_words-d5d01ff465b7e35c",
+      "offset": 12918648,
+      "length": 75001
+    },
+    {
+      "id": "tr-self_specials_3_words-ddaddb9406d35080",
+      "offset": 12993649,
+      "length": 58285
+    },
+    {
+      "id": "tr-self_specials_3_words-1609c990e6cc5eff",
+      "offset": 13051934,
+      "length": 46436
+    },
+    {
+      "id": "tr-self_specials_3_words-8803a3d1dce24d18",
+      "offset": 13098370,
+      "length": 52244
+    },
+    {
+      "id": "tr-self_specials_3_words-ac659085923ba644",
+      "offset": 13150614,
+      "length": 53262
+    },
+    {
+      "id": "tr-self_specials_3_words-00c5570713bfec1c",
+      "offset": 13203876,
+      "length": 66830
+    },
+    {
+      "id": "tr-self_specials_3_words-12382ec974cf0033",
+      "offset": 13270706,
+      "length": 46788
+    },
+    {
+      "id": "tr-self_specials_3_words-d6b786007fb9def3",
+      "offset": 13317494,
+      "length": 65374
+    },
+    {
+      "id": "tr-self_specials_3_words-7c914e4f82f646c9",
+      "offset": 13382868,
+      "length": 47344
+    },
+    {
+      "id": "tr-self_specials_3_words-e158bd7ffe377a35",
+      "offset": 13430212,
+      "length": 51129
+    },
+    {
+      "id": "tr-self_specials_3_words-38526784798e45f8",
+      "offset": 13481341,
+      "length": 48666
+    },
+    {
+      "id": "tr-self_specials_3_words-580fc1331b81adbb",
+      "offset": 13530007,
+      "length": 48657
+    },
+    {
+      "id": "tr-self_specials_3_words-765c8a6b9ee62f5e",
+      "offset": 13578664,
+      "length": 43389
+    },
+    {
+      "id": "tr-self_specials_3_words-abdb68da41e23eb7",
+      "offset": 13622053,
+      "length": 51851
+    },
+    {
+      "id": "tr-self_specials_3_words-725364f3dec756d8",
+      "offset": 13673904,
+      "length": 52699
+    },
+    {
+      "id": "tr-self_specials_3_words-51684d8ba26c2da9",
+      "offset": 13726603,
+      "length": 43568
+    },
+    {
+      "id": "tr-self_specials_3_words-245f32b938ca7ec2",
+      "offset": 13770171,
+      "length": 63250
+    },
+    {
+      "id": "tr-self_specials_3_words-e22ee9d6626ce4c7",
+      "offset": 13833421,
+      "length": 89004
+    },
+    {
+      "id": "tr-self_specials_3_words-84c1b14e5fd7826a",
+      "offset": 13922425,
+      "length": 46764
+    },
+    {
+      "id": "tr-self_specials_3_words-3e25842639766020",
+      "offset": 13969189,
+      "length": 46356
+    },
+    {
+      "id": "tr-self_specials_3_words-d507d001969be7a4",
+      "offset": 14015545,
+      "length": 44015
+    },
+    {
+      "id": "tr-self_specials_3_words-312f94d3433b24f4",
+      "offset": 14059560,
+      "length": 57979
+    },
+    {
+      "id": "tr-self_specials_3_words-eedb550e0953627b",
+      "offset": 14117539,
+      "length": 48779
+    },
+    {
+      "id": "tr-self_specials_3_words-a977c52d18f8dc81",
+      "offset": 14166318,
+      "length": 67882
+    },
+    {
+      "id": "tr-self_specials_3_words-67bceb67d04dfbd9",
+      "offset": 14234200,
+      "length": 152028
+    },
+    {
+      "id": "tr-self_specials_3_words-cac9d52fba2743fc",
+      "offset": 14386228,
+      "length": 43842
+    },
+    {
+      "id": "tr-self_specials_3_words-10a9cc3f6dc42a5a",
+      "offset": 14430070,
+      "length": 44650
+    },
+    {
+      "id": "tr-self_specials_3_words-0db5a219cbd7ecbd",
+      "offset": 14474720,
+      "length": 94610
+    },
+    {
+      "id": "tr-self_specials_3_words-1f84e1d92bab1ef0",
+      "offset": 14569330,
+      "length": 47187
+    },
+    {
+      "id": "tr-self_specials_3_words-dd1e0b1adf136db2",
+      "offset": 14616517,
+      "length": 45350
+    },
+    {
+      "id": "tr-self_specials_3_words-db852d046188463a",
+      "offset": 14661867,
+      "length": 54268
+    },
+    {
+      "id": "tr-self_specials_3_words-85dbddc8675744b8",
+      "offset": 14716135,
+      "length": 66928
+    },
+    {
+      "id": "tr-self_specials_3_words-c541ae833ef8e338",
+      "offset": 14783063,
+      "length": 44011
+    },
+    {
+      "id": "tr-self_specials_3_words-76ea37979841faf7",
+      "offset": 14827074,
+      "length": 59858
+    },
+    {
+      "id": "tr-self_specials_3_words-9daa6d5427c53bd4",
+      "offset": 14886932,
+      "length": 55297
+    },
+    {
+      "id": "tr-self_specials_3_words-2466262936539f0c",
+      "offset": 14942229,
+      "length": 53306
+    },
+    {
+      "id": "tr-self_specials_3_words-54fb07ccf0d9a892",
+      "offset": 14995535,
+      "length": 54225
+    },
+    {
+      "id": "tr-self_specials_3_words-092ec9d287f64c0c",
+      "offset": 15049760,
+      "length": 48958
+    },
+    {
+      "id": "tr-self_specials_3_words-d25f57da5b04da95",
+      "offset": 15098718,
+      "length": 93045
+    },
+    {
+      "id": "tr-self_specials_3_words-49c0a74d21bb9d53",
+      "offset": 15191763,
+      "length": 48496
+    },
+    {
+      "id": "tr-self_specials_3_words-b50a2bfcf42c2f6e",
+      "offset": 15240259,
+      "length": 66640
+    },
+    {
+      "id": "tr-self_specials_3_words-895e515b8c67db27",
+      "offset": 15306899,
+      "length": 50992
+    },
+    {
+      "id": "tr-self_specials_3_words-abf5c7408287cfda",
+      "offset": 15357891,
+      "length": 46848
+    },
+    {
+      "id": "tr-self_specials_3_words-6a5024e2b140dbc1",
+      "offset": 15404739,
+      "length": 54244
+    },
+    {
+      "id": "tr-self_specials_3_words-624281fcb8dc7634",
+      "offset": 15458983,
+      "length": 47469
+    },
+    {
+      "id": "tr-self_specials_3_words-10eceb519c154983",
+      "offset": 15506452,
+      "length": 45926
+    },
+    {
+      "id": "tr-self_specials_3_words-5afef3099e420f5c",
+      "offset": 15552378,
+      "length": 52532
+    },
+    {
+      "id": "tr-self_specials_3_words-b004c71238956270",
+      "offset": 15604910,
+      "length": 56708
+    },
+    {
+      "id": "tr-self_specials_3_words-7c202ceff2c662b7",
+      "offset": 15661618,
+      "length": 47989
+    },
+    {
+      "id": "tr-self_specials_3_words-3c22ddaaae3c0b19",
+      "offset": 15709607,
+      "length": 54234
+    },
+    {
+      "id": "tr-self_specials_3_words-7da97b5019711a0d",
+      "offset": 15763841,
+      "length": 58830
+    },
+    {
+      "id": "tr-self_specials_3_words-e2962fc74b65f2e4",
+      "offset": 15822671,
+      "length": 49901
+    },
+    {
+      "id": "tr-self_specials_3_words-9fd66f020b2d2917",
+      "offset": 15872572,
+      "length": 53130
+    },
+    {
+      "id": "tr-self_specials_3_words-8f943373f2857f4d",
+      "offset": 15925702,
+      "length": 44121
+    },
+    {
+      "id": "tr-self_specials_3_words-123a0d211a47541d",
+      "offset": 15969823,
+      "length": 47020
+    },
+    {
+      "id": "tr-self_specials_3_words-6ca603cb4014f64b",
+      "offset": 16016843,
+      "length": 44548
+    },
+    {
+      "id": "tr-self_specials_3_words-a117d0094203b927",
+      "offset": 16061391,
+      "length": 50197
+    },
+    {
+      "id": "tr-self_specials_3_words-b030eca67d3e14dd",
+      "offset": 16111588,
+      "length": 51613
+    },
+    {
+      "id": "tr-self_specials_3_words-e421c9867b31a114",
+      "offset": 16163201,
+      "length": 47810
+    },
+    {
+      "id": "tr-self_specials_3_words-c82b6fab6dd4d565",
+      "offset": 16211011,
+      "length": 64120
+    },
+    {
+      "id": "tr-self_specials_3_words-802c03acd1fa7e00",
+      "offset": 16275131,
+      "length": 55661
+    },
+    {
+      "id": "tr-self_specials_3_words-a679764b56ca8d93",
+      "offset": 16330792,
+      "length": 48852
+    },
+    {
+      "id": "tr-self_specials_3_words-9876437692742ebf",
+      "offset": 16379644,
+      "length": 43326
+    },
+    {
+      "id": "tr-self_specials_3_words-a17ae754b68a7c82",
+      "offset": 16422970,
+      "length": 50683
+    },
+    {
+      "id": "tr-self_specials_3_words-bdd988c65c8bc197",
+      "offset": 16473653,
+      "length": 48164
+    },
+    {
+      "id": "tr-self_specials_3_words-b214315061797ed9",
+      "offset": 16521817,
+      "length": 52829
+    },
+    {
+      "id": "tr-self_specials_3_words-51ca1839660c8d45",
+      "offset": 16574646,
+      "length": 54545
+    },
+    {
+      "id": "tr-self_specials_3_words-bb22874cdd94aada",
+      "offset": 16629191,
+      "length": 54333
+    },
+    {
+      "id": "tr-self_specials_3_words-1f23c073be5e3acb",
+      "offset": 16683524,
+      "length": 54527
+    },
+    {
+      "id": "tr-self_specials_3_words-348a7bfd9ee62149",
+      "offset": 16738051,
+      "length": 68873
+    },
+    {
+      "id": "tr-self_specials_3_words-787ec54a5e444969",
+      "offset": 16806924,
+      "length": 65631
+    },
+    {
+      "id": "tr-self_specials_3_words-ed5e4521f0506917",
+      "offset": 16872555,
+      "length": 49987
+    },
+    {
+      "id": "tr-self_specials_3_words-6fe37623597501ef",
+      "offset": 16922542,
+      "length": 53942
+    },
+    {
+      "id": "tr-self_specials_3_words-0940d7ddf106523a",
+      "offset": 16976484,
+      "length": 44076
+    },
+    {
+      "id": "tr-self_specials_3_words-a79a89ce2821fbbe",
+      "offset": 17020560,
+      "length": 52969
+    },
+    {
+      "id": "tr-self_specials_3_words-7a6a1b301606ffe2",
+      "offset": 17073529,
+      "length": 68811
+    },
+    {
+      "id": "tr-self_specials_3_words-cf2c832c8419ea9f",
+      "offset": 17142340,
+      "length": 55788
+    },
+    {
+      "id": "tr-self_specials_3_words-266a5201e3dc208c",
+      "offset": 17198128,
+      "length": 47928
+    },
+    {
+      "id": "tr-self_specials_3_words-ba81716ac6b78f14",
+      "offset": 17246056,
+      "length": 45649
+    }
+  ]
+}

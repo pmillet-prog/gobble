@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:40:56.898Z",
+  "mode": "massive_boggle",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "acceptedCount": 300,
+  "jobsStarted": 230,
+  "elapsedMs": 124859,
+  "rejected": {},
+  "quality": {
+    "words": {
+      "min": 200,
+      "max": 609,
+      "average": 296.7
+    },
+    "possibleScore": {
+      "min": 392,
+      "max": 2374,
+      "average": 893
+    },
+    "maxLength": {
+      "min": 12,
+      "max": 16,
+      "average": 13.2
+    },
+    "solutions": {
+      "min": 200,
+      "max": 609,
+      "average": 296.7
+    },
+    "targetLength": {
+      "min": 0,
+      "max": 0,
+      "average": 0
+    },
+    "targetLengths": {}
+  },
+  "samples": [
+    {
+      "id": "tr-massive_boggle-dfc77297a07bac45",
+      "letters": "OAUAANTRNSCITASB",
+      "words": 214,
+      "possibleScore": 568,
+      "maxLength": 13,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-0acea1214efe8b38",
+      "letters": "OAAIQuGSDUERAESIC",
+      "words": 336,
+      "possibleScore": 898,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-6e8e17ae1e0bb175",
+      "letters": "EMSJBRUIUIBLSNES",
+      "words": 240,
+      "possibleScore": 563,
+      "maxLength": 14,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-2edd2b572a9f5829",
+      "letters": "PAITECTDORORNFIS",
+      "words": 245,
+      "possibleScore": 566,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-6940f15df9949a57",
+      "letters": "VRETEUODERECBTCR",
+      "words": 242,
+      "possibleScore": 796,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-f86be1d41f52c771",
+      "letters": "EESSCDABORQuOTINA",
+      "words": 236,
+      "possibleScore": 649,
+      "maxLength": 13,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-56767fc8ac619f11",
+      "letters": "LBBEUAEMTINKERET",
+      "words": 306,
+      "possibleScore": 891,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-5b1a10021f65f892",
+      "letters": "IAMEDRRRENEAOGTI",
+      "words": 340,
+      "possibleScore": 1442,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-951bdbc162896e36",
+      "letters": "RNASOSSHLIRCPANT",
+      "words": 286,
+      "possibleScore": 725,
+      "maxLength": 13,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-d918fab175e91b9c",
+      "letters": "ERTUEEUTCORIAQuAD",
+      "words": 200,
+      "possibleScore": 686,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-646f51e2cf14512f",
+      "letters": "RSALZPLIEEEARTTT",
+      "words": 339,
+      "possibleScore": 1125,
+      "maxLength": 12,
+      "targetWord": null
+    },
+    {
+      "id": "tr-massive_boggle-2d191ce571e5de08",
+      "letters": "ESGRSAOAOCLNTYEU",
+      "words": 242,
+      "possibleScore": 554,
+      "maxLength": 15,
+      "targetWord": null
+    }
+  ],
+  "catalogBytes": 25772599,
+  "dataBytes": 25739119,
+  "indexBytes": 33480
+}

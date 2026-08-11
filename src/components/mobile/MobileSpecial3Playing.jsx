@@ -1,5 +1,6 @@
 import React from "react";
 
+import LiveFeed from "../LiveFeed.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 import {
@@ -28,6 +29,7 @@ function MobileSpecial3Playing(props) {
     highlightPath: fallbackHighlightPath = [],
     isDailyPlay = false,
     isLoggedIn = false,
+    isStandaloneTraining = false,
     liveWord: fallbackLiveWord = "",
     mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
@@ -44,6 +46,10 @@ function MobileSpecial3Playing(props) {
     praiseOverlay = null,
     progressRatio = 0,
     remainingSec = 0,
+    trainingControls = null,
+    trainingFeedItems = [],
+    trainingFeedBannerText = "",
+    getNickClassName = null,
     renderSpecial3LengthGobbleBadge = null,
     renderSpecialChip = null,
     renderWordPreviewTiles = null,
@@ -302,6 +308,21 @@ function MobileSpecial3Playing(props) {
             />
           </div>
         </div>
+
+        {isStandaloneTraining ? (
+          <div className="shrink-0 space-y-1 px-2 pb-1">
+            {trainingControls}
+            <div className="h-[82px] overflow-hidden rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900/90">
+              <LiveFeed
+                items={trainingFeedItems}
+                darkMode={darkMode}
+                maxHeight="100%"
+                bannerText={trainingFeedBannerText}
+                getNickClassName={getNickClassName}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <div
           ref={mobileSpecial3TutorialHostRef}

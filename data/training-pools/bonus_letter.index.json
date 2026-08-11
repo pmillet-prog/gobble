@@ -1,0 +1,1512 @@
+{
+  "schemaVersion": 1,
+  "generator": "training-pool-v1",
+  "generatedAt": "2026-08-10T17:52:21.303Z",
+  "mode": "bonus_letter",
+  "gridSize": 4,
+  "requestedCount": 300,
+  "count": 300,
+  "dataFile": "bonus_letter.jsonl",
+  "records": [
+    {
+      "id": "tr-bonus_letter-de0a9fbc6865a5dd",
+      "offset": 0,
+      "length": 47314
+    },
+    {
+      "id": "tr-bonus_letter-a9164c951415f3d9",
+      "offset": 47314,
+      "length": 62306
+    },
+    {
+      "id": "tr-bonus_letter-570bd68e6e8a7a8d",
+      "offset": 109620,
+      "length": 53515
+    },
+    {
+      "id": "tr-bonus_letter-b81a77d9810b3104",
+      "offset": 163135,
+      "length": 55644
+    },
+    {
+      "id": "tr-bonus_letter-eb2bf1622a31376d",
+      "offset": 218779,
+      "length": 55049
+    },
+    {
+      "id": "tr-bonus_letter-b100fea57ec81431",
+      "offset": 273828,
+      "length": 66478
+    },
+    {
+      "id": "tr-bonus_letter-c203546fab608327",
+      "offset": 340306,
+      "length": 61283
+    },
+    {
+      "id": "tr-bonus_letter-c3127ccd0e2eb060",
+      "offset": 401589,
+      "length": 53498
+    },
+    {
+      "id": "tr-bonus_letter-2f2df8a62d0eaefc",
+      "offset": 455087,
+      "length": 48233
+    },
+    {
+      "id": "tr-bonus_letter-6c4be3d8ba9c0a13",
+      "offset": 503320,
+      "length": 53136
+    },
+    {
+      "id": "tr-bonus_letter-b3018fe5ffbbadb9",
+      "offset": 556456,
+      "length": 81873
+    },
+    {
+      "id": "tr-bonus_letter-84b1db982a32d096",
+      "offset": 638329,
+      "length": 90780
+    },
+    {
+      "id": "tr-bonus_letter-1fcf6aa09e9d6c53",
+      "offset": 729109,
+      "length": 63103
+    },
+    {
+      "id": "tr-bonus_letter-3a21fac13ef6eea5",
+      "offset": 792212,
+      "length": 55004
+    },
+    {
+      "id": "tr-bonus_letter-68b1ecebfec5c041",
+      "offset": 847216,
+      "length": 66241
+    },
+    {
+      "id": "tr-bonus_letter-3933310f06d881a8",
+      "offset": 913457,
+      "length": 44897
+    },
+    {
+      "id": "tr-bonus_letter-3b0f2b1f4c02022f",
+      "offset": 958354,
+      "length": 54236
+    },
+    {
+      "id": "tr-bonus_letter-0f8f31873c629648",
+      "offset": 1012590,
+      "length": 50869
+    },
+    {
+      "id": "tr-bonus_letter-e65eb6483435679c",
+      "offset": 1063459,
+      "length": 52853
+    },
+    {
+      "id": "tr-bonus_letter-8400561cb4e5ff76",
+      "offset": 1116312,
+      "length": 63247
+    },
+    {
+      "id": "tr-bonus_letter-0dbc3d6c3b999c9e",
+      "offset": 1179559,
+      "length": 46908
+    },
+    {
+      "id": "tr-bonus_letter-fbcfb95b1ee1d759",
+      "offset": 1226467,
+      "length": 60970
+    },
+    {
+      "id": "tr-bonus_letter-ff1cd6396a125ee0",
+      "offset": 1287437,
+      "length": 50127
+    },
+    {
+      "id": "tr-bonus_letter-dc3e6ba7a006e163",
+      "offset": 1337564,
+      "length": 80626
+    },
+    {
+      "id": "tr-bonus_letter-95879f5a2e7ea24b",
+      "offset": 1418190,
+      "length": 76554
+    },
+    {
+      "id": "tr-bonus_letter-045f6fdec628fa43",
+      "offset": 1494744,
+      "length": 53467
+    },
+    {
+      "id": "tr-bonus_letter-c61dd9bbe4026478",
+      "offset": 1548211,
+      "length": 74936
+    },
+    {
+      "id": "tr-bonus_letter-f12eaefcc8fd348f",
+      "offset": 1623147,
+      "length": 79320
+    },
+    {
+      "id": "tr-bonus_letter-9d49ecb60845406f",
+      "offset": 1702467,
+      "length": 60758
+    },
+    {
+      "id": "tr-bonus_letter-89e11620465ff24f",
+      "offset": 1763225,
+      "length": 67047
+    },
+    {
+      "id": "tr-bonus_letter-073ac8364618afcc",
+      "offset": 1830272,
+      "length": 51114
+    },
+    {
+      "id": "tr-bonus_letter-8ae5c1defbdb8f21",
+      "offset": 1881386,
+      "length": 87219
+    },
+    {
+      "id": "tr-bonus_letter-de1fc334250b3139",
+      "offset": 1968605,
+      "length": 43266
+    },
+    {
+      "id": "tr-bonus_letter-7d8cd982440c093c",
+      "offset": 2011871,
+      "length": 44583
+    },
+    {
+      "id": "tr-bonus_letter-a960307b59fe01fe",
+      "offset": 2056454,
+      "length": 50612
+    },
+    {
+      "id": "tr-bonus_letter-dece5253f1cdd776",
+      "offset": 2107066,
+      "length": 52139
+    },
+    {
+      "id": "tr-bonus_letter-a9f5b44d5e37ed73",
+      "offset": 2159205,
+      "length": 59022
+    },
+    {
+      "id": "tr-bonus_letter-4c4b5700e0a64ec3",
+      "offset": 2218227,
+      "length": 83979
+    },
+    {
+      "id": "tr-bonus_letter-8d3fd334e3f282c4",
+      "offset": 2302206,
+      "length": 60815
+    },
+    {
+      "id": "tr-bonus_letter-fcd0581c2b4dae59",
+      "offset": 2363021,
+      "length": 47985
+    },
+    {
+      "id": "tr-bonus_letter-9974051af1abaffa",
+      "offset": 2411006,
+      "length": 59828
+    },
+    {
+      "id": "tr-bonus_letter-b3f0630977d10418",
+      "offset": 2470834,
+      "length": 89055
+    },
+    {
+      "id": "tr-bonus_letter-8a0a0d9fd955a000",
+      "offset": 2559889,
+      "length": 52080
+    },
+    {
+      "id": "tr-bonus_letter-f50c9718fc8f701a",
+      "offset": 2611969,
+      "length": 64397
+    },
+    {
+      "id": "tr-bonus_letter-933536e46f65d400",
+      "offset": 2676366,
+      "length": 45462
+    },
+    {
+      "id": "tr-bonus_letter-e6d98158d16f2d16",
+      "offset": 2721828,
+      "length": 63256
+    },
+    {
+      "id": "tr-bonus_letter-749754353481b3fd",
+      "offset": 2785084,
+      "length": 60821
+    },
+    {
+      "id": "tr-bonus_letter-e5f7ff15d078b55d",
+      "offset": 2845905,
+      "length": 54723
+    },
+    {
+      "id": "tr-bonus_letter-b85c6a13dd49a1d9",
+      "offset": 2900628,
+      "length": 51149
+    },
+    {
+      "id": "tr-bonus_letter-765df965f9d1b906",
+      "offset": 2951777,
+      "length": 43726
+    },
+    {
+      "id": "tr-bonus_letter-bbdda302d31840e7",
+      "offset": 2995503,
+      "length": 45444
+    },
+    {
+      "id": "tr-bonus_letter-49ab894f02961043",
+      "offset": 3040947,
+      "length": 71017
+    },
+    {
+      "id": "tr-bonus_letter-8564c56c013ee3a0",
+      "offset": 3111964,
+      "length": 47213
+    },
+    {
+      "id": "tr-bonus_letter-dc0da754aaa67973",
+      "offset": 3159177,
+      "length": 89751
+    },
+    {
+      "id": "tr-bonus_letter-b666cc0baa7c9d02",
+      "offset": 3248928,
+      "length": 57969
+    },
+    {
+      "id": "tr-bonus_letter-2768a30ef21865cd",
+      "offset": 3306897,
+      "length": 67848
+    },
+    {
+      "id": "tr-bonus_letter-a28ee899ea18eded",
+      "offset": 3374745,
+      "length": 44695
+    },
+    {
+      "id": "tr-bonus_letter-bd4506c239d0abcd",
+      "offset": 3419440,
+      "length": 54609
+    },
+    {
+      "id": "tr-bonus_letter-7da8d83f010d4be0",
+      "offset": 3474049,
+      "length": 76736
+    },
+    {
+      "id": "tr-bonus_letter-94448cc0b419d5ab",
+      "offset": 3550785,
+      "length": 64761
+    },
+    {
+      "id": "tr-bonus_letter-9ef868d281ae755e",
+      "offset": 3615546,
+      "length": 89400
+    },
+    {
+      "id": "tr-bonus_letter-1aa238ac8e90f9ea",
+      "offset": 3704946,
+      "length": 59787
+    },
+    {
+      "id": "tr-bonus_letter-c31e9d5896fd8cd2",
+      "offset": 3764733,
+      "length": 51286
+    },
+    {
+      "id": "tr-bonus_letter-343bba4bdec24168",
+      "offset": 3816019,
+      "length": 45612
+    },
+    {
+      "id": "tr-bonus_letter-a0d487f8bfd0d535",
+      "offset": 3861631,
+      "length": 46336
+    },
+    {
+      "id": "tr-bonus_letter-c3abd385d26ea31a",
+      "offset": 3907967,
+      "length": 60392
+    },
+    {
+      "id": "tr-bonus_letter-c0001c94d9ff0c20",
+      "offset": 3968359,
+      "length": 46352
+    },
+    {
+      "id": "tr-bonus_letter-373629b1a4647bc8",
+      "offset": 4014711,
+      "length": 46187
+    },
+    {
+      "id": "tr-bonus_letter-d548e2df531a17b5",
+      "offset": 4060898,
+      "length": 69063
+    },
+    {
+      "id": "tr-bonus_letter-0ee0eb23b0e8c2f4",
+      "offset": 4129961,
+      "length": 47840
+    },
+    {
+      "id": "tr-bonus_letter-2639bcb37bc39f7e",
+      "offset": 4177801,
+      "length": 73527
+    },
+    {
+      "id": "tr-bonus_letter-e4477d80da0fc7a2",
+      "offset": 4251328,
+      "length": 58982
+    },
+    {
+      "id": "tr-bonus_letter-3a65c2abcc565352",
+      "offset": 4310310,
+      "length": 46960
+    },
+    {
+      "id": "tr-bonus_letter-83dff2c8867a7e22",
+      "offset": 4357270,
+      "length": 62551
+    },
+    {
+      "id": "tr-bonus_letter-2b2ee3aa1f6d8b4a",
+      "offset": 4419821,
+      "length": 102746
+    },
+    {
+      "id": "tr-bonus_letter-f485c2c4db238441",
+      "offset": 4522567,
+      "length": 47258
+    },
+    {
+      "id": "tr-bonus_letter-4897febf3773529a",
+      "offset": 4569825,
+      "length": 63862
+    },
+    {
+      "id": "tr-bonus_letter-8276f7ddb4ea0f40",
+      "offset": 4633687,
+      "length": 54623
+    },
+    {
+      "id": "tr-bonus_letter-afda45e1b1359b38",
+      "offset": 4688310,
+      "length": 60623
+    },
+    {
+      "id": "tr-bonus_letter-d74c802d4ecfef9d",
+      "offset": 4748933,
+      "length": 57589
+    },
+    {
+      "id": "tr-bonus_letter-a19bc27253359177",
+      "offset": 4806522,
+      "length": 53831
+    },
+    {
+      "id": "tr-bonus_letter-b5fd3db592752110",
+      "offset": 4860353,
+      "length": 44061
+    },
+    {
+      "id": "tr-bonus_letter-743ad94e8d68342b",
+      "offset": 4904414,
+      "length": 59291
+    },
+    {
+      "id": "tr-bonus_letter-3e8b7cbc89171ce0",
+      "offset": 4963705,
+      "length": 80327
+    },
+    {
+      "id": "tr-bonus_letter-a1264a1948bc6e14",
+      "offset": 5044032,
+      "length": 44532
+    },
+    {
+      "id": "tr-bonus_letter-66d7769929516172",
+      "offset": 5088564,
+      "length": 46363
+    },
+    {
+      "id": "tr-bonus_letter-29c1a98055c47aff",
+      "offset": 5134927,
+      "length": 44823
+    },
+    {
+      "id": "tr-bonus_letter-9e6ab56a9d4b50cb",
+      "offset": 5179750,
+      "length": 64853
+    },
+    {
+      "id": "tr-bonus_letter-9de15bf87f4a9304",
+      "offset": 5244603,
+      "length": 79946
+    },
+    {
+      "id": "tr-bonus_letter-901ffa528be7e0cd",
+      "offset": 5324549,
+      "length": 51275
+    },
+    {
+      "id": "tr-bonus_letter-71783f37e0e16ec4",
+      "offset": 5375824,
+      "length": 61936
+    },
+    {
+      "id": "tr-bonus_letter-248db8fe2c1862e0",
+      "offset": 5437760,
+      "length": 48218
+    },
+    {
+      "id": "tr-bonus_letter-b2d894d74248d000",
+      "offset": 5485978,
+      "length": 48934
+    },
+    {
+      "id": "tr-bonus_letter-80364bcf35494df0",
+      "offset": 5534912,
+      "length": 64215
+    },
+    {
+      "id": "tr-bonus_letter-c59abb4396bbff3e",
+      "offset": 5599127,
+      "length": 64616
+    },
+    {
+      "id": "tr-bonus_letter-2f1c8cb25deae63b",
+      "offset": 5663743,
+      "length": 52703
+    },
+    {
+      "id": "tr-bonus_letter-cf5b317e782aa720",
+      "offset": 5716446,
+      "length": 48019
+    },
+    {
+      "id": "tr-bonus_letter-33d64e3c2c7e8c01",
+      "offset": 5764465,
+      "length": 69880
+    },
+    {
+      "id": "tr-bonus_letter-546a8c5635f447ae",
+      "offset": 5834345,
+      "length": 63204
+    },
+    {
+      "id": "tr-bonus_letter-a9a56d945741d592",
+      "offset": 5897549,
+      "length": 78896
+    },
+    {
+      "id": "tr-bonus_letter-7132a606c1ba5031",
+      "offset": 5976445,
+      "length": 44671
+    },
+    {
+      "id": "tr-bonus_letter-87f063b07423356e",
+      "offset": 6021116,
+      "length": 50134
+    },
+    {
+      "id": "tr-bonus_letter-a1e1ee5fd47e9345",
+      "offset": 6071250,
+      "length": 64733
+    },
+    {
+      "id": "tr-bonus_letter-cc7d1ec23cdf36f1",
+      "offset": 6135983,
+      "length": 59207
+    },
+    {
+      "id": "tr-bonus_letter-4a6e7785efd96ffb",
+      "offset": 6195190,
+      "length": 50552
+    },
+    {
+      "id": "tr-bonus_letter-a99ced2b2c40bc14",
+      "offset": 6245742,
+      "length": 67948
+    },
+    {
+      "id": "tr-bonus_letter-281a4b2a70b7177e",
+      "offset": 6313690,
+      "length": 48163
+    },
+    {
+      "id": "tr-bonus_letter-47ddfd5eeb22f642",
+      "offset": 6361853,
+      "length": 100281
+    },
+    {
+      "id": "tr-bonus_letter-4c24c0f6a9a16fee",
+      "offset": 6462134,
+      "length": 46324
+    },
+    {
+      "id": "tr-bonus_letter-6a587de420f76bf2",
+      "offset": 6508458,
+      "length": 58583
+    },
+    {
+      "id": "tr-bonus_letter-1c322979695182aa",
+      "offset": 6567041,
+      "length": 72953
+    },
+    {
+      "id": "tr-bonus_letter-46759e9374f99755",
+      "offset": 6639994,
+      "length": 48404
+    },
+    {
+      "id": "tr-bonus_letter-2ec7c9af571c2003",
+      "offset": 6688398,
+      "length": 47990
+    },
+    {
+      "id": "tr-bonus_letter-24561ac9260d2468",
+      "offset": 6736388,
+      "length": 50698
+    },
+    {
+      "id": "tr-bonus_letter-ccf7f81b65f4326e",
+      "offset": 6787086,
+      "length": 45381
+    },
+    {
+      "id": "tr-bonus_letter-82a04d69f19e9ecb",
+      "offset": 6832467,
+      "length": 54057
+    },
+    {
+      "id": "tr-bonus_letter-eafd4234cbb9f247",
+      "offset": 6886524,
+      "length": 47788
+    },
+    {
+      "id": "tr-bonus_letter-fdbe623c3565ac23",
+      "offset": 6934312,
+      "length": 50403
+    },
+    {
+      "id": "tr-bonus_letter-3ae688ccf3f14be9",
+      "offset": 6984715,
+      "length": 46770
+    },
+    {
+      "id": "tr-bonus_letter-48b2dc4796238b49",
+      "offset": 7031485,
+      "length": 115101
+    },
+    {
+      "id": "tr-bonus_letter-5dffedc1190fa71a",
+      "offset": 7146586,
+      "length": 54629
+    },
+    {
+      "id": "tr-bonus_letter-d4b6305591d5183c",
+      "offset": 7201215,
+      "length": 53139
+    },
+    {
+      "id": "tr-bonus_letter-e76f19a39dac5da5",
+      "offset": 7254354,
+      "length": 48476
+    },
+    {
+      "id": "tr-bonus_letter-53f34f1fed7db6a9",
+      "offset": 7302830,
+      "length": 49092
+    },
+    {
+      "id": "tr-bonus_letter-40173ad4336b5dc1",
+      "offset": 7351922,
+      "length": 60026
+    },
+    {
+      "id": "tr-bonus_letter-7885992daa5607e1",
+      "offset": 7411948,
+      "length": 49944
+    },
+    {
+      "id": "tr-bonus_letter-6d00293ce4569553",
+      "offset": 7461892,
+      "length": 44241
+    },
+    {
+      "id": "tr-bonus_letter-d40182bb8f80b39e",
+      "offset": 7506133,
+      "length": 50176
+    },
+    {
+      "id": "tr-bonus_letter-e8e2252f67eaf070",
+      "offset": 7556309,
+      "length": 44408
+    },
+    {
+      "id": "tr-bonus_letter-bd3625e7f02b328a",
+      "offset": 7600717,
+      "length": 46717
+    },
+    {
+      "id": "tr-bonus_letter-16142c63fcff5923",
+      "offset": 7647434,
+      "length": 51670
+    },
+    {
+      "id": "tr-bonus_letter-62a90587c3b71e99",
+      "offset": 7699104,
+      "length": 67738
+    },
+    {
+      "id": "tr-bonus_letter-4af0b328fcab8d58",
+      "offset": 7766842,
+      "length": 72711
+    },
+    {
+      "id": "tr-bonus_letter-8ac1135748bce698",
+      "offset": 7839553,
+      "length": 44046
+    },
+    {
+      "id": "tr-bonus_letter-af972cf94870139f",
+      "offset": 7883599,
+      "length": 44561
+    },
+    {
+      "id": "tr-bonus_letter-9806579753fc190b",
+      "offset": 7928160,
+      "length": 50468
+    },
+    {
+      "id": "tr-bonus_letter-0d238dbbc03435f0",
+      "offset": 7978628,
+      "length": 45129
+    },
+    {
+      "id": "tr-bonus_letter-bf57f23581647b00",
+      "offset": 8023757,
+      "length": 49918
+    },
+    {
+      "id": "tr-bonus_letter-3477c25cee457921",
+      "offset": 8073675,
+      "length": 46553
+    },
+    {
+      "id": "tr-bonus_letter-33d862065e0a1e27",
+      "offset": 8120228,
+      "length": 45185
+    },
+    {
+      "id": "tr-bonus_letter-3930961fbbd57faa",
+      "offset": 8165413,
+      "length": 63284
+    },
+    {
+      "id": "tr-bonus_letter-29fcfe4f1ccfcff8",
+      "offset": 8228697,
+      "length": 54299
+    },
+    {
+      "id": "tr-bonus_letter-c64efe44cd261e95",
+      "offset": 8282996,
+      "length": 55465
+    },
+    {
+      "id": "tr-bonus_letter-5c771b43328debb5",
+      "offset": 8338461,
+      "length": 55656
+    },
+    {
+      "id": "tr-bonus_letter-ee5cbc3de20ec935",
+      "offset": 8394117,
+      "length": 48781
+    },
+    {
+      "id": "tr-bonus_letter-665480b2afbed8d5",
+      "offset": 8442898,
+      "length": 45126
+    },
+    {
+      "id": "tr-bonus_letter-58a7334a72c6f48f",
+      "offset": 8488024,
+      "length": 48630
+    },
+    {
+      "id": "tr-bonus_letter-21f8068173395093",
+      "offset": 8536654,
+      "length": 53455
+    },
+    {
+      "id": "tr-bonus_letter-cf6ecf06cc69009e",
+      "offset": 8590109,
+      "length": 58830
+    },
+    {
+      "id": "tr-bonus_letter-b11870b874738c26",
+      "offset": 8648939,
+      "length": 75492
+    },
+    {
+      "id": "tr-bonus_letter-de95aa077eaf083d",
+      "offset": 8724431,
+      "length": 46767
+    },
+    {
+      "id": "tr-bonus_letter-d962eef491dfcb6b",
+      "offset": 8771198,
+      "length": 49711
+    },
+    {
+      "id": "tr-bonus_letter-42d2791626dac691",
+      "offset": 8820909,
+      "length": 49757
+    },
+    {
+      "id": "tr-bonus_letter-b550aed5c236bf10",
+      "offset": 8870666,
+      "length": 49735
+    },
+    {
+      "id": "tr-bonus_letter-358033ff5cd4afbe",
+      "offset": 8920401,
+      "length": 46246
+    },
+    {
+      "id": "tr-bonus_letter-fd908eea77a06985",
+      "offset": 8966647,
+      "length": 56363
+    },
+    {
+      "id": "tr-bonus_letter-51c1710d4b797d81",
+      "offset": 9023010,
+      "length": 44071
+    },
+    {
+      "id": "tr-bonus_letter-9fcd55a4ed953f3e",
+      "offset": 9067081,
+      "length": 69938
+    },
+    {
+      "id": "tr-bonus_letter-201380dec2cb5945",
+      "offset": 9137019,
+      "length": 53430
+    },
+    {
+      "id": "tr-bonus_letter-73090cf748ec5146",
+      "offset": 9190449,
+      "length": 71927
+    },
+    {
+      "id": "tr-bonus_letter-1b8cddd82b076f40",
+      "offset": 9262376,
+      "length": 45090
+    },
+    {
+      "id": "tr-bonus_letter-b8e5dc5945ca6c2b",
+      "offset": 9307466,
+      "length": 46386
+    },
+    {
+      "id": "tr-bonus_letter-b0d09b5dfb6af3e5",
+      "offset": 9353852,
+      "length": 47849
+    },
+    {
+      "id": "tr-bonus_letter-eabea4f17f279b06",
+      "offset": 9401701,
+      "length": 47107
+    },
+    {
+      "id": "tr-bonus_letter-b20ad99d9cbe541f",
+      "offset": 9448808,
+      "length": 48714
+    },
+    {
+      "id": "tr-bonus_letter-3cb39e5d8566500d",
+      "offset": 9497522,
+      "length": 122501
+    },
+    {
+      "id": "tr-bonus_letter-097f804c5f51b206",
+      "offset": 9620023,
+      "length": 44303
+    },
+    {
+      "id": "tr-bonus_letter-d0682d9b94be74c5",
+      "offset": 9664326,
+      "length": 62876
+    },
+    {
+      "id": "tr-bonus_letter-3db3ac0d36cb7fd6",
+      "offset": 9727202,
+      "length": 56956
+    },
+    {
+      "id": "tr-bonus_letter-2856f08fe2561e75",
+      "offset": 9784158,
+      "length": 55060
+    },
+    {
+      "id": "tr-bonus_letter-417caa4e32db276c",
+      "offset": 9839218,
+      "length": 47662
+    },
+    {
+      "id": "tr-bonus_letter-03c4f161c115881f",
+      "offset": 9886880,
+      "length": 58008
+    },
+    {
+      "id": "tr-bonus_letter-c80b6461782880fe",
+      "offset": 9944888,
+      "length": 47184
+    },
+    {
+      "id": "tr-bonus_letter-8dfea5e35bf54b11",
+      "offset": 9992072,
+      "length": 45772
+    },
+    {
+      "id": "tr-bonus_letter-114169aae015ae8e",
+      "offset": 10037844,
+      "length": 56431
+    },
+    {
+      "id": "tr-bonus_letter-e9d6b14d294bbf58",
+      "offset": 10094275,
+      "length": 56857
+    },
+    {
+      "id": "tr-bonus_letter-0fd61bdd932fe7e4",
+      "offset": 10151132,
+      "length": 57304
+    },
+    {
+      "id": "tr-bonus_letter-29554ad031748bd3",
+      "offset": 10208436,
+      "length": 70208
+    },
+    {
+      "id": "tr-bonus_letter-f3ea419a46fa57cc",
+      "offset": 10278644,
+      "length": 59828
+    },
+    {
+      "id": "tr-bonus_letter-920954daeb715f27",
+      "offset": 10338472,
+      "length": 53954
+    },
+    {
+      "id": "tr-bonus_letter-f159d433d982c1e5",
+      "offset": 10392426,
+      "length": 47888
+    },
+    {
+      "id": "tr-bonus_letter-33bd9bc927151c64",
+      "offset": 10440314,
+      "length": 59247
+    },
+    {
+      "id": "tr-bonus_letter-7129a593545c850a",
+      "offset": 10499561,
+      "length": 52051
+    },
+    {
+      "id": "tr-bonus_letter-f47469151717a6ae",
+      "offset": 10551612,
+      "length": 77200
+    },
+    {
+      "id": "tr-bonus_letter-da8919852e8bf66d",
+      "offset": 10628812,
+      "length": 50635
+    },
+    {
+      "id": "tr-bonus_letter-e567d20b87ad44a6",
+      "offset": 10679447,
+      "length": 45813
+    },
+    {
+      "id": "tr-bonus_letter-232e4fcc4b21f7f0",
+      "offset": 10725260,
+      "length": 46514
+    },
+    {
+      "id": "tr-bonus_letter-051770b71cf023b3",
+      "offset": 10771774,
+      "length": 48321
+    },
+    {
+      "id": "tr-bonus_letter-f07849b575969518",
+      "offset": 10820095,
+      "length": 90470
+    },
+    {
+      "id": "tr-bonus_letter-c18dc2d9d5267897",
+      "offset": 10910565,
+      "length": 71349
+    },
+    {
+      "id": "tr-bonus_letter-f5db175a1710c405",
+      "offset": 10981914,
+      "length": 58864
+    },
+    {
+      "id": "tr-bonus_letter-f3c289b9e21f8c3e",
+      "offset": 11040778,
+      "length": 97496
+    },
+    {
+      "id": "tr-bonus_letter-d0468853533ae9f8",
+      "offset": 11138274,
+      "length": 78779
+    },
+    {
+      "id": "tr-bonus_letter-e4160ed838b38218",
+      "offset": 11217053,
+      "length": 69250
+    },
+    {
+      "id": "tr-bonus_letter-841e8d8c2fdd1f51",
+      "offset": 11286303,
+      "length": 111202
+    },
+    {
+      "id": "tr-bonus_letter-f5dcabadc1100c59",
+      "offset": 11397505,
+      "length": 44174
+    },
+    {
+      "id": "tr-bonus_letter-e2c518d62900d7c2",
+      "offset": 11441679,
+      "length": 45935
+    },
+    {
+      "id": "tr-bonus_letter-5f160543c044d874",
+      "offset": 11487614,
+      "length": 45068
+    },
+    {
+      "id": "tr-bonus_letter-fab9b269de12b612",
+      "offset": 11532682,
+      "length": 49540
+    },
+    {
+      "id": "tr-bonus_letter-f5d380d70a8041f2",
+      "offset": 11582222,
+      "length": 66064
+    },
+    {
+      "id": "tr-bonus_letter-c09075c9e3d75112",
+      "offset": 11648286,
+      "length": 45494
+    },
+    {
+      "id": "tr-bonus_letter-961b9a90af841150",
+      "offset": 11693780,
+      "length": 47833
+    },
+    {
+      "id": "tr-bonus_letter-8a4261aa78784d4d",
+      "offset": 11741613,
+      "length": 89767
+    },
+    {
+      "id": "tr-bonus_letter-cdc52f08688c708e",
+      "offset": 11831380,
+      "length": 69734
+    },
+    {
+      "id": "tr-bonus_letter-eb756ce736c53ea4",
+      "offset": 11901114,
+      "length": 44478
+    },
+    {
+      "id": "tr-bonus_letter-935881f44acc6db3",
+      "offset": 11945592,
+      "length": 76414
+    },
+    {
+      "id": "tr-bonus_letter-33c7538a53dde0a0",
+      "offset": 12022006,
+      "length": 47400
+    },
+    {
+      "id": "tr-bonus_letter-20b7483d3a089d43",
+      "offset": 12069406,
+      "length": 55862
+    },
+    {
+      "id": "tr-bonus_letter-145b266418402448",
+      "offset": 12125268,
+      "length": 46419
+    },
+    {
+      "id": "tr-bonus_letter-0425dd57ed1dcfbc",
+      "offset": 12171687,
+      "length": 77147
+    },
+    {
+      "id": "tr-bonus_letter-dd175f1d7b57bbac",
+      "offset": 12248834,
+      "length": 50356
+    },
+    {
+      "id": "tr-bonus_letter-32b8c9a50be77726",
+      "offset": 12299190,
+      "length": 69240
+    },
+    {
+      "id": "tr-bonus_letter-c6ea4122533f7d0b",
+      "offset": 12368430,
+      "length": 92090
+    },
+    {
+      "id": "tr-bonus_letter-f42e0bfc0a65ffe0",
+      "offset": 12460520,
+      "length": 45687
+    },
+    {
+      "id": "tr-bonus_letter-8c8ee71b2ad31d0a",
+      "offset": 12506207,
+      "length": 50040
+    },
+    {
+      "id": "tr-bonus_letter-da36e62f6131cd92",
+      "offset": 12556247,
+      "length": 44971
+    },
+    {
+      "id": "tr-bonus_letter-1144b46e04726186",
+      "offset": 12601218,
+      "length": 48568
+    },
+    {
+      "id": "tr-bonus_letter-3d710f60c60d9c2c",
+      "offset": 12649786,
+      "length": 46891
+    },
+    {
+      "id": "tr-bonus_letter-957dd6d447819bc9",
+      "offset": 12696677,
+      "length": 47442
+    },
+    {
+      "id": "tr-bonus_letter-512a02490938fa5f",
+      "offset": 12744119,
+      "length": 55038
+    },
+    {
+      "id": "tr-bonus_letter-9ea1be3e818d3ab7",
+      "offset": 12799157,
+      "length": 77916
+    },
+    {
+      "id": "tr-bonus_letter-8fd05354b4e274b9",
+      "offset": 12877073,
+      "length": 46046
+    },
+    {
+      "id": "tr-bonus_letter-a439dacaa8b44df1",
+      "offset": 12923119,
+      "length": 51526
+    },
+    {
+      "id": "tr-bonus_letter-3012e132bec1cd80",
+      "offset": 12974645,
+      "length": 62149
+    },
+    {
+      "id": "tr-bonus_letter-6364838b852eaeb5",
+      "offset": 13036794,
+      "length": 47639
+    },
+    {
+      "id": "tr-bonus_letter-ccf23cf5225b8623",
+      "offset": 13084433,
+      "length": 69249
+    },
+    {
+      "id": "tr-bonus_letter-4e942b9cde93c8c8",
+      "offset": 13153682,
+      "length": 43801
+    },
+    {
+      "id": "tr-bonus_letter-667c829433e8bac2",
+      "offset": 13197483,
+      "length": 66342
+    },
+    {
+      "id": "tr-bonus_letter-1e661f39c821a140",
+      "offset": 13263825,
+      "length": 78339
+    },
+    {
+      "id": "tr-bonus_letter-a6b2829d225e8438",
+      "offset": 13342164,
+      "length": 45463
+    },
+    {
+      "id": "tr-bonus_letter-7fb4eb320dd4124c",
+      "offset": 13387627,
+      "length": 51922
+    },
+    {
+      "id": "tr-bonus_letter-93f5f93b42a83050",
+      "offset": 13439549,
+      "length": 101229
+    },
+    {
+      "id": "tr-bonus_letter-4b802c939efed89f",
+      "offset": 13540778,
+      "length": 73967
+    },
+    {
+      "id": "tr-bonus_letter-effdd6ddb595180e",
+      "offset": 13614745,
+      "length": 65448
+    },
+    {
+      "id": "tr-bonus_letter-6233cca49cfa72f2",
+      "offset": 13680193,
+      "length": 46294
+    },
+    {
+      "id": "tr-bonus_letter-3338287042e63898",
+      "offset": 13726487,
+      "length": 80178
+    },
+    {
+      "id": "tr-bonus_letter-d45bb489fbca285e",
+      "offset": 13806665,
+      "length": 48213
+    },
+    {
+      "id": "tr-bonus_letter-1e01ada9fd8a2600",
+      "offset": 13854878,
+      "length": 66863
+    },
+    {
+      "id": "tr-bonus_letter-f657c589bf2112eb",
+      "offset": 13921741,
+      "length": 73086
+    },
+    {
+      "id": "tr-bonus_letter-63a157cf3f02b4a2",
+      "offset": 13994827,
+      "length": 69272
+    },
+    {
+      "id": "tr-bonus_letter-988e4b20f6384fd9",
+      "offset": 14064099,
+      "length": 59410
+    },
+    {
+      "id": "tr-bonus_letter-28e1fc1b5f33ac8e",
+      "offset": 14123509,
+      "length": 67176
+    },
+    {
+      "id": "tr-bonus_letter-dc2e72741e84f7e0",
+      "offset": 14190685,
+      "length": 109041
+    },
+    {
+      "id": "tr-bonus_letter-8663738f9e4840bb",
+      "offset": 14299726,
+      "length": 50257
+    },
+    {
+      "id": "tr-bonus_letter-434c81b0ea52a8f8",
+      "offset": 14349983,
+      "length": 68954
+    },
+    {
+      "id": "tr-bonus_letter-ba9e7b8b517004d8",
+      "offset": 14418937,
+      "length": 66825
+    },
+    {
+      "id": "tr-bonus_letter-e2bed6fe7b836110",
+      "offset": 14485762,
+      "length": 59467
+    },
+    {
+      "id": "tr-bonus_letter-0b4ea0dc7d15df34",
+      "offset": 14545229,
+      "length": 44822
+    },
+    {
+      "id": "tr-bonus_letter-667addcab94b0398",
+      "offset": 14590051,
+      "length": 48519
+    },
+    {
+      "id": "tr-bonus_letter-a03a1b7bf2426a0c",
+      "offset": 14638570,
+      "length": 52959
+    },
+    {
+      "id": "tr-bonus_letter-4560da1d07611ba7",
+      "offset": 14691529,
+      "length": 51718
+    },
+    {
+      "id": "tr-bonus_letter-84fe366eb20e4a66",
+      "offset": 14743247,
+      "length": 44129
+    },
+    {
+      "id": "tr-bonus_letter-3da0b76d63b511b8",
+      "offset": 14787376,
+      "length": 58729
+    },
+    {
+      "id": "tr-bonus_letter-42b3561001373c01",
+      "offset": 14846105,
+      "length": 43976
+    },
+    {
+      "id": "tr-bonus_letter-7e759e47648b59e1",
+      "offset": 14890081,
+      "length": 63758
+    },
+    {
+      "id": "tr-bonus_letter-e568dac0b9d5ea5a",
+      "offset": 14953839,
+      "length": 86997
+    },
+    {
+      "id": "tr-bonus_letter-95e950bf0f198414",
+      "offset": 15040836,
+      "length": 75110
+    },
+    {
+      "id": "tr-bonus_letter-eef5447fbe0f9d47",
+      "offset": 15115946,
+      "length": 71474
+    },
+    {
+      "id": "tr-bonus_letter-ac93c357601877e0",
+      "offset": 15187420,
+      "length": 48661
+    },
+    {
+      "id": "tr-bonus_letter-24866e8059b4976f",
+      "offset": 15236081,
+      "length": 67319
+    },
+    {
+      "id": "tr-bonus_letter-4ff6650835a9bf75",
+      "offset": 15303400,
+      "length": 46809
+    },
+    {
+      "id": "tr-bonus_letter-2536c7eaf83e1b4d",
+      "offset": 15350209,
+      "length": 73300
+    },
+    {
+      "id": "tr-bonus_letter-02006755fc8679e3",
+      "offset": 15423509,
+      "length": 50030
+    },
+    {
+      "id": "tr-bonus_letter-a715475c6e3d859e",
+      "offset": 15473539,
+      "length": 48538
+    },
+    {
+      "id": "tr-bonus_letter-d1fe905f4c990555",
+      "offset": 15522077,
+      "length": 54323
+    },
+    {
+      "id": "tr-bonus_letter-3b33ec5a5281e59f",
+      "offset": 15576400,
+      "length": 78480
+    },
+    {
+      "id": "tr-bonus_letter-e5e5348d80fafa25",
+      "offset": 15654880,
+      "length": 56138
+    },
+    {
+      "id": "tr-bonus_letter-cd91d5120c386259",
+      "offset": 15711018,
+      "length": 45385
+    },
+    {
+      "id": "tr-bonus_letter-7a8a27c6134ddb13",
+      "offset": 15756403,
+      "length": 67684
+    },
+    {
+      "id": "tr-bonus_letter-60b81b55bca5d46c",
+      "offset": 15824087,
+      "length": 49837
+    },
+    {
+      "id": "tr-bonus_letter-3fc7bb9f43611c4a",
+      "offset": 15873924,
+      "length": 45829
+    },
+    {
+      "id": "tr-bonus_letter-42e353bf35b81c83",
+      "offset": 15919753,
+      "length": 44888
+    },
+    {
+      "id": "tr-bonus_letter-088f0b622be5a900",
+      "offset": 15964641,
+      "length": 74858
+    },
+    {
+      "id": "tr-bonus_letter-8a65c93a84ce864b",
+      "offset": 16039499,
+      "length": 48949
+    },
+    {
+      "id": "tr-bonus_letter-0a1d65ce6b780b22",
+      "offset": 16088448,
+      "length": 81870
+    },
+    {
+      "id": "tr-bonus_letter-f28e814a05ec66a4",
+      "offset": 16170318,
+      "length": 110585
+    },
+    {
+      "id": "tr-bonus_letter-93cdd144ff3dcca5",
+      "offset": 16280903,
+      "length": 47339
+    },
+    {
+      "id": "tr-bonus_letter-39d8b53cd6a3dfc1",
+      "offset": 16328242,
+      "length": 47177
+    },
+    {
+      "id": "tr-bonus_letter-0cd1f3ababdbe3bc",
+      "offset": 16375419,
+      "length": 81579
+    },
+    {
+      "id": "tr-bonus_letter-d8260790e6418b38",
+      "offset": 16456998,
+      "length": 78827
+    },
+    {
+      "id": "tr-bonus_letter-f4b37840cf503459",
+      "offset": 16535825,
+      "length": 62779
+    },
+    {
+      "id": "tr-bonus_letter-acef849e8d653976",
+      "offset": 16598604,
+      "length": 66660
+    },
+    {
+      "id": "tr-bonus_letter-2ee6deeea7a24005",
+      "offset": 16665264,
+      "length": 47974
+    },
+    {
+      "id": "tr-bonus_letter-8c40d1b692b729d9",
+      "offset": 16713238,
+      "length": 50840
+    },
+    {
+      "id": "tr-bonus_letter-4c17669b775db1f6",
+      "offset": 16764078,
+      "length": 43448
+    },
+    {
+      "id": "tr-bonus_letter-4e87e32dbd68f500",
+      "offset": 16807526,
+      "length": 46460
+    },
+    {
+      "id": "tr-bonus_letter-a3d04695a15ea263",
+      "offset": 16853986,
+      "length": 52471
+    },
+    {
+      "id": "tr-bonus_letter-553bf113f98b2f45",
+      "offset": 16906457,
+      "length": 73103
+    },
+    {
+      "id": "tr-bonus_letter-5f65aa369bb3d3de",
+      "offset": 16979560,
+      "length": 58955
+    },
+    {
+      "id": "tr-bonus_letter-e38460648169e182",
+      "offset": 17038515,
+      "length": 69159
+    },
+    {
+      "id": "tr-bonus_letter-8b0223c360900bdb",
+      "offset": 17107674,
+      "length": 94369
+    },
+    {
+      "id": "tr-bonus_letter-aadd51bbaff39d91",
+      "offset": 17202043,
+      "length": 49491
+    },
+    {
+      "id": "tr-bonus_letter-df6155547d2fff88",
+      "offset": 17251534,
+      "length": 45129
+    },
+    {
+      "id": "tr-bonus_letter-834e83d18642fd98",
+      "offset": 17296663,
+      "length": 46492
+    },
+    {
+      "id": "tr-bonus_letter-66362f61b90f6b82",
+      "offset": 17343155,
+      "length": 73137
+    },
+    {
+      "id": "tr-bonus_letter-79a4e1fffb2e7d36",
+      "offset": 17416292,
+      "length": 47110
+    },
+    {
+      "id": "tr-bonus_letter-b34929f85c5bbbcc",
+      "offset": 17463402,
+      "length": 47762
+    },
+    {
+      "id": "tr-bonus_letter-825c22e0fb9e9b89",
+      "offset": 17511164,
+      "length": 53499
+    },
+    {
+      "id": "tr-bonus_letter-a0b21c1dcbbf1c5c",
+      "offset": 17564663,
+      "length": 48485
+    },
+    {
+      "id": "tr-bonus_letter-2084d2049272f0c3",
+      "offset": 17613148,
+      "length": 48536
+    }
+  ]
+}

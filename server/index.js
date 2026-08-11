@@ -32,6 +32,13 @@ import {
   getFinaleMinWords,
 } from "../shared/finaleRules.js";
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
+import { TrainingPoolStore } from "./training/trainingPoolStore.js";
+import {
+  appendRecentTrainingGridId,
+  buildStandaloneTrainingPayload,
+  normalizeTrainingDurationMs,
+  normalizeTrainingMode,
+} from "./training/standaloneTrainingPolicy.js";
 import {
   INTER_TOURNAMENT_MIN_COOLDOWN_MS,
   getTournamentLobbyCooldownStatus,
@@ -1439,9 +1446,14 @@ app.get("/api/players", async (req, res) => {
       isDailyChampion: isDailyChampionPlayer(p),
       weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(p),
       isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(p),
+      inTraining: isStandaloneTrainingPlayer(p),
+      trainingMode: p?.standaloneTraining?.mode || null,
     }))
     .filter((p) => p.nick)
-    .sort((a, b) => a.nick.localeCompare(b.nick));
+    .sort((a, b) => {
+      const trainingDiff = Number(!!a?.inTraining) - Number(!!b?.inTraining);
+      return trainingDiff || a.nick.localeCompare(b.nick, "fr", { sensitivity: "base" });
+    });
   const currentRound = room.currentRound || null;
   const breakState = room.breakState || null;
   const status = {
@@ -1776,6 +1788,9 @@ const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
+const trainingPoolStore = new TrainingPoolStore(
+  path.join(RUNTIME_DATA_DIR, "training-pools")
+);
 const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json");
 const DEV_CONTROLS_PATH = path.join(RUNTIME_DATA_DIR, "dev-controls.json");
 const DEV_ACCESS_PATH = path.join(RUNTIME_DATA_DIR, "dev-access.json");
@@ -3697,7 +3712,7 @@ async function startTrainingRound(room, rawType) {
     return { ok: false, error: "room_busy" };
   }
   const state = buildTournamentLobbyPayload(room);
-  if (!state.trainingAvailable) {
+  if (!state.trainingAvailable || getConnectedLiveHumanPlayers(room).length !== 1) {
     return { ok: false, error: "training_unavailable" };
   }
   const plan = getTrainingRoundPlan(room, rawType);
@@ -3857,6 +3872,14 @@ function isHumanPlayer(player) {
   return !!player && !isBotToken(player?.token);
 }
 
+function isStandaloneTrainingPlayer(player) {
+  return !!player?.standaloneTraining?.sessionId;
+}
+
+function getStandaloneTrainingObserverRoomId(roomId) {
+  return `standalone-training-observer:${String(roomId || "room-4x4")}`;
+}
+
 function getPlayerReadyKey(player) {
   const installId = normalizeInstallId(player?.installId || "");
   if (installId) return `install:${installId}`;
@@ -3873,6 +3896,7 @@ function getPlayerLastActivityAt(player) {
 function isPlayerAfk(player, now = Date.now()) {
   if (!isHumanPlayer(player)) return false;
   if (!isPlayerConnected(player)) return false;
+  if (isStandaloneTrainingPlayer(player)) return false;
   const lastActivityAt = getPlayerLastActivityAt(player);
   if (!lastActivityAt) return false;
   return now - lastActivityAt >= PLAYER_AFK_AFTER_MS;
@@ -3987,20 +4011,122 @@ function getConnectedHumanPlayers(room, now = Date.now()) {
   );
 }
 
+function getConnectedLiveHumanPlayers(room) {
+  return getConnectedHumanPlayers(room).filter(
+    (player) => !isStandaloneTrainingPlayer(player)
+  );
+}
+
+function getStandaloneTrainingNick(identity, payload = {}) {
+  return String(
+    identity?.user?.usernameDisplay ||
+      identity?.user?.usernameNormalized ||
+      payload?.nick ||
+      ""
+  ).trim();
+}
+
+function ensureStandaloneTrainingPresence(room, socket, identity, payload = {}) {
+  if (!room || !socket || !identity) return null;
+  const installId = identity.installId;
+  const nick = getStandaloneTrainingNick(identity, payload);
+  if (!installId || !nick || nick.length > NICK_MAX_LEN) return null;
+
+  let player = room.players.get(socket.id) || null;
+  if (player && normalizeInstallId(player.installId) !== normalizeInstallId(installId)) {
+    return null;
+  }
+
+  if (!player) {
+    const existing = findPlayerByInstallId(room, installId);
+    if (existing?.player) {
+      player = existing.player;
+      if (existing.socketId !== socket.id) {
+        clearPendingDisconnect(room, existing.socketId);
+        clearPlayerAfkTimer(player);
+        room.players.delete(existing.socketId);
+        const oldSocket = io.sockets.sockets.get(existing.socketId);
+        if (oldSocket) {
+          try {
+            oldSocket.leave(room.id);
+          } catch (_) {}
+          oldSocket.disconnect(true);
+        }
+      }
+    }
+  }
+
+  if (!player) {
+    const nickConflict = Array.from(room.players.values()).some(
+      (candidate) =>
+        candidate?.nick === nick &&
+        normalizeInstallId(candidate?.installId) !== normalizeInstallId(installId)
+    );
+    if (nickConflict) return null;
+    player = { nick, token: null };
+  }
+
+  const now = Date.now();
+  player.nick = nick;
+  player.userId = identity.userId;
+  player.installId = installId;
+  player.connected = true;
+  player.lastSeenAt = now;
+  player.lastActivityAt = now;
+  player.trainingPresenceOnly = true;
+  clearPlayerAfkTimer(player);
+  clearPresenceAnnouncement(room, installId);
+  room.players.set(socket.id, player);
+  room.nickToInstallId.set(nick, installId);
+  socket.data.installId = installId;
+  socket.data.userId = identity.userId;
+  socket.data.nick = nick;
+  socket.data.roomId = room.id;
+  socket.roomId = room.id;
+  socket.leave(room.id);
+  socket.join(getStandaloneTrainingObserverRoomId(room.id));
+  joinSocketToChatRoom(socket, room.id);
+  return player;
+}
+
+function buildStandaloneTrainingLiveStatus(room) {
+  const round = room?.currentRound || null;
+  const isPlaying = isRoundActive(round) || round?.status === "ocid_vote";
+  const isBreak = !isPlaying && !!(room?.breakState || round || room?.roundStartPending);
+  const special = round?.special?.isSpecial ? round.special : null;
+  return {
+    roomId: room?.id || null,
+    serverNow: Date.now(),
+    phase: isPlaying ? "playing" : isBreak ? "results" : "lobby",
+    humanPlayerCount: getConnectedLiveHumanPlayers(room).length,
+    round: isPlaying
+      ? {
+          number: Number(round?.tournamentRound) || Number(room?.tournament?.currentRound) || 1,
+          total: Number(room?.tournament?.totalRounds) || TOURNAMENT_TOTAL_ROUNDS,
+          type: special?.type || "normal",
+          label: special?.label || "Manche classique",
+          endsAt: Number(round?.endsAt) || null,
+        }
+      : null,
+  };
+}
+
 function buildTournamentLobbyPayload(room) {
   const lobby = ensureTournamentLobby(room);
   const now = Date.now();
   const humans = getConnectedHumanPlayers(room, now);
-  const activeHumans = humans.filter((player) => !isPlayerAfk(player, now));
+  const liveHumans = humans.filter((player) => !isStandaloneTrainingPlayer(player));
+  const trainingHumans = humans.filter((player) => isStandaloneTrainingPlayer(player));
+  const activeHumans = liveHumans.filter((player) => !isPlayerAfk(player, now));
   const readyActive = activeHumans.filter((player) =>
     lobby.readyKeys.has(getPlayerReadyKey(player))
   );
-  const readyTotal = humans.filter((player) => lobby.readyKeys.has(getPlayerReadyKey(player)));
+  const readyTotal = liveHumans.filter((player) => lobby.readyKeys.has(getPlayerReadyKey(player)));
   const activeHumanCount = activeHumans.length;
   const readyThreshold = Math.max(1, Math.ceil(activeHumanCount * 0.5));
   const cooldown = getTournamentLobbyCooldownStatus({
     cooldownEndsAt: lobby.cooldownEndsAt,
-    humanCount: humans.length,
+    humanCount: liveHumans.length,
     now,
     readyCount: readyActive.length,
     readyThreshold,
@@ -4032,7 +4158,9 @@ function buildTournamentLobbyPayload(room) {
     readyThreshold,
     activeHumanCount,
     totalHumanCount: humans.length,
-    afkHumanCount: Math.max(0, humans.length - activeHumans.length),
+    liveHumanCount: liveHumans.length,
+    trainingHumanCount: trainingHumans.length,
+    afkHumanCount: Math.max(0, liveHumans.length - activeHumans.length),
     cooldownActive: cooldown.active,
     cooldownEndsAt: cooldown.endsAt,
     readyThresholdMet: cooldown.readyThresholdMet,
@@ -4043,7 +4171,12 @@ function buildTournamentLobbyPayload(room) {
     maintenanceMode,
     maintenanceMessage: maintenanceMode ? "Maintenance en cours" : "",
     trainingEnabled: devControls?.trainingEnabled !== false && !maintenanceMode,
-    trainingAvailable: !maintenanceMode && devControls?.trainingEnabled !== false && humans.length === 1 && isLobbyOpen,
+    trainingAvailable:
+      !maintenanceMode &&
+      devControls?.trainingEnabled !== false &&
+      liveHumans.length === 1 &&
+      isLobbyOpen,
+    standaloneTrainingAvailable: !maintenanceMode && devControls?.trainingEnabled !== false,
     readyPlayers: readyTotal.map((player) => player.nick).filter(Boolean),
   };
 }
@@ -4115,7 +4248,13 @@ function emitPlayers(room) {
         isDailyChampion: isDailyChampionPlayer(p),
         weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(p),
         isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(p),
+        inTraining: isStandaloneTrainingPlayer(p),
+        trainingMode: p?.standaloneTraining?.mode || null,
       }))
+      .sort((a, b) => {
+        const trainingDiff = Number(!!a?.inTraining) - Number(!!b?.inTraining);
+        return trainingDiff || a.nick.localeCompare(b.nick, "fr", { sensitivity: "base" });
+      })
   );
   emitTournamentLobby(room);
 }
@@ -4667,6 +4806,7 @@ function buildLiveRanking(room, roundId) {
     room.currentRound.gobbles instanceof Map ? room.currentRound.gobbles : new Map();
   const ranking = [];
   for (const player of room.players.values()) {
+    if (isStandaloneTrainingPlayer(player)) continue;
     const data = roundSubs.get(player.nick);
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
     const active = connected || hasPlayerActivity(data);
@@ -4807,6 +4947,7 @@ function buildRankingUpdatePayload(room) {
 
   const ranking = [];
   for (const player of room.players.values()) {
+    if (isStandaloneTrainingPlayer(player)) continue;
     const data = roundSubs.get(player.nick);
     const connected = isPlayerConnected(player) || isBotToken(player?.token);
     const active = connected || hasPlayerActivity(data);
@@ -6888,10 +7029,14 @@ function flushAnnouncements(room) {
   const batch = room.announcementQueue.splice(0, room.announcementQueue.length);
   room.announcementTimer = null;
   if (batch.length === 1) {
-    io.to(room.id).emit("announcement", batch[0]);
+    io.to(room.id)
+      .to(getStandaloneTrainingObserverRoomId(room.id))
+      .emit("announcement", batch[0]);
     return;
   }
-  io.to(room.id).emit("announcements", batch);
+  io.to(room.id)
+    .to(getStandaloneTrainingObserverRoomId(room.id))
+    .emit("announcements", batch);
 }
 
 function pushAnnouncement(room, payload) {
@@ -9607,6 +9752,7 @@ async function runStartRoundForRoom(room, options = {}) {
   const roundSubs = new Map();
   for (const p of room.players.values()) {
     if (!isPlayerConnected(p) && !isBotToken(p?.token)) continue;
+    if (isStandaloneTrainingPlayer(p)) continue;
     roundSubs.set(p.nick, {
       words: new Set(),
       score: 0,
@@ -10973,6 +11119,7 @@ io.on("connection", (socket) => {
     cb?.({
       ok: true,
       available: true,
+      attached: takeover || match.socketId === socket.id,
       snapshot,
       playtimeLimit: getPlaytimeLimitStatus(identity.userId),
     });
@@ -11174,6 +11321,10 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "in_training", lobby: buildTournamentLobbyPayload(room) });
+      return;
+    }
     if (isMaintenanceModeActive()) {
       cb?.({ ...buildMaintenanceBlockedPayload(), lobby: buildTournamentLobbyPayload(room) });
       emitTournamentLobby(room);
@@ -11241,6 +11392,224 @@ io.on("connection", (socket) => {
         console.warn(`[${room.id}] training:start failed`, err);
         cb?.({ ok: false, error: "internal" });
       });
+  });
+
+  socket.on("training:standalone:start", async (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const activeBan = getActiveModerationBan(identity);
+    if (activeBan) {
+      cb?.(buildModerationBanResponse(activeBan));
+      return;
+    }
+    const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
+    if (!room) {
+      cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    if (isMaintenanceModeActive() || devControls?.trainingEnabled === false) {
+      cb?.({ ...buildMaintenanceBlockedPayload(), lobby: buildTournamentLobbyPayload(room) });
+      return;
+    }
+    const mode = normalizeTrainingMode(payload?.type);
+    if (!mode) {
+      cb?.({ ok: false, error: "training_mode_unsupported" });
+      return;
+    }
+    const player = ensureStandaloneTrainingPresence(room, socket, identity, payload);
+    if (!player || !isHumanPlayer(player)) {
+      cb?.({ ok: false, error: "invalid_player" });
+      return;
+    }
+    const durationMs = normalizeTrainingDurationMs(payload?.durationMs);
+    try {
+      const entry = await trainingPoolStore.getRandomEntry(mode, {
+        excludeIds: player.trainingRecentGridIds,
+      });
+      const startedAt = Date.now();
+      const sessionId = randomUUID();
+      player.trainingRecentGridIds = appendRecentTrainingGridId(
+        player.trainingRecentGridIds,
+        entry.id
+      );
+      player.standaloneTraining = {
+        sessionId,
+        mode,
+        gridId: entry.id,
+        startedAt,
+        durationMs,
+      };
+      const readyKey = getPlayerReadyKey(player);
+      if (readyKey) ensureTournamentLobby(room).readyKeys.delete(readyKey);
+      player.lastActivityReason = "standalone_training";
+      clearPlayerAfkTimer(player);
+      emitPlayers(room);
+      emitRoomsStats();
+      maybeStartTournamentCountdown(room);
+      socket.emit("chat:history", room.chatMessages);
+      cb?.({
+        ok: true,
+        training: buildStandaloneTrainingPayload({
+          entry,
+          durationMs,
+          sessionId,
+          startedAt,
+        }),
+        liveStatus: buildStandaloneTrainingLiveStatus(room),
+      });
+    } catch (error) {
+      console.warn(`[${room.id}] training:standalone:start failed`, error);
+      if (player.trainingPresenceOnly === true && !isStandaloneTrainingPlayer(player)) {
+        room.players.delete(socket.id);
+        socket.leave(getStandaloneTrainingObserverRoomId(room.id));
+        emitPlayers(room);
+        emitRoomsStats();
+      }
+      cb?.({ ok: false, error: "training_pool_unavailable" });
+    }
+  });
+
+  socket.on("training:standalone:presence", (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
+    const sessionId = String(payload?.sessionId || "").trim();
+    const mode = normalizeTrainingMode(payload?.type);
+    if (!room || !sessionId || !mode) {
+      cb?.({ ok: false, error: "invalid_training_presence" });
+      return;
+    }
+    const player = ensureStandaloneTrainingPresence(room, socket, identity, payload);
+    if (!player || !isHumanPlayer(player)) {
+      cb?.({ ok: false, error: "invalid_training_presence" });
+      return;
+    }
+    player.standaloneTraining = {
+      sessionId,
+      mode,
+      gridId: String(payload?.gridId || "").trim() || null,
+      startedAt: Number(payload?.startedAt) || Date.now(),
+      durationMs: normalizeTrainingDurationMs(payload?.durationMs),
+    };
+    const readyKey = getPlayerReadyKey(player);
+    if (readyKey) ensureTournamentLobby(room).readyKeys.delete(readyKey);
+    player.lastActivityReason = "standalone_training";
+    clearPlayerAfkTimer(player);
+    emitPlayers(room);
+    emitRoomsStats();
+    maybeStartTournamentCountdown(room);
+    cb?.({ ok: true, liveStatus: buildStandaloneTrainingLiveStatus(room) });
+  });
+
+  socket.on("training:standalone:status", (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
+    const sessionId = String(payload?.sessionId || "").trim();
+    const mode = normalizeTrainingMode(payload?.type);
+    if (!room || !sessionId || !mode) {
+      cb?.({ ok: false, error: "invalid_training_presence" });
+      return;
+    }
+    const player = ensureStandaloneTrainingPresence(room, socket, identity, payload);
+    if (!player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    if (sessionId && mode) {
+      const presenceChanged = !isStandaloneTrainingPlayer(player);
+      if (presenceChanged) {
+        player.standaloneTraining = {
+          sessionId,
+          mode,
+          gridId: null,
+          startedAt: Date.now(),
+          durationMs: normalizeTrainingDurationMs(null),
+        };
+      }
+      clearPlayerAfkTimer(player);
+      if (presenceChanged) {
+        emitPlayers(room);
+        emitRoomsStats();
+      }
+    }
+    cb?.({ ok: true, liveStatus: buildStandaloneTrainingLiveStatus(room) });
+  });
+
+  socket.on("training:standalone:stop", (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    if (payload?.joinLive) {
+      const activeBan = getActiveModerationBan(identity);
+      if (activeBan) {
+        cb?.(buildModerationBanResponse(activeBan));
+        return;
+      }
+      const playtimeStatus = getPlaytimeLimitStatus(identity.userId);
+      if (playtimeStatus?.active && playtimeStatus.exhausted) {
+        cb?.(buildPlaytimeBlockedResponse(playtimeStatus));
+        return;
+      }
+    }
+    const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
+    const player =
+      room?.players.get(socket.id) ||
+      (payload?.joinLive
+        ? ensureStandaloneTrainingPresence(room, socket, identity, payload)
+        : null);
+    if (!room || !player) {
+      cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    const wasPresenceOnly = player.trainingPresenceOnly === true;
+    player.standaloneTraining = null;
+    if (payload?.joinLive) {
+      player.trainingPresenceOnly = false;
+      socket.leave(getStandaloneTrainingObserverRoomId(room.id));
+      socket.join(room.id);
+      markSocketPlayerActivity(room, socket, "join_live");
+      if (!wasPresenceJoinAnnounced(room, player.installId)) {
+        const team = getTeamForInstallCached(player.installId);
+        pushSystemChatMessage(
+          room,
+          `${player.nick} ${getTeamDot(team)} a rejoint le tournoi`,
+          {
+            installId: player.installId,
+            team,
+            nick: player.nick,
+            meta: { kind: "join_tournament" },
+          }
+        );
+        markPresenceJoinAnnounced(room, player.installId);
+      }
+    }
+    if (payload?.joinLive && isRoundActive(room.currentRound)) {
+      ensurePlayerInRound(room, player.nick);
+    }
+    const snapshot = payload?.joinLive ? buildSessionSnapshot(room, player) : null;
+    if (!payload?.joinLive && wasPresenceOnly) {
+      clearPlayerAfkTimer(player);
+      const readyKey = getPlayerReadyKey(player);
+      if (readyKey) ensureTournamentLobby(room).readyKeys.delete(readyKey);
+      room.players.delete(socket.id);
+      socket.leave(getStandaloneTrainingObserverRoomId(room.id));
+      socket.leave(room.id);
+      clearPresenceAnnouncement(room, player.installId);
+    } else if (!payload?.joinLive) {
+      player.trainingPresenceOnly = false;
+      socket.leave(getStandaloneTrainingObserverRoomId(room.id));
+      socket.join(room.id);
+      markSocketPlayerActivity(room, socket, "training_exit");
+    }
+    cb?.({
+      ok: true,
+      snapshot,
+      liveStatus: buildStandaloneTrainingLiveStatus(room),
+    });
+    emitPlayers(room);
+    emitMedals(room);
+    emitRoomsStats();
+    maybeStartTournamentCountdown(room);
   });
 
   socket.on("chat:send", (text, cb) => {
@@ -12074,6 +12443,10 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "standalone_training" });
+      return;
+    }
     markSocketPlayerActivity(room, socket, "special3");
     const result = updateSpecial3WordsState(room, {
       roundId: payload?.roundId,
@@ -12089,6 +12462,10 @@ io.on("connection", (socket) => {
     const player = room?.players.get(socket.id);
     if (!room || !player) {
       cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "standalone_training" });
       return;
     }
     markSocketPlayerActivity(room, socket, "ocid_propose");
@@ -12108,6 +12485,10 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "standalone_training" });
+      return;
+    }
     markSocketPlayerActivity(room, socket, "ocid_clear");
     const result = clearOcidProposalForNick(room, {
       roundId: payload?.roundId,
@@ -12121,6 +12502,10 @@ io.on("connection", (socket) => {
     const player = room?.players.get(socket.id);
     if (!room || !player) {
       cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "standalone_training" });
       return;
     }
     markSocketPlayerActivity(room, socket, "ocid_vote");
@@ -12137,6 +12522,10 @@ io.on("connection", (socket) => {
     const player = room?.players.get(socket.id);
     if (!room || !player) {
       cb?.({ ok: false, error: "not_logged_in" });
+      return;
+    }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "standalone_training" });
       return;
     }
     markSocketPlayerActivity(room, socket, "submit_word");
@@ -12160,6 +12549,10 @@ io.on("connection", (socket) => {
 
     if (!room || !player) {
       cb?.({ ok: false, error: "not_logged_in", clientSeq, results: [] });
+      return;
+    }
+    if (isStandaloneTrainingPlayer(player)) {
+      cb?.({ ok: false, error: "standalone_training", clientSeq, results: [] });
       return;
     }
     markSocketPlayerActivity(room, socket, "submit_words_batch");

@@ -15,6 +15,8 @@ import {
   invalidateSessionByToken,
   invalidateSessionsForUser,
   linkDeviceToUser,
+  listUserUiSeenMarkers,
+  markUserUiSeenMarkers,
   sanitizeEmail,
   sanitizeUsernameDisplay,
   updatePassword,
@@ -464,6 +466,22 @@ export function createAuthRouter({
       authenticated: true,
       user: sessionPayload(auth.user),
     });
+  });
+
+  router.get("/ui-seen", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const auth = await getAuthContext(req);
+    if (!requireAuth(auth, res, req)) return;
+    const markers = await listUserUiSeenMarkers(auth.user.id);
+    return res.json({ ok: true, markers });
+  });
+
+  router.post("/ui-seen", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const auth = await getAuthContext(req);
+    if (!requireAuth(auth, res, req)) return;
+    const markers = await markUserUiSeenMarkers(auth.user.id, req.body?.markers);
+    return res.json({ ok: true, markers });
   });
 
   router.post("/change-password", async (req, res) => {
