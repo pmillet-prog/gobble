@@ -34,6 +34,14 @@ function validateIndex(index, expectedMode) {
   return true;
 }
 
+export function resolveTrainingPoolDir({ serverDir, env = process.env } = {}) {
+  if (!serverDir) throw new Error("Le dossier serveur est requis pour localiser les pools");
+  const configuredDir = String(env?.GOBBLE_TRAINING_POOL_DIR || "").trim();
+  return configuredDir
+    ? path.resolve(configuredDir)
+    : path.resolve(serverDir, "../data/training-pools");
+}
+
 export class TrainingPoolStore {
   constructor(rootDir) {
     this.rootDir = path.resolve(rootDir);
@@ -103,4 +111,3 @@ export class TrainingPoolStore {
     else this.indexPromises.delete(String(mode));
   }
 }
-

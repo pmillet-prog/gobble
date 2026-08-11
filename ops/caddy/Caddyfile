@@ -1,0 +1,44 @@
+gobble.fr, www.gobble.fr {
+	encode gzip
+
+	# Digital Asset Links (TWA)
+	handle /.well-known/* {
+		root * /var/www/assetlinks
+		file_server
+	}
+
+	# Socket.IO -> Node (4000)
+	handle /socket.io/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000 {
+			# Une redirection HTTP transformerait certains POST de www.gobble.fr en GET.
+			header_up Host gobble.fr
+		}
+	}
+
+	# Privacy (hors SPA)
+	@privacy path /privacy /privacy/ /privacy.html
+	handle @privacy {
+		root * /var/www/gobble-static
+		try_files /privacy/index.html /privacy.html
+		file_server
+	}
+
+	# Frontend Gobble
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Si un service est arrêté pendant un déploiement, Caddy reste disponible et
+	# sert cette page statique, indépendante de Node et du dossier dist.
+	handle_errors {
+		header Cache-Control "no-store, no-cache, must-revalidate"
+		header Retry-After "12"
+		root * /var/www/gobble-maintenance
+		rewrite * /index.html
+		file_server
+	}
+}

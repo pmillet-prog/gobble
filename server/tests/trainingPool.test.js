@@ -17,7 +17,10 @@ import {
   validatePreparedTrainingGrid,
   validateTrainingPoolCatalog,
 } from "../training/trainingPoolFormat.js";
-import { TrainingPoolStore } from "../training/trainingPoolStore.js";
+import {
+  TrainingPoolStore,
+  resolveTrainingPoolDir,
+} from "../training/trainingPoolStore.js";
 
 function makeGrid() {
   return "ABCDEFGHIJKLMNOP".split("").map((letter) => ({
@@ -60,6 +63,25 @@ test("déclare exactement les dix catégories 4×4 sans OCID", () => {
   assert.equal(TRAINING_POOL_MODES.length, 10);
   assert.equal(isTrainingPoolMode("ocid"), false);
   assert.equal(new Set(TRAINING_POOL_MODES.map((entry) => entry.value)).size, 10);
+});
+
+test("localise les pools versionnés hors du répertoire runtime", () => {
+  const projectDir = path.join(os.tmpdir(), "gobble-project");
+  const serverDir = path.join(projectDir, "server");
+  assert.equal(
+    resolveTrainingPoolDir({
+      serverDir,
+      env: { GOBBLE_DATA_DIR: path.join(os.tmpdir(), "gobble-runtime") },
+    }),
+    path.join(projectDir, "data", "training-pools")
+  );
+  assert.equal(
+    resolveTrainingPoolDir({
+      serverDir,
+      env: { GOBBLE_TRAINING_POOL_DIR: path.join(os.tmpdir(), "custom-training-pools") },
+    }),
+    path.join(os.tmpdir(), "custom-training-pools")
+  );
 });
 
 test("construit les règles renforcées attendues pour chaque catégorie", () => {

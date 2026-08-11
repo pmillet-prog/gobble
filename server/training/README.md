@@ -36,3 +36,7 @@ Chaque catégorie possède :
 `TrainingPoolStore` met seulement les petits index en cache. Lors d’un tirage, il lit la tranche
 correspondant à une seule grille dans le fichier JSONL. Aucun catalogue complet n’a donc besoin
 d’être chargé en mémoire et aucune file SQLite n’intervient dans le jeu.
+
+Ces catalogues sont des ressources versionnées : le serveur les lit dans `data/training-pools`,
+indépendamment de `GOBBLE_DATA_DIR` qui ne contient que les données persistantes et mutables.
+Un emplacement différent peut être configuré explicitement avec `GOBBLE_TRAINING_POOL_DIR`.

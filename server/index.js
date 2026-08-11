@@ -32,7 +32,10 @@ import {
   getFinaleMinWords,
 } from "../shared/finaleRules.js";
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
-import { TrainingPoolStore } from "./training/trainingPoolStore.js";
+import {
+  TrainingPoolStore,
+  resolveTrainingPoolDir,
+} from "./training/trainingPoolStore.js";
 import {
   appendRecentTrainingGridId,
   buildStandaloneTrainingPayload,
@@ -1789,7 +1792,7 @@ const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
 const trainingPoolStore = new TrainingPoolStore(
-  path.join(RUNTIME_DATA_DIR, "training-pools")
+  resolveTrainingPoolDir({ serverDir: __dirname })
 );
 const INSTALL_ALIASES_PATH = path.join(RUNTIME_DATA_DIR, "install-aliases.json");
 const DEV_CONTROLS_PATH = path.join(RUNTIME_DATA_DIR, "dev-controls.json");
