@@ -23,6 +23,15 @@ ROOT_DATA_DIR="$REPO_DIR/data"
 mkdir -p "$REPO_DATA_DIR"
 mkdir -p "$ROOT_DATA_DIR"
 
+MAINTENANCE_PAGE_SOURCE="$REPO_DIR/ops/maintenance/index.html"
+MAINTENANCE_PAGE_ROOT="/var/www/gobble-maintenance"
+if [ -f "$MAINTENANCE_PAGE_SOURCE" ]; then
+  echo "=== Refresh static maintenance page ==="
+  sudo install -d -o root -g root -m 0755 "$MAINTENANCE_PAGE_ROOT"
+  sudo install -o root -g root -m 0644 \
+    "$MAINTENANCE_PAGE_SOURCE" "$MAINTENANCE_PAGE_ROOT/index.html"
+fi
+
 migrate_runtime_file() {
   local name="$1"
   local source="$REPO_DATA_DIR/$name"
@@ -156,13 +165,32 @@ restart_gobble_service() {
   nohup "$@" > "$HOME/$log_name" 2>&1 &
 }
 
+wait_for_http() {
+  local url="$1"
+  local label="$2"
+  local attempts="${3:-60}"
+  local delay="${4:-0.5}"
+  local attempt
+  for ((attempt = 1; attempt <= attempts; attempt += 1)); do
+    if curl --fail --silent --show-error --max-time 2 "$url" >/dev/null 2>&1; then
+      echo "OK: $label répond ($url)"
+      return 0
+    fi
+    sleep "$delay"
+  done
+  echo "ERREUR: $label ne répond pas après $attempts tentatives ($url)" >&2
+  return 1
+}
+
 echo "=== Restart back (4000) ==="
 cd "$REPO_DIR/server"
 restart_gobble_service gobble-back.service 4000 server.log npm start
+wait_for_http "http://127.0.0.1:4000/health" "backend Gobble"
 
 echo "=== Restart front (3000) ==="
 cd "$REPO_DIR"
 restart_gobble_service gobble-front.service 3000 front.log npx serve -s dist -l 3000
+wait_for_http "http://127.0.0.1:3000/" "frontend Gobble"
 
 
 echo "=== Ports ==="
