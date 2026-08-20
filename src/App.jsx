@@ -123,6 +123,7 @@ import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
 import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
+import DefinitionDetails from "./components/DefinitionDetails.jsx";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
 import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
@@ -206,6 +207,7 @@ import {
 import {
   ROUND_PREPARATION_FALLBACK_GRACE_MS,
   isRoundStartPreparationDelayed,
+  shouldShowRoundPreparationOverlay,
 } from "./utils/roundPreparation.js";
 import {
   createMonotonicDeadline,
@@ -5322,6 +5324,9 @@ export default function App() {
     loading: false,
     ok: false,
     definition: "",
+    definitions: [],
+    etymology: "",
+    complete: false,
     lemma: "",
     lemmaLabel: "",
     lemmaGuess: false,
@@ -9672,6 +9677,9 @@ export default function App() {
         loading: false,
         ok: false,
         definition: "",
+        definitions: [],
+        etymology: "",
+        complete: false,
         lemma: "",
         lemmaLabel: "",
         lemmaGuess: false,
@@ -9695,7 +9703,9 @@ export default function App() {
       typeof targetSummary?.definition === "string"
         ? targetSummary.definition.trim()
         : "";
-    if (cachedDefinition) {
+    const wantsCompleteDefinition =
+      !targetSummary?.ocid && (isTargetRoundNow || !!keepTargetDefinition);
+    if (cachedDefinition && !wantsCompleteDefinition) {
       if (
         targetDefinition.lookupWord === clean &&
         targetDefinition.ok &&
@@ -9709,6 +9719,9 @@ export default function App() {
         loading: false,
         ok: true,
         definition: cachedDefinition,
+        definitions: [],
+        etymology: "",
+        complete: false,
         lemma: targetSummary.lemma || targetSummary.definitionLemma || "",
         lemmaLabel: targetSummary.lemmaLabel || targetSummary.definitionLemmaLabel || "",
         lemmaGuess: !!(targetSummary.lemmaGuess || targetSummary.definitionLemmaGuess),
@@ -9733,7 +9746,11 @@ export default function App() {
       });
       return;
     }
-    if (targetDefinition.lookupWord === clean && (targetDefinition.ok || targetDefinition.loading)) {
+    if (
+      targetDefinition.lookupWord === clean &&
+      (targetDefinition.loading ||
+        (wantsCompleteDefinition ? targetDefinition.complete : targetDefinition.ok))
+    ) {
       return;
     }
     const requestId = ++targetDefinitionRequestRef.current;
@@ -9741,8 +9758,11 @@ export default function App() {
       lookupWord: clean,
       word: clean,
       loading: true,
-      ok: false,
-      definition: "",
+      ok: !!cachedDefinition,
+      definition: cachedDefinition,
+      definitions: [],
+      etymology: "",
+      complete: false,
       lemma: "",
       lemmaLabel: "",
       lemmaGuess: false,
@@ -9757,22 +9777,25 @@ export default function App() {
       source: "",
       url: "",
     });
-    const forceFreshDefinition =
-      specialRound?.type === "target_long" || specialRound?.type === "target_score";
+    const forceFreshDefinition = wantsCompleteDefinition;
     const tried = new Set();
     const baseKey = normalizeWord(clean);
     if (baseKey) tried.add(baseKey);
 
     const fetchDefinition = (word) => {
       const definitionUrl = forceFreshDefinition
-        ? `/api/define?word=${encodeURIComponent(word)}&nocache=1`
+        ? `/api/define?word=${encodeURIComponent(word)}&full=1&nocache=1`
         : `/api/define?word=${encodeURIComponent(word)}`;
       fetch(definitionUrl)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (requestId !== targetDefinitionRequestRef.current) return;
           if (!data) {
-            setTargetDefinition((prev) => ({ ...prev, loading: false, ok: false }));
+            setTargetDefinition((prev) => ({
+              ...prev,
+              loading: false,
+              ok: prev.ok || !!prev.definition,
+            }));
             return;
           }
           const definitionText = pickDefinitionText(data);
@@ -9791,6 +9814,11 @@ export default function App() {
             loading: false,
             ok,
             definition: definitionText,
+            definitions: definitionList,
+            etymology: forceFreshDefinition
+              ? sanitizeDefinitionText(data.etymology)
+              : "",
+            complete: forceFreshDefinition,
             lemma: data.lemma || "",
             lemmaLabel: data.lemmaLabel || "",
             lemmaGuess: !!data.lemmaGuess,
@@ -9808,12 +9836,24 @@ export default function App() {
         })
         .catch(() => {
           if (requestId !== targetDefinitionRequestRef.current) return;
-          setTargetDefinition((prev) => ({ ...prev, loading: false, ok: false }));
+          setTargetDefinition((prev) => ({
+            ...prev,
+            loading: false,
+            ok: prev.ok || !!prev.definition,
+          }));
         });
     };
 
     fetchDefinition(clean);
-  }, [specialRound?.type, targetSummary, targetDefinition.lookupWord, targetDefinition.ok, targetDefinition.loading, phase]);
+  }, [
+    specialRound?.type,
+    targetSummary,
+    targetDefinition.lookupWord,
+    targetDefinition.ok,
+    targetDefinition.loading,
+    targetDefinition.complete,
+    phase,
+  ]);
 
   useEffect(() => {
     if (!foundTargetThisRound) return;
@@ -10694,6 +10734,7 @@ export default function App() {
       roundStartAtRef.current = 0;
       setInputLocked(false);
       inputLockedRef.current = false;
+      phaseRef.current = "results";
       setPhase("results");
       setServerStatus("break");
       clearQueuedRankingUpdate();
@@ -11243,6 +11284,9 @@ export default function App() {
         inputLockedRef.current = false;
         if (standaloneTrainingSessionRef.current) {
           setAllWords(Array.isArray(serverAllWordsRef.current) ? serverAllWordsRef.current : []);
+          setTargetSummary(
+            buildStandaloneTrainingTargetSummary(standaloneTrainingSessionRef.current)
+          );
         }
         setPhase("results");
       }
@@ -11321,6 +11365,7 @@ export default function App() {
         setTournamentFinaleHoldUntil(null);
       }
       if (bk) {
+        phaseRef.current = "results";
         setPhase("results");
         setServerStatus("break");
         setServerEndsAt(null);
@@ -19000,7 +19045,7 @@ export default function App() {
 
   function openDefinition(
     term,
-    { fromWordInfo = false, preferLongDefinition = false, fromVault = false } = {}
+    { fromWordInfo = false, preferLongDefinition = true, fromVault = false } = {}
   ) {
     const clean = String(term || "").trim();
     if (!clean) return;
@@ -24550,6 +24595,30 @@ function handleTouchEnd(e) {
   const targetDefinitionHintIsLemma = !!(
     targetDefinition.lemmaGuess && targetDefinition.lemma
   );
+  const targetDefinitionList = targetDefinition.complete
+    ? pickDefinitionList(targetDefinition)
+    : [];
+  const targetDefinitionEtymology = targetDefinition.complete
+    ? sanitizeDefinitionText(targetDefinition.etymology)
+    : "";
+  const renderTargetDefinitionBody = ({ compact = false } = {}) => {
+    if (targetDefinition.loading && !targetDefinition.definition) {
+      return <span>Définition en cours...</span>;
+    }
+    if (targetDefinition.definition) {
+      return (
+        <DefinitionDetails
+          definition={targetDefinition.definition}
+          definitions={targetDefinitionList}
+          etymology={targetDefinitionEtymology}
+          darkMode={darkMode}
+          showEtymology={targetDefinition.complete}
+          compact={compact}
+        />
+      );
+    }
+    return <span>Définition indisponible</span>;
+  };
   const renderTargetSummaryCard = (className = "", withBg = true) => {
     if (!isTargetRound || !targetSummary) return null;
     const themeClasses = darkMode
@@ -24658,7 +24727,9 @@ function handleTouchEnd(e) {
                 } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  openDefinition(cleanWord);
+                  openDefinition(cleanWord, {
+                    preferLongDefinition: !targetSummary?.ocid,
+                  });
                 }}
                 aria-label="Voir la définition"
                 title="Voir la définition"
@@ -24703,13 +24774,7 @@ function handleTouchEnd(e) {
           </div>
         ) : null}
         <div className="text-center text-xs sm:text-sm text-slate-500 dark:text-slate-300 leading-snug">
-          {targetDefinition.loading ? (
-            <span>Définition en cours...</span>
-          ) : targetDefinition.ok && targetDefinition.definition ? (
-            <span>{targetDefinition.definition}</span>
-          ) : (
-            <span>Définition indisponible</span>
-          )}
+          {renderTargetDefinitionBody()}
         </div>
       </div>
     );
@@ -24846,30 +24911,26 @@ function handleTouchEnd(e) {
             </div>
           ) : null}
           <div className={`mt-1 text-center text-xs leading-snug ${mutedClass}`}>
-            {targetDefinition.loading ? (
-              <span>Définition en cours...</span>
-            ) : targetDefinition.ok && targetDefinition.definition ? (
-              <span>{targetDefinition.definition}</span>
-            ) : (
-              <span>Définition indisponible</span>
-            )}
+            {renderTargetDefinitionBody({ compact: true })}
           </div>
-          <div className="mt-2 text-center">
-            <button
-              type="button"
-              className={`inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs font-semibold ${
-                darkMode
-                  ? "bg-slate-800 border-slate-600 text-slate-100"
-                  : "bg-white border-gray-300 text-gray-700"
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (cleanWord) openDefinition(cleanWord, { preferLongDefinition: true });
-              }}
-            >
-              Définition complète
-            </button>
-          </div>
+          {!targetSummary?.ocid ? (
+            <div className="mt-2 text-center">
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs font-semibold ${
+                  darkMode
+                    ? "bg-slate-800 border-slate-600 text-slate-100"
+                    : "bg-white border-gray-300 text-gray-700"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (cleanWord) openDefinition(cleanWord, { preferLongDefinition: true });
+                }}
+              >
+                Définition complète
+              </button>
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -28514,10 +28575,12 @@ function handleTouchEnd(e) {
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
   const roundPreparationPending =
     !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
-  const hasScheduledBreakTimeRemaining =
-    phase === "results" && Number.isFinite(breakCountdown) && breakCountdown > 0;
-  const showRoundPreparationWaiting =
-    roundPreparationPending && !hasScheduledBreakTimeRemaining;
+  const showRoundPreparationWaiting = shouldShowRoundPreparationOverlay({
+    phase,
+    preparationAnnounced: !!roundPreparing,
+    startDelayed: roundStartDelayed,
+    standaloneTraining: !!standaloneTrainingSession,
+  });
   const preparingSpecial = roundPreparing?.special || upcomingSpecial || null;
   const roundPreparationTitle = preparingSpecial?.isSpecial
     ? `Préparation : ${getSpecialRoundDisplayLabel(preparingSpecial)}`
@@ -30291,13 +30354,6 @@ function handleTouchEnd(e) {
         )
       : null;
 
-  const definitionPreview = definitionModal.definition
-    ? (() => {
-        const text = String(definitionModal.definition).trim();
-        if (text.length <= 140) return text;
-        return `${text.slice(0, 140).trim()}...`;
-      })()
-    : "";
   const definitionHint =
     definitionModal.phraseGuess && definitionModal.matchedTitle
       ? `D\u00e9finition trouv\u00e9e pour ${definitionModal.matchedTitle} (li\u00e9 \u00e0 '${definitionModal.word}')`
@@ -30323,8 +30379,6 @@ function handleTouchEnd(e) {
   const definitionModalDefinitions = Array.isArray(definitionModal.definitions)
     ? definitionModal.definitions.map((item) => sanitizeDefinitionText(item)).filter(Boolean)
     : [];
-  const showStructuredDefinitionList =
-    definitionModal.preferLongDefinition && definitionModalDefinitions.length > 1;
   const definitionModalEtymology = definitionModal.preferLongDefinition
     ? sanitizeDefinitionText(definitionModal.etymology)
     : "";
@@ -30379,31 +30433,15 @@ function handleTouchEnd(e) {
                 {definitionModal.loading ? (
                   <span>Chargement...</span>
                 ) : definitionModal.ok && definitionModal.definition ? (
-                  <div className="space-y-3">
-                    {showStructuredDefinitionList ? (
-                      <ol className="space-y-2 list-decimal pl-5">
-                        {definitionModalDefinitions.map((definition, index) => (
-                          <li key={`${definition.slice(0, 32)}-${index}`}>{definition}</li>
-                        ))}
-                      </ol>
-                    ) : (
-                      <span>{definitionModal.definition}</span>
-                    )}
-                    {definitionModalEtymology ? (
-                      <div
-                        className={`rounded-lg border px-3 py-2 text-[13px] leading-snug ${
-                          definitionModalDarkMode
-                            ? "border-amber-300/25 bg-amber-300/10 text-amber-50"
-                            : "border-amber-300/50 bg-amber-50/80 text-amber-950"
-                        }`}
-                      >
-                        <div className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">
-                          Étymologie
-                        </div>
-                        <div className="mt-1">{definitionModalEtymology}</div>
-                      </div>
-                    ) : null}
-                  </div>
+                  <DefinitionDetails
+                    definition={definitionModal.definition}
+                    definitions={
+                      definitionModal.preferLongDefinition ? definitionModalDefinitions : []
+                    }
+                    etymology={definitionModalEtymology}
+                    darkMode={definitionModalDarkMode}
+                    showEtymology={definitionModal.preferLongDefinition}
+                  />
                 ) : (
                   <span>Définition non disponible</span>
                 )}

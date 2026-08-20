@@ -3,6 +3,7 @@
 import { createReadStream, createWriteStream } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
 import { buildGameSemanticThemes } from "../server/definitions/gameSemanticThemes.js";
 import { buildWordLinguisticFacts } from "../server/definitions/wordLinguisticFacts.js";
 
@@ -349,7 +350,7 @@ function getDumpStream(dumpPath) {
   return createReadStream(dumpPath, { encoding: "utf8" });
 }
 
-function replaceInlineTemplate(templateBody) {
+export function replaceInlineTemplate(templateBody) {
   const parts = String(templateBody || "")
     .split("|")
     .map((part) => part.trim())
@@ -358,6 +359,7 @@ function replaceInlineTemplate(templateBody) {
 
   const name = normalizeForText(parts[0]);
   const params = parts.slice(1);
+  const positionalParams = params.filter((param) => !param.includes("="));
   const namedParam = (key) => {
     const prefix = `${key}=`;
     const found = params.find((param) => normalizeForText(param).startsWith(prefix));
@@ -372,6 +374,33 @@ function replaceInlineTemplate(templateBody) {
     }
     return "";
   };
+
+  if (name === "w" || name === "wp" || name === "wikipedia") {
+    return (
+      namedParam("texte") ||
+      namedParam("titre") ||
+      namedParam("label") ||
+      positionalParams[1] ||
+      positionalParams[0] ||
+      ""
+    );
+  }
+
+  if (name === "lien web" || name === "lien externe") {
+    return namedParam("texte") || namedParam("titre") || namedParam("label") || "";
+  }
+
+  if (name === "date") {
+    return positionalParams.join(" ");
+  }
+
+  if (name === "siecle") {
+    const value = positionalParams.join(" ").trim();
+    if (!value) return "";
+    if (/siecle/i.test(normalizeForText(value))) return value;
+    if (/^[ivxlcdm]+$/i.test(value)) return `${value}e siècle`;
+    return `${value} siècle`;
+  }
 
   if (
     name === "lien" ||
@@ -401,7 +430,7 @@ function replaceInlineTemplate(templateBody) {
   return "";
 }
 
-function cleanDefinitionText(rawText) {
+export function cleanDefinitionText(rawText) {
   let text = String(rawText || "");
   text = text.replace(/<!--[\s\S]*?-->/g, " ");
   text = text.replace(/<ref\b[^>]*>[\s\S]*?<\/ref>/gi, " ");
@@ -434,7 +463,7 @@ function pickPrimaryEtymologyRawText(rawText) {
   return String(rawText || "");
 }
 
-function cleanEtymologyText(rawText, maxLen = DEFAULT_MAX_ETYMOLOGY_LEN) {
+export function cleanEtymologyText(rawText, maxLen = DEFAULT_MAX_ETYMOLOGY_LEN) {
   let text = cleanDefinitionText(pickPrimaryEtymologyRawText(rawText))
     .replace(/:{1,2}\s*\*/g, ": ")
     .replace(/,\s*:\s*\*/g, ", ")
@@ -966,7 +995,12 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error(`[definitions] erreur: ${err?.message || err}`);
-  process.exitCode = 1;
-});
+const isExecutedDirectly =
+  Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isExecutedDirectly) {
+  main().catch((err) => {
+    console.error(`[definitions] erreur: ${err?.message || err}`);
+    process.exitCode = 1;
+  });
+}

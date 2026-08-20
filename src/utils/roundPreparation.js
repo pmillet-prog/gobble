@@ -13,3 +13,18 @@ export function isRoundStartPreparationDelayed({
   if (!Number.isFinite(startAt) || !Number.isFinite(now)) return false;
   return now > startAt + Math.max(0, Number(graceMs) || 0);
 }
+
+export function shouldShowRoundPreparationOverlay({
+  phase = null,
+  preparationAnnounced = false,
+  startDelayed = false,
+  standaloneTraining = false,
+} = {}) {
+  if (standaloneTraining) return false;
+  if (!preparationAnnounced && !startDelayed) return false;
+
+  // Pendant les résultats, une préparation anticipée reste discrète : l'écran
+  // ne prend le relais qu'une fois l'heure réelle de départ dépassée.
+  if (phase === "results") return !!startDelayed;
+  return true;
+}

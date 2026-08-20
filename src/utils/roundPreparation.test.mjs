@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ROUND_PREPARATION_FALLBACK_GRACE_MS,
   isRoundStartPreparationDelayed,
+  shouldShowRoundPreparationOverlay,
 } from "./roundPreparation.js";
 
 test("shows grid preparation shortly after a delayed round start", () => {
@@ -36,6 +37,43 @@ test("does not show grid preparation while returning to the lobby", () => {
       nextStartAt: 10_000,
       nowMs: 20_000,
       phase: "results",
+    }),
+    false
+  );
+});
+
+test("keeps an anticipated preparation notice behind the results", () => {
+  assert.equal(
+    shouldShowRoundPreparationOverlay({
+      phase: "results",
+      preparationAnnounced: true,
+      startDelayed: false,
+    }),
+    false
+  );
+  assert.equal(
+    shouldShowRoundPreparationOverlay({
+      phase: "results",
+      preparationAnnounced: true,
+      startDelayed: true,
+    }),
+    true
+  );
+});
+
+test("can show preparation immediately outside a results screen", () => {
+  assert.equal(
+    shouldShowRoundPreparationOverlay({
+      phase: "lobby",
+      preparationAnnounced: true,
+    }),
+    true
+  );
+  assert.equal(
+    shouldShowRoundPreparationOverlay({
+      phase: "lobby",
+      preparationAnnounced: true,
+      standaloneTraining: true,
     }),
     false
   );

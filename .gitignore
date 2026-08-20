@@ -13,6 +13,7 @@ data/frwiktionary-*.bz2
 data/definitions-fr*.jsonl
 data/definitions-fr*.report.json
 data/definitions-fr*.sqlite*
+data/definitions-fr*.bak*
 data/word-rarity.sqlite
 data/word-rarity.sqlite-shm
 data/word-rarity.sqlite-wal

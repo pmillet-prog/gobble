@@ -1,6 +1,32 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+const BOOT_FUN_MESSAGES = [
+  "Jonglage avec les tuiles",
+  "Mélange des lettres",
+  "Secouage du gobelet",
+  "Polissage des cases",
+  "Affûtage des consonnes",
+  "Hydratation des voyelles",
+  "Préparation du plateau",
+  "Réglage du chrono",
+  "Synchronisation des cerveaux",
+  "Dressage des G",
+  "Mise en orbite des tuiles",
+  "Calibrage du score",
+  "Tri des mots trop faciles",
+  "Chasse aux doublons",
+  "Compression du dictionnaire",
+  "Remplissage des sacs de lettres",
+  "Cuisson des anagrammes",
+];
+
+function pickNextFunMessage(previous = "") {
+  if (BOOT_FUN_MESSAGES.length <= 1) return BOOT_FUN_MESSAGES[0] || "Préparation du jeu";
+  const candidates = BOOT_FUN_MESSAGES.filter((message) => message !== previous);
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 function resolveProgressValue(progress) {
   if (typeof progress === "number") return progress;
   if (
@@ -22,6 +48,7 @@ function BootLoader({
 }) {
   const [gifLoadFailed, setGifLoadFailed] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [funMessage, setFunMessage] = useState(() => pickNextFunMessage());
   const startedAtRef = useRef(
     typeof performance !== "undefined" ? performance.now() : Date.now()
   );
@@ -35,6 +62,22 @@ function BootLoader({
     tick();
     const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    let timerId = null;
+    const scheduleNext = () => {
+      const delayMs = 1200 + Math.floor(Math.random() * 700);
+      timerId = window.setTimeout(() => {
+        setFunMessage((previous) => pickNextFunMessage(previous));
+        scheduleNext();
+      }, delayMs);
+    };
+    scheduleNext();
+    return () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
   }, []);
 
   if (typeof document === "undefined") return null;
@@ -95,7 +138,7 @@ function BootLoader({
           src={gifLoadFailed ? "/favicon.png" : gifSrc}
           alt="Gobble"
           className={`gobble-boot-art block h-auto object-contain ${
-            gifLoadFailed ? "w-24 sm:w-28" : "w-full max-w-[960px]"
+            gifLoadFailed ? "w-24 sm:w-28" : "w-full max-w-[512px]"
           }`}
           style={{ maxHeight: gifLoadFailed ? "112px" : "min(62dvh, 560px)" }}
           draggable="false"
@@ -104,7 +147,7 @@ function BootLoader({
 
         <div className="gobble-boot-status mt-1 flex min-h-8 flex-col items-center text-neutral-400">
           <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.28em] sm:text-[11px]">
-            <span>Préparation du jeu</span>
+            <span>{funMessage}</span>
             <span className="flex items-center gap-1" aria-hidden="true">
               {[0, 1, 2].map((index) => (
                 <span

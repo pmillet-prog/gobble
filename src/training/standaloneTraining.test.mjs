@@ -29,10 +29,18 @@ test("standalone results expose only pages relevant to their training mode", () 
   );
 });
 
-test("target training builds a local result summary", () => {
+test("target training always builds a local result summary, even when not found", () => {
   assert.deepEqual(
     buildStandaloneTrainingTargetSummary({ mode: "target_long", targetWord: "  exemple " }),
     { word: "exemple", foundOrder: [] }
+  );
+  assert.deepEqual(
+    buildStandaloneTrainingTargetSummary({
+      mode: "target_score",
+      targetWord: "zymase",
+      found: false,
+    }),
+    { word: "zymase", foundOrder: [] }
   );
   assert.equal(buildStandaloneTrainingTargetSummary({ mode: "normal" }), null);
 });

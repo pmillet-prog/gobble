@@ -52,6 +52,7 @@ import { computeOcidGobbleAwards } from "./compute/ocidGobblePolicy.js";
 import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
 import { createShortLivedRequestCache } from "./shortLivedRequestCache.js";
+import { extractPersistedDevControls } from "./devControlsPersistence.js";
 import { getMetrics, resetMetrics } from "./observability/metrics.js";
 import { isScoreRecordEligibleRound } from "./stats/roundRecordPolicy.js";
 import {
@@ -2117,7 +2118,7 @@ function normalizeDevControls(raw = {}) {
 function loadDevControls() {
   try {
     const raw = readFileSync(DEV_CONTROLS_PATH, "utf8");
-    return normalizeDevControls(JSON.parse(raw));
+    return normalizeDevControls(extractPersistedDevControls(JSON.parse(raw)));
   } catch (_) {
     return { ...DEFAULT_DEV_CONTROLS };
   }
