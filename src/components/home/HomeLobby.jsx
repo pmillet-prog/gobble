@@ -1,10 +1,12 @@
 import React from "react";
 import {
   UI_IMAGE_KEYS,
+  detectWideUiViewport,
   getHomeBackgroundKey,
   getUiImageUrl,
 } from "../../assets/uiAssetManifest.js";
 import { HOME_DISPLAY_ACTIONS } from "../../utils/displayMode.js";
+import useHomeLobbyIntro from "./useHomeLobbyIntro.js";
 
 const HOME_ASSETS = {
   title: UI_IMAGE_KEYS.home.title,
@@ -26,29 +28,50 @@ const styles = `
   height: 100svh;
   position: relative;
   overflow: hidden;
-  background-image: var(--home-bg-mobile);
-  background-size: 100% 100%;
-  background-position: center;
+  background: #fff;
   color: white;
 }
-@media (min-aspect-ratio: 1/1) {
-  .home-lobby-screen {
-    background-image: var(--home-bg-desktop);
-    background-size: 100% 100%;
-    background-position: center;
-  }
+.home-lobby-backdrop {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  opacity: 0;
+  transition: opacity 680ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.home-lobby-backdrop img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.home-lobby-stage-background .home-lobby-backdrop,
+.home-lobby-stage-title .home-lobby-backdrop,
+.home-lobby-stage-ui .home-lobby-backdrop,
+.home-lobby-stage-complete .home-lobby-backdrop {
+  opacity: 1;
 }
 .home-lobby-screen::before {
   content: "";
   position: absolute;
+  z-index: 1;
   inset: 0;
   background: radial-gradient(circle at 50% 10%, rgba(255, 214, 118, 0.18), transparent 28%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.02) 42%, rgba(0, 0, 0, 0.34));
+  opacity: 0;
+  transition: opacity 680ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
+}
+.home-lobby-stage-background::before,
+.home-lobby-stage-title::before,
+.home-lobby-stage-ui::before,
+.home-lobby-stage-complete::before {
+  opacity: 1;
 }
 .home-lobby-shell {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   height: 100%;
   width: min(100%, 1180px);
   margin: 0 auto;
@@ -126,6 +149,7 @@ const styles = `
   filter: brightness(0.95) drop-shadow(0 8px 10px rgba(0, 0, 0, 0.34));
 }
 .home-lobby-button:disabled {
+  --home-secondary-opacity: 0.62;
   cursor: default;
   opacity: 0.62;
   filter: grayscale(0.35) drop-shadow(0 8px 10px rgba(0, 0, 0, 0.24));
@@ -138,11 +162,58 @@ const styles = `
   pointer-events: none;
 }
 .home-title {
+  --home-title-rest-transform: translate3d(0, 0, 0);
   width: min(92vw, 760px);
   margin-top: -10px;
   margin-bottom: 0;
   filter: none;
   flex: 0 0 auto;
+  opacity: 0;
+  transform: var(--home-title-rest-transform);
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+@keyframes homeTitleSettle {
+  0% {
+    opacity: 0;
+    transform: var(--home-title-rest-transform) translate3d(0, clamp(120px, 27svh, 310px), 0) scale(1.52);
+  }
+  20% { opacity: 1; }
+  72% {
+    opacity: 1;
+    transform: var(--home-title-rest-transform) translate3d(0, -5px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: var(--home-title-rest-transform) translate3d(0, 0, 0) scale(1);
+  }
+}
+.home-lobby-stage-title .home-title,
+.home-lobby-stage-ui .home-title {
+  animation: homeTitleSettle 920ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.home-lobby-stage-complete .home-title {
+  opacity: 1;
+  transform: var(--home-title-rest-transform);
+  will-change: auto;
+}
+.home-lobby-secondary {
+  --home-secondary-opacity: 1;
+  visibility: hidden;
+  pointer-events: none;
+}
+.home-lobby-stage-ui .home-lobby-secondary {
+  visibility: visible;
+  pointer-events: auto;
+  animation: homeSecondaryIn 620ms ease both;
+}
+.home-lobby-stage-complete .home-lobby-secondary {
+  visibility: visible;
+  pointer-events: auto;
+}
+@keyframes homeSecondaryIn {
+  from { opacity: 0; }
+  to { opacity: var(--home-secondary-opacity); }
 }
 .home-account {
   width: min(48vw, 292px);
@@ -511,12 +582,13 @@ const styles = `
     position: relative;
   }
   .home-title {
+    --home-title-rest-transform: translateX(-50%);
     position: absolute;
     left: 50%;
     top: -4.2vh;
     width: 31.5vw;
     margin: 0;
-    transform: translateX(-50%);
+    transform: var(--home-title-rest-transform);
   }
   .home-maintenance-banner {
     top: 1.2vh;
@@ -626,6 +698,21 @@ const styles = `
     border-width: 0.13vw;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .home-lobby-backdrop,
+  .home-lobby-screen::before {
+    transition: none;
+  }
+  .home-lobby-stage-ui .home-lobby-secondary {
+    animation: none;
+  }
+  .home-lobby-stage-title .home-title,
+  .home-lobby-stage-ui .home-title {
+    animation: none;
+    opacity: 1;
+    transform: var(--home-title-rest-transform);
+  }
+}
 `;
 
 function formatBadgeCount(value) {
@@ -681,6 +768,7 @@ function HomeLobby({
   loginError = "",
   maintenanceMode = false,
   onDismissResume,
+  onIntroComplete,
   onOpenAccount,
   onOpenChat,
   onOpenDaily,
@@ -694,6 +782,7 @@ function HomeLobby({
   onResume,
   onToggleFullscreen,
   playerTeam = "",
+  playIntro = true,
   playersCount = 0,
   resumePhaseLabel = "",
   resumeRoomLabel = "",
@@ -737,17 +826,53 @@ function HomeLobby({
     backgroundDesktop || getUiImageUrl(getHomeBackgroundKey(playerTeam, "wide"));
   const resolvedBackgroundMobile =
     backgroundMobile || getUiImageUrl(getHomeBackgroundKey(playerTeam, "tall"));
-  const screenStyle = {
-    "--home-bg-mobile": `url("${resolvedBackgroundMobile}")`,
-    "--home-bg-desktop": `url("${resolvedBackgroundDesktop}")`,
-  };
+  const preferWideAtMountRef = React.useRef(detectWideUiViewport());
+  const activeBackgroundUrl = preferWideAtMountRef.current
+    ? resolvedBackgroundDesktop
+    : resolvedBackgroundMobile;
+  const homeUiUrls = React.useMemo(
+    () =>
+      [
+        HOME_ASSETS.title,
+        HOME_ASSETS.account,
+        HOME_ASSETS.duel,
+        playButtonSrc,
+        HOME_ASSETS.players,
+        HOME_ASSETS.vault,
+        HOME_ASSETS.stats,
+        HOME_ASSETS.daily,
+        HOME_ASSETS.homeChat,
+        HOME_ASSETS.settings,
+      ].map((key) => getUiImageUrl(key)),
+    [playButtonSrc]
+  );
+  const introStage = useHomeLobbyIntro({
+    backgroundUrl: activeBackgroundUrl,
+    enabled: playIntro,
+    onComplete: onIntroComplete,
+    uiUrls: homeUiUrls,
+  });
 
   return (
-    <div className="home-lobby-screen" style={screenStyle}>
+    <div className={`home-lobby-screen home-lobby-stage-${introStage}`}>
       <style>{styles}</style>
+      <picture className="home-lobby-backdrop" aria-hidden="true">
+        <source media="(min-aspect-ratio: 1/1)" srcSet={resolvedBackgroundDesktop} />
+        <img
+          src={resolvedBackgroundMobile}
+          alt=""
+          decoding="async"
+          fetchPriority="high"
+          draggable="false"
+        />
+      </picture>
       <div className="home-lobby-shell">
         {maintenanceMode ? (
-          <div className="home-maintenance-banner" role="status" aria-live="polite">
+          <div
+            className="home-maintenance-banner home-lobby-secondary"
+            role="status"
+            aria-live="polite"
+          >
             <span className="material-symbols-outlined" aria-hidden="true">
               construction
             </span>
@@ -763,7 +888,7 @@ function HomeLobby({
 
         <HomeImageButton
           alt="Compte"
-          className="home-account"
+          className="home-account home-lobby-secondary"
           src={HOME_ASSETS.account}
           onClick={onOpenAccount}
         >
@@ -776,7 +901,7 @@ function HomeLobby({
 
         <HomeImageButton
           alt="Duel"
-          className="home-duel"
+          className="home-duel home-lobby-secondary"
           src={HOME_ASSETS.duel}
           onClick={onOpenDuel}
         >
@@ -789,7 +914,7 @@ function HomeLobby({
         </HomeImageButton>
 
         <div
-          className={`home-status-panel ${
+          className={`home-status-panel home-lobby-secondary ${
             canResumeNow ? "home-status-panel-resume" : "home-status-panel-message"
           } ${hasDisplayModeAction ? "home-status-panel-with-action" : ""}`}
         >
@@ -824,7 +949,7 @@ function HomeLobby({
           ) : null}
         </div>
 
-        <div className="home-play-row">
+        <div className="home-play-row home-lobby-secondary">
           {trainingControl ? <div className="home-training">{trainingControl}</div> : null}
           <HomeImageButton
             alt="Jouer"
@@ -857,7 +982,10 @@ function HomeLobby({
           </HomeImageButton>
         </div>
 
-        <div className="home-bottom-nav" aria-label="Navigation accueil">
+        <div
+          className="home-bottom-nav home-lobby-secondary"
+          aria-label="Navigation accueil"
+        >
           <HomeImageButton
             alt="Coffre fort"
             className="home-icon-button"

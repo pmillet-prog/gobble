@@ -24,6 +24,19 @@ export function joinSocketToChatRoom(socket, roomId) {
   return chatSocketRoomId;
 }
 
+export function leaveSocketChatRoom(socket) {
+  if (!socket) return "";
+  const previousRoomId = String(socket.data?.chatRoomId || "").trim();
+  const previousChatSocketRoomId = getChatSocketRoomId(previousRoomId);
+  if (previousChatSocketRoomId) {
+    socket.leave(previousChatSocketRoomId);
+  }
+  if (socket.data && typeof socket.data === "object") {
+    socket.data.chatRoomId = null;
+  }
+  return previousChatSocketRoomId;
+}
+
 export function emitChatSocketEvent(io, roomId, eventName, payload) {
   const chatSocketRoomId = getChatSocketRoomId(roomId);
   if (!io || !chatSocketRoomId || !eventName) return false;

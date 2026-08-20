@@ -1,4 +1,5 @@
 import { getTrainingPoolModeLabel, isTrainingPoolMode } from "./trainingPoolConfig.js";
+import { FAKE_TWINS_TYPE } from "../../shared/gameLogic.js";
 
 export const TRAINING_DURATION_MIN_MS = 30 * 1000;
 export const TRAINING_DURATION_MAX_MS = 10 * 60 * 1000;
@@ -26,6 +27,27 @@ export function appendRecentTrainingGridId(ids, gridId) {
   return clean.slice(-TRAINING_RECENT_GRID_LIMIT);
 }
 
+export function hydrateStandaloneTrainingGrid(entry) {
+  const source = Array.isArray(entry?.grid) ? entry.grid : [];
+  const grid = source.map((cell) => ({ ...cell }));
+  if (entry?.plan?.type !== FAKE_TWINS_TYPE) return grid;
+
+  const twinIndex = Number(entry?.plan?.twinIndex);
+  if (!Number.isInteger(twinIndex) || twinIndex < 0 || twinIndex >= grid.length) {
+    return grid;
+  }
+  const altLetter = String(
+    grid[twinIndex]?.altLetter || entry?.plan?.altLetter || ""
+  ).trim();
+  if (!altLetter) return grid;
+  grid[twinIndex] = {
+    ...grid[twinIndex],
+    altLetter,
+    specialType: FAKE_TWINS_TYPE,
+  };
+  return grid;
+}
+
 export function buildStandaloneTrainingPayload({ entry, durationMs, sessionId, startedAt }) {
   if (!entry || typeof entry !== "object") return null;
   const mode = normalizeTrainingMode(entry?.plan?.type);
@@ -37,7 +59,7 @@ export function buildStandaloneTrainingPayload({ entry, durationMs, sessionId, s
     label: entry?.plan?.label || getTrainingPoolModeLabel(mode),
     durationMs: normalizeTrainingDurationMs(durationMs),
     startedAt,
-    grid: entry.grid,
+    grid: hydrateStandaloneTrainingGrid(entry),
     plan: entry.plan,
     quality: entry.quality,
     targetWord: entry.targetWord || null,

@@ -90,6 +90,8 @@ import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawe
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
+import RoundPreparationOverlay from "./components/RoundPreparationOverlay.jsx";
+import BootLoader from "./components/BootLoader.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
 import InterTournamentLobby from "./components/live/InterTournamentLobby.jsx";
 import LiveSalonScene from "./components/live/LiveSalonScene.jsx";
@@ -195,6 +197,8 @@ import {
 } from "./utils/targetHintStyles.js";
 import { isLiveSessionFreshForBoot } from "./utils/liveSessionFreshness.js";
 import { shouldProcessLiveRoomEvent } from "./utils/liveEventScope.js";
+import { hasActiveChatDraft } from "./utils/mobileChatHandoff.js";
+import { resolveScoreFlightPoints } from "./utils/scoreFlightPoints.js";
 import {
   formatApproximateMinutes,
   getCompactLiveRoundLabel,
@@ -439,28 +443,7 @@ const BOOT_ASSET_FILES = [
   "/.well-known/assetlinks.json",
 ];
 const BOOT_MIN_HOLD_MS = 3500;
-const BOOT_TRANSITION_MS = 500;
-const BOOT_INTRO_GIF_SRC = "/introgobble.gif";
-const BOOT_OVERLAY_SEEN_SESSION_KEY = "gobble_boot_overlay_seen_v1";
-const BOOT_FUN_MESSAGES = [
-  "Jonglage avec les tuiles...",
-  "Mélange des lettres...",
-  "Secouage du gobelet...",
-  "Polissage des cases...",
-  "Affûtage des consonnes...",
-  "Hydratation des voyelles...",
-  "Préparation du plateau...",
-  "Réglage du chrono...",
-  "Synchronisation des cerveaux...",
-  "Dressage des \"G\"...",
-  "Mise en orbite des tuiles...",
-  "Calibrage du score...",
-  "Tri des mots trop faciles...",
-  "Chasse aux doublons...",
-  "Compression du dictionnaire...",
-  "Remplissage des sacs de lettres...",
-  "Cuisson des anagrammes...",
-];
+const BOOT_TRANSITION_MS = 650;
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
 const STATS_SEASON_TARGET_LIMIT = 200;
@@ -1609,7 +1592,13 @@ function makeFxTile3D(letter, sizePx, thickPx, visuals = {}) {
   return fx;
 }
 
-async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }) {
+async function playBlackHoleOutro3D({
+  tileEls,
+  holeX,
+  holeY,
+  durationMs = 6000,
+  onOverlay = null,
+}) {
   if (prefersReducedMotion()) return null;
   if (!tileEls || tileEls.length === 0) return null;
   if (!Number.isFinite(holeX) || !Number.isFinite(holeY)) return null;
@@ -1630,6 +1619,7 @@ async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }
   const overlay = document.createElement("div");
   overlay.className = "fxOverlay";
   document.body.appendChild(overlay);
+  onOverlay?.(overlay);
   overlay.style.perspectiveOrigin = `${holeX}px ${holeY}px`;
 
   const fade = document.createElement("div");
@@ -1775,179 +1765,6 @@ async function playBlackHoleOutro3D({ tileEls, holeX, holeY, durationMs = 6000 }
   await Promise.allSettled(anims);
   return { overlay, fade };
 }
-
-function BootLoader({
-  progress = 0,
-  darkMode = false,
-  fadingOut = false,
-  fadeDurationMs = BOOT_TRANSITION_MS,
-}) {
-  if (typeof document === "undefined") return null;
-  const [gifLoadFailed, setGifLoadFailed] = useState(false);
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const [funMessage, setFunMessage] = useState(() => {
-    if (!BOOT_FUN_MESSAGES.length) return "Chargement en cours...";
-    return BOOT_FUN_MESSAGES[Math.floor(Math.random() * BOOT_FUN_MESSAGES.length)];
-  });
-  const startedAtRef = useRef(
-    typeof performance !== "undefined" ? performance.now() : Date.now()
-  );
-
-  const progressValue =
-    typeof progress === "number"
-      ? progress
-      : Number.isFinite(progress?.loaded) && Number.isFinite(progress?.total) && progress.total > 0
-      ? progress.loaded / progress.total
-      : 0;
-  const isBootDone = !!(typeof progress === "object" && progress?.done);
-  const isSlowLoading = !isBootDone && elapsedMs >= BOOT_MIN_HOLD_MS;
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const tick = () => {
-      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-      setElapsedMs(Math.max(0, now - startedAtRef.current));
-    };
-    tick();
-    const id = window.setInterval(tick, 250);
-    return () => {
-      window.clearInterval(id);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    if (!BOOT_FUN_MESSAGES.length) return undefined;
-    let timerId = null;
-    const scheduleNext = () => {
-      const delay = 1100 + Math.floor(Math.random() * 900);
-      timerId = window.setTimeout(() => {
-        setFunMessage((prev) => {
-          if (BOOT_FUN_MESSAGES.length === 1) return BOOT_FUN_MESSAGES[0];
-          let next = prev;
-          let guard = 0;
-          while (next === prev && guard < 10) {
-            next = BOOT_FUN_MESSAGES[Math.floor(Math.random() * BOOT_FUN_MESSAGES.length)];
-            guard += 1;
-          }
-          return next;
-        });
-        scheduleNext();
-      }, delay);
-    };
-    scheduleNext();
-    return () => {
-      if (timerId) {
-        window.clearTimeout(timerId);
-      }
-    };
-  }, []);
-
-  const clamped = Number.isFinite(progressValue) ? Math.min(Math.max(progressValue, 0), 1) : 0;
-  const percent = Math.round(clamped * 100);
-  const logoSrc = AssetManager.getImage(IMAGE_KEYS.favicon).url || "";
-  const gifSrc = gifLoadFailed
-    ? logoSrc
-    : BOOT_INTRO_GIF_SRC;
-  const glowClass = darkMode
-    ? "bg-slate-950 text-slate-100"
-    : "bg-slate-100 text-slate-900";
-  const cardClass = darkMode
-    ? "bg-slate-900/85 border-white/10"
-    : "bg-white border-slate-200";
-  const barTrackClass = darkMode ? "bg-slate-800/70" : "bg-slate-200/80";
-  const barFillClass = darkMode ? "bg-amber-400" : "bg-amber-500";
-  const blobOneClass = darkMode ? "bg-amber-300/30" : "bg-sky-200/40";
-  const blobTwoClass = darkMode ? "bg-orange-400/25" : "bg-blue-200/35";
-  const blobThreeClass = darkMode ? "bg-yellow-200/25" : "bg-cyan-100/35";
-
-  return createPortal(
-    <div
-      className={`fixed inset-0 z-[14000] flex items-center justify-center ${glowClass}`}
-      style={{
-        opacity: fadingOut ? 0 : 1,
-        transition: `opacity ${Math.max(0, Number(fadeDurationMs) || 0)}ms ease`,
-      }}
-    >
-      <style>{`
-@keyframes bootFloatOne {
-  0% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(10px, -14px, 0); }
-  100% { transform: translate3d(0, 0, 0); }
-}
-@keyframes bootFloatTwo {
-  0% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(-14px, 8px, 0); }
-  100% { transform: translate3d(0, 0, 0); }
-}
-@keyframes bootPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.3); }
-  70% { transform: scale(1.02); box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
-}
-`}</style>
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className={`absolute -top-28 -left-16 h-64 w-64 rounded-full blur-3xl ${blobOneClass}`}
-          style={{ animation: "bootFloatOne 6s ease-in-out infinite" }}
-        />
-        <div
-          className={`absolute top-1/3 -right-24 h-72 w-72 rounded-full blur-3xl ${blobTwoClass}`}
-          style={{ animation: "bootFloatTwo 7s ease-in-out infinite" }}
-        />
-        <div
-          className={`absolute -bottom-28 left-1/4 h-80 w-80 rounded-full blur-3xl ${blobThreeClass}`}
-          style={{ animation: "bootFloatOne 8s ease-in-out infinite" }}
-        />
-      </div>
-      <div className={`relative w-[94vw] max-w-md rounded-3xl border p-5 shadow-2xl ${cardClass}`}>
-        <div className="flex items-center justify-center">
-          <div className={`w-full rounded-2xl overflow-hidden border ${darkMode ? "border-white/10" : "border-slate-200"}`}>
-            <img
-              src={gifSrc}
-              alt="Intro Gobble"
-              className="w-full object-cover"
-              style={{
-                maxHeight: "260px",
-              }}
-              draggable="false"
-              onError={() => setGifLoadFailed(true)}
-            />
-          </div>
-        </div>
-        <div className="mt-4 text-center text-xs font-black tracking-[0.32em] uppercase text-amber-500">
-          Gobble
-        </div>
-        <div className={`mt-2 text-center text-sm font-semibold ${darkMode ? "text-slate-200" : "text-slate-700"}`}>
-          Chargement des medias
-        </div>
-        <div className={`mt-5 h-2 w-full overflow-hidden rounded-full ${barTrackClass}`}>
-          <div
-            className={`h-full rounded-full transition-[width] duration-300 ${barFillClass}`}
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-          <div className={`mt-2 flex items-center justify-between text-[11px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-500"}`}>
-            <span>{percent}%</span>
-            <span>Assets</span>
-          </div>
-          <div
-            className={`mt-1 text-[10px] font-semibold truncate ${darkMode ? "text-slate-300" : "text-slate-600"}`}
-            title={funMessage}
-          >
-            {funMessage}
-          </div>
-          {isSlowLoading ? (
-            <div className={`mt-1 text-[10px] font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-              Connexion lente...
-            </div>
-          ) : null}
-      </div>
-    </div>,
-    document.body
-  );
-}
-
 
 // Petite CSS pour le slide d'apparition
 const slideStyles = `
@@ -4030,9 +3847,9 @@ function isThemeOptionUnlockedFromMap(unlocks, category, optionId) {
   const unlockKey = getThemeUnlockItemKey(category, optionId);
   return !!unlocks?.[unlockKey];
 }
-const PATCH_NOTES_VERSION = "2026-08-09";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-09T00:00:00+02:00");
-const FRONT_BUILD_TAG = "2026-08-09-live-flow-score-feedback-1";
+const PATCH_NOTES_VERSION = "2026-08-20";
+const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-20T00:00:00+02:00");
+const FRONT_BUILD_TAG = "2026-08-20-minor-fixes-1";
 const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
@@ -4693,6 +4510,8 @@ export default function App() {
   const inputLockedRef = useRef(false);
   const outroInFlightRef = useRef(false);
   const outroRoundRef = useRef(null);
+  const gameplaySessionTokenRef = useRef(0);
+  const blackHoleOverlayRef = useRef(null);
   const [implodeActive, setImplodeActive] = useState(false);
   const implodeRoundRef = useRef(null);
   const implodeTimerRef = useRef(null);
@@ -4965,25 +4784,21 @@ export default function App() {
   useEffect(() => {
     ambientTracksRef.current = ambientTracks;
   }, [ambientTracks]);
-  const initialBootOverlaySeen = (() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return sessionStorage.getItem(BOOT_OVERLAY_SEEN_SESSION_KEY) === "1";
-    } catch (_) {
-      return false;
-    }
-  })();
   const [bootProgress, setBootProgress] = useState(() => ({
     loaded: 0,
     total: BOOT_ASSET_MANIFEST_BASE.length,
     errors: 0,
-    done: initialBootOverlaySeen,
+    done: false,
     stage: "",
     key: "",
   }));
-  const [bootOverlayVisible, setBootOverlayVisible] = useState(!initialBootOverlaySeen);
+  const [bootOverlayVisible, setBootOverlayVisible] = useState(true);
   const [bootOverlayFading, setBootOverlayFading] = useState(false);
-  const bootOverlayPlayedRef = useRef(initialBootOverlaySeen);
+  const bootOverlayPlayedRef = useRef(false);
+  const homeLobbyIntroPlayedRef = useRef(false);
+  const handleHomeLobbyIntroComplete = React.useCallback(() => {
+    homeLobbyIntroPlayedRef.current = true;
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     let cancelled = false;
@@ -5132,9 +4947,6 @@ export default function App() {
       setBootOverlayVisible(false);
       setBootOverlayFading(false);
       bootOverlayPlayedRef.current = true;
-      try {
-        sessionStorage.setItem(BOOT_OVERLAY_SEEN_SESSION_KEY, "1");
-      } catch (_) {}
     }, BOOT_TRANSITION_MS);
     return () => {
       window.cancelAnimationFrame(rafId);
@@ -5782,7 +5594,47 @@ export default function App() {
     } catch (_) {}
   }
 
+  function invalidateGameplaySession() {
+    gameplaySessionTokenRef.current += 1;
+    pendingRoundEndRef.current = null;
+    pendingBreakStartRef.current = null;
+    implodeFallbackRef.current = false;
+    outroInFlightRef.current = false;
+    outroRoundRef.current = null;
+    blackHoleSyncTokenRef.current += 1;
+    if (blackHoleSourisLoopRef.current.intervalId) {
+      clearInterval(blackHoleSourisLoopRef.current.intervalId);
+      blackHoleSourisLoopRef.current.intervalId = null;
+    }
+    if (blackHoleSourisLoopRef.current.stopTimer) {
+      clearTimeout(blackHoleSourisLoopRef.current.stopTimer);
+      blackHoleSourisLoopRef.current.stopTimer = null;
+    }
+    if (blackHoleClavierFadeRef.current) {
+      clearTimeout(blackHoleClavierFadeRef.current);
+      blackHoleClavierFadeRef.current = null;
+    }
+    if (blackHoleAuxStopRef.current) {
+      clearTimeout(blackHoleAuxStopRef.current);
+      blackHoleAuxStopRef.current = null;
+    }
+    blackHoleHandleRef.current?.stop?.();
+    blackHoleChebHandleRef.current?.stop?.();
+    blackHoleClavierHandleRef.current?.stop?.();
+    blackHoleHandleRef.current = null;
+    blackHoleChebHandleRef.current = null;
+    blackHoleClavierHandleRef.current = null;
+    blackHoleOverlayRef.current?.remove?.();
+    blackHoleOverlayRef.current = null;
+    const gridEl = gridRef.current;
+    if (gridEl?.style) {
+      gridEl.style.opacity = "";
+      gridEl.style.transition = "";
+    }
+  }
+
   function returnToLobby() {
+    invalidateGameplaySession();
     if (standaloneTrainingSessionRef.current) {
       if (socket.connected) {
         socket.emit("training:standalone:stop", {
@@ -5803,11 +5655,6 @@ export default function App() {
     roundStartRetryRef.current = false;
     roundStartSoundRef.current = null;
     stopRoundStartSound({ fadeMs: 80 });
-    pendingRoundEndRef.current = null;
-    pendingBreakStartRef.current = null;
-    implodeFallbackRef.current = false;
-    outroInFlightRef.current = false;
-    outroRoundRef.current = null;
     if (tickTimerRef.current) {
       clearTimeout(tickTimerRef.current);
       tickTimerRef.current = null;
@@ -6085,7 +5932,13 @@ export default function App() {
     stopAllActiveAudio({ suspendContext: false, immediate: true });
   }, [isLoggedIn, phase]);
   useEffect(() => {
-    if (isLoggedIn) {
+    const currentView = appViewRef.current;
+    const isIsolatedView =
+      currentView === "training" ||
+      currentView === "daily" ||
+      currentView === "daily_play" ||
+      currentView === "daily_results";
+    if (isLoggedIn && !isIsolatedView) {
       setAppView("live");
     }
   }, [isLoggedIn]);
@@ -6941,6 +6794,8 @@ export default function App() {
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
   const isChatClosingRef = useRef(isChatClosing);
+  const wasMobileLiveLobbyRef = useRef(false);
+  const chatInputValueRef = useRef(chatInput);
   const isMobileLayoutRef = useRef(isMobileLayout);
   const installIdRef = useRef(installId);
   const isAccountAuthenticatedRef = useRef(isAccountAuthenticated);
@@ -6979,6 +6834,7 @@ export default function App() {
   const chatEditTargetRef = useRef(null);
   const lastKeyboardInsetRef = useRef(0);
   const toastTimersRef = useRef(new Map());
+  chatInputValueRef.current = chatInput;
   const gobblarToastDelayTimersRef = useRef(new Set());
   const gridShakeTimerRef = useRef(null);
   const gridShakeAnimationRef = useRef(null);
@@ -8354,6 +8210,49 @@ export default function App() {
     }
     setActiveArea("chat");
   }, [isChatOpenMobile, isMobileLayout, chatTab]);
+
+  useLayoutEffect(() => {
+    const isMobileLiveLobby =
+      isMobileLayout && isLoggedIn && appView === "live" && phase === "lobby";
+    const wasMobileLiveLobby = wasMobileLiveLobbyRef.current;
+    wasMobileLiveLobbyRef.current = isMobileLiveLobby;
+
+    if (isMobileLiveLobby) {
+      // Le carnet du salon remplace le tiroir : on neutralise tout ancien état
+      // d'ouverture sans toucher au champ actuellement utilisé dans le carnet.
+      resetMobileChatPanelImmediately({ preserveInputFocus: true });
+      return undefined;
+    }
+
+    if (
+      !wasMobileLiveLobby ||
+      !isMobileLayout ||
+      !isLoggedIn ||
+      appView !== "live"
+    ) {
+      return undefined;
+    }
+
+    if (!hasActiveChatDraft(chatInputValueRef.current)) {
+      resetMobileChatPanelImmediately();
+      return undefined;
+    }
+
+    // Un vrai brouillon était en cours dans le carnet : le tiroir prend le
+    // relais et rend le focus au champ pour ne pas interrompre la rédaction.
+    openChatPanel();
+    if (typeof window === "undefined") return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      try {
+        chatInputRef.current?.focus?.({ preventScroll: true });
+      } catch (_) {
+        try {
+          chatInputRef.current?.focus?.();
+        } catch (_) {}
+      }
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [appView, isLoggedIn, isMobileLayout, phase]);
 
   useEffect(() => {
     isHomeChatOpenRef.current = isHomeChatOpen;
@@ -11088,6 +10987,8 @@ export default function App() {
         if (!allowFallback) return;
       }
 
+      const gameplaySessionToken = gameplaySessionTokenRef.current;
+
       const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
       if (outroInFlightRef.current) {
         if (payload) pendingRoundEndRef.current = payload;
@@ -11278,6 +11179,13 @@ export default function App() {
             holeX,
             holeY,
             durationMs: 6000,
+            onOverlay: (overlay) => {
+              if (gameplaySessionTokenRef.current !== gameplaySessionToken) {
+                overlay?.remove?.();
+                return;
+              }
+              blackHoleOverlayRef.current = overlay;
+            },
           });
           fxOverlay = fx?.overlay || null;
           fxFade = fx?.fade || null;
@@ -11287,6 +11195,15 @@ export default function App() {
           gridEl.style.opacity = prevOpacity || "";
           gridEl.style.transition = prevTransition || "";
         }
+      }
+
+      if (gameplaySessionTokenRef.current !== gameplaySessionToken) {
+        fxOverlay?.remove?.();
+        if (blackHoleOverlayRef.current === fxOverlay) {
+          blackHoleOverlayRef.current = null;
+        }
+        stopAuxNow?.(0);
+        return;
       }
 
       let pending = pendingRoundEndRef.current;
@@ -11342,6 +11259,9 @@ export default function App() {
             .finished;
         } catch (_) {}
         fxOverlay.remove();
+        if (blackHoleOverlayRef.current === fxOverlay) {
+          blackHoleOverlayRef.current = null;
+        }
       }
       // Le clavier doit toujours se couper (fade) à la fin visuelle du blackhole.
       stopAuxNow?.(280);
@@ -12069,11 +11989,7 @@ export default function App() {
       });
     };
     const shouldHandleLiveFeedSocketEvent = (incomingRoomId = null) => {
-      if (!standaloneTrainingSessionRef.current) {
-        return shouldHandleLiveRoundSocketEvents(incomingRoomId);
-      }
-      const activeRoomId = currentRoomIdRef.current || roomIdRef.current;
-      return !incomingRoomId || !activeRoomId || incomingRoomId === activeRoomId;
+      return shouldHandleLiveRoundSocketEvents(incomingRoomId);
     };
 
     function onRoundPreparing(payload = {}) {
@@ -13003,6 +12919,7 @@ export default function App() {
 
   useEffect(() => {
     let id = null;
+    const effectSessionToken = gameplaySessionTokenRef.current;
 
     // Guard: ensure only one timer callback at a time.
     if (tickTimerRef.current) {
@@ -13012,6 +12929,7 @@ export default function App() {
 
     const finalizeRound = () => {
       const completeFinalizeRound = () => {
+        if (gameplaySessionTokenRef.current !== effectSessionToken) return;
         tryAutoSubmitCurrentWordAtRoundEnd();
         playOutroThenResultsRef.current?.(null, { fallback: true });
       };
@@ -13025,7 +12943,10 @@ export default function App() {
 
     if (phase === "countdown") {
       setTick(COUNTDOWN);
-      id = setTimeout(startGame, 1000);
+      id = setTimeout(() => {
+        if (gameplaySessionTokenRef.current !== effectSessionToken) return;
+        startGame();
+      }, 1000);
       tickTimerRef.current = id;
     } else if (phase === "playing") {
       if (isDailySpecial3TutorialActive) {
@@ -13051,6 +12972,7 @@ export default function App() {
       });
       let elapsedHandled = false;
       const updateRemaining = () => {
+        if (gameplaySessionTokenRef.current !== effectSessionToken) return;
         if (!Number.isFinite(deadlineMonotonicMs)) return;
         const now = getMonotonicNowMs();
         const remaining = getDeadlineRemainingSeconds({
@@ -14533,6 +14455,8 @@ export default function App() {
     setDailySection(DAILY_OVERVIEW_SECTION);
     setDailyLaunchDialog(null);
     clearMobileChatReactionToasts();
+    appViewRef.current = "daily";
+    isDailyPlayRef.current = false;
     setAppView("daily");
     fetchDailyStatus();
     fetchDailyBoard();
@@ -15244,6 +15168,8 @@ export default function App() {
       dailyTictocPlayedRef.current = false;
       // Assure que le thème est bien appliqué au moment du basculement vers la vue de jeu daily.
       applyThemeVisualState(themeAppliedSafe);
+      appViewRef.current = "daily_play";
+      isDailyPlayRef.current = true;
       setAppView("daily_play");
       if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
         window.requestAnimationFrame(() => {
@@ -15535,6 +15461,8 @@ export default function App() {
       setServerRoundDurationMs(null);
       setServerStatus("waiting");
       setPhase("lobby");
+      appViewRef.current = "daily_results";
+      isDailyPlayRef.current = false;
       setAppView("daily_results");
     };
     try {
@@ -17884,6 +17812,7 @@ export default function App() {
     incomingTargetHintScheduleMs = [],
     roundLifecycle = null
   ) {
+    invalidateGameplaySession();
     const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions, {
       disableRareBonus: !isRareBonusEnabledForSpecial(specialInfo),
     });
@@ -18285,6 +18214,7 @@ export default function App() {
   });
 
   function startGame() {
+    invalidateGameplaySession();
     setInputLocked(false);
     inputLockedRef.current = false;
     const base = generateGrid(gridSize);
@@ -18610,12 +18540,38 @@ export default function App() {
     }
   }
 
+  function resetMobileChatPanelImmediately({ preserveInputFocus = false } = {}) {
+    if (chatCloseTimerRef.current) {
+      clearTimeout(chatCloseTimerRef.current);
+      chatCloseTimerRef.current = null;
+    }
+    if (!preserveInputFocus && chatInputRef.current) {
+      try {
+        chatInputRef.current.blur();
+      } catch (_) {}
+    }
+    isChatOpenMobileRef.current = false;
+    isChatClosingRef.current = false;
+    suppressChatResizeRef.current = false;
+    lastKeyboardInsetRef.current = 0;
+    chatBaselineHeightRef.current = 0;
+    chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
+    chatBodyLockHeightRef.current = 0;
+    gameViewportFreezeHeightRef.current = 0;
+    setChatOpenedAtMs(0);
+    setIsChatClosing(false);
+    setIsChatOpenMobile(false);
+    setActiveArea("game");
+  }
+
   function openChatPanel() {
     if (chatCloseTimerRef.current) {
       clearTimeout(chatCloseTimerRef.current);
       chatCloseTimerRef.current = null;
     }
     suppressChatResizeRef.current = false;
+    isChatClosingRef.current = false;
+    isChatOpenMobileRef.current = true;
     setIsChatClosing(false);
     setChatTab("messages");
     setMobileChatUnreadCount(0);
@@ -20813,9 +20769,12 @@ function handleTouchEnd(e) {
     });
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
     const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
-    const flightPoints = Number.isFinite(scoreFlightPoints)
-      ? Number(scoreFlightPoints)
-      : pts;
+    const flightPoints = resolveScoreFlightPoints({
+      awardedPoints: pts,
+      candidatePoints: scoreFlightPoints,
+      specialRound,
+      speedFallback: SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK,
+    });
     const rareBonusEnabledNow = isRareBonusEnabledForSpecial(specialRound);
     const effectiveRareBonusWord = rareBonusEnabledNow && !!rareBonusWord;
     const effectiveRareBonusPoints = rareBonusEnabledNow ? Number(rareBonusPoints) || 0 : 0;
@@ -21274,9 +21233,12 @@ function handleTouchEnd(e) {
         : specialRound?.type === "speed" && Number.isFinite(specialRound?.fixedWordScore)
         ? specialRound.fixedWordScore
         : candidateScored.pts;
-      const scoreFlightPoints = Number.isFinite(candidate?.scoreFlightPoints)
-        ? Number(candidate.scoreFlightPoints)
-        : optimisticPts;
+      const scoreFlightPoints = resolveScoreFlightPoints({
+        awardedPoints: optimisticPts,
+        candidatePoints: candidate?.scoreFlightPoints,
+        specialRound,
+        speedFallback: SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK,
+      });
       enqueuePendingWord(candidate.raw, {
         display: candidate.display,
         path: candidatePath,
@@ -28516,14 +28478,23 @@ function handleTouchEnd(e) {
       if (phase === "results") return "Entraînement terminé";
       return "Entraînement";
     }
-    if (roundPreparing || roundStartDelayed) {
-      return "Grille en préparation, démarrage imminent...";
-    }
     if (phase === "playing") {
       const sec = Math.max(0, tick || 0);
       return `Temps restant : ${sec}s`;
     }
     const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
+    if (phase === "results" && bc !== null && bc > 0) {
+      if (breakKind === "training_end") {
+        return `Fin de l’entraînement dans : ${bc}s`;
+      }
+      if (breakKind === "tournament_end") {
+        return `Retour au salon dans : ${bc}s`;
+      }
+      return `Départ dans : ${bc}s`;
+    }
+    if (roundPreparing || roundStartDelayed) {
+      return "Grille en préparation, démarrage imminent...";
+    }
     if (bc !== null) {
       if (breakKind === "training_end") {
         return `Fin de l’entraînement dans : ${bc}s`;
@@ -28531,9 +28502,7 @@ function handleTouchEnd(e) {
       if (breakKind === "tournament_end") {
         return `Retour au salon dans : ${bc}s`;
       }
-      if (bc === 0) return `Depart dans : ${bc}s`;
-      if (bc > 10) return `Depart dans : ${bc}s`;
-      return `Depart dans : ${bc}s`;
+      return `Départ dans : ${bc}s`;
     }
     if (serverStatus === "break" || phase === "results") {
       return "Manche terminée, attente de la prochaine manche...";
@@ -28543,8 +28512,12 @@ function handleTouchEnd(e) {
 
   const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
-  const showRoundPreparationWaiting =
+  const roundPreparationPending =
     !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
+  const hasScheduledBreakTimeRemaining =
+    phase === "results" && Number.isFinite(breakCountdown) && breakCountdown > 0;
+  const showRoundPreparationWaiting =
+    roundPreparationPending && !hasScheduledBreakTimeRemaining;
   const preparingSpecial = roundPreparing?.special || upcomingSpecial || null;
   const roundPreparationTitle = preparingSpecial?.isSpecial
     ? `Préparation : ${getSpecialRoundDisplayLabel(preparingSpecial)}`
@@ -28553,33 +28526,19 @@ function handleTouchEnd(e) {
     typeof roundPreparing?.message === "string" && roundPreparing.message.trim()
       ? roundPreparing.message.trim()
       : "La grille met un peu plus de temps à générer. La manche démarre dès qu'elle est prête.";
-  const roundPreparationOverlay = showRoundPreparationWaiting ? (
-    <div className="fixed inset-0 z-[122] pointer-events-none select-none flex items-center justify-center bg-slate-950/45 px-4">
-      <div
-        className={`w-full max-w-sm rounded-xl border px-4 py-3 text-center shadow-2xl ${
-          darkMode
-            ? "border-amber-300/45 bg-slate-950/92 text-slate-50"
-            : "border-amber-500/45 bg-white/95 text-slate-950"
-        }`}
-      >
-        <div className="text-sm font-black uppercase tracking-wide text-amber-500">
-          {roundPreparationTitle}
-        </div>
-        <div className="mt-2 text-sm font-semibold leading-snug">
-          {roundPreparationMessage}
-        </div>
-        <div
-          className="mx-auto mt-3 h-8 w-8 animate-spin rounded-full border-4 border-amber-500/25 border-t-amber-500"
-          aria-hidden="true"
-        />
-      </div>
-    </div>
-  ) : null;
+  const roundPreparationOverlay = (
+    <RoundPreparationOverlay
+      darkMode={darkMode}
+      message={roundPreparationMessage}
+      title={roundPreparationTitle}
+      visible={showRoundPreparationWaiting}
+    />
+  );
   const mobileResultsPhaseFadeOverlay =
     isMobileLayout &&
     phase === "results" &&
     mobileResultsOutroFadeActive &&
-    !showRoundPreparationWaiting ? (
+    !roundPreparationPending ? (
       <div className="fixed inset-0 z-[121] pointer-events-none select-none">
         <div className="absolute inset-0 bg-black mobile-round-intro-fade-to-black" />
       </div>
@@ -33524,9 +33483,9 @@ function handleTouchEnd(e) {
   const bootOverlay = shouldShowBootOverlay ? (
     <BootLoader
       progress={bootProgress}
-      darkMode={darkMode}
       fadingOut={!isBootBlocking && bootOverlayFading}
       fadeDurationMs={BOOT_TRANSITION_MS}
+      slowThresholdMs={BOOT_MIN_HOLD_MS}
     />
   ) : null;
   const trainingSessionControls = standaloneTrainingSession ? (
@@ -35150,10 +35109,12 @@ function handleTouchEnd(e) {
           isConnecting={isConnecting}
           loginError={loginError}
           maintenanceMode={homeMaintenanceActive}
+          onIntroComplete={handleHomeLobbyIntroComplete}
           displayModeAction={displayMode.homeAction}
           onToggleFullscreen={displayMode.toggleFullscreen}
           {...homeLobbyActions}
           playerTeam={duelTeam}
+          playIntro={!homeLobbyIntroPlayedRef.current}
           playersCount={playersCountForLobby}
           resumePhaseLabel={resumePhaseLabel}
           resumeRoomLabel={resumeRoomLabel}
@@ -37732,6 +37693,7 @@ function handleTouchEnd(e) {
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
             wordsEmpty={wordsEmpty}
           />
+          {roundPreparationOverlay}
           {ocidMobileResultOverlay}
           {globalChatLayer}
         </>

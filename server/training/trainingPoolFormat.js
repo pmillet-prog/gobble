@@ -16,7 +16,7 @@ function normalizeCell(cell) {
   return {
     letter,
     bonus,
-    ...(altLetter ? { altLetter } : null),
+    ...(altLetter ? { altLetter, specialType: "fake_twins" } : null),
   };
 }
 

@@ -26,7 +26,9 @@ function MobileHeader({
 }) {
   const headerStyle = {
     position: "sticky",
-    top: "env(safe-area-inset-top)",
+    // Le conteneur mobile réserve déjà la zone sûre iOS. La réappliquer ici
+    // décale le bandeau deux fois en mode « écran d’accueil ».
+    top: 0,
     zIndex: 30,
   };
   const teamHeaderClass =

@@ -135,6 +135,22 @@ test("produit une entrée compacte et valide", () => {
   assert.equal(validateTrainingPoolCatalog(catalog), false);
 });
 
+test("conserve le marqueur de tuile faux jumeau dans les nouvelles entrées", () => {
+  const prepared = makePrepared("fake_twins");
+  prepared.plan.twinIndex = 2;
+  prepared.plan.altLetter = "Z";
+  prepared.grid[2] = {
+    ...prepared.grid[2],
+    altLetter: "Z",
+    specialType: "fake_twins",
+  };
+
+  const { entry, error } = createTrainingPoolEntry(prepared, "fake_twins");
+  assert.equal(error, null);
+  assert.equal(entry.grid[2].altLetter, "Z");
+  assert.equal(entry.grid[2].specialType, "fake_twins");
+});
+
 test("lit une seule grille grâce aux offsets de l'index", async (context) => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "gobble-training-pool-"));
   context.after(() => fs.rm(rootDir, { recursive: true, force: true }));

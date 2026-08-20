@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   appendRecentTrainingGridId,
   buildStandaloneTrainingPayload,
+  hydrateStandaloneTrainingGrid,
   normalizeTrainingDurationMs,
   normalizeTrainingMode,
 } from "../training/standaloneTrainingPolicy.js";
@@ -45,4 +46,21 @@ test("standalone payload exposes one prepared grid and its solutions", () => {
   assert.equal(payload.durationMs, 75_000);
   assert.equal(payload.gridId, "grid-1");
   assert.equal(payload.solutions.length, 1);
+});
+
+test("standalone fake twins restores the visual and scoring marker", () => {
+  const grid = Array.from({ length: 16 }, (_, index) => ({
+    letter: String.fromCharCode(65 + index),
+    bonus: null,
+  }));
+  grid[3].altLetter = "Z";
+  const hydrated = hydrateStandaloneTrainingGrid({
+    grid,
+    plan: { type: "fake_twins", twinIndex: 3, altLetter: "Z" },
+  });
+
+  assert.equal(hydrated[3].letter, "D");
+  assert.equal(hydrated[3].altLetter, "Z");
+  assert.equal(hydrated[3].specialType, "fake_twins");
+  assert.equal(grid[3].specialType, undefined, "the cached pool entry stays immutable");
 });

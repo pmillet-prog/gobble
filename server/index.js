@@ -73,6 +73,7 @@ import { createAsyncFileLogger } from "./logging/asyncFileLogger.js";
 import {
   emitChatSocketEvent,
   joinSocketToChatRoom,
+  leaveSocketChatRoom,
 } from "./chat/chatSocketRooms.js";
 import {
   getWeekStartTs,
@@ -4087,8 +4088,8 @@ function ensureStandaloneTrainingPresence(room, socket, identity, payload = {}) 
   socket.data.roomId = room.id;
   socket.roomId = room.id;
   socket.leave(room.id);
+  leaveSocketChatRoom(socket);
   socket.join(getStandaloneTrainingObserverRoomId(room.id));
-  joinSocketToChatRoom(socket, room.id);
   return player;
 }
 
@@ -7032,14 +7033,10 @@ function flushAnnouncements(room) {
   const batch = room.announcementQueue.splice(0, room.announcementQueue.length);
   room.announcementTimer = null;
   if (batch.length === 1) {
-    io.to(room.id)
-      .to(getStandaloneTrainingObserverRoomId(room.id))
-      .emit("announcement", batch[0]);
+    io.to(room.id).emit("announcement", batch[0]);
     return;
   }
-  io.to(room.id)
-    .to(getStandaloneTrainingObserverRoomId(room.id))
-    .emit("announcements", batch);
+  io.to(room.id).emit("announcements", batch);
 }
 
 function pushAnnouncement(room, payload) {
@@ -11449,7 +11446,6 @@ io.on("connection", (socket) => {
       emitPlayers(room);
       emitRoomsStats();
       maybeStartTournamentCountdown(room);
-      socket.emit("chat:history", room.chatMessages);
       cb?.({
         ok: true,
         training: buildStandaloneTrainingPayload({
@@ -11465,6 +11461,7 @@ io.on("connection", (socket) => {
       if (player.trainingPresenceOnly === true && !isStandaloneTrainingPlayer(player)) {
         room.players.delete(socket.id);
         socket.leave(getStandaloneTrainingObserverRoomId(room.id));
+        joinSocketToChatRoom(socket, room.id);
         emitPlayers(room);
         emitRoomsStats();
       }
@@ -11570,6 +11567,7 @@ io.on("connection", (socket) => {
       player.trainingPresenceOnly = false;
       socket.leave(getStandaloneTrainingObserverRoomId(room.id));
       socket.join(room.id);
+      joinSocketToChatRoom(socket, room.id);
       markSocketPlayerActivity(room, socket, "join_live");
       if (!wasPresenceJoinAnnounced(room, player.installId)) {
         const team = getTeamForInstallCached(player.installId);

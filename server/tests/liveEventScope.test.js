@@ -12,6 +12,11 @@ assert.equal(
   "daily play must reject live gameplay events"
 );
 assert.equal(
+  shouldProcessLiveRoomEvent({ appView: "training", isLoggedIn: true }),
+  false,
+  "standalone training must reject live gameplay and feed events"
+);
+assert.equal(
   shouldProcessLiveRoomEvent({
     appView: "live",
     isLoggedIn: true,

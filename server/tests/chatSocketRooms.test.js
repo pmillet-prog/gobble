@@ -3,6 +3,7 @@ import {
   emitChatSocketEvent,
   getChatSocketRoomId,
   joinSocketToChatRoom,
+  leaveSocketChatRoom,
 } from "../chat/chatSocketRooms.js";
 
 assert.equal(getChatSocketRoomId("room-4x4"), "chat:room-4x4");
@@ -34,6 +35,10 @@ joinSocketToChatRoom(socket, "room-5x5");
 assert.deepEqual(joined, ["chat:room-4x4", "chat:room-5x5"]);
 assert.deepEqual(left, ["chat:room-4x4"]);
 assert.equal(socket.data.chatRoomId, "room-5x5");
+
+assert.equal(leaveSocketChatRoom(socket), "chat:room-5x5");
+assert.deepEqual(left, ["chat:room-4x4", "chat:room-5x5"]);
+assert.equal(socket.data.chatRoomId, null);
 
 const emissions = [];
 const io = {
