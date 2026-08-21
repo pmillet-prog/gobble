@@ -99,7 +99,6 @@ import TrainingPlayerBadge from "./components/training/TrainingPlayerBadge.jsx";
 import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
 import StandaloneTrainingPicker from "./components/training/StandaloneTrainingPicker.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
-import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
@@ -243,6 +242,8 @@ const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"
 const WordVaultPage = React.lazy(() => import("./components/WordVaultPage.jsx"));
 const SettingsMenu = React.lazy(() => import("./components/settings/SettingsMenu.jsx"));
 const HelpOverlay = React.lazy(() => import("./components/HelpOverlay.jsx"));
+const loadMobileResultsScreen = () => import("./components/mobile/MobileResultsScreen.jsx");
+const MobileResultsScreen = React.lazy(loadMobileResultsScreen);
 const TargetWaitDevPlayground = React.lazy(() =>
   import("./components/targetWait/TargetWaitDevPlayground.jsx")
 );
@@ -28347,6 +28348,11 @@ function handleTouchEnd(e) {
 
   const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
+  useEffect(() => {
+    if (isMobileLayout && phase === "playing") {
+      void loadMobileResultsScreen();
+    }
+  }, [isMobileLayout, phase]);
   const roundPreparationPending =
     !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
   const showRoundPreparationWaiting = shouldShowRoundPreparationOverlay({
@@ -37410,7 +37416,8 @@ function handleTouchEnd(e) {
       ) : null;
       return (
         <>
-          <MobileResultsScreen
+          <Suspense fallback={null}>
+            <MobileResultsScreen
             WORDS_SCROLL_MAX_HEIGHT={WORDS_SCROLL_MAX_HEIGHT}
             DARK_WORD_INACTIVE={DARK_WORD_INACTIVE}
             SwapFadeTextComponent={SwapFadeText}
@@ -37500,7 +37507,8 @@ function handleTouchEnd(e) {
             trainingFeedNickClassName={getLiveNickClassName}
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
             wordsEmpty={wordsEmpty}
-          />
+            />
+          </Suspense>
           {roundPreparationOverlay}
           {ocidMobileResultOverlay}
           {globalChatLayer}
