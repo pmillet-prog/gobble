@@ -40,6 +40,7 @@ import {
   detectWideUiViewport,
   getHomeBackgroundKey,
   getUiImageUrl,
+  scheduleDeferredHighPriorityImagePreload,
   scheduleDeferredUiAssetPreload,
 } from "./assets/uiAssetManifest.js";
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
@@ -67,7 +68,6 @@ import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import GlobalRedAnnouncementOverlay from "./components/GlobalRedAnnouncementOverlay.jsx";
 import PlaytimeCountdownOverlay from "./components/PlaytimeCountdownOverlay.jsx";
-import SettingsMenu from "./components/settings/SettingsMenu.jsx";
 import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelWeekRecapOverlay from "./components/DuelWeekRecapOverlay.jsx";
@@ -117,7 +117,6 @@ import { getFinaleTutorialSteps } from "./components/finale/finalePresentation.j
 import OcidVoteOptionsGrid from "./components/ocid/OcidVoteOptionsGrid.jsx";
 import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
 import useGridHitboxController from "./components/grid/useGridHitboxController.js";
-import HelpOverlay from "./components/HelpOverlay.jsx";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
@@ -247,6 +246,8 @@ const DuelObjectivesPanel = React.lazy(() => import("./components/DuelObjectives
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
 const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"));
 const WordVaultPage = React.lazy(() => import("./components/WordVaultPage.jsx"));
+const SettingsMenu = React.lazy(() => import("./components/settings/SettingsMenu.jsx"));
+const HelpOverlay = React.lazy(() => import("./components/HelpOverlay.jsx"));
 const TargetWaitDevPlayground = React.lazy(() =>
   import("./components/targetWait/TargetWaitDevPlayground.jsx")
 );
@@ -445,7 +446,8 @@ const BOOT_ASSET_FILES = [
   "/sw.js",
   "/.well-known/assetlinks.json",
 ];
-const BOOT_MIN_HOLD_MS = 3500;
+const BOOT_MIN_HOLD_MS = 250;
+const BOOT_SLOW_THRESHOLD_MS = 3500;
 const BOOT_TRANSITION_MS = 650;
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
@@ -4806,17 +4808,16 @@ export default function App() {
     if (typeof window === "undefined") return undefined;
     let cancelled = false;
     let cancelDeferredUiPreload = () => {};
+    let cancelDeferredHighPriorityPreload = () => {};
     const run = async () => {
       const params = new URLSearchParams(window.location.search || "");
       const forceCachePurge = params.get(CACHE_PURGE_QUERY_PARAM) === "1";
       const isSamsungRuntime =
         typeof navigator !== "undefined" &&
         /SamsungBrowser/i.test(navigator.userAgent || "");
-      const shouldPreloadLowStatic = !isSamsungRuntime && !computeIsMobileLayout();
       if (isSamsungRuntime || forceCachePurge) {
         await purgeRuntimeMediaCache({ force: forceCachePurge });
       }
-      const shouldPreloadSfx = !isSfxMutedRef.current;
       const resolvedAmbientTracks = await loadAmbientTrackList();
       if (cancelled) return;
       if (
@@ -4827,10 +4828,7 @@ export default function App() {
         ambientTracksRef.current = resolvedAmbientTracks;
         setAmbientTracks(resolvedAmbientTracks);
       }
-      // Samsung: avoid preloading all ambient tracks into memory buffers.
-      const ambientManifest = isSamsungRuntime
-        ? []
-        : buildFileManifest(resolvedAmbientTracks || []);
+      const ambientManifest = buildFileManifest(resolvedAmbientTracks || []);
       const sfxManifest = buildSfxManifest(REGISTERED_SFX_MANIFEST);
       const preferWideUi = detectWideUiViewport();
       const bootManifest = dedupeManifest([
@@ -4845,14 +4843,9 @@ export default function App() {
         normalizeSoundMasterVolume(soundMasterVolumeRef.current, SOUND_MASTER_VOLUME_DEFAULT)
       );
       AssetManager.registerManifest(bootManifest);
-      const total = bootManifest.filter((entry) => {
-        if (entry?.type !== "sfx") {
-          if (entry?.priority === "low" && !shouldPreloadLowStatic) return false;
-          return true;
-        }
-        if (!shouldPreloadSfx) return false;
-        return entry.priority === "critical" || entry.priority === "high";
-      }).length;
+      const total = bootManifest.filter(
+        (entry) => entry?.type !== "sfx" && entry?.priority === "critical"
+      ).length;
       if (!total) {
         setBootProgress((prev) => ({ ...prev, total: 0, done: true, stage: "", key: "" }));
         return;
@@ -4885,24 +4878,11 @@ export default function App() {
       await AssetManager.preload({
         priority: "critical",
         onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "critical" }),
-        excludeTypes: shouldPreloadSfx ? [] : ["sfx"],
+        excludeTypes: ["sfx"],
         concurrency: 4,
       });
-      await AssetManager.preload({
-        priority: "high",
-        onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "high" }),
-        excludeTypes: shouldPreloadSfx ? [] : ["sfx"],
-        concurrency: 4,
-      });
-      if (shouldPreloadLowStatic) {
-        await AssetManager.preload({
-          priority: "all",
-          onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "low" }),
-          excludeTypes: ["sfx"],
-          concurrency: 4,
-        });
-      }
       if (!cancelled) {
+        cancelDeferredHighPriorityPreload = scheduleDeferredHighPriorityImagePreload();
         cancelDeferredUiPreload = scheduleDeferredUiAssetPreload({
           preferWide: preferWideUi,
         });
@@ -4923,6 +4903,7 @@ export default function App() {
     run();
     return () => {
       cancelled = true;
+      cancelDeferredHighPriorityPreload();
       cancelDeferredUiPreload();
     };
   }, []);
@@ -32812,8 +32793,9 @@ function handleTouchEnd(e) {
   const settingsDangerButtonClass = menuDarkMode
     ? "bg-rose-950/55 border-rose-300/40 text-rose-50 hover:bg-rose-950/70"
     : "bg-rose-50/85 border-rose-300/60 text-rose-800 hover:bg-rose-100";
-  const settingsMenuView = (
-    <SettingsMenu
+  const settingsMenuView = isSettingsOpen ? (
+    <Suspense fallback={null}>
+      <SettingsMenu
       ACCOUNT_SERVER_BUSY_MESSAGE={ACCOUNT_SERVER_BUSY_MESSAGE}
       AUTH_MODAL_MODES={AUTH_MODAL_MODES}
       BONUS_CLASSES={BONUS_CLASSES}
@@ -33014,8 +32996,9 @@ function handleTouchEnd(e) {
       visualPraiseEnabled={visualPraiseEnabled}
       visualScoreFlightsEnabled={visualScoreFlightsEnabled}
       visualScreenShakeEnabled={visualScreenShakeEnabled}
-    />
-  );
+      />
+    </Suspense>
+  ) : null;
 
   const accountMenuView = isAccountMenuOpen ? (
     <SettingsMenuFrame
@@ -33173,7 +33156,9 @@ function handleTouchEnd(e) {
   );
 
   const quickHelpOverlay = showHelp ? (
-    <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
+    <Suspense fallback={null}>
+      <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
+    </Suspense>
   ) : null;
 
   const isLiveLobbyMobileView =
@@ -33550,7 +33535,7 @@ function handleTouchEnd(e) {
       progress={bootProgress}
       fadingOut={!isBootBlocking && bootOverlayFading}
       fadeDurationMs={BOOT_TRANSITION_MS}
-      slowThresholdMs={BOOT_MIN_HOLD_MS}
+      slowThresholdMs={BOOT_SLOW_THRESHOLD_MS}
     />
   ) : null;
   const trainingSessionControls = standaloneTrainingSession ? (

@@ -192,6 +192,31 @@ export function scheduleDeferredUiAssetPreload({
   };
 }
 
+export function scheduleDeferredHighPriorityImagePreload({ timeoutMs = 1200 } = {}) {
+  if (typeof window === "undefined") return () => {};
+  let cancelled = false;
+  const run = () => {
+    if (cancelled) return;
+    void AssetManager.preload({
+      priority: "high",
+      includeTypes: ["image"],
+      concurrency: 2,
+    });
+  };
+  if (typeof window.requestIdleCallback === "function") {
+    const idleId = window.requestIdleCallback(run, { timeout: timeoutMs });
+    return () => {
+      cancelled = true;
+      window.cancelIdleCallback?.(idleId);
+    };
+  }
+  const timerId = window.setTimeout(run, Math.min(500, timeoutMs));
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timerId);
+  };
+}
+
 export function getUiImageUrl(key) {
   if (!key) return "";
   const loadedUrl = AssetManager.getImage(key).url || "";
