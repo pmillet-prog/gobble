@@ -78,11 +78,21 @@ import {
   computeDesktopGridResizeMaxTrackWidth,
   computeDesktopUiScale,
   computeDesktopViewportHeight,
-  shouldUseMobileLayout,
 } from "./utils/desktopResponsiveLayout.js";
+import {
+  computeIsAndroidWebBrowser,
+  computeIsIosStandalone,
+  computeIsMobileLayout,
+  computeIsUltraCompact,
+  computePreferLiteVisualEffects,
+  getDefaultRoomId,
+  getViewportSize,
+  isFirefoxMobileUserAgent,
+  isLikelySamsungDeviceUserAgent,
+} from "./app/adapters/deviceCapabilities.js";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
-import ASSET_MANIFEST_BASE from "./assets/assetManifest";
+import { IMAGE_FALLBACKS, makeFileKey } from "./assets/bootAssetManifest.js";
 import {
   buildUiAssetManifest,
   detectWideUiViewport,
@@ -162,9 +172,15 @@ import OcidVoteOptionsGrid from "./components/ocid/OcidVoteOptionsGrid.jsx";
 import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
 import useGridHitboxController from "./components/grid/useGridHitboxController.js";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
+import {
+  ENABLE_FAKE_DAILY_HISTORY,
+  buildFakeDailyHistoryDays,
+  getParisDateIdClient,
+} from "./components/daily/dailyHistoryModel.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
+import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
 import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
 import DefinitionVaultButton from "./components/DefinitionVaultButton.jsx";
 import DefinitionDetails from "./components/DefinitionDetails.jsx";
@@ -178,8 +194,6 @@ import useDisplayMode from "./hooks/useDisplayMode.js";
 import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
 import {
   isAndroidWebViewUserAgent,
-  isAppleMobileUserAgent,
-  isLikelyNativeWrapper,
   isStandaloneDisplayMode,
 } from "./utils/displayMode.js";
 import {
@@ -244,6 +258,12 @@ import { isLiveSessionFreshForBoot } from "./utils/liveSessionFreshness.js";
 import { shouldProcessLiveRoomEvent } from "./utils/liveEventScope.js";
 import { hasActiveChatDraft } from "./utils/mobileChatHandoff.js";
 import { resolveScoreFlightPoints } from "./utils/scoreFlightPoints.js";
+import {
+  buildDefinitionFallbacks,
+  pickDefinitionList,
+  pickDefinitionText,
+  sanitizeDefinitionText,
+} from "./utils/definitionPayload.js";
 import {
   formatApproximateMinutes,
   getCompactLiveRoundLabel,
@@ -367,10 +387,7 @@ const DAILY_DESKTOP_COLUMN_DEFS = [
 ];
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
-const MOBILE_LAYOUT_MAX_WIDTH = 520;
-const TOUCH_LAYOUT_MAX_MIN_DIM = 820;
 const MOBILE_GRID_MAX_WIDTH = 720;
-const ULTRA_COMPACT_MAX_MIN_DIM = 760;
 const GRID_PADDING_PX = 32; // p-4 (16px de chaque côté)
 const BASE_TILE_PX = 56;
 const BASE_GAP_PX = 8; // gap-2 de référence
@@ -435,7 +452,6 @@ const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
 const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
 const SAMSUNG_BIGWORD_FLASH_MS = 650;
-const LITE_VISUAL_FX_QUERY_PARAM = "liteFx";
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
 const CHAT_DESKTOP_FONT_SCALE_DEFAULT = 1;
 const CHAT_DESKTOP_FONT_SCALE_MIN = 0.85;
@@ -448,46 +464,6 @@ function normalizeChatDesktopFontScale(raw, fallback = CHAT_DESKTOP_FONT_SCALE_D
   const clamped = Math.max(CHAT_DESKTOP_FONT_SCALE_MIN, Math.min(CHAT_DESKTOP_FONT_SCALE_MAX, value));
   return Math.round(clamped / CHAT_DESKTOP_FONT_SCALE_STEP) * CHAT_DESKTOP_FONT_SCALE_STEP;
 }
-const BOOT_ASSET_IMAGES = [
-  { key: IMAGE_KEYS.favicon, url: "/favicon.png", priority: "critical" },
-  { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
-  { key: IMAGE_KEYS.gobblarsBadge, url: "/Gobblars.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.doubleGobble, url: "/bigwords/doublegobble.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.bonus, url: "/bigwords/bonus.webp", priority: "high" },
-  { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.college, url: "/vocab-ranks/college.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.lycee, url: "/vocab-ranks/lycee.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.bac, url: "/vocab-ranks/bac.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.prepa, url: "/vocab-ranks/prepa.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.universite, url: "/vocab-ranks/universite.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.licence, url: "/vocab-ranks/licence.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.master, url: "/vocab-ranks/master.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.doctorat, url: "/vocab-ranks/doctorat.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.academie, url: "/vocab-ranks/academie.png", priority: "low" },
-];
-const IMAGE_FALLBACKS = new Map(BOOT_ASSET_IMAGES.map((entry) => [entry.key, entry.url]));
-const BOOT_ASSET_FILES = [
-  "/privacy.html",
-  "/privacy/index.html",
-  "/robots.txt",
-  "/sitemap.xml",
-  "/manifest.webmanifest",
-  "/icon.svg",
-  "/favicon-16x16.png",
-  "/favicon-32x32.png",
-  "/apple-touch-icon.png",
-  "/sw.js",
-  "/.well-known/assetlinks.json",
-];
-const BOOT_MIN_HOLD_MS = 3500;
-const BOOT_TRANSITION_MS = 650;
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
 const STATS_SEASON_TARGET_LIMIT = 200;
@@ -496,365 +472,8 @@ const DUEL_TUTORIAL_STEPS = [
   "Chaque jour, tu as 3 objectifs (facile, moyen, difficile). Valide-les dans le jeu principal pour aider ton equipe.",
   "Gobbles + duel sur la grille quotidienne font aussi monter le score. Si ton equipe gagne et que tu as été actif, tu portes la couronne la semaine suivante.",
 ];
-const ENABLE_FAKE_DAILY_HISTORY = false; // false to disable test data quickly
-
-function parseIsoDateId(raw) {
-  const match = String(raw || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (!year || !month || !day) return null;
-  return { year, month, day };
-}
-
-function formatIsoDateId(date) {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function shiftIsoDateId(dateId, deltaDays) {
-  const parsed = parseIsoDateId(dateId);
-  const base = parsed
-    ? new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day))
-    : new Date();
-  base.setUTCDate(base.getUTCDate() + Number(deltaDays || 0));
-  return formatIsoDateId(base);
-}
-
-function getParisDateIdClient(date = new Date()) {
-  try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Paris",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date);
-    const year = parts.find((part) => part.type === "year")?.value || "";
-    const month = parts.find((part) => part.type === "month")?.value || "";
-    const day = parts.find((part) => part.type === "day")?.value || "";
-    if (year && month && day) return `${year}-${month}-${day}`;
-  } catch (_) {}
-  return formatIsoDateId(date);
-}
-
-function pickVaultWordOfDayCandidates(words, limit = VAULT_WORD_OF_DAY_MAX_DEFINITION_ATTEMPTS) {
-  const seen = new Set();
-  const entries = [];
-  for (const entry of Array.isArray(words) ? words : []) {
-    const word = String(entry?.word || "").trim();
-    const key = String(entry?.wordKey || normalizeWord(word)).trim();
-    if (!word || !key || seen.has(key)) continue;
-    seen.add(key);
-    entries.push({ word, wordKey: key });
-  }
-  for (let i = entries.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [entries[i], entries[j]] = [entries[j], entries[i]];
-  }
-  return entries.slice(0, Math.max(1, Number(limit) || 1));
-}
-
-function buildFakeDailyHistoryDays(todayDateId) {
-  if (!ENABLE_FAKE_DAILY_HISTORY) return [];
-  const seeds = [0, 1, 2];
-  const redNames = ["Atlas", "Nora", "Silo", "Iris", "Milo", "Romy"];
-  const blueNames = ["Lena", "Axel", "Maya", "Noe", "Sami", "Loup"];
-  return seeds.map((seed, seedIdx) => {
-    const redEntries = redNames.map((nick, idx) => ({
-      installId: `fake-red-${seedIdx}-${idx}`,
-      nick: `${nick}${seedIdx + 1}`,
-      score: 1200 - seed * 70 - idx * 55,
-      wordsCount: 24 - idx,
-      team: "red",
-      playerKey: `fake-red-${seedIdx}-${idx}`,
-      isPalier: false,
-    }));
-    const blueEntries = blueNames.map((nick, idx) => ({
-      installId: `fake-blue-${seedIdx}-${idx}`,
-      nick: `${nick}${seedIdx + 1}`,
-      score: 1160 - seed * 65 - idx * 52,
-      wordsCount: 23 - idx,
-      team: "blue",
-      playerKey: `fake-blue-${seedIdx}-${idx}`,
-      isPalier: false,
-    }));
-    const entries = [...redEntries, ...blueEntries].sort((a, b) => {
-      const diff = (Number(b?.score) || 0) - (Number(a?.score) || 0);
-      if (diff !== 0) return diff;
-      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
-    });
-    const redBalanced = redEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0);
-    const blueBalanced = blueEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0);
-    return {
-      // Keep test pages distinct from real history dates so they always remain visible in test mode.
-      dateId: `TEST-${shiftIsoDateId(todayDateId || null, -(seedIdx + 1))}`,
-      totalPlayers: entries.length,
-      entries,
-      battle: {
-        totalsRawByTeam: { red: redBalanced, blue: blueBalanced },
-        totalsBalancedByTeam: { red: redBalanced, blue: blueBalanced },
-        winnerTeam: redBalanced === blueBalanced ? null : redBalanced > blueBalanced ? "red" : "blue",
-      },
-      isFake: true,
-    };
-  });
-}
-
-function splitUrlPathAndSuffix(src) {
-  const raw = String(src || "").trim();
-  if (!raw) return { path: "", suffix: "" };
-  const queryIdx = raw.indexOf("?");
-  const hashIdx = raw.indexOf("#");
-  let cut = raw.length;
-  if (queryIdx >= 0) cut = Math.min(cut, queryIdx);
-  if (hashIdx >= 0) cut = Math.min(cut, hashIdx);
-  return {
-    path: raw.slice(0, cut),
-    suffix: raw.slice(cut),
-  };
-}
-
-function stripExtension(src) {
-  const { path, suffix } = splitUrlPathAndSuffix(src);
-  if (!path) return String(src || "");
-  return `${path.replace(/\.[a-z0-9]{2,5}$/i, "")}${suffix}`;
-}
-
-function buildCandidatesFromBase(base, order) {
-  const cleaned = stripExtension(base);
-  const { path: cleanPath, suffix } = splitUrlPathAndSuffix(cleaned);
-  if (!cleanPath) return [];
-  return order.map((ext) => `${cleanPath}.${ext}${suffix}`);
-}
-
-function buildImageCandidates(url) {
-  const candidates = buildCandidatesFromBase(url, ["webp", "png"]);
-  return candidates.length ? candidates : [url];
-}
-
-function buildImageManifest(items) {
-  return (Array.isArray(items) ? items : []).map((item) => ({
-    key: item.key,
-    type: "image",
-    candidates: buildImageCandidates(item.url),
-    priority: item.priority,
-  }));
-}
-
-function makeFileKey(url) {
-  return `file_${String(url || "")
-    .replace(/^\//, "")
-    .replace(/[^a-z0-9]+/gi, "_")
-    .toLowerCase()}`;
-}
-
-function buildFileManifest(items) {
-  return (Array.isArray(items) ? items : []).map((url) => ({
-    key: makeFileKey(url),
-    type: "file",
-    candidates: [url],
-    priority: "low",
-  }));
-}
-
-function dedupeManifest(entries) {
-  const map = new Map();
-  (Array.isArray(entries) ? entries : []).forEach((entry) => {
-    if (!entry?.key) return;
-    map.set(entry.key, entry);
-  });
-  return Array.from(map.values());
-}
-
-const BOOT_ASSET_MANIFEST_BASE = dedupeManifest([
-  ...ASSET_MANIFEST_BASE.filter((entry) => entry?.type !== "sfx"),
-  ...buildImageManifest(BOOT_ASSET_IMAGES),
-  ...buildFileManifest(BOOT_ASSET_FILES),
-]);
-
-const DEFINITION_PLACEHOLDER_RE = /^[.\u2026\u00b7\s-]+$/;
-
-function sanitizeDefinitionText(value) {
-  const text = String(value || "").trim();
-  if (!text) return "";
-  if (DEFINITION_PLACEHOLDER_RE.test(text)) return "";
-  return text;
-}
-
-function pickDefinitionText(data) {
-  if (!data) return "";
-  const primary = sanitizeDefinitionText(data.definition);
-  if (primary) return primary;
-  return sanitizeDefinitionText(data.extract);
-}
-
-function pickDefinitionList(data) {
-  if (!data || !Array.isArray(data.definitions)) return [];
-  const out = [];
-  const seen = new Set();
-  for (const raw of data.definitions) {
-    const text = sanitizeDefinitionText(raw);
-    const key = text.toLocaleLowerCase("fr-FR");
-    if (!text || seen.has(key)) continue;
-    seen.add(key);
-    out.push(text);
-  }
-  return out;
-}
-
-function buildDefinitionFallbacks(clean, data, tried) {
-  const out = [];
-  const push = (value) => {
-    const term = String(value || "").trim();
-    if (!term) return;
-    const key = normalizeWord(term);
-    if (!key || tried.has(key)) return;
-    tried.add(key);
-    out.push(term);
-  };
-  push(data?.lemma);
-  push(data?.title);
-  push(data?.matchedTitle);
-  const normalized = normalizeWord(clean);
-  if (normalized && !tried.has(normalized)) {
-    tried.add(normalized);
-    out.push(normalized);
-  }
-  return out;
-}
-
 function getGridSizeForRoom(roomKey) {
   return ROOM_OPTIONS[roomKey]?.gridSize || 4;
-}
-
-function getViewportSize() {
-  if (typeof window === "undefined") return { width: 0, height: 0 };
-  const width = Math.round(
-    window.innerWidth ||
-      (typeof document !== "undefined" ? document.documentElement?.clientWidth : 0) ||
-      0
-  );
-  const height = Math.round(
-    window.innerHeight ||
-      (typeof document !== "undefined" ? document.documentElement?.clientHeight : 0) ||
-      0
-  );
-  return { width, height };
-}
-
-function hasCoarsePointer() {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return (
-    window.matchMedia("(pointer: coarse)").matches ||
-    window.matchMedia("(hover: none)").matches
-  );
-}
-
-function hasFinePointer() {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return (
-    window.matchMedia("(pointer: fine)").matches ||
-    window.matchMedia("(any-pointer: fine)").matches
-  );
-}
-
-function computeIsMobileLayout() {
-  if (typeof window === "undefined") return false;
-  const { width, height } = getViewportSize();
-  const coarsePointer = hasCoarsePointer();
-  const finePointer = hasFinePointer();
-  const isTouch =
-    coarsePointer ||
-    "ontouchstart" in window ||
-    (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
-  return shouldUseMobileLayout({
-    coarsePointer,
-    finePointer,
-    mobileMaxWidth: MOBILE_LAYOUT_MAX_WIDTH,
-    touchCapable: isTouch,
-    touchMaxMinDimension: TOUCH_LAYOUT_MAX_MIN_DIM,
-    viewportHeight: height,
-    viewportWidth: width,
-  });
-}
-
-function computeIsUltraCompact() {
-  if (typeof window === "undefined") return false;
-  const { width, height } = getViewportSize();
-  const minDim = Math.min(width, height);
-  const maxDim = Math.max(width, height);
-  const aspect = minDim > 0 ? maxDim / minDim : 0;
-  const isTouch =
-    hasCoarsePointer() ||
-    "ontouchstart" in window ||
-    (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
-  const isHybridDesktop = hasFinePointer() && width >= 900;
-  return (
-    isTouch &&
-    !isHybridDesktop &&
-    minDim <= ULTRA_COMPACT_MAX_MIN_DIM &&
-    aspect > 0 &&
-    aspect <= 1.35
-  );
-}
-
-function computeIsIosStandalone() {
-  if (typeof navigator === "undefined") return false;
-  return isAppleMobileUserAgent(navigator.userAgent || "") && isStandaloneDisplayMode();
-}
-
-function computeIsAndroidWebBrowser() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  const isAndroid = /Android/i.test(ua);
-  if (!isAndroid) return false;
-  return !isStandaloneDisplayMode() && !isLikelyNativeWrapper();
-}
-
-function isLikelySamsungDeviceUserAgent(ua) {
-  const value = String(ua || "");
-  return /SM-[A-Z0-9]+/i.test(value) || /SAMSUNG/i.test(value);
-}
-
-function isLikelyLowEndAndroidDeviceUserAgent(ua) {
-  const value = String(ua || "");
-  return /(TECNO|Infinix|itel|SPARK|CAMON|POVA|HiOS|XOS)/i.test(value);
-}
-
-function computePreferLiteVisualEffects() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  try {
-    const forced = new URLSearchParams(window.location.search).get(LITE_VISUAL_FX_QUERY_PARAM);
-    if (/^(1|true|on)$/i.test(String(forced || ""))) return true;
-    if (/^(0|false|off)$/i.test(String(forced || ""))) return false;
-  } catch (_) {}
-  const ua = navigator.userAgent || "";
-  if (!/Android/i.test(ua)) return false;
-  if (isLikelyLowEndAndroidDeviceUserAgent(ua)) return true;
-  const deviceMemory = Number(navigator.deviceMemory);
-  const cpuCount = Number(navigator.hardwareConcurrency);
-  if (Number.isFinite(deviceMemory) && deviceMemory > 0 && deviceMemory <= 3) return true;
-  if (Number.isFinite(cpuCount) && cpuCount > 0 && cpuCount <= 4 && isAndroidWebViewUserAgent(ua)) {
-    return true;
-  }
-  return false;
-}
-
-function isFirefoxMobileUserAgent(ua) {
-  const value = String(ua || "");
-  if (!/(Firefox|FxiOS)/i.test(value)) return false;
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(value);
-}
-
-function getDefaultRoomId() {
-  if (typeof window !== "undefined") {
-    const isMobile = computeIsMobileLayout();
-    return isMobile ? "room-4x4" : "room-4x4";
-  }
-  return "room-4x4";
 }
 
 function clampValue(value, min, max) {
@@ -1509,7 +1128,6 @@ const AUTH_MODAL_MODES = {
   FORGOT_PASSWORD: "forgot-password",
   CHANGE_PASSWORD: "change-password",
 };
-const VAULT_WORD_OF_DAY_MAX_DEFINITION_ATTEMPTS = 8;
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
 const PATCH_NOTES_VERSION = "2026-08-20";
 const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-20T00:00:00+02:00");
