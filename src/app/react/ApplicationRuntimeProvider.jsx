@@ -23,10 +23,15 @@ export function useApplicationKernel() {
 
 export function useApplicationSelector(selector) {
   const kernel = useApplicationKernel();
-  const state = React.useSyncExternalStore(
-    kernel.subscribe,
-    kernel.getState,
-    kernel.getState
+  const selectorRef = React.useRef(selector);
+  selectorRef.current = selector;
+  const getSnapshot = React.useCallback(
+    () => selectorRef.current(kernel.getState()),
+    [kernel]
   );
-  return selector(state);
+  return React.useSyncExternalStore(
+    kernel.subscribe,
+    getSnapshot,
+    getSnapshot
+  );
 }

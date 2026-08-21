@@ -3164,7 +3164,6 @@ export default function LegacyApp() {
       status: "running",
     };
     roundIntroStartedForRoundRef.current = null;
-    setImplodeActive(false);
     clearResultsSlideTimers();
     clearWordListFlipArtifacts();
     stopVocabOverlayAnimation();
@@ -3174,17 +3173,31 @@ export default function LegacyApp() {
     clearToasts();
     clearStatusMessage({ force: true });
     clearCelebrationFx();
-    setInputLocked(false);
     inputLockedRef.current = false;
-    setPhase("lobby");
-    setServerStatus("waiting");
-    setRoundId(null);
-    setServerEndsAt(null);
-    setServerRoundDurationMs(null);
-    setNextStartAt(null);
-    setRoundPreparing(null);
-    setBreakCountdown(null);
-    setBreakKind(null);
+    applicationKernel.commands.transition.apply({
+      game: {
+        implodeActive: false,
+        inputLocked: false,
+        phase: "lobby",
+      },
+      navigation: { view: "home" },
+      realtime: {
+        breakCountdown: null,
+        breakKind: null,
+        nextStartAt: null,
+        roundId: null,
+        roundPreparing: null,
+        serverEndsAt: null,
+        serverRoundDurationMs: null,
+      },
+      session: {
+        connectionError: "",
+        isLoggedIn: false,
+        resumePending: false,
+        resumeSnapshot: null,
+        serverStatus: "waiting",
+      },
+    });
     setSpecialHint(null);
     setTargetHintScheduleMs([]);
     setSpecialSolvedOverlay(null);
@@ -3192,19 +3205,14 @@ export default function LegacyApp() {
     setFoundTargetWord("");
     stopRoundEndTickSound({ fadeMs: 0 });
     stopAllActiveAudio({ suspendContext: false, immediate: true });
-    setAppView("home");
     dailySessionRef.current = { dateId: null, startedAt: null };
     setDailyResult(null);
-    setResumePending(false);
-    setResumeSnapshot(null);
     resumeProbeRef.current = { inFlight: false, lastAt: 0 };
     resumeLockRef.current = false;
     resumeLockAtRef.current = 0;
     manualDisconnectRef.current = true;
     clearSavedSession();
     isLoggedInRef.current = false;
-    setIsLoggedIn(false);
-    setConnectionError("");
     try {
       socket.disconnect();
     } catch (_) {}
@@ -15041,12 +15049,6 @@ export default function LegacyApp() {
     const derivedSize =
       incomingGridSize ||
       Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
-    setGridSize(derivedSize);
-    if (sourceRoomId) {
-      setRoomId(sourceRoomId);
-      setCurrentRoomId(sourceRoomId);
-    }
-    setBoard(serverGrid);
     commitTraceSelection([], []);
     setAnalysis(null);
     setHighlightPlayers([]);
@@ -15058,16 +15060,12 @@ export default function LegacyApp() {
     bestGridMaxRef.current = 0;
     bestGridMaxLenRef.current = 0;
     serverSolutionsReadyRef.current = serverSolutions.ready;
-    setAccepted([]);
     clearAcceptedRuntimeCaches();
     resetSubmissionQueue();
     if (serverSolutions.ready) {
       solutionsRef.current = serverSolutions.solved;
       serverAllWordsRef.current = serverSolutions.all;
     }
-    setAllWords([]);
-    setShowAllWords(false);
-    setSpecialRound(specialInfo && specialInfo.isSpecial ? specialInfo : null);
     if (specialInfo?.type !== "target_long" && specialInfo?.type !== "target_score") {
       setSpecialHint(null);
     }
@@ -15116,16 +15114,11 @@ export default function LegacyApp() {
             fakeTwinWords: gridQuality.fakeTwinWords ?? null,
           }
         : null;
-    setRoundStats(stats);
     bestGridMaxRef.current = stats?.maxPts ?? 0;
     bestGridMaxLenRef.current = stats?.maxLen ?? 0;
-    setScore(0);
-    setLastWords([]);
     clearStatusMessage({ force: true });
     bestWordAnnounceRef.current = -1;
-    setFinalResults([]);
     clearQueuedRankingUpdate();
-    setProvisionalRanking([]);
     const normalizedDurationMs = Number.isFinite(durationMs)
       ? Math.max(1, Math.round(durationMs))
       : null;
@@ -15165,7 +15158,6 @@ export default function LegacyApp() {
       Number.isFinite(startsAtMs) &&
       startsAtMs > nowServerMs + 80;
     mobileRoundIntroSuppressRoundStartRef.current = hasPendingIntro;
-    setInputLocked(hasPendingIntro);
     inputLockedRef.current = hasPendingIntro;
     setMobileRoundIntroHideTiles(hasPendingIntro);
     if (!hasPendingIntro) {
@@ -15173,19 +15165,42 @@ export default function LegacyApp() {
     } else if (roundIntroStartedForRoundRef.current !== roundKey) {
       roundIntroStartedForRoundRef.current = null;
     }
-    setTick(Math.min(maxDuration, initialTick));
-    setRoundId(newRoundId || null);
-    setServerEndsAt(Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null);
     const roundEndAt = Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null;
     const roundStartAt =
       Number.isFinite(effectiveEndsAt) && Number.isFinite(normalizedDurationMs)
         ? effectiveEndsAt - normalizedDurationMs
         : null;
     lastRoundWindowRef.current = { startAt: roundStartAt, endAt: roundEndAt };
-    setServerRoundDurationMs(normalizedDurationMs);
-    setServerStatus("running");
-    setConnectionError("");
-    setPhase("playing");
+    applicationKernel.commands.transition.apply({
+      game: {
+        accepted: [],
+        allWords: [],
+        board: serverGrid,
+        ...(sourceRoomId
+          ? { currentRoomId: sourceRoomId, roomId: sourceRoomId }
+          : {}),
+        gridSize: derivedSize,
+        inputLocked: hasPendingIntro,
+        lastWords: [],
+        phase: "playing",
+        score: 0,
+        showAllWords: false,
+        tick: Math.min(maxDuration, initialTick),
+      },
+      realtime: {
+        finalResults: [],
+        provisionalRanking: [],
+        roundId: newRoundId || null,
+        roundStats: stats,
+        serverEndsAt: Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null,
+        serverRoundDurationMs: normalizedDurationMs,
+        specialRound: specialInfo && specialInfo.isSpecial ? specialInfo : null,
+      },
+      session: {
+        connectionError: "",
+        serverStatus: "running",
+      },
+    });
     if (!isMobileLayoutRef.current) {
       const chatEl = chatInputRef.current;
       const chatHasFocus =
@@ -15225,15 +15240,18 @@ export default function LegacyApp() {
 
     const enterResultsPhase = () => {
       if (cancelled) return;
-      setInputLocked(false);
       inputLockedRef.current = false;
-      setServerStatus("break");
-      setPhase("results");
-      setBreakKind("phase_loop");
-      setNextStartAt(Date.now() + DEV_PHASE_LOOP_RESULTS_MS);
-      setServerEndsAt(null);
-      setServerRoundDurationMs(null);
-      setRoundId(null);
+      applicationKernel.commands.transition.apply({
+        game: { inputLocked: false, phase: "results" },
+        realtime: {
+          breakKind: "phase_loop",
+          nextStartAt: Date.now() + DEV_PHASE_LOOP_RESULTS_MS,
+          roundId: null,
+          serverEndsAt: null,
+          serverRoundDurationMs: null,
+        },
+        session: { serverStatus: "break" },
+      });
       schedule(startIntroAndPlayingPhase, DEV_PHASE_LOOP_RESULTS_MS);
     };
 
@@ -15246,8 +15264,7 @@ export default function LegacyApp() {
       const startsAt = nowServerMs + DEV_PHASE_LOOP_INTRO_MS;
       const endsAt = startsAt + DEV_PHASE_LOOP_PLAYING_MS + DEV_PHASE_LOOP_PLAYING_GUARD_MS;
       phaseLoopRoundCounterRef.current += 1;
-      setBreakKind(null);
-      setNextStartAt(null);
+      applicationKernel.commands.realtime.patch({ breakKind: null, nextStartAt: null });
       startGameFromServerRef.current?.(
         loopGrid,
         `phase-loop-${phaseLoopRoundCounterRef.current}-${Date.now()}`,

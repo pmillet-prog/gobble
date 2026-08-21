@@ -85,3 +85,27 @@ test("realtime snapshots accept authoritative server fields as one transition", 
   assert.equal(kernel.getState().realtime.serverEndsAt, 123456);
   assert.equal(kernel.getState().realtime.players, players);
 });
+
+test("cross-domain transitions are atomic and keep slice contracts", () => {
+  const kernel = createApplicationKernel();
+  let notifications = 0;
+  kernel.subscribe(() => {
+    notifications += 1;
+  });
+
+  kernel.commands.transition.apply({
+    game: { phase: "playing", score: 7, forbidden: true },
+    navigation: { view: "live" },
+    realtime: { roundId: "round-atomic" },
+    session: { isLoggedIn: true },
+  });
+
+  const state = kernel.getState();
+  assert.equal(state.game.phase, "playing");
+  assert.equal(state.game.score, 7);
+  assert.equal(state.game.forbidden, undefined);
+  assert.equal(state.navigation.view, "live");
+  assert.equal(state.realtime.roundId, "round-atomic");
+  assert.equal(state.session.isLoggedIn, true);
+  assert.equal(notifications, 1);
+});

@@ -82,6 +82,13 @@ export function createApplicationKernel(options = {}) {
   }
 
   const commands = Object.freeze({
+    transition: Object.freeze({
+      apply: (transition) =>
+        dispatch({
+          type: APPLICATION_ACTIONS.STATE_TRANSITIONED,
+          payload: transition,
+        }),
+    }),
     boot: Object.freeze({
       resolveAmbientTracks: (tracks) =>
         dispatch({
