@@ -1867,11 +1867,13 @@ export default function App() {
 
   return (
     <>
-      <AppContent
-        ambientTracks={ambientTracks}
-        bootOverlayVisible={bootOverlayVisible}
-        bootReady={bootReady}
-      />
+      {bootReady ? (
+        <AppContent
+          ambientTracks={ambientTracks}
+          bootOverlayVisible={bootOverlayVisible}
+          bootReady={bootReady}
+        />
+      ) : null}
       <AppBootOverlay
         onAmbientTracksResolved={handleAmbientTracksResolved}
         onOverlayVisibleChange={setBootOverlayVisible}
@@ -30110,8 +30112,6 @@ function handleTouchEnd(e) {
     onPlay: handleLoginOrResume,
     onResume: handleResumeFromPrompt,
   });
-  const isBootBlocking = !bootReady;
-  const bootOverlay = null;
   const trainingSessionControls = standaloneTrainingSession ? (
     <TrainingSessionControls
       compact={isMobileLayout}
@@ -30124,7 +30124,6 @@ function handleTouchEnd(e) {
   ) : null;
   const chatOverlays = (
     <>
-      {bootOverlay}
       {duelPopupOverlay}
       {duelWeekRecapOverlay}
       {globalRedAnnouncementOverlay}
@@ -30176,9 +30175,6 @@ function handleTouchEnd(e) {
     </>
   );
   const suppressLiveChatMotion = isMobileLayout && (isChatOpenMobile || isChatClosing);
-  if (shouldShowBootOverlay) {
-    return bootOverlay;
-  }
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
   const canResumeNow = !isLoggedIn && hasSavedSession() && !!resumeSnapshot;
   const resumeRoomLabel =
@@ -31172,7 +31168,6 @@ function handleTouchEnd(e) {
     const dailyHistoryHeightClass = isMobileLayout ? "h-full min-h-0" : "max-h-[520px]";
     return (
       <>
-        {bootOverlay}
         {tutorialOverlay}
         {authDialogView}
         {settingsMenuView}
@@ -31435,7 +31430,6 @@ function handleTouchEnd(e) {
   if (appView === "daily_results" && !isLoggedIn) {
     return (
       <>
-        {bootOverlay}
         {tutorialOverlay}
         {authDialogView}
         {settingsMenuView}
@@ -31514,7 +31508,6 @@ function handleTouchEnd(e) {
   if (!isLoggedIn && appView === "duel") {
     return (
       <>
-        {bootOverlay}
         {playersOverlay}
         {playerProfileModalView}
         {definitionModalView}
@@ -31618,7 +31611,6 @@ function handleTouchEnd(e) {
   if (!isLoggedIn && appView === "vault") {
     return (
       <>
-        {bootOverlay}
         {playersOverlay}
         {playerProfileModalView}
         {definitionModalView}
@@ -31651,7 +31643,6 @@ function handleTouchEnd(e) {
   if (!isLoggedIn && appView === "stats") {
     return (
       <>
-        {bootOverlay}
         {playersOverlay}
         {playerProfileModalView}
         {definitionModalView}
@@ -31694,7 +31685,6 @@ function handleTouchEnd(e) {
 
     return (
       <>
-        {bootOverlay}
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
@@ -31761,7 +31751,6 @@ function handleTouchEnd(e) {
 
     return (
       <>
-        {bootOverlay}
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
