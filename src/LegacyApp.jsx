@@ -90,6 +90,28 @@ import {
   isFirefoxMobileUserAgent,
   isLikelySamsungDeviceUserAgent,
 } from "./app/adapters/deviceCapabilities.js";
+import {
+  DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS,
+  DAILY_DESKTOP_COLUMN_DEFS,
+  DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX,
+  DAILY_DESKTOP_COLUMN_TEMPLATE,
+  DESKTOP_COLUMN_DEFAULT_FRACTIONS,
+  DESKTOP_COLUMN_MIN_WIDTHS_PX,
+  GRID_COL_TEMPLATE,
+  LIVE_DESKTOP_COLUMN_DEFS,
+  areDesktopFractionsEqual,
+  normalizeDesktopColumnFractions,
+  normalizeDesktopColumnOrder,
+  readDesktopColumnFractionsForInstall,
+  readDesktopColumnOrderForInstall,
+  writeDesktopColumnFractionsForInstall,
+  writeDesktopColumnOrderForInstall,
+} from "./app/adapters/desktopLayoutStorage.js";
+import {
+  getChatDrawerOrientationKey,
+  readStoredChatDrawerCalibration,
+  writeStoredChatDrawerCalibration,
+} from "./app/adapters/chatDrawerCalibration.js";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import { IMAGE_FALLBACKS, makeFileKey } from "./assets/bootAssetManifest.js";
@@ -103,6 +125,15 @@ import {
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
+import {
+  mapDisplayToBoardIndex,
+  normalizeRotationTurns,
+  rotateIndexByTurns,
+} from "./game/gridRotation.js";
+import {
+  buildPlayersSignature,
+  buildRankingSignature,
+} from "./game/liveSnapshotSignature.js";
 import { solveGridInWorker } from "./compute/clientSolverWorker.js";
 import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
@@ -177,6 +208,18 @@ import {
   buildFakeDailyHistoryDays,
   getParisDateIdClient,
 } from "./components/daily/dailyHistoryModel.js";
+import {
+  DAILY_SPECIAL_BONUSES,
+  DAILY_SPECIAL_WORD_TARGET,
+  applyDailySpecialPlacements,
+  createDailySpecialPlacements,
+  createDailyWordSlots,
+  getDailySpecialWordBlockedReason,
+  getDailySpecialWordStartTile,
+  getEffectiveDailySpecialPlacements,
+  normalizeBonusLabel,
+  stripBoardBonuses,
+} from "./components/daily/dailySpecialModel.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
@@ -345,8 +388,6 @@ function isRareBonusEnabledForSpecial(special) {
   const type = String(special?.type || "");
   return type !== "speed" && type !== MASSIVE_BOGGLE_TYPE;
 }
-const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
-const DAILY_SPECIAL_WORD_TARGET = 3;
 // Hauteur max de la liste des mots en fin de partie : on remplit davantage l'espace sans ?tirer toute la colonne
 const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // Le viewport reste la seule autorité en hauteur sur desktop : une hauteur
@@ -357,34 +398,12 @@ const CHAT_DRAWER_FIXED_HEIGHT_RATIO = 0.58;
 const CHAT_DRAWER_MIN_HEIGHT_PX = 320;
 const CHAT_DRAWER_MAX_HEIGHT_PX = 560;
 const CHAT_DRAWER_TOP_GAP_PX = 14;
-const CHAT_DRAWER_DEVICE_CALIBRATION_STORAGE_KEY = "gobbleChatDrawerCalibration:v1";
-const CHAT_DRAWER_CALIBRATION_MIN_RATIO = 0.42;
-const CHAT_DRAWER_CALIBRATION_MAX_RATIO = 0.78;
 const CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX = 120;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
   minHeight: `${DESKTOP_MAIN_GRID_MIN_HEIGHT}px`,
 };
-const GRID_COL_TEMPLATE = "1.05fr 1.6fr 0.85fr 1.05fr";
-const DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 0.85, 1.05];
-const DESKTOP_COLUMN_MIN_WIDTHS_PX = [220, 340, 260, 260];
-const DAILY_DESKTOP_COLUMN_TEMPLATE = "1.05fr 1.6fr 1.6fr";
-const DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS = [1.05, 1.6, 1.6];
-const DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX = [220, 340, 380];
-const DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX = "gobble_desktop_cols_v1";
-const DESKTOP_COLUMN_ORDER_STORAGE_PREFIX = "gobble_desktop_order_v1";
-const LIVE_DESKTOP_COLUMN_DEFS = [
-  { id: "players", defaultFraction: 1.05, minWidthPx: 220 },
-  { id: "grid", defaultFraction: 1.6, minWidthPx: 340 },
-  { id: "side", defaultFraction: 0.85, minWidthPx: 260 },
-  { id: "chat", defaultFraction: 1.05, minWidthPx: 260 },
-];
-const DAILY_DESKTOP_COLUMN_DEFS = [
-  { id: "players", defaultFraction: 1.05, minWidthPx: 220 },
-  { id: "grid", defaultFraction: 1.6, minWidthPx: 340 },
-  { id: "side", defaultFraction: 1.6, minWidthPx: 380 },
-];
 const MIN_GRID_WIDTH = 260;
 const MAX_GRID_WIDTH = 980;
 const MOBILE_GRID_MAX_WIDTH = 720;
@@ -479,310 +498,6 @@ function getGridSizeForRoom(roomKey) {
 function clampValue(value, min, max) {
   if (!Number.isFinite(value)) return min;
   return Math.min(Math.max(value, min), max);
-}
-
-function normalizeDesktopColumnFractions(rawFractions, defaultFractions = DESKTOP_COLUMN_DEFAULT_FRACTIONS) {
-  const safeDefaults =
-    Array.isArray(defaultFractions) && defaultFractions.length > 0
-      ? defaultFractions
-      : DESKTOP_COLUMN_DEFAULT_FRACTIONS;
-  const source = Array.isArray(rawFractions) ? rawFractions : safeDefaults;
-  const safe = safeDefaults.map((fallback, idx) => {
-    const value = Number(source[idx]);
-    if (!Number.isFinite(value) || value <= 0) return fallback;
-    return value;
-  });
-  const sum = safe.reduce((acc, value) => acc + value, 0);
-  if (!Number.isFinite(sum) || sum <= 0) {
-    return [...safeDefaults];
-  }
-  return safe.map((value) => value / sum);
-}
-
-function areDesktopFractionsEqual(a, b, epsilon = 0.0005) {
-  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (Math.abs((Number(a[i]) || 0) - (Number(b[i]) || 0)) > epsilon) return false;
-  }
-  return true;
-}
-
-function normalizeDesktopColumnOrder(rawOrder, defs = LIVE_DESKTOP_COLUMN_DEFS) {
-  const safeDefs = Array.isArray(defs) && defs.length ? defs : LIVE_DESKTOP_COLUMN_DEFS;
-  const allowed = safeDefs.map((entry) => String(entry?.id || "").trim()).filter(Boolean);
-  const requested = Array.isArray(rawOrder) ? rawOrder : [];
-  const seen = new Set();
-  const next = [];
-  for (const rawId of requested) {
-    const id = String(rawId || "").trim();
-    if (!id || seen.has(id) || !allowed.includes(id)) continue;
-    seen.add(id);
-    next.push(id);
-  }
-  for (const id of allowed) {
-    if (seen.has(id)) continue;
-    next.push(id);
-  }
-  return next;
-}
-
-function readDesktopColumnOrderForInstall(installId, storageScope, defs) {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return normalizeDesktopColumnOrder(null, defs);
-  }
-  const key = String(installId || "").trim();
-  const scope = String(storageScope || "live").trim() || "live";
-  if (!key) return normalizeDesktopColumnOrder(null, defs);
-  try {
-    const raw = localStorage.getItem(`${DESKTOP_COLUMN_ORDER_STORAGE_PREFIX}:${scope}:${key}`);
-    if (!raw) return normalizeDesktopColumnOrder(null, defs);
-    const parsed = JSON.parse(raw);
-    return normalizeDesktopColumnOrder(parsed, defs);
-  } catch (_) {
-    return normalizeDesktopColumnOrder(null, defs);
-  }
-}
-
-function writeDesktopColumnOrderForInstall(installId, storageScope, order, defs) {
-  if (typeof localStorage === "undefined") return;
-  const key = String(installId || "").trim();
-  const scope = String(storageScope || "live").trim() || "live";
-  if (!key) return;
-  try {
-    localStorage.setItem(
-      `${DESKTOP_COLUMN_ORDER_STORAGE_PREFIX}:${scope}:${key}`,
-      JSON.stringify(normalizeDesktopColumnOrder(order, defs))
-    );
-  } catch (_) {}
-}
-
-function readDesktopColumnFractionsForInstall(installId, storageScope, defaultFractions) {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
-  }
-  const key = String(installId || "").trim();
-  const scope = String(storageScope || "live").trim() || "live";
-  if (!key) return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
-  try {
-    const raw = localStorage.getItem(`${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${scope}:${key}`);
-    if (!raw) return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
-    const parsed = JSON.parse(raw);
-    return normalizeDesktopColumnFractions(parsed, defaultFractions);
-  } catch (_) {
-    return normalizeDesktopColumnFractions(defaultFractions, defaultFractions);
-  }
-}
-
-function writeDesktopColumnFractionsForInstall(installId, storageScope, fractions, defaultFractions) {
-  if (typeof localStorage === "undefined") return;
-  const key = String(installId || "").trim();
-  const scope = String(storageScope || "live").trim() || "live";
-  if (!key) return;
-  try {
-    localStorage.setItem(
-      `${DESKTOP_COLUMN_RESIZE_STORAGE_PREFIX}:${scope}:${key}`,
-      JSON.stringify(normalizeDesktopColumnFractions(fractions, defaultFractions))
-    );
-  } catch (_) {}
-}
-
-function getChatDrawerOrientationKey() {
-  if (typeof window === "undefined") return "portrait";
-  const width = Number(window.innerWidth) || 0;
-  const height = Number(window.innerHeight) || 0;
-  return width > height ? "landscape" : "portrait";
-}
-
-function readStoredChatDrawerCalibration() {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return null;
-  }
-  try {
-    const raw = localStorage.getItem(CHAT_DRAWER_DEVICE_CALIBRATION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const ratio = Number(parsed?.ratio);
-    const heightPx = Number(parsed?.heightPx);
-    const orientation = String(parsed?.orientation || "").trim() || "portrait";
-    if (!Number.isFinite(ratio) || ratio <= 0) return null;
-    if (!Number.isFinite(heightPx) || heightPx <= 0) return null;
-    return {
-      ratio: clampValue(ratio, CHAT_DRAWER_CALIBRATION_MIN_RATIO, CHAT_DRAWER_CALIBRATION_MAX_RATIO),
-      heightPx: Math.max(1, Math.round(heightPx)),
-      orientation,
-    };
-  } catch (_) {
-    return null;
-  }
-}
-
-function writeStoredChatDrawerCalibration(calibration) {
-  if (typeof localStorage === "undefined") return;
-  const ratio = Number(calibration?.ratio);
-  const heightPx = Number(calibration?.heightPx);
-  const orientation = String(calibration?.orientation || "").trim() || "portrait";
-  if (!Number.isFinite(ratio) || ratio <= 0) return;
-  if (!Number.isFinite(heightPx) || heightPx <= 0) return;
-  try {
-    localStorage.setItem(
-      CHAT_DRAWER_DEVICE_CALIBRATION_STORAGE_KEY,
-      JSON.stringify({
-        ratio: clampValue(ratio, CHAT_DRAWER_CALIBRATION_MIN_RATIO, CHAT_DRAWER_CALIBRATION_MAX_RATIO),
-        heightPx: Math.max(1, Math.round(heightPx)),
-        orientation,
-        updatedAt: Date.now(),
-      })
-    );
-  } catch (_) {}
-}
-
-function buildRankingSignature(list) {
-  if (!Array.isArray(list) || list.length === 0) return "";
-  const size = list.length;
-  const limit = Math.min(size, 20);
-  let out = `n:${size}|`;
-  for (let i = 0; i < limit; i += 1) {
-    const entry = list[i] || {};
-    const nick = String(entry.nick || "").trim();
-    const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
-    const score =
-      Number.isFinite(entry.score) ? entry.score : Number.isFinite(entry.points) ? entry.points : 0;
-    const rank = Number.isFinite(entry.rank) ? entry.rank : i + 1;
-    const gobbles = Number.isFinite(entry.gobbles) ? entry.gobbles : 0;
-    const afk = entry.afk ? "1" : "0";
-    const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
-    const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    out += `${nick}:${userId}:${rank}:${score}:${gobbles}:${afk}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
-  }
-  return out;
-}
-
-function buildPlayersSignature(list) {
-  if (!Array.isArray(list) || list.length === 0) return "";
-  const size = list.length;
-  const limit = Math.min(size, 24);
-  let out = `n:${size}|`;
-  for (let i = 0; i < limit; i += 1) {
-    const entry = list[i] || {};
-    const nick = String(entry.nick || "").trim();
-    const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
-    const team = String(entry.team || "");
-    const bot = entry.isBot ? "1" : "0";
-    const afk = entry.afk ? "1" : "0";
-    const ready = entry.readyForTournament ? "1" : "0";
-    const training = entry.inTraining ? `1:${String(entry.trainingMode || "")}` : "0";
-    const dailyChampion = entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
-    const weeklyVocabPodiumRank = Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    out += `${nick}:${userId}:${team}:${bot}:${afk}:${ready}:${training}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
-  }
-  return out;
-}
-
-function normalizeRotationTurns(turns) {
-  if (!Number.isFinite(turns)) return 0;
-  const mod = turns % 4;
-  return mod < 0 ? mod + 4 : mod;
-}
-
-function rotateIndexByTurns(index, size, turns) {
-  if (!Number.isInteger(index) || !Number.isInteger(size) || size <= 0) {
-    return index;
-  }
-  const t = normalizeRotationTurns(turns);
-  if (t === 0) return index;
-  const row = Math.floor(index / size);
-  const col = index % size;
-  if (t === 1) return col * size + (size - 1 - row);
-  if (t === 2) return (size - 1 - row) * size + (size - 1 - col);
-  return (size - 1 - col) * size + row;
-}
-
-function mapDisplayToBoardIndex(displayIndex, size, turns) {
-  const t = normalizeRotationTurns(turns);
-  return rotateIndexByTurns(displayIndex, size, (4 - t) % 4);
-}
-
-function normalizeBonusLabel(bonus) {
-  if (bonus === "W2") return "M2";
-  if (bonus === "W3") return "M3";
-  return bonus;
-}
-
-function createDailySpecialPlacements() {
-  return { L2: null, L3: null, M2: null, M3: null };
-}
-
-function createDailyWordSlots() {
-  return Array.from({ length: DAILY_SPECIAL_WORD_TARGET }, (_, idx) => ({
-    id: idx,
-    word: "",
-    display: "",
-    path: [],
-  }));
-}
-
-function getDailySpecialWordStartTile(path) {
-  const first = Array.isArray(path) ? Number(path[0]) : NaN;
-  return Number.isInteger(first) && first >= 0 ? first : null;
-}
-
-function getDailySpecialWordBlockedReason(word, path, slots, targetSlot) {
-  const normalized = normalizeWord(String(word || ""));
-  if (!normalized || normalized.length < 2) return "";
-  const startTile = getDailySpecialWordStartTile(path);
-  if (startTile == null) return "";
-  const list = Array.isArray(slots) ? slots : [];
-  const hasSameStartTile = list.some(
-    (slot, idx) =>
-      idx !== targetSlot && getDailySpecialWordStartTile(slot?.path) === startTile
-  );
-  return hasSameStartTile ? "Première tuile déjà utilisée" : "";
-}
-
-function stripBoardBonuses(board) {
-  if (!Array.isArray(board)) return [];
-  return board.map((cell) => ({
-    ...(cell || {}),
-    bonus: null,
-  }));
-}
-
-function applyDailySpecialPlacements(board, placements) {
-  const base = stripBoardBonuses(board);
-  const occupied = new Set();
-  DAILY_SPECIAL_BONUSES.forEach((bonus) => {
-    const rawPlacement = placements?.[bonus];
-    const idx = Number.isInteger(rawPlacement) ? rawPlacement : null;
-    if (!Number.isInteger(idx) || idx < 0 || idx >= base.length) return;
-    if (occupied.has(idx) || !base[idx]) return;
-    occupied.add(idx);
-    base[idx] = { ...base[idx], bonus };
-  });
-  return base;
-}
-
-function getEffectiveDailySpecialPlacements(basePlacements, dragState, boardLength) {
-  const next = {
-    ...(basePlacements && typeof basePlacements === "object" ? basePlacements : {}),
-  };
-  if (!dragState || typeof dragState !== "object") return next;
-  const bonusKey = typeof dragState.bonusKey === "string" ? dragState.bonusKey : "";
-  if (!bonusKey) return next;
-  const hoverIndex = Number.isInteger(dragState.hoverIndex) ? dragState.hoverIndex : null;
-  next[bonusKey] = null;
-  const canPlaceOnGrid =
-    Number.isInteger(hoverIndex) &&
-    hoverIndex >= 0 &&
-    hoverIndex < (Number.isFinite(boardLength) ? boardLength : 0);
-  if (!canPlaceOnGrid) return next;
-  DAILY_SPECIAL_BONUSES.forEach((otherBonus) => {
-    if (otherBonus === bonusKey) return;
-    if (Number.isInteger(next?.[otherBonus]) && next[otherBonus] === hoverIndex) {
-      next[otherBonus] = null;
-    }
-  });
-  next[bonusKey] = hoverIndex;
-  return next;
 }
 
 function areStringArraysEqual(a, b) {
