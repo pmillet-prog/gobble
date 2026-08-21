@@ -42,3 +42,46 @@ test("application navigation rejects unknown views and keeps history", () => {
     view: "daily",
   });
 });
+
+test("game state is owned by the kernel and supports functional transitions", () => {
+  const kernel = createApplicationKernel();
+
+  kernel.commands.game.setScore(12);
+  kernel.commands.game.setScore((score) => score + 8);
+  kernel.commands.game.patch({ phase: "playing", unknown: "ignored" });
+
+  assert.equal(kernel.getState().game.score, 20);
+  assert.equal(kernel.getState().game.phase, "playing");
+  assert.equal(kernel.getState().game.unknown, undefined);
+});
+
+test("session transitions are centralized and reject fields outside the contract", () => {
+  const kernel = createApplicationKernel({ session: { nickname: "Tigre" } });
+
+  kernel.commands.session.patch({
+    isConnecting: true,
+    nickname: "Test",
+    password: "must-not-enter-state",
+  });
+  kernel.commands.session.setConnectionError("hors ligne");
+
+  assert.equal(kernel.getState().session.nickname, "Test");
+  assert.equal(kernel.getState().session.isConnecting, true);
+  assert.equal(kernel.getState().session.connectionError, "hors ligne");
+  assert.equal(kernel.getState().session.password, undefined);
+});
+
+test("realtime snapshots accept authoritative server fields as one transition", () => {
+  const kernel = createApplicationKernel();
+  const players = [{ nick: "Tigre", score: 42 }];
+
+  kernel.commands.realtime.patch({
+    players,
+    roundId: "round-7",
+    serverEndsAt: 123456,
+  });
+
+  assert.equal(kernel.getState().realtime.roundId, "round-7");
+  assert.equal(kernel.getState().realtime.serverEndsAt, 123456);
+  assert.equal(kernel.getState().realtime.players, players);
+});

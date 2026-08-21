@@ -48,7 +48,6 @@ import {
 } from "./assets/uiAssetManifest.js";
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
-import socket from "./socket";
 import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
 import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
@@ -4430,6 +4429,164 @@ function useStableEvent(handler) {
 
 export default function LegacyApp() {
   recordAppRender();
+  const applicationKernel = useApplicationKernel();
+  const socket = applicationKernel.ports.realtime;
+  const gameState = useApplicationSelector((state) => state.game);
+  const realtimeState = useApplicationSelector((state) => state.realtime);
+  const sessionState = useApplicationSelector((state) => state.session);
+  const ambientTracks = useApplicationSelector((state) => state.boot.ambientTracks);
+  const bootReady = useApplicationSelector((state) => state.boot.ready);
+  const bootOverlayVisible = useApplicationSelector((state) => state.boot.overlayVisible);
+  const appView = useApplicationSelector((state) => state.navigation.view);
+  const {
+    accepted,
+    allWords,
+    board,
+    cultureThemeChallenge,
+    currentRoomId,
+    dictionary,
+    gridRotationTurns,
+    gridSize,
+    implodeActive,
+    inputLocked,
+    isGridRotating,
+    lastInputMode,
+    lastWords,
+    phase,
+    roomId,
+    score,
+    shake,
+    shakeGrid,
+    showAllWords,
+    sortMode,
+    statusMessage,
+    submissionTick,
+    tick,
+    toasts,
+  } = gameState;
+  const {
+    authState,
+    canResumeSession,
+    connectionError,
+    isConnecting,
+    isLoggedIn,
+    loginError,
+    nickname,
+    resumePending,
+    resumeSnapshot,
+    serverStatus,
+  } = sessionState;
+  const {
+    announcements,
+    breakCountdown,
+    breakKind,
+    finalResults,
+    lobbyPlayersList,
+    lobbyPlayersLoading,
+    lobbyRoomStatus,
+    medals,
+    nextStartAt,
+    players,
+    provisionalRanking,
+    roomsStats,
+    roundId,
+    roundPreparing,
+    roundStartDelayTick,
+    roundStats,
+    serverEndsAt,
+    serverRoundDurationMs,
+    specialRound,
+    targetSummary,
+    tournament,
+    tournamentFinaleHoldUntil,
+    tournamentLobby,
+    tournamentRanking,
+    tournamentRoundPoints,
+    tournamentSummary,
+    tournamentSummaryAt,
+    tournamentTotals,
+    upcomingSpecial,
+  } = realtimeState;
+  const {
+    setAccepted,
+    setAllWords,
+    setBoard,
+    setCultureThemeChallenge,
+    setCurrentRoomId,
+    setDictionary,
+    setGridRotationTurns,
+    setGridSize,
+    setImplodeActive,
+    setInputLocked,
+    setIsGridRotating,
+    setLastInputMode,
+    setLastWords,
+    setPhase,
+    setRoomId,
+    setScore,
+    setShake,
+    setShakeGrid,
+    setShowAllWords,
+    setSortMode,
+    setStatusMessage,
+    setSubmissionTick,
+    setTick,
+    setToasts,
+  } = applicationKernel.commands.game;
+  const {
+    setAuthState,
+    setCanResumeSession,
+    setConnectionError,
+    setIsConnecting,
+    setIsLoggedIn,
+    setLoginError,
+    setNickname,
+    setResumePending,
+    setResumeSnapshot,
+    setServerStatus,
+  } = applicationKernel.commands.session;
+  const {
+    setAnnouncements,
+    setBreakCountdown,
+    setBreakKind,
+    setFinalResults,
+    setLobbyPlayersList,
+    setLobbyPlayersLoading,
+    setLobbyRoomStatus,
+    setMedals,
+    setNextStartAt,
+    setPlayers,
+    setProvisionalRanking,
+    setRoomsStats,
+    setRoundId,
+    setRoundPreparing,
+    setRoundStartDelayTick,
+    setRoundStats,
+    setServerEndsAt,
+    setServerRoundDurationMs,
+    setSpecialRound,
+    setTargetSummary,
+    setTournament,
+    setTournamentFinaleHoldUntil,
+    setTournamentLobby,
+    setTournamentRanking,
+    setTournamentRoundPoints,
+    setTournamentSummary,
+    setTournamentSummaryAt,
+    setTournamentTotals,
+    setUpcomingSpecial,
+  } = applicationKernel.commands.realtime;
+  const setAppView = React.useCallback(
+    (nextViewOrUpdater) => {
+      const currentView = applicationKernel.getState().navigation.view;
+      const nextView =
+        typeof nextViewOrUpdater === "function"
+          ? nextViewOrUpdater(currentView)
+          : nextViewOrUpdater;
+      applicationKernel.commands.navigation.go(nextView);
+    },
+    [applicationKernel]
+  );
 
   useEffect(() => {
     try {
@@ -4440,18 +4597,7 @@ export default function LegacyApp() {
     } catch (_) {}
   }, []);
 
-  const initialRoomId = getDefaultRoomId();
-  const initialGridSize = getGridSizeForRoom(initialRoomId);
-  const [roomId, setRoomId] = useState(initialRoomId);
-  const roomIdRef = useRef(initialRoomId);
-  const [currentRoomId, setCurrentRoomId] = useState(null);
-  const [gridSize, setGridSize] = useState(initialGridSize);
-  const [gridRotationTurns, setGridRotationTurns] = useState(0);
-  const [phase, setPhase] = useState("lobby");
-  const [tick, setTick] = useState(0);
-  const [board, setBoard] = useState(
-    Array(initialGridSize * initialGridSize).fill({ letter: "?", bonus: null })
-  );
+  const roomIdRef = useRef(roomId);
   const currentTilesRef = useRef([]);
   const highlightPathRef = useRef([]);
   const shouldForceTraceRenderRef = useRef(true);
@@ -4478,23 +4624,10 @@ export default function LegacyApp() {
       typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
     commitTraceSelection(currentTilesRef.current, next);
   }
-  const [dictionary, setDictionary] = useState(null);
-  const [accepted, setAccepted] = useState([]);
-  const [submissionTick, setSubmissionTick] = useState(0);
-  const [score, setScore] = useState(0);
-  const [shakeGrid, setShakeGrid] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(null);
   const statusHoldRef = useRef({ text: "", until: 0 });
   const statusHoldTimerRef = useRef(null);
   const [, setStatusHoldTick] = useState(0);
-  const [lastWords, setLastWords] = useState([]);
   const liveFeedTsRef = useRef(0);
-  const [showAllWords, setShowAllWords] = useState(false);
-  const [sortMode, setSortMode] = useState("score");
-  const [allWords, setAllWords] = useState([]);
-  const [cultureThemeChallenge, setCultureThemeChallenge] = useState(null);
-  const [toasts, setToasts] = useState([]);
-  const [shake, setShake] = useState(false);
   const tileRefs = useRef([]);
   const dragGridMetricsRef = useRef(null);
   const gridInputControllerRef = useRef(null);
@@ -4511,13 +4644,11 @@ export default function LegacyApp() {
     []
   );
   const activeTraceStartedAtRef = useRef(null);
-  const [inputLocked, setInputLocked] = useState(false);
   const inputLockedRef = useRef(false);
   const outroInFlightRef = useRef(false);
   const outroRoundRef = useRef(null);
   const gameplaySessionTokenRef = useRef(0);
   const blackHoleOverlayRef = useRef(null);
-  const [implodeActive, setImplodeActive] = useState(false);
   const implodeRoundRef = useRef(null);
   const implodeTimerRef = useRef(null);
   const tileIntroTimerRef = useRef(null);
@@ -4530,8 +4661,6 @@ export default function LegacyApp() {
   const playOutroThenResultsRef = useRef(null);
   const gridRotateAnimRef = useRef(null);
   const gridRotateTimerRef = useRef(null);
-  const [isGridRotating, setIsGridRotating] = useState(false);
-  const [lastInputMode, setLastInputMode] = useState("keyboard");
   const lastInputModeRef = useRef("keyboard");
   const tickCountdownPlayedRef = useRef(false);
   const countdownTickPlayedRef = useRef(false);
@@ -4784,22 +4913,6 @@ export default function LegacyApp() {
     },
     [applyThemeVisualState]
   );
-  const applicationKernel = useApplicationKernel();
-  const ambientTracks = useApplicationSelector((state) => state.boot.ambientTracks);
-  const bootReady = useApplicationSelector((state) => state.boot.ready);
-  const bootOverlayVisible = useApplicationSelector((state) => state.boot.overlayVisible);
-  const appView = useApplicationSelector((state) => state.navigation.view);
-  const setAppView = React.useCallback(
-    (nextViewOrUpdater) => {
-      const currentView = applicationKernel.getState().navigation.view;
-      const nextView =
-        typeof nextViewOrUpdater === "function"
-          ? nextViewOrUpdater(currentView)
-          : nextViewOrUpdater;
-      applicationKernel.commands.navigation.go(nextView);
-    },
-    [applicationKernel]
-  );
   const ambientTracksRef = useRef(ambientTracks);
   useEffect(() => {
     ambientTracksRef.current = ambientTracks;
@@ -4878,19 +4991,6 @@ export default function LegacyApp() {
   const [mobileResultsOutroFadeActive, setMobileResultsOutroFadeActive] = useState(false);
   const [dismissedTournamentFinaleKey, setDismissedTournamentFinaleKey] = useState(null);
   const finaleScrollRef = useRef(null);
-  const [nickname, setNickname] = useState(() => {
-    try {
-      return localStorage.getItem("boggle_nick") || "";
-    } catch (_) {
-      return "";
-    }
-  });
-  const [authState, setAuthState] = useState({
-    loading: true,
-    status: "loading",
-    user: null,
-    legacyProfile: null,
-  });
   const [authModalMode, setAuthModalMode] = useState(null);
   const [authForm, setAuthForm] = useState(() => createEmptyAuthForm());
   const [authError, setAuthError] = useState("");
@@ -4898,19 +4998,9 @@ export default function LegacyApp() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
   const socketConnectPromiseRef = useRef(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loginError, setLoginError] = useState("");
-  const [roundId, setRoundId] = useState(null);
   const roundStartSoundRef = useRef(null);
   const tickRef = useRef(tick);
   const tickTimerRef = useRef(null);
-  const [serverEndsAt, setServerEndsAt] = useState(null);
-  const [serverRoundDurationMs, setServerRoundDurationMs] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [provisionalRanking, setProvisionalRanking] = useState([]);
-  const [finalResults, setFinalResults] = useState([]);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState("");
   const [isWeeklyOpen, setIsWeeklyOpen] = useState(false);
   const [weeklyStats, setWeeklyStats] = useState(null);
   const [weeklyStatsLoading, setWeeklyStatsLoading] = useState(false);
@@ -5030,31 +5120,14 @@ export default function LegacyApp() {
   const weeklyArrowBlinkTimerRef = useRef(null);
   const weeklyArrowBumpTimerRef = useRef(null);
   const weeklyArrowSeenRef = useRef(false);
-  const [roomsStats, setRoomsStats] = useState([]);
-  const [lobbyPlayersList, setLobbyPlayersList] = useState([]);
-  const [lobbyPlayersLoading, setLobbyPlayersLoading] = useState(false);
-  const [lobbyRoomStatus, setLobbyRoomStatus] = useState(null);
   const [isPlayersOverlayOpen, setIsPlayersOverlayOpen] = useState(false);
   const [playersOverlayMode, setPlayersOverlayMode] = useState("snapshot");
   const [playersOverlaySnapshot, setPlayersOverlaySnapshot] = useState([]);
-  const [canResumeSession, setCanResumeSession] = useState(false);
-  const [resumeSnapshot, setResumeSnapshot] = useState(null);
-  const [resumePending, setResumePending] = useState(false);
   const autoResumeEnabledRef = useRef(false);
-  const [serverStatus, setServerStatus] = useState("waiting");
-  const [tournamentLobby, setTournamentLobby] = useState(null);
   const [trainingBusy, setTrainingBusy] = useState(false);
   const [trainingConfirm, setTrainingConfirm] = useState(null);
   const serverClockRef = useRef(createServerClockState());
-  const [announcements, setAnnouncements] = useState([]);
-  const [roundStats, setRoundStats] = useState(null);
-  const [specialRound, setSpecialRound] = useState(null);
-  const [nextStartAt, setNextStartAt] = useState(null);
-  const [breakCountdown, setBreakCountdown] = useState(null);
-  const [roundPreparing, setRoundPreparing] = useState(null);
-  const [roundStartDelayTick, setRoundStartDelayTick] = useState(0);
   const breakCountdownRef = useRef(breakCountdown);
-  const [upcomingSpecial, setUpcomingSpecial] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installMessage, setInstallMessage] = useState("");
   const [installSupport, setInstallSupport] = useState("unknown"); // unknown | available | unavailable | installed | maybe
@@ -5141,15 +5214,6 @@ export default function LegacyApp() {
       !/EdgA|OPR|SamsungBrowser/i.test(ua);
     return isAndroidChrome ? "search" : "text";
   }, []);
-  const [medals, setMedals] = useState({});
-  const [tournament, setTournament] = useState(null); // { id, round, totalRounds, ... }
-  const [tournamentTotals, setTournamentTotals] = useState({}); // nick -> points
-  const [tournamentRanking, setTournamentRanking] = useState([]); // [{ nick, score }]
-  const [tournamentRoundPoints, setTournamentRoundPoints] = useState({}); // nick -> points earned this round
-  const [tournamentSummary, setTournamentSummary] = useState(null); // finale: { winnerNick, records, ranking }
-  const [tournamentSummaryAt, setTournamentSummaryAt] = useState(null);
-  const [tournamentFinaleHoldUntil, setTournamentFinaleHoldUntil] = useState(null);
-  const [targetSummary, setTargetSummary] = useState(null); // { word, foundOrder }
   const [ocidProposal, setOcidProposal] = useState("");
   const [ocidProposalPath, setOcidProposalPath] = useState([]);
   const [ocidProposalSubmitted, setOcidProposalSubmitted] = useState("");
@@ -5161,7 +5225,6 @@ export default function LegacyApp() {
   const ocidLatestProposalRef = useRef({ roundId: null, word: "", path: [] });
   const ocidResultToastKeyRef = useRef("");
   const ocidResultToastDelayTimersRef = useRef([]);
-  const [breakKind, setBreakKind] = useState(null); // between_rounds | tournament_end | training_end
   const breakKindRef = useRef(breakKind);
   const [resultsRankingMode, setResultsRankingMode] = useState("round"); // round | total
   const [desktopResultsSummaryExpanded, setDesktopResultsSummaryExpanded] = useState(true);
@@ -12757,63 +12820,35 @@ export default function LegacyApp() {
     roundHandlersRef.current.onRoundEnded = onRoundEnded;
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
 
-    socket.on("roundPreparing", onRoundPreparing);
-    socket.on("roundStarted", onRoundStarted);
-    socket.on("roundEnded", onRoundEnded);
-    socket.on("breakStarted", onBreakStarted);
-    socket.on("playersUpdate", onPlayersUpdate);
-    socket.on("rankingUpdate", onRankingUpdate);
-    socket.on("chat:history", onChatHistory);
-    socket.on("chatMessage", onChatNew);
-    socket.on("chat:message_reaction", onChatReactionUpdate);
-    socket.on("chat:message_update", onChatMessageUpdate);
-    socket.on("chat:message_delete", onChatMessageDelete);
-    socket.on("announcement", onAnnouncement);
-    socket.on("announcements", onAnnouncements);
-    socket.on("medalsUpdate", onMedalsUpdate);
-    socket.on("specialHint", onSpecialHint);
-    socket.on("specialSolved", onSpecialSolved);
-    socket.on("cultureThemeChallenge", onCultureThemeChallenge);
-    socket.on("ocidVoteStarted", onOcidVoteStarted);
-    socket.on("ocidVoteUpdated", onOcidVoteUpdated);
-    socket.on("trophiesUpdated", onTrophiesUpdated);
-    socket.on("gobblarsAwarded", onGobblarsAwarded);
-    socket.on("moderation:notice", onModerationNotice);
-    socket.on("dev:globalAnnouncement", onDevGlobalAnnouncement);
-    socket.on("tournamentLobbyUpdate", onTournamentLobbyUpdate);
-    socket.on("connect", onConnect);
-    socket.on("connect_error", onConnectError);
-    socket.on("disconnect", onDisconnect);
-
-    return () => {
-      socket.off("roundPreparing", onRoundPreparing);
-      socket.off("roundStarted", onRoundStarted);
-      socket.off("roundEnded", onRoundEnded);
-      socket.off("breakStarted", onBreakStarted);
-      socket.off("playersUpdate", onPlayersUpdate);
-      socket.off("rankingUpdate", onRankingUpdate);
-      socket.off("chat:history", onChatHistory);
-      socket.off("chatMessage", onChatNew);
-      socket.off("chat:message_reaction", onChatReactionUpdate);
-      socket.off("chat:message_update", onChatMessageUpdate);
-      socket.off("chat:message_delete", onChatMessageDelete);
-      socket.off("announcement", onAnnouncement);
-      socket.off("announcements", onAnnouncements);
-      socket.off("medalsUpdate", onMedalsUpdate);
-      socket.off("specialHint", onSpecialHint);
-      socket.off("specialSolved", onSpecialSolved);
-      socket.off("cultureThemeChallenge", onCultureThemeChallenge);
-      socket.off("ocidVoteStarted", onOcidVoteStarted);
-      socket.off("ocidVoteUpdated", onOcidVoteUpdated);
-      socket.off("trophiesUpdated", onTrophiesUpdated);
-      socket.off("gobblarsAwarded", onGobblarsAwarded);
-      socket.off("moderation:notice", onModerationNotice);
-      socket.off("dev:globalAnnouncement", onDevGlobalAnnouncement);
-      socket.off("tournamentLobbyUpdate", onTournamentLobbyUpdate);
-      socket.off("connect", onConnect);
-      socket.off("connect_error", onConnectError);
-      socket.off("disconnect", onDisconnect);
-    };
+    return socket.bind({
+      announcement: onAnnouncement,
+      announcements: onAnnouncements,
+      breakStarted: onBreakStarted,
+      "chat:history": onChatHistory,
+      "chat:message_delete": onChatMessageDelete,
+      "chat:message_reaction": onChatReactionUpdate,
+      "chat:message_update": onChatMessageUpdate,
+      chatMessage: onChatNew,
+      connect: onConnect,
+      connect_error: onConnectError,
+      cultureThemeChallenge: onCultureThemeChallenge,
+      "dev:globalAnnouncement": onDevGlobalAnnouncement,
+      disconnect: onDisconnect,
+      gobblarsAwarded: onGobblarsAwarded,
+      medalsUpdate: onMedalsUpdate,
+      "moderation:notice": onModerationNotice,
+      ocidVoteStarted: onOcidVoteStarted,
+      ocidVoteUpdated: onOcidVoteUpdated,
+      playersUpdate: onPlayersUpdate,
+      rankingUpdate: onRankingUpdate,
+      roundEnded: onRoundEnded,
+      roundPreparing: onRoundPreparing,
+      roundStarted: onRoundStarted,
+      specialHint: onSpecialHint,
+      specialSolved: onSpecialSolved,
+      tournamentLobbyUpdate: onTournamentLobbyUpdate,
+      trophiesUpdated: onTrophiesUpdated,
+    });
   }, []);
 
 

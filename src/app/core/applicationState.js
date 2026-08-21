@@ -1,3 +1,7 @@
+import { createInitialGameState } from "./gameState.js";
+import { createInitialSessionState } from "./sessionState.js";
+import { createInitialRealtimeState } from "./realtimeState.js";
+
 export const APP_VIEWS = Object.freeze([
   "home",
   "live",
@@ -18,16 +22,19 @@ export function normalizeAppView(value, fallback = "home") {
   return APP_VIEW_SET.has(fallback) ? fallback : "home";
 }
 
-export function createInitialApplicationState({ ambientTracks = [] } = {}) {
+export function createInitialApplicationState({ ambientTracks = [], game = {}, session = {} } = {}) {
   return Object.freeze({
     boot: Object.freeze({
       ambientTracks: Array.isArray(ambientTracks) ? ambientTracks : [],
       overlayVisible: true,
       ready: false,
     }),
+    game: createInitialGameState(game),
     navigation: Object.freeze({
       previousView: null,
       view: "home",
     }),
+    realtime: createInitialRealtimeState(),
+    session: createInitialSessionState(session),
   });
 }

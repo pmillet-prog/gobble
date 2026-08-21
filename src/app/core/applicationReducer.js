@@ -1,4 +1,7 @@
 import { normalizeAppView } from "./applicationState.js";
+import { reduceGameState } from "./gameReducer.js";
+import { reduceSessionState } from "./sessionReducer.js";
+import { reduceRealtimeState } from "./realtimeReducer.js";
 
 export const APPLICATION_ACTIONS = Object.freeze({
   BOOT_AMBIENT_TRACKS_RESOLVED: "boot/ambient-tracks-resolved",
@@ -13,6 +16,18 @@ function replaceBoot(state, patch) {
 }
 
 export function reduceApplicationState(state, action) {
+  const nextGame = reduceGameState(state.game, action);
+  if (nextGame !== state.game) {
+    return Object.freeze({ ...state, game: nextGame });
+  }
+  const nextSession = reduceSessionState(state.session, action);
+  if (nextSession !== state.session) {
+    return Object.freeze({ ...state, session: nextSession });
+  }
+  const nextRealtime = reduceRealtimeState(state.realtime, action);
+  if (nextRealtime !== state.realtime) {
+    return Object.freeze({ ...state, realtime: nextRealtime });
+  }
   switch (action?.type) {
     case APPLICATION_ACTIONS.BOOT_AMBIENT_TRACKS_RESOLVED: {
       const ambientTracks = Array.isArray(action.payload) ? action.payload : [];

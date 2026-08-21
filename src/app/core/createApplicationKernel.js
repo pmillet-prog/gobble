@@ -1,9 +1,22 @@
 import { APPLICATION_ACTIONS, reduceApplicationState } from "./applicationReducer.js";
 import { createInitialApplicationState } from "./applicationState.js";
+import { GAME_ACTIONS } from "./gameReducer.js";
+import { GAME_STATE_FIELDS } from "./gameState.js";
+import { SESSION_ACTIONS } from "./sessionReducer.js";
+import { SESSION_STATE_FIELDS } from "./sessionState.js";
+import { REALTIME_ACTIONS } from "./realtimeReducer.js";
+import { REALTIME_STATE_FIELDS } from "./realtimeState.js";
+
+function setterNameForField(field) {
+  return `set${field.charAt(0).toUpperCase()}${field.slice(1)}`;
+}
 
 export function createApplicationKernel(options = {}) {
   let state = createInitialApplicationState(options);
   const listeners = new Set();
+  const ports = Object.freeze({
+    realtime: options.ports?.realtime || null,
+  });
 
   const getState = () => state;
   const subscribe = (listener) => {
@@ -19,6 +32,55 @@ export function createApplicationKernel(options = {}) {
     return state;
   };
 
+  const gameCommands = {
+    patch: (patch) => dispatch({ type: GAME_ACTIONS.PATCHED, payload: patch }),
+  };
+  for (const field of GAME_STATE_FIELDS) {
+    gameCommands[setterNameForField(field)] = (nextOrUpdater) => {
+      const currentValue = getState().game[field];
+      const value =
+        typeof nextOrUpdater === "function"
+          ? nextOrUpdater(currentValue)
+          : nextOrUpdater;
+      return dispatch({
+        type: GAME_ACTIONS.FIELD_CHANGED,
+        payload: { field, value },
+      });
+    };
+  }
+  const sessionCommands = {
+    patch: (patch) => dispatch({ type: SESSION_ACTIONS.PATCHED, payload: patch }),
+  };
+  for (const field of SESSION_STATE_FIELDS) {
+    sessionCommands[setterNameForField(field)] = (nextOrUpdater) => {
+      const currentValue = getState().session[field];
+      const value =
+        typeof nextOrUpdater === "function"
+          ? nextOrUpdater(currentValue)
+          : nextOrUpdater;
+      return dispatch({
+        type: SESSION_ACTIONS.FIELD_CHANGED,
+        payload: { field, value },
+      });
+    };
+  }
+  const realtimeCommands = {
+    patch: (patch) => dispatch({ type: REALTIME_ACTIONS.PATCHED, payload: patch }),
+  };
+  for (const field of REALTIME_STATE_FIELDS) {
+    realtimeCommands[setterNameForField(field)] = (nextOrUpdater) => {
+      const currentValue = getState().realtime[field];
+      const value =
+        typeof nextOrUpdater === "function"
+          ? nextOrUpdater(currentValue)
+          : nextOrUpdater;
+      return dispatch({
+        type: REALTIME_ACTIONS.FIELD_CHANGED,
+        payload: { field, value },
+      });
+    };
+  }
+
   const commands = Object.freeze({
     boot: Object.freeze({
       resolveAmbientTracks: (tracks) =>
@@ -33,6 +95,7 @@ export function createApplicationKernel(options = {}) {
         }),
       setReady: () => dispatch({ type: APPLICATION_ACTIONS.BOOT_READY }),
     }),
+    game: Object.freeze(gameCommands),
     navigation: Object.freeze({
       go: (view) =>
         dispatch({
@@ -40,7 +103,9 @@ export function createApplicationKernel(options = {}) {
           payload: view,
         }),
     }),
+    realtime: Object.freeze(realtimeCommands),
+    session: Object.freeze(sessionCommands),
   });
 
-  return Object.freeze({ commands, dispatch, getState, subscribe });
+  return Object.freeze({ commands, dispatch, getState, ports, subscribe });
 }
