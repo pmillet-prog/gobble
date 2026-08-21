@@ -114,7 +114,6 @@ import TutorialOverlay from "./components/TutorialOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import GlobalRedAnnouncementOverlay from "./components/GlobalRedAnnouncementOverlay.jsx";
 import PlaytimeCountdownOverlay from "./components/PlaytimeCountdownOverlay.jsx";
-import SettingsMenu from "./components/settings/SettingsMenu.jsx";
 import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelWeekRecapOverlay from "./components/DuelWeekRecapOverlay.jsx";
@@ -150,7 +149,6 @@ import TrainingPlayerBadge from "./components/training/TrainingPlayerBadge.jsx";
 import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
 import StandaloneTrainingPicker from "./components/training/StandaloneTrainingPicker.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
-import MobileResultsScreen from "./components/mobile/MobileResultsScreen.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import MobileSpecial3Playing from "./components/mobile/MobileSpecial3Playing.jsx";
 import MobileStandardPlaying from "./components/mobile/MobileStandardPlaying.jsx";
@@ -163,7 +161,6 @@ import { getFinaleTutorialSteps } from "./components/finale/finalePresentation.j
 import OcidVoteOptionsGrid from "./components/ocid/OcidVoteOptionsGrid.jsx";
 import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
 import useGridHitboxController from "./components/grid/useGridHitboxController.js";
-import HelpOverlay from "./components/HelpOverlay.jsx";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
 import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
@@ -293,6 +290,10 @@ const DuelObjectivesPanel = React.lazy(() => import("./components/DuelObjectives
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
 const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"));
 const WordVaultPage = React.lazy(() => import("./components/WordVaultPage.jsx"));
+const SettingsMenu = React.lazy(() => import("./components/settings/SettingsMenu.jsx"));
+const HelpOverlay = React.lazy(() => import("./components/HelpOverlay.jsx"));
+const loadMobileResultsScreen = () => import("./components/mobile/MobileResultsScreen.jsx");
+const MobileResultsScreen = React.lazy(loadMobileResultsScreen);
 const TargetWaitDevPlayground = React.lazy(() =>
   import("./components/targetWait/TargetWaitDevPlayground.jsx")
 );
@@ -25338,6 +25339,11 @@ function handleTouchEnd(e) {
 
   const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
+  useEffect(() => {
+    if (isMobileLayout && phase === "playing") {
+      void loadMobileResultsScreen();
+    }
+  }, [isMobileLayout, phase]);
   const roundPreparationPending =
     !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
   const showRoundPreparationWaiting = shouldShowRoundPreparationOverlay({
@@ -29510,8 +29516,9 @@ function handleTouchEnd(e) {
   const settingsDangerButtonClass = menuDarkMode
     ? "bg-rose-950/55 border-rose-300/40 text-rose-50 hover:bg-rose-950/70"
     : "bg-rose-50/85 border-rose-300/60 text-rose-800 hover:bg-rose-100";
-  const settingsMenuView = (
-    <SettingsMenu
+  const settingsMenuView = isSettingsOpen ? (
+    <Suspense fallback={null}>
+      <SettingsMenu
       ACCOUNT_SERVER_BUSY_MESSAGE={ACCOUNT_SERVER_BUSY_MESSAGE}
       AUTH_MODAL_MODES={AUTH_MODAL_MODES}
       BONUS_CLASSES={BONUS_CLASSES}
@@ -29712,8 +29719,9 @@ function handleTouchEnd(e) {
       visualPraiseEnabled={visualPraiseEnabled}
       visualScoreFlightsEnabled={visualScoreFlightsEnabled}
       visualScreenShakeEnabled={visualScreenShakeEnabled}
-    />
-  );
+      />
+    </Suspense>
+  ) : null;
 
   const accountMenuView = isAccountMenuOpen ? (
     <SettingsMenuFrame
@@ -29871,7 +29879,9 @@ function handleTouchEnd(e) {
   );
 
   const quickHelpOverlay = showHelp ? (
-    <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
+    <Suspense fallback={null}>
+      <HelpOverlay open={showHelp} darkMode={darkMode} onClose={() => setShowHelp(false)} />
+    </Suspense>
   ) : null;
 
   const isLiveLobbyMobileView =
@@ -34338,7 +34348,8 @@ function handleTouchEnd(e) {
       ) : null;
       return (
         <>
-          <MobileResultsScreen
+          <Suspense fallback={null}>
+            <MobileResultsScreen
             WORDS_SCROLL_MAX_HEIGHT={WORDS_SCROLL_MAX_HEIGHT}
             DARK_WORD_INACTIVE={DARK_WORD_INACTIVE}
             SwapFadeTextComponent={SwapFadeText}
@@ -34426,7 +34437,8 @@ function handleTouchEnd(e) {
             trainingFeedNickClassName={getLiveNickClassName}
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
             wordsEmpty={wordsEmpty}
-          />
+            />
+          </Suspense>
           {roundPreparationOverlay}
           {ocidMobileResultOverlay}
           {globalChatLayer}
