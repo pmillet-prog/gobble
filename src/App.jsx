@@ -46,6 +46,7 @@ import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import socket from "./socket";
 import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
+import { solveGridInWorker } from "./compute/clientSolverWorker.js";
 import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
   capturePendingSubmissions,
@@ -18136,31 +18137,24 @@ export default function App() {
     job.key = null;
   }
 
-  function buildAllWordsLocal(sourceBoard = board, opts = {}) {
+  function finalizeAllWords(rawSolutions, sourceBoard = board, opts = {}) {
     const updateBestRefs = opts.updateBestRefs !== false;
-    if (!dictionary) return [];
     if (!sourceBoard || sourceBoard.length === 0) return [];
-    if (DEV_MODE) {
-      console.info("[solver] solveAll start", {
-        phase: phaseRef.current,
-        size: sourceBoard.length,
-      });
-    }
-    const filtered = filterDictionary(dictionary, sourceBoard, specialScoreConfig);
-    const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
+    const entries = Array.isArray(rawSolutions) ? rawSolutions : [];
+    const solved = new Map(entries.map((entry) => [entry.word, entry]));
     solutionsRef.current = solved;
 
-    const all = [...solved.entries()].map(([word, meta]) => ({
-      word,
+    const all = entries.map((entry) => ({
+      ...entry,
       pts:
-        Number.isFinite(meta?.pts)
-          ? meta.pts
-          : computeScore(word, meta?.path || [], sourceBoard, specialScoreConfig),
-      path: Array.isArray(meta?.path) ? meta.path : [],
-      usedFakeTwins: !!meta?.usedFakeTwins,
-      fakeTwinsCompletionWord: !!meta?.usedFakeTwins,
-      fakeTwinsBonusOnly: false,
-      cultureThemeWord: isCurrentCultureThemeWord(word),
+        Number.isFinite(entry?.pts)
+          ? entry.pts
+          : computeScore(entry.word, entry?.path || [], sourceBoard, specialScoreConfig),
+      path: Array.isArray(entry?.path) ? entry.path : [],
+      usedFakeTwins: !!entry?.usedFakeTwins,
+      fakeTwinsCompletionWord: !!entry?.usedFakeTwins,
+      fakeTwinsBonusOnly: !!entry?.fakeTwinsBonusOnly,
+      cultureThemeWord: isCurrentCultureThemeWord(entry.word),
     }));
 
     all.sort((a, b) => b.pts - a.pts);
@@ -18173,6 +18167,23 @@ export default function App() {
       bestGridMaxLenRef.current = maxLen;
     }
     return all;
+  }
+
+  function buildAllWordsLocal(sourceBoard = board, opts = {}) {
+    const updateBestRefs = opts.updateBestRefs !== false;
+    if (!dictionary) return [];
+    if (!sourceBoard || sourceBoard.length === 0) return [];
+    const filtered = filterDictionary(dictionary, sourceBoard, specialScoreConfig);
+    const solved = solveAll(sourceBoard, filtered, specialScoreConfig);
+    const serialized = Array.from(solved.entries()).map(([word, meta]) => ({
+      word,
+      pts: Number.isFinite(meta?.pts) ? meta.pts : 0,
+      path: Array.isArray(meta?.path) ? meta.path : [],
+      usedFakeTwins: !!meta?.usedFakeTwins,
+      fakeTwinsCompletionWord: !!meta?.usedFakeTwins,
+      fakeTwinsBonusOnly: false,
+    }));
+    return finalizeAllWords(serialized, sourceBoard, { updateBestRefs });
   }
 
   function scheduleAllWordsCompute(
@@ -18188,9 +18199,25 @@ export default function App() {
     const key = jobKey || `solve-${Date.now()}-${Math.random()}`;
     allWordsComputeRef.current.key = key;
 
-    const run = () => {
+    const run = async () => {
       if (allWordsComputeRef.current.key !== key) return;
-      const all = buildAllWordsLocal(sourceBoard, { updateBestRefs });
+      let all = [];
+      try {
+        if (DEV_MODE) {
+          console.info("[solver-worker] solveAll start", {
+            phase: phaseRef.current,
+            size: sourceBoard.length,
+          });
+        }
+        const rawSolutions = await solveGridInWorker(sourceBoard, specialScoreConfig);
+        if (allWordsComputeRef.current.key !== key) return;
+        all = finalizeAllWords(rawSolutions, sourceBoard, { updateBestRefs });
+      } catch (error) {
+        if (DEV_MODE) {
+          console.warn("[solver-worker] fallback main thread", error);
+        }
+        all = buildAllWordsLocal(sourceBoard, { updateBestRefs });
+      }
       if (allWordsComputeRef.current.key !== key) return;
       setAllWords(all);
     };
