@@ -6,6 +6,7 @@ import { mapDisplayToBoardIndex } from "../../game/gridRotation.js";
 import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
 import DesktopChatPanel from "../DesktopChatPanel.jsx";
+import DesktopResultsSummaryDrawer from "../DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "../DesktopResultsWordList.jsx";
 import LiveFeed from "../LiveFeed.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
@@ -97,7 +98,8 @@ export default function DesktopGameScene({ runtime }) {
     desktopMainGridHeight,
     desktopPlayersUiScale,
     desktopResponsiveColumnFractions,
-    desktopResultsSummaryDrawer,
+    desktopResultsDrawerLayout,
+    desktopResultsSummaryExpanded,
     desktopSideUiScale,
     desktopUiScale,
     desktopViewportResizeInProgress,
@@ -125,6 +127,7 @@ export default function DesktopGameScene({ runtime }) {
     handleDesktopWordAnalysisClear,
     handleDesktopWordAnalyze,
     handleDesktopWordDefinitionOpen,
+    hasDesktopResultsSummary,
     highlightPlayers,
     hintCellOverlayStyleMap,
     hintCellSet,
@@ -185,6 +188,7 @@ export default function DesktopGameScene({ runtime }) {
     rankingSource,
     recordBadgesByNickForRound,
     renderDesktopColumnHandle,
+    renderDesktopResultsDockPanel,
     renderMedals,
     renderNickSuffix,
     renderRankDelta,
@@ -226,6 +230,7 @@ export default function DesktopGameScene({ runtime }) {
     setDesktopChatColumnNode,
     setDesktopColumnNode,
     setDesktopGridStageNode,
+    setDesktopResultsSummaryExpanded,
     setDuelPopupState,
     setHoveredResultsNick,
     setIsSettingsOpen,
@@ -1643,7 +1648,14 @@ export default function DesktopGameScene({ runtime }) {
             document.body
           )
         : null}
-      {desktopResultsSummaryDrawer}
+      <DesktopResultsSummaryDrawer
+        darkMode={darkMode}
+        enabled={hasDesktopResultsSummary}
+        expanded={desktopResultsSummaryExpanded}
+        layout={desktopResultsDrawerLayout}
+        onToggleExpanded={() => setDesktopResultsSummaryExpanded((prev) => !prev)}
+        renderPanel={renderDesktopResultsDockPanel}
+      />
       {roundPreparationOverlay}
       {mobileRoundIntroOverlay}
       {isWeeklyOpen && appView === "stats" && isLoggedIn ? (
