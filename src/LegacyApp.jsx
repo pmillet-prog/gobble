@@ -217,6 +217,10 @@ import StandaloneTrainingPicker from "./components/training/StandaloneTrainingPi
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import WeeklyNickLine from "./components/stats/WeeklyNickLine.jsx";
+import {
+  getWeeklyEntryKey,
+  getWeeklyMetricValue,
+} from "./components/stats/weeklyStatsModel.js";
 import useTutorialPresentation from "./components/tutorial/useTutorialPresentation.jsx";
 import {
   OCID_INVALID_BLUFF_MESSAGES,
@@ -8279,45 +8283,6 @@ export default function LegacyApp() {
     });
     pingInFlightRef.current = promise;
     return promise;
-  }
-
-  function formatWeeklyDate(ts) {
-    if (!ts) return "";
-    try {
-      return new Date(ts).toLocaleString("fr-FR", {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (_) {
-      return "";
-    }
-  }
-
-  function formatWeeklyDayTime(ts) {
-    if (!ts) return "";
-    try {
-      return new Date(ts).toLocaleString("fr-FR", {
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (_) {
-      return "";
-    }
-  }
-
-  function formatMsShort(ms) {
-    if (!Number.isFinite(ms)) return "";
-    const seconds = ms / 1000;
-    if (seconds < 10) return `${seconds.toFixed(2)}s`;
-    if (seconds < 60) return `${seconds.toFixed(1)}s`;
-    const whole = Math.floor(seconds);
-    const mins = Math.floor(whole / 60);
-    const secs = whole % 60;
-    return `${mins}m${secs.toString().padStart(2, "0")}s`;
   }
 
   function getWeeklyValue(boardKey, entry) {
@@ -22332,271 +22297,6 @@ function handleTouchEnd(e) {
     />
   );
 
-  function getWeeklyEntryKey(entry) {
-    if (!entry) return "";
-    if (entry.playerKey) return entry.playerKey;
-    if (entry.nick) return `nick:${String(entry.nick).trim().toLowerCase()}`;
-    return "";
-  }
-
-  function getWeeklyMetricValue(boardKey, entry) {
-    if (!entry) return null;
-    if (boardKey === "medals") return Number(entry.total) || 0;
-    if (boardKey === "mostWordsInGame") return Number(entry.wordsCount) || 0;
-    if (boardKey === "totalScore") return Number(entry.totalScore) || 0;
-    if (boardKey === "bestWord") return Number(entry.pts) || 0;
-    if (boardKey === "longestWord") return Number(entry.len) || 0;
-    if (boardKey === "bestSpecial3Score") return Number(entry.pts) || 0;
-    if (boardKey === "bestRoundScore") return Number(entry.pts) || 0;
-    if (boardKey === "vocab") return Number(entry.vocabCount) || 0;
-    if (boardKey === "weeklyVocab") return Number(entry.weeklyVocabCount ?? entry.vocabCount) || 0;
-    if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
-      return Number.isFinite(Number(entry.ms)) ? Number(entry.ms) : null;
-    }
-    if (boardKey === "mostGobbles") return Number(entry.gobbles) || 0;
-    return null;
-  }
-
-  function hasWeeklyChanges(boardKey, currentEntries, baselineRankMap, baselineValueMap) {
-    if (!baselineRankMap || baselineRankMap.size === 0) return false;
-    const isTimeBoard =
-      boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
-    for (let i = 0; i < currentEntries.length; i += 1) {
-      const entry = currentEntries[i];
-      const entryKey = getWeeklyEntryKey(entry);
-      if (!entryKey) continue;
-      const prevRank = baselineRankMap.get(entryKey);
-      if (Number.isFinite(prevRank) && prevRank !== i + 1) {
-        return true;
-      }
-      const currentValue = getWeeklyMetricValue(boardKey, entry);
-      const baseValue = baselineValueMap?.get(entryKey);
-      if (Number.isFinite(currentValue) && Number.isFinite(baseValue)) {
-        if (isTimeBoard && currentValue < baseValue) return true;
-        if (!isTimeBoard && currentValue > baseValue) return true;
-      }
-    }
-    return false;
-  }
-
-  function renderRankDeltaIndicator(delta) {
-    if (!delta) return null;
-    const up = delta > 0;
-    return (
-      <span
-        className={`text-[10px] font-black tabular-nums ${
-          up ? "text-emerald-600" : "text-red-600"
-        }`}
-        title={up ? `+${delta} places` : `${delta} places`}
-      >
-        {up ? "\u25B2" : "\u25BC"}
-        {Math.abs(delta)}
-      </span>
-    );
-  }
-
-  function renderFinaleWeeklyRow(
-    boardKey,
-    entry,
-    idx,
-    {
-      showVocabIcon = false,
-      baselineRankMap = null,
-      baselineValueMap = null,
-      showChanges = false,
-    } = {}
-  ) {
-    if (!entry) return null;
-    const rank = idx + 1;
-    const isTotalScoreBoard = boardKey === "totalScore";
-    const achieved = entry.achievedAt
-      ? isTotalScoreBoard
-        ? formatWeeklyDayTime(entry.achievedAt)
-        : formatWeeklyDate(entry.achievedAt)
-      : null;
-    const baseNick = entry.nick || "Joueur";
-    const entryKey = getWeeklyEntryKey(entry);
-    const vocabEntryKey =
-      entry.playerKey || (entry.nick ? String(entry.nick).trim().toLowerCase() : null);
-    const vocabCountForRow =
-      vocabEntryKey && weeklyVocabLookup.has(vocabEntryKey)
-        ? weeklyVocabLookup.get(vocabEntryKey)
-        : null;
-    const resolvedVocabCount = Number.isFinite(vocabCountForRow) ? vocabCountForRow : 0;
-    const vocabMetaForRow =
-      showVocabIcon && boardKey === "vocab" ? getVocabLevelMeta(resolvedVocabCount) : null;
-
-    const valueParts = [];
-    if (boardKey === "medals") {
-      valueParts.push(`${formatNumber(entry.total) ?? 0}`);
-    } else if (boardKey === "mostWordsInGame") {
-      valueParts.push(`${formatNumber(entry.wordsCount) ?? 0} mots`);
-    } else if (boardKey === "totalScore") {
-      valueParts.push(`${formatNumber(entry.totalScore) ?? 0} pts`);
-    } else if (boardKey === "bestWord") {
-      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
-    } else if (boardKey === "longestWord") {
-      valueParts.push(`${formatNumber(entry.len) ?? 0} lettres`);
-    } else if (boardKey === "bestSpecial3Score") {
-      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
-    } else if (boardKey === "bestRoundScore") {
-      valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
-    } else if (boardKey === "vocab") {
-      valueParts.push(`${formatNumber(entry.vocabCount) ?? 0} mots`);
-    } else if (boardKey === "weeklyVocab") {
-      valueParts.push(`${formatNumber(entry.weeklyVocabCount ?? entry.vocabCount) ?? 0} mots`);
-    } else if (boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore") {
-      valueParts.push(formatMsShort(entry.ms) || "");
-    } else if (boardKey === "mostGobbles") {
-      valueParts.push(`${formatNumber(entry.gobbles) ?? 0} gobbles`);
-    }
-
-    const detailParts = [];
-    if (boardKey === "medals") {
-      detailParts.push(`\u{1F947} ${formatNumber(entry.gold) ?? 0}`);
-      detailParts.push(`\u{1F948} ${formatNumber(entry.silver) ?? 0}`);
-      detailParts.push(`\u{1F949} ${formatNumber(entry.bronze) ?? 0}`);
-    }
-    if (boardKey === "totalScore" && Number.isFinite(entry.roundsPlayed)) {
-      detailParts.push(`${formatNumber(entry.roundsPlayed)} manches`);
-    }
-    const hasWord =
-      (boardKey === "bestWord" ||
-        boardKey === "longestWord" ||
-        boardKey === "bestTimeTargetLong" ||
-        boardKey === "bestTimeTargetScore") &&
-      entry.word;
-    const wordLabel = hasWord ? entry.word : "";
-    const wordButton =
-      hasWord && entry.word ? (
-        <button
-          type="button"
-          className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-[11px] ${
-            darkMode
-              ? "bg-slate-800 border-slate-600 text-slate-100"
-              : "bg-white border-gray-300 text-gray-700"
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            openDefinition(entry.word);
-          }}
-          aria-label="Voir la definition"
-          title="Voir la definition"
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <line x1="16.65" y1="16.65" x2="21" y2="21" />
-          </svg>
-        </button>
-      ) : null;
-
-    const isTimeBoard =
-      boardKey === "bestTimeTargetLong" || boardKey === "bestTimeTargetScore";
-    const currentValue = getWeeklyMetricValue(boardKey, entry);
-    const prevRank =
-      entryKey && baselineRankMap ? baselineRankMap.get(entryKey) : null;
-    const rankDelta = Number.isFinite(prevRank) ? prevRank - rank : 0;
-    const baseValue =
-      entryKey && baselineValueMap ? baselineValueMap.get(entryKey) : null;
-    let deltaLabel = null;
-    if (showChanges && Number.isFinite(currentValue) && Number.isFinite(baseValue)) {
-      if (isTimeBoard && currentValue < baseValue) {
-        const deltaSec = Math.max(0, Math.round((baseValue - currentValue) / 1000));
-        if (deltaSec > 0) deltaLabel = `-${deltaSec}s`;
-      }
-      if (!isTimeBoard && currentValue > baseValue) {
-        const deltaVal = Math.round(currentValue - baseValue);
-        if (deltaVal > 0) deltaLabel = `+${deltaVal}`;
-      }
-    }
-
-    const metaTokens = [];
-    if (detailParts.length > 0) metaTokens.push(detailParts.join(" \u00b7 "));
-    if (achieved) metaTokens.push(achieved);
-    const metaLabel = metaTokens.length > 0 ? `\u00b7 ${metaTokens.join(" \u00b7 ")}` : "";
-    const selfNickLower = selfNick ? String(selfNick).trim().toLowerCase() : "";
-    const entryNickLower = entry.nick ? String(entry.nick).trim().toLowerCase() : "";
-    const isSelfEntry =
-      (installId && entry.installId && entry.installId === installId) ||
-      (installId && entry.playerKey && entry.playerKey === `install:${installId}`) ||
-      (selfNickLower && entryNickLower && entryNickLower === selfNickLower) ||
-      (selfNickLower && entry.playerKey && entry.playerKey === `nick:${selfNickLower}`);
-    const profileUserId = getUserIdFromPlayerProfileTarget(entry);
-    const openWeeklyProfile = profileUserId
-      ? (e) => {
-          e.stopPropagation();
-          openPlayerProfile({ userId: profileUserId, nick: baseNick });
-        }
-      : null;
-
-    return (
-      <div
-        key={`${boardKey}-${entry.playerKey || entry.word || entry.roundId || idx}`}
-        className={`flex items-center justify-between gap-3 py-1 border-b border-slate-200/60 dark:border-white/10 last:border-0 ${
-          isSelfEntry
-            ? darkMode
-              ? "bg-emerald-900/30 text-emerald-100"
-              : "bg-emerald-50 text-emerald-800"
-            : ""
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-7 text-center text-xs font-bold text-amber-500">{rank}</span>
-          <div className="min-w-0">
-            <WeeklyNickLine
-              nick={baseNick}
-              metaLabel={metaLabel}
-              vocabImageUrl={
-                vocabMetaForRow?.imageKey ? getImageUrl(vocabMetaForRow.imageKey) : ""
-              }
-              vocabLabel={vocabMetaForRow?.label || "Niveau"}
-              crownIcon={
-                isCrownedEntry(baseNick, entry) ? renderCrownIcon("shrink-0") : null
-              }
-              onOpenProfile={openWeeklyProfile}
-            />
-            {hasWord ? (
-              <div className="text-[10px] opacity-60 truncate flex items-center gap-1">
-                <button
-                  type="button"
-                  className="truncate font-semibold hover:underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDefinition(wordLabel);
-                  }}
-                >
-                  {wordLabel}
-                </button>
-                {wordButton}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="text-right text-xs font-bold tabular-nums whitespace-nowrap flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            {showChanges ? renderRankDeltaIndicator(rankDelta) : null}
-            <span>{valueParts.join(" ")}</span>
-          </div>
-          {deltaLabel ? (
-            <span className="text-[10px] font-black tabular-nums text-emerald-600">
-              {deltaLabel}
-            </span>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
   const weeklyBoardsMeta = WEEKLY_BOARDS;
   const safeWeeklyIndex =
     weeklyActiveIndex >= 0 && weeklyActiveIndex < weeklyBoardsMeta.length ? weeklyActiveIndex : 0;
@@ -22731,9 +22431,6 @@ function handleTouchEnd(e) {
       activeWeeklyBoard,
       closeWeeklyStatsOverlay,
       darkMode,
-      formatMsShort,
-      formatWeeklyDate,
-      formatWeeklyDayTime,
       getImageUrl,
       getSeasonPages,
       getUserIdFromPlayerProfileTarget,
@@ -25899,9 +25596,7 @@ function handleTouchEnd(e) {
             handleFinaleTouchEnd,
             handleFinaleTouchMove,
             handleFinaleTouchStart,
-            hasWeeklyChanges,
             nickDecorationKey,
-            renderFinaleWeeklyRow,
             renderNickSuffix,
             renderRankDelta,
             renderTournamentTotalRightLabel,
@@ -25920,11 +25615,18 @@ function handleTouchEnd(e) {
           overlays={{ aboutModalView, chatOverlays, globalChatLayer, settingsMenuView }}
           weekly={{
             dedupeWeeklyEntries,
+            getImageUrl,
+            getUserIdFromPlayerProfileTarget,
+            isCrownedEntry,
+            openDefinition,
+            openPlayerProfile,
+            renderCrownIcon,
             weeklyBoardData,
             weeklyLimit,
             weeklyStatsError,
             weeklyStatsLoading,
             weeklyVocabSelfRank,
+            weeklyVocabLookup,
             weeklyWeekNumber,
           }}
         />

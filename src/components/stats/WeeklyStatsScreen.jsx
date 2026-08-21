@@ -3,15 +3,17 @@ import { formatNumber } from "../../utils/numbers.js";
 import { getVocabLevelMeta } from "../../vocabRanks.js";
 import FantasyPanelShell from "../home/FantasyPanelShell.jsx";
 import WeeklyNickLine from "./WeeklyNickLine.jsx";
+import {
+  formatMsShort,
+  formatWeeklyDate,
+  formatWeeklyDayTime,
+} from "./weeklyStatsModel.js";
 
 export default function WeeklyStatsScreen({ runtime }) {
   const {
     activeWeeklyBoard,
     closeWeeklyStatsOverlay,
     darkMode,
-    formatMsShort,
-    formatWeeklyDate,
-    formatWeeklyDayTime,
     getImageUrl,
     getSeasonPages,
     getUserIdFromPlayerProfileTarget,
