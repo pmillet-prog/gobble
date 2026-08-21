@@ -4,32 +4,31 @@ import { showCelebrationFlash } from "../components/celebrationFxStore.js";
 import { isFirefoxMobileUserAgent } from "../app/adapters/deviceCapabilities.js";
 import { recordPerfEvent } from "../perf/renderPerfProbe.js";
 
-export function createCelebrationEffects(runtime) {
-  const {
-    canVibrateRef,
-    confettiBurstTokenRef,
-    gridRef,
-    gridShakeAnimationRef,
-    gridShakeTimerRef,
-    invalidLastRef,
-    isMobileLayout,
-    isMobileLayoutRef,
-    isVibrationEnabledRef,
-    lastGobbleAtRef,
-    phaseRef,
-    praiseLastRef,
-    preferLiteVisualEffectsRef,
-    scoreFlightSequenceRef,
-    setGridShake,
-    setScoreFlights,
-    tileRefs,
-    visualConfettiEnabledRef,
-    visualGobbleEnabledRef,
-    visualInvalidWordsEnabledRef,
-    visualPraiseEnabledRef,
-    visualScoreFlightsEnabledRef,
-    visualScreenShakeEnabledRef,
-  } = runtime;
+export function createCelebrationEffects(
+  canVibrateRef,
+  confettiBurstTokenRef,
+  gridRef,
+  gridShakeAnimationRef,
+  gridShakeTimerRef,
+  invalidLastRef,
+  isMobileLayout,
+  isMobileLayoutRef,
+  isVibrationEnabledRef,
+  lastGobbleAtRef,
+  phaseRef,
+  praiseLastRef,
+  preferLiteVisualEffectsRef,
+  scoreFlightSequenceRef,
+  setGridShake,
+  setScoreFlights,
+  tileRefs,
+  visualConfettiEnabledRef,
+  visualGobbleEnabledRef,
+  visualInvalidWordsEnabledRef,
+  visualPraiseEnabledRef,
+  visualScoreFlightsEnabledRef,
+  visualScreenShakeEnabledRef,
+) {
 
   function triggerScoreFlight({ feedItemId, path, points }) {
     if (!visualScoreFlightsEnabledRef.current) return;
