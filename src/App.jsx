@@ -63,6 +63,7 @@ import useAudioEngine from "./audio/useAudioEngine";
 import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
+import useSwipeTrackController from "./hooks/useSwipeTrackController.js";
 import {
   clampDesktopColumnResizeDelta,
   computeDesktopColumnUiScales,
@@ -2358,12 +2359,14 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     rankingRound: null,
   });
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
+  const weeklySwipeTrack = useSwipeTrackController(weeklyActiveIndex);
   const weeklyTouchRef = useRef({
     startX: null,
     startY: null,
     fromScrollable: false,
     fromProfileButton: false,
     gestureAxis: "none",
+    dragging: false,
   });
   const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
   const weeklyFetchStateRef = useRef({
@@ -2373,10 +2376,6 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   });
   const weeklyFetchRetryAfterRef = useRef(0);
   const weeklySlideWidthRef = useRef(0);
-  const [weeklyDragOffset, setWeeklyDragOffset] = useState(0);
-  const [weeklyDragging, setWeeklyDragging] = useState(false);
-  const weeklyDragRafRef = useRef(null);
-  const weeklyPendingDragOffsetRef = useRef(0);
   const weeklySwipeBlockRef = useRef(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -2447,16 +2446,16 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [supportModalSection, setSupportModalSection] = useState("support");
   const [seasonActiveIndex, setSeasonActiveIndex] = useState(0);
+  const seasonSwipeTrack = useSwipeTrackController(seasonActiveIndex);
   const seasonTouchRef = useRef({
     startX: null,
     startY: null,
     fromScrollable: false,
     fromProfileButton: false,
     gestureAxis: "none",
+    dragging: false,
   });
   const seasonSlideWidthRef = useRef(0);
-  const [seasonDragOffset, setSeasonDragOffset] = useState(0);
-  const [seasonDragging, setSeasonDragging] = useState(false);
   const seasonSwipeBlockRef = useRef(0);
   const [weeklyArrowVisible, setWeeklyArrowVisible] = useState(false);
   const [weeklyArrowBlink, setWeeklyArrowBlink] = useState(false);
@@ -2995,7 +2994,6 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     setImplodeActive(false);
     clearResultsSlideTimers();
     clearWordListFlipArtifacts();
-    clearVocabOverlayTimers();
     stopVocabOverlayAnimation();
     clearQueuedRankingUpdate();
     resetSubmissionQueue();
@@ -12843,6 +12841,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     if (!Number.isInteger(delta) || total <= 1) return;
     setWeeklyActiveIndex((prev) => {
       const next = (prev + delta + total) % total;
+      weeklySwipeTrack.settle(next);
       return next;
     });
     playSwipeSound();
@@ -12854,9 +12853,8 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     const current = clampValue(weeklyActiveIndex, 0, total - 1);
     const next = clampValue(nextIndex, 0, total - 1);
     if (next === current) return;
+    weeklySwipeTrack.settle(next);
     setWeeklyActiveIndex(next);
-    setWeeklyDragOffset(0);
-    setWeeklyDragging(false);
     playSwipeSound();
   }
 
@@ -12941,6 +12939,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     if (!Number.isInteger(delta) || total <= 1) return;
     setSeasonActiveIndex((prev) => {
       const next = (prev + delta + total) % total;
+      seasonSwipeTrack.settle(next);
       return next;
     });
     playSwipeSound();
@@ -12951,9 +12950,8 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     const total = pages.length;
     if (total <= 1) return;
     const next = clampValue(nextIndex, 0, total - 1);
+    seasonSwipeTrack.settle(next);
     setSeasonActiveIndex(next);
-    setSeasonDragOffset(0);
-    setSeasonDragging(false);
   }
 
   function triggerWeeklyArrowHint({ blink = false, showForMs = 1600 } = {}) {
@@ -12994,25 +12992,11 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
 
   function applyWeeklyDragOffset(nextOffset) {
     const value = Number.isFinite(nextOffset) ? nextOffset : 0;
-    weeklyPendingDragOffsetRef.current = value;
-    if (weeklyDragRafRef.current) return;
-    weeklyDragRafRef.current = requestAnimationFrame(() => {
-      weeklyDragRafRef.current = null;
-      setWeeklyDragOffset((prev) => {
-        const next = weeklyPendingDragOffsetRef.current;
-        if (Math.abs(prev - next) < 0.5) return prev;
-        return next;
-      });
-    });
+    weeklySwipeTrack.move(value, weeklyActiveIndex);
   }
 
   function resetWeeklyDragOffset() {
-    weeklyPendingDragOffsetRef.current = 0;
-    if (weeklyDragRafRef.current) {
-      cancelAnimationFrame(weeklyDragRafRef.current);
-      weeklyDragRafRef.current = null;
-    }
-    setWeeklyDragOffset(0);
+    weeklySwipeTrack.settle(weeklyActiveIndex);
   }
 
   function handleWeeklyTouchStart(e) {
@@ -13020,6 +13004,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     weeklyTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
     weeklyTouchRef.current.fromProfileButton = isStatsProfileTouchTarget(e?.target);
     weeklyTouchRef.current.gestureAxis = "none";
+    weeklyTouchRef.current.dragging = false;
     const touch = e?.touches?.[0];
     const x = touch?.clientX ?? null;
     const y = touch?.clientY ?? null;
@@ -13028,8 +13013,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     weeklySlideWidthRef.current =
       (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
     triggerWeeklyArrowHint();
-    resetWeeklyDragOffset();
-    setWeeklyDragging(false);
+    weeklySwipeTrack.begin(weeklyActiveIndex);
   }
 
   function handleWeeklyTouchMove(e) {
@@ -13045,14 +13029,14 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     const deltaY = currentY - startY;
     const axis = resolveStatsGestureAxis(weeklyTouchRef, deltaX, deltaY);
     if (axis === "vertical") {
-      setWeeklyDragging(false);
+      weeklyTouchRef.current.dragging = false;
       resetWeeklyDragOffset();
       return;
     }
     if (axis !== "horizontal") return;
-    if (!weeklyDragging) {
+    if (!weeklyTouchRef.current.dragging) {
       if (Math.abs(deltaX) < 6) return;
-      setWeeklyDragging(true);
+      weeklyTouchRef.current.dragging = true;
       triggerWeeklyArrowHint();
     }
     if (e?.cancelable) e.preventDefault();
@@ -13074,7 +13058,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     weeklyTouchRef.current.startY = null;
     const width = weeklySlideWidthRef.current || window.innerWidth || 1;
     const touch = e?.changedTouches?.[0];
-    setWeeklyDragging(false);
+    weeklyTouchRef.current.dragging = false;
     if (axis === "vertical") {
       resetWeeklyDragOffset();
       return;
@@ -13094,6 +13078,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       weeklySwipeBlockRef.current = Date.now();
       shiftWeeklyBoard(deltaX < 0 ? 1 : -1);
+      return;
     }
     resetWeeklyDragOffset();
   }
@@ -13103,6 +13088,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     seasonTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
     seasonTouchRef.current.fromProfileButton = isStatsProfileTouchTarget(e?.target);
     seasonTouchRef.current.gestureAxis = "none";
+    seasonTouchRef.current.dragging = false;
     const touch = e?.touches?.[0];
     const x = touch?.clientX ?? null;
     const y = touch?.clientY ?? null;
@@ -13110,8 +13096,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     seasonTouchRef.current.startY = y;
     seasonSlideWidthRef.current =
       (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
-    setSeasonDragOffset(0);
-    setSeasonDragging(false);
+    seasonSwipeTrack.begin(seasonActiveIndex);
   }
 
   function handleSeasonTouchMove(e) {
@@ -13127,19 +13112,19 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     const deltaY = currentY - startY;
     const axis = resolveStatsGestureAxis(seasonTouchRef, deltaX, deltaY);
     if (axis === "vertical") {
-      setSeasonDragging(false);
-      setSeasonDragOffset(0);
+      seasonTouchRef.current.dragging = false;
+      seasonSwipeTrack.settle(seasonActiveIndex);
       return;
     }
     if (axis !== "horizontal") return;
-    if (!seasonDragging) {
+    if (!seasonTouchRef.current.dragging) {
       if (Math.abs(deltaX) < 6) return;
-      setSeasonDragging(true);
+      seasonTouchRef.current.dragging = true;
     }
     if (e?.cancelable) e.preventDefault();
     const width = seasonSlideWidthRef.current || window.innerWidth || 1;
     const clamped = clampValue(deltaX, -width * 0.35, width * 0.35);
-    setSeasonDragOffset(clamped);
+    seasonSwipeTrack.move(clamped, seasonActiveIndex);
   }
 
   function handleSeasonTouchEnd(e) {
@@ -13155,13 +13140,13 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     seasonTouchRef.current.startY = null;
     const width = seasonSlideWidthRef.current || window.innerWidth || 1;
     const touch = e?.changedTouches?.[0];
-    setSeasonDragging(false);
+    seasonTouchRef.current.dragging = false;
     if (axis === "vertical") {
-      setSeasonDragOffset(0);
+      seasonSwipeTrack.settle(seasonActiveIndex);
       return;
     }
     if (startX == null || startY == null || !touch) {
-      setSeasonDragOffset(0);
+      seasonSwipeTrack.settle(seasonActiveIndex);
       return;
     }
     const deltaX = touch.clientX - startX;
@@ -13175,8 +13160,9 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
     if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
       seasonSwipeBlockRef.current = Date.now();
       shiftSeasonPage(deltaX < 0 ? 1 : -1);
+      return;
     }
-    setSeasonDragOffset(0);
+    seasonSwipeTrack.settle(seasonActiveIndex);
   }
 
   function handleStatsTouchStart(e) {
@@ -14373,22 +14359,18 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
 
   useEffect(() => {
     if (statsTab !== "season") return;
+    seasonSwipeTrack.settle(0);
     setSeasonActiveIndex(0);
-    setSeasonDragOffset(0);
-    setSeasonDragging(false);
     seasonTouchRef.current.startX = null;
     seasonTouchRef.current.startY = null;
     seasonTouchRef.current.fromScrollable = false;
     seasonTouchRef.current.fromProfileButton = false;
     seasonTouchRef.current.gestureAxis = "none";
+    seasonTouchRef.current.dragging = false;
   }, [statsTab]);
 
   useEffect(() => {
     return () => {
-      if (weeklyDragRafRef.current) {
-        cancelAnimationFrame(weeklyDragRafRef.current);
-        weeklyDragRafRef.current = null;
-      }
       const inFlight = weeklyFetchStateRef.current;
       if (inFlight?.controller) {
         try {
@@ -26328,10 +26310,6 @@ function handleTouchEnd(e) {
       </div>
     </div>
   );
-  const weeklyOffsetPercent =
-    weeklyDragOffset && weeklySlideWidthRef.current
-      ? (weeklyDragOffset / weeklySlideWidthRef.current) * 100
-      : 0;
   const showWeeklyDots = weeklyBoardsMeta.length > 1;
   const weeklyDots = showWeeklyDots ? (
     <div className="flex items-center justify-center gap-2 py-2">
@@ -26370,7 +26348,7 @@ function handleTouchEnd(e) {
             aria-current={isActive ? "true" : undefined}
             onClick={() => {
               if (shouldIgnoreSwipeClick(weeklySwipeBlockRef)) return;
-              setWeeklyActiveIndex(idx);
+              goToWeeklyBoard(idx);
             }}
           />
         );
@@ -26395,10 +26373,6 @@ function handleTouchEnd(e) {
   const seasonPages = getSeasonPages();
   const safeSeasonIndex =
     seasonActiveIndex >= 0 && seasonActiveIndex < seasonPages.length ? seasonActiveIndex : 0;
-  const seasonOffsetPercent =
-    seasonDragOffset && seasonSlideWidthRef.current
-      ? (seasonDragOffset / seasonSlideWidthRef.current) * 100
-      : 0;
   const showSeasonDots = seasonPages.length > 1;
   const seasonDots = showSeasonDots ? (
     <div className="flex items-center justify-center gap-2 py-2">
@@ -26502,9 +26476,7 @@ function handleTouchEnd(e) {
           type="button"
           onClick={() => {
             setStatsTab("season");
-            setSeasonActiveIndex(0);
-            setSeasonDragOffset(0);
-            setSeasonDragging(false);
+            goToSeasonPage(0);
           }}
           className={`px-3 py-1 text-xs font-semibold transition ${
             statsTab === "season"
@@ -26576,11 +26548,12 @@ function handleTouchEnd(e) {
           <div className="relative px-2 sm:px-4 pb-4 flex-1 min-h-0 flex flex-col">
             <div className="overflow-hidden rounded-2xl border-0 bg-transparent flex-1 min-h-0">
               <div
+                ref={weeklySwipeTrack.trackRef}
                 className="flex w-full h-full"
                 style={{
-                  transform: `translateX(calc(${safeWeeklyIndex * -100}% + ${weeklyOffsetPercent}%))`,
-                  transition: weeklyDragging ? "none" : "transform 0.25s ease-out",
-                  willChange: weeklyDragging ? "transform" : "auto",
+                  transform: `translate3d(${safeWeeklyIndex * -100}%, 0, 0)`,
+                  transition: "transform 0.25s ease-out",
+                  willChange: "auto",
                 }}
               >
                 {weeklyBoardsMeta.map((board, idx) => {
@@ -26628,10 +26601,11 @@ function handleTouchEnd(e) {
           <div className="relative px-2 sm:px-4 pb-4 flex-1 min-h-0 flex flex-col">
             <div className="overflow-hidden rounded-2xl border-0 bg-transparent flex-1 min-h-0">
               <div
+                ref={seasonSwipeTrack.trackRef}
                 className="flex w-full min-h-0 h-full"
                 style={{
-                  transform: `translateX(calc(${safeSeasonIndex * -100}% + ${seasonOffsetPercent}%))`,
-                  transition: seasonDragging ? "none" : "transform 0.25s ease-out",
+                  transform: `translate3d(${safeSeasonIndex * -100}%, 0, 0)`,
+                  transition: "transform 0.25s ease-out",
                 }}
               >
                 {seasonPages.map((page) => (
