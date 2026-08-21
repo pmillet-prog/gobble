@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { getTileColorTextureStyle } from "../../theme/themeConfig.js";
 import { formatNumber } from "../../utils/numbers.js";
 import { mapDisplayToBoardIndex } from "../../game/gridRotation.js";
+import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
 import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
 import DesktopChatPanel from "../DesktopChatPanel.jsx";
@@ -157,7 +158,6 @@ export default function DesktopGameScene({ runtime }) {
     liveFeedBannerText,
     MAIN_GRID_HEIGHT,
     mainGridDesktopRef,
-    MASSIVE_BOGGLE_TYPE,
     mixedFeed,
     mobileChatReactionToasts,
     mobileRoundIntroHideTiles,
