@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createWeeklyStatsRuntimeModel,
   formatMsShort,
   getWeeklyEntryKey,
   getWeeklyMetricValue,
@@ -46,4 +47,33 @@ test("short target times retain the existing display precision", () => {
   assert.equal(formatMsShort(2345), "2.35s");
   assert.equal(formatMsShort(12500), "12.5s");
   assert.equal(formatMsShort(65000), "1m05s");
+});
+
+test("weekly runtime model deduplicates players and ranks the current player", () => {
+  const stats = {
+    topN: 50,
+    boards: {
+      weeklyVocab: [
+        { playerKey: "install:other", nick: "Autre", weeklyVocabCount: 20 },
+        { playerKey: "install:self", nick: "Tigre", weeklyVocabCount: 10 },
+        { playerKey: "install:self", nick: "Tigre", weeklyVocabCount: 15 },
+      ],
+    },
+  };
+  const model = createWeeklyStatsRuntimeModel(
+    { current: "self" },
+    { current: "Tigre" },
+    stats
+  );
+
+  const deduped = model.dedupeWeeklyEntries("weeklyVocab", stats.boards.weeklyVocab, 50);
+  assert.deepEqual(
+    deduped.map((entry) => [entry.nick, entry.weeklyVocabCount]),
+    [
+      ["Autre", 20],
+      ["Tigre", 15],
+    ]
+  );
+  assert.equal(model.getSelfWeeklyVocabRankFromStats(), 2);
+  assert.equal(model.getWeeklyVocabRankForCount(25), 1);
 });
