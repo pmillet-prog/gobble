@@ -56,7 +56,6 @@ function MobileSpecial3Playing(props) {
     resolveLiveTrace = null,
     requestOpenChat = null,
     setDailyActiveSlot = null,
-    slideStyles = "",
     slots = [],
     special3ActionFontPx = 12,
     special3ActionPadYPx = 6,
@@ -131,7 +130,6 @@ function MobileSpecial3Playing(props) {
         }`}
         style={mobileViewportContainerStyle}
       >
-        <style>{slideStyles}</style>
         <style>{`
           @keyframes dailyInvalidShake {
             0%, 100% { transform: translateX(0); }

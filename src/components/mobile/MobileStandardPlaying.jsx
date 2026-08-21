@@ -113,7 +113,6 @@ function MobileStandardPlaying(props) {
     showHelp = false,
     showPreviewStats = false,
     showSolvedTargetLoupe = false,
-    slideStyles = "",
     solvedTargetWord = "",
     special3LockedStartTileSet = null,
     specialBlockHeight = 0,
@@ -179,7 +178,6 @@ function MobileStandardPlaying(props) {
         }`}
         style={mobileViewportContainerStyle}
       >
-        <style>{slideStyles}</style>
 
         <MobileHeader
           activeRoom={activeRoom}

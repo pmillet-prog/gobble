@@ -79,7 +79,6 @@ function MobileResultsScreen(props) {
     showOfflineResultsLabel = false,
     showResultsWords = false,
     showVocabPage = false,
-    slideStyles = "",
     summaryWrapperClass = "",
     suppressWordListScores = false,
     targetSummary = null,
@@ -103,7 +102,6 @@ function MobileResultsScreen(props) {
         }`}
         style={mobileViewportContainerStyle}
       >
-        <style>{slideStyles}</style>
         <MobileHeader
           activeRoom={activeRoom}
           countdownLines={countdownLines}

@@ -15,7 +15,6 @@ function MobileUltraCompactPlaying({
   mobileViewportContainerStyle = undefined,
   onOpenSettings = null,
   praiseOverlay = null,
-  slideStyles = "",
 }) {
   return (
     <>
@@ -25,7 +24,6 @@ function MobileUltraCompactPlaying({
         }`}
         style={mobileViewportContainerStyle}
       >
-        <style>{slideStyles}</style>
         <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
           <span className="truncate">
             {compactRank ? `#${compactRank}` : "#?"}
