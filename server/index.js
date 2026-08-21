@@ -79,6 +79,10 @@ import {
 import { registerSubmissionHandlers } from "./realtime/registerSubmissionHandlers.js";
 import { registerSessionUtilityHandlers } from "./realtime/registerSessionUtilityHandlers.js";
 import { registerSpecialRoundHandlers } from "./realtime/registerSpecialRoundHandlers.js";
+import { registerChatHandlers } from "./realtime/registerChatHandlers.js";
+import { registerModerationHandlers } from "./realtime/registerModerationHandlers.js";
+import { registerDevHandlers } from "./realtime/registerDevHandlers.js";
+import { registerReportHandlers } from "./realtime/registerReportHandlers.js";
 import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
@@ -11574,720 +11578,92 @@ io.on("connection", (socket) => {
     maybeStartTournamentCountdown(room);
   });
 
-  socket.on("chat:send", (text, cb) => {
-    let payload = text;
-    if (typeof payload === "function") {
-      cb = payload;
-      payload = null;
-    }
-    const isPayloadObject = payload && typeof payload === "object";
-    const roomIdFromPayload =
-      isPayloadObject && typeof payload.roomId === "string"
-        ? payload.roomId
-        : null;
-    const room = getRoom(
-      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
-    );
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const rawText = isPayloadObject ? payload.text : payload;
-    if (typeof rawText !== "string") {
-      cb?.({ ok: false });
-      return;
-    }
-    const trimmed = rawText.trim();
-    if (!trimmed) {
-      cb?.({ ok: false });
-      return;
-    }
-    const player = room.players.get(socket.id);
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const lobbyNick =
-      isPayloadObject && typeof payload.nick === "string" ? payload.nick.trim() : "";
-    const isLobbyPayload = !player && isPayloadObject && payload?.lobby === true;
-    const authorNick = player?.nick || lobbyNick;
-    if (!authorNick) {
-      cb?.({ ok: false, error: "empty_nick" });
-      return;
-    }
-    if (authorNick.length > NICK_MAX_LEN) {
-      cb?.({ ok: false, error: "nick_too_long" });
-      return;
-    }
-    const installId = identity.installId;
-    if (!installId) {
-      cb?.({ ok: false, error: "invalid_install_id" });
-      return;
-    }
-    if (isInstallIdMuted(installId)) {
-      cb?.({ ok: false, error: "muted" });
-      return;
-    }
-    if (isLobbyPayload) {
-      socket.data.chatInstallId = installId;
-      socket.data.chatNick = authorNick;
-      joinSocketToChatRoom(socket, room.id);
-    } else if (!player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    const resumedFromAfk = player
-      ? markSocketPlayerActivity(room, socket, "chat")
-      : false;
-    if (resumedFromAfk) {
-      emitPlayers(room);
-      emitTournamentLobby(room);
-      emitRoomsStats();
-    }
-    const rateLimit = checkTargetChatRateLimit(room, installId);
-    if (!rateLimit.ok) {
-      cb?.({
-        ok: false,
-        error: "rate_limited",
-        retryMs: rateLimit.retryMs,
-        message: "Attends quelques secondes avant de renvoyer un message.",
-      });
-      return;
-    }
-    const safeText = censorTargetSpoilersInChatText(room, trimmed);
-    const replyTo = isPayloadObject ? resolveReplyPreviewFromPayload(room, payload.replyTo) : null;
-    const message = {
-      id: randomUUID(),
-      t: Date.now(),
-      roomId: room.id,
-      nick: authorNick,
-      userId: identity.userId,
-      installId,
-      text: safeText,
-      team: getTeamForInstallCached(installId),
-      isDailyChampion: isDailyChampionInstallId(installId),
-      weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForInstallId(installId, authorNick),
-      isWeeklyVocabChampion: isWeeklyVocabChampionInstallId(installId, authorNick),
-    };
-    if (replyTo) {
-      message.replyTo = replyTo;
-    }
-    pushChatMessage(room, message);
-    cb?.({ ok: true });
+  registerChatHandlers(socket, {
+    NICK_MAX_LEN,
+    censorTargetSpoilersInChatText,
+    checkTargetChatRateLimit,
+    deleteChatMessage,
+    emitChatSocketEvent,
+    emitPlayers,
+    emitRoomsStats,
+    emitTournamentLobby,
+    getPlaytimeLimitStatus,
+    getRoom,
+    getSocketPlayerIdentity,
+    getTeamForInstallCached,
+    getWeeklyVocabPodiumRankForInstallId,
+    isDailyChampionInstallId,
+    isInstallIdMuted,
+    isWeeklyVocabChampionInstallId,
+    io,
+    joinSocketToChatRoom,
+    markSocketPlayerActivity,
+    normalizeChatReactionEmoji,
+    pushChatMessage,
+    randomUUID,
+    requireSocketPlayerIdentity,
+    resolveReplyPreviewFromPayload,
+    updateChatMessageReactions,
+    updateChatMessageText,
   });
 
-  socket.on("chat:react", (payload, cb) => {
-    if (typeof payload === "function") {
-      cb = payload;
-      payload = null;
-    }
-    if (!payload || typeof payload !== "object") {
-      cb?.({ ok: false, error: "invalid_payload" });
-      return;
-    }
-    const roomIdFromPayload =
-      typeof payload.roomId === "string" && payload.roomId.trim() ? payload.roomId.trim() : null;
-    const room = getRoom(
-      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
-    );
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const messageId = typeof payload.messageId === "string" ? payload.messageId.trim() : "";
-    const emoji = normalizeChatReactionEmoji(payload.emoji);
-    if (!messageId || !emoji) {
-      cb?.({ ok: false, error: "invalid_payload" });
-      return;
-    }
-
-    const player = room.players.get(socket.id);
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const lobbyNick = typeof payload.nick === "string" ? payload.nick.trim() : "";
-    const isLobbyPayload = !player && payload?.lobby === true;
-    const authorNick = (player?.nick || lobbyNick || socket.data?.chatNick || "").trim();
-    if (!authorNick) {
-      cb?.({ ok: false, error: "empty_nick" });
-      return;
-    }
-    if (authorNick.length > NICK_MAX_LEN) {
-      cb?.({ ok: false, error: "nick_too_long" });
-      return;
-    }
-    const installId = identity.installId;
-    if (!installId) {
-      cb?.({ ok: false, error: "invalid_install_id" });
-      return;
-    }
-    if (isInstallIdMuted(installId)) {
-      cb?.({ ok: false, error: "muted" });
-      return;
-    }
-    if (isLobbyPayload) {
-      socket.data.chatInstallId = installId;
-      socket.data.chatNick = authorNick;
-      joinSocketToChatRoom(socket, room.id);
-    } else if (!player && !socket.data?.chatInstallId) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-
-    const result = updateChatMessageReactions(room, {
-      messageId,
-      emoji,
-      installId,
-      nick: authorNick,
-    });
-    if (!result.ok) {
-      cb?.({ ok: false, error: result.error || "reaction_failed" });
-      return;
-    }
-
-    emitChatSocketEvent(io, room.id, "chat:message_reaction", {
-      roomId: room.id,
-      messageId,
-      reactions: result.reactions,
-      updatedAt: result.message?.reactionsUpdatedAt || Date.now(),
-    });
-    cb?.({ ok: true, reactions: result.reactions });
+  registerDevHandlers(socket, {
+    applyDevSelfRewardTargetPatch,
+    applyMaintenanceModeChange,
+    areDevToolsAllowedForSocket,
+    botManager,
+    broadcastCrownUpdate,
+    buildDevControlsPayload,
+    clearDevChat,
+    clearPlaytimeLimit,
+    devControlsState: {
+      get: () => devControls,
+      set: (next) => {
+        devControls = next;
+      },
+    },
+    emitMedals,
+    ensureDevSelfRewardTarget,
+    fillDevChat,
+    getRoom,
+    getSocketDevAccount,
+    getTargetWaitDevCatalog,
+    io,
+    listActivePlaytimeLimits,
+    normalizeDevControls,
+    persistDevControls,
+    requireDevToolsAccess,
+    returnRoomToLiveLobby,
+    rooms,
+    sanitizeDevGlobalAnnouncement,
   });
 
-  socket.on("chat:edit", (payload, cb) => {
-    if (typeof payload === "function") {
-      cb = payload;
-      payload = null;
-    }
-    if (!payload || typeof payload !== "object") {
-      cb?.({ ok: false, error: "invalid_payload" });
-      return;
-    }
-    const roomIdFromPayload =
-      typeof payload.roomId === "string" && payload.roomId.trim() ? payload.roomId.trim() : null;
-    const room = getRoom(
-      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
-    );
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const player = room.players.get(socket.id);
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const isLobbyPayload = !player && payload?.lobby === true;
-    const installId = identity.installId;
-    if (!installId) {
-      cb?.({ ok: false, error: "invalid_install_id" });
-      return;
-    }
-    if (isLobbyPayload) {
-      socket.data.chatInstallId = installId;
-      joinSocketToChatRoom(socket, room.id);
-    } else if (!player && !socket.data?.chatInstallId) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    const result = updateChatMessageText(room, {
-      messageId: payload.messageId,
-      installId,
-      text: payload.text,
-    });
-    if (!result.ok) {
-      cb?.({ ok: false, error: result.error || "edit_failed" });
-      return;
-    }
-    emitChatSocketEvent(io, room.id, "chat:message_update", {
-      roomId: room.id,
-      message: result.message,
-    });
-    cb?.({ ok: true, message: result.message });
+  registerModerationHandlers(socket, {
+    MODERATION_BAN_5_MIN_MS,
+    appendModerationLog,
+    buildModerationPayload,
+    findModerationTarget,
+    getClientIpFromSocket,
+    getRoom,
+    getSocketPlayerIdentity,
+    listModerationPlayers,
+    moderationInstallBans,
+    moderationUserBans,
+    normalizeInstallId,
+    removeSocketPlayerFromRoom,
+    requireModerationAccess,
   });
 
-  socket.on("chat:delete", (payload, cb) => {
-    if (typeof payload === "function") {
-      cb = payload;
-      payload = null;
-    }
-    if (!payload || typeof payload !== "object") {
-      cb?.({ ok: false, error: "invalid_payload" });
-      return;
-    }
-    const roomIdFromPayload =
-      typeof payload.roomId === "string" && payload.roomId.trim() ? payload.roomId.trim() : null;
-    const room = getRoom(
-      roomIdFromPayload || socket.roomId || socket.data?.chatRoomId || "room-4x4"
-    );
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const player = room.players.get(socket.id);
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const isLobbyPayload = !player && payload?.lobby === true;
-    const installId = identity.installId;
-    if (!installId) {
-      cb?.({ ok: false, error: "invalid_install_id" });
-      return;
-    }
-    if (isLobbyPayload) {
-      socket.data.chatInstallId = installId;
-      joinSocketToChatRoom(socket, room.id);
-    } else if (!player && !socket.data?.chatInstallId) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    const result = deleteChatMessage(room, {
-      messageId: payload.messageId,
-      installId,
-    });
-    if (!result.ok) {
-      cb?.({ ok: false, error: result.error || "delete_failed" });
-      return;
-    }
-    emitChatSocketEvent(io, room.id, "chat:message_delete", {
-      roomId: room.id,
-      messageId: result.messageId,
-      deletedAt: result.deletedAt,
-    });
-    cb?.({ ok: true, messageId: result.messageId });
-  });
-
-  socket.on("chat:subscribe", (payload, cb) => {
-    if (typeof payload === "function") {
-      cb = payload;
-      payload = null;
-    }
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    joinSocketToChatRoom(socket, room.id);
-    socket.emit("chat:history", Array.isArray(room.chatMessages) ? room.chatMessages : []);
-    const identity = getSocketPlayerIdentity(socket);
-    cb?.({
-      ok: true,
-      roomId: room.id,
-      playtimeLimit: identity ? getPlaytimeLimitStatus(identity.userId) : null,
-    });
-  });
-
-  socket.on("dev:controls:get", (_payload, cb) => {
-    if (!areDevToolsAllowedForSocket(socket)) {
-      cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
-      return;
-    }
-    let targetChanged = false;
-    targetChanged = ensureDevSelfRewardTarget(devControls, "selfCrown", socket) || targetChanged;
-    targetChanged = ensureDevSelfRewardTarget(devControls, "selfGoldNick", socket) || targetChanged;
-    targetChanged = ensureDevSelfRewardTarget(devControls, "selfSilverNick", socket) || targetChanged;
-    targetChanged = ensureDevSelfRewardTarget(devControls, "selfBronzeNick", socket) || targetChanged;
-    if (targetChanged) {
-      persistDevControls();
-      broadcastCrownUpdate();
-    }
-    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
-  });
-
-  socket.on("dev:unlock", (payload, cb) => {
-    if (!areDevToolsAllowedForSocket(socket)) {
-      cb?.({ ok: false, error: "dev_tools_unavailable", ...buildDevControlsPayload(socket) });
-      return;
-    }
-    socket.data.devToolsUnlocked = true;
-    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
-  });
-
-  socket.on("dev:lock", (_payload, cb) => {
-    socket.data.devToolsUnlocked = true;
-    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
-  });
-
-  socket.on("dev:targetWait:catalog", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    try {
-      const catalog = getTargetWaitDevCatalog({ limit: payload?.limit });
-      cb?.({ ok: true, ...catalog });
-    } catch (error) {
-      console.warn("[target-wait] catalogue dev indisponible", error?.message || error);
-      cb?.({ ok: false, error: "target_wait_catalog_unavailable" });
-    }
-  });
-
-  socket.on("dev:controls:set", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const previous = normalizeDevControls(devControls);
-    devControls = normalizeDevControls({ ...previous, ...(payload || {}) });
-    applyDevSelfRewardTargetPatch(previous, devControls, payload, socket);
-    persistDevControls();
-    applyMaintenanceModeChange(previous, devControls);
-    if (previous.botsEnabled !== devControls.botsEnabled) {
-      botManager?.setBotsEnabled?.(devControls.botsEnabled);
-    }
-    if (previous.animatorBotsEnabled !== devControls.animatorBotsEnabled) {
-      botManager?.setAnimatorBotsEnabled?.(devControls.animatorBotsEnabled);
-    }
-    for (const room of rooms.values()) {
-      room.nextPreparedGrid = null;
-      room.nextPreparedGridPromise = null;
-      room.nextPreparedGridPromiseRoundNumber = null;
-      room.bufferedPreparedGrid = null;
-      room.bufferedPreparedGridPromise = null;
-      room.bufferedPreparedGridPromiseMeta = null;
-      room.devForcedRoundPickCache = new Map();
-      if (!previous.chatFill && devControls.chatFill) {
-        fillDevChat(room, 80);
-      } else if (previous.chatFill && !devControls.chatFill) {
-        clearDevChat(room);
-      }
-      emitMedals(room);
-    }
-    if (
-      previous.selfCrown !== devControls.selfCrown ||
-      previous.selfGoldNick !== devControls.selfGoldNick ||
-      previous.selfSilverNick !== devControls.selfSilverNick ||
-      previous.selfBronzeNick !== devControls.selfBronzeNick ||
-      previous.selfCrownTargetUserId !== devControls.selfCrownTargetUserId ||
-      previous.selfCrownTargetInstallId !== devControls.selfCrownTargetInstallId ||
-      previous.selfCrownTargetNick !== devControls.selfCrownTargetNick ||
-      previous.selfGoldNickTargetUserId !== devControls.selfGoldNickTargetUserId ||
-      previous.selfGoldNickTargetInstallId !== devControls.selfGoldNickTargetInstallId ||
-      previous.selfGoldNickTargetNick !== devControls.selfGoldNickTargetNick ||
-      previous.selfSilverNickTargetUserId !== devControls.selfSilverNickTargetUserId ||
-      previous.selfSilverNickTargetInstallId !== devControls.selfSilverNickTargetInstallId ||
-      previous.selfSilverNickTargetNick !== devControls.selfSilverNickTargetNick ||
-      previous.selfBronzeNickTargetUserId !== devControls.selfBronzeNickTargetUserId ||
-      previous.selfBronzeNickTargetInstallId !== devControls.selfBronzeNickTargetInstallId ||
-      previous.selfBronzeNickTargetNick !== devControls.selfBronzeNickTargetNick
-    ) {
-      broadcastCrownUpdate();
-    }
-    cb?.({ ok: true, ...buildDevControlsPayload(socket) });
-  });
-
-  socket.on("dev:returnToLiveLobby", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room", ...buildDevControlsPayload(socket) });
-      return;
-    }
-    const interrupted = returnRoomToLiveLobby(room, "dev_button");
-    cb?.({ ok: true, interrupted, ...buildDevControlsPayload(socket) });
-  });
-
-  socket.on("dev:chat:fill", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const count = fillDevChat(room, payload?.count || 80);
-    cb?.({ ok: true, count });
-  });
-
-  socket.on("dev:chat:clear", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const count = clearDevChat(room);
-    cb?.({ ok: true, count });
-  });
-
-  socket.on("dev:globalAnnouncement", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const body = sanitizeDevGlobalAnnouncement(payload?.message || payload?.body || "");
-    if (!body) {
-      cb?.({ ok: false, error: "empty_message" });
-      return;
-    }
-    const account = getSocketDevAccount(socket);
-    const createdAt = Date.now();
-    const message = {
-      id: `dev-global-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
-      title: "Annonce serveur",
-      body,
-      createdAt,
-      author: account?.label || socket.data?.nick || "",
-    };
-    io.emit("dev:globalAnnouncement", message);
-    console.log(
-      `[dev] global announcement by ${message.author || "unknown"}: ${body.slice(0, 140)}`
-    );
-    cb?.({ ok: true, message, ...buildDevControlsPayload(socket) });
-  });
-
-  socket.on("dev:playtimeLimits:list", (_payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    cb?.({ ok: true, limits: listActivePlaytimeLimits() });
-  });
-
-  socket.on("dev:playtimeLimits:clear", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const userId = Number(payload?.userId);
-    if (!Number.isInteger(userId) || userId <= 0) {
-      cb?.({ ok: false, error: "invalid_user", limits: listActivePlaytimeLimits() });
-      return;
-    }
-    const result = clearPlaytimeLimit(userId);
-    cb?.({
-      ok: result.ok,
-      removed: !!result.removed,
-      limits: listActivePlaytimeLimits(),
-    });
-  });
-
-  socket.on("dev:bots:list", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    cb?.({
-      ok: true,
-      roomId: room.id,
-      bots:
-        typeof botManager?.listBotsForRoom === "function"
-          ? botManager.listBotsForRoom(room)
-          : [],
-    });
-  });
-
-  socket.on("dev:bots:set", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const nick = typeof payload?.nick === "string" ? payload.nick.trim() : "";
-    const active = !!payload?.active;
-    const duration = typeof payload?.duration === "string" ? payload.duration : "rounds:3";
-    const result =
-      typeof botManager?.setBotActive === "function"
-        ? botManager.setBotActive(room, nick, active, duration)
-        : { ok: false, error: "bots_unavailable" };
-    cb?.({
-      ...result,
-      roomId: room.id,
-      bots:
-        typeof botManager?.listBotsForRoom === "function"
-          ? botManager.listBotsForRoom(room)
-          : [],
-    });
-  });
-
-  socket.on("dev:bots:setAll", (payload, cb) => {
-    if (!requireDevToolsAccess(socket, cb)) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const active = payload?.active !== false;
-    const result =
-      typeof botManager?.setAllBotsActive === "function"
-        ? botManager.setAllBotsActive(room, active, "manual")
-        : { ok: false, error: "bots_unavailable" };
-    cb?.({
-      ...result,
-      roomId: room.id,
-      bots:
-        typeof botManager?.listBotsForRoom === "function"
-          ? botManager.listBotsForRoom(room)
-          : [],
-    });
-  });
-
-  socket.on("moderation:state", (payload, cb) => {
-    const account = requireModerationAccess(socket, cb);
-    if (!account) return;
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room", ...buildModerationPayload(socket) });
-      return;
-    }
-    cb?.({
-      ok: true,
-      ...buildModerationPayload(socket),
-      roomId: room.id,
-      players: listModerationPlayers(room),
-    });
-  });
-
-  socket.on("moderation:action", (payload, cb) => {
-    const moderator = requireModerationAccess(socket, cb);
-    if (!moderator) return;
-    const action = typeof payload?.action === "string" ? payload.action.trim() : "";
-    if (action !== "kick" && action !== "ban_5m") {
-      cb?.({ ok: false, error: "invalid_action", ...buildModerationPayload(socket) });
-      return;
-    }
-    const requestedRoomId =
-      payload && typeof payload.roomId === "string" ? payload.roomId : null;
-    const room = getRoom(requestedRoomId || socket.roomId || socket.data?.chatRoomId || "room-4x4");
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room", ...buildModerationPayload(socket) });
-      return;
-    }
-    const target = findModerationTarget(room, payload || {});
-    if (!target?.player) {
-      cb?.({
-        ok: false,
-        error: "target_not_found",
-        ...buildModerationPayload(socket),
-        players: listModerationPlayers(room),
-      });
-      return;
-    }
-    const moderatorIdentity = getSocketPlayerIdentity(socket);
-    const targetUserId = Number.isInteger(Number(target.player?.userId))
-      ? Number(target.player.userId)
-      : null;
-    const targetInstallId = normalizeInstallId(target.player?.installId || "");
-    if (
-      (targetUserId && Number(moderatorIdentity?.userId) === targetUserId) ||
-      (targetInstallId && normalizeInstallId(moderatorIdentity?.installId || "") === targetInstallId)
-    ) {
-      cb?.({ ok: false, error: "cannot_target_self", ...buildModerationPayload(socket) });
-      return;
-    }
-    const now = Date.now();
-    const until = action === "ban_5m" ? now + MODERATION_BAN_5_MIN_MS : null;
-    if (until) {
-      if (targetInstallId) {
-        moderationInstallBans.set(targetInstallId, {
-          expiresAt: until,
-          action,
-          moderator: moderator.label || "",
-          targetNick: target.player.nick || "",
-        });
-      }
-      if (targetUserId) {
-        moderationUserBans.set(String(targetUserId), {
-          expiresAt: until,
-          action,
-          moderator: moderator.label || "",
-          targetNick: target.player.nick || "",
-        });
-      }
-    }
-    const message =
-      action === "ban_5m"
-        ? "Tu as été exclu du live pendant 5 minutes par modération."
-        : "Tu as été retiré du live par modération.";
-    const notice = {
-      action,
-      roomId: room.id,
-      message,
-      until,
-      durationMs: until ? MODERATION_BAN_5_MIN_MS : null,
-      targetNick: target.player.nick || "",
-    };
-    appendModerationLog({
-      t: now,
-      roomId: room.id,
-      action,
-      moderatorUserId: moderator.userId || null,
-      moderator: moderator.label || "",
-      targetSocketId: target.socketId,
-      targetUserId,
-      targetInstallId,
-      targetNick: target.player.nick || "",
-      until,
-      ip: getClientIpFromSocket(socket),
-    });
-    removeSocketPlayerFromRoom(room, target.socketId, notice);
-    cb?.({
-      ok: true,
-      ...buildModerationPayload(socket),
-      roomId: room.id,
-      action,
-      targetNick: target.player.nick || "",
-      until,
-      players: listModerationPlayers(room),
-    });
-  });
-
-  socket.on("reportMessage", (payload, cb) => {
-    const room = getRoom(socket.roomId);
-    if (!room) {
-      cb?.({ ok: false, error: "invalid_room" });
-      return;
-    }
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const reporterInstallId = identity.installId;
-    if (!reporterInstallId) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    if (!payload || typeof payload !== "object") {
-      cb?.({ ok: false, error: "invalid_payload" });
-      return;
-    }
-    const reportedInstallId = normalizeInstallId(payload.reportedInstallId);
-    if (!reportedInstallId) {
-      cb?.({ ok: false, error: "invalid_reported_id" });
-      return;
-    }
-    const messageId =
-      typeof payload.messageId === "string" && payload.messageId.trim()
-        ? payload.messageId.trim()
-        : null;
-    const reason = sanitizeReportReason(payload.reason);
-    if (!reason) {
-      cb?.({ ok: false, error: "invalid_reason" });
-      return;
-    }
-
-    const now = Date.now();
-    const reportedMessage =
-      messageId && Array.isArray(room.chatMessages)
-        ? room.chatMessages.find((msg) => msg?.id === messageId)
-        : null;
-    const snippet = reportedMessage?.text
-      ? String(reportedMessage.text).slice(0, 200)
-      : null;
-    const entry = {
-      ts: now,
-      iso: new Date(now).toISOString(),
-      roomId: room.id,
-      reporterInstallId,
-      reportedInstallId,
-      messageId,
-      reason,
-      snippet,
-    };
-    reportEntries.push(entry);
-    appendReportLog(entry);
-
-    const count = registerReportForInstallId(reportedInstallId, now);
-    let mutedUntil = null;
-    if (count >= REPORT_MUTE_THRESHOLD) {
-      mutedUntil = muteInstallId(reportedInstallId, now);
-    }
-    cb?.({ ok: true, mutedUntil });
+  registerReportHandlers(socket, {
+    REPORT_MUTE_THRESHOLD,
+    appendReportLog,
+    getRoom,
+    muteInstallId,
+    normalizeInstallId,
+    registerReportForInstallId,
+    reportEntries,
+    requireSocketPlayerIdentity,
+    sanitizeReportReason,
   });
 
   socket.on("getVocabCount", async (payload, cb) => {
