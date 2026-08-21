@@ -19,6 +19,13 @@ export function normalizeStoredPlayerIdentityKey(value) {
   return /^user:(\d+)$/.exec(raw)?.[1] || raw;
 }
 
+export function normalizeInstallId(value) {
+  if (typeof value !== "string") return "";
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 160) return "";
+  return normalized;
+}
+
 export function getOrCreateInstallId() {
   try {
     const existing = localStorage.getItem(INSTALL_ID_STORAGE_KEY);
