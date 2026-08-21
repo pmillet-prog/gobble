@@ -166,6 +166,8 @@ import {
   CHAT_DESKTOP_FONT_SCALE_MAX,
   CHAT_DESKTOP_FONT_SCALE_MIN,
   CHAT_DESKTOP_FONT_SCALE_STEP,
+  CHAT_REACTION_EMOJIS,
+  DESKTOP_CHAT_EMOJIS,
   QUICK_REPLIES,
 } from "./components/chat/chatPresentationConfig.js";
 import MobileGrid from "./components/MobileGrid.jsx";
@@ -202,11 +204,6 @@ import {
   createEmptyAuthForm,
   normalizeAuthUsernameInput,
 } from "./components/auth/authFormModel.js";
-import InterTournamentLobby from "./components/live/InterTournamentLobby.jsx";
-import LiveSalonScene from "./components/live/LiveSalonScene.jsx";
-import LiveSalonUtilityBar from "./components/live/LiveSalonUtilityBar.jsx";
-import MiniTournamentStartOverlay from "./components/live/MiniTournamentStartOverlay.jsx";
-import TrainingRoundPicker from "./components/live/TrainingRoundPicker.jsx";
 import TrainingJoinLiveDialog from "./components/training/TrainingJoinLiveDialog.jsx";
 import TrainingPlayerBadge from "./components/training/TrainingPlayerBadge.jsx";
 import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
@@ -386,6 +383,8 @@ const TournamentFinaleScreen = React.lazy(() =>
 );
 const loadDesktopGameScene = () => import("./components/desktop/DesktopGameScene.jsx");
 const DesktopGameScene = React.lazy(loadDesktopGameScene);
+const loadLiveLobbyScreen = () => import("./components/live/LiveLobbyScreen.jsx");
+const LiveLobbyScreen = React.lazy(loadLiveLobbyScreen);
 const loadMobileSpecial3Scene = () => import("./components/mobile/MobileSpecial3Scene.jsx");
 const MobileSpecial3Scene = React.lazy(loadMobileSpecial3Scene);
 const loadMobileStandardScene = () => import("./components/mobile/MobileStandardScene.jsx");
@@ -612,8 +611,6 @@ const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
 const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
-const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "🙏", "😢", "❤️", "😂"];
-const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
 
@@ -24342,6 +24339,11 @@ function handleTouchEnd(e) {
       void loadDesktopGameScene();
     }
   }, [isDailyPlay, isLoggedIn, isMobileLayout]);
+  useEffect(() => {
+    if (isAccountAuthenticated) {
+      void loadLiveLobbyScreen();
+    }
+  }, [isAccountAuthenticated]);
   const roundPreparationPending =
     !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
   const showRoundPreparationWaiting = shouldShowRoundPreparationOverlay({
@@ -29736,86 +29738,61 @@ function handleTouchEnd(e) {
   }
   if (isLoggedIn && appView === "live" && phase === "lobby") {
     return (
-      <>
-        <LiveSalonScene
-          blockedCount={blockedCount}
-          blockedEntries={blockedEntries}
-          chatEditTarget={chatEditTarget}
-          chatInput={chatInput}
-          chatInputDisabled={chatInputDisabled}
-          chatInputPlaceholder={chatInputPlaceholder}
-          chatInputRef={chatInputRef}
-          chatReplyTarget={chatReplyTarget}
-          chatTab="messages"
-          className="fixed inset-0 z-[1200] live-salon-scene-fullscreen"
-          cycleChatHistory={cycleChatHistory}
-          darkMode={darkMode}
-          getAuthorNickClassName={getLiveNickClassName}
-          messagesUnreadCount={mobileChatUnreadCount}
-          onChangeChatTab={setChatTab}
-          onChatInputFocus={handleChatInputFocus}
-          onClearChatEdit={clearChatEditTarget}
-          onClearChatReply={clearChatReplyTarget}
-          onDeleteOwnMessage={deleteOwnChatMessage}
-          onEditOwnMessage={beginChatEditFromMessage}
-          onOpenRules={() => setIsChatRulesOpen(true)}
-          onOpenUserMenu={openUserMenu}
-          onReactToMessage={sendChatReaction}
-          onSelectChatReply={setChatReplyTargetFromMessage}
-          onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-          onToggleShowBotMessages={() => setShowBotMessages((prev) => !prev)}
-          onUnblockInstallId={unblockInstallId}
-          onUserActivity={signalLivePlayerActivity}
-          reactionEmojis={CHAT_REACTION_EMOJIS}
-          salonControls={
-            <InterTournamentLobby
-              lobby={tournamentLobby}
-              onBack={returnToLobby}
-              onReady={setTournamentReady}
-              selfReady={selfReadyForTournament}
-              team={duelTeam}
-              trainingControl={
-                <TrainingRoundPicker
-                  darkMode={darkMode}
-                  devRoundTypes={devRoundTypes}
-                  lobby={tournamentLobby}
-                  onTrainingStart={startTrainingRound}
-                  team={duelTeam}
-                  trainingBusy={trainingBusy}
-                  variant="art"
-                />
-              }
-            />
-          }
-          selfInstallId={installId}
-          selfNick={selfNick}
-          setChatInput={setChatInput}
-          showBlockedList={showBlockedList}
-          showBotMessages={showBotMessages}
-          submitChat={submitChat}
-          team={duelTeam}
-          utilityControls={
-            <LiveSalonUtilityBar
-              humanCount={
-                Number.isFinite(tournamentLobby?.totalHumanCount)
-                  ? tournamentLobby.totalHumanCount
-                  : playersAlphaList.filter((entry) => !entry?.isBot).length
-              }
-              onOpenPlayers={openPlayersOverlayAlpha}
-              onOpenSettings={openSettingsPanel}
-              onOpenStats={openWeeklyStatsOverlay}
-              onOpenVault={openWordVaultPage}
-            />
-          }
-          visibleMessages={chatMessagesOnly}
+      <Suspense fallback={null}>
+        <LiveLobbyScreen
+          runtime={{
+            beginChatEditFromMessage,
+            blockedCount,
+            blockedEntries,
+            chatEditTarget,
+            chatInput,
+            chatInputDisabled,
+            chatInputPlaceholder,
+            chatInputRef,
+            chatMessagesOnly,
+            chatOverlays,
+            chatReplyTarget,
+            clearChatEditTarget,
+            clearChatReplyTarget,
+            cycleChatHistory,
+            darkMode,
+            deleteOwnChatMessage,
+            devRoundTypes,
+            duelTeam,
+            getLiveNickClassName,
+            getNowServerMs,
+            handleChatInputFocus,
+            installId,
+            mobileChatUnreadCount,
+            openPlayersOverlayAlpha,
+            openSettingsPanel,
+            openUserMenu,
+            openWeeklyStatsOverlay,
+            openWordVaultPage,
+            playersAlphaList,
+            returnToLobby,
+            roundPreparing,
+            selfNick,
+            selfReadyForTournament,
+            sendChatReaction,
+            setChatInput,
+            setChatReplyTargetFromMessage,
+            setChatTab,
+            setIsChatRulesOpen,
+            setShowBlockedList,
+            setShowBotMessages,
+            setTournamentReady,
+            showBlockedList,
+            showBotMessages,
+            signalLivePlayerActivity,
+            startTrainingRound,
+            submitChat,
+            tournamentLobby,
+            trainingBusy,
+            unblockInstallId,
+          }}
         />
-        {chatOverlays}
-        <MiniTournamentStartOverlay
-          lobby={tournamentLobby}
-          preparing={!!roundPreparing}
-          serverNowMs={getNowServerMs()}
-        />
-      </>
+      </Suspense>
     );
   }
 
@@ -30249,7 +30226,6 @@ function handleTouchEnd(e) {
             DARK_WORD_INACTIVE,
             darkMode,
             defaultTileBaseClass,
-            DESKTOP_CHAT_EMOJIS,
             DESKTOP_MAIN_GRID_MIN_HEIGHT,
             desktopChatActionsRef,
             desktopChatFontPx,

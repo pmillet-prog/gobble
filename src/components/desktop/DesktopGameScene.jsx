@@ -14,6 +14,7 @@ import {
   CHAT_DESKTOP_FONT_SCALE_MAX,
   CHAT_DESKTOP_FONT_SCALE_MIN,
   CHAT_DESKTOP_FONT_SCALE_STEP,
+  DESKTOP_CHAT_EMOJIS,
   QUICK_REPLIES,
 } from "../chat/chatPresentationConfig.js";
 import {
@@ -74,7 +75,6 @@ export default function DesktopGameScene({ runtime }) {
     DARK_WORD_INACTIVE,
     darkMode,
     defaultTileBaseClass,
-    DESKTOP_CHAT_EMOJIS,
     DESKTOP_MAIN_GRID_MIN_HEIGHT,
     desktopChatActionsRef,
     desktopChatFontPx,
