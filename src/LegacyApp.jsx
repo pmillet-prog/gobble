@@ -112,6 +112,12 @@ import {
   readStoredChatDrawerCalibration,
   writeStoredChatDrawerCalibration,
 } from "./app/adapters/chatDrawerCalibration.js";
+import {
+  buildUserScopedInstallId,
+  getInstallIdCreatedAtTs,
+  getOrCreateInstallId,
+  normalizeStoredPlayerIdentityKey,
+} from "./app/adapters/browserIdentity.js";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import { IMAGE_FALLBACKS, makeFileKey } from "./assets/bootAssetManifest.js";
@@ -147,6 +153,14 @@ import LiveFeed, { buildMixedFeed } from "./components/LiveFeed.jsx";
 import RankingWidgetMobile from "./components/RankingWidgetMobile.jsx";
 import GlobalChatLayer from "./components/chat/GlobalChatLayer.jsx";
 import ChatReactionToastLayer from "./components/chat/ChatReactionToastLayer.jsx";
+import {
+  CHAT_BOT_VISIBILITY_OPTIONS,
+  CHAT_BOT_VISIBILITY_STORAGE_KEY,
+  CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
+  isChatBotMessage,
+  normalizeChatBotVisibility,
+  shouldDisplayChatMessageForBotSettings,
+} from "./components/chat/chatBotVisibility.js";
 import MobileGrid from "./components/MobileGrid.jsx";
 import MobileHeader from "./components/MobileHeader.jsx";
 import MobileWordPreview from "./components/MobileWordPreview.jsx";
@@ -169,20 +183,25 @@ import {
   clearCelebrationFlash,
   showCelebrationFlash,
 } from "./components/celebrationFxStore.js";
-import {
-  getTraceStateSnapshot,
-  subscribeTraceState,
-  setTraceState,
-} from "./components/traceStateStore.js";
+import { setTraceState } from "./components/traceStateStore.js";
 import DesktopResultsSummaryDrawer from "./components/DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
+import SwapFadeText, {
+  RESULTS_SLIDE_IN_MS,
+  RESULTS_SLIDE_OUT_MS,
+} from "./components/results/SwapFadeText.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import RoundPreparationOverlay from "./components/RoundPreparationOverlay.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
+import {
+  createEmptyAuthForm,
+  normalizeAuthUsernameInput,
+} from "./components/auth/authFormModel.js";
 import InterTournamentLobby from "./components/live/InterTournamentLobby.jsx";
 import LiveSalonScene from "./components/live/LiveSalonScene.jsx";
 import LiveSalonUtilityBar from "./components/live/LiveSalonUtilityBar.jsx";
+import TraceAwareDesktopPreviewContent from "./components/live/TraceAwareDesktopPreviewContent.jsx";
 import MiniTournamentStartOverlay from "./components/live/MiniTournamentStartOverlay.jsx";
 import TrainingRoundPicker from "./components/live/TrainingRoundPicker.jsx";
 import TrainingJoinLiveDialog from "./components/training/TrainingJoinLiveDialog.jsx";
@@ -200,6 +219,15 @@ import WeeklyNickLine from "./components/stats/WeeklyNickLine.jsx";
 import FinaleBonusTilesDemo from "./components/finale/FinaleBonusTilesDemo.jsx";
 import { getFinaleTutorialSteps } from "./components/finale/finalePresentation.js";
 import OcidVoteOptionsGrid from "./components/ocid/OcidVoteOptionsGrid.jsx";
+import {
+  OCID_INVALID_BLUFF_MESSAGES,
+  OCID_NO_VOTER_MESSAGES,
+  OCID_SELF_WRONG_INVALID_VOTE_MESSAGES,
+  OCID_SELF_WRONG_VALID_VOTE_MESSAGES,
+  OCID_VALID_BLUFF_MESSAGES,
+  formatOcidMessage,
+  pickStableOcidMessage,
+} from "./components/ocid/ocidFeedback.js";
 import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
 import useGridHitboxController from "./components/grid/useGridHitboxController.js";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
@@ -374,7 +402,6 @@ const COUNTDOWN = 0;
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const FINAL_ROUND_RESULTS_SECONDS = 20;
-const READY_LABEL = "Pr\u00eat \u00e0 jouer";
 const TRANSIENT_HOME_CONNECTION_ERRORS = new Set([
   "Connexion au serveur impossible",
   "Impossible de joindre le serveur",
@@ -536,117 +563,6 @@ function normalizeNickKey(nick) {
   return String(nick || "").trim().toLowerCase();
 }
 
-const OCID_NO_VOTER_MESSAGES = [
-  "Personne n'a voté pour {word}, quel dommage, il avait pourtant un certain panache !",
-  "{word} n'a convaincu personne, mais il avait une vraie présence scénique.",
-  "Aucun vote pour {word}. Le public n'était pas prêt.",
-  "{word} repart sans voix, mais avec une dignité intacte.",
-  "Personne n'a choisi {word}. Audacieux, mais pas rentable.",
-  "{word} a traversé le vote dans un silence presque artistique.",
-  "Zéro vote pour {word}. Un choix de niche, manifestement très niche.",
-  "{word} n'a pas trouvé son public, ce qui est injuste mais statistique.",
-  "Aucun joueur n'a suivi {word}. Dommage, il avait du tempérament.",
-  "{word} a fini seul au buffet des propositions.",
-  "Personne n'a mordu à {word}. Pourtant, l'hameçon brillait.",
-  "{word} n'a récolté aucun vote. Panache validé, points refusés.",
-  "Zéro voix pour {word}. La poésie ne paie pas toujours.",
-  "{word} a laissé tout le monde perplexe, ce qui est déjà une performance.",
-  "Aucun vote pour {word}. Trop subtil ? Trop beau ? Trop tôt.",
-  "{word} n'a pas bluffé la salle, mais il a tenté quelque chose.",
-  "Personne n'a craqué pour {word}. Sévère, mais clair.",
-  "{word} termine sans vote, avec un certain mystère dans le regard.",
-  "Aucune voix pour {word}. Le bluff était peut-être trop avant-gardiste.",
-  "{word} a fait chou blanc, mais avec une belle assurance.",
-];
-
-const OCID_VALID_BLUFF_MESSAGES = [
-  "Vous avez bien leurré {audience} avec {word}, et votre mot était valide !",
-  "{audienceCaps} a cru à {word}, qui existait vraiment. Joli double effet.",
-  "{word} était valide, et {audience} est tombé dans le panneau.",
-  "Bluff propre : {word} existe, et {audience} vous a suivi.",
-  "{audienceCaps} a voté pour {word}. Mot valide, piège élégant.",
-  "{word} a fait illusion auprès de {audience}, tout en restant dans le dictionnaire.",
-  "Vous avez vendu {word} à {audience}, et le dico ne peut même pas protester.",
-  "{word} était légal, crédible, et {audience} y a cru.",
-  "Coup net : {audience} a choisi {word}, un vrai mot en plus.",
-  "{word} a bluffé {audience}. La légalité rend la chose presque respectable.",
-  "{audienceCaps} s'est laissé attirer par {word}, parfaitement valide.",
-  "Vous avez ferré {audience} avec {word}, et sans inventer un mot.",
-  "{word} passe au détecteur de dictionnaire, et {audience} au détecteur de bluff.",
-  "{audienceCaps} a validé {word} du regard. Le dictionnaire aussi.",
-  "Votre {word} était crédible, valide, et assez convaincant pour {audience}.",
-  "{word} a gagné la confiance de {audience}. Mot réel, piège réel.",
-  "Très propre : {word} existe, et {audience} l'a pris pour la cible.",
-  "{audienceCaps} a offert ses points à {word}, qui avait en plus ses papiers.",
-  "{word} n'était pas la cible, mais il était valide et {audience} y a cru.",
-  "Vous avez joué {word} au bon endroit : valide, plausible, rentable.",
-];
-
-const OCID_INVALID_BLUFF_MESSAGES = [
-  "Vous avez bien eu {audience} avec un mot qui n'existe pas : {word}. Quelle créativité !",
-  "{audienceCaps} a voté pour {word}, pur produit de votre imagination.",
-  "{word} n'existe pas, mais {audience} y a cru. C'est presque de la littérature.",
-  "Bluff sauvage : {word} est introuvable au dico, pas dans les votes.",
-  "{audienceCaps} a acheté {word}. Le dictionnaire demande un recours.",
-  "{word} était inventé, et pourtant {audience} a signé.",
-  "Vous avez vendu {word} à {audience}. Aucun dictionnaire n'a été consulté à temps.",
-  "{word} n'existe pas, mais il a existé assez longtemps pour piéger {audience}.",
-  "Coup de théâtre : {audience} a cru à {word}, mot totalement artisanal.",
-  "{word} était une pure invention. {audienceCaps} l'a trouvé crédible quand même.",
-  "Vous avez sorti {word} de nulle part, et {audience} l'a suivi.",
-  "{audienceCaps} s'est laissé convaincre par {word}. La créativité a payé.",
-  "{word} a trompé {audience} sans passer par la case dictionnaire.",
-  "Votre {word} n'existe pas, mais il a quand même fait des dégâts.",
-  "{word} était faux, l'aplomb était vrai, et {audience} a voté.",
-  "{audienceCaps} a offert ses points à {word}. Le dico reste interdit de parole.",
-  "Invention rentable : {word} a séduit {audience}.",
-  "{word} était du bluff brut, et {audience} l'a pris au sérieux.",
-  "Vous avez improvisé {word}; {audience} a applaudi avec ses points.",
-  "{word} n'avait aucun papier, mais {audience} l'a laissé passer.",
-];
-
-const OCID_SELF_WRONG_VALID_VOTE_MESSAGES = [
-  "Vous étiez vraiment sûr de vous avec {word}, mais ce n'est pas ça. Vote perso : +0 point.",
-  "{word} existait, certes. La cible, beaucoup moins. Auto-vote courageux, gain nul.",
-  "Vous avez voté pour votre propre {word}. Le dictionnaire approuve, le score beaucoup moins : +0.",
-  "{word} était valide, mais pas la bonne réponse. L'auto-confiance rapporte 0 point.",
-  "Vous avez misé sur {word} jusqu'au bout. Mot valide, pari perdu, +0 point au vote.",
-  "{word} avait des arguments, sauf celui d'être la cible. Auto-vote sans bénéfice.",
-  "Vous avez cru très fort à {word}. Le mot existe, les points de vote non.",
-  "{word} était défendable, mais la définition ne l'a pas choisi. +0 point pour ce vote.",
-  "Vous avez soutenu votre {word} avec panache. Beau geste, aucun point.",
-  "Mot valide, intuition moins valide : votre vote pour {word} rapporte 0 point.",
-];
-
-const OCID_SELF_WRONG_INVALID_VOTE_MESSAGES = [
-  "Vous étiez vraiment sûr de vous avec {word}, mais ce n'est pas ça. Et ce mot n'existe pas : +0 point.",
-  "Vous avez voté pour votre propre {word}. Audacieux, invalide, et gratuit : +0.",
-  "{word} sortait de votre imagination, et y retourne sans points.",
-  "Auto-vote sur {word}. Le dictionnaire a levé un sourcil, le score aussi : +0.",
-  "Vous avez défendu {word} jusqu'au bout. Personne ne peut vous enlever l'audace, ni vous donner des points.",
-  "{word} n'était ni la cible ni vraiment un mot. Double peine, +0 point.",
-  "Vous avez cru à {word}. Le jeu, lui, reste assez froid : +0.",
-  "Vote personnel pour {word}. Créatif, mais pas rentable.",
-  "{word} avait du culot. Le culot ne compte pas au barème : +0 point.",
-  "Vous avez choisi votre propre invention {word}. L'histoire retiendra l'effort, pas les points.",
-];
-
-function pickStableOcidMessage(messages, key) {
-  if (!Array.isArray(messages) || !messages.length) return "";
-  const raw = String(key || "");
-  let hash = 0;
-  for (let i = 0; i < raw.length; i += 1) {
-    hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
-  }
-  return messages[hash % messages.length] || messages[0];
-}
-
-function formatOcidMessage(template, values = {}) {
-  return String(template || "").replace(/\{(\w+)\}/g, (_, key) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : ""
-  );
-}
-
 function buildCompletedTargetPattern(pattern, word) {
   const cleanWord = String(word || "").trim();
   if (!cleanWord) return pattern || "";
@@ -690,67 +606,6 @@ const WEEKLY_RECORD_LABELS = {
 
 const WEEKLY_SWIPE_THRESHOLD = 42;
 const RESULTS_SWIPE_THRESHOLD = 52;
-const RESULTS_SLIDE_OUT_MS = 250;
-const RESULTS_SLIDE_IN_MS = 250;
-
-function SwapFadeText({ value, className = "" }) {
-  const [displayValue, setDisplayValue] = useState(value);
-  const [phase, setPhase] = useState("idle");
-  const latestValueRef = useRef(value);
-  const displayValueRef = useRef(value);
-  const firstRenderRef = useRef(true);
-  const outTimerRef = useRef(null);
-  const inTimerRef = useRef(null);
-
-  useEffect(() => {
-    latestValueRef.current = value;
-  }, [value]);
-
-  useEffect(() => {
-    displayValueRef.current = displayValue;
-  }, [displayValue]);
-
-  useEffect(() => {
-    if (firstRenderRef.current) {
-      firstRenderRef.current = false;
-      setDisplayValue(value);
-      return undefined;
-    }
-    if (value === displayValueRef.current) return undefined;
-    if (outTimerRef.current) {
-      clearTimeout(outTimerRef.current);
-      outTimerRef.current = null;
-    }
-    if (inTimerRef.current) {
-      clearTimeout(inTimerRef.current);
-      inTimerRef.current = null;
-    }
-    setPhase("out");
-    outTimerRef.current = setTimeout(() => {
-      setDisplayValue(latestValueRef.current);
-      setPhase("in");
-      inTimerRef.current = setTimeout(() => {
-        setPhase("idle");
-      }, RESULTS_SLIDE_IN_MS);
-    }, RESULTS_SLIDE_OUT_MS);
-    return () => {
-      if (outTimerRef.current) {
-        clearTimeout(outTimerRef.current);
-        outTimerRef.current = null;
-      }
-      if (inTimerRef.current) {
-        clearTimeout(inTimerRef.current);
-        inTimerRef.current = null;
-      }
-    };
-  }, [value]);
-
-  const phaseClass =
-    phase === "out" ? "results-fade-out" : phase === "in" ? "results-fade-in" : "";
-
-  return <span className={`${className} ${phaseClass}`}>{displayValue}</span>;
-}
-
 const DEFAULT_CHAT_VISIBLE_LINES = 18;
 const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
 const CHAT_MIN_VISIBLE_LINES = 8;
@@ -762,63 +617,8 @@ const DISCONNECT_GRACE_MS = 30 * 1000;
 const QUICK_REPLIES = ["GG!", "Bien joué", "On continue", "Belle grille!"];
 const DESKTOP_CHAT_EMOJIS = ["😀", "😄", "😉", "😎", "🥳", "🔥", "💪", "🙏", "😢", "❤️", "😂"];
 const CHAT_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "🍻", "🙏", "👏", "🎉", "👋", "😎"];
-const INSTALL_ID_STORAGE_KEY = "gobble_install_id";
-const INSTALL_ID_CREATED_AT_STORAGE_KEY = "gobble_install_id_created_at";
-const MAX_INSTALL_ID_LEN = 128;
-const CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY = "gobble_chat_show_bot_messages";
-const CHAT_BOT_VISIBILITY_STORAGE_KEY = "gobble_chat_bot_visibility_v1";
-const CHAT_BOT_VISIBILITY_OPTIONS = Object.freeze([
-  { key: "linguist", nick: "GrosRobert" },
-  { key: "statistician", nick: "Statatouille" },
-  { key: "detective", nick: "Inspecteur Grille" },
-  { key: "commentator", nick: "RadioBoggle" },
-  { key: "culture", nick: "WikiMama" },
-  { key: "narrator", nick: "Oraclettres" },
-  { key: "coach", nick: "CaSuffix" },
-  { key: "record_hunter", nick: "Recordator" },
-  { key: "hidden_word", nick: "MomoMotus" },
-  { key: "trend", nick: "Webomètre" },
-]);
-const CHAT_BOT_KEY_BY_NICK = Object.freeze(
-  Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => [bot.nick.toLowerCase(), bot.key]))
-);
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const SESSION_STORAGE_KEY = "gobble_session_v1";
-
-function isChatBotMessage(message) {
-  if (!message || typeof message !== "object") return false;
-  if (message.isBot) return true;
-  const installId = typeof message.installId === "string" ? message.installId : "";
-  if (installId.startsWith("ambient-bot:") || installId.startsWith("dev-bot:")) return true;
-  const kind = typeof message.meta?.kind === "string" ? message.meta.kind : "";
-  return kind === "ambient_bot_chat" || kind === "dev_bot_chat" || kind === "dev_chat_fill";
-}
-
-function normalizeChatBotVisibility(source) {
-  const next = {};
-  for (const bot of CHAT_BOT_VISIBILITY_OPTIONS) {
-    next[bot.key] = source?.[bot.key] !== false;
-  }
-  return next;
-}
-
-function getChatBotVisibilityKey(message) {
-  if (!message || typeof message !== "object") return "";
-  const category = typeof message.meta?.category === "string" ? message.meta.category.trim() : "";
-  if (category) return category;
-  const installId = typeof message.installId === "string" ? message.installId : "";
-  if (installId.startsWith("ambient-bot:")) return installId.slice("ambient-bot:".length).trim();
-  const nick = String(message.nick || message.author || "").trim().toLowerCase();
-  return CHAT_BOT_KEY_BY_NICK[nick] || "";
-}
-
-function shouldDisplayChatMessageForBotSettings(message, showBotMessages, botVisibility) {
-  if (!isChatBotMessage(message)) return true;
-  if (!showBotMessages) return false;
-  const key = getChatBotVisibilityKey(message);
-  if (!key) return true;
-  return botVisibility?.[key] !== false;
-}
 
 function getMassiveBoggleFeedbackPoints(points, rawWord) {
   const safePoints = Number.isFinite(points) ? Math.max(0, Number(points)) : 0;
@@ -899,21 +699,6 @@ const REPORT_REASONS = [
   "Infos perso",
   "Autre",
 ];
-function generateInstallId() {
-  try {
-    if (typeof crypto !== "undefined" && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-  } catch (_) {}
-  return `iid-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
-
-function buildUserScopedInstallId(userId) {
-  const safeUserId = Number(userId);
-  if (!Number.isInteger(safeUserId) || safeUserId <= 0) return "";
-  return String(safeUserId);
-}
-
 function normalizeMeasuredPx(value) {
   const num = Number(value);
   if (!Number.isFinite(num) || num <= 0) return 0;
@@ -924,59 +709,6 @@ function isSameMeasuredPx(prev, next, epsilon = 1) {
   const safePrev = normalizeMeasuredPx(prev);
   const safeNext = normalizeMeasuredPx(next);
   return Math.abs(safePrev - safeNext) <= epsilon;
-}
-
-function normalizeStoredPlayerIdentityKey(value) {
-  const raw = typeof value === "string" ? value.trim() : "";
-  if (!raw) return "";
-  const match = /^user:(\d+)$/.exec(raw);
-  if (match) return match[1];
-  return raw;
-}
-
-function getOrCreateInstallId() {
-  try {
-    const existing = localStorage.getItem(INSTALL_ID_STORAGE_KEY);
-    if (existing && existing.trim()) return existing.trim();
-    const legacy = localStorage.getItem("boggle_client_id");
-    if (legacy && legacy.trim()) {
-      localStorage.setItem(INSTALL_ID_STORAGE_KEY, legacy.trim());
-      return legacy.trim();
-    }
-    const fresh = generateInstallId();
-    localStorage.setItem(INSTALL_ID_STORAGE_KEY, fresh);
-    localStorage.setItem(INSTALL_ID_CREATED_AT_STORAGE_KEY, String(Date.now()));
-    return fresh;
-  } catch (_) {
-    return generateInstallId();
-  }
-}
-
-function getInstallIdCreatedAtTs() {
-  try {
-    const raw = localStorage.getItem(INSTALL_ID_CREATED_AT_STORAGE_KEY);
-    const ts = Number(raw);
-    return Number.isFinite(ts) && ts > 0 ? ts : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function createEmptyAuthForm(overrides = {}) {
-  return {
-    username: "",
-    password: "",
-    confirmPassword: "",
-    email: "",
-    currentPassword: "",
-    ...overrides,
-  };
-}
-
-function normalizeAuthUsernameInput(raw) {
-  return String(raw || "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function getPatchNotesSeenAudienceKey(userId) {
@@ -1194,108 +926,6 @@ function getSpecialRoundDescription(specialInfo) {
     return "Points du mini-tournoi ×2 et effets des tuiles spéciales ×2 : L2→L4, L3→L6, M2→M4, M3→M6.";
   }
   return "";
-}
-
-function TraceAwareDesktopPreviewContent({
-  board = [],
-  countdownLines = [],
-  currentDisplay = "",
-  darkMode = false,
-  getTraceCellLabel = null,
-  phase = "",
-  previewTileStyle = undefined,
-  scoreLabel = "0",
-  showPreviewStats = false,
-  showPreviewStatus = false,
-  totalScoreLabel = "?",
-  totalWordsLabel = "?",
-  wordsFoundLabel = "0",
-}) {
-  const traceSnapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
-  );
-  const traceChunks =
-    phase === "playing"
-      ? Array.isArray(traceSnapshot.highlightPath) && traceSnapshot.highlightPath.length
-        ? traceSnapshot.highlightPath
-            .map((idx) => {
-              const cell = Array.isArray(board) ? board[idx] : null;
-              return typeof getTraceCellLabel === "function"
-                ? getTraceCellLabel(cell)
-                : String(cell?.letter || "");
-            })
-            .filter((chunk) => String(chunk || "").trim())
-        : Array.isArray(traceSnapshot.currentTiles)
-        ? traceSnapshot.currentTiles
-        : []
-      : [];
-
-  if (phase !== "playing") {
-    return (
-      <span className="text-gray-800 dark:text-white">
-        {countdownLines.map((line, idx) => (
-          <span
-            key={`${line}-${idx}`}
-            className={`block ${
-              /^\d+$/.test(line)
-                ? "text-2xl font-black leading-none"
-                : String(line).startsWith("MANCHE SPECIALE")
-                ? "text-[0.7rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-                : ""
-            }`}
-          >
-            {line}
-          </span>
-        ))}
-      </span>
-    );
-  }
-
-  if (traceChunks.length) {
-    return (
-      <AutoScaleInline
-        minScale={0.42}
-        estimatedContentWidth={traceChunks.length * 32 + Math.max(0, traceChunks.length - 1) * 4}
-        measurePaddingPx={8}
-        reserveScaledWidth
-        className="gap-1 py-1"
-      >
-        {traceChunks.map((ch, idx) => {
-          const angle = ((idx * 17 + traceChunks.length * 13) % 11) - 5;
-          return (
-            <div
-              key={idx}
-              className="preview-tile"
-              style={{ ...previewTileStyle, transform: `rotate(${angle}deg)` }}
-            >
-              {ch}
-            </div>
-          );
-        })}
-      </AutoScaleInline>
-    );
-  }
-
-  if (showPreviewStatus) {
-    return (
-      <span className="text-gray-700 dark:text-slate-200">
-        {currentDisplay.toUpperCase()}
-      </span>
-    );
-  }
-
-  if (showPreviewStats) {
-    return (
-      <div className="text-gray-700 dark:text-slate-200 text-sm leading-tight font-semibold">
-        <div>{`mots : ${wordsFoundLabel} / ${totalWordsLabel}`}</div>
-        <div>{`score : ${scoreLabel} / ${totalScoreLabel}`}</div>
-      </div>
-    );
-  }
-
-  return <span className="text-gray-700 dark:text-slate-200">{READY_LABEL}</span>;
 }
 
 function useStableEvent(handler) {
