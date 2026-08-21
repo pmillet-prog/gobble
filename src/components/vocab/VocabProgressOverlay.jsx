@@ -30,6 +30,7 @@ const VocabProgressOverlay = React.memo(
       playVocabOverlayClingSound = () => {},
       playVocabOverlayTickSound = () => {},
       playVocabOverlayZeroSound = () => {},
+      request = null,
       triggerConfettiBurst = () => {},
     },
     controllerRef
@@ -65,6 +66,7 @@ const VocabProgressOverlay = React.memo(
   const vocabOverlayDeltaRef = useRef(null);
   const vocabOverlayCursorRef = useRef(null);
   const vocabOverlayWordsRef = useRef([]);
+  const lastRequestIdRef = useRef(null);
 
   function queueVocabOverlayTimer(timerId) {
     if (!timerId) return;
@@ -297,6 +299,13 @@ const VocabProgressOverlay = React.memo(
     start: startVocabOverlayAnimation,
     stop: stopVocabOverlayAnimation,
   }));
+
+  useEffect(() => {
+    const requestId = request?.id;
+    if (requestId == null || lastRequestIdRef.current === requestId) return;
+    lastRequestIdRef.current = requestId;
+    startVocabOverlayAnimation(request.payload || {});
+  }, [request]);
 
   useEffect(() => {
     onVisibilityChange?.(isVocabOverlayOpen);

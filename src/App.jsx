@@ -4,7 +4,6 @@ import React, { Suspense, useEffect, useState, useRef, useLayoutEffect } from "r
 import "./styles/desktopResponsive.css";
 import "./styles/gameRuntime.css";
 import { playBlackHoleOutro3D } from "./effects/blackHoleOutro3D.js";
-import VocabProgressOverlay from "./components/vocab/VocabProgressOverlay.jsx";
 import {
   TILE_LETTER_SCALE_MIN,
   TILE_LETTER_SCALE_MAX,
@@ -292,6 +291,9 @@ const MobileResultsScreen = React.lazy(loadMobileResultsScreen);
 const TargetWaitDevPlayground = React.lazy(() =>
   import("./components/targetWait/TargetWaitDevPlayground.jsx")
 );
+const loadVocabProgressOverlay = () =>
+  import("./components/vocab/VocabProgressOverlay.jsx");
+const VocabProgressOverlay = React.lazy(loadVocabProgressOverlay);
 
 
 const ROOM_OPTIONS = {
@@ -3698,6 +3700,15 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   const [vocabWeeklyUpdatedAt, setVocabWeeklyUpdatedAt] = useState(null);
   const [vocabResultsReadyKey, setVocabResultsReadyKey] = useState(null);
   const [isVocabOverlayOpen, setIsVocabOverlayOpen] = useState(false);
+  const [vocabOverlayRequest, setVocabOverlayRequest] = useState(null);
+  const handleVocabOverlayVisibilityChange = React.useCallback((open) => {
+    setIsVocabOverlayOpen(!!open);
+    if (!open) setVocabOverlayRequest(null);
+  }, []);
+  useEffect(() => {
+    if (phase !== "playing" || !isAccountAuthenticated) return;
+    void loadVocabProgressOverlay();
+  }, [isAccountAuthenticated, phase]);
   const [trophyStatus, setTrophyStatus] = useState(null);
   const [trophyHistory, setTrophyHistory] = useState([]);
   const [trophyLoading, setTrophyLoading] = useState(false);
@@ -3896,6 +3907,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   const vocabOverlayRoundRef = useRef(null);
   const vocabOverlayRankSnapshotRef = useRef(null);
   const vocabOverlayControllerRef = useRef(null);
+  const vocabOverlayRequestIdRef = useRef(0);
   const vocabResultsPendingRef = useRef(null);
   const skipVocabOverlayOnceRef = useRef(false);
 
@@ -7230,6 +7242,7 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   }, [phase]);
 
   function stopVocabOverlayAnimation() {
+    setVocabOverlayRequest(null);
     vocabOverlayControllerRef.current?.stop();
   }
 
@@ -7238,7 +7251,11 @@ function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   }
 
   function startVocabOverlayAnimation(payload) {
-    vocabOverlayControllerRef.current?.start(payload);
+    vocabOverlayRequestIdRef.current += 1;
+    setVocabOverlayRequest({
+      id: vocabOverlayRequestIdRef.current,
+      payload,
+    });
   }
 
   useEffect(() => {
@@ -27391,19 +27408,22 @@ function handleTouchEnd(e) {
         )
       : null;
   const vocabOverlayView = (
-    <VocabProgressOverlay
-      ref={vocabOverlayControllerRef}
-      darkMode={darkMode}
-      fallbackLevel={vocabLevel}
-      getImageUrl={getImageUrl}
-      isMobileLayout={isMobileLayout}
-      onVisibilityChange={setIsVocabOverlayOpen}
-      playCloseSound={playCloseSound}
-      playVocabOverlayClingSound={playVocabOverlayClingSound}
-      playVocabOverlayTickSound={playVocabOverlayTickSound}
-      playVocabOverlayZeroSound={playVocabOverlayZeroSound}
-      triggerConfettiBurst={triggerConfettiBurst}
-    />
+    <Suspense fallback={null}>
+      <VocabProgressOverlay
+        ref={vocabOverlayControllerRef}
+        darkMode={darkMode}
+        fallbackLevel={vocabLevel}
+        getImageUrl={getImageUrl}
+        isMobileLayout={isMobileLayout}
+        onVisibilityChange={handleVocabOverlayVisibilityChange}
+        playCloseSound={playCloseSound}
+        playVocabOverlayClingSound={playVocabOverlayClingSound}
+        playVocabOverlayTickSound={playVocabOverlayTickSound}
+        playVocabOverlayZeroSound={playVocabOverlayZeroSound}
+        request={vocabOverlayRequest}
+        triggerConfettiBurst={triggerConfettiBurst}
+      />
+    </Suspense>
   );
   const specialTutorialType = specialTutorialPlan?.type || null;
   const specialTutorialLabel = specialTutorialPlan?.label || "Manche spéciale";
