@@ -76,6 +76,9 @@ import {
   joinSocketToChatRoom,
   leaveSocketChatRoom,
 } from "./chat/chatSocketRooms.js";
+import { registerSubmissionHandlers } from "./realtime/registerSubmissionHandlers.js";
+import { registerSessionUtilityHandlers } from "./realtime/registerSessionUtilityHandlers.js";
+import { registerSpecialRoundHandlers } from "./realtime/registerSpecialRoundHandlers.js";
 import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
@@ -10989,54 +10992,11 @@ io.on("connection", (socket) => {
   console.log("Client connecté", socket.id);
   emitRoomsStats();
 
-  socket.on("timeSync", (_payload, cb) => {
-    cb?.({ ok: true, serverNow: Date.now() });
-  });
-
-  socket.on("playtimeLimit:status", (_payload, cb) => {
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    cb?.({ ok: true, playtimeLimit: getPlaytimeLimitStatus(identity.userId) });
-  });
-
-  socket.on("playtimeLimit:set", (payload, cb) => {
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const limitMs = Math.round(Number(payload?.limitMs) || 0);
-    const username =
-      identity.user?.usernameDisplay ||
-      identity.user?.usernameNormalized ||
-      socket.data?.nick ||
-      "";
-    const result = setPlaytimeLimit({ userId: identity.userId, username, limitMs });
-    cb?.(
-      result.ok
-        ? { ok: true, playtimeLimit: result.status }
-        : {
-            ok: false,
-            error: result.error || "playtime_limit_failed",
-            playtimeLimit: getPlaytimeLimitStatus(identity.userId),
-          }
-    );
-  });
-
-  socket.on("playtimeLimit:usage", (payload, cb) => {
-    const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
-    const now = Date.now();
-    const requestedDeltaMs = Math.max(0, Math.round(Number(payload?.deltaMs) || 0));
-    const deltaMs = Math.min(5 * 60 * 1000, requestedDeltaMs);
-    socket.data.playtimeUsageLastAt = now;
-    const username =
-      identity.user?.usernameDisplay ||
-      identity.user?.usernameNormalized ||
-      socket.data?.nick ||
-      "";
-    const result = addPlaytimeUsage({ userId: identity.userId, username, deltaMs });
-    cb?.({
-      ok: result.ok !== false,
-      playtimeLimit: result.status || getPlaytimeLimitStatus(identity.userId),
-    });
+  registerSessionUtilityHandlers(socket, {
+    addPlaytimeUsage,
+    getPlaytimeLimitStatus,
+    requireSocketPlayerIdentity,
+    setPlaytimeLimit,
   });
 
   socket.on("session:resume", async (payload, cb) => {
@@ -12438,175 +12398,26 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("special3Words:update", (payload, cb) => {
-    const room = getRoom(socket.roomId);
-    const player = room?.players.get(socket.id);
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    if (isStandaloneTrainingPlayer(player)) {
-      cb?.({ ok: false, error: "standalone_training" });
-      return;
-    }
-    markSocketPlayerActivity(room, socket, "special3");
-    const result = updateSpecial3WordsState(room, {
-      roundId: payload?.roundId,
-      nick: player?.nick,
-      wordSlots: payload?.wordSlots,
-      specialPlacements: payload?.specialPlacements,
-    });
-    cb?.(result);
+  registerSpecialRoundHandlers(socket, {
+    clearOcidProposalForNick,
+    getRoom,
+    isStandaloneTrainingPlayer,
+    markSocketPlayerActivity,
+    submitOcidProposalForNick,
+    submitOcidVoteForNick,
+    updateSpecial3WordsState,
   });
 
-  socket.on("ocid:propose", (payload, cb) => {
-    const room = getRoom(socket.roomId);
-    const player = room?.players.get(socket.id);
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    if (isStandaloneTrainingPlayer(player)) {
-      cb?.({ ok: false, error: "standalone_training" });
-      return;
-    }
-    markSocketPlayerActivity(room, socket, "ocid_propose");
-    const result = submitOcidProposalForNick(room, {
-      roundId: payload?.roundId,
-      nick: player.nick,
-      word: payload?.word,
-      path: payload?.path,
-    });
-    cb?.(result);
-  });
-
-  socket.on("ocid:clearProposal", (payload, cb) => {
-    const room = getRoom(socket.roomId);
-    const player = room?.players.get(socket.id);
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    if (isStandaloneTrainingPlayer(player)) {
-      cb?.({ ok: false, error: "standalone_training" });
-      return;
-    }
-    markSocketPlayerActivity(room, socket, "ocid_clear");
-    const result = clearOcidProposalForNick(room, {
-      roundId: payload?.roundId,
-      nick: player.nick,
-    });
-    cb?.(result);
-  });
-
-  socket.on("ocid:vote", (payload, cb) => {
-    const room = getRoom(socket.roomId);
-    const player = room?.players.get(socket.id);
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    if (isStandaloneTrainingPlayer(player)) {
-      cb?.({ ok: false, error: "standalone_training" });
-      return;
-    }
-    markSocketPlayerActivity(room, socket, "ocid_vote");
-    const result = submitOcidVoteForNick(room, {
-      roundId: payload?.roundId,
-      nick: player.nick,
-      optionId: payload?.optionId,
-    });
-    cb?.(result);
-  });
-
-  socket.on("submitWord", ({ roundId, word, path, traceStartedAt = null }, cb) => {
-    const room = getRoom(socket.roomId);
-    const player = room?.players.get(socket.id);
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in" });
-      return;
-    }
-    if (isStandaloneTrainingPlayer(player)) {
-      cb?.({ ok: false, error: "standalone_training" });
-      return;
-    }
-    markSocketPlayerActivity(room, socket, "submit_word");
-    const result = submitWordForNick(room, {
-      roundId,
-      word,
-      path,
-      nick: player?.nick,
-      traceStartedAt,
-    });
-    cb?.(result);
-  });
-
-  socket.on("submitWordsBatch", (payload, cb) => {
-    const batchStartedAt = Date.now();
-    const clientSeq = Number.isFinite(payload?.clientSeq) ? payload.clientSeq : null;
-    const items = Array.isArray(payload?.items) ? payload.items : [];
-    const room = getRoom(socket.roomId);
-    const player = room?.players.get(socket.id);
-    const roundId = payload?.roundId || null;
-
-    if (!room || !player) {
-      cb?.({ ok: false, error: "not_logged_in", clientSeq, results: [] });
-      return;
-    }
-    if (isStandaloneTrainingPlayer(player)) {
-      cb?.({ ok: false, error: "standalone_training", clientSeq, results: [] });
-      return;
-    }
-    markSocketPlayerActivity(room, socket, "submit_words_batch");
-    if (!roundId || items.length === 0) {
-      cb?.({ ok: false, error: "invalid_payload", clientSeq, results: [] });
-      return;
-    }
-
-    const results = [];
-    let acceptedCount = 0;
-    for (const item of items) {
-      const rawWord = typeof item?.word === "string" ? item.word : "";
-      if (!rawWord) {
-        results.push({ word: "", ok: false, error: "empty_word" });
-        continue;
-      }
-      const res = submitWordForNick(room, {
-        roundId,
-        word: rawWord,
-        path: item?.path,
-        nick: player.nick,
-        traceStartedAt: item?.traceStartedAt,
-        deferRankingBroadcast: true,
-      });
-      if (res?.ok) acceptedCount += 1;
-      const normalized = normalizeWord(rawWord) || rawWord;
-      results.push({
-        word: normalized,
-        ...res,
-        points:
-          Number.isFinite(res?.points) || Number.isFinite(res?.wordScore)
-            ? res?.points ?? res?.wordScore
-            : undefined,
-        totalScore:
-          Number.isFinite(res?.totalScore) || Number.isFinite(res?.score)
-            ? res?.totalScore ?? res?.score
-            : undefined,
-      });
-    }
-    if (acceptedCount > 0) {
-      bumpRoomPerfCounter(room, "batchWords", acceptedCount);
-      maybeAnnounceCloseFight(room);
-      broadcastProvisionalRanking(room);
-    }
-    const batchElapsed = Date.now() - batchStartedAt;
-    if (batchElapsed > PERF_SUBMIT_BATCH_WARN_MS) {
-      console.warn(
-        `[perf:${room.id}] submitWordsBatch ${batchElapsed}ms items=${items.length} accepted=${acceptedCount}`
-      );
-    }
-
-    cb?.({ ok: true, clientSeq, results });
+  registerSubmissionHandlers(socket, {
+    broadcastProvisionalRanking,
+    bumpRoomPerfCounter,
+    getRoom,
+    isStandaloneTrainingPlayer,
+    markSocketPlayerActivity,
+    maybeAnnounceCloseFight,
+    normalizeWord,
+    perfSubmitBatchWarnMs: PERF_SUBMIT_BATCH_WARN_MS,
+    submitWordForNick,
   });
 
   socket.on("disconnect", () => {
