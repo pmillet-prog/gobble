@@ -1,4 +1,4 @@
-import { IMAGE_KEYS, SFX_KEYS, makeScoreSfxKey } from "./assetKeys";
+import { IMAGE_KEYS, SFX_KEYS, makeScoreSfxKey } from "./assetKeys.js";
 
 export const ASSET_MANIFEST_BASE = [
   {

@@ -12,12 +12,8 @@ import PerfTestOverlay from "./perf/PerfTestOverlay.jsx";
 import {
   AMBIENT_MUSIC_TRACKS_DEFAULT,
   AUDIO_COOLDOWN_MAX_KEYS,
-  REGISTERED_SFX_MANIFEST,
   SOUND_MASTER_VOLUME_DEFAULT,
-  buildSfxManifest,
-  loadAmbientTrackList,
   normalizeSoundMasterVolume,
-  purgeRuntimeMediaCache,
 } from "./audio/audioAssets";
 import useAudioEngine from "./audio/useAudioEngine";
 import useAmbientMusic from "./audio/useAmbientMusic";
@@ -34,14 +30,13 @@ import {
 } from "./utils/desktopResponsiveLayout.js";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
-import ASSET_MANIFEST_BASE from "./assets/assetManifest";
 import {
-  buildUiAssetManifest,
-  detectWideUiViewport,
+  IMAGE_FALLBACKS,
+  makeFileKey,
+} from "./assets/bootAssetManifest.js";
+import {
   getHomeBackgroundKey,
   getUiImageUrl,
-  scheduleDeferredHighPriorityImagePreload,
-  scheduleDeferredUiAssetPreload,
 } from "./assets/uiAssetManifest.js";
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
@@ -92,7 +87,7 @@ import DesktopResultsWordList from "./components/DesktopResultsWordList.jsx";
 import DesktopChatPanel from "./components/DesktopChatPanel.jsx";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import RoundPreparationOverlay from "./components/RoundPreparationOverlay.jsx";
-import BootLoader from "./components/BootLoader.jsx";
+import AppBootOverlay from "./components/boot/AppBootOverlay.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
 import InterTournamentLobby from "./components/live/InterTournamentLobby.jsx";
 import LiveSalonScene from "./components/live/LiveSalonScene.jsx";
@@ -396,7 +391,6 @@ const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
 const SAMSUNG_BIGWORD_FLASH_MS = 650;
 const LITE_VISUAL_FX_QUERY_PARAM = "liteFx";
-const CACHE_PURGE_QUERY_PARAM = "purgeCache";
 const CHAT_DESKTOP_FONT_SCALE_DEFAULT = 1;
 const CHAT_DESKTOP_FONT_SCALE_MIN = 0.85;
 const CHAT_DESKTOP_FONT_SCALE_MAX = 1.45;
@@ -408,47 +402,6 @@ function normalizeChatDesktopFontScale(raw, fallback = CHAT_DESKTOP_FONT_SCALE_D
   const clamped = Math.max(CHAT_DESKTOP_FONT_SCALE_MIN, Math.min(CHAT_DESKTOP_FONT_SCALE_MAX, value));
   return Math.round(clamped / CHAT_DESKTOP_FONT_SCALE_STEP) * CHAT_DESKTOP_FONT_SCALE_STEP;
 }
-const BOOT_ASSET_IMAGES = [
-  { key: IMAGE_KEYS.favicon, url: "/favicon.png", priority: "critical" },
-  { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
-  { key: IMAGE_KEYS.gobblarsBadge, url: "/Gobblars.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.doubleGobble, url: "/bigwords/doublegobble.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.bonus, url: "/bigwords/bonus.webp", priority: "high" },
-  { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.college, url: "/vocab-ranks/college.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.lycee, url: "/vocab-ranks/lycee.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.bac, url: "/vocab-ranks/bac.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.prepa, url: "/vocab-ranks/prepa.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.universite, url: "/vocab-ranks/universite.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.licence, url: "/vocab-ranks/licence.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.master, url: "/vocab-ranks/master.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.doctorat, url: "/vocab-ranks/doctorat.png", priority: "low" },
-  { key: IMAGE_KEYS.vocab.academie, url: "/vocab-ranks/academie.png", priority: "low" },
-];
-const IMAGE_FALLBACKS = new Map(BOOT_ASSET_IMAGES.map((entry) => [entry.key, entry.url]));
-const BOOT_ASSET_FILES = [
-  "/privacy.html",
-  "/privacy/index.html",
-  "/robots.txt",
-  "/sitemap.xml",
-  "/manifest.webmanifest",
-  "/icon.svg",
-  "/favicon-16x16.png",
-  "/favicon-32x32.png",
-  "/apple-touch-icon.png",
-  "/sw.js",
-  "/.well-known/assetlinks.json",
-];
-const BOOT_MIN_HOLD_MS = 250;
-const BOOT_SLOW_THRESHOLD_MS = 3500;
-const BOOT_TRANSITION_MS = 650;
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
 const STATS_SEASON_TARGET_LIMIT = 200;
@@ -563,78 +516,6 @@ function buildFakeDailyHistoryDays(todayDateId) {
     };
   });
 }
-
-function splitUrlPathAndSuffix(src) {
-  const raw = String(src || "").trim();
-  if (!raw) return { path: "", suffix: "" };
-  const queryIdx = raw.indexOf("?");
-  const hashIdx = raw.indexOf("#");
-  let cut = raw.length;
-  if (queryIdx >= 0) cut = Math.min(cut, queryIdx);
-  if (hashIdx >= 0) cut = Math.min(cut, hashIdx);
-  return {
-    path: raw.slice(0, cut),
-    suffix: raw.slice(cut),
-  };
-}
-
-function stripExtension(src) {
-  const { path, suffix } = splitUrlPathAndSuffix(src);
-  if (!path) return String(src || "");
-  return `${path.replace(/\.[a-z0-9]{2,5}$/i, "")}${suffix}`;
-}
-
-function buildCandidatesFromBase(base, order) {
-  const cleaned = stripExtension(base);
-  const { path: cleanPath, suffix } = splitUrlPathAndSuffix(cleaned);
-  if (!cleanPath) return [];
-  return order.map((ext) => `${cleanPath}.${ext}${suffix}`);
-}
-
-function buildImageCandidates(url) {
-  const candidates = buildCandidatesFromBase(url, ["webp", "png"]);
-  return candidates.length ? candidates : [url];
-}
-
-function buildImageManifest(items) {
-  return (Array.isArray(items) ? items : []).map((item) => ({
-    key: item.key,
-    type: "image",
-    candidates: buildImageCandidates(item.url),
-    priority: item.priority,
-  }));
-}
-
-function makeFileKey(url) {
-  return `file_${String(url || "")
-    .replace(/^\//, "")
-    .replace(/[^a-z0-9]+/gi, "_")
-    .toLowerCase()}`;
-}
-
-function buildFileManifest(items) {
-  return (Array.isArray(items) ? items : []).map((url) => ({
-    key: makeFileKey(url),
-    type: "file",
-    candidates: [url],
-    priority: "low",
-  }));
-}
-
-function dedupeManifest(entries) {
-  const map = new Map();
-  (Array.isArray(entries) ? entries : []).forEach((entry) => {
-    if (!entry?.key) return;
-    map.set(entry.key, entry);
-  });
-  return Array.from(map.values());
-}
-
-const BOOT_ASSET_MANIFEST_BASE = dedupeManifest([
-  ...ASSET_MANIFEST_BASE.filter((entry) => entry?.type !== "sfx"),
-  ...buildImageManifest(BOOT_ASSET_IMAGES),
-  ...buildFileManifest(BOOT_ASSET_FILES),
-]);
 
 const DEFINITION_PLACEHOLDER_RE = /^[.\u2026\u00b7\s-]+$/;
 
@@ -4429,6 +4310,33 @@ function useStableEvent(handler) {
 }
 
 export default function App() {
+  const [ambientTracks, setAmbientTracks] = useState(AMBIENT_MUSIC_TRACKS_DEFAULT);
+  const [bootReady, setBootReady] = useState(false);
+  const [bootOverlayVisible, setBootOverlayVisible] = useState(true);
+  const handleAmbientTracksResolved = React.useCallback((resolvedAmbientTracks) => {
+    if (Array.isArray(resolvedAmbientTracks) && resolvedAmbientTracks.length) {
+      setAmbientTracks(resolvedAmbientTracks);
+    }
+  }, []);
+  const handleBootReady = React.useCallback(() => setBootReady(true), []);
+
+  return (
+    <>
+      <AppContent
+        ambientTracks={ambientTracks}
+        bootOverlayVisible={bootOverlayVisible}
+        bootReady={bootReady}
+      />
+      <AppBootOverlay
+        onAmbientTracksResolved={handleAmbientTracksResolved}
+        onOverlayVisibleChange={setBootOverlayVisible}
+        onReady={handleBootReady}
+      />
+    </>
+  );
+}
+
+function AppContent({ ambientTracks, bootOverlayVisible, bootReady }) {
   recordAppRender();
 
   useEffect(() => {
@@ -4784,172 +4692,27 @@ export default function App() {
     },
     [applyThemeVisualState]
   );
-  const [ambientTracks, setAmbientTracks] = useState(AMBIENT_MUSIC_TRACKS_DEFAULT);
-  const ambientTracksRef = useRef(AMBIENT_MUSIC_TRACKS_DEFAULT);
+  const ambientTracksRef = useRef(ambientTracks);
   useEffect(() => {
     ambientTracksRef.current = ambientTracks;
   }, [ambientTracks]);
-  const [bootProgress, setBootProgress] = useState(() => ({
-    loaded: 0,
-    total: BOOT_ASSET_MANIFEST_BASE.length,
-    errors: 0,
-    done: false,
-    stage: "",
-    key: "",
-  }));
-  const [bootOverlayVisible, setBootOverlayVisible] = useState(true);
-  const [bootOverlayFading, setBootOverlayFading] = useState(false);
-  const bootOverlayPlayedRef = useRef(false);
   const homeLobbyIntroPlayedRef = useRef(false);
   const handleHomeLobbyIntroComplete = React.useCallback(() => {
     homeLobbyIntroPlayedRef.current = true;
   }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    let cancelled = false;
-    let cancelDeferredUiPreload = () => {};
-    let cancelDeferredHighPriorityPreload = () => {};
-    const run = async () => {
-      const params = new URLSearchParams(window.location.search || "");
-      const forceCachePurge = params.get(CACHE_PURGE_QUERY_PARAM) === "1";
-      const isSamsungRuntime =
-        typeof navigator !== "undefined" &&
-        /SamsungBrowser/i.test(navigator.userAgent || "");
-      if (isSamsungRuntime || forceCachePurge) {
-        await purgeRuntimeMediaCache({ force: forceCachePurge });
-      }
-      const resolvedAmbientTracks = await loadAmbientTrackList();
-      if (cancelled) return;
-      if (
-        Array.isArray(resolvedAmbientTracks) &&
-        resolvedAmbientTracks.length &&
-        resolvedAmbientTracks !== ambientTracksRef.current
-      ) {
-        ambientTracksRef.current = resolvedAmbientTracks;
-        setAmbientTracks(resolvedAmbientTracks);
-      }
-      const ambientManifest = buildFileManifest(resolvedAmbientTracks || []);
-      const sfxManifest = buildSfxManifest(REGISTERED_SFX_MANIFEST);
-      const preferWideUi = detectWideUiViewport();
-      const bootManifest = dedupeManifest([
-        ...BOOT_ASSET_MANIFEST_BASE,
-        ...buildUiAssetManifest({ preferWide: preferWideUi }),
-        ...sfxManifest,
-        ...ambientManifest,
-      ]);
-      AssetManager.setAudioSystemProvider(getAudioSystem);
-      AssetManager.setMuted(isSfxMutedRef.current);
-      AssetManager.setMasterVolume(
-        normalizeSoundMasterVolume(soundMasterVolumeRef.current, SOUND_MASTER_VOLUME_DEFAULT)
-      );
-      AssetManager.registerManifest(bootManifest);
-      const total = bootManifest.filter(
-        (entry) => entry?.type !== "sfx" && entry?.priority === "critical"
-      ).length;
-      if (!total) {
-        setBootProgress((prev) => ({ ...prev, total: 0, done: true, stage: "", key: "" }));
-        return;
-      }
-      let loaded = 0;
-      let errors = 0;
-      setBootProgress((prev) => ({
-        ...prev,
-        loaded: 0,
-        errors: 0,
-        total,
-        stage: "",
-        key: "",
-      }));
-      const startedAt = performance.now();
-      const tickProgress = ({ ok, key, stage }) => {
-        loaded += 1;
-        if (!ok) errors += 1;
-        if (!cancelled) {
-          setBootProgress((prev) => ({
-            ...prev,
-            loaded,
-            errors,
-            total,
-            stage: stage || "",
-            key: key || "",
-          }));
-        }
-      };
-      await AssetManager.preload({
-        priority: "critical",
-        onProgress: ({ ok, key, stage }) => tickProgress({ ok, key, stage: stage || "critical" }),
-        excludeTypes: ["sfx"],
-        concurrency: 4,
-      });
-      if (!cancelled) {
-        cancelDeferredHighPriorityPreload = scheduleDeferredHighPriorityImagePreload();
-        cancelDeferredUiPreload = scheduleDeferredUiAssetPreload({
-          preferWide: preferWideUi,
-        });
-      }
-      const elapsed = performance.now() - startedAt;
-      const delay = Math.max(0, BOOT_MIN_HOLD_MS - elapsed);
-      window.setTimeout(() => {
-        if (cancelled) return;
-        setBootProgress((prev) => ({
-          ...prev,
-          loaded,
-          errors,
-          total,
-          done: true,
-        }));
-      }, delay);
-    };
-    run();
-    return () => {
-      cancelled = true;
-      cancelDeferredHighPriorityPreload();
-      cancelDeferredUiPreload();
-    };
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      if (bootProgress?.done) {
-        setBootOverlayVisible(false);
-        setBootOverlayFading(false);
-      }
-      return undefined;
-    }
-    if (!bootProgress?.done) {
-      if (bootOverlayPlayedRef.current) return undefined;
-      setBootOverlayVisible(true);
-      setBootOverlayFading(false);
-      return undefined;
-    }
-    if (bootOverlayPlayedRef.current && !bootOverlayVisible) return undefined;
-    setBootOverlayVisible(true);
-    setBootOverlayFading(false);
-    const rafId = window.requestAnimationFrame(() => {
-      setBootOverlayFading(true);
-    });
-    const timerId = window.setTimeout(() => {
-      setBootOverlayVisible(false);
-      setBootOverlayFading(false);
-      bootOverlayPlayedRef.current = true;
-    }, BOOT_TRANSITION_MS);
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.clearTimeout(timerId);
-    };
-  }, [bootProgress?.done]);
   const [showHelp, setShowHelp] = useState(false);
   const [appView, setAppView] = useState("home"); // home | daily | daily_play | daily_results | stats | duel | vault | live
   const [analysis, setAnalysis] = useState(null);
   const [hoveredResultsNick, setHoveredResultsNick] = useState("");
   const missingImageRef = useRef(new Set());
-  const assetVersion = bootProgress?.done ? 1 : 0;
+  const assetVersion = bootReady ? 1 : 0;
   const getImageUrl = (key) => {
     if (!key) return "";
     const url = AssetManager.getImage(key).url || "";
     if (url) return url;
     const fallback = IMAGE_FALLBACKS.get(key) || "";
     if (fallback) return fallback;
-    if (bootProgress?.done) {
+    if (bootReady) {
       if (DEV_MODE && !missingImageRef.current.has(key)) {
         missingImageRef.current.add(key);
         console.error(`[asset] image manquante (no-fallback): ${key}`);
@@ -6928,6 +6691,9 @@ export default function App() {
     stopBlackHoleAudio,
     requestAudioUnlock,
   } = audioEngine;
+  useEffect(() => {
+    AssetManager.setAudioSystemProvider(getAudioSystem);
+  }, [getAudioSystem]);
   const ambientAudio = useAmbientMusic({
     ambientTracksRef,
     appViewRef,
@@ -16852,7 +16618,7 @@ export default function App() {
       appView !== "stats" &&
       appView !== "duel" &&
       appView !== "vault";
-    if (!isLobbyView || !bootProgress.done || bootOverlayVisible) return;
+    if (!isLobbyView || !bootReady || bootOverlayVisible) return;
     if (!isAccountAuthenticated || !accountSeenReady) return;
     if (popupDistinctVisitDays < FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS) return;
     if (
@@ -16879,7 +16645,7 @@ export default function App() {
     accountSeenReady,
     appView,
     bootOverlayVisible,
-    bootProgress.done,
+    bootReady,
     duelPopupState?.mode,
     isAccountAuthenticated,
     isAboutOpen,
@@ -17052,7 +16818,7 @@ export default function App() {
       isHomeChatOpen ||
       isPlayersOverlayOpen ||
       broadcastNotice.loading ||
-      !bootProgress.done ||
+      !bootReady ||
       bootOverlayVisible
     ) {
       return;
@@ -17100,7 +16866,7 @@ export default function App() {
     accountSeenReady,
     appView,
     bootOverlayVisible,
-    bootProgress.done,
+    bootReady,
     broadcastNotice.loading,
     broadcastNotice?.message,
     definitionModal.open,
@@ -33528,16 +33294,8 @@ function handleTouchEnd(e) {
     onPlay: handleLoginOrResume,
     onResume: handleResumeFromPrompt,
   });
-  const isBootBlocking = !bootProgress.done;
-  const shouldShowBootOverlay = isBootBlocking || bootOverlayVisible;
-  const bootOverlay = shouldShowBootOverlay ? (
-    <BootLoader
-      progress={bootProgress}
-      fadingOut={!isBootBlocking && bootOverlayFading}
-      fadeDurationMs={BOOT_TRANSITION_MS}
-      slowThresholdMs={BOOT_SLOW_THRESHOLD_MS}
-    />
-  ) : null;
+  const isBootBlocking = !bootReady;
+  const bootOverlay = null;
   const trainingSessionControls = standaloneTrainingSession ? (
     <TrainingSessionControls
       compact={isMobileLayout}
@@ -35576,7 +35334,7 @@ function handleTouchEnd(e) {
     <>
       {shouldMountCelebrationOverlay ? (
         <GameCelebrationOverlay
-          assetsReady={!!bootProgress?.done}
+          assetsReady={bootReady}
           hostRef={gridRef}
           isMobileLayout={isMobileLayout}
           liteVisualEffects={preferLiteVisualEffects}
