@@ -200,9 +200,7 @@ import {
   RESULTS_SLIDE_IN_MS,
   RESULTS_SLIDE_OUT_MS,
 } from "./components/results/SwapFadeText.jsx";
-import useFinalRanking, {
-  formatTargetTime,
-} from "./components/results/useFinalRanking.jsx";
+import useFinalRanking from "./components/results/useFinalRanking.jsx";
 import useDesktopResultsPresentation from "./components/results/useDesktopResultsPresentation.jsx";
 import useEndStats from "./components/results/useEndStats.js";
 import useResultsAwards from "./components/results/useResultsAwards.js";
@@ -390,6 +388,10 @@ const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"
 const WordVaultPage = React.lazy(() => import("./components/WordVaultPage.jsx"));
 const DefinitionOverlays = React.lazy(() =>
   import("./components/definition/DefinitionOverlays.jsx")
+);
+const RecordModal = React.lazy(() => import("./components/results/RecordModal.jsx"));
+const ChatInteractionOverlays = React.lazy(() =>
+  import("./components/chat/ChatInteractionOverlays.jsx")
 );
 const DailyHubScreen = React.lazy(() => import("./components/daily/DailyHubScreen.jsx"));
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
@@ -693,13 +695,6 @@ const GUIDED_RESULTS_PAGE_TO_STEP = {
   all: GUIDED_RESULTS_STEPS.TAP_WORD,
 };
 const SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK = 11;
-const REPORT_REASONS = [
-  "Spam",
-  "Harcèlement",
-  "Contenu inapproprié",
-  "Infos perso",
-  "Autre",
-];
 function normalizeMeasuredPx(value) {
   const num = Number(value);
   if (!Number.isFinite(num) || num <= 0) return 0;
@@ -18755,346 +18750,48 @@ function handleTouchEnd(e) {
     userMenu.open,
   ]);
 
-  const chatRulesModal = isChatRulesOpen ? (
-    <div
-      className="fixed inset-0 z-[20060] flex items-center justify-center bg-black/50 px-4"
-      onClick={cancelChatRules}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
-          darkMode
-            ? "bg-slate-900 text-slate-100 border-slate-600"
-            : "bg-white text-slate-900 border-slate-200"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="text-sm font-extrabold">Règles du chat</div>
-        <ul className="mt-3 text-[13px] space-y-1">
-          <li>Respectez les autres joueurs.</li>
-          <li>Pas d'insultes ni harcèlement.</li>
-          <li>Pas de spam ni pub.</li>
-          <li>Pas d'infos personnelles (téléphone, email, adresse, paiement).</li>
-          <li>Utilisez "Signaler" en cas d'abus.</li>
-        </ul>
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            className={`px-3 py-2 text-xs font-semibold rounded-lg border ${
-              darkMode
-                ? "bg-slate-800 border-slate-600 text-slate-100"
-                : "bg-gray-50 border-gray-200 text-slate-900"
-            }`}
-            onClick={() => {
-              playCloseSound();
-              cancelChatRules();
-            }}
-          >
-            Fermer
-          </button>
-          <button
-            type="button"
-            ref={chatRulesConfirmRef}
-            className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white"
-            onClick={confirmChatRules}
-          >
-            J'accepte
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
-  const userMenuView =
-    userMenu.open && typeof document !== "undefined"
-      ? createPortal(
-          <div className="fixed inset-0 z-[20060]" onClick={closeUserMenu}>
-            <div
-              className={`fixed min-w-[170px] rounded-lg border px-2 py-2 text-xs shadow-lg ${
-                darkMode
-                  ? "bg-slate-900 text-slate-100 border-slate-700"
-                  : "bg-white text-slate-900 border-slate-200"
-              }`}
-              style={{ left: `${userMenu.left}px`, top: `${userMenu.top}px` }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-1 pb-1 text-[11px] font-semibold opacity-70">
-                {userMenu.nick}
-              </div>
-              <button
-                type="button"
-                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
-                  darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
-                }`}
-                onClick={() => {
-                  openPlayerProfile({
-                    userId: userMenu.userId,
-                    nick: userMenu.nick,
-                  });
-                  closeUserMenu();
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 21a8 8 0 0 1 16 0" />
-                </svg>
-                Profil
-              </button>
-              <button
-                type="button"
-                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
-                  darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
-                }`}
-                onClick={() => {
-                  blockInstallId(userMenu.installId, userMenu.nick);
-                  closeUserMenu();
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <line x1="5" y1="19" x2="19" y2="5" />
-                </svg>
-                Bloquer
-              </button>
-              <button
-                type="button"
-                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
-                  darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
-                }`}
-                onClick={() => {
-                  openReportDialog({
-                    installId: userMenu.installId,
-                    nick: userMenu.nick,
-                    messageId: userMenu.messageId,
-                  });
-                  closeUserMenu();
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M4 5v16" />
-                  <path d="M4 5h12l-2 4 2 4H4" />
-                </svg>
-                Signaler
-              </button>
-              <button
-                type="button"
-                className={`w-full mt-1 px-2 py-1 rounded-md text-[11px] font-semibold ${
-                  darkMode
-                    ? "text-slate-300 hover:text-slate-100"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                onClick={closeUserMenu}
-              >
-                Annuler
-              </button>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
-  const desktopChatReactionPickerView =
-    desktopChatReactionPicker.open && typeof document !== "undefined"
-      ? createPortal(
-          <div className="fixed inset-0 z-[20060]" onClick={closeDesktopChatReactionPicker}>
-            <div
-              className={`fixed rounded-2xl border px-2 py-2 shadow-lg ${
-                darkMode
-                  ? "bg-slate-900 text-slate-100 border-slate-700"
-                  : "bg-white text-slate-900 border-slate-200"
-              }`}
-              style={{
-                left: `${desktopChatReactionPicker.left}px`,
-                top: `${desktopChatReactionPicker.top}px`,
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="grid grid-cols-6 gap-1">
-                {CHAT_REACTION_EMOJIS.map((emoji) => (
-                  <button
-                    key={`desktop-react-${emoji}`}
-                    type="button"
-                    className={`h-9 w-9 rounded-full text-xl leading-none flex items-center justify-center ${
-                      darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
-                    }`}
-                    onClick={() => {
-                      if (desktopChatReactionPicker.messageId) {
-                        sendChatReaction(desktopChatReactionPicker.messageId, emoji);
-                      }
-                      closeDesktopChatReactionPicker();
-                    }}
-                    aria-label={`Réagir avec ${emoji}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
-  const desktopChatReactionDetailsView =
-    desktopChatReactionDetails.open && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className={`fixed z-[20065] w-[230px] rounded-xl border p-2 shadow-xl ${
-              darkMode
-                ? "bg-slate-900 border-slate-700 text-slate-100"
-                : "bg-white border-slate-200 text-slate-900"
-            }`}
-            style={{
-              left: `${desktopChatReactionDetails.left}px`,
-              top: `${desktopChatReactionDetails.top}px`,
-            }}
-            onMouseEnter={() => clearDesktopReactionDetailsCloseTimer()}
-            onMouseLeave={() => scheduleCloseDesktopChatReactionDetails(90)}
-          >
-            <div className="mb-1 text-xs font-bold">
-              {desktopChatReactionDetails.emoji} Réactions (
-              {desktopChatReactionDetails.users.length})
-            </div>
-            <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
-              {desktopChatReactionDetails.users.map((user) => {
-                const isMe =
-                  String(user?.installId || "").trim() === String(installId || "").trim();
-                return (
-                  <div
-                    key={`${desktopChatReactionDetails.messageId || "msg"}:${desktopChatReactionDetails.emoji}:${user.installId}`}
-                    className={`rounded-md px-2 py-1 text-xs ${
-                      isMe
-                        ? darkMode
-                          ? "bg-blue-600/25 text-blue-100"
-                          : "bg-blue-100 text-blue-700"
-                        : darkMode
-                        ? "bg-slate-800 text-slate-100"
-                        : "bg-slate-50 text-slate-700"
-                    }`}
-                  >
-                    {user.nick}
-                    {isMe ? " (toi)" : ""}
-                  </div>
-                );
-              })}
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
-
-  const reportModal = reportDialog.open ? (
-    <div
-      className="fixed inset-0 z-[20061] flex items-center justify-center bg-black/50 px-4"
-      onClick={closeReportDialog}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`w-full max-w-sm rounded-xl border p-4 shadow-xl ${
-          darkMode
-            ? "bg-slate-900 text-slate-100 border-slate-600"
-            : "bg-white text-slate-900 border-slate-200"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="text-sm font-extrabold">Signaler</div>
-        <div className="mt-1 text-[11px] opacity-70">
-          {reportDialog.reportedNick || "Joueur"}
-        </div>
-        <div className="mt-3 grid gap-2">
-          {REPORT_REASONS.map((reason) => {
-            const selected = reportDialog.reason === reason;
-            return (
-              <button
-                key={reason}
-                type="button"
-                className={`px-3 py-2 rounded-lg border text-xs font-semibold text-left transition ${
-                  selected
-                    ? darkMode
-                      ? "bg-blue-600 border-blue-500 text-white"
-                      : "bg-blue-600 border-blue-500 text-white"
-                    : darkMode
-                    ? "bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-                }`}
-                onClick={() =>
-                  setReportDialog((prev) => ({ ...prev, reason }))
-                }
-              >
-                {reason}
-              </button>
-            );
-          })}
-        </div>
-        {reportDialog.reason === "Autre" && (
-          <input
-            type="text"
-            maxLength={120}
-            value={reportDialog.details}
-            onChange={(e) =>
-              setReportDialog((prev) => ({ ...prev, details: e.target.value }))
-            }
-            className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs ${
-              darkMode
-                ? "bg-slate-800 border-slate-700 text-slate-100"
-                : "bg-white border-slate-200 text-slate-800"
-            }`}
-            placeholder="Précisez en quelques mots"
-          />
-        )}
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            className={`px-3 py-2 text-xs font-semibold rounded-lg border ${
-              darkMode
-                ? "bg-slate-800 border-slate-600 text-slate-100"
-                : "bg-gray-50 border-gray-200 text-slate-900"
-            }`}
-            onClick={closeReportDialog}
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white disabled:opacity-50"
-            disabled={!reportDialog.reason}
-            onClick={submitReport}
-          >
-            Envoyer
-          </button>
-        </div>
-      </div>
-    </div>
+  const shouldShowChatInteractionOverlays =
+    isChatRulesOpen ||
+    userMenu.open ||
+    desktopChatReactionPicker.open ||
+    desktopChatReactionDetails.open ||
+    reportDialog.open;
+  const chatInteractionOverlaysView = shouldShowChatInteractionOverlays ? (
+    <Suspense fallback={null}>
+      <ChatInteractionOverlays
+        appearance={{ darkMode }}
+        rules={{
+          open: isChatRulesOpen,
+          confirmRef: chatRulesConfirmRef,
+          onCancel: cancelChatRules,
+          onConfirm: confirmChatRules,
+          playCloseSound,
+        }}
+        userMenu={{
+          state: userMenu,
+          onBlock: blockInstallId,
+          onClose: closeUserMenu,
+          onOpenProfile: openPlayerProfile,
+          onReport: openReportDialog,
+        }}
+        reactions={{
+          details: desktopChatReactionDetails,
+          emojis: CHAT_REACTION_EMOJIS,
+          installId,
+          picker: desktopChatReactionPicker,
+          onClosePicker: closeDesktopChatReactionPicker,
+          onKeepDetailsOpen: clearDesktopReactionDetailsCloseTimer,
+          onScheduleDetailsClose: scheduleCloseDesktopChatReactionDetails,
+          onSend: sendChatReaction,
+        }}
+        report={{
+          state: reportDialog,
+          onChange: setReportDialog,
+          onClose: closeReportDialog,
+          onSubmit: submitReport,
+        }}
+      />
+    </Suspense>
   ) : null;
   const playerProfileModalView = (
     <PlayerProfileModalHost
@@ -19635,138 +19332,16 @@ function handleTouchEnd(e) {
     />
   );
 
-  const recordModalRecords =
-    Array.isArray(recordModal.records) && recordModal.records.length
-      ? recordModal.records
-      : recordModal.categoryKey
-      ? [recordModal]
-      : [];
-  const recordModalSubtitle =
-    recordModalRecords.length > 1
-      ? "Plusieurs categories"
-      : recordModalRecords[0]?.categoryLabel || "Record";
-  const formatRecordRankLabel = (record) => {
-    if (!record) return "Hors classement";
-    const rank = record.rank;
-    const total = record.rankTotal;
-    if (Number.isFinite(rank)) {
-      return Number.isFinite(total) ? `#${rank} / ${total}` : `#${rank}`;
-    }
-    return "Hors classement";
-  };
-  const formatRecordValueLabel = (record) => {
-    if (!record) return "";
-    if (record.categoryKey === "bestWord") {
-      if (!record.word) return "";
-      const pts = Number.isFinite(record.pts) ? ` (${record.pts} pts)` : "";
-      return `Mot : ${record.word}${pts}`;
-    }
-    if (record.categoryKey === "bestRoundScore") {
-      return Number.isFinite(record.pts) ? `Score : ${record.pts} pts` : "";
-    }
-    if (record.categoryKey === "longestWord") {
-      if (!record.word) return "";
-      const len = Number.isFinite(record.len) ? ` (${record.len} lettres)` : "";
-      return `Mot : ${record.word}${len}`;
-    }
-    if (record.categoryKey === "mostWordsInGame") {
-      return Number.isFinite(record.wordsCount)
-        ? `Mots : ${record.wordsCount} par manche`
-        : "";
-    }
-    if (
-      record.categoryKey === "bestTimeTargetLong" ||
-      record.categoryKey === "bestTimeTargetScore"
-    ) {
-      return Number.isFinite(record.timeMs)
-        ? `Temps : ${formatTargetTime(record.timeMs)}`
-        : "";
-    }
-    return "";
-  };
-  const recordModalView =
-    recordModal.open && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed inset-0 z-[12060] bg-black/55 backdrop-blur-sm flex items-center justify-center px-4 py-6"
-            onClick={closeRecordModal}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${
-                darkMode
-                  ? "bg-slate-900/90 border-white/10 text-white"
-                  : "bg-white/90 border-slate-200 text-slate-900"
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="absolute top-3 right-3 z-20 rounded-full h-9 w-12 flex items-center justify-center text-base font-bold text-white cursor-pointer pointer-events-auto select-none"
-                onClick={() => {
-                  playCloseSound();
-                  closeRecordModal();
-                }}
-                aria-label="Fermer"
-              >
-                <span className="pointer-events-none">X</span>
-              </button>
-              <div className="p-4 pb-5 space-y-3">
-                <div className="flex justify-center">
-                  <span className="record-rainbow px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest">
-                    Nouveau record
-                  </span>
-                </div>
-                <div className="text-center text-base font-extrabold">
-                  {recordModalSubtitle}
-                </div>
-                <div className="text-center text-xs">
-                  Joueur : <span className="font-semibold">{recordModal.nick || "?"}</span>
-                </div>
-                {recordModalRecords.length === 1 ? (
-                  <>
-                    <div className="text-center text-xs opacity-75">
-                      Classement hebdo : {formatRecordRankLabel(recordModalRecords[0])}
-                    </div>
-                    {formatRecordValueLabel(recordModalRecords[0]) ? (
-                      <div className="text-center text-sm font-semibold">
-                        {formatRecordValueLabel(recordModalRecords[0])}
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    {recordModalRecords.map((record) => (
-                      <div
-                        key={record.id || `${record.categoryKey}-${record.nick}`}
-                        className={`rounded-xl border px-3 py-2 ${
-                          darkMode
-                            ? "border-white/10 bg-slate-900/40"
-                            : "border-slate-200 bg-slate-50"
-                        }`}
-                      >
-                        <div className="text-xs font-extrabold">
-                          {record.categoryLabel || "Record"}
-                        </div>
-                        <div className="text-[10px] opacity-70">
-                          Classement hebdo : {formatRecordRankLabel(record)}
-                        </div>
-                        {formatRecordValueLabel(record) ? (
-                          <div className="text-[11px] font-semibold">
-                            {formatRecordValueLabel(record)}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
+  const recordModalView = recordModal.open ? (
+    <Suspense fallback={null}>
+      <RecordModal
+        darkMode={darkMode}
+        onClose={closeRecordModal}
+        playCloseSound={playCloseSound}
+        recordModal={recordModal}
+      />
+    </Suspense>
+  ) : null;
   const vocabOverlayView = (
     <Suspense fallback={null}>
       <VocabProgressOverlay
@@ -21780,12 +21355,8 @@ function handleTouchEnd(e) {
         onCancel={standaloneTrainingController.cancelJoinDialog}
         onConfirm={standaloneTrainingController.confirmJoinLive}
       />
-      {userMenuView}
-      {desktopChatReactionPickerView}
-      {desktopChatReactionDetailsView}
-      {reportModal}
+      {chatInteractionOverlaysView}
       {playerProfileModalView}
-      {chatRulesModal}
       {definitionOverlaysView}
       {roundPlayerModalView}
       {recordModalView}
@@ -22012,9 +21583,7 @@ function handleTouchEnd(e) {
         {vaultWordOfDayOverlay}
         {playersOverlay}
         {playerProfileModalView}
-        {userMenuView}
-        {reportModal}
-        {chatRulesModal}
+        {chatInteractionOverlaysView}
         {definitionOverlaysView}
         {tutorialOverlay}
         {authDialogView}
