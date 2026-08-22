@@ -1,5 +1,4 @@
 export const GAME_STATE_FIELDS = Object.freeze([
-  "accepted",
   "allWords",
   "board",
   "cultureThemeChallenge",
@@ -12,9 +11,7 @@ export const GAME_STATE_FIELDS = Object.freeze([
   "lastWords",
   "phase",
   "roomId",
-  "score",
   "showAllWords",
-  "submissionTick",
 ]);
 
 export const GAME_STATE_FIELD_SET = new Set(GAME_STATE_FIELDS);
@@ -26,7 +23,6 @@ function createEmptyBoard(gridSize) {
 export function createInitialGameState({ gridSize = 4, roomId = "room-4x4" } = {}) {
   const safeGridSize = Number.isInteger(gridSize) && gridSize > 0 ? gridSize : 4;
   return Object.freeze({
-    accepted: [],
     allWords: [],
     board: createEmptyBoard(safeGridSize),
     cultureThemeChallenge: null,
@@ -39,8 +35,6 @@ export function createInitialGameState({ gridSize = 4, roomId = "room-4x4" } = {
     lastWords: [],
     phase: "lobby",
     roomId,
-    score: 0,
     showAllWords: false,
-    submissionTick: 0,
   });
 }

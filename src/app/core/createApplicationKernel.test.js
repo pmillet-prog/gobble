@@ -46,11 +46,11 @@ test("application navigation rejects unknown views and keeps history", () => {
 test("game state is owned by the kernel and supports functional transitions", () => {
   const kernel = createApplicationKernel();
 
-  kernel.commands.game.setScore(12);
-  kernel.commands.game.setScore((score) => score + 8);
+  kernel.commands.game.setGridSize(4);
+  kernel.commands.game.setGridSize((gridSize) => gridSize + 1);
   kernel.commands.game.patch({ phase: "playing", unknown: "ignored" });
 
-  assert.equal(kernel.getState().game.score, 20);
+  assert.equal(kernel.getState().game.gridSize, 5);
   assert.equal(kernel.getState().game.phase, "playing");
   assert.equal(kernel.getState().game.unknown, undefined);
 });
@@ -102,7 +102,7 @@ test("cross-domain transitions are atomic and keep slice contracts", () => {
 
   const state = kernel.getState();
   assert.equal(state.game.phase, "playing");
-  assert.equal(state.game.score, 7);
+  assert.equal(state.game.score, undefined);
   assert.equal(state.game.forbidden, undefined);
   assert.equal(state.navigation.view, "live");
   assert.equal(state.realtime.roundId, "round-atomic");

@@ -6,6 +6,7 @@ import useLiveRanking from "../../components/results/useLiveRanking.js";
 
 const EMPTY_LIST = Object.freeze([]);
 const ROSTER_CHAT_FIELDS = Object.freeze(["blockedInstallIds"]);
+const ROSTER_PROGRESS_FIELDS = Object.freeze(["acceptedCount", "score"]);
 
 function useLivePlayers(disabled = false) {
   return useApplicationSelector((state) =>
@@ -27,9 +28,10 @@ export function useLiveRankingPresentation({
   normalizeUserIdForProfile,
   selfNick,
 }) {
-  const score = useApplicationSelector((state) => state.game.score);
-  const acceptedCount = useApplicationSelector(
-    (state) => state.game.accepted.length
+  const progress = useFeatureRuntime("progress");
+  const { acceptedCount, score } = useFeatureFields(
+    progress,
+    ROSTER_PROGRESS_FIELDS
   );
   const players = useLivePlayers(isDailyPlay);
   const playerCount = useLivePlayerCount();

@@ -9,9 +9,11 @@ import {
 } from "../../components/gameLogic.js";
 
 const EMPTY_LIST = Object.freeze([]);
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 export function createInitialGameProgressState() {
   return {
+    accepted: EMPTY_LIST,
     acceptedCount: 0,
     bannerText: "",
     foundWordsCount: 0,
@@ -155,36 +157,42 @@ function buildBannerText(config, fakeTwinsProgress, cultureThemeProgress) {
   return labels.join(" · ");
 }
 
-export function createGameProgressFeature({ getKernel, scope }) {
+export function createGameProgressFeature({ scope }) {
   const store = createFeatureStore(createInitialGameProgressState());
   let config = {};
   let fakeTwinsCelebrationKey = "";
   let cultureThemeCelebrationKey = "";
-  let lastAccepted = null;
-  let lastScore = null;
-  let lastSubmissionTick = null;
   let statusTimer = null;
   let inputShakeFrame = null;
   let inputShakeTimer = null;
+  let stopped = false;
 
-  function sync({ force = false } = {}) {
-    const game = getKernel().getState().game;
-    const accepted = Array.isArray(game.accepted) ? game.accepted : EMPTY_LIST;
-    const score = Number.isFinite(game.score) ? game.score : 0;
-    const submissionTick = Number.isFinite(game.submissionTick)
-      ? game.submissionTick
-      : 0;
+  function sync(nextValues = {}, { force = false } = {}) {
+    if (stopped) return;
+    const current = store.getState();
+    const accepted = hasOwn(nextValues, "accepted")
+      ? Array.isArray(nextValues.accepted)
+        ? nextValues.accepted
+        : EMPTY_LIST
+      : current.accepted;
+    const score = hasOwn(nextValues, "score")
+      ? Number.isFinite(nextValues.score)
+        ? nextValues.score
+        : 0
+      : current.score;
+    const submissionTick = hasOwn(nextValues, "submissionTick")
+      ? Number.isFinite(nextValues.submissionTick)
+        ? nextValues.submissionTick
+        : 0
+      : current.submissionTick;
     if (
       !force &&
-      accepted === lastAccepted &&
-      score === lastScore &&
-      submissionTick === lastSubmissionTick
+      accepted === current.accepted &&
+      score === current.score &&
+      submissionTick === current.submissionTick
     ) {
       return;
     }
-    lastAccepted = accepted;
-    lastScore = score;
-    lastSubmissionTick = submissionTick;
 
     const pendingCount = countPendingWords(config.pendingStatusRef);
     const fakeTwinsProgress = getFakeTwinsProgress(config, accepted);
@@ -226,6 +234,7 @@ export function createGameProgressFeature({ getKernel, scope }) {
     }
 
     store.patch({
+      accepted,
       acceptedCount: accepted.length,
       bannerText: playing
         ? buildBannerText(config, fakeTwinsProgress, cultureThemeProgress)
@@ -238,7 +247,34 @@ export function createGameProgressFeature({ getKernel, scope }) {
 
   function configure(nextConfig = {}) {
     config = nextConfig;
-    sync({ force: true });
+    sync({}, { force: true });
+  }
+
+  function setAccepted(nextOrUpdater) {
+    const current = store.getState().accepted;
+    const next =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(current)
+        : nextOrUpdater;
+    sync({ accepted: next });
+  }
+
+  function setScore(nextOrUpdater) {
+    const current = store.getState().score;
+    const next =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(current)
+        : nextOrUpdater;
+    sync({ score: next });
+  }
+
+  function setSubmissionTick(nextOrUpdater) {
+    const current = store.getState().submissionTick;
+    const next =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(current)
+        : nextOrUpdater;
+    sync({ submissionTick: next });
   }
 
   function showStatus(message, holdMs = 1000) {
@@ -288,15 +324,13 @@ export function createGameProgressFeature({ getKernel, scope }) {
   }
 
   function start() {
-    sync({ force: true });
-    scope.add(getKernel().subscribe(sync));
+    stopped = false;
+    sync({}, { force: true });
     scope.add(() => {
+      stopped = true;
       config = {};
       fakeTwinsCelebrationKey = "";
       cultureThemeCelebrationKey = "";
-      lastAccepted = null;
-      lastScore = null;
-      lastSubmissionTick = null;
       if (statusTimer != null) clearTimeout(statusTimer);
       statusTimer = null;
       clearInputShake();
@@ -308,6 +342,9 @@ export function createGameProgressFeature({ getKernel, scope }) {
     clearInputShake,
     clearStatus,
     configure,
+    setAccepted,
+    setScore,
+    setSubmissionTick,
     showStatus,
     start,
     store,

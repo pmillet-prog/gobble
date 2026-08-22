@@ -13,6 +13,10 @@ test("game progress owns high-frequency score, word and status updates", async (
   const acceptedWordMetaRef = { current: new Map() };
   let solverRequests = 0;
   let fakeTwinsCompletions = 0;
+  let kernelNotifications = 0;
+  const unsubscribeKernel = kernel.subscribe(() => {
+    kernelNotifications += 1;
+  });
   const feature = createGameProgressFeature({
     getKernel: () => kernel,
     scope,
@@ -42,15 +46,15 @@ test("game progress owns high-frequency score, word and status updates", async (
     },
   });
 
-  kernel.commands.game.setScore(42);
+  feature.setScore(42);
   assert.equal(feature.store.getState().score, 42);
 
   pendingStatusRef.current.set("pending", { status: "pending" });
-  kernel.commands.game.setSubmissionTick(1);
+  feature.setSubmissionTick(1);
   assert.equal(feature.store.getState().foundWordsCount, 1);
 
   acceptedWordMetaRef.current.set("alpha", { usedFakeTwins: true });
-  kernel.commands.game.setAccepted(["alpha"]);
+  feature.setAccepted(["alpha"]);
   assert.equal(feature.store.getState().acceptedCount, 1);
   assert.equal(feature.store.getState().foundWordsCount, 2);
   assert.match(feature.store.getState().bannerText, /1 mots avec A\/B/);
@@ -58,10 +62,14 @@ test("game progress owns high-frequency score, word and status updates", async (
   assert.equal(fakeTwinsCompletions, 0);
 
   acceptedWordMetaRef.current.set("beta", { usedFakeTwins: true });
-  kernel.commands.game.setAccepted(["alpha", "beta"]);
+  feature.setAccepted(["alpha", "beta"]);
   assert.equal(fakeTwinsCompletions, 1);
-  kernel.commands.game.setSubmissionTick(2);
+  feature.setSubmissionTick(2);
   assert.equal(fakeTwinsCompletions, 1);
+  assert.equal(kernelNotifications, 0);
+  assert.equal(kernel.getState().game.accepted, undefined);
+  assert.equal(kernel.getState().game.score, undefined);
+  assert.equal(kernel.getState().game.submissionTick, undefined);
 
   feature.showStatus("+12 pts", 5);
   feature.triggerInputShake({ durationMs: 5 });
@@ -73,6 +81,7 @@ test("game progress owns high-frequency score, word and status updates", async (
 
   scope.dispose();
   assert.deepEqual(feature.store.getState(), {
+    accepted: [],
     acceptedCount: 0,
     bannerText: "",
     foundWordsCount: 0,
@@ -81,6 +90,7 @@ test("game progress owns high-frequency score, word and status updates", async (
     statusText: "",
     submissionTick: 0,
   });
-  kernel.commands.game.setScore(99);
+  feature.setScore(99);
   assert.equal(feature.store.getState().score, 0);
+  unsubscribeKernel();
 });

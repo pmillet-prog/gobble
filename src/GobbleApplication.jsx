@@ -976,7 +976,7 @@ export default function GobbleApplication() {
   const dictionary = useFeatureSelector(dictionaryFeature, (state) => state.entries);
   const progressFeature = useFeatureRuntime("progress");
   const gameState = useApplicationFields("game", GOBBLE_GAME_FIELDS);
-  const settledGameProgress = useSettledGameProgress();
+  const settledGameProgress = useSettledGameProgress(progressFeature);
   const realtimeState = useApplicationFields("realtime", REALTIME_ROOT_FIELDS);
   const rosterFeature = useFeatureRuntime("roster");
   const rosterState = useFeatureFields(rosterFeature, ROSTER_ROOT_FIELDS);
@@ -1042,7 +1042,6 @@ export default function GobbleApplication() {
   } = realtimeState;
   const { players, provisionalRanking } = rosterState;
   const {
-    setAccepted,
     setAllWords,
     setBoard,
     setCultureThemeChallenge,
@@ -1055,10 +1054,13 @@ export default function GobbleApplication() {
     setLastWords,
     setPhase,
     setRoomId,
-    setScore,
     setShowAllWords,
-    setSubmissionTick,
   } = applicationKernel.commands.game;
+  const {
+    setAccepted,
+    setScore,
+    setSubmissionTick,
+  } = progressFeature;
   const setTick = React.useCallback(
     (nextOrUpdater) => {
       const current = clockFeature.store.getState().remainingSeconds;
@@ -1113,8 +1115,8 @@ export default function GobbleApplication() {
     setUpcomingSpecial,
   } = applicationKernel.commands.realtime;
   const getGameProgress = React.useCallback(
-    () => applicationKernel.getState().game,
-    [applicationKernel]
+    () => progressFeature.store.getState(),
+    [progressFeature]
   );
   const setAppView = React.useCallback(
     (nextViewOrUpdater) => {
