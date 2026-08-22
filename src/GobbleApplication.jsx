@@ -155,10 +155,6 @@ import {
   rotateIndexByTurns,
 } from "./game/gridRotation.js";
 import {
-  buildPlayersSignature,
-  buildRankingSignature,
-} from "./game/liveSnapshotSignature.js";
-import {
   MASSIVE_BOGGLE_TYPE,
   isRareBonusEnabledForSpecial,
 } from "./game/specialRoundTypes.js";
@@ -525,12 +521,7 @@ const DARK_WORD_INACTIVE = "#e2e8f0";
 const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
-const RANKING_UI_UPDATE_MIN_MS = 180;
-const RANKING_TRACE_HOLD_MAX_MS = 600;
-const PLAYERS_UI_UPDATE_MIN_MS = 120;
 const LIVE_ROUND_END_PAYLOAD_WAIT_MS = 4500;
-const SAMSUNG_RANKING_UI_UPDATE_MIN_MS = 260;
-const SAMSUNG_PLAYERS_UI_UPDATE_MIN_MS = 320;
 const PING_SERVER_TIMEOUT_MS = 3200;
 const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 3;
 const SAMSUNG_SAFE_MODE_STORAGE_KEY = "samsungSafeMode";
@@ -1066,6 +1057,10 @@ export default function GobbleApplication() {
     setLastWords,
   } = feedFeature;
   const {
+    clearQueuedUpdates: clearQueuedRosterUpdates,
+    flushQueuedUpdates: flushQueuedRosterUpdates,
+    queuePlayers: queueRosterPlayers,
+    queueRanking: queueRosterRanking,
     setPlayers,
     setProvisionalRanking,
   } = rosterFeature;
@@ -2684,15 +2679,6 @@ export default function GobbleApplication() {
   const watchdogFailureCountRef = useRef(0);
   const mobileExitGuardLeavingRef = useRef(false);
   const mobileExitGuardActiveRef = useRef(false);
-  const rankingQueueTimerRef = useRef(null);
-  const rankingTraceHoldTimerRef = useRef(null);
-  const rankingQueuedRef = useRef(null);
-  const rankingLastApplyAtRef = useRef(0);
-  const rankingLastSignatureRef = useRef("");
-  const playersQueueTimerRef = useRef(null);
-  const playersQueuedRef = useRef(null);
-  const playersLastApplyAtRef = useRef(0);
-  const playersLastSignatureRef = useRef("");
   const deferredTraceUiTasksRef = useRef([]);
   const clearPhaseLoopTimer = React.useCallback(() => {
     if (phaseLoopTimerRef.current) {
@@ -2794,9 +2780,6 @@ export default function GobbleApplication() {
     };
   }, [pushMobileExitGuardHistoryEntry, roundId, shouldProtectMobileLiveExit]);
   useEffect(() => {
-    playersLastSignatureRef.current = buildPlayersSignature(players);
-  }, [players]);
-  useEffect(() => {
     chatTabRef.current = chatTab === "system" ? "system" : "messages";
     if (chatTab === "system") {
       setIsDesktopEmojiPickerOpen(false);
@@ -2886,20 +2869,6 @@ export default function GobbleApplication() {
   }, [roundId]);
   useEffect(() => {
     return () => {
-      if (rankingQueueTimerRef.current) {
-        clearTimeout(rankingQueueTimerRef.current);
-        rankingQueueTimerRef.current = null;
-      }
-      if (rankingTraceHoldTimerRef.current) {
-        clearTimeout(rankingTraceHoldTimerRef.current);
-        rankingTraceHoldTimerRef.current = null;
-      }
-      if (playersQueueTimerRef.current) {
-        clearTimeout(playersQueueTimerRef.current);
-        playersQueueTimerRef.current = null;
-      }
-      rankingQueuedRef.current = null;
-      playersQueuedRef.current = null;
       deferredTraceUiTasksRef.current = [];
     };
   }, []);
@@ -3434,7 +3403,6 @@ export default function GobbleApplication() {
   const perfLogLastAtRef = useRef(0);
   const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
-  const prevPlayersRef = useRef(new Set());
   const bestGridMaxRef = useRef(0);
   const bestGridMaxLenRef = useRef(0);
   const bestWordAnnounceRef = useRef(-1);
@@ -7222,20 +7190,7 @@ export default function GobbleApplication() {
   }, [appView, isLoggedIn]);
 
   function clearQueuedRankingUpdate() {
-    if (rankingQueueTimerRef.current) {
-      clearTimeout(rankingQueueTimerRef.current);
-      rankingQueueTimerRef.current = null;
-    }
-    if (rankingTraceHoldTimerRef.current) {
-      clearTimeout(rankingTraceHoldTimerRef.current);
-      rankingTraceHoldTimerRef.current = null;
-    }
-    rankingQueuedRef.current = null;
-    if (playersQueueTimerRef.current) {
-      clearTimeout(playersQueueTimerRef.current);
-      playersQueueTimerRef.current = null;
-    }
-    playersQueuedRef.current = null;
+    clearQueuedRosterUpdates();
     deferredTraceUiTasksRef.current = [];
   }
 
@@ -7250,51 +7205,18 @@ export default function GobbleApplication() {
     return true;
   }
 
-  function scheduleRankingFreshnessFlush() {
-    if (rankingTraceHoldTimerRef.current) return;
-    rankingTraceHoldTimerRef.current = setTimeout(() => {
-      rankingTraceHoldTimerRef.current = null;
-      const pendingRanking = rankingQueuedRef.current;
-      rankingQueuedRef.current = null;
-      if (!pendingRanking) return;
-      recordPerfEvent("ranking-freshness-flush", {
-        count: pendingRanking.length,
-      });
-      React.startTransition(() => {
-        applyRankingUpdateNow(pendingRanking);
-      });
-    }, RANKING_TRACE_HOLD_MAX_MS);
-  }
-
   function flushDeferredLiveUiAfterTrace() {
     if (shouldHoldLiveUiDuringTrace()) return;
-    if (rankingQueueTimerRef.current) {
-      clearTimeout(rankingQueueTimerRef.current);
-      rankingQueueTimerRef.current = null;
-    }
-    if (rankingTraceHoldTimerRef.current) {
-      clearTimeout(rankingTraceHoldTimerRef.current);
-      rankingTraceHoldTimerRef.current = null;
-    }
-    if (playersQueueTimerRef.current) {
-      clearTimeout(playersQueueTimerRef.current);
-      playersQueueTimerRef.current = null;
-    }
-    const pendingPlayers = playersQueuedRef.current;
-    const pendingRanking = rankingQueuedRef.current;
+    const flushedRoster = flushQueuedRosterUpdates();
     const pendingUiTasks = deferredTraceUiTasksRef.current;
-    playersQueuedRef.current = null;
-    rankingQueuedRef.current = null;
     deferredTraceUiTasksRef.current = [];
-    if (pendingPlayers || pendingRanking || pendingUiTasks.length) {
+    if (flushedRoster.players || flushedRoster.ranking || pendingUiTasks.length) {
       recordPerfEvent("live-ui-flush", {
-        players: pendingPlayers ? pendingPlayers.length : 0,
-        ranking: pendingRanking ? pendingRanking.length : 0,
+        players: flushedRoster.players,
+        ranking: flushedRoster.ranking,
         tasks: pendingUiTasks.length,
       });
     }
-    if (pendingPlayers) applyPlayersUpdateNow(pendingPlayers);
-    if (pendingRanking) applyRankingUpdateNow(pendingRanking);
     if (submissionTickDeferredByTraceRef.current) {
       submissionTickDeferredByTraceRef.current = false;
       touchSubmissionState();
@@ -7306,124 +7228,26 @@ export default function GobbleApplication() {
     });
   }
 
-  function applyRankingUpdateNow(nextRanking = []) {
-    const safe = Array.isArray(nextRanking) ? nextRanking : [];
-    const nextSig = buildRankingSignature(safe);
-    if (nextSig && nextSig === rankingLastSignatureRef.current) return;
-    rankingLastSignatureRef.current = nextSig;
-    rankingLastApplyAtRef.current = Date.now();
-    recordPerfEvent("ranking-applied", { count: safe.length });
-    setProvisionalRanking(safe);
-  }
-
-  function applyPlayersUpdateNow(nextPlayers = []) {
-    const safe = Array.isArray(nextPlayers) ? nextPlayers : [];
-    const nextSig = buildPlayersSignature(safe);
-    if (nextSig && nextSig === playersLastSignatureRef.current) return;
-    playersLastSignatureRef.current = nextSig;
-    playersLastApplyAtRef.current = Date.now();
-    recordPerfEvent("players-applied", { count: safe.length });
-    setPlayers(safe);
-    const current = new Set(
-      safe
-        .filter((p) => p && !p.isBot && !isSystemAuthor(p.nick))
-        .map((p) => p.nick)
-        .filter(Boolean)
-    );
-    prevPlayersRef.current = current;
-  }
-
   function queuePlayersUpdate(nextPlayers = [], { force = false } = {}) {
-    const safePlayers = Array.isArray(nextPlayers) ? nextPlayers : [];
-    const nextSig = buildPlayersSignature(safePlayers);
-    if (!force && nextSig && nextSig === playersLastSignatureRef.current) return;
-    if (force) {
-      if (playersQueueTimerRef.current) {
-        clearTimeout(playersQueueTimerRef.current);
-        playersQueueTimerRef.current = null;
-      }
-      playersQueuedRef.current = null;
-      applyPlayersUpdateNow(safePlayers);
-      return;
-    }
-    playersQueuedRef.current = safePlayers;
-    if (shouldHoldLiveUiDuringTrace()) {
-      recordPerfEvent("players-held", { count: safePlayers.length });
-      if (playersQueueTimerRef.current) {
-        clearTimeout(playersQueueTimerRef.current);
-        playersQueueTimerRef.current = null;
-      }
-      return;
-    }
-    const minInterval = isSamsungBrowserRef.current
-      ? SAMSUNG_PLAYERS_UI_UPDATE_MIN_MS
-      : PLAYERS_UI_UPDATE_MIN_MS;
-    const now = Date.now();
-    const elapsed = now - (playersLastApplyAtRef.current || 0);
-    if (!playersQueueTimerRef.current && elapsed >= minInterval) {
-      const immediate = playersQueuedRef.current;
-      playersQueuedRef.current = null;
-      applyPlayersUpdateNow(immediate || []);
-      return;
-    }
-    if (playersQueueTimerRef.current) return;
-    const delayMs = Math.max(0, minInterval - elapsed);
-    playersQueueTimerRef.current = setTimeout(() => {
-      playersQueueTimerRef.current = null;
-      const pending = playersQueuedRef.current;
-      if (shouldHoldLiveUiDuringTrace()) return;
-      playersQueuedRef.current = null;
-      if (pending) {
-        applyPlayersUpdateNow(pending);
-      }
-    }, delayMs);
+    queueRosterPlayers(nextPlayers, {
+      force,
+      isSamsungBrowser: isSamsungBrowserRef.current,
+      isTraceActive: shouldHoldLiveUiDuringTrace,
+      onEvent: recordPerfEvent,
+    });
   }
 
   function queueRankingUpdate(nextRanking = [], { force = false } = {}) {
-    const safeRanking = Array.isArray(nextRanking) ? nextRanking : [];
-    const nextSig = buildRankingSignature(safeRanking);
-    if (!force && nextSig && nextSig === rankingLastSignatureRef.current) return;
     if (force) {
-      clearQueuedRankingUpdate();
-      applyRankingUpdateNow(safeRanking);
-      return;
+      deferredTraceUiTasksRef.current = [];
     }
-
-    rankingQueuedRef.current = safeRanking;
-    if (shouldHoldLiveUiDuringTrace()) {
-      recordPerfEvent("ranking-held", { count: safeRanking.length });
-      if (rankingQueueTimerRef.current) {
-        clearTimeout(rankingQueueTimerRef.current);
-        rankingQueueTimerRef.current = null;
-      }
-      scheduleRankingFreshnessFlush();
-      return;
-    }
-    const minInterval = isSamsungBrowserRef.current
-      ? SAMSUNG_RANKING_UI_UPDATE_MIN_MS
-      : RANKING_UI_UPDATE_MIN_MS;
-    const now = Date.now();
-    const elapsed = now - (rankingLastApplyAtRef.current || 0);
-    if (!rankingQueueTimerRef.current && elapsed >= minInterval) {
-      const immediate = rankingQueuedRef.current;
-      rankingQueuedRef.current = null;
-      applyRankingUpdateNow(immediate || []);
-      return;
-    }
-    if (rankingQueueTimerRef.current) return;
-    const delayMs = Math.max(0, minInterval - elapsed);
-    rankingQueueTimerRef.current = setTimeout(() => {
-      rankingQueueTimerRef.current = null;
-      const pending = rankingQueuedRef.current;
-      if (shouldHoldLiveUiDuringTrace()) {
-        scheduleRankingFreshnessFlush();
-        return;
-      }
-      rankingQueuedRef.current = null;
-      if (pending) {
-        applyRankingUpdateNow(pending);
-      }
-    }, delayMs);
+    queueRosterRanking(nextRanking, {
+      force,
+      isSamsungBrowser: isSamsungBrowserRef.current,
+      isTraceActive: shouldHoldLiveUiDuringTrace,
+      onEvent: recordPerfEvent,
+      startTransition: React.startTransition,
+    });
   }
 
   function pingServer(reason = "ping") {
@@ -8983,7 +8807,6 @@ export default function GobbleApplication() {
         );
       }
       if (Array.isArray(snapshot.ranking)) {
-        rankingLastSignatureRef.current = buildRankingSignature(snapshot.ranking);
         setProvisionalRanking(snapshot.ranking);
       }
       const serverWords = Array.isArray(playerState?.words)
@@ -9056,7 +8879,6 @@ export default function GobbleApplication() {
       intermissionFeature.stop();
       setBreakKind(null);
       setFinalResults([]);
-      rankingLastSignatureRef.current = "";
       setProvisionalRanking([]);
       setRoundPreparing(null);
       setUpcomingSpecial(null);
@@ -11022,7 +10844,6 @@ export default function GobbleApplication() {
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
     clearQueuedRankingUpdate();
-    rankingLastSignatureRef.current = "";
     setProvisionalRanking([]);
     const localDurationSec = ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION;
     const localDurationMs = Math.max(1, localDurationSec * 1000);
@@ -12524,7 +12345,6 @@ function handleTouchEnd(e) {
     setRoundPreparing(null);
     setUpcomingSpecial(null);
     setFinalResults([]);
-    rankingLastSignatureRef.current = "";
     setProvisionalRanking([]);
     setTargetSummary(null);
     setAnnouncements([]);

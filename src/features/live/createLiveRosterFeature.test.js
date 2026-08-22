@@ -63,3 +63,81 @@ test("live roster isolates score updates and releases raw plus projected data", 
   });
   unsubscribeKernel();
 });
+
+test("live roster owns throttling, trace holds and queued timer cleanup", () => {
+  const timers = new Map();
+  const events = [];
+  let nextTimerId = 1;
+  let nowMs = 1000;
+  let traceActive = false;
+  let transitions = 0;
+  const scope = createResourceScope("live-roster-queue-test");
+  const feature = createLiveRosterFeature(
+    { scope },
+    {
+      clearTimeoutFn: (id) => timers.delete(id),
+      now: () => nowMs,
+      setTimeoutFn: (callback, delayMs) => {
+        const id = nextTimerId++;
+        timers.set(id, {
+          callback: () => {
+            timers.delete(id);
+            callback();
+          },
+          delayMs,
+        });
+        return id;
+      },
+    }
+  );
+  const queueOptions = {
+    isTraceActive: () => traceActive,
+    onEvent: (label, payload) => events.push({ label, payload }),
+    startTransition: (apply) => {
+      transitions += 1;
+      apply();
+    },
+  };
+  feature.start();
+
+  feature.queuePlayers([{ nick: "Tigre", team: "red" }], queueOptions);
+  assert.equal(feature.store.getState().livePlayers[0].team, "red");
+
+  nowMs = 1050;
+  feature.queuePlayers([{ nick: "Tigre", team: "blue" }], queueOptions);
+  const playersTimer = [...timers.values()].find((timer) => timer.delayMs === 70);
+  assert.ok(playersTimer);
+  traceActive = true;
+  playersTimer.callback();
+  assert.equal(feature.store.getState().livePlayers[0].team, "red");
+  feature.queuePlayers([{ nick: "Tigre", team: "blue" }], queueOptions);
+  traceActive = false;
+  assert.deepEqual(feature.flushQueuedUpdates(), { players: 1, ranking: 0 });
+  assert.equal(feature.store.getState().livePlayers[0].team, "blue");
+
+  nowMs = 2000;
+  feature.queueRanking([{ nick: "Tigre", rank: 1, score: 10 }], queueOptions);
+  traceActive = true;
+  nowMs = 2050;
+  feature.queueRanking([{ nick: "Test", rank: 1, score: 20 }], queueOptions);
+  const freshnessTimer = [...timers.values()].find((timer) => timer.delayMs === 600);
+  assert.ok(freshnessTimer);
+  freshnessTimer.callback();
+  assert.equal(transitions, 1);
+  assert.equal(feature.store.getState().liveProvisionalRanking[0].nick, "Test");
+  assert.ok(events.some((entry) => entry.label === "players-held"));
+  assert.ok(events.some((entry) => entry.label === "ranking-freshness-flush"));
+
+  traceActive = false;
+  nowMs = 1100;
+  feature.queuePlayers([{ nick: "Test", team: "green" }], queueOptions);
+  assert.ok(timers.size > 0);
+  scope.dispose();
+  assert.equal(timers.size, 0);
+  assert.deepEqual(feature.store.getState(), {
+    livePlayers: [],
+    liveProvisionalRanking: [],
+    players: [],
+    provisionalRanking: [],
+  });
+});
