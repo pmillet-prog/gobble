@@ -56,6 +56,10 @@ import {
   useFeatureRuntime,
   useFeatureSelector,
 } from "./app/react/useFeatureRuntime.js";
+import {
+  useLazyArrayController,
+  useLazyObjectController,
+} from "./app/react/useLazyController.js";
 import { bindRoundClockAudio } from "./features/clock/bindRoundClockAudio.js";
 import { useRoundClockController } from "./features/clock/RoundClockController.jsx";
 import { useIntermissionClockController } from "./features/intermission/IntermissionClockController.jsx";
@@ -836,6 +840,38 @@ function useStableEvent(handler) {
     handlerRef.current = handler;
   }, [handler]);
   return React.useCallback((...args) => handlerRef.current?.(...args), []);
+}
+
+const WORD_SUBMISSION_CONTROLLER_METHODS = Object.freeze([
+  "requeueInFlightSubmissions",
+  "restorePendingSubmissionEntries",
+  "scheduleBatchFlush",
+  "submit",
+  "syncLiveSpecial3WordsState",
+  "tryAutoSubmitCurrentWordAtRoundEnd",
+]);
+const CELEBRATION_CONTROLLER_METHODS = Object.freeze([
+  "triggerConfettiBurst",
+  "triggerGridShake",
+  "triggerInvalidFlash",
+  "triggerPraiseFlash",
+  "triggerScoreFlight",
+]);
+
+function createWordSubmissionController(runtime) {
+  return createWordSubmissionEngine(...runtime);
+}
+
+function createCelebrationController(runtime) {
+  return createCelebrationEffects(...runtime);
+}
+
+function createRoundPlayerDetailsRuntime(runtime) {
+  return createRoundPlayerDetailsController(...runtime);
+}
+
+function createResultsWordInspectorRuntime(runtime) {
+  return createResultsWordInspector(...runtime);
 }
 
 function bindFeatureStateSetters(feature, fields) {
@@ -5674,7 +5710,9 @@ export default function GobbleApplication() {
     triggerInvalidFlash,
     triggerPraiseFlash,
     triggerScoreFlight,
-  } = createCelebrationEffects(
+  } = useLazyObjectController(
+    createCelebrationController,
+    [
     canVibrateRef,
     confettiBurstTokenRef,
     gridRef,
@@ -5698,6 +5736,8 @@ export default function GobbleApplication() {
     visualPraiseEnabledRef,
     visualScoreFlightsEnabledRef,
     visualScreenShakeEnabledRef,
+    ],
+    CELEBRATION_CONTROLLER_METHODS,
   );
 
   useEffect(() => {
@@ -6029,7 +6069,10 @@ export default function GobbleApplication() {
     dedupeWeeklyEntries,
     getSelfWeeklyVocabRankFromStats,
     getWeeklyVocabRankForCount,
-  } = createWeeklyStatsRuntimeModel(installIdRef, nicknameRef, weeklyStats);
+  } = React.useMemo(
+    () => createWeeklyStatsRuntimeModel(installIdRef, nicknameRef, weeklyStats),
+    [weeklyStats]
+  );
 
   function stopVocabOverlayAnimation() {
     setVocabOverlayRequest(null);
@@ -6524,30 +6567,34 @@ export default function GobbleApplication() {
     };
   }, []);
 
-  const samsungDiagnostics = createSamsungDiagnostics([
-    samsungDiagEnabledRef,
-    samsungDiagRef,
-    dragGridMetricsRef,
-    gridHitboxRef,
-    audioVoiceRef,
-    tickRef,
-    currentTilesRef,
-    samsungDiagSourceRef,
-    isSamsungBrowserRef,
-    samsungSafeModeRef,
-    phaseRef,
-    draggingRef,
-    dragMoveRafRef,
-    dragPendingPointRef,
-  ]);
-  function getSamsungDiagNowMs(...args) { return samsungDiagnostics[0](...args); }
-  function isSamsungDiagActive(...args) { return samsungDiagnostics[1](...args); }
-  function bumpSamsungDiagCounter(...args) { return samsungDiagnostics[2](...args); }
-  function buildSamsungDiagSnapshot(...args) { return samsungDiagnostics[3](...args); }
-  function flushSamsungDiagSnapshot(...args) { return samsungDiagnostics[4](...args); }
-  function pushSamsungDiagEvent(...args) { return samsungDiagnostics[5](...args); }
-  function noteSamsungTouchMoveRate(...args) { return samsungDiagnostics[6](...args); }
-
+  const [
+    getSamsungDiagNowMs,
+    isSamsungDiagActive,
+    bumpSamsungDiagCounter,
+    buildSamsungDiagSnapshot,
+    flushSamsungDiagSnapshot,
+    pushSamsungDiagEvent,
+    noteSamsungTouchMoveRate,
+  ] = React.useMemo(
+    () =>
+      createSamsungDiagnostics([
+        samsungDiagEnabledRef,
+        samsungDiagRef,
+        dragGridMetricsRef,
+        gridHitboxRef,
+        audioVoiceRef,
+        tickRef,
+        currentTilesRef,
+        samsungDiagSourceRef,
+        isSamsungBrowserRef,
+        samsungSafeModeRef,
+        phaseRef,
+        draggingRef,
+        dragMoveRafRef,
+        dragPendingPointRef,
+      ]),
+    []
+  );
   useEffect(() => {
     const shouldLoadClientDictionary = isDailyPlay || appView === "daily_play";
     if (!shouldLoadClientDictionary) {
@@ -6813,7 +6860,9 @@ export default function GobbleApplication() {
     submit,
     syncLiveSpecial3WordsState,
     tryAutoSubmitCurrentWordAtRoundEnd,
-  } = createWordSubmissionEngine(
+  } = useLazyObjectController(
+    createWordSubmissionController,
+    [
     acceptedBestPtsRef,
     acceptedRef,
     acceptedScoresRef,
@@ -6909,6 +6958,8 @@ export default function GobbleApplication() {
     WORD_BATCH_ACK_TIMEOUT_MS,
     WORD_BATCH_FLUSH_MS,
     WORD_BATCH_MAX,
+    ],
+    WORD_SUBMISSION_CONTROLLER_METHODS,
   );
 
   useRealtimeEventBindings({
@@ -8207,7 +8258,21 @@ export default function GobbleApplication() {
     fetchDuelStatus();
   }
 
-  const authController = createAuthController([
+  const [
+    parsePossiblyDirtyJson,
+    isLikelyHtmlPayload,
+    readJsonResponseLoose,
+    formatAuthError,
+    postAuthJson,
+    connectSocketWithAuth,
+    buildAuthFormForMode,
+    openAuthDialog,
+    closeAuthDialog,
+    refreshAuthStatus,
+    ensureAuthenticated,
+    submitAuthDialog,
+    handleAccountLogout,
+  ] = useLazyArrayController(createAuthController, [
     socket,
     socketConnectPromiseRef,
     isAccountAuthenticated,
@@ -8236,20 +8301,7 @@ export default function GobbleApplication() {
     clearSavedSession,
     isLoggedIn,
     returnToLobby,
-  ]);
-  function parsePossiblyDirtyJson(...args) { return authController[0](...args); }
-  function isLikelyHtmlPayload(...args) { return authController[1](...args); }
-  function readJsonResponseLoose(...args) { return authController[2](...args); }
-  function formatAuthError(...args) { return authController[3](...args); }
-  function postAuthJson(...args) { return authController[4](...args); }
-  function connectSocketWithAuth(...args) { return authController[5](...args); }
-  function buildAuthFormForMode(...args) { return authController[6](...args); }
-  function openAuthDialog(...args) { return authController[7](...args); }
-  function closeAuthDialog(...args) { return authController[8](...args); }
-  function refreshAuthStatus(...args) { return authController[9](...args); }
-  function ensureAuthenticated(...args) { return authController[10](...args); }
-  function submitAuthDialog(...args) { return authController[11](...args); }
-  function handleAccountLogout(...args) { return authController[12](...args); }
+  ], 13);
 
   useEffect(() => {
     void refreshAuthStatus();
@@ -8372,7 +8424,13 @@ export default function GobbleApplication() {
     });
   }
 
-  const dailyGameController = createDailyGameController([
+  const [
+    startDailyGame,
+    submitDailyScore,
+    openDailyLaunchDialog,
+    closeDailyLaunchDialog,
+    confirmDailyLaunch,
+  ] = useLazyArrayController(createDailyGameController, [
     accepted,
     acceptedRef,
     appViewRef,
@@ -8428,12 +8486,7 @@ export default function GobbleApplication() {
     specialScoreConfig,
     startGameFromServerRef,
     themeAppliedSafe,
-  ]);
-  function startDailyGame(...args) { return dailyGameController[0](...args); }
-  function submitDailyScore(...args) { return dailyGameController[1](...args); }
-  function openDailyLaunchDialog(...args) { return dailyGameController[2](...args); }
-  function closeDailyLaunchDialog(...args) { return dailyGameController[3](...args); }
-  function confirmDailyLaunch(...args) { return dailyGameController[4](...args); }
+  ], 5);
 
   function requestVocabCount() {
     const emitRequest = (resolve) => {
@@ -11414,7 +11467,31 @@ export default function GobbleApplication() {
     updateBlockedInstallIds((prev) => prev.filter((entry) => entry !== key));
   }
 
-  const chatInteractionController = createChatInteractionController([
+  const [
+    captureChatViewportBaseline,
+    resetMobileChatPanelImmediately,
+    openChatPanel,
+    closeChatPanel,
+    subscribeLobbyChat,
+    requestOpenChat,
+    clearMobileChatReactionToasts,
+    enqueueMobileChatReactionToast,
+    openHomeChat,
+    closeHomeChat,
+    confirmChatRules,
+    cancelChatRules,
+    closeUserMenu,
+    closeDesktopChatReactionPicker,
+    clearDesktopReactionDetailsCloseTimer,
+    closeDesktopChatReactionDetails,
+    scheduleCloseDesktopChatReactionDetails,
+    openDesktopChatReactionDetails,
+    openDesktopChatReactionPicker,
+    openUserMenu,
+    openReportDialog,
+    closeReportDialog,
+    submitReport,
+  ] = useLazyArrayController(createChatInteractionController, [
     chatBaselineHeightRef,
     chatBodyLockHeightRef,
     setChatViewportHeight,
@@ -11460,31 +11537,7 @@ export default function GobbleApplication() {
     installId,
     setReportDialog,
     reportDialog,
-  ]);
-
-  function captureChatViewportBaseline(...args) { return chatInteractionController[0](...args); }
-  function resetMobileChatPanelImmediately(...args) { return chatInteractionController[1](...args); }
-  function openChatPanel(...args) { return chatInteractionController[2](...args); }
-  function closeChatPanel(...args) { return chatInteractionController[3](...args); }
-  function subscribeLobbyChat(...args) { return chatInteractionController[4](...args); }
-  function requestOpenChat(...args) { return chatInteractionController[5](...args); }
-  function clearMobileChatReactionToasts(...args) { return chatInteractionController[6](...args); }
-  function enqueueMobileChatReactionToast(...args) { return chatInteractionController[7](...args); }
-  function openHomeChat(...args) { return chatInteractionController[8](...args); }
-  function closeHomeChat(...args) { return chatInteractionController[9](...args); }
-  function confirmChatRules(...args) { return chatInteractionController[10](...args); }
-  function cancelChatRules(...args) { return chatInteractionController[11](...args); }
-  function closeUserMenu(...args) { return chatInteractionController[12](...args); }
-  function closeDesktopChatReactionPicker(...args) { return chatInteractionController[13](...args); }
-  function clearDesktopReactionDetailsCloseTimer(...args) { return chatInteractionController[14](...args); }
-  function closeDesktopChatReactionDetails(...args) { return chatInteractionController[15](...args); }
-  function scheduleCloseDesktopChatReactionDetails(...args) { return chatInteractionController[16](...args); }
-  function openDesktopChatReactionDetails(...args) { return chatInteractionController[17](...args); }
-  function openDesktopChatReactionPicker(...args) { return chatInteractionController[18](...args); }
-  function openUserMenu(...args) { return chatInteractionController[19](...args); }
-  function openReportDialog(...args) { return chatInteractionController[20](...args); }
-  function closeReportDialog(...args) { return chatInteractionController[21](...args); }
-  function submitReport(...args) { return chatInteractionController[22](...args); }
+  ], 23);
 
   function closePatchNotes() {
     patchNotesOpeningRef.current = false;
@@ -11691,7 +11744,9 @@ export default function GobbleApplication() {
     getRoundRecordsForPlayer,
     navigateRoundPlayerModal,
     openRoundPlayerModal,
-  ] = createRoundPlayerDetailsController(
+  ] = useLazyArrayController(
+    createRoundPlayerDetailsRuntime,
+    [
     allWords,
     allWordsMap,
     board,
@@ -11711,7 +11766,9 @@ export default function GobbleApplication() {
     setRoundPlayerModal,
     specialRound,
     specialScoreConfig,
-    weeklyStats
+    weeklyStats,
+    ],
+    5,
   );
 
   /**
@@ -12264,7 +12321,9 @@ function handleTouchEnd(e) {
     clearResultsWordAnalysis,
     openWordInfoModal,
     closeWordInfoModal,
-  ] = createResultsWordInspector(
+  ] = useLazyArrayController(
+    createResultsWordInspectorRuntime,
+    [
     solutionsRef,
     board,
     specialScoreConfig,
@@ -12275,7 +12334,9 @@ function handleTouchEnd(e) {
     setWordInfoModal,
     guidedResultsStep,
     setGuidedResultsStep,
-    GUIDED_RESULTS_STEPS
+    GUIDED_RESULTS_STEPS,
+    ],
+    4,
   );
 
   useEffect(() => {
