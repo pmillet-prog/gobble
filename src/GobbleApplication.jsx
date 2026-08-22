@@ -1067,6 +1067,10 @@ export default function GobbleApplication() {
     setAnnouncements,
     setLastWords,
   } = feedFeature;
+  const {
+    setPlayers,
+    setProvisionalRanking,
+  } = rosterFeature;
   const setTick = React.useCallback(
     (nextOrUpdater) => {
       const current = clockFeature.store.getState().remainingSeconds;
@@ -1098,8 +1102,6 @@ export default function GobbleApplication() {
     setLobbyRoomStatus,
     setMedals,
     setNextStartAt,
-    setPlayers,
-    setProvisionalRanking,
     setRoomsStats,
     setRoundId,
     setRoundPreparing,
@@ -10636,6 +10638,7 @@ export default function GobbleApplication() {
     resetSubmissionQueue();
     progressFeature.reset();
     feedFeature.reset();
+    rosterFeature.setProvisionalRanking([]);
     if (serverSolutions.ready) {
       solutionsRef.current = serverSolutions.solved;
       serverAllWordsRef.current = serverSolutions.all;
@@ -10760,7 +10763,6 @@ export default function GobbleApplication() {
       },
       realtime: {
         finalResults: [],
-        provisionalRanking: [],
         roundId: newRoundId || null,
         roundStats: stats,
         serverEndsAt: Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null,

@@ -73,17 +73,17 @@ test("session transitions are centralized and reject fields outside the contract
 
 test("realtime snapshots accept authoritative server fields as one transition", () => {
   const kernel = createApplicationKernel();
-  const players = [{ nick: "Tigre", score: 42 }];
+  const roomsStats = [{ roomId: "room-4x4", players: 2 }];
 
   kernel.commands.realtime.patch({
-    players,
+    roomsStats,
     roundId: "round-7",
     serverEndsAt: 123456,
   });
 
   assert.equal(kernel.getState().realtime.roundId, "round-7");
   assert.equal(kernel.getState().realtime.serverEndsAt, 123456);
-  assert.equal(kernel.getState().realtime.players, players);
+  assert.equal(kernel.getState().realtime.roomsStats, roomsStats);
 });
 
 test("cross-domain transitions are atomic and keep slice contracts", () => {

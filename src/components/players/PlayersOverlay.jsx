@@ -1,7 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useIntermissionCountdown } from "../../features/intermission/useIntermissionCountdown.js";
-import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
 import {
   useFeatureRuntime,
   useFeatureSelector,
@@ -128,9 +127,10 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
     directory.open && round.isLoggedIn ? state.remainingSeconds : null
   );
   const intermissionCountdown = useIntermissionCountdown();
-  const livePlayers = useApplicationSelector((state) =>
+  const roster = useFeatureRuntime("roster");
+  const livePlayers = useFeatureSelector(roster, (state) =>
     directory.open && round.isLoggedIn
-      ? state.realtime.players
+      ? state.livePlayers
       : EMPTY_PLAYERS
   );
   if (!directory.open || typeof document === "undefined") return null;

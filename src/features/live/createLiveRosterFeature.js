@@ -54,59 +54,72 @@ function fingerprintsMatch(left, right) {
 
 export function createInitialLiveRosterState() {
   return {
+    livePlayers: EMPTY_LIST,
+    liveProvisionalRanking: EMPTY_LIST,
     players: EMPTY_LIST,
     provisionalRanking: EMPTY_LIST,
   };
 }
 
-export function createLiveRosterFeature({ getKernel, scope }) {
+export function createLiveRosterFeature({ scope }) {
   let playersFingerprint = null;
   let provisionalRankingFingerprint = null;
-  let playersSource = null;
-  let provisionalRankingSource = null;
-  return createStateFeature({ scope }, createInitialLiveRosterState, {
-    start: ({ store }) => {
-      const kernel = getKernel();
-      const sync = () => {
-        const realtime = kernel.getState().realtime;
-        const patch = {};
-        if (realtime.players !== playersSource) {
-          playersSource = realtime.players;
-          const nextFingerprint = buildMetadataFingerprint(realtime.players);
-          if (!fingerprintsMatch(nextFingerprint, playersFingerprint)) {
-            playersFingerprint = nextFingerprint;
-            patch.players = buildMetadataSnapshot(realtime.players);
-          }
-        }
-        if (realtime.provisionalRanking !== provisionalRankingSource) {
-          provisionalRankingSource = realtime.provisionalRanking;
-          const nextFingerprint = buildMetadataFingerprint(
-            realtime.provisionalRanking
-          );
-          if (
-            !fingerprintsMatch(
-              nextFingerprint,
-              provisionalRankingFingerprint
-            )
-          ) {
-            provisionalRankingFingerprint = nextFingerprint;
-            patch.provisionalRanking = buildMetadataSnapshot(
-              realtime.provisionalRanking
-            );
-          }
-        }
-        if (Object.keys(patch).length > 0) store.patch(patch);
-      };
-      sync();
-      const unsubscribe = kernel.subscribe(sync);
-      scope.add(unsubscribe);
+  let stopped = false;
+  let feature = null;
+
+  function setPlayers(nextOrUpdater) {
+    if (stopped) return;
+    const current = feature.store.getState().livePlayers;
+    const resolved =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(current)
+        : nextOrUpdater;
+    const livePlayers = Array.isArray(resolved) ? resolved : EMPTY_LIST;
+    if (livePlayers === current) return;
+    const patch = { livePlayers };
+    const nextFingerprint = buildMetadataFingerprint(livePlayers);
+    if (!fingerprintsMatch(nextFingerprint, playersFingerprint)) {
+      playersFingerprint = nextFingerprint;
+      patch.players = buildMetadataSnapshot(livePlayers);
+    }
+    feature.patch(patch);
+  }
+
+  function setProvisionalRanking(nextOrUpdater) {
+    if (stopped) return;
+    const current = feature.store.getState().liveProvisionalRanking;
+    const resolved =
+      typeof nextOrUpdater === "function"
+        ? nextOrUpdater(current)
+        : nextOrUpdater;
+    const liveProvisionalRanking = Array.isArray(resolved)
+      ? resolved
+      : EMPTY_LIST;
+    if (liveProvisionalRanking === current) return;
+    const patch = { liveProvisionalRanking };
+    const nextFingerprint = buildMetadataFingerprint(liveProvisionalRanking);
+    if (!fingerprintsMatch(nextFingerprint, provisionalRankingFingerprint)) {
+      provisionalRankingFingerprint = nextFingerprint;
+      patch.provisionalRanking = buildMetadataSnapshot(liveProvisionalRanking);
+    }
+    feature.patch(patch);
+  }
+
+  feature = createStateFeature({ scope }, createInitialLiveRosterState, {
+    start: () => {
+      stopped = false;
       scope.add(() => {
+        stopped = true;
         playersFingerprint = null;
         provisionalRankingFingerprint = null;
-        playersSource = null;
-        provisionalRankingSource = null;
-        store.patch(createInitialLiveRosterState());
+        feature.patch(createInitialLiveRosterState());
       });
     },
+  });
+
+  return Object.freeze({
+    ...feature,
+    setPlayers,
+    setProvisionalRanking,
   });
 }

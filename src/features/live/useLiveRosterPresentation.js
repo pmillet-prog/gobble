@@ -1,21 +1,30 @@
 import React from "react";
 
-import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
-import { useFeatureFields, useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
+import {
+  useFeatureFields,
+  useFeatureRuntime,
+  useFeatureSelector,
+} from "../../app/react/useFeatureRuntime.js";
 import useLiveRanking from "../../components/results/useLiveRanking.js";
 
 const EMPTY_LIST = Object.freeze([]);
 const ROSTER_CHAT_FIELDS = Object.freeze(["blockedInstallIds"]);
 const ROSTER_PROGRESS_FIELDS = Object.freeze(["acceptedCount", "score"]);
+const ROSTER_LIVE_FIELDS = Object.freeze([
+  "livePlayers",
+  "liveProvisionalRanking",
+]);
 
 function useLivePlayers(disabled = false) {
-  return useApplicationSelector((state) =>
-    disabled ? EMPTY_LIST : state.realtime.players
+  const roster = useFeatureRuntime("roster");
+  return useFeatureSelector(roster, (state) =>
+    disabled ? EMPTY_LIST : state.livePlayers
   );
 }
 
 export function useLivePlayerCount() {
-  return useApplicationSelector((state) => state.realtime.players.length);
+  const roster = useFeatureRuntime("roster");
+  return useFeatureSelector(roster, (state) => state.livePlayers.length);
 }
 
 export function useLiveRankingPresentation({
@@ -33,11 +42,16 @@ export function useLiveRankingPresentation({
     progress,
     ROSTER_PROGRESS_FIELDS
   );
-  const players = useLivePlayers(isDailyPlay);
-  const playerCount = useLivePlayerCount();
-  const provisionalRanking = useApplicationSelector((state) =>
-    isDailyPlay ? EMPTY_LIST : state.realtime.provisionalRanking
+  const roster = useFeatureRuntime("roster");
+  const { livePlayers, liveProvisionalRanking } = useFeatureFields(
+    roster,
+    ROSTER_LIVE_FIELDS
   );
+  const players = isDailyPlay ? EMPTY_LIST : livePlayers;
+  const playerCount = livePlayers.length;
+  const provisionalRanking = isDailyPlay
+    ? EMPTY_LIST
+    : liveProvisionalRanking;
   const liveRankingSource = useLiveRanking(
     authenticatedUserId,
     duelStatus,
@@ -120,8 +134,9 @@ export function useVisibleLivePlayers() {
 }
 
 export function useSelfReadyForTournament({ installId, selfNick }) {
-  return useApplicationSelector((state) =>
-    state.realtime.players.some((player) => {
+  const roster = useFeatureRuntime("roster");
+  return useFeatureSelector(roster, (state) =>
+    state.livePlayers.some((player) => {
       if (!player?.readyForTournament) return false;
       if (installId && String(player?.installId || "") === String(installId)) {
         return true;
