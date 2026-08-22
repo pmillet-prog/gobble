@@ -249,7 +249,9 @@ import {
 import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
 import useGridHitboxController from "./components/grid/useGridHitboxController.js";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
-import useDailySpecialInteraction from "./components/daily/useDailySpecialInteraction.js";
+import useDailySpecialInteraction, {
+  getDailySpecialDragTransform,
+} from "./components/daily/useDailySpecialInteraction.js";
 import { createDailyGameController } from "./components/daily/createDailyGameController.js";
 import { getParisDateIdClient } from "./components/daily/dailyHistoryModel.js";
 import {
@@ -2328,6 +2330,13 @@ export default function GobbleApplication() {
   const duelWeekRecapWeeklyRefreshRef = useRef("");
   const dailyHistoryScrollRef = useRef(null);
   const dailySpecialDragRef = useRef(null);
+  const dailySpecialDragGhostRef = useRef(null);
+  const bindDailySpecialDragGhost = React.useCallback((node) => {
+    dailySpecialDragGhostRef.current = node;
+    const drag = dailySpecialDragRef.current;
+    if (!node || !Number.isFinite(drag?.x) || !Number.isFinite(drag?.y)) return;
+    node.style.transform = getDailySpecialDragTransform(drag.x, drag.y);
+  }, []);
   const dailyTictocPlayedRef = useRef(false);
   const dailySessionRef = useRef({ dateId: null, startedAt: null });
   const dailySubmitRef = useRef({ inFlight: false });
@@ -12191,6 +12200,7 @@ function handleTouchEnd(e) {
     phase,
     requestAudioUnlock,
     dailySpecialDragRef,
+    dailySpecialDragGhostRef,
     setDailySpecialDrag,
     dailySpecialDrag,
     board,
@@ -15889,15 +15899,19 @@ function handleTouchEnd(e) {
     Number.isFinite(dailySpecialDrag.y)
       ? {
           position: "fixed",
-          left: `${Math.round(dailySpecialDrag.x)}px`,
-          top: `${Math.round(dailySpecialDrag.y)}px`,
-          transform: "translate(-50%, -50%)",
+          left: 0,
+          top: 0,
           zIndex: 140,
+          willChange: "transform",
         }
       : null;
   const special3DragGhost =
     special3DragGhostStyle && dailySpecialDrag?.bonusKey ? (
-      <div style={special3DragGhostStyle} className="pointer-events-none">
+      <div
+        ref={bindDailySpecialDragGhost}
+        style={special3DragGhostStyle}
+        className="pointer-events-none"
+      >
         <div className={isMobileLayout ? "opacity-75 scale-[2]" : "opacity-75 scale-[1.03]"}>
           {renderSpecial3BonusChipButton(dailySpecialDrag.bonusKey, {
             keyPrefix: "drag-ghost-special3",

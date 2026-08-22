@@ -6,6 +6,21 @@ import {
   createDailyWordSlots,
 } from "./dailySpecialModel.js";
 
+export function shouldPublishDailySpecialDrag(previousDrag, nextDrag) {
+  if (!previousDrag || !nextDrag) return previousDrag !== nextDrag;
+  return (
+    previousDrag.bonusKey !== nextDrag.bonusKey ||
+    previousDrag.hoverIndex !== nextDrag.hoverIndex ||
+    previousDrag.previousIndex !== nextDrag.previousIndex
+  );
+}
+
+export function getDailySpecialDragTransform(x, y) {
+  const safeX = Number.isFinite(x) ? Math.round(x) : 0;
+  const safeY = Number.isFinite(y) ? Math.round(y) : 0;
+  return `translate3d(${safeX}px, ${safeY}px, 0) translate(-50%, -50%)`;
+}
+
 export default function useDailySpecialInteraction(
   setDailyWordSlots,
   isLiveSpecial3WordsMode,
@@ -19,6 +34,7 @@ export default function useDailySpecialInteraction(
   phase,
   requestAudioUnlock,
   dailySpecialDragRef,
+  dailySpecialDragGhostRef,
   setDailySpecialDrag,
   dailySpecialDrag,
   board,
@@ -148,14 +164,61 @@ function beginDailySpecialDrag(e, bonusKey) {
 }
 
 useEffect(() => {
-  if (!dailySpecialDrag) return undefined;
+  if (!dailySpecialDrag?.bonusKey) return undefined;
+  const gridRects = (tileRefs.current || []).map((element, index) => {
+    const rect = element?.getBoundingClientRect?.();
+    if (!rect) return null;
+    return {
+      bottom: rect.bottom,
+      index,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+    };
+  });
+  const findCachedGridIndex = (clientX, clientY) => {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+    for (const rect of gridRects) {
+      if (!rect) continue;
+      if (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      ) {
+        return rect.index;
+      }
+    }
+    return null;
+  };
+  let positionFrameId = null;
+  let pendingPosition = null;
+  const flushGhostPosition = () => {
+    positionFrameId = null;
+    const position = pendingPosition;
+    pendingPosition = null;
+    const ghost = dailySpecialDragGhostRef.current;
+    if (!position || !ghost) return;
+    ghost.style.transform = getDailySpecialDragTransform(position.x, position.y);
+  };
+  const scheduleGhostPosition = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    pendingPosition = { x, y };
+    if (positionFrameId != null) return;
+    if (typeof window.requestAnimationFrame === "function") {
+      positionFrameId = window.requestAnimationFrame(flushGhostPosition);
+      return;
+    }
+    flushGhostPosition();
+  };
+  scheduleGhostPosition(dailySpecialDragRef.current?.x, dailySpecialDragRef.current?.y);
   const onPointerMove = (evt) => {
     const drag = dailySpecialDragRef.current;
     if (!drag) return;
     const x = Number(evt?.clientX);
     const y = Number(evt?.clientY);
     const hoverIndex =
-      Number.isFinite(x) && Number.isFinite(y) ? findGridIndexFromPoint(x, y) : null;
+      Number.isFinite(x) && Number.isFinite(y) ? findCachedGridIndex(x, y) : null;
     const next = {
       ...drag,
       x: Number.isFinite(x) ? x : drag.x,
@@ -163,7 +226,10 @@ useEffect(() => {
       hoverIndex,
     };
     dailySpecialDragRef.current = next;
-    setDailySpecialDrag(next);
+    scheduleGhostPosition(next.x, next.y);
+    if (shouldPublishDailySpecialDrag(drag, next)) {
+      setDailySpecialDrag(next);
+    }
   };
   const onPointerUp = (evt) => {
     const drag = dailySpecialDragRef.current;
@@ -174,7 +240,7 @@ useEffect(() => {
     const y = Number(evt?.clientY);
     const targetIndex =
       Number.isFinite(x) && Number.isFinite(y)
-        ? findGridIndexFromPoint(x, y)
+        ? findCachedGridIndex(x, y)
         : Number.isInteger(drag.hoverIndex)
         ? drag.hoverIndex
         : null;
@@ -219,11 +285,22 @@ useEffect(() => {
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("pointercancel", onPointerUp);
   return () => {
+    if (positionFrameId != null) window.cancelAnimationFrame(positionFrameId);
+    positionFrameId = null;
+    pendingPosition = null;
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
     window.removeEventListener("pointercancel", onPointerUp);
   };
-}, [dailySpecialDrag, board, isSpecial3WordsMode, isLiveSpecial3WordsMode, dailyWordSlots, dailySpecialPlacements]);
+}, [
+  dailySpecialDrag?.bonusKey,
+  board,
+  isSpecial3WordsMode,
+  isLiveSpecial3WordsMode,
+  dailyWordSlots,
+  dailySpecialPlacements,
+  dailySpecialDragGhostRef,
+]);
 
 
 
