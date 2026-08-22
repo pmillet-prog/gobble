@@ -7,6 +7,7 @@ import {
 import { formatNumber } from "../utils/numbers.js";
 import {
   useGameProgressFields,
+  useGameInputShake,
   useGameStatusText,
 } from "../features/progress/GameProgressSatellites.jsx";
 
@@ -26,12 +27,12 @@ function MobileWordPreview({
   previewTileBaseStyle,
   previewStats,
   traceBoard = [],
-  shake,
 }) {
   const { foundWordsCount, score } = useGameProgressFields(
     PREVIEW_PROGRESS_FIELDS
   );
   const statusText = useGameStatusText();
+  const inputShake = useGameInputShake();
   const traceSnapshot = React.useSyncExternalStore(
     subscribeTraceState,
     getTraceStateSnapshot,
@@ -94,7 +95,7 @@ function MobileWordPreview({
       <div className="w-8 shrink-0" />
       <div
         className={`flex-1 min-w-0 overflow-visible text-center font-bold flex items-center justify-center ${
-          shake ? "shake" : ""
+          inputShake ? "shake" : ""
         }`}
         style={{ fontSize: `${baseFontPx}px`, lineHeight: 1.1 }}
       >

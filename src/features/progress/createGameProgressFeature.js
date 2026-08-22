@@ -15,6 +15,7 @@ export function createInitialGameProgressState() {
     acceptedCount: 0,
     bannerText: "",
     foundWordsCount: 0,
+    inputShake: false,
     score: 0,
     statusText: "",
     submissionTick: 0,
@@ -163,6 +164,8 @@ export function createGameProgressFeature({ getKernel, scope }) {
   let lastScore = null;
   let lastSubmissionTick = null;
   let statusTimer = null;
+  let inputShakeFrame = null;
+  let inputShakeTimer = null;
 
   function sync({ force = false } = {}) {
     const game = getKernel().getState().game;
@@ -256,6 +259,34 @@ export function createGameProgressFeature({ getKernel, scope }) {
     store.set("statusText", "");
   }
 
+  function clearInputShake() {
+    if (inputShakeFrame != null) {
+      globalThis.window?.cancelAnimationFrame?.(inputShakeFrame);
+      inputShakeFrame = null;
+    }
+    if (inputShakeTimer != null) clearTimeout(inputShakeTimer);
+    inputShakeTimer = null;
+    store.set("inputShake", false);
+  }
+
+  function triggerInputShake({ enabled = true, durationMs = 300 } = {}) {
+    clearInputShake();
+    if (!enabled) return;
+    const start = () => {
+      inputShakeFrame = null;
+      store.set("inputShake", true);
+    };
+    if (typeof globalThis.window?.requestAnimationFrame === "function") {
+      inputShakeFrame = globalThis.window.requestAnimationFrame(start);
+    } else {
+      start();
+    }
+    inputShakeTimer = setTimeout(() => {
+      inputShakeTimer = null;
+      store.set("inputShake", false);
+    }, Math.max(0, Number(durationMs) || 0));
+  }
+
   function start() {
     sync({ force: true });
     scope.add(getKernel().subscribe(sync));
@@ -268,9 +299,18 @@ export function createGameProgressFeature({ getKernel, scope }) {
       lastSubmissionTick = null;
       if (statusTimer != null) clearTimeout(statusTimer);
       statusTimer = null;
+      clearInputShake();
       store.patch(createInitialGameProgressState());
     });
   }
 
-  return Object.freeze({ clearStatus, configure, showStatus, start, store });
+  return Object.freeze({
+    clearInputShake,
+    clearStatus,
+    configure,
+    showStatus,
+    start,
+    store,
+    triggerInputShake,
+  });
 }

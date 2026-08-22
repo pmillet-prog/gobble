@@ -40,7 +40,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     foundWordsCount,
     gobbleAwardsForLive,
     gridRotationTurns,
-    gridShake,
     gridSize,
     guidedResultsEligible,
     guidedResultsStep,
@@ -86,7 +85,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     roundStats,
     roundTilePointsVisible,
     selfNick,
-    shake,
     shouldDefinitionBlink,
     showAllWords,
     showHelp,
@@ -718,7 +716,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         nickDecorationKey={nickDecorationKey}
         gridRef={gridRef}
         gridRotationTurns={gridRotationTurns}
-        gridShake={gridShake}
         gridSize={gridSize}
         inputControllerRef={gridInputControllerRef}
         handleMouseDown={handleMouseDown}
@@ -791,7 +788,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         roundStats={roundStats}
         roundTilePointsVisible={roundTilePointsVisible}
         selfNick={selfNick}
-        shake={shake}
         shouldDefinitionBlink={shouldDefinitionBlink}
         showHelp={showHelp}
         showPreviewStats={showPreviewStats}

@@ -29,7 +29,6 @@ function MobileStandardPlaying(props) {
     gobbleAwardsForLive = null,
     gridRef = null,
     gridRotationTurns = 0,
-    gridShake = false,
     gridSize = 4,
     getTraceCellLabel = null,
     handleMouseDown = null,
@@ -104,7 +103,6 @@ function MobileStandardPlaying(props) {
     roundStats = null,
     roundTilePointsVisible = false,
     selfNick = "",
-    shake = false,
     shouldDefinitionBlink = false,
     showHelp = false,
     showPreviewStats = false,
@@ -453,7 +451,6 @@ function MobileStandardPlaying(props) {
               previewTileBaseStyle={previewTileBaseStyle}
               previewStats={previewStats}
               traceBoard={traceBoard}
-              shake={shake}
             />
           ) : null}
           {!hideOcidVotePlaySurface ? (
@@ -468,7 +465,6 @@ function MobileStandardPlaying(props) {
               celebrationOverlay={praiseOverlay}
               darkMode={darkMode}
               gridRef={gridRef}
-              gridShake={gridShake}
               gridSize={gridSize}
               implodeActive={implodeActive}
               gridRotationTurns={gridRotationTurns}

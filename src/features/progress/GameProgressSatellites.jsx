@@ -6,6 +6,7 @@ import { useFeatureFields, useFeatureRuntime } from "../../app/react/useFeatureR
 const SCORE_FIELD = Object.freeze(["score"]);
 const ACCEPTED_COUNT_FIELD = Object.freeze(["acceptedCount"]);
 const FOUND_WORDS_COUNT_FIELD = Object.freeze(["foundWordsCount"]);
+const INPUT_SHAKE_FIELD = Object.freeze(["inputShake"]);
 const PREVIEW_FIELDS = Object.freeze(["foundWordsCount", "score"]);
 const STATUS_FIELD = Object.freeze(["statusText"]);
 
@@ -42,4 +43,18 @@ export function LivePreviewProgressStats({ totalScoreLabel = "?", totalWordsLabe
 export function useGameStatusText() {
   const { statusText } = useGameProgressFields(STATUS_FIELD);
   return statusText;
+}
+
+export function useGameInputShake() {
+  const { inputShake } = useGameProgressFields(INPUT_SHAKE_FIELD);
+  return inputShake;
+}
+
+export function InputShakeBoundary({ children, className = "", ...props }) {
+  const inputShake = useGameInputShake();
+  return (
+    <div {...props} className={`${className}${inputShake ? " shake" : ""}`}>
+      {children}
+    </div>
+  );
 }

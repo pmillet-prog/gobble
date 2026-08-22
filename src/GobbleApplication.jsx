@@ -895,14 +895,12 @@ const GOBBLE_GAME_FIELDS = Object.freeze([
   "isGridRotating",
   "phase",
   "roomId",
-  "shake",
   "showAllWords",
 ]);
 
 const LIVE_UI_ROOT_FIELDS = Object.freeze([
   "foundTargetThisRound",
   "foundTargetWord",
-  "gridShake",
   "mobileRoundIntroHideTiles",
   "mobileRoundIntroRoundDescription",
   "mobileRoundIntroRoundLabel",
@@ -998,7 +996,6 @@ export default function GobbleApplication() {
     isGridRotating,
     phase,
     roomId,
-    shake,
     showAllWords,
   } = gameState;
   const { accepted, submissionTick } = settledGameProgress;
@@ -1059,7 +1056,6 @@ export default function GobbleApplication() {
     setPhase,
     setRoomId,
     setScore,
-    setShake,
     setShowAllWords,
     setSubmissionTick,
   } = applicationKernel.commands.game;
@@ -2052,7 +2048,6 @@ export default function GobbleApplication() {
   const {
     foundTargetThisRound,
     foundTargetWord,
-    gridShake,
     mobileRoundIntroHideTiles,
     mobileRoundIntroRoundDescription,
     mobileRoundIntroRoundLabel,
@@ -2420,6 +2415,7 @@ export default function GobbleApplication() {
     clearAllCelebrationFlashes();
     setScoreFlights([]);
     setGridShake(false);
+    progressFeature.clearInputShake();
     try {
       confetti.reset?.();
     } catch (_) {}
@@ -2867,14 +2863,14 @@ export default function GobbleApplication() {
   useEffect(() => {
     visualScreenShakeEnabledRef.current = visualScreenShakeEnabled;
     if (!visualScreenShakeEnabled) {
-      setShake(false);
+      progressFeature.clearInputShake();
       setGridShake(false);
       try {
         gridShakeAnimationRef.current?.cancel?.();
       } catch (_) {}
       gridShakeAnimationRef.current = null;
     }
-  }, [visualScreenShakeEnabled]);
+  }, [progressFeature, visualScreenShakeEnabled]);
   useEffect(() => {
     visualConfettiEnabledRef.current = visualConfettiEnabled;
     if (!visualConfettiEnabled) {
@@ -11880,13 +11876,12 @@ export default function GobbleApplication() {
     progressFeature.clearStatus({ force });
   }
 
-    function error(msg) {
+  function error(msg) {
     setStatusMessageWithHold(msg);
-    setShake(false);
-    // restart the animation even if the state was already true
-    if (visualScreenShakeEnabledRef.current) {
-      requestAnimationFrame(() => setShake(true));
-    }
+    progressFeature.triggerInputShake({
+      enabled: visualScreenShakeEnabledRef.current,
+      durationMs: 300,
+    });
     const lower = (msg || "").toLowerCase();
     const isDuplicate = lower.includes("déjà") || lower.includes("deja");
     const isInvalidDico =
@@ -11920,9 +11915,6 @@ export default function GobbleApplication() {
       playErrorSound();
     }
     vibrateErrorPattern();
-    if (visualScreenShakeEnabledRef.current) {
-      setTimeout(() => setShake(false), 300);
-    }
     clearSelection();
   }
 
@@ -18917,7 +18909,6 @@ function handleTouchEnd(e) {
             countdownLines,
             darkMode,
             gridRotationTurns,
-            gridShake,
             gridSize,
             hintCellSet,
             hintOutlineCellSet,
@@ -18993,7 +18984,6 @@ function handleTouchEnd(e) {
             dailyWordSlotsScored,
             darkMode,
             gridRotationTurns,
-            gridShake,
             gridSize,
             highlightPath,
             hintCellSet,
@@ -19105,7 +19095,6 @@ function handleTouchEnd(e) {
             foundWordsCount,
             gobbleAwardsForLive,
             gridRotationTurns,
-            gridShake,
             gridSize,
             guidedResultsEligible,
             guidedResultsStep,
@@ -19152,7 +19141,6 @@ function handleTouchEnd(e) {
             roundStats,
             roundTilePointsVisible,
             selfNick,
-            shake,
             shouldDefinitionBlink,
             showAllWords,
             showHelp,
@@ -19353,7 +19341,6 @@ function handleTouchEnd(e) {
             gridInputControllerRef,
             gridRef,
             gridRotationTurns,
-            gridShake,
             gridSize,
             handleChatInputFocus,
             handleDesktopWordAnalysisClear,
@@ -19469,7 +19456,6 @@ function handleTouchEnd(e) {
             setTargetWaitDevGridHost,
             setTargetWaitDevSideHost,
             setTournamentReady,
-            shake,
             shouldDefinitionBlink,
             showAllWords,
             showBlockedList,

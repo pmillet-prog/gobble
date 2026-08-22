@@ -14,7 +14,6 @@ export const GAME_STATE_FIELDS = Object.freeze([
   "phase",
   "roomId",
   "score",
-  "shake",
   "showAllWords",
   "submissionTick",
 ]);
@@ -43,7 +42,6 @@ export function createInitialGameState({ gridSize = 4, roomId = "room-4x4" } = {
     phase: "lobby",
     roomId,
     score: 0,
-    shake: false,
     showAllWords: false,
     submissionTick: 0,
   });

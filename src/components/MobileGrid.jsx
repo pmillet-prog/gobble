@@ -3,6 +3,9 @@ import GridTileButton, {
   getBonusLetterRingClass,
 } from "./GridTileButton.jsx";
 import { RoundClockSeconds } from "../features/clock/RoundClockDisplay.jsx";
+import { useFeatureFields, useFeatureRuntime } from "../app/react/useFeatureRuntime.js";
+
+const GRID_SHAKE_FIELD = Object.freeze(["gridShake"]);
 
 const TEXTURE_BY_COLOR = {
   wood: "/textures/bois.png",
@@ -131,7 +134,7 @@ function MobileGrid({
   celebrationOverlay = null,
   darkMode,
   gridRef,
-  gridShake,
+  gridShake: gridShakeOverride,
   gridSize,
   gridRotationTurns,
   handleMouseDown,
@@ -170,6 +173,13 @@ function MobileGrid({
   usedSet,
   specialStartTileSet,
 }) {
+  const liveUi = useFeatureRuntime("liveUi");
+  const { gridShake: liveGridShake } = useFeatureFields(
+    liveUi,
+    GRID_SHAKE_FIELD
+  );
+  const gridShake =
+    typeof gridShakeOverride === "boolean" ? gridShakeOverride : liveGridShake;
   const tileTextureStyles = React.useMemo(
     () => buildTileTextureStyles(gridSize, tileColorPreset),
     [gridSize, tileColorPreset]

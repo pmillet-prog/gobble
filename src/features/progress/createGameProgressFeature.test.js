@@ -64,15 +64,19 @@ test("game progress owns high-frequency score, word and status updates", async (
   assert.equal(fakeTwinsCompletions, 1);
 
   feature.showStatus("+12 pts", 5);
+  feature.triggerInputShake({ durationMs: 5 });
   assert.equal(feature.store.getState().statusText, "+12 pts");
+  assert.equal(feature.store.getState().inputShake, true);
   await new Promise((resolve) => setTimeout(resolve, 15));
   assert.equal(feature.store.getState().statusText, "");
+  assert.equal(feature.store.getState().inputShake, false);
 
   scope.dispose();
   assert.deepEqual(feature.store.getState(), {
     acceptedCount: 0,
     bannerText: "",
     foundWordsCount: 0,
+    inputShake: false,
     score: 0,
     statusText: "",
     submissionTick: 0,

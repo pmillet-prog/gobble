@@ -9,6 +9,7 @@ import {
   AcceptedWordsCount,
   FoundWordsCount,
   GameScoreValue,
+  InputShakeBoundary,
 } from "../../features/progress/GameProgressSatellites.jsx";
 import {
   DesktopLiveRankingSatellite,
@@ -129,7 +130,6 @@ export default function DesktopGameScene({ runtime }) {
     gridInputControllerRef,
     gridRef,
     gridRotationTurns,
-    gridShake,
     gridSize,
     handleChatInputFocus,
     handleDesktopWordAnalysisClear,
@@ -244,7 +244,6 @@ export default function DesktopGameScene({ runtime }) {
     setTargetWaitDevGridHost,
     setTargetWaitDevSideHost,
     setTournamentReady,
-    shake,
     shouldDefinitionBlink,
     showAllWords,
     showBlockedList,
@@ -1037,8 +1036,7 @@ export default function DesktopGameScene({ runtime }) {
                 (isMobileLayout
                   ? "relative grid bg-white border rounded-xl px-2 py-2 w-full"
                   : "relative grid p-4 bg-white border rounded-xl w-fit mx-auto") +
-                (isInGameSpecial3Tutorial && special3TutorialStep === 0 ? " special3-tutorial-focus" : "") +
-                (gridShake && isMobileLayout ? " shake" : "")
+                (isInGameSpecial3Tutorial && special3TutorialStep === 0 ? " special3-tutorial-focus" : "")
               }
               style={{
                 gridTemplateColumns: isMobileLayout
@@ -1154,10 +1152,8 @@ export default function DesktopGameScene({ runtime }) {
                 className="shrink-0"
                 style={{ width: `${Math.max(24, Math.round(36 * desktopGridUiScale))}px` }}
               />
-              <div
-                className={`flex-1 min-w-0 overflow-visible text-center font-bold text-lg leading-none flex items-center justify-center ${
-                  shake ? "shake" : ""
-                }`}
+              <InputShakeBoundary
+                className="flex-1 min-w-0 overflow-visible text-center font-bold text-lg leading-none flex items-center justify-center"
                 style={{
                   fontSize: `${Math.max(11, Math.round(18 * desktopGridUiScale))}px`,
                 }}
@@ -1187,7 +1183,7 @@ export default function DesktopGameScene({ runtime }) {
       totalWordsLabel={totalWordsLabel}
     />
   )}
-              </div>
+              </InputShakeBoundary>
               <button
                 type="button"
                 onClick={(e) => {
