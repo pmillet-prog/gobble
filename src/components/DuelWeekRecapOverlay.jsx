@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { resolveWeeklyRecapPodium } from "../utils/weeklyRecap.js";
 
 const TEAM_LABELS = {
   red: "Rouges",
@@ -196,7 +197,7 @@ export default function DuelWeekRecapOverlay({
   open = false,
   summary = null,
   page = 0,
-  weeklyVocabPodium = [],
+  weeklyStats = null,
   onNext = null,
   onClose = null,
   formatNumber = null,
@@ -210,7 +211,7 @@ export default function DuelWeekRecapOverlay({
   const myContribution = summary?.myContribution || null;
   const contributorsByTeam = summary?.contributorsByTeam || {};
   const records = summary?.weeklyRecords || {};
-  const podium = getTop(weeklyVocabPodium, 3);
+  const podium = getTop(resolveWeeklyRecapPodium(summary, weeklyStats), 3);
   const winnerNick = podium[0]?.nick || "Joueur";
   const pagesCount = 3;
   const safePage = Math.max(0, Math.min(page, pagesCount - 1));

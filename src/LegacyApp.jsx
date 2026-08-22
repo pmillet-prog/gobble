@@ -56,7 +56,6 @@ import {
   recordPerfEvent,
   setPerfProbeEnabled,
 } from "./perf/renderPerfProbe.js";
-import PerfTestOverlay from "./perf/PerfTestOverlay.jsx";
 import {
   AMBIENT_MUSIC_TRACKS_DEFAULT,
   AUDIO_COOLDOWN_MAX_KEYS,
@@ -181,12 +180,8 @@ import {
 } from "./components/chat/chatPresentationConfig.js";
 import MobileGrid from "./components/MobileGrid.jsx";
 import ToastStack from "./components/ToastStack.jsx";
-import GlobalRedAnnouncementOverlay from "./components/GlobalRedAnnouncementOverlay.jsx";
-import PlaytimeCountdownOverlay from "./components/PlaytimeCountdownOverlay.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
-import DuelWeekRecapOverlay from "./components/DuelWeekRecapOverlay.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
-import BroadcastNoticePopup from "./components/BroadcastNoticePopup.jsx";
 import FacebookGroupInviteModal from "./components/FacebookGroupInviteModal.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightLayer from "./components/score/ScoreFlightLayer.jsx";
@@ -254,7 +249,6 @@ import {
   stripBoardBonuses,
 } from "./components/daily/dailySpecialModel.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
-import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
 import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
 import GridTileLetter from "./components/GridTileLetter.jsx";
@@ -372,10 +366,8 @@ import {
 } from "./utils/accountSeenMarkers.js";
 import {
   isWeeklyRecapPodiumReady,
-  resolveWeeklyRecapPodium,
 } from "./utils/weeklyRecap.js";
 
-const DuelObjectivesPanel = React.lazy(() => import("./components/DuelObjectivesPanel.jsx"));
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
 const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"));
 const WordVaultPage = React.lazy(() => import("./components/WordVaultPage.jsx"));
@@ -391,6 +383,25 @@ const TrainingConfirmDialog = React.lazy(() =>
   import("./components/training/TrainingConfirmDialog.jsx")
 );
 const AccountMenu = React.lazy(() => import("./components/account/AccountMenu.jsx"));
+const BroadcastNoticePopup = React.lazy(() =>
+  import("./components/BroadcastNoticePopup.jsx")
+);
+const DuelWeekRecapOverlay = React.lazy(() =>
+  import("./components/DuelWeekRecapOverlay.jsx")
+);
+const GlobalRedAnnouncementOverlay = React.lazy(() =>
+  import("./components/GlobalRedAnnouncementOverlay.jsx")
+);
+const PlaytimeCountdownOverlay = React.lazy(() =>
+  import("./components/PlaytimeCountdownOverlay.jsx")
+);
+const VaultWordOfDayPopup = React.lazy(() =>
+  import("./components/home/VaultWordOfDayPopup.jsx")
+);
+const PerfTestOverlay = React.lazy(() => import("./perf/PerfTestOverlay.jsx"));
+const DuelPopupOverlay = React.lazy(() =>
+  import("./components/duel/DuelPopupOverlay.jsx")
+);
 const DailyHubScreen = React.lazy(() => import("./components/daily/DailyHubScreen.jsx"));
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
 const WeeklyStatsScreen = React.lazy(() =>
@@ -20828,34 +20839,43 @@ function handleTouchEnd(e) {
     !!broadcastNotice?.message &&
     !broadcastAlreadySeen;
   const broadcastPopupOverlay = shouldShowBroadcastPopup ? (
-    <BroadcastNoticePopup
-      darkMode={menuDarkMode}
-      message={broadcastNotice?.message}
-      onClose={dismissBroadcastNotice}
-    />
+    <Suspense fallback={null}>
+      <BroadcastNoticePopup
+        darkMode={menuDarkMode}
+        message={broadcastNotice?.message}
+        onClose={dismissBroadcastNotice}
+      />
+    </Suspense>
   ) : null;
-  const playtimeCountdownOverlay = (
-    <PlaytimeCountdownOverlay
-      visible={isLoggedIn && appView === "live" && !!playtimeLimit?.active}
-      remainingMs={playtimeRemainingMs}
-    />
-  );
-  const globalRedAnnouncementOverlay = (
-    <GlobalRedAnnouncementOverlay announcement={globalRedAnnouncement} />
-  );
+  const shouldShowPlaytimeCountdown =
+    isLoggedIn && appView === "live" && !!playtimeLimit?.active;
+  const playtimeCountdownOverlay = shouldShowPlaytimeCountdown ? (
+    <Suspense fallback={null}>
+      <PlaytimeCountdownOverlay visible remainingMs={playtimeRemainingMs} />
+    </Suspense>
+  ) : null;
+  const globalRedAnnouncementOverlay = globalRedAnnouncement ? (
+    <Suspense fallback={null}>
+      <GlobalRedAnnouncementOverlay announcement={globalRedAnnouncement} />
+    </Suspense>
+  ) : null;
   const perfTestOverlay = perfTestEnabled ? (
-    <PerfTestOverlay phase={phase} roundId={roundId} />
+    <Suspense fallback={null}>
+      <PerfTestOverlay phase={phase} roundId={roundId} />
+    </Suspense>
   ) : null;
   const vaultWordOfDayOverlay = vaultWordOfDayPopup.open ? (
-    <VaultWordOfDayPopup
-      definition={vaultWordOfDayPopup.definition}
-      displayWord={vaultWordOfDayPopup.displayWord}
-      onClose={closeVaultWordOfDayPopup}
-      onOpenVault={openVaultFromWordOfDay}
-      source={vaultWordOfDayPopup.source}
-      url={vaultWordOfDayPopup.url}
-      word={vaultWordOfDayPopup.word}
-    />
+    <Suspense fallback={null}>
+      <VaultWordOfDayPopup
+        definition={vaultWordOfDayPopup.definition}
+        displayWord={vaultWordOfDayPopup.displayWord}
+        onClose={closeVaultWordOfDayPopup}
+        onOpenVault={openVaultFromWordOfDay}
+        source={vaultWordOfDayPopup.source}
+        url={vaultWordOfDayPopup.url}
+        word={vaultWordOfDayPopup.word}
+      />
+    </Suspense>
   ) : null;
   const duelTeamTintColor =
     duelTeam === "red"
@@ -20870,89 +20890,30 @@ function handleTouchEnd(e) {
       style={{ backgroundColor: duelTeamTintColor }}
     />
   ) : null;
-  const duelPopupOverlay =
-    duelPopupState?.mode && typeof document !== "undefined"
-      ? createPortal(
-          <div className="fixed inset-0 z-[12100] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
-            <div
-              className={`w-full max-w-md rounded-2xl border p-4 space-y-3 ${
-                menuDarkMode
-                  ? "bg-slate-900/95 border-white/10 text-slate-100"
-                  : "bg-white border-slate-200 text-slate-900"
-              }`}
-            >
-              {duelPopupState.mode === "team" ? (
-                <>
-                  <div className="text-lg font-black">Duel d'équipes</div>
-                  <div className="text-sm">
-                    Tu es dans l'équipe{" "}
-                    <span className={duelPopupState.team === "red" ? "text-red-500 font-bold" : "text-blue-500 font-bold"}>
-                      {duelPopupState.team === "red" ? "Rouge" : "Bleue"}
-                    </span>{" "}
-                    cette semaine.
-                  </div>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold"
-                    onClick={acknowledgeDuelTeamPopup}
-                  >
-                    Compris
-                  </button>
-                </>
-              ) : duelPopupState.mode === "objectives" || duelPopupState.mode === "objectives_manual" ? (
-                <>
-                  <div className="text-lg font-black">Objectifs du jour</div>
-                  <div className="text-sm opacity-80">
-                    Valide ces objectifs dans le jeu principal pour faire monter le score de ton équipe.
-                  </div>
-                  <Suspense fallback={null}>
-                    <DuelObjectivesPanel
-                      darkMode={menuDarkMode}
-                      objectivesStatus={duelStatus?.objectives}
-                      onReroll={rerollDuelObjective}
-                      rerollBusyBucket={duelRerollBusyBucket}
-                      onObjectiveValidated={handleDuelObjectiveValidated}
-                      hiddenValidatedKeys={getDuelConsumedValidatedKeys("popup")}
-                      onValidatedObjectiveConsumed={(objective, key) =>
-                        markDuelValidatedObjectiveConsumed("popup", objective, key)
-                      }
-                      hasPlayedDaily={!!dailyStatus?.hasPlayed}
-                    />
-                  </Suspense>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold"
-                    onClick={closeDuelObjectivesPopup}
-                  >
-                    Continuer
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="text-lg font-black">Mini tuto Duel</div>
-                  <div className="text-sm">{DUEL_TUTORIAL_STEPS[duelPopupState.step] || ""}</div>
-                  <div className="text-xs opacity-70">
-                    {duelPopupState.step + 1}/{DUEL_TUTORIAL_STEPS.length}
-                  </div>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold"
-                    onClick={advanceDuelTutorial}
-                  >
-                    {duelPopupState.step + 1 >= DUEL_TUTORIAL_STEPS.length ? "Terminer" : "Suivant"}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
+  const duelPopupOverlay = duelPopupState?.mode ? (
+    <Suspense fallback={null}>
+      <DuelPopupOverlay
+        darkMode={menuDarkMode}
+        state={duelPopupState}
+        tutorialSteps={DUEL_TUTORIAL_STEPS}
+        status={{
+          hasPlayedDaily: !!dailyStatus?.hasPlayed,
+          objectives: duelStatus?.objectives,
+          rerollBusyBucket: duelRerollBusyBucket,
+        }}
+        actions={{
+          getConsumedValidatedKeys: getDuelConsumedValidatedKeys,
+          onAcknowledgeTeam: acknowledgeDuelTeamPopup,
+          onAdvanceTutorial: advanceDuelTutorial,
+          onCloseObjectives: closeDuelObjectivesPopup,
+          onObjectiveValidated: handleDuelObjectiveValidated,
+          onReroll: rerollDuelObjective,
+          onValidatedObjectiveConsumed: markDuelValidatedObjectiveConsumed,
+        }}
+      />
+    </Suspense>
+  ) : null;
   const duelWeekSummary = duelStatus?.lastWeekSummary || null;
-  const duelWeekRacePodium = React.useMemo(
-    () => resolveWeeklyRecapPodium(duelWeekSummary, weeklyStats),
-    [duelWeekSummary, weeklyStats]
-  );
   const closeDuelWeekRecap = React.useCallback(() => {
     const weekId = String(duelWeekSummary?.weekId || "").trim();
     if (!duelWeekRecapPreviewMode && weekId) {
@@ -20965,17 +20926,19 @@ function handleTouchEnd(e) {
   const nextDuelWeekRecapPage = React.useCallback(() => {
     setDuelWeekRecapPage((prev) => Math.min(prev + 1, 2));
   }, []);
-  const duelWeekRecapOverlay = (
-    <DuelWeekRecapOverlay
-      open={duelWeekRecapOpen}
-      summary={duelWeekSummary}
-      page={duelWeekRecapPage}
-      weeklyVocabPodium={duelWeekRacePodium}
-      onNext={nextDuelWeekRecapPage}
-      onClose={closeDuelWeekRecap}
-      formatNumber={formatNumber}
-    />
-  );
+  const duelWeekRecapOverlay = duelWeekRecapOpen ? (
+    <Suspense fallback={null}>
+      <DuelWeekRecapOverlay
+        open
+        summary={duelWeekSummary}
+        page={duelWeekRecapPage}
+        weeklyStats={weeklyStats}
+        onNext={nextDuelWeekRecapPage}
+        onClose={closeDuelWeekRecap}
+        formatNumber={formatNumber}
+      />
+    </Suspense>
+  ) : null;
   const homeLobbyActions = useHomeLobbyActions({
     onDismissResume: dismissResumePrompt,
     onOpenAccount: openHomeAccount,
