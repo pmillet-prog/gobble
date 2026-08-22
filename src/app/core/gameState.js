@@ -10,16 +10,12 @@ export const GAME_STATE_FIELDS = Object.freeze([
   "implodeActive",
   "inputLocked",
   "isGridRotating",
-  "lastInputMode",
   "lastWords",
   "phase",
   "roomId",
   "score",
   "shake",
-  "shakeGrid",
   "showAllWords",
-  "sortMode",
-  "statusMessage",
   "submissionTick",
 ]);
 
@@ -43,16 +39,12 @@ export function createInitialGameState({ gridSize = 4, roomId = "room-4x4" } = {
     implodeActive: false,
     inputLocked: false,
     isGridRotating: false,
-    lastInputMode: "keyboard",
     lastWords: [],
     phase: "lobby",
     roomId,
     score: 0,
     shake: false,
-    shakeGrid: false,
     showAllWords: false,
-    sortMode: "score",
-    statusMessage: null,
     submissionTick: 0,
   });
 }

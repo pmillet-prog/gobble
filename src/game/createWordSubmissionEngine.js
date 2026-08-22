@@ -74,7 +74,6 @@ export function createWordSubmissionEngine(
   isSpecial3WordsMode,
   isTouchDeviceRef,
   keyboardRecallSubmittedWordRef,
-  lastInputMode,
   lastInputModeRef,
   liveSessionReadyRef,
   maybeAnnounceBestWord,
@@ -1098,8 +1097,9 @@ export function createWordSubmissionEngine(
     const scoringBoard = applyDailySpecialPlacements(board, dailySpecialPlacements);
     let path;
     const touchContext =
-      lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
-    const usesManualPath = touchContext || lastInputMode === "mouse";
+      lastInputModeRef.current === "touch" ||
+      (isTouchDeviceRef.current && lastInputModeRef.current !== "keyboard");
+    const usesManualPath = touchContext || lastInputModeRef.current === "mouse";
     if (usesManualPath) {
       path = Array.isArray(highlightPathRef.current) ? highlightPathRef.current : [];
       if (!path || path.length === 0) {
@@ -1277,8 +1277,9 @@ export function createWordSubmissionEngine(
     }
     let path;
     const touchContext =
-      lastInputMode === "touch" || (isTouchDeviceRef.current && lastInputMode !== "keyboard");
-    const usesManualPath = touchContext || lastInputMode === "mouse";
+      lastInputModeRef.current === "touch" ||
+      (isTouchDeviceRef.current && lastInputModeRef.current !== "keyboard");
+    const usesManualPath = touchContext || lastInputModeRef.current === "mouse";
     const liveHighlightPath = Array.isArray(highlightPathRef.current)
       ? highlightPathRef.current
       : [];

@@ -894,15 +894,11 @@ const GOBBLE_GAME_FIELDS = Object.freeze([
   "implodeActive",
   "inputLocked",
   "isGridRotating",
-  "lastInputMode",
   "phase",
   "roomId",
   "score",
   "shake",
-  "shakeGrid",
   "showAllWords",
-  "sortMode",
-  "statusMessage",
   "submissionTick",
 ]);
 
@@ -1002,15 +998,11 @@ export default function GobbleApplication() {
     implodeActive,
     inputLocked,
     isGridRotating,
-    lastInputMode,
     phase,
     roomId,
     score,
     shake,
-    shakeGrid,
     showAllWords,
-    sortMode,
-    statusMessage,
     submissionTick,
   } = gameState;
   const {
@@ -1066,16 +1058,12 @@ export default function GobbleApplication() {
     setImplodeActive,
     setInputLocked,
     setIsGridRotating,
-    setLastInputMode,
     setLastWords,
     setPhase,
     setRoomId,
     setScore,
     setShake,
-    setShakeGrid,
     setShowAllWords,
-    setSortMode,
-    setStatusMessage,
     setSubmissionTick,
   } = applicationKernel.commands.game;
   const setTick = React.useCallback(
@@ -2922,9 +2910,6 @@ export default function GobbleApplication() {
   useEffect(() => {
     roundIdRef.current = roundId;
   }, [roundId]);
-  useEffect(() => {
-    lastInputModeRef.current = lastInputMode;
-  }, [lastInputMode]);
   useEffect(() => {
     return () => {
       if (rankingQueueTimerRef.current) {
@@ -6905,7 +6890,6 @@ export default function GobbleApplication() {
     isSpecial3WordsMode,
     isTouchDeviceRef,
     keyboardRecallSubmittedWordRef,
-    lastInputMode,
     lastInputModeRef,
     liveSessionReadyRef,
     maybeAnnounceBestWord,
@@ -11863,31 +11847,26 @@ export default function GobbleApplication() {
       if (/^[a-z]$/.test(k)) {
         e.preventDefault();
         lastInputModeRef.current = "keyboard";
-        setLastInputMode("keyboard");
         addLetterFromKeyboard(k.toUpperCase());
       }
       if (k === "arrowup") {
         e.preventDefault();
         lastInputModeRef.current = "keyboard";
-        setLastInputMode("keyboard");
         cycleWordHistory(-1);
       }
       if (k === "arrowdown") {
         e.preventDefault();
         lastInputModeRef.current = "keyboard";
-        setLastInputMode("keyboard");
         cycleWordHistory(1);
       }
       if (k === "enter") {
         e.preventDefault();
         lastInputModeRef.current = "keyboard";
-        setLastInputMode("keyboard");
         submit();
       }
       if (k === "backspace") {
         e.preventDefault();
         lastInputModeRef.current = "keyboard";
-        setLastInputMode("keyboard");
         removeLastLetterFromKeyboard();
       }
     }
@@ -11919,7 +11898,6 @@ export default function GobbleApplication() {
 
   function setStatusMessageWithHold(msg, holdMs = 1000) {
     const text = typeof msg === "string" ? msg : "";
-    setStatusMessage(text);
     if (!text) return;
     const until = Date.now() + holdMs;
     statusHoldRef.current = { text, until };
@@ -11933,7 +11911,6 @@ export default function GobbleApplication() {
   }
 
   function clearStatusMessage({ force = false } = {}) {
-    setStatusMessage("");
     if (!force) return;
     statusHoldRef.current = { text: "", until: 0 };
     if (statusHoldTimerRef.current) {
@@ -12003,7 +11980,6 @@ export default function GobbleApplication() {
     recordPerfEvent("trace-start", { index, mode });
     pushSamsungDiagEvent("drag-start", { mode, index });
     lastInputModeRef.current = mode;
-    setLastInputMode(mode);
     clearStatusMessage();
 
     const letter = board[index].letter;
@@ -12137,7 +12113,6 @@ function handleTouchStart(e, index) {
   recordPerfEvent("trace-start", { index, mode: "touch" });
   pushSamsungDiagEvent("drag-start", { mode: "touch", index });
   lastInputModeRef.current = "touch";
-  setLastInputMode("touch");
   clearStatusMessage();
 
   const letter = board[index].letter;
