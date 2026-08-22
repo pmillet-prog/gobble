@@ -1,4 +1,5 @@
 import React from "react";
+import IntermissionReturnLabel from "../../features/intermission/IntermissionReturnLabel.jsx";
 import { useChatDraft } from "../../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
 import { getViewportSize } from "../../app/adapters/deviceCapabilities.js";
@@ -92,7 +93,6 @@ export default function TournamentFinaleScreen({
   const {
     FINALE_WEEKLY_BOARDS,
     TOURNAMENT_TOTAL_ROUNDS,
-    breakCountdown,
     duelBlueScore,
     duelRedScore,
     finaleBaselineBoards,
@@ -414,7 +414,6 @@ export default function TournamentFinaleScreen({
       };
     });
     const winnerNick = tournamentFinaleSummary.winnerNick || "Joueur";
-    const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
     const finaleTournamentId = String(
       tournament?.id || tournamentRef.current?.id || ""
     ).trim();
@@ -629,9 +628,7 @@ export default function TournamentFinaleScreen({
                   Bravo {winnerNick} !
                 </div>
                 <div className="mt-2 text-sm font-bold opacity-90">
-                  {bc != null
-                    ? `Retour au salon dans : ${bc}s`
-                    : "Retour au salon imminent..."}
+                  <IntermissionReturnLabel />
                 </div>
                 <div
                   className={`mt-2 mx-auto w-full max-w-[820px] rounded-xl border px-3 py-2 ${

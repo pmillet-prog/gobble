@@ -1,4 +1,5 @@
 import React from "react";
+import IntermissionTenSecondOverlay from "../../features/intermission/IntermissionTenSecondOverlay.jsx";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
 import { pickDefinitionList, sanitizeDefinitionText } from "../../utils/definitionPayload.js";
 import { clampValue, formatNumber } from "../../utils/numbers.js";
@@ -16,7 +17,6 @@ export default function useDesktopResultsPresentation(runtime) {
   const {
     analyzeWord,
     board,
-    breakCountdown,
     breakKind,
     clearResultsWordAnalysis,
     darkMode,
@@ -56,9 +56,7 @@ export default function useDesktopResultsPresentation(runtime) {
       ? `${withBg ? "bg-slate-900/90" : "bg-transparent"} border-slate-500 text-gray-100`
       : `${withBg ? "bg-white/90" : "bg-transparent"} border-gray-300 text-gray-900`;
 
-    const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
     const inResults = serverStatus === "break" || phase === "results";
-    const showOverlay = inResults && bc !== null && bc > 0 && bc <= 10;
     const minHeightStyle = inResults
       ? { minHeight: "clamp(240px, 40vh, 380px)" }
       : undefined;
@@ -227,36 +225,15 @@ export default function useDesktopResultsPresentation(runtime) {
         className={`border rounded-xl shadow-xl p-3 text-sm leading-snug space-y-2 relative overflow-hidden ${themeClasses} ${className}`}
         style={minHeightStyle}
       >
-        {showOverlay && (
-          <div
-            className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm pointer-events-none ${
-              darkMode ? "bg-black/45 text-white" : "bg-white/65 text-slate-900"
-            }`}
-          >
-            <div className="space-y-2">
-               {nextRoundLabel && (
-                 <div className="text-xl sm:text-2xl font-black tracking-tight">
-                   {nextRoundLabel}
-                 </div>
-               )}
-               {upcomingSpecial?.isSpecial && (
-                 <div className="space-y-1">
-                   <div className="text-xs font-extrabold tracking-widest text-orange-600 dark:text-orange-300">
-                     MANCHE SPECIALE
-                   </div>
-                   {upcomingSpecialName && (
-                     <div className="text-sm font-bold opacity-90">
-                       {upcomingSpecialName}
-                     </div>
-                   )}
-                 </div>
-               )}
-              <div className="text-5xl sm:text-6xl font-black leading-none tabular-nums">
-                {bc}s
-              </div>
-            </div>
-          </div>
-        )}
+        <IntermissionTenSecondOverlay
+          active={inResults}
+          className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm pointer-events-none ${
+            darkMode ? "bg-black/45 text-white" : "bg-white/65 text-slate-900"
+          }`}
+          nextRoundLabel={nextRoundLabel}
+          secondsClassName="text-5xl sm:text-6xl font-black leading-none tabular-nums"
+          upcomingSpecialName={upcomingSpecial?.isSpecial ? upcomingSpecialName : null}
+        />
         <div className="text-center text-lg font-bold">Bilan</div>
         <div
           className={`rounded-lg border px-2 py-1 ${
@@ -588,9 +565,7 @@ export default function useDesktopResultsPresentation(runtime) {
       ? `${withBg ? "bg-slate-900/90" : "bg-transparent"} border-slate-500 text-gray-100`
       : `${withBg ? "bg-white/90" : "bg-transparent"} border-gray-300 text-gray-900`;
 
-    const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
     const inResults = serverStatus === "break" || phase === "results";
-    const showOverlay = inResults && bc !== null && bc > 0 && bc <= 10;
 
     const specialTypeLabel = (() => {
       if (!upcomingSpecial?.isSpecial) return null;
@@ -641,36 +616,15 @@ export default function useDesktopResultsPresentation(runtime) {
       <div
         className={`border rounded-xl shadow-xl p-4 text-sm leading-snug space-y-4 relative overflow-hidden ${themeClasses} ${className}`}
       >
-        {showOverlay && (
-          <div
-            className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm ${
-              darkMode ? "bg-black/60 text-white" : "bg-white/75 text-slate-900"
-            }`}
-          >
-            <div className="space-y-2">
-              {nextRoundLabel && (
-                <div className="text-xl sm:text-2xl font-black tracking-tight">
-                  {nextRoundLabel}
-                </div>
-              )}
-              {upcomingSpecial?.isSpecial && (
-                <div className="space-y-1">
-                  <div className="text-xs font-extrabold tracking-widest text-orange-600 dark:text-orange-300">
-                    MANCHE SPECIALE
-                  </div>
-                  {upcomingSpecialName && (
-                    <div className="text-sm font-bold opacity-90">
-                      {upcomingSpecialName}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="text-6xl sm:text-7xl font-black leading-none tabular-nums">
-                {bc}s
-              </div>
-            </div>
-          </div>
-        )}
+        <IntermissionTenSecondOverlay
+          active={inResults}
+          className={`absolute inset-0 z-10 flex items-center justify-center text-center px-4 backdrop-blur-sm ${
+            darkMode ? "bg-black/60 text-white" : "bg-white/75 text-slate-900"
+          }`}
+          nextRoundLabel={nextRoundLabel}
+          secondsClassName="text-6xl sm:text-7xl font-black leading-none tabular-nums"
+          upcomingSpecialName={upcomingSpecial?.isSpecial ? upcomingSpecialName : null}
+        />
         <div className="text-center text-xs font-semibold tracking-widest text-slate-500">
           LE MOT ETAIT
         </div>

@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { useIntermissionCountdown } from "../../features/intermission/useIntermissionCountdown.js";
 import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
 import {
   useFeatureRuntime,
@@ -126,6 +127,7 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
   const roundTick = useFeatureSelector(clock, (state) =>
     directory.open && round.isLoggedIn ? state.remainingSeconds : null
   );
+  const intermissionCountdown = useIntermissionCountdown();
   const livePlayers = useApplicationSelector((state) =>
     directory.open && round.isLoggedIn
       ? state.realtime.players
@@ -145,7 +147,9 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
       : directory.lobbyPlayersList
   ).filter((entry) => !directory.hideBots || !entry?.isBot);
   const context = buildRoundContext(
-    round.isLoggedIn ? { ...round, tick: roundTick } : round,
+    round.isLoggedIn
+      ? { ...round, breakCountdown: intermissionCountdown, tick: roundTick }
+      : round,
     tournament
   );
 

@@ -58,6 +58,8 @@ import {
 } from "./app/react/useFeatureRuntime.js";
 import { bindRoundClockAudio } from "./features/clock/bindRoundClockAudio.js";
 import { useRoundClockController } from "./features/clock/RoundClockController.jsx";
+import { useIntermissionClockController } from "./features/intermission/IntermissionClockController.jsx";
+import IntermissionCountdownLabel from "./features/intermission/IntermissionCountdownLabel.jsx";
 import confetti from "canvas-confetti";
 import {
   recordAppRender,
@@ -94,8 +96,6 @@ import {
   computeDesktopViewportHeight,
 } from "./utils/desktopResponsiveLayout.js";
 import {
-  computeIsAndroidWebBrowser,
-  computeIsIosStandalone,
   computeIsMobileLayout,
   computeIsUltraCompact,
   computePreferLiteVisualEffects,
@@ -278,10 +278,7 @@ import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNav
 import useStandaloneTraining from "./hooks/useStandaloneTraining.js";
 import useDisplayMode from "./hooks/useDisplayMode.js";
 import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
-import {
-  isAndroidWebViewUserAgent,
-  isStandaloneDisplayMode,
-} from "./utils/displayMode.js";
+import { isAndroidWebViewUserAgent } from "./utils/displayMode.js";
 import {
   CHAT_MESSAGES_HISTORY_MAX,
   CHAT_MESSAGES_STORAGE_KEY,
@@ -919,7 +916,6 @@ const CHAT_ROOT_FIELDS = Object.freeze([
 
 const REALTIME_ROOT_FIELDS = Object.freeze([
   "announcements",
-  "breakCountdown",
   "breakKind",
   "finalResults",
   "lobbyPlayersList",
@@ -1028,7 +1024,6 @@ export default function GobbleApplication() {
   } = sessionState;
   const {
     announcements,
-    breakCountdown,
     breakKind,
     finalResults,
     lobbyPlayersList,
@@ -1108,7 +1103,6 @@ export default function GobbleApplication() {
   } = applicationKernel.commands.session;
   const {
     setAnnouncements,
-    setBreakCountdown,
     setBreakKind,
     setFinalResults,
     setLobbyPlayersList,
@@ -1223,7 +1217,6 @@ export default function GobbleApplication() {
   const gridRotateAnimRef = useRef(null);
   const gridRotateTimerRef = useRef(null);
   const lastInputModeRef = useRef("keyboard");
-  const countdownTickPlayedRef = useRef(false);
   const roundStartAtRef = useRef(0);
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
@@ -1807,7 +1800,8 @@ export default function GobbleApplication() {
   const weeklyArrowSeenRef = useRef(false);
   const autoResumeEnabledRef = useRef(false);
   const serverClockRef = useRef(createServerClockState());
-  const breakCountdownRef = useRef(breakCountdown);
+  const breakCountdownRef = useRef(null);
+  const playerActivityFeature = useFeatureRuntime("activity");
   const layoutFeature = useFeatureRuntime("layout");
   const layoutState = useFeatureSelector(layoutFeature, (state) => state);
   const chatFeature = useFeatureRuntime("chat");
@@ -2568,7 +2562,6 @@ export default function GobbleApplication() {
       },
       navigation: { view: "home" },
       realtime: {
-        breakCountdown: null,
         breakKind: null,
         nextStartAt: null,
         roundId: null,
@@ -2710,7 +2703,6 @@ export default function GobbleApplication() {
   const playersLastApplyAtRef = useRef(0);
   const playersLastSignatureRef = useRef("");
   const deferredTraceUiTasksRef = useRef([]);
-  const playerActivityLastSentAtRef = useRef(0);
   const clearPhaseLoopTimer = React.useCallback(() => {
     if (phaseLoopTimerRef.current) {
       clearTimeout(phaseLoopTimerRef.current);
@@ -2736,49 +2728,21 @@ export default function GobbleApplication() {
   useEffect(() => {
     appViewRef.current = appView;
   }, [appView]);
-  const signalLivePlayerActivity = React.useCallback((kind = "interaction", options = {}) => {
-    if (!isLoggedInRef.current || appViewRef.current !== "live" || !socket.connected) return;
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-    const now = Date.now();
-    const force = !!options?.force;
-    if (!force && now - playerActivityLastSentAtRef.current < 1_200) return;
-    playerActivityLastSentAtRef.current = now;
-    socket.emit("player:activity", {
-      roomId: currentRoomIdRef.current || roomIdRef.current,
-      kind,
-    });
-  }, []);
+  const signalLivePlayerActivity = React.useCallback(
+    (kind = "interaction", options = {}) =>
+      playerActivityFeature.signal(kind, options),
+    [playerActivityFeature]
+  );
   useEffect(() => {
-    if (!isLoggedIn || appView !== "live" || typeof window === "undefined") {
-      return undefined;
-    }
-    const onPointerActivity = () => signalLivePlayerActivity("pointer");
-    const onWheelActivity = () => signalLivePlayerActivity("wheel");
-    const onKeyboardActivity = () => signalLivePlayerActivity("keyboard");
-    const onScrollActivity = (event) => {
-      if (event?.isTrusted === false) return;
-      signalLivePlayerActivity("scroll");
-    };
-    const onVisibilityActivity = () => {
-      if (document.visibilityState === "visible") {
-        signalLivePlayerActivity("visible", { force: true });
-      }
-    };
-    const passiveCapture = { passive: true, capture: true };
-    window.addEventListener("pointerdown", onPointerActivity, passiveCapture);
-    window.addEventListener("wheel", onWheelActivity, passiveCapture);
-    window.addEventListener("keydown", onKeyboardActivity, true);
-    document.addEventListener("scroll", onScrollActivity, passiveCapture);
-    document.addEventListener("visibilitychange", onVisibilityActivity);
-    signalLivePlayerActivity("live_open", { force: true });
-    return () => {
-      window.removeEventListener("pointerdown", onPointerActivity, passiveCapture);
-      window.removeEventListener("wheel", onWheelActivity, passiveCapture);
-      window.removeEventListener("keydown", onKeyboardActivity, true);
-      document.removeEventListener("scroll", onScrollActivity, passiveCapture);
-      document.removeEventListener("visibilitychange", onVisibilityActivity);
-    };
-  }, [appView, isLoggedIn, signalLivePlayerActivity]);
+    playerActivityFeature.configure({
+      enabled: isLoggedIn && appView === "live",
+      roomId: currentRoomId || roomId,
+    });
+  }, [appView, currentRoomId, isLoggedIn, playerActivityFeature, roomId]);
+  useEffect(
+    () => () => playerActivityFeature.configure({ enabled: false }),
+    [playerActivityFeature]
+  );
   useEffect(() => () => clearPhaseLoopTimer(), [clearPhaseLoopTimer]);
   useEffect(() => {
     isDailyPlayRef.current = isDailyPlay;
@@ -2985,9 +2949,6 @@ export default function GobbleApplication() {
       deferredTraceUiTasksRef.current = [];
     };
   }, []);
-  useEffect(() => {
-    breakCountdownRef.current = breakCountdown;
-  }, [breakCountdown]);
   useEffect(() => {
     breakKindRef.current = breakKind;
   }, [breakKind]);
@@ -3516,7 +3477,6 @@ export default function GobbleApplication() {
   const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const prevPlayersRef = useRef(new Set());
-  const isChromiumMobileRef = useRef(false);
   const bestGridMaxRef = useRef(0);
   const bestGridMaxLenRef = useRef(0);
   const bestWordAnnounceRef = useRef(-1);
@@ -4464,9 +4424,6 @@ export default function GobbleApplication() {
       isAndroidWebViewUserAgent(ua) && isLikelySamsungDeviceUserAgent(ua);
     const isSamsung = isSamsungBrowser || isSamsungWebView;
     isSamsungBrowserRef.current = isSamsungBrowser;
-    isChromiumMobileRef.current =
-      /Android/i.test(ua) &&
-      /(Chrome|CriOS|EdgA|SamsungBrowser)/i.test(ua);
     if (isSamsung && typeof window !== "undefined") {
       const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
       const bypassSessionGuard = DEV_MODE || isLocalHost;
@@ -6100,10 +6057,6 @@ export default function GobbleApplication() {
   }, [phase, isAmbientMuted, isLoggedIn, isDailyView]);
 
   useEffect(() => {
-    countdownTickPlayedRef.current = false;
-  }, [breakCountdown, phase, breakKind]);
-
-  useEffect(() => {
     if (phase !== "playing") {
       setAnalysis(null);
       setHighlightPath([]);
@@ -6692,70 +6645,6 @@ export default function GobbleApplication() {
   }, [appView, dictionary, isDailyPlay]);
 
   useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-      setInstallSupport("available");
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    const onInstalled = () => {
-      setInstallSupport("installed");
-      setInstallMessage("Ajout\u00e9 \u00e0 l'\u00e9cran d'accueil");
-      setTimeout(() => setInstallMessage(""), 3000);
-    };
-    window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
-  }, []);
-
-  // Verifie si on est deja en mode standalone
-  useEffect(() => {
-    if (isStandaloneDisplayMode()) {
-      setInstallSupport("installed");
-    }
-    setIsIosStandalone(computeIsIosStandalone());
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    const updateAndroidWebState = () => {
-      setIsAndroidWebBrowser(computeIsAndroidWebBrowser());
-      setIsIosStandalone(computeIsIosStandalone());
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        updateAndroidWebState();
-      }
-    };
-    updateAndroidWebState();
-    window.addEventListener("focus", updateAndroidWebState);
-    window.addEventListener("resize", updateAndroidWebState);
-    window.addEventListener("appinstalled", updateAndroidWebState);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("focus", updateAndroidWebState);
-      window.removeEventListener("resize", updateAndroidWebState);
-      window.removeEventListener("appinstalled", updateAndroidWebState);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, []);
-
-  // Fallback : si on est en mobile mais aucun prompt reçu, on marque indisponible
-  useEffect(() => {
-    if (!isMobileLayout) return;
-    if (installSupport !== "unknown") return;
-    const id = setTimeout(() => {
-      setInstallSupport((prev) => {
-        if (prev !== "unknown") return prev;
-        return isChromiumMobileRef.current ? "maybe" : "unavailable";
-      });
-    }, 2500);
-    return () => clearTimeout(id);
-  }, [isMobileLayout, installSupport]);
-
-  useEffect(() => {
     if (typeof document === "undefined") return;
 
     const onVisibility = () => {
@@ -7269,6 +7158,19 @@ export default function GobbleApplication() {
     sessionTokenRef: gameplaySessionTokenRef,
     specialRoundType: specialRound?.type || null,
   });
+
+  const intermissionFeature = useIntermissionClockController({
+    getServerNowMs: getNowServerMs,
+    nextStartAt,
+  });
+  useEffect(() => {
+    const syncBreakCountdownRef = () => {
+      breakCountdownRef.current =
+        intermissionFeature.store.getState().remainingSeconds;
+    };
+    syncBreakCountdownRef();
+    return intermissionFeature.store.subscribe(syncBreakCountdownRef);
+  }, [intermissionFeature]);
 
   useEffect(() => {
     if (phase !== "results") return;
@@ -9277,7 +9179,7 @@ export default function GobbleApplication() {
       setPhase("lobby");
       setServerStatus("waiting");
       setNextStartAt(null);
-      setBreakCountdown(null);
+      intermissionFeature.stop();
       setBreakKind(null);
       setFinalResults([]);
       setProvisionalRanking([]);
@@ -10381,42 +10283,6 @@ export default function GobbleApplication() {
     return () => window.removeEventListener("keydown", onKey);
   }, [isPlayersOverlayOpen]);
 
-  // Countdown entre les manches
-  useEffect(() => {
-    if (!nextStartAt) {
-      setBreakCountdown(null);
-      return;
-    }
-    const monotonicNowMs = getMonotonicNowMs();
-    const deadlineMonotonicMs = createMonotonicDeadline({
-      deadlineServerMs: nextStartAt,
-      monotonicNowMs,
-      serverNowMs: getNowServerMs(),
-    });
-    let timerId = null;
-    const update = () => {
-      const now = getMonotonicNowMs();
-      const remaining = getDeadlineRemainingSeconds({
-        deadlineMonotonicMs,
-        monotonicNowMs: now,
-      });
-      setBreakCountdown(remaining);
-      if (remaining <= 0) return;
-      timerId = setTimeout(
-        update,
-        getNextDeadlineTickDelay({
-          deadlineMonotonicMs,
-          displayedSeconds: remaining,
-          monotonicNowMs: now,
-        })
-      );
-    };
-    update();
-    return () => {
-      if (timerId !== null) clearTimeout(timerId);
-    };
-  }, [nextStartAt]);
-
   useEffect(() => {
     if (
       phase !== "results" ||
@@ -10445,10 +10311,7 @@ export default function GobbleApplication() {
       return;
     }
     if (!Number.isFinite(nextStartAt)) {
-      const fallbackCountdown = Number.isFinite(breakCountdown)
-        ? Math.max(0, Number(breakCountdown))
-        : null;
-      setMobileResultsOutroFadeActive(fallbackCountdown !== null && fallbackCountdown <= 1);
+      setMobileResultsOutroFadeActive(false);
       return;
     }
     const nowServerMs = getNowServerMs();
@@ -10463,7 +10326,7 @@ export default function GobbleApplication() {
       setMobileResultsOutroFadeActive(true);
     }, delayMs);
     return () => clearTimeout(timerId);
-  }, [isMobileLayout, phase, breakKind, nextStartAt, breakCountdown]);
+  }, [isMobileLayout, phase, breakKind, nextStartAt]);
 
   function handleForeground(reason = "foreground") {
     const now = Date.now();
@@ -11340,7 +11203,7 @@ export default function GobbleApplication() {
     setServerRoundDurationMs(localDurationMs);
     setServerStatus("running");
     setNextStartAt(null);
-    setBreakCountdown(null);
+    intermissionFeature.stop();
     setTick(localDurationSec);
     setPhase("playing");
   }
@@ -14166,7 +14029,6 @@ function handleTouchEnd(e) {
   const { renderDesktopResultsDockPanel } = useDesktopResultsPresentation({
     analyzeWord,
     board,
-    breakCountdown,
     breakKind,
     clearResultsWordAnalysis,
     darkMode,
@@ -16347,48 +16209,27 @@ function handleTouchEnd(e) {
     nowMs: getNowServerMs(),
     phase,
   });
-  const countdownLabel = (() => {
-    if (standaloneTrainingSession) {
-      if (phase === "playing") {
-        const sec = Math.max(0, tickRef.current || 0);
-        return `Temps restant : ${sec}s`;
-      }
-      if (phase === "results") return "Entraînement terminé";
-      return "Entraînement";
-    }
-    if (phase === "playing") {
-      const sec = Math.max(0, tickRef.current || 0);
-      return `Temps restant : ${sec}s`;
-    }
-    const bc = typeof breakCountdown === "number" ? Math.max(0, breakCountdown) : null;
-    if (phase === "results" && bc !== null && bc > 0) {
-      if (breakKind === "training_end") {
-        return `Fin de l’entraînement dans : ${bc}s`;
-      }
-      if (breakKind === "tournament_end") {
-        return `Retour au salon dans : ${bc}s`;
-      }
-      return `Départ dans : ${bc}s`;
-    }
-    if (roundPreparing || roundStartDelayed) {
-      return "Grille en préparation, démarrage imminent...";
-    }
-    if (bc !== null) {
-      if (breakKind === "training_end") {
-        return `Fin de l’entraînement dans : ${bc}s`;
-      }
-      if (breakKind === "tournament_end") {
-        return `Retour au salon dans : ${bc}s`;
-      }
-      return `Départ dans : ${bc}s`;
-    }
-    if (serverStatus === "break" || phase === "results") {
-      return "Manche terminée, attente de la prochaine manche...";
-    }
-    return "En attente de la prochaine manche...";
-  })();
-
-  const countdownLines = React.useMemo(() => [countdownLabel], [countdownLabel]);
+  const countdownLines = React.useMemo(
+    () => [
+      <IntermissionCountdownLabel
+        key="live-countdown-label"
+        breakKind={breakKind}
+        phase={phase}
+        roundPreparing={roundPreparing}
+        roundStartDelayed={roundStartDelayed}
+        serverStatus={serverStatus}
+        standaloneTrainingSession={standaloneTrainingSession}
+      />,
+    ],
+    [
+      breakKind,
+      phase,
+      roundPreparing,
+      roundStartDelayed,
+      serverStatus,
+      standaloneTrainingSession,
+    ]
+  );
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
   useEffect(() => {
     if (isMobileLayout && phase === "playing") {
@@ -16869,7 +16710,6 @@ function handleTouchEnd(e) {
           snapshot: playersOverlaySnapshot,
         }}
         round={{
-          breakCountdown,
           breakKind,
           defaultDuration: DEFAULT_DURATION,
           isLoggedIn,
@@ -19202,7 +19042,6 @@ function handleTouchEnd(e) {
           finale={{
             FINALE_WEEKLY_BOARDS,
             TOURNAMENT_TOTAL_ROUNDS,
-            breakCountdown,
             duelBlueScore,
             duelRedScore,
             finaleBaselineBoards,
