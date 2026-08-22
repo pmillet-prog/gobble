@@ -212,7 +212,6 @@ import useFinalRanking from "./components/results/useFinalRanking.jsx";
 import useDesktopResultsPresentation from "./components/results/useDesktopResultsPresentation.jsx";
 import useEndStats from "./components/results/useEndStats.js";
 import useResultsAwards from "./components/results/useResultsAwards.js";
-import useLiveRanking from "./components/results/useLiveRanking.js";
 import { createRoundPlayerDetailsController } from "./components/results/createRoundPlayerDetailsController.js";
 import { createResultsWordInspector } from "./components/results/createResultsWordInspector.js";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
@@ -941,34 +940,7 @@ const REALTIME_ROOT_FIELDS = Object.freeze([
   "upcomingSpecial",
 ]);
 
-function buildRosterMetadataSignature(realtime) {
-  const encode = (entry) =>
-    [
-      entry?.nick,
-      entry?.userId,
-      entry?.installId,
-      entry?.playerKey,
-      entry?.team,
-      entry?.isBot ? 1 : 0,
-      entry?.afk ? 1 : 0,
-      entry?.readyForTournament ? 1 : 0,
-      entry?.inTraining ? 1 : 0,
-      entry?.trainingMode,
-      entry?.weeklyVocabPodiumRank,
-      entry?.isWeeklyVocabChampion ? 1 : 0,
-      entry?.isDailyChampion ? 1 : 0,
-    ].join(":");
-  return `${(realtime.players || []).map(encode).sort().join("|")}#${(
-    realtime.provisionalRanking || []
-  )
-    .map((entry) =>
-      [entry?.nick, entry?.userId, entry?.installId, entry?.team, entry?.isBot ? 1 : 0].join(
-        ":"
-      )
-    )
-    .sort()
-    .join("|")}`;
-}
+const ROSTER_ROOT_FIELDS = Object.freeze(["players", "provisionalRanking"]);
 
 export default function GobbleApplication() {
   recordAppRender();
@@ -977,7 +949,8 @@ export default function GobbleApplication() {
   const clockFeature = useFeatureRuntime("clock");
   const gameState = useApplicationFields("game", GOBBLE_GAME_FIELDS);
   const realtimeState = useApplicationFields("realtime", REALTIME_ROOT_FIELDS);
-  useApplicationSelector((state) => buildRosterMetadataSignature(state.realtime));
+  const rosterFeature = useFeatureRuntime("roster");
+  const rosterState = useFeatureFields(rosterFeature, ROSTER_ROOT_FIELDS);
   const sessionState = useApplicationSelector((state) => state.session);
   const ambientTracks = useApplicationSelector((state) => state.boot.ambientTracks);
   const bootReady = useApplicationSelector((state) => state.boot.ready);
@@ -1047,9 +1020,7 @@ export default function GobbleApplication() {
     tournamentTotals,
     upcomingSpecial,
   } = realtimeState;
-  const realtimeSnapshot = applicationKernel.getState().realtime;
-  const players = realtimeSnapshot.players;
-  const provisionalRanking = realtimeSnapshot.provisionalRanking;
+  const { players, provisionalRanking } = rosterState;
   const {
     setAccepted,
     setAllWords,
@@ -2805,9 +2776,6 @@ export default function GobbleApplication() {
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
   }, [pushMobileExitGuardHistoryEntry, roundId, shouldProtectMobileLiveExit]);
-  useEffect(() => {
-    rankingLastSignatureRef.current = buildRankingSignature(provisionalRanking);
-  }, [provisionalRanking]);
   useEffect(() => {
     playersLastSignatureRef.current = buildPlayersSignature(players);
   }, [players]);
@@ -9087,6 +9055,7 @@ export default function GobbleApplication() {
         );
       }
       if (Array.isArray(snapshot.ranking)) {
+        rankingLastSignatureRef.current = buildRankingSignature(snapshot.ranking);
         setProvisionalRanking(snapshot.ranking);
       }
       const serverWords = Array.isArray(playerState?.words)
@@ -9159,6 +9128,7 @@ export default function GobbleApplication() {
       intermissionFeature.stop();
       setBreakKind(null);
       setFinalResults([]);
+      rankingLastSignatureRef.current = "";
       setProvisionalRanking([]);
       setRoundPreparing(null);
       setUpcomingSpecial(null);
@@ -11172,6 +11142,7 @@ export default function GobbleApplication() {
     bestWordAnnounceRef.current = -1;
     setFinalResults([]);
     clearQueuedRankingUpdate();
+    rankingLastSignatureRef.current = "";
     setProvisionalRanking([]);
     const localDurationSec = ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION;
     const localDurationMs = Math.max(1, localDurationSec * 1000);
@@ -12693,6 +12664,7 @@ function handleTouchEnd(e) {
     setRoundPreparing(null);
     setUpcomingSpecial(null);
     setFinalResults([]);
+    rankingLastSignatureRef.current = "";
     setProvisionalRanking([]);
     setTargetSummary(null);
     setAnnouncements([]);
@@ -14177,17 +14149,6 @@ function handleTouchEnd(e) {
     });
     return seen.size;
   }, [roomsStats, roomId, lobbyPlayersList, players]);
-  const liveRankingSource = useLiveRanking(
-    authenticatedUserId,
-    duelStatus,
-    installId,
-    normalizeUserIdForProfile,
-    players,
-    provisionalRanking,
-    score,
-    selfNick,
-  );
-
   const dailyEntriesRaw = React.useMemo(
     () => (Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : []),
     [dailyBoard?.entries]
@@ -14259,7 +14220,6 @@ function handleTouchEnd(e) {
     duelStatus?.team,
     duelStatus?.crowned,
   ]);
-  const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
   const liveRosterConfig = {
     authenticatedUserId,
     dailyRankingSource,
@@ -14395,23 +14355,6 @@ function handleTouchEnd(e) {
       setDesktopResultsSummaryExpanded(true);
     }
   }, [phase, isMobileLayout]);
-  function buildRankingWindow(list, you, maxTop = 5, context = 2, maxItems = 12) {
-    if (list.length <= maxItems) return list;
-    const youIdx = list.findIndex((r) => r.nick === you);
-    if (youIdx === -1 || youIdx < maxTop + context) {
-      return list.slice(0, maxItems);
-    }
-    const windowStart = Math.max(maxTop, youIdx - context);
-    const windowEnd = Math.min(list.length, youIdx + context + 1);
-    const tail = list.slice(windowStart, windowEnd);
-    const result = [...list.slice(0, maxTop), { gap: true, key: "gap" }, ...tail];
-    return result.slice(0, maxItems);
-  }
-
-  const rankingList = React.useMemo(
-    () => (phase === "playing" ? buildRankingWindow(rankingSource, selfNick) : rankingSource),
-    [phase, rankingSource, selfNick]
-  );
   const isTargetRound =
     specialRound?.type === "target_long" ||
     specialRound?.type === "target_score" ||
@@ -14996,8 +14939,6 @@ function handleTouchEnd(e) {
   });
   const resultsRankingList =
     resultsRankingMode === "total" ? tournamentRanking || [] : finalRanking;
-  const livePosition =
-    rankingList.find((r) => r.nick === selfNick)?.rank ?? null;
   const mixedFeed = React.useMemo(
     () => buildMixedFeed({ announcements, lastWords }),
     [announcements, lastWords]

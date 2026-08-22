@@ -7,6 +7,7 @@ import { createDuelFeature } from "../features/duel/createDuelFeature.js";
 import { createIdentityFeature } from "../features/identity/createIdentityFeature.js";
 import { createIntermissionClockFeature } from "../features/intermission/createIntermissionClockFeature.js";
 import { createLayoutFeature } from "../features/layout/createLayoutFeature.js";
+import { createLiveRosterFeature } from "../features/live/createLiveRosterFeature.js";
 import { createLiveUiFeature } from "../features/live/createLiveUiFeature.js";
 import { createNotificationsFeature } from "../features/notifications/createNotificationsFeature.js";
 import { createOcidFeature } from "../features/ocid/createOcidFeature.js";
@@ -26,6 +27,7 @@ const FEATURE_FACTORIES = Object.freeze({
   identity: createIdentityFeature,
   intermission: createIntermissionClockFeature,
   layout: createLayoutFeature,
+  roster: createLiveRosterFeature,
   liveUi: createLiveUiFeature,
   notifications: createNotificationsFeature,
   ocid: createOcidFeature,
