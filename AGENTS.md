@@ -7,6 +7,15 @@
 - Keep the user's product goal in mind, but push back on shortcuts that would make live operation harder later.
 - Do not touch the VM or live deployment unless the user explicitly asks for it in the current conversation.
 
+## Architecture Refactors
+
+- A small entry file or wrapper is not a new application core. Never present line-count reduction, file moves, lazy imports, or a facade around the legacy component as completion of an architectural rewrite.
+- During the current client rewrite, `src/LegacyApp.jsx` is reference material only. The new runtime must not import, render, wrap, or delegate application ownership to it.
+- Move ownership, not merely code: domain state, effects, timers, subscriptions, workers, cleanup, and commands belong in explicit core services or feature satellites. UI components consume narrow selectors/view-models and emit intents.
+- Preserve existing gameplay behavior and deliberate timings unless Paul explicitly asks to change them. In particular, do not reinterpret animation-synchronization delays as performance bugs.
+- Runtime performance is the goal: reduce unnecessary mounted state/effects, broad rerenders, duplicate data, lingering listeners/timers/workers, memory growth, and main-thread stalls. Bundle size and `App.jsx` line count are not success metrics.
+- Do not claim the rewrite is complete without functional parity checks and client runtime measurements. If a blocker prevents the promised architecture or parity, stop and report it plainly instead of substituting cosmetic work.
+
 ## Access And Safety
 
 - Sensitive tools must be gated by server-side account authorization, not by hidden UI gestures alone.
