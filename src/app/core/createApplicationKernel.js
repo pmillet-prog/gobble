@@ -6,6 +6,7 @@ import { SESSION_ACTIONS } from "./sessionReducer.js";
 import { SESSION_STATE_FIELDS } from "./sessionState.js";
 import { REALTIME_ACTIONS } from "./realtimeReducer.js";
 import { REALTIME_STATE_FIELDS } from "./realtimeState.js";
+import { createFeatureRegistry } from "./createFeatureRegistry.js";
 
 function setterNameForField(field) {
   return `set${field.charAt(0).toUpperCase()}${field.slice(1)}`;
@@ -13,9 +14,14 @@ function setterNameForField(field) {
 
 export function createApplicationKernel(options = {}) {
   let state = createInitialApplicationState(options);
+  let kernel = null;
   const listeners = new Set();
   const ports = Object.freeze({
     realtime: options.ports?.realtime || null,
+  });
+  const features = createFeatureRegistry({
+    getKernel: () => kernel,
+    ports,
   });
 
   const getState = () => state;
@@ -114,5 +120,18 @@ export function createApplicationKernel(options = {}) {
     session: Object.freeze(sessionCommands),
   });
 
-  return Object.freeze({ commands, dispatch, getState, ports, subscribe });
+  const dispose = () => {
+    features.dispose();
+    listeners.clear();
+  };
+  kernel = Object.freeze({
+    commands,
+    dispatch,
+    dispose,
+    features,
+    getState,
+    ports,
+    subscribe,
+  });
+  return kernel;
 }

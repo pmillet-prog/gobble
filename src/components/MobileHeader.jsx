@@ -1,4 +1,5 @@
 import React from "react";
+import { RoundClockSeconds } from "../features/clock/RoundClockDisplay.jsx";
 
 function MobileHeader({
   activeRoom,
@@ -11,7 +12,7 @@ function MobileHeader({
   onOpenSettings,
   onToggleSound,
   onToggleDarkMode,
-  playingSeconds = null,
+  playingSeconds,
   playerTeam = null,
   phase,
   roundTypeLabel = "",
@@ -46,7 +47,7 @@ function MobileHeader({
       ? "text-slate-200"
       : "text-slate-700"
     : "text-slate-500 dark:text-slate-400";
-  const hasPlayingCountdown = phase === "playing" && Number.isFinite(playingSeconds);
+  const hasPlayingCountdown = phase === "playing";
   return (
     <div
       ref={headerRef}
@@ -155,7 +156,7 @@ function MobileHeader({
       {hasPlayingCountdown ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
           <span className="block text-[clamp(44px,13vw,68px)] font-black tracking-tight tabular-nums leading-none">
-            {Math.max(0, Math.round(Number(playingSeconds) || 0))}
+            <RoundClockSeconds overrideSeconds={playingSeconds} />
           </span>
         </div>
       ) : null}

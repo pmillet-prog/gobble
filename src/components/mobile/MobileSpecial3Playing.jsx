@@ -1,5 +1,10 @@
 import React from "react";
 
+import {
+  RoundClockProgress,
+  RoundClockSeconds,
+} from "../../features/clock/RoundClockDisplay.jsx";
+import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import LiveFeed from "../LiveFeed.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
@@ -31,8 +36,8 @@ function MobileSpecial3Playing(props) {
     isLoggedIn = false,
     isStandaloneTraining = false,
     liveWord: fallbackLiveWord = "",
-    mobileChatUnreadIsBotOnly = false,
-    mobileChatUnreadCount = 0,
+    mobileChatUnreadIsBotOnly: mobileChatUnreadIsBotOnlyProp = false,
+    mobileChatUnreadCount: mobileChatUnreadCountProp = 0,
     mobileGridProps = {},
     mobileResultsPhaseFadeOverlay = null,
     mobileRoundIntroOverlay = null,
@@ -44,8 +49,7 @@ function MobileSpecial3Playing(props) {
     mobileViewportContainerStyle = undefined,
     onOpenSettings = null,
     praiseOverlay = null,
-    progressRatio = 0,
-    remainingSec = 0,
+    maxDurationSec = 90,
     trainingControls = null,
     trainingFeedItems = [],
     trainingFeedBannerText = "",
@@ -98,6 +102,8 @@ function MobileSpecial3Playing(props) {
     toggleSoundQuick = null,
     visualScreenShakeEnabled = true,
   } = props;
+  const { mobileChatUnreadCount, mobileChatUnreadIsBotOnly } =
+    useChatUnreadState();
 
   const traceSnapshot = React.useSyncExternalStore(
     subscribeTraceState,
@@ -187,7 +193,7 @@ function MobileSpecial3Playing(props) {
                 marginTop: `${special3TimerTopMarginPx}px`,
               }}
             >
-              {remainingSec}
+              <RoundClockSeconds />
             </div>
             <div className="flex items-center justify-self-end justify-end gap-1.5">
               <button
@@ -300,9 +306,9 @@ function MobileSpecial3Playing(props) {
               height: `${special3ProgressHeightPx}px`,
             }}
           >
-            <div
+            <RoundClockProgress
               className="h-full origin-right transition-transform duration-300 bg-amber-500"
-              style={{ transform: `scaleX(${progressRatio})` }}
+              maxSeconds={maxDurationSec}
             />
           </div>
         </div>

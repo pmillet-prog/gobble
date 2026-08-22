@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useChatDraft } from "../../features/chat/useChatDraft.js";
+import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
 import useChatAutoScroll from "./useChatAutoScroll.js";
 import NotebookReactionEmoji from "./NotebookReactionEmoji.jsx";
 
@@ -191,7 +193,7 @@ export default function ChatContent({
   keyboardInsetReservePx = 0,
   onChangeChatTab,
   messagesUnreadCount,
-  visibleMessages,
+  visibleMessages: visibleMessagesProp,
   showBlockedList,
   blockedEntries,
   blockedCount,
@@ -201,8 +203,6 @@ export default function ChatContent({
   onOpenUserMenu,
   selfNick,
   selfInstallId,
-  chatInput,
-  setChatInput,
   chatFocusPreserveKey = "",
   chatInputRef,
   chatInputDisabled,
@@ -225,6 +225,8 @@ export default function ChatContent({
   onUserActivity = null,
   variant = "default",
 }) {
+  const { chatInput, setChatInput } = useChatDraft();
+  const { visibleMessages } = useChatPresentation();
   const isSystemTab = chatTab === "system";
   const isNotebookVariant = variant === "notebook";
   const localTextareaRef = useRef(null);

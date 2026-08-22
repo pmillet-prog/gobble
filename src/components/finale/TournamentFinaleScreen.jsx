@@ -1,4 +1,6 @@
 import React from "react";
+import { useChatDraft } from "../../features/chat/useChatDraft.js";
+import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
 import { getViewportSize } from "../../app/adapters/deviceCapabilities.js";
 import {
   CHAT_DESKTOP_FONT_SCALE_MAX,
@@ -55,7 +57,6 @@ export default function TournamentFinaleScreen({
     beginChatEditFromMessage,
     blockedCount,
     chatEditTarget,
-    chatInput,
     chatInputDisabled,
     chatInputPlaceholder,
     chatInputRef,
@@ -70,7 +71,7 @@ export default function TournamentFinaleScreen({
     handleChatInputFocus,
     handleChatInputKeyDown,
     handleDesktopChatScroll,
-    lastMessageId,
+    lastMessageId: lastMessageIdProp,
     openDesktopChatReactionDetails,
     openDesktopChatReactionPicker,
     openUserMenu,
@@ -78,15 +79,16 @@ export default function TournamentFinaleScreen({
     safeChatTab,
     scheduleCloseDesktopChatReactionDetails,
     setChatDesktopListNode,
-    setChatInput,
     setChatReplyTargetFromMessage,
     setChatTab,
     setIsChatRulesOpen,
     setIsSettingsOpen,
     setShowBlockedList,
     submitChat,
-    visibleMessages,
+    visibleMessages: visibleMessagesProp,
   } = chat;
+  const { chatInput, setChatInput } = useChatDraft();
+  const { lastMessageId, visibleMessages } = useChatPresentation();
   const {
     FINALE_WEEKLY_BOARDS,
     TOURNAMENT_TOTAL_ROUNDS,

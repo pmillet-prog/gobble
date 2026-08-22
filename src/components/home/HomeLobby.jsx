@@ -6,6 +6,7 @@ import {
   getUiImageUrl,
 } from "../../assets/uiAssetManifest.js";
 import { HOME_DISPLAY_ACTIONS } from "../../utils/displayMode.js";
+import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import useHomeLobbyIntro from "./useHomeLobbyIntro.js";
 
 const HOME_ASSETS = {
@@ -760,8 +761,8 @@ function HomeLobby({
   displayModeAction = HOME_DISPLAY_ACTIONS.none,
   duelBlueScore = 0,
   duelRedScore = 0,
-  homeChatUnreadCount = 0,
-  homeChatUnreadIsBotOnly = false,
+  homeChatUnreadCount: homeChatUnreadCountProp = 0,
+  homeChatUnreadIsBotOnly: homeChatUnreadIsBotOnlyProp = false,
   isAuthServerUnavailable = false,
   isAuthStatusPending = false,
   isConnecting = false,
@@ -790,6 +791,8 @@ function HomeLobby({
   weeklyRecapLoading = false,
   trainingControl = null,
 }) {
+  const { homeChatUnreadCount, homeChatUnreadIsBotOnly } =
+    useChatUnreadState();
   const [isIosInstallHelpOpen, setIsIosInstallHelpOpen] = React.useState(false);
   const statusText =
     loginError ||

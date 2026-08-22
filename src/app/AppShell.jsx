@@ -1,12 +1,13 @@
 import React from "react";
 
-import LegacyApp from "../LegacyApp.jsx";
+import GobbleApplication from "../GobbleApplication.jsx";
 import { AMBIENT_MUSIC_TRACKS_DEFAULT } from "../audio/audioAssets.js";
 import AppBootOverlay from "../components/boot/AppBootOverlay.jsx";
 import socketClient from "../socket.js";
 import { readBrowserSessionSnapshot } from "./adapters/browserSessionSnapshot.js";
 import { createRealtimeGateway } from "./adapters/createRealtimeGateway.js";
 import { createApplicationKernel } from "./core/createApplicationKernel.js";
+import { registerClientFeatures } from "./registerClientFeatures.js";
 import {
   ApplicationRuntimeProvider,
   useApplicationKernel,
@@ -31,7 +32,7 @@ function ApplicationRuntime() {
 
   return (
     <>
-      {bootReady ? <LegacyApp /> : null}
+      {bootReady ? <GobbleApplication /> : null}
       <AppBootOverlay
         onAmbientTracksResolved={handleAmbientTracksResolved}
         onOverlayVisibleChange={handleOverlayVisibleChange}
@@ -45,11 +46,13 @@ export default function AppShell() {
   const kernelRef = React.useRef(null);
   if (!kernelRef.current) {
     const realtime = createRealtimeGateway(socketClient);
-    kernelRef.current = createApplicationKernel({
-      ambientTracks: AMBIENT_MUSIC_TRACKS_DEFAULT,
-      ports: { realtime },
-      session: readBrowserSessionSnapshot(),
-    });
+    kernelRef.current = registerClientFeatures(
+      createApplicationKernel({
+        ambientTracks: AMBIENT_MUSIC_TRACKS_DEFAULT,
+        ports: { realtime },
+        session: readBrowserSessionSnapshot(),
+      })
+    );
   }
 
   return (

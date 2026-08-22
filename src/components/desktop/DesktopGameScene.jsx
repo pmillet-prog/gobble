@@ -4,6 +4,8 @@ import { getTileColorTextureStyle } from "../../theme/themeConfig.js";
 import { formatNumber } from "../../utils/numbers.js";
 import { mapDisplayToBoardIndex } from "../../game/gridRotation.js";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
+import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
+import { useLiveRosterPresentation } from "../../features/live/useLiveRosterPresentation.js";
 import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
 import DesktopChatPanel from "../DesktopChatPanel.jsx";
@@ -179,13 +181,13 @@ export default function DesktopGameScene({ runtime }) {
     openWeeklyStatsOverlay,
     phase,
     playColumnRef,
-    players,
+    players: playersProp,
     praiseOverlay,
     prepareWordListFlip,
     previewBarMinHeight,
     previewTileStyle,
     quickHelpOverlay,
-    rankingSource,
+    rankingSource: rankingSourceProp,
     recordBadgesByNickForRound,
     renderDesktopColumnHandle,
     renderDesktopResultsDockPanel,
@@ -221,7 +223,7 @@ export default function DesktopGameScene({ runtime }) {
     selfOcidVoteDetail,
     selfOcidVoteOption,
     selfOcidVoters,
-    selfReadyForTournament,
+    selfReadyForTournament: selfReadyForTournamentProp,
     serverStatus,
     setActiveArea,
     setChatDesktopListNode,
@@ -278,7 +280,6 @@ export default function DesktopGameScene({ runtime }) {
     suppressWordListScores,
     targetWaitDevActive,
     targetWaitDevSessionState,
-    tick,
     tileColorPreset,
     tileFontPx,
     tileGapPx,
@@ -299,13 +300,19 @@ export default function DesktopGameScene({ runtime }) {
     validationBarHeightPx,
     validationBarPaddingPx,
     visibleMessages,
-    visiblePlayerList,
+    visiblePlayerList: visiblePlayerListProp,
     visualScreenShakeEnabled,
     weeklyOverlayStyle,
     weeklyStatsPage,
     WORDS_SCROLL_MAX_HEIGHT,
     wordsFoundLabel,
+    rosterConfig,
   } = runtime;
+  const roster = useLiveRosterPresentation(rosterConfig);
+  const players = roster.players;
+  const rankingSource = roster.rankingSource;
+  const selfReadyForTournament = roster.selfReadyForTournament;
+  const visiblePlayerList = roster.visiblePlayerList;
 
   const desktopGridHeightPx =
     !isMobileLayout && Number.isFinite(desktopMainGridHeight)
@@ -919,7 +926,7 @@ export default function DesktopGameScene({ runtime }) {
                     >
                       {targetWaitDevActive
                         ? Math.max(0, Number(targetWaitDevSessionState.remainingSeconds) || 0)
-                        : Math.max(0, Number(tick) || 0)}
+                        : <RoundClockSeconds />}
                     </div>
                   </div>
                 ) : (
@@ -1070,7 +1077,6 @@ export default function DesktopGameScene({ runtime }) {
               resultsPathPreview={resultsPathPreview}
               showResultsWordPath={showResultsWordPath}
               specialSolvedOverlay={phase === "playing" && specialSolvedOverlay}
-              tick={tick}
               liveGridProps={{
                 board: boardForRender,
                 BONUS_CLASSES,

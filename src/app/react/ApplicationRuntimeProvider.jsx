@@ -35,3 +35,26 @@ export function useApplicationSelector(selector) {
     getSnapshot
   );
 }
+
+export function useApplicationFields(sliceName, fields) {
+  const cacheRef = React.useRef(null);
+  const selector = React.useCallback(
+    (state) => {
+      const slice = state?.[sliceName] || {};
+      const cached = cacheRef.current;
+      if (
+        cached &&
+        fields.every((field) => Object.is(cached.values[field], slice[field]))
+      ) {
+        return cached.values;
+      }
+      const values = Object.fromEntries(
+        fields.map((field) => [field, slice[field]])
+      );
+      cacheRef.current = { values };
+      return values;
+    },
+    [fields, sliceName]
+  );
+  return useApplicationSelector(selector);
+}

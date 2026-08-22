@@ -1,11 +1,18 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
+import {
+  useFeatureRuntime,
+  useFeatureSelector,
+} from "../../app/react/useFeatureRuntime.js";
 import FantasyPanelShell from "../home/FantasyPanelShell.jsx";
 import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import {
   formatApproximateMinutes,
   getCompactLiveRoundLabel,
 } from "../../utils/liveRoundStatus.js";
+
+const EMPTY_PLAYERS = Object.freeze([]);
 
 function buildRoundContext(round, tournament) {
   const lobbyStatusNow = round.lobbyRoomStatus?.serverNow || Date.now();
@@ -115,16 +122,32 @@ function buildRoundContext(round, tournament) {
 }
 
 export default function PlayersOverlay({ actions, appearance, directory, renderers, round, tournament }) {
+  const clock = useFeatureRuntime("clock");
+  const roundTick = useFeatureSelector(clock, (state) =>
+    directory.open && round.isLoggedIn ? state.remainingSeconds : null
+  );
+  const livePlayers = useApplicationSelector((state) =>
+    directory.open && round.isLoggedIn
+      ? state.realtime.players
+      : EMPTY_PLAYERS
+  );
   if (!directory.open || typeof document === "undefined") return null;
 
   const entries = (
     directory.mode === "snapshot"
       ? directory.snapshot
       : round.isLoggedIn
-      ? directory.playersAlphaList
+      ? [...livePlayers].sort((a, b) =>
+          String(a?.nick || "").localeCompare(String(b?.nick || ""), "fr", {
+            sensitivity: "base",
+          })
+        )
       : directory.lobbyPlayersList
   ).filter((entry) => !directory.hideBots || !entry?.isBot);
-  const context = buildRoundContext(round, tournament);
+  const context = buildRoundContext(
+    round.isLoggedIn ? { ...round, tick: roundTick } : round,
+    tournament
+  );
 
   return createPortal(
     <div

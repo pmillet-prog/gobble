@@ -5,10 +5,13 @@ import {
   makeScore2SfxKey,
 } from "../assets/assetKeys";
 import AMBIENT_MUSIC_TRACKS_FALLBACK from "./ambientDefaults.json";
+export {
+  SOUND_MASTER_VOLUME_DEFAULT,
+  normalizeSoundMasterVolume,
+} from "./audioPreferences.js";
 
 export const DEBUG_AUDIO = false;
 export const AUDIO_MASTER_GAIN = 0.7;
-export const SOUND_MASTER_VOLUME_DEFAULT = 1;
 export const AUDIO_POLYPHONY_LIMIT = 10;
 export const AUDIO_COOLDOWN_PRUNE_MS = 60_000;
 export const AUDIO_COOLDOWN_MAX_KEYS = 256;
@@ -114,12 +117,6 @@ function dedupeManifest(entries) {
     map.set(entry.key, entry);
   });
   return Array.from(map.values());
-}
-
-export function normalizeSoundMasterVolume(raw, fallback = SOUND_MASTER_VOLUME_DEFAULT) {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(0, Math.min(1, value));
 }
 
 function withSoundAssetVersion(url) {

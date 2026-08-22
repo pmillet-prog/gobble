@@ -63,7 +63,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     specialSolvedOverlay,
     standaloneTrainingSession,
     suppressLiveChatMotion,
-    tick,
     tileColorPreset,
     tileMaterialClass,
     usedSet,
@@ -384,8 +383,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     const maxDurationSec = Number.isFinite(serverRoundDurationMs)
       ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
       : 90;
-    const remainingSec = Math.max(0, Number(tick) || 0);
-    const progressRatio = clampValue(remainingSec / maxDurationSec, 0, 1);
     const slots = dailyWordSlotsScored.length
       ? dailyWordSlotsScored
       : createDailyWordSlots();
@@ -624,7 +621,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           tileMaterialClass,
           tileColorPreset,
           tileScore,
-          tick,
           usedSet,
           specialStartTileSet: special3LockedStartTileSet,
         }}
@@ -640,8 +636,7 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           mobileViewportContainerStyle={mobileViewportContainerStyle}
           onOpenSettings={openSettingsPanel}
           praiseOverlay={praiseOverlay}
-          progressRatio={progressRatio}
-          remainingSec={remainingSec}
+          maxDurationSec={maxDurationSec}
           trainingControls={trainingSessionControls}
           trainingFeedItems={mobileAnnouncements}
           trainingFeedBannerText={liveFeedBannerText}

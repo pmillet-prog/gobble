@@ -3,6 +3,7 @@ import { getViewportSize } from "../../app/adapters/deviceCapabilities.js";
 import { tileScore } from "../gameLogic.js";
 import { normalizeBonusLabel } from "../daily/dailySpecialModel.js";
 import MobileUltraCompactPlaying from "./MobileUltraCompactPlaying.jsx";
+import { useLiveRosterPresentation } from "../../features/live/useLiveRosterPresentation.js";
 
 export default function MobileUltraCompactScene({ state, refs, actions, content, config }) {
   const {
@@ -11,7 +12,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     bonusLetterKey,
     bonusLetterScore,
     chatViewportHeight,
-    countdownLines,
     darkMode,
     gridRotationTurns,
     gridShake,
@@ -22,25 +22,29 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     isChatClosing,
     isChatOpenMobile,
     isMobileLayout,
-    livePosition,
+    livePosition: livePositionProp,
     mobileLayoutSizing,
     mobileResultsPhaseFadeOverlay,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     phase,
-    players,
-    rankingSource,
+    players: playersProp,
+    rankingSource: rankingSourceProp,
     roundTilePointsVisible,
     score,
     selfNick,
     special3LockedStartTileSet,
     specialSolvedOverlay,
     suppressLiveChatMotion,
-    tick,
     tileColorPreset,
     tileMaterialClass,
     usedSet,
+    rosterConfig,
   } = state;
+  const roster = useLiveRosterPresentation(rosterConfig);
+  const livePosition = roster.livePosition;
+  const players = roster.players;
+  const rankingSource = roster.rankingSource;
   const {
     chatBodyLockHeightRef,
     gameViewportFreezeHeightRef,
@@ -169,18 +173,10 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
             paddingBottom: "env(safe-area-inset-bottom)",
           };
 
-    const compactCountdownValue =
-      countdownLines.find((line) => /^\d+$/.test(line)) ||
-      (countdownLines
-        .map((line) => String(line).match(/\d+/))
-        .find((m) => m)?.[0] ??
-        "");
-
     return (
       <>
         <MobileUltraCompactPlaying
           chatOverlays={chatOverlays}
-          compactCountdownValue={compactCountdownValue}
           compactRank={compactRank}
           compactScore={compactScore}
           compactTotal={compactTotal}
@@ -224,7 +220,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
           tileMaterialClass,
           tileColorPreset,
           tileScore,
-          tick,
           usedSet,
           specialStartTileSet: special3LockedStartTileSet,
         }}

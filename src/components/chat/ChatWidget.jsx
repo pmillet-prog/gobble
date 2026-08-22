@@ -1,21 +1,24 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { useChatDraft } from "../../features/chat/useChatDraft.js";
+import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import ChatStyleSlide from "./ChatStyleSlide";
 import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 
 export default function ChatWidget(props) {
   const {
-    chatInput = "",
-    setChatInput = null,
     submitChat = null,
     chatEditTarget = null,
     chatReplyTarget = null,
     showLauncherButton = true,
-    mobileChatUnreadIsBotOnly = false,
-    mobileChatUnreadCount = 0,
+    mobileChatUnreadIsBotOnly: mobileChatUnreadIsBotOnlyProp = false,
+    mobileChatUnreadCount: mobileChatUnreadCountProp = 0,
     onOpenChat,
     ...restProps
   } = props;
+  const { chatInput, setChatInput } = useChatDraft();
+  const { mobileChatUnreadCount, mobileChatUnreadIsBotOnly } =
+    useChatUnreadState();
   const [mobileDraftInput, setMobileDraftInput] = React.useState(() => String(chatInput || ""));
 
   React.useEffect(() => {

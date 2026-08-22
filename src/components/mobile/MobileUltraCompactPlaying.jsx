@@ -1,10 +1,10 @@
 import React from "react";
 
+import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 
 function MobileUltraCompactPlaying({
   chatOverlays = null,
-  compactCountdownValue = "",
   compactRank = null,
   compactScore = null,
   compactTotal = null,
@@ -43,7 +43,7 @@ function MobileUltraCompactPlaying({
             </button>
           </div>
           <span className="tabular-nums">
-            {compactCountdownValue ? `${compactCountdownValue}s` : ""}
+            <RoundClockSeconds suffix="s" />
           </span>
         </div>
         <div className="flex-1 flex items-center justify-center px-2 pb-3">

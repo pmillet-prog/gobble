@@ -1,6 +1,7 @@
 import React from "react";
 
 import ResultsPathOverlay from "../grid/ResultsPathOverlay.jsx";
+import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
 import DesktopLiveGrid from "./DesktopLiveGrid.jsx";
 
 function readBoardIndex(event) {
@@ -23,7 +24,6 @@ function DesktopGameGrid({
   showResultsWordPath = false,
   specialSolvedOverlay = false,
   style = undefined,
-  tick = 0,
 }) {
   const onMouseDown = React.useCallback(
     (event) => {
@@ -77,14 +77,14 @@ function DesktopGameGrid({
           preview={resultsPathPreview}
         />
       ) : null}
-      {phaseOverlay(specialSolvedOverlay, darkMode, tick)}
+      {phaseOverlay(specialSolvedOverlay, darkMode)}
       {implodeActive ? <div className="black-hole" aria-hidden="true" /> : null}
       <DesktopLiveGrid {...liveGridProps} />
     </div>
   );
 }
 
-function phaseOverlay(visible, darkMode, tick) {
+function phaseOverlay(visible, darkMode) {
   if (!visible) return null;
   return (
     <div
@@ -94,11 +94,9 @@ function phaseOverlay(visible, darkMode, tick) {
     >
       <div className="text-center px-4 py-6">
         <div className="text-2xl font-black tracking-tight">Bravo, vous avez trouvé !</div>
-        {typeof tick === "number" ? (
-          <div className="mt-3 text-4xl font-black tabular-nums">
-            Temps restant : {Math.max(0, tick)}s
-          </div>
-        ) : null}
+        <div className="mt-3 text-4xl font-black tabular-nums">
+          Temps restant : <RoundClockSeconds suffix="s" />
+        </div>
       </div>
     </div>
   );

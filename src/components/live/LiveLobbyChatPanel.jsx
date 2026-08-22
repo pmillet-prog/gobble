@@ -1,4 +1,6 @@
 import React from "react";
+import { useChatDraft } from "../../features/chat/useChatDraft.js";
+import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
 
 function getAuthor(message) {
   return String(message?.nick || message?.author || "Systeme").trim() || "Systeme";
@@ -6,15 +8,15 @@ function getAuthor(message) {
 
 export default function LiveLobbyChatPanel({
   darkMode = false,
-  chatInput = "",
   chatInputDisabled = false,
   chatInputPlaceholder = "Message",
   getAuthorNickClassName = null,
   onChatInputFocus = null,
-  setChatInput = null,
   submitChat = null,
-  visibleMessages = [],
+  visibleMessages: visibleMessagesProp = [],
 }) {
+  const { chatInput, setChatInput } = useChatDraft();
+  const { messagesOnly: visibleMessages } = useChatPresentation();
   const messages = Array.isArray(visibleMessages) ? visibleMessages.slice(-4) : [];
   const panelClass = darkMode
     ? "border-white/10 bg-white/5 text-slate-100"

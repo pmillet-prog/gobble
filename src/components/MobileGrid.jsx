@@ -2,6 +2,7 @@ import React from "react";
 import GridTileButton, {
   getBonusLetterRingClass,
 } from "./GridTileButton.jsx";
+import { RoundClockSeconds } from "../features/clock/RoundClockDisplay.jsx";
 
 const TEXTURE_BY_COLOR = {
   wood: "/textures/bois.png",
@@ -383,9 +384,9 @@ function MobileGrid({
               <div className="text-2xl font-black tracking-tight">
                 Bravo, vous avez trouvé !
               </div>
-              {typeof tick === "number" && (
+              {(typeof tick === "number" || specialSolvedOverlay) && (
                 <div className="mt-3 text-4xl font-black tabular-nums">
-                  Temps restant : {Math.max(0, tick)}s
+                  Temps restant : <RoundClockSeconds overrideSeconds={tick} suffix="s" />
                 </div>
               )}
             </div>

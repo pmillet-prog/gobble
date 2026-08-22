@@ -1,4 +1,8 @@
 import React from "react";
+import {
+  useFeatureRuntime,
+  useFeatureSelector,
+} from "../../app/react/useFeatureRuntime.js";
 import { createPortal } from "react-dom";
 
 function clampValue(value, min, max) {
@@ -6,7 +10,7 @@ function clampValue(value, min, max) {
 }
 
 function MobileRoundIntroOverlay({
-  countdown = null,
+  countdown: countdownOverride,
   darkMode = false,
   goLabel = "PARTEZ !",
   gridRef = null,
@@ -17,6 +21,11 @@ function MobileRoundIntroOverlay({
   stage = "idle",
   titleFadeMs = 180,
 }) {
+  const liveUi = useFeatureRuntime("liveUi");
+  const runtimeCountdown = useFeatureSelector(liveUi, (state) =>
+    stage === "countdown" ? state.mobileRoundIntroCountdown : null
+  );
+  const countdown = countdownOverride ?? runtimeCountdown;
   const active = stage !== "idle";
   const [squareStyle, setSquareStyle] = React.useState(null);
 

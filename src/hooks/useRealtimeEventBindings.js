@@ -173,7 +173,6 @@ export default function useRealtimeEventBindings(runtime) {
     stopRoundEndTickSound,
     submissionStatusRef,
     subscribeLobbyChat,
-    tickCountdownPlayedRef,
     tournamentDuelDeltaRef,
     TRANSIENT_HOME_CONNECTION_ERRORS,
     triggerConfettiBurst,
@@ -923,7 +922,6 @@ useEffect(() => {
       setOcidSelectedOptionId("");
       setOcidStatusMessage("");
       stopRoundEndTickSound({ fadeMs: 80 });
-      tickCountdownPlayedRef.current = false;
       const voteEndsAt = Number(payload?.voteEndsAt);
       if (Number.isFinite(voteEndsAt)) {
         setServerEndsAt(voteEndsAt);

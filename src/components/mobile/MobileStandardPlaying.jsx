@@ -130,7 +130,7 @@ function MobileStandardPlaying(props) {
     targetWaitDevActive = false,
     onTargetWaitDevGridHostChange = null,
     onTargetWaitDevSideHostChange = null,
-    tick = 0,
+    clockOverrideSeconds,
     tileColorPreset = null,
     tileMaterialClass = "",
     tileRefs = null,
@@ -191,7 +191,7 @@ function MobileStandardPlaying(props) {
           onToggleSound={onToggleSound}
           onToggleDarkMode={onToggleDarkMode}
           soundEnabled={allSoundOn}
-          playingSeconds={phase === "playing" ? Math.max(0, Number(tick) || 0) : null}
+          playingSeconds={clockOverrideSeconds}
           playerTeam={duelTeam}
           phase={phase}
           roundTypeLabel={roundTypeLabel}
@@ -550,7 +550,7 @@ function MobileStandardPlaying(props) {
               tileMaterialClass={tileMaterialClass}
               tileColorPreset={tileColorPreset}
               tileScore={tileScore}
-              tick={tick}
+              tick={clockOverrideSeconds}
               usedSet={usedSet}
               specialStartTileSet={special3LockedStartTileSet}
             />

@@ -2,6 +2,24 @@ const pending = new Map();
 
 let nextRequestId = 1;
 let worker = null;
+let idleDisposeTimer = null;
+
+function clearIdleDisposeTimer() {
+  if (idleDisposeTimer != null) clearTimeout(idleDisposeTimer);
+  idleDisposeTimer = null;
+}
+
+function scheduleIdleDispose(instance) {
+  clearIdleDisposeTimer();
+  if (!instance) return;
+  if (pending.size > 0) return;
+  idleDisposeTimer = setTimeout(() => {
+    idleDisposeTimer = null;
+    if (pending.size > 0 || worker !== instance) return;
+    instance.terminate();
+    worker = null;
+  }, 2000);
+}
 
 function rejectPending(error) {
   const safeError = error instanceof Error ? error : new Error(String(error || "solver_worker_error"));
@@ -20,11 +38,14 @@ function createWorker() {
     pending.delete(message.id);
     if (message.ok) {
       request.resolve(Array.isArray(message.solutions) ? message.solutions : []);
+      scheduleIdleDispose(instance);
       return;
     }
     request.reject(new Error(message.error || "solver_worker_error"));
+    scheduleIdleDispose(instance);
   });
   instance.addEventListener("error", (event) => {
+    clearIdleDisposeTimer();
     rejectPending(event?.error || new Error(event?.message || "solver_worker_crashed"));
     instance.terminate();
     if (worker === instance) worker = null;
@@ -33,6 +54,7 @@ function createWorker() {
 }
 
 function getWorker() {
+  clearIdleDisposeTimer();
   if (!worker) worker = createWorker();
   return worker;
 }
@@ -49,11 +71,13 @@ export function solveGridInWorker(board, special = null) {
     } catch (error) {
       pending.delete(id);
       reject(error);
+      scheduleIdleDispose(worker);
     }
   });
 }
 
 export function disposeClientSolverWorker(reason = "solver_worker_disposed") {
+  clearIdleDisposeTimer();
   rejectPending(new Error(reason));
   if (worker) {
     worker.terminate();

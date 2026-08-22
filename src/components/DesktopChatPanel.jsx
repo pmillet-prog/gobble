@@ -1,4 +1,6 @@
 import React from "react";
+import { useChatDraft } from "../features/chat/useChatDraft.js";
+import { useChatPresentation } from "../features/chat/useChatPresentation.js";
 
 function isAmbientBotMessage(message) {
   if (!message || typeof message !== "object") return false;
@@ -8,12 +10,11 @@ function isAmbientBotMessage(message) {
 }
 
 function DesktopChatPanel({
-  blockedCount = 0,
-  blockedEntries = [],
+  blockedCount: blockedCountProp = 0,
+  blockedEntries: blockedEntriesProp = [],
   chatBlockClassName = "",
   chatDesktopFontScale = 1,
   chatEditTarget = null,
-  chatInput = "",
   chatInputDisabled = false,
   chatInputPlaceholder = "",
   chatMessagesUnreadCount = 0,
@@ -34,7 +35,7 @@ function DesktopChatPanel({
   helpersRef,
   installId = "",
   isDesktopEmojiPickerOpen = false,
-  lastMessageId = null,
+  lastMessageId: lastMessageIdProp = null,
   listRef,
   mobileReactionToasts = [],
   panelRef,
@@ -42,7 +43,7 @@ function DesktopChatPanel({
   selfNick = "",
   showBlockedList = false,
   showBotMessages = true,
-  visibleMessages = [],
+  visibleMessages: visibleMessagesProp = [],
   actionsRef,
   chatInputRef,
   chatScaleMax = 1.5,
@@ -51,6 +52,12 @@ function DesktopChatPanel({
   getAuthorNickClassName = null,
   onToggleShowBotMessages = null,
 }) {
+  const { chatInput } = useChatDraft();
+  const chatPresentation = useChatPresentation();
+  const blockedCount = chatPresentation.blockedCount ?? blockedCountProp;
+  const blockedEntries = chatPresentation.blockedEntries ?? blockedEntriesProp;
+  const lastMessageId = chatPresentation.lastMessageId ?? lastMessageIdProp;
+  const visibleMessages = chatPresentation.visibleMessages ?? visibleMessagesProp;
   const helpers = helpersRef?.current || {};
   const formatChatUnreadSuffix = helpers.formatChatUnreadSuffix || (() => "");
   const formatChatMessageTime = helpers.formatChatMessageTime || (() => "");

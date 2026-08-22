@@ -9,6 +9,7 @@ import SwapFadeText from "../results/SwapFadeText.jsx";
 import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import TrainingRoundPicker from "../live/TrainingRoundPicker.jsx";
 import MobileStandardPlaying from "./MobileStandardPlaying.jsx";
+import { useLiveRosterPresentation } from "../../features/live/useLiveRosterPresentation.js";
 
 const MobileResultsScreen = React.lazy(() => import("./MobileResultsScreen.jsx"));
 
@@ -79,7 +80,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     ocidStatusMessage,
     ocidVote,
     phase,
-    rankingSource,
+    rankingSource: rankingSourceProp,
     recordBadgesByNickForRound,
     resultsRankingMode,
     resultsReorderTick,
@@ -89,7 +90,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     roundTilePointsVisible,
     scoreLabel,
     selfNick,
-    selfReadyForTournament,
+    selfReadyForTournament: selfReadyForTournamentProp,
     shake,
     shouldDefinitionBlink,
     showAllWords,
@@ -110,7 +111,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     targetSummary,
     targetWaitDevActive,
     targetWaitDevSessionState,
-    tick,
     tileColorPreset,
     tileMaterialClass,
     totalScoreLabel,
@@ -121,10 +121,15 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     trainingBusy,
     usedSet,
     visibleMessages,
-    visiblePlayerList,
+    visiblePlayerList: visiblePlayerListProp,
     vocabLevelUp,
     wordsFoundLabel,
+    rosterConfig,
   } = state;
+  const roster = useLiveRosterPresentation(rosterConfig);
+  const rankingSource = roster.rankingSource;
+  const selfReadyForTournament = roster.selfReadyForTournament;
+  const visiblePlayerList = roster.visiblePlayerList;
   const {
     chatBodyLockHeightRef,
     gridInputControllerRef,
@@ -600,7 +605,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             showVocabPage={showVocabPage}            summaryWrapperClass={summaryWrapperClass}
             suppressWordListScores={suppressWordListScores}
             targetSummary={targetSummary}
-            tick={tick}
             tournament={standaloneTrainingSession ? null : tournament}
             trainingControls={trainingSessionControls}
             trainingFeedItems={mobileAnnouncements}
@@ -855,10 +859,10 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         targetWaitDevActive={targetWaitDevActive}
         onTargetWaitDevGridHostChange={setTargetWaitDevGridHost}
         onTargetWaitDevSideHostChange={setTargetWaitDevSideHost}
-        tick={
+        clockOverrideSeconds={
           targetWaitDevActive
             ? targetWaitDevSessionState.remainingSeconds
-            : tick
+            : undefined
         }
         tileColorPreset={tileColorPreset}
         tileMaterialClass={tileMaterialClass}
