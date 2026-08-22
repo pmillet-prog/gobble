@@ -4,12 +4,17 @@ import {
   getTraceStateSnapshot,
   subscribeTraceState,
 } from "./traceStateStore.js";
+import { formatNumber } from "../utils/numbers.js";
+import {
+  useGameProgressFields,
+  useGameStatusText,
+} from "../features/progress/GameProgressSatellites.jsx";
 
 const READY_LABEL = "Pr\u00eat \u00e0 jouer";
+const PREVIEW_PROGRESS_FIELDS = Object.freeze(["foundWordsCount", "score"]);
 
 function MobileWordPreview({
   countdownLines,
-  currentDisplay,
   darkMode,
   getTraceCellLabel = null,
   liveWord,
@@ -23,6 +28,10 @@ function MobileWordPreview({
   traceBoard = [],
   shake,
 }) {
+  const { foundWordsCount, score } = useGameProgressFields(
+    PREVIEW_PROGRESS_FIELDS
+  );
+  const statusText = useGameStatusText();
   const traceSnapshot = React.useSyncExternalStore(
     subscribeTraceState,
     getTraceStateSnapshot,
@@ -135,17 +144,17 @@ function MobileWordPreview({
               );
             })}
           </div>
-        ) : currentDisplay ? (
+        ) : statusText ? (
           <span className="text-slate-700 dark:text-slate-200">
-            {currentDisplay.toUpperCase()}
+            {statusText.toUpperCase()}
           </span>
         ) : showStats ? (
           <div
             className="text-slate-700 dark:text-slate-200 font-semibold"
             style={{ fontSize: `${smallFontPx}px`, lineHeight: 1.1 }}
           >
-            <div>{`mots : ${previewStats.wordsFoundLabel} / ${previewStats.totalWordsLabel}`}</div>
-            <div>{`score : ${previewStats.scoreLabel} / ${previewStats.totalScoreLabel}`}</div>
+            <div>{`mots : ${formatNumber(foundWordsCount) ?? "0"} / ${previewStats.totalWordsLabel}`}</div>
+            <div>{`score : ${formatNumber(score) ?? "0"} / ${previewStats.totalScoreLabel}`}</div>
           </div>
         ) : (
           <span className="text-slate-700 dark:text-slate-200">

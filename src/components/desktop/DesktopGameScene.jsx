@@ -6,6 +6,11 @@ import { mapDisplayToBoardIndex } from "../../game/gridRotation.js";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
 import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
 import {
+  AcceptedWordsCount,
+  FoundWordsCount,
+  GameScoreValue,
+} from "../../features/progress/GameProgressSatellites.jsx";
+import {
   DesktopLiveRankingSatellite,
   LivePlayersCount,
 } from "../../features/live/LiveRosterSatellites.jsx";
@@ -41,7 +46,6 @@ import TrainingRoundPicker from "../live/TrainingRoundPicker.jsx";
 
 export default function DesktopGameScene({ runtime }) {
   const {
-    accepted,
     activeRoom,
     allSoundOn,
     allWords,
@@ -74,7 +78,6 @@ export default function DesktopGameScene({ runtime }) {
     connectionError,
     countdownBarHeightPx,
     countdownLines,
-    currentDisplay,
     DAILY_DESKTOP_COLUMN_TEMPLATE,
     dailyInvalidPulseKey,
     dailyInvalidSlot,
@@ -114,7 +117,6 @@ export default function DesktopGameScene({ runtime }) {
     duelStatus,
     duelTeam,
     finalRanking,
-    foundWordsCount,
     gameBlockClasses,
     getLiveNickClassName,
     getLivePreviewLabelForCell,
@@ -160,7 +162,6 @@ export default function DesktopGameScene({ runtime }) {
     lightGridSurfaceStyle,
     lightPanelStyle,
     listItemRefs,
-    liveFeedBannerText,
     MAIN_GRID_HEIGHT,
     mainGridDesktopRef,
     mobileRoundIntroHideTiles,
@@ -208,8 +209,6 @@ export default function DesktopGameScene({ runtime }) {
     roundStats,
     roundTilePointsVisible,
     safeChatTab,
-    score,
-    scoreLabel,
     selfNick,
     selfOcidBluffPanelText,
     selfOcidBluffPoints,
@@ -251,7 +250,6 @@ export default function DesktopGameScene({ runtime }) {
     showBlockedList,
     showBotMessages,
     showPreviewStats,
-    showPreviewStatus,
     showResultsWordPath,
     showSolvedTargetLoupe,
     solvedTargetWord,
@@ -304,7 +302,6 @@ export default function DesktopGameScene({ runtime }) {
     weeklyOverlayStyle,
     weeklyStatsPage,
     WORDS_SCROLL_MAX_HEIGHT,
-    wordsFoundLabel,
     rosterConfig,
   } = runtime;
   const selfReadyForTournament = selfReadyForTournamentProp;
@@ -528,11 +525,11 @@ export default function DesktopGameScene({ runtime }) {
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/70">
             <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Score</div>
-            <div className="mt-1 text-2xl font-black tabular-nums">{formatNumber(score)}</div>
+            <div className="mt-1 text-2xl font-black tabular-nums"><GameScoreValue format /></div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/70">
             <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Mots</div>
-            <div className="mt-1 text-2xl font-black tabular-nums">{accepted.length}</div>
+            <div className="mt-1 text-2xl font-black tabular-nums"><AcceptedWordsCount /></div>
           </div>
         </div>
       </div>
@@ -812,11 +809,11 @@ export default function DesktopGameScene({ runtime }) {
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Score</div>
-                  <div className="mt-1 text-2xl font-black tabular-nums">{formatNumber(score)}</div>
+                  <div className="mt-1 text-2xl font-black tabular-nums"><GameScoreValue format /></div>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Mots trouvés</div>
-                  <div className="mt-1 text-2xl font-black tabular-nums">{accepted.length}</div>
+                  <div className="mt-1 text-2xl font-black tabular-nums"><AcceptedWordsCount /></div>
                 </div>
               </div>
             </div>
@@ -1181,17 +1178,13 @@ export default function DesktopGameScene({ runtime }) {
     <TraceAwareDesktopPreviewContent
       board={boardForRender}
       countdownLines={countdownLines}
-      currentDisplay={currentDisplay}
       darkMode={darkMode}
       getTraceCellLabel={getLivePreviewLabelForCell}
       phase={phase}
       previewTileStyle={previewTileStyle}
-      scoreLabel={scoreLabel}
       showPreviewStats={showPreviewStats}
-      showPreviewStatus={showPreviewStatus}
       totalScoreLabel={totalScoreLabel}
       totalWordsLabel={totalWordsLabel}
-      wordsFoundLabel={wordsFoundLabel}
     />
   )}
               </div>
@@ -1331,7 +1324,7 @@ export default function DesktopGameScene({ runtime }) {
               <>
                 <AutoScaleInline minScale={0.55} measurePaddingPx={2}>
                   <div className="desktop-score-total font-bold text-center">
-                    Score total : {score}
+                    Score total : <GameScoreValue />
                   </div>
                 </AutoScaleInline>
                 {(specialRound?.isSpecial || isSpecial3WordsMode) && (
@@ -1405,7 +1398,6 @@ export default function DesktopGameScene({ runtime }) {
               <LiveFeedSatellite
                 darkMode={darkMode}
                 maxHeight="100%"
-                bannerText={liveFeedBannerText}
                 getNickClassName={getLiveNickClassName}
               />
             </div>
@@ -1482,7 +1474,11 @@ export default function DesktopGameScene({ runtime }) {
                   <div className="min-w-0">
                     <h2 className="desktop-column-title font-bold">Mots</h2>
                     <div className="desktop-column-title text-gray-500">
-                      {showAllWords ? `Tous (${allWords.length})` : `Trouvés (${foundWordsCount})`}
+                      {showAllWords ? (
+                        `Tous (${allWords.length})`
+                      ) : (
+                        <>Trouvés (<FoundWordsCount />)</>
+                      )}
                     </div>
                   </div>
 

@@ -142,7 +142,7 @@ export function TournamentLobbyReadySatellite({
   );
 }
 
-export function UltraCompactRankingLabel({ rosterConfig, score, selfNick }) {
+export function UltraCompactRankingLabel({ rosterConfig, selfNick }) {
   const { livePosition, playerCount, rankingSource } =
     useLiveRankingPresentation(rosterConfig);
   const players = Array.isArray(rankingSource)
@@ -153,11 +153,12 @@ export function UltraCompactRankingLabel({ rosterConfig, score, selfNick }) {
     ? players.findIndex((entry) => entry?.nick === selfNick)
     : -1;
   const rank = rankIndex >= 0 ? rankIndex + 1 : livePosition;
+  const selfScore = rankIndex >= 0 ? players[rankIndex]?.score : null;
   return (
     <>
       {rank ? `#${rank}` : "#?"}
       {total ? `/${total}` : ""}
-      {typeof score === "number" ? ` · ${score}` : ""}
+      {typeof selfScore === "number" ? ` · ${selfScore}` : ""}
     </>
   );
 }

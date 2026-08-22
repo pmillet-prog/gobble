@@ -12,7 +12,7 @@ import {
 
 export function createDailyGameController(runtime) {
   const [
-    accepted,
+    getGameProgress,
     acceptedRef,
     appViewRef,
     applyThemeVisualState,
@@ -41,7 +41,6 @@ export function createDailyGameController(runtime) {
     readJsonResponseLoose,
     requestAudioUnlock,
     resetSubmissionQueue,
-    score,
     setAppView,
     setDailyActiveSlot,
     setDailyBoard,
@@ -322,6 +321,11 @@ async function submitDailyScore() {
   const session = dailySessionRef.current;
   const dateId = session?.dateId || dailyStatus?.dateId || null;
   const durationMs = session?.startedAt ? Date.now() - session.startedAt : null;
+  const gameProgress = getGameProgress?.() || {};
+  const currentAccepted = Array.isArray(gameProgress.accepted)
+    ? gameProgress.accepted
+    : [];
+  const currentScore = Number.isFinite(gameProgress.score) ? gameProgress.score : 0;
   const wordSubmissions = isDailySpecialMode
     ? (Array.isArray(dailyWordSlots) ? dailyWordSlots : [])
         .map((slot) => ({
@@ -346,11 +350,13 @@ async function submitDailyScore() {
     dateId,
     installId,
     pseudo: String(nickname || "").trim() || "Joueur",
-    foundWords: acceptedRef.current || accepted,
+    foundWords: Array.isArray(acceptedRef.current)
+      ? acceptedRef.current
+      : currentAccepted,
     wordSubmissions,
     specialPlacements: isDailySpecialMode ? dailySpecialPlacements : null,
     dailyMode: isDailySpecialMode ? DAILY_SPECIAL_MODE : dailyPlayMode,
-    clientScore: score,
+    clientScore: currentScore,
     durationMs,
   };
   const applyDailySubmitSuccess = (data) => {
@@ -371,7 +377,7 @@ async function submitDailyScore() {
     setDailyResult({
       dateId: data?.dateId || dateId,
       mode: dailyPlayMode,
-      score: Number.isFinite(data?.score) ? data.score : score,
+      score: Number.isFinite(data?.score) ? data.score : currentScore,
       gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
       rank: Number.isFinite(data?.rank) ? data.rank : null,
       totalPlayers: Number.isFinite(data?.totalPlayers) ? data.totalPlayers : null,
@@ -411,7 +417,7 @@ async function submitDailyScore() {
       hasPlayedFakeTwins:
         dailyPlayMode === DAILY_FAKE_TWINS_MODE ? true : prev?.hasPlayedFakeTwins,
       myResult: {
-        score: Number.isFinite(data?.score) ? data.score : score,
+        score: Number.isFinite(data?.score) ? data.score : currentScore,
         gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
         rank: Number.isFinite(data?.rank) ? data.rank : null,
         submittedAt: Date.now(),
@@ -419,7 +425,7 @@ async function submitDailyScore() {
       myMonstrousResult:
         dailyPlayMode === DAILY_MONSTROUS_MODE
           ? {
-              score: Number.isFinite(data?.score) ? data.score : score,
+              score: Number.isFinite(data?.score) ? data.score : currentScore,
               gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
               rank: Number.isFinite(data?.rank) ? data.rank : null,
               submittedAt: Date.now(),
@@ -428,7 +434,7 @@ async function submitDailyScore() {
       mySpecialResult:
         dailyPlayMode === DAILY_SPECIAL_MODE
           ? {
-              score: Number.isFinite(data?.score) ? data.score : score,
+              score: Number.isFinite(data?.score) ? data.score : currentScore,
               gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
               rank: Number.isFinite(data?.rank) ? data.rank : null,
               submittedAt: Date.now(),
@@ -437,7 +443,7 @@ async function submitDailyScore() {
       myFakeTwinsResult:
         dailyPlayMode === DAILY_FAKE_TWINS_MODE
           ? {
-              score: Number.isFinite(data?.score) ? data.score : score,
+              score: Number.isFinite(data?.score) ? data.score : currentScore,
               gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
               rank: Number.isFinite(data?.rank) ? data.rank : null,
               submittedAt: Date.now(),

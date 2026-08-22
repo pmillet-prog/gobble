@@ -22,12 +22,10 @@ function MobileStandardPlaying(props) {
     bonusEffectMultiplier = 1,
     chatOverlays = null,
     countdownLines = null,
-    currentDisplay = "",
     darkMode = false,
     defaultTileBaseClass = "",
     duelTeam = null,
     formatNumber = (value) => String(value ?? ""),
-    liveFeedBannerText = "",
     gobbleAwardsForLive = null,
     gridRef = null,
     gridRotationTurns = 0,
@@ -105,7 +103,6 @@ function MobileStandardPlaying(props) {
     roundTypeLabel = "",
     roundStats = null,
     roundTilePointsVisible = false,
-    scoreLabel = "",
     selfNick = "",
     shake = false,
     shouldDefinitionBlink = false,
@@ -140,7 +137,6 @@ function MobileStandardPlaying(props) {
     tournament = null,
     trainingControls = null,
     usedSet = null,
-    wordsFoundLabel = "",
   } = props;
 
   const hideOcidVotePlaySurface = phase === "playing" && isOcidRound && !!ocidVote;
@@ -158,12 +154,14 @@ function MobileStandardPlaying(props) {
   const previewStats = React.useMemo(
     () => ({
       show: showPreviewStats,
-      wordsFoundLabel,
       totalWordsLabel,
-      scoreLabel,
       totalScoreLabel,
     }),
-    [showPreviewStats, wordsFoundLabel, totalWordsLabel, scoreLabel, totalScoreLabel]
+    [
+      showPreviewStats,
+      totalScoreLabel,
+      totalWordsLabel,
+    ]
   );
   const closeHelpOverlay = React.useCallback(() => {
     onSetShowHelp?.(false);
@@ -227,7 +225,6 @@ function MobileStandardPlaying(props) {
                 limit={8}
                 darkMode={darkMode}
                 maxHeight="100%"
-                bannerText={liveFeedBannerText}
                 getNickClassName={getNickClassName}
               />
             </div>
@@ -445,7 +442,6 @@ function MobileStandardPlaying(props) {
           {!isOcidRound && !targetWaitDevActive ? (
             <MobileWordPreview
               countdownLines={countdownLines}
-              currentDisplay={currentDisplay}
               darkMode={darkMode}
               getTraceCellLabel={getTraceCellLabel}
               liveWord={liveWord}
@@ -529,7 +525,6 @@ function MobileStandardPlaying(props) {
                 limit={8}
                 darkMode={darkMode}
                 maxHeight="100%"
-                bannerText={liveFeedBannerText}
                 getNickClassName={getNickClassName}
                 wrapAroundBottomRight={!isChatOpenMobile}
                 wrapAroundWidth="clamp(44px, 11vw, 68px)"

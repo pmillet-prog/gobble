@@ -28,7 +28,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     mobileRoundIntroOverlay,
     phase,
     roundTilePointsVisible,
-    score,
     selfNick,
     special3LockedStartTileSet,
     specialSolvedOverlay,
@@ -159,7 +158,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
           compactRankingLabel={
             <UltraCompactRankingLabel
               rosterConfig={rosterConfig}
-              score={score}
               selfNick={selfNick}
             />
           }

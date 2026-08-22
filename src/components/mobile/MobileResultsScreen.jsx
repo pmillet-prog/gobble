@@ -85,7 +85,7 @@ function MobileResultsScreen(props) {
     tick = 0,
     tournament = null,
     trainingControls = null,
-    trainingFeedBannerText = "",
+    trainingFeedBannerText,
     trainingFeedNickClassName = null,
     visibleWordGuidance = false,
     wordsEmpty = false,

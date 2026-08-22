@@ -202,6 +202,7 @@ import FacebookGroupInviteModal from "./components/FacebookGroupInviteModal.jsx"
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
 import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
+import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
 import {
   clearAllCelebrationFlashes,
   clearCelebrationFlash,
@@ -316,7 +317,6 @@ import {
   filterDictionary,
   findBestPathForPreview,
   findBestPathForWord,
-  getFakeTwinsCompletionTarget,
   neighbors,
   normalizeWord,
   scoreWordOnGridWithPath,
@@ -883,7 +883,6 @@ function bindFeatureStateSetters(feature, fields) {
 }
 
 const GOBBLE_GAME_FIELDS = Object.freeze([
-  "accepted",
   "allWords",
   "board",
   "cultureThemeChallenge",
@@ -896,10 +895,8 @@ const GOBBLE_GAME_FIELDS = Object.freeze([
   "isGridRotating",
   "phase",
   "roomId",
-  "score",
   "shake",
   "showAllWords",
-  "submissionTick",
 ]);
 
 const LIVE_UI_ROOT_FIELDS = Object.freeze([
@@ -977,7 +974,9 @@ export default function GobbleApplication() {
   const applicationKernel = useApplicationKernel();
   const socket = applicationKernel.ports.realtime;
   const clockFeature = useFeatureRuntime("clock");
+  const progressFeature = useFeatureRuntime("progress");
   const gameState = useApplicationFields("game", GOBBLE_GAME_FIELDS);
+  const settledGameProgress = useSettledGameProgress();
   const realtimeState = useApplicationFields("realtime", REALTIME_ROOT_FIELDS);
   const rosterFeature = useFeatureRuntime("roster");
   const rosterState = useFeatureFields(rosterFeature, ROSTER_ROOT_FIELDS);
@@ -987,7 +986,6 @@ export default function GobbleApplication() {
   const bootOverlayVisible = useApplicationSelector((state) => state.boot.overlayVisible);
   const appView = useApplicationSelector((state) => state.navigation.view);
   const {
-    accepted,
     allWords,
     board,
     cultureThemeChallenge,
@@ -1000,11 +998,10 @@ export default function GobbleApplication() {
     isGridRotating,
     phase,
     roomId,
-    score,
     shake,
     showAllWords,
-    submissionTick,
   } = gameState;
+  const { accepted, submissionTick } = settledGameProgress;
   const {
     authState,
     canResumeSession,
@@ -1119,6 +1116,10 @@ export default function GobbleApplication() {
     setTournamentTotals,
     setUpcomingSpecial,
   } = applicationKernel.commands.realtime;
+  const getGameProgress = React.useCallback(
+    () => applicationKernel.getState().game,
+    [applicationKernel]
+  );
   const setAppView = React.useCallback(
     (nextViewOrUpdater) => {
       const currentView = applicationKernel.getState().navigation.view;
@@ -1167,9 +1168,6 @@ export default function GobbleApplication() {
       typeof nextOrUpdater === "function" ? nextOrUpdater(prev) : nextOrUpdater;
     commitTraceSelection(currentTilesRef.current, next);
   }
-  const statusHoldRef = useRef({ text: "", until: 0 });
-  const statusHoldTimerRef = useRef(null);
-  const [, setStatusHoldTick] = useState(0);
   const liveFeedTsRef = useRef(0);
   const tileRefs = useRef([]);
   const dragGridMetricsRef = useRef(null);
@@ -2986,6 +2984,7 @@ export default function GobbleApplication() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const currentGameProgress = applicationKernel.getState().game;
     const runtime = {
       phase,
       appView,
@@ -3019,9 +3018,13 @@ export default function GobbleApplication() {
       roundId: roundId || null,
       roomId: roomId || null,
       gridSize: Number(gridSize) || null,
-      score: Number.isFinite(score) ? score : null,
+      score: Number.isFinite(currentGameProgress.score)
+        ? currentGameProgress.score
+        : null,
       tick: Number.isFinite(tickRef.current) ? tickRef.current : null,
-      acceptedCount: Array.isArray(accepted) ? accepted.length : null,
+      acceptedCount: Array.isArray(currentGameProgress.accepted)
+        ? currentGameProgress.accepted.length
+        : null,
       allWordsCount: Array.isArray(allWords) ? allWords.length : null,
       playersCount: Array.isArray(players) ? players.length : null,
       provisionalRankingCount: Array.isArray(provisionalRanking) ? provisionalRanking.length : null,
@@ -3119,8 +3122,7 @@ export default function GobbleApplication() {
     weeklyStatsError,
     duelStatus,
     serverStatus,
-    score,
-    accepted,
+    applicationKernel,
     allWords,
     players,
     provisionalRanking,
@@ -3304,7 +3306,6 @@ export default function GobbleApplication() {
   function applyCultureThemeChallengeToWordStores(payload) {
     const challenge = setCultureThemeChallengeRuntime(payload);
     if (!challenge) return;
-    cultureThemeCompletionCelebratedRef.current = "";
     markSolutionMapWithCultureTheme(solutionsRef.current, challenge);
     serverAllWordsRef.current = markEntriesWithCultureTheme(serverAllWordsRef.current, challenge);
     setAllWords((prev) => markEntriesWithCultureTheme(prev, challenge));
@@ -3390,8 +3391,6 @@ export default function GobbleApplication() {
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
-  const fakeTwinsCompletionCelebratedRef = useRef("");
-  const cultureThemeCompletionCelebratedRef = useRef("");
   const cultureThemeChallengeRef = useRef(null);
   const invalidLastRef = useRef(0);
   const scoreFlightSequenceRef = useRef(0);
@@ -7187,27 +7186,6 @@ export default function GobbleApplication() {
     submitDailyScore();
   }, [isDailyPlay, phase]);
 
-  useEffect(() => {
-    if (phase !== "playing") return;
-    if (!LIVE_SOLVER_DURING_PLAY) return;
-    if (specialRound?.type === "speed") return;
-    if (specialRound?.type === "monstrous") return;
-    if (specialRound?.type === "target_long") return;
-    if (specialRound?.type === "target_score") return;
-    if (specialRound?.type === OCID_TYPE) return;
-    if (!dictionary || dictionary.size === 0) return;
-    if (!board || board.length === 0) return;
-    if (accepted.length === 0) return;
-    if (allWords.length) return;
-    if (allWordsComputeRef.current.key) return;
-
-    const onlineRound = Boolean(roundId);
-    scheduleAllWordsCompute(board, {
-      updateBestRefs: !onlineRound,
-      jobKey: onlineRound ? `round-${roundId}` : `local-${Date.now()}`,
-    });
-  }, [phase, dictionary, board, roundId, specialRound, allWords.length, accepted.length]);
-
   // Attribue des médailles locales à la fin d'une manche
   // Médailles : gérées côté serveur (événement "medalsUpdate")
 
@@ -8414,7 +8392,7 @@ export default function GobbleApplication() {
     closeDailyLaunchDialog,
     confirmDailyLaunch,
   ] = useLazyArrayController(createDailyGameController, [
-    accepted,
+    getGameProgress,
     acceptedRef,
     appViewRef,
     applyThemeVisualState,
@@ -8443,7 +8421,6 @@ export default function GobbleApplication() {
     readJsonResponseLoose,
     requestAudioUnlock,
     resetSubmissionQueue,
-    score,
     setAppView,
     setDailyActiveSlot,
     setDailyBoard,
@@ -10687,7 +10664,6 @@ export default function GobbleApplication() {
     const incomingCultureThemeChallenge = setCultureThemeChallengeRuntime(
       roundLifecycle?.cultureThemeChallenge || null
     );
-    cultureThemeCompletionCelebratedRef.current = "";
     markSolutionMapWithCultureTheme(serverSolutions.solved, incomingCultureThemeChallenge);
     serverSolutions.all = markEntriesWithCultureTheme(
       serverSolutions.all,
@@ -11897,27 +11873,11 @@ export default function GobbleApplication() {
   }
 
   function setStatusMessageWithHold(msg, holdMs = 1000) {
-    const text = typeof msg === "string" ? msg : "";
-    if (!text) return;
-    const until = Date.now() + holdMs;
-    statusHoldRef.current = { text, until };
-    if (statusHoldTimerRef.current) {
-      clearTimeout(statusHoldTimerRef.current);
-    }
-    statusHoldTimerRef.current = setTimeout(() => {
-      statusHoldTimerRef.current = null;
-      setStatusHoldTick((tick) => tick + 1);
-    }, holdMs);
+    progressFeature.showStatus(msg, holdMs);
   }
 
   function clearStatusMessage({ force = false } = {}) {
-    if (!force) return;
-    statusHoldRef.current = { text: "", until: 0 };
-    if (statusHoldTimerRef.current) {
-      clearTimeout(statusHoldTimerRef.current);
-      statusHoldTimerRef.current = null;
-    }
-    setStatusHoldTick((tick) => tick + 1);
+    progressFeature.clearStatus({ force });
   }
 
     function error(msg) {
@@ -13175,10 +13135,6 @@ function handleTouchEnd(e) {
       ? `Nouvel indice dans : ${nextHintSeconds}s.`
       : "Nouvel indice dans : -- s.";
   const showSolvedTargetLoupe = Boolean(solvedTargetWord);
-  const statusHold = statusHoldRef.current;
-  const statusHoldText =
-    statusHold?.text && Date.now() < statusHold.until ? statusHold.text : "";
-  const currentDisplay = statusHoldText;
         // Mot en cours d'écriture : on prend l'état, et si jamais
   // il est vide on tombe sur la ref (utile pour certains cas tactile)
   const livePreviewPath =
@@ -13341,198 +13297,75 @@ function handleTouchEnd(e) {
     [pendingWordEntries]
   );
   const foundWordsCount = accepted.length + pendingCount;
-  const wordsFoundLabel = formatNumber(foundWordsCount) ?? "0";
-  const scoreLabel = formatNumber(score) ?? "0";
-  const isFakeTwinsModeActive =
-    specialRound?.type === FAKE_TWINS_TYPE ||
-    (isDailyPlay && dailyPlayMode === DAILY_FAKE_TWINS_MODE);
-  const localCountedFakeTwinsWords = React.useMemo(() => {
-    const words = new Set();
-    const fakeTwinsMetaByWord = new Map(
-      (Array.isArray(allWords) ? allWords : []).map((entry) => [entry.word, entry])
-    );
-    accepted.forEach((word) => {
-      const meta = acceptedWordMetaRef.current.get(word) || fakeTwinsMetaByWord.get(word);
-      if (meta?.usedFakeTwins) {
-        words.add(word);
-      }
+  React.useEffect(() => {
+    progressFeature.configure({
+      acceptedWordMetaRef,
+      allWords,
+      board,
+      cultureThemeChallenge,
+      dailyDateId: dailyStatus?.dateId || dailyBoard?.dateId || null,
+      dailyPlayMode,
+      isDailyPlay,
+      pendingStatusRef: submissionStatusRef,
+      phase,
+      roundId,
+      roundStats,
+      specialRound,
+      onAcceptedWordsAvailable: () => {
+        if (!LIVE_SOLVER_DURING_PLAY) return;
+        if (specialRound?.type === "speed") return;
+        if (specialRound?.type === "monstrous") return;
+        if (specialRound?.type === "target_long") return;
+        if (specialRound?.type === "target_score") return;
+        if (specialRound?.type === OCID_TYPE) return;
+        if (!dictionary || dictionary.size === 0) return;
+        if (!board || board.length === 0) return;
+        if (allWords.length) return;
+        if (allWordsComputeRef.current.key) return;
+        const onlineRound = Boolean(roundId);
+        scheduleAllWordsCompute(board, {
+          updateBestRefs: !onlineRound,
+          jobKey: onlineRound ? `round-${roundId}` : `local-${Date.now()}`,
+        });
+      },
+      onFakeTwinsCompleted: () => {
+        playBonusVoice();
+        triggerPraiseFlash("BONUS !", {
+          kind: "bonus",
+          shakeGrid: true,
+          force: true,
+          durationMs: 5200,
+        });
+        triggerConfettiBurst("target");
+      },
+      onCultureThemeCompleted: () => {
+        playBonusVoice();
+        triggerPraiseFlash("BONUS !", {
+          kind: "bonus",
+          shakeGrid: true,
+          force: true,
+          durationMs: 5200,
+        });
+        triggerConfettiBurst("target");
+      },
     });
-    submissionStatusRef.current.forEach((meta, word) => {
-      if (!meta || meta.status === "rejected" || !meta.usedFakeTwins) return;
-      words.add(word);
-    });
-    return words;
-  }, [accepted, allWords, submissionTick]);
-  const fakeTwinsCompletionProgress = React.useMemo(() => {
-    if (!isFakeTwinsModeActive) {
-      return { target: 0, remaining: null };
-    }
-    if (Array.isArray(allWords) && allWords.length > 0) {
-      const total = allWords.filter((entry) => {
-        if (!entry?.usedFakeTwins || !entry?.word) return false;
-        return true;
-      }).length;
-      const target = getFakeTwinsCompletionTarget(total);
-      const remaining = Math.max(0, target - localCountedFakeTwinsWords.size);
-      return { target, remaining };
-    }
-    const statsTarget = Number(roundStats?.fakeTwinCompletionTarget);
-    const statsTwinWords = Number(
-      roundStats?.fakeTwinBonusWords ??
-        roundStats?.fakeTwinCompletionWords ??
-        roundStats?.fakeTwinWords
-    );
-    const target =
-      Number.isFinite(statsTarget) && statsTarget > 0
-        ? statsTarget
-        : getFakeTwinsCompletionTarget(statsTwinWords);
-    if (!Number.isFinite(target) || target <= 0) {
-      return { target: 0, remaining: null };
-    }
-    return {
-      target,
-      remaining: Math.max(0, target - localCountedFakeTwinsWords.size),
-    };
   }, [
     allWords,
-    isFakeTwinsModeActive,
-    localCountedFakeTwinsWords,
-    roundStats?.fakeTwinBonusWords,
-    roundStats?.fakeTwinCompletionTarget,
-    roundStats?.fakeTwinCompletionWords,
-    roundStats?.fakeTwinWords,
-  ]);
-  const fakeTwinsLetterPairLabel = React.useMemo(() => {
-    if (!isFakeTwinsModeActive || !Array.isArray(board)) return "";
-    const twinCell = board.find(
-      (cell) =>
-        cell?.specialType === FAKE_TWINS_TYPE &&
-        String(cell?.letter || "").trim() &&
-        String(cell?.altLetter || "").trim()
-    );
-    if (!twinCell) return "";
-    return `${String(twinCell.letter).trim()}/${String(twinCell.altLetter).trim()}`;
-  }, [board, isFakeTwinsModeActive]);
-  const fakeTwinsRemainingLabel = React.useMemo(() => {
-    if (!isFakeTwinsModeActive) return "";
-    const twinLetters = fakeTwinsLetterPairLabel || "la case jumelle";
-    if (!Number.isFinite(fakeTwinsCompletionProgress.remaining)) {
-      return "";
-    }
-    const remaining = fakeTwinsCompletionProgress.remaining;
-    return `${formatNumber(remaining) ?? remaining} mots avec ${twinLetters} avant bonus`;
-  }, [
-    fakeTwinsLetterPairLabel,
-    fakeTwinsCompletionProgress.remaining,
-    formatNumber,
-    isFakeTwinsModeActive,
-  ]);
-  React.useEffect(() => {
-    if (phase !== "playing" || !isFakeTwinsModeActive) {
-      fakeTwinsCompletionCelebratedRef.current = "";
-      return;
-    }
-    const remaining = Number(fakeTwinsCompletionProgress.remaining);
-    const target = Number(fakeTwinsCompletionProgress.target);
-    if (!Number.isFinite(remaining) || !Number.isFinite(target) || target <= 0) return;
-    if (remaining > 0) return;
-    const celebrationKey = isDailyPlay
-      ? `daily:${dailyPlayMode}:${dailyStatus?.dateId || dailyBoard?.dateId || "current"}`
-      : `live:${roundId || "current"}`;
-    if (fakeTwinsCompletionCelebratedRef.current === celebrationKey) return;
-    fakeTwinsCompletionCelebratedRef.current = celebrationKey;
-    playBonusVoice();
-    triggerPraiseFlash("BONUS !", {
-      kind: "bonus",
-      shakeGrid: true,
-      force: true,
-      durationMs: 5200,
-    });
-    triggerConfettiBurst("target");
-  }, [
+    board,
+    cultureThemeChallenge,
     dailyBoard?.dateId,
     dailyPlayMode,
     dailyStatus?.dateId,
-    fakeTwinsCompletionProgress.remaining,
-    fakeTwinsCompletionProgress.target,
+    dictionary,
     isDailyPlay,
-    isFakeTwinsModeActive,
     phase,
     playBonusVoice,
+    progressFeature,
     roundId,
-  ]);
-  const localCountedCultureThemeWords = React.useMemo(() => {
-    const wordSet = cultureThemeChallenge?.wordSet;
-    const found = new Set();
-    if (!(wordSet instanceof Set) || !wordSet.size) return found;
-    accepted.forEach((word) => {
-      const norm = normalizeWord(word);
-      if (wordSet.has(norm)) found.add(norm);
-    });
-    submissionStatusRef.current.forEach((meta, word) => {
-      if (!meta || meta.status === "rejected") return;
-      const norm = normalizeWord(word);
-      if (wordSet.has(norm)) found.add(norm);
-    });
-    return found;
-  }, [accepted, cultureThemeChallenge, submissionTick]);
-  const cultureThemeProgress = React.useMemo(() => {
-    const total = Array.isArray(cultureThemeChallenge?.words)
-      ? cultureThemeChallenge.words.length
-      : 0;
-    if (!total) return { target: 0, remaining: null };
-    const target = Math.max(
-      1,
-      Math.min(total, Math.trunc(Number(cultureThemeChallenge?.requiredCount) || Math.ceil(total * 0.7)))
-    );
-    return {
-      target,
-      remaining: Math.max(0, target - localCountedCultureThemeWords.size),
-    };
-  }, [cultureThemeChallenge, localCountedCultureThemeWords]);
-  const cultureThemeRemainingLabel = React.useMemo(() => {
-    if (!cultureThemeChallenge || !Number.isFinite(cultureThemeProgress.remaining)) return "";
-    const remaining = cultureThemeProgress.remaining;
-    const theme = cultureThemeChallenge.theme ? ` thème ${cultureThemeChallenge.theme}` : "";
-    const bonus = Number(cultureThemeChallenge.bonus) || 0;
-    const suffix = bonus > 0 ? ` · bonus ${bonus} pts` : "";
-    return `${formatNumber(remaining) ?? remaining} mots WikiMama${theme} restants${suffix}`;
-  }, [
-    cultureThemeChallenge,
-    cultureThemeProgress.remaining,
-    formatNumber,
-  ]);
-  const liveFeedBannerText = React.useMemo(
-    () => [fakeTwinsRemainingLabel, cultureThemeRemainingLabel].filter(Boolean).join(" · "),
-    [fakeTwinsRemainingLabel, cultureThemeRemainingLabel]
-  );
-  React.useEffect(() => {
-    if (phase !== "playing" || !cultureThemeChallenge) {
-      cultureThemeCompletionCelebratedRef.current = "";
-      return;
-    }
-    const remaining = Number(cultureThemeProgress.remaining);
-    const target = Number(cultureThemeProgress.target);
-    if (!Number.isFinite(remaining) || !Number.isFinite(target) || target <= 0) return;
-    if (remaining > 0) return;
-    const celebrationKey = `live:${roundId || "current"}:${cultureThemeChallenge.theme || "theme"}`;
-    if (cultureThemeCompletionCelebratedRef.current === celebrationKey) return;
-    cultureThemeCompletionCelebratedRef.current = celebrationKey;
-    playBonusVoice();
-    triggerPraiseFlash("BONUS !", {
-      kind: "bonus",
-      shakeGrid: true,
-      force: true,
-      durationMs: 5200,
-    });
-    triggerConfettiBurst("target");
-  }, [
-    cultureThemeChallenge,
-    cultureThemeProgress.remaining,
-    cultureThemeProgress.target,
-    phase,
-    playBonusVoice,
-    roundId,
+    roundStats,
+    specialRound,
+    triggerConfettiBurst,
+    triggerPraiseFlash,
   ]);
   const totalWordsLabel = Number.isFinite(previewTotals.totalWords)
     ? formatNumber(previewTotals.totalWords)
@@ -13540,9 +13373,8 @@ function handleTouchEnd(e) {
   const totalScoreLabel = Number.isFinite(previewTotals.totalScore)
     ? formatNumber(previewTotals.totalScore)
     : "?";
-  const showPreviewStatus = Boolean(statusHoldText) && !liveWord;
   const showPreviewStats =
-    !liveWord && !statusHoldText && !isTargetHintRound && specialRound?.type !== OCID_TYPE;
+    !liveWord && !isTargetHintRound && specialRound?.type !== OCID_TYPE;
   const vocabDeltaValue = Number.isFinite(vocabRoundDelta) ? Math.max(0, vocabRoundDelta) : 0;
   const vocabHasDelta = vocabDeltaValue > 0;
   const vocabDeltaLabel = vocabHasDelta ? `+${formatNumber(vocabDeltaValue)}` : "inchangé";
@@ -14184,7 +14016,7 @@ function handleTouchEnd(e) {
         : dailyPlayMode === DAILY_FAKE_TWINS_MODE
         ? DAILY_FAKE_TWINS_MODE
         : DAILY_MONSTROUS_MODE;
-    const base = isDailyPlay
+    return isDailyPlay
       ? allEntries.filter((entry) => {
           if (entry?.isPalier) return true;
           const entryMode =
@@ -14196,56 +14028,15 @@ function handleTouchEnd(e) {
           return entryMode === currentDailyMode;
         })
       : allEntries;
-    if (!isDailyPlay || !selfNick || !Number.isFinite(score)) return base;
-    const hasSelf = base.some(
-      (entry) => entry && !entry.isPalier && entry.nick === selfNick
-    );
-    if (hasSelf) return base;
-    const selfEntry = {
-      nick: selfNick,
-      userId: normalizeUserIdForProfile(authenticatedUserId),
-      score,
-      wordsCount: Number.isFinite(accepted?.length) ? accepted.length : null,
-      installId: installId || null,
-      team: duelStatus?.team || null,
-      isDailyChampion: !!duelStatus?.crowned,
-      isWeeklyVocabChampion: false,
-      mode: currentDailyMode,
-      isPalier: false,
-      playerKey: normalizeUserIdForProfile(authenticatedUserId)
-        ? `install:${normalizeUserIdForProfile(authenticatedUserId)}`
-        : "",
-    };
-    const merged = [...base, selfEntry];
-    merged.sort((a, b) => {
-      const diff = (b?.score || 0) - (a?.score || 0);
-      if (diff !== 0) return diff;
-      const aPalier = a?.isPalier ? 1 : 0;
-      const bPalier = b?.isPalier ? 1 : 0;
-      if (aPalier !== bPalier) return aPalier - bPalier;
-      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
-    });
-    return merged;
-  }, [
-    dailyWidgetEntries,
-    isDailyPlay,
-    dailyPlayMode,
-    selfNick,
-    score,
-    accepted?.length,
-    installId,
-    authenticatedUserId,
-    duelStatus?.team,
-    duelStatus?.crowned,
-  ]);
+  }, [dailyWidgetEntries, isDailyPlay, dailyPlayMode]);
   const liveRosterConfig = {
     authenticatedUserId,
+    dailyPlayMode,
     dailyRankingSource,
     duelStatus,
     installId,
     isDailyPlay,
     normalizeUserIdForProfile,
-    score,
     selfNick,
   };
 
@@ -19141,7 +18932,6 @@ function handleTouchEnd(e) {
             phase,
             rosterConfig: liveRosterConfig,
             roundTilePointsVisible,
-            score,
             selfNick,
             special3LockedStartTileSet,
             specialSolvedOverlay,
@@ -19214,7 +19004,6 @@ function handleTouchEnd(e) {
             isDailyPlay,
             isLoggedIn,
             isMobileLayout,
-            liveFeedBannerText,
             liveWord,
             mobileChatUnreadCount,
             mobileChatUnreadIsBotOnly,
@@ -19306,7 +19095,6 @@ function handleTouchEnd(e) {
             chatInputPlaceholder,
             chatViewportHeight,
             countdownLines,
-            currentDisplay,
             darkMode,
             devRoundTypes,
             displayList,
@@ -19339,7 +19127,6 @@ function handleTouchEnd(e) {
             isOcidRound,
             isSpeedRound,
             isTargetRound,
-            liveFeedBannerText,
             liveWord,
             liveWordTiles,
             mobileLayoutSizing,
@@ -19364,7 +19151,6 @@ function handleTouchEnd(e) {
             roundPreparing,
             roundStats,
             roundTilePointsVisible,
-            scoreLabel,
             selfNick,
             shake,
             shouldDefinitionBlink,
@@ -19397,7 +19183,6 @@ function handleTouchEnd(e) {
             usedSet,
             visibleMessages,
             vocabLevelUp,
-            wordsFoundLabel,
           }}
           refs={{
             chatBodyLockHeightRef,
@@ -19486,7 +19271,6 @@ function handleTouchEnd(e) {
     <Suspense fallback={null}>
       <DesktopGameScene
         runtime={{
-            accepted,
             activeRoom,
             allSoundOn,
             allWords,
@@ -19518,7 +19302,6 @@ function handleTouchEnd(e) {
             connectionError,
             countdownBarHeightPx,
             countdownLines,
-            currentDisplay,
             DAILY_DESKTOP_COLUMN_TEMPLATE,
             dailyInvalidPulseKey,
             dailyInvalidSlot,
@@ -19558,7 +19341,6 @@ function handleTouchEnd(e) {
             duelStatus,
             duelTeam,
             finalRanking,
-            foundWordsCount,
             gameBlockClasses,
             getLiveNickClassName,
             getLivePreviewLabelForCell,
@@ -19604,7 +19386,6 @@ function handleTouchEnd(e) {
             lightGridSurfaceStyle,
             lightPanelStyle,
             listItemRefs,
-            liveFeedBannerText,
             MAIN_GRID_HEIGHT,
             mainGridDesktopRef,
             mobileRoundIntroHideTiles,
@@ -19653,8 +19434,6 @@ function handleTouchEnd(e) {
             roundStats,
             roundTilePointsVisible,
             safeChatTab,
-            score,
-            scoreLabel,
             selfNick,
             selfOcidBluffPanelText,
             selfOcidBluffPoints,
@@ -19696,7 +19475,6 @@ function handleTouchEnd(e) {
             showBlockedList,
             showBotMessages,
             showPreviewStats,
-            showPreviewStatus,
             showResultsWordPath,
             showSolvedTargetLoupe,
             solvedTargetWord,
@@ -19749,7 +19527,6 @@ function handleTouchEnd(e) {
             weeklyOverlayStyle,
             weeklyStatsPage,
             WORDS_SCROLL_MAX_HEIGHT,
-            wordsFoundLabel,
         }}
       />
     </Suspense>

@@ -19,14 +19,18 @@ export function useLivePlayerCount() {
 
 export function useLiveRankingPresentation({
   authenticatedUserId,
+  dailyPlayMode,
   dailyRankingSource = EMPTY_LIST,
   duelStatus,
   installId,
   isDailyPlay = false,
   normalizeUserIdForProfile,
-  score,
   selfNick,
 }) {
+  const score = useApplicationSelector((state) => state.game.score);
+  const acceptedCount = useApplicationSelector(
+    (state) => state.game.accepted.length
+  );
   const players = useLivePlayers(isDailyPlay);
   const playerCount = useLivePlayerCount();
   const provisionalRanking = useApplicationSelector((state) =>
@@ -42,7 +46,51 @@ export function useLiveRankingPresentation({
     score,
     selfNick
   );
-  const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
+  const dailyRankingWithSelf = React.useMemo(() => {
+    const base = Array.isArray(dailyRankingSource) ? dailyRankingSource : EMPTY_LIST;
+    if (!isDailyPlay || !selfNick || !Number.isFinite(score)) return base;
+    if (base.some((entry) => entry && !entry.isPalier && entry.nick === selfNick)) {
+      return base;
+    }
+    const selfUserId = normalizeUserIdForProfile(authenticatedUserId);
+    const merged = [
+      ...base,
+      {
+        nick: selfNick,
+        userId: selfUserId,
+        score,
+        wordsCount: acceptedCount,
+        installId: installId || null,
+        team: duelStatus?.team || null,
+        isDailyChampion: !!duelStatus?.crowned,
+        isWeeklyVocabChampion: false,
+        mode: dailyPlayMode,
+        isPalier: false,
+        playerKey: selfUserId ? `install:${selfUserId}` : "",
+      },
+    ];
+    merged.sort((a, b) => {
+      const scoreDiff = (b?.score || 0) - (a?.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      const palierDiff = Number(!!a?.isPalier) - Number(!!b?.isPalier);
+      if (palierDiff !== 0) return palierDiff;
+      return String(a?.nick || "").localeCompare(String(b?.nick || ""));
+    });
+    return merged;
+  }, [
+    acceptedCount,
+    authenticatedUserId,
+    dailyRankingSource,
+    dailyPlayMode,
+    duelStatus?.crowned,
+    duelStatus?.team,
+    installId,
+    isDailyPlay,
+    normalizeUserIdForProfile,
+    score,
+    selfNick,
+  ]);
+  const rankingSource = isDailyPlay ? dailyRankingWithSelf : liveRankingSource;
   return {
     livePosition:
       rankingSource.find((entry) => entry?.nick === selfNick)?.rank ?? null,

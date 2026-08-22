@@ -1,7 +1,10 @@
 import React from "react";
 
 import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
+import { useFeatureFields, useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 import LiveFeed, { buildMixedFeed } from "../../components/LiveFeed.jsx";
+
+const PROGRESS_BANNER_FIELD = Object.freeze(["bannerText"]);
 
 export function useLiveFeedItems(limit = 0) {
   const announcements = useApplicationSelector(
@@ -17,6 +20,13 @@ export function useLiveFeedItems(limit = 0) {
 
 export default function LiveFeedSatellite({ limit = 0, ...feedProps }) {
   const items = useLiveFeedItems(limit);
-  return <LiveFeed {...feedProps} items={items} />;
+  const progress = useFeatureRuntime("progress");
+  const { bannerText } = useFeatureFields(progress, PROGRESS_BANNER_FIELD);
+  return (
+    <LiveFeed
+      {...feedProps}
+      bannerText={feedProps.bannerText ?? bannerText}
+      items={items}
+    />
+  );
 }
-

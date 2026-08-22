@@ -5,23 +5,24 @@ import {
   getTraceStateSnapshot,
   subscribeTraceState,
 } from "../traceStateStore.js";
+import {
+  LivePreviewProgressStats,
+  useGameStatusText,
+} from "../../features/progress/GameProgressSatellites.jsx";
 
 const READY_LABEL = "Prêt à jouer";
 
 export default function TraceAwareDesktopPreviewContent({
   board = [],
   countdownLines = [],
-  currentDisplay = "",
   getTraceCellLabel = null,
   phase = "",
   previewTileStyle = undefined,
-  scoreLabel = "0",
   showPreviewStats = false,
-  showPreviewStatus = false,
   totalScoreLabel = "?",
   totalWordsLabel = "?",
-  wordsFoundLabel = "0",
 }) {
+  const statusText = useGameStatusText();
   const traceSnapshot = React.useSyncExternalStore(
     subscribeTraceState,
     getTraceStateSnapshot,
@@ -91,10 +92,10 @@ export default function TraceAwareDesktopPreviewContent({
     );
   }
 
-  if (showPreviewStatus) {
+  if (statusText) {
     return (
       <span className="text-gray-700 dark:text-slate-200">
-        {currentDisplay.toUpperCase()}
+        {statusText.toUpperCase()}
       </span>
     );
   }
@@ -102,8 +103,10 @@ export default function TraceAwareDesktopPreviewContent({
   if (showPreviewStats) {
     return (
       <div className="text-gray-700 dark:text-slate-200 text-sm leading-tight font-semibold">
-        <div>{`mots : ${wordsFoundLabel} / ${totalWordsLabel}`}</div>
-        <div>{`score : ${scoreLabel} / ${totalScoreLabel}`}</div>
+        <LivePreviewProgressStats
+          totalScoreLabel={totalScoreLabel}
+          totalWordsLabel={totalWordsLabel}
+        />
       </div>
     );
   }

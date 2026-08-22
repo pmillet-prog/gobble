@@ -30,7 +30,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     chatInputPlaceholder,
     chatViewportHeight,
     countdownLines,
-    currentDisplay,
     darkMode,
     devRoundTypes,
     displayList,
@@ -63,7 +62,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     isOcidRound,
     isSpeedRound,
     isTargetRound,
-    liveFeedBannerText,
     liveWord,
     liveWordTiles,
     mobileLayoutSizing,
@@ -87,7 +85,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     roundPreparing,
     roundStats,
     roundTilePointsVisible,
-    scoreLabel,
     selfNick,
     shake,
     shouldDefinitionBlink,
@@ -120,7 +117,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     usedSet,
     visibleMessages,
     vocabLevelUp,
-    wordsFoundLabel,
     rosterConfig,
   } = state;
   const {
@@ -595,7 +591,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             targetSummary={targetSummary}
             tournament={standaloneTrainingSession ? null : tournament}
             trainingControls={trainingSessionControls}
-            trainingFeedBannerText={liveFeedBannerText}
             trainingFeedNickClassName={getLiveNickClassName}
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
             wordsEmpty={wordsEmpty}
@@ -712,7 +707,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         bonusEffectMultiplier={bonusEffectMultiplier}
         chatOverlays={chatOverlays}
         countdownLines={countdownLines}
-        currentDisplay={currentDisplay}
         darkMode={darkMode}
         defaultTileBaseClass={defaultTileBaseClass}
         duelTeam={duelTeam}
@@ -750,7 +744,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         isTargetRound={isTargetRound || targetWaitDevActive}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         liveFeedMinHeight={liveFeedMinHeight}
-        liveFeedBannerText={liveFeedBannerText}
         liveWord={liveWord}
         liveWordTiles={liveWordTiles}
         mobileBodyHeightStyle={mobileBodyHeightStyle}
@@ -797,7 +790,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         roundTypeLabel={standaloneTrainingSession?.label || ""}
         roundStats={roundStats}
         roundTilePointsVisible={roundTilePointsVisible}
-        scoreLabel={scoreLabel}
         selfNick={selfNick}
         shake={shake}
         shouldDefinitionBlink={shouldDefinitionBlink}
@@ -835,7 +827,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         tournament={standaloneTrainingSession ? null : tournament}
         trainingControls={trainingSessionControls}
         usedSet={usedSet}
-        wordsFoundLabel={wordsFoundLabel}
       />
       {roundPreparationOverlay}
       {globalChatLayer}

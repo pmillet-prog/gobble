@@ -51,7 +51,7 @@ function MobileSpecial3Playing(props) {
     praiseOverlay = null,
     maxDurationSec = 90,
     trainingControls = null,
-    trainingFeedBannerText = "",
+    trainingFeedBannerText,
     getNickClassName = null,
     renderSpecial3LengthGobbleBadge = null,
     renderSpecialChip = null,
