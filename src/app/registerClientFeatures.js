@@ -3,6 +3,7 @@ import { createPlayerActivityFeature } from "../features/activity/createPlayerAc
 import { createChatFeature } from "../features/chat/createChatFeature.js";
 import { createRoundClockFeature } from "../features/clock/createRoundClockFeature.js";
 import { createDailyFeature } from "../features/daily/createDailyFeature.js";
+import { createClientDictionaryFeature } from "../features/dictionary/createClientDictionaryFeature.js";
 import { createDuelFeature } from "../features/duel/createDuelFeature.js";
 import { createIdentityFeature } from "../features/identity/createIdentityFeature.js";
 import { createIntermissionClockFeature } from "../features/intermission/createIntermissionClockFeature.js";
@@ -25,6 +26,7 @@ const FEATURE_FACTORIES = Object.freeze({
   chat: createChatFeature,
   clock: createRoundClockFeature,
   daily: createDailyFeature,
+  dictionary: createClientDictionaryFeature,
   duel: createDuelFeature,
   identity: createIdentityFeature,
   intermission: createIntermissionClockFeature,

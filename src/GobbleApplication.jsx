@@ -888,7 +888,6 @@ const GOBBLE_GAME_FIELDS = Object.freeze([
   "board",
   "cultureThemeChallenge",
   "currentRoomId",
-  "dictionary",
   "gridRotationTurns",
   "gridSize",
   "implodeActive",
@@ -973,6 +972,8 @@ export default function GobbleApplication() {
   const applicationKernel = useApplicationKernel();
   const socket = applicationKernel.ports.realtime;
   const clockFeature = useFeatureRuntime("clock");
+  const dictionaryFeature = useFeatureRuntime("dictionary");
+  const dictionary = useFeatureSelector(dictionaryFeature, (state) => state.entries);
   const progressFeature = useFeatureRuntime("progress");
   const gameState = useApplicationFields("game", GOBBLE_GAME_FIELDS);
   const settledGameProgress = useSettledGameProgress();
@@ -989,7 +990,6 @@ export default function GobbleApplication() {
     board,
     cultureThemeChallenge,
     currentRoomId,
-    dictionary,
     gridRotationTurns,
     gridSize,
     implodeActive,
@@ -1047,7 +1047,6 @@ export default function GobbleApplication() {
     setBoard,
     setCultureThemeChallenge,
     setCurrentRoomId,
-    setDictionary,
     setGridRotationTurns,
     setGridSize,
     setImplodeActive,
@@ -6554,47 +6553,6 @@ export default function GobbleApplication() {
       ]),
     []
   );
-  useEffect(() => {
-    const shouldLoadClientDictionary = isDailyPlay || appView === "daily_play";
-    if (!shouldLoadClientDictionary) {
-      if (dictionary) setDictionary(null);
-      return undefined;
-    }
-    if (dictionary) return undefined;
-    let cancelled = false;
-    const loadDictionary = async () => {
-      const fileKey = makeFileKey("/dico.txt");
-      const buffer = AssetManager.getFileBuffer(fileKey);
-      if (buffer) {
-        try {
-          const text = new TextDecoder("utf-8").decode(new Uint8Array(buffer));
-          if (cancelled) return;
-          const list = text
-            .split(/\r?\n/)
-            .map((x) => normalizeWord(x.trim()))
-            .filter(Boolean);
-          setDictionary(new Set(list));
-          AssetManager.release?.(fileKey);
-          return;
-        } catch (_) {}
-      }
-      try {
-        const res = await fetch("/dico.txt");
-        const text = await res.text();
-        if (cancelled) return;
-        const list = text
-          .split(/\r?\n/)
-          .map((x) => normalizeWord(x.trim()))
-          .filter(Boolean);
-        setDictionary(new Set(list));
-      } catch (_) {}
-    };
-    loadDictionary();
-    return () => {
-      cancelled = true;
-    };
-  }, [appView, dictionary, isDailyPlay]);
-
   useEffect(() => {
     if (typeof document === "undefined") return;
 
