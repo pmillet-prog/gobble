@@ -116,6 +116,9 @@ export default function useAudioEngine({
           masterGain,
           compressor,
           limiter,
+          reverb,
+          reverbHP,
+          reverbLP,
           reverbIn,
           reverbGain,
         };
@@ -451,6 +454,46 @@ export default function useAudioEngine({
       audioSystemRef.current.masterGain.gain.value = AUDIO_MASTER_GAIN * safeMasterVolume;
     }
   }, [soundMasterVolume, soundMasterVolumeRef]);
+
+  React.useEffect(
+    () => () => {
+      stopBlackHoleAudio({ fadeMs: 0 });
+      const ctx = audioCtxRef.current;
+      const system = audioSystemRef.current;
+      const nodes = [
+        system?.reverbIn,
+        system?.reverb,
+        system?.reverbHP,
+        system?.reverbLP,
+        system?.reverbGain,
+        system?.busIn,
+        system?.masterGain,
+        system?.compressor,
+        system?.limiter,
+      ];
+      for (const node of nodes) {
+        try {
+          node?.disconnect?.();
+        } catch (_) {}
+      }
+      combinedScoreBufferCacheRef.current = {
+        ctx: null,
+        buffers: new Map(),
+      };
+      AssetManager.releaseAudioSystem?.(ctx);
+      if (ctx && ctx.state !== "closed") {
+        try {
+          void ctx.close();
+        } catch (_) {}
+      }
+      audioCtxRef.current = null;
+      audioSystemRef.current = null;
+      audioUnlockedRef.current = false;
+      audioVoiceRef.current.activeVoices = 0;
+      audioVoiceRef.current.lastPlayed.clear();
+    },
+    [stopBlackHoleAudio]
+  );
 
   return {
     audioCtxRef,

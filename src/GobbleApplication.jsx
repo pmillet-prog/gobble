@@ -3506,6 +3506,7 @@ export default function GobbleApplication() {
   } = audioEngine;
   useEffect(() => {
     AssetManager.setAudioSystemProvider(getAudioSystem);
+    return () => AssetManager.setAudioSystemProvider(null);
   }, [getAudioSystem]);
   const ambientAudio = useAmbientMusic({
     ambientTracksRef,

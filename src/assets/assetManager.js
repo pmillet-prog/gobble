@@ -395,12 +395,15 @@ async function decodeOnePendingKey(ctx, key) {
   if (!state.pendingSfx.has(key)) return false;
   const inflight = state.decodingSfx.get(key);
   if (inflight) return inflight;
-  const job = (async () => {
+  let sourceBuffer = null;
+  let job = null;
+  job = (async () => {
     try {
       const buf = state.pendingSfx.get(key);
       if (!buf) return false;
+      sourceBuffer = buf;
       const decoded = await decodeAudioData(ctx, buf);
-      if (decoded) state.sfxBuffers.set(key, decoded);
+      if (decoded && state.ctx === ctx) state.sfxBuffers.set(key, decoded);
       return !!decoded;
     } catch (err) {
       if (DEV_MODE && !state.devLog.sfxFailures.has(key)) {
@@ -409,10 +412,15 @@ async function decodeOnePendingKey(ctx, key) {
       }
       return false;
     } finally {
-      state.pendingSfx.delete(key);
+      if (state.pendingSfx.get(key) === sourceBuffer) {
+        state.pendingSfx.delete(key);
+      }
+    }
+  })().finally(() => {
+    if (state.decodingSfx.get(key) === job) {
       state.decodingSfx.delete(key);
     }
-  })();
+  });
   state.decodingSfx.set(key, job);
   return job;
 }
@@ -697,6 +705,7 @@ async function preloadSfx(entry) {
     if (!ctx) return { pending: buf };
     try {
       const decoded = await decodeAudioData(ctx, buf);
+      if (state.ctx !== ctx) return { pending: buf };
       return { buffer: decoded };
     } catch (_) {
       throw new Error("sfx-decode-failed");
@@ -850,7 +859,9 @@ async function ensureSfxEntryLoaded(key) {
     }
     return state.sfxBuffers.has(key) || state.pendingSfx.has(key);
   })().finally(() => {
-    state.loadingSfx.delete(key);
+    if (state.loadingSfx.get(key) === job) {
+      state.loadingSfx.delete(key);
+    }
   });
   state.loadingSfx.set(key, job);
   return job;
@@ -941,6 +952,17 @@ function registerDevGuardCandidates(entry) {
 
 export function setAudioSystemProvider(provider) {
   state.audioSystemProvider = typeof provider === "function" ? provider : null;
+}
+
+export function releaseAudioSystem(ctx) {
+  if (!ctx || state.ctx !== ctx) return false;
+  resetAudioForNewContext();
+  disconnectNode(state.masterGain);
+  state.masterGain = null;
+  state.ctx = null;
+  state.ownsContext = false;
+  state.audioUnlocked = false;
+  return true;
 }
 
 export function registerManifest(manifest) {
@@ -1349,8 +1371,13 @@ export function dispose() {
   }
   state.ctx = null;
   state.masterGain = null;
+  state.audioSystemProvider = null;
   state.ownsContext = false;
   state.audioUnlocked = false;
+  state.playQueue = [];
+  state.flushScheduled = false;
+  state.pendingDecode = false;
+  state.nextStartTime.clear();
   state.lastPlayed.clear();
   state.sfxMisses.clear();
   state.sfxMissesByReason.clear();
@@ -1377,6 +1404,7 @@ const AssetManager = {
   setMuted,
   setMasterVolume,
   setAudioSystemProvider,
+  releaseAudioSystem,
   cancelQueuedSfx,
   compactAudioState,
   getAudioDebugStats,
