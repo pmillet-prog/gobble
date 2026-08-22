@@ -183,7 +183,6 @@ import MobileGrid from "./components/MobileGrid.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import GlobalRedAnnouncementOverlay from "./components/GlobalRedAnnouncementOverlay.jsx";
 import PlaytimeCountdownOverlay from "./components/PlaytimeCountdownOverlay.jsx";
-import SettingsMenuFrame from "./components/settings/SettingsMenuFrame.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import DuelWeekRecapOverlay from "./components/DuelWeekRecapOverlay.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
@@ -391,6 +390,7 @@ const PlayersOverlay = React.lazy(() => import("./components/players/PlayersOver
 const TrainingConfirmDialog = React.lazy(() =>
   import("./components/training/TrainingConfirmDialog.jsx")
 );
+const AccountMenu = React.lazy(() => import("./components/account/AccountMenu.jsx"));
 const DailyHubScreen = React.lazy(() => import("./components/daily/DailyHubScreen.jsx"));
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
 const WeeklyStatsScreen = React.lazy(() =>
@@ -20557,132 +20557,38 @@ function handleTouchEnd(e) {
   ) : null;
 
   const accountMenuView = isAccountMenuOpen ? (
-    <SettingsMenuFrame
-      onClose={() => setIsAccountMenuOpen(false)}
-    >
-      <div
-        className={`relative w-full max-w-xs rounded-2xl border-2 p-4 shadow-2xl ${settingsShellClass}`}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-extrabold">Compte</div>
-          <button
-            type="button"
-            className="h-7 w-7 rounded-full border flex items-center justify-center bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950"
-            onClick={() => setIsAccountMenuOpen(false)}
-            aria-label="Fermer"
-          >
-            <span className="text-base leading-none">×</span>
-          </button>
-        </div>
-        <div className="flex flex-col gap-3 text-sm">
-          <div className={`rounded-xl border px-3 py-3 ${settingsPanelButtonClass}`}>
-            <div className={`text-[11px] font-extrabold uppercase tracking-[0.2em] ${menuDarkMode ? "text-amber-200" : "text-amber-700"}`}>
-              Profil
-            </div>
-            <div className="mt-1 text-sm font-semibold">
-              {isAccountAuthenticated
-                ? authState.user?.usernameDisplay || "Connecté"
-                : isAuthStatusPending
-                ? "Vérification..."
-                : isAuthServerUnavailable
-                ? "Serveur occupé"
-                : authState.status === "legacy_profile_found"
-                ? legacyProfileUsername || "Profil historique reconnu"
-                : "Non connecté"}
-            </div>
-            <div className={`mt-1 text-xs ${menuDarkMode ? "text-amber-50/70" : "text-slate-600"}`}>
-              {isAccountAuthenticated
-                ? "Session persistante active."
-                : isAuthStatusPending
-                ? "Recherche d'un profil existant sur cet appareil."
-                : isAuthServerUnavailable
-                ? ACCOUNT_SERVER_BUSY_MESSAGE
-                : authState.status === "legacy_profile_found"
-                ? "Sécurise ce profil pour conserver ton identité."
-                : "Connecte-toi pour retrouver ton profil."}
-            </div>
-          </div>
-
-          {isAccountAuthenticated ? (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAccountMenuOpen(false);
-                  openPlayerProfile({
-                    userId: authenticatedUserId,
-                    nick: authState.user?.usernameDisplay || nickname || "Joueur",
-                  });
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
-              >
-                Voir mon profil
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAccountMenuOpen(false);
-                  openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
-              >
-                Changer le mot de passe
-              </button>
-              <button
-                type="button"
-                onClick={handleAccountLogout}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsDangerButtonClass}`}
-              >
-                Se déconnecter
-              </button>
-            </>
-          ) : isAuthStatusPending || isAuthServerUnavailable ? (
-            <button
-              type="button"
-              disabled={isAuthStatusPending}
-              onClick={() => refreshAuthStatus({ silent: false })}
-              className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold disabled:opacity-60 ${settingsPanelButtonClass}`}
-            >
-              {isAuthStatusPending ? "Vérification du profil..." : "Réessayer"}
-            </button>
-          ) : authState.status === "legacy_profile_found" ? (
-            <button
-              type="button"
-              onClick={() => {
-                setIsAccountMenuOpen(false);
-                openAuthDialog(AUTH_MODAL_MODES.CLAIM_LEGACY);
-              }}
-              className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
-            >
-              Sécuriser mon profil
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAccountMenuOpen(false);
-                  openAuthDialog(AUTH_MODAL_MODES.REGISTER);
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsGoldButtonClass}`}
-              >
-                Créer un compte
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAccountMenuOpen(false);
-                  openAuthDialog(AUTH_MODAL_MODES.LOGIN);
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${settingsPanelButtonClass}`}
-              >
-                Se connecter
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </SettingsMenuFrame>
+    <Suspense fallback={null}>
+      <AccountMenu
+        appearance={{
+          dangerButtonClass: settingsDangerButtonClass,
+          darkMode: menuDarkMode,
+          goldButtonClass: settingsGoldButtonClass,
+          panelButtonClass: settingsPanelButtonClass,
+          shellClass: settingsShellClass,
+        }}
+        auth={{
+          authenticated: isAccountAuthenticated,
+          modes: AUTH_MODAL_MODES,
+          pending: isAuthStatusPending,
+          serverUnavailable: isAuthServerUnavailable,
+          status: authState.status,
+          user: authState.user,
+          userId: authenticatedUserId,
+        }}
+        labels={{
+          legacyUsername: legacyProfileUsername,
+          nickname,
+          serverBusyMessage: ACCOUNT_SERVER_BUSY_MESSAGE,
+        }}
+        actions={{
+          onClose: () => setIsAccountMenuOpen(false),
+          onLogout: handleAccountLogout,
+          onOpenAuth: openAuthDialog,
+          onOpenProfile: openPlayerProfile,
+          onRefresh: () => refreshAuthStatus({ silent: false }),
+        }}
+      />
+    </Suspense>
   ) : null;
   const aboutModalView = (
     <>
