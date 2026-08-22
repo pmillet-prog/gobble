@@ -1,16 +1,14 @@
 import React from "react";
 
-import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
 import { useFeatureFields, useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 import LiveFeed, { buildMixedFeed } from "../../components/LiveFeed.jsx";
 
 const PROGRESS_BANNER_FIELD = Object.freeze(["bannerText"]);
+const LIVE_FEED_FIELDS = Object.freeze(["announcements", "lastWords"]);
 
 export function useLiveFeedItems(limit = 0) {
-  const announcements = useApplicationSelector(
-    (state) => state.realtime.announcements
-  );
-  const lastWords = useApplicationSelector((state) => state.game.lastWords);
+  const feed = useFeatureRuntime("feed");
+  const { announcements, lastWords } = useFeatureFields(feed, LIVE_FEED_FIELDS);
   return React.useMemo(() => {
     const items = buildMixedFeed({ announcements, lastWords });
     const safeLimit = Math.max(0, Number(limit) || 0);

@@ -1,5 +1,4 @@
 export const REALTIME_STATE_FIELDS = Object.freeze([
-  "announcements",
   "breakKind",
   "finalResults",
   "lobbyPlayersList",
@@ -33,7 +32,6 @@ export const REALTIME_STATE_FIELD_SET = new Set(REALTIME_STATE_FIELDS);
 
 export function createInitialRealtimeState() {
   return Object.freeze({
-    announcements: [],
     breakKind: null,
     finalResults: [],
     lobbyPlayersList: [],

@@ -71,6 +71,12 @@ test("game progress owns high-frequency score, word and status updates", async (
   assert.equal(kernel.getState().game.score, undefined);
   assert.equal(kernel.getState().game.submissionTick, undefined);
 
+  feature.reset();
+  assert.deepEqual(feature.store.getState().accepted, []);
+  assert.equal(feature.store.getState().acceptedCount, 0);
+  assert.equal(feature.store.getState().score, 0);
+  assert.equal(feature.store.getState().submissionTick, 0);
+
   feature.showStatus("+12 pts", 5);
   feature.triggerInputShake({ durationMs: 5 });
   assert.equal(feature.store.getState().statusText, "+12 pts");

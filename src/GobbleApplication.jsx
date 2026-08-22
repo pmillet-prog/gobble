@@ -937,7 +937,6 @@ const CHAT_ROOT_FIELDS = Object.freeze([
 ]);
 
 const REALTIME_ROOT_FIELDS = Object.freeze([
-  "announcements",
   "breakKind",
   "finalResults",
   "lobbyPlayersList",
@@ -966,6 +965,7 @@ const REALTIME_ROOT_FIELDS = Object.freeze([
 ]);
 
 const ROSTER_ROOT_FIELDS = Object.freeze(["players", "provisionalRanking"]);
+const EMPTY_FEED_ANNOUNCEMENTS = Object.freeze([]);
 
 export default function GobbleApplication() {
   recordAppRender();
@@ -978,6 +978,7 @@ export default function GobbleApplication() {
   const gameState = useApplicationFields("game", GOBBLE_GAME_FIELDS);
   const settledGameProgress = useSettledGameProgress(progressFeature);
   const realtimeState = useApplicationFields("realtime", REALTIME_ROOT_FIELDS);
+  const feedFeature = useFeatureRuntime("feed");
   const rosterFeature = useFeatureRuntime("roster");
   const rosterState = useFeatureFields(rosterFeature, ROSTER_ROOT_FIELDS);
   const sessionState = useApplicationSelector((state) => state.session);
@@ -999,6 +1000,9 @@ export default function GobbleApplication() {
     roomId,
     showAllWords,
   } = gameState;
+  const announcements = useFeatureSelector(feedFeature, (state) =>
+    phase === "playing" ? EMPTY_FEED_ANNOUNCEMENTS : state.announcements
+  );
   const { accepted, submissionTick } = settledGameProgress;
   const {
     authState,
@@ -1013,7 +1017,6 @@ export default function GobbleApplication() {
     serverStatus,
   } = sessionState;
   const {
-    announcements,
     breakKind,
     finalResults,
     lobbyPlayersList,
@@ -1051,7 +1054,6 @@ export default function GobbleApplication() {
     setImplodeActive,
     setInputLocked,
     setIsGridRotating,
-    setLastWords,
     setPhase,
     setRoomId,
     setShowAllWords,
@@ -1061,6 +1063,10 @@ export default function GobbleApplication() {
     setScore,
     setSubmissionTick,
   } = progressFeature;
+  const {
+    setAnnouncements,
+    setLastWords,
+  } = feedFeature;
   const setTick = React.useCallback(
     (nextOrUpdater) => {
       const current = clockFeature.store.getState().remainingSeconds;
@@ -1085,7 +1091,6 @@ export default function GobbleApplication() {
     setServerStatus,
   } = applicationKernel.commands.session;
   const {
-    setAnnouncements,
     setBreakKind,
     setFinalResults,
     setLobbyPlayersList,
@@ -3030,7 +3035,11 @@ export default function GobbleApplication() {
       playersCount: Array.isArray(players) ? players.length : null,
       provisionalRankingCount: Array.isArray(provisionalRanking) ? provisionalRanking.length : null,
       finalResultsCount: Array.isArray(finalResults) ? finalResults.length : null,
-      announcementsCount: Array.isArray(announcements) ? announcements.length : null,
+      announcementsCount: Array.isArray(
+        feedFeature.store.getState().announcements
+      )
+        ? feedFeature.store.getState().announcements.length
+        : null,
       chatMessagesCount: Array.isArray(chatMessagesRef.current)
         ? chatMessagesRef.current.length
         : null,
@@ -3128,7 +3137,7 @@ export default function GobbleApplication() {
     players,
     provisionalRanking,
     finalResults,
-    announcements,
+    feedFeature,
     blockedInstallIds,
     roundId,
     roomId,
@@ -10625,6 +10634,8 @@ export default function GobbleApplication() {
     serverSolutionsReadyRef.current = serverSolutions.ready;
     clearAcceptedRuntimeCaches();
     resetSubmissionQueue();
+    progressFeature.reset();
+    feedFeature.reset();
     if (serverSolutions.ready) {
       solutionsRef.current = serverSolutions.solved;
       serverAllWordsRef.current = serverSolutions.all;
@@ -10737,7 +10748,6 @@ export default function GobbleApplication() {
     clockFeature.setCountdown(Math.min(maxDuration, initialTick));
     applicationKernel.commands.transition.apply({
       game: {
-        accepted: [],
         allWords: [],
         board: serverGrid,
         ...(sourceRoomId
@@ -10745,9 +10755,7 @@ export default function GobbleApplication() {
           : {}),
         gridSize: derivedSize,
         inputLocked: hasPendingIntro,
-        lastWords: [],
         phase: "playing",
-        score: 0,
         showAllWords: false,
       },
       realtime: {

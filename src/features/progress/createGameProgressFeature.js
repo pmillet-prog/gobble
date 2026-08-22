@@ -277,6 +277,17 @@ export function createGameProgressFeature({ scope }) {
     sync({ submissionTick: next });
   }
 
+  function reset() {
+    sync(
+      {
+        accepted: EMPTY_LIST,
+        score: 0,
+        submissionTick: 0,
+      },
+      { force: true }
+    );
+  }
+
   function showStatus(message, holdMs = 1000) {
     const text = typeof message === "string" ? message : "";
     if (!text) return;
@@ -342,6 +353,7 @@ export function createGameProgressFeature({ scope }) {
     clearInputShake,
     clearStatus,
     configure,
+    reset,
     setAccepted,
     setScore,
     setSubmissionTick,
