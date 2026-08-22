@@ -947,7 +947,6 @@ const REALTIME_ROOT_FIELDS = Object.freeze([
   "roomsStats",
   "roundId",
   "roundPreparing",
-  "roundStartDelayTick",
   "roundStats",
   "serverEndsAt",
   "serverRoundDurationMs",
@@ -1027,7 +1026,6 @@ export default function GobbleApplication() {
     roomsStats,
     roundId,
     roundPreparing,
-    roundStartDelayTick,
     roundStats,
     serverEndsAt,
     serverRoundDurationMs,
@@ -1105,7 +1103,6 @@ export default function GobbleApplication() {
     setRoomsStats,
     setRoundId,
     setRoundPreparing,
-    setRoundStartDelayTick,
     setRoundStats,
     setServerEndsAt,
     setServerRoundDurationMs,
@@ -10147,49 +10144,16 @@ export default function GobbleApplication() {
   }, [isPlayersOverlayOpen]);
 
   useEffect(() => {
-    if (
-      phase !== "results" ||
-      breakKind === "tournament_end" ||
-      !Number.isFinite(nextStartAt)
-    ) {
-      return undefined;
-    }
-    const delayMs = Math.max(
-      0,
-      Number(nextStartAt) + ROUND_PREPARATION_FALLBACK_GRACE_MS + 10 - getNowServerMs()
-    );
-    const timerId = setTimeout(() => {
-      setRoundStartDelayTick(Date.now());
-    }, delayMs);
-    return () => clearTimeout(timerId);
-  }, [phase, breakKind, nextStartAt, roundId]);
-
-  useEffect(() => {
-    if (
-      !isMobileLayout ||
-      phase !== "results" ||
-      breakKind === "tournament_end"
-    ) {
-      setMobileResultsOutroFadeActive(false);
-      return;
-    }
-    if (!Number.isFinite(nextStartAt)) {
-      setMobileResultsOutroFadeActive(false);
-      return;
-    }
-    const nowServerMs = getNowServerMs();
-    const msUntilStart = Math.max(0, Number(nextStartAt) - nowServerMs);
-    if (msUntilStart <= MOBILE_ROUND_INTRO_RESULTS_FADE_MS + 20) {
-      setMobileResultsOutroFadeActive(true);
-      return;
-    }
-    setMobileResultsOutroFadeActive(false);
-    const delayMs = Math.max(0, msUntilStart - MOBILE_ROUND_INTRO_RESULTS_FADE_MS);
-    const timerId = setTimeout(() => {
-      setMobileResultsOutroFadeActive(true);
-    }, delayMs);
-    return () => clearTimeout(timerId);
-  }, [isMobileLayout, phase, breakKind, nextStartAt]);
+    resultsFeature.configureTiming({
+      breakKind,
+      fadeDurationMs: MOBILE_ROUND_INTRO_RESULTS_FADE_MS,
+      isMobileLayout,
+      nextStartAt,
+      nowServerMs: getNowServerMs,
+      phase,
+      preparationGraceMs: ROUND_PREPARATION_FALLBACK_GRACE_MS,
+    });
+  }, [breakKind, isMobileLayout, nextStartAt, phase, resultsFeature, roundId]);
 
   function handleForeground(reason = "foreground") {
     const now = Date.now();
