@@ -43,6 +43,7 @@ test("preferences feature owns persistence and derived mute state", () => {
       storage,
     }
   );
+  assert.equal(feature.refs.isSfxMuted.current, false);
   feature.start();
   feature.patch({
     soundValidationEnabled: false,
@@ -53,6 +54,9 @@ test("preferences feature owns persistence and derived mute state", () => {
   });
 
   assert.equal(feature.store.getState().isSfxMuted, true);
+  assert.equal(feature.refs.isSfxMuted.current, true);
+  feature.set("visualConfettiEnabled", false);
+  assert.equal(feature.refs.visualConfettiEnabled.current, false);
   assert.equal(writes.at(-1)[0], SETTINGS_STORAGE_KEY);
   assert.equal(writes.at(-1)[1].sfxMuted, true);
   scope.dispose();

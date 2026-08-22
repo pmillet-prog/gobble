@@ -1361,18 +1361,20 @@ export default function GobbleApplication() {
   const backgroundThemePreset = themeVisual.background;
   const tileMaterialPreset = themeVisual.material;
   const specialIndicatorPreset = themeVisual.specialIndicator;
-  const isSfxMutedRef = useRef(isSfxMuted);
-  const isAmbientMutedRef = useRef(isAmbientMuted);
-  const keyboardRecallSubmittedWordRef = useRef(keyboardRecallSubmittedWord);
   const soundMasterVolumeRef = useRef(soundMasterVolume);
-  const visualGobbleEnabledRef = useRef(visualGobbleEnabled);
-  const visualPraiseEnabledRef = useRef(visualPraiseEnabled);
-  const visualScoreFlightsEnabledRef = useRef(visualScoreFlightsEnabled);
-  const visualInvalidWordsEnabledRef = useRef(visualInvalidWordsEnabled);
-  const visualScreenShakeEnabledRef = useRef(visualScreenShakeEnabled);
-  const visualConfettiEnabledRef = useRef(visualConfettiEnabled);
-  const preferLiteVisualEffectsRef = useRef(preferLiteVisualEffects);
-  const isVibrationEnabledRef = useRef(isVibrationEnabled);
+  const {
+    isAmbientMuted: isAmbientMutedRef,
+    isSfxMuted: isSfxMutedRef,
+    isVibrationEnabled: isVibrationEnabledRef,
+    keyboardRecallSubmittedWord: keyboardRecallSubmittedWordRef,
+    preferLiteVisualEffects: preferLiteVisualEffectsRef,
+    visualConfettiEnabled: visualConfettiEnabledRef,
+    visualGobbleEnabled: visualGobbleEnabledRef,
+    visualInvalidWordsEnabled: visualInvalidWordsEnabledRef,
+    visualPraiseEnabled: visualPraiseEnabledRef,
+    visualScoreFlightsEnabled: visualScoreFlightsEnabledRef,
+    visualScreenShakeEnabled: visualScreenShakeEnabledRef,
+  } = preferencesFeature.refs;
   const gobblarsKnownBalanceRef = useRef(null);
   const fetchThemeProfileRef = useRef(null);
   const showToastRef = useRef(() => {});
@@ -2812,9 +2814,6 @@ export default function GobbleApplication() {
     inputLockedRef.current = inputLocked;
   }, [inputLocked]);
   useEffect(() => {
-    isSfxMutedRef.current = isSfxMuted;
-  }, [isSfxMuted]);
-  useEffect(() => {
     if (isSfxMuted) return;
     const warmEssentialSfx = async () => {
       try {
@@ -2829,25 +2828,16 @@ export default function GobbleApplication() {
     warmEssentialSfx();
   }, [isSfxMuted]);
   useEffect(() => {
-    isAmbientMutedRef.current = isAmbientMuted;
-  }, [isAmbientMuted]);
-  useEffect(() => {
-    isVibrationEnabledRef.current = isVibrationEnabled;
-  }, [isVibrationEnabled]);
-  useEffect(() => {
-    visualGobbleEnabledRef.current = visualGobbleEnabled;
     if (!visualGobbleEnabled) {
       clearCelebrationFlash("gobbleFlash");
     }
   }, [visualGobbleEnabled]);
   useEffect(() => {
-    visualPraiseEnabledRef.current = visualPraiseEnabled;
     if (!visualPraiseEnabled) {
       clearCelebrationFlash("praiseFlash");
     }
   }, [visualPraiseEnabled]);
   useEffect(() => {
-    visualScoreFlightsEnabledRef.current = visualScoreFlightsEnabled;
     if (!visualScoreFlightsEnabled) {
       setScoreFlights([]);
     }
@@ -2857,13 +2847,11 @@ export default function GobbleApplication() {
     setScoreFlights((current) => (current.length > 0 ? [] : current));
   }, [phase]);
   useEffect(() => {
-    visualInvalidWordsEnabledRef.current = visualInvalidWordsEnabled;
     if (!visualInvalidWordsEnabled) {
       clearCelebrationFlash("invalidFlash");
     }
   }, [visualInvalidWordsEnabled]);
   useEffect(() => {
-    visualScreenShakeEnabledRef.current = visualScreenShakeEnabled;
     if (!visualScreenShakeEnabled) {
       progressFeature.clearInputShake();
       setGridShake(false);
@@ -2874,7 +2862,6 @@ export default function GobbleApplication() {
     }
   }, [progressFeature, visualScreenShakeEnabled]);
   useEffect(() => {
-    visualConfettiEnabledRef.current = visualConfettiEnabled;
     if (!visualConfettiEnabled) {
       confettiBurstTokenRef.current += 1;
       try {
@@ -2882,12 +2869,6 @@ export default function GobbleApplication() {
       } catch (_) {}
     }
   }, [visualConfettiEnabled]);
-  useEffect(() => {
-    preferLiteVisualEffectsRef.current = preferLiteVisualEffects;
-  }, [preferLiteVisualEffects]);
-  useEffect(() => {
-    keyboardRecallSubmittedWordRef.current = keyboardRecallSubmittedWord;
-  }, [keyboardRecallSubmittedWord]);
   const desktopChatFontPx = Math.round(14 * chatDesktopFontScale * 10) / 10;
   const desktopChatMetaFontPx = Math.round(11 * chatDesktopFontScale * 10) / 10;
   const desktopChatMicroFontPx = Math.round(10 * chatDesktopFontScale * 10) / 10;

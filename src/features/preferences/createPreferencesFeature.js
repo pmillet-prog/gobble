@@ -46,6 +46,20 @@ const PERSISTED_PREFERENCE_FIELDS = Object.freeze([
   "visualScreenShakeEnabled",
 ]);
 
+const IMPERATIVE_PREFERENCE_FIELDS = Object.freeze([
+  "isAmbientMuted",
+  "isSfxMuted",
+  "isVibrationEnabled",
+  "keyboardRecallSubmittedWord",
+  "preferLiteVisualEffects",
+  "visualConfettiEnabled",
+  "visualGobbleEnabled",
+  "visualInvalidWordsEnabled",
+  "visualPraiseEnabled",
+  "visualScoreFlightsEnabled",
+  "visualScreenShakeEnabled",
+]);
+
 export function normalizeChatDesktopFontScale(
   raw,
   fallback = CHAT_DESKTOP_FONT_SCALE_DEFAULT
@@ -265,6 +279,20 @@ export function createPreferencesFeature({ scope }, options = {}) {
     })
   );
   let previous = store.getState();
+  const refs = Object.freeze(
+    Object.fromEntries(
+      IMPERATIVE_PREFERENCE_FIELDS.map((field) => [
+        field,
+        { current: previous[field] },
+      ])
+    )
+  );
+
+  function syncImperativeRefs(state) {
+    for (const field of IMPERATIVE_PREFERENCE_FIELDS) {
+      refs[field].current = state[field];
+    }
+  }
 
   function applyTheme(rawTheme, { syncDraft = false } = {}) {
     const theme = normalizeThemePreset(rawTheme);
@@ -317,6 +345,7 @@ export function createPreferencesFeature({ scope }, options = {}) {
   function start() {
     const applyExternalState = () => {
       const state = store.getState();
+      syncImperativeRefs(state);
       if (state.isSfxMuted !== previous.isSfxMuted) {
         AssetManager.setMuted(state.isSfxMuted);
       }
@@ -358,6 +387,7 @@ export function createPreferencesFeature({ scope }, options = {}) {
     applyTheme,
     patch,
     previewTheme,
+    refs,
     set,
     start,
     store,
