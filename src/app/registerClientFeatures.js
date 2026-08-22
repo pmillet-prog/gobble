@@ -13,6 +13,7 @@ import { createNotificationsFeature } from "../features/notifications/createNoti
 import { createOcidFeature } from "../features/ocid/createOcidFeature.js";
 import { createOverlaysFeature } from "../features/overlays/createOverlaysFeature.js";
 import { createPreferencesFeature } from "../features/preferences/createPreferencesFeature.js";
+import { createRefreshSchedulerFeature } from "../features/refresh/createRefreshSchedulerFeature.js";
 import { createResultsFeature } from "../features/results/createResultsFeature.js";
 import { createStatsFeature } from "../features/stats/createStatsFeature.js";
 import { createTutorialFeature } from "../features/tutorial/createTutorialFeature.js";
@@ -33,6 +34,7 @@ const FEATURE_FACTORIES = Object.freeze({
   ocid: createOcidFeature,
   overlays: createOverlaysFeature,
   preferences: createPreferencesFeature,
+  refresh: createRefreshSchedulerFeature,
   results: createResultsFeature,
   stats: createStatsFeature,
   tutorial: createTutorialFeature,

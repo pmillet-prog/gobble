@@ -1806,6 +1806,7 @@ export default function GobbleApplication() {
   const breakCountdownRef = useRef(null);
   const playerActivityFeature = useFeatureRuntime("activity");
   const notificationsFeature = useFeatureRuntime("notifications");
+  const refreshFeature = useFeatureRuntime("refresh");
   const layoutFeature = useFeatureRuntime("layout");
   const layoutState = useFeatureSelector(layoutFeature, (state) => state);
   const chatFeature = useFeatureRuntime("chat");
@@ -9667,21 +9668,20 @@ export default function GobbleApplication() {
   }, [isAccountAuthenticated, isDailyView]);
 
   useEffect(() => {
-    fetchWeeklyStats(true);
-    const onConnect = () => fetchWeeklyStats(true);
-    socket.on("connect", onConnect);
-    return () => socket.off("connect", onConnect);
+    return refreshFeature.schedule("weekly-connect", {
+      connection: socket,
+      run: () => {
+        if (phaseRef.current !== "playing") fetchWeeklyStats(true);
+      },
+    });
   }, []);
 
   useEffect(() => {
-    if (phase === "playing") return undefined;
-    fetchBroadcastNotice();
-    const timer = setInterval(() => {
-      fetchBroadcastNotice();
-    }, 45000);
-    return () => {
-      clearInterval(timer);
-    };
+    return refreshFeature.schedule("broadcast-notice", {
+      enabled: phase !== "playing",
+      intervalMs: 45000,
+      run: fetchBroadcastNotice,
+    });
   }, [phase]);
 
   useEffect(() => {
@@ -9706,18 +9706,12 @@ export default function GobbleApplication() {
   }, [popupAudienceKey]);
 
   useEffect(() => {
-    if (!isAccountAuthenticated) return;
-    if (phase === "playing") return undefined;
-    fetchDuelStatus();
-    const timer = setInterval(() => {
-      fetchDuelStatus();
-    }, 30000);
-    const onConnect = () => fetchDuelStatus();
-    socket.on("connect", onConnect);
-    return () => {
-      clearInterval(timer);
-      socket.off("connect", onConnect);
-    };
+    return refreshFeature.schedule("duel-status", {
+      connection: socket,
+      enabled: isAccountAuthenticated && phase !== "playing",
+      intervalMs: 30000,
+      run: fetchDuelStatus,
+    });
   }, [installId, isAccountAuthenticated, phase]);
 
   useEffect(() => {
@@ -10094,12 +10088,13 @@ export default function GobbleApplication() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) return;
-    fetchLobbyPlayers();
-    const onConnect = () => fetchLobbyPlayers();
-    socket.on("connect", onConnect);
-    return () => socket.off("connect", onConnect);
-  }, [isLoggedIn, roomId]);
+    return refreshFeature.schedule("lobby-players", {
+      connection: socket,
+      enabled: !isLoggedIn,
+      intervalMs: appView === "home" ? 6000 : 0,
+      run: fetchLobbyPlayers,
+    });
+  }, [appView, isLoggedIn, roomId]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -10115,17 +10110,6 @@ export default function GobbleApplication() {
       };
     }
   }, [isLoggedIn, isHomeChatOpen]);
-
-  useEffect(() => {
-    if (isLoggedIn) return;
-    const isHomeLobbyView = appView === "home";
-    if (!isHomeLobbyView) return;
-    fetchLobbyPlayers();
-    const timer = setInterval(() => {
-      fetchLobbyPlayers();
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [isLoggedIn, appView, roomId]);
 
   useEffect(() => {
     if (isLoggedIn) return;
@@ -17930,26 +17914,20 @@ function handleTouchEnd(e) {
     void executeThemeApply(themePurchaseConfirm);
   }, [executeThemeApply, gobblarsBalance, gobblarsBadgeUrl, showToast, themePurchaseConfirm]);
   useEffect(() => {
-    if (!installId) return undefined;
     const safeFetch = (opts) => void fetchThemeProfileRef.current?.(opts);
-    safeFetch({ silent: true, force: true });
-    const intervalId = window.setInterval(() => {
-      safeFetch({ silent: true });
-    }, 120000);
-    const onFocus = () => safeFetch({ silent: true });
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        safeFetch({ silent: true });
-      }
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.clearInterval(intervalId);
-    };
-  }, [installId]);
+    let forceNextFetch = true;
+    return refreshFeature.schedule("theme-profile", {
+      enabled: !!installId && phase !== "playing",
+      intervalMs: 120000,
+      onFocus: true,
+      onVisible: true,
+      run: () => {
+        const force = forceNextFetch;
+        forceNextFetch = false;
+        safeFetch({ silent: true, force });
+      },
+    });
+  }, [installId, phase]);
   useEffect(() => {
     if (isSettingsOpen) return;
     setIsSoundMenuOpen(false);
