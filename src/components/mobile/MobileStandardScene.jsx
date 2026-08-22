@@ -2,14 +2,15 @@ import React, { Suspense } from "react";
 import { clampValue, formatNumber } from "../../utils/numbers.js";
 import { tileScore } from "../gameLogic.js";
 import { normalizeBonusLabel } from "../daily/dailySpecialModel.js";
-import InterTournamentLobby from "../live/InterTournamentLobby.jsx";
 import LiveSalonScene from "../live/LiveSalonScene.jsx";
 import MiniTournamentStartOverlay from "../live/MiniTournamentStartOverlay.jsx";
 import SwapFadeText from "../results/SwapFadeText.jsx";
-import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import TrainingRoundPicker from "../live/TrainingRoundPicker.jsx";
 import MobileStandardPlaying from "./MobileStandardPlaying.jsx";
-import { useLiveRosterPresentation } from "../../features/live/useLiveRosterPresentation.js";
+import {
+  MobileLobbyPlayersControls,
+  TournamentLobbyReadySatellite,
+} from "../../features/live/LiveRosterSatellites.jsx";
 
 const MobileResultsScreen = React.lazy(() => import("./MobileResultsScreen.jsx"));
 
@@ -80,7 +81,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     ocidStatusMessage,
     ocidVote,
     phase,
-    rankingSource: rankingSourceProp,
     recordBadgesByNickForRound,
     resultsRankingMode,
     resultsReorderTick,
@@ -90,7 +90,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     roundTilePointsVisible,
     scoreLabel,
     selfNick,
-    selfReadyForTournament: selfReadyForTournamentProp,
     shake,
     shouldDefinitionBlink,
     showAllWords,
@@ -121,15 +120,10 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     trainingBusy,
     usedSet,
     visibleMessages,
-    visiblePlayerList: visiblePlayerListProp,
     vocabLevelUp,
     wordsFoundLabel,
     rosterConfig,
   } = state;
-  const roster = useLiveRosterPresentation(rosterConfig);
-  const rankingSource = roster.rankingSource;
-  const selfReadyForTournament = roster.selfReadyForTournament;
-  const visiblePlayerList = roster.visiblePlayerList;
   const {
     chatBodyLockHeightRef,
     gridInputControllerRef,
@@ -210,11 +204,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
   } = config;
 
     const isResults = phase === "results";
-    const fullRanking = isResults
-      ? resultsRankingMode === "total"
-        ? tournamentRanking || []
-        : finalRanking || []
-      : rankingSource || [];
     const lockedGameViewportWidth =
       Number(mobileGameViewportLockRef.current?.width) || 0;
     const lockedGameViewportHeight =
@@ -658,36 +647,10 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         </div>
       );
       const mobileSalonPlayersControls = (
-        <div className={`rounded-xl border p-3 ${darkMode ? "border-white/10 bg-slate-950/70 text-slate-100" : "border-amber-200/70 bg-white/75 text-slate-900"}`}>
-          <div className="mb-2 text-xs font-bold uppercase tracking-widest opacity-70">
-            Joueurs connectés
-          </div>
-          {visiblePlayerList.length > 0 ? (
-            <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto">
-              {visiblePlayerList.map((p) => {
-                const nickClassName = getLiveNickClassName(p, p.nick);
-                return (
-                  <span
-                    key={p.nick}
-                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                      darkMode ? "border-white/10 bg-slate-900/80" : "border-amber-200/80 bg-white/75"
-                    }`}
-                  >
-                    <span className={nickClassName}>{p.nick}</span>
-                    {p?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact /></span> : null}
-                    {p?.afk ? (
-                      <span className="ml-1 text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
-                        AFK
-                      </span>
-                    ) : null}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-sm font-semibold opacity-60">Aucun joueur connecté.</div>
-          )}
-        </div>
+        <MobileLobbyPlayersControls
+          darkMode={darkMode}
+          getLiveNickClassName={getLiveNickClassName}
+        />
       );
       return (
         <>
@@ -701,12 +664,13 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             onChatInputFocus={handleChatInputFocus}
             playersControls={mobileSalonPlayersControls}
             salonControls={
-              <InterTournamentLobby
+              <TournamentLobbyReadySatellite
                 darkMode={darkMode}
+                duelTeam={duelTeam}
+                installId={installId}
                 lobby={tournamentLobby}
                 onReady={setTournamentReady}
-                selfReady={selfReadyForTournament}
-                team={duelTeam}
+                selfNick={selfNick}
               />
             }
             setChatInput={setChatInput}
@@ -755,7 +719,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         defaultTileBaseClass={defaultTileBaseClass}
         duelTeam={duelTeam}
         formatNumber={formatNumber}
-        fullRanking={fullRanking}
+        rosterConfig={rosterConfig}
         gobbleAwardsForLive={gobbleAwardsForLive}
         getTraceCellLabel={getLivePreviewLabelForCell}
         getNickClassName={getLiveNickClassName}

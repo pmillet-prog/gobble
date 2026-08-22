@@ -173,7 +173,7 @@ import {
 } from "./network/liveSubmissionRecovery.js";
 import { buildMixedFeed } from "./components/LiveFeed.jsx";
 import GlobalChatLayer from "./components/chat/GlobalChatLayer.jsx";
-import ChatReactionToastLayer from "./components/chat/ChatReactionToastLayer.jsx";
+import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
 import { createChatInteractionController } from "./components/chat/createChatInteractionController.js";
 import {
   CHAT_BOT_VISIBILITY_OPTIONS,
@@ -193,12 +193,12 @@ import {
   QUICK_REPLIES,
 } from "./components/chat/chatPresentationConfig.js";
 import MobileGrid from "./components/MobileGrid.jsx";
-import ToastStack from "./components/ToastStack.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
 import AutoScaleInline from "./components/AutoScaleInline.jsx";
 import FacebookGroupInviteModal from "./components/FacebookGroupInviteModal.jsx";
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
+import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
 import {
   clearAllCelebrationFlashes,
   clearCelebrationFlash,
@@ -871,7 +871,6 @@ const GOBBLE_GAME_FIELDS = Object.freeze([
   "sortMode",
   "statusMessage",
   "submissionTick",
-  "toasts",
 ]);
 
 const LIVE_UI_ROOT_FIELDS = Object.freeze([
@@ -902,7 +901,6 @@ const CHAT_ROOT_FIELDS = Object.freeze([
   "mobileChatClosing",
   "mobileChatOpen",
   "mobileChatOpenedAtMs",
-  "mobileReactionToasts",
   "replyTarget",
   "reportDialog",
   "rulesAccepted",
@@ -1008,7 +1006,6 @@ export default function GobbleApplication() {
     sortMode,
     statusMessage,
     submissionTick,
-    toasts,
   } = gameState;
   const {
     authState,
@@ -1076,7 +1073,6 @@ export default function GobbleApplication() {
     setSortMode,
     setStatusMessage,
     setSubmissionTick,
-    setToasts,
   } = applicationKernel.commands.game;
   const setTick = React.useCallback(
     (nextOrUpdater) => {
@@ -1802,6 +1798,7 @@ export default function GobbleApplication() {
   const serverClockRef = useRef(createServerClockState());
   const breakCountdownRef = useRef(null);
   const playerActivityFeature = useFeatureRuntime("activity");
+  const notificationsFeature = useFeatureRuntime("notifications");
   const layoutFeature = useFeatureRuntime("layout");
   const layoutState = useFeatureSelector(layoutFeature, (state) => state);
   const chatFeature = useFeatureRuntime("chat");
@@ -1865,7 +1862,6 @@ export default function GobbleApplication() {
         setIsDesktopEmojiPickerOpen: "desktopEmojiPickerOpen",
         setIsHomeChatOpen: "homeChatOpen",
         setMobileChatBotUnreadCount: "mobileBotUnreadCount",
-        setMobileChatReactionToasts: "mobileReactionToasts",
         setMobileChatUnreadCount: "mobileUnreadCount",
         setReportDialog: "reportDialog",
         setShowBlockedList: "showBlockedList",
@@ -1983,7 +1979,6 @@ export default function GobbleApplication() {
     mobileChatClosing: isChatClosing,
     mobileChatOpen: isChatOpenMobile,
     mobileChatOpenedAtMs: chatOpenedAtMs,
-    mobileReactionToasts: mobileChatReactionToasts,
     replyTarget: chatReplyTarget,
     reportDialog,
     rulesAccepted: chatRulesAccepted,
@@ -2017,7 +2012,6 @@ export default function GobbleApplication() {
     setIsDesktopEmojiPickerOpen,
     setIsHomeChatOpen,
     setMobileChatBotUnreadCount,
-    setMobileChatReactionToasts,
     setMobileChatUnreadCount,
     setReportDialog,
     setShowBlockedList,
@@ -2113,7 +2107,6 @@ export default function GobbleApplication() {
   const chatDrawerCalibrationRef = useRef(readStoredChatDrawerCalibration());
   const chatDrawerSessionCalibrationRef = useRef(chatDrawerCalibrationRef.current);
   const chatCloseTimerRef = useRef(null);
-  const mobileChatReactionToastTimersRef = useRef([]);
   const chatRulesConfirmRef = useRef(null);
   const chatInputType = React.useMemo(() => {
     if (typeof navigator === "undefined") return "text";
@@ -3394,7 +3387,6 @@ export default function GobbleApplication() {
   const chatReplyTargetRef = useRef(null);
   const chatEditTargetRef = useRef(null);
   const lastKeyboardInsetRef = useRef(0);
-  const toastTimersRef = useRef(new Map());
   useEffect(() => {
     const syncChatInputRef = () => {
       chatInputValueRef.current = chatFeature.store.getState().input;
@@ -6482,9 +6474,7 @@ export default function GobbleApplication() {
   }
 
   function clearToasts() {
-    setToasts([]);
-    toastTimersRef.current.forEach((timerId) => clearTimeout(timerId));
-    toastTimersRef.current.clear();
+    notificationsFeature.clear();
     gobblarToastDelayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
     gobblarToastDelayTimersRef.current.clear();
     ocidResultToastDelayTimersRef.current.forEach((timerId) => clearTimeout(timerId));
@@ -6492,26 +6482,13 @@ export default function GobbleApplication() {
   }
 
   function showToast(message, durationMs = 2800, options = {}) {
-    const text = String(message || "").trim();
-    if (!text) return;
-    const displayMs = Math.max(1500, Math.round((Number(durationMs) || 2800) + 500));
-    const id = Date.now() + Math.random();
-    const iconSrc = typeof options?.iconSrc === "string" ? options.iconSrc : "";
-    const iconAlt = typeof options?.iconAlt === "string" ? options.iconAlt : "";
-    const position = options?.position === "top-left" ? "top-left" : "top-right";
-    setToasts((prev) =>
-      [...prev, { id, message: text, durationMs: displayMs, iconSrc, iconAlt, position }].slice(-6)
-    );
+    const toast = notificationsFeature.show(message, durationMs, options);
+    if (!toast) return;
     playOneShotAudio(SFX_KEYS.vocabCling, {
       cooldownKey: "toastPop",
       cooldownMs: 100,
       eqKey: "vocabCling",
     });
-    const timerId = setTimeout(() => {
-      toastTimersRef.current.delete(id);
-      setToasts((prev) => prev.filter((entry) => entry.id !== id));
-    }, displayMs);
-    toastTimersRef.current.set(id, timerId);
   }
 
   useEffect(() => {
@@ -11497,8 +11474,7 @@ export default function GobbleApplication() {
     showToast,
     chatRulesAccepted,
     setIsChatRulesOpen,
-    setMobileChatReactionToasts,
-    mobileChatReactionToastTimersRef,
+    chatFeature,
     isMobileLayoutRef,
     setHomeChatUnreadCount,
     setHomeChatBotUnreadCount,
@@ -18371,7 +18347,6 @@ function handleTouchEnd(e) {
     isMobileLayout,
     isSpecial3WordsMode: phase === "playing" && isSpecial3WordsMode,
     keyboardInsetReservePx,
-    mobileChatReactionToasts,
     mobileChatUnreadIsBotOnly,
     mobileChatUnreadCount,
     getAuthorNickClassName: getLiveNickClassName,
@@ -18709,8 +18684,8 @@ function handleTouchEnd(e) {
         </Suspense>
       ) : null}
       {aboutModalView}
-      <ChatReactionToastLayer toasts={mobileChatReactionToasts} />
-      <ToastStack toasts={toasts} darkMode={darkMode} />
+      <ChatReactionToastSatellite />
+      <NotificationToastLayer darkMode={darkMode} />
     </>
   );
   const suppressLiveChatMotion = isMobileLayout && (isChatOpenMobile || isChatClosing);
@@ -18918,8 +18893,8 @@ function handleTouchEnd(e) {
         {settingsMenuView}
         {aboutModalView}
         {quickHelpOverlay}
-        <ChatReactionToastLayer toasts={mobileChatReactionToasts} />
-        <ToastStack toasts={toasts} darkMode={menuDarkMode} />
+        <ChatReactionToastSatellite />
+        <NotificationToastLayer darkMode={menuDarkMode} />
         {globalChatLayer}
         <HomeLobby
           accountLabel={homeAccountLabel}
@@ -19212,14 +19187,11 @@ function handleTouchEnd(e) {
             isChatClosing,
             isChatOpenMobile,
             isMobileLayout,
-            livePosition,
             mobileLayoutSizing,
             mobileResultsPhaseFadeOverlay,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             phase,
-            players,
-            rankingSource,
             rosterConfig: liveRosterConfig,
             roundTilePointsVisible,
             score,
@@ -19439,7 +19411,6 @@ function handleTouchEnd(e) {
             ocidStatusMessage,
             ocidVote,
             phase,
-            rankingSource,
             rosterConfig: liveRosterConfig,
             recordBadgesByNickForRound,
             resultsRankingMode,
@@ -19450,7 +19421,6 @@ function handleTouchEnd(e) {
             roundTilePointsVisible,
             scoreLabel,
             selfNick,
-            selfReadyForTournament,
             shake,
             shouldDefinitionBlink,
             showAllWords,
@@ -19481,7 +19451,6 @@ function handleTouchEnd(e) {
             trainingBusy,
             usedSet,
             visibleMessages,
-            visiblePlayerList,
             vocabLevelUp,
             wordsFoundLabel,
           }}
@@ -19694,7 +19663,6 @@ function handleTouchEnd(e) {
             MAIN_GRID_HEIGHT,
             mainGridDesktopRef,
             mixedFeed,
-            mobileChatReactionToasts,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             nextHintLabel,
@@ -19714,13 +19682,11 @@ function handleTouchEnd(e) {
             openWeeklyStatsOverlay,
             phase,
             playColumnRef,
-            players,
             praiseOverlay,
             prepareWordListFlip,
             previewBarMinHeight,
             previewTileStyle,
             quickHelpOverlay,
-            rankingSource,
             rosterConfig: liveRosterConfig,
             recordBadgesByNickForRound,
             renderDesktopColumnHandle,

@@ -37,7 +37,6 @@ function DesktopChatPanel({
   isDesktopEmojiPickerOpen = false,
   lastMessageId: lastMessageIdProp = null,
   listRef,
-  mobileReactionToasts = [],
   panelRef,
   quickReplies = [],
   selfNick = "",

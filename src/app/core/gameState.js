@@ -21,7 +21,6 @@ export const GAME_STATE_FIELDS = Object.freeze([
   "sortMode",
   "statusMessage",
   "submissionTick",
-  "toasts",
 ]);
 
 export const GAME_STATE_FIELD_SET = new Set(GAME_STATE_FIELDS);
@@ -55,6 +54,5 @@ export function createInitialGameState({ gridSize = 4, roomId = "room-4x4" } = {
     sortMode: "score",
     statusMessage: null,
     submissionTick: 0,
-    toasts: [],
   });
 }

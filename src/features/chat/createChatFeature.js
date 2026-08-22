@@ -101,7 +101,8 @@ export function createInitialChatState(storage = globalThis.localStorage) {
 export function createChatFeature(context, options = {}) {
   const storage = options.storage || globalThis.localStorage;
   let persistTimer = null;
-  return createStateFeature(context, () => createInitialChatState(storage), {
+  const reactionToastTimers = new Set();
+  const feature = createStateFeature(context, () => createInitialChatState(storage), {
     start: ({ scope, store }) => {
       let previous = store.getState();
       const persist = () => {
@@ -144,7 +145,38 @@ export function createChatFeature(context, options = {}) {
       scope.add(unsubscribe);
       scope.add(() => {
         if (persistTimer != null) clearTimeout(persistTimer);
+        for (const timerId of reactionToastTimers) clearTimeout(timerId);
+        reactionToastTimers.clear();
+        store.set("mobileReactionToasts", []);
       });
     },
+  });
+  function clearReactionToasts() {
+    for (const timerId of reactionToastTimers) clearTimeout(timerId);
+    reactionToastTimers.clear();
+    feature.set("mobileReactionToasts", []);
+  }
+  function enqueueReactionToast(toast, durationMs = 2400) {
+    if (!toast || typeof toast !== "object") return null;
+    const entry = Object.freeze({
+      ...toast,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    feature.set("mobileReactionToasts", (current) =>
+      [...current, entry].slice(-3)
+    );
+    const timerId = setTimeout(() => {
+      reactionToastTimers.delete(timerId);
+      feature.set("mobileReactionToasts", (current) =>
+        current.filter((item) => item.id !== entry.id)
+      );
+    }, Math.max(0, Number(durationMs) || 0));
+    reactionToastTimers.add(timerId);
+    return entry;
+  }
+  return Object.freeze({
+    ...feature,
+    clearReactionToasts,
+    enqueueReactionToast,
   });
 }

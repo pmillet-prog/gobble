@@ -8,6 +8,7 @@ import { createIdentityFeature } from "../features/identity/createIdentityFeatur
 import { createIntermissionClockFeature } from "../features/intermission/createIntermissionClockFeature.js";
 import { createLayoutFeature } from "../features/layout/createLayoutFeature.js";
 import { createLiveUiFeature } from "../features/live/createLiveUiFeature.js";
+import { createNotificationsFeature } from "../features/notifications/createNotificationsFeature.js";
 import { createOcidFeature } from "../features/ocid/createOcidFeature.js";
 import { createOverlaysFeature } from "../features/overlays/createOverlaysFeature.js";
 import { createPreferencesFeature } from "../features/preferences/createPreferencesFeature.js";
@@ -26,6 +27,7 @@ const FEATURE_FACTORIES = Object.freeze({
   intermission: createIntermissionClockFeature,
   layout: createLayoutFeature,
   liveUi: createLiveUiFeature,
+  notifications: createNotificationsFeature,
   ocid: createOcidFeature,
   overlays: createOverlaysFeature,
   preferences: createPreferencesFeature,

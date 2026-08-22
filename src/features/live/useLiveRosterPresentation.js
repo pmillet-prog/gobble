@@ -4,11 +4,22 @@ import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvid
 import { useFeatureFields, useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 import useLiveRanking from "../../components/results/useLiveRanking.js";
 
+const EMPTY_LIST = Object.freeze([]);
 const ROSTER_CHAT_FIELDS = Object.freeze(["blockedInstallIds"]);
 
-export function useLiveRosterPresentation({
+function useLivePlayers(disabled = false) {
+  return useApplicationSelector((state) =>
+    disabled ? EMPTY_LIST : state.realtime.players
+  );
+}
+
+export function useLivePlayerCount() {
+  return useApplicationSelector((state) => state.realtime.players.length);
+}
+
+export function useLiveRankingPresentation({
   authenticatedUserId,
-  dailyRankingSource = [],
+  dailyRankingSource = EMPTY_LIST,
   duelStatus,
   installId,
   isDailyPlay = false,
@@ -16,15 +27,10 @@ export function useLiveRosterPresentation({
   score,
   selfNick,
 }) {
-  const players = useApplicationSelector((state) => state.realtime.players);
-  const provisionalRanking = useApplicationSelector(
-    (state) => state.realtime.provisionalRanking
-  );
-  const chat = useFeatureRuntime("chat");
-  const { blockedInstallIds } = useFeatureFields(chat, ROSTER_CHAT_FIELDS);
-  const blockedSet = React.useMemo(
-    () => new Set(blockedInstallIds || []),
-    [blockedInstallIds]
+  const players = useLivePlayers(isDailyPlay);
+  const playerCount = useLivePlayerCount();
+  const provisionalRanking = useApplicationSelector((state) =>
+    isDailyPlay ? EMPTY_LIST : state.realtime.provisionalRanking
   );
   const liveRankingSource = useLiveRanking(
     authenticatedUserId,
@@ -36,7 +42,24 @@ export function useLiveRosterPresentation({
     score,
     selfNick
   );
-  const visiblePlayerList = React.useMemo(() => {
+  const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
+  return {
+    livePosition:
+      rankingSource.find((entry) => entry?.nick === selfNick)?.rank ?? null,
+    playerCount,
+    rankingSource,
+  };
+}
+
+export function useVisibleLivePlayers() {
+  const players = useLivePlayers(false);
+  const chat = useFeatureRuntime("chat");
+  const { blockedInstallIds } = useFeatureFields(chat, ROSTER_CHAT_FIELDS);
+  const blockedSet = React.useMemo(
+    () => new Set(blockedInstallIds || []),
+    [blockedInstallIds]
+  );
+  return React.useMemo(() => {
     const visible = (players || []).filter(
       (player) => !player?.installId || !blockedSet.has(player.installId)
     );
@@ -44,47 +67,16 @@ export function useLiveRosterPresentation({
       (a, b) => Number(!!a?.inTraining) - Number(!!b?.inTraining)
     );
   }, [blockedSet, players]);
-  const playersAlphaList = React.useMemo(() => {
-    const seen = new Set();
-    return visiblePlayerList
-      .filter((player) => {
-        const nick = String(player?.nick || "").trim();
-        if (!nick || seen.has(nick)) return false;
-        seen.add(nick);
-        return true;
-      })
-      .map((player) => ({
-        ...player,
-        installId:
-          player?.installId != null ? String(player.installId) : "",
-        nick: String(player.nick).trim(),
-        userId: normalizeUserIdForProfile(player?.userId),
-      }))
-      .sort((a, b) => {
-        const trainingDiff = Number(!!a?.inTraining) - Number(!!b?.inTraining);
-        return (
-          trainingDiff ||
-          a.nick.localeCompare(b.nick, "fr", { sensitivity: "base" })
-        );
-      });
-  }, [normalizeUserIdForProfile, visiblePlayerList]);
-  const rankingSource = isDailyPlay ? dailyRankingSource : liveRankingSource;
-  const selfReadyForTournament = players.some((player) => {
-    if (!player?.readyForTournament) return false;
-    if (installId && String(player?.installId || "") === String(installId)) {
-      return true;
-    }
-    return selfNick && String(player?.nick || "").trim() === selfNick;
-  });
+}
 
-  return {
-    livePosition:
-      rankingSource.find((entry) => entry?.nick === selfNick)?.rank ?? null,
-    players,
-    playersAlphaList,
-    provisionalRanking,
-    rankingSource,
-    selfReadyForTournament,
-    visiblePlayerList,
-  };
+export function useSelfReadyForTournament({ installId, selfNick }) {
+  return useApplicationSelector((state) =>
+    state.realtime.players.some((player) => {
+      if (!player?.readyForTournament) return false;
+      if (installId && String(player?.installId || "") === String(installId)) {
+        return true;
+      }
+      return selfNick && String(player?.nick || "").trim() === selfNick;
+    })
+  );
 }

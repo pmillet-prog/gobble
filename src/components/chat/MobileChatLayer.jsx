@@ -34,7 +34,6 @@ function MobileChatLayer(props) {
     isMobileLayout = false,
     isSpecial3WordsMode = false,
     keyboardInsetReservePx = 0,
-    mobileChatReactionToasts = [],
     mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
     getAuthorNickClassName = null,
@@ -102,7 +101,6 @@ function MobileChatLayer(props) {
       isChatClosing={isChatClosing}
       mobileChatUnreadIsBotOnly={mobileChatUnreadIsBotOnly}
       mobileChatUnreadCount={mobileChatUnreadCount}
-      mobileReactionToasts={mobileChatReactionToasts}
       blockedCount={blockedCount}
       blockedEntries={blockedEntries}
       onToggleBlockedList={onToggleBlockedList}

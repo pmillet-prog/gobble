@@ -5,9 +5,9 @@ import LiveFeed from "../LiveFeed.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
-import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import TargetHintPattern from "../TargetHintPattern.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
+import { MobileLiveRankingPanel } from "../../features/live/LiveRosterSatellites.jsx";
 
 function MobileStandardPlaying(props) {
   const {
@@ -27,7 +27,6 @@ function MobileStandardPlaying(props) {
     defaultTileBaseClass = "",
     duelTeam = null,
     formatNumber = (value) => String(value ?? ""),
-    fullRanking = [],
     liveFeedBannerText = "",
     gobbleAwardsForLive = null,
     gridRef = null,
@@ -103,6 +102,7 @@ function MobileStandardPlaying(props) {
     getNickClassName = null,
     nickDecorationKey = "",
     renderNickSuffix = null,
+    rosterConfig = null,
     roundTypeLabel = "",
     roundStats = null,
     roundTilePointsVisible = false,
@@ -421,68 +421,26 @@ function MobileStandardPlaying(props) {
               >
                 {nextHintLabel}
               </div>
-              {phase === "playing" && !isDailyPlay && !isTargetRound && !isOcidRound ? (
-                <button
-                  type="button"
-                  className={`absolute bottom-2 right-2 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
-                    darkMode
-                      ? "bg-slate-900/70 text-white border border-white/10"
-                      : "bg-white/80 text-slate-900 border border-slate-200"
-                  }`}
-                  onClick={() => onOpenPlayersOverlaySnapshot?.(fullRanking)}
-                >
-                  Liste des joueurs
-                </button>
-              ) : null}
             </div>
           ) : (
-            <div
-              ref={mobileRankingRef}
-              className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
-              style={
-                mobileLayoutSizing.rankingHeight > 0
-                  ? {
-                      height: `${Math.round(mobileLayoutSizing.rankingHeight)}px`,
-                      maxHeight: `${Math.round(mobileLayoutSizing.rankingHeight)}px`,
-                      minHeight: 0,
-                    }
-                  : undefined
-              }
-            >
-              {phase === "playing" && !isDailyPlay && !isTargetRound && !isOcidRound ? (
-                <button
-                  type="button"
-                  className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
-                    darkMode
-                      ? "bg-slate-900/70 text-white border border-white/10"
-                      : "bg-white/80 text-slate-900 border border-slate-200"
-                  }`}
-                  onClick={() => onOpenPlayersOverlaySnapshot?.(fullRanking)}
-                >
-                  Liste des joueurs
-                </button>
-              ) : null}
-              <RankingWidgetMobile
-                fullRanking={fullRanking}
-                selfNick={selfNick}
-                darkMode={darkMode}
-                expanded={false}
-                flatStyle={true}
-                highlightedPlayers={highlightPlayers}
-                fitHeight={false}
-                animateRank={false}
-                assetVersion={assetVersion}
-                gobbleWordAwardsByNick={gobbleAwardsForLive}
-                onPlayerNickClick={onOpenPlayerProfile}
-                isPlayerNickClickable={canOpenPlayerProfile}
-                getNickClassName={getNickClassName}
-                nickDecorationKey={nickDecorationKey}
-                renderNickSuffix={renderNickSuffix}
-                showGobbleWordAwards={true}
-                showScores={true}
-                className="h-full"
-              />
-            </div>
+            <MobileLiveRankingPanel
+              assetVersion={assetVersion}
+              canOpenPlayerProfile={canOpenPlayerProfile}
+              darkMode={darkMode}
+              getNickClassName={getNickClassName}
+              gobbleAwardsForLive={gobbleAwardsForLive}
+              highlightedPlayers={highlightPlayers}
+              isDailyPlay={isDailyPlay}
+              isOcidRound={isOcidRound}
+              mobileLayoutSizing={mobileLayoutSizing}
+              mobileRankingRef={mobileRankingRef}
+              nickDecorationKey={nickDecorationKey}
+              onOpenPlayerProfile={onOpenPlayerProfile}
+              onOpenPlayersOverlaySnapshot={onOpenPlayersOverlaySnapshot}
+              renderNickSuffix={renderNickSuffix}
+              rosterConfig={rosterConfig}
+              selfNick={selfNick}
+            />
           )}
 
           {!isOcidRound && !targetWaitDevActive ? (

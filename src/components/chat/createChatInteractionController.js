@@ -134,8 +134,7 @@ export function createChatInteractionController(runtime) {
     showToast,
     chatRulesAccepted,
     setIsChatRulesOpen,
-    setMobileChatReactionToasts,
-    mobileChatReactionToastTimersRef,
+    chatFeature,
     isMobileLayoutRef,
     setHomeChatUnreadCount,
     setHomeChatBotUnreadCount,
@@ -302,9 +301,7 @@ function requestOpenChat() {
 }
 
 function clearMobileChatReactionToasts() {
-  setMobileChatReactionToasts([]);
-  mobileChatReactionToastTimersRef.current.forEach((id) => clearTimeout(id));
-  mobileChatReactionToastTimersRef.current = [];
+  chatFeature.clearReactionToasts();
 }
 
 function enqueueMobileChatReactionToast(emoji, { messageId = "", actorNick = "" } = {}) {
@@ -321,17 +318,11 @@ function enqueueMobileChatReactionToast(emoji, { messageId = "", actorNick = "" 
   if (!origin) {
     origin = buildBottomChatToastOrigin();
   }
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  setMobileChatReactionToasts((prev) =>
-    [...prev, { id, emoji: safeEmoji, actorNick: safeActorNick, ...origin }].slice(-3)
-  );
-  const timerId = setTimeout(() => {
-    setMobileChatReactionToasts((prev) => prev.filter((entry) => entry.id !== id));
-    mobileChatReactionToastTimersRef.current = mobileChatReactionToastTimersRef.current.filter(
-      (entry) => entry !== timerId
-    );
-  }, 2400);
-  mobileChatReactionToastTimersRef.current.push(timerId);
+  chatFeature.enqueueReactionToast({
+    actorNick: safeActorNick,
+    emoji: safeEmoji,
+    ...origin,
+  });
 }
 
 function openHomeChat() {

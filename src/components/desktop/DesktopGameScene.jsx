@@ -5,7 +5,10 @@ import { formatNumber } from "../../utils/numbers.js";
 import { mapDisplayToBoardIndex } from "../../game/gridRotation.js";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
 import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
-import { useLiveRosterPresentation } from "../../features/live/useLiveRosterPresentation.js";
+import {
+  DesktopLiveRankingSatellite,
+  LivePlayersCount,
+} from "../../features/live/LiveRosterSatellites.jsx";
 import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
 import DesktopChatPanel from "../DesktopChatPanel.jsx";
@@ -161,7 +164,6 @@ export default function DesktopGameScene({ runtime }) {
     MAIN_GRID_HEIGHT,
     mainGridDesktopRef,
     mixedFeed,
-    mobileChatReactionToasts,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     nextHintLabel,
@@ -181,13 +183,11 @@ export default function DesktopGameScene({ runtime }) {
     openWeeklyStatsOverlay,
     phase,
     playColumnRef,
-    players: playersProp,
     praiseOverlay,
     prepareWordListFlip,
     previewBarMinHeight,
     previewTileStyle,
     quickHelpOverlay,
-    rankingSource: rankingSourceProp,
     recordBadgesByNickForRound,
     renderDesktopColumnHandle,
     renderDesktopResultsDockPanel,
@@ -308,11 +308,8 @@ export default function DesktopGameScene({ runtime }) {
     wordsFoundLabel,
     rosterConfig,
   } = runtime;
-  const roster = useLiveRosterPresentation(rosterConfig);
-  const players = roster.players;
-  const rankingSource = roster.rankingSource;
-  const selfReadyForTournament = roster.selfReadyForTournament;
-  const visiblePlayerList = roster.visiblePlayerList;
+  const selfReadyForTournament = selfReadyForTournamentProp;
+  const visiblePlayerList = visiblePlayerListProp;
 
   const desktopGridHeightPx =
     !isMobileLayout && Number.isFinite(desktopMainGridHeight)
@@ -507,7 +504,7 @@ export default function DesktopGameScene({ runtime }) {
           <div className="desktop-column-heading flex items-center justify-between">
             <h2 className="desktop-column-title font-bold">
               {activeRoom?.label || "Salon"}{" "}
-              {Array.isArray(players) && players.length > 0 ? `(${players.length})` : ""}
+              <LivePlayersCount />
             </h2>
             <span className="desktop-column-status rounded-full bg-gray-100 border border-gray-200">
               {serverStatus === "running"
@@ -702,8 +699,8 @@ export default function DesktopGameScene({ runtime }) {
         </div>
       )}
       {!standaloneTrainingSession && !isTargetRound && !isOcidRound && (
-        <RankingWidgetMobile
-          fullRanking={rankingSource || []}
+        <DesktopLiveRankingSatellite
+          rosterConfig={rosterConfig}
           selfNick={selfNick}
           darkMode={darkMode}
           expanded={!isMobileLayout}
@@ -1591,7 +1588,6 @@ export default function DesktopGameScene({ runtime }) {
             isDesktopEmojiPickerOpen={isDesktopEmojiPickerOpen}
             lastMessageId={lastMessageId}
             listRef={setChatDesktopListNode}
-            mobileReactionToasts={mobileChatReactionToasts}
             panelRef={setDesktopChatColumnNode}
             quickReplies={QUICK_REPLIES}
             selfNick={selfNick}

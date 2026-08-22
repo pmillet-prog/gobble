@@ -44,3 +44,15 @@ test("chat preferences persist only when their owned values change", () => {
   assert.equal(storage.writes[0].value, "0");
   scope.dispose();
 });
+
+test("chat feature owns reaction toast state and expiry resources", () => {
+  const storage = createMemoryStorage();
+  const scope = createResourceScope("chat-reaction-test");
+  const chat = createChatFeature({ scope }, { storage });
+  chat.start();
+
+  chat.enqueueReactionToast({ emoji: "👍", kind: "bottom", x: 10, y: 20 });
+  assert.equal(chat.store.getState().mobileReactionToasts.length, 1);
+  scope.dispose();
+  assert.equal(chat.store.getState().mobileReactionToasts.length, 0);
+});

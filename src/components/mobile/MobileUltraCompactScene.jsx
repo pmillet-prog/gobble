@@ -3,7 +3,7 @@ import { getViewportSize } from "../../app/adapters/deviceCapabilities.js";
 import { tileScore } from "../gameLogic.js";
 import { normalizeBonusLabel } from "../daily/dailySpecialModel.js";
 import MobileUltraCompactPlaying from "./MobileUltraCompactPlaying.jsx";
-import { useLiveRosterPresentation } from "../../features/live/useLiveRosterPresentation.js";
+import { UltraCompactRankingLabel } from "../../features/live/LiveRosterSatellites.jsx";
 
 export default function MobileUltraCompactScene({ state, refs, actions, content, config }) {
   const {
@@ -22,14 +22,11 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     isChatClosing,
     isChatOpenMobile,
     isMobileLayout,
-    livePosition: livePositionProp,
     mobileLayoutSizing,
     mobileResultsPhaseFadeOverlay,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     phase,
-    players: playersProp,
-    rankingSource: rankingSourceProp,
     roundTilePointsVisible,
     score,
     selfNick,
@@ -41,10 +38,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     usedSet,
     rosterConfig,
   } = state;
-  const roster = useLiveRosterPresentation(rosterConfig);
-  const livePosition = roster.livePosition;
-  const players = roster.players;
-  const rankingSource = roster.rankingSource;
   const {
     chatBodyLockHeightRef,
     gameViewportFreezeHeightRef,
@@ -72,20 +65,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     specialIndicatorPreset,
   } = config;
 
-    const compactRankingList = rankingSource;
-    const compactPlayerRankingList = Array.isArray(compactRankingList)
-      ? compactRankingList.filter((entry) => !entry?.isPalier)
-      : [];
-    const compactTotal =
-      compactPlayerRankingList.length || (Array.isArray(players) ? players.length : 0) || null;
-    const compactRankIndex = selfNick
-      ? compactPlayerRankingList.findIndex((entry) => entry?.nick === selfNick)
-      : -1;
-    const compactRank =
-      compactRankIndex >= 0
-        ? compactRankIndex + 1
-        : compactPlayerRankingList.find((entry) => entry.nick === selfNick)?.rank ?? livePosition;
-    const compactScore = typeof score === "number" ? score : null;
     const { width: viewportWidthRaw, height: viewportHeightRaw } = getViewportSize();
     const lockedGameViewportWidth =
       Number(mobileGameViewportLockRef.current?.width) || 0;
@@ -177,9 +156,13 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
       <>
         <MobileUltraCompactPlaying
           chatOverlays={chatOverlays}
-          compactRank={compactRank}
-          compactScore={compactScore}
-          compactTotal={compactTotal}
+          compactRankingLabel={
+            <UltraCompactRankingLabel
+              rosterConfig={rosterConfig}
+              score={score}
+              selfNick={selfNick}
+            />
+          }
           darkMode={darkMode}
           mobileGridProps={{
           board,

@@ -5,9 +5,7 @@ import MobileGrid from "../MobileGrid.jsx";
 
 function MobileUltraCompactPlaying({
   chatOverlays = null,
-  compactRank = null,
-  compactScore = null,
-  compactTotal = null,
+  compactRankingLabel = null,
   darkMode = false,
   mobileGridProps = {},
   mobileResultsPhaseFadeOverlay = null,
@@ -26,9 +24,7 @@ function MobileUltraCompactPlaying({
       >
         <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
           <span className="truncate">
-            {compactRank ? `#${compactRank}` : "#?"}
-            {compactTotal ? `/${compactTotal}` : ""}
-            {compactScore !== null ? ` · ${compactScore}` : ""}
+            {compactRankingLabel}
           </span>
           <div className="flex items-center gap-1">
             <button
