@@ -56,6 +56,7 @@ import {
   recordPerfEvent,
   setPerfProbeEnabled,
 } from "./perf/renderPerfProbe.js";
+import { createSamsungDiagnostics } from "./perf/createSamsungDiagnostics.js";
 import {
   AMBIENT_MUSIC_TRACKS_DEFAULT,
   AUDIO_COOLDOWN_MAX_KEYS,
@@ -202,6 +203,7 @@ import useEndStats from "./components/results/useEndStats.js";
 import useResultsAwards from "./components/results/useResultsAwards.js";
 import useLiveRanking from "./components/results/useLiveRanking.js";
 import { createRoundPlayerDetailsController } from "./components/results/createRoundPlayerDetailsController.js";
+import { createResultsWordInspector } from "./components/results/createResultsWordInspector.js";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import RoundPreparationOverlay from "./components/RoundPreparationOverlay.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
@@ -521,14 +523,8 @@ const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 3;
 const SAMSUNG_SAFE_MODE_STORAGE_KEY = "samsungSafeMode";
 const SAMSUNG_DIAG_QUERY_PARAM = "samsungDiag";
 const SAMSUNG_DIAG_STORAGE_KEY = "gobbleSamsungDiagEnabled";
-const SAMSUNG_DIAG_SNAPSHOT_STORAGE_KEY = "gobbleSamsungDiagLast";
 const SAMSUNG_BROWSER_WARNING_SESSION_KEY = "gobbleSamsungBrowserWarningShown";
-const SAMSUNG_DIAG_RING_LIMIT = 180;
 const SAMSUNG_DIAG_FLUSH_INTERVAL_MS = 4000;
-const SAMSUNG_DIAG_TOUCH_RATE_WINDOW_MS = 1000;
-const SAMSUNG_DIAG_HIGH_TOUCH_RATE_PER_SEC = 70;
-const SAMSUNG_DIAG_TOUCH_RATE_MIN_SAMPLES = 8;
-const SAMSUNG_DIAG_TOUCH_RATE_MIN_ELAPSED_MS = 140;
 const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
 const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
@@ -6354,189 +6350,29 @@ export default function LegacyApp() {
     };
   }, []);
 
-  function getSamsungDiagNowMs() {
-    if (typeof performance !== "undefined" && typeof performance.now === "function") {
-      return performance.now();
-    }
-    return Date.now();
-  }
-
-  function isSamsungDiagActive() {
-    return !!samsungDiagEnabledRef.current;
-  }
-
-  function bumpSamsungDiagCounter(counter, delta = 1) {
-    if (!isSamsungDiagActive()) return;
-    if (!counter) return;
-    const diag = samsungDiagRef.current;
-    if (!diag?.counters || !Object.prototype.hasOwnProperty.call(diag.counters, counter)) return;
-    const base = Number(diag.counters[counter]) || 0;
-    diag.counters[counter] = base + delta;
-  }
-
-  function buildSamsungDiagSnapshot(reason = "heartbeat", extra = null) {
-    const diag = samsungDiagRef.current || {};
-    const metrics = dragGridMetricsRef.current || gridHitboxRef.current;
-    const voiceState = audioVoiceRef.current || {};
-    const tickValue = tickRef.current;
-    const wordLen = Array.isArray(currentTilesRef.current) ? currentTilesRef.current.length : 0;
-    const payload = {
-      at: new Date().toISOString(),
-      reason,
-      source: samsungDiagSourceRef.current || "unknown",
-      samsungBrowser: !!isSamsungBrowserRef.current,
-      samsungSafeMode: !!samsungSafeModeRef.current,
-      phase: phaseRef.current,
-      tick: Number.isFinite(tickValue) ? tickValue : null,
-      drag: !!draggingRef.current,
-      dragRafPending: dragMoveRafRef.current != null,
-      dragPointPending: !!dragPendingPointRef.current,
-      wordLen,
-      touchRate: {
-        peakPerSec: Math.round(diag?.touchRate?.peakPerSec || 0),
-        inWindow: Number(diag?.touchRate?.count) || 0,
-      },
-      counters: { ...(diag?.counters || {}) },
-      grid: metrics
-        ? {
-            size: metrics.size,
-            cellWidth: Math.round(metrics.cellWidth || 0),
-            cellHeight: Math.round(metrics.cellHeight || 0),
-            colGap: Math.round(metrics.colGap || 0),
-            rowGap: Math.round(metrics.rowGap || 0),
-          }
-        : null,
-      audio: {
-        activeVoices: Number.isFinite(voiceState.activeVoices) ? voiceState.activeVoices : null,
-        maxVoices: Number.isFinite(voiceState.maxVoices) ? voiceState.maxVoices : null,
-        drops: Number.isFinite(voiceState.drops) ? voiceState.drops : null,
-        cooldownKeys:
-          voiceState.lastPlayed instanceof Map ? voiceState.lastPlayed.size : null,
-      },
-      assetAudio: AssetManager.getAudioDebugStats?.() || null,
-      recent: Array.isArray(diag?.events) ? diag.events.slice(-18) : [],
-    };
-    if (extra && typeof extra === "object") {
-      payload.extra = extra;
-    }
-    return payload;
-  }
-
-  function flushSamsungDiagSnapshot(reason = "heartbeat", { consoleLevel = "", extra = null } = {}) {
-    if (!isSamsungDiagActive()) return null;
-    const diag = samsungDiagRef.current;
-    const now = Date.now();
-    const forceConsole = consoleLevel === "warn" || consoleLevel === "error";
-    if (!forceConsole && now - (diag.lastFlushAt || 0) < 1200) return diag.lastSnapshot || null;
-    diag.lastFlushAt = now;
-    const snapshot = buildSamsungDiagSnapshot(reason, extra);
-    diag.lastSnapshot = snapshot;
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(SAMSUNG_DIAG_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot));
-      }
-    } catch (_) {}
-    if (typeof window !== "undefined") {
-      window.__gobbleSamsungDiagLast = snapshot;
-    }
-    if (consoleLevel === "error") {
-      try {
-        console.error("[perf][samsung][diag]", reason, JSON.stringify(snapshot));
-      } catch (_) {
-        console.error("[perf][samsung][diag]", reason, snapshot);
-      }
-    } else if (consoleLevel === "warn") {
-      try {
-        console.warn("[perf][samsung][diag]", reason, JSON.stringify(snapshot));
-      } catch (_) {
-        console.warn("[perf][samsung][diag]", reason, snapshot);
-      }
-    } else if (reason === "heartbeat" && samsungDiagSourceRef.current === "query") {
-      try {
-        console.info("[perf][samsung][diag]", reason, JSON.stringify(snapshot));
-      } catch (_) {
-        console.info("[perf][samsung][diag]", reason, snapshot);
-      }
-    }
-    return snapshot;
-  }
-
-  function pushSamsungDiagEvent(event, payload = null, { consoleLevel = "", flush = false } = {}) {
-    if (!isSamsungDiagActive()) return;
-    const diag = samsungDiagRef.current;
-    const entry = {
-      seq: (diag.seq || 0) + 1,
-      at: new Date().toISOString(),
-      t: Math.round(getSamsungDiagNowMs()),
-      event,
-    };
-    if (payload && typeof payload === "object") {
-      entry.payload = payload;
-    }
-    diag.seq = entry.seq;
-    diag.events.push(entry);
-    if (diag.events.length > SAMSUNG_DIAG_RING_LIMIT) {
-      diag.events.splice(0, diag.events.length - SAMSUNG_DIAG_RING_LIMIT);
-    }
-    if (consoleLevel === "error") {
-      try {
-        console.error("[perf][samsung][diag-event]", event, JSON.stringify(payload || {}));
-      } catch (_) {
-        console.error("[perf][samsung][diag-event]", event, payload || {});
-      }
-    } else if (consoleLevel === "warn") {
-      try {
-        console.warn("[perf][samsung][diag-event]", event, JSON.stringify(payload || {}));
-      } catch (_) {
-        console.warn("[perf][samsung][diag-event]", event, payload || {});
-      }
-    }
-    if (flush) {
-      flushSamsungDiagSnapshot(event, {
-        consoleLevel: consoleLevel || "warn",
-        extra: payload && typeof payload === "object" ? payload : null,
-      });
-    }
-  }
-
-  function noteSamsungTouchMoveRate() {
-    if (!isSamsungDiagActive()) return;
-    const now = getSamsungDiagNowMs();
-    const diag = samsungDiagRef.current;
-    const bucket = diag.touchRate;
-    if (now - (bucket.startAt || 0) > SAMSUNG_DIAG_TOUCH_RATE_WINDOW_MS) {
-      bucket.startAt = now;
-      bucket.count = 0;
-    }
-    bucket.count += 1;
-    const elapsed = Math.max(1, now - bucket.startAt);
-    if (
-      bucket.count < SAMSUNG_DIAG_TOUCH_RATE_MIN_SAMPLES ||
-      elapsed < SAMSUNG_DIAG_TOUCH_RATE_MIN_ELAPSED_MS
-    ) {
-      return;
-    }
-    const perSec = (bucket.count * 1000) / elapsed;
-    if (perSec > bucket.peakPerSec) {
-      bucket.peakPerSec = perSec;
-    }
-    if (
-      perSec >= SAMSUNG_DIAG_HIGH_TOUCH_RATE_PER_SEC &&
-      now - (bucket.lastHighAt || 0) > 1800
-    ) {
-      bucket.lastHighAt = now;
-      pushSamsungDiagEvent(
-        "touch-rate-high",
-        {
-          perSec: Math.round(perSec),
-          drag: !!draggingRef.current,
-          rafPending: dragMoveRafRef.current != null,
-          pointPending: !!dragPendingPointRef.current,
-        },
-        { consoleLevel: "warn", flush: true }
-      );
-    }
-  }
+  const samsungDiagnostics = createSamsungDiagnostics([
+    samsungDiagEnabledRef,
+    samsungDiagRef,
+    dragGridMetricsRef,
+    gridHitboxRef,
+    audioVoiceRef,
+    tickRef,
+    currentTilesRef,
+    samsungDiagSourceRef,
+    isSamsungBrowserRef,
+    samsungSafeModeRef,
+    phaseRef,
+    draggingRef,
+    dragMoveRafRef,
+    dragPendingPointRef,
+  ]);
+  function getSamsungDiagNowMs(...args) { return samsungDiagnostics[0](...args); }
+  function isSamsungDiagActive(...args) { return samsungDiagnostics[1](...args); }
+  function bumpSamsungDiagCounter(...args) { return samsungDiagnostics[2](...args); }
+  function buildSamsungDiagSnapshot(...args) { return samsungDiagnostics[3](...args); }
+  function flushSamsungDiagSnapshot(...args) { return samsungDiagnostics[4](...args); }
+  function pushSamsungDiagEvent(...args) { return samsungDiagnostics[5](...args); }
+  function noteSamsungTouchMoveRate(...args) { return samsungDiagnostics[6](...args); }
 
   useEffect(() => {
     const shouldLoadClientDictionary = isDailyPlay || appView === "daily_play";
@@ -13240,38 +13076,24 @@ function handleTouchEnd(e) {
     dailyWordSlots
   );
 
-  function analyzeWord(word) {
-    if (!word) return;
-    const normWord = normalizeWord(word);
-    const solvedEntry =
-      solutionsRef.current.get(normWord) || solutionsRef.current.get(word);
-    const path =
-      (Array.isArray(solvedEntry?.path) && solvedEntry.path.length > 0
-        ? solvedEntry.path
-        : Array.isArray(solvedEntry) && solvedEntry.length > 0
-        ? solvedEntry
-        : findBestPathForWord(board, normWord, specialScoreConfig)) || null;
-    if (!path || path.length === 0) {
-      setAnalysis(null);
-      setHighlightPath([]);
-      setHighlightPlayers([]);
-      return;
-    }
-    const bonuses = summarizeBonuses(path, board);
-    const pts = computeScore(normWord, path, board, specialScoreConfig);
-    const matchedPlayers = finalResults
-      .filter((res) => Array.isArray(res.words) && res.words.some((w) => normalizeWord(w) === normWord))
-      .map((res) => res.nick);
-    setAnalysis({ word, pts, bonuses });
-    setHighlightPath(path);
-    setHighlightPlayers(matchedPlayers);
-  }
-
-  function clearResultsWordAnalysis() {
-    setAnalysis(null);
-    setHighlightPath([]);
-    setHighlightPlayers([]);
-  }
+  const [
+    analyzeWord,
+    clearResultsWordAnalysis,
+    openWordInfoModal,
+    closeWordInfoModal,
+  ] = createResultsWordInspector(
+    solutionsRef,
+    board,
+    specialScoreConfig,
+    setAnalysis,
+    setHighlightPath,
+    setHighlightPlayers,
+    finalResults,
+    setWordInfoModal,
+    guidedResultsStep,
+    setGuidedResultsStep,
+    GUIDED_RESULTS_STEPS
+  );
 
   useEffect(() => {
     analyzeWordActionRef.current = analyzeWord;
@@ -13291,39 +13113,6 @@ function handleTouchEnd(e) {
     if (!word) return;
     openDefinitionActionRef.current?.(word);
   }, []);
-
-  function getWordFinders(word) {
-    if (!word || !Array.isArray(finalResults)) return [];
-    const norm = normalizeWord(word);
-    if (!norm) return [];
-    const found = [];
-    const seen = new Set();
-    finalResults.forEach((res) => {
-      const nick = res?.nick ? String(res.nick).trim() : "";
-      if (!nick || seen.has(nick)) return;
-      const words = Array.isArray(res.words) ? res.words : [];
-      const hit = words.some((w) => normalizeWord(w) === norm);
-      if (hit) {
-        seen.add(nick);
-        found.push(nick);
-      }
-    });
-    return found;
-  }
-
-  function openWordInfoModal(word) {
-    const clean = String(word || "").trim();
-    if (!clean) return;
-    const foundBy = getWordFinders(clean);
-    setWordInfoModal({ open: true, word: clean, foundBy });
-    if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_WORD) {
-      setGuidedResultsStep(GUIDED_RESULTS_STEPS.TAP_DEFINITION);
-    }
-  }
-
-  function closeWordInfoModal() {
-    setWordInfoModal((prev) => (prev?.open ? { ...prev, open: false } : prev));
-  }
 
   // Chat
   function appendChatEmoji(emoji) {
