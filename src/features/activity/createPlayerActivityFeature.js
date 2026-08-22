@@ -1,5 +1,5 @@
 export function createPlayerActivityFeature(
-  { ports, scope },
+  { getKernel, ports, scope },
   { documentObject = globalThis.document, windowObject = globalThis.window } = {}
 ) {
   const realtime = ports?.realtime;
@@ -67,6 +67,19 @@ export function createPlayerActivityFeature(
   }
 
   function start() {
+    if (typeof getKernel === "function") {
+      const kernel = getKernel();
+      const syncFromKernel = () => {
+        const state = kernel.getState();
+        configure({
+          enabled:
+            !!state.session?.isLoggedIn && state.navigation?.view === "live",
+          roomId: state.game?.currentRoomId || state.game?.roomId,
+        });
+      };
+      syncFromKernel();
+      scope.add(kernel.subscribe(syncFromKernel));
+    }
     scope.add(() => {
       enabled = false;
       unbindListeners();

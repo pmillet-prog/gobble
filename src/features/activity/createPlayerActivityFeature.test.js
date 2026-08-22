@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { createApplicationKernel } from "../../app/core/createApplicationKernel.js";
 import { createResourceScope } from "../../app/core/createResourceScope.js";
 import { createPlayerActivityFeature } from "./createPlayerActivityFeature.js";
 
@@ -50,4 +51,37 @@ test("player activity satellite owns listeners and realtime throttling lifecycle
   scope.dispose();
   assert.equal(windowObject.listeners.get("pointerdown")?.size || 0, 0);
   assert.equal(documentObject.listeners.get("visibilitychange")?.size || 0, 0);
+});
+
+test("player activity derives live activation and room ownership from the kernel", () => {
+  const emitted = [];
+  const realtime = {
+    connected: true,
+    emit: (name, payload) => emitted.push([name, payload]),
+  };
+  const kernel = createApplicationKernel();
+  const scope = createResourceScope("activity-kernel-test");
+  const windowObject = new FakeEventTarget();
+  const documentObject = new FakeEventTarget();
+  const feature = createPlayerActivityFeature(
+    { getKernel: () => kernel, ports: { realtime }, scope },
+    { documentObject, windowObject }
+  );
+
+  feature.start();
+  assert.equal(windowObject.listeners.get("pointerdown")?.size || 0, 0);
+  kernel.commands.transition.apply({
+    game: { currentRoomId: "room-5x5" },
+    navigation: { view: "live" },
+    session: { isLoggedIn: true },
+  });
+  assert.equal(windowObject.listeners.get("pointerdown")?.size || 0, 1);
+  assert.deepEqual(emitted[0], [
+    "player:activity",
+    { roomId: "room-5x5", kind: "live_open" },
+  ]);
+
+  kernel.commands.navigation.go("home");
+  assert.equal(windowObject.listeners.get("pointerdown")?.size || 0, 0);
+  scope.dispose();
 });

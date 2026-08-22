@@ -2725,16 +2725,6 @@ export default function GobbleApplication() {
       playerActivityFeature.signal(kind, options),
     [playerActivityFeature]
   );
-  useEffect(() => {
-    playerActivityFeature.configure({
-      enabled: isLoggedIn && appView === "live",
-      roomId: currentRoomId || roomId,
-    });
-  }, [appView, currentRoomId, isLoggedIn, playerActivityFeature, roomId]);
-  useEffect(
-    () => () => playerActivityFeature.configure({ enabled: false }),
-    [playerActivityFeature]
-  );
   useEffect(() => () => clearPhaseLoopTimer(), [clearPhaseLoopTimer]);
   useEffect(() => {
     isDailyPlayRef.current = isDailyPlay;
