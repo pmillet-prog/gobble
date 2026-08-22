@@ -100,13 +100,12 @@ import {
   computeDesktopViewportHeight,
 } from "./utils/desktopResponsiveLayout.js";
 import {
-  computeIsMobileLayout,
-  computeIsUltraCompact,
   computePreferLiteVisualEffects,
   getDefaultRoomId,
   getViewportSize,
   isLikelySamsungDeviceUserAgent,
 } from "./app/adapters/deviceCapabilities.js";
+import { VIEWPORT_EVENTS } from "./features/layout/createViewportEventHub.js";
 import {
   DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS,
   DAILY_DESKTOP_COLUMN_DEFS,
@@ -1805,8 +1804,6 @@ export default function GobbleApplication() {
         setIsIosStandalone: "isIosStandalone",
         setIsAndroidWebBrowser: "isAndroidWebBrowser",
         setMobileHeaderOffsetPx: "mobileHeaderOffsetPx",
-        setIsMobileLayout: "isMobileLayout",
-        setIsUltraCompact: "isUltraCompact",
         setMobileLayoutSizing: "mobileLayoutSizing",
         setDesktopColumnDragId: "desktopColumnDragId",
         setDesktopColumnFractions: "desktopColumnFractions",
@@ -1945,8 +1942,6 @@ export default function GobbleApplication() {
     setInstallSupport,
     setIsAndroidWebBrowser,
     setIsIosStandalone,
-    setIsMobileLayout,
-    setIsUltraCompact,
     setMobileHeaderOffsetPx,
     setMobileLayoutSizing,
     setMobileSpecial3Step1GhostStyle,
@@ -4123,12 +4118,14 @@ export default function GobbleApplication() {
       if (node) observer?.observe(node);
     });
     scheduleMeasure();
-    window.addEventListener("resize", scheduleMeasure);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleMeasure, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+    ]);
     window.addEventListener("scroll", scheduleMeasure, true);
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       observer?.disconnect();
-      window.removeEventListener("resize", scheduleMeasure);
+      unsubscribeViewport();
       window.removeEventListener("scroll", scheduleMeasure, true);
     };
   }, [
@@ -4136,6 +4133,7 @@ export default function GobbleApplication() {
     desktopColumnHandleLabels,
     desktopColumnOrderSafe,
     isMobileLayout,
+    layoutFeature,
   ]);
   useEffect(() => {
     if (!isMobileLayout) return undefined;
@@ -4580,31 +4578,14 @@ export default function GobbleApplication() {
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let rafId = null;
-    const update = () => {
-      if (rafId !== null) return;
-      if (isChatOpenMobileRef.current) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
+  useEffect(
+    () =>
+      layoutFeature.subscribeViewport(() => {
         if (isChatOpenMobileRef.current) return;
-        setIsMobileLayout(computeIsMobileLayout());
-        setIsUltraCompact(computeIsUltraCompact());
-      });
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-      vv?.removeEventListener("resize", update);
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-    };
-  }, []);
+        layoutFeature.refreshViewportMode();
+      }, [VIEWPORT_EVENTS.VISUAL_RESIZE]),
+    [layoutFeature]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4640,7 +4621,6 @@ export default function GobbleApplication() {
       return;
     }
 
-    let rafId = null;
     const updateViewportLock = () => {
       if (isChatOpenMobileRef.current || isChatClosingRef.current) return;
       const widthCandidates = [window.innerWidth, document.documentElement?.clientWidth].filter(
@@ -4677,26 +4657,13 @@ export default function GobbleApplication() {
       }
     };
 
-    const scheduleViewportLockUpdate = () => {
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        updateViewportLock();
-      });
-    };
-
     updateViewportLock();
-    window.addEventListener("resize", scheduleViewportLockUpdate);
-    window.addEventListener("orientationchange", scheduleViewportLockUpdate);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", scheduleViewportLockUpdate);
-    return () => {
-      window.removeEventListener("resize", scheduleViewportLockUpdate);
-      window.removeEventListener("orientationchange", scheduleViewportLockUpdate);
-      vv?.removeEventListener("resize", scheduleViewportLockUpdate);
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-    };
-  }, [isMobileLayout, isChatOpenMobile, isChatClosing]);
+    return layoutFeature.subscribeViewport(updateViewportLock, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+      VIEWPORT_EVENTS.ORIENTATION_CHANGE,
+      VIEWPORT_EVENTS.VISUAL_RESIZE,
+    ]);
+  }, [isMobileLayout, isChatOpenMobile, isChatClosing, layoutFeature]);
 
   useEffect(() => {
     isChatOpenMobileRef.current = isChatOpenMobile;
@@ -4869,19 +4836,19 @@ export default function GobbleApplication() {
     };
 
     updateInset();
-    vv?.addEventListener("resize", updateInset);
-    vv?.addEventListener("scroll", updateInset);
-    window.addEventListener("resize", updateInset);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(updateInset, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+      VIEWPORT_EVENTS.VISUAL_RESIZE,
+      VIEWPORT_EVENTS.VISUAL_SCROLL,
+    ]);
     window.addEventListener("focusin", updateInset, true);
     window.addEventListener("focusout", updateInset, true);
     return () => {
-      vv?.removeEventListener("resize", updateInset);
-      vv?.removeEventListener("scroll", updateInset);
-      window.removeEventListener("resize", updateInset);
+      unsubscribeViewport();
       window.removeEventListener("focusin", updateInset, true);
       window.removeEventListener("focusout", updateInset, true);
     };
-  }, [isChatOpenMobile, isFullscreen, mobileHeaderOffsetPx]);
+  }, [isChatOpenMobile, isFullscreen, layoutFeature, mobileHeaderOffsetPx]);
 
   useEffect(() => {
     if (!isChatRulesOpen) return;
@@ -5379,21 +5346,22 @@ export default function GobbleApplication() {
     };
 
     scheduleComputeMobileLayout();
-    window.addEventListener("resize", scheduleComputeMobileLayout);
-    window.addEventListener("orientationchange", scheduleComputeMobileLayout);
-    window.addEventListener("pageshow", scheduleComputeMobileLayout);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(
+      scheduleComputeMobileLayout,
+      [
+        VIEWPORT_EVENTS.WINDOW_RESIZE,
+        VIEWPORT_EVENTS.ORIENTATION_CHANGE,
+        VIEWPORT_EVENTS.PAGE_SHOW,
+        VIEWPORT_EVENTS.VISUAL_RESIZE,
+      ]
+    );
     document?.addEventListener?.("visibilitychange", scheduleComputeMobileLayout);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", scheduleComputeMobileLayout);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       if (timeoutId) window.clearTimeout(timeoutId);
-      window.removeEventListener("resize", scheduleComputeMobileLayout);
-      window.removeEventListener("orientationchange", scheduleComputeMobileLayout);
-      window.removeEventListener("pageshow", scheduleComputeMobileLayout);
+      unsubscribeViewport();
       document?.removeEventListener?.("visibilitychange", scheduleComputeMobileLayout);
-      vv?.removeEventListener("resize", scheduleComputeMobileLayout);
       if (safeAreaProbeRef.current && safeAreaProbeRef.current.parentNode) {
         safeAreaProbeRef.current.parentNode.removeChild(safeAreaProbeRef.current);
         safeAreaProbeRef.current = null;
@@ -5411,6 +5379,7 @@ export default function GobbleApplication() {
     showHelp,
     isFullscreen,
     getHeaderOffsetPx,
+    layoutFeature,
   ]);
 
   useEffect(() => {
@@ -5431,13 +5400,14 @@ export default function GobbleApplication() {
     updateHeight();
     const observer = new ResizeObserver(updateHeight);
     observer.observe(headerEl);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", updateHeight);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(updateHeight, [
+      VIEWPORT_EVENTS.VISUAL_RESIZE,
+    ]);
     return () => {
       observer.disconnect();
-      vv?.removeEventListener("resize", updateHeight);
+      unsubscribeViewport();
     };
-  }, [isMobileLayout, isFullscreen, getHeaderOffsetPx]);
+  }, [isMobileLayout, isFullscreen, getHeaderOffsetPx, layoutFeature]);
 
   useLayoutEffect(() => {
     if (!isMobileLayout) return;
@@ -5527,13 +5497,13 @@ export default function GobbleApplication() {
     };
 
     applyLockedHeight();
-    window.addEventListener("resize", applyLockedHeight);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", applyLockedHeight);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(applyLockedHeight, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+      VIEWPORT_EVENTS.VISUAL_RESIZE,
+    ]);
 
     return () => {
-      window.removeEventListener("resize", applyLockedHeight);
-      vv?.removeEventListener("resize", applyLockedHeight);
+      unsubscribeViewport();
       document.body.style.overflow = previousOverflow;
       document.body.style.height = previousHeight;
       document.body.style.position = previousPosition;
@@ -5560,6 +5530,7 @@ export default function GobbleApplication() {
     phase === "playing" || phase === "results",
     isChatOpenMobile,
     isChatClosing,
+    layoutFeature,
   ]);
 
   useEffect(() => {
@@ -9653,12 +9624,14 @@ export default function GobbleApplication() {
     };
     recordVisit();
     socket.on("connect", recordVisit);
-    window.addEventListener("pageshow", recordVisit);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(recordVisit, [
+      VIEWPORT_EVENTS.PAGE_SHOW,
+    ]);
     return () => {
       socket.off("connect", recordVisit);
-      window.removeEventListener("pageshow", recordVisit);
+      unsubscribeViewport();
     };
-  }, [popupAudienceKey]);
+  }, [layoutFeature, popupAudienceKey]);
 
   useEffect(() => {
     return refreshFeature.schedule("duel-status", {
@@ -10389,7 +10362,9 @@ export default function GobbleApplication() {
     };
     window.addEventListener("focus", onFocus);
     window.addEventListener("online", onOnline);
-    window.addEventListener("pageshow", onPageShow);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(onPageShow, [
+      VIEWPORT_EVENTS.PAGE_SHOW,
+    ]);
     window.addEventListener("pointerdown", onInteraction, { passive: true });
     window.addEventListener("touchstart", onInteraction, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
@@ -10400,12 +10375,12 @@ export default function GobbleApplication() {
       }
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("pageshow", onPageShow);
+      unsubscribeViewport();
       window.removeEventListener("pointerdown", onInteraction);
       window.removeEventListener("touchstart", onInteraction);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [layoutFeature]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -12958,20 +12933,23 @@ function handleTouchEnd(e) {
       });
       observer.observe(gridEl);
     }
-    window.addEventListener("resize", scheduleUpdate);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleUpdate, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+    ]);
     return () => {
       destroyed = true;
       if (rafId != null) {
         window.cancelAnimationFrame(rafId);
       }
       if (observer) observer.disconnect();
-      window.removeEventListener("resize", scheduleUpdate);
+      unsubscribeViewport();
     };
   }, [
     areResultsPathPreviewsEqual,
     computeResultsPathPreview,
     normalizeResultsPathPreview,
     showResultsWordPath,
+    layoutFeature,
   ]);
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -12994,15 +12972,17 @@ function handleTouchEnd(e) {
     };
     scheduleRestore();
     window.addEventListener("focus", scheduleRestore);
-    window.addEventListener("pageshow", scheduleRestore);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleRestore, [
+      VIEWPORT_EVENTS.PAGE_SHOW,
+    ]);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("focus", scheduleRestore);
-      window.removeEventListener("pageshow", scheduleRestore);
+      unsubscribeViewport();
       document.removeEventListener("visibilitychange", onVisibility);
       cancelPendingRestore();
     };
-  }, [restoreDesktopGridVisibilityIfStuck]);
+  }, [layoutFeature, restoreDesktopGridVisibilityIfStuck]);
   const hintCellSet = React.useMemo(() => {
     if (
       specialRound?.type !== "target_long" ||
@@ -14635,10 +14615,12 @@ function handleTouchEnd(e) {
       rafId = requestAnimationFrame(measure);
     };
     scheduleMeasure();
-    window.addEventListener("resize", scheduleMeasure);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleMeasure, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+    ]);
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", scheduleMeasure);
+      unsubscribeViewport();
     };
   }, [
     isMobileLayout,
@@ -14646,6 +14628,7 @@ function handleTouchEnd(e) {
     specialTutorialStepIndex,
     liveWord,
     dailyWordSlotsScored,
+    layoutFeature,
   ]);
   useEffect(() => {
     if (!(isMobileLayout && isSpecial3TutorialInteractiveActive && specialTutorialStepIndex === 0)) {
@@ -14683,12 +14666,19 @@ function handleTouchEnd(e) {
       rafId = requestAnimationFrame(measure);
     };
     scheduleMeasure();
-    window.addEventListener("resize", scheduleMeasure);
+    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleMeasure, [
+      VIEWPORT_EVENTS.WINDOW_RESIZE,
+    ]);
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", scheduleMeasure);
+      unsubscribeViewport();
     };
-  }, [isMobileLayout, isSpecial3TutorialInteractiveActive, specialTutorialStepIndex]);
+  }, [
+    isMobileLayout,
+    isSpecial3TutorialInteractiveActive,
+    specialTutorialStepIndex,
+    layoutFeature,
+  ]);
   useEffect(() => {
     if (!guidedResultsEligible || !isAccountAuthenticated) return;
     if (!accountSeenReady) return;

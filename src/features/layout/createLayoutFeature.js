@@ -7,6 +7,10 @@ import {
   getViewportSize,
 } from "../../app/adapters/deviceCapabilities.js";
 import { isStandaloneDisplayMode } from "../../utils/displayMode.js";
+import {
+  VIEWPORT_EVENTS,
+  createViewportEventHub,
+} from "./createViewportEventHub.js";
 
 export function createInitialLayoutState() {
   const viewport = getViewportSize();
@@ -47,24 +51,21 @@ export function createInitialLayoutState() {
 }
 
 export function createLayoutFeature(context) {
-  return createStateFeature(context, createInitialLayoutState, {
+  const viewportEvents = createViewportEventHub({ scope: context.scope });
+  let feature = null;
+  const refreshViewportMode = () => {
+    if (typeof window === "undefined" || !feature) return;
+    const viewport = getViewportSize();
+    feature.patch({
+      isMobileLayout: computeIsMobileLayout(viewport.width),
+      isUltraCompact: computeIsUltraCompact(viewport.width, viewport.height),
+    });
+  };
+  feature = createStateFeature(context, createInitialLayoutState, {
     start: ({ scope, store }) => {
       if (typeof window === "undefined") return;
-      let frameId = null;
       let installMessageTimerId = null;
       let installSupportFallbackId = null;
-      const update = () => {
-        frameId = null;
-        const viewport = getViewportSize();
-        store.patch({
-          isMobileLayout: computeIsMobileLayout(viewport.width),
-          isUltraCompact: computeIsUltraCompact(viewport.width, viewport.height),
-        });
-      };
-      const schedule = () => {
-        if (frameId != null) return;
-        frameId = window.requestAnimationFrame(update);
-      };
       const updatePlatformState = () => {
         store.patch({
           isAndroidWebBrowser: computeIsAndroidWebBrowser(),
@@ -113,8 +114,13 @@ export function createLayoutFeature(context) {
       const onVisibility = () => {
         if (document.visibilityState === "visible") updatePlatformState();
       };
-      scope.listen(window, "resize", schedule, { passive: true });
-      scope.listen(window, "orientationchange", schedule, { passive: true });
+      viewportEvents.start();
+      scope.add(
+        viewportEvents.subscribe(refreshViewportMode, [
+          VIEWPORT_EVENTS.WINDOW_RESIZE,
+          VIEWPORT_EVENTS.ORIENTATION_CHANGE,
+        ])
+      );
       scope.listen(window, "beforeinstallprompt", onBeforeInstallPrompt);
       scope.listen(window, "appinstalled", onInstalled);
       scope.listen(window, "focus", updatePlatformState);
@@ -126,7 +132,6 @@ export function createLayoutFeature(context) {
       const unsubscribeFallback = store.subscribe(scheduleInstallSupportFallback);
       scope.add(unsubscribeFallback);
       scope.add(() => {
-        if (frameId != null) window.cancelAnimationFrame(frameId);
         if (installMessageTimerId != null) {
           window.clearTimeout(installMessageTimerId);
         }
@@ -135,5 +140,10 @@ export function createLayoutFeature(context) {
         }
       });
     },
+  });
+  return Object.freeze({
+    ...feature,
+    refreshViewportMode,
+    subscribeViewport: viewportEvents.subscribe,
   });
 }
