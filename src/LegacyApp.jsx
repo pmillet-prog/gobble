@@ -213,7 +213,6 @@ import {
   normalizeAuthUsernameInput,
 } from "./components/auth/authFormModel.js";
 import TrainingJoinLiveDialog from "./components/training/TrainingJoinLiveDialog.jsx";
-import TrainingPlayerBadge from "./components/training/TrainingPlayerBadge.jsx";
 import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
 import StandaloneTrainingPicker from "./components/training/StandaloneTrainingPicker.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
@@ -256,7 +255,6 @@ import {
   stripBoardBonuses,
 } from "./components/daily/dailySpecialModel.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
-import FantasyPanelShell from "./components/home/FantasyPanelShell.jsx";
 import VaultWordOfDayPopup from "./components/home/VaultWordOfDayPopup.jsx";
 import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
 import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
@@ -341,10 +339,6 @@ import {
   sanitizeDefinitionText,
 } from "./utils/definitionPayload.js";
 import {
-  formatApproximateMinutes,
-  getCompactLiveRoundLabel,
-} from "./utils/liveRoundStatus.js";
-import {
   ROUND_PREPARATION_FALLBACK_GRACE_MS,
   isRoundStartPreparationDelayed,
   shouldShowRoundPreparationOverlay,
@@ -392,6 +386,10 @@ const DefinitionOverlays = React.lazy(() =>
 const RecordModal = React.lazy(() => import("./components/results/RecordModal.jsx"));
 const ChatInteractionOverlays = React.lazy(() =>
   import("./components/chat/ChatInteractionOverlays.jsx")
+);
+const PlayersOverlay = React.lazy(() => import("./components/players/PlayersOverlay.jsx"));
+const TrainingConfirmDialog = React.lazy(() =>
+  import("./components/training/TrainingConfirmDialog.jsx")
 );
 const DailyHubScreen = React.lazy(() => import("./components/daily/DailyHubScreen.jsx"));
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
@@ -18980,303 +18978,60 @@ function handleTouchEnd(e) {
       </Suspense>
     ) : null;
 
-  const hideBotsFromPlayersOverlay =
-    isLoggedIn && appView === "live" && phase === "lobby";
-  const playersOverlayEntries = (
-    playersOverlayMode === "snapshot"
-      ? playersOverlaySnapshot
-      : isLoggedIn
-      ? playersAlphaList
-      : lobbyPlayersList
-  ).filter((entry) => !hideBotsFromPlayersOverlay || !entry?.isBot);
-  const activeRoomKey = currentRoomId || roomId;
-  const roomMeta = ROOM_OPTIONS[activeRoomKey] || {};
-  const lobbyStatusNow = lobbyRoomStatus?.serverNow || Date.now();
-  const lobbyRoundRemainingSeconds =
-    lobbyRoomStatus?.roundEndsAt && Number.isFinite(lobbyRoomStatus.roundEndsAt)
-      ? Math.max(0, Math.round((lobbyRoomStatus.roundEndsAt - lobbyStatusNow) / 1000))
-      : null;
-  const lobbyBreakRemainingSeconds =
-    lobbyRoomStatus?.breakEndsAt && Number.isFinite(lobbyRoomStatus.breakEndsAt)
-      ? Math.max(0, Math.round((lobbyRoomStatus.breakEndsAt - lobbyStatusNow) / 1000))
-      : null;
-  const overlayBreakKind = isLoggedIn ? breakKind : lobbyRoomStatus?.breakKind || null;
-  const overlayPhase = isLoggedIn
-    ? phase
-    : lobbyRoomStatus?.isRoundRunning
-    ? "playing"
-    : "break";
-  const overlayTick = isLoggedIn ? tick : lobbyRoundRemainingSeconds;
-  const overlayBreakCountdown = isLoggedIn ? breakCountdown : lobbyBreakRemainingSeconds;
-  const roundDurationSeconds = Number.isFinite(serverRoundDurationMs)
-    ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
-    : Number.isFinite(lobbyRoomStatus?.roundDurationMs)
-    ? Math.max(1, Math.round(lobbyRoomStatus.roundDurationMs / 1000))
-    : roomMeta.duration ?? DEFAULT_DURATION;
-  const roundBreakSeconds = Number.isFinite(lobbyRoomStatus?.breakDurationMs)
-    ? Math.max(0, Math.round(lobbyRoomStatus.breakDurationMs / 1000))
-    : roomMeta.breakSeconds ?? 45;
-  const tournamentTotalRounds = Number.isFinite(tournament?.totalRounds)
-    ? tournament.totalRounds
-    : Number.isFinite(lobbyRoomStatus?.tournamentTotalRounds)
-    ? lobbyRoomStatus.tournamentTotalRounds
-    : TOURNAMENT_TOTAL_ROUNDS;
-  const tournamentRoundValue =
-    typeof tournament?.round === "number" && tournament.round > 0
-      ? tournament.round
-      : typeof lobbyRoomStatus?.tournamentRound === "number" &&
-        lobbyRoomStatus.tournamentRound > 0
-      ? lobbyRoomStatus.tournamentRound
-      : typeof tournament?.nextRound === "number" && tournament.nextRound > 0
-      ? tournament.nextRound
-      : null;
-  const currentRoundForEta =
-    typeof tournament?.round === "number"
-      ? tournament.round
-      : typeof lobbyRoomStatus?.tournamentRound === "number"
-      ? lobbyRoomStatus.tournamentRound
-      : tournamentRoundValue || 0;
-  const serverTournamentEtaSeconds =
-    !isLoggedIn && Number.isFinite(lobbyRoomStatus?.nextTournamentEtaMs)
-      ? Math.max(0, lobbyRoomStatus.nextTournamentEtaMs / 1000)
-      : null;
-  const tournamentEtaSeconds = (() => {
-    if (Number.isFinite(serverTournamentEtaSeconds)) return serverTournamentEtaSeconds;
-    if (!tournamentRoundValue || !tournamentTotalRounds) return null;
-    if (overlayBreakKind === "tournament_end") {
-      return Number.isFinite(overlayBreakCountdown)
-        ? Math.max(0, Math.round(overlayBreakCountdown))
-        : null;
-    }
-    if (overlayPhase === "playing") {
-      if (!Number.isFinite(overlayTick)) return null;
-      const roundsAfter = Math.max(0, tournamentTotalRounds - Math.max(0, currentRoundForEta));
-      return (
-        Math.max(0, Math.round(overlayTick)) +
-        roundBreakSeconds +
-        roundsAfter * (roundDurationSeconds + roundBreakSeconds)
-      );
-    }
-    if (overlayPhase === "results" || overlayPhase === "break") {
-      if (!Number.isFinite(overlayBreakCountdown)) return null;
-      const roundsLeft = Math.max(0, tournamentTotalRounds - Math.max(0, currentRoundForEta));
-      return (
-        Math.max(0, Math.round(overlayBreakCountdown)) +
-        roundsLeft * (roundDurationSeconds + roundBreakSeconds)
-      );
-    }
-    return null;
-  })();
-  const tournamentInfoLine =
-    !(!isLoggedIn && lobbyRoomStatus?.isTrainingRound) &&
-    tournamentRoundValue &&
-    tournamentTotalRounds
-      ? `Manche ${tournamentRoundValue}/${tournamentTotalRounds}`
-      : null;
-  const currentRoundTypeLabel =
-    !isLoggedIn && lobbyRoomStatus?.isRoundRunning
-      ? getCompactLiveRoundLabel(
-          lobbyRoomStatus?.roundType,
-          lobbyRoomStatus?.roundLabel
-        )
-      : "";
-  const currentRoundInfoLine = currentRoundTypeLabel
-    ? lobbyRoomStatus?.isTrainingRound
-      ? `Entraînement - ${currentRoundTypeLabel}`
-      : `Manche en cours : ${currentRoundTypeLabel}`
-    : null;
-  const tournamentEtaLabel = formatApproximateMinutes(tournamentEtaSeconds);
-  const tournamentEtaLine = tournamentEtaLabel
-    ? `Nouveau mini-tournoi dans ${tournamentEtaLabel}`
-    : null;
-  const playersOverlay =
-    isPlayersOverlayOpen && typeof document !== "undefined"
-        ? createPortal(
-          <div
-            className="fixed inset-0 z-[20160] bg-black/60 backdrop-blur-sm flex items-center justify-center px-3 py-6"
-            onClick={closePlayersOverlay}
-          >
-            <FantasyPanelShell
-              className="relative w-full max-w-md max-h-[86vh]"
-              bodyClassName="overflow-hidden"
-              eyebrow={playersOverlayMode === "snapshot" ? "Classement en cours" : "Joueurs en jeu"}
-              title={`Liste des joueurs${playersOverlayEntries.length ? ` (${playersOverlayEntries.length})` : ""}`}
-              subtitle={
-                [
-                  playersOverlayMode === "snapshot"
-                    ? "Photo du classement en cours (figee)"
-                    : "Liste alphabetique (sans score)",
-                  currentRoundInfoLine,
-                  tournamentInfoLine,
-                  tournamentEtaLine,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
-              }
-              onClose={() => {
-                playCloseSound();
-                closePlayersOverlay();
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-4 pb-4">
-                {playersOverlayEntries.length ? (
-                  <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-                    {playersOverlayEntries.map((entry, idx) => {
-                      const nick = entry?.nick ? String(entry.nick) : "";
-                      const isReady =
-                        !!entry?.readyForTournament ||
-                        (Array.isArray(tournamentLobby?.readyPlayers) &&
-                          tournamentLobby.readyPlayers.includes(nick));
-                      const profileAvailable = canOpenPlayerProfile(entry);
-                      const rank = playersOverlayMode === "snapshot"
-                        ? Number.isFinite(entry?.rank)
-                          ? entry.rank
-                          : idx + 1
-                        : null;
-                      const score =
-                        playersOverlayMode === "snapshot" && typeof entry?.score === "number"
-                          ? entry.score
-                          : null;
-                      const gobbleAwards =
-                        playersOverlayMode === "snapshot"
-                          ? renderGobbleWordAwardsInline(
-                              nick,
-                              Number.isFinite(entry?.gobbleAwardCount)
-                                ? entry.gobbleAwardCount
-                                : 0
-                            )
-                          : renderGobbleWordAwardsInline(nick);
-                      const nickClassName = getLiveNickClassName(entry, nick);
-                      const rowClassName = `flex items-center justify-between gap-3 py-2 border-b border-slate-200/60 dark:border-white/10 last:border-0 ${
-                        profileAvailable
-                          ? "w-full text-left cursor-pointer rounded-md px-2 hover:bg-slate-100/70 dark:hover:bg-white/10"
-                          : ""
-                      }`;
-                      const rowContent = (
-                        <>
-                          <div className="flex items-center gap-3 min-w-0">
-                            {playersOverlayMode === "snapshot" ? (
-                              <span className="w-6 text-center text-xs font-bold text-amber-500">
-                                {rank}
-                              </span>
-                            ) : null}
-                            <div className="min-w-0 flex items-center gap-2">
-                              <span className={`font-semibold truncate ${nickClassName}`}>
-                                {nick || "Joueur"}
-                              </span>
-                              {entry?.afk ? (
-                                <span className="text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
-                                  AFK
-                                </span>
-                              ) : null}
-                              {entry?.inTraining ? <TrainingPlayerBadge /> : null}
-                              {isReady ? (
-                                <span className="rounded-full border border-emerald-500/55 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-emerald-700 dark:text-emerald-300">
-                                  PRÊT
-                                </span>
-                              ) : null}
-                              {renderHumanDot(nick)}
-                              {gobbleAwards}
-                            </div>
-                          </div>
-                          {playersOverlayMode === "snapshot" ? (
-                            <div className="text-right text-xs font-bold tabular-nums whitespace-nowrap">
-                              {score != null ? `${score} pts` : "-"}
-                            </div>
-                          ) : null}
-                        </>
-                      );
-                      return profileAvailable ? (
-                        <button
-                          key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
-                          type="button"
-                          className={rowClassName}
-                          onClick={() => openPlayerProfile(entry)}
-                        >
-                          {rowContent}
-                        </button>
-                      ) : (
-                        <div
-                          key={`${playersOverlayMode}-${nick || "joueur"}-${idx}`}
-                          className={rowClassName}
-                        >
-                          {rowContent}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-sm opacity-70 py-8 text-center">
-                    {!isLoggedIn &&
-                    playersOverlayMode === "alpha" &&
-                    lobbyPlayersLoading
-                      ? "Chargement..."
-                      : "Aucun joueur pour le moment."}
-                  </div>
-                )}
-              </div>
-            </FantasyPanelShell>
-          </div>,
-          document.body
-        )
-      : null;
+  const playersOverlay = isPlayersOverlayOpen ? (
+    <Suspense fallback={null}>
+      <PlayersOverlay
+        appearance={{ darkMode }}
+        directory={{
+          hideBots: isLoggedIn && appView === "live" && phase === "lobby",
+          lobbyPlayersList,
+          lobbyPlayersLoading,
+          mode: playersOverlayMode,
+          open: isPlayersOverlayOpen,
+          playersAlphaList,
+          snapshot: playersOverlaySnapshot,
+        }}
+        round={{
+          breakCountdown,
+          breakKind,
+          defaultDuration: DEFAULT_DURATION,
+          isLoggedIn,
+          lobbyRoomStatus,
+          phase,
+          roomMeta: ROOM_OPTIONS[currentRoomId || roomId] || {},
+          serverRoundDurationMs,
+          tick,
+        }}
+        tournament={{
+          defaultTotalRounds: TOURNAMENT_TOTAL_ROUNDS,
+          lobby: tournamentLobby,
+          state: tournament,
+        }}
+        actions={{
+          canOpenProfile: canOpenPlayerProfile,
+          onClose: closePlayersOverlay,
+          onOpenProfile: openPlayerProfile,
+          playCloseSound,
+        }}
+        renderers={{
+          gobbleAwards: renderGobbleWordAwardsInline,
+          humanDot: renderHumanDot,
+          nickClassName: getLiveNickClassName,
+        }}
+      />
+    </Suspense>
+  ) : null;
 
-  const trainingConfirmModal =
-    trainingConfirm && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="fixed inset-0 z-[21100] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
-            onClick={() => setTrainingConfirm(null)}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className={`w-full max-w-sm rounded-xl border p-4 shadow-2xl ${
-                darkMode
-                  ? "border-white/10 bg-slate-950 text-slate-100"
-                  : "border-slate-200 bg-white text-slate-900"
-              }`}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="text-xs font-extrabold uppercase tracking-widest text-orange-500">
-                Entrainement solo
-              </div>
-              <div className="mt-2 text-xl font-black leading-tight">
-                Lancer {trainingConfirm.label || "cette manche"} ?
-              </div>
-              <div
-                className={`mt-2 text-sm font-semibold ${
-                  darkMode ? "text-slate-300" : "text-slate-600"
-                }`}
-              >
-                Une seule manche, hors mini-tournoi, sans medaille.
-              </div>
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTrainingConfirm(null)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-bold ${
-                    darkMode
-                      ? "border-slate-600 bg-slate-900"
-                      : "border-slate-200 bg-slate-50"
-                  }`}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmTrainingRound}
-                  className="rounded-lg border border-orange-400 bg-orange-500 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-orange-500/20"
-                >
-                  Lancer
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
+  const trainingConfirmModal = trainingConfirm ? (
+    <Suspense fallback={null}>
+      <TrainingConfirmDialog
+        darkMode={darkMode}
+        onCancel={() => setTrainingConfirm(null)}
+        onConfirm={confirmTrainingRound}
+        selection={trainingConfirm}
+      />
+    </Suspense>
+  ) : null;
 
   const definitionOverlaysView =
     definitionModal.open || wordInfoModal.open ? (
