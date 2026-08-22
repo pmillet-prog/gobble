@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import LiveFeed from "../LiveFeed.jsx";
+import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import TargetWaitPuzzleGrid from "./TargetWaitPuzzleGrid.jsx";
 import {
   TARGET_WAIT_SESSION_SECONDS,
@@ -38,7 +38,6 @@ export default function TargetWaitDevPlayground({
   sideHost = null,
   socket = null,
   darkMode = false,
-  liveFeedItems = [],
   getNickClassName = null,
   onToast = null,
   onSessionStateChange = null,
@@ -424,8 +423,7 @@ export default function TargetWaitDevPlayground({
           <>
             <div className="my-3 h-px shrink-0 bg-amber-400/20" />
             <div className="min-h-0 flex-1">
-              <LiveFeed
-                items={liveFeedItems}
+              <LiveFeedSatellite
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText="La manche cible continue pour les autres joueurs"

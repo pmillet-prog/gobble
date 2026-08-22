@@ -5,7 +5,7 @@ import {
   RoundClockSeconds,
 } from "../../features/clock/RoundClockDisplay.jsx";
 import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
-import LiveFeed from "../LiveFeed.jsx";
+import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 import {
@@ -51,7 +51,6 @@ function MobileSpecial3Playing(props) {
     praiseOverlay = null,
     maxDurationSec = 90,
     trainingControls = null,
-    trainingFeedItems = [],
     trainingFeedBannerText = "",
     getNickClassName = null,
     renderSpecial3LengthGobbleBadge = null,
@@ -317,8 +316,8 @@ function MobileSpecial3Playing(props) {
           <div className="shrink-0 space-y-1 px-2 pb-1">
             {trainingControls}
             <div className="h-[82px] overflow-hidden rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900/90">
-              <LiveFeed
-                items={trainingFeedItems}
+              <LiveFeedSatellite
+                limit={8}
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText={trainingFeedBannerText}

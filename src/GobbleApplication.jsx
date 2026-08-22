@@ -175,7 +175,6 @@ import {
   restorePendingSubmissionState,
   takeInFlightSubmissionWords,
 } from "./network/liveSubmissionRecovery.js";
-import { buildMixedFeed } from "./components/LiveFeed.jsx";
 import GlobalChatLayer from "./components/chat/GlobalChatLayer.jsx";
 import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
 import { createChatInteractionController } from "./components/chat/createChatInteractionController.js";
@@ -896,7 +895,6 @@ const GOBBLE_GAME_FIELDS = Object.freeze([
   "inputLocked",
   "isGridRotating",
   "lastInputMode",
-  "lastWords",
   "phase",
   "roomId",
   "score",
@@ -1005,7 +1003,6 @@ export default function GobbleApplication() {
     inputLocked,
     isGridRotating,
     lastInputMode,
-    lastWords,
     phase,
     roomId,
     score,
@@ -14985,11 +14982,6 @@ function handleTouchEnd(e) {
   });
   const resultsRankingList =
     resultsRankingMode === "total" ? tournamentRanking || [] : finalRanking;
-  const mixedFeed = React.useMemo(
-    () => buildMixedFeed({ announcements, lastWords }),
-    [announcements, lastWords]
-  );
-  const mobileAnnouncements = mixedFeed.slice(-8);
 
   const endStats = useEndStats(
     allWords,
@@ -18656,7 +18648,6 @@ function handleTouchEnd(e) {
             sideHost={targetWaitDevSideHost}
             socket={socket}
             darkMode={darkMode}
-            liveFeedItems={mixedFeed}
             getNickClassName={getLiveNickClassName}
             onToast={showToast}
             onSessionStateChange={setTargetWaitDevSessionState}
@@ -19250,7 +19241,6 @@ function handleTouchEnd(e) {
             isMobileLayout,
             liveFeedBannerText,
             liveWord,
-            mobileAnnouncements,
             mobileChatUnreadCount,
             mobileChatUnreadIsBotOnly,
             mobileLayoutSizing,
@@ -19377,7 +19367,6 @@ function handleTouchEnd(e) {
             liveFeedBannerText,
             liveWord,
             liveWordTiles,
-            mobileAnnouncements,
             mobileLayoutSizing,
             mobileResultPages,
             mobileResultsPage,
@@ -19643,7 +19632,6 @@ function handleTouchEnd(e) {
             liveFeedBannerText,
             MAIN_GRID_HEIGHT,
             mainGridDesktopRef,
-            mixedFeed,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             nextHintLabel,

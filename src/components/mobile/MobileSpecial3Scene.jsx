@@ -44,7 +44,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     isMobileLayout,
     liveFeedBannerText,
     liveWord,
-    mobileAnnouncements,
     mobileChatUnreadCount,
     mobileChatUnreadIsBotOnly,
     mobileLayoutSizing,
@@ -638,7 +637,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           praiseOverlay={praiseOverlay}
           maxDurationSec={maxDurationSec}
           trainingControls={trainingSessionControls}
-          trainingFeedItems={mobileAnnouncements}
           trainingFeedBannerText={liveFeedBannerText}
           getNickClassName={getLiveNickClassName}
           renderSpecial3LengthGobbleBadge={renderSpecial3LengthGobbleBadge}

@@ -1,7 +1,7 @@
 import React from "react";
 
 import HelpOverlay from "../HelpOverlay.jsx";
-import LiveFeed from "../LiveFeed.jsx";
+import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import WordPointsLabel from "../WordPointsLabel.jsx";
@@ -86,7 +86,6 @@ function MobileResultsScreen(props) {
     tournament = null,
     trainingControls = null,
     trainingFeedBannerText = "",
-    trainingFeedItems = [],
     trainingFeedNickClassName = null,
     visibleWordGuidance = false,
     wordsEmpty = false,
@@ -132,8 +131,8 @@ function MobileResultsScreen(props) {
             {trainingControls}
             {!isTargetRound ? (
               <div className="h-[88px] overflow-hidden rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900/90">
-                <LiveFeed
-                  items={trainingFeedItems}
+                <LiveFeedSatellite
+                  limit={8}
                   darkMode={darkMode}
                   maxHeight="100%"
                   bannerText={trainingFeedBannerText}

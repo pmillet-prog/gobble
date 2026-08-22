@@ -1,7 +1,7 @@
 import React from "react";
 
 import HelpOverlay from "../HelpOverlay.jsx";
-import LiveFeed from "../LiveFeed.jsx";
+import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
@@ -60,7 +60,6 @@ function MobileStandardPlaying(props) {
     liveFeedMinHeight = 0,
     liveWord = "",
     liveWordTiles = [],
-    mobileAnnouncements = [],
     mobileBodyHeightStyle = undefined,
     mobileBodyPaddingTop = undefined,
     mobileGapPx = "8px",
@@ -224,8 +223,8 @@ function MobileStandardPlaying(props) {
           {isStandaloneTraining ? trainingControls : null}
           {isStandaloneTraining && !isTargetRound ? (
             <div className="h-[92px] min-h-[76px] flex-none rounded-xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
-              <LiveFeed
-                items={mobileAnnouncements}
+              <LiveFeedSatellite
+                limit={8}
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText={liveFeedBannerText}
@@ -526,8 +525,8 @@ function MobileStandardPlaying(props) {
                 flexBasis: `${liveFeedMinHeight}px`,
               }}
             >
-              <LiveFeed
-                items={mobileAnnouncements}
+              <LiveFeedSatellite
+                limit={8}
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText={liveFeedBannerText}

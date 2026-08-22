@@ -66,7 +66,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     liveFeedBannerText,
     liveWord,
     liveWordTiles,
-    mobileAnnouncements,
     mobileLayoutSizing,
     mobileResultPages,
     mobileResultsPage,
@@ -596,7 +595,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             targetSummary={targetSummary}
             tournament={standaloneTrainingSession ? null : tournament}
             trainingControls={trainingSessionControls}
-            trainingFeedItems={mobileAnnouncements}
             trainingFeedBannerText={liveFeedBannerText}
             trainingFeedNickClassName={getLiveNickClassName}
             visibleWordGuidance={showGuidedWordHint ? guidedWordTarget : false}
@@ -755,7 +753,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         liveFeedBannerText={liveFeedBannerText}
         liveWord={liveWord}
         liveWordTiles={liveWordTiles}
-        mobileAnnouncements={mobileAnnouncements}
         mobileBodyHeightStyle={mobileBodyHeightStyle}
         mobileBodyPaddingTop={mobileBodyPaddingTop}
         mobileGapPx={mobileGapPx}

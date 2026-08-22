@@ -14,7 +14,7 @@ import AutoScaleInline from "../AutoScaleInline.jsx";
 import DesktopChatPanel from "../DesktopChatPanel.jsx";
 import DesktopResultsSummaryDrawer from "../DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "../DesktopResultsWordList.jsx";
-import LiveFeed from "../LiveFeed.jsx";
+import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import TargetHintPattern from "../TargetHintPattern.jsx";
 import {
@@ -163,7 +163,6 @@ export default function DesktopGameScene({ runtime }) {
     liveFeedBannerText,
     MAIN_GRID_HEIGHT,
     mainGridDesktopRef,
-    mixedFeed,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     nextHintLabel,
@@ -1403,8 +1402,7 @@ export default function DesktopGameScene({ runtime }) {
           ) : phase === "playing" && isOcidRound ? null : phase === "playing" &&
             (!standaloneTrainingSession || !isTargetRound) ? (
             <div className="flex flex-col flex-1 min-h-0">
-              <LiveFeed
-                items={mixedFeed}
+              <LiveFeedSatellite
                 darkMode={darkMode}
                 maxHeight="100%"
                 bannerText={liveFeedBannerText}
