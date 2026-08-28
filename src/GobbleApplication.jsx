@@ -1213,7 +1213,6 @@ export default function GobbleApplication() {
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
   const gridRef = useRef(null);
-  const foregroundGridRestoreRafRef = useRef(null);
   const canVibrateRef = useRef(false);
   const preferencesFeature = useFeatureRuntime("preferences");
   const preferencesState = useFeatureSelector(preferencesFeature, (state) => state);
@@ -11993,21 +11992,6 @@ function handleTouchEnd(e) {
     () => (phase === "playing" ? new Set(highlightPath) : new Set()),
     [highlightPath, phase]
   );
-  const restoreDesktopGridVisibilityIfStuck = React.useCallback(() => {
-    if (isMobileLayout || phase !== "playing") return;
-    if (typeof window === "undefined") return;
-    const gridEl = gridRef.current;
-    if (!(gridEl instanceof HTMLElement)) return;
-    const inlineOpacity = `${gridEl.style.opacity || ""}`.trim();
-    const computedOpacity = Number.parseFloat(window.getComputedStyle(gridEl).opacity || "1");
-    const looksHidden =
-      inlineOpacity === "0" ||
-      inlineOpacity === "0.0" ||
-      (Number.isFinite(computedOpacity) && computedOpacity <= 0.05);
-    if (!looksHidden) return;
-    gridEl.style.opacity = "";
-    gridEl.style.transition = "";
-  }, [isMobileLayout, phase]);
   useEffect(() => {
     resultsFeature.configurePathPreview({
       enabled: showResultsWordPath,
@@ -12019,37 +12003,11 @@ function handleTouchEnd(e) {
     });
   }, [highlightPath, layoutFeature, resultsFeature, showResultsWordPath]);
   useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    const cancelPendingRestore = () => {
-      if (foregroundGridRestoreRafRef.current != null) {
-        window.cancelAnimationFrame(foregroundGridRestoreRafRef.current);
-        foregroundGridRestoreRafRef.current = null;
-      }
-    };
-    const scheduleRestore = () => {
-      if (document.visibilityState && document.visibilityState !== "visible") return;
-      cancelPendingRestore();
-      foregroundGridRestoreRafRef.current = window.requestAnimationFrame(() => {
-        foregroundGridRestoreRafRef.current = null;
-        restoreDesktopGridVisibilityIfStuck();
-      });
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") scheduleRestore();
-    };
-    scheduleRestore();
-    window.addEventListener("focus", scheduleRestore);
-    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleRestore, [
-      VIEWPORT_EVENTS.PAGE_SHOW,
-    ]);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("focus", scheduleRestore);
-      unsubscribeViewport();
-      document.removeEventListener("visibilitychange", onVisibility);
-      cancelPendingRestore();
-    };
-  }, [layoutFeature, restoreDesktopGridVisibilityIfStuck]);
+    layoutFeature.configureForegroundGridGuard({
+      enabled: !isMobileLayout && phase === "playing",
+      gridElement: gridRef.current,
+    });
+  }, [isMobileLayout, layoutFeature, phase]);
   const hintCellSet = React.useMemo(() => {
     if (
       specialRound?.type !== "target_long" ||

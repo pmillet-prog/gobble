@@ -50,9 +50,28 @@ export function createInitialLayoutState() {
   };
 }
 
-export function createLayoutFeature(context) {
-  const viewportEvents = createViewportEventHub({ scope: context.scope });
+export function createLayoutFeature(
+  context,
+  {
+    cancelAnimationFrameFn = (id) => globalThis.window?.cancelAnimationFrame?.(id),
+    documentTarget = globalThis.document,
+    HTMLElementCtor = globalThis.HTMLElement,
+    requestAnimationFrameFn = (callback) =>
+      globalThis.window?.requestAnimationFrame?.(callback),
+    viewportEventsOptions = {},
+    windowTarget = globalThis.window,
+  } = {}
+) {
+  const viewportEvents = createViewportEventHub(
+    { scope: context.scope },
+    { windowTarget, ...viewportEventsOptions }
+  );
   let feature = null;
+  let foregroundGuardActive = false;
+  let foregroundGuardAttached = false;
+  let foregroundGuardConfig = {};
+  let foregroundGridRafId = null;
+  let foregroundPageShowUnsubscribe = null;
   const refreshViewportMode = () => {
     if (typeof window === "undefined" || !feature) return;
     const viewport = getViewportSize();
@@ -61,9 +80,92 @@ export function createLayoutFeature(context) {
       isUltraCompact: computeIsUltraCompact(viewport.width, viewport.height),
     });
   };
+
+  const cancelForegroundGridRestore = () => {
+    if (foregroundGridRafId != null) cancelAnimationFrameFn?.(foregroundGridRafId);
+    foregroundGridRafId = null;
+  };
+
+  const restoreForegroundGrid = () => {
+    if (!foregroundGuardConfig.enabled) return;
+    const gridElement = foregroundGuardConfig.gridElement;
+    if (!gridElement) return;
+    if (
+      typeof HTMLElementCtor === "function" &&
+      !(gridElement instanceof HTMLElementCtor)
+    ) {
+      return;
+    }
+    const inlineOpacity = `${gridElement.style?.opacity || ""}`.trim();
+    const computedOpacity = Number.parseFloat(
+      windowTarget?.getComputedStyle?.(gridElement)?.opacity || "1"
+    );
+    const looksHidden =
+      inlineOpacity === "0" ||
+      inlineOpacity === "0.0" ||
+      (Number.isFinite(computedOpacity) && computedOpacity <= 0.05);
+    if (!looksHidden || !gridElement.style) return;
+    gridElement.style.opacity = "";
+    gridElement.style.transition = "";
+  };
+
+  const scheduleForegroundGridRestore = () => {
+    if (!foregroundGuardConfig.enabled) return;
+    if (
+      documentTarget?.visibilityState &&
+      documentTarget.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    cancelForegroundGridRestore();
+    foregroundGridRafId = requestAnimationFrameFn?.(() => {
+      foregroundGridRafId = null;
+      restoreForegroundGrid();
+    });
+    if (foregroundGridRafId == null) restoreForegroundGrid();
+  };
+
+  const onForegroundVisibility = () => {
+    if (documentTarget?.visibilityState === "visible") {
+      scheduleForegroundGridRestore();
+    }
+  };
+
+  function detachForegroundGridGuard() {
+    if (!foregroundGuardAttached) return;
+    foregroundGuardAttached = false;
+    windowTarget?.removeEventListener?.("focus", scheduleForegroundGridRestore);
+    documentTarget?.removeEventListener?.("visibilitychange", onForegroundVisibility);
+    foregroundPageShowUnsubscribe?.();
+    foregroundPageShowUnsubscribe = null;
+    cancelForegroundGridRestore();
+  }
+
+  function reconcileForegroundGridGuard() {
+    if (!foregroundGuardActive || !foregroundGuardConfig.enabled) {
+      detachForegroundGridGuard();
+      return;
+    }
+    if (!foregroundGuardAttached) {
+      foregroundGuardAttached = true;
+      windowTarget?.addEventListener?.("focus", scheduleForegroundGridRestore);
+      documentTarget?.addEventListener?.("visibilitychange", onForegroundVisibility);
+      foregroundPageShowUnsubscribe = viewportEvents.subscribe(
+        scheduleForegroundGridRestore,
+        [VIEWPORT_EVENTS.PAGE_SHOW]
+      );
+    }
+    scheduleForegroundGridRestore();
+  }
+
+  function configureForegroundGridGuard(nextConfig = {}) {
+    foregroundGuardConfig = { ...foregroundGuardConfig, ...nextConfig };
+    reconcileForegroundGridGuard();
+  }
+
   feature = createStateFeature(context, createInitialLayoutState, {
     start: ({ scope, store }) => {
-      if (typeof window === "undefined") return;
+      if (!windowTarget) return;
       let installMessageTimerId = null;
       let installSupportFallbackId = null;
       const updatePlatformState = () => {
@@ -76,13 +178,13 @@ export function createLayoutFeature(context) {
         const state = store.getState();
         if (!state.isMobileLayout || state.installSupport !== "unknown") {
           if (installSupportFallbackId != null) {
-            window.clearTimeout(installSupportFallbackId);
+            windowTarget.clearTimeout(installSupportFallbackId);
             installSupportFallbackId = null;
           }
           return;
         }
         if (installSupportFallbackId != null) return;
-        installSupportFallbackId = window.setTimeout(() => {
+        installSupportFallbackId = windowTarget.setTimeout(() => {
           installSupportFallbackId = null;
           const current = store.getState();
           if (!current.isMobileLayout || current.installSupport !== "unknown") return;
@@ -103,46 +205,52 @@ export function createLayoutFeature(context) {
           installSupport: "installed",
         });
         if (installMessageTimerId != null) {
-          window.clearTimeout(installMessageTimerId);
+          windowTarget.clearTimeout(installMessageTimerId);
         }
-        installMessageTimerId = window.setTimeout(() => {
+        installMessageTimerId = windowTarget.setTimeout(() => {
           installMessageTimerId = null;
           store.set("installMessage", "");
         }, 3000);
         updatePlatformState();
       };
       const onVisibility = () => {
-        if (document.visibilityState === "visible") updatePlatformState();
+        if (documentTarget?.visibilityState === "visible") updatePlatformState();
       };
       viewportEvents.start();
+      foregroundGuardActive = true;
+      reconcileForegroundGridGuard();
       scope.add(
         viewportEvents.subscribe(refreshViewportMode, [
           VIEWPORT_EVENTS.WINDOW_RESIZE,
           VIEWPORT_EVENTS.ORIENTATION_CHANGE,
         ])
       );
-      scope.listen(window, "beforeinstallprompt", onBeforeInstallPrompt);
-      scope.listen(window, "appinstalled", onInstalled);
-      scope.listen(window, "focus", updatePlatformState);
-      if (typeof document !== "undefined") {
-        scope.listen(document, "visibilitychange", onVisibility);
+      scope.listen(windowTarget, "beforeinstallprompt", onBeforeInstallPrompt);
+      scope.listen(windowTarget, "appinstalled", onInstalled);
+      scope.listen(windowTarget, "focus", updatePlatformState);
+      if (documentTarget) {
+        scope.listen(documentTarget, "visibilitychange", onVisibility);
       }
       updatePlatformState();
       scheduleInstallSupportFallback();
       const unsubscribeFallback = store.subscribe(scheduleInstallSupportFallback);
       scope.add(unsubscribeFallback);
       scope.add(() => {
+        foregroundGuardActive = false;
+        detachForegroundGridGuard();
+        foregroundGuardConfig = {};
         if (installMessageTimerId != null) {
-          window.clearTimeout(installMessageTimerId);
+          windowTarget.clearTimeout(installMessageTimerId);
         }
         if (installSupportFallbackId != null) {
-          window.clearTimeout(installSupportFallbackId);
+          windowTarget.clearTimeout(installSupportFallbackId);
         }
       });
     },
   });
   return Object.freeze({
     ...feature,
+    configureForegroundGridGuard,
     refreshViewportMode,
     subscribeViewport: viewportEvents.subscribe,
   });
