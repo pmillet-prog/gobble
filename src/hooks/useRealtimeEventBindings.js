@@ -1,20 +1,7 @@
 import { useEffect } from "react";
 import { recordPerfEvent } from "../perf/renderPerfProbe.js";
 import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
-import {
-  capChatMessagesByType,
-  findNewReactionFromOthers,
-  isSystemChatMessage,
-  normalizeChatMessageShape,
-  patchChatMessageById,
-  patchChatMessageReactions,
-  removeChatMessageById,
-} from "../utils/chatMessages.js";
 import { capturePendingSubmissions } from "../network/liveSubmissionRecovery.js";
-import {
-  isChatBotMessage,
-  shouldDisplayChatMessageForBotSettings,
-} from "../components/chat/chatBotVisibility.js";
 import {
   createDailySpecialPlacements,
   createDailyWordSlots,
@@ -28,18 +15,11 @@ export default function useRealtimeEventBindings(runtime) {
     appViewRef,
     buildObjectiveToastMessage,
     bumpSamsungDiagCounter,
-    chatBotVisibilityRef,
-    chatEditTargetRef,
-    chatMessagesRef,
-    chatReplyTargetRef,
-    chatTabRef,
     clearQueuedRankingUpdate,
     clearSavedSession,
     currentRoomIdRef,
     currentRoundTrainingRef,
     dailySpecialDragRef,
-    deferNonessentialUiDuringTrace,
-    enqueueMobileChatReactionToast,
     ensureTournamentBaseline,
     getNowServerMs,
     getWeeklyVocabRankForCount,
@@ -47,13 +27,8 @@ export default function useRealtimeEventBindings(runtime) {
     gobblarToastDelayTimersRef,
     inputLockedRef,
     installId,
-    installIdRef,
-    isChatClosingRef,
-    isChatOpenMobileRef,
     isDailyPlayRef,
-    isHomeChatOpenRef,
     isLoggedInRef,
-    isMobileLayoutRef,
     lastGobbleAtRef,
     maybePlayAnnouncementSound,
     nickname,
@@ -77,13 +52,8 @@ export default function useRealtimeEventBindings(runtime) {
     roundHandlersRef,
     roundIdRef,
     roundStartAtRef,
-    scheduleDesktopChatAutoScroll,
     setAnnouncements,
     setBreakKind,
-    setChatEditTarget,
-    setChatInput,
-    setChatMessages,
-    setChatReplyTarget,
     setConnectionError,
     setCurrentRoomId,
     setDailyActiveSlot,
@@ -95,14 +65,10 @@ export default function useRealtimeEventBindings(runtime) {
     setFoundTargetThisRound,
     setFoundTargetWord,
     setGobblarsBalance,
-    setHomeChatBotUnreadCount,
-    setHomeChatUnreadCount,
     setInputLocked,
     setIsLoggedIn,
     setLoginError,
     setMedals,
-    setMobileChatBotUnreadCount,
-    setMobileChatUnreadCount,
     setMobileResultsOutroFadeActive,
     setNextStartAt,
     setOcidProposal,
@@ -136,7 +102,6 @@ export default function useRealtimeEventBindings(runtime) {
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
-    showBotMessagesRef,
     showGlobalRedAnnouncement,
     showToast,
     showToastRef,
@@ -407,170 +372,6 @@ useEffect(() => {
       bumpSamsungDiagCounter("socketRankingUpdate");
       recordPerfEvent("ranking-received", { count: Array.isArray(ranking) ? ranking.length : 0 });
       queueRankingUpdate(ranking);
-    }
-
-    function onChatHistory(history = []) {
-      if (deferNonessentialUiDuringTrace(() => onChatHistory(history), "chat-history")) return;
-      if (!Array.isArray(history)) return;
-      const normalizedHistory = history
-        .map((entry) => normalizeChatMessageShape(entry))
-        .filter(Boolean);
-      if (!normalizedHistory.length) return;
-      setChatMessages((prev) => capChatMessagesByType([...prev, ...normalizedHistory]));
-      scheduleDesktopChatAutoScroll();
-    }
-
-    function onChatNew(msg) {
-      if (deferNonessentialUiDuringTrace(() => onChatNew(msg), "chat-message")) return;
-      const normalizedMessage = normalizeChatMessageShape(msg);
-      if (!normalizedMessage) return;
-      setChatMessages((prev) => capChatMessagesByType([...prev, normalizedMessage]));
-      scheduleDesktopChatAutoScroll();
-      if (isSystemChatMessage(normalizedMessage)) return;
-
-      const authorInstallId =
-        typeof normalizedMessage.installId === "string" ? normalizedMessage.installId : "";
-      if (authorInstallId && authorInstallId === installId) return;
-      const author = (normalizedMessage.author || normalizedMessage.nick || "").trim();
-      const me = nicknameRef.current.trim();
-      if (author && me && author === me) return;
-      if (
-        !shouldDisplayChatMessageForBotSettings(
-          normalizedMessage,
-          showBotMessagesRef.current,
-          chatBotVisibilityRef.current
-        )
-      ) {
-        return;
-      }
-      const unreadIsBot = isChatBotMessage(normalizedMessage);
-      const currentTab = chatTabRef.current === "system" ? "system" : "messages";
-      if (isLoggedInRef.current) {
-        const isMobileNow = isMobileLayoutRef.current;
-        const messagesVisible =
-          currentTab === "messages" &&
-          (isMobileNow
-            ? isChatOpenMobileRef.current && !isChatClosingRef.current
-            : true);
-        if (!messagesVisible) {
-          setMobileChatUnreadCount((prev) => Math.min(99, prev + 1));
-          if (unreadIsBot) {
-            setMobileChatBotUnreadCount((prev) => Math.min(99, prev + 1));
-          }
-        }
-      } else {
-        const isMobileNow = isMobileLayoutRef.current;
-        const messagesVisible =
-          currentTab === "messages" &&
-          (isMobileNow
-            ? isChatOpenMobileRef.current && !isChatClosingRef.current
-            : isHomeChatOpenRef.current);
-        if (!messagesVisible) {
-          setHomeChatUnreadCount((prev) => Math.min(99, prev + 1));
-          if (unreadIsBot) {
-            setHomeChatBotUnreadCount((prev) => Math.min(99, prev + 1));
-          }
-        }
-      }
-    }
-
-    function onChatReactionUpdate(patch) {
-      if (
-        deferNonessentialUiDuringTrace(
-          () => onChatReactionUpdate(patch),
-          "chat-reaction"
-        )
-      ) {
-        return;
-      }
-      const messageId = typeof patch?.messageId === "string" ? patch.messageId.trim() : "";
-      const selfInstallId =
-        typeof installIdRef.current === "string" ? installIdRef.current.trim() : "";
-      const selfNickNow = String(nicknameRef.current || "")
-        .trim()
-        .toLowerCase();
-      const previousMessages = Array.isArray(chatMessagesRef.current)
-        ? chatMessagesRef.current
-        : [];
-      let toastReaction = null;
-      if (messageId) {
-        const previousMessage =
-          previousMessages.find((entry) => entry?.id === messageId) || null;
-        const authorInstallId =
-          typeof previousMessage?.installId === "string"
-            ? previousMessage.installId.trim()
-            : "";
-        const authorNick = String(previousMessage?.nick || previousMessage?.author || "")
-          .trim()
-          .toLowerCase();
-        const isOwnMessage =
-          (authorInstallId && selfInstallId && authorInstallId === selfInstallId) ||
-          (!authorInstallId && selfNickNow && authorNick === selfNickNow);
-        if (isOwnMessage) {
-          toastReaction = findNewReactionFromOthers(
-            previousMessage,
-            patch?.reactions,
-            selfInstallId
-          );
-        }
-      }
-      setChatMessages((prev) => {
-        const next = patchChatMessageReactions(prev, patch);
-        chatMessagesRef.current = next;
-        return next;
-      });
-      if (toastReaction?.emoji) {
-        enqueueMobileChatReactionToast(toastReaction.emoji, {
-          messageId,
-          actorNick: toastReaction.actorNick,
-        });
-      }
-      scheduleDesktopChatAutoScroll();
-    }
-
-    function onChatMessageUpdate(payload) {
-      if (
-        deferNonessentialUiDuringTrace(
-          () => onChatMessageUpdate(payload),
-          "chat-update"
-        )
-      ) {
-        return;
-      }
-      const updatedMessage = payload?.message;
-      if (!updatedMessage || typeof updatedMessage !== "object") return;
-      setChatMessages((prev) =>
-        capChatMessagesByType(patchChatMessageById(prev, updatedMessage))
-      );
-      const updatedId =
-        typeof updatedMessage.id === "string" ? updatedMessage.id.trim() : "";
-      if (updatedId && chatEditTargetRef.current?.id === updatedId) {
-        setChatEditTarget(null);
-      }
-      scheduleDesktopChatAutoScroll();
-    }
-
-    function onChatMessageDelete(payload) {
-      if (
-        deferNonessentialUiDuringTrace(
-          () => onChatMessageDelete(payload),
-          "chat-delete"
-        )
-      ) {
-        return;
-      }
-      const deletedId =
-        typeof payload?.messageId === "string" ? payload.messageId.trim() : "";
-      if (!deletedId) return;
-      setChatMessages((prev) => capChatMessagesByType(removeChatMessageById(prev, deletedId)));
-      if (chatEditTargetRef.current?.id === deletedId) {
-        setChatEditTarget(null);
-        setChatInput("");
-      }
-      if (chatReplyTargetRef.current?.id === deletedId) {
-        setChatReplyTarget(null);
-      }
-      scheduleDesktopChatAutoScroll();
     }
 
     function appendAnnouncements(entries) {
@@ -904,11 +705,6 @@ useEffect(() => {
       announcement: onAnnouncement,
       announcements: onAnnouncements,
       breakStarted: onBreakStarted,
-      "chat:history": onChatHistory,
-      "chat:message_delete": onChatMessageDelete,
-      "chat:message_reaction": onChatReactionUpdate,
-      "chat:message_update": onChatMessageUpdate,
-      chatMessage: onChatNew,
       cultureThemeChallenge: onCultureThemeChallenge,
       "dev:globalAnnouncement": onDevGlobalAnnouncement,
       gobblarsAwarded: onGobblarsAwarded,

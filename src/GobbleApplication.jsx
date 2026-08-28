@@ -174,7 +174,6 @@ import {
   CHAT_BOT_VISIBILITY_STORAGE_KEY,
   CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
   isChatBotMessage,
-  normalizeChatBotVisibility,
   shouldDisplayChatMessageForBotSettings,
 } from "./components/chat/chatBotVisibility.js";
 import {
@@ -2754,7 +2753,6 @@ export default function GobbleApplication() {
     };
   }, [pushMobileExitGuardHistoryEntry, roundId, shouldProtectMobileLiveExit]);
   useEffect(() => {
-    chatTabRef.current = chatTab === "system" ? "system" : "messages";
     if (chatTab === "system") {
       setIsDesktopEmojiPickerOpen(false);
       setDesktopChatReactionPicker((prev) => (prev.open ? { ...prev, open: false } : prev));
@@ -2849,13 +2847,6 @@ export default function GobbleApplication() {
   useEffect(() => {
     breakKindRef.current = breakKind;
   }, [breakKind]);
-  useEffect(() => {
-    showBotMessagesRef.current = showBotMessages;
-  }, [showBotMessages]);
-  useEffect(() => {
-    const normalized = normalizeChatBotVisibility(chatBotVisibility);
-    chatBotVisibilityRef.current = normalized;
-  }, [chatBotVisibility]);
   useEffect(() => {
     const syncTickRef = () => {
       const nextTick = clockFeature.store.getState().remainingSeconds;
@@ -3276,9 +3267,6 @@ export default function GobbleApplication() {
   const roundIntroStartedForRoundRef = useRef(null);
   const clearTileIntroAnimationFnRef = useRef(() => {});
   const triggerTileIntroAnimationFnRef = useRef(() => 0);
-  const chatTabRef = useRef(chatTab === "system" ? "system" : "messages");
-  const showBotMessagesRef = useRef(showBotMessages);
-  const chatBotVisibilityRef = useRef(chatBotVisibility);
   const isHomeChatOpenRef = useRef(false);
   const lobbyPresenceRef = useRef(new Set());
   const lobbyChatSubscriptionRef = useRef({
@@ -6402,18 +6390,11 @@ export default function GobbleApplication() {
     appViewRef,
     buildObjectiveToastMessage,
     bumpSamsungDiagCounter,
-    chatBotVisibilityRef,
-    chatEditTargetRef,
-    chatMessagesRef,
-    chatReplyTargetRef,
-    chatTabRef,
     clearQueuedRankingUpdate,
     clearSavedSession,
     currentRoomIdRef,
     currentRoundTrainingRef,
     dailySpecialDragRef,
-    deferNonessentialUiDuringTrace,
-    enqueueMobileChatReactionToast,
     ensureTournamentBaseline,
     getNowServerMs,
     getWeeklyVocabRankForCount,
@@ -6421,13 +6402,8 @@ export default function GobbleApplication() {
     gobblarToastDelayTimersRef,
     inputLockedRef,
     installId,
-    installIdRef,
-    isChatClosingRef,
-    isChatOpenMobileRef,
     isDailyPlayRef,
-    isHomeChatOpenRef,
     isLoggedInRef,
-    isMobileLayoutRef,
     lastGobbleAtRef,
     maybePlayAnnouncementSound,
     nickname,
@@ -6451,13 +6427,8 @@ export default function GobbleApplication() {
     roundHandlersRef,
     roundIdRef,
     roundStartAtRef,
-    scheduleDesktopChatAutoScroll,
     setAnnouncements,
     setBreakKind,
-    setChatEditTarget,
-    setChatInput,
-    setChatMessages,
-    setChatReplyTarget,
     setConnectionError,
     setCurrentRoomId,
     setDailyActiveSlot,
@@ -6469,14 +6440,10 @@ export default function GobbleApplication() {
     setFoundTargetThisRound,
     setFoundTargetWord,
     setGobblarsBalance,
-    setHomeChatBotUnreadCount,
-    setHomeChatUnreadCount,
     setInputLocked,
     setIsLoggedIn,
     setLoginError,
     setMedals,
-    setMobileChatBotUnreadCount,
-    setMobileChatUnreadCount,
     setMobileResultsOutroFadeActive,
     setNextStartAt,
     setOcidProposal,
@@ -6510,7 +6477,6 @@ export default function GobbleApplication() {
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
-    showBotMessagesRef,
     showGlobalRedAnnouncement,
     showToast,
     showToastRef,
@@ -6528,6 +6494,18 @@ export default function GobbleApplication() {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
+  });
+  useEffect(() => {
+    chatFeature.configureRealtime({
+      deferNonessentialUiDuringTrace,
+      installIdRef,
+      isLoggedInRef,
+      isMobileLayoutRef,
+      nicknameRef,
+      onReactionToast: enqueueMobileChatReactionToast,
+      scheduleDesktopChatAutoScroll,
+      socket,
+    });
   });
   useEffect(() => {
     connectionFeature.configureRealtime({
