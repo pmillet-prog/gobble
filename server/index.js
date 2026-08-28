@@ -4811,6 +4811,7 @@ function buildBreakSnapshot(room) {
   if (!room?.breakState) return null;
   return {
     roomId: room.id,
+    roundId: room.breakState.roundId || null,
     nextStartAt: room.breakState.nextStartAt || null,
     breakKind: room.breakState.breakKind || null,
     tournament: room.breakState.tournament || null,
@@ -11019,6 +11020,7 @@ async function endRoundForRoom(room) {
   const nextStartAt = Date.now() + breakMs;
   io.to(room.id).emit("breakStarted", {
     roomId: room.id,
+    roundId: room.currentRound.id,
     nextStartAt,
     breakKind,
     tournament: {
@@ -11033,6 +11035,7 @@ async function endRoundForRoom(room) {
     targetSummary,
   });
   room.breakState = {
+    roundId: room.currentRound.id,
     nextStartAt,
     breakKind,
     tournament: {

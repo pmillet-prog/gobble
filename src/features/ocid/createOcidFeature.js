@@ -58,6 +58,24 @@ export function createOcidFeature(
   function onVoteStarted(payload = {}) {
     if (!shouldHandleRealtimeEvent(payload?.roomId, payload?.roundId)) return;
     if (!payload || typeof payload !== "object") return;
+    config.gameplaySession?.transitionPhase?.("playing", {
+      roomId: payload.roomId,
+      roundId: payload.roundId,
+      status: "ocid_vote",
+    });
+    config.gameplaySession?.updateCapabilities?.(
+      {
+        canPropose: false,
+        canSubmit: false,
+        canSyncSpecial3Words: false,
+        canVote: true,
+      },
+      {
+        origin: "live",
+        roomId: payload.roomId,
+        roundId: payload.roundId,
+      }
+    );
     store.patch({
       selectedOptionId: "",
       statusMessage: "",
@@ -123,7 +141,28 @@ export function createOcidFeature(
   }
 
   function isProposalOpen() {
-    return !!config.isOcidRound && !!config.roundId && !store.getState().vote;
+    if (!config.isOcidRound || !config.roundId || store.getState().vote) return false;
+    if (
+      config.gameplaySession?.acceptsEvent &&
+      !config.gameplaySession.acceptsEvent({
+        origin: "live",
+        roomId: config.currentRoomIdRef?.current,
+        roundId: config.roundId,
+      })
+    ) {
+      return false;
+    }
+    const gameplayState = config.gameplaySession?.store?.getState?.();
+    const capabilities = gameplayState?.capabilities;
+    return (
+      !capabilities ||
+      gameplayState?.roundStatus === "intro" ||
+      capabilities.canPropose === true
+    );
+  }
+
+  function isCurrentGameplaySession(sessionId) {
+    return !sessionId || config.gameplaySession?.isCurrent?.(sessionId) !== false;
   }
 
   function clearProposalServer() {
@@ -134,6 +173,7 @@ export function createOcidFeature(
 
   function syncProposal({ manual = false } = {}) {
     if (!config.socket?.connected || !isProposalOpen()) return false;
+    const gameplaySessionId = config.gameplaySession?.refs?.sessionId?.current || null;
     const state = store.getState();
     const word = String(state.proposal || "").trim();
     if (!word) {
@@ -149,6 +189,7 @@ export function createOcidFeature(
     const path = Array.isArray(state.proposalPath) ? state.proposalPath : [];
     refs.latestProposal.current = { roundId, word, path };
     config.socket.emit("ocid:propose", { roundId, word, path }, (response) => {
+      if (!isCurrentGameplaySession(gameplaySessionId)) return;
       if (response?.ok) {
         const accepted = String(response?.proposal || word).trim();
         store.patch({
@@ -182,7 +223,13 @@ export function createOcidFeature(
   }
 
   function flushProposalBeforeSuspend() {
-    if (config.phase !== "playing" || !config.socket?.connected) return false;
+    if (
+      config.phase !== "playing" ||
+      !config.socket?.connected ||
+      !isProposalOpen()
+    ) {
+      return false;
+    }
     const draft = refs.latestProposal.current || EMPTY_LATEST_PROPOSAL;
     const word = String(draft.word || "").trim();
     if (!word || draft.roundId !== config.roundId) return false;
@@ -254,10 +301,24 @@ export function createOcidFeature(
     if (!config.socket?.connected || !config.roundId || !config.isOcidRound || !optionId) {
       return false;
     }
+    if (
+      config.gameplaySession?.acceptsEvent &&
+      !config.gameplaySession.acceptsEvent({
+        origin: "live",
+        roomId: config.currentRoomIdRef?.current,
+        roundId: config.roundId,
+      })
+    ) {
+      return false;
+    }
+    const capabilities = config.gameplaySession?.store?.getState?.()?.capabilities;
+    if (capabilities && capabilities.canVote !== true) return false;
+    const gameplaySessionId = config.gameplaySession?.refs?.sessionId?.current || null;
     config.socket.emit(
       "ocid:vote",
       { roundId: config.roundId, optionId },
       (response) => {
+        if (!isCurrentGameplaySession(gameplaySessionId)) return;
         store.patch(
           response?.ok
             ? {

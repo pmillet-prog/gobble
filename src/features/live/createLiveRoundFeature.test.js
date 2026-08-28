@@ -100,6 +100,15 @@ test("late events from another round cannot mutate the active session", () => {
     roundId: "r1",
     pattern: "A _ _",
   });
+  harness.socket.fire("breakStarted", {
+    roomId: "room-4x4",
+    roundId: "r1",
+    breakKind: "round",
+  });
+  harness.socket.fire("roundPreparing", {
+    roomId: "room-4x4",
+    roundNumber: 3,
+  });
 
   assert.deepEqual(harness.calls.map((entry) => entry.name), ["onRoundStarted"]);
   assert.equal(harness.gameplay.store.getState().phase, "playing");

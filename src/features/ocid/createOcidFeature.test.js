@@ -140,6 +140,16 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
   });
   const phaseLoopTestEnabledRef = { current: false };
   const liveSessionReadyRef = { current: true };
+  const gameplayState = {
+    capabilities: {
+      canPropose: true,
+      canSubmit: false,
+      canSyncSpecial3Words: false,
+      canVote: false,
+    },
+    roundStatus: "running",
+  };
+  const gameplayTransitions = [];
   feature.configureRound({
     isOcidRound: true,
     phase: "playing",
@@ -152,6 +162,16 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
     gameplaySession: {
       acceptsEvent: ({ roomId, roundId }) =>
         (!roomId || roomId === "room-1") && (!roundId || roundId === "round-1"),
+      store: { getState: () => gameplayState },
+      transitionPhase: (phase, payload) => {
+        gameplayTransitions.push({ phase, payload });
+        gameplayState.roundStatus = payload.status;
+        return { accepted: true };
+      },
+      updateCapabilities: (capabilities) => {
+        gameplayState.capabilities = capabilities;
+        return { accepted: true };
+      },
     },
     getNowServerMs: () => 1000,
     isLoggedInRef: { current: true },
@@ -186,6 +206,23 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
     ticks: [4],
   });
   assert.deepEqual(statusMessages, [["Vote OCID", 1800]]);
+  assert.equal(gameplayState.roundStatus, "ocid_vote");
+  assert.deepEqual(gameplayState.capabilities, {
+    canPropose: false,
+    canSubmit: false,
+    canSyncSpecial3Words: false,
+    canVote: true,
+  });
+  assert.deepEqual(gameplayTransitions, [
+    {
+      phase: "playing",
+      payload: {
+        roomId: "room-1",
+        roundId: "round-1",
+        status: "ocid_vote",
+      },
+    },
+  ]);
 
   socket.fire("ocidVoteUpdated", {
     definition: "Définition remplacée",
@@ -235,4 +272,63 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
     statusMessage: "",
     vote: null,
   });
+});
+
+test("OCID ignores proposal and vote acknowledgements from an obsolete session", () => {
+  const callbacks = new Map();
+  const socket = {
+    connected: true,
+    emit(eventName, _payload, callback) {
+      callbacks.set(eventName, callback);
+    },
+  };
+  const scope = createResourceScope("ocid-stale-ack-test");
+  const feature = createOcidFeature(
+    { scope },
+    {
+      clearTimeoutFn: () => {},
+      documentTarget: null,
+      setTimeoutFn: () => 1,
+      windowTarget: null,
+    }
+  );
+  let currentSessionId = "live:1";
+  const gameplayState = {
+    capabilities: { canPropose: true, canVote: false },
+    roundStatus: "running",
+  };
+  const gameplaySession = {
+    acceptsEvent: ({ roomId, roundId }) =>
+      roomId === "room-1" && roundId === "round-1",
+    isCurrent: (sessionId) => sessionId === currentSessionId,
+    refs: { sessionId: { current: currentSessionId } },
+    store: { getState: () => gameplayState },
+  };
+  feature.configureRealtime({
+    currentRoomIdRef: { current: "room-1" },
+    gameplaySession,
+  });
+  feature.configureRound({
+    isOcidRound: true,
+    phase: "playing",
+    roundId: "round-1",
+    socket,
+  });
+  feature.start();
+
+  feature.updateProposal("CHAT");
+  assert.equal(feature.syncProposal({ manual: true }), true);
+  currentSessionId = "live:2";
+  callbacks.get("ocid:propose")?.({ ok: true, proposal: "CHAT" });
+  assert.equal(feature.store.getState().proposalSubmitted, "");
+
+  gameplaySession.refs.sessionId.current = currentSessionId;
+  gameplayState.capabilities = { canPropose: false, canVote: true };
+  feature.set("vote", { options: [{ id: "option-1" }] });
+  assert.equal(feature.submitVote("option-1"), true);
+  currentSessionId = "live:3";
+  callbacks.get("ocid:vote")?.({ ok: true });
+  assert.equal(feature.store.getState().selectedOptionId, "");
+
+  scope.dispose();
 });

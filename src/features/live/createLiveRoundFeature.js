@@ -60,6 +60,14 @@ export function createLiveRoundFeature({ scope }) {
 
   function onRoundPreparing(payload = {}) {
     if (!canUseLiveDriver(payload?.roomId)) return;
+    const current = config.gameplaySession?.store?.getState?.();
+    if (
+      current?.phase === "intro" ||
+      current?.phase === "playing" ||
+      current?.phase === "resolving"
+    ) {
+      return;
+    }
     if (
       !config.gameplaySession?.acceptsEvent?.({
         origin: "live",

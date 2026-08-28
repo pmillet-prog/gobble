@@ -202,6 +202,31 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     return true;
   }
 
+  function updateCapabilities(nextCapabilities, payload = {}) {
+    const current = store.getState();
+    if (
+      !acceptsEvent({
+        origin: payload?.origin || current.origin,
+        roomId: payload?.roomId,
+        roundId: payload?.roundId,
+      })
+    ) {
+      return { accepted: false, error: "stale_session", state: current };
+    }
+    const resolved =
+      typeof nextCapabilities === "function"
+        ? nextCapabilities(current.capabilities)
+        : nextCapabilities;
+    const capabilities =
+      resolved && typeof resolved === "object"
+        ? Object.freeze({ ...resolved })
+        : null;
+    const next = { ...current, capabilities };
+    replaceSession(next);
+    config.onTransition?.({ kind: "capabilities", previous: current, state: next });
+    return { accepted: true, state: next };
+  }
+
   function registerResource(dispose, expectedSessionId = refs.sessionId.current) {
     if (typeof dispose !== "function") return () => {};
     if (!sessionScope || expectedSessionId !== refs.sessionId.current) {
@@ -271,5 +296,6 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     startRound,
     store,
     transitionPhase,
+    updateCapabilities,
   });
 }

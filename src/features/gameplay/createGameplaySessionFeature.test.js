@@ -142,3 +142,26 @@ test("a preparation snapshot is not mislabeled as results", () => {
   );
   harness.release();
 });
+
+test("capabilities can only change inside their owning live session", () => {
+  const harness = createHarness("live");
+  harness.feature.startRound({ roomId: "room-4x4", roundId: "r1" });
+
+  assert.equal(
+    harness.feature.updateCapabilities(
+      { canPropose: false, canVote: true },
+      { origin: "live", roomId: "room-4x4", roundId: "r1" }
+    ).accepted,
+    true
+  );
+  assert.equal(harness.feature.store.getState().capabilities.canVote, true);
+  assert.equal(
+    harness.feature.updateCapabilities(
+      { canVote: false },
+      { origin: "live", roomId: "room-4x4", roundId: "obsolete" }
+    ).accepted,
+    false
+  );
+  assert.equal(harness.feature.store.getState().capabilities.canVote, true);
+  harness.release();
+});

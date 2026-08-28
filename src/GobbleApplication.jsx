@@ -8412,6 +8412,14 @@ export default function GobbleApplication() {
 
     if (phase === "playing" && currentRound?.grid && Array.isArray(currentRound.grid)) {
       roundHandlersRef.current.onRoundStarted?.(currentRound);
+      if (playerState?.capabilities && typeof playerState.capabilities === "object") {
+        const canTraceGrid =
+          playerState.capabilities.canSubmit === true ||
+          playerState.capabilities.canSyncSpecial3Words === true ||
+          playerState.capabilities.canPropose === true;
+        inputLockedRef.current = !canTraceGrid;
+        setInputLocked(!canTraceGrid);
+      }
       if (snapshot.specialHint && typeof snapshot.specialHint === "object") {
         const hintKind = snapshot.specialHint.kind || null;
         const allowCells = hintKind === "target_long" || hintKind === "target_score";
