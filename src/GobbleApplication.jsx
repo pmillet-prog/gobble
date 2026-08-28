@@ -6386,7 +6386,6 @@ export default function GobbleApplication() {
   useRealtimeEventBindings({
     applyCultureThemeChallengeToWordStores,
     appViewRef,
-    buildObjectiveToastMessage,
     clearQueuedRankingUpdate,
     clearSavedSession,
     currentRoomIdRef,
@@ -6401,9 +6400,6 @@ export default function GobbleApplication() {
     installId,
     isDailyPlayRef,
     isLoggedInRef,
-    lastGobbleAtRef,
-    maybePlayAnnouncementSound,
-    nickname,
     nicknameRef,
     ocidLatestProposalRef,
     outroInFlightRef,
@@ -6489,6 +6485,25 @@ export default function GobbleApplication() {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
+  });
+  useEffect(() => {
+    feedFeature.configureRealtime({
+      appViewRef,
+      buildObjectiveToastMessage,
+      currentRoomIdRef,
+      isLoggedInRef,
+      lastGobbleAtRef,
+      maybePlayAnnouncementSound,
+      nickname,
+      nicknameRef,
+      phaseLoopTestEnabledRef,
+      phaseRef,
+      showToast,
+      socket,
+      standaloneTrainingSessionRef,
+      triggerConfettiBurst,
+      triggerPraiseFlash,
+    });
   });
   useEffect(() => {
     rosterFeature.configureRealtime({

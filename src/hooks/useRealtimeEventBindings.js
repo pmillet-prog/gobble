@@ -12,7 +12,6 @@ export default function useRealtimeEventBindings(runtime) {
   const {
     applyCultureThemeChallengeToWordStores,
     appViewRef,
-    buildObjectiveToastMessage,
     clearQueuedRankingUpdate,
     clearSavedSession,
     currentRoomIdRef,
@@ -27,9 +26,6 @@ export default function useRealtimeEventBindings(runtime) {
     installId,
     isDailyPlayRef,
     isLoggedInRef,
-    lastGobbleAtRef,
-    maybePlayAnnouncementSound,
-    nickname,
     nicknameRef,
     ocidLatestProposalRef,
     outroInFlightRef,
@@ -128,10 +124,6 @@ useEffect(() => {
         incomingRoomId,
       });
     };
-    const shouldHandleLiveFeedSocketEvent = (incomingRoomId = null) => {
-      return shouldHandleLiveRoundSocketEvents(incomingRoomId);
-    };
-
     function onRoundPreparing(payload = {}) {
       if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!payload || typeof payload !== "object") return;
@@ -351,109 +343,6 @@ useEffect(() => {
         return;
       }
       processBreakStartedRef.current?.(payload);
-    }
-
-    function appendAnnouncements(entries) {
-      if (!entries || entries.length === 0) return;
-      setAnnouncements((prev) => [...prev, ...entries].slice(-40));
-    }
-
-    function maybeTriggerGobbleFromAnnouncement(entry) {
-      if (!entry) return;
-      if (phaseRef.current !== "playing") return;
-      if (
-        entry.type !== "best_possible_score" &&
-        entry.type !== "longest_possible"
-      ) {
-        return;
-      }
-      const selfRaw = (nicknameRef.current || nickname || "").trim();
-      const authorRaw = (entry.nick || "").trim();
-      const self = selfRaw ? selfRaw.toLowerCase() : "";
-      const author = authorRaw ? authorRaw.toLowerCase() : "";
-      if (!self || !author || self !== author) return;
-      if (Date.now() - lastGobbleAtRef.current < 1600) return;
-      triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: true });
-      triggerConfettiBurst("gobble");
-    }
-
-    function maybeShowDuelToastFromAnnouncement(entry) {
-      if (!entry || entry.type !== "objective_validated") return;
-      const selfNickNow = (nicknameRef.current || "").trim().toLowerCase();
-      const nick = String(entry?.nick || "").trim().toLowerCase();
-      if (!selfNickNow || !nick || selfNickNow !== nick) return;
-      showToast(
-        buildObjectiveToastMessage(
-          {
-            objectiveId: entry?.objectiveId,
-            objectiveTitle: entry?.objectiveTitle,
-            objectiveBucket: entry?.objectiveBucket,
-            objectiveProgress: entry?.objectiveProgress,
-            objectiveTarget: entry?.objectiveTarget,
-            teamPoints: entry?.teamPoints,
-          },
-          { validated: true }
-        ),
-        2800
-      );
-    }
-
-    function maybeShowFakeTwinsCompletionToastFromAnnouncement(entry) {
-      if (!entry || entry.type !== "fake_twins_completed") return;
-      const bonus = Math.max(0, Number(entry?.bonus) || 0);
-      const nick = String(entry?.nick || "").trim();
-      const label = bonus > 0 ? `+${bonus} pts` : "bonus validé";
-      showToast(
-        nick ? `${nick} complète les faux jumeaux : ${label}` : `Faux jumeaux complétés : ${label}`,
-        3200
-      );
-    }
-
-    function maybeShowCultureThemeCompletionToastFromAnnouncement(entry) {
-      if (!entry || entry.type !== "culture_theme_completed") return;
-      const bonus = Math.max(0, Number(entry?.bonus) || 0);
-      const nick = String(entry?.nick || "").trim();
-      const theme = String(entry?.theme || "").trim();
-      const label = bonus > 0 ? `+${bonus} pts` : "bonus validé";
-      const subject = theme ? `WikiMama ${theme}` : "WikiMama";
-      showToast(
-        nick ? `${nick} complète ${subject} : ${label}` : `${subject} complété : ${label}`,
-        3200
-      );
-    }
-
-    function onAnnouncement(data) {
-      if (!data) return;
-      if (!shouldHandleLiveFeedSocketEvent(data?.roomId)) return;
-      if (data.type === "big_word" || data.type === "long_word") {
-        return;
-      }
-      maybePlayAnnouncementSound(data);
-      maybeTriggerGobbleFromAnnouncement(data);
-      maybeShowDuelToastFromAnnouncement(data);
-      maybeShowFakeTwinsCompletionToastFromAnnouncement(data);
-      maybeShowCultureThemeCompletionToastFromAnnouncement(data);
-      appendAnnouncements([data]);
-    }
-
-    function onAnnouncements(batch) {
-      if (!Array.isArray(batch) || batch.length === 0) return;
-      const filtered = batch.filter(
-        (entry) =>
-          entry &&
-          shouldHandleLiveFeedSocketEvent(entry?.roomId) &&
-          entry.type !== "big_word" &&
-          entry.type !== "long_word"
-      );
-      if (!filtered.length) return;
-      filtered.forEach((entry) => {
-        maybePlayAnnouncementSound(entry);
-        maybeTriggerGobbleFromAnnouncement(entry);
-        maybeShowDuelToastFromAnnouncement(entry);
-        maybeShowFakeTwinsCompletionToastFromAnnouncement(entry);
-        maybeShowCultureThemeCompletionToastFromAnnouncement(entry);
-      });
-      appendAnnouncements(filtered);
     }
 
     function onMedalsUpdate(payload) {
@@ -681,8 +570,6 @@ useEffect(() => {
     roundHandlersRef.current.onBreakStarted = onBreakStarted;
 
     return socket.bind({
-      announcement: onAnnouncement,
-      announcements: onAnnouncements,
       breakStarted: onBreakStarted,
       cultureThemeChallenge: onCultureThemeChallenge,
       "dev:globalAnnouncement": onDevGlobalAnnouncement,
