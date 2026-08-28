@@ -3,6 +3,7 @@ import {
   buildPlayersSignature,
   buildRankingSignature,
 } from "../../game/liveSnapshotSignature.js";
+import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 const EMPTY_LIST = Object.freeze([]);
 const DEFAULT_QUEUE_TIMING = Object.freeze({
@@ -73,7 +74,7 @@ export function createInitialLiveRosterState() {
 }
 
 export function createLiveRosterFeature(
-  { scope },
+  context,
   {
     clearTimeoutFn = clearTimeout,
     now = Date.now,
@@ -81,6 +82,8 @@ export function createLiveRosterFeature(
     timing = DEFAULT_QUEUE_TIMING,
   } = {}
 ) {
+  const { scope } = context;
+  let active = false;
   let playersFingerprint = null;
   let provisionalRankingFingerprint = null;
   let playersLastApplyAt = 0;
@@ -94,6 +97,9 @@ export function createLiveRosterFeature(
   let rankingQueueTimerId = null;
   let rankingQueued = null;
   let rankingTraceHoldTimerId = null;
+  let realtimeConfig = {};
+  let realtimeSocket = null;
+  let realtimeUnsubscribe = null;
   let stopped = false;
   let feature = null;
 
@@ -106,6 +112,70 @@ export function createLiveRosterFeature(
     try {
       context?.onEvent?.(label, payload);
     } catch (_) {}
+  }
+
+  function emitRealtimeEvent(label, payload) {
+    emitQueueEvent(realtimeConfig, label, payload);
+  }
+
+  function shouldHandleRealtimeEvent(incomingRoomId = null) {
+    if (realtimeConfig.phaseLoopTestEnabledRef?.current) return false;
+    if (realtimeConfig.standaloneTrainingSessionRef?.current) return false;
+    return shouldProcessLiveRoomEvent({
+      appView: realtimeConfig.appViewRef?.current,
+      isLoggedIn: realtimeConfig.isLoggedInRef?.current,
+      activeRoomId: realtimeConfig.currentRoomIdRef?.current,
+      incomingRoomId,
+    });
+  }
+
+  function createRealtimeQueueOptions() {
+    return {
+      isSamsungBrowser: !!realtimeConfig.isSamsungBrowserRef?.current,
+      isTraceActive: realtimeConfig.isTraceActive,
+      onEvent: realtimeConfig.onEvent,
+      startTransition: realtimeConfig.startTransition,
+    };
+  }
+
+  function onPlayersUpdate(list = EMPTY_LIST) {
+    if (!shouldHandleRealtimeEvent()) return;
+    const players = Array.isArray(list) ? list : EMPTY_LIST;
+    try {
+      realtimeConfig.onDiagnosticCounter?.("socketPlayersUpdate");
+    } catch (_) {}
+    emitRealtimeEvent("players-received", { count: players.length });
+    queuePlayers(players, createRealtimeQueueOptions());
+  }
+
+  function onRankingUpdate({ roomId, roundId, ranking = EMPTY_LIST } = {}) {
+    if (!shouldHandleRealtimeEvent(roomId)) return;
+    const activeRoundId = realtimeConfig.roundIdRef?.current;
+    if (activeRoundId && roundId && roundId !== activeRoundId) return;
+    const safeRanking = Array.isArray(ranking) ? ranking : EMPTY_LIST;
+    try {
+      realtimeConfig.onDiagnosticCounter?.("socketRankingUpdate");
+    } catch (_) {}
+    emitRealtimeEvent("ranking-received", { count: safeRanking.length });
+    queueRanking(safeRanking, createRealtimeQueueOptions());
+  }
+
+  function bindRealtime() {
+    const nextSocket = realtimeConfig.socket || context.ports?.realtime || null;
+    if (realtimeSocket === nextSocket && realtimeUnsubscribe) return;
+    realtimeUnsubscribe?.();
+    realtimeUnsubscribe = null;
+    realtimeSocket = nextSocket;
+    if (!active || typeof realtimeSocket?.bind !== "function") return;
+    realtimeUnsubscribe = realtimeSocket.bind({
+      playersUpdate: onPlayersUpdate,
+      rankingUpdate: onRankingUpdate,
+    });
+  }
+
+  function configureRealtime(nextConfig = {}) {
+    realtimeConfig = nextConfig;
+    bindRealtime();
   }
 
   function isTraceActive(context) {
@@ -334,9 +404,16 @@ export function createLiveRosterFeature(
 
   feature = createStateFeature({ scope }, createInitialLiveRosterState, {
     start: () => {
+      active = true;
       stopped = false;
+      bindRealtime();
       scope.add(() => {
+        active = false;
         stopped = true;
+        realtimeUnsubscribe?.();
+        realtimeUnsubscribe = null;
+        realtimeSocket = null;
+        realtimeConfig = {};
         clearQueuedUpdates();
         playersFingerprint = null;
         provisionalRankingFingerprint = null;
@@ -352,6 +429,7 @@ export function createLiveRosterFeature(
   return Object.freeze({
     ...feature,
     clearQueuedUpdates,
+    configureRealtime,
     flushQueuedUpdates,
     queuePlayers,
     queueRanking,

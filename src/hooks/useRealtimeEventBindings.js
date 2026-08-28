@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { recordPerfEvent } from "../perf/renderPerfProbe.js";
 import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
 import { capturePendingSubmissions } from "../network/liveSubmissionRecovery.js";
 import {
@@ -14,7 +13,6 @@ export default function useRealtimeEventBindings(runtime) {
     applyCultureThemeChallengeToWordStores,
     appViewRef,
     buildObjectiveToastMessage,
-    bumpSamsungDiagCounter,
     clearQueuedRankingUpdate,
     clearSavedSession,
     currentRoomIdRef,
@@ -46,8 +44,6 @@ export default function useRealtimeEventBindings(runtime) {
     playSpecialFoundSound,
     processBreakStartedRef,
     processRoundEndedRef,
-    queuePlayersUpdate,
-    queueRankingUpdate,
     requestVocabCount,
     roundHandlersRef,
     roundIdRef,
@@ -355,23 +351,6 @@ useEffect(() => {
         return;
       }
       processBreakStartedRef.current?.(payload);
-    }
-
-    function onPlayersUpdate(list = []) {
-      if (!shouldHandleLiveRoundSocketEvents()) return;
-      const sanitized = Array.isArray(list) ? list : [];
-      bumpSamsungDiagCounter("socketPlayersUpdate");
-      recordPerfEvent("players-received", { count: sanitized.length });
-      queuePlayersUpdate(sanitized);
-    }
-
-    function onRankingUpdate({ roomId: incomingRoomId, roundId: rid, ranking = [] } = {}) {
-      if (!shouldHandleLiveRoundSocketEvents(incomingRoomId)) return;
-      const activeRoundId = roundIdRef.current;
-      if (activeRoundId && rid && rid !== activeRoundId) return;
-      bumpSamsungDiagCounter("socketRankingUpdate");
-      recordPerfEvent("ranking-received", { count: Array.isArray(ranking) ? ranking.length : 0 });
-      queueRankingUpdate(ranking);
     }
 
     function appendAnnouncements(entries) {
@@ -712,8 +691,6 @@ useEffect(() => {
       "moderation:notice": onModerationNotice,
       ocidVoteStarted: onOcidVoteStarted,
       ocidVoteUpdated: onOcidVoteUpdated,
-      playersUpdate: onPlayersUpdate,
-      rankingUpdate: onRankingUpdate,
       roundEnded: onRoundEnded,
       roundPreparing: onRoundPreparing,
       roundStarted: onRoundStarted,

@@ -141,3 +141,88 @@ test("live roster owns throttling, trace holds and queued timer cleanup", () => 
     provisionalRanking: [],
   });
 });
+
+test("live roster owns scoped player and ranking realtime events", () => {
+  const handlers = new Map();
+  const diagnostics = [];
+  const events = [];
+  const socket = {
+    bind(nextHandlers) {
+      for (const [eventName, handler] of Object.entries(nextHandlers)) {
+        handlers.set(eventName, handler);
+      }
+      return () => {
+        for (const [eventName, handler] of Object.entries(nextHandlers)) {
+          if (handlers.get(eventName) === handler) handlers.delete(eventName);
+        }
+      };
+    },
+    fire(eventName, payload) {
+      handlers.get(eventName)?.(payload);
+    },
+  };
+  const scope = createResourceScope("live-roster-realtime-test");
+  const feature = createLiveRosterFeature({
+    ports: { realtime: socket },
+    scope,
+  });
+  const phaseLoopTestEnabledRef = { current: false };
+  feature.configureRealtime({
+    appViewRef: { current: "live" },
+    currentRoomIdRef: { current: "room-1" },
+    isLoggedInRef: { current: true },
+    isSamsungBrowserRef: { current: false },
+    isTraceActive: () => false,
+    onDiagnosticCounter: (label) => diagnostics.push(label),
+    onEvent: (label, payload) => events.push({ label, payload }),
+    phaseLoopTestEnabledRef,
+    roundIdRef: { current: "round-1" },
+    socket,
+    standaloneTrainingSessionRef: { current: null },
+    startTransition: (apply) => apply(),
+  });
+  feature.start();
+
+  assert.deepEqual([...handlers.keys()].sort(), [
+    "playersUpdate",
+    "rankingUpdate",
+  ]);
+
+  socket.fire("playersUpdate", [{ nick: "Tigre", score: 10 }]);
+  assert.equal(feature.store.getState().livePlayers[0].nick, "Tigre");
+
+  socket.fire("rankingUpdate", {
+    ranking: [{ nick: "Intrus", rank: 1, score: 99 }],
+    roomId: "room-2",
+    roundId: "round-1",
+  });
+  socket.fire("rankingUpdate", {
+    ranking: [{ nick: "Ancien", rank: 1, score: 50 }],
+    roomId: "room-1",
+    roundId: "round-0",
+  });
+  assert.equal(feature.store.getState().liveProvisionalRanking.length, 0);
+
+  socket.fire("rankingUpdate", {
+    ranking: [{ nick: "Tigre", rank: 1, score: 10 }],
+    roomId: "room-1",
+    roundId: "round-1",
+  });
+  assert.equal(
+    feature.store.getState().liveProvisionalRanking[0].nick,
+    "Tigre"
+  );
+  assert.deepEqual(diagnostics, [
+    "socketPlayersUpdate",
+    "socketRankingUpdate",
+  ]);
+  assert.ok(events.some((entry) => entry.label === "players-received"));
+  assert.ok(events.some((entry) => entry.label === "ranking-received"));
+
+  phaseLoopTestEnabledRef.current = true;
+  socket.fire("playersUpdate", [{ nick: "Ignored" }]);
+  assert.equal(feature.store.getState().livePlayers[0].nick, "Tigre");
+
+  scope.dispose();
+  assert.equal(handlers.size, 0);
+});

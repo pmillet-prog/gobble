@@ -1067,8 +1067,6 @@ export default function GobbleApplication() {
   const {
     clearQueuedUpdates: clearQueuedRosterUpdates,
     flushQueuedUpdates: flushQueuedRosterUpdates,
-    queuePlayers: queueRosterPlayers,
-    queueRanking: queueRosterRanking,
     setPlayers,
     setProvisionalRanking,
   } = rosterFeature;
@@ -6389,7 +6387,6 @@ export default function GobbleApplication() {
     applyCultureThemeChallengeToWordStores,
     appViewRef,
     buildObjectiveToastMessage,
-    bumpSamsungDiagCounter,
     clearQueuedRankingUpdate,
     clearSavedSession,
     currentRoomIdRef,
@@ -6421,8 +6418,6 @@ export default function GobbleApplication() {
     playSpecialFoundSound,
     processBreakStartedRef,
     processRoundEndedRef,
-    queuePlayersUpdate,
-    queueRankingUpdate,
     requestVocabCount,
     roundHandlersRef,
     roundIdRef,
@@ -6494,6 +6489,22 @@ export default function GobbleApplication() {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
+  });
+  useEffect(() => {
+    rosterFeature.configureRealtime({
+      appViewRef,
+      currentRoomIdRef,
+      isLoggedInRef,
+      isSamsungBrowserRef,
+      isTraceActive: shouldHoldLiveUiDuringTrace,
+      onDiagnosticCounter: bumpSamsungDiagCounter,
+      onEvent: recordPerfEvent,
+      phaseLoopTestEnabledRef,
+      roundIdRef,
+      socket,
+      standaloneTrainingSessionRef,
+      startTransition: React.startTransition,
+    });
   });
   useEffect(() => {
     chatFeature.configureRealtime({
@@ -6723,28 +6734,6 @@ export default function GobbleApplication() {
       try {
         task();
       } catch (_) {}
-    });
-  }
-
-  function queuePlayersUpdate(nextPlayers = [], { force = false } = {}) {
-    queueRosterPlayers(nextPlayers, {
-      force,
-      isSamsungBrowser: isSamsungBrowserRef.current,
-      isTraceActive: shouldHoldLiveUiDuringTrace,
-      onEvent: recordPerfEvent,
-    });
-  }
-
-  function queueRankingUpdate(nextRanking = [], { force = false } = {}) {
-    if (force) {
-      deferredTraceUiTasksRef.current = [];
-    }
-    queueRosterRanking(nextRanking, {
-      force,
-      isSamsungBrowser: isSamsungBrowserRef.current,
-      isTraceActive: shouldHoldLiveUiDuringTrace,
-      onEvent: recordPerfEvent,
-      startTransition: React.startTransition,
     });
   }
 
