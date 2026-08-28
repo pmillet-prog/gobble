@@ -79,7 +79,6 @@ export default function useRealtimeEventBindings(runtime) {
     setServerStatus,
     setSpecialHint,
     setSpecialSolvedOverlay,
-    setStatusMessageWithHold,
     setTargetSummary,
     setTick,
     setTournament,
@@ -101,7 +100,6 @@ export default function useRealtimeEventBindings(runtime) {
     standaloneTrainingSessionRef,
     startGameFromServerRef,
     stopImplodePhase,
-    stopRoundEndTickSound,
     submissionStatusRef,
     triggerConfettiBurst,
     triggerPraiseFlash,
@@ -419,38 +417,6 @@ useEffect(() => {
       applyCultureThemeChallengeToWordStores(payload.challenge || payload);
     }
 
-    function onOcidVoteStarted(payload = {}) {
-      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
-      if (!payload || typeof payload !== "object") return;
-      setOcidVote(payload);
-      setOcidSelectedOptionId("");
-      setOcidStatusMessage("");
-      stopRoundEndTickSound({ fadeMs: 80 });
-      const voteEndsAt = Number(payload?.voteEndsAt);
-      if (Number.isFinite(voteEndsAt)) {
-        setServerEndsAt(voteEndsAt);
-        setServerRoundDurationMs(Math.max(1, voteEndsAt - getNowServerMs()));
-        setTick(Math.max(0, Math.ceil((voteEndsAt - getNowServerMs()) / 1000)));
-      }
-      setStatusMessageWithHold("Vote OCID", 1800);
-    }
-
-    function onOcidVoteUpdated(payload = {}) {
-      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
-      if (!payload || typeof payload !== "object") return;
-      setOcidVote((prev) => {
-        if (!prev || (payload.roundId && prev.roundId && payload.roundId !== prev.roundId)) {
-          return payload;
-        }
-        return {
-          ...prev,
-          ...payload,
-          voteEndsAt: prev.voteEndsAt || payload.voteEndsAt,
-          definition: prev.definition || payload.definition,
-        };
-      });
-    }
-
     function onTrophiesUpdated(payload) {
       if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       const updates = Array.isArray(payload?.updates) ? payload.updates : [];
@@ -576,8 +542,6 @@ useEffect(() => {
       gobblarsAwarded: onGobblarsAwarded,
       medalsUpdate: onMedalsUpdate,
       "moderation:notice": onModerationNotice,
-      ocidVoteStarted: onOcidVoteStarted,
-      ocidVoteUpdated: onOcidVoteUpdated,
       roundEnded: onRoundEnded,
       roundPreparing: onRoundPreparing,
       roundStarted: onRoundStarted,

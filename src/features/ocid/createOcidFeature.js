@@ -1,4 +1,5 @@
 import { createFeatureStore } from "../../app/core/createFeatureStore.js";
+import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 const PROPOSAL_SYNC_DELAY_MS = 350;
 const EMPTY_LATEST_PROPOSAL = Object.freeze({
@@ -20,7 +21,7 @@ export function createInitialOcidState() {
 }
 
 export function createOcidFeature(
-  { scope },
+  context,
   {
     clearTimeoutFn = clearTimeout,
     documentTarget = globalThis.document,
@@ -28,6 +29,7 @@ export function createOcidFeature(
     windowTarget = globalThis.window,
   } = {}
 ) {
+  const { scope } = context;
   const store = createFeatureStore(createInitialOcidState());
   const refs = Object.freeze({
     latestProposal: { current: EMPTY_LATEST_PROPOSAL },
@@ -35,7 +37,82 @@ export function createOcidFeature(
   let active = false;
   let config = {};
   let draftSyncTimerId = null;
+  let realtimeSocket = null;
+  let realtimeUnsubscribe = null;
   let suspendListenersAttached = false;
+
+  function shouldHandleRealtimeEvent(incomingRoomId = null) {
+    if (config.phaseLoopTestEnabledRef?.current) return false;
+    if (config.standaloneTrainingSessionRef?.current) return false;
+    return shouldProcessLiveRoomEvent({
+      appView: config.appViewRef?.current,
+      isLoggedIn: config.isLoggedInRef?.current,
+      activeRoomId: config.currentRoomIdRef?.current,
+      incomingRoomId,
+    });
+  }
+
+  function onVoteStarted(payload = {}) {
+    if (!shouldHandleRealtimeEvent(payload?.roomId)) return;
+    if (!payload || typeof payload !== "object") return;
+    store.patch({
+      selectedOptionId: "",
+      statusMessage: "",
+      vote: payload,
+    });
+    config.stopRoundEndTickSound?.({ fadeMs: 80 });
+    const voteEndsAt = Number(payload.voteEndsAt);
+    if (Number.isFinite(voteEndsAt)) {
+      const nowServerMs = config.getNowServerMs?.();
+      config.setServerEndsAt?.(voteEndsAt);
+      config.setServerRoundDurationMs?.(
+        Math.max(1, voteEndsAt - nowServerMs)
+      );
+      config.setTick?.(
+        Math.max(0, Math.ceil((voteEndsAt - config.getNowServerMs?.()) / 1000))
+      );
+    }
+    config.setStatusMessageWithHold?.("Vote OCID", 1800);
+  }
+
+  function onVoteUpdated(payload = {}) {
+    if (!shouldHandleRealtimeEvent(payload?.roomId)) return;
+    if (!payload || typeof payload !== "object") return;
+    store.set("vote", (previous) => {
+      if (
+        !previous ||
+        (payload.roundId &&
+          previous.roundId &&
+          payload.roundId !== previous.roundId)
+      ) {
+        return payload;
+      }
+      return {
+        ...previous,
+        ...payload,
+        voteEndsAt: previous.voteEndsAt || payload.voteEndsAt,
+        definition: previous.definition || payload.definition,
+      };
+    });
+  }
+
+  function bindRealtime() {
+    const nextSocket = config.socket || context.ports?.realtime || null;
+    if (realtimeSocket === nextSocket && realtimeUnsubscribe) return;
+    realtimeUnsubscribe?.();
+    realtimeUnsubscribe = null;
+    realtimeSocket = nextSocket;
+    if (!active || typeof realtimeSocket?.bind !== "function") return;
+    realtimeUnsubscribe = realtimeSocket.bind({
+      ocidVoteStarted: onVoteStarted,
+      ocidVoteUpdated: onVoteUpdated,
+    });
+  }
+
+  function configureRealtime(nextConfig = {}) {
+    config = { ...config, ...nextConfig };
+    bindRealtime();
+  }
 
   function clearDraftSyncTimer() {
     if (draftSyncTimerId != null) clearTimeoutFn(draftSyncTimerId);
@@ -148,6 +225,7 @@ export function createOcidFeature(
     config = { ...config, ...nextConfig };
     scheduleDraftSync();
     reconcileSuspendListeners();
+    bindRealtime();
   }
 
   function updateProposal(value) {
@@ -211,19 +289,25 @@ export function createOcidFeature(
     });
     scheduleDraftSync();
     reconcileSuspendListeners();
+    bindRealtime();
     scope.add(() => {
       active = false;
       unsubscribe();
+      realtimeUnsubscribe?.();
+      realtimeUnsubscribe = null;
+      realtimeSocket = null;
       clearDraftSyncTimer();
       detachSuspendListeners();
       config = {};
       refs.latestProposal.current = EMPTY_LATEST_PROPOSAL;
+      store.patch(createInitialOcidState());
     });
   }
 
   return Object.freeze({
     clearProposal,
     clearProposalServer,
+    configureRealtime,
     configureRound,
     flushProposalBeforeSuspend,
     patch: store.patch,

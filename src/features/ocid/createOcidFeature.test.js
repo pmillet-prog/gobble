@@ -108,3 +108,116 @@ test("OCID satellite owns proposal debounce, suspension flush and cleanup", () =
     path: [],
   });
 });
+
+test("OCID satellite owns scoped vote events and clock commands", () => {
+  const handlers = new Map();
+  const clock = {
+    durations: [],
+    endsAt: [],
+    ticks: [],
+  };
+  const stoppedSounds = [];
+  const statusMessages = [];
+  const socket = {
+    bind(nextHandlers) {
+      for (const [eventName, handler] of Object.entries(nextHandlers)) {
+        handlers.set(eventName, handler);
+      }
+      return () => {
+        for (const [eventName, handler] of Object.entries(nextHandlers)) {
+          if (handlers.get(eventName) === handler) handlers.delete(eventName);
+        }
+      };
+    },
+    fire(eventName, payload) {
+      handlers.get(eventName)?.(payload);
+    },
+  };
+  const scope = createResourceScope("ocid-realtime-test");
+  const feature = createOcidFeature({
+    ports: { realtime: socket },
+    scope,
+  });
+  const phaseLoopTestEnabledRef = { current: false };
+  feature.configureRound({
+    isOcidRound: true,
+    phase: "playing",
+    roundId: "round-1",
+    socket,
+  });
+  feature.configureRealtime({
+    appViewRef: { current: "live" },
+    currentRoomIdRef: { current: "room-1" },
+    getNowServerMs: () => 1000,
+    isLoggedInRef: { current: true },
+    phaseLoopTestEnabledRef,
+    setServerEndsAt: (value) => clock.endsAt.push(value),
+    setServerRoundDurationMs: (value) => clock.durations.push(value),
+    setStatusMessageWithHold: (...args) => statusMessages.push(args),
+    setTick: (value) => clock.ticks.push(value),
+    standaloneTrainingSessionRef: { current: null },
+    stopRoundEndTickSound: (options) => stoppedSounds.push(options),
+  });
+  feature.start();
+
+  assert.deepEqual([...handlers.keys()].sort(), [
+    "ocidVoteStarted",
+    "ocidVoteUpdated",
+  ]);
+
+  socket.fire("ocidVoteStarted", {
+    definition: "Définition initiale",
+    options: [{ id: "option-1" }],
+    roomId: "room-1",
+    roundId: "round-1",
+    voteEndsAt: 5000,
+  });
+  assert.equal(feature.store.getState().vote.roundId, "round-1");
+  assert.deepEqual(stoppedSounds, [{ fadeMs: 80 }]);
+  assert.deepEqual(clock, {
+    durations: [4000],
+    endsAt: [5000],
+    ticks: [4],
+  });
+  assert.deepEqual(statusMessages, [["Vote OCID", 1800]]);
+
+  socket.fire("ocidVoteUpdated", {
+    definition: "Définition remplacée",
+    roomId: "room-1",
+    roundId: "round-1",
+    voteEndsAt: 6000,
+    votes: { "option-1": 2 },
+  });
+  assert.equal(
+    feature.store.getState().vote.definition,
+    "Définition initiale"
+  );
+  assert.equal(feature.store.getState().vote.voteEndsAt, 5000);
+  assert.deepEqual(feature.store.getState().vote.votes, { "option-1": 2 });
+
+  socket.fire("ocidVoteUpdated", {
+    roomId: "room-2",
+    roundId: "round-1",
+    votes: { "option-1": 9 },
+  });
+  assert.deepEqual(feature.store.getState().vote.votes, { "option-1": 2 });
+
+  phaseLoopTestEnabledRef.current = true;
+  socket.fire("ocidVoteStarted", {
+    roomId: "room-1",
+    roundId: "round-2",
+  });
+  assert.equal(feature.store.getState().vote.roundId, "round-1");
+
+  scope.dispose();
+  assert.equal(handlers.size, 0);
+  assert.deepEqual(feature.store.getState(), {
+    mobileResultDismissedKey: "",
+    proposal: "",
+    proposalPath: [],
+    proposalSubmitted: "",
+    selectedOptionId: "",
+    statusMessage: "",
+    vote: null,
+  });
+});

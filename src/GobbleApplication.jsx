@@ -6453,7 +6453,6 @@ export default function GobbleApplication() {
     setServerStatus,
     setSpecialHint,
     setSpecialSolvedOverlay,
-    setStatusMessageWithHold,
     setTargetSummary,
     setTick,
     setTournament,
@@ -6475,7 +6474,6 @@ export default function GobbleApplication() {
     standaloneTrainingSessionRef,
     startGameFromServerRef,
     stopImplodePhase,
-    stopRoundEndTickSound,
     submissionStatusRef,
     triggerConfettiBurst,
     triggerPraiseFlash,
@@ -6485,6 +6483,22 @@ export default function GobbleApplication() {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
+  });
+  useEffect(() => {
+    ocidFeature.configureRealtime({
+      appViewRef,
+      currentRoomIdRef,
+      getNowServerMs,
+      isLoggedInRef,
+      phaseLoopTestEnabledRef,
+      setServerEndsAt,
+      setServerRoundDurationMs,
+      setStatusMessageWithHold,
+      setTick,
+      socket,
+      standaloneTrainingSessionRef,
+      stopRoundEndTickSound,
+    });
   });
   useEffect(() => {
     feedFeature.configureRealtime({
