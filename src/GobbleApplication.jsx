@@ -6397,7 +6397,6 @@ export default function GobbleApplication() {
     gobblarsKnownBalanceRef,
     gobblarToastDelayTimersRef,
     inputLockedRef,
-    installId,
     isDailyPlayRef,
     isLoggedInRef,
     nicknameRef,
@@ -6461,8 +6460,6 @@ export default function GobbleApplication() {
     setTournamentSummary,
     setTournamentSummaryAt,
     setTrainingBusy,
-    setTrophyHistory,
-    setTrophyStatus,
     setUpcomingSpecial,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
@@ -6483,6 +6480,17 @@ export default function GobbleApplication() {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
+  });
+  useEffect(() => {
+    statsFeature.configureRealtime({
+      appViewRef,
+      currentRoomIdRef,
+      installIdRef,
+      isLoggedInRef,
+      phaseLoopTestEnabledRef,
+      socket,
+      standaloneTrainingSessionRef,
+    });
   });
   useEffect(() => {
     ocidFeature.configureRealtime({

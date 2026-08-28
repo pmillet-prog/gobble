@@ -23,7 +23,6 @@ export default function useRealtimeEventBindings(runtime) {
     gobblarsKnownBalanceRef,
     gobblarToastDelayTimersRef,
     inputLockedRef,
-    installId,
     isDailyPlayRef,
     isLoggedInRef,
     nicknameRef,
@@ -87,8 +86,6 @@ export default function useRealtimeEventBindings(runtime) {
     setTournamentSummary,
     setTournamentSummaryAt,
     setTrainingBusy,
-    setTrophyHistory,
-    setTrophyStatus,
     setUpcomingSpecial,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
@@ -417,40 +414,6 @@ useEffect(() => {
       applyCultureThemeChallengeToWordStores(payload.challenge || payload);
     }
 
-    function onTrophiesUpdated(payload) {
-      if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
-      const updates = Array.isArray(payload?.updates) ? payload.updates : [];
-      if (!updates.length) return;
-      const selfId = installId;
-      if (!selfId) return;
-      const entry = updates.find((u) => u?.installId === selfId);
-      if (!entry) return;
-      setTrophyStatus((prev) => ({
-        ...(prev || {}),
-        trophies: entry.newTrophies,
-        league: entry.league,
-        progress: entry.progress || prev?.progress,
-        shieldCount: entry.shieldCount ?? prev?.shieldCount ?? 0,
-        shieldFloor: entry.shieldFloor ?? prev?.shieldFloor ?? 0,
-        updatedAt: entry.updatedAt || Date.now(),
-        lastDelta: entry.delta,
-        lastTournamentId: payload?.tournamentId || null,
-      }));
-      setTrophyHistory((prev) => {
-        const next = [
-          {
-            ts: entry.updatedAt || Date.now(),
-            delta: entry.delta,
-            trophies: entry.newTrophies,
-            league: entry.league,
-            tournamentId: payload?.tournamentId || null,
-          },
-          ...(prev || []),
-        ];
-        return next.slice(0, 10);
-      });
-    }
-
     function onGobblarsAwarded(payload = {}) {
       if (!payload || typeof payload !== "object") return;
       const amount = Math.max(0, Math.trunc(Number(payload?.amount) || 0));
@@ -548,7 +511,6 @@ useEffect(() => {
       specialHint: onSpecialHint,
       specialSolved: onSpecialSolved,
       tournamentLobbyUpdate: onTournamentLobbyUpdate,
-      trophiesUpdated: onTrophiesUpdated,
     });
   }, []);
 }
