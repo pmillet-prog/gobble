@@ -130,7 +130,6 @@ import {
   getInstallIdCreatedAtTs,
   getOrCreateInstallId,
   normalizeInstallId,
-  normalizeStoredPlayerIdentityKey,
 } from "./app/adapters/browserIdentity.js";
 import { clampValue, formatNumber } from "./utils/numbers.js";
 import AssetManager from "./assets/assetManager";
@@ -619,8 +618,6 @@ const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
-const SESSION_STORAGE_KEY = "gobble_session_v1";
-
 function getMassiveBoggleFeedbackPoints(points, rawWord) {
   const safePoints = Number.isFinite(points) ? Math.max(0, Number(points)) : 0;
   const len = normalizeWord(rawWord || "").length;
@@ -954,6 +951,11 @@ export default function GobbleApplication() {
   const clockFeature = useFeatureRuntime("clock");
   const connectionFeature = useFeatureRuntime("connection");
   const diagnosticsFeature = useFeatureRuntime("diagnostics");
+  const sessionPersistenceFeature = useFeatureRuntime("sessionPersistence");
+  const {
+    autoResumeEnabled: autoResumeEnabledRef,
+    session: sessionRef,
+  } = sessionPersistenceFeature.refs;
   const { isSamsungBrowser: isSamsungBrowserRef } = diagnosticsFeature.refs;
   const {
     getNowMs: getSamsungDiagNowMs,
@@ -1790,7 +1792,6 @@ export default function GobbleApplication() {
   const weeklyArrowBlinkTimerRef = useRef(null);
   const weeklyArrowBumpTimerRef = useRef(null);
   const weeklyArrowSeenRef = useRef(false);
-  const autoResumeEnabledRef = useRef(false);
   const serverClockRef = useRef(createServerClockState());
   const breakCountdownRef = useRef(null);
   const playerActivityFeature = useFeatureRuntime("activity");
@@ -2396,23 +2397,16 @@ export default function GobbleApplication() {
   );
   useEffect(() => {
     if (!installId) return;
-    const legacyKeys = new Set([
-      normalizeStoredPlayerIdentityKey(deviceInstallId),
-    ]);
-    legacyKeys.delete("");
-    legacyKeys.delete(installId);
-    if (!legacyKeys.size) return;
-
-    const matchesLegacy = (value) =>
-      legacyKeys.has(normalizeStoredPlayerIdentityKey(value));
-
-    const savedSession = sessionRef.current || loadSessionFromStorage();
-    if (savedSession?.nick && savedSession?.roomId && matchesLegacy(savedSession.installId)) {
-      persistSession({ ...savedSession, installId });
-    }
+    const migrated = sessionPersistenceFeature.migrateSessionInstallId({
+      legacyInstallIds: [deviceInstallId],
+      nextInstallId: installId,
+    });
+    if (migrated) setCanResumeSession(true);
   }, [
-    installId,
     deviceInstallId,
+    installId,
+    sessionPersistenceFeature,
+    setCanResumeSession,
   ]);
 
   function clearCelebrationFx() {
@@ -2586,7 +2580,6 @@ export default function GobbleApplication() {
       socket.disconnect();
     } catch (_) {}
   }
-  const sessionRef = useRef(null);
   const resumeLockRef = useRef(false);
   const resumeLockAtRef = useRef(0);
   const resumeProbeRef = useRef({ inFlight: false, lastAt: 0 });
@@ -2674,7 +2667,6 @@ export default function GobbleApplication() {
   const requestSessionResumeSnapshotRef = useRef(null);
   const resumeLoginFromSessionRef = useRef(null);
   const previousAppViewRef = useRef(appView);
-  const bootResumeAttemptKeyRef = useRef("");
   const attemptSilentReconnectRef = useRef(null);
   const pingInFlightRef = useRef(false);
   const liveStateSyncInFlightRef = useRef(null);
@@ -6708,90 +6700,34 @@ export default function GobbleApplication() {
   }
 
   function loadSessionFromStorage() {
-    try {
-      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.nick || !parsed?.roomId || !parsed?.installId) return null;
-      return {
-        ...parsed,
-        installId: normalizeStoredPlayerIdentityKey(parsed.installId),
-      };
-    } catch (_) {
-      return null;
-    }
+    return sessionPersistenceFeature.readStoredSession();
   }
 
   function persistSession(session) {
-    if (!session?.nick || !session?.roomId) return;
-    const nextInstallId = normalizeStoredPlayerIdentityKey(session.installId || installId);
-    if (!nextInstallId) return;
-    const now = Date.now();
-    const previousLoginAt = Number(session?.lastLoginAt ?? sessionRef.current?.lastLoginAt);
-    const payload = {
-      nick: String(session.nick || "").trim(),
-      roomId: session.roomId,
-      installId: nextInstallId,
-      lastLoginAt:
-        Number.isFinite(previousLoginAt) && previousLoginAt > 0 ? previousLoginAt : now,
-      lastActiveAt: now,
-    };
-    sessionRef.current = payload;
-    setCanResumeSession(true);
-    autoResumeEnabledRef.current = true;
-    try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
-    } catch (_) {}
-  }
-
-  function touchSavedSessionActivity(now = Date.now()) {
-    const session = sessionRef.current;
-    if (!session?.nick || !session?.roomId || !session?.installId) return;
-    const timestamp = Number(now);
-    if (!Number.isFinite(timestamp) || timestamp <= 0) return;
-    const previousActivityAt = Number(session.lastActiveAt);
-    if (Number.isFinite(previousActivityAt) && timestamp - previousActivityAt < 5000) return;
-    const payload = {
-      ...session,
-      lastActiveAt: timestamp,
-    };
-    sessionRef.current = payload;
-    try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
-    } catch (_) {}
+    const payload = sessionPersistenceFeature.persistSession(session, {
+      fallbackInstallId: installId,
+    });
+    if (payload) setCanResumeSession(true);
+    return payload;
   }
 
   function clearSavedSession() {
-    sessionRef.current = null;
-    bootResumeAttemptKeyRef.current = "";
+    sessionPersistenceFeature.clearSavedSession();
     setCanResumeSession(false);
-    autoResumeEnabledRef.current = false;
     setResumePending(false);
     setResumeSnapshot(null);
     resumeProbeRef.current = { inFlight: false, lastAt: 0 };
-    try {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-    } catch (_) {}
   }
 
   function hasSavedSession() {
-    const s = sessionRef.current;
-    return Boolean(s?.nick && s?.roomId && s?.installId);
+    return sessionPersistenceFeature.hasSavedSession();
   }
 
   useEffect(() => {
-    if (!isLoggedIn || appView !== "live") return undefined;
-    touchSavedSessionActivity();
-    const timer = window.setInterval(() => {
-      touchSavedSessionActivity();
-    }, 15000);
-    const onPageHide = () => touchSavedSessionActivity();
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("pagehide", onPageHide);
-    };
-  }, [appView, isLoggedIn]);
+    sessionPersistenceFeature.configureActivity({
+      enabled: isLoggedIn && appView === "live",
+    });
+  }, [appView, isLoggedIn, sessionPersistenceFeature]);
 
   function clearQueuedRankingUpdate() {
     clearQueuedRosterUpdates();
@@ -8935,18 +8871,14 @@ export default function GobbleApplication() {
   runHealthCheckRef.current = runHealthCheck;
 
   useEffect(() => {
-    const stored = loadSessionFromStorage();
+    const stored = sessionPersistenceFeature.hydrateStoredSession();
     if (stored?.nick && stored?.roomId) {
-      sessionRef.current = stored;
       if (!nickname) {
         setNickname(stored.nick);
       }
       setCanResumeSession(true);
-      autoResumeEnabledRef.current = isLiveSessionFreshForBoot(stored);
     }
-    return () => {
-    };
-  }, [isAccountAuthenticated, nickname]);
+  }, [isAccountAuthenticated, nickname, sessionPersistenceFeature, setCanResumeSession, setNickname]);
 
   useEffect(() => {
     if (!isAccountAuthenticated) return;
@@ -8958,10 +8890,9 @@ export default function GobbleApplication() {
     const install = String(stored?.installId || "").trim();
     if (!nick || !roomToUse || !install) return;
     const attemptKey = `${authenticatedUserId || "anon"}|${nick}|${roomToUse}|${install}`;
-    if (bootResumeAttemptKeyRef.current === attemptKey) return;
-    bootResumeAttemptKeyRef.current = attemptKey;
+    if (!sessionPersistenceFeature.claimBootResumeAttempt(attemptKey)) return;
     if (!isLiveSessionFreshForBoot(stored)) {
-      autoResumeEnabledRef.current = false;
+      sessionPersistenceFeature.setAutoResumeEnabled(false);
       return;
     }
     setTimeout(() => {
@@ -9772,7 +9703,7 @@ export default function GobbleApplication() {
         if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
         lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
         persistSession({ nick, roomId: joinedRoom, installId });
-        autoResumeEnabledRef.current = true;
+        sessionPersistenceFeature.setAutoResumeEnabled(true);
         setCurrentRoomId(joinedRoom);
         setRoomId(joinedRoom);
         const nextSize = getGridSizeForRoom(joinedRoom);
@@ -11861,7 +11792,7 @@ function handleTouchEnd(e) {
     isLoggedInRef.current = true;
     setIsLoggedIn(true);
     liveSessionReadyRef.current = false;
-    autoResumeEnabledRef.current = false;
+    sessionPersistenceFeature.setAutoResumeEnabled(false);
     clearSavedSession();
     setResumeSnapshot(null);
     setCanResumeSession(false);
@@ -11948,7 +11879,7 @@ function handleTouchEnd(e) {
       persistSession({ nick: joinedNick, roomId: joinedRoom, installId });
       lastLoginPayloadRef.current = { nick: joinedNick, roomId: joinedRoom };
     }
-    autoResumeEnabledRef.current = true;
+    sessionPersistenceFeature.setAutoResumeEnabled(true);
     manualDisconnectRef.current = false;
     appViewRef.current = "live";
     setAppView("live");
