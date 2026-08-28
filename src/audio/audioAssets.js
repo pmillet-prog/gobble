@@ -9,12 +9,12 @@ export {
   SOUND_MASTER_VOLUME_DEFAULT,
   normalizeSoundMasterVolume,
 } from "./audioPreferences.js";
+export { AUDIO_COOLDOWN_MAX_KEYS } from "./audioRuntimeLimits.js";
 
 export const DEBUG_AUDIO = false;
 export const AUDIO_MASTER_GAIN = 0.7;
 export const AUDIO_POLYPHONY_LIMIT = 10;
 export const AUDIO_COOLDOWN_PRUNE_MS = 60_000;
-export const AUDIO_COOLDOWN_MAX_KEYS = 256;
 export const AUDIO_COOLDOWNS_MS = {
   tileStep: 12,
   tick: 750,

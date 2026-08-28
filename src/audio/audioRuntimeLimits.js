@@ -1,0 +1,1 @@
+export const AUDIO_COOLDOWN_MAX_KEYS = 256;

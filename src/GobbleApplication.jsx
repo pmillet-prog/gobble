@@ -70,10 +70,8 @@ import {
   recordPerfEvent,
   setPerfProbeEnabled,
 } from "./perf/renderPerfProbe.js";
-import { createSamsungDiagnostics } from "./perf/createSamsungDiagnostics.js";
 import {
   AMBIENT_MUSIC_TRACKS_DEFAULT,
-  AUDIO_COOLDOWN_MAX_KEYS,
   REGISTERED_SFX_MANIFEST,
   SOUND_MASTER_VOLUME_DEFAULT,
   buildSfxManifest,
@@ -103,7 +101,6 @@ import {
   computePreferLiteVisualEffects,
   getDefaultRoomId,
   getViewportSize,
-  isLikelySamsungDeviceUserAgent,
 } from "./app/adapters/deviceCapabilities.js";
 import { VIEWPORT_EVENTS } from "./features/layout/createViewportEventHub.js";
 import {
@@ -275,7 +272,6 @@ import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNav
 import useStandaloneTraining from "./hooks/useStandaloneTraining.js";
 import useDisplayMode from "./hooks/useDisplayMode.js";
 import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
-import { isAndroidWebViewUserAgent } from "./utils/displayMode.js";
 import {
   CHAT_MESSAGES_HISTORY_MAX,
   CHAT_MESSAGES_STORAGE_KEY,
@@ -521,11 +517,6 @@ const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
 const LIVE_ROUND_END_PAYLOAD_WAIT_MS = 4500;
 const PING_SERVER_TIMEOUT_MS = 3200;
 const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 3;
-const SAMSUNG_SAFE_MODE_STORAGE_KEY = "samsungSafeMode";
-const SAMSUNG_DIAG_QUERY_PARAM = "samsungDiag";
-const SAMSUNG_DIAG_STORAGE_KEY = "gobbleSamsungDiagEnabled";
-const SAMSUNG_BROWSER_WARNING_SESSION_KEY = "gobbleSamsungBrowserWarningShown";
-const SAMSUNG_DIAG_FLUSH_INTERVAL_MS = 4000;
 const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
 const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
@@ -962,6 +953,15 @@ export default function GobbleApplication() {
   const traceFeature = useTraceRuntime();
   const clockFeature = useFeatureRuntime("clock");
   const connectionFeature = useFeatureRuntime("connection");
+  const diagnosticsFeature = useFeatureRuntime("diagnostics");
+  const { isSamsungBrowser: isSamsungBrowserRef } = diagnosticsFeature.refs;
+  const {
+    getNowMs: getSamsungDiagNowMs,
+    bumpCounter: bumpSamsungDiagCounter,
+    flushSnapshot: flushSamsungDiagSnapshot,
+    pushEvent: pushSamsungDiagEvent,
+    noteTouchMoveRate: noteSamsungTouchMoveRate,
+  } = diagnosticsFeature;
   const {
     backgrounded: isBackgroundedRef,
     foregroundAttemptAt: foregroundAttemptRef,
@@ -3362,44 +3362,6 @@ export default function GobbleApplication() {
   const reconnectToastPendingRef = useRef(false);
   const liveSessionReadyRef = useRef(false);
   const intentionalDisconnectRef = useRef(false);
-  const isSamsungBrowserRef = useRef(false);
-  const samsungDiagEnabledRef = useRef(false);
-  const samsungDiagSourceRef = useRef("off");
-  const samsungDiagRef = useRef({
-    seq: 0,
-    events: [],
-    counters: {
-      touchStart: 0,
-      touchMove: 0,
-      touchEnd: 0,
-      queueDragMove: 0,
-      queueDragCoalesced: 0,
-      socketPlayersUpdate: 0,
-      socketRankingUpdate: 0,
-      rafFired: 0,
-      rafLagged: 0,
-      rafGlobalJank: 0,
-      rafGlobalStall: 0,
-      rafNoPending: 0,
-      rafNotDragging: 0,
-      tileHitMiss: 0,
-      longTask: 0,
-      eventLoopStall: 0,
-      jsError: 0,
-      unhandledRejection: 0,
-    },
-    touchRate: {
-      startAt: 0,
-      count: 0,
-      peakPerSec: 0,
-      lastHighAt: 0,
-    },
-    lastFlushAt: 0,
-    lastSnapshot: null,
-  });
-  const samsungSafeModeRef = useRef(false);
-  const samsungSafeModeSourceRef = useRef("off");
-  const perfLogLastAtRef = useRef(0);
   const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const bestGridMaxRef = useRef(0);
@@ -4342,101 +4304,6 @@ export default function GobbleApplication() {
   }, []);
 
   useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    const ua = navigator.userAgent || "";
-    const brands =
-      Array.isArray(navigator.userAgentData?.brands) && navigator.userAgentData.brands.length
-        ? navigator.userAgentData.brands.map((entry) => String(entry?.brand || "")).join(" ")
-        : "";
-    const isSamsungBrowser = /SamsungBrowser/i.test(ua) || /Samsung Internet/i.test(brands);
-    const isSamsungWebView =
-      isAndroidWebViewUserAgent(ua) && isLikelySamsungDeviceUserAgent(ua);
-    const isSamsung = isSamsungBrowser || isSamsungWebView;
-    isSamsungBrowserRef.current = isSamsungBrowser;
-    if (isSamsung && typeof window !== "undefined") {
-      const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
-      const bypassSessionGuard = DEV_MODE || isLocalHost;
-      let shouldShowSamsungWarning = bypassSessionGuard;
-      if (!bypassSessionGuard) {
-        shouldShowSamsungWarning = true;
-        try {
-          shouldShowSamsungWarning =
-            window.sessionStorage.getItem(SAMSUNG_BROWSER_WARNING_SESSION_KEY) !== "1";
-        } catch (_) {}
-      }
-      if (shouldShowSamsungWarning && typeof window.alert === "function") {
-        window.setTimeout(() => {
-          window.alert(
-            "Runtime Samsung detecte (Samsung Internet ou WebView Samsung).\n\nPour reduire les plantages, changez le navigateur par defaut:\n1) Parametres\n2) Applications\n3) Choisir les applications par defaut\n4) Application navigateur\n5) Selectionnez Chrome, Firefox ou Edge.\n\nImportant: apres ce changement, relancez completement le jeu.\n\nPour sauvegarder la progression et recuperer votre compte apres changement du navigateur par defaut:\n- Copiez votre code dans Reglages > A propos > Lier un code\n- Puis collez ce meme code dans ce meme menu une fois le navigateur change."
-          );
-        }, 0);
-        try {
-          window.sessionStorage.setItem(SAMSUNG_BROWSER_WARNING_SESSION_KEY, "1");
-        } catch (_) {}
-      }
-    }
-    let source = "disabled";
-    let forcedDiag = null;
-    let diagSource = "auto-off";
-    const localHost =
-      typeof window !== "undefined"
-        ? /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""))
-        : false;
-    const forceDevLocalDiagnostics = DEV_MODE || localHost;
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.removeItem(SAMSUNG_SAFE_MODE_STORAGE_KEY);
-      } catch (_) {}
-
-      try {
-        const rawDiag = new URLSearchParams(window.location.search).get(SAMSUNG_DIAG_QUERY_PARAM);
-        if (/^(1|true|on)$/i.test(String(rawDiag || ""))) {
-          forcedDiag = true;
-          diagSource = "query";
-        } else if (/^(0|false|off)$/i.test(String(rawDiag || ""))) {
-          forcedDiag = false;
-          diagSource = "query";
-        }
-      } catch (_) {}
-      if (forcedDiag === null) {
-        try {
-          const savedDiag = localStorage.getItem(SAMSUNG_DIAG_STORAGE_KEY);
-          if (/^(1|true|on)$/i.test(String(savedDiag || ""))) {
-            forcedDiag = true;
-            diagSource = "storage";
-          } else if (/^(0|false|off)$/i.test(String(savedDiag || ""))) {
-            forcedDiag = false;
-            diagSource = "storage";
-          }
-        } catch (_) {}
-        if (forcedDiag === null && forceDevLocalDiagnostics) {
-          forcedDiag = true;
-          diagSource = "dev-local";
-        }
-      } else {
-        try {
-          localStorage.setItem(SAMSUNG_DIAG_STORAGE_KEY, forcedDiag ? "1" : "0");
-        } catch (_) {}
-      }
-    }
-    samsungSafeModeRef.current = false;
-    samsungSafeModeSourceRef.current = source;
-    samsungDiagEnabledRef.current = forcedDiag === null ? false : !!forcedDiag;
-    samsungDiagSourceRef.current = forcedDiag === null ? "auto-off" : diagSource;
-    if (samsungDiagEnabledRef.current) {
-      pushSamsungDiagEvent(
-        "diag-enabled",
-        {
-          source: samsungDiagSourceRef.current,
-          isSamsung,
-          safeMode: samsungSafeModeRef.current,
-        },
-        { consoleLevel: "warn", flush: true }
-      );
-    }
-  }, []);
-
-  useEffect(() => {
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       canVibrateRef.current = true;
       setCanVibrate(true);
@@ -4444,94 +4311,6 @@ export default function GobbleApplication() {
       canVibrateRef.current = false;
       setCanVibrate(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    if (!samsungDiagEnabledRef.current) return;
-
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        flushSamsungDiagSnapshot("visibility-hidden");
-      } else if (document.visibilityState === "visible") {
-        pushSamsungDiagEvent("visibility-visible");
-      }
-    };
-    const onPageHide = () => {
-      flushSamsungDiagSnapshot("pagehide");
-    };
-    const onBeforeUnload = () => {
-      flushSamsungDiagSnapshot("beforeunload");
-    };
-    const onError = (event) => {
-      bumpSamsungDiagCounter("jsError");
-      pushSamsungDiagEvent(
-        "window-error",
-        {
-          message: String(event?.message || ""),
-          source: String(event?.filename || ""),
-          line: Number(event?.lineno) || null,
-          col: Number(event?.colno) || null,
-        },
-        { consoleLevel: "error", flush: true }
-      );
-    };
-    const onUnhandledRejection = (event) => {
-      bumpSamsungDiagCounter("unhandledRejection");
-      const reason = event?.reason;
-      let fallbackText = "";
-      if (!fallbackText) {
-        try {
-          fallbackText = JSON.stringify(reason || null);
-        } catch (_) {
-          fallbackText = String(reason || "");
-        }
-      }
-      const message =
-        typeof reason === "string"
-          ? reason
-          : reason?.message || reason?.stack || fallbackText;
-      pushSamsungDiagEvent(
-        "unhandled-rejection",
-        { message: String(message || "") },
-        { consoleLevel: "error", flush: true }
-      );
-    };
-
-    const flushTimer = window.setInterval(() => {
-      flushSamsungDiagSnapshot("heartbeat");
-    }, SAMSUNG_DIAG_FLUSH_INTERVAL_MS);
-
-    window.__gobbleSamsungDiagDump = (reason = "manual") =>
-      flushSamsungDiagSnapshot(String(reason || "manual"), { consoleLevel: "warn" });
-    window.__gobbleSamsungDiagRead = () =>
-      samsungDiagRef.current?.lastSnapshot || buildSamsungDiagSnapshot("manual-read");
-
-    pushSamsungDiagEvent("diag-hooks-ready", {
-      source: samsungDiagSourceRef.current || "unknown",
-    });
-    flushSamsungDiagSnapshot("diag-init");
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", onPageHide);
-    window.addEventListener("beforeunload", onBeforeUnload);
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onUnhandledRejection);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", onPageHide);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
-      window.clearInterval(flushTimer);
-      flushSamsungDiagSnapshot("diag-cleanup");
-      try {
-        delete window.__gobbleSamsungDiagDump;
-      } catch (_) {}
-      try {
-        delete window.__gobbleSamsungDiagRead;
-      } catch (_) {}
-    };
   }, []);
 
   useEffect(
@@ -6474,34 +6253,30 @@ export default function GobbleApplication() {
     };
   }, []);
 
-  const [
-    getSamsungDiagNowMs,
-    isSamsungDiagActive,
-    bumpSamsungDiagCounter,
-    buildSamsungDiagSnapshot,
-    flushSamsungDiagSnapshot,
-    pushSamsungDiagEvent,
-    noteSamsungTouchMoveRate,
-  ] = React.useMemo(
-    () =>
-      createSamsungDiagnostics([
-        samsungDiagEnabledRef,
-        samsungDiagRef,
-        dragGridMetricsRef,
-        gridHitboxRef,
-        audioVoiceRef,
-        tickRef,
-        currentTilesRef,
-        samsungDiagSourceRef,
-        isSamsungBrowserRef,
-        samsungSafeModeRef,
-        phaseRef,
-        draggingRef,
-        dragMoveRafRef,
-        dragPendingPointRef,
-      ]),
-    []
-  );
+  useEffect(() => {
+    diagnosticsFeature.configure({
+      audioVoiceRef,
+      currentTilesRef,
+      dragGridMetricsRef,
+      draggingRef,
+      dragMoveRafRef,
+      dragPendingPointRef,
+      gridHitboxRef,
+      phaseRef,
+      tickRef,
+    });
+  }, [
+    audioVoiceRef,
+    currentTilesRef,
+    diagnosticsFeature,
+    dragGridMetricsRef,
+    draggingRef,
+    dragMoveRafRef,
+    dragPendingPointRef,
+    gridHitboxRef,
+    phaseRef,
+    tickRef,
+  ]);
   useEffect(() => {
     if (typeof document === "undefined") return;
 
@@ -6540,177 +6315,6 @@ export default function GobbleApplication() {
       window.removeEventListener("pagehide", stopAudioForBackground);
       window.removeEventListener("beforeunload", stopAudioForBackground);
       document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!DEV_MODE) return;
-    if (typeof PerformanceObserver === "undefined") return;
-    let observer = null;
-    try {
-      observer = new PerformanceObserver((list) => {
-        list.getEntries().forEach((entry) => {
-          if (entry.duration < 50) return;
-          const phase = phaseRef.current;
-          const tickValue = tickRef.current;
-          if (phase === "playing" && typeof tickValue === "number" && tickValue <= 10) {
-            console.warn(
-              "[perf] longtask",
-              Math.round(entry.duration),
-              "ms",
-              "tick",
-              tickValue
-            );
-          }
-        });
-      });
-      observer.observe({ entryTypes: ["longtask"] });
-    } catch (_) {}
-    return () => {
-      try {
-        observer?.disconnect();
-      } catch (_) {}
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof performance === "undefined") return;
-    if (!isSamsungBrowserRef.current && !isSamsungDiagActive()) return;
-
-    const MIN_LOG_INTERVAL_MS = 1500;
-    const maybeLogPerf = (event, payload = {}) => {
-      const now = Date.now();
-      if (now - perfLogLastAtRef.current < MIN_LOG_INTERVAL_MS) return;
-      perfLogLastAtRef.current = now;
-      const voiceState = audioVoiceRef.current || {};
-      const assetAudio = AssetManager.getAudioDebugStats?.() || null;
-      const tickValue = tickRef.current;
-      const currentWordLen = Array.isArray(currentTilesRef.current)
-        ? currentTilesRef.current.length
-        : 0;
-      const meta = {
-        phase: phaseRef.current,
-        tick: Number.isFinite(tickValue) ? tickValue : null,
-        drag: !!draggingRef.current,
-        wordLen: currentWordLen,
-        samsungSafeMode: !!samsungSafeModeRef.current,
-        samsungSafeModeSource: samsungSafeModeSourceRef.current || "unknown",
-        audioVoices: Number.isFinite(voiceState.activeVoices) ? voiceState.activeVoices : null,
-        audioMaxVoices: Number.isFinite(voiceState.maxVoices) ? voiceState.maxVoices : null,
-        audioDrops: Number.isFinite(voiceState.drops) ? voiceState.drops : null,
-        audioCooldownKeys:
-          voiceState.lastPlayed instanceof Map ? voiceState.lastPlayed.size : null,
-        assetAudio,
-        ...payload,
-      };
-      try {
-        console.warn("[perf][samsung]", event, JSON.stringify(meta));
-      } catch (_) {
-        console.warn("[perf][samsung]", event, meta);
-      }
-      if (isSamsungDiagActive()) {
-        if (event === "longtask") {
-          bumpSamsungDiagCounter("longTask", Math.max(1, Number(payload?.count) || 1));
-        } else if (event === "event-loop-stall") {
-          bumpSamsungDiagCounter("eventLoopStall");
-        }
-        const shouldWarn =
-          event === "event-loop-stall" ||
-          event === "longtask" ||
-          event === "audio-cooldown-growth";
-        pushSamsungDiagEvent(
-          `perf-${event}`,
-          {
-            tick: meta.tick,
-            phase: meta.phase,
-            drag: meta.drag,
-            wordLen: meta.wordLen,
-            ...payload,
-          },
-          shouldWarn ? { consoleLevel: "warn" } : {}
-        );
-        if (shouldWarn) {
-          flushSamsungDiagSnapshot(`perf-${event}`, {
-            consoleLevel: "warn",
-            extra: payload,
-          });
-        }
-      }
-    };
-
-    let observer = null;
-    if (typeof PerformanceObserver !== "undefined") {
-      try {
-        observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          let count = 0;
-          let maxMs = 0;
-          for (let i = 0; i < entries.length; i += 1) {
-            const duration = entries[i]?.duration || 0;
-            if (duration < 80) continue;
-            count += 1;
-            if (duration > maxMs) maxMs = duration;
-          }
-          if (count > 0) {
-            maybeLogPerf("longtask", {
-              count,
-              maxMs: Math.round(maxMs),
-            });
-          }
-        });
-        observer.observe({ entryTypes: ["longtask"] });
-      } catch (_) {}
-    }
-
-    let lastTick = performance.now();
-    let lastFrameTs = performance.now();
-    let rafGapId = null;
-    const rafGapLoop = (ts) => {
-      const prev = lastFrameTs;
-      lastFrameTs = ts;
-      const delta = ts - prev;
-      if (delta >= 120) {
-        bumpSamsungDiagCounter("rafGlobalJank");
-        if (delta >= 700) {
-          bumpSamsungDiagCounter("rafGlobalStall");
-        }
-        if (delta >= 220) {
-          maybeLogPerf("raf-gap", { gapMs: Math.round(delta) });
-        }
-      }
-      rafGapId = window.requestAnimationFrame(rafGapLoop);
-    };
-    rafGapId = window.requestAnimationFrame(rafGapLoop);
-    const stallTimer = window.setInterval(() => {
-      const now = performance.now();
-      const drift = now - lastTick - 1000;
-      lastTick = now;
-      if (drift >= 250) {
-        maybeLogPerf("event-loop-stall", { driftMs: Math.round(drift) });
-      }
-    }, 1000);
-    const compactTimer = window.setInterval(() => {
-      try {
-        AssetManager.compactAudioState?.({ nowMs: Date.now() });
-      } catch (_) {}
-      const cooldownSize =
-        audioVoiceRef.current?.lastPlayed instanceof Map
-          ? audioVoiceRef.current.lastPlayed.size
-          : 0;
-      if (cooldownSize > Math.floor(AUDIO_COOLDOWN_MAX_KEYS * 0.8)) {
-        maybeLogPerf("audio-cooldown-growth", { cooldownSize });
-      }
-    }, 5000);
-
-    return () => {
-      if (rafGapId != null) {
-        window.cancelAnimationFrame(rafGapId);
-      }
-      window.clearInterval(stallTimer);
-      window.clearInterval(compactTimer);
-      try {
-        observer?.disconnect();
-      } catch (_) {}
     };
   }, []);
 

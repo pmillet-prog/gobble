@@ -6,6 +6,7 @@ import { createCelebrationFeature } from "../features/celebration/createCelebrat
 import { createConnectionHealthFeature } from "../features/connection/createConnectionHealthFeature.js";
 import { createDailyFeature } from "../features/daily/createDailyFeature.js";
 import { createClientDictionaryFeature } from "../features/dictionary/createClientDictionaryFeature.js";
+import { createPerformanceDiagnosticsFeature } from "../features/diagnostics/createPerformanceDiagnosticsFeature.js";
 import { createDuelFeature } from "../features/duel/createDuelFeature.js";
 import { createIdentityFeature } from "../features/identity/createIdentityFeature.js";
 import { createIntermissionClockFeature } from "../features/intermission/createIntermissionClockFeature.js";
@@ -33,6 +34,7 @@ const FEATURE_FACTORIES = Object.freeze({
   connection: createConnectionHealthFeature,
   daily: createDailyFeature,
   dictionary: createClientDictionaryFeature,
+  diagnostics: createPerformanceDiagnosticsFeature,
   duel: createDuelFeature,
   identity: createIdentityFeature,
   intermission: createIntermissionClockFeature,
