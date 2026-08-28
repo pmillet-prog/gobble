@@ -9,7 +9,6 @@ import {
   CHAT_DESKTOP_FONT_SCALE_MIN,
   CHAT_DESKTOP_FONT_SCALE_STEP,
 } from "../../components/chat/chatPresentationConfig.js";
-import { clearCelebrationFlash } from "../../components/celebrationFxStore.js";
 import { computePreferLiteVisualEffects } from "../../app/adapters/deviceCapabilities.js";
 import { createFeatureStore } from "../../app/core/createFeatureStore.js";
 import {
@@ -354,12 +353,6 @@ export function createPreferencesFeature({ scope }, options = {}) {
           "gold-nick-fx-enabled",
           state.visualGoldNickFxEnabled
         );
-      }
-      if (previous.visualGobbleEnabled && !state.visualGobbleEnabled) {
-        clearCelebrationFlash("gobbleFlash");
-      }
-      if (previous.visualPraiseEnabled && !state.visualPraiseEnabled) {
-        clearCelebrationFlash("praiseFlash");
       }
       const shouldPersist = PERSISTED_PREFERENCE_FIELDS.some(
         (field) => !Object.is(state[field], previous[field])

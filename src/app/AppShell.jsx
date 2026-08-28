@@ -9,6 +9,7 @@ import { createRealtimeGateway } from "./adapters/createRealtimeGateway.js";
 import { createApplicationKernel } from "./core/createApplicationKernel.js";
 import { registerClientFeatures } from "./registerClientFeatures.js";
 import { TraceRuntimeProvider } from "../features/trace/TraceRuntime.jsx";
+import { CelebrationRuntimeProvider } from "../features/celebration/CelebrationRuntime.jsx";
 import {
   ApplicationRuntimeProvider,
   useApplicationKernel,
@@ -59,7 +60,9 @@ export default function AppShell() {
   return (
     <ApplicationRuntimeProvider kernel={kernelRef.current}>
       <TraceRuntimeProvider>
-        <ApplicationRuntime />
+        <CelebrationRuntimeProvider>
+          <ApplicationRuntime />
+        </CelebrationRuntimeProvider>
       </TraceRuntimeProvider>
     </ApplicationRuntimeProvider>
   );

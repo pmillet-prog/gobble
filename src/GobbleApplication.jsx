@@ -198,10 +198,7 @@ import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
 import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
 import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
-import {
-  clearAllCelebrationFlashes,
-  clearCelebrationFlash,
-} from "./components/celebrationFxStore.js";
+import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
   RESULTS_SLIDE_IN_MS,
@@ -961,6 +958,7 @@ export default function GobbleApplication() {
   recordAppRender();
   const applicationKernel = useApplicationKernel();
   const socket = applicationKernel.ports.realtime;
+  const celebrationFeature = useCelebrationRuntime();
   const traceFeature = useTraceRuntime();
   const clockFeature = useFeatureRuntime("clock");
   const connectionFeature = useFeatureRuntime("connection");
@@ -2427,7 +2425,7 @@ export default function GobbleApplication() {
     } catch (_) {}
     gridShakeAnimationRef.current = null;
     confettiBurstTokenRef.current += 1;
-    clearAllCelebrationFlashes();
+    celebrationFeature.clearAllCelebrationFlashes();
     setScoreFlights([]);
     setGridShake(false);
     progressFeature.clearInputShake();
@@ -2814,14 +2812,14 @@ export default function GobbleApplication() {
   }, [isSfxMuted]);
   useEffect(() => {
     if (!visualGobbleEnabled) {
-      clearCelebrationFlash("gobbleFlash");
+      celebrationFeature.clearCelebrationFlash("gobbleFlash");
     }
-  }, [visualGobbleEnabled]);
+  }, [celebrationFeature, visualGobbleEnabled]);
   useEffect(() => {
     if (!visualPraiseEnabled) {
-      clearCelebrationFlash("praiseFlash");
+      celebrationFeature.clearCelebrationFlash("praiseFlash");
     }
-  }, [visualPraiseEnabled]);
+  }, [celebrationFeature, visualPraiseEnabled]);
   useEffect(() => {
     if (!visualScoreFlightsEnabled) {
       setScoreFlights([]);
@@ -2833,9 +2831,9 @@ export default function GobbleApplication() {
   }, [phase]);
   useEffect(() => {
     if (!visualInvalidWordsEnabled) {
-      clearCelebrationFlash("invalidFlash");
+      celebrationFeature.clearCelebrationFlash("invalidFlash");
     }
-  }, [visualInvalidWordsEnabled]);
+  }, [celebrationFeature, visualInvalidWordsEnabled]);
   useEffect(() => {
     if (!visualScreenShakeEnabled) {
       progressFeature.clearInputShake();
@@ -5621,6 +5619,7 @@ export default function GobbleApplication() {
   } = useLazyObjectController(
     createCelebrationController,
     [
+    celebrationFeature,
     canVibrateRef,
     confettiBurstTokenRef,
     gridRef,

@@ -3,10 +3,7 @@ import { createPortal } from "react-dom";
 
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
-import {
-  getCelebrationFxSnapshot,
-  subscribeCelebrationFx,
-} from "./celebrationFxStore.js";
+import { useCelebrationSnapshot } from "../features/celebration/CelebrationRuntime.jsx";
 
 const BIGWORD_IMAGE_FALLBACKS = new Map([
   [IMAGE_KEYS.bigwords.gobble, "/bigwords/gobble.webp"],
@@ -33,11 +30,7 @@ function GameCelebrationOverlay({
   liteVisualEffects = false,
   phase = "",
 }) {
-  const { gobbleFlash, invalidFlash, praiseFlash } = React.useSyncExternalStore(
-    subscribeCelebrationFx,
-    getCelebrationFxSnapshot,
-    getCelebrationFxSnapshot
-  );
+  const { gobbleFlash, invalidFlash, praiseFlash } = useCelebrationSnapshot();
   const isActive = phase === "playing" && (praiseFlash || gobbleFlash || invalidFlash);
   const praiseImageKey =
     praiseFlash?.kind === "epic"

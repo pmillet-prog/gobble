@@ -2,6 +2,7 @@ import { createAdminFeature } from "../features/admin/createAdminFeature.js";
 import { createPlayerActivityFeature } from "../features/activity/createPlayerActivityFeature.js";
 import { createChatFeature } from "../features/chat/createChatFeature.js";
 import { createRoundClockFeature } from "../features/clock/createRoundClockFeature.js";
+import { createCelebrationFeature } from "../features/celebration/createCelebrationFeature.js";
 import { createConnectionHealthFeature } from "../features/connection/createConnectionHealthFeature.js";
 import { createDailyFeature } from "../features/daily/createDailyFeature.js";
 import { createClientDictionaryFeature } from "../features/dictionary/createClientDictionaryFeature.js";
@@ -28,6 +29,7 @@ const FEATURE_FACTORIES = Object.freeze({
   admin: createAdminFeature,
   chat: createChatFeature,
   clock: createRoundClockFeature,
+  celebration: createCelebrationFeature,
   connection: createConnectionHealthFeature,
   daily: createDailyFeature,
   dictionary: createClientDictionaryFeature,

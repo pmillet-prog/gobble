@@ -1,10 +1,10 @@
 import confetti from "canvas-confetti";
 import { getScoreFlightOrigin } from "../components/score/scoreFlightGeometry.js";
-import { showCelebrationFlash } from "../components/celebrationFxStore.js";
 import { isFirefoxMobileUserAgent } from "../app/adapters/deviceCapabilities.js";
 import { recordPerfEvent } from "../perf/renderPerfProbe.js";
 
 export function createCelebrationEffects(
+  celebrationFeature,
   canVibrateRef,
   confettiBurstTokenRef,
   gridRef,
@@ -164,7 +164,7 @@ export function createCelebrationEffects(
       const durationMs = lite ? Math.round(780 + Math.random() * 120) : Math.round(2200 + Math.random() * 400);
       triggerConfettiBurst("gobble");
       if (visualGobbleEnabledRef.current) {
-        showCelebrationFlash("gobbleFlash", {
+        celebrationFeature.showCelebrationFlash("gobbleFlash", {
           id: now + Math.random(),
           text,
           kind,
@@ -184,7 +184,7 @@ export function createCelebrationEffects(
       ? Math.round(650 + Math.random() * 120)
       : Math.round(1500 + Math.random() * 300);
     if (visualPraiseEnabledRef.current) {
-      showCelebrationFlash("praiseFlash", {
+      celebrationFeature.showCelebrationFlash("praiseFlash", {
         id: now + Math.random(),
         text,
         kind,
@@ -223,7 +223,7 @@ export function createCelebrationEffects(
       durationMs: preferLiteVisualEffectsRef.current ? Math.min(durationMs, 720) : durationMs,
       lite: !!preferLiteVisualEffectsRef.current,
     };
-    showCelebrationFlash("invalidFlash", flash, flash.durationMs);
+    celebrationFeature.showCelebrationFlash("invalidFlash", flash, flash.durationMs);
   }
 
   function triggerConfettiBurst(kind = "target") {
