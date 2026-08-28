@@ -1,5 +1,5 @@
 import { createStateFeature } from "../../app/core/createStateFeature.js";
-import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
+import { shouldProcessAttachedLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 const EMPTY_LIST = Object.freeze([]);
 
@@ -17,14 +17,17 @@ export function createLiveFeedFeature(context) {
   let realtimeSocket = null;
   let realtimeUnsubscribe = null;
 
-  function shouldHandleRealtimeEvent(incomingRoomId = null) {
+  function shouldHandleRealtimeEvent(incomingRoomId = null, incomingRoundId = null) {
     if (realtimeConfig.phaseLoopTestEnabledRef?.current) return false;
     if (realtimeConfig.standaloneTrainingSessionRef?.current) return false;
-    return shouldProcessLiveRoomEvent({
+    return shouldProcessAttachedLiveRoomEvent({
       appView: realtimeConfig.appViewRef?.current,
+      gameplaySession: realtimeConfig.gameplaySession,
       isLoggedIn: realtimeConfig.isLoggedInRef?.current,
       activeRoomId: realtimeConfig.currentRoomIdRef?.current,
       incomingRoomId,
+      incomingRoundId,
+      liveSessionReadyRef: realtimeConfig.liveSessionReadyRef,
     });
   }
 
@@ -118,7 +121,7 @@ export function createLiveFeedFeature(context) {
   }
 
   function onAnnouncement(entry) {
-    if (!entry || !shouldHandleRealtimeEvent(entry.roomId)) return;
+    if (!entry || !shouldHandleRealtimeEvent(entry.roomId, entry.roundId)) return;
     if (entry.type === "big_word" || entry.type === "long_word") return;
     processAnnouncement(entry);
     appendAnnouncements([entry]);
@@ -129,7 +132,7 @@ export function createLiveFeedFeature(context) {
     const filtered = batch.filter(
       (entry) =>
         entry &&
-        shouldHandleRealtimeEvent(entry.roomId) &&
+        shouldHandleRealtimeEvent(entry.roomId, entry.roundId) &&
         entry.type !== "big_word" &&
         entry.type !== "long_word"
     );

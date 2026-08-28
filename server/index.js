@@ -88,6 +88,11 @@ import { registerTrainingHandlers } from "./realtime/registerTrainingHandlers.js
 import { registerDisconnectHandler } from "./realtime/registerDisconnectHandler.js";
 import { registerSessionHandlers } from "./realtime/registerSessionHandlers.js";
 import {
+  buildSessionPlayerCapabilities,
+  deriveSessionSnapshotPhase,
+  isSessionRoundDisplayable,
+} from "./realtime/sessionSnapshotState.js";
+import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
   getPreviousWeeklyVocabPodium,
@@ -3797,6 +3802,7 @@ function createRoomState(roomId, config) {
     specialWarningIssuedFor: null,
     breakState: null, // { nextStartAt, breakKind, tournament, nextSpecial }
     roundStartPending: false,
+    roundPreparingSnapshot: null,
     tournamentLobby: {
       readyKeys: new Set(),
       cooldownEndsAt: null,
@@ -4205,6 +4211,7 @@ function emitTournamentLobby(room) {
 function enterInterTournamentLobby(room, { cooldownMs = 0 } = {}) {
   if (!room) return;
   room.roundStartPending = false;
+  room.roundPreparingSnapshot = null;
   clearPendingRankingBroadcast(room);
   if (room.currentRound?.timers) {
     room.currentRound.timers.forEach((timer) => clearTimeout(timer));
@@ -4854,26 +4861,90 @@ function buildLiveRanking(room, roundId) {
   }));
 }
 
+function buildCurrentSpecialHint(room) {
+  const round = room?.currentRound;
+  const specialType = round?.special?.type;
+  const isTargetRound = specialType === "target_long" || specialType === "target_score";
+  if (!round || !isTargetRound || typeof round.targetWord !== "string" || !round.targetWord) {
+    return null;
+  }
+  const word = round.targetWord;
+  const startedAt =
+    (Number.isFinite(round.startsAt) ? round.startsAt : null) ||
+    ((round.endsAt || Date.now()) -
+      (round.durationMs || room.config.durationMs || 0));
+  const elapsed = Math.max(0, Date.now() - startedAt);
+  const targetHintScheduleMs =
+    Array.isArray(round.targetHintScheduleMs) && round.targetHintScheduleMs.length
+      ? round.targetHintScheduleMs
+      : getTargetHintScheduleMs({
+          targetWord: word,
+          targetLength: round.targetLength,
+          roundDurationMs: round.durationMs || room.config.durationMs || 90 * 1000,
+          roundType: specialType,
+        });
+  const firstHintMs =
+    targetHintScheduleMs.length > 0
+      ? targetHintScheduleMs[0]
+      : Number.POSITIVE_INFINITY;
+  let revealed = round.targetRevealed || new Set();
+  if (elapsed >= firstHintMs) {
+    const expanded = expandTargetRevealed(word, revealed);
+    if (expanded.size !== revealed.size) {
+      round.targetRevealed = expanded;
+      revealed = expanded;
+    }
+  }
+  const chars = word.split("");
+  const revealWordIndices = normalizeTargetRevealIndices(Array.from(revealed));
+  return {
+    roomId: room.id,
+    roundId: round.id,
+    kind: specialType,
+    length: chars.length,
+    pattern: chars
+      .map((character, index) => (revealed.has(index) ? character.toUpperCase() : "_"))
+      .join(" "),
+    revealCells: resolveTargetHintCells(room, revealWordIndices),
+    revealWordIndices,
+  };
+}
+
 function buildSessionSnapshot(room, player) {
   if (!room || !player) return null;
   const round = room.currentRound;
   const hasActiveRound = isRoundActive(round);
-  const phase = hasActiveRound
-    ? "playing"
-    : room.breakState || room.currentRound || room.roundStartPending
-    ? "results"
-    : "lobby";
-  const currentRoundPayload = hasActiveRound ? buildRoundStartedPayload(room) : null;
+  const hasSessionRound = isSessionRoundDisplayable(round, hasActiveRound);
+  const phase = deriveSessionSnapshotPhase({
+    breakState: room.breakState,
+    currentRound: room.currentRound,
+    hasActiveRound: hasSessionRound,
+    roundStartPending: room.roundStartPending,
+  });
+  const currentRoundPayload = hasSessionRound ? buildRoundStartedPayload(room) : null;
   let score = 0;
   let words = [];
   let participated = false;
   let special3Words = null;
-  if (hasActiveRound) {
+  let targetFound = false;
+  let targetWord = "";
+  let ocid = null;
+  if (hasSessionRound) {
     const roundSubs = room.submissions.get(round.id) || null;
     const playerRound = roundSubs ? roundSubs.get(player.nick) : null;
     score = playerRound?.score || 0;
     words = Array.from(playerRound?.words || []);
     participated = hasPlayerActivity(playerRound);
+    targetFound = !!round?.targetFoundAt?.has?.(player.nick);
+    targetWord = targetFound ? String(round?.targetWord || "") : "";
+    if (round?.special?.type === OCID_TYPE) {
+      const proposal = round.ocidProposals?.get?.(player.nick) || null;
+      ocid = {
+        proposal: String(proposal?.display || proposal?.normalized || ""),
+        proposalPath: Array.isArray(proposal?.path) ? proposal.path : [],
+        selectedOptionId: String(round.ocidVotes?.get?.(player.nick) || ""),
+      };
+    }
     if (playerRound?.specialWordSlots || playerRound?.specialPlacements) {
       special3Words = {
         wordSlots: Array.isArray(playerRound?.specialWordSlots)
@@ -4897,8 +4968,11 @@ function buildSessionSnapshot(room, player) {
       score = entry.score || 0;
       words = Array.isArray(entry.words) ? entry.words : [];
       participated = Array.isArray(words) ? words.length > 0 || score > 0 : score > 0;
+      targetFound = !!entry.targetFound;
+      targetWord = targetFound ? String(room.lastRoundResults?.round?.targetWord || "") : "";
     }
   }
+  const specialType = round?.special?.type || null;
   const playerState = {
     nick: player.nick,
     userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
@@ -4912,14 +4986,35 @@ function buildSessionSnapshot(room, player) {
     weeklyVocabPodiumRank: getWeeklyVocabPodiumRankForPlayer(player),
     isWeeklyVocabChampion: isWeeklyVocabChampionPlayer(player),
     special3Words,
+    targetFound,
+    targetWord,
+    ocid,
+    capabilities: buildSessionPlayerCapabilities({
+      hasSessionRound,
+      roundStatus: round?.status || null,
+      specialType,
+      targetFound,
+    }),
   };
 
   return {
+    capturedAt: Date.now(),
     roomId: room.id,
     phase,
     player: playerState,
     currentRound: currentRoundPayload,
-    ranking: hasActiveRound && round?.id ? buildLiveRanking(room, round.id) : [],
+    ranking: hasSessionRound && round?.id ? buildLiveRanking(room, round.id) : [],
+    roundPreparing:
+      phase === "preparing"
+        ? room.roundPreparingSnapshot || {
+            roomId: room.id,
+            roundNumber: (room.roundCounter || 0) + 1,
+            special: null,
+            message: "La prochaine grille est en cours de préparation.",
+            startedAt: Date.now(),
+          }
+        : null,
+    specialHint: hasSessionRound ? buildCurrentSpecialHint(room) : null,
     breakState: buildBreakSnapshot(room),
     tournamentLobby: buildTournamentLobbyPayload(room),
     lastRoundResults: room.breakState ? room.lastRoundResults || null : null,
@@ -7057,6 +7152,7 @@ function pushAnnouncement(room, payload) {
     id: Date.now() + Math.random(),
     ts: Date.now(),
     roomId: room.id,
+    roundId: payload?.roundId ?? room.currentRound?.id ?? null,
     ...payload,
   };
   if (!room.announcementQueue) room.announcementQueue = [];
@@ -9236,7 +9332,7 @@ function hasPreparedOrPendingGrid(room, roundNumber) {
 
 function emitRoundPreparing(room, plan, roundNumber, tournamentRound) {
   if (!room?.id) return;
-  io.to(room.id).emit("roundPreparing", {
+  const payload = {
     roomId: room.id,
     roundNumber,
     special: plan?.isSpecial ? plan : null,
@@ -9251,7 +9347,9 @@ function emitRoundPreparing(room, plan, roundNumber, tournamentRound) {
       ? `La manche spéciale ${plan.label || ""} met un peu plus de temps à générer.`
       : "La prochaine grille met un peu plus de temps à générer.",
     startedAt: Date.now(),
-  });
+  };
+  room.roundPreparingSnapshot = payload;
+  io.to(room.id).emit("roundPreparing", payload);
 }
 
 function matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId = null) {
@@ -9604,11 +9702,13 @@ function resetRoomRecords(room) {
 async function startRoundForRoom(room, options = {}) {
   if (!room) return;
   room.roundStartPending = true;
+  room.roundPreparingSnapshot = null;
   emitTournamentLobby(room);
   try {
     return await runStartRoundForRoom(room, options);
   } finally {
     room.roundStartPending = false;
+    room.roundPreparingSnapshot = null;
     if (!room.currentRound && !room.breakState) {
       emitTournamentLobby(room);
     }
@@ -11012,10 +11112,7 @@ io.on("connection", (socket) => {
     appendConnectionLog,
     buildModerationBanResponse,
     buildPlaytimeBlockedResponse,
-    buildRankingUpdatePayload,
-    buildRoundStartedPayload,
     buildSessionSnapshot,
-    buildTournamentLobbyPayload,
     clearPendingDisconnect,
     clearPlayerAfkTimer,
     cleanupExpiredMedals,
@@ -11024,13 +11121,11 @@ io.on("connection", (socket) => {
     emitRoomsStats,
     emitTournamentLobby,
     ensurePlayerInRound,
-    expandTargetRevealed,
     findPlayerByInstallId,
     getActiveModerationBan,
     getClientIpFromSocket,
     getPlaytimeLimitStatus,
     getRoom,
-    getTargetHintScheduleMs,
     getTeamDot,
     getTeamForInstallCached,
     io,
@@ -11039,12 +11134,10 @@ io.on("connection", (socket) => {
     joinSocketToChatRoom,
     markPresenceJoinAnnounced,
     normalizeInstallId,
-    normalizeTargetRevealIndices,
     persistenceClient,
     pushSystemChatMessage,
     refreshInstallDuelCache,
     requireSocketPlayerIdentity,
-    resolveTargetHintCells,
     schedulePlayerAfkTransition,
   });
 

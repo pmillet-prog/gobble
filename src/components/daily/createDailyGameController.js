@@ -9,6 +9,10 @@ import {
   createDailyWordSlots,
   stripBoardBonuses,
 } from "./dailySpecialModel.js";
+import {
+  isCurrentDailyGameplaySession,
+  isCurrentDailyStartRequest,
+} from "./dailyGameplayScope.js";
 
 export function createDailyGameController(runtime) {
   const [
@@ -20,6 +24,7 @@ export function createDailyGameController(runtime) {
     clearSelection,
     dailyAcceptedPathsRef,
     dailyLaunchDialog,
+    dailyLifecycleRef,
     dailyPlayMode,
     dailySessionRef,
     dailySpecialDragRef,
@@ -66,6 +71,7 @@ export function createDailyGameController(runtime) {
     specialScoreConfig,
     startGameFromServerRef,
     themeAppliedSafe,
+    gameplaySession,
   ] = runtime;
 
 function classifyDailyStartNetworkError(err) {
@@ -113,10 +119,22 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
       : requestedMode === DAILY_FAKE_TWINS_MODE
       ? DAILY_FAKE_TWINS_MODE
       : DAILY_MONSTROUS_MODE;
+  const startGeneration =
+    Math.max(0, Number(dailyLifecycleRef?.current?.startGeneration) || 0) + 1;
+  if (dailyLifecycleRef?.current) {
+    dailyLifecycleRef.current.startGeneration = startGeneration;
+  }
+  const isStartRequestCurrent = () =>
+    isCurrentDailyStartRequest({
+      appViewRef,
+      dailyLifecycleRef,
+      startGeneration,
+    });
   setDailyStartError(null);
   setDailySubmitError("");
   const payload = { installId, pseudo, dailyMode: modeToStart };
   const applyDailyStartSuccess = (data) => {
+    if (!isStartRequestCurrent()) return false;
     if (!data?.grid || !Array.isArray(data.grid)) {
       throw new Error("bad_grid");
     }
@@ -163,8 +181,23 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     appViewRef.current = "daily_play";
     isDailyPlayRef.current = true;
     setAppView("daily_play");
+    const openedSession = gameplaySession?.startRound?.(
+      {
+        roomId: null,
+        roundId: `daily:${data.dateId || "current"}:${mode}`,
+        startsAt: dailySessionRef.current.startedAt,
+        endsAt:
+          Number.isFinite(data.durationMs) && data.durationMs > 0
+            ? dailySessionRef.current.startedAt + data.durationMs
+            : null,
+        status: "running",
+      },
+      { origin: "daily", entryKind: "daily" }
+    );
     if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
       window.requestAnimationFrame(() => {
+        if (!gameplaySession?.isCurrent?.(openedSession?.state?.sessionId)) return;
+        if (appViewRef.current !== "daily_play") return;
         applyThemeVisualState(themeAppliedSafe);
       });
     }
@@ -182,6 +215,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
       data.solutions ? { solutions: data.solutions } : null
     );
     fetchDailyBoard(data.dateId || null);
+    return true;
   };
   try {
     let res = null;
@@ -203,6 +237,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
       });
       parseMeta = await readJsonResponseLoose(res);
       data = parseMeta.data;
+      if (!isStartRequestCurrent()) return;
       if (parseMeta.parseOk || !res.ok || attempt > 0) break;
       await new Promise((resolve) => setTimeout(resolve, 120));
     }
@@ -258,10 +293,12 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     }
     applyDailyStartSuccess(data);
   } catch (err) {
+    if (!isStartRequestCurrent()) return;
     const code = classifyDailyStartNetworkError(err);
     if (code === "ENET_PROXY_HTML") {
       try {
         const socketData = await emitSocketAck("daily:start", payload, { timeoutMs: 7000 });
+        if (!isStartRequestCurrent()) return;
         if (!socketData || typeof socketData !== "object") {
           throw new Error("bad_payload");
         }
@@ -293,12 +330,14 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
         applyDailyStartSuccess(socketData);
         return;
       } catch (socketErr) {
+        if (!isStartRequestCurrent()) return;
         console.warn("[daily/start] socket fallback failed", {
           name: socketErr?.name || null,
           message: socketErr?.message || String(socketErr || ""),
         });
       }
     }
+    if (!isStartRequestCurrent()) return;
     setDailyStartError(code);
     console.warn("[daily/start] network", {
       code,
@@ -317,6 +356,13 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
 async function submitDailyScore() {
   if (dailySubmitRef.current.inFlight) return;
   dailySubmitRef.current.inFlight = true;
+  const gameplaySessionId = gameplaySession?.refs?.sessionId?.current || null;
+  const isSubmitSessionCurrent = () =>
+    isCurrentDailyGameplaySession({
+      appViewRef,
+      gameplaySession,
+      sessionId: gameplaySessionId,
+    });
   setDailySubmitError("");
   const session = dailySessionRef.current;
   const dateId = session?.dateId || dailyStatus?.dateId || null;
@@ -360,6 +406,7 @@ async function submitDailyScore() {
     durationMs,
   };
   const applyDailySubmitSuccess = (data) => {
+    if (!isSubmitSessionCurrent()) return false;
     if (data?.duel && typeof data.duel === "object") {
       setDuelStatus({
         loading: false,
@@ -463,6 +510,7 @@ async function submitDailyScore() {
     appViewRef.current = "daily_results";
     isDailyPlayRef.current = false;
     setAppView("daily_results");
+    return true;
   };
   try {
     let data = null;
@@ -498,6 +546,7 @@ async function submitDailyScore() {
     }
     applyDailySubmitSuccess(data);
   } catch (err) {
+    if (!isSubmitSessionCurrent()) return;
     const msg = err?.message === "already_played" ? "Déjà joué" : "Erreur";
     setDailySubmitError(msg);
     fetchDailyStatus();

@@ -167,16 +167,24 @@ test("live roster owns scoped player and ranking realtime events", () => {
     scope,
   });
   const phaseLoopTestEnabledRef = { current: false };
+  const liveSessionReadyRef = { current: true };
+  const activeRoundIdRef = { current: "round-1" };
   feature.configureRealtime({
     appViewRef: { current: "live" },
     currentRoomIdRef: { current: "room-1" },
+    gameplaySession: {
+      acceptsEvent: ({ roomId, roundId }) =>
+        (!roomId || roomId === "room-1") &&
+        (!roundId || roundId === activeRoundIdRef.current),
+    },
     isLoggedInRef: { current: true },
     isSamsungBrowserRef: { current: false },
     isTraceActive: () => false,
+    liveSessionReadyRef,
     onDiagnosticCounter: (label) => diagnostics.push(label),
     onEvent: (label, payload) => events.push({ label, payload }),
     phaseLoopTestEnabledRef,
-    roundIdRef: { current: "round-1" },
+    roundIdRef: activeRoundIdRef,
     socket,
     standaloneTrainingSessionRef: { current: null },
     startTransition: (apply) => apply(),
@@ -218,6 +226,17 @@ test("live roster owns scoped player and ranking realtime events", () => {
   ]);
   assert.ok(events.some((entry) => entry.label === "players-received"));
   assert.ok(events.some((entry) => entry.label === "ranking-received"));
+
+  liveSessionReadyRef.current = false;
+  socket.fire("playersUpdate", [{ nick: "Retour trop tôt" }]);
+  socket.fire("rankingUpdate", {
+    ranking: [{ nick: "Retour trop tôt", rank: 1, score: 100 }],
+    roomId: "room-1",
+    roundId: "round-1",
+  });
+  assert.equal(feature.store.getState().livePlayers[0].nick, "Tigre");
+  assert.equal(feature.store.getState().liveProvisionalRanking[0].nick, "Tigre");
+  liveSessionReadyRef.current = true;
 
   phaseLoopTestEnabledRef.current = true;
   socket.fire("playersUpdate", [{ nick: "Ignored" }]);

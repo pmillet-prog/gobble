@@ -30,11 +30,16 @@ test("stats satellite owns scoped trophy updates and socket cleanup", () => {
     { now: () => 1234 }
   );
   const phaseLoopTestEnabledRef = { current: false };
+  const liveSessionReadyRef = { current: true };
   feature.configureRealtime({
     appViewRef: { current: "live" },
     currentRoomIdRef: { current: "room-1" },
+    gameplaySession: {
+      acceptsEvent: ({ roomId }) => !roomId || roomId === "room-1",
+    },
     installIdRef: { current: "install-self" },
     isLoggedInRef: { current: true },
+    liveSessionReadyRef,
     phaseLoopTestEnabledRef,
     socket,
     standaloneTrainingSessionRef: { current: null },
@@ -97,6 +102,20 @@ test("stats satellite owns scoped trophy updates and socket cleanup", () => {
       ts: 1234,
     },
   ]);
+
+  liveSessionReadyRef.current = false;
+  socket.fire("trophiesUpdated", {
+    roomId: "room-1",
+    updates: [
+      {
+        delta: 100,
+        installId: "install-self",
+        newTrophies: 142,
+      },
+    ],
+  });
+  assert.equal(feature.store.getState().trophyStatus.trophies, 42);
+  liveSessionReadyRef.current = true;
 
   phaseLoopTestEnabledRef.current = true;
   socket.fire("trophiesUpdated", {

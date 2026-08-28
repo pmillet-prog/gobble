@@ -948,6 +948,8 @@ export default function GobbleApplication() {
   const clockFeature = useFeatureRuntime("clock");
   const connectionFeature = useFeatureRuntime("connection");
   const diagnosticsFeature = useFeatureRuntime("diagnostics");
+  const gameplaySessionFeature = useFeatureRuntime("gameplaySession");
+  const liveRoundFeature = useFeatureRuntime("liveRound");
   const sessionPersistenceFeature = useFeatureRuntime("sessionPersistence");
   const {
     autoResumeEnabled: autoResumeEnabledRef,
@@ -2342,6 +2344,7 @@ export default function GobbleApplication() {
   const dailyTictocPlayedRef = useRef(false);
   const dailySessionRef = useRef({ dateId: null, startedAt: null });
   const dailySubmitRef = useRef({ inFlight: false });
+  const dailyLifecycleRef = useRef({ startGeneration: 0 });
   const dailySpecialTutorialPauseStartedAtRef = useRef(null);
   const shouldShowTutorial =
     isAccountAuthenticated &&
@@ -2459,8 +2462,32 @@ export default function GobbleApplication() {
     }
   }
 
-  function returnToLobby() {
+  function disposeGameplayRuntimeResources() {
     invalidateGameplaySession();
+    clearQueuedRankingUpdate();
+    clockFeature.stop({ preserveRemaining: true });
+    stopRoundStartSound({ fadeMs: 80 });
+    stopImplodePhase();
+    stopMobileRoundIntro({ unlockInput: false });
+    clearResultsSlideTimers();
+    clearWordListFlipArtifacts();
+    stopVocabOverlayAnimation();
+    stopRoundEndTickSound({ fadeMs: 0 });
+    cancelAllWordsCompute();
+    resetSubmissionQueue();
+    clearSelection();
+    roundStartPendingRef.current = null;
+    roundStartRetryRef.current = false;
+    pendingSubmissionRecoveryRef.current = null;
+    vocabBaselineRoundRef.current = null;
+    vocabWeeklyBaselineRoundRef.current = null;
+    vocabResultsPendingRef.current = null;
+  }
+
+  function returnToLobby() {
+    if (!gameplaySessionFeature.cancel("return_to_lobby")) {
+      disposeGameplayRuntimeResources();
+    }
     if (standaloneTrainingSessionRef.current) {
       if (socket.connected) {
         socket.emit("training:standalone:stop", {
@@ -2573,9 +2600,14 @@ export default function GobbleApplication() {
   const resumeLockAtRef = useRef(0);
   const resumeProbeRef = useRef({ inFlight: false, lastAt: 0 });
   const roundHandlersRef = useRef({
-    onRoundStarted: null,
-    onRoundEnded: null,
     onBreakStarted: null,
+    onCultureThemeChallenge: null,
+    onRoundEnded: null,
+    onRoundPreparing: null,
+    onRoundStarted: null,
+    onSpecialHint: null,
+    onSpecialSolved: null,
+    onTournamentLobbyUpdate: null,
   });
   const phaseLoopTestEnabled = React.useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -2621,6 +2653,16 @@ export default function GobbleApplication() {
     returnToLobby: standaloneTrainingFeature.returnToLobby,
     start: standaloneTrainingFeature.startTraining,
   };
+  useEffect(() => {
+    gameplaySessionFeature.configure({
+      onCancel: ({ previous } = {}) => {
+        if (previous?.origin === "live") {
+          liveSessionReadyRef.current = false;
+        }
+        disposeGameplayRuntimeResources();
+      },
+    });
+  });
   useEffect(() => {
     standaloneTrainingFeature.configure({
       ensureConnection: connectSocketWithAuth,
@@ -6018,6 +6060,8 @@ export default function GobbleApplication() {
     fetchThemeProfileRef,
     fetchWeeklyStatsSnapshot,
     FINAL_ROUND_RESULTS_SECONDS,
+    gameplaySession: gameplaySessionFeature,
+    gameplaySessionIdRef: gameplaySessionFeature.refs.sessionId,
     gameplaySessionTokenRef,
     getNowServerMs,
     getSelfWeeklyVocabRankFromStats,
@@ -6482,11 +6526,27 @@ export default function GobbleApplication() {
     vocabWeeklyRankBaselineRef,
   });
   useEffect(() => {
+    liveRoundFeature.configureRealtime({
+      appViewRef,
+      currentRoomIdRef,
+      gameplaySession: gameplaySessionFeature,
+      handlersRef: roundHandlersRef,
+      isLoggedInRef,
+      liveSessionReadyRef,
+      onHydrateSnapshot: applyResumeSnapshot,
+      phaseLoopTestEnabledRef,
+      socket,
+      standaloneTrainingSessionRef,
+    });
+  });
+  useEffect(() => {
     statsFeature.configureRealtime({
       appViewRef,
       currentRoomIdRef,
+      gameplaySession: gameplaySessionFeature,
       installIdRef,
       isLoggedInRef,
+      liveSessionReadyRef,
       phaseLoopTestEnabledRef,
       socket,
       standaloneTrainingSessionRef,
@@ -6496,8 +6556,10 @@ export default function GobbleApplication() {
     ocidFeature.configureRealtime({
       appViewRef,
       currentRoomIdRef,
+      gameplaySession: gameplaySessionFeature,
       getNowServerMs,
       isLoggedInRef,
+      liveSessionReadyRef,
       phaseLoopTestEnabledRef,
       setServerEndsAt,
       setServerRoundDurationMs,
@@ -6513,8 +6575,10 @@ export default function GobbleApplication() {
       appViewRef,
       buildObjectiveToastMessage,
       currentRoomIdRef,
+      gameplaySession: gameplaySessionFeature,
       isLoggedInRef,
       lastGobbleAtRef,
+      liveSessionReadyRef,
       maybePlayAnnouncementSound,
       nickname,
       nicknameRef,
@@ -6531,9 +6595,11 @@ export default function GobbleApplication() {
     rosterFeature.configureRealtime({
       appViewRef,
       currentRoomIdRef,
+      gameplaySession: gameplaySessionFeature,
       isLoggedInRef,
       isSamsungBrowserRef,
       isTraceActive: shouldHoldLiveUiDuringTrace,
+      liveSessionReadyRef,
       onDiagnosticCounter: bumpSamsungDiagCounter,
       onEvent: recordPerfEvent,
       phaseLoopTestEnabledRef,
@@ -7663,6 +7729,7 @@ export default function GobbleApplication() {
     clearSelection,
     dailyAcceptedPathsRef,
     dailyLaunchDialog,
+    dailyLifecycleRef,
     dailyPlayMode,
     dailySessionRef,
     dailySpecialDragRef,
@@ -7709,6 +7776,7 @@ export default function GobbleApplication() {
     specialScoreConfig,
     startGameFromServerRef,
     themeAppliedSafe,
+    gameplaySessionFeature,
   ], 5);
 
   function requestVocabCount() {
@@ -8288,7 +8356,7 @@ export default function GobbleApplication() {
     if (statsTab === "season") return handleSeasonTouchEnd(e);
   }
 
-  function applyResumeSnapshot(snapshot) {
+  function applyResumeSnapshot(snapshot, hydrationMeta = {}) {
     if (!snapshot || typeof snapshot !== "object") return;
     if (standaloneTrainingSessionRef.current) return;
     if (snapshot.roomId) {
@@ -8300,18 +8368,91 @@ export default function GobbleApplication() {
     const breakState = snapshot.breakState || null;
     const lastRound = snapshot.lastRoundResults || null;
     const playerState = snapshot.player || null;
+    const entryKind = String(hydrationMeta?.entryKind || "resume");
+    const recoverPendingSubmissions = entryKind !== "join";
+    if (!recoverPendingSubmissions) {
+      pendingSubmissionRecoveryRef.current = null;
+      submissionStatusRef.current.clear();
+      resetSubmissionQueue();
+    }
     setTournamentLobby(snapshot.tournamentLobby || null);
-    const currentPendingSnapshot = capturePendingSubmissions(
-      submissionStatusRef.current,
-      roundIdRef.current
-    );
+    const currentPendingSnapshot = recoverPendingSubmissions
+      ? capturePendingSubmissions(submissionStatusRef.current, roundIdRef.current)
+      : { entries: [], roundId: null };
     const pendingSnapshot =
-      currentPendingSnapshot.entries.length > 0
+      recoverPendingSubmissions && currentPendingSnapshot.entries.length > 0
         ? currentPendingSnapshot
-        : pendingSubmissionRecoveryRef.current;
+        : recoverPendingSubmissions
+        ? pendingSubmissionRecoveryRef.current
+        : null;
+
+    if (phase === "preparing") {
+      phaseRef.current = "lobby";
+      setPhase("lobby");
+      setServerStatus("waiting");
+      setNextStartAt(null);
+      setBreakKind(null);
+      setFinalResults([]);
+      setProvisionalRanking([]);
+      if (snapshot.roundPreparing) {
+        roundHandlersRef.current.onRoundPreparing?.(snapshot.roundPreparing);
+      } else {
+        setRoundPreparing({
+          roomId: snapshot.roomId || null,
+          roundNumber: null,
+          special: null,
+          message: "La prochaine grille est en cours de préparation.",
+          startedAt: snapshot.capturedAt || Date.now(),
+        });
+      }
+      pendingSubmissionRecoveryRef.current = null;
+      resetSubmissionQueue();
+      return;
+    }
 
     if (phase === "playing" && currentRound?.grid && Array.isArray(currentRound.grid)) {
       roundHandlersRef.current.onRoundStarted?.(currentRound);
+      if (snapshot.specialHint && typeof snapshot.specialHint === "object") {
+        const hintKind = snapshot.specialHint.kind || null;
+        const allowCells = hintKind === "target_long" || hintKind === "target_score";
+        setSpecialHint({
+          kind: hintKind,
+          pattern: snapshot.specialHint.pattern || "",
+          length:
+            typeof snapshot.specialHint.length === "number"
+              ? snapshot.specialHint.length
+              : currentRound.targetLength || null,
+          cells:
+            allowCells && Array.isArray(snapshot.specialHint.revealCells)
+              ? snapshot.specialHint.revealCells.filter((index) => Number.isInteger(index))
+              : [],
+          wordIndices:
+            allowCells && Array.isArray(snapshot.specialHint.revealWordIndices)
+              ? snapshot.specialHint.revealWordIndices.filter(
+                  (index) => Number.isInteger(index) && index >= 0
+                )
+              : [],
+        });
+      }
+      if (playerState?.targetFound) {
+        setFoundTargetThisRound(true);
+        setFoundTargetWord(String(playerState.targetWord || ""));
+      }
+      if (playerState?.ocid && typeof playerState.ocid === "object") {
+        const proposal = String(playerState.ocid.proposal || "");
+        const proposalPath = Array.isArray(playerState.ocid.proposalPath)
+          ? playerState.ocid.proposalPath
+          : [];
+        setOcidProposal(proposal);
+        setOcidProposalPath(proposalPath);
+        setOcidProposalSubmitted(proposal);
+        setOcidSelectedOptionId(String(playerState.ocid.selectedOptionId || ""));
+        ocidLatestProposalRef.current = {
+          roundId: currentRound.roundId || null,
+          word: proposal,
+          path: proposalPath,
+        };
+      }
       if (currentRound?.special?.type === DAILY_SPECIAL_MODE || playerState?.special3Words) {
         setDailySpecialPlacements(
           playerState?.special3Words?.specialPlacements &&
@@ -8491,6 +8632,13 @@ export default function GobbleApplication() {
     resetSubmissionQueue();
   }
 
+  function hydrateLiveSnapshot(snapshot, entryKind = "resume") {
+    if (snapshot?.roomId) {
+      currentRoomIdRef.current = snapshot.roomId;
+    }
+    return liveRoundFeature.hydrateSnapshot(snapshot, { entryKind });
+  }
+
   function syncLiveStateFromServer(reason = "foreground") {
     if (
       !isAccountAuthenticatedRef.current ||
@@ -8524,8 +8672,9 @@ export default function GobbleApplication() {
       }
       if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
       setResumeSnapshot(null);
-      applyResumeSnapshot(res.snapshot);
-      liveSessionReadyRef.current = true;
+      const hydrated = hydrateLiveSnapshot(res.snapshot, res.entryKind || "resume");
+      liveSessionReadyRef.current = hydrated;
+      if (!hydrated) throw new Error("live_snapshot_rejected");
       setConnectionError("");
       watchdogFailureCountRef.current = 0;
       scheduleBatchFlush({ immediate: true });
@@ -8690,9 +8839,26 @@ export default function GobbleApplication() {
         lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
         setCurrentRoomId(joinedRoom);
         setRoomId(joinedRoom);
-        setTimeout(() => {
-          resumeLoginFromSessionRef.current?.("session_rejoin");
-        }, 0);
+        appViewRef.current = "live";
+        setAppView("live");
+        isLoggedInRef.current = true;
+        setIsLoggedIn(true);
+        setIsConnecting(false);
+        setLoginError("");
+        setConnectionError("");
+        if (loginRes?.playtimeLimit) applyPlaytimeLimitStatus(loginRes.playtimeLimit);
+        setResumeSnapshot(null);
+        const hydrated = hydrateLiveSnapshot(
+          loginRes?.snapshot,
+          loginRes?.entryKind || "resume"
+        );
+        liveSessionReadyRef.current = hydrated;
+        if (!hydrated) {
+          setConnectionError("État de partie indisponible, reconnexion en cours.");
+          return;
+        }
+        scheduleBatchFlush({ immediate: true });
+        void requestTrophyStatus();
       });
     };
 
@@ -8771,8 +8937,12 @@ export default function GobbleApplication() {
           setConnectionError("");
           if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
           setResumeSnapshot(null);
-          applyResumeSnapshot(res.snapshot);
-          liveSessionReadyRef.current = true;
+          const hydrated = hydrateLiveSnapshot(res.snapshot, res.entryKind || "resume");
+          liveSessionReadyRef.current = hydrated;
+          if (!hydrated) {
+            setConnectionError("État de partie indisponible, reconnexion en cours.");
+            return;
+          }
           scheduleBatchFlush({ immediate: true });
           void requestTrophyStatus();
         }
@@ -8795,13 +8965,17 @@ export default function GobbleApplication() {
   useEffect(() => {
     const previousView = previousAppViewRef.current;
     previousAppViewRef.current = appView;
-    const wasDailyView =
-      previousView === "daily" ||
-      previousView === "daily_play" ||
-      previousView === "daily_results";
-    if (appView !== "live" || !wasDailyView) return;
+    if (appView !== "live" || previousView === "live") return;
+    if (phaseLoopTestEnabledRef.current) return;
     if (!isAccountAuthenticated || !hasSavedSession()) return;
+    if (
+      liveSessionReadyRef.current &&
+      gameplaySessionFeature.store.getState().origin === "live"
+    ) {
+      return;
+    }
 
+    appViewRef.current = "live";
     clearSelection();
     resetSubmissionQueue();
     setInputLocked(true);
@@ -8812,8 +8986,14 @@ export default function GobbleApplication() {
     setServerStatus("waiting");
     setPhase("lobby");
     setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-    resumeLoginFromSessionRef.current?.("daily_to_live");
-  }, [appView, clearSelection, isAccountAuthenticated]);
+    if (isLoggedInRef.current && socket.connected) {
+      syncLiveStateFromServer("navigation_to_live").catch(() => {
+        resumeLoginFromSessionRef.current?.("navigation_to_live_reconnect");
+      });
+      return;
+    }
+    resumeLoginFromSessionRef.current?.("navigation_to_live");
+  }, [appView, clearSelection, gameplaySessionFeature, isAccountAuthenticated, socket]);
 
   function setResultsRankingModeWithPulse(nextMode) {
     if (resultsRankingMode === nextMode) return;
@@ -9695,21 +9875,19 @@ export default function GobbleApplication() {
         appViewRef.current = "live";
         setAppView("live");
         isLoggedInRef.current = true;
-        liveSessionReadyRef.current = true;
         setIsLoggedIn(true);
         setIsConnecting(false);
         setServerStatus("waiting");
         setScore(0);
         void requestTrophyStatus();
-        socket.emit(
-          "session:resume",
-          { roomId: joinedRoom, installId, nick, takeover: false },
-          (probe) => {
-            if (probe?.ok && probe?.available && probe?.snapshot) {
-              applyResumeSnapshot(probe.snapshot);
-            }
-          }
-        );
+        const hydrated = phaseLoopTestEnabledRef.current
+          ? true
+          : hydrateLiveSnapshot(res?.snapshot, res?.entryKind || "join");
+        liveSessionReadyRef.current = hydrated;
+        if (!hydrated) {
+          setConnectionError("État de partie indisponible, reconnexion en cours.");
+          attemptSilentReconnectRef.current?.("login_snapshot_missing");
+        }
         try {
           localStorage.setItem("boggle_nick", nick);
         } catch (_) {}
@@ -10011,12 +10189,16 @@ export default function GobbleApplication() {
       phaseLoopTimerRef.current = setTimeout(() => {
         phaseLoopTimerRef.current = null;
         if (cancelled) return;
+        if (applicationKernel.getState().navigation.view !== "live") return;
         fn();
       }, Math.max(0, Math.round(delayMs)));
     };
 
     const enterResultsPhase = () => {
       if (cancelled) return;
+      gameplaySessionFeature.transitionPhase("results", {
+        roomId: currentRoomIdRef.current || roomId,
+      });
       inputLockedRef.current = false;
       applicationKernel.commands.transition.apply({
         game: { inputLocked: false, phase: "results" },
@@ -10041,10 +10223,21 @@ export default function GobbleApplication() {
       const startsAt = nowServerMs + DEV_PHASE_LOOP_INTRO_MS;
       const endsAt = startsAt + DEV_PHASE_LOOP_PLAYING_MS + DEV_PHASE_LOOP_PLAYING_GUARD_MS;
       phaseLoopRoundCounterRef.current += 1;
+      const devRoundId = `phase-loop-${phaseLoopRoundCounterRef.current}-${Date.now()}`;
       applicationKernel.commands.realtime.patch({ breakKind: null, nextStartAt: null });
+      gameplaySessionFeature.startRound(
+        {
+          roomId: sourceRoomId,
+          roundId: devRoundId,
+          startsAt,
+          endsAt,
+          status: "intro",
+        },
+        { origin: "dev", entryKind: "dev" }
+      );
       startGameFromServerRef.current?.(
         loopGrid,
-        `phase-loop-${phaseLoopRoundCounterRef.current}-${Date.now()}`,
+        devRoundId,
         endsAt - startsAt,
         endsAt,
         sourceRoomId,
@@ -11824,6 +12017,16 @@ function handleTouchEnd(e) {
     }
     const endsAt = getNowServerMs() + training.durationMs;
     roundStartAtRef.current = getNowServerMs();
+    gameplaySessionFeature.startRound(
+      {
+        roomId: currentRoomIdRef.current || roomIdRef.current,
+        roundId: training.sessionId || training.gridId || `training:${Date.now()}`,
+        startsAt: endsAt - training.durationMs,
+        endsAt,
+        status: "running",
+      },
+      { origin: "training", entryKind: "training" }
+    );
     startGameFromServerRef.current?.(
       training.grid,
       null,
@@ -11866,7 +12069,7 @@ function handleTouchEnd(e) {
     setAppView("live");
     isLoggedInRef.current = true;
     setIsLoggedIn(true);
-    liveSessionReadyRef.current = true;
+    liveSessionReadyRef.current = false;
     setConnectionError("");
     setLoginError("");
     setServerEndsAt(null);
@@ -11877,7 +12080,12 @@ function handleTouchEnd(e) {
     setSpecialSolvedOverlay(null);
     setFoundTargetThisRound(false);
     setFoundTargetWord("");
-    applyResumeSnapshot(snapshot);
+    const hydrated = hydrateLiveSnapshot(snapshot, "join");
+    liveSessionReadyRef.current = hydrated;
+    if (!hydrated) {
+      setConnectionError("Impossible de restaurer l’état du live.");
+      return;
+    }
     scheduleBatchFlush({ immediate: true });
   }
 
@@ -11896,6 +12104,7 @@ function handleTouchEnd(e) {
     setAllWords(Array.isArray(serverAllWordsRef.current) ? serverAllWordsRef.current : []);
     setTargetSummary(buildStandaloneTrainingTargetSummary(training));
     setPhase("results");
+    gameplaySessionFeature.transitionPhase("results");
   }
 
   function replayStandaloneTraining() {

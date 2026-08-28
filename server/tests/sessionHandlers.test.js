@@ -96,7 +96,7 @@ function createHarness() {
   };
 }
 
-test("login binds the authenticated identity and preserves initial socket events", async () => {
+test("login binds identity and returns one initial snapshot", async () => {
   const harness = createHarness();
   let response = null;
 
@@ -108,7 +108,13 @@ test("login binds the authenticated identity and preserves initial socket events
     }
   );
 
-  assert.deepEqual(response, { ok: true, roomId: "room-4x4" });
+  assert.deepEqual(response, {
+    ok: true,
+    roomId: "room-4x4",
+    entryKind: "join",
+    snapshot: { nick: "Tigre", phase: "lobby" },
+    playtimeLimit: { active: false, exhausted: false },
+  });
   assert.deepEqual(harness.room.players.get(harness.socket.id), {
     nick: "Tigre",
     token: "client-1",
@@ -127,10 +133,72 @@ test("login binds the authenticated identity and preserves initial socket events
     eventName: "chat:history",
     payload: harness.room.chatMessages,
   });
-  assert.deepEqual(harness.socket.emitted[1], {
-    eventName: "tournamentLobbyUpdate",
-    payload: { readyCount: 0 },
+  assert.equal(harness.socket.emitted.length, 1);
+});
+
+test("a late join receives one authoritative snapshot without catch-up event bursts", async () => {
+  const harness = createHarness();
+  harness.room.currentRound = { id: "round-7", status: "running" };
+  let ensuredNick = null;
+  harness.dependencies.isRoundActive = () => true;
+  harness.dependencies.ensurePlayerInRound = (_room, nick) => {
+    ensuredNick = nick;
+  };
+  harness.dependencies.buildSessionSnapshot = (_room, player) => ({
+    roomId: "room-4x4",
+    phase: "playing",
+    currentRound: { roundId: "round-7", grid: [{ letter: "A" }] },
+    player: { nick: player.nick, words: [], score: 0 },
   });
+  registerSessionHandlers(harness.socket, harness.dependencies);
+  let response = null;
+
+  await harness.socket.trigger("login", { nick: "Tigre", roomId: "room-4x4" }, (value) => {
+    response = value;
+  });
+
+  assert.equal(ensuredNick, "Tigre");
+  assert.equal(response.entryKind, "join");
+  assert.equal(response.snapshot.currentRound.roundId, "round-7");
+  assert.equal(
+    harness.socket.emitted.some(({ eventName }) =>
+      ["roundStarted", "specialHint", "rankingUpdate", "breakStarted"].includes(eventName)
+    ),
+    false
+  );
+});
+
+test("a late OCID voter is attached to the still-displayable round", async () => {
+  const harness = createHarness();
+  harness.room.currentRound = {
+    id: "round-ocid",
+    status: "ocid_vote",
+    special: { type: "ocid" },
+  };
+  let ensuredNick = null;
+  harness.dependencies.isRoundActive = () => false;
+  harness.dependencies.ensurePlayerInRound = (_room, nick) => {
+    ensuredNick = nick;
+  };
+  harness.dependencies.buildSessionSnapshot = () => ({
+    roomId: "room-4x4",
+    phase: "playing",
+    currentRound: {
+      roundId: "round-ocid",
+      status: "ocid_vote",
+      ocidVote: { options: [] },
+    },
+  });
+  registerSessionHandlers(harness.socket, harness.dependencies);
+  let response = null;
+
+  await harness.socket.trigger("login", { nick: "Tigre", roomId: "room-4x4" }, (value) => {
+    response = value;
+  });
+
+  assert.equal(ensuredNick, "Tigre");
+  assert.equal(response.snapshot.phase, "playing");
+  assert.equal(response.snapshot.currentRound.status, "ocid_vote");
 });
 
 test("session resume enforces playtime before looking up a room", async () => {
@@ -158,6 +226,37 @@ test("session resume enforces playtime before looking up a room", async () => {
     available: false,
   });
   assert.equal(roomLookups, 0);
+});
+
+test("session resume labels the authoritative snapshot as resume", async () => {
+  const harness = createHarness();
+  const player = {
+    nick: "Tigre",
+    installId: harness.identity.installId,
+    userId: harness.identity.userId,
+    connected: true,
+  };
+  harness.room.players.set(harness.socket.id, player);
+  harness.dependencies.findPlayerByInstallId = () => ({
+    socketId: harness.socket.id,
+    player,
+  });
+  registerSessionHandlers(harness.socket, harness.dependencies);
+  let response = null;
+
+  await harness.socket.trigger(
+    "session:resume",
+    { roomId: "room-4x4", takeover: false },
+    (value) => {
+      response = value;
+    }
+  );
+
+  assert.equal(response.ok, true);
+  assert.equal(response.available, true);
+  assert.equal(response.attached, true);
+  assert.equal(response.entryKind, "resume");
+  assert.deepEqual(response.snapshot, { nick: "Tigre", phase: "lobby" });
 });
 
 test("login still rejects a nickname owned by another install", async () => {

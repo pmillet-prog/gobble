@@ -1,5 +1,5 @@
 import { createStateFeature } from "../../app/core/createStateFeature.js";
-import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
+import { shouldProcessAttachedLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 export function createInitialStatsState() {
   return {
@@ -39,11 +39,13 @@ export function createStatsFeature(context, { now = Date.now } = {}) {
   function shouldHandleRealtimeEvent(incomingRoomId = null) {
     if (realtimeConfig.phaseLoopTestEnabledRef?.current) return false;
     if (realtimeConfig.standaloneTrainingSessionRef?.current) return false;
-    return shouldProcessLiveRoomEvent({
+    return shouldProcessAttachedLiveRoomEvent({
       appView: realtimeConfig.appViewRef?.current,
+      gameplaySession: realtimeConfig.gameplaySession,
       isLoggedIn: realtimeConfig.isLoggedInRef?.current,
       activeRoomId: realtimeConfig.currentRoomIdRef?.current,
       incomingRoomId,
+      liveSessionReadyRef: realtimeConfig.liveSessionReadyRef,
     });
   }
 

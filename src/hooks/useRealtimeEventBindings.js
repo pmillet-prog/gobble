@@ -494,23 +494,37 @@ useEffect(() => {
       }
     }
 
-    roundHandlersRef.current.onRoundStarted = onRoundStarted;
-    roundHandlersRef.current.onRoundEnded = onRoundEnded;
-    roundHandlersRef.current.onBreakStarted = onBreakStarted;
+    Object.assign(roundHandlersRef.current, {
+      onBreakStarted,
+      onCultureThemeChallenge,
+      onRoundEnded,
+      onRoundPreparing,
+      onRoundStarted,
+      onSpecialHint,
+      onSpecialSolved,
+      onTournamentLobbyUpdate,
+    });
 
-    return socket.bind({
-      breakStarted: onBreakStarted,
-      cultureThemeChallenge: onCultureThemeChallenge,
+    const unsubscribe = socket.bind({
       "dev:globalAnnouncement": onDevGlobalAnnouncement,
       gobblarsAwarded: onGobblarsAwarded,
       medalsUpdate: onMedalsUpdate,
       "moderation:notice": onModerationNotice,
-      roundEnded: onRoundEnded,
-      roundPreparing: onRoundPreparing,
-      roundStarted: onRoundStarted,
-      specialHint: onSpecialHint,
-      specialSolved: onSpecialSolved,
-      tournamentLobbyUpdate: onTournamentLobbyUpdate,
     });
+    return () => {
+      unsubscribe?.();
+      for (const key of [
+        "onBreakStarted",
+        "onCultureThemeChallenge",
+        "onRoundEnded",
+        "onRoundPreparing",
+        "onRoundStarted",
+        "onSpecialHint",
+        "onSpecialSolved",
+        "onTournamentLobbyUpdate",
+      ]) {
+        roundHandlersRef.current[key] = null;
+      }
+    };
   }, []);
 }

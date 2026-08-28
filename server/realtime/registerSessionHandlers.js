@@ -1,3 +1,5 @@
+import { isSessionRoundDisplayable } from "./sessionSnapshotState.js";
+
 export function registerSessionHandlers(
   socket,
   {
@@ -5,10 +7,7 @@ export function registerSessionHandlers(
     appendConnectionLog,
     buildModerationBanResponse,
     buildPlaytimeBlockedResponse,
-    buildRankingUpdatePayload,
-    buildRoundStartedPayload,
     buildSessionSnapshot,
-    buildTournamentLobbyPayload,
     clearPendingDisconnect,
     clearPlayerAfkTimer,
     cleanupExpiredMedals,
@@ -17,13 +16,11 @@ export function registerSessionHandlers(
     emitRoomsStats,
     emitTournamentLobby,
     ensurePlayerInRound,
-    expandTargetRevealed,
     findPlayerByInstallId,
     getActiveModerationBan,
     getClientIpFromSocket,
     getPlaytimeLimitStatus,
     getRoom,
-    getTargetHintScheduleMs,
     getTeamDot,
     getTeamForInstallCached,
     io,
@@ -32,12 +29,10 @@ export function registerSessionHandlers(
     joinSocketToChatRoom,
     markPresenceJoinAnnounced,
     normalizeInstallId,
-    normalizeTargetRevealIndices,
     persistenceClient,
     pushSystemChatMessage,
     refreshInstallDuelCache,
     requireSocketPlayerIdentity,
-    resolveTargetHintCells,
     schedulePlayerAfkTransition,
   }
 ) {
@@ -123,6 +118,7 @@ export function registerSessionHandlers(
       ok: true,
       available: true,
       attached: takeover || match.socketId === socket.id,
+      entryKind: takeover ? "takeover" : "resume",
       snapshot,
       playtimeLimit: getPlaytimeLimitStatus(identity.userId),
     });
@@ -235,85 +231,26 @@ export function registerSessionHandlers(
       ip: getClientIpFromSocket(socket),
       userAgent: socket?.handshake?.headers?.["user-agent"],
     });
-    cb?.({ ok: true, roomId: room.id });
+    const hasJoinableRound = isSessionRoundDisplayable(
+      room.currentRound,
+      isRoundActive(room.currentRound)
+    );
+    if (hasJoinableRound) {
+      ensurePlayerInRound(room, trimmed);
+    }
+    const snapshot = buildSessionSnapshot(room, room.players.get(socket.id));
+    cb?.({
+      ok: true,
+      roomId: room.id,
+      entryKind: isResumeLogin ? "resume" : "join",
+      snapshot,
+      playtimeLimit: getPlaytimeLimitStatus(identity.userId),
+    });
 
     emitPlayers(room);
     emitTournamentLobby(room);
     emitMedals(room);
     emitRoomsStats();
     socket.emit("chat:history", room.chatMessages);
-
-    if (room.currentRound && isRoundActive(room.currentRound)) {
-      ensurePlayerInRound(room, trimmed);
-
-      const roundStartedPayload = buildRoundStartedPayload(room);
-      if (roundStartedPayload) {
-        socket.emit("roundStarted", roundStartedPayload);
-      }
-
-      // Si on rejoint en cours de manche "cible", renvoyer l'etat courant de l'indice
-      // (sinon le joueur ne verra le pattern qu'au hint suivant).
-      const specialType = room.currentRound?.special?.type;
-      const isTargetRound = specialType === "target_long" || specialType === "target_score";
-      if (isTargetRound && typeof room.currentRound.targetWord === "string" && room.currentRound.targetWord) {
-        const startedAt =
-          (Number.isFinite(room.currentRound.startsAt) ? room.currentRound.startsAt : null) ||
-          ((room.currentRound.endsAt || Date.now()) -
-            (room.currentRound.durationMs || room.config.durationMs || 0));
-        const elapsed = Date.now() - startedAt;
-        const targetHintScheduleMs =
-          Array.isArray(room.currentRound.targetHintScheduleMs) &&
-          room.currentRound.targetHintScheduleMs.length
-            ? room.currentRound.targetHintScheduleMs
-            : getTargetHintScheduleMs({
-                targetWord: room.currentRound.targetWord,
-                targetLength: room.currentRound.targetLength,
-                roundDurationMs:
-                  room.currentRound.durationMs || room.config.durationMs || 90 * 1000,
-                roundType: specialType,
-              });
-        const firstHintMs =
-          targetHintScheduleMs.length > 0 ? targetHintScheduleMs[0] : Number.POSITIVE_INFINITY;
-        if (elapsed >= firstHintMs) {
-      const word = room.currentRound.targetWord || "";
-      const revealed = room.currentRound.targetRevealed || new Set();
-      const expanded = expandTargetRevealed(word, revealed);
-      if (expanded.size !== revealed.size) {
-        room.currentRound.targetRevealed = expanded;
-      }
-      const chars = word.split("");
-      const pattern = chars
-        .map((ch, idx) => (expanded.has(idx) ? ch.toUpperCase() : "_"))
-        .join(" ");
-      const revealWordIndices = normalizeTargetRevealIndices(Array.from(expanded));
-      socket.emit("specialHint", {
-        roomId: room.id,
-        roundId: room.currentRound.id,
-        kind: specialType,
-        length: chars.length,
-        pattern,
-        revealCells: resolveTargetHintCells(room, revealWordIndices),
-        revealWordIndices,
-      });
-    }
-      }
-      const builtRanking = buildRankingUpdatePayload(room);
-      if (builtRanking?.payload) {
-        socket.emit("rankingUpdate", builtRanking.payload);
-      }
-    } else if (room.breakState && typeof room.breakState.nextStartAt === "number") {
-      socket.emit("breakStarted", {
-        roomId: room.id,
-        nextStartAt: room.breakState.nextStartAt,
-        breakKind: room.breakState.breakKind,
-        tournament: room.breakState.tournament,
-        nextSpecial: room.breakState.nextSpecial || null,
-        tournamentSummary: room.breakState.tournamentSummary || null,
-        tournamentSummaryAt: room.breakState.tournamentSummaryAt || null,
-        targetSummary: room.breakState.targetSummary || null,
-      });
-    } else {
-      socket.emit("tournamentLobbyUpdate", buildTournamentLobbyPayload(room));
-    }
   });
 }

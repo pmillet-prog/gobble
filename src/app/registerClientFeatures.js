@@ -8,11 +8,13 @@ import { createDailyFeature } from "../features/daily/createDailyFeature.js";
 import { createClientDictionaryFeature } from "../features/dictionary/createClientDictionaryFeature.js";
 import { createPerformanceDiagnosticsFeature } from "../features/diagnostics/createPerformanceDiagnosticsFeature.js";
 import { createDuelFeature } from "../features/duel/createDuelFeature.js";
+import { createGameplaySessionFeature } from "../features/gameplay/createGameplaySessionFeature.js";
 import { createIdentityFeature } from "../features/identity/createIdentityFeature.js";
 import { createIntermissionClockFeature } from "../features/intermission/createIntermissionClockFeature.js";
 import { createLayoutFeature } from "../features/layout/createLayoutFeature.js";
 import { createLiveRosterFeature } from "../features/live/createLiveRosterFeature.js";
 import { createLiveFeedFeature } from "../features/live/createLiveFeedFeature.js";
+import { createLiveRoundFeature } from "../features/live/createLiveRoundFeature.js";
 import { createLiveUiFeature } from "../features/live/createLiveUiFeature.js";
 import { createNotificationsFeature } from "../features/notifications/createNotificationsFeature.js";
 import { createOcidFeature } from "../features/ocid/createOcidFeature.js";
@@ -38,12 +40,14 @@ const FEATURE_FACTORIES = Object.freeze({
   dictionary: createClientDictionaryFeature,
   diagnostics: createPerformanceDiagnosticsFeature,
   duel: createDuelFeature,
+  gameplaySession: createGameplaySessionFeature,
   identity: createIdentityFeature,
   intermission: createIntermissionClockFeature,
   layout: createLayoutFeature,
   feed: createLiveFeedFeature,
   roster: createLiveRosterFeature,
   liveUi: createLiveUiFeature,
+  liveRound: createLiveRoundFeature,
   notifications: createNotificationsFeature,
   ocid: createOcidFeature,
   overlays: createOverlaysFeature,

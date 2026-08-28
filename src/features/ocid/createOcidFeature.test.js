@@ -139,6 +139,7 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
     scope,
   });
   const phaseLoopTestEnabledRef = { current: false };
+  const liveSessionReadyRef = { current: true };
   feature.configureRound({
     isOcidRound: true,
     phase: "playing",
@@ -148,8 +149,13 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
   feature.configureRealtime({
     appViewRef: { current: "live" },
     currentRoomIdRef: { current: "room-1" },
+    gameplaySession: {
+      acceptsEvent: ({ roomId, roundId }) =>
+        (!roomId || roomId === "room-1") && (!roundId || roundId === "round-1"),
+    },
     getNowServerMs: () => 1000,
     isLoggedInRef: { current: true },
+    liveSessionReadyRef,
     phaseLoopTestEnabledRef,
     setServerEndsAt: (value) => clock.endsAt.push(value),
     setServerRoundDurationMs: (value) => clock.durations.push(value),
@@ -194,6 +200,15 @@ test("OCID satellite owns scoped vote events and clock commands", () => {
   );
   assert.equal(feature.store.getState().vote.voteEndsAt, 5000);
   assert.deepEqual(feature.store.getState().vote.votes, { "option-1": 2 });
+
+  liveSessionReadyRef.current = false;
+  socket.fire("ocidVoteUpdated", {
+    roomId: "room-1",
+    roundId: "round-1",
+    votes: { "option-1": 7 },
+  });
+  assert.deepEqual(feature.store.getState().vote.votes, { "option-1": 2 });
+  liveSessionReadyRef.current = true;
 
   socket.fire("ocidVoteUpdated", {
     roomId: "room-2",

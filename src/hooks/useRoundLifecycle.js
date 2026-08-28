@@ -28,6 +28,8 @@ export default function useRoundLifecycle(runtime) {
     fetchThemeProfileRef,
     fetchWeeklyStatsSnapshot,
     FINAL_ROUND_RESULTS_SECONDS,
+    gameplaySession,
+    gameplaySessionIdRef,
     gameplaySessionTokenRef,
     getNowServerMs,
     getSelfWeeklyVocabRankFromStats,
@@ -119,6 +121,7 @@ export default function useRoundLifecycle(runtime) {
       teamDuel: teamDuelPayload = null,
       training = false,
     }) => {
+      const effectSessionId = gameplaySessionIdRef?.current || null;
       if (
         !shouldProcessLiveRoomEvent({
           appView: appViewRef.current,
@@ -140,6 +143,10 @@ export default function useRoundLifecycle(runtime) {
       inputLockedRef.current = false;
       phaseRef.current = "results";
       setPhase("results");
+      gameplaySession?.transitionPhase?.("results", {
+        roomId: endedRoomId,
+        roundId: endedId,
+      });
       setServerStatus("break");
       clearQueuedRankingUpdate();
       setProvisionalRanking([]);
@@ -324,6 +331,7 @@ export default function useRoundLifecycle(runtime) {
           serverWeeklyRank?.after == null ? null : Number(serverWeeklyRank.after);
         void fetchWeeklyStatsSnapshot(STATS_SEASON_TARGET_LIMIT);
         void requestVocabCount().then((snapshot) => {
+          if (effectSessionId && gameplaySessionIdRef?.current !== effectSessionId) return;
           if (vocabResultsPendingRef.current !== vocabResultsKey) return;
           const count = Number.isFinite(snapshot?.count) ? snapshot.count : null;
           const weeklyCount = Number.isFinite(snapshot?.weeklyCount)
@@ -433,6 +441,10 @@ export default function useRoundLifecycle(runtime) {
       }
 
       const gameplaySessionToken = gameplaySessionTokenRef.current;
+      const gameplaySessionId = gameplaySessionIdRef?.current || null;
+      const isEffectSessionCurrent = () =>
+        gameplaySessionTokenRef.current === gameplaySessionToken &&
+        (!gameplaySessionId || gameplaySessionIdRef?.current === gameplaySessionId);
 
       const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
       if (outroInFlightRef.current) {
@@ -625,7 +637,7 @@ export default function useRoundLifecycle(runtime) {
             holeY,
             durationMs: 6000,
             onOverlay: (overlay) => {
-              if (gameplaySessionTokenRef.current !== gameplaySessionToken) {
+              if (!isEffectSessionCurrent()) {
                 overlay?.remove?.();
                 return;
               }
@@ -642,7 +654,7 @@ export default function useRoundLifecycle(runtime) {
         }
       }
 
-      if (gameplaySessionTokenRef.current !== gameplaySessionToken) {
+      if (!isEffectSessionCurrent()) {
         fxOverlay?.remove?.();
         if (blackHoleOverlayRef.current === fxOverlay) {
           blackHoleOverlayRef.current = null;
@@ -668,11 +680,19 @@ export default function useRoundLifecycle(runtime) {
         const fallbackRoundKey = roundKey || null;
         const deadline = performance.now() + LIVE_ROUND_END_PAYLOAD_WAIT_MS;
         while (!pendingRoundEndRef.current && performance.now() < deadline) {
+          if (!isEffectSessionCurrent()) {
+            stopAuxNow?.(0);
+            return;
+          }
           if (fallbackRoundKey && outroRoundRef.current !== fallbackRoundKey) {
             skipFallbackForStaleRound = true;
             break;
           }
           await new Promise((resolve) => setTimeout(resolve, 80));
+          if (!isEffectSessionCurrent()) {
+            stopAuxNow?.(0);
+            return;
+          }
         }
         pending = pendingRoundEndRef.current;
         pendingRoundEndRef.current = null;
@@ -693,10 +713,18 @@ export default function useRoundLifecycle(runtime) {
           );
         }
         setPhase("results");
+        gameplaySession?.transitionPhase?.("results", {
+          roundId: roundKey,
+        });
       }
 
       if (fxOverlay && fxFade) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
+        if (!isEffectSessionCurrent()) {
+          fxOverlay.remove();
+          stopAuxNow?.(0);
+          return;
+        }
         try {
           await fxFade
             .animate([{ opacity: 1 }, { opacity: 0 }], {
@@ -713,6 +741,8 @@ export default function useRoundLifecycle(runtime) {
       }
       // Le clavier doit toujours se couper (fade) à la fin visuelle du blackhole.
       stopAuxNow?.(280);
+
+      if (!isEffectSessionCurrent()) return;
 
       const latePending = pendingRoundEndRef.current;
       if (!processedRoundEndPayload && latePending && processRoundEndedRef.current) {
@@ -771,6 +801,9 @@ export default function useRoundLifecycle(runtime) {
       if (bk) {
         phaseRef.current = "results";
         setPhase("results");
+        gameplaySession?.transitionPhase?.("intermission", {
+          roomId: incomingRoomId,
+        });
         setServerStatus("break");
         setServerEndsAt(null);
         setServerRoundDurationMs(null);

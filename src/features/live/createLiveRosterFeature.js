@@ -3,7 +3,7 @@ import {
   buildPlayersSignature,
   buildRankingSignature,
 } from "../../game/liveSnapshotSignature.js";
-import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
+import { shouldProcessAttachedLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 const EMPTY_LIST = Object.freeze([]);
 const DEFAULT_QUEUE_TIMING = Object.freeze({
@@ -118,14 +118,17 @@ export function createLiveRosterFeature(
     emitQueueEvent(realtimeConfig, label, payload);
   }
 
-  function shouldHandleRealtimeEvent(incomingRoomId = null) {
+  function shouldHandleRealtimeEvent(incomingRoomId = null, incomingRoundId = null) {
     if (realtimeConfig.phaseLoopTestEnabledRef?.current) return false;
     if (realtimeConfig.standaloneTrainingSessionRef?.current) return false;
-    return shouldProcessLiveRoomEvent({
+    return shouldProcessAttachedLiveRoomEvent({
       appView: realtimeConfig.appViewRef?.current,
+      gameplaySession: realtimeConfig.gameplaySession,
       isLoggedIn: realtimeConfig.isLoggedInRef?.current,
       activeRoomId: realtimeConfig.currentRoomIdRef?.current,
       incomingRoomId,
+      incomingRoundId,
+      liveSessionReadyRef: realtimeConfig.liveSessionReadyRef,
     });
   }
 
@@ -149,7 +152,7 @@ export function createLiveRosterFeature(
   }
 
   function onRankingUpdate({ roomId, roundId, ranking = EMPTY_LIST } = {}) {
-    if (!shouldHandleRealtimeEvent(roomId)) return;
+    if (!shouldHandleRealtimeEvent(roomId, roundId)) return;
     const activeRoundId = realtimeConfig.roundIdRef?.current;
     if (activeRoundId && roundId && roundId !== activeRoundId) return;
     const safeRanking = Array.isArray(ranking) ? ranking : EMPTY_LIST;

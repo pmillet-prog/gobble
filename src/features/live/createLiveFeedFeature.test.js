@@ -62,12 +62,18 @@ test("live feed owns scoped announcements, effects and socket cleanup", () => {
     scope,
   });
   const phaseLoopTestEnabledRef = { current: false };
+  const liveSessionReadyRef = { current: true };
   feature.configureRealtime({
     appViewRef: { current: "live" },
     buildObjectiveToastMessage: (entry) => `objectif:${entry.objectiveId}`,
     currentRoomIdRef: { current: "room-1" },
+    gameplaySession: {
+      acceptsEvent: ({ roomId, roundId }) =>
+        (!roomId || roomId === "room-1") && (!roundId || roundId === "round-1"),
+    },
     isLoggedInRef: { current: true },
     lastGobbleAtRef: { current: 0 },
+    liveSessionReadyRef,
     maybePlayAnnouncementSound: (entry) => sounds.push(entry.type),
     nicknameRef: { current: "Tigre" },
     phaseLoopTestEnabledRef,
@@ -125,6 +131,15 @@ test("live feed owns scoped announcements, effects and socket cleanup", () => {
     ["Test complète les faux jumeaux : +20 pts", 3200],
     ["Tigre complète WikiMama Nature : +30 pts", 3200],
   ]);
+
+  liveSessionReadyRef.current = false;
+  socket.fire("announcement", {
+    roomId: "room-1",
+    roundId: "round-1",
+    type: "objective_validated",
+  });
+  assert.equal(feature.store.getState().announcements.length, 4);
+  liveSessionReadyRef.current = true;
 
   phaseLoopTestEnabledRef.current = true;
   socket.fire("announcement", {

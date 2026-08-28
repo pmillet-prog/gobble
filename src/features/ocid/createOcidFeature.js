@@ -1,5 +1,5 @@
 import { createFeatureStore } from "../../app/core/createFeatureStore.js";
-import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
+import { shouldProcessAttachedLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 const PROPOSAL_SYNC_DELAY_MS = 350;
 const EMPTY_LATEST_PROPOSAL = Object.freeze({
@@ -41,19 +41,22 @@ export function createOcidFeature(
   let realtimeUnsubscribe = null;
   let suspendListenersAttached = false;
 
-  function shouldHandleRealtimeEvent(incomingRoomId = null) {
+  function shouldHandleRealtimeEvent(incomingRoomId = null, incomingRoundId = null) {
     if (config.phaseLoopTestEnabledRef?.current) return false;
     if (config.standaloneTrainingSessionRef?.current) return false;
-    return shouldProcessLiveRoomEvent({
+    return shouldProcessAttachedLiveRoomEvent({
       appView: config.appViewRef?.current,
+      gameplaySession: config.gameplaySession,
       isLoggedIn: config.isLoggedInRef?.current,
       activeRoomId: config.currentRoomIdRef?.current,
       incomingRoomId,
+      incomingRoundId,
+      liveSessionReadyRef: config.liveSessionReadyRef,
     });
   }
 
   function onVoteStarted(payload = {}) {
-    if (!shouldHandleRealtimeEvent(payload?.roomId)) return;
+    if (!shouldHandleRealtimeEvent(payload?.roomId, payload?.roundId)) return;
     if (!payload || typeof payload !== "object") return;
     store.patch({
       selectedOptionId: "",
@@ -76,7 +79,7 @@ export function createOcidFeature(
   }
 
   function onVoteUpdated(payload = {}) {
-    if (!shouldHandleRealtimeEvent(payload?.roomId)) return;
+    if (!shouldHandleRealtimeEvent(payload?.roomId, payload?.roundId)) return;
     if (!payload || typeof payload !== "object") return;
     store.set("vote", (previous) => {
       if (
