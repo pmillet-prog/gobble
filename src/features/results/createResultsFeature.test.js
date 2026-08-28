@@ -61,3 +61,103 @@ test("results satellite owns preparation and mobile fade timers with exact delay
   assert.equal(timers.size, 0);
   scope.dispose();
 });
+
+test("results satellite owns path preview observation and animation frames", () => {
+  class FakeElement {
+    constructor(rect) {
+      this.rect = rect;
+      this.clientWidth = rect.width;
+      this.clientHeight = rect.height;
+    }
+
+    getBoundingClientRect() {
+      return this.rect;
+    }
+  }
+
+  const animationFrames = new Map();
+  const observers = [];
+  const scope = createResourceScope("test:results-path-preview");
+  let nextFrameId = 1;
+  let viewportListener = null;
+  let viewportUnsubscribed = 0;
+  class FakeResizeObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.disconnected = false;
+      observers.push(this);
+    }
+
+    disconnect() {
+      this.disconnected = true;
+    }
+
+    observe(element) {
+      this.element = element;
+    }
+  }
+
+  const feature = createResultsFeature(
+    { scope },
+    {
+      cancelAnimationFrameFn: (id) => animationFrames.delete(id),
+      HTMLElementCtor: FakeElement,
+      requestAnimationFrameFn: (callback) => {
+        const id = nextFrameId++;
+        animationFrames.set(id, callback);
+        return id;
+      },
+      ResizeObserverCtor: FakeResizeObserver,
+    }
+  );
+  const gridElement = new FakeElement({ left: 10, top: 20, width: 100, height: 100 });
+  const tileElements = [
+    new FakeElement({ left: 10, top: 20, width: 20, height: 20 }),
+    new FakeElement({ left: 30, top: 20, width: 20, height: 20 }),
+  ];
+  feature.start();
+  feature.configurePathPreview({
+    enabled: true,
+    gridElement,
+    path: [0, 1],
+    subscribeViewport: (listener) => {
+      viewportListener = listener;
+      return () => {
+        viewportListener = null;
+        viewportUnsubscribed += 1;
+      };
+    },
+    tileElements,
+  });
+
+  assert.equal(animationFrames.size, 1);
+  const [firstFrameId, firstFrame] = [...animationFrames.entries()][0];
+  animationFrames.delete(firstFrameId);
+  firstFrame();
+  assert.deepEqual(feature.store.getState().pathPreview, {
+    width: 100,
+    height: 100,
+    points: [
+      { x: 10, y: 10 },
+      { x: 30, y: 10 },
+    ],
+    endAngleDeg: 0,
+  });
+  assert.equal(observers[0].element, gridElement);
+
+  tileElements[1].rect = { left: 30, top: 40, width: 20, height: 20 };
+  viewportListener();
+  const [nextFrameIdValue, nextFrame] = [...animationFrames.entries()][0];
+  animationFrames.delete(nextFrameIdValue);
+  nextFrame();
+  assert.deepEqual(feature.store.getState().pathPreview.points[1], { x: 30, y: 30 });
+  assert.equal(feature.store.getState().pathPreview.endAngleDeg, 45);
+
+  feature.configurePathPreview({ enabled: false });
+  assert.equal(feature.store.getState().pathPreview, null);
+  assert.equal(observers[0].disconnected, true);
+  assert.equal(viewportUnsubscribed, 1);
+  assert.equal(viewportListener, null);
+  scope.dispose();
+  assert.equal(animationFrames.size, 0);
+});

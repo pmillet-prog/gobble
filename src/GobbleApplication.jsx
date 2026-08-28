@@ -1723,7 +1723,6 @@ export default function GobbleApplication() {
     if (cached) return cached;
     return typeof src === "string" ? src : "";
   };
-  const resultsPathPreviewRef = useRef(null);
   const resultsPathGradientIdRef = useRef(
     `results-path-gradient-${Math.random().toString(36).slice(2)}`
   );
@@ -1889,7 +1888,6 @@ export default function GobbleApplication() {
         setHighlightPlayers: "highlightPlayers",
         setHoveredResultsNick: "hoveredNick",
         setMobileResultsOutroFadeActive: "mobileOutroFadeActive",
-        setResultsPathPreview: "pathPreview",
         setResultsRankingMode: "rankingMode",
         setResultsReorderTick: "reorderTick",
       }),
@@ -2049,7 +2047,6 @@ export default function GobbleApplication() {
     setHighlightPlayers,
     setHoveredResultsNick,
     setMobileResultsOutroFadeActive,
-    setResultsPathPreview,
     setResultsRankingMode,
     setResultsReorderTick,
   } = resultsActions;
@@ -11996,39 +11993,6 @@ function handleTouchEnd(e) {
     () => (phase === "playing" ? new Set(highlightPath) : new Set()),
     [highlightPath, phase]
   );
-  const computeResultsPathPreview = React.useCallback(() => {
-    if (!showResultsWordPath) return null;
-    const gridEl = gridRef.current;
-    if (!(gridEl instanceof HTMLElement)) return null;
-    const gridRect = gridEl.getBoundingClientRect?.();
-    if (!gridRect || gridRect.width <= 0 || gridRect.height <= 0) return null;
-    const points = highlightPath
-      .map((boardIndex) => {
-        const tileEl = tileRefs.current[boardIndex];
-        if (!(tileEl instanceof HTMLElement)) return null;
-        const tileRect = tileEl.getBoundingClientRect?.();
-        if (!tileRect || tileRect.width <= 0 || tileRect.height <= 0) return null;
-        return {
-          x: tileRect.left - gridRect.left + tileRect.width / 2,
-          y: tileRect.top - gridRect.top + tileRect.height / 2,
-        };
-      })
-      .filter(Boolean);
-    if (!points.length) return null;
-    const prevPoint =
-      points.length > 1 ? points[points.length - 2] : points[points.length - 1];
-    const endPoint = points[points.length - 1];
-    const endAngleDeg =
-      points.length > 1
-        ? (Math.atan2(endPoint.y - prevPoint.y, endPoint.x - prevPoint.x) * 180) / Math.PI
-        : 0;
-    return {
-      width: gridRect.width,
-      height: gridRect.height,
-      points,
-      endAngleDeg,
-    };
-  }, [highlightPath, showResultsWordPath]);
   const restoreDesktopGridVisibilityIfStuck = React.useCallback(() => {
     if (isMobileLayout || phase !== "playing") return;
     if (typeof window === "undefined") return;
@@ -12044,113 +12008,16 @@ function handleTouchEnd(e) {
     gridEl.style.opacity = "";
     gridEl.style.transition = "";
   }, [isMobileLayout, phase]);
-  const areResultsPathPreviewsEqual = React.useCallback((a, b) => {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.width !== b.width || a.height !== b.height || a.endAngleDeg !== b.endAngleDeg) {
-      return false;
-    }
-    const aPoints = Array.isArray(a.points) ? a.points : [];
-    const bPoints = Array.isArray(b.points) ? b.points : [];
-    if (aPoints.length !== bPoints.length) return false;
-    for (let index = 0; index < aPoints.length; index += 1) {
-      const aPoint = aPoints[index];
-      const bPoint = bPoints[index];
-      if (!aPoint || !bPoint) return false;
-      if (aPoint.x !== bPoint.x || aPoint.y !== bPoint.y) return false;
-    }
-    return true;
-  }, []);
-  const normalizeResultsPathPreview = React.useCallback((preview) => {
-    if (!preview) return null;
-    const roundMetric = (value) => {
-      const numeric = Number(value);
-      return Number.isFinite(numeric) ? Math.round(numeric) : 0;
-    };
-    const points = (Array.isArray(preview.points) ? preview.points : [])
-      .map((point) => {
-        if (!point) return null;
-        return {
-          x: roundMetric(point.x),
-          y: roundMetric(point.y),
-        };
-      })
-      .filter(Boolean);
-    if (!points.length) return null;
-    return {
-      width: roundMetric(preview.width),
-      height: roundMetric(preview.height),
-      points,
-      endAngleDeg: roundMetric(preview.endAngleDeg),
-    };
-  }, []);
   useEffect(() => {
-    if (!showResultsWordPath) {
-      resultsPathPreviewRef.current = null;
-      setResultsPathPreview((prev) => (prev == null ? prev : null));
-      return;
-    }
-    if (typeof window === "undefined") return;
-    const gridEl = gridRef.current;
-    if (!(gridEl instanceof HTMLElement)) return;
-    let rafId = null;
-    let destroyed = false;
-    let lastObservedWidth = -1;
-    let lastObservedHeight = -1;
-    const updatePreview = () => {
-      if (destroyed) return;
-      const nextPreview = normalizeResultsPathPreview(computeResultsPathPreview());
-      const prevPreview = resultsPathPreviewRef.current;
-      if (areResultsPathPreviewsEqual(prevPreview, nextPreview)) return;
-      resultsPathPreviewRef.current = nextPreview;
-      setResultsPathPreview(nextPreview);
-    };
-    const scheduleUpdate = () => {
-      if (destroyed) return;
-      if (rafId != null) {
-        window.cancelAnimationFrame(rafId);
-      }
-      if (typeof window.requestAnimationFrame === "function") {
-        rafId = window.requestAnimationFrame(() => {
-          rafId = null;
-          updatePreview();
-        });
-      } else {
-        updatePreview();
-      }
-    };
-    scheduleUpdate();
-    let observer = null;
-    if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        const nextWidth = Math.round(entry?.contentRect?.width || gridEl.clientWidth || 0);
-        const nextHeight = Math.round(entry?.contentRect?.height || gridEl.clientHeight || 0);
-        if (nextWidth === lastObservedWidth && nextHeight === lastObservedHeight) return;
-        lastObservedWidth = nextWidth;
-        lastObservedHeight = nextHeight;
-        scheduleUpdate();
-      });
-      observer.observe(gridEl);
-    }
-    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleUpdate, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-    ]);
-    return () => {
-      destroyed = true;
-      if (rafId != null) {
-        window.cancelAnimationFrame(rafId);
-      }
-      if (observer) observer.disconnect();
-      unsubscribeViewport();
-    };
-  }, [
-    areResultsPathPreviewsEqual,
-    computeResultsPathPreview,
-    normalizeResultsPathPreview,
-    showResultsWordPath,
-    layoutFeature,
-  ]);
+    resultsFeature.configurePathPreview({
+      enabled: showResultsWordPath,
+      gridElement: gridRef.current,
+      path: highlightPath,
+      subscribeViewport: (listener) =>
+        layoutFeature.subscribeViewport(listener, [VIEWPORT_EVENTS.WINDOW_RESIZE]),
+      tileElements: tileRefs.current,
+    });
+  }, [highlightPath, layoutFeature, resultsFeature, showResultsWordPath]);
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const cancelPendingRestore = () => {
