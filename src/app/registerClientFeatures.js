@@ -23,6 +23,7 @@ import { createRefreshSchedulerFeature } from "../features/refresh/createRefresh
 import { createResultsFeature } from "../features/results/createResultsFeature.js";
 import { createSessionPersistenceFeature } from "../features/session/createSessionPersistenceFeature.js";
 import { createStatsFeature } from "../features/stats/createStatsFeature.js";
+import { createStandaloneTrainingFeature } from "../features/training/createStandaloneTrainingFeature.js";
 import { createTutorialFeature } from "../features/tutorial/createTutorialFeature.js";
 import { createTraceFeature } from "../features/trace/createTraceFeature.js";
 
@@ -52,6 +53,7 @@ const FEATURE_FACTORIES = Object.freeze({
   results: createResultsFeature,
   sessionPersistence: createSessionPersistenceFeature,
   stats: createStatsFeature,
+  standaloneTraining: createStandaloneTrainingFeature,
   tutorial: createTutorialFeature,
   trace: createTraceFeature,
 });

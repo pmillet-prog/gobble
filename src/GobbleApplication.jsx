@@ -268,7 +268,6 @@ import useWordVault from "./utils/useWordVault";
 import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
 import { usePlaytimeLimit } from "./hooks/usePlaytimeLimit.js";
 import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNavigation.js";
-import useStandaloneTraining from "./hooks/useStandaloneTraining.js";
 import useDisplayMode from "./hooks/useDisplayMode.js";
 import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
 import {
@@ -321,7 +320,6 @@ import { generateGrid } from "./components/gridGeneration";
 import { hydrateServerSolutionsPayload } from "./utils/roundSolutions";
 import {
   buildStandaloneTrainingTargetSummary,
-  buildTrainingTargetHint,
   buildTrainingTargetHintSchedule,
 } from "./training/standaloneTraining.js";
 import {
@@ -2610,55 +2608,42 @@ export default function GobbleApplication() {
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
   const startGameFromServerRef = useRef(null);
-  const standaloneTrainingController = useStandaloneTraining({
-    ensureConnection: connectSocketWithAuth,
-    getIdentityPayload: () => ({
-      installId: installIdRef.current,
-      nick: nicknameRef.current.trim(),
-      roomId: roomIdRef.current,
-    }),
-    onJoinLive: joinStandaloneTrainingLive,
-    onLaunch: launchStandaloneTraining,
-    onReturnLobby: returnToLobby,
-    roomIdRef,
-    showToast,
-    socket,
-  });
-  const standaloneTrainingSession = standaloneTrainingController.session;
-  const standaloneTrainingSessionRef = standaloneTrainingController.sessionRef;
+  const standaloneTrainingFeature = useFeatureRuntime("standaloneTraining");
+  const standaloneTrainingState = useFeatureSelector(
+    standaloneTrainingFeature,
+    (state) => state
+  );
+  const standaloneTrainingSession = standaloneTrainingState.session;
+  const standaloneTrainingSessionRef = standaloneTrainingFeature.refs.session;
+  const standaloneTrainingController = {
+    busy: standaloneTrainingState.busy,
+    cancelJoinDialog: standaloneTrainingFeature.cancelJoinDialog,
+    clearSession: standaloneTrainingFeature.clearSession,
+    confirmJoinLive: standaloneTrainingFeature.confirmJoinLive,
+    joinDialog: standaloneTrainingState.joinDialog,
+    requestJoinLive: standaloneTrainingFeature.requestJoinLive,
+    returnToLobby: standaloneTrainingFeature.returnToLobby,
+    start: standaloneTrainingFeature.startTraining,
+  };
   useEffect(() => {
-    const training = standaloneTrainingSession;
-    const isTarget = training?.mode === "target_long" || training?.mode === "target_score";
-    if (!training || !isTarget || phase !== "playing") return undefined;
-    const schedule = buildTrainingTargetHintSchedule(
-      training.durationMs,
-      training.targetLength
-    );
-    const timers = [];
-    const reveal = (count) => {
-      setSpecialHint(
-        buildTrainingTargetHint({
-          word: training.targetWord,
-          path: training.targetPath,
-          grid: training.grid,
-          revealCount: count,
-          kind: training.mode,
-          seed: training.gridId,
-        })
-      );
-    };
-    const elapsed = Math.max(0, getNowServerMs() - Number(training.startedAt || 0));
-    let alreadyRevealed = 0;
-    schedule.forEach((atMs, index) => {
-      if (atMs <= elapsed) {
-        alreadyRevealed = index + 1;
-        return;
-      }
-      timers.push(window.setTimeout(() => reveal(index + 1), atMs - elapsed));
+    standaloneTrainingFeature.configure({
+      ensureConnection: connectSocketWithAuth,
+      getIdentityPayload: () => ({
+        installId: installIdRef.current,
+        nick: nicknameRef.current.trim(),
+        roomId: roomIdRef.current,
+      }),
+      getNowServerMs,
+      onHint: setSpecialHint,
+      onJoinLive: joinStandaloneTrainingLive,
+      onLaunch: launchStandaloneTraining,
+      onReturnLobby: returnToLobby,
+      phase,
+      roomIdRef,
+      showToast,
+      socket,
     });
-    if (alreadyRevealed > 0) reveal(alreadyRevealed);
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [phase, standaloneTrainingSession]);
+  });
   const requestSessionResumeSnapshotRef = useRef(null);
   const resumeLoginFromSessionRef = useRef(null);
   const previousAppViewRef = useRef(appView);
