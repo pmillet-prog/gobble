@@ -73,7 +73,6 @@ export default function DesktopGameScene({ runtime }) {
     chatOverlays,
     chatReplyTarget,
     clearDailyWordSlot,
-    clearOcidProposalServer,
     COLUMN_HEIGHT_STYLE,
     computedGridWidth,
     connectionError,
@@ -132,9 +131,11 @@ export default function DesktopGameScene({ runtime }) {
     gridRotationTurns,
     gridSize,
     handleChatInputFocus,
+    handleClearOcidProposal,
     handleDesktopWordAnalysisClear,
     handleDesktopWordAnalyze,
     handleDesktopWordDefinitionOpen,
+    handleOcidProposalChange,
     hasDesktopResultsSummary,
     highlightPlayers,
     hintCellOverlayStyleMap,
@@ -170,7 +171,6 @@ export default function DesktopGameScene({ runtime }) {
     nickDecorationKey,
     normalizeLetterKey,
     ocidDefinitionText,
-    ocidLatestProposalRef,
     ocidProposal,
     ocidProposalSubmitted,
     ocidSelectedOptionId,
@@ -234,10 +234,6 @@ export default function DesktopGameScene({ runtime }) {
     setDuelPopupState,
     setHoveredResultsNick,
     setIsSettingsOpen,
-    setOcidProposal,
-    setOcidProposalPath,
-    setOcidProposalSubmitted,
-    setOcidStatusMessage,
     setResultsRankingModeWithPulse,
     setShowAllWords,
     setShowBotMessages,
@@ -563,11 +559,7 @@ export default function DesktopGameScene({ runtime }) {
               <div className="relative min-w-0 flex-1">
                 <input
                   value={ocidProposal}
-                  onChange={(e) => {
-                    setOcidProposal(e.target.value);
-                    setOcidProposalPath([]);
-                    setOcidProposalSubmitted("");
-                  }}
+                  onChange={(e) => handleOcidProposalChange(e.target.value)}
                   maxLength={32}
                   className="w-full rounded-lg border border-slate-300 px-2 py-1.5 pr-8 text-sm text-slate-900"
                   placeholder="Trace ou tape ton mot"
@@ -575,14 +567,7 @@ export default function DesktopGameScene({ runtime }) {
                 {ocidProposal ? (
                   <button
                     type="button"
-                  onClick={() => {
-                    setOcidProposal("");
-                    setOcidProposalPath([]);
-                    ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
-                    setOcidProposalSubmitted("");
-                    setOcidStatusMessage("");
-                    clearOcidProposalServer();
-                  }}
+                  onClick={handleClearOcidProposal}
                     className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
                     aria-label="Changer de proposition"
                   >
@@ -1272,11 +1257,7 @@ export default function DesktopGameScene({ runtime }) {
                     <div className="relative min-w-0 flex-1">
                       <input
                         value={ocidProposal}
-                        onChange={(e) => {
-                          setOcidProposal(e.target.value);
-                          setOcidProposalPath([]);
-                          setOcidProposalSubmitted("");
-                        }}
+                        onChange={(e) => handleOcidProposalChange(e.target.value)}
                         maxLength={32}
                         className="w-full rounded-lg border border-slate-300 px-2 py-1.5 pr-8 text-sm text-slate-900"
                         placeholder="Trace ou tape ton mot"
@@ -1284,14 +1265,7 @@ export default function DesktopGameScene({ runtime }) {
                       {ocidProposal ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setOcidProposal("");
-                            setOcidProposalPath([]);
-                            ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
-                            setOcidProposalSubmitted("");
-                            setOcidStatusMessage("");
-                            clearOcidProposalServer();
-                          }}
+                          onClick={handleClearOcidProposal}
                           className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
                           aria-label="Changer de proposition"
                         >

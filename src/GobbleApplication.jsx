@@ -1802,6 +1802,7 @@ export default function GobbleApplication() {
   const chatFeature = useFeatureRuntime("chat");
   const chatState = useFeatureFields(chatFeature, CHAT_ROOT_FIELDS);
   const ocidFeature = useFeatureRuntime("ocid");
+  const ocidLatestProposalRef = ocidFeature.refs.latestProposal;
   const ocidState = useFeatureSelector(ocidFeature, (state) => state);
   const resultsFeature = useFeatureRuntime("results");
   const resultsState = useFeatureSelector(resultsFeature, (state) => state);
@@ -2110,8 +2111,6 @@ export default function GobbleApplication() {
       !/EdgA|OPR|SamsungBrowser/i.test(ua);
     return isAndroidChrome ? "search" : "text";
   }, []);
-  const ocidProposalSyncTimerRef = useRef(null);
-  const ocidLatestProposalRef = useRef({ roundId: null, word: "", path: [] });
   const ocidResultToastKeyRef = useRef("");
   const ocidResultToastDelayTimersRef = useRef([]);
   const breakKindRef = useRef(breakKind);
@@ -13350,127 +13349,32 @@ function handleTouchEnd(e) {
       targetSummary?.definition ||
       ""
   ).trim();
-  const clearOcidProposalServer = React.useCallback(() => {
-    if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
-    socket.emit("ocid:clearProposal", { roundId }, () => {});
-  }, [isOcidRound, ocidVote, roundId]);
   const openSettingsPanel = React.useCallback(() => {
     setIsSettingsOpen(true);
   }, []);
-  const handleOcidProposalChange = React.useCallback((value) => {
-    setOcidProposal(value);
-    setOcidProposalPath([]);
-    setOcidProposalSubmitted("");
-  }, []);
-  const handleClearOcidProposal = React.useCallback(() => {
-    setOcidProposal("");
-    setOcidProposalPath([]);
-    ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
-    setOcidProposalSubmitted("");
-    setOcidStatusMessage("");
-    clearOcidProposalServer();
-  }, [clearOcidProposalServer]);
-  const syncOcidProposalDraft = React.useCallback(
-    ({ manual = false } = {}) => {
-      if (!socket?.connected || !roundId || !isOcidRound || ocidVote) return;
-      const word = String(ocidProposal || "").trim();
-      if (!word) {
-        ocidLatestProposalRef.current = { roundId: null, word: "", path: [] };
-        socket.emit("ocid:clearProposal", { roundId }, () => {});
-        if (manual) setOcidStatusMessage("Trace un mot sur la grille.");
-        setOcidProposalSubmitted("");
-        return;
-      }
-      ocidLatestProposalRef.current = {
-        roundId,
-        word,
-        path: Array.isArray(ocidProposalPath) ? ocidProposalPath : [],
-      };
-      socket.emit("ocid:propose", { roundId, word, path: ocidProposalPath }, (res) => {
-        if (res?.ok) {
-          const accepted = String(res?.proposal || word).trim();
-          setOcidProposalSubmitted(accepted);
-          setOcidStatusMessage(manual ? `Proposition retenue : ${accepted}` : "Proposition retenue.");
-          return;
-        }
-        setOcidProposalSubmitted("");
-        setOcidStatusMessage(
-          res?.error === "proposal_closed"
-            ? "Les propositions sont fermées."
-            : res?.error === "not_traceable"
-            ? "Ce mot n'est pas traçable sur la grille."
-            : "Proposition refusée."
-        );
-      });
-    },
-    [isOcidRound, ocidProposal, ocidProposalPath, ocidVote, roundId]
+  React.useEffect(() => {
+    ocidFeature.configureRound({
+      isOcidRound,
+      phase,
+      roundId,
+      socket,
+    });
+  }, [isOcidRound, ocidFeature, phase, roundId, socket]);
+  const handleOcidProposalChange = React.useCallback(
+    (value) => ocidFeature.updateProposal(value),
+    [ocidFeature]
   );
-  React.useEffect(() => {
-    if (ocidProposalSyncTimerRef.current) {
-      clearTimeout(ocidProposalSyncTimerRef.current);
-      ocidProposalSyncTimerRef.current = null;
-    }
-    if (phase !== "playing" || !isOcidRound || ocidVote || !roundId) return undefined;
-    ocidProposalSyncTimerRef.current = setTimeout(() => {
-      ocidProposalSyncTimerRef.current = null;
-      syncOcidProposalDraft({ manual: false });
-    }, 350);
-    return () => {
-      if (ocidProposalSyncTimerRef.current) {
-        clearTimeout(ocidProposalSyncTimerRef.current);
-        ocidProposalSyncTimerRef.current = null;
-      }
-    };
-  }, [phase, isOcidRound, ocidVote, roundId, ocidProposal, ocidProposalPath, syncOcidProposalDraft]);
-  React.useEffect(() => {
-    if (!isOcidRound || ocidVote || !roundId) return undefined;
-    const flushOcidProposalBeforeSuspend = () => {
-      if (phaseRef.current !== "playing") return;
-      if (!socket?.connected) return;
-      const draft = ocidLatestProposalRef.current || {};
-      const word = String(draft.word || "").trim();
-      if (!word || draft.roundId !== roundId) return;
-      if (ocidProposalSyncTimerRef.current) {
-        clearTimeout(ocidProposalSyncTimerRef.current);
-        ocidProposalSyncTimerRef.current = null;
-      }
-      socket.emit(
-        "ocid:propose",
-        { roundId, word, path: Array.isArray(draft.path) ? draft.path : [] },
-        () => {}
-      );
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") flushOcidProposalBeforeSuspend();
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("pagehide", flushOcidProposalBeforeSuspend);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("pagehide", flushOcidProposalBeforeSuspend);
-    };
-  }, [isOcidRound, ocidVote, roundId]);
-  const submitOcidProposal = React.useCallback(() => {
-    if (!socket?.connected || !roundId || !isOcidRound) return;
-    syncOcidProposalDraft({ manual: true });
-  }, [isOcidRound, roundId, syncOcidProposalDraft]);
+  const handleClearOcidProposal = React.useCallback(
+    () => ocidFeature.clearProposal(),
+    [ocidFeature]
+  );
+  const submitOcidProposal = React.useCallback(
+    () => ocidFeature.submitProposal(),
+    [ocidFeature]
+  );
   const submitOcidVote = React.useCallback(
-    (optionId) => {
-      if (!socket?.connected || !roundId || !isOcidRound || !optionId) return;
-      socket.emit("ocid:vote", { roundId, optionId }, (res) => {
-        if (res?.ok) {
-          setOcidSelectedOptionId(optionId);
-          setOcidStatusMessage("Vote enregistre.");
-          return;
-        }
-        setOcidStatusMessage(
-          res?.error === "vote_closed"
-            ? "Le vote est termine."
-            : "Vote refuse."
-        );
-      });
-    },
-    [isOcidRound, roundId]
+    (optionId) => ocidFeature.submitVote(optionId),
+    [ocidFeature]
   );
   const selfNickForResults = nicknameRef.current.trim();
   const selfNickKeyForResults = normalizeNickKey(selfNickForResults);
@@ -18479,7 +18383,6 @@ function handleTouchEnd(e) {
             chatOverlays,
             chatReplyTarget,
             clearDailyWordSlot,
-            clearOcidProposalServer,
             COLUMN_HEIGHT_STYLE,
             computedGridWidth,
             connectionError,
@@ -18538,9 +18441,11 @@ function handleTouchEnd(e) {
             gridRotationTurns,
             gridSize,
             handleChatInputFocus,
+            handleClearOcidProposal,
             handleDesktopWordAnalysisClear,
             handleDesktopWordAnalyze,
             handleDesktopWordDefinitionOpen,
+            handleOcidProposalChange,
             hasDesktopResultsSummary,
             highlightPlayers,
             hintCellOverlayStyleMap,
@@ -18576,7 +18481,6 @@ function handleTouchEnd(e) {
             nickDecorationKey,
             normalizeLetterKey,
             ocidDefinitionText,
-            ocidLatestProposalRef,
             ocidProposal,
             ocidProposalSubmitted,
             ocidSelectedOptionId,
@@ -18641,10 +18545,6 @@ function handleTouchEnd(e) {
             setDuelPopupState,
             setHoveredResultsNick,
             setIsSettingsOpen,
-            setOcidProposal,
-            setOcidProposalPath,
-            setOcidProposalSubmitted,
-            setOcidStatusMessage,
             setResultsRankingModeWithPulse,
             setShowAllWords,
             setShowBotMessages,
