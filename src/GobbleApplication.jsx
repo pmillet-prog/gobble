@@ -965,7 +965,9 @@ export default function GobbleApplication() {
   const {
     backgrounded: isBackgroundedRef,
     foregroundAttemptAt: foregroundAttemptRef,
+    intentionalDisconnect: intentionalDisconnectRef,
     lastBackgroundAt: lastBackgroundTimeRef,
+    reconnectAttempt: reconnectAttemptRef,
     watchdogFailures: watchdogFailureCountRef,
   } = connectionFeature.refs;
   const scheduleForegroundRetry = connectionFeature.scheduleForegroundRetry;
@@ -2483,10 +2485,7 @@ export default function GobbleApplication() {
     roundStartSoundRef.current = null;
     stopRoundStartSound({ fadeMs: 80 });
     clockFeature.stop({ preserveRemaining: true });
-    if (disconnectGraceTimerRef.current) {
-      clearTimeout(disconnectGraceTimerRef.current);
-      disconnectGraceTimerRef.current = null;
-    }
+    connectionFeature.cancelDisconnectGrace();
     if (manualRefreshTimerRef.current) {
       clearTimeout(manualRefreshTimerRef.current);
       manualRefreshTimerRef.current = null;
@@ -3327,13 +3326,9 @@ export default function GobbleApplication() {
   const vaultWordOfDayAttemptedRef = useRef(new Set());
   const patchNotesOpeningRef = useRef(false);
   const facebookInviteAttemptedAudienceRef = useRef("");
-  const disconnectGraceTimerRef = useRef(null);
   const manualRefreshTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
-  const reconnectAttemptRef = useRef(false);
-  const reconnectToastPendingRef = useRef(false);
   const liveSessionReadyRef = useRef(false);
-  const intentionalDisconnectRef = useRef(false);
   const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const bestGridMaxRef = useRef(0);
@@ -6314,7 +6309,6 @@ export default function GobbleApplication() {
     allWordsMap,
     appViewRef,
     areStringArraysEqual,
-    attemptSilentReconnectRef,
     batchSeqRef,
     batchTimerRef,
     batchUnsupportedRef,
@@ -6406,9 +6400,6 @@ export default function GobbleApplication() {
   useRealtimeEventBindings({
     applyCultureThemeChallengeToWordStores,
     appViewRef,
-    attemptSilentReconnectRef,
-    autoResumeEnabledRef,
-    batchUnsupportedRef,
     buildObjectiveToastMessage,
     bumpSamsungDiagCounter,
     chatBotVisibilityRef,
@@ -6422,20 +6413,15 @@ export default function GobbleApplication() {
     currentRoundTrainingRef,
     dailySpecialDragRef,
     deferNonessentialUiDuringTrace,
-    DISCONNECT_GRACE_MS,
-    disconnectGraceTimerRef,
     enqueueMobileChatReactionToast,
     ensureTournamentBaseline,
     getNowServerMs,
     getWeeklyVocabRankForCount,
     gobblarsKnownBalanceRef,
     gobblarToastDelayTimersRef,
-    hasSavedSession,
     inputLockedRef,
     installId,
     installIdRef,
-    intentionalDisconnectRef,
-    isBackgroundedRef,
     isChatClosingRef,
     isChatOpenMobileRef,
     isDailyPlayRef,
@@ -6443,9 +6429,6 @@ export default function GobbleApplication() {
     isLoggedInRef,
     isMobileLayoutRef,
     lastGobbleAtRef,
-    liveSessionReadyRef,
-    lobbyChatSubscriptionRef,
-    manualDisconnectRef,
     maybePlayAnnouncementSound,
     nickname,
     nicknameRef,
@@ -6464,13 +6447,7 @@ export default function GobbleApplication() {
     processRoundEndedRef,
     queuePlayersUpdate,
     queueRankingUpdate,
-    reconnectAttemptRef,
-    reconnectToastPendingRef,
     requestVocabCount,
-    requeueInFlightSubmissions,
-    resumeLockAtRef,
-    resumeLockRef,
-    resumeLoginFromSessionRef,
     roundHandlersRef,
     roundIdRef,
     roundStartAtRef,
@@ -6495,7 +6472,6 @@ export default function GobbleApplication() {
     setHomeChatBotUnreadCount,
     setHomeChatUnreadCount,
     setInputLocked,
-    setIsConnecting,
     setIsLoggedIn,
     setLoginError,
     setMedals,
@@ -6510,11 +6486,9 @@ export default function GobbleApplication() {
     setOcidStatusMessage,
     setOcidVote,
     setPhase,
-    setPlayers,
     setProvisionalRanking,
     setResultsTeamDelta,
     setRoomId,
-    setRoundId,
     setRoundPreparing,
     setServerEndsAt,
     setServerRoundDurationMs,
@@ -6527,11 +6501,8 @@ export default function GobbleApplication() {
     setTournament,
     setTournamentFinaleHoldUntil,
     setTournamentLobby,
-    setTournamentRanking,
-    setTournamentRoundPoints,
     setTournamentSummary,
     setTournamentSummaryAt,
-    setTournamentTotals,
     setTrainingBusy,
     setTrophyHistory,
     setTrophyStatus,
@@ -6549,9 +6520,6 @@ export default function GobbleApplication() {
     stopImplodePhase,
     stopRoundEndTickSound,
     submissionStatusRef,
-    subscribeLobbyChat,
-    tournamentDuelDeltaRef,
-    TRANSIENT_HOME_CONNECTION_ERRORS,
     triggerConfettiBurst,
     triggerPraiseFlash,
     vocabBaselineRef,
@@ -6560,7 +6528,39 @@ export default function GobbleApplication() {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
-    watchdogFailureCountRef,
+  });
+  useEffect(() => {
+    connectionFeature.configureRealtime({
+      appViewRef,
+      attemptSilentReconnectRef,
+      autoResumeEnabledRef,
+      batchUnsupportedRef,
+      clearQueuedRankingUpdate,
+      disconnectGraceMs: DISCONNECT_GRACE_MS,
+      hasSavedSession,
+      isChatOpenMobileRef,
+      isHomeChatOpenRef,
+      isLoggedInRef,
+      liveSessionReadyRef,
+      lobbyChatSubscriptionRef,
+      manualDisconnectRef,
+      requeueInFlightSubmissions,
+      resumeLockAtRef,
+      resumeLockRef,
+      resumeLoginFromSessionRef,
+      setFoundTargetThisRound,
+      setFoundTargetWord,
+      setPlayers,
+      setProvisionalRanking,
+      setSpecialHint,
+      setSpecialSolvedOverlay,
+      showToast,
+      socket,
+      standaloneTrainingSessionRef,
+      subscribeLobbyChat,
+      tournamentDuelDeltaRef,
+      transientHomeConnectionErrors: TRANSIENT_HOME_CONNECTION_ERRORS,
+    });
   });
   const roundClockMaxSeconds = Number.isFinite(serverRoundDurationMs)
     ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
@@ -9617,10 +9617,7 @@ export default function GobbleApplication() {
     setLoginError("");
     setConnectionError("");
     lastLoginPayloadRef.current = { nick, roomId };
-    if (disconnectGraceTimerRef.current) {
-      clearTimeout(disconnectGraceTimerRef.current);
-      disconnectGraceTimerRef.current = null;
-    }
+    connectionFeature.cancelDisconnectGrace();
     reconnectAttemptRef.current = false;
 
     const attemptLogin = () => {

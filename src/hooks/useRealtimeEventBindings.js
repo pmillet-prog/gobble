@@ -10,10 +10,7 @@ import {
   patchChatMessageReactions,
   removeChatMessageById,
 } from "../utils/chatMessages.js";
-import {
-  LIVE_CONNECTION_INTERRUPTED_MESSAGE,
-  capturePendingSubmissions,
-} from "../network/liveSubmissionRecovery.js";
+import { capturePendingSubmissions } from "../network/liveSubmissionRecovery.js";
 import {
   isChatBotMessage,
   shouldDisplayChatMessageForBotSettings,
@@ -29,9 +26,6 @@ export default function useRealtimeEventBindings(runtime) {
   const {
     applyCultureThemeChallengeToWordStores,
     appViewRef,
-    attemptSilentReconnectRef,
-    autoResumeEnabledRef,
-    batchUnsupportedRef,
     buildObjectiveToastMessage,
     bumpSamsungDiagCounter,
     chatBotVisibilityRef,
@@ -45,20 +39,15 @@ export default function useRealtimeEventBindings(runtime) {
     currentRoundTrainingRef,
     dailySpecialDragRef,
     deferNonessentialUiDuringTrace,
-    DISCONNECT_GRACE_MS,
-    disconnectGraceTimerRef,
     enqueueMobileChatReactionToast,
     ensureTournamentBaseline,
     getNowServerMs,
     getWeeklyVocabRankForCount,
     gobblarsKnownBalanceRef,
     gobblarToastDelayTimersRef,
-    hasSavedSession,
     inputLockedRef,
     installId,
     installIdRef,
-    intentionalDisconnectRef,
-    isBackgroundedRef,
     isChatClosingRef,
     isChatOpenMobileRef,
     isDailyPlayRef,
@@ -66,9 +55,6 @@ export default function useRealtimeEventBindings(runtime) {
     isLoggedInRef,
     isMobileLayoutRef,
     lastGobbleAtRef,
-    liveSessionReadyRef,
-    lobbyChatSubscriptionRef,
-    manualDisconnectRef,
     maybePlayAnnouncementSound,
     nickname,
     nicknameRef,
@@ -87,13 +73,7 @@ export default function useRealtimeEventBindings(runtime) {
     processRoundEndedRef,
     queuePlayersUpdate,
     queueRankingUpdate,
-    reconnectAttemptRef,
-    reconnectToastPendingRef,
     requestVocabCount,
-    requeueInFlightSubmissions,
-    resumeLockAtRef,
-    resumeLockRef,
-    resumeLoginFromSessionRef,
     roundHandlersRef,
     roundIdRef,
     roundStartAtRef,
@@ -118,7 +98,6 @@ export default function useRealtimeEventBindings(runtime) {
     setHomeChatBotUnreadCount,
     setHomeChatUnreadCount,
     setInputLocked,
-    setIsConnecting,
     setIsLoggedIn,
     setLoginError,
     setMedals,
@@ -133,11 +112,9 @@ export default function useRealtimeEventBindings(runtime) {
     setOcidStatusMessage,
     setOcidVote,
     setPhase,
-    setPlayers,
     setProvisionalRanking,
     setResultsTeamDelta,
     setRoomId,
-    setRoundId,
     setRoundPreparing,
     setServerEndsAt,
     setServerRoundDurationMs,
@@ -150,11 +127,8 @@ export default function useRealtimeEventBindings(runtime) {
     setTournament,
     setTournamentFinaleHoldUntil,
     setTournamentLobby,
-    setTournamentRanking,
-    setTournamentRoundPoints,
     setTournamentSummary,
     setTournamentSummaryAt,
-    setTournamentTotals,
     setTrainingBusy,
     setTrophyHistory,
     setTrophyStatus,
@@ -172,9 +146,6 @@ export default function useRealtimeEventBindings(runtime) {
     stopImplodePhase,
     stopRoundEndTickSound,
     submissionStatusRef,
-    subscribeLobbyChat,
-    tournamentDuelDeltaRef,
-    TRANSIENT_HOME_CONNECTION_ERRORS,
     triggerConfettiBurst,
     triggerPraiseFlash,
     vocabBaselineRef,
@@ -183,7 +154,6 @@ export default function useRealtimeEventBindings(runtime) {
     vocabWeeklyBaselineRef,
     vocabWeeklyBaselineRoundRef,
     vocabWeeklyRankBaselineRef,
-    watchdogFailureCountRef,
   } = runtime;
 
 useEffect(() => {
@@ -706,141 +676,6 @@ useEffect(() => {
       appendAnnouncements(filtered);
     }
 
-    function onConnectError() {
-      liveSessionReadyRef.current = false;
-      setIsConnecting(false);
-      if (standaloneTrainingSessionRef.current) {
-        setConnectionError("");
-        reconnectAttemptRef.current = false;
-        return;
-      }
-      const hasSession = hasSavedSession() || autoResumeEnabledRef.current;
-      if (!hasSession && !isLoggedInRef.current) {
-        isLoggedInRef.current = false;
-        setIsLoggedIn(false);
-        clearQueuedRankingUpdate();
-        setConnectionError("Connexion au serveur impossible");
-        setPlayers([]);
-        setProvisionalRanking([]);
-      } else {
-        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-      }
-      resumeLockRef.current = false;
-      resumeLockAtRef.current = 0;
-      reconnectAttemptRef.current = false;
-    }
-
-    function onConnect() {
-      liveSessionReadyRef.current = false;
-      if (disconnectGraceTimerRef.current) {
-        clearTimeout(disconnectGraceTimerRef.current);
-        disconnectGraceTimerRef.current = null;
-      }
-      watchdogFailureCountRef.current = 0;
-      batchUnsupportedRef.current = false;
-      setConnectionError("");
-      setLoginError((prev) => (TRANSIENT_HOME_CONNECTION_ERRORS.has(prev) ? "" : prev));
-      if (reconnectToastPendingRef.current) {
-        reconnectToastPendingRef.current = false;
-        if (isLoggedInRef.current) {
-          showToast("Connexion rétablie", 2200);
-        }
-      }
-      const shouldRestoreLiveSession =
-        (isLoggedInRef.current || autoResumeEnabledRef.current || hasSavedSession()) &&
-        appViewRef.current === "live";
-      if (shouldRestoreLiveSession && !resumeLockRef.current) {
-        setTimeout(() => {
-          if (!socket.connected) return;
-          resumeLoginFromSessionRef.current?.("socket_connect");
-        }, 0);
-      }
-      if (!isLoggedInRef.current) {
-        const chatState = lobbyChatSubscriptionRef.current;
-        if (chatState?.subscribed || isHomeChatOpenRef.current || isChatOpenMobileRef.current) {
-          subscribeLobbyChat({ force: true });
-        }
-      }
-    }
-
-    function onDisconnect() {
-      liveSessionReadyRef.current = false;
-      requeueInFlightSubmissions();
-      const wasIntentional = intentionalDisconnectRef.current;
-      intentionalDisconnectRef.current = false;
-      lobbyChatSubscriptionRef.current.subscribed = false;
-      lobbyChatSubscriptionRef.current.inFlight = false;
-      lobbyChatSubscriptionRef.current.connectPending = false;
-      if (standaloneTrainingSessionRef.current) {
-        setConnectionError("");
-        return;
-      }
-      if (isBackgroundedRef.current) {
-        return;
-      }
-      if (disconnectGraceTimerRef.current) {
-        clearTimeout(disconnectGraceTimerRef.current);
-      }
-      const hardReset = () => {
-        clearQueuedRankingUpdate();
-        isLoggedInRef.current = false;
-        setIsLoggedIn(false);
-        setRoundId(null);
-        setServerEndsAt(null);
-        setServerStatus("waiting");
-        setProvisionalRanking([]);
-        setFinalResults([]);
-        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-        setPlayers([]);
-        setMedals({});
-        setTournament(null);
-        setTournamentTotals({});
-        setTournamentRanking([]);
-        setTournamentRoundPoints({});
-        setTournamentSummary(null);
-        setTargetSummary(null);
-        setBreakKind(null);
-        setTournamentFinaleHoldUntil(null);
-        tournamentDuelDeltaRef.current = { tournamentId: null, red: 0, blue: 0 };
-        setSpecialHint(null);
-        setSpecialSolvedOverlay(null);
-        setFoundTargetThisRound(false);
-        setFoundTargetWord("");
-        resumeLockRef.current = false;
-        resumeLockAtRef.current = 0;
-        reconnectAttemptRef.current = false;
-        reconnectToastPendingRef.current = false;
-      };
-      if (!wasIntentional && !hasSavedSession() && !isLoggedInRef.current) {
-        hardReset();
-      }
-      if (manualDisconnectRef.current) {
-        manualDisconnectRef.current = false;
-        setConnectionError("");
-        reconnectToastPendingRef.current = false;
-        return;
-      }
-      if (!wasIntentional) {
-        disconnectGraceTimerRef.current = setTimeout(() => {
-          disconnectGraceTimerRef.current = null;
-          if (socket.connected || isBackgroundedRef.current) return;
-          if (hasSavedSession() || isLoggedInRef.current || autoResumeEnabledRef.current) {
-            setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-            reconnectToastPendingRef.current = true;
-            attemptSilentReconnectRef.current?.("disconnect_grace");
-            return;
-          }
-          hardReset();
-        }, DISCONNECT_GRACE_MS);
-        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-        if (isLoggedInRef.current && !reconnectToastPendingRef.current) {
-          reconnectToastPendingRef.current = true;
-          showToast("Connexion interrompue, jeu local actif", 3600);
-        }
-        attemptSilentReconnectRef.current?.("disconnect");
-      }
-    }
-
     function onMedalsUpdate(payload) {
       if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       setMedals(payload && typeof payload === "object" ? payload : {});
@@ -1074,11 +909,8 @@ useEffect(() => {
       "chat:message_reaction": onChatReactionUpdate,
       "chat:message_update": onChatMessageUpdate,
       chatMessage: onChatNew,
-      connect: onConnect,
-      connect_error: onConnectError,
       cultureThemeChallenge: onCultureThemeChallenge,
       "dev:globalAnnouncement": onDevGlobalAnnouncement,
-      disconnect: onDisconnect,
       gobblarsAwarded: onGobblarsAwarded,
       medalsUpdate: onMedalsUpdate,
       "moderation:notice": onModerationNotice,

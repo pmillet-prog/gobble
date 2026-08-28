@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { createApplicationKernel } from "../../app/core/createApplicationKernel.js";
 import { createResourceScope } from "../../app/core/createResourceScope.js";
+import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 import { createConnectionHealthFeature } from "./createConnectionHealthFeature.js";
 
 function createEventTarget() {
@@ -115,4 +116,186 @@ test("connection health owns foreground listeners, retry and watchdog timers", (
   assert.equal(windowTarget.listenerCount("focus"), 0);
   assert.equal(documentTarget.listenerCount("visibilitychange"), 0);
   assert.equal(pageShow, null);
+});
+
+test("connection health owns socket lifecycle, disconnect grace and cleanup", () => {
+  const documentTarget = createEventTarget();
+  const windowTarget = createEventTarget();
+  const handlers = new Map();
+  const socket = {
+    connected: true,
+    bind(nextHandlers) {
+      for (const [eventName, handler] of Object.entries(nextHandlers)) {
+        handlers.set(eventName, handler);
+      }
+      return () => {
+        for (const [eventName, handler] of Object.entries(nextHandlers)) {
+          if (handlers.get(eventName) === handler) handlers.delete(eventName);
+        }
+      };
+    },
+    fire(eventName) {
+      handlers.get(eventName)?.();
+    },
+  };
+  const timers = new Map();
+  let nextTimerId = 1;
+  const scope = createResourceScope("connection-realtime-test");
+  const kernel = createApplicationKernel();
+  kernel.commands.session.patch({
+    isConnecting: true,
+    isLoggedIn: true,
+    loginError: "Connexion au serveur impossible",
+  });
+  const feature = createConnectionHealthFeature(
+    { getKernel: () => kernel, scope },
+    {
+      clearTimeoutFn: (id) => timers.delete(id),
+      documentTarget,
+      setTimeoutFn: (callback, delayMs) => {
+        const id = nextTimerId++;
+        timers.set(id, {
+          callback: () => {
+            timers.delete(id);
+            callback();
+          },
+          delayMs,
+        });
+        return id;
+      },
+      windowTarget,
+    }
+  );
+  const autoResumeEnabledRef = { current: true };
+  const batchUnsupportedRef = { current: true };
+  const isLoggedInRef = { current: true };
+  const liveSessionReadyRef = { current: true };
+  const lobbyChatSubscriptionRef = {
+    current: { connectPending: true, inFlight: true, subscribed: true },
+  };
+  const manualDisconnectRef = { current: false };
+  const resumeLockAtRef = { current: 123 };
+  const resumeLockRef = { current: false };
+  const resumeReasons = [];
+  const resumeLoginFromSessionRef = {
+    current: (reason) => resumeReasons.push(reason),
+  };
+  const reconnectReasons = [];
+  const attemptSilentReconnectRef = {
+    current: (reason) => reconnectReasons.push(reason),
+  };
+  const toasts = [];
+  let requeued = 0;
+  const configure = (overrides = {}) =>
+    feature.configureRealtime({
+      appViewRef: { current: "live" },
+      attemptSilentReconnectRef,
+      autoResumeEnabledRef,
+      batchUnsupportedRef,
+      clearQueuedRankingUpdate: () => {},
+      disconnectGraceMs: 30_000,
+      hasSavedSession: () => true,
+      isChatOpenMobileRef: { current: false },
+      isHomeChatOpenRef: { current: false },
+      isLoggedInRef,
+      liveSessionReadyRef,
+      lobbyChatSubscriptionRef,
+      manualDisconnectRef,
+      requeueInFlightSubmissions: () => {
+        requeued += 1;
+      },
+      resumeLockAtRef,
+      resumeLockRef,
+      resumeLoginFromSessionRef,
+      setPlayers: () => {},
+      setProvisionalRanking: () => {},
+      showToast: (...args) => toasts.push(args),
+      socket,
+      standaloneTrainingSessionRef: { current: null },
+      subscribeLobbyChat: () => {},
+      transientHomeConnectionErrors: new Set([
+        "Connexion au serveur impossible",
+      ]),
+      ...overrides,
+    });
+
+  configure();
+  feature.start();
+  assert.deepEqual([...handlers.keys()].sort(), [
+    "connect",
+    "connect_error",
+    "disconnect",
+  ]);
+
+  socket.fire("connect");
+  assert.equal(liveSessionReadyRef.current, false);
+  assert.equal(batchUnsupportedRef.current, false);
+  assert.equal(kernel.getState().session.loginError, "");
+  assert.equal([...timers.values()][0].delayMs, 0);
+  [...timers.values()][0].callback();
+  assert.deepEqual(resumeReasons, ["socket_connect"]);
+
+  socket.connected = false;
+  socket.fire("disconnect");
+  assert.equal(requeued, 1);
+  assert.deepEqual(reconnectReasons, ["disconnect"]);
+  assert.equal(
+    kernel.getState().session.connectionError,
+    LIVE_CONNECTION_INTERRUPTED_MESSAGE
+  );
+  assert.deepEqual(toasts.at(-1), [
+    "Connexion interrompue, jeu local actif",
+    3600,
+  ]);
+  const graceTimer = [...timers.values()].find(
+    (timer) => timer.delayMs === 30_000
+  );
+  assert.ok(graceTimer);
+  graceTimer.callback();
+  assert.deepEqual(reconnectReasons, ["disconnect", "disconnect_grace"]);
+
+  socket.connected = true;
+  socket.fire("connect");
+  assert.deepEqual(toasts.at(-1), ["Connexion rétablie", 2200]);
+
+  feature.refs.intentionalDisconnect.current = true;
+  socket.connected = false;
+  socket.fire("disconnect");
+  assert.equal(feature.refs.intentionalDisconnect.current, false);
+  assert.equal(
+    [...timers.values()].some((timer) => timer.delayMs === 30_000),
+    false
+  );
+
+  configure({
+    autoResumeEnabledRef: { current: false },
+    hasSavedSession: () => false,
+    isLoggedInRef: { current: false },
+  });
+  kernel.commands.realtime.patch({
+    finalResults: [{ nick: "Tigre" }],
+    roundId: "round-1",
+    tournament: { id: "tournament-1" },
+  });
+  socket.fire("disconnect");
+  assert.equal(kernel.getState().realtime.roundId, null);
+  assert.deepEqual(kernel.getState().realtime.finalResults, []);
+  assert.equal(kernel.getState().realtime.tournament, null);
+  feature.cancelDisconnectGrace();
+
+  kernel.commands.session.patch({
+    connectionError: "",
+    isConnecting: true,
+    isLoggedIn: false,
+  });
+  socket.fire("connect_error");
+  assert.equal(kernel.getState().session.isConnecting, false);
+  assert.equal(
+    kernel.getState().session.connectionError,
+    "Connexion au serveur impossible"
+  );
+
+  scope.dispose();
+  assert.equal(handlers.size, 0);
+  assert.equal(timers.size, 0);
 });
