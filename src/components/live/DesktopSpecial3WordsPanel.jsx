@@ -1,9 +1,6 @@
 import React from "react";
 
-import {
-  getTraceStateSnapshot,
-  subscribeTraceState,
-} from "../traceStateStore.js";
+import { useTraceSnapshot } from "../../features/trace/TraceRuntime.jsx";
 
 function DesktopSpecial3WordsPanel({
   activeSlotIndex = 0,
@@ -23,11 +20,7 @@ function DesktopSpecial3WordsPanel({
   tutorialStep = 0,
   visualScreenShakeEnabled = true,
 }) {
-  const snapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
-  );
+  const snapshot = useTraceSnapshot();
   const liveTrace =
     typeof resolveLiveTrace === "function" ? resolveLiveTrace(snapshot) || {} : {};
   const highlightPath = Array.isArray(liveTrace.highlightPath) ? liveTrace.highlightPath : [];

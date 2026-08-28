@@ -1,9 +1,6 @@
 ﻿import React from "react";
 
-import {
-  getTraceStateSnapshot,
-  subscribeTraceState,
-} from "./traceStateStore.js";
+import { useTraceSnapshot } from "../features/trace/TraceRuntime.jsx";
 import { formatNumber } from "../utils/numbers.js";
 import {
   useGameProgressFields,
@@ -33,11 +30,7 @@ function MobileWordPreview({
   );
   const statusText = useGameStatusText();
   const inputShake = useGameInputShake();
-  const traceSnapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
-  );
+  const traceSnapshot = useTraceSnapshot();
   const previewHeight = Number.isFinite(previewBlockHeight)
     ? previewBlockHeight
     : 52;

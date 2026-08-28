@@ -21,6 +21,7 @@ import { createRefreshSchedulerFeature } from "../features/refresh/createRefresh
 import { createResultsFeature } from "../features/results/createResultsFeature.js";
 import { createStatsFeature } from "../features/stats/createStatsFeature.js";
 import { createTutorialFeature } from "../features/tutorial/createTutorialFeature.js";
+import { createTraceFeature } from "../features/trace/createTraceFeature.js";
 
 const FEATURE_FACTORIES = Object.freeze({
   activity: createPlayerActivityFeature,
@@ -46,6 +47,7 @@ const FEATURE_FACTORIES = Object.freeze({
   results: createResultsFeature,
   stats: createStatsFeature,
   tutorial: createTutorialFeature,
+  trace: createTraceFeature,
 });
 
 export const CLIENT_FEATURE_NAMES = Object.freeze(Object.keys(FEATURE_FACTORIES));

@@ -202,7 +202,7 @@ import {
   clearAllCelebrationFlashes,
   clearCelebrationFlash,
 } from "./components/celebrationFxStore.js";
-import { setTraceState } from "./components/traceStateStore.js";
+import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
   RESULTS_SLIDE_IN_MS,
   RESULTS_SLIDE_OUT_MS,
@@ -961,6 +961,7 @@ export default function GobbleApplication() {
   recordAppRender();
   const applicationKernel = useApplicationKernel();
   const socket = applicationKernel.ports.realtime;
+  const traceFeature = useTraceRuntime();
   const clockFeature = useFeatureRuntime("clock");
   const connectionFeature = useFeatureRuntime("connection");
   const {
@@ -1154,7 +1155,7 @@ export default function GobbleApplication() {
   const currentTiles = currentTilesRef.current;
   const highlightPath = highlightPathRef.current;
   function publishTraceState() {
-    setTraceState({
+    traceFeature.setTraceState({
       currentTiles: currentTilesRef.current,
       highlightPath: highlightPathRef.current,
     });

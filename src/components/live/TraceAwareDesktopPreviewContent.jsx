@@ -1,10 +1,7 @@
 import React from "react";
 
 import AutoScaleInline from "../AutoScaleInline.jsx";
-import {
-  getTraceStateSnapshot,
-  subscribeTraceState,
-} from "../traceStateStore.js";
+import { useTraceSnapshot } from "../../features/trace/TraceRuntime.jsx";
 import {
   LivePreviewProgressStats,
   useGameStatusText,
@@ -23,11 +20,7 @@ export default function TraceAwareDesktopPreviewContent({
   totalWordsLabel = "?",
 }) {
   const statusText = useGameStatusText();
-  const traceSnapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
-  );
+  const traceSnapshot = useTraceSnapshot();
   const traceChunks =
     phase === "playing"
       ? Array.isArray(traceSnapshot.highlightPath) && traceSnapshot.highlightPath.length

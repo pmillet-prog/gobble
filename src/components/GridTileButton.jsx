@@ -3,10 +3,7 @@ import React from "react";
 import { FAKE_TWINS_TYPE } from "./gameLogic";
 import GridTileLetter from "./GridTileLetter.jsx";
 import FinaleBonusMultiplierBadge from "./finale/FinaleBonusMultiplierBadge.jsx";
-import {
-  isTraceTileHighlighted,
-  registerTraceTile,
-} from "./traceStateStore.js";
+import { useTraceRuntime } from "../features/trace/TraceRuntime.jsx";
 
 export function getBonusBadgeClass(displayBonus) {
   if (displayBonus === "L3") return "bg-blue-700 text-white";
@@ -41,6 +38,7 @@ function GridTileButton({
   tilePointsVisible = true,
   tileRefs = null,
 }) {
+  const traceFeature = useTraceRuntime();
   const unregisterTraceTileRef = React.useRef(null);
   const setTileRef = React.useCallback(
     (el) => {
@@ -53,13 +51,13 @@ function GridTileButton({
         unregisterTraceTileRef.current = null;
       }
       if (trackTraceUsed && el) {
-        unregisterTraceTileRef.current = registerTraceTile(boardIndex, el);
+        unregisterTraceTileRef.current = traceFeature.registerTraceTile(boardIndex, el);
       }
     },
-    [boardIndex, tileRefs, trackTraceUsed]
+    [boardIndex, tileRefs, traceFeature, trackTraceUsed]
   );
   const isFakeTwinsTile = cell?.specialType === FAKE_TWINS_TYPE && cell?.altLetter;
-  const isTraceUsed = trackTraceUsed && isTraceTileHighlighted(boardIndex);
+  const isTraceUsed = trackTraceUsed && traceFeature.isTraceTileHighlighted(boardIndex);
   const resolvedClassName = `${className}${isFakeTwinsTile ? " fake-twins-tile" : ""}${
     isTraceUsed ? " tile-used" : ""
   }`.trim();

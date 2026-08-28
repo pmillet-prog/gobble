@@ -8,6 +8,7 @@ import { readBrowserSessionSnapshot } from "./adapters/browserSessionSnapshot.js
 import { createRealtimeGateway } from "./adapters/createRealtimeGateway.js";
 import { createApplicationKernel } from "./core/createApplicationKernel.js";
 import { registerClientFeatures } from "./registerClientFeatures.js";
+import { TraceRuntimeProvider } from "../features/trace/TraceRuntime.jsx";
 import {
   ApplicationRuntimeProvider,
   useApplicationKernel,
@@ -57,7 +58,9 @@ export default function AppShell() {
 
   return (
     <ApplicationRuntimeProvider kernel={kernelRef.current}>
-      <ApplicationRuntime />
+      <TraceRuntimeProvider>
+        <ApplicationRuntime />
+      </TraceRuntimeProvider>
     </ApplicationRuntimeProvider>
   );
 }

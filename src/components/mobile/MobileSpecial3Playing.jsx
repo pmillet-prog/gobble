@@ -8,10 +8,7 @@ import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
-import {
-  getTraceStateSnapshot,
-  subscribeTraceState,
-} from "../traceStateStore.js";
+import { useTraceSnapshot } from "../../features/trace/TraceRuntime.jsx";
 
 function MobileSpecial3Playing(props) {
   const {
@@ -104,11 +101,7 @@ function MobileSpecial3Playing(props) {
   const { mobileChatUnreadCount, mobileChatUnreadIsBotOnly } =
     useChatUnreadState();
 
-  const traceSnapshot = React.useSyncExternalStore(
-    subscribeTraceState,
-    getTraceStateSnapshot,
-    getTraceStateSnapshot
-  );
+  const traceSnapshot = useTraceSnapshot();
   const resolvedTrace =
     typeof resolveLiveTrace === "function" ? resolveLiveTrace(traceSnapshot) || {} : {};
   const highlightPath = Array.isArray(resolvedTrace.highlightPath)
