@@ -962,6 +962,14 @@ export default function GobbleApplication() {
   const applicationKernel = useApplicationKernel();
   const socket = applicationKernel.ports.realtime;
   const clockFeature = useFeatureRuntime("clock");
+  const connectionFeature = useFeatureRuntime("connection");
+  const {
+    backgrounded: isBackgroundedRef,
+    foregroundAttemptAt: foregroundAttemptRef,
+    lastBackgroundAt: lastBackgroundTimeRef,
+    watchdogFailures: watchdogFailureCountRef,
+  } = connectionFeature.refs;
+  const scheduleForegroundRetry = connectionFeature.scheduleForegroundRetry;
   const dictionaryFeature = useFeatureRuntime("dictionary");
   const dictionary = useFeatureSelector(dictionaryFeature, (state) => state.entries);
   const progressFeature = useFeatureRuntime("progress");
@@ -2497,10 +2505,7 @@ export default function GobbleApplication() {
       clearTimeout(manualRefreshTimerRef.current);
       manualRefreshTimerRef.current = null;
     }
-    if (foregroundRetryTimerRef.current) {
-      clearTimeout(foregroundRetryTimerRef.current);
-      foregroundRetryTimerRef.current = null;
-    }
+    connectionFeature.cancelForegroundRetry();
     if (chatCloseTimerRef.current) {
       clearTimeout(chatCloseTimerRef.current);
       chatCloseTimerRef.current = null;
@@ -2675,8 +2680,7 @@ export default function GobbleApplication() {
   const pingInFlightRef = useRef(false);
   const liveStateSyncInFlightRef = useRef(null);
   const handleForegroundRef = useRef(null);
-  const watchdogTimerRef = useRef(null);
-  const watchdogFailureCountRef = useRef(0);
+  const runHealthCheckRef = useRef(null);
   const mobileExitGuardLeavingRef = useRef(false);
   const mobileExitGuardActiveRef = useRef(false);
   const deferredTraceUiTasksRef = useRef([]);
@@ -3353,16 +3357,12 @@ export default function GobbleApplication() {
   const patchNotesOpeningRef = useRef(false);
   const facebookInviteAttemptedAudienceRef = useRef("");
   const disconnectGraceTimerRef = useRef(null);
-  const lastBackgroundTimeRef = useRef(0);
   const manualRefreshTimerRef = useRef(null);
-  const foregroundRetryTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(false);
   const reconnectToastPendingRef = useRef(false);
   const liveSessionReadyRef = useRef(false);
   const intentionalDisconnectRef = useRef(false);
-  const isBackgroundedRef = useRef(false);
-  const foregroundAttemptRef = useRef(0);
   const isSamsungBrowserRef = useRef(false);
   const samsungDiagEnabledRef = useRef(false);
   const samsungDiagSourceRef = useRef("off");
@@ -9315,13 +9315,20 @@ export default function GobbleApplication() {
         console.warn(`[watchdog] reconnect (${reason})`);
         intentionalDisconnectRef.current = true;
         socket.disconnect();
-        if (isLoggedInRef.current && !isDailyView) {
-          resumeLoginFromSession("watchdog");
+        const currentView = appViewRef.current;
+        const isCurrentDailyView =
+          currentView === "daily" ||
+          currentView === "daily_play" ||
+          currentView === "daily_results";
+        if (isLoggedInRef.current && !isCurrentDailyView) {
+          resumeLoginFromSessionRef.current?.("watchdog");
         } else {
-          requestSessionResumeSnapshot("watchdog");
+          requestSessionResumeSnapshotRef.current?.("watchdog");
         }
       });
   }
+
+  runHealthCheckRef.current = runHealthCheck;
 
   useEffect(() => {
     const stored = loadSessionFromStorage();
@@ -10046,17 +10053,6 @@ export default function GobbleApplication() {
 
   handleForegroundRef.current = handleForeground;
 
-  function scheduleForegroundRetry(reason = "foreground_retry", delayMs = 1200) {
-    if (foregroundRetryTimerRef.current) {
-      clearTimeout(foregroundRetryTimerRef.current);
-      foregroundRetryTimerRef.current = null;
-    }
-    foregroundRetryTimerRef.current = setTimeout(() => {
-      foregroundRetryTimerRef.current = null;
-      handleForegroundRef.current?.(reason);
-    }, Math.max(200, Number(delayMs) || 1200));
-  }
-
   function handleManualRefresh() {
     if (manualRefreshTimerRef.current) {
       clearTimeout(manualRefreshTimerRef.current);
@@ -10073,80 +10069,15 @@ export default function GobbleApplication() {
   }
 
   useEffect(() => {
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        isBackgroundedRef.current = true;
-        lastBackgroundTimeRef.current = Date.now();
-        return;
-      }
-      if (document.visibilityState === "visible") {
-        isBackgroundedRef.current = false;
-        handleForegroundRef.current?.("visibility");
-        scheduleForegroundRetry("visibility_retry", 1400);
-      }
-    };
-    const onFocus = () => handleForegroundRef.current?.("focus");
-    const onOnline = () => handleForegroundRef.current?.("online");
-    const onPageShow = () => {
-      isBackgroundedRef.current = false;
-      handleForegroundRef.current?.("pageshow");
-      scheduleForegroundRetry("pageshow_retry", 1200);
-    };
-    const onInteraction = () => {
-      if (!isLoggedInRef.current) return;
-      if (socket.connected) return;
-      handleForegroundRef.current?.("interaction");
-    };
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("online", onOnline);
-    const unsubscribeViewport = layoutFeature.subscribeViewport(onPageShow, [
-      VIEWPORT_EVENTS.PAGE_SHOW,
-    ]);
-    window.addEventListener("pointerdown", onInteraction, { passive: true });
-    window.addEventListener("touchstart", onInteraction, { passive: true });
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      if (foregroundRetryTimerRef.current) {
-        clearTimeout(foregroundRetryTimerRef.current);
-        foregroundRetryTimerRef.current = null;
-      }
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("online", onOnline);
-      unsubscribeViewport();
-      window.removeEventListener("pointerdown", onInteraction);
-      window.removeEventListener("touchstart", onInteraction);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [layoutFeature]);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const id = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      if (socket.connected) return;
-      handleForegroundRef.current?.("retry_timer");
-    }, 5500);
-    return () => clearInterval(id);
-  }, [isLoggedIn, isDailyView]);
-
-  useEffect(() => {
-    if (watchdogTimerRef.current) {
-      clearInterval(watchdogTimerRef.current);
-      watchdogTimerRef.current = null;
-    }
-    if (phase === "playing" && !standaloneTrainingSession) {
-      watchdogTimerRef.current = setInterval(
-        () => runHealthCheck("watchdog_playing"),
-        15000
-      );
-    }
-    return () => {
-      if (watchdogTimerRef.current) {
-        clearInterval(watchdogTimerRef.current);
-        watchdogTimerRef.current = null;
-      }
-    };
-  }, [phase, standaloneTrainingSession]);
+    connectionFeature.configure({
+      connection: socket,
+      onForeground: (reason) => handleForegroundRef.current?.(reason),
+      onHealthCheck: (reason) => runHealthCheckRef.current?.(reason),
+      standaloneTrainingActive: !!standaloneTrainingSession,
+      subscribePageShow: (listener) =>
+        layoutFeature.subscribeViewport(listener, [VIEWPORT_EVENTS.PAGE_SHOW]),
+    });
+  }, [connectionFeature, layoutFeature, standaloneTrainingSession]);
 
 
   function handleLogin(e) {
