@@ -30,6 +30,24 @@ export function createCelebrationEffects(
   visualScreenShakeEnabledRef,
 ) {
 
+  function clearCelebrationEffects() {
+    confettiBurstTokenRef.current += 1;
+    try {
+      confetti.reset?.();
+    } catch (_) {}
+    celebrationFeature.clearAllCelebrationFlashes?.();
+    if (gridShakeTimerRef.current) {
+      clearTimeout(gridShakeTimerRef.current);
+      gridShakeTimerRef.current = null;
+    }
+    try {
+      gridShakeAnimationRef.current?.cancel?.();
+    } catch (_) {}
+    gridShakeAnimationRef.current = null;
+    setGridShake(false);
+    setScoreFlights([]);
+  }
+
   function triggerScoreFlight({ feedItemId, path, points }) {
     if (!visualScoreFlightsEnabledRef.current) return;
     if (!feedItemId || !Number.isFinite(Number(points))) return;
@@ -358,6 +376,7 @@ export function createCelebrationEffects(
   }
 
   return {
+    clearCelebrationEffects,
     triggerConfettiBurst,
     triggerGridShake,
     triggerInvalidFlash,

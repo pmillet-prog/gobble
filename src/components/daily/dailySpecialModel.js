@@ -1,4 +1,5 @@
 import { normalizeWord } from "../gameLogic.js";
+import { clampValue } from "../../utils/numbers.js";
 
 export const DAILY_SPECIAL_BONUSES = ["L2", "L3", "M2", "M3"];
 export const DAILY_SPECIAL_WORD_TARGET = 3;
@@ -20,6 +21,20 @@ export function createDailyWordSlots() {
     display: "",
     path: [],
   }));
+}
+
+export function getDailyActiveSlotIndex(slots, preferredIndex = 0) {
+  const list = Array.isArray(slots) ? slots : [];
+  const safePreferred = clampValue(
+    Number.isFinite(preferredIndex) ? preferredIndex : 0,
+    0,
+    Math.max(0, DAILY_SPECIAL_WORD_TARGET - 1)
+  );
+  if (list[safePreferred] && !list[safePreferred].word) {
+    return safePreferred;
+  }
+  const firstEmpty = list.findIndex((slot) => !String(slot?.word || "").trim());
+  return firstEmpty >= 0 ? firstEmpty : safePreferred;
 }
 
 export function getDailySpecialWordStartTile(path) {

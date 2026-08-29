@@ -121,6 +121,8 @@ import {
   writeDesktopColumnOrderForInstall,
 } from "./app/adapters/desktopLayoutStorage.js";
 import {
+  CHAT_DRAWER_CALIBRATION_MAX_RATIO,
+  CHAT_DRAWER_CALIBRATION_MIN_RATIO,
   getChatDrawerOrientationKey,
   readStoredChatDrawerCalibration,
   writeStoredChatDrawerCalibration,
@@ -246,6 +248,7 @@ import { getParisDateIdClient } from "./components/daily/dailyHistoryModel.js";
 import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_MONSTROUS_MODE,
+  DAILY_OVERVIEW_SECTION,
   DAILY_SPECIAL_MODE,
 } from "./components/daily/dailyModes.js";
 import {
@@ -254,6 +257,7 @@ import {
   applyDailySpecialPlacements,
   createDailySpecialPlacements,
   createDailyWordSlots,
+  getDailyActiveSlotIndex,
   getDailySpecialWordBlockedReason,
   getDailySpecialWordStartTile,
   getEffectiveDailySpecialPlacements,
@@ -818,6 +822,8 @@ function useStableEvent(handler) {
 
 const WORD_SUBMISSION_CONTROLLER_METHODS = Object.freeze([
   "getLivePreviewLabelForCell",
+  "getPathPreviewScoreConfig",
+  "isKnownSubmissionWord",
   "requeueInFlightSubmissions",
   "restorePendingSubmissionEntries",
   "scheduleBatchFlush",
@@ -826,6 +832,7 @@ const WORD_SUBMISSION_CONTROLLER_METHODS = Object.freeze([
   "tryAutoSubmitCurrentWordAtRoundEnd",
 ]);
 const CELEBRATION_CONTROLLER_METHODS = Object.freeze([
+  "clearCelebrationEffects",
   "triggerConfettiBurst",
   "triggerGridShake",
   "triggerInvalidFlash",
@@ -834,7 +841,7 @@ const CELEBRATION_CONTROLLER_METHODS = Object.freeze([
 ]);
 
 function createWordSubmissionController(runtime) {
-  return createWordSubmissionEngine(...runtime);
+  return createWordSubmissionEngine(runtime);
 }
 
 function createCelebrationController(runtime) {
@@ -5377,6 +5384,7 @@ export default function GobbleApplication() {
   );
 
   const {
+    clearCelebrationEffects,
     triggerConfettiBurst,
     triggerGridShake,
     triggerInvalidFlash,
@@ -6291,6 +6299,7 @@ export default function GobbleApplication() {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const stopAudioForBackground = () => {
       stopAllActiveAudio({ suspendContext: true, immediate: true });
+      clearCelebrationEffects();
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
@@ -6314,6 +6323,8 @@ export default function GobbleApplication() {
 
   const {
     getLivePreviewLabelForCell,
+    getPathPreviewScoreConfig,
+    isKnownSubmissionWord,
     requeueInFlightSubmissions,
     restorePendingSubmissionEntries,
     scheduleBatchFlush,
@@ -6322,7 +6333,7 @@ export default function GobbleApplication() {
     tryAutoSubmitCurrentWordAtRoundEnd,
   } = useLazyObjectController(
     createWordSubmissionController,
-    [
+    {
     acceptedBestPtsRef,
     acceptedRef,
     acceptedScoresRef,
@@ -6332,6 +6343,7 @@ export default function GobbleApplication() {
     allWordsMap,
     appViewRef,
     areStringArraysEqual,
+    attemptSilentReconnectRef,
     batchSeqRef,
     batchTimerRef,
     batchUnsupportedRef,
@@ -6416,7 +6428,7 @@ export default function GobbleApplication() {
     WORD_BATCH_ACK_TIMEOUT_MS,
     WORD_BATCH_FLUSH_MS,
     WORD_BATCH_MAX,
-    ],
+    },
     WORD_SUBMISSION_CONTROLLER_METHODS,
   );
 

@@ -1,8 +1,12 @@
 const STORAGE_KEY = "gobbleChatDrawerCalibration:v1";
-const MIN_RATIO = 0.42;
-const MAX_RATIO = 0.78;
+export const CHAT_DRAWER_CALIBRATION_MIN_RATIO = 0.42;
+export const CHAT_DRAWER_CALIBRATION_MAX_RATIO = 0.78;
 
-const clampRatio = (ratio) => Math.max(MIN_RATIO, Math.min(MAX_RATIO, ratio));
+const clampRatio = (ratio) =>
+  Math.max(
+    CHAT_DRAWER_CALIBRATION_MIN_RATIO,
+    Math.min(CHAT_DRAWER_CALIBRATION_MAX_RATIO, ratio)
+  );
 
 export function getChatDrawerOrientationKey() {
   if (typeof window === "undefined") return "portrait";

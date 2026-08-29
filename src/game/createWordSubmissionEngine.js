@@ -3,6 +3,7 @@ import {
   DAILY_SPECIAL_WORD_TARGET,
   applyDailySpecialPlacements,
   createDailyWordSlots,
+  getDailyActiveSlotIndex,
   getDailySpecialWordBlockedReason,
 } from "../components/daily/dailySpecialModel.js";
 import { DAILY_SPECIAL_MODE } from "../components/daily/dailyModes.js";
@@ -22,7 +23,6 @@ import {
   takeInFlightSubmissionWords,
 } from "../network/liveSubmissionRecovery.js";
 import { recordPerfEvent } from "../perf/renderPerfProbe.js";
-import { clampValue } from "../utils/numbers.js";
 import { resolveScoreFlightPoints } from "../utils/scoreFlightPoints.js";
 import { patchFirstMatchingFeedEntry } from "./liveFeedReconciliation.js";
 import {
@@ -30,7 +30,7 @@ import {
   isRareBonusEnabledForSpecial,
 } from "./specialRoundTypes.js";
 
-export function createWordSubmissionEngine(
+export function createWordSubmissionEngine({
   acceptedBestPtsRef,
   acceptedRef,
   acceptedScoresRef,
@@ -125,7 +125,7 @@ export function createWordSubmissionEngine(
   WORD_BATCH_ACK_TIMEOUT_MS,
   WORD_BATCH_FLUSH_MS,
   WORD_BATCH_MAX,
-) {
+}) {
 
   function markRejectedWord(word, reason = "") {
     if (!word) return;
@@ -996,20 +996,6 @@ export function createWordSubmissionEngine(
     return resolveSubmissionCandidatesFromPath(path, preferredDisplay)?.[0] || null;
   }
 
-  function getDailyActiveSlotIndex(slots, preferredIndex = 0) {
-    const list = Array.isArray(slots) ? slots : [];
-    const safePreferred = clampValue(
-      Number.isFinite(preferredIndex) ? preferredIndex : 0,
-      0,
-      Math.max(0, DAILY_SPECIAL_WORD_TARGET - 1)
-    );
-    if (list[safePreferred] && !list[safePreferred].word) {
-      return safePreferred;
-    }
-    const firstEmpty = list.findIndex((slot) => !String(slot?.word || "").trim());
-    return firstEmpty >= 0 ? firstEmpty : safePreferred;
-  }
-
   function markDailySlotInvalid(slotIndex, message = "INVALIDE") {
     setDailyInvalidSlot(slotIndex);
     setDailyInvalidPulseKey((prev) => prev + 1);
@@ -1614,6 +1600,8 @@ export function createWordSubmissionEngine(
 
   return {
     getLivePreviewLabelForCell,
+    getPathPreviewScoreConfig,
+    isKnownSubmissionWord,
     requeueInFlightSubmissions,
     restorePendingSubmissionEntries,
     scheduleBatchFlush,
