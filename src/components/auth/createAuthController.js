@@ -20,6 +20,7 @@ export function createAuthController(runtime) {
     setAuthError,
     setAuthInfo,
     setAuthForm,
+    setAuthSubmitting,
     authSubmitting,
     deviceInstallId,
     setAuthState,

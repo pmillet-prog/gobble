@@ -7565,6 +7565,7 @@ export default function GobbleApplication() {
     setAuthError,
     setAuthInfo,
     setAuthForm,
+    setAuthSubmitting,
     authSubmitting,
     deviceInstallId,
     setAuthState,
