@@ -195,6 +195,7 @@ import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
 import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
 import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
+import { useLiveEntryFeature } from "./features/session/useLiveEntryFeature.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -2472,6 +2473,7 @@ export default function GobbleApplication() {
   }
 
   function returnToLobby() {
+    liveEntryFeature.cancelLoginAttempt();
     if (!gameplaySessionFeature.cancel("return_to_lobby")) {
       disposeGameplayRuntimeResources();
     }
@@ -2497,10 +2499,6 @@ export default function GobbleApplication() {
     stopRoundStartSound({ fadeMs: 80 });
     clockFeature.stop({ preserveRemaining: true });
     connectionFeature.cancelDisconnectGrace();
-    if (manualRefreshTimerRef.current) {
-      clearTimeout(manualRefreshTimerRef.current);
-      manualRefreshTimerRef.current = null;
-    }
     connectionFeature.cancelForegroundRetry();
     if (chatCloseTimerRef.current) {
       clearTimeout(chatCloseTimerRef.current);
@@ -3341,10 +3339,8 @@ export default function GobbleApplication() {
   const vaultWordOfDayAttemptedRef = useRef(new Set());
   const patchNotesOpeningRef = useRef(false);
   const facebookInviteAttemptedAudienceRef = useRef("");
-  const manualRefreshTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
   const liveSessionReadyRef = useRef(false);
-  const loginInFlightRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
   const bestGridMaxRef = useRef(0);
   const bestGridMaxLenRef = useRef(0);
@@ -9653,21 +9649,6 @@ export default function GobbleApplication() {
 
   handleForegroundRef.current = handleForeground;
 
-  function handleManualRefresh() {
-    if (manualRefreshTimerRef.current) {
-      clearTimeout(manualRefreshTimerRef.current);
-      manualRefreshTimerRef.current = null;
-    }
-    try {
-      intentionalDisconnectRef.current = true;
-      socket.disconnect();
-    } catch (_) {}
-    manualRefreshTimerRef.current = setTimeout(() => {
-      manualRefreshTimerRef.current = null;
-      void connectSocketWithAuth();
-    }, 300);
-  }
-
   useEffect(() => {
     connectionFeature.configure({
       connection: socket,
@@ -9678,145 +9659,6 @@ export default function GobbleApplication() {
         layoutFeature.subscribeViewport(listener, [VIEWPORT_EVENTS.PAGE_SHOW]),
     });
   }, [connectionFeature, layoutFeature, standaloneTrainingSession]);
-
-
-  function handleLogin(e) {
-    if (e) e.preventDefault();
-    if (loginInFlightRef.current || isConnecting) return;
-    if (!ensureAuthenticated({ source: "live" })) {
-      return;
-    }
-    const nick = nickname.trim();
-    if (!nick) {
-      setLoginError("Choisis un pseudo");
-      return;
-    }
-    if (nick.length > 25) {
-      setLoginError("25 caracteres max");
-      return;
-    }
-
-    loginInFlightRef.current = true;
-    liveSessionReadyRef.current = false;
-    setIsConnecting(true);
-    setLoginError("");
-    setConnectionError("");
-    lastLoginPayloadRef.current = { nick, roomId };
-    connectionFeature.cancelDisconnectGrace();
-    reconnectAttemptRef.current = false;
-
-    const attemptLogin = () => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        if (loginTimeout) clearTimeout(loginTimeout);
-      };
-      const loginTimeout = setTimeout(() => {
-        finish();
-        loginInFlightRef.current = false;
-        setLoginError("Connexion timeout");
-        setIsConnecting(false);
-      }, 6000);
-      socket.emit("login", { nick, roomId, installId }, (res) => {
-        finish();
-        loginInFlightRef.current = false;
-        if (!res?.ok) {
-          if (res?.error === "pseudo_taken") {
-            setLoginError("Pseudo deja utilise");
-          } else if (res?.error === "nick_too_long") {
-            setLoginError("25 caracteres max");
-          } else if (res?.error === "auth_required") {
-            setLoginError("Connecte-toi à ton compte.");
-            if (socket.connected) {
-              socket.disconnect();
-            }
-            openAuthDialog(AUTH_MODAL_MODES.LOGIN);
-          } else if (res?.error === "moderation_banned") {
-            clearSavedSession();
-            setLoginError(res?.message || "Accès live temporairement suspendu.");
-            setConnectionError(res?.message || "Accès live temporairement suspendu.");
-          } else if (res?.error === "playtime_limit_exhausted") {
-            if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
-            clearSavedSession();
-            const message =
-              res?.message || "Ton temps de jeu live est écoulé pour aujourd'hui.";
-            setLoginError(message);
-            setConnectionError(message);
-            showGlobalRedAnnouncement(
-              {
-                title: "Contrôle de temps pour joueurs compulsifs",
-                body: message,
-              },
-              6500
-            );
-          } else if (res?.error === "invalid_room") {
-            setLoginError("Salle indisponible");
-          } else if (res?.error === "invalid_install_id") {
-            setLoginError("Identifiant appareil invalide");
-          } else {
-            setLoginError("Connexion refusee");
-          }
-          setIsConnecting(false);
-          return;
-        }
-
-        const joinedRoom = res?.roomId || roomId;
-        if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
-        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
-        persistSession({ nick, roomId: joinedRoom, installId });
-        sessionPersistenceFeature.setAutoResumeEnabled(true);
-        setCurrentRoomId(joinedRoom);
-        setRoomId(joinedRoom);
-        const nextSize = getGridSizeForRoom(joinedRoom);
-        setGridSize(nextSize);
-        setBoard(Array(nextSize * nextSize).fill({ letter: "?", bonus: null }));
-        setResumeSnapshot(null);
-        clearMobileChatReactionToasts();
-        appViewRef.current = "live";
-        setAppView("live");
-        isLoggedInRef.current = true;
-        setIsLoggedIn(true);
-        setIsConnecting(false);
-        setServerStatus("waiting");
-        setScore(0);
-        void requestTrophyStatus();
-        const hydrated = phaseLoopTestEnabledRef.current
-          ? true
-          : hydrateLiveSnapshot(res?.snapshot, res?.entryKind || "join");
-        liveSessionReadyRef.current = hydrated;
-        if (!hydrated) {
-          setConnectionError("État de partie indisponible, reconnexion en cours.");
-          attemptSilentReconnectRef.current?.("login_snapshot_missing");
-        }
-        try {
-          localStorage.setItem("boggle_nick", nick);
-        } catch (_) {}
-      });
-    };
-
-    const onConnectError = () => {
-      loginInFlightRef.current = false;
-      setLoginError("Impossible de joindre le serveur");
-      setIsConnecting(false);
-      socket.off("connect", attemptLogin);
-    };
-
-    socket.once("connect_error", onConnectError);
-
-    if (socket.connected) {
-      syncServerTime(attemptLogin);
-    } else {
-      connectSocketWithAuth().then((connected) => {
-        if (!connected) {
-          onConnectError();
-          return;
-        }
-        socket.off("connect_error", onConnectError);
-        syncServerTime(attemptLogin);
-      });
-    }
-  }
 
   function openTutorial({ pendingLogin = false } = {}) {
     setTutorialPendingLogin(pendingLogin);
@@ -10727,6 +10569,39 @@ export default function GobbleApplication() {
     setReportDialog,
     reportDialog,
   ], 23);
+
+  const liveEntryFeature = useLiveEntryFeature({
+    appViewRef,
+    applyPlaytimeLimitStatus,
+    cancelDisconnectGrace: connectionFeature.cancelDisconnectGrace,
+    clearMobileChatReactionToasts,
+    clearSavedSession,
+    connectSocketWithAuth,
+    ensureAuthenticated,
+    getGridSizeForRoom,
+    getInstallId: () => installIdRef.current,
+    hydrateLiveSnapshot,
+    isLoggedInRef,
+    lastLoginPayloadRef,
+    liveSessionReadyRef,
+    onSnapshotMissing: (reason) =>
+      attemptSilentReconnectRef.current?.(reason),
+    openLoginDialog: () => openAuthDialog(AUTH_MODAL_MODES.LOGIN),
+    persistSession,
+    phaseLoopTestEnabledRef,
+    reconnectAttemptRef,
+    requestTrophyStatus,
+    setAutoResumeEnabled: sessionPersistenceFeature.setAutoResumeEnabled,
+    setScore,
+    showGlobalRedAnnouncement,
+    socket,
+    syncServerTime,
+  });
+
+  function handleLogin(e) {
+    e?.preventDefault?.();
+    liveEntryFeature.login();
+  }
 
   function closePatchNotes() {
     patchNotesOpeningRef.current = false;
