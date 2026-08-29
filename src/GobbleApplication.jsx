@@ -83,12 +83,10 @@ import useAudioEngine from "./audio/useAudioEngine";
 import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
-import useTrackedElementRef from "./hooks/useTrackedElementRef.js";
 import useSwipeTrackController from "./hooks/useSwipeTrackController.js";
 import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
 import useRoundLifecycle from "./hooks/useRoundLifecycle.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
-import useDesktopLayoutController from "./hooks/useDesktopLayoutController.js";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
 import {
   clampDesktopColumnResizeDelta,
@@ -685,18 +683,6 @@ const GUIDED_RESULTS_PAGE_TO_STEP = {
   all: GUIDED_RESULTS_STEPS.TAP_WORD,
 };
 const SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK = 11;
-function normalizeMeasuredPx(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) return 0;
-  return Math.round(num);
-}
-
-function isSameMeasuredPx(prev, next, epsilon = 1) {
-  const safePrev = normalizeMeasuredPx(prev);
-  const safeNext = normalizeMeasuredPx(next);
-  return Math.abs(safePrev - safeNext) <= epsilon;
-}
-
 function getPatchNotesSeenAudienceKey(userId) {
   const safeUserId = Number(userId);
   if (Number.isInteger(safeUserId) && safeUserId > 0) {
@@ -3644,25 +3630,12 @@ export default function GobbleApplication() {
     onEvent: pushSamsungDiagEvent,
     onTileEnter: handleMouseEnter,
   });
-  const [
-    mainGridDesktopRef,
-    setMainGridDesktopNode,
-    mainGridDesktopNode,
-  ] = useTrackedElementRef();
-  const playColumnRef = useRef(null);
   const desktopGridResizeMaxTrackWidthRef = useRef(Number.POSITIVE_INFINITY);
   const mobileSpecial3TutorialHostRef = useRef(null);
   const mobileSpecial3FirstSlotRef = useRef(null);
   const mobileSpecial3SecondSlotRef = useRef(null);
   const mobileSpecial3GridWrapRef = useRef(null);
   const mobileSpecial3BonusTrayRef = useRef(null);
-  const desktopColumnResizeRef = useRef({
-    active: false,
-    moveHandler: null,
-    upHandler: null,
-    bodyCursor: "",
-    bodyUserSelect: "",
-  });
   const desktopColumnOrderHydratedInstallIdRef = useRef("");
   const desktopColumnOrderPersistSignatureRef = useRef("");
   const desktopColumnOrderRef = useRef(desktopColumnOrder);
@@ -3682,7 +3655,6 @@ export default function GobbleApplication() {
   const desktopColumnFractionsRef = useRef(desktopColumnFractions);
   const desktopColumnFractionsHydratedInstallIdRef = useRef("");
   const desktopColumnFractionsPersistSignatureRef = useRef("");
-  const desktopViewportResizeTimerRef = useRef(null);
   const desktopColumnOrderSafe = React.useMemo(
     () => normalizeDesktopColumnOrder(desktopColumnOrder, desktopColumnBaseDefs),
     [desktopColumnOrder, desktopColumnBaseDefs]
@@ -3721,25 +3693,6 @@ export default function GobbleApplication() {
     if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
     for (let index = 0; index < left.length; index += 1) {
       if (left[index] !== right[index]) return false;
-    }
-    return true;
-  }, []);
-  const areDesktopHandleLayoutsEqual = React.useCallback((left, right) => {
-    if (left === right) return true;
-    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
-    for (let index = 0; index < left.length; index += 1) {
-      const a = left[index];
-      const b = right[index];
-      if (
-        !a ||
-        !b ||
-        a.id !== b.id ||
-        a.label !== b.label ||
-        Math.abs((a.left || 0) - (b.left || 0)) > 0.5 ||
-        Math.abs((a.top || 0) - (b.top || 0)) > 0.5
-      ) {
-        return false;
-      }
     }
     return true;
   }, []);
@@ -4000,60 +3953,6 @@ export default function GobbleApplication() {
   useEffect(() => {
     desktopColumnOrderRef.current = desktopColumnOrderSafe;
   }, [desktopColumnOrderSafe]);
-  useLayoutEffect(() => {
-    if (isMobileLayout || typeof window === "undefined") {
-      setDesktopColumnHandleLayout((prev) => (prev.length ? [] : prev));
-      return undefined;
-    }
-    let rafId = 0;
-    const measure = () => {
-      const next = desktopColumnOrderSafe
-        .map((id) => {
-          const node = desktopColumnNodeMapRef.current.get(id);
-          const rect = node?.getBoundingClientRect?.();
-          if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-          return {
-            id,
-            label: desktopColumnHandleLabels.get(id) || id,
-            left: rect.left + rect.width / 2,
-            top: rect.top,
-          };
-        })
-        .filter(Boolean);
-      setDesktopColumnHandleLayout((prev) =>
-        areDesktopHandleLayoutsEqual(prev, next) ? prev : next
-      );
-    };
-    const scheduleMeasure = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(measure);
-    };
-    const observer =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleMeasure) : null;
-    if (mainGridDesktopRef.current) observer?.observe(mainGridDesktopRef.current);
-    desktopColumnOrderSafe.forEach((id) => {
-      const node = desktopColumnNodeMapRef.current.get(id);
-      if (node) observer?.observe(node);
-    });
-    scheduleMeasure();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleMeasure, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-    ]);
-    window.addEventListener("scroll", scheduleMeasure, true);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      observer?.disconnect();
-      unsubscribeViewport();
-      window.removeEventListener("scroll", scheduleMeasure, true);
-    };
-  }, [
-    areDesktopHandleLayoutsEqual,
-    desktopColumnHandleLabels,
-    desktopColumnOrderSafe,
-    isMobileLayout,
-    layoutFeature,
-    mainGridDesktopNode,
-  ]);
   useEffect(() => {
     if (!isMobileLayout) return undefined;
     clearDesktopColumnDragState();
@@ -4193,46 +4092,6 @@ export default function GobbleApplication() {
       window.removeEventListener("keydown", unlockAudio);
     };
   }, []);
-
-  useEffect(() => {
-    const el = playColumnRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-
-    const commitGridWidth = (value) => {
-      const clamped = clampGridWidth(value);
-      if (!clamped) return;
-      setGridWidth((prev) => (isSameMeasuredPx(prev, clamped) ? prev : clamped));
-    };
-
-    const commitPlayColumnHeight = (value) => {
-      const nextHeight = normalizeMeasuredPx(value);
-      if (!nextHeight) return;
-      setPlayColumnHeight((prev) => (isSameMeasuredPx(prev, nextHeight) ? prev : nextHeight));
-    };
-
-    // init immédiat (on enlève un petit padding interne pour coller au contenu)
-    const initialWidth = el.getBoundingClientRect().width;
-    const initialHeight = el.getBoundingClientRect().height;
-    if (initialWidth) {
-      commitGridWidth(initialWidth);
-    }
-    if (initialHeight) commitPlayColumnHeight(initialHeight);
-
-    const observer = new ResizeObserver((entries) => {
-      const target = entries[0]?.target;
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
-      const w = rect.width; // border-box width (incl. padding)
-      const h = rect.height;
-      if (w) {
-        commitGridWidth(w);
-      }
-      if (h) commitPlayColumnHeight(h);
-    });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isMobileLayout, appView, phase, isLoggedIn, mainGridDesktopNode]);
 
   useEffect(() => {
     document.body.classList.toggle("theme-dark", darkMode);
@@ -13875,32 +13734,6 @@ function handleTouchEnd(e) {
   const hasDesktopResultsSummary =
     phase === "results" && !isMobileLayout && !!(isTargetRound ? targetSummary : endStats);
 
-  const { startDesktopColumnResize } = useDesktopLayoutController(
-    appView,
-    connectionError,
-    desktopColumnBaseDefs,
-    desktopColumnDefaultFractions,
-    desktopColumnFractionsRef,
-    desktopColumnMinWidthsPx,
-    desktopColumnOrderRef,
-    desktopColumnResizeRef,
-    desktopGridResizeMaxTrackWidthRef,
-    desktopViewportResizeTimerRef,
-    hasDesktopResultsSummary,
-    isLoggedIn,
-    isMobileLayout,
-    mainGridDesktopRef,
-    phase,
-    setDesktopColumnFractions,
-    setDesktopColumnResizeActiveIndex,
-    setDesktopGridMetrics,
-    setDesktopMainGridHeight,
-    setDesktopResultsDrawerLayout,
-    setDesktopViewportResizeInProgress,
-    showHelp,
-    mainGridDesktopNode,
-  );
-
   const {
     gobbleAwardsForLive,
     gobbleWordAwardsByNick,
@@ -14819,10 +14652,7 @@ function handleTouchEnd(e) {
     return Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, adjusted));
   };
   const measuredWidth = clampGridWidth(gridWidth);
-  const fallbackWidth = clampGridWidth(
-    playColumnRef.current?.getBoundingClientRect?.().width ||
-      560
-  );
+  const fallbackWidth = clampGridWidth(560);
   const widthCandidate =
     measuredWidth ??
     fallbackWidth ??
@@ -18472,6 +18302,36 @@ function handleTouchEnd(e) {
             desktopColumnResizeActiveIndex,
             desktopGridMetrics,
             desktopGridUiScale,
+            desktopLayoutRuntime: {
+              appView,
+              connectionError,
+              desktopColumnBaseDefs,
+              desktopColumnDefaultFractions,
+              desktopColumnFractionsRef,
+              desktopColumnHandleLabels,
+              desktopColumnMinWidthsPx,
+              desktopColumnNodeMapRef,
+              desktopColumnOrderRef,
+              desktopColumnOrderSafe,
+              desktopGridResizeMaxTrackWidthRef,
+              hasDesktopResultsSummary,
+              isLoggedIn,
+              isMobileLayout,
+              layoutFeature,
+              maxGridWidth: MAX_GRID_WIDTH,
+              minGridWidth: MIN_GRID_WIDTH,
+              phase,
+              setDesktopColumnFractions,
+              setDesktopColumnHandleLayout,
+              setDesktopColumnResizeActiveIndex,
+              setDesktopGridMetrics,
+              setDesktopMainGridHeight,
+              setDesktopResultsDrawerLayout,
+              setDesktopViewportResizeInProgress,
+              setGridWidth,
+              setPlayColumnHeight,
+              showHelp,
+            },
             desktopMainGridHeight,
             desktopPlayersUiScale,
             desktopResponsiveColumnFractions,
@@ -18532,7 +18392,6 @@ function handleTouchEnd(e) {
             lightPanelStyle,
             listItemRefs,
             MAIN_GRID_HEIGHT,
-            setMainGridDesktopNode,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             nextHintLabel,
@@ -18550,7 +18409,6 @@ function handleTouchEnd(e) {
             openRoundPlayerModal,
             openWeeklyStatsOverlay,
             phase,
-            playColumnRef,
             praiseOverlay,
             prepareWordListFlip,
             previewBarMinHeight,
@@ -18632,7 +18490,6 @@ function handleTouchEnd(e) {
             stableCanOpenPlayerProfile,
             stableOpenPlayerProfile,
             standaloneTrainingSession,
-            startDesktopColumnResize,
             startTrainingRound,
             submitChat,
             submitDailyScore,

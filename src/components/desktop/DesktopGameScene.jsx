@@ -44,6 +44,7 @@ import TraceAwareDesktopPreviewContent from "../live/TraceAwareDesktopPreviewCon
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import TrainingRoundPicker from "../live/TrainingRoundPicker.jsx";
+import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
 
 export default function DesktopGameScene({ runtime }) {
   const {
@@ -104,6 +105,7 @@ export default function DesktopGameScene({ runtime }) {
     desktopColumnResizeActiveIndex,
     desktopGridMetrics,
     desktopGridUiScale,
+    desktopLayoutRuntime,
     desktopMainGridHeight,
     desktopPlayersUiScale,
     desktopResponsiveColumnFractions,
@@ -164,7 +166,6 @@ export default function DesktopGameScene({ runtime }) {
     lightPanelStyle,
     listItemRefs,
     MAIN_GRID_HEIGHT,
-    setMainGridDesktopNode,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     nextHintLabel,
@@ -182,7 +183,6 @@ export default function DesktopGameScene({ runtime }) {
     openRoundPlayerModal,
     openWeeklyStatsOverlay,
     phase,
-    playColumnRef,
     praiseOverlay,
     prepareWordListFlip,
     previewBarMinHeight,
@@ -263,7 +263,6 @@ export default function DesktopGameScene({ runtime }) {
     stableCanOpenPlayerProfile,
     stableOpenPlayerProfile,
     standaloneTrainingSession,
-    startDesktopColumnResize,
     startTrainingRound,
     submitChat,
     submitDailyScore,
@@ -301,6 +300,11 @@ export default function DesktopGameScene({ runtime }) {
   } = runtime;
   const selfReadyForTournament = selfReadyForTournamentProp;
   const visiblePlayerList = visiblePlayerListProp;
+  const {
+    mainGridDesktopRef,
+    playColumnRef,
+    startDesktopColumnResize,
+  } = useDesktopSceneLayout(desktopLayoutRuntime);
 
   const desktopGridHeightPx =
     !isMobileLayout && Number.isFinite(desktopMainGridHeight)
@@ -467,7 +471,7 @@ export default function DesktopGameScene({ runtime }) {
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
       <div className={`desktop-game-content relative flex-1 min-h-0 overflow-hidden ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
       <div
-        ref={setMainGridDesktopNode}
+        ref={mainGridDesktopRef}
         className={`desktop-responsive-grid main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 ${
           isDailyPlay ? "md:grid-cols-3 xl:grid-cols-3" : "md:grid-cols-3 xl:grid-cols-4"
         }`}
