@@ -786,10 +786,12 @@ export default function useTutorialPresentation(runtime) {
   );
 
   return {
+    isInGameSpecial3Tutorial,
     special3DesktopStep2TutorialOverlay,
     special3InGameTutorialCard,
     special3MobileStep1Ghost,
     special3MobileStep2TutorialOverlay,
+    special3TutorialStep,
     specialTutorialOverlay,
     tutorialOverlay,
   };

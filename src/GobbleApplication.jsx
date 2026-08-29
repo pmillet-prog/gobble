@@ -817,6 +817,7 @@ function useStableEvent(handler) {
 }
 
 const WORD_SUBMISSION_CONTROLLER_METHODS = Object.freeze([
+  "getLivePreviewLabelForCell",
   "requeueInFlightSubmissions",
   "restorePendingSubmissionEntries",
   "scheduleBatchFlush",
@@ -6312,6 +6313,7 @@ export default function GobbleApplication() {
   );
 
   const {
+    getLivePreviewLabelForCell,
     requeueInFlightSubmissions,
     restorePendingSubmissionEntries,
     scheduleBatchFlush,
@@ -15683,10 +15685,12 @@ function handleTouchEnd(e) {
     </Suspense>
   );
   const {
+    isInGameSpecial3Tutorial,
     special3DesktopStep2TutorialOverlay,
     special3InGameTutorialCard,
     special3MobileStep1Ghost,
     special3MobileStep2TutorialOverlay,
+    special3TutorialStep,
     specialTutorialOverlay,
     tutorialOverlay,
   } = useTutorialPresentation({

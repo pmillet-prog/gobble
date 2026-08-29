@@ -116,7 +116,7 @@ function installBrowserGlobals() {
   };
 }
 
-test("GobbleApplication completes its initial render without lexical initialization errors", async () => {
+test("GobbleApplication renders both home and authenticated live gameplay", async () => {
   let kernel = null;
   let vite = null;
   let restoreBrowserGlobals = () => {};
@@ -170,19 +170,20 @@ test("GobbleApplication completes its initial render without lexical initializat
     kernel = registerClientFeatures(
       createApplicationKernel({ ports: { realtime: createRealtimeStub() } })
     );
-    const tree = React.createElement(
-      ApplicationRuntimeProvider,
-      { kernel },
+    const createTree = () =>
       React.createElement(
-        TraceRuntimeProvider,
-        null,
+        ApplicationRuntimeProvider,
+        { kernel },
         React.createElement(
-          CelebrationRuntimeProvider,
+          TraceRuntimeProvider,
           null,
-          React.createElement(GobbleApplication)
+          React.createElement(
+            CelebrationRuntimeProvider,
+            null,
+            React.createElement(GobbleApplication)
+          )
         )
-      )
-    );
+      );
 
     const originalConsoleError = console.error;
     console.error = (...args) => {
@@ -196,7 +197,20 @@ test("GobbleApplication completes its initial render without lexical initializat
       originalConsoleError(...args);
     };
     try {
-      assert.doesNotThrow(() => renderToString(tree));
+      assert.doesNotThrow(() => renderToString(createTree()));
+
+      kernel.commands.session.setAuthState({
+        legacyProfile: null,
+        loading: false,
+        status: "authenticated",
+        user: { id: "test-user", usernameDisplay: "Test" },
+      });
+      kernel.commands.session.setIsLoggedIn(true);
+      kernel.commands.session.setNickname("Test");
+      kernel.commands.navigation.go("live");
+      kernel.commands.game.setPhase("playing");
+
+      assert.doesNotThrow(() => renderToString(createTree()));
     } finally {
       console.error = originalConsoleError;
     }

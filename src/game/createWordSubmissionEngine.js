@@ -1613,6 +1613,7 @@ export function createWordSubmissionEngine(
   }
 
   return {
+    getLivePreviewLabelForCell,
     requeueInFlightSubmissions,
     restorePendingSubmissionEntries,
     scheduleBatchFlush,
