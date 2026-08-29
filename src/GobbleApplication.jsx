@@ -196,6 +196,7 @@ import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
 import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
 import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
 import { useLiveEntryFeature } from "./features/session/useLiveEntryFeature.js";
+import { useLiveResumeFeature } from "./features/session/useLiveResumeFeature.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -2474,6 +2475,7 @@ export default function GobbleApplication() {
 
   function returnToLobby() {
     liveEntryFeature.cancelLoginAttempt();
+    liveResumeFeature.cancelAll();
     if (!gameplaySessionFeature.cancel("return_to_lobby")) {
       disposeGameplayRuntimeResources();
     }
@@ -2581,9 +2583,6 @@ export default function GobbleApplication() {
       socket.disconnect();
     } catch (_) {}
   }
-  const resumeLockRef = useRef(false);
-  const resumeLockAtRef = useRef(0);
-  const resumeProbeRef = useRef({ inFlight: false, lastAt: 0 });
   const roundHandlersRef = useRef({
     onBreakStarted: null,
     onCultureThemeChallenge: null,
@@ -8586,279 +8585,6 @@ export default function GobbleApplication() {
     return requestPromise;
   }
 
-  function requestSessionResumeSnapshot(reason = "probe") {
-    if (!isAccountAuthenticated) return;
-    if (!hasSavedSession()) return;
-    const session = sessionRef.current;
-    const nick = session?.nick?.trim();
-    const roomToUse = session?.roomId || roomId;
-    const install = session?.installId || installId;
-    if (!nick || !roomToUse || !install) return;
-    const now = Date.now();
-    if (resumeProbeRef.current.inFlight && now - resumeProbeRef.current.lastAt < 2500) return;
-    resumeProbeRef.current.inFlight = true;
-    resumeProbeRef.current.lastAt = now;
-    setResumePending(true);
-
-    const finish = () => {
-      resumeProbeRef.current.inFlight = false;
-      setResumePending(false);
-    };
-    const doProbe = () => {
-      socket.emit(
-        "session:resume",
-        { roomId: roomToUse, installId: install, nick, takeover: false },
-        (res) => {
-          finish();
-          const activeSession = sessionRef.current;
-          const sameSession =
-            activeSession &&
-            String(activeSession.nick || "").trim() === nick &&
-            activeSession.roomId === roomToUse &&
-            activeSession.installId === install;
-          if (!sameSession || isLoggedInRef.current) {
-            setResumeSnapshot(null);
-            return;
-          }
-          if (res?.error === "auth_required") {
-            clearSavedSession();
-            setResumeSnapshot(null);
-            return;
-          }
-          if (res?.error === "moderation_banned") {
-            clearSavedSession();
-            setResumeSnapshot(null);
-            setConnectionError(res?.message || "Accès live temporairement suspendu.");
-            return;
-          }
-          if (res?.error === "playtime_limit_exhausted") {
-            if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
-            clearSavedSession();
-            setResumeSnapshot(null);
-            setCanResumeSession(false);
-            setConnectionError(
-              res?.message || "Ton temps de jeu live est écoulé pour aujourd'hui."
-            );
-            return;
-          }
-          if (res?.ok && res?.available && res?.snapshot) {
-            setResumeSnapshot(res.snapshot);
-            setCanResumeSession(true);
-          } else {
-            setResumeSnapshot(null);
-          }
-        }
-      );
-    };
-
-    if (socket.connected) {
-      doProbe();
-      return;
-    }
-    const onError = () => {
-      socket.off("connect", onConnect);
-      socket.off("connect_error", onError);
-      finish();
-    };
-    const onConnect = () => {
-      socket.off("connect_error", onError);
-      doProbe();
-    };
-    socket.once("connect", onConnect);
-    socket.once("connect_error", onError);
-    void connectSocketWithAuth();
-  }
-
-  useEffect(() => {
-    requestSessionResumeSnapshotRef.current = requestSessionResumeSnapshot;
-  });
-
-  function resumeLoginFromSession(reason = "resume") {
-    if (!isAccountAuthenticated) return;
-    if (!hasSavedSession()) return;
-    const session = sessionRef.current;
-    const nick = session?.nick?.trim();
-    const roomToUse = session?.roomId || roomId;
-    const install = session?.installId || installId;
-    if (!nick || !roomToUse || !install) return;
-    const force = reason === "resume_button";
-    const now = Date.now();
-    if (resumeLockRef.current) {
-      const elapsed = now - (resumeLockAtRef.current || 0);
-      if (!force && elapsed < 6000) return;
-      resumeLockRef.current = false;
-      resumeLockAtRef.current = 0;
-    }
-    resumeLockRef.current = true;
-    resumeLockAtRef.current = now;
-    liveSessionReadyRef.current = false;
-    setLoginError("");
-    setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-    setIsConnecting(true);
-
-    let settled = false;
-    const cleanup = () => {
-      socket.off("connect", doResume);
-      socket.off("connect_error", onResumeError);
-    };
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      resumeLockRef.current = false;
-      resumeLockAtRef.current = 0;
-      cleanup();
-      if (resumeTimeout) {
-        clearTimeout(resumeTimeout);
-        resumeTimeout = null;
-      }
-    };
-    const onResumeError = () => {
-      setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-      setIsConnecting(false);
-      finish();
-    };
-    let resumeTimeout = setTimeout(() => {
-      setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-      setIsConnecting(false);
-      finish();
-    }, 8000);
-
-    const rejoinCurrentRoom = () => {
-      socket.emit("login", { nick, roomId: roomToUse, installId: install }, (loginRes) => {
-        if (!loginRes?.ok) {
-          setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-          setIsConnecting(false);
-          liveSessionReadyRef.current = false;
-          return;
-        }
-        const joinedRoom = loginRes?.roomId || roomToUse;
-        persistSession({ nick, roomId: joinedRoom, installId: install });
-        lastLoginPayloadRef.current = { nick, roomId: joinedRoom };
-        setCurrentRoomId(joinedRoom);
-        setRoomId(joinedRoom);
-        appViewRef.current = "live";
-        setAppView("live");
-        isLoggedInRef.current = true;
-        setIsLoggedIn(true);
-        setIsConnecting(false);
-        setLoginError("");
-        setConnectionError("");
-        if (loginRes?.playtimeLimit) applyPlaytimeLimitStatus(loginRes.playtimeLimit);
-        setResumeSnapshot(null);
-        const hydrated = hydrateLiveSnapshot(
-          loginRes?.snapshot,
-          loginRes?.entryKind || "resume"
-        );
-        liveSessionReadyRef.current = hydrated;
-        if (!hydrated) {
-          setConnectionError("État de partie indisponible, reconnexion en cours.");
-          return;
-        }
-        scheduleBatchFlush({ immediate: true });
-        void requestTrophyStatus();
-      });
-    };
-
-    const doResume = () => {
-      socket.emit(
-        "session:resume",
-        { roomId: roomToUse, installId: install, nick, takeover: true },
-        (res) => {
-          finish();
-          const activeSession = sessionRef.current;
-          const sameSession =
-            activeSession &&
-            String(activeSession.nick || "").trim() === nick &&
-            activeSession.roomId === roomToUse &&
-            activeSession.installId === install;
-          if (!sameSession) {
-            return;
-          }
-          if (res?.error === "auth_required") {
-            clearSavedSession();
-            setConnectionError("Session live invalide. Recharge la page.");
-            setIsConnecting(false);
-            isLoggedInRef.current = false;
-            setIsLoggedIn(false);
-            return;
-          }
-          if (res?.error === "moderation_banned") {
-            clearSavedSession();
-            setConnectionError(res?.message || "Accès live temporairement suspendu.");
-            setIsConnecting(false);
-            isLoggedInRef.current = false;
-            setIsLoggedIn(false);
-            return;
-          }
-          if (res?.error === "playtime_limit_exhausted") {
-            if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
-            clearSavedSession();
-            const message =
-              res?.message || "Ton temps de jeu live est écoulé pour aujourd'hui.";
-            setConnectionError(message);
-            setLoginError(message);
-            setIsConnecting(false);
-            isLoggedInRef.current = false;
-            setIsLoggedIn(false);
-            showGlobalRedAnnouncement(
-              {
-                title: "Contrôle de temps pour joueurs compulsifs",
-                body: message,
-              },
-              6500
-            );
-            return;
-          }
-          if (res?.ok && !res?.available) {
-            setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-            rejoinCurrentRoom();
-            return;
-          }
-          if (!res?.ok || !res?.snapshot) {
-            clearSavedSession();
-            setConnectionError("Session expiree");
-            setIsConnecting(false);
-            isLoggedInRef.current = false;
-            setIsLoggedIn(false);
-            return;
-          }
-          persistSession({ nick, roomId: roomToUse, installId: install });
-          lastLoginPayloadRef.current = { nick, roomId: roomToUse };
-          clearMobileChatReactionToasts();
-          appViewRef.current = "live";
-          setAppView("live");
-          isLoggedInRef.current = true;
-          setIsLoggedIn(true);
-          setIsConnecting(false);
-          setLoginError("");
-          setConnectionError("");
-          if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
-          setResumeSnapshot(null);
-          const hydrated = hydrateLiveSnapshot(res.snapshot, res.entryKind || "resume");
-          liveSessionReadyRef.current = hydrated;
-          if (!hydrated) {
-            setConnectionError("État de partie indisponible, reconnexion en cours.");
-            return;
-          }
-          scheduleBatchFlush({ immediate: true });
-          void requestTrophyStatus();
-        }
-      );
-    };
-
-    if (socket.connected) {
-      doResume();
-    } else {
-      socket.once("connect", doResume);
-      socket.once("connect_error", onResumeError);
-      void connectSocketWithAuth();
-    }
-  }
-
-  useEffect(() => {
-    resumeLoginFromSessionRef.current = resumeLoginFromSession;
-  });
-
   useEffect(() => {
     const previousView = previousAppViewRef.current;
     previousAppViewRef.current = appView;
@@ -9624,7 +9350,7 @@ export default function GobbleApplication() {
       lastBackgroundTimeRef.current = 0;
       if (!socket.connected) {
         if (shouldRestoreSession) {
-          attemptSilentReconnect(`${reason}_post_bg`);
+          attemptSilentReconnectRef.current?.(`${reason}_post_bg`);
         } else {
           void connectSocketWithAuth();
         }
@@ -9638,7 +9364,7 @@ export default function GobbleApplication() {
     }
     if (!socket.connected) {
       if (shouldRestoreSession) {
-        attemptSilentReconnect(reason);
+        attemptSilentReconnectRef.current?.(reason);
       } else {
         void connectSocketWithAuth();
       }
@@ -9699,7 +9425,7 @@ export default function GobbleApplication() {
       setResumePending(false);
       return;
     }
-    resumeLoginFromSession("resume_button");
+    resumeLoginFromSessionRef.current?.("resume_button");
   }
 
   function dismissResumePrompt() {
@@ -10144,52 +9870,6 @@ export default function GobbleApplication() {
     allWordsComputeRef.current.kickoff = setTimeout(kickoff, kickoffDelay);
   }
 
-  function attemptSilentReconnect(reason = "reconnect") {
-    if (reconnectAttemptRef.current) return;
-    reconnectAttemptRef.current = true;
-    setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-    const finishAttempt = () => {
-      setTimeout(() => {
-        reconnectAttemptRef.current = false;
-      }, 3000);
-    };
-    const restoreSession = (connected) => {
-      if (!connected) {
-        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-        return;
-      }
-      const shouldRestoreLive =
-        appViewRef.current === "live" &&
-        (isLoggedInRef.current || autoResumeEnabledRef.current || hasSavedSession());
-      if (shouldRestoreLive) {
-        resumeLoginFromSession(reason);
-        return;
-      }
-      if (hasSavedSession() || autoResumeEnabledRef.current) {
-        requestSessionResumeSnapshot(reason);
-      }
-    };
-    if (socket.connected) {
-      restoreSession(true);
-      finishAttempt();
-      return;
-    }
-    void connectSocketWithAuth()
-      .then((connected) => {
-        restoreSession(connected);
-      })
-      .catch(() => {
-        setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
-      })
-      .finally(() => {
-        finishAttempt();
-      });
-  }
-
-  useEffect(() => {
-    attemptSilentReconnectRef.current = attemptSilentReconnect;
-  });
-
   function startGame() {
     invalidateGameplaySession();
     setInputLocked(false);
@@ -10569,6 +10249,37 @@ export default function GobbleApplication() {
     setReportDialog,
     reportDialog,
   ], 23);
+
+  const liveResumeFeature = useLiveResumeFeature({
+    appViewRef,
+    applyPlaytimeLimitStatus,
+    autoResumeEnabledRef,
+    clearMobileChatReactionToasts,
+    clearSavedSession,
+    connectSocketWithAuth,
+    getInstallId: () => installIdRef.current,
+    hasSavedSession,
+    hydrateLiveSnapshot,
+    isAccountAuthenticated: () => isAccountAuthenticatedRef.current,
+    isLoggedInRef,
+    lastLoginPayloadRef,
+    liveSessionReadyRef,
+    persistSession,
+    reconnectAttemptRef,
+    requestTrophyStatus,
+    scheduleBatchFlush,
+    sessionRef,
+    showGlobalRedAnnouncement,
+    socket,
+  });
+  const {
+    resumeLock: resumeLockRef,
+    resumeLockAt: resumeLockAtRef,
+    resumeProbe: resumeProbeRef,
+  } = liveResumeFeature.refs;
+  requestSessionResumeSnapshotRef.current = liveResumeFeature.probeResume;
+  resumeLoginFromSessionRef.current = liveResumeFeature.resume;
+  attemptSilentReconnectRef.current = liveResumeFeature.reconnect;
 
   const liveEntryFeature = useLiveEntryFeature({
     appViewRef,

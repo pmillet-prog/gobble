@@ -24,6 +24,7 @@ import { createGameProgressFeature } from "../features/progress/createGameProgre
 import { createRefreshSchedulerFeature } from "../features/refresh/createRefreshSchedulerFeature.js";
 import { createResultsFeature } from "../features/results/createResultsFeature.js";
 import { createLiveEntryFeature } from "../features/session/createLiveEntryFeature.js";
+import { createLiveResumeFeature } from "../features/session/createLiveResumeFeature.js";
 import { createSessionPersistenceFeature } from "../features/session/createSessionPersistenceFeature.js";
 import { createStatsFeature } from "../features/stats/createStatsFeature.js";
 import { createStandaloneTrainingFeature } from "../features/training/createStandaloneTrainingFeature.js";
@@ -57,6 +58,7 @@ const FEATURE_FACTORIES = Object.freeze({
   refresh: createRefreshSchedulerFeature,
   results: createResultsFeature,
   liveEntry: createLiveEntryFeature,
+  liveResume: createLiveResumeFeature,
   sessionPersistence: createSessionPersistenceFeature,
   stats: createStatsFeature,
   standaloneTraining: createStandaloneTrainingFeature,
