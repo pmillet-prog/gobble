@@ -205,6 +205,7 @@ import useEndStats from "./components/results/useEndStats.js";
 import useResultsAwards from "./components/results/useResultsAwards.js";
 import { createRoundPlayerDetailsController } from "./components/results/createRoundPlayerDetailsController.js";
 import { createResultsWordInspector } from "./components/results/createResultsWordInspector.js";
+import { WEEKLY_RECORD_LABELS } from "./components/results/weeklyRecordLabels.js";
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import RoundPreparationOverlay from "./components/RoundPreparationOverlay.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
@@ -1252,6 +1253,10 @@ export default function GobbleApplication() {
     visualScoreFlightsEnabled,
     visualScreenShakeEnabled,
   } = preferencesState;
+  const themeAppliedSafe = React.useMemo(
+    () => normalizeThemePreset(themeApplied),
+    [themeApplied]
+  );
   const {
     setCanVibrate,
     setChatDesktopFontScale,
@@ -2145,26 +2150,6 @@ export default function GobbleApplication() {
   const isAuthStatusPending = authState.loading || authState.status === "loading";
   const isAuthServerUnavailable = authState.status === "unavailable";
   const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
-  const {
-    wordVault,
-    wordVaultActionPending,
-    isWordInVault,
-    fetchWordVault,
-    openWordVaultPage,
-    setWordVaultSortMode,
-    addWordToVault,
-    removeWordFromVault,
-  } = useWordVault({
-    isAccountAuthenticated,
-    authenticatedUserId,
-    appView,
-    setAppView,
-    refreshAuthStatus,
-    ensureAuthenticated,
-    postAuthJson,
-    readJsonResponseLoose,
-    showToast,
-  });
   const dailyFeature = useFeatureRuntime("daily");
   const dailyState = useFeatureSelector(dailyFeature, (state) => state);
   const duelFeature = useFeatureRuntime("duel");
@@ -2289,6 +2274,12 @@ export default function GobbleApplication() {
     weekRecapPage: duelWeekRecapPage,
     weekRecapPreviewMode: duelWeekRecapPreviewMode,
   } = duelState;
+  const duelWeeklyTotals = duelStatus?.weekly?.totalsByTeam || {
+    red: 0,
+    blue: 0,
+  };
+  const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
+  const duelBlueScore = Number(duelWeeklyTotals?.blue) || 0;
   const {
     setDuelConsumedValidatedByView,
     setDuelObjectivesPopupDismissedDateId,
@@ -7593,6 +7584,27 @@ export default function GobbleApplication() {
     returnToLobby,
   ], 13);
 
+  const {
+    wordVault,
+    wordVaultActionPending,
+    isWordInVault,
+    fetchWordVault,
+    openWordVaultPage,
+    setWordVaultSortMode,
+    addWordToVault,
+    removeWordFromVault,
+  } = useWordVault({
+    isAccountAuthenticated,
+    authenticatedUserId,
+    appView,
+    setAppView,
+    refreshAuthStatus,
+    ensureAuthenticated,
+    postAuthJson,
+    readJsonResponseLoose,
+    showToast,
+  });
+
   useEffect(() => {
     void refreshAuthStatus();
   }, [deviceInstallId]);
@@ -11034,39 +11046,6 @@ export default function GobbleApplication() {
     setRecordModal((prev) => ({ ...prev, open: false }));
   }
 
-  const [
-    canOpenRoundPlayerDetails,
-    closeRoundPlayerModal,
-    getRoundRecordsForPlayer,
-    navigateRoundPlayerModal,
-    openRoundPlayerModal,
-  ] = useLazyArrayController(
-    createRoundPlayerDetailsRuntime,
-    [
-    allWords,
-    allWordsMap,
-    board,
-    dedupeWeeklyEntries,
-    finalRanking,
-    finalResults,
-    gobbleCandidates,
-    isCurrentCultureThemeWord,
-    isTargetRound,
-    nicknameRef,
-    playCloseSound,
-    recordBadgesByNickForRound,
-    roundPlayerAnchorElementRef,
-    roundPlayerAnchorNickRef,
-    roundPlayerModal,
-    roundStats,
-    setRoundPlayerModal,
-    specialRound,
-    specialScoreConfig,
-    weeklyStats,
-    ],
-    5,
-  );
-
   /**
    * Ajout de lettres via le clavier, avec pathfinder optimisé.
    */
@@ -13024,38 +13003,6 @@ function handleTouchEnd(e) {
       </span>
     );
   };
-  const { renderDesktopResultsDockPanel } = useDesktopResultsPresentation({
-    analyzeWord,
-    board,
-    breakKind,
-    clearResultsWordAnalysis,
-    darkMode,
-    duelBlueScore,
-    duelRedScore,
-    endStats,
-    finalResults,
-    gobbleBadgeUrl,
-    isMobileLayout,
-    isSpecial3RoundForResults,
-    isSpeedRound,
-    isTargetRound,
-    nicknameRef,
-    normalizeNickKey,
-    openDefinition,
-    phase,
-    renderSpecial3PreviewTiles,
-    resultsTeamDelta,
-    serverStatus,
-    shouldDefinitionBlink,
-    specialRound,
-    specialScoreConfig,
-    standaloneTrainingSession,
-    targetDefinition,
-    targetSummary,
-    tournament,
-    upcomingSpecial,
-  });
-
   // messages visibles dans le chat (dynamique), ancrés en bas
   const chatRuntimeSnapshot = chatFeature.store.getState();
   const chatMessagesSnapshot = chatRuntimeSnapshot.messages;
@@ -13838,7 +13785,7 @@ function handleTouchEnd(e) {
       return targetStep;
     });
   }, [guidedResultsEligible, guidedResultsPageKey]);
-  const renderTournamentTotalRightLabel = (points, gobbles) => {
+  function renderTournamentTotalRightLabel(points, gobbles) {
     const safePoints = Math.max(0, Number(points) || 0);
     const safeGobbles = Math.max(0, Number(gobbles) || 0);
     const gobbleBadge = renderGobbleBadge(safeGobbles);
@@ -13853,7 +13800,7 @@ function handleTouchEnd(e) {
         <span>{formatNumber(safePoints) ?? 0} pts</span>
       </span>
     );
-  };
+  }
   const finalRanking = useFinalRanking({
     finalResults,
     isTargetRound,
@@ -13872,6 +13819,37 @@ function handleTouchEnd(e) {
     specialRound,
     specialScoreConfig,
   );
+  const { renderDesktopResultsDockPanel } = useDesktopResultsPresentation({
+    analyzeWord,
+    board,
+    breakKind,
+    clearResultsWordAnalysis,
+    darkMode,
+    duelBlueScore,
+    duelRedScore,
+    endStats,
+    finalResults,
+    gobbleBadgeUrl,
+    isMobileLayout,
+    isSpecial3RoundForResults,
+    isSpeedRound,
+    isTargetRound,
+    nicknameRef,
+    normalizeNickKey,
+    openDefinition,
+    phase,
+    renderSpecial3PreviewTiles,
+    resultsTeamDelta,
+    serverStatus,
+    shouldDefinitionBlink,
+    specialRound,
+    specialScoreConfig,
+    standaloneTrainingSession,
+    targetDefinition,
+    targetSummary,
+    tournament,
+    upcomingSpecial,
+  });
   const hasDesktopResultsSummary =
     phase === "results" && !isMobileLayout && !!(isTargetRound ? targetSummary : endStats);
 
@@ -13948,6 +13926,38 @@ function handleTouchEnd(e) {
   );
   const recordBadgesByNickForRound =
     isTargetRound ? targetRecordBadgesByNick : roundRecordBadgesByNick;
+  const [
+    canOpenRoundPlayerDetails,
+    closeRoundPlayerModal,
+    getRoundRecordsForPlayer,
+    navigateRoundPlayerModal,
+    openRoundPlayerModal,
+  ] = useLazyArrayController(
+    createRoundPlayerDetailsRuntime,
+    [
+      allWords,
+      allWordsMap,
+      board,
+      dedupeWeeklyEntries,
+      finalRanking,
+      finalResults,
+      gobbleCandidates,
+      isCurrentCultureThemeWord,
+      isTargetRound,
+      nicknameRef,
+      playCloseSound,
+      recordBadgesByNickForRound,
+      roundPlayerAnchorElementRef,
+      roundPlayerAnchorNickRef,
+      roundPlayerModal,
+      roundStats,
+      setRoundPlayerModal,
+      specialRound,
+      specialScoreConfig,
+      weeklyStats,
+    ],
+    5,
+  );
   const devSelfCrownEnabled = !!devControls?.enabled && !!devControls?.selfCrown;
   const devSelfGoldNickEnabled = !!devControls?.enabled && !!devControls?.selfGoldNick;
   const crownedNickSet = React.useMemo(() => {
@@ -14833,13 +14843,13 @@ function handleTouchEnd(e) {
   );
   const tileMaterialClass = getTileMaterialClass(tileMaterialPreset);
   const special3PreviewIsSquareMaterial = String(tileMaterialClass || "").includes("theme-material-square");
-  const renderSpecial3PreviewTiles = (
+  function renderSpecial3PreviewTiles(
     wordValue,
     keyPrefix,
     pathValue = [],
     boardSource = null,
     options = {}
-  ) => {
+  ) {
     const value = String(wordValue || "");
     if (!value) return null;
     const align = options?.align === "left" ? "left" : "center";
@@ -14961,7 +14971,7 @@ function handleTouchEnd(e) {
         {inner}
       </div>
     );
-  };
+  }
   const renderSpecial3BonusChipButton = (bonusKey, { keyPrefix = "special3", sizeClass = "h-12 min-w-12 px-3", pulse = false } = {}) => {
     const placedIndex = Number.isInteger(dailySpecialPlacements?.[bonusKey])
       ? dailySpecialPlacements[bonusKey]
@@ -15781,7 +15791,6 @@ function handleTouchEnd(e) {
     LETTER_COLOR_MAP[tileLetterColorPreset] || LETTER_COLOR_MAP[DEFAULT_THEME_PRESET.letterColor];
   const gobblarsBadgeUrl = getImageUrl(IMAGE_KEYS.gobblarsBadge) || "/Gobblars.png";
   const themeDraftSafe = React.useMemo(() => normalizeThemePreset(themeDraft), [themeDraft]);
-  const themeAppliedSafe = React.useMemo(() => normalizeThemePreset(themeApplied), [themeApplied]);
   const themePreviewBackgroundStyle = React.useMemo(() => {
     const bgMeta = BACKGROUND_MAP[themeDraftSafe.background] || {};
     const style = bgMeta.style || {};
@@ -17336,9 +17345,6 @@ function handleTouchEnd(e) {
       {mobileExitConfirmLayer}
     </>
   );
-  const duelWeeklyTotals = duelStatus?.weekly?.totalsByTeam || { red: 0, blue: 0 };
-  const duelRedScore = Number(duelWeeklyTotals?.red) || 0;
-  const duelBlueScore = Number(duelWeeklyTotals?.blue) || 0;
   const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
   const homeBackgroundDesktop = getUiImageUrl(getHomeBackgroundKey(duelTeam, "wide"));
   const homeBackgroundMobile = getUiImageUrl(getHomeBackgroundKey(duelTeam, "tall"));

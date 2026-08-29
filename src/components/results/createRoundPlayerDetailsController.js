@@ -10,15 +10,7 @@ import {
   isRareBonusEnabledForSpecial,
 } from "../../game/specialRoundTypes.js";
 import { clampValue } from "../../utils/numbers.js";
-
-const WEEKLY_RECORD_LABELS = {
-  bestWord: "Meilleur mot",
-  longestWord: "Mot le plus long",
-  bestSpecial3Score: "3 mots",
-  mostWordsInGame: "Mots par manche",
-  bestTimeTargetLong: "Temps mot long",
-  bestTimeTargetScore: "Temps meilleur mot",
-};
+import { WEEKLY_RECORD_LABELS } from "./weeklyRecordLabels.js";
 
 export function createRoundPlayerDetailsController(
   allWords,
