@@ -164,7 +164,7 @@ export default function DesktopGameScene({ runtime }) {
     lightPanelStyle,
     listItemRefs,
     MAIN_GRID_HEIGHT,
-    mainGridDesktopRef,
+    setMainGridDesktopNode,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     nextHintLabel,
@@ -467,7 +467,7 @@ export default function DesktopGameScene({ runtime }) {
       {/* plus de overflow-x-auto ici, on laisse le navigateur gerer le scroll horizontal */}
       <div className={`desktop-game-content relative flex-1 min-h-0 overflow-hidden ${desktopColumnDragId ? "pointer-events-none" : ""}`}>
       <div
-        ref={mainGridDesktopRef}
+        ref={setMainGridDesktopNode}
         className={`desktop-responsive-grid main-grid grid gap-4 sm:gap-6 items-stretch grid-cols-1 sm:grid-cols-2 ${
           isDailyPlay ? "md:grid-cols-3 xl:grid-cols-3" : "md:grid-cols-3 xl:grid-cols-4"
         }`}

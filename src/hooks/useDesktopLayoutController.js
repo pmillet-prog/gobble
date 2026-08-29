@@ -33,6 +33,7 @@ export default function useDesktopLayoutController(
   setDesktopResultsDrawerLayout,
   setDesktopViewportResizeInProgress,
   showHelp,
+  mainGridDesktopNode,
 ) {
   const stopDesktopColumnResize = React.useCallback(() => {
     const resizeState = desktopColumnResizeRef.current;
@@ -58,7 +59,7 @@ export default function useDesktopLayoutController(
   const startDesktopColumnResize = React.useCallback(
     (separatorIndex, event) => {
       if (isMobileLayout) return;
-      const host = mainGridDesktopRef.current;
+      const host = mainGridDesktopNode || mainGridDesktopRef.current;
       if (!(host instanceof HTMLElement)) return;
       const maxSeparatorIndex = Math.max(0, desktopColumnFractionsRef.current.length - 2);
       if (
@@ -165,6 +166,7 @@ export default function useDesktopLayoutController(
       desktopColumnDefaultFractions,
       desktopColumnMinWidthsPx,
       isMobileLayout,
+      mainGridDesktopNode,
       stopDesktopColumnResize,
     ]
   );
@@ -220,7 +222,7 @@ export default function useDesktopLayoutController(
     let observer = null;
 
     const updateLayout = () => {
-      const host = mainGridDesktopRef.current;
+      const host = mainGridDesktopNode || mainGridDesktopRef.current;
       if (!(host instanceof HTMLElement)) return;
       const hostWidth = Math.max(0, host.getBoundingClientRect?.().width || host.clientWidth || 0);
       const computed = window.getComputedStyle(host);
@@ -261,9 +263,10 @@ export default function useDesktopLayoutController(
 
     scheduleUpdate();
     window.addEventListener("resize", scheduleUpdate);
-    if (typeof ResizeObserver !== "undefined" && mainGridDesktopRef.current) {
+    const observedHost = mainGridDesktopNode || mainGridDesktopRef.current;
+    if (typeof ResizeObserver !== "undefined" && observedHost) {
       observer = new ResizeObserver(() => scheduleUpdate());
-      observer.observe(mainGridDesktopRef.current);
+      observer.observe(observedHost);
     }
 
     return () => {
@@ -271,7 +274,15 @@ export default function useDesktopLayoutController(
       window.removeEventListener("resize", scheduleUpdate);
       if (observer) observer.disconnect();
     };
-  }, [isMobileLayout, showHelp, connectionError, appView, phase, isLoggedIn]);
+  }, [
+    isMobileLayout,
+    showHelp,
+    connectionError,
+    appView,
+    phase,
+    isLoggedIn,
+    mainGridDesktopNode,
+  ]);
 
   useLayoutEffect(() => {
     if (!hasDesktopResultsSummary) {
@@ -284,7 +295,7 @@ export default function useDesktopLayoutController(
     let observer = null;
 
     const updateLayout = () => {
-      const host = mainGridDesktopRef.current;
+      const host = mainGridDesktopNode || mainGridDesktopRef.current;
       const viewportHeight = Math.max(
         0,
         Math.round(window.innerHeight || document.documentElement?.clientHeight || 0)
@@ -346,9 +357,10 @@ export default function useDesktopLayoutController(
     scheduleUpdate();
     window.addEventListener("resize", scheduleUpdate);
     window.addEventListener("scroll", scheduleUpdate, true);
-    if (typeof ResizeObserver !== "undefined" && mainGridDesktopRef.current) {
+    const observedHost = mainGridDesktopNode || mainGridDesktopRef.current;
+    if (typeof ResizeObserver !== "undefined" && observedHost) {
       observer = new ResizeObserver(() => scheduleUpdate());
-      observer.observe(mainGridDesktopRef.current);
+      observer.observe(observedHost);
     }
 
     return () => {
@@ -357,7 +369,7 @@ export default function useDesktopLayoutController(
       window.removeEventListener("scroll", scheduleUpdate, true);
       if (observer) observer.disconnect();
     };
-  }, [hasDesktopResultsSummary]);
+  }, [hasDesktopResultsSummary, mainGridDesktopNode]);
 
   return { startDesktopColumnResize };
 }

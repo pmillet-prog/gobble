@@ -83,6 +83,7 @@ import useAudioEngine from "./audio/useAudioEngine";
 import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
+import useTrackedElementRef from "./hooks/useTrackedElementRef.js";
 import useSwipeTrackController from "./hooks/useSwipeTrackController.js";
 import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
 import useRoundLifecycle from "./hooks/useRoundLifecycle.js";
@@ -94,6 +95,7 @@ import {
   computeDesktopColumnUiScales,
   computeDesktopGridChrome,
   computeDesktopGridResizeMaxTrackWidth,
+  computeDesktopResponsiveBaseHeight,
   computeDesktopUiScale,
   computeDesktopViewportHeight,
 } from "./utils/desktopResponsiveLayout.js";
@@ -3642,7 +3644,11 @@ export default function GobbleApplication() {
     onEvent: pushSamsungDiagEvent,
     onTileEnter: handleMouseEnter,
   });
-  const mainGridDesktopRef = useRef(null);
+  const [
+    mainGridDesktopRef,
+    setMainGridDesktopNode,
+    mainGridDesktopNode,
+  ] = useTrackedElementRef();
   const playColumnRef = useRef(null);
   const desktopGridResizeMaxTrackWidthRef = useRef(Number.POSITIVE_INFINITY);
   const mobileSpecial3TutorialHostRef = useRef(null);
@@ -4046,6 +4052,7 @@ export default function GobbleApplication() {
     desktopColumnOrderSafe,
     isMobileLayout,
     layoutFeature,
+    mainGridDesktopNode,
   ]);
   useEffect(() => {
     if (!isMobileLayout) return undefined;
@@ -4225,7 +4232,7 @@ export default function GobbleApplication() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [isMobileLayout, appView, phase, isLoggedIn]);
+  }, [isMobileLayout, appView, phase, isLoggedIn, mainGridDesktopNode]);
 
   useEffect(() => {
     document.body.classList.toggle("theme-dark", darkMode);
@@ -13891,6 +13898,7 @@ function handleTouchEnd(e) {
     setDesktopResultsDrawerLayout,
     setDesktopViewportResizeInProgress,
     showHelp,
+    mainGridDesktopNode,
   );
 
   const {
@@ -14778,12 +14786,11 @@ function handleTouchEnd(e) {
   const desktopDefaultGridChrome = computeDesktopGridChrome(
     desktopDefaultColumnUiScaleById.grid || desktopUiScale
   );
-  const desktopResponsiveBaseHeightPx = isMobileLayout
-    ? 0
-    : Math.max(
-        DESKTOP_MAIN_GRID_MIN_HEIGHT,
-        Number(desktopMainGridHeight) || 0
-      );
+  const desktopResponsiveBaseHeightPx = computeDesktopResponsiveBaseHeight({
+    isMobileLayout,
+    measuredHeight: desktopMainGridHeight,
+    minHeight: DESKTOP_MAIN_GRID_MIN_HEIGHT,
+  });
   const desktopGridHeightBoundTrackWidthPx =
     computeDesktopGridResizeMaxTrackWidth({
       columnHeight: desktopResponsiveBaseHeightPx,
@@ -18525,7 +18532,7 @@ function handleTouchEnd(e) {
             lightPanelStyle,
             listItemRefs,
             MAIN_GRID_HEIGHT,
-            mainGridDesktopRef,
+            setMainGridDesktopNode,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             nextHintLabel,

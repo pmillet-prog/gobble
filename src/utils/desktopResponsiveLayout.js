@@ -60,6 +60,18 @@ export function computeDesktopViewportHeight({
   );
 }
 
+export function computeDesktopResponsiveBaseHeight({
+  isMobileLayout = false,
+  measuredHeight,
+  minHeight = 1,
+} = {}) {
+  if (isMobileLayout || !Number.isFinite(measuredHeight)) return 0;
+  return Math.max(
+    Math.max(0, Number(minHeight) || 0),
+    Number(measuredHeight)
+  );
+}
+
 export function computeDesktopUiScale({
   hostWidth,
   columnHeight,

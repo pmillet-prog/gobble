@@ -9,6 +9,7 @@ import {
   computeDesktopGridFillMinHeight,
   computeDesktopGridChrome,
   computeDesktopGridResizeMaxTrackWidth,
+  computeDesktopResponsiveBaseHeight,
   computeDesktopUiScale,
   computeDesktopViewportHeight,
   shouldUseMobileLayout,
@@ -66,6 +67,25 @@ test("fits desktop height to the viewport without reintroducing a scroll floor",
       viewportHeight: 50,
     }),
     1
+  );
+});
+
+test("does not treat an unmeasured lazy desktop scene as a one-pixel column", () => {
+  assert.equal(
+    computeDesktopResponsiveBaseHeight({
+      isMobileLayout: false,
+      measuredHeight: null,
+      minHeight: 1,
+    }),
+    0
+  );
+  assert.equal(
+    computeDesktopResponsiveBaseHeight({
+      isMobileLayout: false,
+      measuredHeight: 640,
+      minHeight: 1,
+    }),
+    640
   );
 });
 
