@@ -157,10 +157,6 @@ import {
   isRareBonusEnabledForSpecial,
 } from "./game/specialRoundTypes.js";
 import {
-  disposeClientSolverWorker,
-  solveGridInWorker,
-} from "./compute/clientSolverWorker.js";
-import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
   capturePendingSubmissions,
   queuePendingSubmissionWords,
@@ -200,6 +196,7 @@ import { useLiveResumeFeature } from "./features/session/useLiveResumeFeature.js
 import usePhaseLoopController, {
   readPhaseLoopTestEnabled,
 } from "./features/dev/usePhaseLoopController.js";
+import useGridSolutionsScheduler from "./features/solver/useGridSolutionsScheduler.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -3276,7 +3273,7 @@ export default function GobbleApplication() {
   const chatHistoryIndexRef = useRef(-1);
   const solutionsRef = useRef(new Map());
   const serverAllWordsRef = useRef([]);
-  const allWordsComputeRef = useRef({ kickoff: null, timer: null, idle: null, key: null });
+  const gridSolutionsScheduler = useGridSolutionsScheduler();
   const chatLastSentRef = useRef(0);
   const chatReplyTargetRef = useRef(null);
   const chatEditTargetRef = useRef(null);
@@ -9508,31 +9505,8 @@ export default function GobbleApplication() {
   });
 
   function cancelAllWordsCompute() {
-    const job = allWordsComputeRef.current;
-    if (job.kickoff) {
-      clearTimeout(job.kickoff);
-      job.kickoff = null;
-    }
-    if (job.timer) {
-      clearTimeout(job.timer);
-      job.timer = null;
-    }
-    if (job.idle && typeof window !== "undefined" && window.cancelIdleCallback) {
-      try {
-        window.cancelIdleCallback(job.idle);
-      } catch (_) {}
-      job.idle = null;
-    }
-    job.key = null;
+    gridSolutionsScheduler.cancel();
   }
-
-  useEffect(
-    () => () => {
-      cancelAllWordsCompute();
-      disposeClientSolverWorker("application_disposed");
-    },
-    []
-  );
 
   function finalizeAllWords(rawSolutions, sourceBoard = board, opts = {}) {
     const updateBestRefs = opts.updateBestRefs !== false;
@@ -9594,46 +9568,30 @@ export default function GobbleApplication() {
     if (!sourceBoard || sourceBoard.length === 0) return;
 
     const key = jobKey || `solve-${Date.now()}-${Math.random()}`;
-    allWordsComputeRef.current.key = key;
-
-    const run = async () => {
-      if (allWordsComputeRef.current.key !== key) return;
-      let all = [];
-      try {
+    gridSolutionsScheduler.schedule({
+      board: sourceBoard,
+      delayMs,
+      jobKey: key,
+      onComplete: setAllWords,
+      onFallback: () => buildAllWordsLocal(sourceBoard, { updateBestRefs }),
+      onStart: () => {
         if (DEV_MODE) {
           console.info("[solver-worker] solveAll start", {
             phase: phaseRef.current,
             size: sourceBoard.length,
           });
         }
-        const rawSolutions = await solveGridInWorker(sourceBoard, specialScoreConfig);
-        if (allWordsComputeRef.current.key !== key) return;
-        all = finalizeAllWords(rawSolutions, sourceBoard, { updateBestRefs });
-      } catch (error) {
+      },
+      onWorkerError: (error) => {
         if (DEV_MODE) {
           console.warn("[solver-worker] fallback main thread", error);
         }
-        all = buildAllWordsLocal(sourceBoard, { updateBestRefs });
-      }
-      if (allWordsComputeRef.current.key !== key) return;
-      setAllWords(all);
-    };
-
-    const kickoff = () => {
-      if (typeof window !== "undefined" && window.requestIdleCallback) {
-        allWordsComputeRef.current.idle = window.requestIdleCallback(run, {
-          timeout: 15000,
-        });
-      } else {
-        allWordsComputeRef.current.timer = setTimeout(run, 600);
-      }
-    };
-
-    const kickoffDelay =
-      typeof delayMs === "number" && Number.isFinite(delayMs)
-        ? Math.max(0, Math.round(delayMs))
-        : 4500;
-    allWordsComputeRef.current.kickoff = setTimeout(kickoff, kickoffDelay);
+      },
+      onWorkerResult: (rawSolutions) =>
+        finalizeAllWords(rawSolutions, sourceBoard, { updateBestRefs }),
+      special: specialScoreConfig,
+      updateBestRefs,
+    });
   }
 
   function startGame() {
@@ -11649,7 +11607,7 @@ function handleTouchEnd(e) {
         if (!dictionary || dictionary.size === 0) return;
         if (!board || board.length === 0) return;
         if (allWords.length) return;
-        if (allWordsComputeRef.current.key) return;
+        if (gridSolutionsScheduler.hasActiveJob()) return;
         const onlineRound = Boolean(roundId);
         scheduleAllWordsCompute(board, {
           updateBestRefs: !onlineRound,
