@@ -1474,9 +1474,6 @@ export default function GobbleApplication() {
         setWeeklyArrowBlink: "weeklyArrowBlink",
         setWeeklyArrowBump: "weeklyArrowBump",
         setWeeklyArrowVisible: "weeklyArrowVisible",
-        setWeeklyStats: "stats",
-        setWeeklyStatsError: "error",
-        setWeeklyStatsLoading: "loading",
       }),
     [statsFeature]
   );
@@ -1623,9 +1620,6 @@ export default function GobbleApplication() {
     setWeeklyArrowBlink,
     setWeeklyArrowBump,
     setWeeklyArrowVisible,
-    setWeeklyStats,
-    setWeeklyStatsError,
-    setWeeklyStatsLoading,
   } = statsActions;
   const {
     devAccountAllowed,
@@ -1754,13 +1748,6 @@ export default function GobbleApplication() {
     gestureAxis: "none",
     dragging: false,
   });
-  const weeklyFetchRef = useRef({ last: 0, lastTopN: null });
-  const weeklyFetchStateRef = useRef({
-    controller: null,
-    topN: null,
-    startedAt: 0,
-  });
-  const weeklyFetchRetryAfterRef = useRef(0);
   const weeklySlideWidthRef = useRef(0);
   const weeklySwipeBlockRef = useRef(0);
   const targetWaitDevArmedRoundIdRef = useRef(null);
@@ -6553,117 +6540,11 @@ export default function GobbleApplication() {
   }
 
   function fetchWeeklyStatsSnapshot(topN = 200) {
-    const requestedTopN = Number.isFinite(topN)
-      ? Math.min(200, Math.max(1, Math.round(topN)))
-      : 200;
-    const query = requestedTopN ? `?topN=${requestedTopN}` : "";
-    return fetch(`/api/stats/weekly${query}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        if (!res.ok) throw new Error(`http_${res.status || "error"}`);
-        return text ? JSON.parse(text) : null;
-      })
-      .then((data) => {
-        if (data && typeof data === "object") {
-          setWeeklyStats(data);
-          setWeeklyStatsError("");
-          return data;
-        }
-        return null;
-      })
-      .catch((err) => {
-        console.warn("weekly stats snapshot failed", err);
-        return null;
-      });
+    return statsFeature.fetchWeeklySnapshot(topN);
   }
 
   function fetchWeeklyStats(force = false, topN = null) {
-    const now = Date.now();
-    const requestedTopN = Number.isFinite(topN)
-      ? Math.min(200, Math.max(1, Math.round(topN)))
-      : null;
-    const inFlight = weeklyFetchStateRef.current;
-    const sameInFlightTopN =
-      !!inFlight?.controller && inFlight.topN === requestedTopN;
-    if (sameInFlightTopN) return;
-    if (inFlight?.controller) {
-      if (!force) return;
-      try {
-        inFlight.controller.abort();
-      } catch (_) {}
-    }
-    const sameAsLastTopN = weeklyFetchRef.current.lastTopN === requestedTopN;
-    if (sameAsLastTopN && now < weeklyFetchRetryAfterRef.current) return;
-    if (!force && weeklyStatsLoading) return;
-    if (
-      !force &&
-      weeklyFetchRef.current.last &&
-      now - weeklyFetchRef.current.last < 4000 &&
-      weeklyFetchRef.current.lastTopN === requestedTopN
-    ) {
-      return;
-    }
-    weeklyFetchRef.current.last = now;
-    weeklyFetchRef.current.lastTopN = requestedTopN;
-    setWeeklyStatsLoading(true);
-    setWeeklyStatsError("");
-    const controller = new AbortController();
-    weeklyFetchStateRef.current = {
-      controller,
-      topN: requestedTopN,
-      startedAt: now,
-    };
-    const timer = setTimeout(() => controller.abort(), 6500);
-    const query = requestedTopN ? `?topN=${requestedTopN}` : "";
-    fetch(`/api/stats/weekly${query}`, {
-      signal: controller.signal,
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        if (!res.ok) throw new Error(`http_${res.status || "error"}`);
-        try {
-          return text ? JSON.parse(text) : null;
-        } catch (_) {
-          throw new Error("bad_json");
-        }
-      })
-      .then((data) => {
-        if (weeklyFetchStateRef.current.controller !== controller) return;
-        weeklyFetchRetryAfterRef.current = 0;
-        setWeeklyStats(data || null);
-      })
-      .catch((err) => {
-        if (weeklyFetchStateRef.current.controller !== controller) return;
-        if (err.name === "AbortError") {
-          setWeeklyStatsError("timeout");
-        } else if (err.message === "bad_json") {
-          setWeeklyStatsError("format");
-        } else {
-          setWeeklyStatsError("erreur");
-        }
-        weeklyFetchRetryAfterRef.current = Date.now() + 2500;
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        if (weeklyFetchStateRef.current.controller !== controller) return;
-        const startedAt = weeklyFetchStateRef.current.startedAt || now;
-        weeklyFetchStateRef.current = {
-          controller: null,
-          topN: null,
-          startedAt: 0,
-        };
-        const elapsed = Math.max(0, Date.now() - startedAt);
-        const delay = Math.max(0, 220 - elapsed);
-        setTimeout(() => {
-          if (weeklyFetchStateRef.current.controller) return;
-          setWeeklyStatsLoading(false);
-        }, delay);
-      });
+    return statsFeature.fetchWeekly(force, topN);
   }
 
   function fetchDailyStatus() {
@@ -8993,22 +8874,6 @@ export default function GobbleApplication() {
     seasonTouchRef.current.gestureAxis = "none";
     seasonTouchRef.current.dragging = false;
   }, [statsTab]);
-
-  useEffect(() => {
-    return () => {
-      const inFlight = weeklyFetchStateRef.current;
-      if (inFlight?.controller) {
-        try {
-          inFlight.controller.abort();
-        } catch (_) {}
-      }
-      weeklyFetchStateRef.current = {
-        controller: null,
-        topN: null,
-        startedAt: 0,
-      };
-    };
-  }, []);
 
   useEffect(() => {
     if (!isPlayersOverlayOpen) return;
