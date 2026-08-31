@@ -197,6 +197,7 @@ import usePhaseLoopController, {
   readPhaseLoopTestEnabled,
 } from "./features/dev/usePhaseLoopController.js";
 import useGridSolutionsScheduler from "./features/solver/useGridSolutionsScheduler.js";
+import useRoundAudioLifecycle from "./features/audio/useRoundAudioLifecycle.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -1735,7 +1736,6 @@ export default function GobbleApplication() {
   const safeAreaTopProbeRef = useRef(null);
   const finaleScrollRef = useRef(null);
   const socketConnectPromiseRef = useRef(null);
-  const roundStartSoundRef = useRef(null);
   const tickRef = useRef(clockFeature.store.getState().remainingSeconds);
   const weeklyStatsSnapshotRef = useRef(null);
   const tournamentBaselineRef = useRef({
@@ -3356,7 +3356,6 @@ export default function GobbleApplication() {
   const {
     ambientStartPendingRef,
     ambientRetryRef,
-    lastAmbientPhaseRef,
     primeAmbientAudio,
     resetAmbientOrder,
     startAmbientMusic,
@@ -3416,6 +3415,24 @@ export default function GobbleApplication() {
     stopRoundEndTickSound,
     stopRoundStartSound,
   } = gameSounds;
+  const { roundStartSoundRef } = useRoundAudioLifecycle({
+    audioUnlockedRef,
+    isAmbientMuted,
+    isDailyView,
+    isLoggedIn,
+    mobileRoundIntroStage,
+    mobileRoundIntroSuppressRoundStartRef,
+    phase,
+    playRoundStartSound,
+    resetAmbientOrder,
+    roundId,
+    roundStartPendingRef,
+    startAmbientMusic,
+    stopAmbientMusic,
+    stopIntroCountdownSound,
+    stopRoundEndTickSound,
+    stopRoundStartSound,
+  });
   const stopAllActiveAudio = React.useCallback(
     ({ suspendContext = false, immediate = false } = {}) => {
       stopRoundEndTickSound({ fadeMs: immediate ? 0 : 120 });
@@ -5442,19 +5459,6 @@ export default function GobbleApplication() {
     triggerConfettiBurst("target");
   }, [foundTargetThisRound, specialRound?.type, roundId]);
 
-  useEffect(() => {
-    if (phase !== "playing") return;
-    if (!roundId) return;
-    if (roundStartSoundRef.current === roundId) return;
-    if (mobileRoundIntroSuppressRoundStartRef.current) return;
-    roundStartSoundRef.current = roundId;
-    if (!audioUnlockedRef.current) {
-      roundStartPendingRef.current = roundId;
-      return;
-    }
-    playRoundStartSound();
-  }, [phase, roundId, mobileRoundIntroStage]);
-
   const playClockOneShotAudio = useStableEvent(playOneShotAudio);
   const playClockTickSound = useStableEvent(playTickSound);
   useEffect(
@@ -5488,37 +5492,6 @@ export default function GobbleApplication() {
       playClockTickSound,
     ]
   );
-
-  useEffect(() => {
-    if (phase === "playing") return;
-    stopRoundEndTickSound({ fadeMs: 80 });
-    stopIntroCountdownSound({ fadeMs: 80 });
-  }, [phase]);
-  useEffect(() => {
-    if (phase === "playing") return;
-    stopRoundStartSound({ fadeMs: 80 });
-  }, [phase]);
-
-  useEffect(() => {
-    const isResults = phase === "results";
-    const wasResults = lastAmbientPhaseRef.current === "results";
-    lastAmbientPhaseRef.current = phase;
-    const canPlayLiveAmbient =
-      isLoggedIn &&
-      !isDailyView &&
-      phase === "results";
-
-    if (isResults && !wasResults) {
-      resetAmbientOrder();
-    }
-
-    if (isAmbientMuted || !canPlayLiveAmbient) {
-      stopAmbientMusic({ fadeMs: 700, keepAlive: false });
-      return;
-    }
-
-    startAmbientMusic({ silent: false });
-  }, [phase, isAmbientMuted, isLoggedIn, isDailyView]);
 
   useEffect(() => {
     if (phase !== "playing") {
