@@ -7227,72 +7227,6 @@ export default function GobbleApplication() {
     openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
   }, [authModalMode, authState.user?.mustResetPassword, isAccountAuthenticated]);
 
-  function emitSocketAck(eventName, payload, { timeoutMs = 6500 } = {}) {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      let timeoutId = null;
-
-      const cleanup = () => {
-        socket.off("connect", onConnect);
-        socket.off("connect_error", onConnectError);
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-      };
-
-      const settleResolve = (value) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        resolve(value);
-      };
-
-      const settleReject = (err) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        reject(err);
-      };
-
-      const send = () => {
-        timeoutId = setTimeout(() => {
-          settleReject(new Error("timeout"));
-        }, timeoutMs);
-        socket.emit(eventName, payload, (res) => {
-          if (!res || typeof res !== "object") {
-            settleReject(new Error("bad_payload"));
-            return;
-          }
-          if (res.ok === false) {
-            const err = new Error(String(res.error || "error"));
-            err.payload = res;
-            settleReject(err);
-            return;
-          }
-          settleResolve(res);
-        });
-      };
-
-      function onConnect() {
-        send();
-      }
-
-      function onConnectError(err) {
-        settleReject(new Error(err?.message || "connect_error"));
-      }
-
-      if (socket.connected) {
-        send();
-        return;
-      }
-
-      socket.once("connect", onConnect);
-      socket.once("connect_error", onConnectError);
-      void connectSocketWithAuth();
-    });
-  }
-
   const [
     startDailyGame,
     submitDailyScore,
@@ -7317,7 +7251,7 @@ export default function GobbleApplication() {
     dailySubmitRef,
     dailyTictocPlayedRef,
     dailyWordSlots,
-    emitSocketAck,
+    dailyFeature.emitSocketAck,
     ensureAuthenticated,
     fetchDailyBoard,
     fetchDailyStatus,
@@ -8899,6 +8833,10 @@ export default function GobbleApplication() {
   }, [breakKind, isMobileLayout, nextStartAt, phase, resultsFeature, roundId]);
 
   useEffect(() => {
+    dailyFeature.configureTransport({
+      ensureConnection: connectSocketWithAuth,
+      socket,
+    });
     connectionFeature.configure({
       appViewRef,
       applyPlaytimeLimitStatus,
