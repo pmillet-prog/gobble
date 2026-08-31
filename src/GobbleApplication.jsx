@@ -197,6 +197,9 @@ import NotificationToastLayer from "./features/notifications/NotificationToastLa
 import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
 import { useLiveEntryFeature } from "./features/session/useLiveEntryFeature.js";
 import { useLiveResumeFeature } from "./features/session/useLiveResumeFeature.js";
+import usePhaseLoopController, {
+  readPhaseLoopTestEnabled,
+} from "./features/dev/usePhaseLoopController.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -497,7 +500,6 @@ const MOBILE_ROUND_INTRO_GO_HOLD_MS = 360;
 const MOBILE_ROUND_INTRO_GO_FADE_MS = 320;
 const MOBILE_ROUND_INTRO_GO_TOTAL_MS =
   MOBILE_ROUND_INTRO_GO_HOLD_MS + MOBILE_ROUND_INTRO_GO_FADE_MS;
-const DEV_PHASE_LOOP_QUERY_PARAM = "phaseLoop";
 const DEV_PHASE_LOOP_RESULTS_MS = 10_000;
 const DEV_PHASE_LOOP_PLAYING_MS = 10_000;
 const DEV_PHASE_LOOP_PLAYING_GUARD_MS = 250;
@@ -2587,20 +2589,9 @@ export default function GobbleApplication() {
   });
   const phaseLoopTestEnabled = React.useMemo(() => {
     if (typeof window === "undefined") return false;
-    try {
-      const raw = new URLSearchParams(window.location.search || "").get(
-        DEV_PHASE_LOOP_QUERY_PARAM
-      );
-      if (!raw) return false;
-      const normalized = String(raw).trim().toLowerCase();
-      return normalized === "1" || normalized === "true" || normalized === "on";
-    } catch (_) {
-      return false;
-    }
+    return readPhaseLoopTestEnabled(window.location.search);
   }, []);
   const phaseLoopTestEnabledRef = useRef(phaseLoopTestEnabled);
-  const phaseLoopTimerRef = useRef(null);
-  const phaseLoopRoundCounterRef = useRef(0);
   const isLoggedInRef = useRef(false);
   const appViewRef = useRef(appView);
   const isDailyPlayRef = useRef(isDailyPlay);
@@ -2665,13 +2656,6 @@ export default function GobbleApplication() {
   const mobileExitGuardLeavingRef = useRef(false);
   const mobileExitGuardActiveRef = useRef(false);
   const deferredTraceUiTasksRef = useRef([]);
-  const clearPhaseLoopTimer = React.useCallback(() => {
-    if (phaseLoopTimerRef.current) {
-      clearTimeout(phaseLoopTimerRef.current);
-      phaseLoopTimerRef.current = null;
-    }
-  }, []);
-
   useEffect(() => {
     phaseLoopTestEnabledRef.current = phaseLoopTestEnabled;
   }, [phaseLoopTestEnabled]);
@@ -2695,7 +2679,6 @@ export default function GobbleApplication() {
       playerActivityFeature.signal(kind, options),
     [playerActivityFeature]
   );
-  useEffect(() => () => clearPhaseLoopTimer(), [clearPhaseLoopTimer]);
   useEffect(() => {
     isDailyPlayRef.current = isDailyPlay;
   }, [isDailyPlay]);
@@ -9450,58 +9433,40 @@ export default function GobbleApplication() {
     startGameFromServerRef.current = startGameFromServer;
   });
 
-  useEffect(() => {
-    const shouldRunLoop =
-      phaseLoopTestEnabled && isLoggedIn && !isDailyView && appView === "live";
-    if (!shouldRunLoop) {
-      clearPhaseLoopTimer();
-      return;
-    }
-
-    let cancelled = false;
-    phaseLoopRoundCounterRef.current = 0;
-    stopImplodePhase();
-
-    const schedule = (fn, delayMs) => {
-      clearPhaseLoopTimer();
-      phaseLoopTimerRef.current = setTimeout(() => {
-        phaseLoopTimerRef.current = null;
-        if (cancelled) return;
-        if (applicationKernel.getState().navigation.view !== "live") return;
-        fn();
-      }, Math.max(0, Math.round(delayMs)));
-    };
-
-    const enterResultsPhase = () => {
-      if (cancelled) return;
+  usePhaseLoopController({
+    createGrid: generateGrid,
+    enabled:
+      phaseLoopTestEnabled && isLoggedIn && !isDailyView && appView === "live",
+    fallbackGridSize: gridSize || 4,
+    getCurrentView: () => applicationKernel.getState().navigation.view,
+    getNowServerMs,
+    getSourceRoomId: () => currentRoomIdRef.current || roomId,
+    onEnterResults: ({ nextStartAt, sourceRoomId }) => {
       gameplaySessionFeature.transitionPhase("results", {
-        roomId: currentRoomIdRef.current || roomId,
+        roomId: sourceRoomId,
       });
       inputLockedRef.current = false;
       applicationKernel.commands.transition.apply({
         game: { inputLocked: false, phase: "results" },
         realtime: {
           breakKind: "phase_loop",
-          nextStartAt: Date.now() + DEV_PHASE_LOOP_RESULTS_MS,
+          nextStartAt,
           roundId: null,
           serverEndsAt: null,
           serverRoundDurationMs: null,
         },
         session: { serverStatus: "break" },
       });
-      schedule(startIntroAndPlayingPhase, DEV_PHASE_LOOP_RESULTS_MS);
-    };
-
-    const startIntroAndPlayingPhase = () => {
-      if (cancelled) return;
-      const sourceRoomId = currentRoomIdRef.current || roomId;
-      const loopGridSize = getGridSizeForRoom(sourceRoomId) || gridSize || 4;
-      const loopGrid = generateGrid(loopGridSize);
-      const nowServerMs = getNowServerMs();
-      const startsAt = nowServerMs + DEV_PHASE_LOOP_INTRO_MS;
-      const endsAt = startsAt + DEV_PHASE_LOOP_PLAYING_MS + DEV_PHASE_LOOP_PLAYING_GUARD_MS;
-      phaseLoopRoundCounterRef.current += 1;
-      const devRoundId = `phase-loop-${phaseLoopRoundCounterRef.current}-${Date.now()}`;
+    },
+    onStartRound: ({
+      endsAt,
+      grid,
+      gridSize: loopGridSize,
+      introMs,
+      roundId: devRoundId,
+      sourceRoomId,
+      startsAt,
+    }) => {
       applicationKernel.commands.realtime.patch({ breakKind: null, nextStartAt: null });
       gameplaySessionFeature.startRound(
         {
@@ -9514,7 +9479,7 @@ export default function GobbleApplication() {
         { origin: "dev", entryKind: "dev" }
       );
       startGameFromServerRef.current?.(
-        loopGrid,
+        grid,
         devRoundId,
         endsAt - startsAt,
         endsAt,
@@ -9526,29 +9491,21 @@ export default function GobbleApplication() {
         [],
         {
           startsAt,
-          introMs: DEV_PHASE_LOOP_INTRO_MS,
+          introMs,
           status: "intro",
         }
       );
-      schedule(enterResultsPhase, DEV_PHASE_LOOP_INTRO_MS + DEV_PHASE_LOOP_PLAYING_MS);
-    };
-
-    enterResultsPhase();
-
-    return () => {
-      cancelled = true;
-      clearPhaseLoopTimer();
-    };
-  }, [
-    phaseLoopTestEnabled,
-    isLoggedIn,
-    isDailyView,
-    appView,
-    roomId,
-    gridSize,
-    clearPhaseLoopTimer,
-    stopImplodePhase,
-  ]);
+    },
+    resolveGridSize: getGridSizeForRoom,
+    restartKey: `${roomId || ""}|${gridSize || ""}`,
+    stopRoundEffects: stopImplodePhase,
+    timings: {
+      introMs: DEV_PHASE_LOOP_INTRO_MS,
+      playingGuardMs: DEV_PHASE_LOOP_PLAYING_GUARD_MS,
+      playingMs: DEV_PHASE_LOOP_PLAYING_MS,
+      resultsMs: DEV_PHASE_LOOP_RESULTS_MS,
+    },
+  });
 
   function cancelAllWordsCompute() {
     const job = allWordsComputeRef.current;
