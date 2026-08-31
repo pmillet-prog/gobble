@@ -241,6 +241,7 @@ import {
 } from "./components/ocid/ocidFeedback.js";
 import useGridDragPipeline from "./components/grid/useGridDragPipeline.js";
 import useGridHitboxController from "./components/grid/useGridHitboxController.js";
+import useGridInputLifecycle from "./components/grid/useGridInputLifecycle.js";
 import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalonePrep.js";
 import useDailySpecialInteraction, {
   getDailySpecialDragTransform,
@@ -4163,22 +4164,6 @@ export default function GobbleApplication() {
       }, [VIEWPORT_EVENTS.VISUAL_RESIZE]),
     [layoutFeature]
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const preventTouchScrollDuringDrag = (event) => {
-      if (!draggingRef.current) return;
-      if (event?.cancelable) {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("touchmove", preventTouchScrollDuringDrag, {
-      passive: false,
-    });
-    return () => {
-      window.removeEventListener("touchmove", preventTouchScrollDuringDrag);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -10376,104 +10361,20 @@ export default function GobbleApplication() {
     commitTraceSelection(next, path || []);
   }
 
-  /**
-   * Gestion clavier globale : Tab pour switch game/chat,
-   * lettres pour le jeu uniquement quand activeArea === "game".
-   */
-  useEffect(() => {
-    function onKey(e) {
-      const target = e.target;
-      const targetElement = target instanceof HTMLElement ? target : null;
-      const authDialogOpen = !!authModalMode;
-      const authDialogFocused =
-        !!targetElement?.closest?.("[data-auth-dialog='true']") ||
-        !!(
-          document.activeElement instanceof HTMLElement &&
-          document.activeElement.closest?.("[data-auth-dialog='true']")
-        );
-
-      // Tab : bascule jeu <-> chat
-      if (e.key === "Tab") {
-        if (authDialogOpen || authDialogFocused) {
-          return;
-        }
-        e.preventDefault();
-
-        setActiveArea((prev) => {
-          const next = prev === "game" ? "chat" : "game";
-
-          if (next === "chat") {
-            setTimeout(() => {
-              focusChatInput();
-            }, 0);
-          } else {
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-          }
-
-          return next;
-        });
-
-        return;
-      }
-
-      if (
-        targetElement &&
-        targetElement.closest?.(
-          "input, textarea, select, [contenteditable='true'], [data-chat-panel='true']"
-        )
-      ) {
-        return;
-      }
-
-      // On ne gère le reste que si le jeu est la zone active
-      if (activeArea !== "game") return;
-      if (phase !== "playing") return;
-      if (inputLockedRef.current) return;
-
-      const tag = target?.tagName;
-      if (
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        tag === "SELECT" ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
-
-      const k = e.key.toLowerCase();
-
-      if (/^[a-z]$/.test(k)) {
-        e.preventDefault();
-        lastInputModeRef.current = "keyboard";
-        addLetterFromKeyboard(k.toUpperCase());
-      }
-      if (k === "arrowup") {
-        e.preventDefault();
-        lastInputModeRef.current = "keyboard";
-        cycleWordHistory(-1);
-      }
-      if (k === "arrowdown") {
-        e.preventDefault();
-        lastInputModeRef.current = "keyboard";
-        cycleWordHistory(1);
-      }
-      if (k === "enter") {
-        e.preventDefault();
-        lastInputModeRef.current = "keyboard";
-        submit();
-      }
-      if (k === "backspace") {
-        e.preventDefault();
-        lastInputModeRef.current = "keyboard";
-        removeLastLetterFromKeyboard();
-      }
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [activeArea, authModalMode, phase, board, dictionary, submit]);
+  useGridInputLifecycle({
+    activeArea,
+    addLetter: addLetterFromKeyboard,
+    authDialogOpen: !!authModalMode,
+    cycleWordHistory,
+    draggingRef,
+    focusChatInput,
+    inputLockedRef,
+    lastInputModeRef,
+    phase,
+    removeLastLetter: removeLastLetterFromKeyboard,
+    setActiveArea,
+    submit,
+  });
 
     // =============== VIBRATIONS (optionnelles, mobile) ===============
   function vibrateLight() {
