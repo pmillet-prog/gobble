@@ -6032,27 +6032,6 @@ export default function GobbleApplication() {
     tickRef,
   ]);
   useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        syncServerTime();
-      }
-    };
-
-    const onFocus = () => {
-      syncServerTime();
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", onFocus);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, []);
-
-  useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const stopAudioForBackground = () => {
       stopAllActiveAudio({ suspendContext: true, immediate: true });
@@ -6502,33 +6481,6 @@ export default function GobbleApplication() {
 
   function getNowServerMs() {
     return readServerClockMs(serverClockRef.current);
-  }
-
-  function syncServerTime(next) {
-    if (!socket?.connected) {
-      next?.();
-      return;
-    }
-    const t0 = getMonotonicNowMs();
-    let done = false;
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      next?.();
-    }, 1200);
-    socket.emit("timeSync", null, (res) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      const t1 = getMonotonicNowMs();
-      if (res?.ok && typeof res.serverNow === "number") {
-        const rtt = Math.max(0, t1 - t0);
-        serverClockRef.current = updateServerClockFromSample(serverClockRef.current, {
-          sampledServerNowMs: res.serverNow + rtt / 2,
-        });
-      }
-      next?.();
-    });
   }
 
   function loadSessionFromStorage() {
@@ -9972,7 +9924,7 @@ export default function GobbleApplication() {
     setScore,
     showGlobalRedAnnouncement,
     socket,
-    syncServerTime,
+    syncServerTime: connectionFeature.syncServerTime,
   });
 
   function handleLogin(e) {

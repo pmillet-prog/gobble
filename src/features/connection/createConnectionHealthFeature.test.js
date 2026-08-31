@@ -203,6 +203,66 @@ test("connection health owns foreground live synchronization and stale-response 
   assert.equal(flushCount, 1);
 });
 
+test("connection health owns entry time sync and preserves its 1200 ms fallback", async () => {
+  const documentTarget = createEventTarget();
+  const windowTarget = createEventTarget();
+  const timers = new Map();
+  const emitted = [];
+  const samples = [];
+  let nextTimerId = 1;
+  let continuationCount = 0;
+  const socket = {
+    connected: true,
+    emit(eventName, payload, acknowledge) {
+      emitted.push({ acknowledge, eventName, payload });
+    },
+  };
+  const scope = createResourceScope("connection-entry-sync-test");
+  const kernel = createApplicationKernel();
+  const feature = createConnectionHealthFeature(
+    { getKernel: () => kernel, scope },
+    {
+      clearTimeoutFn: (id) => timers.delete(id),
+      documentTarget,
+      now: () => 5000,
+      setTimeoutFn: (callback, delayMs) => {
+        const id = nextTimerId++;
+        timers.set(id, { callback, delayMs });
+        return id;
+      },
+      windowTarget,
+    }
+  );
+  feature.configure({
+    connection: socket,
+    getMonotonicNowMs: () => 5000,
+    onServerTimeSample: (sample) => samples.push(sample),
+  });
+  feature.start();
+
+  const syncPromise = feature.syncServerTime(() => {
+    continuationCount += 1;
+  });
+  assert.equal(emitted[0].eventName, "timeSync");
+  assert.equal([...timers.values()][0].delayMs, 1200);
+  emitted[0].acknowledge({ ok: true, serverNow: 25_000 });
+  assert.equal(await syncPromise, true);
+  assert.equal(continuationCount, 1);
+  assert.equal(samples.length, 1);
+  assert.equal(timers.size, 0);
+
+  socket.connected = false;
+  assert.equal(
+    await feature.syncServerTime(() => {
+      continuationCount += 1;
+    }),
+    false
+  );
+  assert.equal(continuationCount, 2);
+  scope.dispose();
+  kernel.dispose();
+});
+
 test("connection health applies the watchdog threshold and foreground reconnect policy", async () => {
   const documentTarget = createEventTarget();
   const windowTarget = createEventTarget();

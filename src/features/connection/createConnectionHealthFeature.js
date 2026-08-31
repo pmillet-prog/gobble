@@ -2,6 +2,7 @@ import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissio
 
 const DEFAULT_FOREGROUND_THROTTLE_MS = 800;
 const DEFAULT_BACKGROUND_RECONNECT_MS = 5000;
+const DEFAULT_ENTRY_SYNC_TIMEOUT_MS = 1200;
 const DEFAULT_PING_TIMEOUT_MS = 3200;
 const DEFAULT_SYNC_TIMEOUT_MS = 5000;
 const DEFAULT_WATCHDOG_FAILURE_THRESHOLD = 3;
@@ -94,7 +95,7 @@ export function createConnectionHealthFeature(
     attempt.reject(new Error(reason));
   }
 
-  function pingServer(reason = "ping") {
+  function pingServer(reason = "ping", { timeoutMs = null } = {}) {
     const connection = getConnection();
     if (!connection?.connected) {
       return Promise.reject(new Error("disconnected"));
@@ -135,7 +136,12 @@ export function createConnectionHealthFeature(
     };
     attempt.timeoutId = setTimeoutFn(
       () => settle(new Error("timeout")),
-      Math.max(0, Number(config.pingTimeoutMs) || DEFAULT_PING_TIMEOUT_MS)
+      Math.max(
+        0,
+        Number(timeoutMs) ||
+          Number(config.pingTimeoutMs) ||
+          DEFAULT_PING_TIMEOUT_MS
+      )
     );
     try {
       connection.emit?.("timeSync", null, (response) => {
@@ -158,6 +164,23 @@ export function createConnectionHealthFeature(
       settle(error instanceof Error ? error : new Error("ping_emit_failed"));
     }
     return promise;
+  }
+
+  function syncServerTime(next, reason = "live_entry") {
+    if (!isConnected()) {
+      safeInvoke(next);
+      return Promise.resolve(false);
+    }
+    return pingServer(reason, { timeoutMs: DEFAULT_ENTRY_SYNC_TIMEOUT_MS }).then(
+      () => {
+        safeInvoke(next);
+        return true;
+      },
+      () => {
+        safeInvoke(next);
+        return false;
+      }
+    );
   }
 
   function cancelLiveStateSync(reason = "cancelled") {
@@ -790,6 +813,7 @@ export function createConnectionHealthFeature(
     runHealthCheck,
     scheduleForegroundRetry,
     start,
+    syncServerTime,
     syncLiveState,
   });
 }
