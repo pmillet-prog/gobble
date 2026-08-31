@@ -2595,7 +2595,6 @@ export default function GobbleApplication() {
   const nicknameRef = useRef(nickname);
   const phaseRef = useRef(phase);
   const currentRoundTrainingRef = useRef(false);
-  const previousPhaseRef = useRef(phase);
   const currentRoomIdRef = useRef(currentRoomId);
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
@@ -5150,7 +5149,7 @@ export default function GobbleApplication() {
     mobileRoundIntroTimersRef.current = [];
   }, []);
 
-  const { startMobileRoundIntro, stopMobileRoundIntro } = useMobileRoundIntro(
+  const { stopMobileRoundIntro } = useMobileRoundIntro(
     clearMobileRoundIntroTimers,
     clearTileIntroAnimationFnRef,
     createMonotonicDeadline,
@@ -5194,6 +5193,8 @@ export default function GobbleApplication() {
     stopIntroCountdownSound,
     tournament,
     triggerTileIntroAnimationFnRef,
+    phase,
+    mobileRoundIntroStage,
   );
 
   const {
@@ -5487,37 +5488,6 @@ export default function GobbleApplication() {
       playClockTickSound,
     ]
   );
-
-  useEffect(() => {
-    const prevPhase = previousPhaseRef.current;
-    previousPhaseRef.current = phase;
-
-    if (phase === "playing" && roundId) {
-      const introWindow = roundIntroServerWindowRef.current || {};
-      const introRoundId = introWindow.roundId || null;
-      const introStartsAt = Number.isFinite(introWindow.startsAt)
-        ? Number(introWindow.startsAt)
-        : null;
-      const introStatus = String(introWindow.status || "");
-      const hasPendingIntro =
-        introRoundId &&
-        introRoundId === roundId &&
-        introStatus === "intro" &&
-        Number.isFinite(introStartsAt) &&
-        introStartsAt > getNowServerMs() + 80;
-      if (hasPendingIntro && roundIntroStartedForRoundRef.current !== roundId) {
-        startMobileRoundIntro();
-        return;
-      }
-      if ((prevPhase === "results" || prevPhase === "lobby") && !hasPendingIntro) {
-        roundIntroStartedForRoundRef.current = roundId;
-      }
-    }
-
-    if (phase !== "playing" && mobileRoundIntroStage !== "idle") {
-      stopMobileRoundIntro({ unlockInput: false });
-    }
-  }, [phase, roundId, mobileRoundIntroStage, startMobileRoundIntro, stopMobileRoundIntro]);
 
   useEffect(() => {
     if (phase === "playing") return;
