@@ -2277,11 +2277,6 @@ export default function GobbleApplication() {
     red: 0,
     blue: 0,
   });
-  const duelStatusFetchStateRef = useRef({
-    inFlight: false,
-    key: "",
-    startedAt: 0,
-  });
   const duelWeekRecapOpenAfterRefreshRef = useRef(null);
   const duelWeekRecapWeeklyRefreshRef = useRef("");
   const dailyHistoryScrollRef = useRef(null);
@@ -6647,133 +6642,22 @@ export default function GobbleApplication() {
     openWordVaultPage();
   }
 
-  async function fetchDuelStatus({ dateId = null, retryAuth = true, force = false } = {}) {
-    if (!installId) return;
-    if (!isAccountAuthenticated) {
-      setDuelStatus((prev) => ({
-        ...prev,
-        loading: false,
-        error: "",
-      }));
-      return;
-    }
-    const requestKey = `${installId}|${dateId || ""}`;
-    const fetchState = duelStatusFetchStateRef.current;
-    if (!force && fetchState.inFlight) {
-      return;
-    }
-    fetchState.inFlight = true;
-    fetchState.key = requestKey;
-    fetchState.startedAt = Date.now();
-    setDuelStatus((prev) => ({ ...prev, loading: true, error: "" }));
-    const params = new URLSearchParams();
-    params.set("installId", installId);
-    if (dateId) params.set("dateId", dateId);
-    try {
-      let data = null;
-      let errorCode = "erreur";
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const query = new URLSearchParams(params);
-        if (attempt > 0) {
-          query.set("r", String(Date.now()));
-        }
-        const controller =
-          typeof AbortController !== "undefined" ? new AbortController() : null;
-        const timeoutId =
-          controller && typeof window !== "undefined"
-            ? window.setTimeout(() => controller.abort(), 12000)
-            : null;
-        let res = null;
-        try {
-          res = await fetch(`/api/duel/status?${query.toString()}`, {
-            cache: "no-store",
-            credentials: "include",
-            signal: controller?.signal,
-            headers: {
-              Accept: "application/json",
-              "Cache-Control": "no-store, no-cache, max-age=0",
-              Pragma: "no-cache",
-            },
-          });
-        } finally {
-          if (timeoutId) window.clearTimeout(timeoutId);
-        }
-        const parsed = await readJsonResponseLoose(res);
-        if (!res.ok) {
-          errorCode = String(parsed?.data?.error || `http_${res.status || "error"}`);
-          if (attempt === 0) {
-            await new Promise((resolve) => setTimeout(resolve, 120));
-            continue;
-          }
-          throw new Error(errorCode);
-        }
-        if (!parsed.parseOk || !parsed.data || typeof parsed.data !== "object") {
-          errorCode = parsed.isLikelyHtml ? "bad_payload_html" : "bad_payload";
-          if (attempt === 0) {
-            await new Promise((resolve) => setTimeout(resolve, 120));
-            continue;
-          }
-          throw new Error(errorCode);
-        }
-        data = parsed.data;
-        break;
-      }
-      if (!data || typeof data !== "object") {
-        throw new Error(errorCode);
-      }
-      setDuelStatus({
-        loading: false,
-        error: "",
-        dateId: data?.dateId || null,
-        weekId: data?.weekId || null,
-        team: data?.team || null,
-        crowned: !!data?.crowned,
-        weekly: data?.weekly || null,
-        lastWeekSummary: data?.lastWeekSummary || null,
-        objectives: data?.objectives || null,
-        dailyBattle: data?.dailyBattle || null,
-        tutorialVersion: data?.tutorialVersion || null,
-      });
-      setAccountNotice((prev) =>
-        prev === ACCOUNT_SESSION_UNAVAILABLE_MESSAGE
-          ? ""
-          : prev
-      );
-    } catch (err) {
-      const code = String(err?.message || "erreur");
-      console.warn("[duel/status] fetch failed", {
-        code,
-        installId,
-        dateId: dateId || null,
-      });
-      if (code === "auth_required") {
-        if (retryAuth) {
-          const refreshed = await refreshAuthStatus({ silent: true });
-          if (refreshed?.status === "authenticated" && refreshed?.user) {
-            await fetchDuelStatus({ dateId, retryAuth: false, force: true });
-            return;
-          }
-        }
-        setDuelStatus((prev) => ({
-          ...prev,
-          loading: false,
-          error: "auth_required",
-        }));
+  function fetchDuelStatus(options = {}) {
+    return duelFeature.fetchStatus({
+      ...options,
+      installId,
+      isAuthenticated: isAccountAuthenticated,
+      onAuthRequired: () => {
         setAccountNotice(ACCOUNT_SESSION_UNAVAILABLE_MESSAGE);
-        return;
-      }
-      setDuelStatus((prev) => ({
-        ...prev,
-        loading: false,
-        error: code,
-      }));
-    } finally {
-      if (duelStatusFetchStateRef.current.key === requestKey) {
-        duelStatusFetchStateRef.current.inFlight = false;
-        duelStatusFetchStateRef.current.key = "";
-        duelStatusFetchStateRef.current.startedAt = 0;
-      }
-    }
+      },
+      onSuccess: () => {
+        setAccountNotice((previous) =>
+          previous === ACCOUNT_SESSION_UNAVAILABLE_MESSAGE ? "" : previous
+        );
+      },
+      readJsonResponse: readJsonResponseLoose,
+      refreshAuthStatus,
+    });
   }
 
   useEffect(() => {
