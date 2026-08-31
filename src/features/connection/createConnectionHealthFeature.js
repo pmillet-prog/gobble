@@ -1,5 +1,11 @@
 import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 
+const DEFAULT_FOREGROUND_THROTTLE_MS = 800;
+const DEFAULT_BACKGROUND_RECONNECT_MS = 5000;
+const DEFAULT_PING_TIMEOUT_MS = 3200;
+const DEFAULT_SYNC_TIMEOUT_MS = 5000;
+const DEFAULT_WATCHDOG_FAILURE_THRESHOLD = 3;
+
 function safeInvoke(callback, ...args) {
   try {
     const result = callback?.(...args);
@@ -28,6 +34,8 @@ export function createConnectionHealthFeature(
     watchdogFailures: { current: 0 },
   });
   let active = false;
+  let activePing = null;
+  let activeSync = null;
   let config = {};
   let disconnectGraceTimerId = null;
   let foregroundRetryTimerId = null;
@@ -65,6 +73,328 @@ export function createConnectionHealthFeature(
     }
   }
 
+  function getConnection() {
+    return config.connection || realtimeSocket || realtimeConfig.socket || null;
+  }
+
+  function readSavedSession() {
+    try {
+      return config.sessionRef?.current || config.loadSessionFromStorage?.() || null;
+    } catch (_) {
+      return config.sessionRef?.current || null;
+    }
+  }
+
+  function cancelPing(reason = "cancelled") {
+    const attempt = activePing;
+    if (!attempt) return;
+    activePing = null;
+    if (attempt.timeoutId != null) clearTimeoutFn(attempt.timeoutId);
+    attempt.timeoutId = null;
+    attempt.reject(new Error(reason));
+  }
+
+  function pingServer(reason = "ping") {
+    const connection = getConnection();
+    if (!connection?.connected) {
+      return Promise.reject(new Error("disconnected"));
+    }
+    if (activePing) return activePing.promise;
+
+    const monotonicNow =
+      typeof config.getMonotonicNowMs === "function"
+        ? config.getMonotonicNowMs
+        : now;
+    const startedAt = monotonicNow();
+    let resolvePromise;
+    let rejectPromise;
+    const promise = new Promise((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+    promise.catch(() => {});
+    const attempt = {
+      promise,
+      reason,
+      reject: rejectPromise,
+      resolve: resolvePromise,
+      timeoutId: null,
+    };
+    activePing = attempt;
+
+    const settle = (error, response = null) => {
+      if (activePing !== attempt) return;
+      activePing = null;
+      if (attempt.timeoutId != null) clearTimeoutFn(attempt.timeoutId);
+      attempt.timeoutId = null;
+      if (error) {
+        attempt.reject(error);
+      } else {
+        attempt.resolve(response);
+      }
+    };
+    attempt.timeoutId = setTimeoutFn(
+      () => settle(new Error("timeout")),
+      Math.max(0, Number(config.pingTimeoutMs) || DEFAULT_PING_TIMEOUT_MS)
+    );
+    try {
+      connection.emit?.("timeSync", null, (response) => {
+        if (activePing !== attempt) return;
+        if (response?.ok && typeof response.serverNow === "number") {
+          const completedAt = monotonicNow();
+          safeInvoke(config.onServerTimeSample, {
+            completedAt,
+            reason,
+            sampledServerNowMs:
+              response.serverNow + Math.max(0, completedAt - startedAt) / 2,
+            startedAt,
+          });
+          settle(null, response);
+          return;
+        }
+        settle(new Error("bad_response"));
+      });
+    } catch (error) {
+      settle(error instanceof Error ? error : new Error("ping_emit_failed"));
+    }
+    return promise;
+  }
+
+  function cancelLiveStateSync(reason = "cancelled") {
+    const attempt = activeSync;
+    if (!attempt) return;
+    activeSync = null;
+    if (attempt.timeoutId != null) clearTimeoutFn(attempt.timeoutId);
+    attempt.timeoutId = null;
+    attempt.reject(new Error(reason));
+  }
+
+  function syncLiveState(reason = "foreground") {
+    const connection = getConnection();
+    if (
+      !config.isAccountAuthenticatedRef?.current ||
+      !connection?.connected ||
+      !realtimeConfig.isLoggedInRef?.current ||
+      realtimeConfig.appViewRef?.current !== "live" ||
+      realtimeConfig.standaloneTrainingSessionRef?.current
+    ) {
+      return Promise.resolve(false);
+    }
+    if (activeSync) return activeSync.promise;
+
+    const session = readSavedSession();
+    const nick = String(config.nicknameRef?.current || session?.nick || "").trim();
+    const roomId =
+      config.currentRoomIdRef?.current ||
+      session?.roomId ||
+      config.roomIdRef?.current;
+    const installId = config.installIdRef?.current || session?.installId;
+    if (!nick || !roomId || !installId) {
+      return Promise.reject(new Error("missing_live_session"));
+    }
+
+    let resolvePromise;
+    let rejectPromise;
+    const promise = new Promise((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+    promise.catch(() => {});
+    const attempt = {
+      promise,
+      reject: rejectPromise,
+      resolve: resolvePromise,
+      timeoutId: null,
+    };
+    activeSync = attempt;
+
+    const settle = (error, value = null) => {
+      if (activeSync !== attempt) return;
+      activeSync = null;
+      if (attempt.timeoutId != null) clearTimeoutFn(attempt.timeoutId);
+      attempt.timeoutId = null;
+      if (error) {
+        attempt.reject(error);
+      } else {
+        attempt.resolve(value);
+      }
+    };
+    attempt.timeoutId = setTimeoutFn(
+      () => settle(new Error("timeout")),
+      Math.max(0, Number(config.syncTimeoutMs) || DEFAULT_SYNC_TIMEOUT_MS)
+    );
+    try {
+      connection.emit?.(
+        "session:resume",
+        { roomId, installId, nick, takeover: false },
+        (response) => {
+          if (activeSync !== attempt) return;
+          if (!response || typeof response !== "object") {
+            settle(new Error("bad_payload"));
+            return;
+          }
+          if (response.ok === false) {
+            const error = new Error(String(response.error || "error"));
+            error.payload = response;
+            settle(error);
+            return;
+          }
+          if (
+            !response.available ||
+            response.attached === false ||
+            !response.snapshot
+          ) {
+            settle(new Error(response.error || "live_state_unavailable"));
+            return;
+          }
+          try {
+            if (response.playtimeLimit) {
+              safeInvoke(config.applyPlaytimeLimitStatus, response.playtimeLimit);
+            }
+            getApplicationCommands()?.session?.setResumeSnapshot?.(null);
+            const hydrated = !!config.hydrateLiveSnapshot?.(
+              response.snapshot,
+              response.entryKind || "resume"
+            );
+            if (realtimeConfig.liveSessionReadyRef) {
+              realtimeConfig.liveSessionReadyRef.current = hydrated;
+            }
+            if (!hydrated) {
+              settle(new Error("live_snapshot_rejected"));
+              return;
+            }
+            getApplicationCommands()?.session?.setConnectionError?.("");
+            refs.watchdogFailures.current = 0;
+            safeInvoke(config.scheduleBatchFlush, { immediate: true });
+            console.debug(`[foreground] live state synchronized (${reason})`);
+            settle(null, true);
+          } catch (error) {
+            settle(
+              error instanceof Error ? error : new Error("live_sync_failed")
+            );
+          }
+        }
+      );
+    } catch (error) {
+      settle(error instanceof Error ? error : new Error("live_sync_emit_failed"));
+    }
+    return promise;
+  }
+
+  function isDailyView(view) {
+    return view === "daily" || view === "daily_play" || view === "daily_results";
+  }
+
+  function runHealthCheck(reason = "watchdog") {
+    const connection = getConnection();
+    if (!connection?.connected) return Promise.resolve(false);
+    return pingServer(reason)
+      .then(() => {
+        if (!active) return false;
+        refs.watchdogFailures.current = 0;
+        console.debug(`[watchdog] pong (${reason})`);
+        return true;
+      })
+      .catch(() => {
+        if (!active) return false;
+        const failures = (refs.watchdogFailures.current || 0) + 1;
+        refs.watchdogFailures.current = failures;
+        const threshold = Math.max(
+          1,
+          Number(config.watchdogFailureThreshold) ||
+            DEFAULT_WATCHDOG_FAILURE_THRESHOLD
+        );
+        if (failures < threshold) {
+          console.warn(`[watchdog] soft failure (${reason}) #${failures}`);
+          return false;
+        }
+        refs.watchdogFailures.current = 0;
+        console.warn(`[watchdog] reconnect (${reason})`);
+        refs.intentionalDisconnect.current = true;
+        connection.disconnect?.();
+        const currentView = realtimeConfig.appViewRef?.current;
+        if (realtimeConfig.isLoggedInRef?.current && !isDailyView(currentView)) {
+          safeInvoke(config.resumeSession, "watchdog");
+        } else {
+          safeInvoke(config.probeSession, "watchdog");
+        }
+        return false;
+      });
+  }
+
+  function handleForeground(reason = "foreground") {
+    const timestamp = now();
+    const throttleMs = Math.max(
+      0,
+      Number(config.foregroundThrottleMs) || DEFAULT_FOREGROUND_THROTTLE_MS
+    );
+    if (timestamp - refs.foregroundAttemptAt.current < throttleMs) return false;
+    refs.foregroundAttemptAt.current = timestamp;
+    if (!config.isAccountAuthenticatedRef?.current) {
+      refs.lastBackgroundAt.current = 0;
+      return false;
+    }
+    if (!hasSavedSession() && !realtimeConfig.isLoggedInRef?.current) {
+      refs.lastBackgroundAt.current = 0;
+      return false;
+    }
+    const connection = getConnection();
+    const currentView = realtimeConfig.appViewRef?.current;
+    const canAutoResume =
+      realtimeConfig.isLoggedInRef?.current &&
+      !isDailyView(currentView) &&
+      !realtimeConfig.standaloneTrainingSessionRef?.current;
+    const shouldRestoreSession =
+      canAutoResume || (hasSavedSession() && currentView === "live");
+    const synchronizeOrRecoverLive = (syncReason) => {
+      if (!canAutoResume || !connection?.connected) {
+        void runHealthCheck(syncReason);
+        return;
+      }
+      syncLiveState(syncReason).catch((error) => {
+        if (!active) return;
+        console.warn(
+          `[foreground] live state sync failed (${syncReason})`,
+          error
+        );
+        refs.intentionalDisconnect.current = true;
+        connection.disconnect?.();
+        safeInvoke(config.resumeSession, `${syncReason}_reconnect`);
+      });
+    };
+    const lastBackgroundAt = refs.lastBackgroundAt.current;
+    const backgroundDuration =
+      lastBackgroundAt > 0 ? timestamp - lastBackgroundAt : 0;
+    const forceReconnectAfterMs = Math.max(
+      0,
+      Number(config.backgroundReconnectMs) || DEFAULT_BACKGROUND_RECONNECT_MS
+    );
+    if (backgroundDuration > forceReconnectAfterMs) {
+      refs.lastBackgroundAt.current = 0;
+      if (!connection?.connected) {
+        if (shouldRestoreSession) {
+          safeInvoke(config.reconnectSession, `${reason}_post_bg`);
+        } else {
+          safeInvoke(config.connectSocketWithAuth);
+        }
+        return true;
+      }
+      synchronizeOrRecoverLive(`${reason}_post_bg`);
+      return true;
+    }
+    if (lastBackgroundAt) refs.lastBackgroundAt.current = 0;
+    if (!connection?.connected) {
+      if (shouldRestoreSession) {
+        safeInvoke(config.reconnectSession, reason);
+      } else {
+        safeInvoke(config.connectSocketWithAuth);
+      }
+      return true;
+    }
+    synchronizeOrRecoverLive(reason);
+    return true;
+  }
+
   function cancelForegroundRetry() {
     if (foregroundRetryTimerId != null) clearTimeoutFn(foregroundRetryTimerId);
     foregroundRetryTimerId = null;
@@ -80,11 +410,27 @@ export function createConnectionHealthFeature(
     resumeOnConnectTimerId = null;
   }
 
+  function dispatchForeground(reason) {
+    if (typeof config.onForeground === "function") {
+      safeInvoke(config.onForeground, reason);
+      return;
+    }
+    handleForeground(reason);
+  }
+
+  function dispatchHealthCheck(reason) {
+    if (typeof config.onHealthCheck === "function") {
+      safeInvoke(config.onHealthCheck, reason);
+      return;
+    }
+    runHealthCheck(reason);
+  }
+
   function scheduleForegroundRetry(reason = "foreground_retry", delayMs = 1200) {
     cancelForegroundRetry();
     foregroundRetryTimerId = setTimeoutFn(() => {
       foregroundRetryTimerId = null;
-      safeInvoke(config.onForeground, reason);
+      dispatchForeground(reason);
     }, Math.max(200, Number(delayMs) || 1200));
   }
 
@@ -110,7 +456,7 @@ export function createConnectionHealthFeature(
       retryIntervalId = setIntervalFn(() => {
         if (documentTarget?.visibilityState !== "visible") return;
         if (isConnected()) return;
-        safeInvoke(config.onForeground, "retry_timer");
+        dispatchForeground("retry_timer");
       }, retryIntervalMs);
     } else if (!isLoggedIn) {
       clearRetryInterval();
@@ -119,7 +465,7 @@ export function createConnectionHealthFeature(
     const watchdogEnabled = isPlaying && !config.standaloneTrainingActive;
     if (watchdogEnabled && watchdogIntervalId == null) {
       watchdogIntervalId = setIntervalFn(
-        () => safeInvoke(config.onHealthCheck, "watchdog_playing"),
+        () => dispatchHealthCheck("watchdog_playing"),
         watchdogIntervalMs
       );
     } else if (!watchdogEnabled) {
@@ -133,7 +479,7 @@ export function createConnectionHealthFeature(
     if (!active || typeof config.subscribePageShow !== "function") return;
     pageShowUnsubscribe = config.subscribePageShow(() => {
       refs.backgrounded.current = false;
-      safeInvoke(config.onForeground, "pageshow");
+      dispatchForeground("pageshow");
       scheduleForegroundRetry("pageshow_retry", 1200);
     });
   }
@@ -383,15 +729,15 @@ export function createConnectionHealthFeature(
       }
       if (documentTarget?.visibilityState === "visible") {
         refs.backgrounded.current = false;
-        safeInvoke(config.onForeground, "visibility");
+        dispatchForeground("visibility");
         scheduleForegroundRetry("visibility_retry", 1400);
       }
     };
-    const onFocus = () => safeInvoke(config.onForeground, "focus");
-    const onOnline = () => safeInvoke(config.onForeground, "online");
+    const onFocus = () => dispatchForeground("focus");
+    const onOnline = () => dispatchForeground("online");
     const onInteraction = () => {
       if (!getApplicationState()?.session?.isLoggedIn || isConnected()) return;
-      safeInvoke(config.onForeground, "interaction");
+      dispatchForeground("interaction");
     };
     const listen = (target, event, listener, options) => {
       target?.addEventListener?.(event, listener, options);
@@ -409,6 +755,8 @@ export function createConnectionHealthFeature(
     reconcileIntervals();
     scope.add(() => {
       active = false;
+      cancelLiveStateSync();
+      cancelPing();
       cancelDisconnectGrace();
       cancelForegroundRetry();
       cancelResumeOnConnect();
@@ -436,8 +784,12 @@ export function createConnectionHealthFeature(
     cancelForegroundRetry,
     configure,
     configureRealtime,
+    handleForeground,
+    pingServer,
     refs,
+    runHealthCheck,
     scheduleForegroundRetry,
     start,
+    syncLiveState,
   });
 }

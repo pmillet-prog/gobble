@@ -518,8 +518,6 @@ const WORD_BATCH_FLUSH_MS = 40;
 const WORD_BATCH_MAX = 5;
 const WORD_BATCH_ACK_TIMEOUT_MS = 2200;
 const LIVE_ROUND_END_PAYLOAD_WAIT_MS = 4500;
-const PING_SERVER_TIMEOUT_MS = 3200;
-const WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT = 3;
 const SAMSUNG_TOUCH_MOVE_MIN_INTERVAL_MS = 10;
 const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
@@ -962,14 +960,7 @@ export default function GobbleApplication() {
     pushEvent: pushSamsungDiagEvent,
     noteTouchMoveRate: noteSamsungTouchMoveRate,
   } = diagnosticsFeature;
-  const {
-    backgrounded: isBackgroundedRef,
-    foregroundAttemptAt: foregroundAttemptRef,
-    intentionalDisconnect: intentionalDisconnectRef,
-    lastBackgroundAt: lastBackgroundTimeRef,
-    reconnectAttempt: reconnectAttemptRef,
-    watchdogFailures: watchdogFailureCountRef,
-  } = connectionFeature.refs;
+  const { reconnectAttempt: reconnectAttemptRef } = connectionFeature.refs;
   const scheduleForegroundRetry = connectionFeature.scheduleForegroundRetry;
   const dictionaryFeature = useFeatureRuntime("dictionary");
   const dictionary = useFeatureSelector(dictionaryFeature, (state) => state.entries);
@@ -2670,10 +2661,6 @@ export default function GobbleApplication() {
   const resumeLoginFromSessionRef = useRef(null);
   const previousAppViewRef = useRef(appView);
   const attemptSilentReconnectRef = useRef(null);
-  const pingInFlightRef = useRef(false);
-  const liveStateSyncInFlightRef = useRef(null);
-  const handleForegroundRef = useRef(null);
-  const runHealthCheckRef = useRef(null);
   const mobileExitGuardLeavingRef = useRef(false);
   const mobileExitGuardActiveRef = useRef(false);
   const deferredTraceUiTasksRef = useRef([]);
@@ -6225,7 +6212,7 @@ export default function GobbleApplication() {
     foundTargetThisRound,
     getMassiveBoggleFeedbackPoints,
     getNextLiveFeedTs,
-    handleForeground,
+    handleForeground: connectionFeature.handleForeground,
     highlightPathRef,
     inFlightBatchesRef,
     inputLockedRef,
@@ -6704,42 +6691,6 @@ export default function GobbleApplication() {
         task();
       } catch (_) {}
     });
-  }
-
-  function pingServer(reason = "ping") {
-    if (!socket.connected) {
-      return Promise.reject(new Error("disconnected"));
-    }
-    if (pingInFlightRef.current) return pingInFlightRef.current;
-    const promise = new Promise((resolve, reject) => {
-      let done = false;
-      const startedAt = getMonotonicNowMs();
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        reject(new Error("timeout"));
-      }, PING_SERVER_TIMEOUT_MS);
-      socket.emit("timeSync", null, (res) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        if (res?.ok && typeof res.serverNow === "number") {
-          const completedAt = getMonotonicNowMs();
-          const rtt = Math.max(0, completedAt - startedAt);
-          serverClockRef.current = updateServerClockFromSample(serverClockRef.current, {
-            monotonicNowMs: completedAt,
-            sampledServerNowMs: res.serverNow + rtt / 2,
-          });
-          resolve(res);
-        } else {
-          reject(new Error("bad_response"));
-        }
-      });
-    }).finally(() => {
-      pingInFlightRef.current = null;
-    });
-    pingInFlightRef.current = promise;
-    return promise;
   }
 
   function fetchWeeklyStatsSnapshot(topN = 200) {
@@ -8535,56 +8486,6 @@ export default function GobbleApplication() {
     return liveRoundFeature.hydrateSnapshot(snapshot, { entryKind });
   }
 
-  function syncLiveStateFromServer(reason = "foreground") {
-    if (
-      !isAccountAuthenticatedRef.current ||
-      !socket.connected ||
-      !isLoggedInRef.current ||
-      appViewRef.current !== "live" ||
-      standaloneTrainingSessionRef.current
-    ) {
-      return Promise.resolve(false);
-    }
-    if (liveStateSyncInFlightRef.current) {
-      return liveStateSyncInFlightRef.current;
-    }
-    const session = sessionRef.current || loadSessionFromStorage();
-    const nick = String(nicknameRef.current || session?.nick || "").trim();
-    const roomToUse =
-      currentRoomIdRef.current || session?.roomId || roomIdRef.current;
-    const install = installIdRef.current || session?.installId;
-    if (!nick || !roomToUse || !install) {
-      return Promise.reject(new Error("missing_live_session"));
-    }
-
-    let requestPromise = null;
-    requestPromise = emitSocketAck(
-      "session:resume",
-      { roomId: roomToUse, installId: install, nick, takeover: false },
-      { timeoutMs: 5000 }
-    ).then((res) => {
-      if (!res?.available || res?.attached === false || !res?.snapshot) {
-        throw new Error(res?.error || "live_state_unavailable");
-      }
-      if (res?.playtimeLimit) applyPlaytimeLimitStatus(res.playtimeLimit);
-      setResumeSnapshot(null);
-      const hydrated = hydrateLiveSnapshot(res.snapshot, res.entryKind || "resume");
-      liveSessionReadyRef.current = hydrated;
-      if (!hydrated) throw new Error("live_snapshot_rejected");
-      setConnectionError("");
-      watchdogFailureCountRef.current = 0;
-      scheduleBatchFlush({ immediate: true });
-      console.debug(`[foreground] live state synchronized (${reason})`);
-      return true;
-    }).finally(() => {
-      if (liveStateSyncInFlightRef.current === requestPromise) {
-        liveStateSyncInFlightRef.current = null;
-      }
-    });
-    liveStateSyncInFlightRef.current = requestPromise;
-    return requestPromise;
-  }
-
   useEffect(() => {
     const previousView = previousAppViewRef.current;
     previousAppViewRef.current = appView;
@@ -8610,7 +8511,7 @@ export default function GobbleApplication() {
     setPhase("lobby");
     setConnectionError(LIVE_CONNECTION_INTERRUPTED_MESSAGE);
     if (isLoggedInRef.current && socket.connected) {
-      syncLiveStateFromServer("navigation_to_live").catch(() => {
+      connectionFeature.syncLiveState("navigation_to_live").catch(() => {
         resumeLoginFromSessionRef.current?.("navigation_to_live_reconnect");
       });
       return;
@@ -8623,39 +8524,6 @@ export default function GobbleApplication() {
     triggerResultsReorder();
     setResultsRankingMode(nextMode);
   }
-
-  function runHealthCheck(reason = "watchdog") {
-    if (!socket.connected) return;
-    pingServer(reason)
-      .then(() => {
-        watchdogFailureCountRef.current = 0;
-        console.debug(`[watchdog] pong (${reason})`);
-      })
-      .catch(() => {
-        const failures = (watchdogFailureCountRef.current || 0) + 1;
-        watchdogFailureCountRef.current = failures;
-        if (failures < WATCHDOG_SOFT_FAILURES_BEFORE_RECONNECT) {
-          console.warn(`[watchdog] soft failure (${reason}) #${failures}`);
-          return;
-        }
-        watchdogFailureCountRef.current = 0;
-        console.warn(`[watchdog] reconnect (${reason})`);
-        intentionalDisconnectRef.current = true;
-        socket.disconnect();
-        const currentView = appViewRef.current;
-        const isCurrentDailyView =
-          currentView === "daily" ||
-          currentView === "daily_play" ||
-          currentView === "daily_results";
-        if (isLoggedInRef.current && !isCurrentDailyView) {
-          resumeLoginFromSessionRef.current?.("watchdog");
-        } else {
-          requestSessionResumeSnapshotRef.current?.("watchdog");
-        }
-      });
-  }
-
-  runHealthCheckRef.current = runHealthCheck;
 
   useEffect(() => {
     const stored = sessionPersistenceFeature.hydrateStoredSession();
@@ -9306,80 +9174,36 @@ export default function GobbleApplication() {
     });
   }, [breakKind, isMobileLayout, nextStartAt, phase, resultsFeature, roundId]);
 
-  function handleForeground(reason = "foreground") {
-    const now = Date.now();
-    if (now - foregroundAttemptRef.current < 800) return;
-    foregroundAttemptRef.current = now;
-    if (!isAccountAuthenticatedRef.current) {
-      lastBackgroundTimeRef.current = 0;
-      return;
-    }
-    if (!hasSavedSession() && !isLoggedInRef.current) {
-      lastBackgroundTimeRef.current = 0;
-      return;
-    }
-    const currentView = appViewRef.current;
-    const isCurrentDailyView =
-      currentView === "daily" ||
-      currentView === "daily_play" ||
-      currentView === "daily_results";
-    const canAutoResume =
-      isLoggedInRef.current &&
-      !isCurrentDailyView &&
-      !standaloneTrainingSessionRef.current;
-    const shouldRestoreSession =
-      canAutoResume ||
-      (!!hasSavedSession() && currentView === "live");
-    const synchronizeOrRecoverLive = (syncReason) => {
-      if (!canAutoResume || !socket.connected) {
-        runHealthCheck(syncReason);
-        return;
-      }
-      syncLiveStateFromServer(syncReason).catch((error) => {
-        console.warn(`[foreground] live state sync failed (${syncReason})`, error);
-        intentionalDisconnectRef.current = true;
-        socket.disconnect();
-        resumeLoginFromSessionRef.current?.(`${syncReason}_reconnect`);
-      });
-    };
-    const lastBackgroundTime = lastBackgroundTimeRef.current;
-    const timeSinceBackground =
-      lastBackgroundTime > 0 ? Date.now() - lastBackgroundTime : 0;
-    const shouldForceReconnect = timeSinceBackground > 5000;
-    if (shouldForceReconnect) {
-      lastBackgroundTimeRef.current = 0;
-      if (!socket.connected) {
-        if (shouldRestoreSession) {
-          attemptSilentReconnectRef.current?.(`${reason}_post_bg`);
-        } else {
-          void connectSocketWithAuth();
-        }
-        return;
-      }
-      synchronizeOrRecoverLive(`${reason}_post_bg`);
-      return;
-    }
-    if (lastBackgroundTime) {
-      lastBackgroundTimeRef.current = 0;
-    }
-    if (!socket.connected) {
-      if (shouldRestoreSession) {
-        attemptSilentReconnectRef.current?.(reason);
-      } else {
-        void connectSocketWithAuth();
-      }
-      return;
-    }
-    synchronizeOrRecoverLive(reason);
-  }
-
-  handleForegroundRef.current = handleForeground;
-
   useEffect(() => {
     connectionFeature.configure({
+      appViewRef,
+      applyPlaytimeLimitStatus,
+      connectSocketWithAuth,
       connection: socket,
-      onForeground: (reason) => handleForegroundRef.current?.(reason),
-      onHealthCheck: (reason) => runHealthCheckRef.current?.(reason),
+      currentRoomIdRef,
+      getMonotonicNowMs,
+      hydrateLiveSnapshot,
+      installIdRef,
+      isAccountAuthenticatedRef,
+      loadSessionFromStorage,
+      nicknameRef,
+      onServerTimeSample: ({ completedAt, sampledServerNowMs }) => {
+        serverClockRef.current = updateServerClockFromSample(
+          serverClockRef.current,
+          {
+            monotonicNowMs: completedAt,
+            sampledServerNowMs,
+          }
+        );
+      },
+      probeSession: (reason) =>
+        requestSessionResumeSnapshotRef.current?.(reason),
+      reconnectSession: (reason) =>
+        attemptSilentReconnectRef.current?.(reason),
+      resumeSession: (reason) => resumeLoginFromSessionRef.current?.(reason),
+      roomIdRef,
+      scheduleBatchFlush,
+      sessionRef,
       standaloneTrainingActive: !!standaloneTrainingSession,
       subscribePageShow: (listener) =>
         layoutFeature.subscribeViewport(listener, [VIEWPORT_EVENTS.PAGE_SHOW]),

@@ -118,6 +118,146 @@ test("connection health owns foreground listeners, retry and watchdog timers", (
   assert.equal(pageShow, null);
 });
 
+test("connection health owns foreground live synchronization and stale-response cleanup", async () => {
+  const documentTarget = createEventTarget();
+  const windowTarget = createEventTarget();
+  const timers = new Map();
+  const emitted = [];
+  let nextTimerId = 1;
+  const socket = {
+    connected: true,
+    emit(eventName, payload, acknowledge) {
+      emitted.push({ acknowledge, eventName, payload });
+    },
+  };
+  const kernel = createApplicationKernel();
+  kernel.commands.session.setIsLoggedIn(true);
+  const scope = createResourceScope("connection-sync-test");
+  const feature = createConnectionHealthFeature(
+    { getKernel: () => kernel, scope },
+    {
+      clearTimeoutFn: (id) => timers.delete(id),
+      documentTarget,
+      now: () => 10_000,
+      setTimeoutFn: (callback, delayMs) => {
+        const id = nextTimerId++;
+        timers.set(id, { callback, delayMs });
+        return id;
+      },
+      windowTarget,
+    }
+  );
+  const liveSessionReadyRef = { current: false };
+  let flushCount = 0;
+  feature.configureRealtime({
+    appViewRef: { current: "live" },
+    hasSavedSession: () => true,
+    isLoggedInRef: { current: true },
+    liveSessionReadyRef,
+    socket,
+    standaloneTrainingSessionRef: { current: null },
+  });
+  feature.configure({
+    connection: socket,
+    currentRoomIdRef: { current: "room-4x4" },
+    hydrateLiveSnapshot: (snapshot) => snapshot?.valid === true,
+    installIdRef: { current: "install-1" },
+    isAccountAuthenticatedRef: { current: true },
+    nicknameRef: { current: "Tigre" },
+    scheduleBatchFlush: () => {
+      flushCount += 1;
+    },
+    sessionRef: { current: null },
+  });
+  feature.start();
+
+  const syncPromise = feature.syncLiveState("focus");
+  assert.equal(feature.syncLiveState("focus_duplicate"), syncPromise);
+  assert.equal(emitted[0].eventName, "session:resume");
+  assert.deepEqual(emitted[0].payload, {
+    installId: "install-1",
+    nick: "Tigre",
+    roomId: "room-4x4",
+    takeover: false,
+  });
+  assert.equal([...timers.values()][0].delayMs, 5000);
+  emitted[0].acknowledge({
+    available: true,
+    ok: true,
+    snapshot: { valid: true },
+  });
+  assert.equal(await syncPromise, true);
+  assert.equal(liveSessionReadyRef.current, true);
+  assert.equal(flushCount, 1);
+  assert.equal(timers.size, 0);
+
+  const stalePromise = feature.syncLiveState("stale");
+  const staleAcknowledge = emitted[1].acknowledge;
+  scope.dispose();
+  await assert.rejects(stalePromise, /cancelled/);
+  staleAcknowledge({
+    available: true,
+    ok: true,
+    snapshot: { valid: true },
+  });
+  assert.equal(flushCount, 1);
+});
+
+test("connection health applies the watchdog threshold and foreground reconnect policy", async () => {
+  const documentTarget = createEventTarget();
+  const windowTarget = createEventTarget();
+  const resumed = [];
+  const reconnected = [];
+  let disconnectCount = 0;
+  const socket = {
+    connected: true,
+    disconnect() {
+      disconnectCount += 1;
+      this.connected = false;
+    },
+    emit(eventName, _payload, acknowledge) {
+      if (eventName === "timeSync") acknowledge({ ok: false });
+    },
+  };
+  const kernel = createApplicationKernel();
+  kernel.commands.session.setIsLoggedIn(true);
+  const scope = createResourceScope("connection-watchdog-test");
+  const feature = createConnectionHealthFeature(
+    { getKernel: () => kernel, scope },
+    { documentTarget, now: () => 10_000, windowTarget }
+  );
+  feature.configureRealtime({
+    appViewRef: { current: "live" },
+    hasSavedSession: () => true,
+    isLoggedInRef: { current: true },
+    socket,
+    standaloneTrainingSessionRef: { current: null },
+  });
+  feature.configure({
+    connection: socket,
+    isAccountAuthenticatedRef: { current: true },
+    reconnectSession: (reason) => reconnected.push(reason),
+    resumeSession: (reason) => resumed.push(reason),
+  });
+  feature.start();
+
+  await feature.runHealthCheck("watchdog_playing");
+  await feature.runHealthCheck("watchdog_playing");
+  assert.equal(feature.refs.watchdogFailures.current, 2);
+  assert.equal(disconnectCount, 0);
+  await feature.runHealthCheck("watchdog_playing");
+  assert.equal(feature.refs.watchdogFailures.current, 0);
+  assert.equal(disconnectCount, 1);
+  assert.deepEqual(resumed, ["watchdog"]);
+
+  socket.connected = false;
+  feature.refs.lastBackgroundAt.current = 1000;
+  feature.refs.foregroundAttemptAt.current = 0;
+  feature.handleForeground("visibility");
+  assert.deepEqual(reconnected, ["visibility_post_bg"]);
+  scope.dispose();
+});
+
 test("connection health owns socket lifecycle, disconnect grace and cleanup", () => {
   const documentTarget = createEventTarget();
   const windowTarget = createEventTarget();

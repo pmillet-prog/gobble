@@ -11,6 +11,9 @@ test("live session satellites own login, resume and reconnect resources", () => 
   const entrySource = read(
     "../../src/features/session/createLiveEntryFeature.js"
   );
+  const connectionSource = read(
+    "../../src/features/connection/createConnectionHealthFeature.js"
+  );
   const resumeSource = read(
     "../../src/features/session/createLiveResumeFeature.js"
   );
@@ -19,6 +22,10 @@ test("live session satellites own login, resume and reconnect resources", () => 
   assert.doesNotMatch(applicationSource, /function requestSessionResumeSnapshot/);
   assert.doesNotMatch(applicationSource, /function resumeLoginFromSession/);
   assert.doesNotMatch(applicationSource, /function attemptSilentReconnect/);
+  assert.doesNotMatch(applicationSource, /function handleForeground/);
+  assert.doesNotMatch(applicationSource, /function pingServer/);
+  assert.doesNotMatch(applicationSource, /function runHealthCheck/);
+  assert.doesNotMatch(applicationSource, /function syncLiveStateFromServer/);
   assert.match(applicationSource, /useLiveEntryFeature\(/);
   assert.match(applicationSource, /useLiveResumeFeature\(/);
   assert.match(
@@ -31,4 +38,8 @@ test("live session satellites own login, resume and reconnect resources", () => 
   assert.match(resumeSource, /function resume\(/);
   assert.match(resumeSource, /function reconnect\(/);
   assert.match(resumeSource, /function cancelAll\(/);
+  assert.match(connectionSource, /function handleForeground\(/);
+  assert.match(connectionSource, /function pingServer\(/);
+  assert.match(connectionSource, /function runHealthCheck\(/);
+  assert.match(connectionSource, /function syncLiveState\(/);
 });
