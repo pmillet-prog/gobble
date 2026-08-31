@@ -198,6 +198,7 @@ import usePhaseLoopController, {
 } from "./features/dev/usePhaseLoopController.js";
 import useGridSolutionsScheduler from "./features/solver/useGridSolutionsScheduler.js";
 import useRoundAudioLifecycle from "./features/audio/useRoundAudioLifecycle.js";
+import useRoundFinalizationGate from "./features/round/useRoundFinalizationGate.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -6418,18 +6419,16 @@ export default function GobbleApplication() {
   const roundClockMaxSeconds = Number.isFinite(serverRoundDurationMs)
     ? Math.max(1, Math.round(serverRoundDurationMs / 1000))
     : ROOM_OPTIONS[currentRoomId || roomId]?.duration ?? DEFAULT_DURATION;
-  const handleRoundClockExpired = useStableEvent((effectSessionToken) => {
-    const completeFinalizeRound = () => {
-      if (gameplaySessionTokenRef.current !== effectSessionToken) return;
+  const roundFinalizationGate = useRoundFinalizationGate({
+    flushPendingDragMove,
+    onFinalize: () => {
       tryAutoSubmitCurrentWordAtRoundEnd();
       playOutroThenResultsRef.current?.(null, { fallback: true });
-    };
-    const hadPendingDragMove = flushPendingDragMove();
-    if (hadPendingDragMove && typeof window !== "undefined") {
-      window.setTimeout(completeFinalizeRound, 0);
-      return;
-    }
-    completeFinalizeRound();
+    },
+    sessionTokenRef: gameplaySessionTokenRef,
+  });
+  const handleRoundClockExpired = useStableEvent((effectSessionToken) => {
+    roundFinalizationGate.request(effectSessionToken);
   });
   const handleRoundClockCountdownElapsed = useStableEvent(() => startGame());
   const handleOcidClockExpired = useStableEvent(() => {
