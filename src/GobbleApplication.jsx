@@ -1458,18 +1458,10 @@ export default function GobbleApplication() {
         setIsWeeklyOpen: "open",
         setSeasonActiveIndex: "seasonActiveIndex",
         setStatsTab: "tab",
-        setTrophyHistory: "trophyHistory",
-        setTrophyLoading: "trophyLoading",
-        setTrophyStatus: "trophyStatus",
-        setVocabCount: "vocabCount",
-        setVocabLoading: "vocabLoading",
         setVocabOverlayRequest: "vocabOverlayRequest",
         setVocabResultsReadyKey: "vocabResultsReadyKey",
         setVocabRoundDelta: "vocabRoundDelta",
-        setVocabUpdatedAt: "vocabUpdatedAt",
-        setVocabWeeklyCount: "vocabWeeklyCount",
         setVocabWeeklyRoundDelta: "vocabWeeklyRoundDelta",
-        setVocabWeeklyUpdatedAt: "vocabWeeklyUpdatedAt",
         setWeeklyActiveIndex: "activeIndex",
         setWeeklyArrowBlink: "weeklyArrowBlink",
         setWeeklyArrowBump: "weeklyArrowBump",
@@ -1604,18 +1596,10 @@ export default function GobbleApplication() {
     setIsWeeklyOpen,
     setSeasonActiveIndex,
     setStatsTab,
-    setTrophyHistory,
-    setTrophyLoading,
-    setTrophyStatus,
-    setVocabCount,
-    setVocabLoading,
     setVocabOverlayRequest,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
-    setVocabUpdatedAt,
-    setVocabWeeklyCount,
     setVocabWeeklyRoundDelta,
-    setVocabWeeklyUpdatedAt,
     setWeeklyActiveIndex,
     setWeeklyArrowBlink,
     setWeeklyArrowBump,
@@ -3213,7 +3197,6 @@ export default function GobbleApplication() {
     });
     touchSubmissionState();
   }
-  const lastVocabFetchAtRef = useRef(0);
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
@@ -6271,6 +6254,7 @@ export default function GobbleApplication() {
     statsFeature.configureRealtime({
       appViewRef,
       currentRoomIdRef,
+      ensureConnection: connectSocketWithAuth,
       gameplaySession: gameplaySessionFeature,
       installIdRef,
       isLoggedInRef,
@@ -7293,97 +7277,26 @@ export default function GobbleApplication() {
   ], 5);
 
   function requestVocabCount() {
-    const emitRequest = (resolve) => {
-      socket.emit("getVocabCount", { installId }, (res) => {
-        const count = Number.isFinite(res?.count) ? res.count : null;
-        const weeklyCount = Number.isFinite(res?.weeklyCount) ? res.weeklyCount : null;
-        if (Number.isFinite(count)) {
-          setVocabCount(count);
-          setVocabUpdatedAt(Date.now());
-        }
-        if (Number.isFinite(weeklyCount)) {
-          setVocabWeeklyCount(weeklyCount);
-          setVocabWeeklyUpdatedAt(Date.now());
-        }
-        setVocabLoading(false);
-        resolve({ count, weeklyCount });
-      });
-    };
-
-    setVocabLoading(true);
-    if (!socket.connected) {
-      return new Promise((resolve) => {
-        const onConnect = () => {
-          cleanup();
-          emitRequest(resolve);
-        };
-        const onError = () => {
-          cleanup();
-          setVocabLoading(false);
-          resolve(null);
-        };
-        const cleanup = () => {
-          socket.off("connect", onConnect);
-          socket.off("connect_error", onError);
-        };
-        socket.once("connect", onConnect);
-        socket.once("connect_error", onError);
-        void connectSocketWithAuth();
-      });
-    }
-
-    return new Promise((resolve) => {
-      emitRequest(resolve);
+    return statsFeature.requestVocabCount({
+      ensureConnection: connectSocketWithAuth,
+      installId,
+      socket,
     });
   }
 
   function fetchVocabStats() {
-    if (!installId) return;
-    const now = Date.now();
-    if (now - lastVocabFetchAtRef.current < 2000) return;
-    lastVocabFetchAtRef.current = now;
-    void requestVocabCount();
+    return statsFeature.fetchVocabStats({
+      ensureConnection: connectSocketWithAuth,
+      installId,
+      socket,
+    });
   }
 
   function requestTrophyStatus() {
-    const emitRequest = (resolve) => {
-      socket.emit("getTrophyStatus", { installId }, (res) => {
-        const status = res?.status || null;
-        if (status && typeof status === "object") {
-          setTrophyStatus(status);
-          if (Array.isArray(status.history)) {
-            setTrophyHistory(status.history.slice(0, 10));
-          }
-        }
-        setTrophyLoading(false);
-        resolve(status);
-      });
-    };
-
-    setTrophyLoading(true);
-    if (!socket.connected) {
-      return new Promise((resolve) => {
-        const onConnect = () => {
-          cleanup();
-          emitRequest(resolve);
-        };
-        const onError = () => {
-          cleanup();
-          setTrophyLoading(false);
-          resolve(null);
-        };
-        const cleanup = () => {
-          socket.off("connect", onConnect);
-          socket.off("connect_error", onError);
-        };
-        socket.once("connect", onConnect);
-        socket.once("connect_error", onError);
-        void connectSocketWithAuth();
-      });
-    }
-
-    return new Promise((resolve) => {
-      emitRequest(resolve);
+    return statsFeature.requestTrophyStatus({
+      ensureConnection: connectSocketWithAuth,
+      installId,
+      socket,
     });
   }
 

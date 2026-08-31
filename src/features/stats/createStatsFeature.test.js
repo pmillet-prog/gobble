@@ -48,6 +48,161 @@ function createTimerHarness() {
   };
 }
 
+function createStatsSocket({ connected = false } = {}) {
+  const connectionHandlers = new Map();
+  const emissions = [];
+  return {
+    bind() {
+      return () => {};
+    },
+    connected,
+    connectionHandlers,
+    emissions,
+    emit(eventName, payload, acknowledge) {
+      emissions.push({ acknowledge, eventName, payload });
+    },
+    fire(eventName, payload) {
+      connectionHandlers.get(eventName)?.(payload);
+    },
+    off(eventName, handler) {
+      if (connectionHandlers.get(eventName) === handler) {
+        connectionHandlers.delete(eventName);
+      }
+    },
+    once(eventName, handler) {
+      connectionHandlers.set(eventName, handler);
+    },
+  };
+}
+
+test("stats satellite owns vocab and trophy status requests", async () => {
+  let clock = 5000;
+  let connectionAttempts = 0;
+  const socket = createStatsSocket();
+  const scope = createResourceScope("stats-status-requests-test");
+  const feature = createStatsFeature(
+    { ports: { realtime: socket }, scope },
+    { now: () => clock }
+  );
+  feature.configureRealtime({
+    ensureConnection() {
+      connectionAttempts += 1;
+    },
+    installIdRef: { current: "user:4" },
+    socket,
+  });
+  feature.start();
+
+  const vocabRequest = feature.requestVocabCount();
+  assert.strictEqual(feature.requestVocabCount(), vocabRequest);
+  assert.equal(connectionAttempts, 1);
+  assert.equal(feature.store.getState().vocabLoading, true);
+  assert.deepEqual([...socket.connectionHandlers.keys()].sort(), [
+    "connect",
+    "connect_error",
+  ]);
+
+  socket.connected = true;
+  socket.fire("connect");
+  assert.equal(socket.connectionHandlers.size, 0);
+  assert.deepEqual(socket.emissions[0], {
+    acknowledge: socket.emissions[0].acknowledge,
+    eventName: "getVocabCount",
+    payload: { installId: "user:4" },
+  });
+  socket.emissions[0].acknowledge({ count: 18, weeklyCount: 7 });
+  assert.deepEqual(await vocabRequest, { count: 18, weeklyCount: 7 });
+  assert.deepEqual(
+    {
+      count: feature.store.getState().vocabCount,
+      loading: feature.store.getState().vocabLoading,
+      updatedAt: feature.store.getState().vocabUpdatedAt,
+      weeklyCount: feature.store.getState().vocabWeeklyCount,
+      weeklyUpdatedAt: feature.store.getState().vocabWeeklyUpdatedAt,
+    },
+    {
+      count: 18,
+      loading: false,
+      updatedAt: 5000,
+      weeklyCount: 7,
+      weeklyUpdatedAt: 5000,
+    }
+  );
+
+  clock = 6000;
+  const throttledRequest = feature.fetchVocabStats();
+  assert.strictEqual(feature.fetchVocabStats(), throttledRequest);
+  assert.equal(socket.emissions.length, 2);
+  socket.emissions[1].acknowledge({ count: 19, weeklyCount: 8 });
+  await throttledRequest;
+  clock = 7000;
+  assert.equal(feature.fetchVocabStats(), null);
+  assert.equal(socket.emissions.length, 2);
+
+  const trophyRequest = feature.requestTrophyStatus();
+  assert.strictEqual(feature.requestTrophyStatus(), trophyRequest);
+  assert.equal(socket.emissions[2].eventName, "getTrophyStatus");
+  const history = Array.from({ length: 12 }, (_, index) => ({ delta: index }));
+  socket.emissions[2].acknowledge({
+    status: { history, league: "or", trophies: 42 },
+  });
+  assert.deepEqual(await trophyRequest, {
+    history,
+    league: "or",
+    trophies: 42,
+  });
+  assert.equal(feature.store.getState().trophyHistory.length, 10);
+  assert.equal(feature.store.getState().trophyLoading, false);
+
+  const lateRequest = feature.requestTrophyStatus();
+  const lateAcknowledge = socket.emissions[3].acknowledge;
+  scope.dispose();
+  assert.equal(await lateRequest, null);
+  lateAcknowledge({ status: { trophies: 999 } });
+  assert.deepEqual(feature.store.getState(), createInitialStatsState());
+});
+
+test("stats satellite clears status listeners when connection fails", async () => {
+  const socket = createStatsSocket();
+  const scope = createResourceScope("stats-status-connection-error-test");
+  const feature = createStatsFeature({ ports: { realtime: socket }, scope });
+  feature.configureRealtime({
+    ensureConnection: () => Promise.reject(new Error("auth_failed")),
+    installId: "user:5",
+    socket,
+  });
+  feature.start();
+
+  assert.equal(await feature.requestTrophyStatus(), null);
+  assert.equal(socket.connectionHandlers.size, 0);
+  assert.equal(feature.store.getState().trophyLoading, false);
+  scope.dispose();
+});
+
+test("stats satellite replaces a status request when identity changes", async () => {
+  const socket = createStatsSocket({ connected: true });
+  const scope = createResourceScope("stats-status-identity-replacement-test");
+  const feature = createStatsFeature({ ports: { realtime: socket }, scope });
+  feature.configureRealtime({ installId: "user:old", socket });
+  feature.start();
+
+  const oldRequest = feature.requestVocabCount();
+  const nextRequest = feature.requestVocabCount({
+    installId: "user:new",
+    socket,
+  });
+  assert.notStrictEqual(nextRequest, oldRequest);
+  assert.equal(await oldRequest, null);
+  assert.equal(socket.emissions.length, 2);
+
+  socket.emissions[0].acknowledge({ count: 999, weeklyCount: 999 });
+  assert.equal(feature.store.getState().vocabCount, null);
+  socket.emissions[1].acknowledge({ count: 20, weeklyCount: 9 });
+  assert.deepEqual(await nextRequest, { count: 20, weeklyCount: 9 });
+  assert.equal(feature.store.getState().vocabCount, 20);
+  scope.dispose();
+});
+
 test("stats satellite deduplicates and safely replaces weekly requests", async () => {
   const requests = [];
   const timers = createTimerHarness();

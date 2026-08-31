@@ -45,6 +45,11 @@ export function createStatsFeature(
   let realtimeConfig = {};
   let realtimeSocket = null;
   let realtimeUnsubscribe = null;
+  let lastVocabFetchAt = 0;
+  const pendingStatusRequests = {
+    trophy: null,
+    vocab: null,
+  };
   let lastWeeklyFetchAt = 0;
   let lastWeeklyFetchTopN = null;
   let weeklyFetchRetryAfter = 0;
@@ -52,6 +57,170 @@ export function createStatsFeature(
   let weeklyRequest = null;
   let weeklySnapshotController = null;
   let weeklySnapshotGeneration = 0;
+
+  function getRequestSocket(config = realtimeConfig) {
+    return config.socket || context.ports?.realtime || null;
+  }
+
+  function cancelPendingStatusRequests() {
+    pendingStatusRequests.trophy?.settle?.(null);
+    pendingStatusRequests.vocab?.settle?.(null);
+  }
+
+  function startStatusRequest(
+    { eventName, kind, loadingField, onResponse },
+    requestConfig = {}
+  ) {
+    if (!active) return Promise.resolve(null);
+    const socket = requestConfig.socket || getRequestSocket();
+    const requestInstallId = String(
+      requestConfig.installId || getInstallId()
+    );
+    const pendingRequest = pendingStatusRequests[kind];
+    if (
+      pendingRequest?.installId === requestInstallId &&
+      pendingRequest.socket === socket
+    ) {
+      return pendingRequest.promise;
+    }
+    pendingRequest?.settle?.(null);
+    if (!socket || typeof socket.emit !== "function") {
+      feature.set(loadingField, false);
+      return Promise.resolve(null);
+    }
+
+    feature.set(loadingField, true);
+    let resolveRequest;
+    const request = {
+      installId: requestInstallId,
+      promise: new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+      settle: null,
+      settled: false,
+      socket,
+    };
+    pendingStatusRequests[kind] = request;
+
+    const detachConnectionListeners = () => {
+      socket.off?.("connect", onConnect);
+      socket.off?.("connect_error", onConnectError);
+    };
+
+    const settle = (value) => {
+      if (request.settled) return;
+      request.settled = true;
+      detachConnectionListeners();
+      if (pendingStatusRequests[kind] === request) {
+        pendingStatusRequests[kind] = null;
+      }
+      if (active) feature.set(loadingField, false);
+      resolveRequest(value);
+    };
+    request.settle = settle;
+
+    const send = () => {
+      if (request.settled) return;
+      socket.emit(eventName, { installId: requestInstallId }, (response) => {
+        if (!active || pendingStatusRequests[kind] !== request) {
+          settle(null);
+          return;
+        }
+        settle(onResponse(response));
+      });
+    };
+
+    function onConnect() {
+      detachConnectionListeners();
+      send();
+    }
+
+    function onConnectError() {
+      settle(null);
+    }
+
+    if (socket.connected) {
+      send();
+      return request.promise;
+    }
+
+    socket.once?.("connect", onConnect);
+    socket.once?.("connect_error", onConnectError);
+    try {
+      const ensureConnection =
+        requestConfig.ensureConnection || realtimeConfig.ensureConnection;
+      const connectionAttempt = ensureConnection?.();
+      connectionAttempt?.catch?.(onConnectError);
+    } catch (_) {
+      onConnectError();
+    }
+    return request.promise;
+  }
+
+  function getInstallId() {
+    return String(
+      realtimeConfig.installIdRef?.current || realtimeConfig.installId || ""
+    );
+  }
+
+  function requestVocabCount(requestConfig = {}) {
+    return startStatusRequest(
+      {
+        eventName: "getVocabCount",
+        kind: "vocab",
+        loadingField: "vocabLoading",
+        onResponse: (response) => {
+          const count = Number.isFinite(response?.count) ? response.count : null;
+          const weeklyCount = Number.isFinite(response?.weeklyCount)
+            ? response.weeklyCount
+            : null;
+          const patch = {};
+          if (Number.isFinite(count)) {
+            patch.vocabCount = count;
+            patch.vocabUpdatedAt = now();
+          }
+          if (Number.isFinite(weeklyCount)) {
+            patch.vocabWeeklyCount = weeklyCount;
+            patch.vocabWeeklyUpdatedAt = now();
+          }
+          if (Object.keys(patch).length) feature.patch(patch);
+          return { count, weeklyCount };
+        },
+      },
+      requestConfig
+    );
+  }
+
+  function fetchVocabStats(requestConfig = {}) {
+    if (!String(requestConfig.installId || getInstallId())) return null;
+    const requestedAt = now();
+    if (requestedAt - lastVocabFetchAt < 2000) {
+      return pendingStatusRequests.vocab?.promise || null;
+    }
+    lastVocabFetchAt = requestedAt;
+    return requestVocabCount(requestConfig);
+  }
+
+  function requestTrophyStatus(requestConfig = {}) {
+    return startStatusRequest(
+      {
+        eventName: "getTrophyStatus",
+        kind: "trophy",
+        loadingField: "trophyLoading",
+        onResponse: (response) => {
+          const status = response?.status || null;
+          if (status && typeof status === "object") {
+            feature.set("trophyStatus", status);
+            if (Array.isArray(status.history)) {
+              feature.set("trophyHistory", status.history.slice(0, 10));
+            }
+          }
+          return status;
+        },
+      },
+      requestConfig
+    );
+  }
 
   function normalizeTopN(topN, fallback = null) {
     return Number.isFinite(topN)
@@ -276,7 +445,12 @@ export function createStatsFeature(
   }
 
   function configureRealtime(nextConfig = {}) {
+    const previousRequestSocket = getRequestSocket();
+    const nextRequestSocket = getRequestSocket(nextConfig);
     realtimeConfig = nextConfig;
+    if (previousRequestSocket && nextRequestSocket !== previousRequestSocket) {
+      cancelPendingStatusRequests();
+    }
     bindRealtime();
   }
 
@@ -286,6 +460,7 @@ export function createStatsFeature(
       bindRealtime();
       scope.add(() => {
         active = false;
+        cancelPendingStatusRequests();
         detachWeeklyRequest(weeklyRequest, { abort: true });
         clearWeeklyLoadingTimer();
         weeklySnapshotGeneration += 1;
@@ -296,6 +471,7 @@ export function createStatsFeature(
         lastWeeklyFetchAt = 0;
         lastWeeklyFetchTopN = null;
         weeklyFetchRetryAfter = 0;
+        lastVocabFetchAt = 0;
         realtimeUnsubscribe?.();
         realtimeUnsubscribe = null;
         realtimeSocket = null;
@@ -309,7 +485,10 @@ export function createStatsFeature(
     ...feature,
     cancelWeeklyFetch,
     configureRealtime,
+    fetchVocabStats,
     fetchWeekly,
     fetchWeeklySnapshot,
+    requestTrophyStatus,
+    requestVocabCount,
   });
 }
