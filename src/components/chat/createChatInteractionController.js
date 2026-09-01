@@ -149,6 +149,8 @@ export function createChatInteractionController(runtime) {
     installId,
     setReportDialog,
     reportDialog,
+    setChatRulesAccepted,
+    lobbyChatSubscriptionRef,
   ] = runtime;
 
 function captureChatViewportBaseline() {

@@ -1,6 +1,10 @@
 const STORAGE_KEY = "gobbleChatDrawerCalibration:v1";
 export const CHAT_DRAWER_CALIBRATION_MIN_RATIO = 0.42;
 export const CHAT_DRAWER_CALIBRATION_MAX_RATIO = 0.78;
+export const CHAT_DRAWER_MIN_HEIGHT_PX = 320;
+export const CHAT_DRAWER_MAX_HEIGHT_PX = 560;
+export const CHAT_DRAWER_TOP_GAP_PX = 14;
+export const CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX = 120;
 
 const clampRatio = (ratio) =>
   Math.max(

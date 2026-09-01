@@ -102,6 +102,9 @@ import {
 } from "./app/adapters/deviceCapabilities.js";
 import { VIEWPORT_EVENTS } from "./features/layout/createViewportEventHub.js";
 import useMobileLayoutController from "./features/layout/useMobileLayoutController.js";
+import useChatInteractionController, {
+  useChatInteractionResources,
+} from "./features/chat/useChatInteractionController.js";
 import {
   DAILY_DESKTOP_COLUMN_DEFS,
   DAILY_DESKTOP_COLUMN_TEMPLATE,
@@ -111,11 +114,10 @@ import {
   normalizeDesktopColumnOrder,
 } from "./app/adapters/desktopLayoutStorage.js";
 import {
-  CHAT_DRAWER_CALIBRATION_MAX_RATIO,
-  CHAT_DRAWER_CALIBRATION_MIN_RATIO,
+  CHAT_DRAWER_MAX_HEIGHT_PX,
+  CHAT_DRAWER_MIN_HEIGHT_PX,
+  CHAT_DRAWER_TOP_GAP_PX,
   getChatDrawerOrientationKey,
-  readStoredChatDrawerCalibration,
-  writeStoredChatDrawerCalibration,
 } from "./app/adapters/chatDrawerCalibration.js";
 import {
   buildUserScopedInstallId,
@@ -156,7 +158,6 @@ import {
 } from "./network/liveSubmissionRecovery.js";
 import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
 import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
-import { createChatInteractionController } from "./components/chat/createChatInteractionController.js";
 import {
   CHAT_BOT_VISIBILITY_OPTIONS,
   CHAT_BOT_VISIBILITY_STORAGE_KEY,
@@ -329,7 +330,6 @@ import {
 } from "./utils/targetHintStyles.js";
 import { isLiveSessionFreshForBoot } from "./utils/liveSessionFreshness.js";
 import { shouldProcessLiveRoomEvent } from "./utils/liveEventScope.js";
-import { hasActiveChatDraft } from "./utils/mobileChatHandoff.js";
 import { resolveScoreFlightPoints } from "./utils/scoreFlightPoints.js";
 import {
   buildDefinitionFallbacks,
@@ -450,10 +450,6 @@ const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 const DESKTOP_MAIN_GRID_MIN_HEIGHT = 1;
 const MAIN_GRID_HEIGHT = `max(${DESKTOP_MAIN_GRID_MIN_HEIGHT}px, calc(100vh - 180px))`;
 const CHAT_DRAWER_FIXED_HEIGHT_RATIO = 0.58;
-const CHAT_DRAWER_MIN_HEIGHT_PX = 320;
-const CHAT_DRAWER_MAX_HEIGHT_PX = 560;
-const CHAT_DRAWER_TOP_GAP_PX = 14;
-const CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX = 120;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
@@ -1996,11 +1992,23 @@ export default function GobbleApplication() {
   } = liveUiActions;
   const displayMode = useDisplayMode();
   const isFullscreen = displayMode.isFullscreen;
-  const chatBaselineHeightRef = useRef(0);
-  const chatDrawerCalibrationRef = useRef(readStoredChatDrawerCalibration());
-  const chatDrawerSessionCalibrationRef = useRef(chatDrawerCalibrationRef.current);
-  const chatCloseTimerRef = useRef(null);
-  const chatRulesConfirmRef = useRef(null);
+  const chatInteractionResources = useChatInteractionResources({
+    chatFeature,
+    isChatClosing,
+  });
+  const {
+    chatBodyLockHeightRef,
+    chatCloseTimerRef,
+    chatDrawerCalibrationRef,
+    chatDrawerSessionCalibrationRef,
+    chatInputRef,
+    chatInputValueRef,
+    chatRulesConfirmRef,
+    gameViewportFreezeHeightRef,
+    isChatClosingRef,
+    isChatOpenMobileRef,
+    lobbyChatSubscriptionRef,
+  } = chatInteractionResources;
   const chatInputType = React.useMemo(() => {
     if (typeof navigator === "undefined") return "text";
     const ua = navigator.userAgent || "";
@@ -2634,16 +2642,6 @@ export default function GobbleApplication() {
     };
   }, [pushMobileExitGuardHistoryEntry, roundId, shouldProtectMobileLiveExit]);
   useEffect(() => {
-    if (chatTab === "system") {
-      setIsDesktopEmojiPickerOpen(false);
-      setDesktopChatReactionPicker((prev) => (prev.open ? { ...prev, open: false } : prev));
-      setDesktopChatReactionDetails((prev) => (prev.open ? { ...prev, open: false } : prev));
-    }
-  }, [chatTab]);
-  useEffect(() => {
-    isChatClosingRef.current = isChatClosing;
-  }, [isChatClosing]);
-  useEffect(() => {
     inputLockedRef.current = inputLocked;
   }, [inputLocked]);
   useEffect(() => {
@@ -3114,9 +3112,6 @@ export default function GobbleApplication() {
     });
     touchSubmissionState();
   }
-  const chatInputRef = useRef(null);
-  const chatBodyLockHeightRef = useRef(0);
-  const gameViewportFreezeHeightRef = useRef(0);
   const chatDesktopListRef = useRef(null);
   const chatDesktopStickToBottomRef = useRef(true);
   const chatDesktopFocusRestoreUntilRef = useRef(0);
@@ -3124,10 +3119,6 @@ export default function GobbleApplication() {
   const chatDesktopAutoScrollRafRef = useRef(null);
   const chatDesktopAutoScrollTimersRef = useRef([]);
   const pendingDesktopChatFontScaleScrollRef = useRef(false);
-  const desktopReactionDetailsCloseTimerRef = useRef(null);
-  const suppressChatResizeRef = useRef(false);
-  const isChatOpenMobileRef = useRef(false);
-  const isChatClosingRef = useRef(isChatClosing);
   const { mobileGameViewportLockRef, mobileHeaderRef } =
     useMobileLayoutController({
       chat: {
@@ -3151,8 +3142,6 @@ export default function GobbleApplication() {
         setMobileLayoutSizing,
       },
     });
-  const wasMobileLiveLobbyRef = useRef(false);
-  const chatInputValueRef = useRef(chatFeature.store.getState().input);
   const isMobileLayoutRef = useRef(isMobileLayout);
   const installIdRef = useRef(installId);
   const isAccountAuthenticatedRef = useRef(isAccountAuthenticated);
@@ -3169,12 +3158,6 @@ export default function GobbleApplication() {
   const clearTileIntroAnimationFnRef = useRef(() => {});
   const triggerTileIntroAnimationFnRef = useRef(() => 0);
   const isHomeChatOpenRef = useRef(false);
-  const lobbyChatSubscriptionRef = useRef({
-    roomId: null,
-    subscribed: false,
-    inFlight: false,
-    connectPending: false,
-  });
   const wordHistoryRef = useRef([]);
   const wordHistoryIndexRef = useRef(-1);
   const chatHistoryRef = useRef([]);
@@ -3185,14 +3168,6 @@ export default function GobbleApplication() {
   const chatLastSentRef = useRef(0);
   const chatReplyTargetRef = useRef(null);
   const chatEditTargetRef = useRef(null);
-  const lastKeyboardInsetRef = useRef(0);
-  useEffect(() => {
-    const syncChatInputRef = () => {
-      chatInputValueRef.current = chatFeature.store.getState().input;
-    };
-    syncChatInputRef();
-    return chatFeature.store.subscribe(syncChatInputRef);
-  }, [chatFeature]);
   const gobblarToastDelayTimersRef = useRef(new Set());
   const gridShakeTimerRef = useRef(null);
   const gridShakeAnimationRef = useRef(null);
@@ -3677,197 +3652,6 @@ export default function GobbleApplication() {
   }, []);
 
   useEffect(() => {
-    isChatOpenMobileRef.current = isChatOpenMobile;
-
-    if (!isMobileLayout) return;
-    if (!isChatOpenMobile) {
-      setActiveArea("game");
-      return;
-    }
-
-    if (chatTab !== "system") {
-      setMobileChatUnreadCount(0);
-      setMobileChatBotUnreadCount(0);
-    }
-    setActiveArea("chat");
-  }, [isChatOpenMobile, isMobileLayout, chatTab]);
-
-  useLayoutEffect(() => {
-    const isMobileLiveLobby =
-      isMobileLayout && isLoggedIn && appView === "live" && phase === "lobby";
-    const wasMobileLiveLobby = wasMobileLiveLobbyRef.current;
-    wasMobileLiveLobbyRef.current = isMobileLiveLobby;
-
-    if (isMobileLiveLobby) {
-      // Le carnet du salon remplace le tiroir : on neutralise tout ancien état
-      // d'ouverture sans toucher au champ actuellement utilisé dans le carnet.
-      resetMobileChatPanelImmediately({ preserveInputFocus: true });
-      return undefined;
-    }
-
-    if (
-      !wasMobileLiveLobby ||
-      !isMobileLayout ||
-      !isLoggedIn ||
-      appView !== "live"
-    ) {
-      return undefined;
-    }
-
-    if (!hasActiveChatDraft(chatInputValueRef.current)) {
-      resetMobileChatPanelImmediately();
-      return undefined;
-    }
-
-    // Un vrai brouillon était en cours dans le carnet : le tiroir prend le
-    // relais et rend le focus au champ pour ne pas interrompre la rédaction.
-    openChatPanel();
-    if (typeof window === "undefined") return undefined;
-    const focusFrame = window.requestAnimationFrame(() => {
-      try {
-        chatInputRef.current?.focus?.({ preventScroll: true });
-      } catch (_) {
-        try {
-          chatInputRef.current?.focus?.();
-        } catch (_) {}
-      }
-    });
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [appView, isLoggedIn, isMobileLayout, phase]);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    if (chatTab === "system") return;
-    if (isMobileLayout && (!isChatOpenMobile || isChatClosing)) return;
-    setMobileChatUnreadCount(0);
-    setMobileChatBotUnreadCount(0);
-  }, [isLoggedIn, chatTab, isMobileLayout, isChatOpenMobile, isChatClosing]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (!isChatOpenMobile) {
-      chatBaselineHeightRef.current = 0;
-      setChatViewportHeight(0);
-      setChatKeyboardInsetPx(0);
-      return;
-    }
-
-    const vv = window.visualViewport;
-
-    const baseHeight =
-      chatBodyLockHeightRef.current ||
-      chatBaselineHeightRef.current ||
-      Math.round(window.innerHeight || vv?.height || 0);
-    chatBaselineHeightRef.current = baseHeight;
-    setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
-
-    const updateInset = () => {
-      if (suppressChatResizeRef.current) return;
-      const nextHeight =
-        chatBodyLockHeightRef.current ||
-        chatBaselineHeightRef.current ||
-        Math.round(window.innerHeight || vv?.height || 0);
-      if (nextHeight > 0) {
-        chatBaselineHeightRef.current = nextHeight;
-        setChatViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-      }
-      const nextInset =
-        vv && Number.isFinite(vv.height)
-          ? Math.max(
-              0,
-              Math.round(
-                nextHeight -
-                  vv.height -
-                  (Number.isFinite(vv.offsetTop) ? vv.offsetTop : 0)
-              )
-            )
-          : 0;
-      if (nextInset > 0) {
-        lastKeyboardInsetRef.current = nextInset;
-      } else {
-        lastKeyboardInsetRef.current = 0;
-      }
-      if (!chatDrawerCalibrationRef.current && nextHeight > 0) {
-        const keyboardThresholdPx = Math.max(
-          CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX,
-          Math.round(nextHeight * 0.12)
-        );
-        if (nextInset >= keyboardThresholdPx) {
-          const topInsetPx = isFullscreen ? mobileHeaderOffsetPx : 0;
-          const ceilingPx = Math.max(
-            220,
-            Math.round(nextHeight - topInsetPx - CHAT_DRAWER_TOP_GAP_PX)
-          );
-          const observedHeightPx = clampValue(
-            Math.round(nextHeight - nextInset - topInsetPx),
-            Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, ceilingPx),
-            Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, ceilingPx)
-          );
-          const nextCalibration = {
-            ratio: clampValue(
-              observedHeightPx / nextHeight,
-              CHAT_DRAWER_CALIBRATION_MIN_RATIO,
-              CHAT_DRAWER_CALIBRATION_MAX_RATIO
-            ),
-            heightPx: observedHeightPx,
-            orientation: getChatDrawerOrientationKey(),
-          };
-          chatDrawerCalibrationRef.current = nextCalibration;
-          writeStoredChatDrawerCalibration(nextCalibration);
-        }
-      }
-      setChatKeyboardInsetPx((prev) => (prev === nextInset ? prev : nextInset));
-    };
-
-    updateInset();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(updateInset, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
-      VIEWPORT_EVENTS.VISUAL_SCROLL,
-    ]);
-    window.addEventListener("focusin", updateInset, true);
-    window.addEventListener("focusout", updateInset, true);
-    return () => {
-      unsubscribeViewport();
-      window.removeEventListener("focusin", updateInset, true);
-      window.removeEventListener("focusout", updateInset, true);
-    };
-  }, [isChatOpenMobile, isFullscreen, layoutFeature, mobileHeaderOffsetPx]);
-
-  useEffect(() => {
-    if (!isChatRulesOpen) return;
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setIsChatRulesOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    const raf = window.requestAnimationFrame(() => {
-      chatRulesConfirmRef.current?.focus();
-    });
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.cancelAnimationFrame(raf);
-    };
-  }, [isChatRulesOpen]);
-
-  useEffect(() => {
-    if (!userMenu.open) return;
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeUserMenu();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [userMenu.open]);
-
-  useEffect(() => {
     if (!definitionModal.open) return;
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -3996,16 +3780,6 @@ export default function GobbleApplication() {
   );
 
   useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
-  useEffect(
-    () => () => {
-      if (desktopReactionDetailsCloseTimerRef.current) {
-        clearTimeout(desktopReactionDetailsCloseTimerRef.current);
-        desktopReactionDetailsCloseTimerRef.current = null;
-      }
-      clearMobileChatReactionToasts();
-    },
-    []
-  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -6980,20 +6754,6 @@ export default function GobbleApplication() {
   }, [installId, isDailyView]);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      setHomeChatUnreadCount(0);
-      setHomeChatBotUnreadCount(0);
-      if (isHomeChatOpen) setIsHomeChatOpen(false);
-      lobbyChatSubscriptionRef.current = {
-        roomId: null,
-        subscribed: false,
-        inFlight: false,
-        connectPending: false,
-      };
-    }
-  }, [isLoggedIn, isHomeChatOpen]);
-
-  useEffect(() => {
     if (!isWeeklyOpen || statsTab !== "weekly") {
       if (weeklyArrowTimerRef.current) {
         clearTimeout(weeklyArrowTimerRef.current);
@@ -7832,77 +7592,90 @@ export default function GobbleApplication() {
     updateBlockedInstallIds((prev) => prev.filter((entry) => entry !== key));
   }
 
-  const [
-    captureChatViewportBaseline,
-    resetMobileChatPanelImmediately,
-    openChatPanel,
-    closeChatPanel,
-    subscribeLobbyChat,
-    requestOpenChat,
-    clearMobileChatReactionToasts,
-    enqueueMobileChatReactionToast,
-    openHomeChat,
-    closeHomeChat,
-    confirmChatRules,
+  const {
     cancelChatRules,
-    closeUserMenu,
-    closeDesktopChatReactionPicker,
     clearDesktopReactionDetailsCloseTimer,
-    closeDesktopChatReactionDetails,
-    scheduleCloseDesktopChatReactionDetails,
+    clearMobileChatReactionToasts,
+    closeChatPanel,
+    closeDesktopChatReactionPicker,
+    closeHomeChat,
+    closeReportDialog,
+    closeUserMenu,
+    confirmChatRules,
+    enqueueMobileChatReactionToast,
     openDesktopChatReactionDetails,
     openDesktopChatReactionPicker,
-    openUserMenu,
+    openHomeChat,
     openReportDialog,
-    closeReportDialog,
+    openUserMenu,
+    requestOpenChat,
+    scheduleCloseDesktopChatReactionDetails,
     submitReport,
-  ] = useLazyArrayController(createChatInteractionController, [
-    chatBaselineHeightRef,
-    chatBodyLockHeightRef,
-    setChatViewportHeight,
-    chatCloseTimerRef,
-    chatInputRef,
-    isChatOpenMobileRef,
-    isChatClosingRef,
-    suppressChatResizeRef,
-    lastKeyboardInsetRef,
-    chatDrawerSessionCalibrationRef,
-    chatDrawerCalibrationRef,
-    gameViewportFreezeHeightRef,
-    setChatOpenedAtMs,
-    setIsChatClosing,
-    setIsChatOpenMobile,
-    setActiveArea,
-    setChatTab,
-    setMobileChatUnreadCount,
-    setMobileChatBotUnreadCount,
-    isChatOpenMobile,
-    isLoggedInRef,
-    roomIdRef,
-    socket,
-    setConnectionError,
-    connectSocketWithAuth,
-    isAccountAuthenticated,
-    accountSeenReady,
-    showToast,
-    chatRulesAccepted,
-    setIsChatRulesOpen,
-    chatFeature,
-    isMobileLayoutRef,
-    setHomeChatUnreadCount,
-    setHomeChatBotUnreadCount,
-    isMobileLayout,
-    setIsHomeChatOpen,
-    markAccountSeen,
-    setUserMenu,
-    setDesktopChatReactionPicker,
-    desktopReactionDetailsCloseTimerRef,
-    setDesktopChatReactionDetails,
-    normalizeUserIdForProfile,
-    installId,
-    setReportDialog,
-    reportDialog,
-  ], 23);
+    subscribeLobbyChat,
+  } = useChatInteractionController({
+    application: {
+      appView,
+      isLoggedIn,
+      isLoggedInRef,
+      phase,
+    },
+    auth: {
+      accountSeenReady,
+      isAccountAuthenticated,
+      markAccountSeen,
+    },
+    chat: {
+      actions: {
+        setActiveArea,
+        setChatKeyboardInsetPx,
+        setChatOpenedAtMs,
+        setChatRulesAccepted,
+        setChatTab,
+        setChatViewportHeight,
+        setDesktopChatReactionDetails,
+        setDesktopChatReactionPicker,
+        setHomeChatBotUnreadCount,
+        setHomeChatUnreadCount,
+        setIsChatClosing,
+        setIsChatOpenMobile,
+        setIsChatRulesOpen,
+        setIsDesktopEmojiPickerOpen,
+        setIsHomeChatOpen,
+        setMobileChatBotUnreadCount,
+        setMobileChatUnreadCount,
+        setReportDialog,
+        setUserMenu,
+      },
+      feature: chatFeature,
+      isClosing: isChatClosing,
+      isHomeOpen: isHomeChatOpen,
+      isOpenMobile: isChatOpenMobile,
+      reportDialog,
+      rulesAccepted: chatRulesAccepted,
+      rulesOpen: isChatRulesOpen,
+      tab: chatTab,
+      userMenu,
+    },
+    identity: {
+      installId,
+      normalizeUserIdForProfile,
+    },
+    layout: {
+      feature: layoutFeature,
+      isFullscreen,
+      isMobileLayout,
+      isMobileLayoutRef,
+      mobileHeaderOffsetPx,
+    },
+    network: {
+      connectSocketWithAuth,
+      roomIdRef,
+      setConnectionError,
+      socket,
+    },
+    notifications: { showToast },
+    resources: chatInteractionResources,
+  });
 
   const liveResumeFeature = useLiveResumeFeature({
     appViewRef,
