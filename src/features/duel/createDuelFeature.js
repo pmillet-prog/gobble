@@ -44,6 +44,7 @@ export function createDuelFeature(
   } = {}
 ) {
   let active = false;
+  let currentRerollRequest = null;
   let currentStatusRequest = null;
   let feature = null;
 
@@ -69,6 +70,23 @@ export function createDuelFeature(
     } catch (_) {}
     clearRequestResources(request);
     request.cancelResolve(CANCELLED_REQUEST);
+  }
+
+  function cancelRerollRequest(request = currentRerollRequest) {
+    if (!request || request.cancelled) return;
+    request.cancelled = true;
+    if (currentRerollRequest === request) currentRerollRequest = null;
+    try {
+      request.controller?.abort?.();
+    } catch (_) {}
+    request.controller = null;
+    request.cancelResolve(CANCELLED_REQUEST);
+  }
+
+  function invokeCallback(callback, ...args) {
+    try {
+      callback?.(...args);
+    } catch (_) {}
   }
 
   async function waitForRetry(request, delayMs) {
@@ -171,6 +189,111 @@ export function createDuelFeature(
       dailyBattle: data?.dailyBattle || null,
       tutorialVersion: data?.tutorialVersion || null,
     });
+  }
+
+  function rerollObjective({
+    bucket = "",
+    installId = "",
+    onError = null,
+    onSettled = null,
+    onSuccess = null,
+  } = {}) {
+    const safeBucket = String(bucket || "");
+    const safeInstallId = String(installId || "");
+    if (!active || !safeBucket || !safeInstallId) return null;
+    if (currentRerollRequest) return currentRerollRequest.promise;
+
+    const controller = abortControllerFactory();
+    let cancelResolve;
+    const request = {
+      bucket: safeBucket,
+      cancelled: false,
+      cancelPromise: new Promise((resolve) => {
+        cancelResolve = resolve;
+      }),
+      cancelResolve: null,
+      controller,
+      promise: null,
+    };
+    request.cancelResolve = cancelResolve;
+    currentRerollRequest = request;
+    feature.set("rerollBusyBucket", safeBucket);
+
+    request.promise = (async () => {
+      try {
+        const response = await Promise.race([
+          fetchImpl("/api/duel/objectives/reroll", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ installId: safeInstallId, bucket: safeBucket }),
+            signal: controller?.signal,
+          }),
+          request.cancelPromise,
+        ]);
+        if (
+          response === CANCELLED_REQUEST ||
+          request.cancelled ||
+          !active ||
+          currentRerollRequest !== request
+        ) {
+          return null;
+        }
+        const text = await Promise.race([
+          response.text(),
+          request.cancelPromise,
+        ]);
+        if (
+          text === CANCELLED_REQUEST ||
+          request.cancelled ||
+          !active ||
+          currentRerollRequest !== request
+        ) {
+          return null;
+        }
+        const data = text ? JSON.parse(text) : null;
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error || "reroll_error");
+        }
+        feature.set("status", (previous) => ({
+          ...previous,
+          objectives: {
+            ...(previous?.objectives || {}),
+            dateId: data?.dateId || previous?.objectives?.dateId || null,
+            rerollUsed: !!data?.rerollUsed,
+            objectives: Array.isArray(data?.objectives)
+              ? data.objectives
+              : previous?.objectives?.objectives || [],
+          },
+        }));
+        invokeCallback(onSuccess, data);
+        return data;
+      } catch (error) {
+        if (
+          error?.name === "AbortError" ||
+          request.cancelled ||
+          !active ||
+          currentRerollRequest !== request
+        ) {
+          return null;
+        }
+        invokeCallback(onError, String(error?.message || "reroll_error"));
+        return null;
+      } finally {
+        if (currentRerollRequest === request) {
+          currentRerollRequest = null;
+          request.controller = null;
+          if (active) {
+            feature.set("rerollBusyBucket", null);
+            invokeCallback(onSettled);
+          }
+        }
+      }
+    })();
+    return request.promise;
   }
 
   function fetchStatus({
@@ -312,6 +435,7 @@ export function createDuelFeature(
       active = true;
       scope.add(() => {
         active = false;
+        cancelRerollRequest();
         cancelStatusRequest();
         store.patch(createInitialDuelState());
       });
@@ -320,7 +444,9 @@ export function createDuelFeature(
 
   return Object.freeze({
     ...feature,
+    cancelRerollRequest,
     cancelStatusRequest,
     fetchStatus,
+    rerollObjective,
   });
 }

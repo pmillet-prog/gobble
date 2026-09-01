@@ -62,6 +62,13 @@ function parsedResponse({ data, isLikelyHtml = false, ok = true, status = 200 })
   };
 }
 
+function textResponse(data, { ok = true } = {}) {
+  return {
+    ok,
+    text: async () => JSON.stringify(data),
+  };
+}
+
 const readJsonResponse = async (response) => response.parsed;
 
 test("duel satellite retries a rejected status payload and applies success", async () => {
@@ -261,4 +268,123 @@ test("duel satellite refreshes authentication once before retrying status", asyn
   assert.equal(successCount, 1);
   assert.equal(feature.store.getState().status.error, "");
   scope.dispose();
+});
+
+test("duel satellite owns reroll mutation, busy state and status update", async () => {
+  const calls = [];
+  const deferred = createDeferred();
+  const settled = [];
+  const successes = [];
+  const scope = createResourceScope("duel-reroll-success-test");
+  const feature = createDuelFeature(
+    { ports: {}, scope },
+    {
+      fetchImpl(url, options) {
+        calls.push({ options, url });
+        return deferred.promise;
+      },
+    }
+  );
+  feature.start();
+  feature.set("status", (previous) => ({
+    ...previous,
+    objectives: {
+      dateId: "2026-09-01",
+      objectives: [{ bucket: "words", title: "Ancien" }],
+      rerollUsed: false,
+    },
+  }));
+
+  const request = feature.rerollObjective({
+    bucket: "words",
+    installId: "user:12",
+    onSettled: () => settled.push("settled"),
+    onSuccess: (data) => successes.push(data.objective.title),
+  });
+  const duplicate = feature.rerollObjective({
+    bucket: "score",
+    installId: "user:12",
+  });
+
+  assert.equal(request, duplicate);
+  assert.equal(calls.length, 1);
+  assert.equal(feature.store.getState().rerollBusyBucket, "words");
+  assert.equal(calls[0].url, "/api/duel/objectives/reroll");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    bucket: "words",
+    installId: "user:12",
+  });
+
+  const data = {
+    dateId: "2026-09-02",
+    objective: { bucket: "words", title: "Nouveau" },
+    objectives: [{ bucket: "words", title: "Nouveau" }],
+    ok: true,
+    rerollUsed: true,
+  };
+  deferred.resolve(textResponse(data));
+  assert.deepEqual(await request, data);
+  assert.equal(feature.store.getState().rerollBusyBucket, null);
+  assert.deepEqual(feature.store.getState().status.objectives, {
+    dateId: "2026-09-02",
+    objectives: [{ bucket: "words", title: "Nouveau" }],
+    rerollUsed: true,
+  });
+  assert.deepEqual(successes, ["Nouveau"]);
+  assert.deepEqual(settled, ["settled"]);
+
+  scope.dispose();
+});
+
+test("duel satellite reports reroll errors and cancels pending work on disposal", async () => {
+  const calls = [];
+  const errors = [];
+  let settledCount = 0;
+  const scope = createResourceScope("duel-reroll-error-test");
+  const feature = createDuelFeature(
+    { ports: {}, scope },
+    {
+      fetchImpl(url, options) {
+        calls.push({ options, url });
+        if (calls.length === 1) {
+          return Promise.resolve(
+            textResponse({ error: "reroll_used", ok: false }, { ok: false })
+          );
+        }
+        return createDeferred().promise;
+      },
+    }
+  );
+  feature.start();
+
+  assert.equal(
+    await feature.rerollObjective({
+      bucket: "words",
+      installId: "user:13",
+      onError: (code) => errors.push(code),
+      onSettled: () => {
+        settledCount += 1;
+      },
+    }),
+    null
+  );
+  assert.deepEqual(errors, ["reroll_used"]);
+  assert.equal(settledCount, 1);
+  assert.equal(feature.store.getState().rerollBusyBucket, null);
+
+  const pending = feature.rerollObjective({
+    bucket: "score",
+    installId: "user:13",
+    onError: (code) => errors.push(code),
+    onSettled: () => {
+      settledCount += 1;
+    },
+  });
+  scope.dispose();
+  assert.equal(calls[1].options.signal.aborted, true);
+  assert.equal(await pending, null);
+  assert.deepEqual(errors, ["reroll_used"]);
+  assert.equal(settledCount, 1);
+  assert.deepEqual(feature.store.getState(), createInitialDuelState());
 });

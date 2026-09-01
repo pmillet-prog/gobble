@@ -2154,7 +2154,6 @@ export default function GobbleApplication() {
         setDuelConsumedValidatedByView: "consumedValidatedByView",
         setDuelObjectivesPopupDismissedDateId: "objectivesPopupDismissedDateId",
         setDuelPopupState: "popup",
-        setDuelRerollBusyBucket: "rerollBusyBucket",
         setDuelStatus: "status",
         setDuelWeekRecapOpen: "weekRecapOpen",
         setDuelWeekRecapPage: "weekRecapPage",
@@ -2239,7 +2238,6 @@ export default function GobbleApplication() {
     setDuelConsumedValidatedByView,
     setDuelObjectivesPopupDismissedDateId,
     setDuelPopupState,
-    setDuelRerollBusyBucket,
     setDuelStatus,
     setDuelWeekRecapOpen,
     setDuelWeekRecapPage,
@@ -6640,37 +6638,13 @@ export default function GobbleApplication() {
   }, [appView, duelWeekRecapOpen, isDailyPlay, isLoggedIn]);
 
   function rerollDuelObjective(bucket) {
-    if (!installId || !bucket) return;
-    setDuelRerollBusyBucket(bucket);
-    fetch("/api/duel/objectives/reroll", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ installId, bucket }),
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
-        if (!res.ok || !data?.ok) {
-          const code = data?.error || "reroll_error";
-          throw new Error(code);
-        }
-        return data;
-      })
-      .then((data) => {
-        setDuelStatus((prev) => ({
-          ...prev,
-          objectives: {
-            ...(prev?.objectives || {}),
-            dateId: data?.dateId || prev?.objectives?.dateId || null,
-            rerollUsed: !!data?.rerollUsed,
-            objectives: Array.isArray(data?.objectives) ? data.objectives : prev?.objectives?.objectives || [],
-          },
-        }));
+    return duelFeature.rerollObjective({
+      bucket,
+      installId,
+      onSuccess: (data) => {
         showToast(`🎲 Nouvel objectif : ${data?.objective?.title || "Objectif"}`, 2600);
-      })
-      .catch((err) => {
-        const code = err?.message || "";
+      },
+      onError: (code) => {
         if (code === "all_validated") {
           showToast("Reroll indisponible (objectifs déjà validés)", 2600);
         } else if (code === "reroll_used") {
@@ -6678,11 +6652,11 @@ export default function GobbleApplication() {
         } else {
           showToast("Reroll indisponible", 2000);
         }
-      })
-      .finally(() => {
-        setDuelRerollBusyBucket(null);
+      },
+      onSettled: () => {
         fetchDuelStatus();
-      });
+      },
+    });
   }
 
   function handleDuelObjectiveValidated(objective) {
