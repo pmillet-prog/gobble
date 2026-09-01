@@ -15,6 +15,8 @@ export function createHomeApplicationRuntime({
   let disposeBroadcastRefresh = null;
   let disposeLobbyRefresh = null;
   let disposeRoomsStats = null;
+  let homeChatStateKey = null;
+  let homeChatSubscriptionKey = null;
   let lobbyRoomId = null;
 
   function bindRoomsStats() {
@@ -65,11 +67,45 @@ export function createHomeApplicationRuntime({
     if (nextRequestKey) safeInvoke(config.fetchDailyStatus);
   }
 
+  function syncHomeChat() {
+    const open = !!config.isHomeChatOpen;
+    const mobileOpen = !!config.isChatOpenMobile;
+    const mobileMessagesVisible =
+      !!config.isMobileLayout && mobileOpen && !config.isChatClosing;
+    const tab = config.chatTab === "system" ? "system" : "messages";
+    if (config.isHomeChatOpenRef) {
+      config.isHomeChatOpenRef.current = open;
+    }
+
+    const nextStateKey = `${open ? "open" : "closed"}:${
+      mobileMessagesVisible ? "mobile-open" : "mobile-closed"
+    }:${tab}`;
+    if (homeChatStateKey !== nextStateKey) {
+      homeChatStateKey = nextStateKey;
+      if ((open || mobileMessagesVisible) && tab === "messages") {
+        config.setHomeChatUnreadCount?.(0);
+        config.setHomeChatBotUnreadCount?.(0);
+      }
+    }
+
+    const nextSubscriptionKey = open || mobileOpen
+      ? `${String(config.roomId || "")}:${open ? "home" : ""}:${
+          mobileOpen ? "mobile" : ""
+        }`
+      : "closed";
+    if (homeChatSubscriptionKey === nextSubscriptionKey) return;
+    homeChatSubscriptionKey = nextSubscriptionKey;
+    if (open || mobileOpen) {
+      safeInvoke(() => config.subscribeLobbyChat?.({ force: true }));
+    }
+  }
+
   function configure(nextConfig = {}) {
     config = nextConfig;
     if (!active) return;
     syncLobbyRefresh();
     syncDailyStatus();
+    syncHomeChat();
   }
 
   function start() {
@@ -79,6 +115,7 @@ export function createHomeApplicationRuntime({
     startBroadcastRefresh();
     syncLobbyRefresh();
     syncDailyStatus();
+    syncHomeChat();
     return stop;
   }
 
@@ -91,7 +128,15 @@ export function createHomeApplicationRuntime({
     disposeBroadcastRefresh = null;
     disposeRoomsStats?.();
     disposeRoomsStats = null;
+    if (config.isHomeChatOpenRef) {
+      config.isHomeChatOpenRef.current = false;
+    }
+    if (config.isHomeChatOpen) {
+      config.setIsHomeChatOpen?.(false);
+    }
     dailyRequestKey = null;
+    homeChatStateKey = null;
+    homeChatSubscriptionKey = null;
     lobbyRoomId = null;
   }
 

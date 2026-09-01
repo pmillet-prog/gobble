@@ -164,7 +164,7 @@ import {
   restorePendingSubmissionState,
   takeInFlightSubmissionWords,
 } from "./network/liveSubmissionRecovery.js";
-import GlobalChatLayer from "./components/chat/GlobalChatLayer.jsx";
+import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
 import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
 import { createChatInteractionController } from "./components/chat/createChatInteractionController.js";
 import {
@@ -269,6 +269,7 @@ import {
   stripBoardBonuses,
 } from "./components/daily/dailySpecialModel.js";
 import HomeApplication from "./features/home/HomeApplication.jsx";
+import { getBroadcastMessageKey } from "./features/home/homeViewModel.js";
 import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
@@ -395,9 +396,6 @@ const TrainingConfirmDialog = React.lazy(() =>
   import("./components/training/TrainingConfirmDialog.jsx")
 );
 const AccountMenu = React.lazy(() => import("./components/account/AccountMenu.jsx"));
-const BroadcastNoticePopup = React.lazy(() =>
-  import("./components/BroadcastNoticePopup.jsx")
-);
 const DuelWeekRecapOverlay = React.lazy(() =>
   import("./components/DuelWeekRecapOverlay.jsx")
 );
@@ -406,9 +404,6 @@ const GlobalRedAnnouncementOverlay = React.lazy(() =>
 );
 const PlaytimeCountdownOverlay = React.lazy(() =>
   import("./components/PlaytimeCountdownOverlay.jsx")
-);
-const VaultWordOfDayPopup = React.lazy(() =>
-  import("./components/home/VaultWordOfDayPopup.jsx")
 );
 const PerfTestOverlay = React.lazy(() => import("./perf/PerfTestOverlay.jsx"));
 const DuelPopupOverlay = React.lazy(() =>
@@ -693,17 +688,6 @@ function getPatchNotesSeenAudienceKey(userId) {
 
 function getPopupAudienceKey(userId) {
   return getPatchNotesSeenAudienceKey(userId);
-}
-
-function getBroadcastMessageKey(message) {
-  if (!message || typeof message !== "object") return "";
-  const idPart = typeof message.id === "string" ? message.id.trim() : "";
-  const updatedPart =
-    typeof message.updatedAt === "string" ? message.updatedAt.trim() : "";
-  if (idPart && updatedPart) return `${idPart}:${updatedPart}`.slice(0, 140);
-  if (idPart) return idPart.slice(0, 140);
-  if (updatedPart) return updatedPart.slice(0, 140);
-  return "";
 }
 
 const LEAGUE_META = {
@@ -4237,38 +4221,12 @@ export default function GobbleApplication() {
   }, [appView, isLoggedIn, isMobileLayout, phase]);
 
   useEffect(() => {
-    isHomeChatOpenRef.current = isHomeChatOpen;
-    if (isHomeChatOpen && chatTab !== "system") {
-      setHomeChatUnreadCount(0);
-      setHomeChatBotUnreadCount(0);
-    }
-  }, [isHomeChatOpen, chatTab]);
-
-  useEffect(() => {
     if (!isLoggedIn) return;
     if (chatTab === "system") return;
     if (isMobileLayout && (!isChatOpenMobile || isChatClosing)) return;
     setMobileChatUnreadCount(0);
     setMobileChatBotUnreadCount(0);
   }, [isLoggedIn, chatTab, isMobileLayout, isChatOpenMobile, isChatClosing]);
-
-  useEffect(() => {
-    if (isLoggedIn) return;
-    if (chatTab === "system") return;
-    const messagesVisible = isMobileLayout
-      ? isChatOpenMobile && !isChatClosing
-      : isHomeChatOpen;
-    if (!messagesVisible) return;
-    setHomeChatUnreadCount(0);
-    setHomeChatBotUnreadCount(0);
-  }, [
-    isLoggedIn,
-    chatTab,
-    isMobileLayout,
-    isHomeChatOpen,
-    isChatOpenMobile,
-    isChatClosing,
-  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -8247,19 +8205,6 @@ export default function GobbleApplication() {
       };
     }
   }, [isLoggedIn, isHomeChatOpen]);
-
-  useEffect(() => {
-    const isHomeLobbyView = !isLoggedIn && appView === "home";
-    if (!isHomeLobbyView && isHomeChatOpen) {
-      setIsHomeChatOpen(false);
-    }
-  }, [isLoggedIn, appView, isHomeChatOpen]);
-
-  useEffect(() => {
-    if (isLoggedIn) return;
-    if (!isHomeChatOpen && !isChatOpenMobile) return;
-    subscribeLobbyChat({ force: true });
-  }, [isLoggedIn, isHomeChatOpen, isChatOpenMobile, roomId]);
 
   useEffect(() => {
     if (!isWeeklyOpen || statsTab !== "weekly") {
@@ -15593,11 +15538,7 @@ function handleTouchEnd(e) {
   ) : null;
   const globalChatLayer = (
     <>
-      <GlobalChatLayer
-        key="global-chat-layer"
-        mobileProps={mobileChatProps}
-        homeProps={homeChatProps}
-      />
+      <MobileChatLayer key="mobile-chat-layer" {...mobileChatProps} />
       {mobileExitConfirmLayer}
     </>
   );
@@ -15610,31 +15551,6 @@ function handleTouchEnd(e) {
     shouldPrepareDailyOrDuelStandaloneView,
     shouldPrepareDailyStandaloneView,
   } = useDailyDuelStandalonePrep({ appView, duelStatus, isLoggedIn });
-  const broadcastMessageKey = getBroadcastMessageKey(broadcastNotice?.message);
-  const broadcastAccountMarker = buildBroadcastSeenMarker(broadcastMessageKey);
-  const broadcastAlreadySeen =
-    !isAccountAuthenticated ||
-    !accountSeenReady ||
-    !broadcastAccountMarker ||
-    accountSeenMarkers.has(broadcastAccountMarker);
-  const isHomeLobbyView = !isLoggedIn && appView === "home";
-  const shouldShowBroadcastPopup =
-    isHomeLobbyView &&
-    !shouldShowTutorial &&
-    !isTutorialOpen &&
-    !isNewPlayerPopupQuiet &&
-    !duelPopupState?.mode &&
-    !!broadcastNotice?.message &&
-    !broadcastAlreadySeen;
-  const broadcastPopupOverlay = shouldShowBroadcastPopup ? (
-    <Suspense fallback={null}>
-      <BroadcastNoticePopup
-        darkMode={menuDarkMode}
-        message={broadcastNotice?.message}
-        onClose={dismissBroadcastNotice}
-      />
-    </Suspense>
-  ) : null;
   const shouldShowPlaytimeCountdown =
     isLoggedIn && appView === "live" && !!playtimeLimit?.active;
   const playtimeCountdownOverlay = shouldShowPlaytimeCountdown ? (
@@ -15650,19 +15566,6 @@ function handleTouchEnd(e) {
   const perfTestOverlay = perfTestEnabled ? (
     <Suspense fallback={null}>
       <PerfTestOverlay phase={phase} roundId={roundId} />
-    </Suspense>
-  ) : null;
-  const vaultWordOfDayOverlay = vaultWordOfDayPopup.open ? (
-    <Suspense fallback={null}>
-      <VaultWordOfDayPopup
-        definition={vaultWordOfDayPopup.definition}
-        displayWord={vaultWordOfDayPopup.displayWord}
-        onClose={closeVaultWordOfDayPopup}
-        onOpenVault={openVaultFromWordOfDay}
-        source={vaultWordOfDayPopup.source}
-        url={vaultWordOfDayPopup.url}
-        word={vaultWordOfDayPopup.word}
-      />
     </Suspense>
   ) : null;
   const duelTeamTintColor =
@@ -15969,8 +15872,6 @@ function handleTouchEnd(e) {
         {globalRedAnnouncementOverlay}
         {playtimeCountdownOverlay}
         {perfTestOverlay}
-        {broadcastPopupOverlay}
-        {vaultWordOfDayOverlay}
         {playersOverlay}
         {playerProfileModalView}
         {chatInteractionOverlaysView}
@@ -16010,6 +15911,7 @@ function handleTouchEnd(e) {
             onPlay: handleLoginOrResume,
             onResume: handleResumeFromPrompt,
           }}
+          chat={homeChatProps}
           dailyStatus={dailyStatus}
           displayMode={{
             action: displayMode.homeAction,
@@ -16031,6 +15933,24 @@ function handleTouchEnd(e) {
             roomsStats,
             tournamentLobby,
           }}
+          overlays={{
+            broadcast: {
+              accountSeenMarkers,
+              accountSeenReady,
+              darkMode: menuDarkMode,
+              duelPopupMode: duelPopupState?.mode,
+              isNewPlayerPopupQuiet,
+              isTutorialOpen,
+              message: broadcastNotice?.message,
+              onClose: dismissBroadcastNotice,
+              shouldShowTutorial,
+            },
+            vault: {
+              onClose: closeVaultWordOfDayPopup,
+              onOpenVault: openVaultFromWordOfDay,
+              popup: vaultWordOfDayPopup,
+            },
+          }}
           resume={{
             canResumeNow,
             phaseLabel: resumePhaseLabel,
@@ -16045,9 +15965,19 @@ function handleTouchEnd(e) {
                   fetchLobbyPlayers,
                   installId,
                   isAccountAuthenticated,
+                  isChatClosing,
+                  isChatOpenMobile,
+                  isHomeChatOpen,
+                  isHomeChatOpenRef,
+                  isMobileLayout,
+                  chatTab,
                   refreshScheduler: refreshFeature,
                   roomId,
+                  setHomeChatBotUnreadCount,
+                  setHomeChatUnreadCount,
+                  setIsHomeChatOpen,
                   setRoomsStats,
+                  subscribeLobbyChat,
                 }
               : null
           }

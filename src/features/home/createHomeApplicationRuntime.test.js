@@ -139,3 +139,70 @@ test("home runtime refreshes room-scoped data without duplicating other work", (
 
   runtime.stop();
 });
+
+test("home runtime owns the desktop home chat lifecycle", () => {
+  const connection = createConnectionHarness();
+  const refresh = createRefreshHarness();
+  const homeChatOpenRef = { current: false };
+  const calls = {
+    botUnread: [],
+    close: 0,
+    subscriptions: [],
+    unread: [],
+  };
+  const runtime = createHomeApplicationRuntime({
+    connection: connection.connection,
+    refreshScheduler: refresh.refreshScheduler,
+  });
+  const configure = ({
+    chatTab = "messages",
+    mobileOpen = false,
+    open = true,
+    roomId = "room-4x4",
+  } = {}) =>
+    runtime.configure({
+      chatTab,
+      fetchBroadcastNotice: () => {},
+      fetchLobbyPlayers: () => {},
+      isChatOpenMobile: mobileOpen,
+      isHomeChatOpen: open,
+      isHomeChatOpenRef: homeChatOpenRef,
+      isMobileLayout: mobileOpen,
+      roomId,
+      setHomeChatBotUnreadCount: (count) => calls.botUnread.push(count),
+      setHomeChatUnreadCount: (count) => calls.unread.push(count),
+      setIsHomeChatOpen: (nextOpen) => {
+        if (!nextOpen) calls.close += 1;
+      },
+      setRoomsStats: () => {},
+      subscribeLobbyChat: (options) => calls.subscriptions.push(options),
+    });
+
+  configure();
+  runtime.start();
+  assert.equal(homeChatOpenRef.current, true);
+  assert.deepEqual(calls.unread, [0]);
+  assert.deepEqual(calls.botUnread, [0]);
+  assert.deepEqual(calls.subscriptions, [{ force: true }]);
+
+  configure();
+  assert.deepEqual(calls.subscriptions, [{ force: true }]);
+
+  configure({ roomId: "room-5x5" });
+  assert.deepEqual(calls.subscriptions, [{ force: true }, { force: true }]);
+
+  configure({ chatTab: "system", roomId: "room-5x5" });
+  assert.deepEqual(calls.unread, [0]);
+
+  configure({ mobileOpen: true, open: false, roomId: "room-5x5" });
+  assert.deepEqual(calls.unread, [0, 0]);
+  assert.deepEqual(calls.subscriptions, [
+    { force: true },
+    { force: true },
+    { force: true },
+  ]);
+
+  runtime.stop();
+  assert.equal(homeChatOpenRef.current, false);
+  assert.equal(calls.close, 0);
+});

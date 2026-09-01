@@ -1,5 +1,6 @@
 import React from "react";
 
+import HomeChatModalHost from "../../components/HomeChatModalHost.jsx";
 import HomeLobby from "../../components/home/HomeLobby.jsx";
 import useHomeLobbyActions from "../../components/home/useHomeLobbyActions.js";
 import StandaloneTrainingPicker from "../../components/training/StandaloneTrainingPicker.jsx";
@@ -8,16 +9,26 @@ import {
   countHomeLobbyPlayers,
   getHomeDailyRemainingCount,
   isHomeMaintenanceActive,
+  shouldShowHomeBroadcastPopup,
 } from "./homeViewModel.js";
+
+const BroadcastNoticePopup = React.lazy(() =>
+  import("../../components/BroadcastNoticePopup.jsx")
+);
+const VaultWordOfDayPopup = React.lazy(() =>
+  import("../../components/home/VaultWordOfDayPopup.jsx")
+);
 
 export default function HomeApplication({
   account,
   actions,
+  chat,
   dailyStatus,
   displayMode,
   duel,
   intro,
   lobby,
+  overlays,
   resume,
   runtime,
   session,
@@ -45,10 +56,45 @@ export default function HomeApplication({
     account?.savedSessionNick ||
     account?.nickname ||
     "Compte";
+  const showBroadcastPopup = shouldShowHomeBroadcastPopup({
+    accountSeenMarkers: overlays?.broadcast?.accountSeenMarkers,
+    accountSeenReady: overlays?.broadcast?.accountSeenReady,
+    active: !!runtime,
+    duelPopupMode: overlays?.broadcast?.duelPopupMode,
+    isAccountAuthenticated: account?.isAuthenticated,
+    isNewPlayerPopupQuiet: overlays?.broadcast?.isNewPlayerPopupQuiet,
+    isTutorialOpen: overlays?.broadcast?.isTutorialOpen,
+    message: overlays?.broadcast?.message,
+    shouldShowTutorial: overlays?.broadcast?.shouldShowTutorial,
+  });
+  const vaultPopup = overlays?.vault?.popup;
 
   return (
     <>
       {runtime ? <HomeApplicationRuntime {...runtime} /> : null}
+      {showBroadcastPopup ? (
+        <React.Suspense fallback={null}>
+          <BroadcastNoticePopup
+            darkMode={overlays?.broadcast?.darkMode}
+            message={overlays?.broadcast?.message}
+            onClose={overlays?.broadcast?.onClose}
+          />
+        </React.Suspense>
+      ) : null}
+      {vaultPopup?.open ? (
+        <React.Suspense fallback={null}>
+          <VaultWordOfDayPopup
+            definition={vaultPopup.definition}
+            displayWord={vaultPopup.displayWord}
+            onClose={overlays?.vault?.onClose}
+            onOpenVault={overlays?.vault?.onOpenVault}
+            source={vaultPopup.source}
+            url={vaultPopup.url}
+            word={vaultPopup.word}
+          />
+        </React.Suspense>
+      ) : null}
+      <HomeChatModalHost {...chat} />
       <HomeLobby
         accountLabel={accountLabel}
         accountOnline={account?.isAuthenticated}
