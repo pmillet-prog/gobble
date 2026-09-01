@@ -84,7 +84,6 @@ import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
 import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
-import useRoundLifecycle from "./hooks/useRoundLifecycle.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
 import {
@@ -179,6 +178,9 @@ import usePhaseLoopController, {
 import useGridSolutionsScheduler from "./features/solver/useGridSolutionsScheduler.js";
 import useRoundAudioLifecycle from "./features/audio/useRoundAudioLifecycle.js";
 import useRoundFinalizationGate from "./features/round/useRoundFinalizationGate.js";
+import useRoundSessionController, {
+  useRoundSessionLifecycle,
+} from "./features/round/useRoundSessionController.js";
 import { useCelebrationRuntime } from "./features/celebration/CelebrationRuntime.jsx";
 import { useTraceRuntime } from "./features/trace/TraceRuntime.jsx";
 import {
@@ -301,7 +303,6 @@ import {
   FINALE_TYPE,
 } from "../shared/finaleRules.js";
 import { generateGrid } from "./components/gridGeneration";
-import { hydrateServerSolutionsPayload } from "./utils/roundSolutions";
 import {
   buildStandaloneTrainingTargetSummary,
   buildTrainingTargetHintSchedule,
@@ -1087,20 +1088,31 @@ export default function GobbleApplication() {
   );
   const activeTraceStartedAtRef = useRef(null);
   const inputLockedRef = useRef(false);
-  const outroInFlightRef = useRef(false);
-  const outroRoundRef = useRef(null);
-  const gameplaySessionTokenRef = useRef(0);
-  const blackHoleOverlayRef = useRef(null);
-  const implodeRoundRef = useRef(null);
-  const implodeTimerRef = useRef(null);
-  const tileIntroTimerRef = useRef(null);
-  const implodePhaseTimerRef = useRef(null);
-  const implodeFallbackRef = useRef(false);
-  const pendingRoundEndRef = useRef(null);
-  const pendingBreakStartRef = useRef(null);
-  const processRoundEndedRef = useRef(null);
-  const processBreakStartedRef = useRef(null);
-  const playOutroThenResultsRef = useRef(null);
+  const roundSession = useRoundSessionController();
+  const {
+    applyResumeSnapshot,
+    disposeGameplayRuntimeResources,
+    hydrateLiveSnapshot,
+    invalidateGameplaySession,
+  } = roundSession;
+  const {
+    blackHoleOverlayRef,
+    gameplaySessionTokenRef,
+    implodeFallbackRef,
+    implodePhaseTimerRef,
+    implodeRoundRef,
+    implodeTimerRef,
+    outroInFlightRef,
+    outroRoundRef,
+    pendingBreakStartRef,
+    pendingRoundEndRef,
+    playOutroThenResultsRef,
+    processBreakStartedRef,
+    processRoundEndedRef,
+    roundHandlersRef,
+    startGameFromServerRef,
+    tileIntroTimerRef,
+  } = roundSession.refs;
   const gridRotateAnimRef = useRef(null);
   const gridRotateTimerRef = useRef(null);
   const lastInputModeRef = useRef("keyboard");
@@ -2222,66 +2234,6 @@ export default function GobbleApplication() {
     } catch (_) {}
   }
 
-  function invalidateGameplaySession() {
-    gameplaySessionTokenRef.current += 1;
-    pendingRoundEndRef.current = null;
-    pendingBreakStartRef.current = null;
-    implodeFallbackRef.current = false;
-    outroInFlightRef.current = false;
-    outroRoundRef.current = null;
-    blackHoleSyncTokenRef.current += 1;
-    if (blackHoleSourisLoopRef.current.intervalId) {
-      clearInterval(blackHoleSourisLoopRef.current.intervalId);
-      blackHoleSourisLoopRef.current.intervalId = null;
-    }
-    if (blackHoleSourisLoopRef.current.stopTimer) {
-      clearTimeout(blackHoleSourisLoopRef.current.stopTimer);
-      blackHoleSourisLoopRef.current.stopTimer = null;
-    }
-    if (blackHoleClavierFadeRef.current) {
-      clearTimeout(blackHoleClavierFadeRef.current);
-      blackHoleClavierFadeRef.current = null;
-    }
-    if (blackHoleAuxStopRef.current) {
-      clearTimeout(blackHoleAuxStopRef.current);
-      blackHoleAuxStopRef.current = null;
-    }
-    blackHoleHandleRef.current?.stop?.();
-    blackHoleChebHandleRef.current?.stop?.();
-    blackHoleClavierHandleRef.current?.stop?.();
-    blackHoleHandleRef.current = null;
-    blackHoleChebHandleRef.current = null;
-    blackHoleClavierHandleRef.current = null;
-    blackHoleOverlayRef.current?.remove?.();
-    blackHoleOverlayRef.current = null;
-    const gridEl = gridRef.current;
-    if (gridEl?.style) {
-      gridEl.style.opacity = "";
-      gridEl.style.transition = "";
-    }
-  }
-
-  function disposeGameplayRuntimeResources() {
-    invalidateGameplaySession();
-    clearQueuedRankingUpdate();
-    clockFeature.stop({ preserveRemaining: true });
-    stopRoundStartSound({ fadeMs: 80 });
-    stopImplodePhase();
-    stopMobileRoundIntro({ unlockInput: false });
-    clearResultsSlideTimers();
-    clearWordListFlipArtifacts();
-    stopVocabOverlayAnimation();
-    stopRoundEndTickSound({ fadeMs: 0 });
-    cancelAllWordsCompute();
-    resetSubmissionQueue({ clearRecovery: true });
-    clearSelection();
-    roundStartPendingRef.current = null;
-    roundStartRetryRef.current = false;
-    vocabBaselineRoundRef.current = null;
-    vocabWeeklyBaselineRoundRef.current = null;
-    vocabResultsPendingRef.current = null;
-  }
-
   function returnToLobby() {
     liveEntryFeature.cancelLoginAttempt();
     liveResumeFeature.cancelAll();
@@ -2380,16 +2332,6 @@ export default function GobbleApplication() {
       socket.disconnect();
     } catch (_) {}
   }
-  const roundHandlersRef = useRef({
-    onBreakStarted: null,
-    onCultureThemeChallenge: null,
-    onRoundEnded: null,
-    onRoundPreparing: null,
-    onRoundStarted: null,
-    onSpecialHint: null,
-    onSpecialSolved: null,
-    onTournamentLobbyUpdate: null,
-  });
   const phaseLoopTestEnabled = React.useMemo(() => {
     if (typeof window === "undefined") return false;
     return readPhaseLoopTestEnabled(window.location.search);
@@ -2404,7 +2346,6 @@ export default function GobbleApplication() {
   const currentRoomIdRef = useRef(currentRoomId);
   const roundIdRef = useRef(roundId);
   const tournamentRef = useRef(tournament);
-  const startGameFromServerRef = useRef(null);
   const standaloneTrainingFeature = useFeatureRuntime("standaloneTraining");
   const standaloneTrainingState = useFeatureSelector(
     standaloneTrainingFeature,
@@ -4253,14 +4194,13 @@ export default function GobbleApplication() {
       processBreakStartedRef
     );
 
-  useRoundLifecycle({
+  useRoundSessionLifecycle(roundSession, {
     appViewRef,
     blackHoleAuxStopRef,
     blackHoleChebHandleRef,
     blackHoleClavierFadeRef,
     blackHoleClavierHandleRef,
     blackHoleHandleRef,
-    blackHoleOverlayRef,
     blackHoleSourisLoopRef,
     blackHoleSyncTokenRef,
     buildObjectiveToastMessage,
@@ -4277,13 +4217,11 @@ export default function GobbleApplication() {
     FINAL_ROUND_RESULTS_SECONDS,
     gameplaySession: gameplaySessionFeature,
     gameplaySessionIdRef: gameplaySessionFeature.refs.sessionId,
-    gameplaySessionTokenRef,
     getNowServerMs,
     getSelfWeeklyVocabRankFromStats,
     getTournamentPoints,
     getWeeklyVocabRankForCount,
     gridRef,
-    implodeFallbackRef,
     inputLockedRef,
     isDailyPlayRef,
     isLoggedInRef,
@@ -4292,16 +4230,9 @@ export default function GobbleApplication() {
     LIVE_ROUND_END_PAYLOAD_WAIT_MS,
     nicknameRef,
     normalizeNickKey,
-    outroInFlightRef,
-    outroRoundRef,
-    pendingBreakStartRef,
-    pendingRoundEndRef,
     phaseRef,
     playOneShotAudio,
-    playOutroThenResultsRef,
     playSfxHandle,
-    processBreakStartedRef,
-    processRoundEndedRef,
     renderTournamentTotalRightLabel,
     requestVocabCount,
     roundIdRef,
@@ -4892,6 +4823,113 @@ export default function GobbleApplication() {
   const intermissionFeature = useIntermissionClockController({
     getServerNowMs: getNowServerMs,
     nextStartAt,
+  });
+  roundSession.configure({
+    applicationKernel,
+    beginSubmissionRecovery,
+    bestGridMaxLenRef,
+    bestGridMaxRef,
+    bestWordAnnounceRef,
+    blackHoleAuxStopRef,
+    blackHoleChebHandleRef,
+    blackHoleClavierFadeRef,
+    blackHoleClavierHandleRef,
+    blackHoleHandleRef,
+    blackHoleSourisLoopRef,
+    blackHoleSyncTokenRef,
+    cancelAllWordsCompute,
+    chatInputRef,
+    clearAcceptedRuntimeCaches,
+    clearQueuedRankingUpdate,
+    clearResultsSlideTimers: (...args) => clearResultsSlideTimers(...args),
+    clearSelection,
+    clearStatusMessage,
+    clearSubmissionRecovery,
+    clearToasts,
+    clearWordListFlipArtifacts,
+    clockFeature,
+    commitTraceSelection,
+    currentRoomId,
+    currentRoomIdRef,
+    dailyAcceptedPathsRef,
+    DEFAULT_DURATION,
+    feedFeature,
+    getGridSizeForRoom,
+    getNowServerMs,
+    gridRef,
+    gridSize,
+    inputLockedRef,
+    intermissionFeature,
+    isMobileLayoutRef,
+    lastRoundWindowRef,
+    liveRoundFeature,
+    markEntriesWithCultureTheme,
+    markSolutionMapWithCultureTheme,
+    mobileRoundIntroSuppressRoundStartRef,
+    ocidLatestProposalRef,
+    phaseRef,
+    progressFeature,
+    reconcileSubmissionRecovery,
+    resetSubmissionQueue,
+    restorePendingSubmissionEntries,
+    ROOM_OPTIONS,
+    roomId,
+    roundIdRef,
+    roundIntroServerWindowRef,
+    roundIntroStartedForRoundRef,
+    roundStartPendingRef,
+    roundStartRetryRef,
+    rosterFeature,
+    serverAllWordsRef,
+    serverSolutionsReadyRef,
+    setAccepted,
+    setActiveArea,
+    setAnalysis,
+    setAnnouncements,
+    setBoard,
+    setBreakKind,
+    setCultureThemeChallengeRuntime,
+    setCurrentRoomId,
+    setDailySpecialPlacements,
+    setDailyWordSlots,
+    setFinalResults,
+    setFoundTargetThisRound,
+    setFoundTargetWord,
+    setGridSize,
+    setHighlightPlayers,
+    setInputLocked,
+    setMobileRoundIntroHideTiles,
+    setNextStartAt,
+    setOcidProposal,
+    setOcidProposalPath,
+    setOcidProposalSubmitted,
+    setOcidSelectedOptionId,
+    setPhase,
+    setProvisionalRanking,
+    setRoomId,
+    setRoundPreparing,
+    setRoundStats,
+    setScore,
+    setScoreFlights,
+    setServerStatus,
+    setSpecialHint,
+    setSpecialRound,
+    setSpecialSolvedOverlay,
+    setTargetHintScheduleMs,
+    setTournamentLobby,
+    setUpcomingSpecial,
+    skipVocabOverlayOnceRef,
+    solutionsRef,
+    standaloneTrainingSessionRef,
+    stopImplodePhase,
+    stopMobileRoundIntro,
+    stopRoundEndTickSound,
+    stopRoundStartSound,
+    stopVocabOverlayAnimation,
+    syncAcceptedRuntimeCaches,
+    vocabBaselineRoundRef,
+    vocabResultsPendingRef,
+    vocabWeeklyBaselineRoundRef,
   });
   useEffect(() => {
     const syncBreakCountdownRef = () => {
@@ -5634,282 +5672,6 @@ export default function GobbleApplication() {
     setIsPlayersOverlayOpen(false);
   }
 
-  function applyResumeSnapshot(snapshot, hydrationMeta = {}) {
-    if (!snapshot || typeof snapshot !== "object") return;
-    if (standaloneTrainingSessionRef.current) return;
-    if (snapshot.roomId) {
-      setCurrentRoomId(snapshot.roomId);
-      setRoomId(snapshot.roomId);
-    }
-    const phase = snapshot.phase || "lobby";
-    const currentRound = snapshot.currentRound || null;
-    const breakState = snapshot.breakState || null;
-    const lastRound = snapshot.lastRoundResults || null;
-    const playerState = snapshot.player || null;
-    const entryKind = String(hydrationMeta?.entryKind || "resume");
-    const recoverPendingSubmissions = entryKind !== "join";
-    setTournamentLobby(snapshot.tournamentLobby || null);
-    const pendingSnapshot = beginSubmissionRecovery({
-      enabled: recoverPendingSubmissions,
-      roundId: roundIdRef.current,
-    });
-
-    if (phase === "preparing") {
-      phaseRef.current = "lobby";
-      setPhase("lobby");
-      setServerStatus("waiting");
-      setNextStartAt(null);
-      setBreakKind(null);
-      setFinalResults([]);
-      setProvisionalRanking([]);
-      if (snapshot.roundPreparing) {
-        roundHandlersRef.current.onRoundPreparing?.(snapshot.roundPreparing);
-      } else {
-        setRoundPreparing({
-          roomId: snapshot.roomId || null,
-          roundNumber: null,
-          special: null,
-          message: "La prochaine grille est en cours de préparation.",
-          startedAt: snapshot.capturedAt || Date.now(),
-        });
-      }
-      resetSubmissionQueue({ clearRecovery: true });
-      return;
-    }
-
-    if (phase === "playing" && currentRound?.grid && Array.isArray(currentRound.grid)) {
-      roundHandlersRef.current.onRoundStarted?.(currentRound);
-      if (playerState?.capabilities && typeof playerState.capabilities === "object") {
-        const canTraceGrid =
-          playerState.capabilities.canSubmit === true ||
-          playerState.capabilities.canSyncSpecial3Words === true ||
-          playerState.capabilities.canPropose === true;
-        inputLockedRef.current = !canTraceGrid;
-        setInputLocked(!canTraceGrid);
-      }
-      if (snapshot.specialHint && typeof snapshot.specialHint === "object") {
-        const hintKind = snapshot.specialHint.kind || null;
-        const allowCells = hintKind === "target_long" || hintKind === "target_score";
-        setSpecialHint({
-          kind: hintKind,
-          pattern: snapshot.specialHint.pattern || "",
-          length:
-            typeof snapshot.specialHint.length === "number"
-              ? snapshot.specialHint.length
-              : currentRound.targetLength || null,
-          cells:
-            allowCells && Array.isArray(snapshot.specialHint.revealCells)
-              ? snapshot.specialHint.revealCells.filter((index) => Number.isInteger(index))
-              : [],
-          wordIndices:
-            allowCells && Array.isArray(snapshot.specialHint.revealWordIndices)
-              ? snapshot.specialHint.revealWordIndices.filter(
-                  (index) => Number.isInteger(index) && index >= 0
-                )
-              : [],
-        });
-      }
-      if (playerState?.targetFound) {
-        setFoundTargetThisRound(true);
-        setFoundTargetWord(String(playerState.targetWord || ""));
-      }
-      if (playerState?.ocid && typeof playerState.ocid === "object") {
-        const proposal = String(playerState.ocid.proposal || "");
-        const proposalPath = Array.isArray(playerState.ocid.proposalPath)
-          ? playerState.ocid.proposalPath
-          : [];
-        setOcidProposal(proposal);
-        setOcidProposalPath(proposalPath);
-        setOcidProposalSubmitted(proposal);
-        setOcidSelectedOptionId(String(playerState.ocid.selectedOptionId || ""));
-        ocidLatestProposalRef.current = {
-          roundId: currentRound.roundId || null,
-          word: proposal,
-          path: proposalPath,
-        };
-      }
-      if (currentRound?.special?.type === DAILY_SPECIAL_MODE || playerState?.special3Words) {
-        setDailySpecialPlacements(
-          playerState?.special3Words?.specialPlacements &&
-            typeof playerState.special3Words.specialPlacements === "object"
-            ? playerState.special3Words.specialPlacements
-            : createDailySpecialPlacements()
-        );
-        setDailyWordSlots(
-          Array.isArray(playerState?.special3Words?.wordSlots)
-            ? playerState.special3Words.wordSlots.map((slot, idx) => ({
-                id: Number.isFinite(slot?.id) ? slot.id : idx,
-                word: String(slot?.word || "").trim(),
-                display: String(slot?.display || slot?.word || "").trim(),
-                path: Array.isArray(slot?.path) ? slot.path : [],
-              }))
-            : createDailyWordSlots()
-        );
-      }
-      if (Array.isArray(snapshot.ranking)) {
-        setProvisionalRanking(snapshot.ranking);
-      }
-      const serverWords = Array.isArray(playerState?.words)
-        ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
-        : [];
-      const pendingRecovery = reconcileSubmissionRecovery({
-        serverWords,
-        pendingSnapshot,
-        activeRoundId: currentRound.roundId,
-      });
-      const words = pendingRecovery.acceptedWords;
-      setAccepted(words);
-      const scores = new Map();
-      const scoreConfig =
-        currentRound.special?.type === "bonus_letter" && currentRound.special?.bonusLetter
-          ? {
-              bonusLetter: currentRound.special.bonusLetter,
-              bonusLetterScore: currentRound.special.bonusLetterScore ?? 20,
-              disableBonuses: true,
-            }
-          : currentRound.special?.type === MASSIVE_BOGGLE_TYPE
-          ? {
-              classicBoggleScoring: true,
-              minWordLength: currentRound.special.minWordLength || 3,
-              disableBonuses: true,
-            }
-          : null;
-      dailyAcceptedPathsRef.current = new Map();
-      if (currentRound.grid && words.length) {
-        words.forEach((word) => {
-          const path = findBestPathForWord(currentRound.grid, word, scoreConfig);
-          if (path) {
-            scores.set(word, computeScore(word, path, currentRound.grid, scoreConfig));
-            dailyAcceptedPathsRef.current.set(word, {
-              word,
-              path: Array.isArray(path) ? [...path] : [],
-            });
-          }
-        });
-      } else {
-        dailyAcceptedPathsRef.current = new Map();
-      }
-      for (const entry of pendingRecovery.pendingEntries) {
-        const word = entry.word;
-        const meta = entry.meta || {};
-        if (Number.isFinite(meta.optimisticPts)) {
-          scores.set(word, Number(meta.optimisticPts));
-        }
-        if (Array.isArray(meta.path) && meta.path.length > 0) {
-          dailyAcceptedPathsRef.current.set(word, {
-            word,
-            path: [...meta.path],
-          });
-        }
-      }
-      syncAcceptedRuntimeCaches(words, { scoreMap: scores });
-      setScore((Number(playerState?.score) || 0) + pendingRecovery.optimisticScore);
-      restorePendingSubmissionEntries(
-        pendingRecovery.pendingEntries,
-        currentRound.roundId
-      );
-      clearSubmissionRecovery();
-      return;
-    }
-
-    if (phase === "lobby") {
-      setPhase("lobby");
-      setServerStatus("waiting");
-      setNextStartAt(null);
-      intermissionFeature.stop();
-      setBreakKind(null);
-      setFinalResults([]);
-      setProvisionalRanking([]);
-      setRoundPreparing(null);
-      setUpcomingSpecial(null);
-      resetSubmissionQueue({ clearRecovery: true });
-      return;
-    }
-
-    if (phase === "results" && lastRound?.payload) {
-      // Reprise en cours de phase results: ne pas rejouer l'overlay vocab depuis zero.
-      skipVocabOverlayOnceRef.current = true;
-      processRoundEndedRef.current?.(lastRound.payload);
-      if (lastRound.round?.grid && Array.isArray(lastRound.round.grid)) {
-        setBoard(lastRound.round.grid);
-        setGridSize(lastRound.round.gridSize || getGridSizeForRoom(snapshot.roomId));
-        setSpecialRound(
-          lastRound.round.special && lastRound.round.special.isSpecial ? lastRound.round.special : null
-        );
-        if (lastRound.round.gridQuality) {
-          const stats = {
-            words: lastRound.round.gridQuality.words ?? null,
-            totalPts:
-              lastRound.round.gridQuality.possibleScore ??
-              lastRound.round.gridQuality.totalPts ??
-              lastRound.round.gridQuality.maxPts ??
-              null,
-            maxPts: lastRound.round.gridQuality.maxPts ?? null,
-            maxLen: lastRound.round.gridQuality.maxLen ?? null,
-            longWords: lastRound.round.gridQuality.longWords ?? null,
-            fakeTwinWords: lastRound.round.gridQuality.fakeTwinWords ?? null,
-          };
-          setRoundStats(stats);
-          bestGridMaxRef.current = stats?.maxPts ?? 0;
-          bestGridMaxLenRef.current = stats?.maxLen ?? 0;
-        }
-      }
-      if (breakState) {
-        roundHandlersRef.current.onBreakStarted?.(breakState);
-      }
-      const words = Array.isArray(playerState?.words)
-        ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
-        : [];
-      setAccepted(words);
-      if (lastRound.round?.grid && Array.isArray(lastRound.round.grid) && words.length) {
-        const scoreConfig =
-          lastRound.round.special?.type === "bonus_letter" && lastRound.round.special?.bonusLetter
-            ? {
-                bonusLetter: lastRound.round.special.bonusLetter,
-                bonusLetterScore: lastRound.round.special.bonusLetterScore ?? 20,
-                disableBonuses: true,
-              }
-            : lastRound.round.special?.type === MASSIVE_BOGGLE_TYPE
-            ? {
-                classicBoggleScoring: true,
-                minWordLength: lastRound.round.special.minWordLength || 3,
-                disableBonuses: true,
-              }
-            : null;
-        const scores = new Map();
-        dailyAcceptedPathsRef.current = new Map();
-        words.forEach((word) => {
-          const path = findBestPathForWord(lastRound.round.grid, word, scoreConfig);
-          if (path) {
-            scores.set(word, computeScore(word, path, lastRound.round.grid, scoreConfig));
-            dailyAcceptedPathsRef.current.set(word, {
-              word,
-              path: Array.isArray(path) ? [...path] : [],
-            });
-          }
-        });
-        syncAcceptedRuntimeCaches(words, { scoreMap: scores });
-      } else {
-        syncAcceptedRuntimeCaches(words);
-      }
-      setScore(Number(playerState?.score) || 0);
-      resetSubmissionQueue({ clearRecovery: true });
-      return;
-    }
-
-    if (breakState) {
-      roundHandlersRef.current.onBreakStarted?.(breakState);
-    }
-    resetSubmissionQueue({ clearRecovery: true });
-  }
-
-  function hydrateLiveSnapshot(snapshot, entryKind = "resume") {
-    if (snapshot?.roomId) {
-      currentRoomIdRef.current = snapshot.roomId;
-    }
-    return liveRoundFeature.hydrateSnapshot(snapshot, { entryKind });
-  }
-
   useEffect(() => {
     const previousView = previousAppViewRef.current;
     previousAppViewRef.current = appView;
@@ -6168,201 +5930,6 @@ export default function GobbleApplication() {
         : AUTH_MODAL_MODES.REGISTER;
     openAuthDialog(nextMode);
   }
-
-  function startGameFromServer(
-    serverGrid,
-    newRoundId,
-    durationMs,
-    endsAt,
-    sourceRoomId = null,
-    incomingGridSize = null,
-    specialInfo = null,
-    gridQuality = null,
-    nextSpecial = null,
-    incomingTargetHintScheduleMs = [],
-    roundLifecycle = null
-  ) {
-    invalidateGameplaySession();
-    const serverSolutions = hydrateServerSolutionsPayload(roundLifecycle?.solutions, {
-      disableRareBonus: !isRareBonusEnabledForSpecial(specialInfo),
-    });
-    const incomingCultureThemeChallenge = setCultureThemeChallengeRuntime(
-      roundLifecycle?.cultureThemeChallenge || null
-    );
-    markSolutionMapWithCultureTheme(serverSolutions.solved, incomingCultureThemeChallenge);
-    serverSolutions.all = markEntriesWithCultureTheme(
-      serverSolutions.all,
-      incomingCultureThemeChallenge
-    );
-    const derivedSize =
-      incomingGridSize ||
-      Math.max(1, Math.round(Math.sqrt((serverGrid || []).length || gridSize * gridSize)));
-    commitTraceSelection([], []);
-    setAnalysis(null);
-    setHighlightPlayers([]);
-    setScoreFlights([]);
-    clearToasts();
-    solutionsRef.current = new Map();
-    serverAllWordsRef.current = [];
-    serverSolutionsReadyRef.current = false;
-    bestGridMaxRef.current = 0;
-    bestGridMaxLenRef.current = 0;
-    serverSolutionsReadyRef.current = serverSolutions.ready;
-    clearAcceptedRuntimeCaches();
-    resetSubmissionQueue();
-    progressFeature.reset();
-    feedFeature.reset();
-    rosterFeature.setProvisionalRanking([]);
-    if (serverSolutions.ready) {
-      solutionsRef.current = serverSolutions.solved;
-      serverAllWordsRef.current = serverSolutions.all;
-    }
-    if (specialInfo?.type !== "target_long" && specialInfo?.type !== "target_score") {
-      setSpecialHint(null);
-    }
-    setSpecialSolvedOverlay(null);
-    setFoundTargetThisRound(false);
-    setFoundTargetWord("");
-    setTargetHintScheduleMs(
-      Array.isArray(incomingTargetHintScheduleMs)
-        ? incomingTargetHintScheduleMs.filter((value) => Number.isFinite(value) && value >= 0)
-        : []
-    );
-    if (false && specialInfo?.isSpecial) {
-      setAnnouncements((prev) => [
-        {
-          id: Date.now() + Math.random(),
-          ts: Date.now(),
-          type: "special_start",
-          text:
-            specialInfo.type === "speed"
-              ? `MANCHE SPéCIALE : ${specialInfo.label} - tous les mots valent ${specialInfo.fixedWordScore} pts`
-              : `MANCHE SPéCIALE : ${specialInfo.label} - gros potentiel de points et de mots longs`,
-        },
-        ...prev,
-      ]);
-    }
-    const solutionMaxPts = serverSolutions.ready && serverSolutions.all.length
-      ? Math.max(...serverSolutions.all.map((entry) => Number(entry?.pts) || 0))
-      : null;
-    const solutionMaxLen = serverSolutions.ready && serverSolutions.all.length
-      ? Math.max(...serverSolutions.all.map((entry) => normalizeWord(entry?.word).length || 0))
-      : null;
-    const stats =
-      gridQuality && typeof gridQuality === "object"
-        ? {
-            words: gridQuality.words ?? null,
-            totalPts: gridQuality.possibleScore ?? gridQuality.totalPts ?? gridQuality.maxPts ?? null,
-            maxPts:
-              Number.isFinite(solutionMaxPts) && solutionMaxPts > 0
-                ? solutionMaxPts
-                : gridQuality.maxPts ?? null,
-            maxLen:
-              Number.isFinite(solutionMaxLen) && solutionMaxLen > 0
-                ? solutionMaxLen
-                : gridQuality.maxLen ?? null,
-            longWords: gridQuality.longWords ?? null,
-            fakeTwinWords: gridQuality.fakeTwinWords ?? null,
-          }
-        : null;
-    bestGridMaxRef.current = stats?.maxPts ?? 0;
-    bestGridMaxLenRef.current = stats?.maxLen ?? 0;
-    clearStatusMessage({ force: true });
-    bestWordAnnounceRef.current = -1;
-    clearQueuedRankingUpdate();
-    const normalizedDurationMs = Number.isFinite(durationMs)
-      ? Math.max(1, Math.round(durationMs))
-      : null;
-    const maxDuration =
-      Number.isFinite(normalizedDurationMs)
-        ? Math.max(1, Math.round(normalizedDurationMs / 1000))
-        : ROOM_OPTIONS[sourceRoomId || currentRoomId || roomId]?.duration ??
-          DEFAULT_DURATION;
-    const effectiveEndsAt = Number.isFinite(endsAt)
-      ? Number(endsAt)
-      : Number.isFinite(normalizedDurationMs)
-      ? getNowServerMs() + normalizedDurationMs
-      : null;
-    const initialTick = Number.isFinite(effectiveEndsAt)
-      ? Math.max(0, Math.ceil((effectiveEndsAt - getNowServerMs()) / 1000))
-      : maxDuration;
-    const roundKey = newRoundId || null;
-    const startsAtMs = Number.isFinite(roundLifecycle?.startsAt)
-      ? Math.max(0, Number(roundLifecycle.startsAt))
-      : Number.isFinite(effectiveEndsAt) && Number.isFinite(normalizedDurationMs)
-      ? Math.max(0, effectiveEndsAt - normalizedDurationMs)
-      : null;
-    const introMs = Number.isFinite(roundLifecycle?.introMs)
-      ? Math.max(0, Math.round(Number(roundLifecycle.introMs)))
-      : 0;
-    const roundStatus =
-      typeof roundLifecycle?.status === "string" ? roundLifecycle.status : "running";
-    roundIntroServerWindowRef.current = {
-      roundId: roundKey,
-      startsAt: startsAtMs,
-      introMs,
-      status: roundStatus,
-    };
-    const nowServerMs = getNowServerMs();
-    const hasPendingIntro =
-      roundStatus === "intro" &&
-      Number.isFinite(startsAtMs) &&
-      startsAtMs > nowServerMs + 80;
-    mobileRoundIntroSuppressRoundStartRef.current = hasPendingIntro;
-    inputLockedRef.current = hasPendingIntro;
-    setMobileRoundIntroHideTiles(hasPendingIntro);
-    if (!hasPendingIntro) {
-      roundIntroStartedForRoundRef.current = roundKey;
-    } else if (roundIntroStartedForRoundRef.current !== roundKey) {
-      roundIntroStartedForRoundRef.current = null;
-    }
-    const roundEndAt = Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null;
-    const roundStartAt =
-      Number.isFinite(effectiveEndsAt) && Number.isFinite(normalizedDurationMs)
-        ? effectiveEndsAt - normalizedDurationMs
-        : null;
-    lastRoundWindowRef.current = { startAt: roundStartAt, endAt: roundEndAt };
-    clockFeature.setCountdown(Math.min(maxDuration, initialTick));
-    applicationKernel.commands.transition.apply({
-      game: {
-        allWords: [],
-        board: serverGrid,
-        ...(sourceRoomId
-          ? { currentRoomId: sourceRoomId, roomId: sourceRoomId }
-          : {}),
-        gridSize: derivedSize,
-        inputLocked: hasPendingIntro,
-        phase: "playing",
-        showAllWords: false,
-      },
-      realtime: {
-        finalResults: [],
-        roundId: newRoundId || null,
-        roundStats: stats,
-        serverEndsAt: Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null,
-        serverRoundDurationMs: normalizedDurationMs,
-        specialRound: specialInfo && specialInfo.isSpecial ? specialInfo : null,
-      },
-      session: {
-        connectionError: "",
-        serverStatus: "running",
-      },
-    });
-    if (!isMobileLayoutRef.current) {
-      const chatEl = chatInputRef.current;
-      const chatHasFocus =
-        chatEl &&
-        typeof document !== "undefined" &&
-        document.activeElement === chatEl;
-      if (!chatHasFocus) {
-        setActiveArea("game");
-      }
-    }
-  }
-
-  useEffect(() => {
-    startGameFromServerRef.current = startGameFromServer;
-  });
 
   usePhaseLoopController({
     createGrid: generateGrid,
