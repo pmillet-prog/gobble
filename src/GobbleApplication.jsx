@@ -222,7 +222,6 @@ import {
 import { createAuthController } from "./components/auth/createAuthController.js";
 import TrainingJoinLiveDialog from "./components/training/TrainingJoinLiveDialog.jsx";
 import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
-import StandaloneTrainingPicker from "./components/training/StandaloneTrainingPicker.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
 import MobileRoundIntroOverlay from "./components/mobile/MobileRoundIntroOverlay.jsx";
 import WeeklyNickLine from "./components/stats/WeeklyNickLine.jsx";
@@ -269,10 +268,8 @@ import {
   normalizeBonusLabel,
   stripBoardBonuses,
 } from "./components/daily/dailySpecialModel.js";
-import HomeLobby from "./components/home/HomeLobby.jsx";
-import HomeApplicationRuntime from "./features/home/HomeApplicationRuntime.jsx";
+import HomeApplication from "./features/home/HomeApplication.jsx";
 import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
-import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
 import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
@@ -11314,7 +11311,6 @@ function handleTouchEnd(e) {
   // messages visibles dans le chat (dynamique), ancrés en bas
   const chatRuntimeSnapshot = chatFeature.store.getState();
   const chatMessagesSnapshot = chatRuntimeSnapshot.messages;
-  const homeChatBotUnreadCount = chatRuntimeSnapshot.homeBotUnreadCount;
   const homeChatUnreadCount = chatRuntimeSnapshot.homeUnreadCount;
   const mobileChatBotUnreadCount = chatRuntimeSnapshot.mobileBotUnreadCount;
   const mobileChatUnreadCount = chatRuntimeSnapshot.mobileUnreadCount;
@@ -11354,9 +11350,6 @@ function handleTouchEnd(e) {
     : homeChatUnreadCount;
   const mobileChatUnreadIsBotOnly =
     mobileChatUnreadCount > 0 && mobileChatBotUnreadCount >= mobileChatUnreadCount;
-  const homeChatUnreadIsBotOnly =
-    homeChatUnreadCount > 0 && homeChatBotUnreadCount >= homeChatUnreadCount;
-
   const selfNick = nickname.trim();
   const blockedCount = blockedInstallIds.length;
   const chatInputDisabled = !chatRulesAccepted;
@@ -11436,24 +11429,6 @@ function handleTouchEnd(e) {
     });
     return entries;
   }, [visiblePlayerList]);
-  const playersCountForLobby = React.useMemo(() => {
-    const safeRooms = Array.isArray(roomsStats) ? roomsStats : [];
-    const lobbyRoomId = roomId || getDefaultRoomId();
-    const roomEntry = safeRooms.find((entry) => entry?.roomId === lobbyRoomId);
-    if (Number.isFinite(roomEntry?.humanPlayers)) return roomEntry.humanPlayers;
-    if (lobbyPlayersList.length) {
-      return lobbyPlayersList.filter((player) => !player?.isBot).length;
-    }
-    const safe = Array.isArray(players) ? players : [];
-    const seen = new Set();
-    safe.forEach((player) => {
-      if (player?.isBot) return;
-      const nick = player?.nick ? String(player.nick).trim() : "";
-      if (!nick) return;
-      seen.add(nick);
-    });
-    return seen.size;
-  }, [roomsStats, roomId, lobbyPlayersList, players]);
   const dailyEntriesRaw = React.useMemo(
     () => (Array.isArray(dailyBoard?.entries) ? dailyBoard.entries : []),
     [dailyBoard?.entries]
@@ -15629,16 +15604,6 @@ function handleTouchEnd(e) {
   const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
   const homeBackgroundDesktop = getUiImageUrl(getHomeBackgroundKey(duelTeam, "wide"));
   const homeBackgroundMobile = getUiImageUrl(getHomeBackgroundKey(duelTeam, "tall"));
-  const dailyRemainingCount = dailyStatus?.ready
-    ? [
-        !dailyStatus?.hasPlayedMonstrous,
-        !dailyStatus?.hasPlayedSpecial,
-        !dailyStatus?.hasPlayedFakeTwins,
-      ].filter(Boolean).length
-    : 0;
-  const homeMaintenanceActive = !!(
-    tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode
-  );
   const {
     duelContributorsBlue,
     duelContributorsRed,
@@ -15762,20 +15727,6 @@ function handleTouchEnd(e) {
       />
     </Suspense>
   ) : null;
-  const homeLobbyActions = useHomeLobbyActions({
-    onDismissResume: dismissResumePrompt,
-    onOpenAccount: openHomeAccount,
-    onOpenChat: openHomeChat,
-    onOpenDaily: openDailyHome,
-    onOpenDuel: openDuelPage,
-    onOpenPlayers: openPlayersOverlayAlpha,
-    onOpenSettings: openSettingsPanel,
-    onOpenStats: openWeeklyStatsOverlay,
-    onOpenVault: openWordVaultPage,
-    onOpenWeeklyRecap: showPublicDuelWeekRecap,
-    onPlay: handleLoginOrResume,
-    onResume: handleResumeFromPrompt,
-  });
   const trainingSessionControls = standaloneTrainingSession ? (
     <TrainingSessionControls
       compact={isMobileLayout}
@@ -16010,28 +15961,8 @@ function handleTouchEnd(e) {
   }
 
   if (!isLoggedIn && !isDailyPlay) {
-    const homeAccountLabel =
-      authState.user?.usernameDisplay ||
-      legacyProfileUsername ||
-      savedSessionNick ||
-      nickname ||
-      "Compte";
-
     return (
       <>
-        {appView === "home" ? (
-          <HomeApplicationRuntime
-            connection={socket}
-            fetchBroadcastNotice={fetchBroadcastNotice}
-            fetchDailyStatus={fetchDailyStatus}
-            fetchLobbyPlayers={fetchLobbyPlayers}
-            installId={installId}
-            isAccountAuthenticated={isAccountAuthenticated}
-            refreshScheduler={refreshFeature}
-            roomId={roomId}
-            setRoomsStats={setRoomsStats}
-          />
-        ) : null}
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
@@ -16053,42 +15984,81 @@ function handleTouchEnd(e) {
         <ChatReactionToastSatellite />
         <NotificationToastLayer darkMode={menuDarkMode} />
         {globalChatLayer}
-        <HomeLobby
-          accountLabel={homeAccountLabel}
-          accountOnline={isAccountAuthenticated}
-          accountNotice={accountNotice}
-          canResumeNow={canResumeNow}
-          dailyRemainingCount={dailyRemainingCount}
-          duelBlueScore={duelBlueScore}
-          duelRedScore={duelRedScore}
-          homeChatUnreadCount={homeChatUnreadCount}
-          homeChatUnreadIsBotOnly={homeChatUnreadIsBotOnly}
-          isAuthServerUnavailable={isAuthServerUnavailable}
-          isAuthStatusPending={isAuthStatusPending}
-          isConnecting={isConnecting}
-          loginError={loginError}
-          maintenanceMode={homeMaintenanceActive}
-          onIntroComplete={handleHomeLobbyIntroComplete}
-          displayModeAction={displayMode.homeAction}
-          onToggleFullscreen={displayMode.toggleFullscreen}
-          {...homeLobbyActions}
-          playerTeam={duelTeam}
-          playIntro={!homeLobbyIntroPlayedRef.current}
-          playersCount={playersCountForLobby}
-          resumePhaseLabel={resumePhaseLabel}
-          resumeRoomLabel={resumeRoomLabel}
-          savedSessionNick={savedSessionNick}
-          trainingControl={
-            <StandaloneTrainingPicker
-              busy={standaloneTrainingController.busy}
-              darkMode={menuDarkMode}
-              disabled={isAuthStatusPending || isConnecting || homeMaintenanceActive}
-              onRequestOpen={() => ensureAuthenticated({ source: "training" })}
-              onStart={startStandaloneTrainingFromHome}
-              playUiClickSound={playSwipeSound}
-              team={duelTeam}
-            />
+        <HomeApplication
+          account={{
+            isAuthenticated: isAccountAuthenticated,
+            legacyProfileUsername,
+            loginError,
+            nickname,
+            notice: accountNotice,
+            savedSessionNick,
+            serverUnavailable: isAuthServerUnavailable,
+            statusPending: isAuthStatusPending,
+            usernameDisplay: authState.user?.usernameDisplay || "",
+          }}
+          actions={{
+            onDismissResume: dismissResumePrompt,
+            onOpenAccount: openHomeAccount,
+            onOpenChat: openHomeChat,
+            onOpenDaily: openDailyHome,
+            onOpenDuel: openDuelPage,
+            onOpenPlayers: openPlayersOverlayAlpha,
+            onOpenSettings: openSettingsPanel,
+            onOpenStats: openWeeklyStatsOverlay,
+            onOpenVault: openWordVaultPage,
+            onOpenWeeklyRecap: showPublicDuelWeekRecap,
+            onPlay: handleLoginOrResume,
+            onResume: handleResumeFromPrompt,
+          }}
+          dailyStatus={dailyStatus}
+          displayMode={{
+            action: displayMode.homeAction,
+            onToggleFullscreen: displayMode.toggleFullscreen,
+          }}
+          duel={{
+            blueScore: duelBlueScore,
+            redScore: duelRedScore,
+            team: duelTeam,
+          }}
+          intro={{
+            onComplete: handleHomeLobbyIntroComplete,
+            play: !homeLobbyIntroPlayedRef.current,
+          }}
+          lobby={{
+            lobbyPlayersList,
+            players,
+            roomId,
+            roomsStats,
+            tournamentLobby,
+          }}
+          resume={{
+            canResumeNow,
+            phaseLabel: resumePhaseLabel,
+            roomLabel: resumeRoomLabel,
+          }}
+          runtime={
+            appView === "home"
+              ? {
+                  connection: socket,
+                  fetchBroadcastNotice,
+                  fetchDailyStatus,
+                  fetchLobbyPlayers,
+                  installId,
+                  isAccountAuthenticated,
+                  refreshScheduler: refreshFeature,
+                  roomId,
+                  setRoomsStats,
+                }
+              : null
           }
+          session={{ isConnecting }}
+          training={{
+            busy: standaloneTrainingController.busy,
+            darkMode: menuDarkMode,
+            onRequestOpen: () => ensureAuthenticated({ source: "training" }),
+            onStart: startStandaloneTrainingFromHome,
+            playUiClickSound: playSwipeSound,
+          }}
           weeklyRecapLoading={!!duelWeekRecapOpenAfterRefreshRef.current}
         />
       </>

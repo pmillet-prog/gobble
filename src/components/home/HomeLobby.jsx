@@ -761,8 +761,6 @@ function HomeLobby({
   displayModeAction = HOME_DISPLAY_ACTIONS.none,
   duelBlueScore = 0,
   duelRedScore = 0,
-  homeChatUnreadCount: homeChatUnreadCountProp = 0,
-  homeChatUnreadIsBotOnly: homeChatUnreadIsBotOnlyProp = false,
   isAuthServerUnavailable = false,
   isAuthStatusPending = false,
   isConnecting = false,
