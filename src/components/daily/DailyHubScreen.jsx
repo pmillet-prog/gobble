@@ -7,10 +7,15 @@ import {
 import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_FUTURE_SECTION,
-  DAILY_MONSTROUS_MODE,
   DAILY_OVERVIEW_SECTION,
-  DAILY_SPECIAL_MODE,
 } from "./dailyModes.js";
+import {
+  DAILY_PLAYABLE_MODES,
+  getDailyModeDefinition,
+  getDailyModeResult,
+  getDailySectionDefinition,
+  isDailyMode,
+} from "../../features/daily/dailyModePolicy.js";
 
 export default function DailyHubScreen({
   view,
@@ -67,82 +72,14 @@ export default function DailyHubScreen({
   } = actions;
   const { renderCrownIcon, renderGobbleBadge, renderHumanDot } = renderers;
 
-  const getDailySectionMeta = (section) => {
-    if (section === DAILY_MONSTROUS_MODE) {
-      return {
-        key: DAILY_MONSTROUS_MODE,
-        label: "Grille monstrueuse",
-        shortLabel: "Monstrueuse",
-        accentClass: "from-blue-500 via-cyan-500 to-sky-600",
-        buttonClass: "bg-blue-600 hover:bg-blue-500 text-white",
-        description: "La grille principale du jour, riche en volume et en gros scores.",
-      };
-    }
-    if (section === DAILY_SPECIAL_MODE) {
-      return {
-        key: DAILY_SPECIAL_MODE,
-        label: "3 mots",
-        shortLabel: "3 mots",
-        accentClass: "from-emerald-500 via-green-500 to-lime-500",
-        buttonClass: "bg-emerald-600 hover:bg-emerald-500 text-white",
-        description: "Trois cartouches, peu d'essais, lecture rapide de la grille.",
-      };
-    }
-    if (section === DAILY_FAKE_TWINS_MODE) {
-      return {
-        key: DAILY_FAKE_TWINS_MODE,
-        label: "Faux jumeaux",
-        shortLabel: "Faux jumeaux",
-        accentClass: "from-teal-500 via-emerald-500 to-green-600",
-        buttonClass: "bg-teal-600 hover:bg-teal-500 text-white",
-        description: "Une case vaut deux lettres possibles, avec les mots de 2 lettres et plus.",
-      };
-    }
-    if (section === DAILY_FUTURE_SECTION) {
-      return {
-        key: DAILY_FUTURE_SECTION,
-        label: "Grille à venir",
-        shortLabel: "À venir",
-        accentClass: "from-amber-400 via-orange-400 to-rose-500",
-        buttonClass: "bg-amber-500 hover:bg-amber-400 text-slate-900",
-        description: "Nouveau format daily réservé pour la prochaine mise à jour.",
-      };
-    }
-    return {
-      key: DAILY_OVERVIEW_SECTION,
-      label: "Général",
-      shortLabel: "Général",
-      accentClass: "from-slate-500 via-slate-600 to-slate-800",
-      buttonClass: "bg-slate-700 hover:bg-slate-600 text-white",
-      description: isMobileLayout
-        ? "Toutes les grilles du jour confondues."
-        : "Toutes les grilles du jour confondues, pour garder une vue d'ensemble.",
-    };
-  };
-  const getDailyModeResult = (mode) => {
-    if (mode === DAILY_MONSTROUS_MODE) {
-      return dailyStatus?.myMonstrousResult ||
-        (dailyResult?.mode === DAILY_MONSTROUS_MODE ? dailyResult : null);
-    }
-    if (mode === DAILY_SPECIAL_MODE) {
-      return dailyStatus?.mySpecialResult ||
-        (dailyResult?.mode === DAILY_SPECIAL_MODE ? dailyResult : null);
-    }
-    if (mode === DAILY_FAKE_TWINS_MODE) {
-      return dailyStatus?.myFakeTwinsResult ||
-        (dailyResult?.mode === DAILY_FAKE_TWINS_MODE ? dailyResult : null);
-    }
-    return null;
-  };
+  const resolveDailyModeResult = (mode) =>
+    getDailyModeResult(mode, { dailyResult, dailyStatus });
   const selectedDailySectionMeta = shouldPrepareDailyStandaloneView
-    ? getDailySectionMeta(dailySection)
-    : getDailySectionMeta(DAILY_OVERVIEW_SECTION);
+    ? getDailySectionDefinition(dailySection, { isMobileLayout })
+    : getDailySectionDefinition(DAILY_OVERVIEW_SECTION, { isMobileLayout });
   const dailyMyResult =
-    shouldPrepareDailyStandaloneView &&
-    (dailySection === DAILY_MONSTROUS_MODE ||
-      dailySection === DAILY_SPECIAL_MODE ||
-      dailySection === DAILY_FAKE_TWINS_MODE)
-      ? getDailyModeResult(dailySection)
+    shouldPrepareDailyStandaloneView && isDailyMode(dailySection)
+      ? resolveDailyModeResult(dailySection)
       : null;
   const dailyBattle =
     shouldPrepareDailyOrDuelStandaloneView
@@ -256,11 +193,7 @@ export default function DailyHubScreen({
   };
   const filterDailyEntriesBySection = (entries, section) => {
     const list = Array.isArray(entries) ? entries : [];
-    if (
-      section === DAILY_MONSTROUS_MODE ||
-      section === DAILY_SPECIAL_MODE ||
-      section === DAILY_FAKE_TWINS_MODE
-    ) {
+    if (isDailyMode(section)) {
       return list.filter((entry) => entry?.mode === section).sort(dailyEntrySort);
     }
     if (section === DAILY_FUTURE_SECTION) {
@@ -279,9 +212,7 @@ export default function DailyHubScreen({
             ...page,
             entries: filterDailyEntriesBySection(page?.entries, dailySection),
             findableWords:
-              dailySection === DAILY_MONSTROUS_MODE ||
-              dailySection === DAILY_SPECIAL_MODE ||
-              dailySection === DAILY_FAKE_TWINS_MODE
+              isDailyMode(dailySection)
                 ? Array.isArray(page?.findableWordsByMode?.[dailySection])
                   ? page.findableWordsByMode[dailySection]
                   : []
@@ -289,9 +220,7 @@ export default function DailyHubScreen({
                 ? page.findableWords
                 : [],
             myWords:
-              dailySection === DAILY_MONSTROUS_MODE ||
-              dailySection === DAILY_SPECIAL_MODE ||
-              dailySection === DAILY_FAKE_TWINS_MODE
+              isDailyMode(dailySection)
                 ? Array.isArray(page?.myWordsByMode?.[dailySection])
                   ? page.myWordsByMode[dailySection]
                   : []
@@ -313,43 +242,26 @@ export default function DailyHubScreen({
   const dailySections = shouldPrepareDailyStandaloneView
     ? [
         { key: DAILY_OVERVIEW_SECTION, playable: false, available: true },
-        {
-          key: DAILY_MONSTROUS_MODE,
-          playable: true,
-          available: !!dailyStatus.ready && !dailyMaintenanceActive,
-          played: !!dailyStatus.hasPlayedMonstrous,
-          result: getDailyModeResult(DAILY_MONSTROUS_MODE),
-        },
-        {
-          key: DAILY_SPECIAL_MODE,
-          playable: true,
-          available: !!dailyStatus.ready && !dailyMaintenanceActive,
-          played: !!dailyStatus.hasPlayedSpecial,
-          result: getDailyModeResult(DAILY_SPECIAL_MODE),
-        },
-        {
-          key: DAILY_FAKE_TWINS_MODE,
-          playable: true,
-          available: !!dailyStatus.ready && !dailyMaintenanceActive,
-          played: !!dailyStatus.hasPlayedFakeTwins,
-          result: getDailyModeResult(DAILY_FAKE_TWINS_MODE),
-        },
+        ...DAILY_PLAYABLE_MODES.map((mode) => {
+          const definition = getDailyModeDefinition(mode);
+          return {
+            key: mode,
+            playable: true,
+            available: !!dailyStatus.ready && !dailyMaintenanceActive,
+            played: !!dailyStatus?.[definition.playedField],
+            result: resolveDailyModeResult(mode),
+          };
+        }),
       ]
     : [];
   const selectedDailySectionState =
     dailySections.find((entry) => entry.key === dailySection) || dailySections[0];
   const selectedDailyEntriesCount = filteredDailyEntries.length;
-  const overallDailyResultsSummary = [
-    getDailyModeResult(DAILY_MONSTROUS_MODE)
-      ? `Monstrueuse : ${getDailyModeResult(DAILY_MONSTROUS_MODE).score || 0} pts`
-      : null,
-    getDailyModeResult(DAILY_SPECIAL_MODE)
-      ? `3 mots : ${getDailyModeResult(DAILY_SPECIAL_MODE).score || 0} pts`
-      : null,
-    getDailyModeResult(DAILY_FAKE_TWINS_MODE)
-      ? `Faux jumeaux : ${getDailyModeResult(DAILY_FAKE_TWINS_MODE).score || 0} pts`
-      : null,
-  ].filter(Boolean);
+  const overallDailyResultsSummary = DAILY_PLAYABLE_MODES.map((mode) => {
+    const result = resolveDailyModeResult(mode);
+    const definition = getDailyModeDefinition(mode);
+    return result ? `${definition.summaryLabel} : ${result.score || 0} pts` : null;
+  }).filter(Boolean);
   const dailyHomePanelClass = "border-amber-200/25 bg-slate-950/35 text-amber-50";
   const dailyHomeInnerPanelClass = "border-amber-200/20 bg-slate-950/30 text-amber-50";
   const dailyHomeRowBorderClass = "border-amber-200/10";
@@ -599,11 +511,7 @@ export default function DailyHubScreen({
     flexShrink: 0,
   };
   const renderDailyHistoryWords = (page) => {
-    if (
-      dailySection !== DAILY_MONSTROUS_MODE &&
-      dailySection !== DAILY_SPECIAL_MODE &&
-      dailySection !== DAILY_FAKE_TWINS_MODE
-    ) {
+    if (!isDailyMode(dailySection)) {
       return null;
     }
     const words = Array.isArray(page?.findableWords) ? page.findableWords : [];
@@ -1145,11 +1053,9 @@ export default function DailyHubScreen({
                   <div className="space-y-1">
                     <div className="text-xl font-black">{selectedDailySectionMeta.label}</div>
                     <div className="text-sm opacity-75">{selectedDailySectionMeta.description}</div>
-                    {dailySection === DAILY_MONSTROUS_MODE ||
-                    dailySection === DAILY_SPECIAL_MODE ||
-                    dailySection === DAILY_FAKE_TWINS_MODE ? (
+                    {isDailyMode(dailySection) ? (
                       <div className="text-xs font-semibold opacity-80">
-                        {!isMobileLayout && dailySection === DAILY_SPECIAL_MODE
+                        {!isMobileLayout && selectedDailySectionMeta.hideDesktopHubScore
                           ? "—"
                           : dailyScoreLabel != null
                           ? `${dailyScoreLabel} pts${dailyGobblesLabel ? ` · ${dailyGobblesLabel}` : ""}`
@@ -1179,27 +1085,18 @@ export default function DailyHubScreen({
                         className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                           !selectedDailySectionState.playable ||
                           !selectedDailySectionState.available ||
-                          ((dailySection === DAILY_MONSTROUS_MODE ||
-                            dailySection === DAILY_SPECIAL_MODE ||
-                            dailySection === DAILY_FAKE_TWINS_MODE) &&
-                            selectedDailySectionState.played)
+                          (isDailyMode(dailySection) && selectedDailySectionState.played)
                             ? "bg-slate-400/60 text-white cursor-not-allowed"
                             : dailyHomeActiveButtonClass
                         }`}
                         disabled={
                           !selectedDailySectionState.playable ||
                           !selectedDailySectionState.available ||
-                          ((dailySection === DAILY_MONSTROUS_MODE ||
-                            dailySection === DAILY_SPECIAL_MODE ||
-                            dailySection === DAILY_FAKE_TWINS_MODE) &&
-                            selectedDailySectionState.played)
+                          (isDailyMode(dailySection) && selectedDailySectionState.played)
                         }
                         onClick={() => openDailyLaunchDialog(dailySection)}
                       >
-                        {(dailySection === DAILY_MONSTROUS_MODE ||
-                          dailySection === DAILY_SPECIAL_MODE ||
-                          dailySection === DAILY_FAKE_TWINS_MODE) &&
-                        selectedDailySectionState.played
+                        {isDailyMode(dailySection) && selectedDailySectionState.played
                           ? "Déjà jouée"
                           : "Jouer"}
                       </button>

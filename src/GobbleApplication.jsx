@@ -247,13 +247,17 @@ import useDailyDuelStandalonePrep from "./components/daily/useDailyDuelStandalon
 import useDailySpecialInteraction, {
   getDailySpecialDragTransform,
 } from "./components/daily/useDailySpecialInteraction.js";
-import { createDailyGameController } from "./components/daily/createDailyGameController.js";
+import useDailySessionController from "./features/daily/useDailySessionController.js";
 import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_MONSTROUS_MODE,
   DAILY_OVERVIEW_SECTION,
   DAILY_SPECIAL_MODE,
 } from "./components/daily/dailyModes.js";
+import {
+  filterDailyEntriesForMode,
+  normalizeDailyMode,
+} from "./features/daily/dailyModePolicy.js";
 import {
   DAILY_SPECIAL_BONUSES,
   DAILY_SPECIAL_WORD_TARGET,
@@ -2238,10 +2242,6 @@ export default function GobbleApplication() {
     if (!node || !Number.isFinite(drag?.x) || !Number.isFinite(drag?.y)) return;
     node.style.transform = getDailySpecialDragTransform(drag.x, drag.y);
   }, []);
-  const dailyTictocPlayedRef = useRef(false);
-  const dailySessionRef = useRef({ dateId: null, startedAt: null });
-  const dailySubmitRef = useRef({ inFlight: false });
-  const dailyLifecycleRef = useRef({ startGeneration: 0 });
   const dailySpecialTutorialPauseStartedAtRef = useRef(null);
   const shouldShowTutorial =
     isAccountAuthenticated &&
@@ -2479,7 +2479,7 @@ export default function GobbleApplication() {
     setFoundTargetWord("");
     stopRoundEndTickSound({ fadeMs: 0 });
     stopAllActiveAudio({ suspendContext: false, immediate: true });
-    dailySessionRef.current = { dateId: null, startedAt: null };
+    resetDailySession();
     setDailyResult(null);
     resumeProbeRef.current = { inFlight: false, lastAt: 0 };
     resumeLockRef.current = false;
@@ -6896,70 +6896,87 @@ export default function GobbleApplication() {
     openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
   }, [authModalMode, authState.user?.mustResetPassword, isAccountAuthenticated]);
 
-  const [
-    startDailyGame,
-    submitDailyScore,
-    openDailyLaunchDialog,
+  const {
     closeDailyLaunchDialog,
     confirmDailyLaunch,
-  ] = useLazyArrayController(createDailyGameController, [
-    getGameProgress,
-    acceptedRef,
-    appViewRef,
-    applyThemeVisualState,
-    board,
-    clearSelection,
-    dailyAcceptedPathsRef,
-    dailyLaunchDialog,
-    dailyLifecycleRef,
-    dailyPlayMode,
     dailySessionRef,
-    dailySpecialDragRef,
-    dailySpecialPlacements,
-    dailyStatus,
-    dailySubmitRef,
     dailyTictocPlayedRef,
-    dailyWordSlots,
-    dailyFeature.emitSocketAck,
-    ensureAuthenticated,
-    fetchDailyBoard,
-    fetchDailyStatus,
-    fetchThemeProfileRef,
-    inputLockedRef,
-    installId,
-    isDailyPlayRef,
-    isDailySpecialMode,
-    nickname,
-    readJsonResponseLoose,
-    requestAudioUnlock,
-    resetSubmissionQueue,
-    setAppView,
-    setDailyActiveSlot,
-    setDailyBoard,
-    setDailyInvalidSlot,
-    setDailyLaunchDialog,
-    setDailyPlayMode,
-    setDailyResult,
-    setDailySection,
-    setDailySpecialDrag,
-    setDailySpecialPlacements,
-    setDailyStartError,
-    setDailyStatus,
-    setDailySubmitError,
-    setDailyWordSlots,
-    setDuelStatus,
-    setInputLocked,
-    setPhase,
-    setRoundId,
-    setServerEndsAt,
-    setServerRoundDurationMs,
-    setServerStatus,
-    showToast,
-    specialScoreConfig,
-    startGameFromServerRef,
-    themeAppliedSafe,
-    gameplaySessionFeature,
-  ], 5);
+    openDailyLaunchDialog,
+    resetDailySession,
+    startDailyGame,
+    submitDailyScore,
+  } = useDailySessionController({
+    application: {
+      appViewRef,
+      isDailyPlayRef,
+      setAppView,
+    },
+    audio: {
+      requestUnlock: requestAudioUnlock,
+    },
+    daily: {
+      acceptedPathsRef: dailyAcceptedPathsRef,
+      actions: {
+        setActiveSlot: setDailyActiveSlot,
+        setBoard: setDailyBoard,
+        setInvalidSlot: setDailyInvalidSlot,
+        setLaunchDialog: setDailyLaunchDialog,
+        setPlayMode: setDailyPlayMode,
+        setResult: setDailyResult,
+        setSection: setDailySection,
+        setSpecialDrag: setDailySpecialDrag,
+        setSpecialPlacements: setDailySpecialPlacements,
+        setStartError: setDailyStartError,
+        setStatus: setDailyStatus,
+        setSubmitError: setDailySubmitError,
+        setWordSlots: setDailyWordSlots,
+      },
+      isSpecialMode: isDailySpecialMode,
+      launchDialog: dailyLaunchDialog,
+      playMode: dailyPlayMode,
+      specialDragRef: dailySpecialDragRef,
+      specialPlacements: dailySpecialPlacements,
+      status: dailyStatus,
+      wordSlots: dailyWordSlots,
+    },
+    duel: {
+      setStatus: setDuelStatus,
+    },
+    game: {
+      acceptedRef,
+      applyThemeVisualState,
+      board,
+      clearSelection,
+      fetchThemeProfileRef,
+      gameplaySession: gameplaySessionFeature,
+      getProgress: getGameProgress,
+      inputLockedRef,
+      resetSubmissionQueue,
+      setInputLocked,
+      setPhase,
+      setRoundId,
+      setServerEndsAt,
+      setServerRoundDurationMs,
+      setServerStatus,
+      specialScoreConfig,
+      startGameFromServerRef,
+      themeAppliedSafe,
+    },
+    identity: {
+      installId,
+      nickname,
+    },
+    network: {
+      emitSocketAck: dailyFeature.emitSocketAck,
+      ensureAuthenticated,
+      fetchDailyBoard,
+      fetchDailyStatus,
+      readJsonResponseLoose,
+    },
+    notifications: {
+      showToast,
+    },
+  });
 
   function requestVocabCount() {
     return statsFeature.requestVocabCount({
@@ -11030,22 +11047,10 @@ function handleTouchEnd(e) {
   const dailyWidgetEntries = isMobileLayout ? dailyEntriesRaw : dailyEntries;
   const dailyRankingSource = React.useMemo(() => {
     const allEntries = Array.isArray(dailyWidgetEntries) ? dailyWidgetEntries : [];
-    const currentDailyMode =
-      dailyPlayMode === DAILY_SPECIAL_MODE
-        ? DAILY_SPECIAL_MODE
-        : dailyPlayMode === DAILY_FAKE_TWINS_MODE
-        ? DAILY_FAKE_TWINS_MODE
-        : DAILY_MONSTROUS_MODE;
+    const currentDailyMode = normalizeDailyMode(dailyPlayMode);
     return isDailyPlay
-      ? allEntries.filter((entry) => {
-          if (entry?.isPalier) return true;
-          const entryMode =
-            entry?.mode === DAILY_SPECIAL_MODE
-              ? DAILY_SPECIAL_MODE
-              : entry?.mode === DAILY_FAKE_TWINS_MODE
-              ? DAILY_FAKE_TWINS_MODE
-              : DAILY_MONSTROUS_MODE;
-          return entryMode === currentDailyMode;
+      ? filterDailyEntriesForMode(allEntries, currentDailyMode, {
+          keepThresholds: true,
         })
       : allEntries;
   }, [dailyWidgetEntries, isDailyPlay, dailyPlayMode]);

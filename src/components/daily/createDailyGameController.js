@@ -1,7 +1,6 @@
 import { findBestPathForWord } from "../gameLogic.js";
 import {
   DAILY_FAKE_TWINS_MODE,
-  DAILY_MONSTROUS_MODE,
   DAILY_SPECIAL_MODE,
 } from "./dailyModes.js";
 import {
@@ -9,6 +8,11 @@ import {
   createDailyWordSlots,
   stripBoardBonuses,
 } from "./dailySpecialModel.js";
+import {
+  getDailyModeDefinition,
+  getDailyModeStatusPatch,
+  normalizeDailyMode,
+} from "../../features/daily/dailyModePolicy.js";
 import {
   isCurrentDailyGameplaySession,
   isCurrentDailyStartRequest,
@@ -113,12 +117,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     setDailyStartError("Pseudo requis");
     return;
   }
-  const modeToStart =
-    requestedMode === DAILY_SPECIAL_MODE
-      ? DAILY_SPECIAL_MODE
-      : requestedMode === DAILY_FAKE_TWINS_MODE
-      ? DAILY_FAKE_TWINS_MODE
-      : DAILY_MONSTROUS_MODE;
+  const modeToStart = normalizeDailyMode(requestedMode);
   const startGeneration =
     Math.max(0, Number(dailyLifecycleRef?.current?.startGeneration) || 0) + 1;
   if (dailyLifecycleRef?.current) {
@@ -140,12 +139,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     }
     const modeFromServer =
       typeof data?.mode === "string" && data.mode.trim() ? data.mode.trim() : modeToStart;
-    const mode =
-      modeFromServer === DAILY_SPECIAL_MODE
-        ? DAILY_SPECIAL_MODE
-        : modeFromServer === DAILY_FAKE_TWINS_MODE
-        ? DAILY_FAKE_TWINS_MODE
-        : DAILY_MONSTROUS_MODE;
+    const mode = normalizeDailyMode(modeFromServer);
     const gridForPlay =
       mode === DAILY_SPECIAL_MODE ? stripBoardBonuses(data.grid) : data.grid;
     if (data?.duel && typeof data.duel === "object") {
@@ -252,13 +246,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
         return;
       }
       if (data?.error === "already_played") {
-        setDailyStartError(
-          modeToStart === DAILY_MONSTROUS_MODE
-            ? "Grille monstrueuse déjà jouée"
-            : modeToStart === DAILY_FAKE_TWINS_MODE
-            ? "Faux jumeaux déjà joué"
-            : "Déjà joué"
-        );
+        setDailyStartError(getDailyModeDefinition(modeToStart).alreadyPlayedLabel);
         fetchDailyStatus();
         fetchDailyBoard();
         return;
@@ -305,13 +293,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
         if (socketData.ok === false) {
           const socketError = String(socketData.error || "error");
           if (socketError === "already_played") {
-            setDailyStartError(
-              modeToStart === DAILY_MONSTROUS_MODE
-                ? "Grille monstrueuse déjà jouée"
-                : modeToStart === DAILY_FAKE_TWINS_MODE
-                ? "Faux jumeaux déjà joué"
-                : "Déjà joué"
-            );
+            setDailyStartError(getDailyModeDefinition(modeToStart).alreadyPlayedLabel);
           } else if (socketError === "bad_grid") {
             setDailyStartError("E_DAILY_BAD_GRID");
           } else if (socketError === "not_ready") {
@@ -455,47 +437,15 @@ async function submitDailyScore() {
         error: "",
       }));
     }
+    const submittedResult = {
+      score: Number.isFinite(data?.score) ? data.score : currentScore,
+      gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
+      rank: Number.isFinite(data?.rank) ? data.rank : null,
+      submittedAt: Date.now(),
+    };
     setDailyStatus((prev) => ({
       ...prev,
-      hasPlayed: dailyPlayMode === DAILY_MONSTROUS_MODE ? true : prev?.hasPlayed,
-      hasPlayedMonstrous:
-        dailyPlayMode === DAILY_MONSTROUS_MODE ? true : prev?.hasPlayedMonstrous,
-      hasPlayedSpecial: dailyPlayMode === DAILY_SPECIAL_MODE ? true : prev?.hasPlayedSpecial,
-      hasPlayedFakeTwins:
-        dailyPlayMode === DAILY_FAKE_TWINS_MODE ? true : prev?.hasPlayedFakeTwins,
-      myResult: {
-        score: Number.isFinite(data?.score) ? data.score : currentScore,
-        gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
-        rank: Number.isFinite(data?.rank) ? data.rank : null,
-        submittedAt: Date.now(),
-      },
-      myMonstrousResult:
-        dailyPlayMode === DAILY_MONSTROUS_MODE
-          ? {
-              score: Number.isFinite(data?.score) ? data.score : currentScore,
-              gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
-              rank: Number.isFinite(data?.rank) ? data.rank : null,
-              submittedAt: Date.now(),
-            }
-          : prev?.myMonstrousResult || null,
-      mySpecialResult:
-        dailyPlayMode === DAILY_SPECIAL_MODE
-          ? {
-              score: Number.isFinite(data?.score) ? data.score : currentScore,
-              gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
-              rank: Number.isFinite(data?.rank) ? data.rank : null,
-              submittedAt: Date.now(),
-            }
-          : prev?.mySpecialResult || null,
-      myFakeTwinsResult:
-        dailyPlayMode === DAILY_FAKE_TWINS_MODE
-          ? {
-              score: Number.isFinite(data?.score) ? data.score : currentScore,
-              gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
-              rank: Number.isFinite(data?.rank) ? data.rank : null,
-              submittedAt: Date.now(),
-            }
-          : prev?.myFakeTwinsResult || null,
+      ...getDailyModeStatusPatch(dailyPlayMode, submittedResult, prev),
     }));
     void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
     clearSelection();
@@ -561,12 +511,7 @@ function openDailyLaunchDialog(mode) {
     setDailyStartError("Maintenance en cours");
     return;
   }
-  const safeMode =
-    mode === DAILY_SPECIAL_MODE
-      ? DAILY_SPECIAL_MODE
-      : mode === DAILY_FAKE_TWINS_MODE
-      ? DAILY_FAKE_TWINS_MODE
-      : DAILY_MONSTROUS_MODE;
+  const safeMode = normalizeDailyMode(mode);
   setDailyLaunchDialog({ mode: safeMode });
 }
 
