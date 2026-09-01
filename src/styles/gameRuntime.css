@@ -138,40 +138,6 @@ body {
   }
 }
 
-@keyframes weeklyArrowBlink {
-  0% {
-    opacity: 0.1;
-    transform: scale(0.85);
-  }
-  45% {
-    opacity: 0.95;
-    transform: scale(1.5);
-  }
-  75% {
-    opacity: 0.25;
-    transform: scale(1.15);
-  }
-  100% {
-    opacity: 0.65;
-    transform: scale(1);
-  }
-}
-
-@keyframes weeklyArrowBump {
-  0% {
-    transform: scale(1);
-  }
-  45% {
-    transform: scale(1.5);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
 @keyframes recordRainbow {
   0% {
     background-position: 0% 50%;
@@ -443,23 +409,6 @@ body {
 .vocab-race-passed {
   animation: vocabRacePassed 0.75s ease both;
   transform-origin: center;
-}
-
-.weekly-arrow-hint {
-  opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.weekly-arrow-visible {
-  opacity: 0.55;
-}
-
-.weekly-arrow-blink {
-  animation: weeklyArrowBlink 1.5s ease-in-out 2;
-}
-
-.weekly-arrow-bump {
-  animation: weeklyArrowBump 0.45s ease-out;
 }
 
 @keyframes resultsFadeOut {

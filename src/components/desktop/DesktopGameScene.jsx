@@ -157,7 +157,6 @@ export default function DesktopGameScene({ runtime }) {
     isSpecial3WordsMode,
     isSquareMaterial,
     isTargetRound,
-    isWeeklyOpen,
     lastMessageId,
     lightGridSurfaceStyle,
     lightPanelStyle,
@@ -291,8 +290,7 @@ export default function DesktopGameScene({ runtime }) {
     visibleMessages,
     visiblePlayerList: visiblePlayerListProp,
     visualScreenShakeEnabled,
-    weeklyOverlayStyle,
-    weeklyStatsPage,
+    statsApplication,
     WORDS_SCROLL_MAX_HEIGHT,
     rosterConfig,
   } = runtime;
@@ -1685,14 +1683,7 @@ export default function DesktopGameScene({ runtime }) {
       />
       {roundPreparationOverlay}
       {mobileRoundIntroOverlay}
-      {isWeeklyOpen && appView === "stats" && isLoggedIn ? (
-        <div
-          className="fixed inset-0 z-[12150] flex items-stretch justify-center overflow-hidden bg-black/70 px-2 py-2 sm:px-4"
-          style={weeklyOverlayStyle}
-        >
-          {weeklyStatsPage}
-        </div>
-      ) : null}
+      {isLoggedIn && appView === "stats" ? statsApplication : null}
       {chatOverlays}
     </>
   );

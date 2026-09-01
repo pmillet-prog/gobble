@@ -83,7 +83,6 @@ import useAudioEngine from "./audio/useAudioEngine";
 import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
-import useSwipeTrackController from "./hooks/useSwipeTrackController.js";
 import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
 import useRoundLifecycle from "./hooks/useRoundLifecycle.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
@@ -126,6 +125,7 @@ import {
   normalizeInstallId,
 } from "./app/adapters/browserIdentity.js";
 import { clampValue, formatNumber } from "./utils/numbers.js";
+import { isKeyboardEditableTarget } from "./utils/domTargets.js";
 import AssetManager from "./assets/assetManager";
 import { IMAGE_KEYS, SFX_KEYS } from "./assets/assetKeys";
 import { IMAGE_FALLBACKS, makeFileKey } from "./assets/bootAssetManifest.js";
@@ -388,8 +388,8 @@ const DailyApplication = React.lazy(() =>
   import("./features/daily/DailyApplication.jsx")
 );
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
-const WeeklyStatsScreen = React.lazy(() =>
-  import("./components/stats/WeeklyStatsScreen.jsx")
+const StatsApplication = React.lazy(() =>
+  import("./features/stats/StatsApplication.jsx")
 );
 const TournamentFinaleScreen = React.lazy(() =>
   import("./components/finale/TournamentFinaleScreen.jsx")
@@ -1334,7 +1334,27 @@ export default function GobbleApplication() {
   const overlaysFeature = useFeatureRuntime("overlays");
   const overlaysState = useFeatureSelector(overlaysFeature, (state) => state);
   const statsFeature = useFeatureRuntime("stats");
-  const statsState = useFeatureSelector(statsFeature, (state) => state);
+  const statsState = useFeatureFields(statsFeature, [
+    "definitionBlink",
+    "error",
+    "loading",
+    "open",
+    "stats",
+    "tab",
+    "trophyHistory",
+    "trophyLoading",
+    "trophyStatus",
+    "vocabCount",
+    "vocabLoading",
+    "vocabOverlayOpen",
+    "vocabOverlayRequest",
+    "vocabResultsReadyKey",
+    "vocabRoundDelta",
+    "vocabUpdatedAt",
+    "vocabWeeklyCount",
+    "vocabWeeklyRoundDelta",
+    "vocabWeeklyUpdatedAt",
+  ]);
   const adminFeature = useFeatureRuntime("admin");
   const adminState = useFeatureSelector(adminFeature, (state) => state);
   const identityFeature = useFeatureRuntime("identity");
@@ -1378,16 +1398,12 @@ export default function GobbleApplication() {
         setDefinitionBlink: "definitionBlink",
         setIsVocabOverlayOpen: "vocabOverlayOpen",
         setIsWeeklyOpen: "open",
-        setSeasonActiveIndex: "seasonActiveIndex",
         setStatsTab: "tab",
         setVocabOverlayRequest: "vocabOverlayRequest",
         setVocabResultsReadyKey: "vocabResultsReadyKey",
         setVocabRoundDelta: "vocabRoundDelta",
         setVocabWeeklyRoundDelta: "vocabWeeklyRoundDelta",
         setWeeklyActiveIndex: "activeIndex",
-        setWeeklyArrowBlink: "weeklyArrowBlink",
-        setWeeklyArrowBump: "weeklyArrowBump",
-        setWeeklyArrowVisible: "weeklyArrowVisible",
       }),
     [statsFeature]
   );
@@ -1484,12 +1500,10 @@ export default function GobbleApplication() {
     setWordInfoModal,
   } = earlyOverlayActions;
   const {
-    activeIndex: weeklyActiveIndex,
     definitionBlink,
     error: weeklyStatsError,
     loading: weeklyStatsLoading,
     open: isWeeklyOpen,
-    seasonActiveIndex,
     stats: weeklyStats,
     tab: statsTab,
     trophyHistory,
@@ -1505,24 +1519,17 @@ export default function GobbleApplication() {
     vocabWeeklyCount,
     vocabWeeklyRoundDelta,
     vocabWeeklyUpdatedAt,
-    weeklyArrowBlink,
-    weeklyArrowBump,
-    weeklyArrowVisible,
   } = statsState;
   const {
     setDefinitionBlink,
     setIsVocabOverlayOpen,
     setIsWeeklyOpen,
-    setSeasonActiveIndex,
     setStatsTab,
     setVocabOverlayRequest,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
     setWeeklyActiveIndex,
-    setWeeklyArrowBlink,
-    setWeeklyArrowBump,
-    setWeeklyArrowVisible,
   } = statsActions;
   const {
     devAccountAllowed,
@@ -1635,38 +1642,12 @@ export default function GobbleApplication() {
     rankingMap: null,
     rankingRound: null,
   });
-  const weeklySwipeTrack = useSwipeTrackController(weeklyActiveIndex);
-  const weeklyTouchRef = useRef({
-    startX: null,
-    startY: null,
-    fromScrollable: false,
-    fromProfileButton: false,
-    gestureAxis: "none",
-    dragging: false,
-  });
-  const weeklySlideWidthRef = useRef(0);
-  const weeklySwipeBlockRef = useRef(0);
   const targetWaitDevArmedRoundIdRef = useRef(null);
   useEffect(() => {
     setPerfProbeEnabled(perfTestEnabled);
     return () => setPerfProbeEnabled(false);
   }, [perfTestEnabled]);
   const settingsCloseTimerRef = useRef(null);
-  const seasonSwipeTrack = useSwipeTrackController(seasonActiveIndex);
-  const seasonTouchRef = useRef({
-    startX: null,
-    startY: null,
-    fromScrollable: false,
-    fromProfileButton: false,
-    gestureAxis: "none",
-    dragging: false,
-  });
-  const seasonSlideWidthRef = useRef(0);
-  const seasonSwipeBlockRef = useRef(0);
-  const weeklyArrowTimerRef = useRef(null);
-  const weeklyArrowBlinkTimerRef = useRef(null);
-  const weeklyArrowBumpTimerRef = useRef(null);
-  const weeklyArrowSeenRef = useRef(false);
   const serverClockRef = useRef(createServerClockState());
   const breakCountdownRef = useRef(null);
   const playerActivityFeature = useFeatureRuntime("activity");
@@ -2358,18 +2339,6 @@ export default function GobbleApplication() {
     if (definitionBlinkTimerRef.current) {
       clearTimeout(definitionBlinkTimerRef.current);
       definitionBlinkTimerRef.current = null;
-    }
-    if (weeklyArrowTimerRef.current) {
-      clearTimeout(weeklyArrowTimerRef.current);
-      weeklyArrowTimerRef.current = null;
-    }
-    if (weeklyArrowBlinkTimerRef.current) {
-      clearTimeout(weeklyArrowBlinkTimerRef.current);
-      weeklyArrowBlinkTimerRef.current = null;
-    }
-    if (weeklyArrowBumpTimerRef.current) {
-      clearTimeout(weeklyArrowBumpTimerRef.current);
-      weeklyArrowBumpTimerRef.current = null;
     }
     stopImplodePhase();
     stopMobileRoundIntro({ unlockInput: false });
@@ -5700,350 +5669,6 @@ export default function GobbleApplication() {
     setIsPlayersOverlayOpen(false);
   }
 
-  function shiftWeeklyBoard(delta) {
-    const total = WEEKLY_BOARDS.length;
-    if (!Number.isInteger(delta) || total <= 1) return;
-    setWeeklyActiveIndex((prev) => {
-      const next = (prev + delta + total) % total;
-      weeklySwipeTrack.settle(next);
-      return next;
-    });
-    playSwipeSound();
-  }
-
-  function goToWeeklyBoard(nextIndex) {
-    const total = WEEKLY_BOARDS.length;
-    if (!Number.isFinite(nextIndex) || total <= 1) return;
-    const current = clampValue(weeklyActiveIndex, 0, total - 1);
-    const next = clampValue(nextIndex, 0, total - 1);
-    if (next === current) return;
-    weeklySwipeTrack.settle(next);
-    setWeeklyActiveIndex(next);
-    playSwipeSound();
-  }
-
-  function shouldIgnoreSwipeClick(ref, delayMs = 450) {
-    const last = ref?.current || 0;
-    return Date.now() - last < delayMs;
-  }
-
-  function isKeyboardEditableTarget(target) {
-    if (typeof HTMLElement === "undefined") return false;
-    const targetElement = target instanceof HTMLElement ? target : null;
-    if (!targetElement) return false;
-    const tag = targetElement.tagName;
-    return (
-      tag === "INPUT" ||
-      tag === "TEXTAREA" ||
-      tag === "SELECT" ||
-      targetElement.isContentEditable ||
-      !!targetElement.closest?.("[contenteditable='true']")
-    );
-  }
-
-  function isStatsScrollTouchTarget(target) {
-    if (typeof Element === "undefined") return false;
-    const touchEl = target instanceof Element ? target : null;
-    const scrollEl = touchEl?.closest?.('[data-stats-scroll="true"]');
-    if (!scrollEl) return false;
-    return scrollEl.scrollHeight > scrollEl.clientHeight + 1;
-  }
-
-  function isStatsProfileTouchTarget(target) {
-    if (typeof Element === "undefined") return false;
-    const touchEl = target instanceof Element ? target : null;
-    return !!touchEl?.closest?.('[data-stats-profile-button="true"]');
-  }
-
-  function resolveStatsGestureAxis(touchRef, deltaX, deltaY) {
-    const currentAxis = touchRef?.current?.gestureAxis || "none";
-    if (currentAxis === "horizontal" || currentAxis === "vertical") {
-      return currentAxis;
-    }
-    const fromScrollable = !!touchRef?.current?.fromScrollable;
-    const fromProfileButton = !!touchRef?.current?.fromProfileButton;
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-    const deadZone = fromProfileButton ? 5 : fromScrollable ? 9 : 7;
-    if (absX < deadZone && absY < deadZone) return "pending";
-    if (!fromScrollable) {
-      touchRef.current.gestureAxis = "horizontal";
-      return "horizontal";
-    }
-    const horizontalStrong = fromProfileButton
-      ? absX >= 7 && absX >= absY * 0.7
-      : absX >= 12 && absX >= absY * 0.85;
-    const verticalStrong = absY >= 12 && absY > absX * 1.2;
-    if (horizontalStrong) {
-      touchRef.current.gestureAxis = "horizontal";
-      return "horizontal";
-    }
-    if (verticalStrong) {
-      touchRef.current.gestureAxis = "vertical";
-      return "vertical";
-    }
-    if (absX > absY) {
-      touchRef.current.gestureAxis = "horizontal";
-      return "horizontal";
-    }
-    if (absY > absX) {
-      touchRef.current.gestureAxis = "vertical";
-      return "vertical";
-    }
-    return "pending";
-  }
-
-  function getSeasonPages() {
-    return ["vocab_rank", "vocab_personal"];
-  }
-
-  function shiftSeasonPage(delta) {
-    const pages = getSeasonPages();
-    const total = pages.length;
-    if (!Number.isInteger(delta) || total <= 1) return;
-    setSeasonActiveIndex((prev) => {
-      const next = (prev + delta + total) % total;
-      seasonSwipeTrack.settle(next);
-      return next;
-    });
-    playSwipeSound();
-  }
-
-  function goToSeasonPage(nextIndex) {
-    const pages = getSeasonPages();
-    const total = pages.length;
-    if (total <= 1) return;
-    const next = clampValue(nextIndex, 0, total - 1);
-    seasonSwipeTrack.settle(next);
-    setSeasonActiveIndex(next);
-  }
-
-  function triggerWeeklyArrowHint({ blink = false, showForMs = 1600 } = {}) {
-    if (weeklyArrowTimerRef.current) {
-      clearTimeout(weeklyArrowTimerRef.current);
-      weeklyArrowTimerRef.current = null;
-    }
-    if (weeklyArrowBlinkTimerRef.current) {
-      clearTimeout(weeklyArrowBlinkTimerRef.current);
-      weeklyArrowBlinkTimerRef.current = null;
-    }
-    if (weeklyArrowBumpTimerRef.current) {
-      clearTimeout(weeklyArrowBumpTimerRef.current);
-      weeklyArrowBumpTimerRef.current = null;
-    }
-    if (isMobileLayout) {
-      setWeeklyArrowVisible(true);
-    }
-    setWeeklyArrowBump(false);
-    setTimeout(() => setWeeklyArrowBump(true), 20);
-    weeklyArrowBumpTimerRef.current = setTimeout(() => {
-      setWeeklyArrowBump(false);
-    }, 520);
-    if (blink) {
-      setWeeklyArrowBlink(true);
-      weeklyArrowBlinkTimerRef.current = setTimeout(() => {
-        setWeeklyArrowBlink(false);
-      }, 1800);
-    }
-    if (isMobileLayout) {
-      weeklyArrowTimerRef.current = setTimeout(() => {
-        setWeeklyArrowVisible(false);
-        setWeeklyArrowBlink(false);
-        setWeeklyArrowBump(false);
-      }, showForMs);
-    }
-  }
-
-  function applyWeeklyDragOffset(nextOffset) {
-    const value = Number.isFinite(nextOffset) ? nextOffset : 0;
-    weeklySwipeTrack.move(value, weeklyActiveIndex);
-  }
-
-  function resetWeeklyDragOffset() {
-    weeklySwipeTrack.settle(weeklyActiveIndex);
-  }
-
-  function handleWeeklyTouchStart(e) {
-    if (statsTab !== "weekly") return;
-    weeklyTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
-    weeklyTouchRef.current.fromProfileButton = isStatsProfileTouchTarget(e?.target);
-    weeklyTouchRef.current.gestureAxis = "none";
-    weeklyTouchRef.current.dragging = false;
-    const touch = e?.touches?.[0];
-    const x = touch?.clientX ?? null;
-    const y = touch?.clientY ?? null;
-    weeklyTouchRef.current.startX = x;
-    weeklyTouchRef.current.startY = y;
-    weeklySlideWidthRef.current =
-      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
-    triggerWeeklyArrowHint();
-    weeklySwipeTrack.begin(weeklyActiveIndex);
-  }
-
-  function handleWeeklyTouchMove(e) {
-    if (statsTab !== "weekly") return;
-    const startX = weeklyTouchRef.current.startX;
-    const startY = weeklyTouchRef.current.startY;
-    if (startX == null || startY == null) return;
-    const touch = e?.touches?.[0];
-    const currentX = touch?.clientX ?? null;
-    const currentY = touch?.clientY ?? null;
-    if (currentX == null || currentY == null) return;
-    const deltaX = currentX - startX;
-    const deltaY = currentY - startY;
-    const axis = resolveStatsGestureAxis(weeklyTouchRef, deltaX, deltaY);
-    if (axis === "vertical") {
-      weeklyTouchRef.current.dragging = false;
-      resetWeeklyDragOffset();
-      return;
-    }
-    if (axis !== "horizontal") return;
-    if (!weeklyTouchRef.current.dragging) {
-      if (Math.abs(deltaX) < 6) return;
-      weeklyTouchRef.current.dragging = true;
-      triggerWeeklyArrowHint();
-    }
-    if (e?.cancelable) e.preventDefault();
-    const width = weeklySlideWidthRef.current || window.innerWidth || 1;
-    const clamped = clampValue(deltaX, -width * 0.35, width * 0.35);
-    applyWeeklyDragOffset(clamped);
-  }
-
-  function handleWeeklyTouchEnd(e) {
-    if (statsTab !== "weekly") return;
-    const axis = weeklyTouchRef.current.gestureAxis;
-    const fromProfileButton = !!weeklyTouchRef.current.fromProfileButton;
-    weeklyTouchRef.current.gestureAxis = "none";
-    weeklyTouchRef.current.fromScrollable = false;
-    weeklyTouchRef.current.fromProfileButton = false;
-    const startX = weeklyTouchRef.current.startX;
-    const startY = weeklyTouchRef.current.startY;
-    weeklyTouchRef.current.startX = null;
-    weeklyTouchRef.current.startY = null;
-    const width = weeklySlideWidthRef.current || window.innerWidth || 1;
-    const touch = e?.changedTouches?.[0];
-    weeklyTouchRef.current.dragging = false;
-    if (axis === "vertical") {
-      resetWeeklyDragOffset();
-      return;
-    }
-    if (startX == null || startY == null || !touch) {
-      resetWeeklyDragOffset();
-      return;
-    }
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    if (fromProfileButton && Math.hypot(deltaX, deltaY) >= 8) {
-      weeklySwipeBlockRef.current = Date.now();
-    }
-    const threshold = fromProfileButton
-      ? Math.max(32, width * 0.07)
-      : Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
-    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-      weeklySwipeBlockRef.current = Date.now();
-      shiftWeeklyBoard(deltaX < 0 ? 1 : -1);
-      return;
-    }
-    resetWeeklyDragOffset();
-  }
-
-  function handleSeasonTouchStart(e) {
-    if (statsTab !== "season") return;
-    seasonTouchRef.current.fromScrollable = isStatsScrollTouchTarget(e?.target);
-    seasonTouchRef.current.fromProfileButton = isStatsProfileTouchTarget(e?.target);
-    seasonTouchRef.current.gestureAxis = "none";
-    seasonTouchRef.current.dragging = false;
-    const touch = e?.touches?.[0];
-    const x = touch?.clientX ?? null;
-    const y = touch?.clientY ?? null;
-    seasonTouchRef.current.startX = x;
-    seasonTouchRef.current.startY = y;
-    seasonSlideWidthRef.current =
-      (e?.currentTarget?.getBoundingClientRect?.().width ?? window.innerWidth ?? 1) || 1;
-    seasonSwipeTrack.begin(seasonActiveIndex);
-  }
-
-  function handleSeasonTouchMove(e) {
-    if (statsTab !== "season") return;
-    const startX = seasonTouchRef.current.startX;
-    const startY = seasonTouchRef.current.startY;
-    if (startX == null || startY == null) return;
-    const touch = e?.touches?.[0];
-    const currentX = touch?.clientX ?? null;
-    const currentY = touch?.clientY ?? null;
-    if (currentX == null || currentY == null) return;
-    const deltaX = currentX - startX;
-    const deltaY = currentY - startY;
-    const axis = resolveStatsGestureAxis(seasonTouchRef, deltaX, deltaY);
-    if (axis === "vertical") {
-      seasonTouchRef.current.dragging = false;
-      seasonSwipeTrack.settle(seasonActiveIndex);
-      return;
-    }
-    if (axis !== "horizontal") return;
-    if (!seasonTouchRef.current.dragging) {
-      if (Math.abs(deltaX) < 6) return;
-      seasonTouchRef.current.dragging = true;
-    }
-    if (e?.cancelable) e.preventDefault();
-    const width = seasonSlideWidthRef.current || window.innerWidth || 1;
-    const clamped = clampValue(deltaX, -width * 0.35, width * 0.35);
-    seasonSwipeTrack.move(clamped, seasonActiveIndex);
-  }
-
-  function handleSeasonTouchEnd(e) {
-    if (statsTab !== "season") return;
-    const axis = seasonTouchRef.current.gestureAxis;
-    const fromProfileButton = !!seasonTouchRef.current.fromProfileButton;
-    seasonTouchRef.current.gestureAxis = "none";
-    seasonTouchRef.current.fromScrollable = false;
-    seasonTouchRef.current.fromProfileButton = false;
-    const startX = seasonTouchRef.current.startX;
-    const startY = seasonTouchRef.current.startY;
-    seasonTouchRef.current.startX = null;
-    seasonTouchRef.current.startY = null;
-    const width = seasonSlideWidthRef.current || window.innerWidth || 1;
-    const touch = e?.changedTouches?.[0];
-    seasonTouchRef.current.dragging = false;
-    if (axis === "vertical") {
-      seasonSwipeTrack.settle(seasonActiveIndex);
-      return;
-    }
-    if (startX == null || startY == null || !touch) {
-      seasonSwipeTrack.settle(seasonActiveIndex);
-      return;
-    }
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-    if (fromProfileButton && Math.hypot(deltaX, deltaY) >= 8) {
-      seasonSwipeBlockRef.current = Date.now();
-    }
-    const threshold = fromProfileButton
-      ? Math.max(32, width * 0.07)
-      : Math.max(RESULTS_SWIPE_THRESHOLD, width * 0.1);
-    if (Math.abs(deltaX) >= threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-      seasonSwipeBlockRef.current = Date.now();
-      shiftSeasonPage(deltaX < 0 ? 1 : -1);
-      return;
-    }
-    seasonSwipeTrack.settle(seasonActiveIndex);
-  }
-
-  function handleStatsTouchStart(e) {
-    if (statsTab === "weekly") return handleWeeklyTouchStart(e);
-    if (statsTab === "season") return handleSeasonTouchStart(e);
-  }
-
-  function handleStatsTouchMove(e) {
-    if (statsTab === "weekly") return handleWeeklyTouchMove(e);
-    if (statsTab === "season") return handleSeasonTouchMove(e);
-  }
-
-  function handleStatsTouchEnd(e) {
-    if (statsTab === "weekly") return handleWeeklyTouchEnd(e);
-    if (statsTab === "season") return handleSeasonTouchEnd(e);
-  }
-
   function applyResumeSnapshot(snapshot, hydrationMeta = {}) {
     if (!snapshot || typeof snapshot !== "object") return;
     if (standaloneTrainingSessionRef.current) return;
@@ -6462,12 +6087,6 @@ export default function GobbleApplication() {
   }, [installId, isDailyView]);
 
   useEffect(() => {
-    const shouldOpenStats = appView === "stats";
-    if (shouldOpenStats === isWeeklyOpen) return;
-    setIsWeeklyOpen(shouldOpenStats);
-  }, [appView, isWeeklyOpen]);
-
-  useEffect(() => {
     const onConnect = () => {
       if (isDailyView) return;
       if (!installId) return;
@@ -6476,115 +6095,6 @@ export default function GobbleApplication() {
     socket.on("connect", onConnect);
     return () => socket.off("connect", onConnect);
   }, [installId, isDailyView]);
-
-  useEffect(() => {
-    if (!isWeeklyOpen || statsTab !== "weekly") {
-      if (weeklyArrowTimerRef.current) {
-        clearTimeout(weeklyArrowTimerRef.current);
-        weeklyArrowTimerRef.current = null;
-      }
-      if (weeklyArrowBlinkTimerRef.current) {
-        clearTimeout(weeklyArrowBlinkTimerRef.current);
-        weeklyArrowBlinkTimerRef.current = null;
-      }
-      if (weeklyArrowBumpTimerRef.current) {
-        clearTimeout(weeklyArrowBumpTimerRef.current);
-        weeklyArrowBumpTimerRef.current = null;
-      }
-      setWeeklyArrowVisible(false);
-      setWeeklyArrowBlink(false);
-      setWeeklyArrowBump(false);
-      return;
-    }
-    const firstOpen = !weeklyArrowSeenRef.current;
-    if (firstOpen) {
-      weeklyArrowSeenRef.current = true;
-    }
-    triggerWeeklyArrowHint({ blink: firstOpen, showForMs: firstOpen ? 2600 : 1600 });
-  }, [isWeeklyOpen, statsTab]);
-
-  useEffect(() => {
-    if (!isWeeklyOpen) return;
-    const onKey = (e) => {
-      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
-      if (isKeyboardEditableTarget(e.target)) return;
-      if (
-        authModalMode ||
-        definitionModal.open ||
-        isChatRulesOpen ||
-        isSettingsOpen ||
-        roundPlayerModal.open ||
-        userMenu.open
-      ) {
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeWeeklyStatsOverlay();
-        return;
-      }
-      if (isMobileLayout) return;
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        if (statsTab === "season") shiftSeasonPage(-1);
-        else shiftWeeklyBoard(-1);
-        return;
-      }
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        if (statsTab === "season") shiftSeasonPage(1);
-        else shiftWeeklyBoard(1);
-        return;
-      }
-      if (e.key === "Home") {
-        e.preventDefault();
-        if (statsTab === "season") goToSeasonPage(0);
-        else goToWeeklyBoard(0);
-        return;
-      }
-      if (e.key === "End") {
-        e.preventDefault();
-        if (statsTab === "season") goToSeasonPage(getSeasonPages().length - 1);
-        else goToWeeklyBoard(WEEKLY_BOARDS.length - 1);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [
-    authModalMode,
-    definitionModal.open,
-    isChatRulesOpen,
-    isMobileLayout,
-    isSettingsOpen,
-    isWeeklyOpen,
-    roundPlayerModal.open,
-    statsTab,
-    userMenu.open,
-    weeklyActiveIndex,
-  ]);
-
-  useEffect(() => {
-    if (!isWeeklyOpen) return;
-    if (statsTab === "season") {
-      void requestTrophyStatus();
-      const currentTopN = Number.isFinite(weeklyStats?.topN) ? weeklyStats.topN : 0;
-      if (currentTopN < STATS_SEASON_TARGET_LIMIT) {
-        fetchWeeklyStats(true, STATS_SEASON_TARGET_LIMIT);
-      }
-    }
-  }, [isWeeklyOpen, statsTab, weeklyStats?.topN]);
-
-  useEffect(() => {
-    if (statsTab !== "season") return;
-    seasonSwipeTrack.settle(0);
-    setSeasonActiveIndex(0);
-    seasonTouchRef.current.startX = null;
-    seasonTouchRef.current.startY = null;
-    seasonTouchRef.current.fromScrollable = false;
-    seasonTouchRef.current.fromProfileButton = false;
-    seasonTouchRef.current.gestureAxis = "none";
-    seasonTouchRef.current.dragging = false;
-  }, [statsTab]);
 
   useEffect(() => {
     if (!isPlayersOverlayOpen) return;
@@ -11490,10 +11000,6 @@ function handleTouchEnd(e) {
     />
   );
 
-  const weeklyBoardsMeta = WEEKLY_BOARDS;
-  const safeWeeklyIndex =
-    weeklyActiveIndex >= 0 && weeklyActiveIndex < weeklyBoardsMeta.length ? weeklyActiveIndex : 0;
-  const activeWeeklyBoard = weeklyBoardsMeta[safeWeeklyIndex] || weeklyBoardsMeta[0];
   const vocabBoardEntries = React.useMemo(() => {
     if (!Number.isFinite(vocabCount)) return [];
     return [
@@ -11545,11 +11051,6 @@ function handleTouchEnd(e) {
     return lookup;
   }, [weeklyBoardData.vocab]);
   const weeklyLimit = weeklyStats?.topN || weeklyStats?.limits?.topN || 50;
-  const weeklyBoardDisplayLimit = STATS_WEEKLY_DISPLAY_LIMIT;
-  const seasonBoardDisplayLimit = Math.min(
-    STATS_SEASON_TARGET_LIMIT,
-    Math.max(STATS_WEEKLY_DISPLAY_LIMIT, weeklyLimit)
-  );
   const finaleBaselineBoards = tournamentBaselineRef.current.weeklyStats?.boards || {};
   const finaleBaselineRankMaps = {};
   const finaleBaselineValueMaps = {};
@@ -11571,29 +11072,10 @@ function handleTouchEnd(e) {
     finaleBaselineRankMaps[boardMeta.key] = rankMap;
     finaleBaselineValueMaps[boardMeta.key] = valueMap;
   });
-  const seasonVocabEntries = dedupeWeeklyEntries(
-    "vocab",
-    weeklyBoardData.vocab,
-    seasonBoardDisplayLimit
-  );
-  const weeklyEntriesByBoard = React.useMemo(() => {
-    const out = {};
-    weeklyBoardsMeta.forEach((board) => {
-      out[board.key] = dedupeWeeklyEntries(
-        board.key,
-        weeklyBoardData[board.key],
-        weeklyBoardDisplayLimit
-      );
-    });
-    return out;
-  }, [weeklyBoardsMeta, weeklyBoardData, weeklyBoardDisplayLimit]);
   const weeklyWeekNumber = weeklyStats?.weekStartTs
     ? getISOWeekNumber(new Date(weeklyStats.weekStartTs))
     : getISOWeekNumber(new Date());
   const weeklyVocabSelfRank = getSelfWeeklyVocabRankFromStats(weeklyStats);
-  const weeklyVocabSelfCount = Number.isFinite(vocabWeeklyCount)
-    ? Math.max(0, vocabWeeklyCount)
-    : null;
   const homeSurfaceUsesFixedFantasyTheme =
     !isLoggedIn && appView !== "daily_play" && appView !== "daily_results";
   const menuDarkMode = homeSurfaceUsesFixedFantasyTheme ? true : darkMode;
@@ -11616,56 +11098,6 @@ function handleTouchEnd(e) {
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         };
-  const weeklyStatsPage =
-    appView === "stats" ? (
-      <Suspense fallback={null}>
-        <WeeklyStatsScreen
-          runtime={{
-      activeWeeklyBoard,
-      closeWeeklyStatsOverlay,
-      darkMode,
-      getImageUrl,
-      getSeasonPages,
-      getUserIdFromPlayerProfileTarget,
-      goToSeasonPage,
-      goToWeeklyBoard,
-      handleStatsTouchEnd,
-      handleStatsTouchMove,
-      handleStatsTouchStart,
-      installId,
-      isCrownedEntry,
-      menuDarkMode,
-      openDefinition,
-      openPlayerProfile,
-      playCloseSound,
-      renderCrownIcon,
-      renderVocabPanel,
-      safeWeeklyIndex,
-      seasonActiveIndex,
-      seasonSwipeBlockRef,
-      seasonSwipeTrack,
-      seasonVocabEntries,
-      selfNick,
-      setStatsTab,
-      shiftSeasonPage,
-      shiftWeeklyBoard,
-      shouldIgnoreSwipeClick,
-      statsTab,
-      weeklyBoardsMeta,
-      weeklyEntriesByBoard,
-      weeklyStatsError,
-      weeklyStatsLoading,
-      weeklySwipeBlockRef,
-      weeklySwipeTrack,
-      weeklyVocabLookup,
-      weeklyVocabSelfCount,
-      weeklyVocabSelfRank,
-      weeklyWeekNumber,
-          }}
-        />
-      </Suspense>
-    ) : null;
-
   const playersOverlay = isPlayersOverlayOpen ? (
     <Suspense fallback={null}>
       <PlayersOverlay
@@ -13756,39 +13188,69 @@ function handleTouchEnd(e) {
     );
   }
 
+  const statsApplicationView =
+    appView === "stats" ? (
+      <Suspense fallback={null}>
+        <StatsApplication
+          appearance={{
+            backgroundDesktop: homeBackgroundDesktop,
+            backgroundMobile: homeBackgroundMobile,
+            darkMode,
+            isMobileLayout,
+            menuDarkMode,
+            mode: isLoggedIn ? "overlay" : "page",
+            overlayStyle: weeklyOverlayStyle,
+          }}
+          blockers={{
+            keyboardBlocked: !!(
+              authModalMode ||
+              definitionModal.open ||
+              isChatRulesOpen ||
+              isSettingsOpen ||
+              roundPlayerModal.open ||
+              userMenu.open
+            ),
+          }}
+          identity={{ installId, selfNick }}
+          navigation={{ onClose: closeWeeklyStatsOverlay }}
+          overlays={
+            !isLoggedIn ? (
+              <>
+                {playersOverlay}
+                {playerProfileModalView}
+                {definitionOverlaysView}
+                {tutorialOverlay}
+                {authDialogView}
+                {settingsMenuView}
+                {aboutModalView}
+                {quickHelpOverlay}
+                {globalChatLayer}
+              </>
+            ) : null
+          }
+          presentation={{
+            getImageUrl,
+            getUserIdFromPlayerProfileTarget,
+            isCrownedEntry,
+            openDefinition,
+            openPlayerProfile,
+            playCloseSound,
+            playSwipeSound,
+            renderCrownIcon,
+            renderVocabPanel,
+          }}
+          requests={{ fetchWeeklyStats, requestTrophyStatus }}
+          statsConfig={{
+            seasonTargetLimit: STATS_SEASON_TARGET_LIMIT,
+            weeklyBoardDisplayLimit: STATS_WEEKLY_DISPLAY_LIMIT,
+            weeklyBoards: WEEKLY_BOARDS,
+          }}
+        />
+      </Suspense>
+    ) : null;
+
   if (!isLoggedIn && appView === "stats") {
-    return (
-      <>
-        {playersOverlay}
-        {playerProfileModalView}
-        {definitionOverlaysView}
-        {tutorialOverlay}
-        {authDialogView}
-        {settingsMenuView}
-        {aboutModalView}
-        {quickHelpOverlay}
-        {globalChatLayer}
-        <div
-          className="relative w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden text-white"
-          style={weeklyOverlayStyle}
-        >
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: `url('${
-                isMobileLayout ? homeBackgroundMobile : homeBackgroundDesktop
-              }')`,
-            }}
-            aria-hidden="true"
-          />
-          <div
-            className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
-            aria-hidden="true"
-          />
-          {weeklyStatsPage}
-        </div>
-      </>
-    );
+    return statsApplicationView;
   }
 
   if (!isLoggedIn && !isDailyPlay) {
@@ -14649,7 +14111,6 @@ function handleTouchEnd(e) {
             isSpecial3WordsMode,
             isSquareMaterial,
             isTargetRound,
-            isWeeklyOpen,
             lastMessageId,
             lightGridSurfaceStyle,
             lightPanelStyle,
@@ -14784,8 +14245,7 @@ function handleTouchEnd(e) {
             visibleMessages,
             visiblePlayerList,
             visualScreenShakeEnabled,
-            weeklyOverlayStyle,
-            weeklyStatsPage,
+            statsApplication: statsApplicationView,
             WORDS_SCROLL_MAX_HEIGHT,
         }}
       />

@@ -23,9 +23,6 @@ export function createInitialStatsState() {
     vocabWeeklyCount: null,
     vocabWeeklyRoundDelta: null,
     vocabWeeklyUpdatedAt: null,
-    weeklyArrowBlink: false,
-    weeklyArrowBump: false,
-    weeklyArrowVisible: false,
   };
 }
 
