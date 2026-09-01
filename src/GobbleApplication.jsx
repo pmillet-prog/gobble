@@ -2118,7 +2118,6 @@ export default function GobbleApplication() {
   const overlayActions = React.useMemo(
     () =>
       bindFeatureStateSetters(overlaysFeature, {
-        setBroadcastNotice: "broadcastNotice",
         setVaultWordOfDayPopup: "vaultWordOfDayPopup",
       }),
     [overlaysFeature]
@@ -2174,7 +2173,7 @@ export default function GobbleApplication() {
     [tutorialFeature]
   );
   const { broadcastNotice, vaultWordOfDayPopup } = overlaysState;
-  const { setBroadcastNotice, setVaultWordOfDayPopup } = overlayActions;
+  const { setVaultWordOfDayPopup } = overlayActions;
   const {
     activeSlot: dailyActiveSlot,
     board: dailyBoard,
@@ -6538,40 +6537,7 @@ export default function GobbleApplication() {
   }
 
   function fetchBroadcastNotice() {
-    setBroadcastNotice((prev) => ({ ...prev, loading: true, error: "" }));
-    fetch("/api/broadcast/current", {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        let data = null;
-        try {
-          data = text ? JSON.parse(text) : null;
-        } catch (_) {
-          throw new Error("bad_json");
-        }
-        if (!res.ok || data?.ok === false) {
-          throw new Error(data?.error || `http_${res.status || "error"}`);
-        }
-        return data;
-      })
-      .then((data) => {
-        const nextMessage =
-          data?.message && typeof data.message === "object" ? data.message : null;
-        setBroadcastNotice({
-          loading: false,
-          message: nextMessage,
-          error: "",
-        });
-      })
-      .catch(() => {
-        setBroadcastNotice((prev) => ({
-          ...prev,
-          loading: false,
-          error: "erreur",
-        }));
-      });
+    return overlaysFeature.fetchBroadcastNotice();
   }
 
   function dismissBroadcastNotice() {

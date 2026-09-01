@@ -108,6 +108,7 @@ export function createInitialOverlaysState() {
 }
 
 const CANCELLED_PROFILE_REQUEST = Symbol("cancelled_player_profile_request");
+const CANCELLED_BROADCAST_REQUEST = Symbol("cancelled_broadcast_request");
 
 export function createOverlaysFeature(
   context,
@@ -117,8 +118,111 @@ export function createOverlaysFeature(
   } = {}
 ) {
   let active = false;
+  let broadcastRequest = null;
   let feature = null;
   let profileRequest = null;
+
+  function cancelBroadcastRequest(request = broadcastRequest) {
+    if (!request || request.cancelled) return;
+    request.cancelled = true;
+    if (broadcastRequest === request) broadcastRequest = null;
+    try {
+      request.controller?.abort?.();
+    } catch (_) {}
+    request.cancelResolve(CANCELLED_BROADCAST_REQUEST);
+  }
+
+  function fetchBroadcastNotice({ force = false } = {}) {
+    if (!active) return null;
+    if (broadcastRequest && !force) return broadcastRequest.promise;
+    cancelBroadcastRequest();
+    const controller = abortControllerFactory();
+    let cancelResolve;
+    const request = {
+      cancelled: false,
+      cancelPromise: new Promise((resolve) => {
+        cancelResolve = resolve;
+      }),
+      cancelResolve: null,
+      controller,
+      promise: null,
+    };
+    request.cancelResolve = cancelResolve;
+    broadcastRequest = request;
+    feature.set("broadcastNotice", (previous) => ({
+      ...previous,
+      loading: true,
+      error: "",
+    }));
+
+    request.promise = (async () => {
+      try {
+        const response = await Promise.race([
+          fetchImpl("/api/broadcast/current", {
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+            signal: controller?.signal,
+          }),
+          request.cancelPromise,
+        ]);
+        if (
+          response === CANCELLED_BROADCAST_REQUEST ||
+          request.cancelled ||
+          !active ||
+          broadcastRequest !== request
+        ) {
+          return null;
+        }
+        const text = await Promise.race([
+          response.text(),
+          request.cancelPromise,
+        ]);
+        if (
+          text === CANCELLED_BROADCAST_REQUEST ||
+          request.cancelled ||
+          !active ||
+          broadcastRequest !== request
+        ) {
+          return null;
+        }
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (_) {
+          throw new Error("bad_json");
+        }
+        if (!response.ok || data?.ok === false) {
+          throw new Error(data?.error || `http_${response.status || "error"}`);
+        }
+        const message =
+          data?.message && typeof data.message === "object" ? data.message : null;
+        feature.set("broadcastNotice", {
+          loading: false,
+          message,
+          error: "",
+        });
+        return message;
+      } catch (error) {
+        if (
+          error?.name === "AbortError" ||
+          request.cancelled ||
+          !active ||
+          broadcastRequest !== request
+        ) {
+          return null;
+        }
+        feature.set("broadcastNotice", (previous) => ({
+          ...previous,
+          loading: false,
+          error: "erreur",
+        }));
+        return null;
+      } finally {
+        if (broadcastRequest === request) broadcastRequest = null;
+      }
+    })();
+    return request.promise;
+  }
 
   function cancelPlayerProfileRequest(request = profileRequest) {
     if (!request || request.cancelled) return;
@@ -241,6 +345,7 @@ export function createOverlaysFeature(
       active = true;
       scope.add(() => {
         active = false;
+        cancelBroadcastRequest();
         cancelPlayerProfileRequest();
         store.patch(createInitialOverlaysState());
       });
@@ -249,8 +354,10 @@ export function createOverlaysFeature(
 
   return Object.freeze({
     ...feature,
+    cancelBroadcastRequest,
     cancelPlayerProfileRequest,
     closePlayerProfile,
+    fetchBroadcastNotice,
     openPlayerProfile,
   });
 }

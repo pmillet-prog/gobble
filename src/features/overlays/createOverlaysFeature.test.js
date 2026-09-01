@@ -23,6 +23,76 @@ function profileResponse(profile, { ok = true, status = 200 } = {}) {
   };
 }
 
+function broadcastResponse(data, { ok = true, status = 200 } = {}) {
+  return {
+    ok,
+    status,
+    text: async () => JSON.stringify(data),
+  };
+}
+
+test("overlays satellite deduplicates and loads the broadcast notice", async () => {
+  const deferred = createDeferred();
+  let requestCount = 0;
+  const scope = createResourceScope("overlays-broadcast-success-test");
+  const feature = createOverlaysFeature(
+    { ports: {}, scope },
+    {
+      fetchImpl() {
+        requestCount += 1;
+        return deferred.promise;
+      },
+    }
+  );
+  feature.start();
+
+  const request = feature.fetchBroadcastNotice();
+  assert.strictEqual(feature.fetchBroadcastNotice(), request);
+  assert.equal(requestCount, 1);
+  deferred.resolve(
+    broadcastResponse({ message: { id: "notice-1", text: "Bonjour" }, ok: true })
+  );
+  assert.deepEqual(await request, { id: "notice-1", text: "Bonjour" });
+  assert.deepEqual(feature.store.getState().broadcastNotice, {
+    error: "",
+    loading: false,
+    message: { id: "notice-1", text: "Bonjour" },
+  });
+  scope.dispose();
+});
+
+test("overlays satellite force-replaces a broadcast refresh", async () => {
+  const calls = [];
+  const scope = createResourceScope("overlays-broadcast-replacement-test");
+  const feature = createOverlaysFeature(
+    { ports: {}, scope },
+    {
+      fetchImpl(_url, options) {
+        const deferred = createDeferred();
+        calls.push({ deferred, options });
+        return deferred.promise;
+      },
+    }
+  );
+  feature.start();
+
+  const firstRequest = feature.fetchBroadcastNotice();
+  const nextRequest = feature.fetchBroadcastNotice({ force: true });
+  assert.equal(calls[0].options.signal.aborted, true);
+  assert.equal(await firstRequest, null);
+  calls[0].deferred.resolve(
+    broadcastResponse({ message: { id: "stale" }, ok: true })
+  );
+  await Promise.resolve();
+  assert.equal(feature.store.getState().broadcastNotice.loading, true);
+  calls[1].deferred.resolve(
+    broadcastResponse({ message: { id: "fresh" }, ok: true })
+  );
+  assert.deepEqual(await nextRequest, { id: "fresh" });
+  assert.equal(feature.store.getState().broadcastNotice.message.id, "fresh");
+  scope.dispose();
+});
+
 test("overlays satellite loads a player profile", async () => {
   const calls = [];
   const scope = createResourceScope("overlays-profile-success-test");
