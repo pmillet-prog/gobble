@@ -89,13 +89,11 @@ import useRoundLifecycle from "./hooks/useRoundLifecycle.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
 import {
-  clampDesktopColumnResizeDelta,
   computeDesktopColumnUiScales,
   computeDesktopGridChrome,
   computeDesktopGridResizeMaxTrackWidth,
   computeDesktopResponsiveBaseHeight,
   computeDesktopUiScale,
-  computeDesktopViewportHeight,
 } from "./utils/desktopResponsiveLayout.js";
 import {
   computePreferLiteVisualEffects,
@@ -103,6 +101,7 @@ import {
   getViewportSize,
 } from "./app/adapters/deviceCapabilities.js";
 import { VIEWPORT_EVENTS } from "./features/layout/createViewportEventHub.js";
+import useMobileLayoutController from "./features/layout/useMobileLayoutController.js";
 import {
   DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS,
   DAILY_DESKTOP_COLUMN_DEFS,
@@ -1673,11 +1672,7 @@ export default function GobbleApplication() {
   const wordListFlipPendingRef = useRef(false);
   const wordListFlipRafIdsRef = useRef([]);
   const wordListFlipTimersRef = useRef(new Map());
-  const mobileHeaderRef = useRef(null);
   const mobileRankingRef = useRef(null);
-  const mobileHelpRef = useRef(null);
-  const safeAreaProbeRef = useRef(null);
-  const safeAreaTopProbeRef = useRef(null);
   const finaleScrollRef = useRef(null);
   const socketConnectPromiseRef = useRef(null);
   const tickRef = useRef(clockFeature.store.getState().remainingSeconds);
@@ -2010,19 +2005,6 @@ export default function GobbleApplication() {
   } = liveUiActions;
   const displayMode = useDisplayMode();
   const isFullscreen = displayMode.isFullscreen;
-  const areMobileLayoutSizingsEqual = React.useCallback((a, b) => {
-    if (!a || !b) return false;
-    return (
-      a.viewportWidth === b.viewportWidth &&
-      a.viewportHeight === b.viewportHeight &&
-      a.gridSide === b.gridSide &&
-      a.rankingHeight === b.rankingHeight &&
-      a.wordPreviewHeight === b.wordPreviewHeight &&
-      a.liveFeedHeight === b.liveFeedHeight &&
-      a.liveFeedMinHeight === b.liveFeedMinHeight &&
-      a.bodyHeight === b.bodyHeight
-    );
-  }, []);
   const chatBaselineHeightRef = useRef(0);
   const chatDrawerCalibrationRef = useRef(readStoredChatDrawerCalibration());
   const chatDrawerSessionCalibrationRef = useRef(chatDrawerCalibrationRef.current);
@@ -3144,7 +3126,6 @@ export default function GobbleApplication() {
   const chatInputRef = useRef(null);
   const chatBodyLockHeightRef = useRef(0);
   const gameViewportFreezeHeightRef = useRef(0);
-  const mobileGameViewportLockRef = useRef({ width: 0, height: 0 });
   const chatDesktopListRef = useRef(null);
   const chatDesktopStickToBottomRef = useRef(true);
   const chatDesktopFocusRestoreUntilRef = useRef(0);
@@ -3156,6 +3137,29 @@ export default function GobbleApplication() {
   const suppressChatResizeRef = useRef(false);
   const isChatOpenMobileRef = useRef(false);
   const isChatClosingRef = useRef(isChatClosing);
+  const { mobileGameViewportLockRef, mobileHeaderRef } =
+    useMobileLayoutController({
+      chat: {
+        gameViewportFreezeHeightRef,
+        isChatClosing,
+        isChatClosingRef,
+        isChatOpenMobile,
+        isChatOpenMobileRef,
+      },
+      game: {
+        gridSize,
+        phase,
+        showHelp,
+      },
+      layout: {
+        isFullscreen,
+        isMobileLayout,
+        layoutFeature,
+        maxGridWidth: MOBILE_GRID_MAX_WIDTH,
+        setMobileHeaderOffsetPx,
+        setMobileLayoutSizing,
+      },
+    });
   const wasMobileLiveLobbyRef = useRef(false);
   const chatInputValueRef = useRef(chatFeature.store.getState().input);
   const isMobileLayoutRef = useRef(isMobileLayout);
@@ -3212,7 +3216,6 @@ export default function GobbleApplication() {
   const scoreFlightSequenceRef = useRef(0);
   const lastTargetConfettiRef = useRef(null);
   const targetDefinitionRequestRef = useRef(0);
-  const chatScrollLockRef = useRef(0);
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
   const manualDisconnectRef = useRef(false);
@@ -4062,77 +4065,6 @@ export default function GobbleApplication() {
     }
   }, []);
 
-  useEffect(
-    () =>
-      layoutFeature.subscribeViewport(() => {
-        if (isChatOpenMobileRef.current) return;
-        layoutFeature.refreshViewportMode();
-      }, [VIEWPORT_EVENTS.VISUAL_RESIZE]),
-    [layoutFeature]
-  );
-
-  useEffect(() => {
-    if (!isMobileLayout) return;
-    if (typeof screen === "undefined") return;
-    const orientation = screen.orientation;
-    if (!orientation || typeof orientation.lock !== "function") return;
-    orientation.lock("portrait").catch(() => {});
-  }, [isMobileLayout]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const shouldLockViewport =
-      isMobileLayout &&
-      (phase === "playing" || phase === "results");
-    if (!shouldLockViewport) {
-      mobileGameViewportLockRef.current = { width: 0, height: 0 };
-      return;
-    }
-
-    const updateViewportLock = () => {
-      if (isChatOpenMobileRef.current || isChatClosingRef.current) return;
-      const widthCandidates = [window.innerWidth, document.documentElement?.clientWidth].filter(
-        (v) => Number.isFinite(v) && v > 0
-      );
-      const heightCandidates = [window.innerHeight, document.documentElement?.clientHeight].filter(
-        (v) => Number.isFinite(v) && v > 0
-      );
-      const measuredWidth = widthCandidates.length ? Math.min(...widthCandidates) : 0;
-      const measuredHeight = heightCandidates.length ? Math.min(...heightCandidates) : 0;
-      if (!(measuredWidth > 0) || !(measuredHeight > 0)) return;
-
-      const prev = mobileGameViewportLockRef.current || { width: 0, height: 0 };
-      const prevWidth = Number(prev.width) || 0;
-      const prevHeight = Number(prev.height) || 0;
-      const widthDelta = Math.abs(measuredWidth - prevWidth);
-
-      // Orientation or major viewport changes: recapture lock from scratch.
-      if (!(prevWidth > 0) || !(prevHeight > 0) || widthDelta > 64) {
-        mobileGameViewportLockRef.current = {
-          width: Math.round(measuredWidth),
-          height: Math.round(measuredHeight),
-        };
-        return;
-      }
-
-      // Keep a stable height while Safari toolbars animate (only shrink if needed).
-      const nextHeight = Math.min(prevHeight, Math.round(measuredHeight));
-      if (nextHeight !== prevHeight) {
-        mobileGameViewportLockRef.current = {
-          width: prevWidth,
-          height: nextHeight,
-        };
-      }
-    };
-
-    updateViewportLock();
-    return layoutFeature.subscribeViewport(updateViewportLock, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-      VIEWPORT_EVENTS.ORIENTATION_CHANGE,
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
-    ]);
-  }, [isMobileLayout, isChatOpenMobile, isChatClosing, layoutFeature]);
-
   useEffect(() => {
     isChatOpenMobileRef.current = isChatOpenMobile;
 
@@ -4522,458 +4454,6 @@ export default function GobbleApplication() {
     chatDesktopStickToBottomRef.current = true;
     scheduleDesktopChatAutoScroll({ force: true });
   }, [isMobileLayout, chatTab, scheduleDesktopChatAutoScroll]);
-
-  useEffect(() => {
-    if (!isMobileLayout) return;
-  }, [isMobileLayout]);
-
-  // Safe-area top probe: avoids hardcoded fullscreen offsets.
-  const measureSafeAreaTopPx = React.useCallback(() => {
-    if (typeof window === "undefined") return 0;
-    const probe = safeAreaTopProbeRef.current;
-    if (!probe) return 0;
-    const paddingTop = window.getComputedStyle(probe).paddingTop || "0";
-    const value = parseFloat(paddingTop);
-    return Number.isFinite(value) ? value : 0;
-  }, []);
-
-  const getSafeTopPx = React.useCallback(
-    (forceFullscreen = false) => {
-      const shouldUse = forceFullscreen || isFullscreen;
-      if (!shouldUse) return 0;
-      const measured = measureSafeAreaTopPx();
-      if (measured > 0) return Math.round(measured);
-      if (typeof window === "undefined") return 0;
-      // Fallback when env(safe-area-inset-top) reports 0 in fullscreen.
-      return Math.round(Math.min(48, Math.max(0, window.innerHeight * 0.03)));
-    },
-    [isFullscreen, measureSafeAreaTopPx]
-  );
-
-  const getHeaderOffsetPx = React.useCallback(() => {
-    const headerEl = mobileHeaderRef.current;
-    if (!headerEl) return 0;
-    const rect = headerEl.getBoundingClientRect?.();
-    const rectBottom =
-      rect && Number.isFinite(rect.bottom) ? Math.round(rect.bottom) : 0;
-    if (rectBottom > 0) return rectBottom;
-    const height = Math.round(headerEl.offsetHeight || 0);
-    return height + getSafeTopPx();
-  }, [getSafeTopPx]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!isMobileLayout || !(phase === "playing" || phase === "results")) return;
-
-    let rafId = null;
-    let timeoutId = null;
-
-    const commitMobileLayoutSizing = (nextLayout) => {
-      if (!nextLayout) return;
-      setMobileLayoutSizing((prev) =>
-        areMobileLayoutSizingsEqual(prev, nextLayout) ? prev : nextLayout
-      );
-    };
-
-    const computeMobileLayoutNow = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-        return;
-      }
-      if (isChatOpenMobileRef.current) return;
-      const lockedGameViewportHeight =
-        Number(mobileGameViewportLockRef.current?.height) || 0;
-      const lockedGameViewportWidth =
-        Number(mobileGameViewportLockRef.current?.width) || 0;
-      const viewportHeightCandidates = [
-        lockedGameViewportHeight,
-        window.innerHeight,
-        document.documentElement?.clientHeight,
-      ].filter((v) => Number.isFinite(v) && v > 0);
-      const viewportHeight = viewportHeightCandidates.length
-        ? Math.min(...viewportHeightCandidates)
-        : 0;
-
-      const viewportWidthCandidates = [
-        lockedGameViewportWidth,
-        window.innerWidth,
-        document.documentElement?.clientWidth,
-      ].filter((v) => Number.isFinite(v) && v > 0);
-      const viewportWidth = viewportWidthCandidates.length
-        ? Math.min(...viewportWidthCandidates)
-        : 0;
-      if (viewportHeight < 120 || viewportWidth < 120) return;
-      if (!safeAreaProbeRef.current && typeof document !== "undefined") {
-        const probe = document.createElement("div");
-        probe.style.position = "absolute";
-        probe.style.left = "0";
-        probe.style.top = "0";
-        probe.style.height = "0";
-        probe.style.paddingBottom = "env(safe-area-inset-bottom)";
-        probe.style.visibility = "hidden";
-        probe.style.pointerEvents = "none";
-        document.body.appendChild(probe);
-        safeAreaProbeRef.current = probe;
-      }
-      if (!safeAreaTopProbeRef.current && typeof document !== "undefined") {
-        const probe = document.createElement("div");
-        probe.style.position = "absolute";
-        probe.style.left = "0";
-        probe.style.top = "0";
-        probe.style.height = "0";
-        probe.style.paddingTop = "env(safe-area-inset-top)";
-        probe.style.visibility = "hidden";
-        probe.style.pointerEvents = "none";
-        document.body.appendChild(probe);
-        safeAreaTopProbeRef.current = probe;
-      }
-
-      const headerOffsetPx = getHeaderOffsetPx();
-      if (headerOffsetPx > 0) {
-        setMobileHeaderOffsetPx((prev) =>
-          prev === headerOffsetPx ? prev : headerOffsetPx
-        );
-      }
-      const headerHeightForBody = headerOffsetPx;
-      const helpEl = mobileHelpRef.current;
-      const helpHeight = helpEl?.offsetHeight || 0;
-      const helpMargins = helpEl
-        ? (() => {
-            const styles = window.getComputedStyle(helpEl);
-            const mt = parseFloat(styles.marginTop || "0") || 0;
-            const mb = parseFloat(styles.marginBottom || "0") || 0;
-            return mt + mb;
-          })()
-        : 0;
-      const extraTopHeight = helpHeight + helpMargins;
-      const safeBottomPx = 5;
-      const safeAreaBottomPx =
-        isFullscreen && safeAreaProbeRef.current && typeof window !== "undefined"
-          ? parseFloat(
-              window.getComputedStyle(safeAreaProbeRef.current).paddingBottom || "0"
-            ) || 0
-          : 0;
-      const bodyHeight = Math.max(
-        0,
-        viewportHeight -
-          headerHeightForBody -
-          extraTopHeight -
-          safeBottomPx -
-          safeAreaBottomPx
-      );
-      if (bodyHeight < 120) return;
-
-      // marges/gaps principaux (px-3, pb-2 + espacements entre blocs)
-      const verticalPadding = 4 + 8;
-      const layoutGaps = 8 + 4; // gap-1 entre blocs (2 x 4px) + gap-1 entre grille/flux (4px)
-      const availableHeight = Math.max(
-        0,
-        bodyHeight - verticalPadding - layoutGaps
-      );
-      const blocksBudget = availableHeight > 0 ? availableHeight : bodyHeight;
-      const availableWidth = Math.max(
-        0,
-        Math.min(viewportWidth - 24, MOBILE_GRID_MAX_WIDTH)
-      ); // px-3 (12px) de chaque c?t?) + limite max mobile
-
-      const baseFontSize =
-        parseFloat(
-          window.getComputedStyle(document.documentElement).fontSize || "16"
-        ) || 16;
-      const liveFeedRowPx = Math.max(12, Math.round(baseFontSize * 1.05));
-      const liveFeedHeaderPx = Math.max(12, Math.round(baseFontSize * 1.05));
-      const liveFeedGapPx = 4;
-      const liveFeedPaddingPx = 16;
-      const liveFeedMinHeight =
-        liveFeedPaddingPx +
-        liveFeedHeaderPx +
-        liveFeedGapPx +
-        liveFeedRowPx * 3 +
-        liveFeedGapPx * 2;
-      const minRanking = 120;
-      const maxRanking = 150;
-      const minPreview = 36;
-      let rankingTarget = clampValue(
-        Math.round(Math.max(baseFontSize * 7, bodyHeight * 0.26)),
-        minRanking,
-        maxRanking
-      );
-      let previewTarget = clampValue(
-        Math.round(Math.max(baseFontSize * 2.6, bodyHeight * 0.08)),
-        minPreview,
-        68
-      );
-      let requiredBelowGrid = rankingTarget + previewTarget + liveFeedMinHeight;
-      let maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
-
-      if (maxGridFromHeight < availableWidth) {
-        let needed = Math.max(0, availableWidth - maxGridFromHeight);
-        if (needed > 0) {
-          const previewShrink = Math.min(needed, previewTarget - minPreview);
-          previewTarget -= previewShrink;
-          needed -= previewShrink;
-        }
-        if (needed > 0) {
-          const rankingShrink = Math.min(needed, rankingTarget - minRanking);
-          rankingTarget -= rankingShrink;
-          needed -= rankingShrink;
-        }
-        requiredBelowGrid = rankingTarget + previewTarget;
-        maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
-      }
-
-      const gridSide = Math.max(100, Math.min(availableWidth, maxGridFromHeight));
-
-      const remaining = Math.max(0, blocksBudget - gridSide);
-
-      if (remaining <= 0) {
-        commitMobileLayoutSizing({
-          viewportWidth,
-          viewportHeight,
-          gridSide,
-          rankingHeight: rankingTarget,
-          wordPreviewHeight: previewTarget,
-          liveFeedHeight: 0,
-          liveFeedMinHeight,
-          bodyHeight,
-        });
-        return;
-      }
-
-      const reservedLiveFeed = Math.min(remaining, liveFeedMinHeight);
-      const remainingAfterFeed = Math.max(0, remaining - reservedLiveFeed);
-      let rankingHeight = 0;
-      let wordPreviewHeight = 0;
-      if (remainingAfterFeed > 0) {
-        const previewBias = 1.25;
-        const totalTarget = rankingTarget + previewTarget;
-        if (remainingAfterFeed >= totalTarget) {
-          rankingHeight = rankingTarget;
-          wordPreviewHeight = previewTarget;
-        } else {
-          const weightedTotal = rankingTarget + previewTarget * previewBias;
-          const previewShare =
-            (previewTarget * previewBias) / Math.max(1, weightedTotal);
-          const previewRaw = remainingAfterFeed * previewShare;
-          wordPreviewHeight = Math.max(
-            0,
-            Math.min(previewTarget, Math.floor(previewRaw))
-          );
-          rankingHeight = Math.max(0, remainingAfterFeed - wordPreviewHeight);
-        }
-      }
-      const leftover = Math.max(
-        0,
-        remaining - reservedLiveFeed - rankingHeight - wordPreviewHeight
-      );
-      const liveFeedHeight = reservedLiveFeed + leftover;
-
-      commitMobileLayoutSizing({
-        viewportWidth,
-        viewportHeight,
-        gridSide: gridSide || 0,
-        rankingHeight: rankingHeight || 0,
-        wordPreviewHeight: wordPreviewHeight || 0,
-        liveFeedHeight: liveFeedHeight || 0,
-        liveFeedMinHeight,
-        bodyHeight,
-      });
-    };
-
-    const scheduleComputeMobileLayout = () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
-      rafId = window.requestAnimationFrame(computeMobileLayoutNow);
-
-      if (timeoutId) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(computeMobileLayoutNow, 180);
-    };
-
-    scheduleComputeMobileLayout();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(
-      scheduleComputeMobileLayout,
-      [
-        VIEWPORT_EVENTS.WINDOW_RESIZE,
-        VIEWPORT_EVENTS.ORIENTATION_CHANGE,
-        VIEWPORT_EVENTS.PAGE_SHOW,
-        VIEWPORT_EVENTS.VISUAL_RESIZE,
-      ]
-    );
-    document?.addEventListener?.("visibilitychange", scheduleComputeMobileLayout);
-
-    return () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
-      if (timeoutId) window.clearTimeout(timeoutId);
-      unsubscribeViewport();
-      document?.removeEventListener?.("visibilitychange", scheduleComputeMobileLayout);
-      if (safeAreaProbeRef.current && safeAreaProbeRef.current.parentNode) {
-        safeAreaProbeRef.current.parentNode.removeChild(safeAreaProbeRef.current);
-        safeAreaProbeRef.current = null;
-      }
-      if (safeAreaTopProbeRef.current && safeAreaTopProbeRef.current.parentNode) {
-        safeAreaTopProbeRef.current.parentNode.removeChild(safeAreaTopProbeRef.current);
-        safeAreaTopProbeRef.current = null;
-      }
-    };
-  }, [
-    areMobileLayoutSizingsEqual,
-    isMobileLayout,
-    phase,
-    gridSize,
-    showHelp,
-    isFullscreen,
-    getHeaderOffsetPx,
-    layoutFeature,
-  ]);
-
-  useEffect(() => {
-    if (!isMobileLayout) return;
-    if (typeof window === "undefined") return;
-    if (typeof ResizeObserver === "undefined") return;
-    const headerEl = mobileHeaderRef.current;
-    if (!headerEl) return;
-
-    const updateHeight = () => {
-      const nextOffset = getHeaderOffsetPx();
-      if (!nextOffset) return;
-      setMobileHeaderOffsetPx((prev) =>
-        prev === nextOffset ? prev : nextOffset
-      );
-    };
-
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(headerEl);
-    const unsubscribeViewport = layoutFeature.subscribeViewport(updateHeight, [
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
-    ]);
-    return () => {
-      observer.disconnect();
-      unsubscribeViewport();
-    };
-  }, [isMobileLayout, isFullscreen, getHeaderOffsetPx, layoutFeature]);
-
-  useLayoutEffect(() => {
-    if (!isMobileLayout) return;
-    const headerEl = mobileHeaderRef.current;
-    if (!headerEl) return;
-    const nextOffset = getHeaderOffsetPx();
-    if (!nextOffset) return;
-    setMobileHeaderOffsetPx((prev) => (prev === nextOffset ? prev : nextOffset));
-  }, [isMobileLayout, isFullscreen, getHeaderOffsetPx]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const shouldPin =
-      isMobileLayout && (phase === "playing" || phase === "results");
-    if (!shouldPin) return;
-    window.scrollTo(0, 0);
-  }, [isMobileLayout, phase]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    const shouldLock =
-      (isMobileLayout && (phase === "playing" || phase === "results")) ||
-      isChatOpenMobile ||
-      isChatClosing;
-    if (!shouldLock) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const previousHeight = document.body.style.height;
-    const previousPosition = document.body.style.position;
-    const previousTop = document.body.style.top;
-    const previousWidth = document.body.style.width;
-    const previousLeft = document.body.style.left;
-    const previousRight = document.body.style.right;
-    const previousTouchAction = document.body.style.touchAction;
-    const previousOverscroll = document.body.style.overscrollBehavior;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousHtmlHeight = document.documentElement.style.height;
-    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
-    const previousHtmlPosition = document.documentElement.style.position;
-    const previousHtmlWidth = document.documentElement.style.width;
-    const previousHtmlLeft = document.documentElement.style.left;
-    const previousHtmlRight = document.documentElement.style.right;
-
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
-    document.documentElement.style.overscrollBehavior = "none";
-    document.documentElement.style.position = "fixed";
-    document.documentElement.style.width = "100%";
-    document.documentElement.style.left = "0";
-    document.documentElement.style.right = "0";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.touchAction = "none";
-
-    if (!chatScrollLockRef.current) {
-      chatScrollLockRef.current =
-        typeof window !== "undefined" ? window.scrollY || 0 : 0;
-    }
-    document.body.style.top = `-${chatScrollLockRef.current}px`;
-    window.scrollTo(0, 0);
-
-    const applyLockedHeight = () => {
-      const frozen =
-        (isChatOpenMobileRef.current || isChatClosing) &&
-        gameViewportFreezeHeightRef.current > 0
-          ? gameViewportFreezeHeightRef.current
-          : 0;
-      const lockedGameHeight =
-        Number(mobileGameViewportLockRef.current?.height) || 0;
-
-      // Quand le chat est ouvert, on fige le fond (layout viewport) et on laisse
-      // uniquement le tiroir chat s'adapter au clavier via visualViewport.
-      const candidates = frozen
-        ? [frozen]
-        : [lockedGameHeight, window.innerHeight, document.documentElement?.clientHeight];
-
-      const filtered = candidates.filter((v) => Number.isFinite(v) && v > 0);
-      const h = filtered.length ? Math.min(...filtered) : 0;
-      if (h > 0) {
-        const px = `${Math.round(h)}px`;
-        document.body.style.height = px;
-        document.documentElement.style.height = px;
-      }
-    };
-
-    applyLockedHeight();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(applyLockedHeight, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
-    ]);
-
-    return () => {
-      unsubscribeViewport();
-      document.body.style.overflow = previousOverflow;
-      document.body.style.height = previousHeight;
-      document.body.style.position = previousPosition;
-      document.body.style.top = previousTop;
-      document.body.style.width = previousWidth;
-      document.body.style.left = previousLeft;
-      document.body.style.right = previousRight;
-      document.body.style.touchAction = previousTouchAction;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.documentElement.style.height = previousHtmlHeight;
-      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
-      document.documentElement.style.position = previousHtmlPosition;
-      document.documentElement.style.width = previousHtmlWidth;
-      document.documentElement.style.left = previousHtmlLeft;
-      document.documentElement.style.right = previousHtmlRight;
-      document.body.style.overscrollBehavior = previousOverscroll;
-      if (chatScrollLockRef.current) {
-        window.scrollTo(0, chatScrollLockRef.current);
-        chatScrollLockRef.current = 0;
-      }
-    };
-  }, [
-    isMobileLayout,
-    phase === "playing" || phase === "results",
-    isChatOpenMobile,
-    isChatClosing,
-    layoutFeature,
-  ]);
 
   useEffect(() => {
     if (phase !== "lobby") return;
