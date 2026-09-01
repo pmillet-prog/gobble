@@ -1,13 +1,13 @@
 import {
   createEmptyAuthForm,
   normalizeAuthUsernameInput,
-} from "./authFormModel.js";
+} from "../../components/auth/authFormModel.js";
 
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
 const AUTH_REQUEST_TIMEOUT_MS = 8000;
 const AUTH_STATUS_TIMEOUT_MS = 6500;
 
-export function createAuthController(runtime) {
+export function createAuthAccountController(runtime) {
   const [
     socket,
     socketConnectPromiseRef,

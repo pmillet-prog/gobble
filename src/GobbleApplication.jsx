@@ -200,11 +200,12 @@ import { WEEKLY_RECORD_LABELS } from "./components/results/weeklyRecordLabels.js
 import RoundPlayerDetailsModalHost from "./components/RoundPlayerDetailsModalHost.jsx";
 import RoundPreparationOverlay from "./components/RoundPreparationOverlay.jsx";
 import AuthDialogHost from "./components/AuthDialogHost.jsx";
-import {
-  createEmptyAuthForm,
-  normalizeAuthUsernameInput,
-} from "./components/auth/authFormModel.js";
-import { createAuthController } from "./components/auth/createAuthController.js";
+import { normalizeAuthUsernameInput } from "./components/auth/authFormModel.js";
+import useAuthAccountController, {
+  ACCOUNT_SERVER_BUSY_MESSAGE,
+  ACCOUNT_SESSION_UNAVAILABLE_MESSAGE,
+  AUTH_MODAL_MODES,
+} from "./features/auth/useAuthAccountController.js";
 import TrainingJoinLiveDialog from "./components/training/TrainingJoinLiveDialog.jsx";
 import TrainingSessionControls from "./components/training/TrainingSessionControls.jsx";
 import PlayerProfileModalHost from "./components/PlayerProfileModalHost.jsx";
@@ -588,17 +589,6 @@ function getMassiveBoggleFeedbackPoints(points, rawWord) {
   if (len >= 7) return Math.max(safePoints, 8);
   return safePoints;
 }
-const ACCOUNT_SESSION_UNAVAILABLE_MESSAGE =
-  "Session compte indisponible sur cette machine. Vérifie les cookies du navigateur.";
-const ACCOUNT_SERVER_BUSY_MESSAGE =
-  "Le serveur met plus de temps que prévu à répondre. Ce n'est pas ta connexion : on réessaie automatiquement.";
-const AUTH_MODAL_MODES = {
-  LOGIN: "login",
-  REGISTER: "register",
-  CLAIM_LEGACY: "claim-legacy",
-  FORGOT_PASSWORD: "forgot-password",
-  CHANGE_PASSWORD: "change-password",
-};
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
 const FRONT_BUILD_TAG = "2026-08-20-minor-fixes-1";
 const readLocalSettings = () => {
@@ -1637,7 +1627,6 @@ export default function GobbleApplication() {
   const wordListFlipTimersRef = useRef(new Map());
   const mobileRankingRef = useRef(null);
   const finaleScrollRef = useRef(null);
-  const socketConnectPromiseRef = useRef(null);
   const tickRef = useRef(clockFeature.store.getState().remainingSeconds);
   const weeklyStatsSnapshotRef = useRef(null);
   const tournamentBaselineRef = useRef({
@@ -5373,51 +5362,49 @@ export default function GobbleApplication() {
     setAppView("daily");
   }
 
-  const [
-    parsePossiblyDirtyJson,
-    isLikelyHtmlPayload,
-    readJsonResponseLoose,
-    formatAuthError,
-    postAuthJson,
-    connectSocketWithAuth,
-    buildAuthFormForMode,
-    openAuthDialog,
+  const {
     closeAuthDialog,
-    refreshAuthStatus,
+    connectSocketWithAuth,
     ensureAuthenticated,
-    submitAuthDialog,
     handleAccountLogout,
-  ] = useLazyArrayController(createAuthController, [
+    openAuthDialog,
+    postAuthJson,
+    readJsonResponseLoose,
+    refreshAuthStatus,
+    submitAuthDialog,
+  } = useAuthAccountController({
+    account: {
+      authState,
+      isAccountAuthenticated,
+      isAuthServerUnavailable,
+      isAuthStatusPending,
+      nickname,
+      setAuthState,
+      setNickname,
+    },
+    daily: { setDailyStartError },
+    identity: { deviceInstallId },
+    live: {
+      clearSavedSession,
+      isLoggedIn,
+      isLoggedInRef,
+      returnToLobby,
+      setLoginError,
+    },
+    overlays: {
+      authForm,
+      authModalMode,
+      authSubmitting,
+      setAccountNotice,
+      setAuthError,
+      setAuthForm,
+      setAuthInfo,
+      setAuthModalMode,
+      setAuthSubmitting,
+      setIsAccountMenuOpen,
+    },
     socket,
-    socketConnectPromiseRef,
-    isAccountAuthenticated,
-    AUTH_MODAL_MODES,
-    legacyProfileUsername,
-    authState,
-    nickname,
-    setAuthModalMode,
-    setAuthError,
-    setAuthInfo,
-    setAuthForm,
-    setAuthSubmitting,
-    authSubmitting,
-    deviceInstallId,
-    setAuthState,
-    setAccountNotice,
-    ACCOUNT_SERVER_BUSY_MESSAGE,
-    isAuthStatusPending,
-    isAuthServerUnavailable,
-    setLoginError,
-    setDailyStartError,
-    authModalMode,
-    authForm,
-    ACCOUNT_SESSION_UNAVAILABLE_MESSAGE,
-    setNickname,
-    setIsAccountMenuOpen,
-    clearSavedSession,
-    isLoggedIn,
-    returnToLobby,
-  ], 13);
+  });
 
   const {
     wordVault,
@@ -5492,61 +5479,6 @@ export default function GobbleApplication() {
       words: wordVault,
     },
   });
-
-  useEffect(() => {
-    void refreshAuthStatus();
-  }, [deviceInstallId]);
-
-  useEffect(() => {
-    if (!isAuthServerUnavailable) return;
-    const timer = setTimeout(() => {
-      void refreshAuthStatus({ silent: false });
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [deviceInstallId, isAuthServerUnavailable]);
-
-  useEffect(() => {
-    if (!isAccountAuthenticated) return;
-    if (!socket.connected) return;
-    if (isLoggedInRef.current) return;
-    socket.disconnect();
-  }, [isAccountAuthenticated, authenticatedUserId]);
-
-  useEffect(() => {
-    if (
-      authState.status !== "legacy_profile_found" ||
-      !authState.legacyProfile ||
-      (authModalMode !== AUTH_MODAL_MODES.REGISTER && authModalMode !== AUTH_MODAL_MODES.LOGIN)
-    ) {
-      return;
-    }
-    setAuthError("");
-    setAuthInfo("");
-    setAuthModalMode(AUTH_MODAL_MODES.CLAIM_LEGACY);
-    setAuthForm(buildAuthFormForMode(AUTH_MODAL_MODES.CLAIM_LEGACY));
-  }, [
-    authModalMode,
-    authState.legacyProfile,
-    authState.status,
-  ]);
-
-  useEffect(() => {
-    const accountUsername = String(authState.user?.usernameDisplay || "").trim();
-    if (!isAccountAuthenticated || !accountUsername) return;
-    if (isLoggedIn) return;
-    if (nickname !== accountUsername) {
-      setNickname(accountUsername);
-    }
-    try {
-      localStorage.setItem("boggle_nick", accountUsername);
-    } catch (_) {}
-  }, [authState.user?.usernameDisplay, isAccountAuthenticated, isLoggedIn, nickname]);
-
-  useEffect(() => {
-    if (!isAccountAuthenticated || !authState.user?.mustResetPassword) return;
-    if (authModalMode === AUTH_MODAL_MODES.CHANGE_PASSWORD) return;
-    openAuthDialog(AUTH_MODAL_MODES.CHANGE_PASSWORD);
-  }, [authModalMode, authState.user?.mustResetPassword, isAccountAuthenticated]);
 
   const {
     closeDailyLaunchDialog,

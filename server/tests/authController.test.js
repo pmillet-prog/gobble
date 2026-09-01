@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createAuthController } from "../../src/components/auth/createAuthController.js";
+import { createAuthAccountController } from "../../src/features/auth/createAuthAccountController.js";
 
 test("login submission reaches the auth endpoint and clears its pending state", async () => {
   const originalFetch = globalThis.fetch;
@@ -32,7 +32,7 @@ test("login submission reaches the auth endpoint and clears its pending state", 
   };
 
   try {
-    const controller = createAuthController([
+    const controller = createAuthAccountController([
       {
         auth: {},
         connected: false,
