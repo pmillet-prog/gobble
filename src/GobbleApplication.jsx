@@ -248,7 +248,6 @@ import useDailySpecialInteraction, {
   getDailySpecialDragTransform,
 } from "./components/daily/useDailySpecialInteraction.js";
 import { createDailyGameController } from "./components/daily/createDailyGameController.js";
-import { getParisDateIdClient } from "./components/daily/dailyHistoryModel.js";
 import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_MONSTROUS_MODE,
@@ -270,7 +269,7 @@ import {
 } from "./components/daily/dailySpecialModel.js";
 import HomeApplication from "./features/home/HomeApplication.jsx";
 import { getBroadcastMessageKey } from "./features/home/homeViewModel.js";
-import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
+import useLobbyPopupCoordinator from "./features/overlays/useLobbyPopupCoordinator.js";
 import GridTileLetter from "./components/GridTileLetter.jsx";
 import useWordVault from "./utils/useWordVault";
 import { useGlobalRedAnnouncement } from "./hooks/useGlobalRedAnnouncement.js";
@@ -360,10 +359,7 @@ import {
   updateServerClockFromSample,
 } from "./utils/realtimeClock.js";
 import {
-  FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS,
-  isAudienceEligibleForPatchNotes,
   isNewPlayerPopupQuietPeriod,
-  recordDistinctVisitDay,
 } from "./utils/popupAudience.js";
 import {
   ACCOUNT_SEEN_MARKERS,
@@ -371,8 +367,6 @@ import {
   buildDuelTutorialSeenMarker,
   buildDuelWeekRecapSeenMarker,
   buildDuelWeekSeenMarker,
-  buildFacebookInviteSeenMarker,
-  buildPatchNotesSeenMarker,
   buildSpecialTutorialSeenMarker,
   buildVaultWordOfDaySeenMarker,
   buildVocabOverlaySeenMarker,
@@ -636,10 +630,7 @@ const AUTH_MODAL_MODES = {
   CHANGE_PASSWORD: "change-password",
 };
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
-const PATCH_NOTES_VERSION = "2026-08-20";
-const PATCH_NOTES_RELEASE_TS = Date.parse("2026-08-20T00:00:00+02:00");
 const FRONT_BUILD_TAG = "2026-08-20-minor-fixes-1";
-const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
     return {};
@@ -678,18 +669,6 @@ const GUIDED_RESULTS_PAGE_TO_STEP = {
   all: GUIDED_RESULTS_STEPS.TAP_WORD,
 };
 const SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK = 11;
-function getPatchNotesSeenAudienceKey(userId) {
-  const safeUserId = Number(userId);
-  if (Number.isInteger(safeUserId) && safeUserId > 0) {
-    return `user:${safeUserId}`;
-  }
-  return "";
-}
-
-function getPopupAudienceKey(userId) {
-  return getPatchNotesSeenAudienceKey(userId);
-}
-
 const LEAGUE_META = {
   Bronze: {
     label: "Bronze",
@@ -1423,7 +1402,6 @@ export default function GobbleApplication() {
         setMobileExitConfirmOpen: "mobileExitConfirmOpen",
         setPlayersOverlayMode: "playersOverlayMode",
         setPlayersOverlaySnapshot: "playersOverlaySnapshot",
-        setPopupDistinctVisitDays: "popupDistinctVisitDays",
         setRecordModal: "recordModal",
         setRoundPlayerModal: "roundPlayerModal",
         setShowHelp: "helpOpen",
@@ -1505,7 +1483,6 @@ export default function GobbleApplication() {
     playersOverlayMode,
     playersOverlayOpen: isPlayersOverlayOpen,
     playersOverlaySnapshot,
-    popupDistinctVisitDays,
     recordModal,
     roundPlayerModal,
     settingsOpen: isSettingsOpen,
@@ -1538,7 +1515,6 @@ export default function GobbleApplication() {
     setMobileExitConfirmOpen,
     setPlayersOverlayMode,
     setPlayersOverlaySnapshot,
-    setPopupDistinctVisitDays,
     setRecordModal,
     setRoundPlayerModal,
     setShowHelp,
@@ -2084,7 +2060,6 @@ export default function GobbleApplication() {
     accountSeenReady,
     isAccountAuthenticated,
   ]);
-  const popupAudienceKey = getPopupAudienceKey(authenticatedUserId);
   const isNewPlayerPopupQuiet = isNewPlayerPopupQuietPeriod({
     accountCreatedAt: authState.user?.createdAt,
     installCreatedAt: installIdCreatedAtTs,
@@ -3239,10 +3214,6 @@ export default function GobbleApplication() {
   const chatScrollLockRef = useRef(0);
   const definitionRequestIdRef = useRef(0);
   const definitionBlinkTimerRef = useRef(null);
-  const vaultWordOfDayRequestIdRef = useRef(0);
-  const vaultWordOfDayAttemptedRef = useRef(new Set());
-  const patchNotesOpeningRef = useRef(false);
-  const facebookInviteAttemptedAudienceRef = useRef("");
   const manualDisconnectRef = useRef(false);
   const liveSessionReadyRef = useRef(false);
   const lastLoginPayloadRef = useRef({ nick: "", roomId: "" });
@@ -6534,6 +6505,7 @@ export default function GobbleApplication() {
       refreshAuthStatus,
     });
   }
+  const stableFetchDuelStatus = useStableEvent(fetchDuelStatus);
 
   useEffect(() => {
     const summary = duelStatus?.lastWeekSummary;
@@ -6817,6 +6789,59 @@ export default function GobbleApplication() {
     postAuthJson,
     readJsonResponseLoose,
     showToast,
+  });
+
+  useLobbyPopupCoordinator({
+    account: {
+      createdAt: authState.user?.createdAt,
+      installId,
+      isAuthenticated: isAccountAuthenticated,
+      isLegacyConverted: !!authState.user?.isLegacyConverted,
+      isNewPlayerPopupQuiet,
+      markSeen: markAccountSeen,
+      seenMarkers: accountSeenMarkers,
+      seenReady: accountSeenReady,
+      userId: authenticatedUserId,
+    },
+    connection: {
+      layout: layoutFeature,
+      socket,
+    },
+    duel: {
+      fetchStatus: stableFetchDuelStatus,
+      objectivesPopupDismissedDateId: duelObjectivesPopupDismissedDateId,
+      popupState: duelPopupState,
+      setPopupState: setDuelPopupState,
+      status: duelStatus,
+    },
+    environment: {
+      appView,
+      bootOverlayVisible,
+      bootReady,
+      isLoggedIn,
+      phase,
+    },
+    overlays: {
+      broadcastLoading: broadcastNotice.loading,
+      broadcastMessage: broadcastNotice?.message,
+      definitionModalOpen: definitionModal.open,
+      isAboutOpen,
+      isAccountMenuOpen,
+      isFacebookInviteOpen,
+      isHomeChatOpen,
+      isPatchNotesOpen,
+      isPlayersOverlayOpen,
+      isSettingsOpen,
+      isSupportOpen,
+      setIsFacebookInviteOpen,
+      setIsPatchNotesOpen,
+      shouldShowTutorial,
+    },
+    vault: {
+      popup: vaultWordOfDayPopup,
+      setPopup: setVaultWordOfDayPopup,
+      words: wordVault,
+    },
   });
 
   useEffect(() => {
@@ -7782,11 +7807,6 @@ export default function GobbleApplication() {
   }, [authenticatedUserId, isAccountAuthenticated, isConnecting, isDailyView]);
 
   useEffect(() => {
-    return () => {
-    };
-  }, [isAccountAuthenticated, isDailyView]);
-
-  useEffect(() => {
     return refreshFeature.schedule("weekly-connect", {
       connection: socket,
       run: () => {
@@ -7796,29 +7816,6 @@ export default function GobbleApplication() {
   }, []);
 
   useEffect(() => {
-    if (!popupAudienceKey) {
-      setPopupDistinctVisitDays(0);
-      return;
-    }
-    const recordVisit = () => {
-      const visit = recordDistinctVisitDay(
-        popupAudienceKey,
-        typeof localStorage !== "undefined" ? localStorage : null
-      );
-      setPopupDistinctVisitDays(visit.count);
-    };
-    recordVisit();
-    socket.on("connect", recordVisit);
-    const unsubscribeViewport = layoutFeature.subscribeViewport(recordVisit, [
-      VIEWPORT_EVENTS.PAGE_SHOW,
-    ]);
-    return () => {
-      socket.off("connect", recordVisit);
-      unsubscribeViewport();
-    };
-  }, [layoutFeature, popupAudienceKey]);
-
-  useEffect(() => {
     return refreshFeature.schedule("duel-status", {
       connection: socket,
       enabled: isAccountAuthenticated && phase !== "playing",
@@ -7826,112 +7823,6 @@ export default function GobbleApplication() {
       run: fetchDuelStatus,
     });
   }, [installId, isAccountAuthenticated, phase]);
-
-  useEffect(() => {
-    if (!isAccountAuthenticated) return;
-    if (!accountSeenReady) return;
-    const isLobbyView =
-      phase === "lobby" &&
-      appView !== "daily" &&
-      appView !== "daily_play" &&
-      appView !== "daily_results" &&
-      appView !== "stats" &&
-      appView !== "duel" &&
-      appView !== "vault";
-    if (!isLobbyView) return;
-    if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
-    if (
-      !isAudienceEligibleForPatchNotes({
-        accountCreatedAt: authState.user?.createdAt,
-        isAuthenticated: isAccountAuthenticated,
-        isLegacyConverted: !!authState.user?.isLegacyConverted,
-        releaseTimestamp: PATCH_NOTES_RELEASE_TS,
-      })
-    ) {
-      return;
-    }
-    const accountMarker = buildPatchNotesSeenMarker(PATCH_NOTES_VERSION);
-    if (accountSeenMarkers.has(accountMarker)) return;
-    patchNotesOpeningRef.current = true;
-    setIsPatchNotesOpen(true);
-    markAccountSeen(accountMarker);
-  }, [
-    accountSeenMarkers,
-    accountSeenReady,
-    authState.user?.createdAt,
-    authState.user?.isLegacyConverted,
-    isAccountAuthenticated,
-    isNewPlayerPopupQuiet,
-    markAccountSeen,
-    shouldShowTutorial,
-    phase,
-    appView,
-  ]);
-
-  useEffect(() => {
-    const isLobbyView =
-      phase === "lobby" &&
-      appView !== "daily" &&
-      appView !== "daily_play" &&
-      appView !== "daily_results" &&
-      appView !== "stats" &&
-      appView !== "duel" &&
-      appView !== "vault";
-    if (!isLobbyView || !bootReady || bootOverlayVisible) return;
-    if (!isAccountAuthenticated || !accountSeenReady) return;
-    if (popupDistinctVisitDays < FACEBOOK_INVITE_MIN_DISTINCT_VISIT_DAYS) return;
-    if (
-      shouldShowTutorial ||
-      isNewPlayerPopupQuiet ||
-      isPatchNotesOpen ||
-      patchNotesOpeningRef.current ||
-      isFacebookInviteOpen ||
-      duelPopupState?.mode ||
-      isSettingsOpen ||
-      isAboutOpen ||
-      isSupportOpen
-    ) {
-      return;
-    }
-    const accountMarker = buildFacebookInviteSeenMarker(FACEBOOK_INVITE_VERSION);
-    if (facebookInviteAttemptedAudienceRef.current === accountMarker) return;
-    if (accountSeenMarkers.has(accountMarker)) return;
-    facebookInviteAttemptedAudienceRef.current = accountMarker;
-    markAccountSeen(accountMarker);
-    setIsFacebookInviteOpen(true);
-  }, [
-    accountSeenMarkers,
-    accountSeenReady,
-    appView,
-    bootOverlayVisible,
-    bootReady,
-    duelPopupState?.mode,
-    isAccountAuthenticated,
-    isAboutOpen,
-    isFacebookInviteOpen,
-    isNewPlayerPopupQuiet,
-    isPatchNotesOpen,
-    isSettingsOpen,
-    isSupportOpen,
-    phase,
-    popupDistinctVisitDays,
-    markAccountSeen,
-    shouldShowTutorial,
-  ]);
-
-  useEffect(() => {
-    if (!installId) return;
-    const isLobbyView =
-      phase === "lobby" &&
-      appView !== "daily" &&
-      appView !== "daily_play" &&
-      appView !== "daily_results" &&
-      appView !== "stats" &&
-      appView !== "duel" &&
-      appView !== "vault";
-    if (!isLobbyView) return;
-    fetchDuelStatus();
-  }, [installId, phase, appView, isAccountAuthenticated]);
 
   useEffect(() => {
     const dateId = duelStatus?.objectives?.dateId || duelStatus?.dateId || "";
@@ -7958,197 +7849,6 @@ export default function GobbleApplication() {
     if (!installId || !dateId) return;
     writeDuelObjectiveAnimationsState(installId, dateId, duelConsumedValidatedByView);
   }, [installId, duelStatus?.objectives?.dateId, duelStatus?.dateId, duelConsumedValidatedByView]);
-
-  useEffect(() => {
-    if (!isAccountAuthenticated || !accountSeenReady) return;
-    if (!duelStatus?.weekId || !duelStatus?.team) return;
-    const isLobbyView =
-      phase === "lobby" &&
-      appView !== "daily" &&
-      appView !== "daily_play" &&
-      appView !== "daily_results" &&
-      appView !== "stats" &&
-      appView !== "duel" &&
-      appView !== "vault";
-    if (!isLobbyView) return;
-    if (shouldShowTutorial || isNewPlayerPopupQuiet) return;
-    if (isFacebookInviteOpen) return;
-    if (duelPopupState?.mode) return;
-    const weekMarker = buildDuelWeekSeenMarker(duelStatus.weekId);
-    const tutorialVersion = duelStatus?.tutorialVersion || "duel-v1";
-    const tutorialMarker = buildDuelTutorialSeenMarker(tutorialVersion);
-    if (
-      accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.legacyBaseline) &&
-      !accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.legacyDuelWeekConsumed)
-    ) {
-      markAccountSeen([
-        weekMarker,
-        ACCOUNT_SEEN_MARKERS.legacyDuelWeekConsumed,
-      ]);
-      return;
-    }
-    if (!accountSeenMarkers.has(weekMarker)) {
-      setDuelPopupState({
-        mode: "team",
-        step: 0,
-        team: duelStatus.team,
-        weekId: duelStatus.weekId,
-      });
-      return;
-    }
-    if (!accountSeenMarkers.has(tutorialMarker)) {
-      setDuelPopupState({
-        mode: "tutorial",
-        step: 0,
-        team: duelStatus.team,
-        weekId: duelStatus.weekId,
-      });
-      return;
-    }
-    if (canShowDuelObjectivesPopup()) {
-      setDuelPopupState({
-        mode: "objectives",
-        step: 0,
-        team: duelStatus.team,
-        weekId: duelStatus.weekId,
-      });
-    }
-  }, [
-    accountSeenMarkers,
-    accountSeenReady,
-    duelStatus?.weekId,
-    duelStatus?.team,
-    duelStatus?.tutorialVersion,
-    duelStatus?.objectives?.dateId,
-    duelStatus?.objectives?.objectives,
-    duelObjectivesPopupDismissedDateId,
-    phase,
-    appView,
-    isFacebookInviteOpen,
-    isAccountAuthenticated,
-    isNewPlayerPopupQuiet,
-    markAccountSeen,
-    shouldShowTutorial,
-    duelPopupState?.mode,
-  ]);
-
-  useEffect(() => {
-    const isLobbyView =
-      phase === "lobby" &&
-      appView !== "daily" &&
-      appView !== "daily_play" &&
-      appView !== "daily_results" &&
-      appView !== "stats" &&
-      appView !== "duel" &&
-      appView !== "vault";
-    if (isLobbyView) return;
-    if (duelPopupState?.mode) {
-      setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
-    }
-  }, [phase, appView, duelPopupState?.mode]);
-
-  useEffect(() => {
-    if (duelPopupState?.mode !== "objectives") return;
-    if (duelObjectivesAreCompleted()) {
-      setDuelPopupState({ mode: null, step: 0, team: null, weekId: null });
-    }
-  }, [duelPopupState?.mode, duelStatus?.objectives?.objectives]);
-
-  useEffect(() => {
-    const isHomeLobby = !isLoggedIn && phase === "lobby" && appView === "home";
-    if (!isHomeLobby) return;
-    if (!isAccountAuthenticated) return;
-    if (!accountSeenReady) return;
-    if (!wordVault.loaded || wordVault.loading || wordVault.error) return;
-    if (!Array.isArray(wordVault.words) || wordVault.words.length === 0) return;
-    if (vaultWordOfDayPopup.open) return;
-    if (
-      shouldShowTutorial ||
-      isNewPlayerPopupQuiet ||
-      isPatchNotesOpen ||
-      patchNotesOpeningRef.current ||
-      isFacebookInviteOpen ||
-      duelPopupState?.mode ||
-      definitionModal.open ||
-      isAccountMenuOpen ||
-      isSettingsOpen ||
-      isAboutOpen ||
-      isSupportOpen ||
-      isHomeChatOpen ||
-      isPlayersOverlayOpen ||
-      broadcastNotice.loading ||
-      !bootReady ||
-      bootOverlayVisible
-    ) {
-      return;
-    }
-
-    const broadcastKey = getBroadcastMessageKey(broadcastNotice?.message);
-    if (broadcastKey) {
-      const broadcastMarker = buildBroadcastSeenMarker(broadcastKey);
-      if (!accountSeenMarkers.has(broadcastMarker)) return;
-    }
-
-    const dateId = getParisDateIdClient();
-    const accountMarker = buildVaultWordOfDaySeenMarker(dateId);
-    if (accountSeenMarkers.has(accountMarker)) return;
-    if (vaultWordOfDayAttemptedRef.current.has(accountMarker)) return;
-    vaultWordOfDayAttemptedRef.current.add(accountMarker);
-
-    const requestId = ++vaultWordOfDayRequestIdRef.current;
-    let cancelled = false;
-    (async () => {
-      const candidates = pickVaultWordOfDayCandidates(wordVault.words);
-      for (const candidate of candidates) {
-        if (cancelled || requestId !== vaultWordOfDayRequestIdRef.current) return;
-        const result = await fetchDefinitionSummaryForWordOfDay(candidate.word).catch(() => null);
-        if (!result?.definition) continue;
-        if (cancelled || requestId !== vaultWordOfDayRequestIdRef.current) return;
-        setVaultWordOfDayPopup({
-          open: true,
-          dateId,
-          word: result.word || candidate.word,
-          displayWord: result.displayWord || candidate.word,
-          definition: result.definition,
-          source: result.source || "",
-          url: result.url || "",
-        });
-        return;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    accountSeenMarkers,
-    accountSeenReady,
-    appView,
-    bootOverlayVisible,
-    bootReady,
-    broadcastNotice.loading,
-    broadcastNotice?.message,
-    definitionModal.open,
-    duelPopupState?.mode,
-    isAboutOpen,
-    isAccountAuthenticated,
-    isAccountMenuOpen,
-    isHomeChatOpen,
-    isFacebookInviteOpen,
-    isLoggedIn,
-    isNewPlayerPopupQuiet,
-    isPatchNotesOpen,
-    isPlayersOverlayOpen,
-    isSettingsOpen,
-    isSupportOpen,
-    phase,
-    shouldShowTutorial,
-    vaultWordOfDayPopup.open,
-    wordVault.error,
-    wordVault.loaded,
-    wordVault.loading,
-    wordVault.words,
-  ]);
 
   useEffect(() => {
     weeklyStatsSnapshotRef.current = weeklyStats;
@@ -9182,46 +8882,7 @@ export default function GobbleApplication() {
   }
 
   function closePatchNotes() {
-    patchNotesOpeningRef.current = false;
     setIsPatchNotesOpen(false);
-  }
-
-  async function fetchDefinitionSummaryForWordOfDay(term) {
-    const clean = String(term || "").trim();
-    if (!clean) return null;
-    const tried = new Set();
-    const baseKey = normalizeWord(clean);
-    if (baseKey) tried.add(baseKey);
-
-    async function fetchDefinition(word) {
-      const params = new URLSearchParams();
-      params.set("word", word);
-      const res = await fetch(`/api/define?${params.toString()}`, {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) return null;
-      const data = await res.json().catch(() => null);
-      if (!data) return null;
-      const definitionText = pickDefinitionText(data);
-      if (definitionText) {
-        return {
-          word: clean,
-          displayWord: data.displayWord || data.word || data.title || clean,
-          definition: definitionText,
-          source: data.source || "",
-          url: data.url || "",
-        };
-      }
-      const fallbacks = buildDefinitionFallbacks(clean, data, tried);
-      for (const fallback of fallbacks) {
-        const next = await fetchDefinition(fallback);
-        if (next?.definition) return next;
-      }
-      return null;
-    }
-
-    return fetchDefinition(clean);
   }
 
   function openDefinition(

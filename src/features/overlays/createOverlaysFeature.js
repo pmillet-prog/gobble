@@ -58,7 +58,6 @@ export function createInitialOverlaysState() {
     playersOverlayMode: "snapshot",
     playersOverlayOpen: false,
     playersOverlaySnapshot: [],
-    popupDistinctVisitDays: 0,
     recordModal: {
       categoryKey: "",
       categoryLabel: "",
