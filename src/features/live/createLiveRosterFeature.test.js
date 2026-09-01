@@ -5,6 +5,16 @@ import { createApplicationKernel } from "../../app/core/createApplicationKernel.
 import { createResourceScope } from "../../app/core/createResourceScope.js";
 import { createLiveRosterFeature } from "./createLiveRosterFeature.js";
 
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, reject, resolve };
+}
+
 test("live roster isolates score updates and releases raw plus projected data", () => {
   const kernel = createApplicationKernel();
   const scope = createResourceScope("live-roster-test");
@@ -58,6 +68,9 @@ test("live roster isolates score updates and releases raw plus projected data", 
   assert.deepEqual(feature.store.getState(), {
     livePlayers: [],
     liveProvisionalRanking: [],
+    lobbyPlayersList: [],
+    lobbyPlayersLoading: false,
+    lobbyRoomStatus: null,
     players: [],
     provisionalRanking: [],
   });
@@ -137,9 +150,145 @@ test("live roster owns throttling, trace holds and queued timer cleanup", () => 
   assert.deepEqual(feature.store.getState(), {
     livePlayers: [],
     liveProvisionalRanking: [],
+    lobbyPlayersList: [],
+    lobbyPlayersLoading: false,
+    lobbyRoomStatus: null,
     players: [],
     provisionalRanking: [],
   });
+});
+
+test("live roster owns lobby loading and deduplicates a room request", async () => {
+  const request = createDeferred();
+  const calls = [];
+  const tournamentLobbies = [];
+  const scope = createResourceScope("live-roster-lobby-test");
+  const feature = createLiveRosterFeature(
+    { scope },
+    {
+      fetchImpl: (url, options) => {
+        calls.push({ options, url });
+        return request.promise;
+      },
+    }
+  );
+  feature.start();
+
+  const first = feature.fetchLobbyPlayers({
+    isLoggedIn: () => false,
+    onTournamentLobby: (lobby) => tournamentLobbies.push(lobby),
+    roomId: "room-4x4",
+  });
+  const duplicate = feature.fetchLobbyPlayers({ roomId: "room-4x4" });
+
+  assert.equal(first, duplicate);
+  assert.equal(calls.length, 1);
+  assert.equal(feature.store.getState().lobbyPlayersLoading, true);
+  assert.equal(calls[0].url, "/api/players?roomId=room-4x4");
+  assert.equal(calls[0].options.cache, "no-store");
+
+  request.resolve({
+    json: async () => ({
+      players: [{ nick: "Tigre" }],
+      status: { tournamentLobby: { id: "tournament-1" } },
+    }),
+  });
+  assert.deepEqual(await first, {
+    players: [{ nick: "Tigre" }],
+    status: { tournamentLobby: { id: "tournament-1" } },
+  });
+  assert.deepEqual(feature.store.getState().lobbyPlayersList, [
+    { nick: "Tigre" },
+  ]);
+  assert.equal(feature.store.getState().lobbyPlayersLoading, false);
+  assert.deepEqual(tournamentLobbies, [{ id: "tournament-1" }]);
+
+  scope.dispose();
+});
+
+test("live roster cancels stale lobby requests on room change and cleanup", async () => {
+  const requests = [];
+  const scope = createResourceScope("live-roster-lobby-cancel-test");
+  const feature = createLiveRosterFeature(
+    { scope },
+    {
+      fetchImpl: (url, options) => {
+        const deferred = createDeferred();
+        requests.push({ deferred, options, url });
+        return deferred.promise;
+      },
+    }
+  );
+  feature.start();
+
+  const stale = feature.fetchLobbyPlayers({ roomId: "room-old" });
+  const current = feature.fetchLobbyPlayers({ roomId: "room-new" });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].options.signal.aborted, true);
+  assert.equal(await stale, null);
+
+  requests[0].deferred.resolve({
+    json: async () => ({ players: [{ nick: "Ancien" }] }),
+  });
+  requests[1].deferred.resolve({
+    json: async () => ({
+      players: [{ nick: "Nouveau" }],
+      status: { active: true },
+    }),
+  });
+  await current;
+  assert.deepEqual(feature.store.getState().lobbyPlayersList, [
+    { nick: "Nouveau" },
+  ]);
+
+  const pending = feature.fetchLobbyPlayers({ roomId: "room-third" });
+  assert.equal(feature.store.getState().lobbyPlayersLoading, true);
+  scope.dispose();
+  assert.equal(requests[2].options.signal.aborted, true);
+  assert.equal(await pending, null);
+  assert.deepEqual(feature.store.getState(), {
+    livePlayers: [],
+    liveProvisionalRanking: [],
+    lobbyPlayersList: [],
+    lobbyPlayersLoading: false,
+    lobbyRoomStatus: null,
+    players: [],
+    provisionalRanking: [],
+  });
+});
+
+test("live roster clears lobby data when loading fails", async () => {
+  let attempt = 0;
+  const scope = createResourceScope("live-roster-lobby-error-test");
+  const feature = createLiveRosterFeature(
+    { scope },
+    {
+      fetchImpl: async () => {
+        attempt += 1;
+        if (attempt === 2) throw new Error("network unavailable");
+        return {
+          json: async () => ({
+            players: [{ nick: "Tigre" }],
+            status: { active: true },
+          }),
+        };
+      },
+    }
+  );
+  feature.start();
+
+  await feature.fetchLobbyPlayers({ roomId: "room-4x4" });
+  assert.equal(feature.store.getState().lobbyPlayersList.length, 1);
+
+  assert.equal(
+    await feature.fetchLobbyPlayers({ roomId: "room-5x5" }),
+    null
+  );
+  assert.deepEqual(feature.store.getState().lobbyPlayersList, []);
+  assert.equal(feature.store.getState().lobbyPlayersLoading, false);
+  assert.equal(feature.store.getState().lobbyRoomStatus, null);
+
+  scope.dispose();
 });
 
 test("live roster owns scoped player and ranking realtime events", () => {

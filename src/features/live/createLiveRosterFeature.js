@@ -6,6 +6,7 @@ import {
 import { shouldProcessAttachedLiveRoomEvent } from "../../utils/liveEventScope.js";
 
 const EMPTY_LIST = Object.freeze([]);
+const CANCELLED_LOBBY_REQUEST = Symbol("cancelled_lobby_players_request");
 const DEFAULT_QUEUE_TIMING = Object.freeze({
   playersMinMs: 120,
   rankingMinMs: 180,
@@ -68,6 +69,9 @@ export function createInitialLiveRosterState() {
   return {
     livePlayers: EMPTY_LIST,
     liveProvisionalRanking: EMPTY_LIST,
+    lobbyPlayersList: EMPTY_LIST,
+    lobbyPlayersLoading: false,
+    lobbyRoomStatus: null,
     players: EMPTY_LIST,
     provisionalRanking: EMPTY_LIST,
   };
@@ -76,7 +80,9 @@ export function createInitialLiveRosterState() {
 export function createLiveRosterFeature(
   context,
   {
+    abortControllerFactory = () => new AbortController(),
     clearTimeoutFn = clearTimeout,
+    fetchImpl = (...args) => globalThis.fetch(...args),
     now = Date.now,
     setTimeoutFn = setTimeout,
     timing = DEFAULT_QUEUE_TIMING,
@@ -84,6 +90,7 @@ export function createLiveRosterFeature(
 ) {
   const { scope } = context;
   let active = false;
+  let lobbyPlayersRequest = null;
   let playersFingerprint = null;
   let provisionalRankingFingerprint = null;
   let playersLastApplyAt = 0;
@@ -107,6 +114,111 @@ export function createLiveRosterFeature(
     ...DEFAULT_QUEUE_TIMING,
     ...(timing && typeof timing === "object" ? timing : {}),
   });
+
+  function cancelLobbyPlayersRequest(request = lobbyPlayersRequest) {
+    if (!request || request.cancelled) return;
+    request.cancelled = true;
+    if (lobbyPlayersRequest === request) lobbyPlayersRequest = null;
+    try {
+      request.controller?.abort?.();
+    } catch (_) {}
+    request.cancelResolve(CANCELLED_LOBBY_REQUEST);
+  }
+
+  function fetchLobbyPlayers({
+    isLoggedIn = false,
+    onTournamentLobby = null,
+    roomId = "",
+  } = {}) {
+    if (!active || stopped) return null;
+    const safeRoomId = String(roomId || "");
+    if (lobbyPlayersRequest?.roomId === safeRoomId) {
+      return lobbyPlayersRequest.promise;
+    }
+    cancelLobbyPlayersRequest();
+    const controller = abortControllerFactory();
+    let cancelResolve;
+    const request = {
+      cancelled: false,
+      cancelPromise: new Promise((resolve) => {
+        cancelResolve = resolve;
+      }),
+      cancelResolve: null,
+      controller,
+      promise: null,
+      roomId: safeRoomId,
+    };
+    request.cancelResolve = cancelResolve;
+    lobbyPlayersRequest = request;
+    feature.set("lobbyPlayersLoading", true);
+
+    request.promise = (async () => {
+      try {
+        const response = await Promise.race([
+          fetchImpl(`/api/players?roomId=${encodeURIComponent(safeRoomId)}`, {
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+            signal: controller?.signal,
+          }),
+          request.cancelPromise,
+        ]);
+        if (
+          response === CANCELLED_LOBBY_REQUEST ||
+          request.cancelled ||
+          !active ||
+          lobbyPlayersRequest !== request
+        ) {
+          return null;
+        }
+        const data = await Promise.race([
+          response.json(),
+          request.cancelPromise,
+        ]);
+        if (
+          data === CANCELLED_LOBBY_REQUEST ||
+          request.cancelled ||
+          !active ||
+          lobbyPlayersRequest !== request
+        ) {
+          return null;
+        }
+        const players = Array.isArray(data?.players) ? data.players : EMPTY_LIST;
+        const status =
+          data?.status && typeof data.status === "object" ? data.status : null;
+        feature.patch({
+          lobbyPlayersList: players,
+          lobbyPlayersLoading: false,
+          lobbyRoomStatus: status,
+        });
+        const loggedIn =
+          typeof isLoggedIn === "function" ? !!isLoggedIn() : !!isLoggedIn;
+        if (!loggedIn && status?.tournamentLobby) {
+          try {
+            onTournamentLobby?.(status.tournamentLobby);
+          } catch (_) {}
+        }
+        return { players, status };
+      } catch (error) {
+        if (
+          error?.name === "AbortError" ||
+          request.cancelled ||
+          !active ||
+          lobbyPlayersRequest !== request
+        ) {
+          return null;
+        }
+        feature.patch({
+          lobbyPlayersList: EMPTY_LIST,
+          lobbyPlayersLoading: false,
+          lobbyRoomStatus: null,
+        });
+        return null;
+      } finally {
+        if (lobbyPlayersRequest === request) lobbyPlayersRequest = null;
+      }
+    })();
+    return request.promise;
+  }
 
   function emitQueueEvent(context, label, payload) {
     try {
@@ -417,6 +529,7 @@ export function createLiveRosterFeature(
         realtimeUnsubscribe = null;
         realtimeSocket = null;
         realtimeConfig = {};
+        cancelLobbyPlayersRequest();
         clearQueuedUpdates();
         playersFingerprint = null;
         provisionalRankingFingerprint = null;
@@ -433,6 +546,7 @@ export function createLiveRosterFeature(
     ...feature,
     clearQueuedUpdates,
     configureRealtime,
+    fetchLobbyPlayers,
     flushQueuedUpdates,
     queuePlayers,
     queueRanking,

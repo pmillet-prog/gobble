@@ -1,9 +1,6 @@
 export const REALTIME_STATE_FIELDS = Object.freeze([
   "breakKind",
   "finalResults",
-  "lobbyPlayersList",
-  "lobbyPlayersLoading",
-  "lobbyRoomStatus",
   "medals",
   "nextStartAt",
   "roomsStats",
@@ -31,9 +28,6 @@ export function createInitialRealtimeState() {
   return Object.freeze({
     breakKind: null,
     finalResults: [],
-    lobbyPlayersList: [],
-    lobbyPlayersLoading: false,
-    lobbyRoomStatus: null,
     medals: {},
     nextStartAt: null,
     roomsStats: [],

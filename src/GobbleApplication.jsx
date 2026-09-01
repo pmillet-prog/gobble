@@ -911,9 +911,6 @@ const CHAT_ROOT_FIELDS = Object.freeze([
 const REALTIME_ROOT_FIELDS = Object.freeze([
   "breakKind",
   "finalResults",
-  "lobbyPlayersList",
-  "lobbyPlayersLoading",
-  "lobbyRoomStatus",
   "medals",
   "nextStartAt",
   "roomsStats",
@@ -935,7 +932,13 @@ const REALTIME_ROOT_FIELDS = Object.freeze([
   "upcomingSpecial",
 ]);
 
-const ROSTER_ROOT_FIELDS = Object.freeze(["players", "provisionalRanking"]);
+const ROSTER_ROOT_FIELDS = Object.freeze([
+  "lobbyPlayersList",
+  "lobbyPlayersLoading",
+  "lobbyRoomStatus",
+  "players",
+  "provisionalRanking",
+]);
 const EMPTY_FEED_ANNOUNCEMENTS = Object.freeze([]);
 
 export default function GobbleApplication() {
@@ -1011,9 +1014,6 @@ export default function GobbleApplication() {
   const {
     breakKind,
     finalResults,
-    lobbyPlayersList,
-    lobbyPlayersLoading,
-    lobbyRoomStatus,
     medals,
     nextStartAt,
     roomsStats,
@@ -1034,7 +1034,13 @@ export default function GobbleApplication() {
     tournamentTotals,
     upcomingSpecial,
   } = realtimeState;
-  const { players, provisionalRanking } = rosterState;
+  const {
+    lobbyPlayersList,
+    lobbyPlayersLoading,
+    lobbyRoomStatus,
+    players,
+    provisionalRanking,
+  } = rosterState;
   const {
     setAllWords,
     setBoard,
@@ -1090,9 +1096,6 @@ export default function GobbleApplication() {
   const {
     setBreakKind,
     setFinalResults,
-    setLobbyPlayersList,
-    setLobbyPlayersLoading,
-    setLobbyRoomStatus,
     setMedals,
     setNextStartAt,
     setRoomsStats,
@@ -3215,7 +3218,6 @@ export default function GobbleApplication() {
   const clearTileIntroAnimationFnRef = useRef(() => {});
   const triggerTileIntroAnimationFnRef = useRef(() => 0);
   const isHomeChatOpenRef = useRef(false);
-  const lobbyPresenceRef = useRef(new Set());
   const lobbyChatSubscriptionRef = useRef({
     roomId: null,
     subscribed: false,
@@ -7116,35 +7118,11 @@ export default function GobbleApplication() {
 
   function fetchLobbyPlayers() {
     const lobbyRoomId = roomId || getDefaultRoomId();
-    setLobbyPlayersLoading(true);
-    fetch(`/api/players?roomId=${encodeURIComponent(lobbyRoomId)}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        const list = Array.isArray(data?.players) ? data.players : [];
-        setLobbyPlayersList(list);
-        setLobbyRoomStatus(data?.status && typeof data.status === "object" ? data.status : null);
-        if (!isLoggedInRef.current && data?.status?.tournamentLobby) {
-          setTournamentLobby(data.status.tournamentLobby);
-        }
-        if (!isLoggedInRef.current) {
-          const nextNicks = new Set(
-            list
-              .map((entry) => (entry?.nick ? String(entry.nick).trim() : ""))
-              .filter((nick) => nick && !isSystemAuthor(nick))
-          );
-          lobbyPresenceRef.current = nextNicks;
-        }
-      })
-      .catch(() => {
-        setLobbyPlayersList([]);
-        setLobbyRoomStatus(null);
-      })
-      .finally(() => {
-        setLobbyPlayersLoading(false);
-      });
+    return rosterFeature.fetchLobbyPlayers({
+      isLoggedIn: () => isLoggedInRef.current,
+      onTournamentLobby: setTournamentLobby,
+      roomId: lobbyRoomId,
+    });
   }
 
   function openPlayersOverlayAlpha() {
@@ -8311,7 +8289,6 @@ export default function GobbleApplication() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      lobbyPresenceRef.current = new Set();
       setHomeChatUnreadCount(0);
       setHomeChatBotUnreadCount(0);
       if (isHomeChatOpen) setIsHomeChatOpen(false);
