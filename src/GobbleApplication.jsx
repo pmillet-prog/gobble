@@ -403,7 +403,9 @@ const PerfTestOverlay = React.lazy(() => import("./perf/PerfTestOverlay.jsx"));
 const DuelPopupOverlay = React.lazy(() =>
   import("./components/duel/DuelPopupOverlay.jsx")
 );
-const DailyHubScreen = React.lazy(() => import("./components/daily/DailyHubScreen.jsx"));
+const DailyApplication = React.lazy(() =>
+  import("./features/daily/DailyApplication.jsx")
+);
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
 const WeeklyStatsScreen = React.lazy(() =>
   import("./components/stats/WeeklyStatsScreen.jsx")
@@ -2228,7 +2230,6 @@ export default function GobbleApplication() {
   });
   const duelWeekRecapOpenAfterRefreshRef = useRef(null);
   const duelWeekRecapWeeklyRefreshRef = useRef("");
-  const dailyHistoryScrollRef = useRef(null);
   const dailySpecialDragRef = useRef(null);
   const dailySpecialDragGhostRef = useRef(null);
   const bindDailySpecialDragGhost = React.useCallback((node) => {
@@ -6718,10 +6719,6 @@ export default function GobbleApplication() {
     appViewRef.current = "daily";
     isDailyPlayRef.current = false;
     setAppView("daily");
-    fetchDailyStatus();
-    fetchDailyBoard();
-    fetchDailyHistory(10);
-    fetchDuelStatus();
   }
 
   const [
@@ -7862,19 +7859,6 @@ export default function GobbleApplication() {
     if (!installId) return;
     fetchVocabStats();
   }, [installId, isDailyView]);
-
-  useEffect(() => {
-    if (appView !== "daily") return;
-    setDailyHistoryIndex(0);
-    setDailyRankingView("today");
-    if (dailyHistoryScrollRef.current) {
-      dailyHistoryScrollRef.current.scrollTo({ left: 0, behavior: "auto" });
-    }
-  }, [
-    appView,
-    Array.isArray(dailyHistory?.days) ? dailyHistory.days.length : 0,
-    Array.isArray(dailyHistory?.crownTotals) ? dailyHistory.crownTotals.length : 0,
-  ]);
 
   useEffect(() => {
     const shouldOpenStats = appView === "stats";
@@ -15368,7 +15352,7 @@ function handleTouchEnd(e) {
   if (!isLoggedIn && (appView === "daily" || appView === "daily_results")) {
     return (
       <Suspense fallback={null}>
-        <DailyHubScreen
+        <DailyApplication
           view={{ appView, darkMode, isMobileLayout, menuDarkMode }}
           daily={{
             dailyBoard,
@@ -15377,7 +15361,6 @@ function handleTouchEnd(e) {
             dailyHistoryError,
             dailyHistoryIndex,
             dailyHistoryLoading,
-            dailyHistoryScrollRef,
             dailyLaunchDialog,
             dailyRankingView,
             dailyResult,
@@ -15413,6 +15396,14 @@ function handleTouchEnd(e) {
             setDailySection,
           }}
           renderers={{ renderCrownIcon, renderGobbleBadge, renderHumanDot }}
+          runtime={{
+            enabled: appView === "daily",
+            fetchDailyBoard,
+            fetchDailyHistory,
+            fetchDailyStatus,
+            fetchDuelStatus: stableFetchDuelStatus,
+            installId,
+          }}
         />
       </Suspense>
     );
