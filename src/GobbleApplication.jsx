@@ -2128,10 +2128,7 @@ export default function GobbleApplication() {
       bindFeatureStateSetters(dailyFeature, {
         setDailyActiveSlot: "activeSlot",
         setDailyBoard: "board",
-        setDailyHistory: "history",
-        setDailyHistoryError: "historyError",
         setDailyHistoryIndex: "historyIndex",
-        setDailyHistoryLoading: "historyLoading",
         setDailyInvalidPulseKey: "invalidPulseKey",
         setDailyInvalidSlot: "invalidSlot",
         setDailyLaunchDialog: "launchDialog",
@@ -2203,10 +2200,7 @@ export default function GobbleApplication() {
   const {
     setDailyActiveSlot,
     setDailyBoard,
-    setDailyHistory,
-    setDailyHistoryError,
     setDailyHistoryIndex,
-    setDailyHistoryLoading,
     setDailyInvalidPulseKey,
     setDailyInvalidSlot,
     setDailyLaunchDialog,
@@ -6524,61 +6518,23 @@ export default function GobbleApplication() {
   }
 
   function fetchDailyStatus() {
-    setDailyStatus((prev) => ({ ...prev, loading: true, error: "" }));
-    const query = installId ? `?installId=${encodeURIComponent(installId)}` : "";
-    fetch(`/api/daily/status${query}`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
-        if (!res.ok) {
-          throw new Error(data?.error || `http_${res.status || "error"}`);
-        }
-        return data;
-      })
-      .then((data) => {
-        setDailyStatus({
+    return dailyFeature.fetchDailyStatus({
+      installId,
+      onDuelStatus: (duel) => {
+        setDuelStatus({
           loading: false,
-          ready: !!data?.ready,
-          hasPlayed: !!data?.hasPlayed,
-          hasPlayedMonstrous: !!data?.hasPlayedMonstrous,
-          hasPlayedSpecial: !!data?.hasPlayedSpecial,
-          hasPlayedFakeTwins: !!data?.hasPlayedFakeTwins,
-          dateId: data?.dateId || null,
-          myResult: data?.myResult || null,
-          myMonstrousResult: data?.myMonstrousResult || null,
-          mySpecialResult: data?.mySpecialResult || null,
-          myFakeTwinsResult: data?.myFakeTwinsResult || null,
-          champion: data?.champion || null,
-          maintenanceMode: !!data?.maintenanceMode,
-          maintenanceMessage: data?.maintenanceMessage || "",
           error: "",
+          dateId: duel.dateId || null,
+          weekId: duel.weekId || null,
+          team: duel.team || null,
+          crowned: !!duel.crowned,
+          weekly: duel.weekly || null,
+          objectives: duel.objectives || null,
+          dailyBattle: duel.dailyBattle || null,
+          tutorialVersion: duel.tutorialVersion || null,
         });
-        if (data?.duel && typeof data.duel === "object") {
-          setDuelStatus({
-            loading: false,
-            error: "",
-            dateId: data.duel.dateId || null,
-            weekId: data.duel.weekId || null,
-            team: data.duel.team || null,
-            crowned: !!data.duel.crowned,
-            weekly: data.duel.weekly || null,
-            objectives: data.duel.objectives || null,
-            dailyBattle: data.duel.dailyBattle || null,
-            tutorialVersion: data.duel.tutorialVersion || null,
-          });
-        }
-      })
-      .catch(() => {
-        setDailyStatus((prev) => ({
-          ...prev,
-          loading: false,
-          error: "erreur",
-        }));
-      });
+      },
+    });
   }
 
   function fetchBroadcastNotice() {
@@ -6875,83 +6831,11 @@ export default function GobbleApplication() {
   }
 
   function fetchDailyHistory(days = 10) {
-    if (dailyHistoryLoading) return;
-    setDailyHistoryLoading(true);
-    setDailyHistoryError("");
-    const params = new URLSearchParams();
-    params.set("days", String(days));
-    if (installId) params.set("installId", installId);
-    fetch(`/api/daily/history?${params.toString()}`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
-        if (!res.ok) {
-          throw new Error(data?.error || `http_${res.status || "error"}`);
-        }
-        return data;
-      })
-      .then((data) => {
-        const safeDays = Array.isArray(data?.days) ? data.days : [];
-        const rawCrowns = Array.isArray(data?.crownTotals)
-          ? data.crownTotals
-          : Array.isArray(data?.medalTotals)
-          ? data.medalTotals
-          : [];
-        const safeCrowns = rawCrowns.map((entry) => ({
-          nick: entry?.nick || "Joueur",
-          crowns: Number.isFinite(entry?.crowns)
-            ? entry.crowns
-            : Number.isFinite(entry?.gold)
-            ? entry.gold
-            : 0,
-        }));
-        setDailyHistory({ days: safeDays, crownTotals: safeCrowns });
-      })
-      .catch(() => {
-        setDailyHistory({ days: [], crownTotals: [] });
-        setDailyHistoryError("erreur");
-      })
-      .finally(() => {
-        setDailyHistoryLoading(false);
-      });
+    return dailyFeature.fetchDailyHistory({ days, installId });
   }
 
   function fetchDailyBoard(dateId = null) {
-    setDailyBoard((prev) => ({ ...prev, loading: true, error: "" }));
-    const query = dateId ? `?dateId=${encodeURIComponent(dateId)}` : "";
-    fetch(`/api/daily/board${query}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        const data = text ? JSON.parse(text) : null;
-        if (!data || typeof data !== "object") {
-          throw new Error(`http_${res.status || "error"}`);
-        }
-        return data;
-      })
-      .then((data) => {
-        setDailyBoard({
-          loading: false,
-          ready: !!data?.ready,
-          dateId: data?.dateId || null,
-          entries: Array.isArray(data?.entries) ? data.entries : [],
-          battle: data?.battle || null,
-          error: "",
-        });
-      })
-      .catch(() => {
-        setDailyBoard((prev) => ({
-          ...prev,
-          loading: false,
-          error: "erreur",
-        }));
-      });
+    return dailyFeature.fetchDailyBoard({ dateId });
   }
 
   function openDailyHome() {
