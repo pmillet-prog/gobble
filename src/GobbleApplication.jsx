@@ -1436,7 +1436,6 @@ export default function GobbleApplication() {
         setIsSupportOpen: "supportOpen",
         setIsVisualMenuOpen: "visualMenuOpen",
         setMobileExitConfirmOpen: "mobileExitConfirmOpen",
-        setPlayerProfileModal: "playerProfileModal",
         setPlayersOverlayMode: "playersOverlayMode",
         setPlayersOverlaySnapshot: "playersOverlaySnapshot",
         setPopupDistinctVisitDays: "popupDistinctVisitDays",
@@ -1552,7 +1551,6 @@ export default function GobbleApplication() {
     setIsSupportOpen,
     setIsVisualMenuOpen,
     setMobileExitConfirmOpen,
-    setPlayerProfileModal,
     setPlayersOverlayMode,
     setPlayersOverlaySnapshot,
     setPopupDistinctVisitDays,
@@ -2836,7 +2834,6 @@ export default function GobbleApplication() {
   useEffect(() => {
     chatEditTargetRef.current = chatEditTarget;
   }, [chatEditTarget]);
-  const playerProfileFetchRef = useRef({ requestId: 0, controller: null });
   const roundPlayerAnchorElementRef = useRef(null);
   const roundPlayerAnchorNickRef = useRef("");
   const handleVocabOverlayVisibilityChange = React.useCallback((open) => {
@@ -9275,80 +9272,20 @@ export default function GobbleApplication() {
   }
 
   function closePlayerProfileModal() {
-    if (playerProfileFetchRef.current.controller) {
-      try {
-        playerProfileFetchRef.current.controller.abort();
-      } catch (_) {}
-      playerProfileFetchRef.current.controller = null;
-    }
-    setPlayerProfileModal((prev) => ({
-      ...prev,
-      open: false,
-      loading: false,
-      error: "",
-    }));
+    overlaysFeature.closePlayerProfile();
   }
 
-  async function openPlayerProfile(target = {}) {
+  function openPlayerProfile(target = {}) {
     const targetUserId = getUserIdFromPlayerProfileTarget(target);
     const targetNick = String(target?.nick || "").trim();
     if (!targetUserId) {
       showToast("Profil indisponible");
       return;
     }
-    const requestId = (playerProfileFetchRef.current.requestId || 0) + 1;
-    if (playerProfileFetchRef.current.controller) {
-      try {
-        playerProfileFetchRef.current.controller.abort();
-      } catch (_) {}
-    }
-    const controller = new AbortController();
-    playerProfileFetchRef.current = { requestId, controller };
-    setPlayerProfileModal({
-      open: true,
-      userId: targetUserId,
+    return overlaysFeature.openPlayerProfile({
       nick: targetNick,
-      loading: true,
-      error: "",
-      profile: null,
+      userId: targetUserId,
     });
-    try {
-      const query = targetNick ? `?nick=${encodeURIComponent(targetNick)}` : "";
-      const res = await fetch(
-        `/api/player-profile/user/${encodeURIComponent(targetUserId)}${query}`,
-        {
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-          signal: controller.signal,
-        }
-      );
-      const data = await res.json().catch(() => null);
-      if (playerProfileFetchRef.current.requestId !== requestId) return;
-      if (!res.ok || !data?.ok || !data?.profile) {
-        throw new Error(data?.error || `http_${res.status || "error"}`);
-      }
-      setPlayerProfileModal({
-        open: true,
-        userId: targetUserId,
-        nick: targetNick,
-        loading: false,
-        error: "",
-        profile: data.profile,
-      });
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-      if (playerProfileFetchRef.current.requestId !== requestId) return;
-      setPlayerProfileModal((prev) => ({
-        ...prev,
-        open: true,
-        loading: false,
-        error: "Profil indisponible",
-      }));
-    } finally {
-      if (playerProfileFetchRef.current.requestId === requestId) {
-        playerProfileFetchRef.current.controller = null;
-      }
-    }
   }
 
   const stableOpenPlayerProfile = useStableEvent(openPlayerProfile);
