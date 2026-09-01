@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
-import { capturePendingSubmissions } from "../network/liveSubmissionRecovery.js";
 import {
   createDailySpecialPlacements,
   createDailyWordSlots,
@@ -31,7 +30,7 @@ export default function useRealtimeEventBindings(runtime) {
     outroRoundRef,
     pendingBreakStartRef,
     pendingRoundEndRef,
-    pendingSubmissionRecoveryRef,
+    prepareSubmissionsForIncomingRound,
     phaseLoopTestEnabledRef,
     phaseRef,
     playGobbleVoice,
@@ -97,7 +96,6 @@ export default function useRealtimeEventBindings(runtime) {
     standaloneTrainingSessionRef,
     startGameFromServerRef,
     stopImplodePhase,
-    submissionStatusRef,
     triggerConfettiBurst,
     triggerPraiseFlash,
     vocabBaselineRef,
@@ -161,19 +159,10 @@ useEffect(() => {
       if (!shouldHandleLiveRoundSocketEvents(incomingRoomId)) return;
       if (!grid || !Array.isArray(grid)) return;
       currentRoundTrainingRef.current = !!training;
-      const pendingSnapshot = capturePendingSubmissions(
-        submissionStatusRef.current,
-        roundIdRef.current
+      prepareSubmissionsForIncomingRound(
+        roundIdRef.current,
+        incomingRoundId
       );
-      if (pendingSnapshot.entries.length > 0) {
-        pendingSubmissionRecoveryRef.current = pendingSnapshot;
-      } else if (
-        roundIdRef.current != null &&
-        incomingRoundId != null &&
-        String(roundIdRef.current) !== String(incomingRoundId)
-      ) {
-        pendingSubmissionRecoveryRef.current = null;
-      }
       clearQueuedRankingUpdate();
       stopImplodePhase();
       pendingBreakStartRef.current = null;

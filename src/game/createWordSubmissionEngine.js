@@ -48,6 +48,7 @@ export function createWordSubmissionEngine({
   bestGridMaxRef,
   board,
   clearSelection,
+  clearTimeoutFn = clearTimeout,
   currentTilesRef,
   dailyAcceptedPathsRef,
   dailyActiveSlot,
@@ -110,6 +111,7 @@ export function createWordSubmissionEngine({
   setOcidStatusMessage,
   setScore,
   setStatusMessageWithHold,
+  setTimeoutFn = setTimeout,
   showToast,
   socket,
   solutionsRef,
@@ -117,6 +119,7 @@ export function createWordSubmissionEngine({
   specialRound,
   specialScoreConfig,
   standaloneTrainingSessionRef,
+  submissionGenerationRef,
   submissionStatusRef,
   touchSubmissionState,
   triggerConfettiBurst,
@@ -142,7 +145,7 @@ export function createWordSubmissionEngine({
     pendingWordsRef.current.delete(word);
     touchSubmissionState();
     const cleanupDelay = 2500;
-    setTimeout(() => {
+    setTimeoutFn(() => {
       const current = submissionStatusRef.current.get(word);
       if (current?.status === "rejected") {
         submissionStatusRef.current.delete(word);
@@ -432,7 +435,7 @@ export function createWordSubmissionEngine({
     if (!alreadyAccepted) {
       setStatusMessageWithHold(isTargetRoundNow ? "Trouv\u00e9 !" : `+${safePts} pts`);
     }
-    setTimeout(() => {
+    setTimeoutFn(() => {
       const current = submissionStatusRef.current.get(word);
       if (current?.status === "accepted") {
         submissionStatusRef.current.delete(word);
@@ -453,10 +456,13 @@ export function createWordSubmissionEngine({
 
   function requeueInFlightSubmissions() {
     if (batchTimerRef.current) {
-      clearTimeout(batchTimerRef.current);
+      clearTimeoutFn(batchTimerRef.current);
       batchTimerRef.current = null;
     }
-    const words = takeInFlightSubmissionWords(inFlightBatchesRef.current);
+    const words = takeInFlightSubmissionWords(
+      inFlightBatchesRef.current,
+      clearTimeoutFn
+    );
     queuePendingWordsForRetry(words);
   }
 
@@ -495,6 +501,7 @@ export function createWordSubmissionEngine({
         continue;
       }
       const sentAt = Date.now();
+      const requestGeneration = submissionGenerationRef?.current ?? 0;
       socket.emit(
         "submitWord",
         {
@@ -504,6 +511,7 @@ export function createWordSubmissionEngine({
           traceStartedAt: meta.traceStartedAt ?? null,
         },
         (res) => {
+          if ((submissionGenerationRef?.current ?? 0) !== requestGeneration) return;
           recordPerfEvent("word-ack", {
             count: 1,
             latencyMs: Math.max(0, Date.now() - sentAt),
@@ -558,7 +566,7 @@ export function createWordSubmissionEngine({
       latencyMs: Math.max(0, Date.now() - (Number(inFlight.sentAt) || Date.now())),
       ok: !!res?.ok,
     });
-    if (inFlight.timeoutId) clearTimeout(inFlight.timeoutId);
+    if (inFlight.timeoutId) clearTimeoutFn(inFlight.timeoutId);
     inFlightBatchesRef.current.delete(clientSeq);
     if (res?.error === "not_logged_in") {
       liveSessionReadyRef.current = false;
@@ -643,7 +651,7 @@ export function createWordSubmissionEngine({
     }
 
     const clientSeq = batchSeqRef.current++;
-    const timeoutId = setTimeout(
+    const timeoutId = setTimeoutFn(
       () => handleBatchTimeout(clientSeq),
       WORD_BATCH_ACK_TIMEOUT_MS
     );
@@ -678,14 +686,14 @@ export function createWordSubmissionEngine({
   function scheduleBatchFlush({ immediate = false } = {}) {
     if (immediate || pendingQueueRef.current.length >= WORD_BATCH_MAX) {
       if (batchTimerRef.current) {
-        clearTimeout(batchTimerRef.current);
+        clearTimeoutFn(batchTimerRef.current);
         batchTimerRef.current = null;
       }
       flushPendingBatch();
       return;
     }
     if (batchTimerRef.current) return;
-    batchTimerRef.current = setTimeout(() => {
+    batchTimerRef.current = setTimeoutFn(() => {
       batchTimerRef.current = null;
       flushPendingBatch();
     }, WORD_BATCH_FLUSH_MS);
@@ -1019,7 +1027,9 @@ export function createWordSubmissionEngine({
       })),
       specialPlacements: nextPlacements && typeof nextPlacements === "object" ? nextPlacements : {},
     };
+    const requestGeneration = submissionGenerationRef?.current ?? 0;
     socket.emit("special3Words:update", payload, (res) => {
+      if ((submissionGenerationRef?.current ?? 0) !== requestGeneration) return;
       if (!res || res.ok === false) return;
       if (Array.isArray(res.wordSlots)) {
         setDailyWordSlots((prev) => {
@@ -1305,10 +1315,12 @@ export function createWordSubmissionEngine({
       setOcidProposalSubmitted("");
       setOcidStatusMessage("Mot prêt à envoyer.");
       if (roundId && socket.connected && isLoggedIn) {
+        const requestGeneration = submissionGenerationRef?.current ?? 0;
         socket.emit(
           "ocid:propose",
           { roundId, word: displayLabel, path: proposalPath },
           (res) => {
+            if ((submissionGenerationRef?.current ?? 0) !== requestGeneration) return;
             if (res?.ok) {
               setOcidProposalSubmitted(String(res?.proposal || displayLabel).trim());
               setOcidStatusMessage("Proposition retenue.");

@@ -139,7 +139,7 @@ import {
 import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
-import { createWordSubmissionEngine } from "./game/createWordSubmissionEngine.js";
+import useWordSubmissionController from "./features/submission/useWordSubmissionController.js";
 import {
   normalizeRotationTurns,
   rotateIndexByTurns,
@@ -150,11 +150,6 @@ import {
 } from "./game/specialRoundTypes.js";
 import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
-  capturePendingSubmissions,
-  queuePendingSubmissionWords,
-  reconcilePendingSubmissions,
-  restorePendingSubmissionState,
-  takeInFlightSubmissionWords,
 } from "./network/liveSubmissionRecovery.js";
 import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
 import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
@@ -731,17 +726,6 @@ function useStableEvent(handler) {
   return React.useCallback((...args) => handlerRef.current?.(...args), []);
 }
 
-const WORD_SUBMISSION_CONTROLLER_METHODS = Object.freeze([
-  "getLivePreviewLabelForCell",
-  "getPathPreviewScoreConfig",
-  "isKnownSubmissionWord",
-  "requeueInFlightSubmissions",
-  "restorePendingSubmissionEntries",
-  "scheduleBatchFlush",
-  "submit",
-  "syncLiveSpecial3WordsState",
-  "tryAutoSubmitCurrentWordAtRoundEnd",
-]);
 const CELEBRATION_CONTROLLER_METHODS = Object.freeze([
   "clearCelebrationEffects",
   "triggerConfettiBurst",
@@ -750,10 +734,6 @@ const CELEBRATION_CONTROLLER_METHODS = Object.freeze([
   "triggerPraiseFlash",
   "triggerScoreFlight",
 ]);
-
-function createWordSubmissionController(runtime) {
-  return createWordSubmissionEngine(runtime);
-}
 
 function createCelebrationController(runtime) {
   return createCelebrationEffects(...runtime);
@@ -2293,11 +2273,10 @@ export default function GobbleApplication() {
     stopVocabOverlayAnimation();
     stopRoundEndTickSound({ fadeMs: 0 });
     cancelAllWordsCompute();
-    resetSubmissionQueue();
+    resetSubmissionQueue({ clearRecovery: true });
     clearSelection();
     roundStartPendingRef.current = null;
     roundStartRetryRef.current = false;
-    pendingSubmissionRecoveryRef.current = null;
     vocabBaselineRoundRef.current = null;
     vocabWeeklyBaselineRoundRef.current = null;
     vocabResultsPendingRef.current = null;
@@ -2353,7 +2332,7 @@ export default function GobbleApplication() {
     clearWordListFlipArtifacts();
     stopVocabOverlayAnimation();
     clearQueuedRankingUpdate();
-    resetSubmissionQueue();
+    resetSubmissionQueue({ clearRecovery: true });
     cancelAllWordsCompute();
     clearToasts();
     clearStatusMessage({ force: true });
@@ -2875,14 +2854,6 @@ export default function GobbleApplication() {
   const acceptedWordMetaRef = useRef(new Map());
   const dailyAcceptedPathsRef = useRef(new Map());
   const serverSolutionsReadyRef = useRef(false);
-  const submissionStatusRef = useRef(new Map());
-  const pendingWordsRef = useRef(new Set());
-  const pendingQueueRef = useRef([]);
-  const inFlightBatchesRef = useRef(new Map());
-  const pendingSubmissionRecoveryRef = useRef(null);
-  const batchTimerRef = useRef(null);
-  const batchSeqRef = useRef(1);
-  const batchUnsupportedRef = useRef(false);
   const lastRoundWindowRef = useRef({ startAt: null, endAt: null });
   const vocabBaselineRef = useRef(null);
   const vocabBaselineRoundRef = useRef(null);
@@ -3029,11 +3000,7 @@ export default function GobbleApplication() {
       const current = acceptedWordMetaRef.current.get(word) || {};
       acceptedWordMetaRef.current.set(word, { ...current, cultureThemeWord: true });
     });
-    submissionStatusRef.current.forEach((meta, word) => {
-      if (!challenge.wordSet.has(normalizeWord(word))) return;
-      submissionStatusRef.current.set(word, { ...meta, cultureThemeWord: true });
-    });
-    touchSubmissionState();
+    markPendingCultureThemeWords(challenge.wordSet);
   }
   const { mobileGameViewportLockRef, mobileHeaderRef } =
     useMobileLayoutController({
@@ -3082,9 +3049,6 @@ export default function GobbleApplication() {
   const gobblarToastDelayTimersRef = useRef(new Set());
   const gridShakeTimerRef = useRef(null);
   const gridShakeAnimationRef = useRef(null);
-  const submissionTickRafRef = useRef(null);
-  const submissionTickPendingRef = useRef(false);
-  const submissionTickDeferredByTraceRef = useRef(false);
   const confettiBurstTokenRef = useRef(0);
   const lastGobbleAtRef = useRef(0);
   const praiseLastRef = useRef(0);
@@ -4552,18 +4516,29 @@ export default function GobbleApplication() {
   );
 
   const {
+    beginRecovery: beginSubmissionRecovery,
+    clearRecovery: clearSubmissionRecovery,
+    flushDeferredState: flushDeferredSubmissionState,
     getLivePreviewLabelForCell,
     getPathPreviewScoreConfig,
     isKnownSubmissionWord,
+    markCultureThemeWords: markPendingCultureThemeWords,
+    pendingCount,
+    pendingStatusMap,
+    pendingStatusRef,
+    pendingWordEntries,
+    prepareForIncomingRound: prepareSubmissionsForIncomingRound,
+    reconcileRecovery: reconcileSubmissionRecovery,
     requeueInFlightSubmissions,
+    reset: resetSubmissionQueue,
+    resetBatchCapability: resetSubmissionBatchCapability,
     restorePendingSubmissionEntries,
     scheduleBatchFlush,
     submit,
     syncLiveSpecial3WordsState,
     tryAutoSubmitCurrentWordAtRoundEnd,
-  } = useLazyObjectController(
-    createWordSubmissionController,
-    {
+  } = useWordSubmissionController({
+    runtime: {
     acceptedBestPtsRef,
     acceptedRef,
     acceptedScoresRef,
@@ -4574,9 +4549,6 @@ export default function GobbleApplication() {
     appViewRef,
     areStringArraysEqual,
     attemptSilentReconnectRef,
-    batchSeqRef,
-    batchTimerRef,
-    batchUnsupportedRef,
     bestGridMaxLenRef,
     bestGridMaxRef,
     board,
@@ -4596,7 +4568,6 @@ export default function GobbleApplication() {
     getNextLiveFeedTs,
     handleForeground: connectionFeature.handleForeground,
     highlightPathRef,
-    inFlightBatchesRef,
     inputLockedRef,
     isCurrentCultureThemeWord,
     isDailyPlayRef,
@@ -4612,8 +4583,6 @@ export default function GobbleApplication() {
     maybeAnnounceBestWord,
     nickname,
     ocidLatestProposalRef,
-    pendingQueueRef,
-    pendingWordsRef,
     playAlreadyPlayedSound,
     playDoubleGobbleVoice,
     playGobbleVoice,
@@ -4650,8 +4619,6 @@ export default function GobbleApplication() {
     specialRound,
     specialScoreConfig,
     standaloneTrainingSessionRef,
-    submissionStatusRef,
-    touchSubmissionState,
     triggerConfettiBurst,
     triggerPraiseFlash,
     triggerScoreFlight,
@@ -4659,8 +4626,10 @@ export default function GobbleApplication() {
     WORD_BATCH_FLUSH_MS,
     WORD_BATCH_MAX,
     },
-    WORD_SUBMISSION_CONTROLLER_METHODS,
-  );
+    setSubmissionTick,
+    shouldDeferStateUpdate: shouldHoldLiveUiDuringTrace,
+    submissionTick,
+  });
 
   useRealtimeEventBindings({
     applyCultureThemeChallengeToWordStores,
@@ -4684,7 +4653,7 @@ export default function GobbleApplication() {
     outroRoundRef,
     pendingBreakStartRef,
     pendingRoundEndRef,
-    pendingSubmissionRecoveryRef,
+    prepareSubmissionsForIncomingRound,
     phaseLoopTestEnabledRef,
     phaseRef,
     playGobbleVoice,
@@ -4750,7 +4719,6 @@ export default function GobbleApplication() {
     standaloneTrainingSessionRef,
     startGameFromServerRef,
     stopImplodePhase,
-    submissionStatusRef,
     triggerConfettiBurst,
     triggerPraiseFlash,
     vocabBaselineRef,
@@ -4861,7 +4829,6 @@ export default function GobbleApplication() {
       appViewRef,
       attemptSilentReconnectRef,
       autoResumeEnabledRef,
-      batchUnsupportedRef,
       clearQueuedRankingUpdate,
       disconnectGraceMs: DISCONNECT_GRACE_MS,
       hasSavedSession,
@@ -4872,6 +4839,7 @@ export default function GobbleApplication() {
       lobbyChatSubscriptionRef,
       manualDisconnectRef,
       requeueInFlightSubmissions,
+      resetSubmissionBatchCapability,
       resumeLockAtRef,
       resumeLockRef,
       resumeLoginFromSessionRef,
@@ -5035,10 +5003,7 @@ export default function GobbleApplication() {
         tasks: pendingUiTasks.length,
       });
     }
-    if (submissionTickDeferredByTraceRef.current) {
-      submissionTickDeferredByTraceRef.current = false;
-      touchSubmissionState();
-    }
+    flushDeferredSubmissionState();
     pendingUiTasks.forEach((task) => {
       try {
         task();
@@ -5683,21 +5648,11 @@ export default function GobbleApplication() {
     const playerState = snapshot.player || null;
     const entryKind = String(hydrationMeta?.entryKind || "resume");
     const recoverPendingSubmissions = entryKind !== "join";
-    if (!recoverPendingSubmissions) {
-      pendingSubmissionRecoveryRef.current = null;
-      submissionStatusRef.current.clear();
-      resetSubmissionQueue();
-    }
     setTournamentLobby(snapshot.tournamentLobby || null);
-    const currentPendingSnapshot = recoverPendingSubmissions
-      ? capturePendingSubmissions(submissionStatusRef.current, roundIdRef.current)
-      : { entries: [], roundId: null };
-    const pendingSnapshot =
-      recoverPendingSubmissions && currentPendingSnapshot.entries.length > 0
-        ? currentPendingSnapshot
-        : recoverPendingSubmissions
-        ? pendingSubmissionRecoveryRef.current
-        : null;
+    const pendingSnapshot = beginSubmissionRecovery({
+      enabled: recoverPendingSubmissions,
+      roundId: roundIdRef.current,
+    });
 
     if (phase === "preparing") {
       phaseRef.current = "lobby";
@@ -5718,8 +5673,7 @@ export default function GobbleApplication() {
           startedAt: snapshot.capturedAt || Date.now(),
         });
       }
-      pendingSubmissionRecoveryRef.current = null;
-      resetSubmissionQueue();
+      resetSubmissionQueue({ clearRecovery: true });
       return;
     }
 
@@ -5798,7 +5752,7 @@ export default function GobbleApplication() {
       const serverWords = Array.isArray(playerState?.words)
         ? Array.from(new Set(playerState.words.map((w) => normalizeWord(w)).filter(Boolean)))
         : [];
-      const pendingRecovery = reconcilePendingSubmissions({
+      const pendingRecovery = reconcileSubmissionRecovery({
         serverWords,
         pendingSnapshot,
         activeRoundId: currentRound.roundId,
@@ -5854,7 +5808,7 @@ export default function GobbleApplication() {
         pendingRecovery.pendingEntries,
         currentRound.roundId
       );
-      pendingSubmissionRecoveryRef.current = null;
+      clearSubmissionRecovery();
       return;
     }
 
@@ -5868,8 +5822,7 @@ export default function GobbleApplication() {
       setProvisionalRanking([]);
       setRoundPreparing(null);
       setUpcomingSpecial(null);
-      pendingSubmissionRecoveryRef.current = null;
-      resetSubmissionQueue();
+      resetSubmissionQueue({ clearRecovery: true });
       return;
     }
 
@@ -5940,17 +5893,14 @@ export default function GobbleApplication() {
         syncAcceptedRuntimeCaches(words);
       }
       setScore(Number(playerState?.score) || 0);
-      submissionStatusRef.current.clear();
-      resetSubmissionQueue();
-      pendingSubmissionRecoveryRef.current = null;
+      resetSubmissionQueue({ clearRecovery: true });
       return;
     }
 
     if (breakState) {
       roundHandlersRef.current.onBreakStarted?.(breakState);
     }
-    pendingSubmissionRecoveryRef.current = null;
-    resetSubmissionQueue();
+    resetSubmissionQueue({ clearRecovery: true });
   }
 
   function hydrateLiveSnapshot(snapshot, entryKind = "resume") {
@@ -7494,50 +7444,8 @@ function handleTouchEnd(e) {
       dragGridMetricsRef.current = null;
       flushSamsungDiagSnapshot("drag-cleanup");
       resetDragMovePipeline();
-      if (submissionTickRafRef.current != null && typeof window !== "undefined") {
-        window.cancelAnimationFrame(submissionTickRafRef.current);
-        submissionTickRafRef.current = null;
-      }
-      submissionTickPendingRef.current = false;
-      submissionTickDeferredByTraceRef.current = false;
     };
   }, []);
-
-  function touchSubmissionState({ deferDuringTrace = false } = {}) {
-    if (deferDuringTrace && shouldHoldLiveUiDuringTrace()) {
-      submissionTickDeferredByTraceRef.current = true;
-      recordPerfEvent("submission-status-held");
-      return;
-    }
-    if (submissionTickPendingRef.current) return;
-    submissionTickPendingRef.current = true;
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      submissionTickRafRef.current = window.requestAnimationFrame(() => {
-        submissionTickRafRef.current = null;
-        submissionTickPendingRef.current = false;
-        setSubmissionTick((tick) => tick + 1);
-      });
-      return;
-    }
-    submissionTickPendingRef.current = false;
-    setSubmissionTick((tick) => tick + 1);
-  }
-
-  function resetSubmissionQueue() {
-    if (batchTimerRef.current) {
-      clearTimeout(batchTimerRef.current);
-      batchTimerRef.current = null;
-    }
-    for (const entry of inFlightBatchesRef.current.values()) {
-      if (entry?.timeoutId) clearTimeout(entry.timeoutId);
-    }
-    inFlightBatchesRef.current.clear();
-    pendingQueueRef.current = [];
-    pendingWordsRef.current.clear();
-    submissionStatusRef.current.clear();
-    batchUnsupportedRef.current = false;
-    touchSubmissionState();
-  }
 
   function getNextLiveFeedTs() {
     const now = Date.now();
@@ -8137,38 +8045,6 @@ function handleTouchEnd(e) {
   );
   const acceptedWordSet = React.useMemo(() => new Set(accepted), [accepted]);
   const bestPtsByFoundWord = acceptedBestPtsRef.current;
-
-  const pendingWordEntries = React.useMemo(() => {
-    const entries = [];
-    submissionStatusRef.current.forEach((meta, word) => {
-      if (!meta) return;
-      entries.push({
-        word,
-        status: meta.status || "pending",
-        userPts: meta.optimisticPts,
-        reason: meta.reason || "",
-        usedFakeTwins: !!meta.usedFakeTwins,
-        fakeTwinsCompletionWord: !!meta.fakeTwinsCompletionWord,
-        fakeTwinsBonusOnly: !!meta.fakeTwinsBonusOnly,
-        ts: meta.ts || 0,
-      });
-    });
-    entries.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    return entries;
-  }, [submissionTick]);
-
-  const pendingStatusMap = React.useMemo(() => {
-    const map = new Map();
-    pendingWordEntries.forEach((entry) => {
-      map.set(entry.word, entry);
-    });
-    return map;
-  }, [pendingWordEntries]);
-
-  const pendingCount = React.useMemo(
-    () => pendingWordEntries.filter((e) => e.status === "pending").length,
-    [pendingWordEntries]
-  );
   const foundWordsCount = accepted.length + pendingCount;
   React.useEffect(() => {
     progressFeature.configure({
@@ -8179,7 +8055,7 @@ function handleTouchEnd(e) {
       dailyDateId: dailyStatus?.dateId || dailyBoard?.dateId || null,
       dailyPlayMode,
       isDailyPlay,
-      pendingStatusRef: submissionStatusRef,
+      pendingStatusRef,
       phase,
       roundId,
       roundStats,

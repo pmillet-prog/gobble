@@ -367,7 +367,7 @@ test("connection health owns socket lifecycle, disconnect grace and cleanup", ()
     }
   );
   const autoResumeEnabledRef = { current: true };
-  const batchUnsupportedRef = { current: true };
+  let submissionBatchCapabilityResets = 0;
   const isLoggedInRef = { current: true };
   const liveSessionReadyRef = { current: true };
   const lobbyChatSubscriptionRef = {
@@ -391,7 +391,6 @@ test("connection health owns socket lifecycle, disconnect grace and cleanup", ()
       appViewRef: { current: "live" },
       attemptSilentReconnectRef,
       autoResumeEnabledRef,
-      batchUnsupportedRef,
       clearQueuedRankingUpdate: () => {},
       disconnectGraceMs: 30_000,
       hasSavedSession: () => true,
@@ -403,6 +402,9 @@ test("connection health owns socket lifecycle, disconnect grace and cleanup", ()
       manualDisconnectRef,
       requeueInFlightSubmissions: () => {
         requeued += 1;
+      },
+      resetSubmissionBatchCapability: () => {
+        submissionBatchCapabilityResets += 1;
       },
       resumeLockAtRef,
       resumeLockRef,
@@ -429,7 +431,7 @@ test("connection health owns socket lifecycle, disconnect grace and cleanup", ()
 
   socket.fire("connect");
   assert.equal(liveSessionReadyRef.current, false);
-  assert.equal(batchUnsupportedRef.current, false);
+  assert.equal(submissionBatchCapabilityResets, 1);
   assert.equal(kernel.getState().session.loginError, "");
   assert.equal([...timers.values()][0].delayMs, 0);
   [...timers.values()][0].callback();

@@ -609,9 +609,7 @@ export function createConnectionHealthFeature(
     cancelDisconnectGrace();
     cancelResumeOnConnect();
     refs.watchdogFailures.current = 0;
-    if (realtimeConfig.batchUnsupportedRef) {
-      realtimeConfig.batchUnsupportedRef.current = false;
-    }
+    safeInvoke(realtimeConfig.resetSubmissionBatchCapability);
     safeInvoke(getApplicationCommands()?.session?.setConnectionError, "");
     safeInvoke(getApplicationCommands()?.session?.setLoginError, (previous) =>
       realtimeConfig.transientHomeConnectionErrors?.has?.(previous)
