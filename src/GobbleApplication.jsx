@@ -166,13 +166,7 @@ import {
   shouldDisplayChatMessageForBotSettings,
 } from "./components/chat/chatBotVisibility.js";
 import {
-  CHAT_DESKTOP_FONT_SCALE_DEFAULT,
-  CHAT_DESKTOP_FONT_SCALE_MAX,
-  CHAT_DESKTOP_FONT_SCALE_MIN,
-  CHAT_DESKTOP_FONT_SCALE_STEP,
   CHAT_REACTION_EMOJIS,
-  DESKTOP_CHAT_EMOJIS,
-  QUICK_REPLIES,
 } from "./components/chat/chatPresentationConfig.js";
 import MobileGrid from "./components/MobileGrid.jsx";
 import DuelWeeklyWidget from "./components/DuelWeeklyWidget.jsx";
@@ -278,13 +272,7 @@ import {
   CHAT_SYSTEM_HISTORY_MAX,
   capChatMessagesByType,
   findNewReactionFromOthers,
-  formatChatMessageTime,
-  formatChatUnreadSuffix,
-  getChatMessageReactionEntries,
-  getChatMessageReplyPreview,
   getChatMessageSortTime,
-  isEditedChatMessage,
-  isSystemAuthor,
   isSystemChatMessage,
   normalizeChatMessageShape,
   patchChatMessageById,
@@ -502,12 +490,6 @@ const SAMSUNG_TOUCH_MOVE_MIN_DISTANCE_PX = 2;
 const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
 const SAMSUNG_BIGWORD_FLASH_MS = 650;
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
-function normalizeChatDesktopFontScale(raw, fallback = CHAT_DESKTOP_FONT_SCALE_DEFAULT) {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  const clamped = Math.max(CHAT_DESKTOP_FONT_SCALE_MIN, Math.min(CHAT_DESKTOP_FONT_SCALE_MAX, value));
-  return Math.round(clamped / CHAT_DESKTOP_FONT_SCALE_STEP) * CHAT_DESKTOP_FONT_SCALE_STEP;
-}
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
 const STATS_WEEKLY_DISPLAY_LIMIT = 50;
 const STATS_SEASON_TARGET_LIMIT = 200;
@@ -594,7 +576,6 @@ const DEFAULT_CHAT_VISIBLE_LINES = 18;
 const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
 const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
-const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
@@ -1647,8 +1628,6 @@ export default function GobbleApplication() {
     `results-path-gradient-${Math.random().toString(36).slice(2)}`
   );
   const listItemRefs = useRef(new Map());
-  const desktopChatActionsRef = useRef({});
-  const desktopChatHelpersRef = useRef({});
   const analyzeWordActionRef = useRef(null);
   const clearResultsWordAnalysisRef = useRef(null);
   const openDefinitionActionRef = useRef(null);
@@ -3098,13 +3077,6 @@ export default function GobbleApplication() {
     });
     touchSubmissionState();
   }
-  const chatDesktopListRef = useRef(null);
-  const chatDesktopStickToBottomRef = useRef(true);
-  const chatDesktopFocusRestoreUntilRef = useRef(0);
-  const chatDesktopFocusWasAtBottomRef = useRef(true);
-  const chatDesktopAutoScrollRafRef = useRef(null);
-  const chatDesktopAutoScrollTimersRef = useRef([]);
-  const pendingDesktopChatFontScaleScrollRef = useRef(false);
   const { mobileGameViewportLockRef, mobileHeaderRef } =
     useMobileLayoutController({
       chat: {
@@ -3655,166 +3627,6 @@ export default function GobbleApplication() {
       closeRoundPlayerModal({ withSound: false });
     }
   }, [roundPlayerModal.open, phase]);
-
-  const clearDesktopChatAutoScroll = React.useCallback(() => {
-    if (typeof window !== "undefined" && chatDesktopAutoScrollRafRef.current != null) {
-      window.cancelAnimationFrame(chatDesktopAutoScrollRafRef.current);
-    }
-    chatDesktopAutoScrollRafRef.current = null;
-    chatDesktopAutoScrollTimersRef.current.forEach((id) => clearTimeout(id));
-    chatDesktopAutoScrollTimersRef.current = [];
-  }, []);
-
-  const isDesktopChatNearBottom = React.useCallback((listEl) => {
-    if (!listEl) return true;
-    const remaining = listEl.scrollHeight - listEl.clientHeight - listEl.scrollTop;
-    return remaining <= DESKTOP_CHAT_BOTTOM_EPSILON_PX;
-  }, []);
-
-  const handleDesktopChatScroll = React.useCallback(
-    (event) => {
-      const listEl = event?.currentTarget || chatDesktopListRef.current;
-      if (
-        typeof Date !== "undefined" &&
-        Date.now() < chatDesktopFocusRestoreUntilRef.current &&
-        !isDesktopChatNearBottom(listEl)
-      ) {
-        return;
-      }
-      chatDesktopStickToBottomRef.current = isDesktopChatNearBottom(listEl);
-    },
-    [isDesktopChatNearBottom]
-  );
-
-  const scheduleDesktopChatAutoScroll = React.useCallback((options = {}) => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayoutRef.current) return;
-    const force = !!options?.force;
-    if (!force && !chatDesktopStickToBottomRef.current) return;
-    const scrollToBottom = () => {
-      const listEl = chatDesktopListRef.current;
-      if (!listEl) return;
-      const target = Math.max(0, listEl.scrollHeight - listEl.clientHeight);
-      listEl.scrollTop = target;
-      chatDesktopStickToBottomRef.current = true;
-    };
-    clearDesktopChatAutoScroll();
-    scrollToBottom();
-    const raf1 = window.requestAnimationFrame(() => {
-      scrollToBottom();
-      const raf2 = window.requestAnimationFrame(scrollToBottom);
-      chatDesktopAutoScrollRafRef.current = raf2;
-    });
-    chatDesktopAutoScrollRafRef.current = raf1;
-    [80, 180, 320].forEach((delayMs) => {
-      const id = setTimeout(scrollToBottom, delayMs);
-      chatDesktopAutoScrollTimersRef.current.push(id);
-    });
-  }, [clearDesktopChatAutoScroll]);
-
-  const prepareDesktopChatInputFocus = React.useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayoutRef.current) return;
-    const listEl = chatDesktopListRef.current;
-    chatDesktopFocusWasAtBottomRef.current =
-      chatDesktopStickToBottomRef.current || isDesktopChatNearBottom(listEl);
-  }, [isDesktopChatNearBottom]);
-
-  const restoreDesktopChatAfterInputFocus = React.useCallback(
-    (wasAtBottom = chatDesktopFocusWasAtBottomRef.current) => {
-      if (typeof window === "undefined") return;
-      if (isMobileLayoutRef.current) return;
-      if (!wasAtBottom) return;
-      chatDesktopFocusRestoreUntilRef.current = Date.now() + 450;
-      chatDesktopStickToBottomRef.current = true;
-      scheduleDesktopChatAutoScroll({ force: true });
-    },
-    [scheduleDesktopChatAutoScroll]
-  );
-
-  const handleChatDesktopFontScaleChange = React.useCallback((nextValue) => {
-    pendingDesktopChatFontScaleScrollRef.current = true;
-    chatDesktopStickToBottomRef.current = true;
-    setChatDesktopFontScale(
-      normalizeChatDesktopFontScale(nextValue, CHAT_DESKTOP_FONT_SCALE_DEFAULT)
-    );
-  }, []);
-
-  useEffect(() => {
-    if (isMobileLayout) return;
-    if (!pendingDesktopChatFontScaleScrollRef.current) return;
-    pendingDesktopChatFontScaleScrollRef.current = false;
-    scheduleDesktopChatAutoScroll({ force: true });
-  }, [chatDesktopFontScale, isMobileLayout, scheduleDesktopChatAutoScroll]);
-
-  const setChatDesktopListNode = React.useCallback(
-    (node) => {
-      chatDesktopListRef.current = node;
-      if (!node || typeof window === "undefined" || isMobileLayoutRef.current) return;
-      chatDesktopStickToBottomRef.current = true;
-      window.requestAnimationFrame(() => {
-        if (chatDesktopListRef.current !== node) return;
-        scheduleDesktopChatAutoScroll({ force: true });
-      });
-    },
-    [scheduleDesktopChatAutoScroll]
-  );
-
-  useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayout) return;
-    let previousMessages = null;
-    const handleMessagesChanged = () => {
-      const state = chatFeature.store.getState();
-      if (state.messages === previousMessages) return;
-      previousMessages = state.messages;
-      const el = chatDesktopListRef.current;
-      if (!el) return;
-      chatDesktopStickToBottomRef.current = isDesktopChatNearBottom(el);
-      const safeTab = state.tab === "system" ? "system" : "messages";
-      const blockedSet = new Set(state.blockedInstallIds || []);
-      const hasActiveMessage = (state.messages || []).some((msg) => {
-        const authorInstallId =
-          typeof msg?.installId === "string" ? msg.installId : "";
-        if (authorInstallId && blockedSet.has(authorInstallId)) return false;
-        const isSystem = isSystemChatMessage(msg);
-        return safeTab === "system" ? isSystem : !isSystem;
-      });
-      if (hasActiveMessage) scheduleDesktopChatAutoScroll();
-    };
-    handleMessagesChanged();
-    return chatFeature.store.subscribe(handleMessagesChanged);
-  }, [
-    chatFeature,
-    isMobileLayout,
-    isDesktopChatNearBottom,
-    scheduleDesktopChatAutoScroll,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayout) return;
-    if (isDailyPlay) return;
-    const listEl = chatDesktopListRef.current;
-    if (!listEl) return;
-    scheduleDesktopChatAutoScroll({ force: true });
-  }, [
-    isMobileLayout,
-    isDailyPlay,
-    isLoggedIn,
-    phase,
-    appView,
-    scheduleDesktopChatAutoScroll,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isMobileLayout) return;
-    chatDesktopStickToBottomRef.current = true;
-    scheduleDesktopChatAutoScroll({ force: true });
-  }, [isMobileLayout, chatTab, scheduleDesktopChatAutoScroll]);
 
   useEffect(() => {
     if (phase !== "lobby") return;
@@ -5083,7 +4895,6 @@ export default function GobbleApplication() {
       isMobileLayoutRef,
       nicknameRef,
       onReactionToast: enqueueMobileChatReactionToast,
-      scheduleDesktopChatAutoScroll,
       socket,
     });
   });
@@ -7928,7 +7739,7 @@ export default function GobbleApplication() {
     authDialogOpen: !!authModalMode,
     cycleWordHistory,
     draggingRef,
-    focusChatInput,
+    focusChatInput: chatFeature.focusInput,
     inputLockedRef,
     lastInputModeRef,
     phase,
@@ -8363,12 +8174,9 @@ function handleTouchEnd(e) {
     const el = chatInputRef.current;
     if (!el) return;
     const preventScroll = options.preventScroll !== false;
-    prepareDesktopChatInputFocus();
-    const wasAtBottom = chatDesktopFocusWasAtBottomRef.current;
     try {
       if (preventScroll) {
         el.focus({ preventScroll: true });
-        restoreDesktopChatAfterInputFocus(wasAtBottom);
         return;
       }
       el.focus();
@@ -8377,16 +8185,6 @@ function handleTouchEnd(e) {
         el.focus();
       } catch (_) {}
     }
-    restoreDesktopChatAfterInputFocus(wasAtBottom);
-  }
-
-  function autoResizeDesktopChatInput(el = chatInputRef.current) {
-    const node = el;
-    if (!node || node.tagName !== "TEXTAREA") return;
-    node.style.height = "auto";
-    const nextHeight = Math.min(node.scrollHeight, 140);
-    node.style.height = `${Math.max(40, nextHeight)}px`;
-    node.style.overflowY = node.scrollHeight > 140 ? "auto" : "hidden";
   }
 
   function setTournamentReady(nextReady) {
@@ -8617,67 +8415,10 @@ function handleTouchEnd(e) {
 
   function handleChatInputFocus() {
     setActiveArea("chat");
-    restoreDesktopChatAfterInputFocus(chatDesktopFocusWasAtBottomRef.current);
     if (!chatRulesAccepted) {
       setIsChatRulesOpen(true);
     }
   }
-
-  function handleChatInputKeyDown(e) {
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      cycleChatHistory(-1);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      cycleChatHistory(1);
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submitChat(null);
-    }
-  }
-
-  desktopChatHelpersRef.current = {
-    formatChatUnreadSuffix,
-    formatChatMessageTime,
-    isEditedChatMessage,
-    isSystemAuthor,
-    getChatMessageReplyPreview,
-    getChatMessageReactionEntries,
-  };
-
-  desktopChatActionsRef.current = {
-    appendChatEmoji,
-    beginChatEditFromMessage,
-    changeChatDesktopFontScale: handleChatDesktopFontScaleChange,
-    clearChatEditTarget,
-    clearChatReplyTarget,
-    deleteOwnChatMessage,
-    focusChatInput,
-    handleChatInputFocus,
-    handleChatInputKeyDown,
-    handleDesktopChatScroll,
-    openChatRules: () => setIsChatRulesOpen(true),
-    openDesktopChatReactionDetails,
-    openDesktopChatReactionPicker,
-    openUserMenu,
-    prepareDesktopChatInputFocus,
-    scheduleCloseDesktopChatReactionDetails,
-    setActiveArea,
-    setChatInputValue: (value, target) => {
-      setChatInput(value);
-      autoResizeDesktopChatInput(target);
-    },
-    setChatReplyTargetFromMessage,
-    setChatTab,
-    submitChat,
-    toggleBlockedList: () => setShowBlockedList((prev) => !prev),
-    toggleDesktopEmojiPicker: () => setIsDesktopEmojiPickerOpen((prev) => !prev),
-    unblockInstallId,
-  };
 
   const showResultsWordPath =
     phase === "results" && !isMobileLayout && analysis?.word && highlightPath.length > 0;
@@ -14305,10 +14046,6 @@ function handleTouchEnd(e) {
             clearChatReplyTarget,
             deleteOwnChatMessage,
             getLiveNickClassName,
-            handleChatDesktopFontScaleChange,
-            handleChatInputFocus,
-            handleChatInputKeyDown,
-            handleDesktopChatScroll,
             lastMessageId,
             openDesktopChatReactionDetails,
             openDesktopChatReactionPicker,
@@ -14316,7 +14053,7 @@ function handleTouchEnd(e) {
             renderBlockedListPanel,
             safeChatTab,
             scheduleCloseDesktopChatReactionDetails,
-            setChatDesktopListNode,
+            setChatDesktopFontScale,
             setChatInput,
             setChatReplyTargetFromMessage,
             setChatTab,
@@ -14879,9 +14616,7 @@ function handleTouchEnd(e) {
             darkMode,
             defaultTileBaseClass,
             DESKTOP_MAIN_GRID_MIN_HEIGHT,
-            desktopChatActionsRef,
             desktopChatFontPx,
-            desktopChatHelpersRef,
             desktopChatInputFontPx,
             desktopChatInputLineHeightPx,
             desktopChatLineHeightPx,
@@ -15000,9 +14735,12 @@ function handleTouchEnd(e) {
             ocidStatusMessage,
             ocidSummary,
             ocidVote,
+            openDesktopChatReactionDetails,
+            openDesktopChatReactionPicker,
             openDefinition,
             openPlayerProfile,
             openRoundPlayerModal,
+            openUserMenu,
             openWeeklyStatsOverlay,
             phase,
             praiseOverlay,
@@ -15031,6 +14769,7 @@ function handleTouchEnd(e) {
             roundStats,
             roundTilePointsVisible,
             safeChatTab,
+            scheduleCloseDesktopChatReactionDetails,
             selfNick,
             selfOcidBluffPanelText,
             selfOcidBluffPoints,
@@ -15046,7 +14785,7 @@ function handleTouchEnd(e) {
             selfReadyForTournament,
             serverStatus,
             setActiveArea,
-            setChatDesktopListNode,
+            setChatDesktopFontScale,
             setChatInput,
             setDailyActiveSlot,
             setDesktopGridStageNode,

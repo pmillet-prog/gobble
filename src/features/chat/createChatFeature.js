@@ -116,6 +116,7 @@ export function createChatFeature(context, options = {}) {
   let chatHistory = [];
   let chatHistoryIndex = -1;
   let commandConfig = {};
+  let inputFocusHandler = null;
   let lastSentAt = 0;
   let persistTimer = null;
   let realtimeConfig = {};
@@ -131,12 +132,6 @@ export function createChatFeature(context, options = {}) {
     }
   }
 
-  function scheduleAutoScroll() {
-    try {
-      realtimeConfig.scheduleDesktopChatAutoScroll?.();
-    } catch (_) {}
-  }
-
   function onChatHistory(history = []) {
     if (deferDuringTrace(() => onChatHistory(history), "chat-history")) return;
     if (!Array.isArray(history)) return;
@@ -147,7 +142,6 @@ export function createChatFeature(context, options = {}) {
     feature.set("messages", (previous) =>
       capChatMessagesByType([...previous, ...normalizedHistory])
     );
-    scheduleAutoScroll();
   }
 
   function onChatNew(message) {
@@ -157,7 +151,6 @@ export function createChatFeature(context, options = {}) {
     feature.set("messages", (previous) =>
       capChatMessagesByType([...previous, normalizedMessage])
     );
-    scheduleAutoScroll();
     if (isSystemChatMessage(normalizedMessage)) return;
 
     const authorInstallId =
@@ -270,7 +263,6 @@ export function createChatFeature(context, options = {}) {
         });
       } catch (_) {}
     }
-    scheduleAutoScroll();
   }
 
   function onChatMessageUpdate(payload) {
@@ -289,7 +281,6 @@ export function createChatFeature(context, options = {}) {
     if (updatedId && feature.store.getState().editTarget?.id === updatedId) {
       feature.set("editTarget", null);
     }
-    scheduleAutoScroll();
   }
 
   function onChatMessageDelete(payload) {
@@ -311,7 +302,6 @@ export function createChatFeature(context, options = {}) {
     if (state.replyTarget?.id === deletedId) {
       feature.set("replyTarget", null);
     }
-    scheduleAutoScroll();
   }
 
   function bindRealtime() {
@@ -339,10 +329,19 @@ export function createChatFeature(context, options = {}) {
     commandConfig = nextConfig;
   }
 
-  function focusInput() {
+  function focusInput(options = {}) {
     try {
-      commandConfig.onFocusInput?.();
+      const handler = inputFocusHandler || commandConfig.onFocusInput;
+      handler?.(options);
     } catch (_) {}
+  }
+
+  function registerInputFocusHandler(handler) {
+    if (typeof handler !== "function") return () => {};
+    inputFocusHandler = handler;
+    return () => {
+      if (inputFocusHandler === handler) inputFocusHandler = null;
+    };
   }
 
   function appendEmoji(emoji) {
@@ -690,6 +689,7 @@ export function createChatFeature(context, options = {}) {
         realtimeSocket = null;
         realtimeConfig = {};
         commandConfig = {};
+        inputFocusHandler = null;
         chatHistory = [];
         chatHistoryIndex = -1;
         lastSentAt = 0;
@@ -732,6 +732,8 @@ export function createChatFeature(context, options = {}) {
     cycleHistory,
     deleteOwnMessage,
     enqueueReactionToast,
+    focusInput,
+    registerInputFocusHandler,
     sendReaction,
     setReplyTargetFromMessage,
     submit,

@@ -112,3 +112,25 @@ test("chat controller receives rules and lobby subscription ownership", () => {
   assert.equal(lobbyChatSubscriptionRef.current.subscribed, true);
   assert.equal(lobbyChatSubscriptionRef.current.roomId, "room-4x4");
 });
+
+test("lazy desktop chat consumers own focus and auto-scroll resources", () => {
+  const applicationSource = read("../../src/GobbleApplication.jsx");
+  const panelSource = read("../../src/components/DesktopChatPanel.jsx");
+  const finaleSource = read(
+    "../../src/components/finale/TournamentFinaleScreen.jsx"
+  );
+  const ownerSource = read(
+    "../../src/features/chat/useDesktopChatPresentationController.js"
+  );
+
+  assert.doesNotMatch(applicationSource, /chatDesktopListRef/);
+  assert.doesNotMatch(applicationSource, /chatDesktopAutoScrollRafRef/);
+  assert.doesNotMatch(applicationSource, /scheduleDesktopChatAutoScroll/);
+  assert.doesNotMatch(applicationSource, /desktopChatActionsRef/);
+  assert.match(panelSource, /useDesktopChatPresentationController/);
+  assert.match(finaleSource, /useDesktopChatPresentationController/);
+  assert.match(ownerSource, /registerInputFocusHandler/);
+  assert.match(ownerSource, /window\.requestAnimationFrame/);
+  assert.match(ownerSource, /autoScrollTimersRef = React\.useRef/);
+  assert.match(ownerSource, /chatFeature\.store\.subscribe/);
+});

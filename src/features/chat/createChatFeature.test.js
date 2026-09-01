@@ -93,7 +93,6 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
   );
   const deferredLabels = [];
   const reactionToasts = [];
-  let autoScrolls = 0;
   chat.configureRealtime({
     deferNonessentialUiDuringTrace: (_task, label) => {
       deferredLabels.push(label);
@@ -104,9 +103,6 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
     isMobileLayoutRef: { current: true },
     nicknameRef: { current: "Tigre" },
     onReactionToast: (...args) => reactionToasts.push(args),
-    scheduleDesktopChatAutoScroll: () => {
-      autoScrolls += 1;
-    },
     socket,
   });
   chat.start();
@@ -167,7 +163,6 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
     chat.store.getState().messages.some((entry) => entry.id === "message-other"),
     false
   );
-  assert.ok(autoScrolls >= 5);
   assert.deepEqual(deferredLabels, [
     "chat-message",
     "chat-message",
@@ -324,5 +319,29 @@ test("chat feature owns authenticated edit, reaction and delete commands", () =>
   assert.equal(chat.store.getState().editTarget, null);
   assert.deepEqual(toasts, ["Réaction indisponible", "Suppression refusée"]);
 
+  scope.dispose();
+});
+
+test("chat feature delegates focus to the mounted presentation owner", () => {
+  const scope = createResourceScope("chat-focus-owner-test");
+  const chat = createChatFeature(
+    { scope },
+    { storage: createMemoryStorage() }
+  );
+  const focusCalls = [];
+  chat.configureCommands({
+    onFocusInput: () => focusCalls.push("fallback"),
+  });
+  chat.start();
+
+  chat.focusInput();
+  const unregister = chat.registerInputFocusHandler(() =>
+    focusCalls.push("desktop")
+  );
+  chat.focusInput();
+  unregister();
+  chat.focusInput();
+
+  assert.deepEqual(focusCalls, ["fallback", "desktop", "fallback"]);
   scope.dispose();
 });

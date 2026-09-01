@@ -1,6 +1,15 @@
 import React from "react";
 import { useChatDraft } from "../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../features/chat/useChatPresentation.js";
+import useDesktopChatPresentationController from "../features/chat/useDesktopChatPresentationController.js";
+import {
+  formatChatMessageTime,
+  formatChatUnreadSuffix,
+  getChatMessageReactionEntries,
+  getChatMessageReplyPreview,
+  isEditedChatMessage,
+  isSystemAuthor,
+} from "../utils/chatMessages.js";
 
 function isAmbientBotMessage(message) {
   if (!message || typeof message !== "object") return false;
@@ -10,6 +19,7 @@ function isAmbientBotMessage(message) {
 }
 
 function DesktopChatPanel({
+  appView = "live",
   blockedCount: blockedCountProp = 0,
   blockedEntries: blockedEntriesProp = [],
   chatBlockClassName = "",
@@ -32,24 +42,28 @@ function DesktopChatPanel({
   desktopChatStyle = {},
   desktopChatTab = "messages",
   desktopEmojiList = [],
-  helpersRef,
   installId = "",
+  isLoggedIn = false,
   isDesktopEmojiPickerOpen = false,
   lastMessageId: lastMessageIdProp = null,
-  listRef,
+  openDesktopChatReactionDetails = null,
+  openDesktopChatReactionPicker = null,
+  openUserMenu = null,
   panelRef,
+  phase = "playing",
   quickReplies = [],
   selfNick = "",
   showBlockedList = false,
   showBotMessages = true,
   visibleMessages: visibleMessagesProp = [],
-  actionsRef,
   chatInputRef,
   chatScaleMax = 1.5,
   chatScaleMin = 0.85,
   chatScaleStep = 0.05,
   getAuthorNickClassName = null,
   onToggleShowBotMessages = null,
+  scheduleCloseDesktopChatReactionDetails = null,
+  setChatDesktopFontScale = null,
 }) {
   const { chatInput } = useChatDraft();
   const chatPresentation = useChatPresentation();
@@ -57,13 +71,49 @@ function DesktopChatPanel({
   const blockedEntries = chatPresentation.blockedEntries ?? blockedEntriesProp;
   const lastMessageId = chatPresentation.lastMessageId ?? lastMessageIdProp;
   const visibleMessages = chatPresentation.visibleMessages ?? visibleMessagesProp;
-  const helpers = helpersRef?.current || {};
-  const formatChatUnreadSuffix = helpers.formatChatUnreadSuffix || (() => "");
-  const formatChatMessageTime = helpers.formatChatMessageTime || (() => "");
-  const isEditedChatMessage = helpers.isEditedChatMessage || (() => false);
-  const isSystemAuthor = helpers.isSystemAuthor || (() => false);
-  const getChatMessageReplyPreview = helpers.getChatMessageReplyPreview || (() => null);
-  const getChatMessageReactionEntries = helpers.getChatMessageReactionEntries || (() => []);
+  const desktopPresentation = useDesktopChatPresentationController({
+    chatDesktopFontScale,
+    chatInputRef,
+    contextKey: `${appView}:${phase}:${isLoggedIn ? "live" : "guest"}`,
+    setChatDesktopFontScale,
+  });
+  const { chatFeature } = desktopPresentation;
+  const actionsRef = React.useRef({});
+  actionsRef.current = {
+    appendChatEmoji: chatFeature.appendEmoji,
+    beginChatEditFromMessage: chatFeature.beginEditFromMessage,
+    changeChatDesktopFontScale: desktopPresentation.changeFontScale,
+    clearChatEditTarget: chatFeature.clearEditTarget,
+    clearChatReplyTarget: chatFeature.clearReplyTarget,
+    deleteOwnChatMessage: chatFeature.deleteOwnMessage,
+    focusChatInput: desktopPresentation.focusInput,
+    handleChatInputFocus: desktopPresentation.handleInputFocus,
+    handleChatInputKeyDown: desktopPresentation.handleInputKeyDown,
+    handleDesktopChatScroll: desktopPresentation.handleScroll,
+    openChatRules: () => chatFeature.set("rulesOpen", true),
+    openDesktopChatReactionDetails,
+    openDesktopChatReactionPicker,
+    openUserMenu,
+    prepareDesktopChatInputFocus: desktopPresentation.prepareInputFocus,
+    scheduleCloseDesktopChatReactionDetails,
+    setActiveArea: (value) => chatFeature.set("activeArea", value),
+    setChatInputValue: desktopPresentation.setInputValue,
+    setChatReplyTargetFromMessage: chatFeature.setReplyTargetFromMessage,
+    setChatTab: (value) => chatFeature.set("tab", value),
+    submitChat: chatFeature.submit,
+    toggleBlockedList: () =>
+      chatFeature.set("showBlockedList", (previous) => !previous),
+    toggleDesktopEmojiPicker: () =>
+      chatFeature.set("desktopEmojiPickerOpen", (previous) => !previous),
+    unblockInstallId: (targetInstallId) => {
+      const safeInstallId = String(targetInstallId || "").trim();
+      if (!safeInstallId) return;
+      chatFeature.set("blockedInstallIds", (previous) =>
+        previous.filter((entry) => entry !== safeInstallId)
+      );
+    },
+  };
+  const listRef = desktopPresentation.setListNode;
 
   return (
     <div

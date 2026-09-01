@@ -87,9 +87,7 @@ export default function DesktopGameScene({ runtime }) {
     darkMode,
     defaultTileBaseClass,
     DESKTOP_MAIN_GRID_MIN_HEIGHT,
-    desktopChatActionsRef,
     desktopChatFontPx,
-    desktopChatHelpersRef,
     desktopChatInputFontPx,
     desktopChatInputLineHeightPx,
     desktopChatLineHeightPx,
@@ -177,9 +175,12 @@ export default function DesktopGameScene({ runtime }) {
     ocidStatusMessage,
     ocidSummary,
     ocidVote,
+    openDesktopChatReactionDetails,
+    openDesktopChatReactionPicker,
     openDefinition,
     openPlayerProfile,
     openRoundPlayerModal,
+    openUserMenu,
     openWeeklyStatsOverlay,
     phase,
     praiseOverlay,
@@ -207,6 +208,7 @@ export default function DesktopGameScene({ runtime }) {
     roundStats,
     roundTilePointsVisible,
     safeChatTab,
+    scheduleCloseDesktopChatReactionDetails,
     selfNick,
     selfOcidBluffPanelText,
     selfOcidBluffPoints,
@@ -222,7 +224,7 @@ export default function DesktopGameScene({ runtime }) {
     selfReadyForTournament: selfReadyForTournamentProp,
     serverStatus,
     setActiveArea,
-    setChatDesktopListNode,
+    setChatDesktopFontScale,
     setChatInput,
     setDailyActiveSlot,
     setDesktopGridStageNode,
@@ -1570,7 +1572,7 @@ export default function DesktopGameScene({ runtime }) {
         {/* Colonne 4 : Chat */}
         {!isDailyPlay && (
           <DesktopChatPanel
-            actionsRef={desktopChatActionsRef}
+            appView={appView}
             blockedCount={blockedCount}
             blockedEntries={blockedEntries}
             chatBlockClassName={desktopChatPanelClassName}
@@ -1598,15 +1600,22 @@ export default function DesktopGameScene({ runtime }) {
             desktopChatStyle={desktopChatPanelStyle}
             desktopChatTab={safeChatTab}
             desktopEmojiList={DESKTOP_CHAT_EMOJIS}
-            helpersRef={desktopChatHelpersRef}
             getAuthorNickClassName={getLiveNickClassName}
             installId={installId}
+            isLoggedIn={isLoggedIn}
             isDesktopEmojiPickerOpen={isDesktopEmojiPickerOpen}
             lastMessageId={lastMessageId}
-            listRef={setChatDesktopListNode}
+            openDesktopChatReactionDetails={openDesktopChatReactionDetails}
+            openDesktopChatReactionPicker={openDesktopChatReactionPicker}
+            openUserMenu={openUserMenu}
             panelRef={setDesktopChatColumnNode}
+            phase={phase}
             quickReplies={QUICK_REPLIES}
+            scheduleCloseDesktopChatReactionDetails={
+              scheduleCloseDesktopChatReactionDetails
+            }
             selfNick={selfNick}
+            setChatDesktopFontScale={setChatDesktopFontScale}
             showBlockedList={showBlockedList}
             showBotMessages={showBotMessages}
             onToggleShowBotMessages={() => setShowBotMessages((prev) => !prev)}

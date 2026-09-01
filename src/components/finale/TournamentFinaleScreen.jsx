@@ -2,6 +2,7 @@ import React from "react";
 import IntermissionReturnLabel from "../../features/intermission/IntermissionReturnLabel.jsx";
 import { useChatDraft } from "../../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
+import useDesktopChatPresentationController from "../../features/chat/useDesktopChatPresentationController.js";
 import { getViewportSize } from "../../app/adapters/deviceCapabilities.js";
 import {
   CHAT_DESKTOP_FONT_SCALE_MAX,
@@ -68,10 +69,6 @@ export default function TournamentFinaleScreen({
     clearChatReplyTarget,
     deleteOwnChatMessage,
     getLiveNickClassName,
-    handleChatDesktopFontScaleChange,
-    handleChatInputFocus,
-    handleChatInputKeyDown,
-    handleDesktopChatScroll,
     lastMessageId: lastMessageIdProp,
     openDesktopChatReactionDetails,
     openDesktopChatReactionPicker,
@@ -79,7 +76,7 @@ export default function TournamentFinaleScreen({
     renderBlockedListPanel,
     safeChatTab,
     scheduleCloseDesktopChatReactionDetails,
-    setChatDesktopListNode,
+    setChatDesktopFontScale,
     setChatReplyTargetFromMessage,
     setChatTab,
     setIsChatRulesOpen,
@@ -90,6 +87,20 @@ export default function TournamentFinaleScreen({
   } = chat;
   const { chatInput, setChatInput } = useChatDraft();
   const { lastMessageId, visibleMessages } = useChatPresentation();
+  const desktopChatPresentation = useDesktopChatPresentationController({
+    chatDesktopFontScale,
+    chatInputRef,
+    contextKey: "tournament-finale",
+    enabled: !isMobileLayout,
+    setChatDesktopFontScale,
+  });
+  const {
+    changeFontScale: handleChatDesktopFontScaleChange,
+    handleInputFocus: handleChatInputFocus,
+    handleInputKeyDown: handleChatInputKeyDown,
+    handleScroll: handleDesktopChatScroll,
+    setListNode: setChatDesktopListNode,
+  } = desktopChatPresentation;
   const {
     FINALE_WEEKLY_BOARDS,
     TOURNAMENT_TOTAL_ROUNDS,
