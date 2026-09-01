@@ -270,6 +270,7 @@ import {
   stripBoardBonuses,
 } from "./components/daily/dailySpecialModel.js";
 import HomeLobby from "./components/home/HomeLobby.jsx";
+import HomeApplicationRuntime from "./features/home/HomeApplicationRuntime.jsx";
 import { pickVaultWordOfDayCandidates } from "./components/home/vaultWordCandidates.js";
 import useHomeLobbyActions from "./components/home/useHomeLobbyActions.js";
 import GridTileLetter from "./components/GridTileLetter.jsx";
@@ -7840,14 +7841,6 @@ export default function GobbleApplication() {
   }, []);
 
   useEffect(() => {
-    return refreshFeature.schedule("broadcast-notice", {
-      enabled: phase !== "playing",
-      intervalMs: 45000,
-      run: fetchBroadcastNotice,
-    });
-  }, [phase]);
-
-  useEffect(() => {
     if (!popupAudienceKey) {
       setPopupDistinctVisitDays(0);
       return;
@@ -8245,23 +8238,6 @@ export default function GobbleApplication() {
   }, [installId, isDailyView]);
 
   useEffect(() => {
-    const onRoomsStats = (payload) => {
-      setRoomsStats(Array.isArray(payload) ? payload : []);
-    };
-    socket.on("roomsStats", onRoomsStats);
-    return () => socket.off("roomsStats", onRoomsStats);
-  }, []);
-
-  useEffect(() => {
-    return refreshFeature.schedule("lobby-players", {
-      connection: socket,
-      enabled: !isLoggedIn,
-      intervalMs: appView === "home" ? 6000 : 0,
-      run: fetchLobbyPlayers,
-    });
-  }, [appView, isLoggedIn, roomId]);
-
-  useEffect(() => {
     if (isLoggedIn) {
       setHomeChatUnreadCount(0);
       setHomeChatBotUnreadCount(0);
@@ -8274,13 +8250,6 @@ export default function GobbleApplication() {
       };
     }
   }, [isLoggedIn, isHomeChatOpen]);
-
-  useEffect(() => {
-    if (isLoggedIn) return;
-    if (appView !== "home") return;
-    if (!isAccountAuthenticated) return;
-    fetchDailyStatus();
-  }, [isLoggedIn, appView, isAccountAuthenticated, installId]);
 
   useEffect(() => {
     const isHomeLobbyView = !isLoggedIn && appView === "home";
@@ -16050,6 +16019,19 @@ function handleTouchEnd(e) {
 
     return (
       <>
+        {appView === "home" ? (
+          <HomeApplicationRuntime
+            connection={socket}
+            fetchBroadcastNotice={fetchBroadcastNotice}
+            fetchDailyStatus={fetchDailyStatus}
+            fetchLobbyPlayers={fetchLobbyPlayers}
+            installId={installId}
+            isAccountAuthenticated={isAccountAuthenticated}
+            refreshScheduler={refreshFeature}
+            roomId={roomId}
+            setRoomsStats={setRoomsStats}
+          />
+        ) : null}
         {teamTintOverlay}
         {duelPopupOverlay}
         {duelWeekRecapOverlay}
