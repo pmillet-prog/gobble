@@ -17,6 +17,18 @@ function createMemoryStorage() {
   };
 }
 
+function createCommandSocket(responses = {}) {
+  const emissions = [];
+  return {
+    connected: true,
+    emit(eventName, payload, acknowledge) {
+      emissions.push({ eventName, payload });
+      acknowledge?.(responses[eventName] || { ok: true });
+    },
+    emissions,
+  };
+}
+
 test("chat persistence ignores transient input and unread state", () => {
   const storage = createMemoryStorage();
   const scope = createResourceScope("chat-test");
@@ -166,4 +178,151 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
 
   scope.dispose();
   assert.equal(handlers.size, 0);
+});
+
+test("chat feature owns draft targets, send history and guest payloads", () => {
+  const scope = createResourceScope("chat-command-guest-test");
+  const socket = createCommandSocket();
+  const chat = createChatFeature(
+    { scope },
+    { storage: createMemoryStorage() }
+  );
+  const connectionErrors = [];
+  let focusCount = 0;
+  chat.configureCommands({
+    ensureAuthenticated: () => true,
+    installIdRef: { current: "install-self" },
+    isLoggedInRef: { current: false },
+    nicknameRef: { current: "Tigre" },
+    onFocusInput: () => {
+      focusCount += 1;
+    },
+    roomIdRef: { current: "room-test" },
+    setConnectionError: (message) => connectionErrors.push(message),
+    socket,
+  });
+  chat.start();
+  chat.patch({ rulesAccepted: true, tab: "system" });
+
+  chat.appendEmoji("👍");
+  assert.equal(chat.store.getState().input, "👍");
+
+  chat.setReplyTargetFromMessage({
+    createdAt: 123,
+    id: "message-other",
+    installId: "install-other",
+    nick: "Autre",
+    text: "Question",
+  });
+  assert.equal(chat.store.getState().tab, "messages");
+  assert.deepEqual(chat.store.getState().replyTarget, {
+    id: "message-other",
+    installId: "install-other",
+    nick: "Autre",
+    text: "Question",
+    t: 123,
+  });
+
+  chat.set("input", "Réponse");
+  assert.equal(chat.submit(null), true);
+  assert.deepEqual(socket.emissions, [
+    {
+      eventName: "chat:send",
+      payload: {
+        installId: "install-self",
+        lobby: true,
+        nick: "Tigre",
+        replyTo: {
+          id: "message-other",
+          installId: "install-other",
+          nick: "Autre",
+          text: "Question",
+          t: 123,
+        },
+        roomId: "room-test",
+        text: "Réponse",
+      },
+    },
+  ]);
+  assert.equal(chat.store.getState().input, "");
+  assert.equal(chat.store.getState().replyTarget, null);
+  assert.deepEqual(connectionErrors, [""]);
+
+  chat.cycleHistory(-1);
+  assert.equal(chat.store.getState().input, "Réponse");
+  chat.cycleHistory(1);
+  assert.equal(chat.store.getState().input, "");
+  assert.ok(focusCount >= 4);
+
+  scope.dispose();
+});
+
+test("chat feature owns authenticated edit, reaction and delete commands", () => {
+  const scope = createResourceScope("chat-command-auth-test");
+  const socket = createCommandSocket({
+    "chat:delete": { error: "forbidden", ok: false },
+    "chat:react": { error: "invalid_emoji", ok: false },
+  });
+  const chat = createChatFeature(
+    { scope },
+    { storage: createMemoryStorage() }
+  );
+  const toasts = [];
+  chat.configureCommands({
+    ensureAuthenticated: () => true,
+    installIdRef: { current: "install-self" },
+    isLoggedInRef: { current: true },
+    nicknameRef: { current: "Tigre" },
+    roomIdRef: { current: "room-test" },
+    setConnectionError: () => {},
+    showToast: (message) => toasts.push(message),
+    socket,
+  });
+  chat.start();
+  chat.set("rulesAccepted", true);
+
+  const ownMessage = {
+    id: "message-self",
+    installId: "install-self",
+    text: "Avant",
+  };
+  chat.beginEditFromMessage(ownMessage);
+  assert.deepEqual(chat.store.getState().editTarget, {
+    id: "message-self",
+    text: "Avant",
+  });
+  chat.set("input", "Après");
+  assert.equal(chat.submit(null), true);
+  chat.sendReaction("message-other", "👍");
+  chat.deleteOwnMessage(ownMessage);
+
+  assert.deepEqual(socket.emissions, [
+    {
+      eventName: "chat:edit",
+      payload: {
+        messageId: "message-self",
+        roomId: "room-test",
+        text: "Après",
+      },
+    },
+    {
+      eventName: "chat:react",
+      payload: {
+        emoji: "👍",
+        messageId: "message-other",
+        roomId: "room-test",
+      },
+    },
+    {
+      eventName: "chat:delete",
+      payload: {
+        messageId: "message-self",
+        roomId: "room-test",
+      },
+    },
+  ]);
+  assert.equal(chat.store.getState().editTarget, null);
+  assert.deepEqual(toasts, ["Réaction indisponible", "Suppression refusée"]);
+
+  scope.dispose();
 });

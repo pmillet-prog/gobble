@@ -287,8 +287,6 @@ import {
   isSystemAuthor,
   isSystemChatMessage,
   normalizeChatMessageShape,
-  normalizeChatReplyPreview,
-  normalizeLegacyChatEmoticons,
   patchChatMessageById,
   patchChatMessageReactions,
   readStoredChatMessages,
@@ -597,7 +595,6 @@ const DEFAULT_CHAT_FULL_VISIBLE_LINES = 9;
 const CHAT_MIN_VISIBLE_LINES = 8;
 const CHAT_MAX_VISIBLE_LINES = 40;
 const DESKTOP_CHAT_BOTTOM_EPSILON_PX = 28;
-const CHAT_MIN_DELAY = 600;
 const CHAT_DRAWER_ANIM_MS = 420;
 const DISCONNECT_GRACE_MS = 30 * 1000;
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
@@ -1750,12 +1747,10 @@ export default function GobbleApplication() {
         setActiveArea: "activeArea",
         setBlockedInstallIds: "blockedInstallIds",
         setChatBotVisibility: "botVisibility",
-        setChatEditTarget: "editTarget",
         setChatInput: "input",
         setChatKeyboardInsetPx: "keyboardInsetPx",
         setChatMessages: "messages",
         setChatOpenedAtMs: "mobileChatOpenedAtMs",
-        setChatReplyTarget: "replyTarget",
         setChatRulesAccepted: "rulesAccepted",
         setChatTab: "tab",
         setChatViewportHeight: "viewportHeight",
@@ -1897,12 +1892,10 @@ export default function GobbleApplication() {
     setActiveArea,
     setBlockedInstallIds,
     setChatBotVisibility,
-    setChatEditTarget,
     setChatInput,
     setChatKeyboardInsetPx,
     setChatMessages,
     setChatOpenedAtMs,
-    setChatReplyTarget,
     setChatRulesAccepted,
     setChatTab,
     setChatViewportHeight,
@@ -2002,7 +1995,6 @@ export default function GobbleApplication() {
     chatDrawerCalibrationRef,
     chatDrawerSessionCalibrationRef,
     chatInputRef,
-    chatInputValueRef,
     chatRulesConfirmRef,
     gameViewportFreezeHeightRef,
     isChatClosingRef,
@@ -2751,12 +2743,6 @@ export default function GobbleApplication() {
     syncChatMessagesRef();
     return chatFeature.store.subscribe(syncChatMessagesRef);
   }, [chatFeature]);
-  useEffect(() => {
-    chatReplyTargetRef.current = chatReplyTarget;
-  }, [chatReplyTarget]);
-  useEffect(() => {
-    chatEditTargetRef.current = chatEditTarget;
-  }, [chatEditTarget]);
   const roundPlayerAnchorElementRef = useRef(null);
   const roundPlayerAnchorNickRef = useRef("");
   const handleVocabOverlayVisibilityChange = React.useCallback((open) => {
@@ -3160,14 +3146,9 @@ export default function GobbleApplication() {
   const isHomeChatOpenRef = useRef(false);
   const wordHistoryRef = useRef([]);
   const wordHistoryIndexRef = useRef(-1);
-  const chatHistoryRef = useRef([]);
-  const chatHistoryIndexRef = useRef(-1);
   const solutionsRef = useRef(new Map());
   const serverAllWordsRef = useRef([]);
   const gridSolutionsScheduler = useGridSolutionsScheduler();
-  const chatLastSentRef = useRef(0);
-  const chatReplyTargetRef = useRef(null);
-  const chatEditTargetRef = useRef(null);
   const gobblarToastDelayTimersRef = useRef(new Set());
   const gridShakeTimerRef = useRef(null);
   const gridShakeAnimationRef = useRef(null);
@@ -7485,30 +7466,6 @@ export default function GobbleApplication() {
     loadWordFromHistory(hist[idx]);
   }
 
-  function pushChatHistory(text) {
-    if (!text) return;
-    const hist = chatHistoryRef.current;
-    if (hist[0] !== text) {
-      chatHistoryRef.current = [text, ...hist].slice(0, 50);
-    }
-    chatHistoryIndexRef.current = -1;
-  }
-
-  function cycleChatHistory(direction) {
-    const hist = chatHistoryRef.current;
-    if (!hist.length) return;
-    let idx = chatHistoryIndexRef.current;
-    if (direction < 0) {
-      idx = idx === -1 ? 0 : Math.min(hist.length - 1, idx + 1);
-    } else if (direction > 0) {
-      idx = idx === -1 ? -1 : idx - 1;
-    }
-    chatHistoryIndexRef.current = idx;
-    const nextValue = idx === -1 ? "" : hist[idx] || "";
-    setChatInput(nextValue);
-    focusChatInput();
-  }
-
   function normalizeUserIdForProfile(raw) {
     const safeUserId = Number(raw);
     return Number.isInteger(safeUserId) && safeUserId > 0 ? safeUserId : null;
@@ -7676,6 +7633,31 @@ export default function GobbleApplication() {
     notifications: { showToast },
     resources: chatInteractionResources,
   });
+
+  useEffect(() => {
+    chatFeature.configureCommands({
+      ensureAuthenticated,
+      installIdRef,
+      isLoggedInRef,
+      nicknameRef,
+      onFocusInput: focusChatInput,
+      roomIdRef,
+      setConnectionError,
+      showToast,
+      socket,
+      subscribeLobbyChat,
+    });
+  });
+
+  const appendChatEmoji = chatFeature.appendEmoji;
+  const beginChatEditFromMessage = chatFeature.beginEditFromMessage;
+  const clearChatEditTarget = chatFeature.clearEditTarget;
+  const clearChatReplyTarget = chatFeature.clearReplyTarget;
+  const cycleChatHistory = chatFeature.cycleHistory;
+  const deleteOwnChatMessage = chatFeature.deleteOwnMessage;
+  const sendChatReaction = chatFeature.sendReaction;
+  const setChatReplyTargetFromMessage = chatFeature.setReplyTargetFromMessage;
+  const submitChat = chatFeature.submit;
 
   const liveResumeFeature = useLiveResumeFeature({
     appViewRef,
@@ -8377,18 +8359,6 @@ function handleTouchEnd(e) {
   }, []);
 
   // Chat
-  function appendChatEmoji(emoji) {
-    const value = String(emoji || "").trim();
-    if (!value || chatInputDisabled) return;
-    setChatInput((prev) => {
-      const base = String(prev || "");
-      if (!base) return value;
-      return /\s$/.test(base) ? `${base}${value}` : `${base} ${value}`;
-    });
-    setActiveArea("chat");
-    focusChatInput();
-  }
-
   function focusChatInput(options = {}) {
     const el = chatInputRef.current;
     if (!el) return;
@@ -8410,133 +8380,6 @@ function handleTouchEnd(e) {
     restoreDesktopChatAfterInputFocus(wasAtBottom);
   }
 
-  function setChatReplyTargetFromMessage(message) {
-    if (!message || typeof message !== "object") return;
-    if (isSystemChatMessage(message)) return;
-    const replyTo = normalizeChatReplyPreview({
-      id: message.id,
-      nick: message.nick || message.author || "Anonyme",
-      installId: message.installId || null,
-      text: message.text || "",
-      t: message.t ?? message.ts ?? message.timestamp ?? message.createdAt,
-    });
-    if (!replyTo) return;
-    if (safeChatTab !== "messages") {
-      setChatTab("messages");
-    }
-    setChatEditTarget(null);
-    setChatReplyTarget(replyTo);
-    setActiveArea("chat");
-    focusChatInput();
-  }
-
-  function clearChatReplyTarget() {
-    setChatReplyTarget(null);
-  }
-
-  function beginChatEditFromMessage(message) {
-    if (!message || typeof message !== "object") return;
-    if (isSystemChatMessage(message)) return;
-    const messageId = typeof message.id === "string" ? message.id.trim() : "";
-    const authorInstallId =
-      typeof message.installId === "string" ? message.installId.trim() : "";
-    if (!messageId || !authorInstallId || authorInstallId !== installId) return;
-    const text = String(message.text || "");
-    setChatReplyTarget(null);
-    setChatEditTarget({ id: messageId, text });
-    setChatInput(text);
-    setActiveArea("chat");
-    focusChatInput();
-  }
-
-  function clearChatEditTarget() {
-    setChatEditTarget(null);
-  }
-
-  function deleteOwnChatMessage(message) {
-    if (!message || typeof message !== "object") return;
-    if (!ensureAuthenticated({ source: "chat" })) return;
-    const messageId = typeof message.id === "string" ? message.id.trim() : "";
-    const authorInstallId =
-      typeof message.installId === "string" ? message.installId.trim() : "";
-    if (!messageId || !authorInstallId || authorInstallId !== installId) return;
-    if (!socket.connected) {
-      setConnectionError("Connecte-toi au serveur pour supprimer un message.");
-      return;
-    }
-    const payload = {
-      messageId,
-      roomId: roomIdRef.current || getDefaultRoomId(),
-    };
-    if (!isLoggedInRef.current) {
-      const nickForLobby = (nicknameRef.current || nickname || "").trim();
-      if (!nickForLobby) {
-        setConnectionError("Choisis un pseudo pour discuter.");
-        return;
-      }
-      payload.nick = nickForLobby;
-      payload.installId = installId;
-      payload.lobby = true;
-    }
-    socket.emit("chat:delete", payload, (res) => {
-      if (res?.ok) return;
-      if (res?.error === "forbidden") {
-        showToast("Suppression refusée");
-      } else {
-        showToast("Suppression impossible");
-      }
-    });
-  }
-
-  function sendChatReaction(messageId, emoji) {
-    const safeMessageId = typeof messageId === "string" ? messageId.trim() : "";
-    const safeEmoji = typeof emoji === "string" ? emoji.trim() : "";
-    if (!safeMessageId || !safeEmoji) return;
-    if (!ensureAuthenticated({ source: "chat" })) return;
-    if (!chatRulesAccepted) {
-      setIsChatRulesOpen(true);
-      return;
-    }
-    if (!socket.connected) {
-      if (!isLoggedInRef.current) {
-        subscribeLobbyChat();
-        setConnectionError("Connexion au serveur...");
-      } else {
-        setConnectionError("Connecte-toi au serveur pour réagir.");
-      }
-      return;
-    }
-
-    const payload = {
-      messageId: safeMessageId,
-      emoji: safeEmoji,
-      roomId: roomIdRef.current || getDefaultRoomId(),
-    };
-    if (!isLoggedInRef.current) {
-      const nickForLobby = (nicknameRef.current || nickname || "").trim();
-      if (!nickForLobby) {
-        setConnectionError("Choisis un pseudo pour discuter.");
-        return;
-      }
-      payload.nick = nickForLobby;
-      payload.installId = installId;
-      payload.lobby = true;
-    }
-
-    socket.emit("chat:react", payload, (res) => {
-      if (res?.ok) return;
-      if (res?.error === "muted") {
-        showToast("Chat temporairement bloqué");
-      } else if (res?.error === "empty_nick") {
-        setConnectionError("Choisis un pseudo pour discuter.");
-      } else if (res?.error === "invalid_emoji") {
-        showToast("Réaction indisponible");
-      } else if (res?.error === "message_not_found") {
-        showToast("Message introuvable");
-      }
-    });
-  }
-
   function autoResizeDesktopChatInput(el = chatInputRef.current) {
     const node = el;
     if (!node || node.tagName !== "TEXTAREA") return;
@@ -8544,109 +8387,6 @@ function handleTouchEnd(e) {
     const nextHeight = Math.min(node.scrollHeight, 140);
     node.style.height = `${Math.max(40, nextHeight)}px`;
     node.style.overflowY = node.scrollHeight > 140 ? "auto" : "hidden";
-  }
-
-  function submitChat(e, forcedText = null) {
-    if (e) e.preventDefault();
-    const text = normalizeLegacyChatEmoticons(
-      forcedText ?? chatInputValueRef.current
-    ).trim();
-    if (!text) return false;
-    if (!ensureAuthenticated({ source: "chat" })) return false;
-    if (!chatRulesAccepted) {
-      setIsChatRulesOpen(true);
-      return false;
-    }
-
-    if (!socket.connected) {
-      if (!isLoggedInRef.current) {
-        subscribeLobbyChat();
-        setConnectionError("Connexion au serveur...");
-      } else {
-        setConnectionError("Connecte-toi au serveur pour envoyer un message.");
-      }
-      return false;
-    }
-
-    const now = Date.now();
-    if (now - chatLastSentRef.current < CHAT_MIN_DELAY) return false;
-    chatLastSentRef.current = now;
-
-    const activeEdit = chatEditTargetRef.current;
-    const editMessageId = typeof activeEdit?.id === "string" ? activeEdit.id.trim() : "";
-    const replyToPayload = editMessageId
-      ? null
-      : normalizeChatReplyPreview(chatReplyTargetRef.current);
-    let payload = text;
-    if (editMessageId) {
-      payload = {
-        messageId: editMessageId,
-        text,
-        roomId: roomIdRef.current || getDefaultRoomId(),
-      };
-      if (!isLoggedInRef.current) {
-        const nickForLobby = (nicknameRef.current || nickname || "").trim();
-        if (!nickForLobby) {
-          setConnectionError("Choisis un pseudo pour discuter.");
-          return false;
-        }
-        payload.nick = nickForLobby;
-        payload.installId = installId;
-        payload.lobby = true;
-      }
-    } else if (!isLoggedInRef.current) {
-      const nickForLobby = (nicknameRef.current || nickname || "").trim();
-      if (!nickForLobby) {
-        setConnectionError("Choisis un pseudo pour discuter.");
-        return false;
-      }
-      payload = {
-        text,
-        roomId: roomIdRef.current || getDefaultRoomId(),
-        nick: nickForLobby,
-        installId,
-        lobby: true,
-      };
-      if (replyToPayload) {
-        payload.replyTo = replyToPayload;
-      }
-    } else if (replyToPayload) {
-      payload = {
-        text,
-        replyTo: replyToPayload,
-      };
-    }
-
-    const replyTargetIdAtSend = replyToPayload?.id || "";
-    const eventName = editMessageId ? "chat:edit" : "chat:send";
-    socket.emit(eventName, payload, (res) => {
-      if (!res?.ok) {
-        if (res?.error === "muted") {
-          showToast("Chat temporairement bloqué");
-        } else if (res?.error === "rate_limited") {
-          const retrySec = Math.max(1, Math.ceil((Number(res.retryMs) || 0) / 1000));
-          showToast(`Trop de messages. Réessaie dans ${retrySec} s.`);
-        } else if (res?.error === "empty_nick") {
-          setConnectionError("Choisis un pseudo pour discuter.");
-        } else {
-          setConnectionError("Message non envoyé");
-        }
-      } else {
-        setConnectionError("");
-        if (editMessageId && chatEditTargetRef.current?.id === editMessageId) {
-          setChatEditTarget(null);
-        }
-        if (replyTargetIdAtSend && chatReplyTargetRef.current?.id === replyTargetIdAtSend) {
-          setChatReplyTarget(null);
-        }
-      }
-    });
-
-    if (!editMessageId) {
-      pushChatHistory(text);
-    }
-    if (!forcedText) setChatInput("");
-    return true;
   }
 
   function setTournamentReady(nextReady) {
