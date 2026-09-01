@@ -103,21 +103,12 @@ import {
 import { VIEWPORT_EVENTS } from "./features/layout/createViewportEventHub.js";
 import useMobileLayoutController from "./features/layout/useMobileLayoutController.js";
 import {
-  DAILY_DESKTOP_COLUMN_DEFAULT_FRACTIONS,
   DAILY_DESKTOP_COLUMN_DEFS,
-  DAILY_DESKTOP_COLUMN_MIN_WIDTHS_PX,
   DAILY_DESKTOP_COLUMN_TEMPLATE,
-  DESKTOP_COLUMN_DEFAULT_FRACTIONS,
-  DESKTOP_COLUMN_MIN_WIDTHS_PX,
   GRID_COL_TEMPLATE,
   LIVE_DESKTOP_COLUMN_DEFS,
-  areDesktopFractionsEqual,
   normalizeDesktopColumnFractions,
   normalizeDesktopColumnOrder,
-  readDesktopColumnFractionsForInstall,
-  readDesktopColumnOrderForInstall,
-  writeDesktopColumnFractionsForInstall,
-  writeDesktopColumnOrderForInstall,
 } from "./app/adapters/desktopLayoutStorage.js";
 import {
   CHAT_DRAWER_CALIBRATION_MAX_RATIO,
@@ -3522,31 +3513,11 @@ export default function GobbleApplication() {
     onEvent: pushSamsungDiagEvent,
     onTileEnter: handleMouseEnter,
   });
-  const desktopGridResizeMaxTrackWidthRef = useRef(Number.POSITIVE_INFINITY);
   const mobileSpecial3TutorialHostRef = useRef(null);
   const mobileSpecial3FirstSlotRef = useRef(null);
   const mobileSpecial3SecondSlotRef = useRef(null);
   const mobileSpecial3GridWrapRef = useRef(null);
   const mobileSpecial3BonusTrayRef = useRef(null);
-  const desktopColumnOrderHydratedInstallIdRef = useRef("");
-  const desktopColumnOrderPersistSignatureRef = useRef("");
-  const desktopColumnOrderRef = useRef(desktopColumnOrder);
-  const desktopColumnNodeMapRef = useRef(new Map());
-  const desktopColumnGhostNodeRef = useRef(null);
-  const desktopColumnGhostOffsetRef = useRef({ x: 0, y: 0 });
-  const desktopColumnPointerDragRef = useRef({
-    active: false,
-    pointerId: null,
-    pointerTarget: null,
-    lastClientX: null,
-    lastSwapDirection: null,
-    lastSwapClientX: null,
-    moveHandler: null,
-    upHandler: null,
-  });
-  const desktopColumnFractionsRef = useRef(desktopColumnFractions);
-  const desktopColumnFractionsHydratedInstallIdRef = useRef("");
-  const desktopColumnFractionsPersistSignatureRef = useRef("");
   const desktopColumnOrderSafe = React.useMemo(
     () => normalizeDesktopColumnOrder(desktopColumnOrder, desktopColumnBaseDefs),
     [desktopColumnOrder, desktopColumnBaseDefs]
@@ -3566,366 +3537,6 @@ export default function GobbleApplication() {
     () => desktopColumnDefsByOrder.map((entry) => entry.minWidthPx),
     [desktopColumnDefsByOrder]
   );
-  const desktopColumnOrderIndexById = React.useMemo(
-    () => new Map(desktopColumnOrderSafe.map((id, idx) => [id, idx + 1])),
-    [desktopColumnOrderSafe]
-  );
-  const desktopColumnHandleLabels = React.useMemo(
-    () =>
-      new Map([
-        ["players", "joueurs"],
-        ["grid", "grille"],
-        ["side", "score et résultats"],
-        ["chat", "chat"],
-      ]),
-    []
-  );
-  const areDesktopColumnOrdersEqual = React.useCallback((left, right) => {
-    if (left === right) return true;
-    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
-    for (let index = 0; index < left.length; index += 1) {
-      if (left[index] !== right[index]) return false;
-    }
-    return true;
-  }, []);
-  const setDesktopColumnNode = React.useCallback((columnId, node) => {
-    const id = String(columnId || "").trim();
-    if (!id) return;
-    if (node) desktopColumnNodeMapRef.current.set(id, node);
-    else desktopColumnNodeMapRef.current.delete(id);
-  }, []);
-  const clearDesktopColumnDragState = React.useCallback(() => {
-    const dragState = desktopColumnPointerDragRef.current;
-    if (dragState.moveHandler) {
-      window.removeEventListener("pointermove", dragState.moveHandler);
-      dragState.moveHandler = null;
-    }
-    if (dragState.upHandler) {
-      window.removeEventListener("pointerup", dragState.upHandler);
-      window.removeEventListener("pointercancel", dragState.upHandler);
-      dragState.upHandler = null;
-    }
-    if (typeof document !== "undefined" && document.body) {
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-    }
-    dragState.active = false;
-    if (
-      dragState.pointerTarget &&
-      dragState.pointerId != null &&
-      typeof dragState.pointerTarget.releasePointerCapture === "function"
-    ) {
-      try {
-        dragState.pointerTarget.releasePointerCapture(dragState.pointerId);
-      } catch (_) {}
-    }
-    dragState.pointerId = null;
-    dragState.pointerTarget = null;
-    dragState.lastClientX = null;
-    dragState.lastSwapDirection = null;
-    dragState.lastSwapClientX = null;
-    if (desktopColumnGhostNodeRef.current?.parentNode) {
-      desktopColumnGhostNodeRef.current.parentNode.removeChild(desktopColumnGhostNodeRef.current);
-    }
-    desktopColumnGhostNodeRef.current = null;
-    setDesktopColumnDragId(null);
-  }, []);
-  const computeDesktopColumnOrderForPointer = React.useCallback(
-    (dragId, clientX, movingLeft) => {
-      const sourceId = String(dragId || "").trim();
-      if (!sourceId) {
-        return normalizeDesktopColumnOrder(desktopColumnOrderRef.current, desktopColumnBaseDefs);
-      }
-      const current = normalizeDesktopColumnOrder(desktopColumnOrderRef.current, desktopColumnBaseDefs);
-      const sourceIndex = current.indexOf(sourceId);
-      if (sourceIndex < 0) {
-        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-      }
-      const sourceRect = desktopColumnNodeMapRef.current.get(sourceId)?.getBoundingClientRect?.();
-      if (
-        !sourceRect ||
-        !Number.isFinite(sourceRect.left) ||
-        !Number.isFinite(sourceRect.right)
-      ) {
-        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-      }
-      if (movingLeft) {
-        if (sourceIndex <= 0) return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-        const previousId = current[sourceIndex - 1];
-        const previousRect =
-          desktopColumnNodeMapRef.current.get(previousId)?.getBoundingClientRect?.();
-        if (
-          !previousRect ||
-          !Number.isFinite(previousRect.right) ||
-          !Number.isFinite(previousRect.left)
-        ) {
-          return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-        }
-        const separatorX = (previousRect.right + sourceRect.left) / 2;
-        if (clientX >= separatorX) {
-          return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-        }
-        const next = [...current];
-        next[sourceIndex - 1] = sourceId;
-        next[sourceIndex] = previousId;
-        return normalizeDesktopColumnOrder(next, desktopColumnBaseDefs);
-      }
-      if (sourceIndex >= current.length - 1) {
-        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-      }
-      const nextId = current[sourceIndex + 1];
-      const nextRect = desktopColumnNodeMapRef.current.get(nextId)?.getBoundingClientRect?.();
-      if (!nextRect || !Number.isFinite(nextRect.left) || !Number.isFinite(nextRect.right)) {
-        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-      }
-      const separatorX = (sourceRect.right + nextRect.left) / 2;
-      if (clientX <= separatorX) {
-        return normalizeDesktopColumnOrder(current, desktopColumnBaseDefs);
-      }
-      const next = [...current];
-      next[sourceIndex] = nextId;
-      next[sourceIndex + 1] = sourceId;
-      return normalizeDesktopColumnOrder(next, desktopColumnBaseDefs);
-    },
-    [desktopColumnBaseDefs]
-  );
-  const handleDesktopColumnPointerDown = React.useCallback(
-    (event, columnId, label) => {
-      if (isMobileLayoutRef.current) return;
-      if (event.button !== 0) return;
-      const id = String(columnId || "").trim();
-      if (!id) return;
-      const node = desktopColumnNodeMapRef.current.get(id);
-      const rect = node?.getBoundingClientRect?.();
-      if (!rect || rect.width <= 0 || rect.height <= 0) return;
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      clearDesktopColumnDragState();
-      if (typeof document !== "undefined" && document.body) {
-        document.body.style.userSelect = "none";
-        document.body.style.cursor = "grabbing";
-      }
-      const ghostNode =
-        typeof document !== "undefined" ? node.cloneNode(true) : null;
-      if (ghostNode instanceof HTMLElement && typeof document !== "undefined") {
-        ghostNode.setAttribute("aria-hidden", "true");
-        ghostNode.style.position = "fixed";
-        ghostNode.style.left = "0";
-        ghostNode.style.top = "0";
-        ghostNode.style.width = `${rect.width}px`;
-        ghostNode.style.height = `${rect.height}px`;
-        ghostNode.style.margin = "0";
-        ghostNode.style.pointerEvents = "none";
-        ghostNode.style.zIndex = "120";
-        ghostNode.style.overflow = "hidden";
-        ghostNode.style.opacity = "0.92";
-        ghostNode.style.boxShadow = "0 24px 54px rgba(15, 23, 42, 0.28)";
-        ghostNode.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) rotate(1deg)`;
-        ghostNode.style.willChange = "transform";
-        ghostNode.style.borderColor = "rgba(59,130,246,0.72)";
-        ghostNode.style.transition = "none";
-        document.body.appendChild(ghostNode);
-        desktopColumnGhostNodeRef.current = ghostNode;
-      }
-      desktopColumnGhostOffsetRef.current = {
-        x: Math.max(0, event.clientX - rect.left),
-        y: Math.max(0, event.clientY - rect.top),
-      };
-      setDesktopColumnDragId(id);
-      const dragState = desktopColumnPointerDragRef.current;
-      dragState.active = true;
-      dragState.pointerId = event.pointerId;
-      dragState.pointerTarget = event.currentTarget || null;
-      if (
-        dragState.pointerTarget &&
-        dragState.pointerId != null &&
-        typeof dragState.pointerTarget.setPointerCapture === "function"
-      ) {
-        try {
-          dragState.pointerTarget.setPointerCapture(dragState.pointerId);
-        } catch (_) {}
-      }
-      dragState.lastClientX = Number.isFinite(event.clientX) ? event.clientX : null;
-      dragState.lastSwapDirection = null;
-      dragState.lastSwapClientX = null;
-      dragState.moveHandler = (moveEvent) => {
-        if (!desktopColumnPointerDragRef.current.active) return;
-        const clientX = Number(moveEvent.clientX);
-        const clientY = Number(moveEvent.clientY);
-        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
-        const previousClientX = desktopColumnPointerDragRef.current.lastClientX;
-        const deltaX = Number.isFinite(previousClientX) ? clientX - previousClientX : 0;
-        const movingLeft =
-          Number.isFinite(previousClientX) && deltaX < -0.5;
-        const movingRight =
-          Number.isFinite(previousClientX) && deltaX > 0.5;
-        desktopColumnPointerDragRef.current.lastClientX = clientX;
-        const ghost = desktopColumnGhostNodeRef.current;
-        if (ghost) {
-          ghost.style.transform = `translate3d(${
-            clientX - desktopColumnGhostOffsetRef.current.x
-          }px, ${clientY - desktopColumnGhostOffsetRef.current.y}px, 0) rotate(1deg)`;
-        }
-        if (!movingLeft && !movingRight) return;
-        const direction = movingLeft ? "left" : "right";
-        const lastSwapDirection = desktopColumnPointerDragRef.current.lastSwapDirection;
-        const lastSwapClientX = desktopColumnPointerDragRef.current.lastSwapClientX;
-        if (
-          lastSwapDirection &&
-          lastSwapDirection !== direction &&
-          Number.isFinite(lastSwapClientX) &&
-          Math.abs(clientX - lastSwapClientX) < 14
-        ) {
-          return;
-        }
-        const currentOrder = normalizeDesktopColumnOrder(
-          desktopColumnOrderRef.current,
-          desktopColumnBaseDefs
-        );
-        const nextOrder = computeDesktopColumnOrderForPointer(id, clientX, movingLeft);
-        const didSwap = !areDesktopColumnOrdersEqual(currentOrder, nextOrder);
-        if (didSwap) {
-          desktopColumnOrderRef.current = nextOrder;
-          desktopColumnPointerDragRef.current.lastSwapDirection = direction;
-          desktopColumnPointerDragRef.current.lastSwapClientX = clientX;
-        }
-        setDesktopColumnOrder((prev) => {
-          const normalizedPrev = normalizeDesktopColumnOrder(prev, desktopColumnBaseDefs);
-          return areDesktopColumnOrdersEqual(normalizedPrev, nextOrder) ? prev : nextOrder;
-        });
-      };
-      dragState.upHandler = () => {
-        clearDesktopColumnDragState();
-      };
-      window.addEventListener("pointermove", dragState.moveHandler);
-      window.addEventListener("pointerup", dragState.upHandler);
-      window.addEventListener("pointercancel", dragState.upHandler);
-    },
-    [
-      areDesktopColumnOrdersEqual,
-      clearDesktopColumnDragState,
-      computeDesktopColumnOrderForPointer,
-      desktopColumnBaseDefs,
-    ]
-  );
-  const renderDesktopColumnHandle = React.useCallback(
-    (columnId, label) => {
-      if (isMobileLayout) return null;
-      const isDragging = desktopColumnDragId === columnId;
-      return (
-        <button
-          type="button"
-          onPointerDown={(event) => handleDesktopColumnPointerDown(event, columnId, label)}
-          className={`pointer-events-auto touch-none inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border px-2 shadow-sm transition ${
-            isDragging
-              ? "border-blue-500/80 bg-blue-600/85 text-white"
-              : darkMode
-              ? "border-slate-600/80 bg-slate-900/72 text-slate-100 hover:bg-slate-800/85"
-              : "border-slate-300/85 bg-white/72 text-slate-600 hover:bg-white/88"
-          }`}
-          style={{ touchAction: "none" }}
-          aria-label={`Déplacer la colonne ${label}`}
-          title={`Déplacer la colonne ${label}`}
-        >
-          <span className="flex flex-col gap-[3px]" aria-hidden="true">
-            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
-            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
-            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
-          </span>
-        </button>
-      );
-    },
-    [
-      darkMode,
-      desktopColumnDragId,
-      handleDesktopColumnPointerDown,
-      isMobileLayout,
-    ]
-  );
-  useEffect(() => {
-    desktopColumnOrderRef.current = desktopColumnOrderSafe;
-  }, [desktopColumnOrderSafe]);
-  useEffect(() => {
-    if (!isMobileLayout) return undefined;
-    clearDesktopColumnDragState();
-    return undefined;
-  }, [clearDesktopColumnDragState, isMobileLayout]);
-  useEffect(() => () => clearDesktopColumnDragState(), [clearDesktopColumnDragState]);
-  useEffect(() => {
-    const key = String(installId || "").trim();
-    if (!key) return;
-    const persisted = readDesktopColumnOrderForInstall(
-      key,
-      desktopColumnStorageScope,
-      desktopColumnBaseDefs
-    );
-    const normalized = normalizeDesktopColumnOrder(persisted, desktopColumnBaseDefs);
-    desktopColumnOrderPersistSignatureRef.current = JSON.stringify(normalized);
-    desktopColumnOrderHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
-    setDesktopColumnOrder((prev) => {
-      const prevNormalized = normalizeDesktopColumnOrder(prev, desktopColumnBaseDefs);
-      return JSON.stringify(prevNormalized) === JSON.stringify(normalized) ? prev : normalized;
-    });
-  }, [installId, desktopColumnBaseDefs, desktopColumnStorageScope]);
-  useEffect(() => {
-    const key = String(installId || "").trim();
-    if (!key) return;
-    if (desktopColumnOrderHydratedInstallIdRef.current !== `${desktopColumnStorageScope}:${key}`) {
-      return;
-    }
-    const normalized = normalizeDesktopColumnOrder(desktopColumnOrder, desktopColumnBaseDefs);
-    const signature = JSON.stringify(normalized);
-    if (desktopColumnOrderPersistSignatureRef.current === signature) return;
-    writeDesktopColumnOrderForInstall(
-      key,
-      desktopColumnStorageScope,
-      normalized,
-      desktopColumnBaseDefs
-    );
-    desktopColumnOrderPersistSignatureRef.current = signature;
-  }, [installId, desktopColumnOrder, desktopColumnBaseDefs, desktopColumnStorageScope]);
-  useEffect(() => {
-    desktopColumnFractionsRef.current = desktopColumnFractions;
-  }, [desktopColumnFractions]);
-  useEffect(() => {
-    const key = String(installId || "").trim();
-    if (!key) return;
-    const persisted = readDesktopColumnFractionsForInstall(
-      key,
-      desktopColumnStorageScope,
-      desktopColumnDefaultFractions
-    );
-    const normalized = normalizeDesktopColumnFractions(
-      persisted,
-      desktopColumnDefaultFractions
-    );
-    desktopColumnFractionsRef.current = normalized;
-    desktopColumnFractionsPersistSignatureRef.current = JSON.stringify(normalized);
-    desktopColumnFractionsHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
-    setDesktopColumnFractions((prev) =>
-      areDesktopFractionsEqual(prev, normalized) ? prev : normalized
-    );
-  }, [installId, desktopColumnDefaultFractions, desktopColumnStorageScope]);
-  useEffect(() => {
-    const key = String(installId || "").trim();
-    if (!key) return;
-    if (desktopColumnFractionsHydratedInstallIdRef.current !== `${desktopColumnStorageScope}:${key}`) {
-      return;
-    }
-    const normalized = normalizeDesktopColumnFractions(
-      desktopColumnFractionsRef.current,
-      desktopColumnDefaultFractions
-    );
-    const signature = JSON.stringify(normalized);
-    if (desktopColumnFractionsPersistSignatureRef.current === signature) return;
-    writeDesktopColumnFractionsForInstall(
-      key,
-      desktopColumnStorageScope,
-      normalized,
-      desktopColumnDefaultFractions
-    );
-    desktopColumnFractionsPersistSignatureRef.current = signature;
-  }, [installId, desktopColumnFractions, desktopColumnDefaultFractions, desktopColumnStorageScope]);
   const [setDesktopGridStageNode, desktopGridStageSize] = useElementSize(!isMobileLayout);
 
   // Débloque le contexte audio au premier geste utilisateur (mobile/desktop)
@@ -4382,11 +3993,6 @@ export default function GobbleApplication() {
       });
     },
     [scheduleDesktopChatAutoScroll]
-  );
-
-  const setDesktopChatColumnNode = React.useCallback(
-    (node) => setDesktopColumnNode("chat", node),
-    [setDesktopColumnNode]
   );
 
   useEffect(() => clearDesktopChatAutoScroll, [clearDesktopChatAutoScroll]);
@@ -12108,7 +11714,6 @@ function handleTouchEnd(e) {
       maxGridWidth: MAX_GRID_WIDTH,
     });
   const desktopGridTrackWidthLimitPx = desktopGridHeightBoundTrackWidthPx;
-  desktopGridResizeMaxTrackWidthRef.current = desktopGridTrackWidthLimitPx;
   const desktopGridVisualWidthLimitPx = Math.max(
     1,
     Math.min(
@@ -15775,7 +15380,6 @@ function handleTouchEnd(e) {
             desktopChatUiScale,
             desktopColumnDragId,
             desktopColumnHandleLayout,
-            desktopColumnOrderIndexById,
             desktopColumnResizeActiveIndex,
             desktopGridMetrics,
             desktopGridUiScale,
@@ -15784,22 +15388,24 @@ function handleTouchEnd(e) {
               connectionError,
               desktopColumnBaseDefs,
               desktopColumnDefaultFractions,
-              desktopColumnFractionsRef,
-              desktopColumnHandleLabels,
+              desktopColumnFractions,
               desktopColumnMinWidthsPx,
-              desktopColumnNodeMapRef,
-              desktopColumnOrderRef,
+              desktopColumnOrder,
               desktopColumnOrderSafe,
-              desktopGridResizeMaxTrackWidthRef,
+              desktopColumnStorageScope,
+              desktopGridResizeMaxTrackWidth: desktopGridTrackWidthLimitPx,
               hasDesktopResultsSummary,
+              installId,
               isLoggedIn,
               isMobileLayout,
               layoutFeature,
               maxGridWidth: MAX_GRID_WIDTH,
               minGridWidth: MIN_GRID_WIDTH,
               phase,
+              setDesktopColumnDragId,
               setDesktopColumnFractions,
               setDesktopColumnHandleLayout,
+              setDesktopColumnOrder,
               setDesktopColumnResizeActiveIndex,
               setDesktopGridMetrics,
               setDesktopMainGridHeight,
@@ -15893,7 +15499,6 @@ function handleTouchEnd(e) {
             quickHelpOverlay,
             rosterConfig: liveRosterConfig,
             recordBadgesByNickForRound,
-            renderDesktopColumnHandle,
             renderDesktopResultsDockPanel,
             renderMedals,
             renderNickSuffix,
@@ -15931,8 +15536,6 @@ function handleTouchEnd(e) {
             setChatDesktopListNode,
             setChatInput,
             setDailyActiveSlot,
-            setDesktopChatColumnNode,
-            setDesktopColumnNode,
             setDesktopGridStageNode,
             setDesktopResultsSummaryExpanded,
             setDuelPopupState,

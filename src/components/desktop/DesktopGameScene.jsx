@@ -101,7 +101,6 @@ export default function DesktopGameScene({ runtime }) {
     desktopChatUiScale,
     desktopColumnDragId,
     desktopColumnHandleLayout,
-    desktopColumnOrderIndexById,
     desktopColumnResizeActiveIndex,
     desktopGridMetrics,
     desktopGridUiScale,
@@ -189,7 +188,6 @@ export default function DesktopGameScene({ runtime }) {
     previewTileStyle,
     quickHelpOverlay,
     recordBadgesByNickForRound,
-    renderDesktopColumnHandle,
     renderDesktopResultsDockPanel,
     renderMedals,
     renderNickSuffix,
@@ -227,8 +225,6 @@ export default function DesktopGameScene({ runtime }) {
     setChatDesktopListNode,
     setChatInput,
     setDailyActiveSlot,
-    setDesktopChatColumnNode,
-    setDesktopColumnNode,
     setDesktopGridStageNode,
     setDesktopResultsSummaryExpanded,
     setDuelPopupState,
@@ -301,10 +297,62 @@ export default function DesktopGameScene({ runtime }) {
   const selfReadyForTournament = selfReadyForTournamentProp;
   const visiblePlayerList = visiblePlayerListProp;
   const {
+    handleDesktopColumnPointerDown,
     mainGridDesktopRef,
     playColumnRef,
+    setDesktopColumnNode,
     startDesktopColumnResize,
   } = useDesktopSceneLayout(desktopLayoutRuntime);
+  const desktopColumnOrderIndexById = React.useMemo(
+    () =>
+      new Map(
+        (desktopLayoutRuntime.desktopColumnOrderSafe || []).map((id, index) => [
+          id,
+          index + 1,
+        ]),
+      ),
+    [desktopLayoutRuntime.desktopColumnOrderSafe],
+  );
+  const setDesktopChatColumnNode = React.useCallback(
+    (node) => setDesktopColumnNode("chat", node),
+    [setDesktopColumnNode],
+  );
+  const renderDesktopColumnHandle = React.useCallback(
+    (columnId, label) => {
+      if (isMobileLayout) return null;
+      const isDragging = desktopColumnDragId === columnId;
+      return (
+        <button
+          type="button"
+          onPointerDown={(event) =>
+            handleDesktopColumnPointerDown(event, columnId)
+          }
+          className={`pointer-events-auto touch-none inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border px-2 shadow-sm transition ${
+            isDragging
+              ? "border-blue-500/80 bg-blue-600/85 text-white"
+              : darkMode
+              ? "border-slate-600/80 bg-slate-900/72 text-slate-100 hover:bg-slate-800/85"
+              : "border-slate-300/85 bg-white/72 text-slate-600 hover:bg-white/88"
+          }`}
+          style={{ touchAction: "none" }}
+          aria-label={`Déplacer la colonne ${label}`}
+          title={`Déplacer la colonne ${label}`}
+        >
+          <span className="flex flex-col gap-[3px]" aria-hidden="true">
+            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
+            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
+            <span className="block h-[2px] w-2.5 rounded-full bg-current" />
+          </span>
+        </button>
+      );
+    },
+    [
+      darkMode,
+      desktopColumnDragId,
+      handleDesktopColumnPointerDown,
+      isMobileLayout,
+    ],
+  );
 
   const desktopGridHeightPx =
     !isMobileLayout && Number.isFinite(desktopMainGridHeight)
