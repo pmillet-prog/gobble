@@ -144,7 +144,8 @@ const HELP_SECTIONS = [
       "Cette manche ne compte pas les mots trouvés comme vocabulaire unique.",
     ],
     scoring: [
-      "Le score final est la somme des 3 mots conservés.",
+      "Les points affichés pendant la manche sont provisoires : les mots sont vérifiés seulement au résultat.",
+      "Un mot absent du dictionnaire rapporte 0 point au score final.",
       "Les bonus que tu places peuvent fortement changer le meilleur trio possible.",
       "Le bonus rare global n'est pas appliqué sur cette manche.",
     ],

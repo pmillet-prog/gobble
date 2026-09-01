@@ -1081,10 +1081,8 @@ export function createWordSubmissionEngine({
       markDailySlotInvalid(targetSlot, "Mot trop court");
       return;
     }
-    if (!isKnownSubmissionWord(raw)) {
-      markDailySlotInvalid(targetSlot, "INVALIDE");
-      return;
-    }
+    // En manche 3 mots, le dictionnaire ne tranche qu'au résultat.
+    // Ici, on conserve le tracé et son score provisoire.
     const alreadyUsed = slots.some((slot, idx) => idx !== targetSlot && slot?.word === raw);
     if (alreadyUsed) {
       markDailySlotInvalid(targetSlot, "Déjà saisi");

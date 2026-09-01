@@ -61,14 +61,15 @@ export default function useTutorialPresentation(runtime) {
           bullets: [
             "Tu peux placer L2, L3, M2 et M3 où tu veux.",
             "Elles ne sont pas verrouillées : tu peux les repositionner autant de fois que nécessaire.",
-            "Tu peux commencer par les bonus, ou d'abord valider des mots : liberté totale.",
+            "Tu peux commencer par les bonus, ou d'abord composer tes mots : liberté totale.",
           ],
           demoKind: "special3_drag",
         },
         {
-          lead: "Valide jusqu'à 3 mots seulement.",
+          lead: "Compose jusqu'à 3 mots seulement.",
           bullets: [
-            "Chaque mot doit exister dans la grille avec les placements actuels.",
+            "Toutes les suites de lettres tracées sont conservées, sans validation immédiate.",
+            "Le score affiché est provisoire : le dictionnaire est vérifié seulement au résultat.",
             "Tu peux saisir les mots d'abord, puis poser les bonus ensuite.",
             "Une fois saisi, tu peux encore déplacer les tuiles spéciales pour tout recalculer.",
           ],

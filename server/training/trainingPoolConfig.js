@@ -83,7 +83,7 @@ export function buildTrainingPoolRoundPlan(rawMode, roomConfig = createTrainingR
       return {
         ...base,
         description:
-          "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+          "Glisse les 4 tuiles spéciales sur la grille et compose 3 mots avec des tuiles de départ différentes",
         disableBonuses: true,
         qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
       };

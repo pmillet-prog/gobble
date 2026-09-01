@@ -3171,7 +3171,7 @@ function getRoundPlan(roundNumber, roomConfig) {
         type: SELF_SPECIAL_3_WORDS_TYPE,
         label: "3 mots",
         description:
-          "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+          "Glisse les 4 tuiles spéciales sur la grille et compose 3 mots avec des tuiles de départ différentes",
         disableBonuses: true,
         qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
       };
@@ -3362,7 +3362,7 @@ function buildSelfSpecial3WordsTournamentPlan(tournamentRound, roomConfig) {
     type: SELF_SPECIAL_3_WORDS_TYPE,
     label: "3 mots",
     description:
-      "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+      "Glisse les 4 tuiles spéciales sur la grille et compose 3 mots avec des tuiles de départ différentes",
     disableBonuses: true,
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
   };
@@ -3377,7 +3377,7 @@ function buildSelfSpecial3WordsRoundPlan(roundNumber, roomConfig) {
     type: SELF_SPECIAL_3_WORDS_TYPE,
     label: "3 mots",
     description:
-      "Glisse les 4 tuiles spéciales sur la grille et valide 3 mots avec des tuiles de départ différentes",
+      "Glisse les 4 tuiles spéciales sur la grille et compose 3 mots avec des tuiles de départ différentes",
     minWords: roomConfig?.minWords || 0,
     disableBonuses: true,
     qualityAttempts: SPECIAL_QUALITY_ATTEMPTS,
@@ -8731,6 +8731,78 @@ function updateSpecial3WordsState(room, { roundId, nick, wordSlots, specialPlace
   };
 }
 
+function finalizeSpecial3WordsState(room, data) {
+  if (!room?.currentRound || !data) return;
+  // Jusqu'ici les scores sont provisoires et ne dépendent que du tracé.
+  // Le dictionnaire devient autoritaire uniquement pendant la finalisation.
+  const normalizedSlots = normalizeSpecial3WordSlots(data.specialWordSlots);
+  const { board: scoringBoard, placements } = applySpecial3Placements(
+    room.currentRound.grid,
+    data.specialPlacements
+  );
+  const existingTimes = data.wordTimes instanceof Map ? data.wordTimes : new Map();
+  const wordTimes = new Map();
+  const wordScores = new Map();
+  const validWords = new Set();
+  const seenWords = new Set();
+  const seenStartTiles = new Set();
+  const finalizedSlots = [];
+  let score = 0;
+
+  for (const slot of normalizedSlots) {
+    const word = slot.word;
+    if (!word) {
+      finalizedSlots.push({ ...slot, word: "", display: "", path: [], pts: null });
+      continue;
+    }
+    const startTile = getSpecial3WordStartTile(slot.path);
+    const duplicateWord = seenWords.has(word);
+    const duplicateStartTile = startTile != null && seenStartTiles.has(startTile);
+    seenWords.add(word);
+    if (startTile != null) seenStartTiles.add(startTile);
+
+    const scored =
+      !duplicateWord &&
+      !duplicateStartTile &&
+      dictionary?.has?.(word) &&
+      Array.isArray(slot.path) &&
+      slot.path.length > 0
+        ? scoreWordOnGridWithPath(word, scoringBoard, slot.path, null)
+        : null;
+    const pts = scored ? Number(scored.pts) || 0 : 0;
+    if (scored) {
+      validWords.add(word);
+      wordTimes.set(word, existingTimes.get(word) || Date.now());
+      wordScores.set(word, pts);
+      score += pts;
+    }
+    finalizedSlots.push({
+      ...slot,
+      word,
+      display: String(slot.display || word).trim() || word.toUpperCase(),
+      path: Array.isArray(scored?.path) ? [...scored.path] : [...slot.path],
+      pts,
+    });
+  }
+
+  while (finalizedSlots.length < SELF_SPECIAL_3_WORDS_WORD_TARGET) {
+    finalizedSlots.push({
+      id: finalizedSlots.length,
+      word: "",
+      display: "",
+      path: [],
+      pts: null,
+    });
+  }
+
+  data.words = validWords;
+  data.wordTimes = wordTimes;
+  data.wordScores = wordScores;
+  data.score = score;
+  data.specialPlacements = placements;
+  data.specialWordSlots = finalizedSlots;
+}
+
 function analyzeGridQuality(grid, minWords = 0, opts = {}) {
   if (!dictionary) {
     return {
@@ -10197,6 +10269,11 @@ async function endRoundForRoom(room) {
   const roundSubs = room.submissions.get(room.currentRound.id) || new Map();
   const results = [];
   const specialType = room.currentRound?.special?.type;
+  if (specialType === SELF_SPECIAL_3_WORDS_TYPE) {
+    for (const data of roundSubs.values()) {
+      finalizeSpecial3WordsState(room, data);
+    }
+  }
   const isTrainingRound = !shouldPersistRoundProgress(room.currentRound);
   const isTargetRound = specialType === "target_long" || specialType === "target_score";
   let targetPointsMultiplier = 1;

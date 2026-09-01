@@ -7515,12 +7515,12 @@ function handleTouchEnd(e) {
     dailyWordSlots,
     safeDailySlotIndex
   );
+  // « valid » signifie ici seulement que le tracé peut être scoré provisoirement.
+  // La validité lexicale des trois mots est volontairement différée aux résultats.
   const dailyLiveWordValid =
     isSpecial3WordsMode &&
     phase === "playing" &&
     !!dailyLiveWordNorm &&
-    dailyLiveWordNorm.length >= 2 &&
-    isKnownSubmissionWord(dailyLiveWordNorm) &&
     !dailyLiveWordBlockedReason &&
     Array.isArray(highlightPath) &&
     highlightPath.length > 0;
@@ -7550,8 +7550,7 @@ function handleTouchEnd(e) {
     const valid =
       isSpecial3WordsMode &&
       phase === "playing" &&
-      normalizedWord.length >= 2 &&
-      isKnownSubmissionWord(normalizedWord) &&
+      !!normalizedWord &&
       !blockedReason &&
       tracePath.length > 0;
     return {
