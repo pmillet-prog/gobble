@@ -47,10 +47,8 @@ export default function LiveLobbyScreen({ runtime }) {
     setChatTab,
     setIsChatRulesOpen,
     setShowBlockedList,
-    setShowBotMessages,
     setTournamentReady,
     showBlockedList,
-    showBotMessages,
     signalLivePlayerActivity,
     startTrainingRound,
     submitChat,
@@ -87,7 +85,6 @@ export default function LiveLobbyScreen({ runtime }) {
           onReactToMessage={sendChatReaction}
           onSelectChatReply={setChatReplyTargetFromMessage}
           onToggleBlockedList={() => setShowBlockedList((prev) => !prev)}
-          onToggleShowBotMessages={() => setShowBotMessages((prev) => !prev)}
           onUnblockInstallId={unblockInstallId}
           onUserActivity={signalLivePlayerActivity}
           reactionEmojis={CHAT_REACTION_EMOJIS}
@@ -115,7 +112,6 @@ export default function LiveLobbyScreen({ runtime }) {
           selfNick={selfNick}
           setChatInput={setChatInput}
           showBlockedList={showBlockedList}
-          showBotMessages={showBotMessages}
           submitChat={submitChat}
           team={duelTeam}
           utilityControls={

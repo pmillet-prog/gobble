@@ -1,5 +1,6 @@
 import React from "react";
 import ChatContent from "../chat/ChatContent.jsx";
+import { isChatBotMessage } from "../chat/chatBotVisibility.js";
 import {
   getLiveBackgroundKey,
   getUiImageUrl,
@@ -94,7 +95,7 @@ const styles = `
   pointer-events: auto;
 }
 .live-salon-notebook .chat-content {
-  font-family: "GobbleGreatVibes", "Great Vibes", "Segoe Script", "Lucida Handwriting", "Bradley Hand ITC", "Segoe Print", cursive;
+  font-family: "GobbleCaveat", "Caveat", "Segoe Script", "Lucida Handwriting", "Bradley Hand ITC", "Segoe Print", cursive;
   color: #572000;
 }
 .live-salon-notebook .chat-content-header,
@@ -244,7 +245,7 @@ const styles = `
   border: 1px dashed rgba(77, 49, 20, 0.55) !important;
   background: rgba(255, 246, 211, 0.97) !important;
   color: #174f9c !important;
-  font-family: "GobbleGreatVibes", "Great Vibes", "Segoe Print", cursive;
+  font-family: "GobbleCaveat", "Caveat", "Segoe Print", cursive;
   box-shadow: 0 8px 24px rgba(42, 22, 5, 0.3) !important;
 }
 .chat-reaction-portal-notebook .chat-reaction-choice {
@@ -408,7 +409,6 @@ export default function LiveSalonScene({
   onReactToMessage = null,
   onSelectChatReply = null,
   onToggleBlockedList = null,
-  onToggleShowBotMessages = null,
   onUnblockInstallId = null,
   onUserActivity = null,
   playersControls = null,
@@ -418,7 +418,6 @@ export default function LiveSalonScene({
   selfNick = "",
   setChatInput = null,
   showBlockedList = false,
-  showBotMessages = true,
   submitChat = null,
   team = null,
   topControls = null,
@@ -427,7 +426,13 @@ export default function LiveSalonScene({
   visibleMessages = [],
 }) {
   const sceneRef = React.useRef(null);
-  const safeMessages = Array.isArray(visibleMessages) ? visibleMessages : [];
+  const safeMessages = React.useMemo(
+    () =>
+      (Array.isArray(visibleMessages) ? visibleMessages : []).filter(
+        (message) => !isChatBotMessage(message)
+      ),
+    [visibleMessages]
+  );
   const desktopBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "wide"));
   const mobileBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "tall"));
 
@@ -553,7 +558,6 @@ export default function LiveSalonScene({
             onReactToMessage={onReactToMessage}
             onSelectChatReply={onSelectChatReply}
             onToggleBlockedList={onToggleBlockedList}
-            onToggleShowBotMessages={onToggleShowBotMessages}
             onUnblockInstallId={onUnblockInstallId}
             onUserActivity={onUserActivity}
             reactionEmojis={reactionEmojis}
@@ -561,7 +565,7 @@ export default function LiveSalonScene({
             selfNick={selfNick}
             setChatInput={setChatInput}
             showBlockedList={showBlockedList}
-            showBotMessages={showBotMessages}
+            showBotMessages={false}
             submitChat={submitChat}
             variant="notebook"
             visibleMessages={safeMessages}
