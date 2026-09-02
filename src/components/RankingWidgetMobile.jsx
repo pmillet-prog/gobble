@@ -903,8 +903,8 @@ function RankingWidgetMobile({
             : "text-emerald-900"
           : isSelf
           ? darkMode
-            ? "text-slate-900"
-            : "text-white"
+            ? "text-slate-50"
+            : "text-slate-900"
           : extendedOtherColor;
         const rowBg = isPalier
           ? palierBg
@@ -914,8 +914,8 @@ function RankingWidgetMobile({
             : "bg-emerald-100"
           : isSelf
           ? darkMode
-            ? "bg-slate-100/90"
-            : "bg-slate-900/80"
+            ? "bg-sky-900/65 ring-1 ring-inset ring-sky-400/45"
+            : "bg-sky-100/90 ring-1 ring-inset ring-sky-500/35"
           : "";
         const recordBadges = getRecordBadgesForNick(entry?.nick);
         const recordBadgeItems = Array.isArray(recordBadges) ? recordBadges : [];
