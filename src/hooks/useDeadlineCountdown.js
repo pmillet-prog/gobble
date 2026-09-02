@@ -5,6 +5,7 @@ import {
   getDeadlineRemainingSeconds,
   getMonotonicNowMs,
   getNextDeadlineTickDelay,
+  subscribeForegroundClockRefresh,
 } from "../utils/realtimeClock.js";
 
 export default function useDeadlineCountdown({
@@ -39,6 +40,10 @@ export default function useDeadlineCountdown({
     let timerId = null;
     const update = () => {
       if (cancelled) return;
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+        timerId = null;
+      }
       const now = getMonotonicNowMs();
       const nextSeconds = getDeadlineRemainingSeconds({
         deadlineMonotonicMs,
@@ -57,10 +62,13 @@ export default function useDeadlineCountdown({
       );
     };
     update();
+    const unsubscribeForegroundRefresh =
+      subscribeForegroundClockRefresh(update);
 
     return () => {
       cancelled = true;
       if (timerId !== null) window.clearTimeout(timerId);
+      unsubscribeForegroundRefresh();
     };
   }, [active, deadlineServerMs, maxSeconds]);
 

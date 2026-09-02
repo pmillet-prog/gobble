@@ -4,9 +4,19 @@ import {
   getDeadlineRemainingSeconds,
   getMonotonicNowMs,
   getNextDeadlineTickDelay,
+  subscribeForegroundClockRefresh,
 } from "../../utils/realtimeClock.js";
 
-export function createRoundClockFeature({ scope }) {
+export function createRoundClockFeature(
+  { scope },
+  {
+    clearTimeoutFn = clearTimeout,
+    documentTarget = globalThis.document,
+    getNowMs = getMonotonicNowMs,
+    setTimeoutFn = setTimeout,
+    windowTarget = globalThis.window,
+  } = {}
+) {
   const store = createFeatureStore({
     deadlineMonotonicMs: null,
     maxSeconds: 0,
@@ -14,17 +24,19 @@ export function createRoundClockFeature({ scope }) {
     running: false,
   });
   const expirationListeners = new Set();
+  let activeUpdate = null;
   let timerId = null;
   let runToken = 0;
 
   function clearTimer() {
-    if (timerId != null) clearTimeout(timerId);
+    if (timerId != null) clearTimeoutFn(timerId);
     timerId = null;
   }
 
   function stop({ preserveRemaining = false, remainingSeconds = 0 } = {}) {
     runToken += 1;
     clearTimer();
+    activeUpdate = null;
     const currentRemaining = store.getState().remainingSeconds;
     store.patch({
       deadlineMonotonicMs: null,
@@ -38,7 +50,7 @@ export function createRoundClockFeature({ scope }) {
     const token = runToken;
     clearTimer();
     const safeMaxSeconds = Math.max(1, Math.round(Number(maxSeconds) || 1));
-    const monotonicNowMs = getMonotonicNowMs();
+    const monotonicNowMs = getNowMs();
     const deadlineMonotonicMs = createMonotonicDeadline({
       deadlineServerMs,
       monotonicNowMs,
@@ -53,7 +65,8 @@ export function createRoundClockFeature({ scope }) {
 
     const update = () => {
       if (token !== runToken) return;
-      const now = getMonotonicNowMs();
+      clearTimer();
+      const now = getNowMs();
       const remainingSeconds = getDeadlineRemainingSeconds({
         deadlineMonotonicMs,
         maxSeconds: safeMaxSeconds,
@@ -61,12 +74,12 @@ export function createRoundClockFeature({ scope }) {
       });
       store.set("remainingSeconds", remainingSeconds);
       if (remainingSeconds <= 0) {
-        timerId = null;
+        activeUpdate = null;
         store.set("running", false);
         for (const listener of [...expirationListeners]) listener();
         return;
       }
-      timerId = setTimeout(
+      timerId = setTimeoutFn(
         update,
         getNextDeadlineTickDelay({
           deadlineMonotonicMs,
@@ -75,11 +88,19 @@ export function createRoundClockFeature({ scope }) {
         })
       );
     };
+    activeUpdate = update;
     update();
   }
 
   function setCountdown(seconds) {
     stop({ remainingSeconds: Math.max(0, Math.round(Number(seconds) || 0)) });
+  }
+
+  function primeRemaining(seconds) {
+    store.set(
+      "remainingSeconds",
+      Math.max(0, Math.round(Number(seconds) || 0))
+    );
   }
 
   function onExpired(listener) {
@@ -89,6 +110,12 @@ export function createRoundClockFeature({ scope }) {
   }
 
   function startFeature() {
+    scope.add(
+      subscribeForegroundClockRefresh(
+        () => activeUpdate?.(),
+        { documentTarget, windowTarget }
+      )
+    );
     scope.add(() => {
       stop();
       expirationListeners.clear();
@@ -97,6 +124,7 @@ export function createRoundClockFeature({ scope }) {
 
   return Object.freeze({
     onExpired,
+    primeRemaining,
     setCountdown,
     start: startFeature,
     startRound: start,

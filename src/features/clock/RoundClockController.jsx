@@ -1,6 +1,9 @@
 import React from "react";
 
-import { useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
+import {
+  useFeatureRuntime,
+  useFeatureSelector,
+} from "../../app/react/useFeatureRuntime.js";
 
 export function useRoundClockController({
   countdownSeconds,
@@ -16,6 +19,11 @@ export function useRoundClockController({
   specialRoundType,
 }) {
   const clock = useFeatureRuntime("clock");
+  const gameplaySession = useFeatureRuntime("gameplaySession");
+  const sessionGeneration = useFeatureSelector(
+    gameplaySession,
+    (state) => state.generation
+  );
   const callbacksRef = React.useRef({
     getServerNowMs,
     onCountdownElapsed,
@@ -79,6 +87,7 @@ export function useRoundClockController({
     disabled,
     maxSeconds,
     phase,
+    sessionGeneration,
     sessionTokenRef,
     specialRoundType,
   ]);

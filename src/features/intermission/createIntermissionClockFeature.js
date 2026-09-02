@@ -4,25 +4,37 @@ import {
   getDeadlineRemainingSeconds,
   getMonotonicNowMs,
   getNextDeadlineTickDelay,
+  subscribeForegroundClockRefresh,
 } from "../../utils/realtimeClock.js";
 
-export function createIntermissionClockFeature({ scope }) {
+export function createIntermissionClockFeature(
+  { scope },
+  {
+    clearTimeoutFn = clearTimeout,
+    documentTarget = globalThis.document,
+    getNowMs = getMonotonicNowMs,
+    setTimeoutFn = setTimeout,
+    windowTarget = globalThis.window,
+  } = {}
+) {
   const store = createFeatureStore({
     deadlineMonotonicMs: null,
     remainingSeconds: null,
     running: false,
   });
+  let activeUpdate = null;
   let timerId = null;
   let runToken = 0;
 
   function clearTimer() {
-    if (timerId != null) clearTimeout(timerId);
+    if (timerId != null) clearTimeoutFn(timerId);
     timerId = null;
   }
 
   function stop() {
     runToken += 1;
     clearTimer();
+    activeUpdate = null;
     store.patch({
       deadlineMonotonicMs: null,
       remainingSeconds: null,
@@ -38,7 +50,7 @@ export function createIntermissionClockFeature({ scope }) {
     runToken += 1;
     const token = runToken;
     clearTimer();
-    const monotonicNowMs = getMonotonicNowMs();
+    const monotonicNowMs = getNowMs();
     const deadlineMonotonicMs = createMonotonicDeadline({
       deadlineServerMs,
       monotonicNowMs,
@@ -48,18 +60,19 @@ export function createIntermissionClockFeature({ scope }) {
 
     const update = () => {
       if (token !== runToken) return;
-      const now = getMonotonicNowMs();
+      clearTimer();
+      const now = getNowMs();
       const remainingSeconds = getDeadlineRemainingSeconds({
         deadlineMonotonicMs,
         monotonicNowMs: now,
       });
       store.set("remainingSeconds", remainingSeconds);
       if (remainingSeconds <= 0) {
-        timerId = null;
+        activeUpdate = null;
         store.set("running", false);
         return;
       }
-      timerId = setTimeout(
+      timerId = setTimeoutFn(
         update,
         getNextDeadlineTickDelay({
           deadlineMonotonicMs,
@@ -68,10 +81,17 @@ export function createIntermissionClockFeature({ scope }) {
         })
       );
     };
+    activeUpdate = update;
     update();
   }
 
   function start() {
+    scope.add(
+      subscribeForegroundClockRefresh(
+        () => activeUpdate?.(),
+        { documentTarget, windowTarget }
+      )
+    );
     scope.add(stop);
   }
 

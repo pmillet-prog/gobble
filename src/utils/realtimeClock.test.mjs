@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createMonotonicDeadline,
+  createResilientMonotonicClock,
   createServerClockState,
   getDeadlineRemainingSeconds,
   getDelayUntilDeadlineWindow,
@@ -10,6 +11,26 @@ import {
   readServerClockMs,
   updateServerClockFromSample,
 } from "./realtimeClock.js";
+
+test("keeps advancing while the browser monotonic clock is suspended", () => {
+  let monotonicNowMs = 1_000;
+  let wallClockNowMs = 50_000;
+  const readNowMs = createResilientMonotonicClock({
+    readMonotonicMs: () => monotonicNowMs,
+    readWallClockMs: () => wallClockNowMs,
+  });
+
+  assert.equal(readNowMs(), 1_000);
+  monotonicNowMs = 1_500;
+  wallClockNowMs = 50_500;
+  assert.equal(readNowMs(), 1_500);
+
+  wallClockNowMs = 55_500;
+  assert.equal(readNowMs(), 6_500);
+
+  wallClockNowMs = 54_000;
+  assert.equal(readNowMs(), 6_500);
+});
 
 test("keeps server time on a monotonic local clock", () => {
   const clock = createServerClockState({

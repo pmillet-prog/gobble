@@ -1,10 +1,73 @@
 export const COUNTDOWN_BOUNDARY_EPSILON_MS = 12;
 
-export function getMonotonicNowMs() {
+function readPerformanceNowMs() {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
     return performance.now();
   }
   return Date.now();
+}
+
+export function createResilientMonotonicClock({
+  readMonotonicMs = readPerformanceNowMs,
+  readWallClockMs = Date.now,
+} = {}) {
+  let anchorMonotonicMs = null;
+  let anchorWallClockMs = null;
+  let lastNowMs = null;
+
+  return function readNowMs() {
+    const monotonicNowMs = Number(readMonotonicMs());
+    const wallClockNowMs = Number(readWallClockMs());
+
+    if (!Number.isFinite(monotonicNowMs)) {
+      const fallbackNowMs = Number.isFinite(wallClockNowMs) ? wallClockNowMs : 0;
+      lastNowMs = lastNowMs == null ? fallbackNowMs : Math.max(lastNowMs, fallbackNowMs);
+      return lastNowMs;
+    }
+
+    if (anchorMonotonicMs == null) {
+      anchorMonotonicMs = monotonicNowMs;
+      anchorWallClockMs = Number.isFinite(wallClockNowMs) ? wallClockNowMs : null;
+      lastNowMs = monotonicNowMs;
+      return monotonicNowMs;
+    }
+
+    const monotonicElapsedMs = Math.max(0, monotonicNowMs - anchorMonotonicMs);
+    const wallClockElapsedMs = Number.isFinite(wallClockNowMs) && anchorWallClockMs != null
+      ? Math.max(0, wallClockNowMs - anchorWallClockMs)
+      : 0;
+    const nextNowMs = anchorMonotonicMs + Math.max(monotonicElapsedMs, wallClockElapsedMs);
+    lastNowMs = Math.max(lastNowMs, nextNowMs);
+    return lastNowMs;
+  };
+}
+
+const readResilientMonotonicNowMs = createResilientMonotonicClock();
+
+export function getMonotonicNowMs() {
+  return readResilientMonotonicNowMs();
+}
+
+export function subscribeForegroundClockRefresh(
+  listener,
+  {
+    documentTarget = globalThis.document,
+    windowTarget = globalThis.window,
+  } = {}
+) {
+  if (typeof listener !== "function") return () => {};
+  const refreshWhenVisible = () => {
+    if (documentTarget?.visibilityState === "hidden") return;
+    listener();
+  };
+  documentTarget?.addEventListener?.("visibilitychange", refreshWhenVisible);
+  windowTarget?.addEventListener?.("focus", refreshWhenVisible);
+  windowTarget?.addEventListener?.("pageshow", refreshWhenVisible);
+  return () => {
+    documentTarget?.removeEventListener?.("visibilitychange", refreshWhenVisible);
+    windowTarget?.removeEventListener?.("focus", refreshWhenVisible);
+    windowTarget?.removeEventListener?.("pageshow", refreshWhenVisible);
+  };
 }
 
 export function createServerClockState({

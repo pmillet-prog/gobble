@@ -363,7 +363,10 @@ export default function useRoundSessionController() {
           ? effectiveEndsAt - normalizedDurationMs
           : null;
       lastRoundWindowRef.current = { startAt: roundStartAt, endAt: roundEndAt };
-      clockFeature.setCountdown(Math.min(maxDuration, initialTick));
+      // Une réhydratation de premier plan peut concerner exactement la même
+      // manche. Elle peut corriger l'affichage, mais ne doit pas arrêter le
+      // timer actif avant que le contrôleur React se recale sur la génération.
+      clockFeature.primeRemaining(Math.min(maxDuration, initialTick));
       applicationKernel.commands.transition.apply({
         game: {
           allWords: [],
