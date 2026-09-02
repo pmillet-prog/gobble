@@ -1694,6 +1694,13 @@ const TRAINING_BREAK_MS = 15 * 1000;
 const TRAINING_FORCED_BOTS = ["Proutosaurus Rex", "Crux", "QuasarMots"];
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
 const TOURNAMENT_POINTS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+const TARGET_TOURNAMENT_MIN_POINTS = 1;
+
+function getTargetTournamentPoints(positionIndex, multiplier = 1) {
+  const rankedPoints = TOURNAMENT_POINTS[positionIndex] ?? 0;
+  return Math.max(TARGET_TOURNAMENT_MIN_POINTS, rankedPoints) * multiplier;
+}
+
 const MEDAL_GOBBLARS = Object.freeze({
   gold: 10,
   silver: 5,
@@ -10700,7 +10707,7 @@ async function endRoundForRoom(room) {
       for (let pos = 1; pos <= foundOrder.length; pos++) {
         await maybeYieldEndRound();
         const nick = foundOrder[pos - 1];
-        const basePts = (TOURNAMENT_POINTS[pos - 1] ?? 0) * pointsMultiplier;
+        const basePts = getTargetTournamentPoints(pos - 1, pointsMultiplier);
         const gobbles = 0;
         const totalEarned = basePts;
         roundAwarded.set(nick, { points: basePts, gobbles, total: totalEarned });
@@ -10788,7 +10795,7 @@ async function endRoundForRoom(room) {
     }
     const foundMeta = new Map();
     foundList.forEach((entry, idx) => {
-      const points = (TOURNAMENT_POINTS[idx] ?? 0) * targetPointsMultiplier;
+      const points = getTargetTournamentPoints(idx, targetPointsMultiplier);
       foundMeta.set(entry.nick, {
         points,
         ts: entry.ts,
