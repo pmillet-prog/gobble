@@ -939,13 +939,19 @@ export default function ChatContent({
                     <>
                       {replyPreview ? (
                         <div
-                          className={`chat-message-reply-preview mb-1 rounded-md border-l-4 px-2 py-1 text-[11px] ${
-                            replyTargetsSelf
-                              ? "border-blue-500 bg-blue-50 text-slate-700"
-                              : darkMode
-                              ? "border-amber-200/25 bg-slate-950/45 text-amber-50/85"
-                              : "border-amber-300/45 bg-amber-50/80 text-slate-700"
-                          }`}
+                          className={[
+                            "chat-message-reply-preview mb-1 rounded-md border-l-4 px-2 py-1 text-[11px]",
+                            replyTargetsSelf ? "chat-message-reply-self" : "",
+                            darkMode
+                              ? `border-amber-200/25 bg-slate-950/45 ${
+                                  replyTargetsSelf ? "text-blue-300" : "text-amber-50/85"
+                                }`
+                              : `border-amber-300/45 bg-amber-50/80 ${
+                                  replyTargetsSelf ? "text-blue-700" : "text-slate-700"
+                                }`,
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
                           style={NON_SELECTABLE_TOUCH_STYLE}
                         >
                           <div className="font-semibold" style={NON_SELECTABLE_TOUCH_STYLE}>

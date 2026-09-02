@@ -161,6 +161,9 @@ const styles = `
   font-style: italic;
   box-shadow: none !important;
 }
+.live-salon-notebook .chat-message-reply-preview.chat-message-reply-self {
+  color: #174f9c !important;
+}
 .live-salon-notebook .chat-message-reply-preview::before,
 .live-salon-notebook .chat-content-reply-target::before {
   position: absolute;
