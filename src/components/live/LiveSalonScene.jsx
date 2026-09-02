@@ -94,7 +94,7 @@ const styles = `
   pointer-events: auto;
 }
 .live-salon-notebook .chat-content {
-  font-family: "GobblePerfectPen", "KGPerfectPenmanship", "Segoe Script", "Lucida Handwriting", "Bradley Hand ITC", "Segoe Print", cursive;
+  font-family: "GobbleGreatVibes", "Great Vibes", "Segoe Script", "Lucida Handwriting", "Bradley Hand ITC", "Segoe Print", cursive;
   color: #572000;
 }
 .live-salon-notebook .chat-content-header,
@@ -244,7 +244,7 @@ const styles = `
   border: 1px dashed rgba(77, 49, 20, 0.55) !important;
   background: rgba(255, 246, 211, 0.97) !important;
   color: #174f9c !important;
-  font-family: "GobblePerfectPen", "KGPerfectPenmanship", "Segoe Print", cursive;
+  font-family: "GobbleGreatVibes", "Great Vibes", "Segoe Print", cursive;
   box-shadow: 0 8px 24px rgba(42, 22, 5, 0.3) !important;
 }
 .chat-reaction-portal-notebook .chat-reaction-choice {
