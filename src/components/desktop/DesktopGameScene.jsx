@@ -43,7 +43,6 @@ import MiniTournamentStartOverlay from "../live/MiniTournamentStartOverlay.jsx";
 import TraceAwareDesktopPreviewContent from "../live/TraceAwareDesktopPreviewContent.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
-import TrainingRoundPicker from "../live/TrainingRoundPicker.jsx";
 import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
 
 export default function DesktopGameScene({ runtime }) {
@@ -111,7 +110,6 @@ export default function DesktopGameScene({ runtime }) {
     desktopSideUiScale,
     desktopUiScale,
     desktopViewportResizeInProgress,
-    devRoundTypes,
     displayList,
     duelStatus,
     duelTeam,
@@ -260,7 +258,6 @@ export default function DesktopGameScene({ runtime }) {
     stableCanOpenPlayerProfile,
     stableOpenPlayerProfile,
     standaloneTrainingSession,
-    startTrainingRound,
     submitChat,
     submitDailyScore,
     submitOcidProposal,
@@ -282,7 +279,6 @@ export default function DesktopGameScene({ runtime }) {
     tournament,
     tournamentLobby,
     tournamentRanking,
-    trainingBusy,
     trainingSessionControls,
     usedSet,
     validationBarHeightPx,
@@ -1002,15 +998,6 @@ export default function DesktopGameScene({ runtime }) {
                 selfNick={selfNick}
                 submitChat={submitChat}
                 team={duelTeam}
-                trainingControls={
-                  <TrainingRoundPicker
-                    darkMode={darkMode}
-                    devRoundTypes={devRoundTypes}
-                    lobby={tournamentLobby}
-                    onTrainingStart={startTrainingRound}
-                    trainingBusy={trainingBusy}
-                  />
-                }
                 infoControls={
                   <div className={`rounded-xl border p-3 text-sm ${darkMode ? "border-white/10 bg-slate-950/75 text-slate-100" : "border-amber-200/70 bg-white/75 text-slate-800"}`}>
                     <div className="font-extrabold uppercase tracking-widest text-[11px] opacity-70">

@@ -61,11 +61,6 @@ const styles = `
   width: 40%;
   transform: translateX(-50%);
 }
-.live-salon-training {
-  left: 3%;
-  bottom: 4%;
-  width: 24%;
-}
 .live-salon-info {
   right: 3%;
   bottom: 4%;
@@ -310,11 +305,6 @@ const styles = `
   width: 80%;
   transform: translateX(-50%);
 }
-.live-salon-scene .live-salon-training {
-  left: 4.2%;
-  bottom: calc(1.9% + env(safe-area-inset-bottom));
-  width: 43%;
-}
 .live-salon-scene .live-salon-info {
   display: none;
 }
@@ -424,7 +414,6 @@ export default function LiveSalonScene({
   submitChat = null,
   team = null,
   topControls = null,
-  trainingControls = null,
   utilityControls = null,
 }) {
   const sceneRef = React.useRef(null);
@@ -512,9 +501,6 @@ export default function LiveSalonScene({
         {topControls ? <div className="live-salon-slot live-salon-top">{topControls}</div> : null}
         {salonControls ? (
           <div className="live-salon-slot live-salon-ready">{salonControls}</div>
-        ) : null}
-        {trainingControls ? (
-          <div className="live-salon-slot live-salon-training">{trainingControls}</div>
         ) : null}
         {infoControls ? <div className="live-salon-slot live-salon-info">{infoControls}</div> : null}
         {playersControls ? (

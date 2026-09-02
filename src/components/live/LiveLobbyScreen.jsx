@@ -4,7 +4,6 @@ import InterTournamentLobby from "./InterTournamentLobby.jsx";
 import LiveSalonScene from "./LiveSalonScene.jsx";
 import LiveSalonUtilityBar from "./LiveSalonUtilityBar.jsx";
 import MiniTournamentStartOverlay from "./MiniTournamentStartOverlay.jsx";
-import TrainingRoundPicker from "./TrainingRoundPicker.jsx";
 
 export default function LiveLobbyScreen({ runtime }) {
   const {
@@ -23,7 +22,6 @@ export default function LiveLobbyScreen({ runtime }) {
     cycleChatHistory,
     darkMode,
     deleteOwnChatMessage,
-    devRoundTypes,
     duelTeam,
     getLiveNickClassName,
     getNowServerMs,
@@ -49,10 +47,8 @@ export default function LiveLobbyScreen({ runtime }) {
     setTournamentReady,
     showBlockedList,
     signalLivePlayerActivity,
-    startTrainingRound,
     submitChat,
     tournamentLobby,
-    trainingBusy,
     unblockInstallId,
   } = runtime;
 
@@ -94,17 +90,6 @@ export default function LiveLobbyScreen({ runtime }) {
               onReady={setTournamentReady}
               selfReady={selfReadyForTournament}
               team={duelTeam}
-              trainingControl={
-                <TrainingRoundPicker
-                  darkMode={darkMode}
-                  devRoundTypes={devRoundTypes}
-                  lobby={tournamentLobby}
-                  onTrainingStart={startTrainingRound}
-                  team={duelTeam}
-                  trainingBusy={trainingBusy}
-                  variant="art"
-                />
-              }
             />
           }
           selfInstallId={installId}

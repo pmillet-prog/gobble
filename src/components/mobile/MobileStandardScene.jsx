@@ -5,7 +5,6 @@ import { normalizeBonusLabel } from "../daily/dailySpecialModel.js";
 import LiveSalonScene from "../live/LiveSalonScene.jsx";
 import MiniTournamentStartOverlay from "../live/MiniTournamentStartOverlay.jsx";
 import SwapFadeText from "../results/SwapFadeText.jsx";
-import TrainingRoundPicker from "../live/TrainingRoundPicker.jsx";
 import MobileStandardPlaying from "./MobileStandardPlaying.jsx";
 import {
   MobileLobbyPlayersControls,
@@ -31,7 +30,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     chatViewportHeight,
     countdownLines,
     darkMode,
-    devRoundTypes,
     displayList,
     duelTeam,
     endStats,
@@ -111,7 +109,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     tournament,
     tournamentLobby,
     tournamentRanking,
-    trainingBusy,
     usedSet,
     visibleMessages,
     vocabLevelUp,
@@ -170,7 +167,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     setTournamentReady,
     stableCanOpenPlayerProfile,
     stableOpenPlayerProfile,
-    startTrainingRound,
     submitChat,
     submitOcidProposal,
     submitOcidVote,
@@ -670,15 +666,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             submitChat={submitChat}
             team={duelTeam}
             topControls={mobileSalonTopControls}
-            trainingControls={
-              <TrainingRoundPicker
-                darkMode={darkMode}
-                devRoundTypes={devRoundTypes}
-                lobby={tournamentLobby}
-                onTrainingStart={startTrainingRound}
-                trainingBusy={trainingBusy}
-              />
-            }
             visibleMessages={visibleMessages}
           />
           {chatOverlays}

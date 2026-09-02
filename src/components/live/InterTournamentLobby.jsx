@@ -43,7 +43,7 @@ const styles = `
   pointer-events: auto;
 }
 .inter-lobby-side,
-.inter-lobby-training-slot {
+.inter-lobby-side-spacer {
   position: relative;
   display: block;
   width: 100%;
@@ -51,9 +51,6 @@ const styles = `
   border: 0;
   padding: 0;
   background: transparent;
-}
-.inter-lobby-training-slot {
-  transform: translateX(-16%);
 }
 .inter-lobby-side {
   cursor: pointer;
@@ -181,7 +178,6 @@ export default function InterTournamentLobby({
   onReady,
   selfReady = false,
   team = null,
-  trainingControl = null,
 }) {
   const isCountdown = lobby?.phase === "countdown";
   const isIntro = lobby?.phase === "intro";
@@ -233,7 +229,7 @@ export default function InterTournamentLobby({
             draggable="false"
           />
         </button>
-        <div className="inter-lobby-training-slot">{trainingControl}</div>
+        <div className="inter-lobby-side-spacer" aria-hidden="true" />
       </div>
       <div className="inter-lobby-status">
         <span>{getReadyLine(lobby)}</span>
