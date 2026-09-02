@@ -48,6 +48,7 @@ function createHarness() {
   const dependencies = {
     NICK_MAX_LEN: 24,
     appendConnectionLog: (entry) => connectionLogs.push(entry),
+    buildMaintenanceBlockedPayload: () => ({ ok: false, error: "maintenance_mode" }),
     buildModerationBanResponse: () => ({ ok: false, error: "banned" }),
     buildPlaytimeBlockedResponse: () => ({ ok: false, error: "playtime_exhausted" }),
     buildRankingUpdatePayload: () => null,
@@ -73,6 +74,8 @@ function createHarness() {
     getTeamForInstallCached: () => "red",
     io: { sockets: { sockets: new Map() } },
     isBotToken: () => false,
+    isMaintenanceModeActive: () => false,
+    isMiniTournamentInProgress: () => false,
     isRoundActive: () => false,
     joinSocketToChatRoom: () => {},
     markPresenceJoinAnnounced: () => {},

@@ -237,7 +237,7 @@ export default function DevSettingsPanel({
             </div>
             {controls?.maintenanceMode ? (
               <div className="mt-2 text-[10px] font-semibold text-orange-500">
-                Maintenance active: daily, mini-tournoi et entrainement bloques.
+                Maintenance active: grilles du jour, entrainement et prochain mini-tournoi bloques.
               </div>
             ) : null}
           </div>

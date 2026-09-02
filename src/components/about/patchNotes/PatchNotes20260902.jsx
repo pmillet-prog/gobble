@@ -86,6 +86,18 @@ export default function PatchNotes20260902({ menuDarkMode = false }) {
         </li>
       </PatchSection>
 
+      <PatchSection title="maintenance">
+        <li>
+          lorsqu'une maintenance est annoncée pendant un mini-tournoi, il reste possible de
+          rejoindre ou de reprendre ce tournoi jusqu'à sa fin. Un avertissement rappelle que la
+          maintenance est imminente avant l'entrée dans le live.
+        </li>
+        <li>
+          les grilles du jour, l'entraînement et le lancement du mini-tournoi suivant restent
+          indisponibles pendant cette période.
+        </li>
+      </PatchSection>
+
       <PatchSection title="salon et chat">
         <li>
           le carnet du salon adopte une nouvelle écriture manuscrite plus lisible sur ordinateur

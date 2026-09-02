@@ -4033,6 +4033,28 @@ function isInterTournamentLobbyOpen(room) {
   return !!room && !room.roundStartPending && !room.currentRound && !room.breakState;
 }
 
+function isMiniTournamentInProgress(room) {
+  if (!room) return false;
+  const breakKind = String(room.breakState?.breakKind || "");
+  if (breakKind === "tournament_end" || breakKind === "training_end") return false;
+  if (breakKind === "between_rounds") return true;
+
+  const round = room.currentRound || null;
+  if (round) {
+    const tournamentRound = Number(round.tournamentRound ?? room.tournament?.currentRound);
+    return !round.training && Number.isFinite(tournamentRound) && tournamentRound > 0;
+  }
+
+  const preparingTournamentRound = Number(
+    room.roundPreparingSnapshot?.tournament?.round
+  );
+  return (
+    !!room.roundStartPending &&
+    Number.isFinite(preparingTournamentRound) &&
+    preparingTournamentRound > 0
+  );
+}
+
 function getConnectedHumanPlayers(room, now = Date.now()) {
   if (!room?.players) return [];
   return Array.from(room.players.values()).filter(
@@ -4161,6 +4183,7 @@ function buildTournamentLobbyPayload(room) {
     readyThreshold,
   });
   const maintenanceMode = isMaintenanceModeActive();
+  const miniTournamentInProgress = isMiniTournamentInProgress(room);
   const isLobbyOpen = isInterTournamentLobbyOpen(room);
   const canStart =
     isLobbyOpen &&
@@ -4199,6 +4222,8 @@ function buildTournamentLobbyPayload(room) {
     canStart,
     maintenanceMode,
     maintenanceMessage: maintenanceMode ? "Maintenance en cours" : "",
+    miniTournamentInProgress,
+    maintenanceLiveJoinAllowed: maintenanceMode && miniTournamentInProgress,
     trainingEnabled: devControls?.trainingEnabled !== false && !maintenanceMode,
     trainingAvailable:
       !maintenanceMode &&
@@ -7920,8 +7945,10 @@ function maybeAnnounceCloseFight(room) {
 }
 
 function announceMaintenanceModeEnabled() {
-  const text = "Attention mise a jour a la fin de ce mini tournoi.";
   for (const room of rooms.values()) {
+    const text = isMiniTournamentInProgress(room)
+      ? "Maintenance imminente : le mini-tournoi en cours peut etre termine."
+      : "Maintenance en cours : aucun nouveau mini-tournoi ne sera lance.";
     pushAnnouncement(room, { type: "maintenance_mode", text });
     pushSystemChatMessage(room, text, { meta: { kind: "maintenance_mode" } });
   }
@@ -11197,6 +11224,7 @@ io.on("connection", (socket) => {
   registerSessionHandlers(socket, {
     NICK_MAX_LEN,
     appendConnectionLog,
+    buildMaintenanceBlockedPayload,
     buildModerationBanResponse,
     buildPlaytimeBlockedResponse,
     buildSessionSnapshot,
@@ -11217,6 +11245,8 @@ io.on("connection", (socket) => {
     getTeamForInstallCached,
     io,
     isBotToken,
+    isMaintenanceModeActive,
+    isMiniTournamentInProgress,
     isRoundActive,
     joinSocketToChatRoom,
     markPresenceJoinAnnounced,

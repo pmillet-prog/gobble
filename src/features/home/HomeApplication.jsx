@@ -9,6 +9,7 @@ import {
   countHomeLobbyPlayers,
   getHomeDailyRemainingCount,
   isHomeMaintenanceActive,
+  resolveHomeTournamentLobby,
   shouldShowHomeBroadcastPopup,
 } from "./homeViewModel.js";
 
@@ -46,10 +47,42 @@ export default function HomeApplication({
     ]
   );
   const dailyRemainingCount = getHomeDailyRemainingCount(dailyStatus);
-  const maintenanceMode = isHomeMaintenanceActive({
-    dailyStatus,
+  const tournamentLobby = resolveHomeTournamentLobby({
+    roomId: lobby?.roomId,
+    roomsStats: lobby?.roomsStats,
     tournamentLobby: lobby?.tournamentLobby,
   });
+  const maintenanceMode = isHomeMaintenanceActive({
+    dailyStatus,
+    tournamentLobby,
+  });
+  const maintenanceLiveJoinAllowed = !!tournamentLobby?.maintenanceLiveJoinAllowed;
+  const [maintenanceLiveAction, setMaintenanceLiveAction] = React.useState("");
+  const requestLiveAction = React.useCallback(
+    (actionName, event) => {
+      if (!maintenanceLiveJoinAllowed) {
+        homeLobbyActions[actionName]?.(event);
+        return;
+      }
+      event?.preventDefault?.();
+      setMaintenanceLiveAction(actionName);
+    },
+    [homeLobbyActions, maintenanceLiveJoinAllowed]
+  );
+  const confirmMaintenanceLiveJoin = React.useCallback(
+    (event) => {
+      const actionName = maintenanceLiveAction;
+      setMaintenanceLiveAction("");
+      if (!maintenanceLiveJoinAllowed) return;
+      homeLobbyActions[actionName]?.(event);
+    },
+    [homeLobbyActions, maintenanceLiveAction, maintenanceLiveJoinAllowed]
+  );
+  React.useEffect(() => {
+    if (!maintenanceLiveJoinAllowed && maintenanceLiveAction) {
+      setMaintenanceLiveAction("");
+    }
+  }, [maintenanceLiveAction, maintenanceLiveJoinAllowed]);
   const accountLabel =
     account?.usernameDisplay ||
     account?.legacyProfileUsername ||
@@ -94,6 +127,48 @@ export default function HomeApplication({
           />
         </React.Suspense>
       ) : null}
+      {maintenanceLiveAction && maintenanceLiveJoinAllowed ? (
+        <div
+          className="fixed inset-0 z-[22000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => setMaintenanceLiveAction("")}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-amber-300/40 bg-slate-950 px-5 py-5 text-white shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="maintenance-live-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div
+              id="maintenance-live-title"
+              className="text-center text-sm font-black uppercase tracking-[0.16em] text-amber-300"
+            >
+              Maintenance imminente
+            </div>
+            <p className="mt-3 text-center text-sm font-semibold leading-relaxed text-slate-100">
+              Tu peux rejoindre ou reprendre le mini-tournoi en cours et le terminer. Une
+              interruption pour maintenance est imminente et pourra avoir lieu dès qu'il sera fini.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white"
+                onClick={() => setMaintenanceLiveAction("")}
+              >
+                Rester ici
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-amber-400 px-3 py-2 text-sm font-black text-slate-950"
+                onClick={confirmMaintenanceLiveJoin}
+              >
+                Continuer vers le live
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <HomeChatModalHost {...chat} />
       <HomeLobby
         accountLabel={accountLabel}
@@ -107,11 +182,14 @@ export default function HomeApplication({
         isAuthStatusPending={account?.statusPending}
         isConnecting={session?.isConnecting}
         loginError={account?.loginError}
+        maintenanceLiveJoinAllowed={maintenanceLiveJoinAllowed}
         maintenanceMode={maintenanceMode}
         onIntroComplete={intro?.onComplete}
         displayModeAction={displayMode?.action}
         onToggleFullscreen={displayMode?.onToggleFullscreen}
         {...homeLobbyActions}
+        onPlay={(event) => requestLiveAction("onPlay", event)}
+        onResume={(event) => requestLiveAction("onResume", event)}
         playerTeam={duel?.team}
         playIntro={intro?.play}
         playersCount={playersCount}

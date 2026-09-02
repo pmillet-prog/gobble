@@ -5,6 +5,7 @@ export function registerSessionHandlers(
   {
     NICK_MAX_LEN,
     appendConnectionLog,
+    buildMaintenanceBlockedPayload,
     buildModerationBanResponse,
     buildPlaytimeBlockedResponse,
     buildSessionSnapshot,
@@ -25,6 +26,8 @@ export function registerSessionHandlers(
     getTeamForInstallCached,
     io,
     isBotToken,
+    isMaintenanceModeActive,
+    isMiniTournamentInProgress,
     isRoundActive,
     joinSocketToChatRoom,
     markPresenceJoinAnnounced,
@@ -62,6 +65,10 @@ export function registerSessionHandlers(
     const room = getRoom(roomId);
     if (!room) {
       cb?.({ ok: false, available: false, error: "invalid_room" });
+      return;
+    }
+    if (isMaintenanceModeActive() && !isMiniTournamentInProgress(room)) {
+      cb?.({ ...buildMaintenanceBlockedPayload(), available: false });
       return;
     }
     const match = findPlayerByInstallId(room, installId);
@@ -148,6 +155,10 @@ export function registerSessionHandlers(
 
     if (!room) {
       cb?.({ ok: false, error: "invalid_room" });
+      return;
+    }
+    if (isMaintenanceModeActive() && !isMiniTournamentInProgress(room)) {
+      cb?.(buildMaintenanceBlockedPayload());
       return;
     }
 

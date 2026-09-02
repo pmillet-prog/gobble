@@ -123,6 +123,10 @@ export function createLiveEntryFeature(
       );
       return;
     }
+    if (error === "maintenance_mode") {
+      setLoginFailure(response?.message || "Maintenance en cours.");
+      return;
+    }
     if (error === "invalid_room") {
       setLoginFailure("Salle indisponible");
       return;

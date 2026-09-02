@@ -47,6 +47,23 @@ export function isHomeMaintenanceActive({ dailyStatus, tournamentLobby } = {}) {
   return !!(tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode);
 }
 
+export function resolveHomeTournamentLobby({
+  roomId = "",
+  roomsStats = [],
+  tournamentLobby = null,
+} = {}) {
+  const lobbyRoomId = roomId || getDefaultRoomId();
+  const roomEntry = (Array.isArray(roomsStats) ? roomsStats : []).find(
+    (entry) => entry?.roomId === lobbyRoomId
+  );
+  const roomsStatsLobby = roomEntry?.tournamentLobby || null;
+  if (!roomsStatsLobby) return tournamentLobby;
+  if (!tournamentLobby) return roomsStatsLobby;
+  const directTimestamp = Number(tournamentLobby.serverNow) || 0;
+  const roomsStatsTimestamp = Number(roomsStatsLobby.serverNow) || 0;
+  return roomsStatsTimestamp >= directTimestamp ? roomsStatsLobby : tournamentLobby;
+}
+
 export function shouldShowHomeBroadcastPopup({
   accountSeenMarkers,
   accountSeenReady = false,

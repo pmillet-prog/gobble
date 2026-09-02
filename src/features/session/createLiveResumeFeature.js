@@ -393,6 +393,12 @@ export function createLiveResumeFeature(
       );
       return;
     }
+    if (response?.error === "maintenance_mode") {
+      releaseResumeTransport(attempt);
+      const message = response?.message || "Maintenance en cours.";
+      setLoggedOutFailure(message, { loginError: message });
+      return;
+    }
     if (response?.ok && !response?.available) {
       getKernelCommands()?.session?.setConnectionError?.(
         LIVE_CONNECTION_INTERRUPTED_MESSAGE

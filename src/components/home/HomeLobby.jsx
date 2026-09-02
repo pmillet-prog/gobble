@@ -765,6 +765,7 @@ function HomeLobby({
   isAuthStatusPending = false,
   isConnecting = false,
   loginError = "",
+  maintenanceLiveJoinAllowed = false,
   maintenanceMode = false,
   onDismissResume,
   onIntroComplete,
@@ -801,7 +802,8 @@ function HomeLobby({
       ? "Serveur occupé, réessaie dans quelques secondes."
       : "");
   const safeAccountLabel = accountLabel || savedSessionNick || "Compte";
-  const disabled = isConnecting || isAuthStatusPending || maintenanceMode;
+  const liveAccessBlocked = maintenanceMode && !maintenanceLiveJoinAllowed;
+  const disabled = isConnecting || isAuthStatusPending || liveAccessBlocked;
   const playButtonSrc = playerTeam === "red" ? HOME_ASSETS.playRed : HOME_ASSETS.playBlue;
   const hasDisplayModeAction = displayModeAction !== HOME_DISPLAY_ACTIONS.none;
   const displayModeLabel =
@@ -877,7 +879,11 @@ function HomeLobby({
             <span className="material-symbols-outlined" aria-hidden="true">
               construction
             </span>
-            <span>Maintenance en cours</span>
+            <span>
+              {maintenanceLiveJoinAllowed
+                ? "Maintenance imminente · tournoi en cours accessible"
+                : "Maintenance en cours"}
+            </span>
           </div>
         ) : null}
         <img
@@ -926,7 +932,7 @@ function HomeLobby({
                 {resumeRoomLabel ? ` · ${resumeRoomLabel}` : ""}
                 {resumePhaseLabel ? ` · ${resumePhaseLabel}` : ""}
               </span>
-              <button type="button" onClick={onResume} disabled={isConnecting}>
+              <button type="button" onClick={onResume} disabled={disabled}>
                 Reprendre
               </button>
               <button type="button" onClick={onDismissResume} disabled={isConnecting}>
