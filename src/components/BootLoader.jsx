@@ -43,14 +43,12 @@ function BootLoader({
   fadeDurationMs = 500,
   fadingOut = false,
   gifSrc = "/introgobble.gif",
-  onGifReady = null,
   progress = 0,
   slowThresholdMs = 3500,
 }) {
   const [gifLoadFailed, setGifLoadFailed] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [funMessage, setFunMessage] = useState(() => pickNextFunMessage());
-  const gifReadyReportedRef = useRef(false);
   const startedAtRef = useRef(
     typeof performance !== "undefined" ? performance.now() : Date.now()
   );
@@ -92,11 +90,6 @@ function BootLoader({
   const isBootDone = !!(typeof progress === "object" && progress?.done);
   const isSlowLoading = !isBootDone && elapsedMs >= slowThresholdMs;
   const transitionMs = Math.max(0, Number(fadeDurationMs) || 0);
-  const reportGifReady = () => {
-    if (gifReadyReportedRef.current) return;
-    gifReadyReportedRef.current = true;
-    onGifReady?.();
-  };
 
   return createPortal(
     <div
@@ -155,15 +148,11 @@ function BootLoader({
           src={gifLoadFailed ? "/favicon.png" : gifSrc}
           alt="Gobble"
           className={`gobble-boot-art block h-auto object-contain ${
-            gifLoadFailed ? "w-24 sm:w-28" : "w-full max-w-[960px]"
+            gifLoadFailed ? "w-24 sm:w-28" : "w-full max-w-[512px]"
           }`}
           style={{ maxHeight: gifLoadFailed ? "112px" : "min(62dvh, 560px)" }}
           draggable="false"
-          onLoad={reportGifReady}
-          onError={() => {
-            setGifLoadFailed(true);
-            reportGifReady();
-          }}
+          onError={() => setGifLoadFailed(true)}
         />
 
         <div className="gobble-boot-status mt-1 flex min-h-8 flex-col items-center text-neutral-400">

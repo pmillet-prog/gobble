@@ -22,9 +22,7 @@ import BootLoader from "../BootLoader.jsx";
 
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
 const BOOT_INTRO_GIF_SRC = "/introgobble.gif";
-// 318 images, pour un total encodé de 746 centièmes de seconde.
-const BOOT_INTRO_GIF_DURATION_MS = 7460;
-const BOOT_SLOW_THRESHOLD_MS = 3500;
+const BOOT_MIN_HOLD_MS = 3500;
 const BOOT_TRANSITION_MS = 650;
 const BOOT_WARM_SESSION_KEY = "gobble_boot_assets_ready_v2";
 
@@ -93,18 +91,10 @@ export default function AppBootOverlay({
   }));
   const [assetsReady, setAssetsReady] = React.useState(false);
   const [introRequired, setIntroRequired] = React.useState(null);
-  const [gifStartedAt, setGifStartedAt] = React.useState(null);
   const [visible, setVisible] = React.useState(false);
   const [fadingOut, setFadingOut] = React.useState(false);
   const playedRef = React.useRef(false);
-  const gifStartedAtRef = React.useRef(null);
-
-  const handleGifReady = React.useCallback(() => {
-    if (gifStartedAtRef.current !== null) return;
-    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-    gifStartedAtRef.current = startedAt;
-    setGifStartedAt(startedAt);
-  }, []);
+  const introStartedAtRef = React.useRef(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -131,6 +121,10 @@ export default function AppBootOverlay({
       const cacheReady = !forceCachePurge && (await isBootAssetCacheReady(coreManifest));
       if (cancelled) return;
       const shouldPlayIntro = !cacheReady;
+      if (shouldPlayIntro) {
+        introStartedAtRef.current =
+          typeof performance !== "undefined" ? performance.now() : Date.now();
+      }
       setIntroRequired(shouldPlayIntro);
       setVisible(shouldPlayIntro);
       onOverlayVisibleChange?.(shouldPlayIntro);
@@ -209,17 +203,14 @@ export default function AppBootOverlay({
       setProgress((previous) => ({ ...previous, done: true }));
       return undefined;
     }
-    if (!Number.isFinite(gifStartedAt)) return undefined;
+    if (!Number.isFinite(introStartedAtRef.current)) return undefined;
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const fadeStartsAfterMs = Math.max(
-      0,
-      BOOT_INTRO_GIF_DURATION_MS - BOOT_TRANSITION_MS - (now - gifStartedAt)
-    );
+    const fadeStartsAfterMs = Math.max(0, BOOT_MIN_HOLD_MS - (now - introStartedAtRef.current));
     const timerId = window.setTimeout(() => {
       setProgress((previous) => ({ ...previous, done: true }));
     }, fadeStartsAfterMs);
     return () => window.clearTimeout(timerId);
-  }, [assetsReady, gifStartedAt, introRequired, progress.done]);
+  }, [assetsReady, introRequired, progress.done]);
 
   React.useEffect(() => {
     if (!progress.done || playedRef.current) return undefined;
@@ -252,8 +243,7 @@ export default function AppBootOverlay({
       progress={progress}
       fadingOut={progress.done && fadingOut}
       fadeDurationMs={BOOT_TRANSITION_MS}
-      onGifReady={handleGifReady}
-      slowThresholdMs={BOOT_SLOW_THRESHOLD_MS}
+      slowThresholdMs={BOOT_MIN_HOLD_MS}
     />
   );
 }
