@@ -415,10 +415,11 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
       const useBadgeIndicator = specialIndicatorPreset === "badge";
       return (
         <div
-          className="flex items-center overflow-hidden"
+          className="flex min-w-0 w-full items-center overflow-hidden"
           style={{ minHeight: 0, maxHeight: "100%" }}
         >
           <AutoScaleInline
+            align="left"
             minScale={0.42}
             estimatedContentWidth={
               tiles.length * special3PreviewTileHeightPx +
@@ -427,7 +428,7 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
             className="gap-1"
           >
             {tiles.map((tile, idx) => {
-              const angle = ((idx * 17 + tiles.length * 13) % 11) - 5;
+              const angle = ((idx * 17 + 13) % 11) - 5;
               const displayBonus = tile.bonus;
               const tileBaseClass =
                 useFillIndicator && displayBonus ? BONUS_CLASSES[displayBonus] : defaultTileBaseClass;
