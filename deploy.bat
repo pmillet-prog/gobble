@@ -41,7 +41,7 @@ if !errorlevel! neq 0 (
 
 echo === 2) VM: pull + build + restart ===
 set "VM_LOG=%~dp0deploy-vm.log"
-set "VM_CMD=cd ~/gobble_git && git fetch origin && git reset --hard origin/main && git clean -fd -e data/ -e server/data/ -e server/data-runtime/ && bash scripts/vm_update.sh"
+set "VM_CMD=cd ~/gobble_git && (GIT_TERMINAL_PROMPT=0 git -c http.version=HTTP/1.1 fetch origin || (echo WARN: git fetch a echoue, nouvel essai dans 3 secondes... && sleep 3 && GIT_TERMINAL_PROMPT=0 git -c http.version=HTTP/1.1 fetch origin) || (echo WARN: git fetch a encore echoue, dernier essai dans 8 secondes... && sleep 8 && GIT_TERMINAL_PROMPT=0 git -c http.version=HTTP/1.1 fetch origin)) && git reset --hard origin/main && git clean -fd -e data/ -e server/data/ -e server/data-runtime/ && bash scripts/vm_update.sh"
 
 ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=6 freebox@192.168.1.84 "!VM_CMD!" > "!VM_LOG!" 2>&1
 set "VM_EXIT=!errorlevel!"
