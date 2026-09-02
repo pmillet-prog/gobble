@@ -21,9 +21,62 @@ import {
 import BootLoader from "../BootLoader.jsx";
 
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
-const BOOT_MIN_HOLD_MS = 250;
+const BOOT_INTRO_GIF_SRC = "/introgobble.gif";
+// 318 images, pour un total encodé de 746 centièmes de seconde.
+const BOOT_INTRO_GIF_DURATION_MS = 7460;
 const BOOT_SLOW_THRESHOLD_MS = 3500;
 const BOOT_TRANSITION_MS = 650;
+const BOOT_WARM_SESSION_KEY = "gobble_boot_assets_ready_v2";
+
+function wasBootCompletedThisSession() {
+  if (typeof sessionStorage === "undefined") return false;
+  try {
+    return sessionStorage.getItem(BOOT_WARM_SESSION_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function markBootCompletedThisSession() {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(BOOT_WARM_SESSION_KEY, "1");
+  } catch (_) {}
+}
+
+async function hasCachedCandidate(candidate) {
+  if (!candidate || typeof window === "undefined" || typeof caches === "undefined") {
+    return false;
+  }
+  try {
+    const url = new URL(candidate, window.location.origin);
+    url.hash = "";
+    return !!(await caches.match(url.toString(), { ignoreSearch: true }));
+  } catch (_) {
+    return false;
+  }
+}
+
+async function isBootAssetCacheReady(manifest) {
+  if (wasBootCompletedThisSession()) return true;
+  if (typeof caches === "undefined") return false;
+  const criticalImages = (Array.isArray(manifest) ? manifest : []).filter(
+    (entry) => entry?.type === "image" && entry?.priority === "critical"
+  );
+  const candidateGroups = [
+    [BOOT_INTRO_GIF_SRC],
+    ...criticalImages.map((entry) => entry.candidates || []),
+  ];
+  const cachedGroups = await Promise.all(
+    candidateGroups.map(async (candidates) => {
+      for (const candidate of candidates) {
+        if (await hasCachedCandidate(candidate)) return true;
+      }
+      return false;
+    })
+  );
+  return cachedGroups.length > 0 && cachedGroups.every(Boolean);
+}
 
 export default function AppBootOverlay({
   onAmbientTracksResolved,
@@ -38,9 +91,20 @@ export default function AppBootOverlay({
     stage: "",
     key: "",
   }));
-  const [visible, setVisible] = React.useState(true);
+  const [assetsReady, setAssetsReady] = React.useState(false);
+  const [introRequired, setIntroRequired] = React.useState(null);
+  const [gifStartedAt, setGifStartedAt] = React.useState(null);
+  const [visible, setVisible] = React.useState(false);
   const [fadingOut, setFadingOut] = React.useState(false);
   const playedRef = React.useRef(false);
+  const gifStartedAtRef = React.useRef(null);
+
+  const handleGifReady = React.useCallback(() => {
+    if (gifStartedAtRef.current !== null) return;
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    gifStartedAtRef.current = startedAt;
+    setGifStartedAt(startedAt);
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -58,15 +122,25 @@ export default function AppBootOverlay({
         await purgeRuntimeMediaCache({ force: forceCachePurge });
       }
 
+      const preferWideUi = detectWideUiViewport();
+      const coreManifest = dedupeManifest([
+        ...BOOT_ASSET_MANIFEST_BASE,
+        ...buildUiAssetManifest({ preferWide: preferWideUi }),
+        ...buildSfxManifest(REGISTERED_SFX_MANIFEST),
+      ]);
+      const cacheReady = !forceCachePurge && (await isBootAssetCacheReady(coreManifest));
+      if (cancelled) return;
+      const shouldPlayIntro = !cacheReady;
+      setIntroRequired(shouldPlayIntro);
+      setVisible(shouldPlayIntro);
+      onOverlayVisibleChange?.(shouldPlayIntro);
+
       const resolvedAmbientTracks = await loadAmbientTrackList();
       if (cancelled) return;
       onAmbientTracksResolved?.(resolvedAmbientTracks);
 
-      const preferWideUi = detectWideUiViewport();
       const manifest = dedupeManifest([
-        ...BOOT_ASSET_MANIFEST_BASE,
-        ...buildUiAssetManifest({ preferWide: preferWideUi }),
-        ...buildSfxManifest(REGISTERED_SFX_MANIFEST),
+        ...coreManifest,
         ...buildFileManifest(resolvedAmbientTracks || []),
       ]);
       AssetManager.registerManifest(manifest);
@@ -78,10 +152,10 @@ export default function AppBootOverlay({
         setProgress((previous) => ({
           ...previous,
           total: 0,
-          done: true,
           stage: "",
           key: "",
         }));
+        setAssetsReady(true);
         return;
       }
 
@@ -95,7 +169,6 @@ export default function AppBootOverlay({
         stage: "",
         key: "",
       }));
-      const startedAt = performance.now();
       await AssetManager.preload({
         priority: "critical",
         excludeTypes: ["sfx"],
@@ -118,18 +191,8 @@ export default function AppBootOverlay({
       if (!cancelled) {
         cancelDeferredHighPriorityPreload = scheduleDeferredHighPriorityImagePreload();
         cancelDeferredUiPreload = scheduleDeferredUiAssetPreload({ preferWide: preferWideUi });
+        setAssetsReady(true);
       }
-      const elapsed = performance.now() - startedAt;
-      window.setTimeout(() => {
-        if (cancelled) return;
-        setProgress((previous) => ({
-          ...previous,
-          loaded,
-          errors,
-          total,
-          done: true,
-        }));
-      }, Math.max(0, BOOT_MIN_HOLD_MS - elapsed));
     };
 
     void run();
@@ -141,11 +204,30 @@ export default function AppBootOverlay({
   }, []);
 
   React.useEffect(() => {
+    if (!assetsReady || introRequired === null || progress.done) return undefined;
+    if (!introRequired) {
+      setProgress((previous) => ({ ...previous, done: true }));
+      return undefined;
+    }
+    if (!Number.isFinite(gifStartedAt)) return undefined;
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const fadeStartsAfterMs = Math.max(
+      0,
+      BOOT_INTRO_GIF_DURATION_MS - BOOT_TRANSITION_MS - (now - gifStartedAt)
+    );
+    const timerId = window.setTimeout(() => {
+      setProgress((previous) => ({ ...previous, done: true }));
+    }, fadeStartsAfterMs);
+    return () => window.clearTimeout(timerId);
+  }, [assetsReady, gifStartedAt, introRequired, progress.done]);
+
+  React.useEffect(() => {
     if (!progress.done || playedRef.current) return undefined;
     onReady?.();
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !introRequired) {
       playedRef.current = true;
       setVisible(false);
+      markBootCompletedThisSession();
       onOverlayVisibleChange?.(false);
       return undefined;
     }
@@ -154,20 +236,23 @@ export default function AppBootOverlay({
       playedRef.current = true;
       setVisible(false);
       setFadingOut(false);
+      markBootCompletedThisSession();
       onOverlayVisibleChange?.(false);
     }, BOOT_TRANSITION_MS);
     return () => {
       window.cancelAnimationFrame(rafId);
       window.clearTimeout(timerId);
     };
-  }, [progress.done, onOverlayVisibleChange, onReady]);
+  }, [introRequired, progress.done, onOverlayVisibleChange, onReady]);
 
   if (!visible) return null;
   return (
     <BootLoader
+      gifSrc={BOOT_INTRO_GIF_SRC}
       progress={progress}
       fadingOut={progress.done && fadingOut}
       fadeDurationMs={BOOT_TRANSITION_MS}
+      onGifReady={handleGifReady}
       slowThresholdMs={BOOT_SLOW_THRESHOLD_MS}
     />
   );
