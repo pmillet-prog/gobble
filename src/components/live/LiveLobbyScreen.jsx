@@ -16,7 +16,6 @@ export default function LiveLobbyScreen({ runtime }) {
     chatInputDisabled,
     chatInputPlaceholder,
     chatInputRef,
-    chatMessagesOnly,
     chatOverlays,
     chatReplyTarget,
     clearChatEditTarget,
@@ -127,7 +126,6 @@ export default function LiveLobbyScreen({ runtime }) {
               onOpenVault={openWordVaultPage}
             />
           }
-          visibleMessages={chatMessagesOnly}
         />
         {chatOverlays}
         <MiniTournamentStartOverlay

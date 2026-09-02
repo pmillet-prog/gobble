@@ -1,6 +1,5 @@
 import React from "react";
 import ChatContent from "../chat/ChatContent.jsx";
-import { isChatBotMessage } from "../chat/chatBotVisibility.js";
 import {
   getLiveBackgroundKey,
   getUiImageUrl,
@@ -427,16 +426,8 @@ export default function LiveSalonScene({
   topControls = null,
   trainingControls = null,
   utilityControls = null,
-  visibleMessages = [],
 }) {
   const sceneRef = React.useRef(null);
-  const safeMessages = React.useMemo(
-    () =>
-      (Array.isArray(visibleMessages) ? visibleMessages : []).filter(
-        (message) => !isChatBotMessage(message)
-      ),
-    [visibleMessages]
-  );
   const desktopBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "wide"));
   const mobileBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "tall"));
 
@@ -548,6 +539,7 @@ export default function LiveSalonScene({
             cycleChatHistory={cycleChatHistory}
             darkMode={darkMode}
             getAuthorNickClassName={getAuthorNickClassName}
+            hideBotMessages={true}
             isOpen={true}
             keyboardInsetReservePx={0}
             messagesUnreadCount={messagesUnreadCount}
@@ -572,7 +564,6 @@ export default function LiveSalonScene({
             showBotMessages={false}
             submitChat={submitChat}
             variant="notebook"
-            visibleMessages={safeMessages}
           />
         </div>
       </div>

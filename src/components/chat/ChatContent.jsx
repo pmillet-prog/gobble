@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useChatDraft } from "../../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
+import { isChatBotMessage } from "./chatBotVisibility.js";
 import useChatAutoScroll from "./useChatAutoScroll.js";
 import NotebookReactionEmoji from "./NotebookReactionEmoji.jsx";
 
@@ -220,16 +221,29 @@ export default function ChatContent({
   onReactToMessage,
   reactionEmojis = [],
   getAuthorNickClassName = null,
+  hideBotMessages = false,
   showBotMessages = true,
   onToggleShowBotMessages = null,
   onUserActivity = null,
   variant = "default",
 }) {
   const { chatInput, setChatInput } = useChatDraft();
-  const { visibleMessages: sharedVisibleMessages } = useChatPresentation();
-  const visibleMessages = Array.isArray(visibleMessagesProp)
+  const {
+    messagesOnly: sharedMessagesOnly,
+    systemMessages: sharedSystemMessages,
+  } = useChatPresentation();
+  const sharedVisibleMessages =
+    chatTab === "system" ? sharedSystemMessages : sharedMessagesOnly;
+  const sourceVisibleMessages = Array.isArray(visibleMessagesProp)
     ? visibleMessagesProp
     : sharedVisibleMessages;
+  const visibleMessages = React.useMemo(
+    () =>
+      hideBotMessages
+        ? sourceVisibleMessages.filter((message) => !isChatBotMessage(message))
+        : sourceVisibleMessages,
+    [hideBotMessages, sourceVisibleMessages]
+  );
   const isSystemTab = chatTab === "system";
   const isNotebookVariant = variant === "notebook";
   const localTextareaRef = useRef(null);
