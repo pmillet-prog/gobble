@@ -144,12 +144,11 @@ cd server
 npm ci
 cd "$REPO_DIR"
 
-echo "=== Definitions: semantic themes backfill if needed ==="
+echo "=== Definitions: linguistic facts backfill if needed ==="
 if [ -f "$REPO_DIR/data/definitions-fr.sqlite" ]; then
-  node server/scripts/backfill-game-semantic-themes.mjs --if-needed
   node server/scripts/backfill-word-linguistic-facts.mjs --if-needed
 else
-  echo "WARN: data/definitions-fr.sqlite not found; skipping definitions backfills"
+  echo "WARN: data/definitions-fr.sqlite not found; skipping definitions backfill"
 fi
 
 restart_gobble_service() {
