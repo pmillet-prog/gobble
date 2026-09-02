@@ -1,6 +1,10 @@
 import React from "react";
 
 import { clampValue } from "../../utils/numbers.js";
+import {
+  createMobileViewportPanGuard,
+  isViewportKeyboardTarget,
+} from "./createMobileViewportPanGuard.js";
 import { VIEWPORT_EVENTS } from "./createViewportEventHub.js";
 
 export function areMobileLayoutSizingsEqual(left, right) {
@@ -182,6 +186,7 @@ export default function useMobileLayoutController({
   const safeAreaProbeRef = React.useRef(null);
   const safeAreaTopProbeRef = React.useRef(null);
   const chatScrollLockRef = React.useRef(0);
+  const viewportPanGuardRef = React.useRef(null);
 
   React.useEffect(
     () =>
@@ -487,6 +492,43 @@ export default function useMobileLayoutController({
     isFullscreen,
     isMobileLayout,
     setMobileHeaderOffsetPx,
+  ]);
+
+  const shouldGuardViewportPan =
+    isMobileLayout && (phase === "playing" || phase === "results");
+
+  React.useEffect(() => {
+    if (!shouldGuardViewportPan) return undefined;
+    const guard = createMobileViewportPanGuard({
+      documentTarget: document,
+      isChatKeyboardExpected: () =>
+        isChatOpenMobileRef.current &&
+        isViewportKeyboardTarget(document.activeElement),
+      subscribeViewport: (listener) =>
+        layoutFeature.subscribeViewport(listener, [
+          VIEWPORT_EVENTS.VISUAL_RESIZE,
+          VIEWPORT_EVENTS.VISUAL_SCROLL,
+        ]),
+      windowTarget: window,
+    });
+    viewportPanGuardRef.current = guard;
+    return () => {
+      if (viewportPanGuardRef.current === guard) {
+        viewportPanGuardRef.current = null;
+      }
+      guard.dispose();
+    };
+  }, [isChatOpenMobileRef, layoutFeature, shouldGuardViewportPan]);
+
+  React.useEffect(() => {
+    if (!shouldGuardViewportPan || isChatOpenMobile || isChatClosing) return;
+    viewportPanGuardRef.current?.scheduleRecovery();
+    layoutFeature.refreshViewportMode();
+  }, [
+    isChatClosing,
+    isChatOpenMobile,
+    layoutFeature,
+    shouldGuardViewportPan,
   ]);
 
   React.useEffect(() => {
