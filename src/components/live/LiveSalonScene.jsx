@@ -83,6 +83,7 @@ const styles = `
   width: clamp(68px, 7.8%, 128px);
 }
 .live-salon-notebook {
+  --salon-handwriting-size: clamp(20px, 1.55vw, 26px);
   position: absolute;
   z-index: 2;
   left: 23.5%;
@@ -114,8 +115,8 @@ const styles = `
   background: transparent !important;
   padding: 0 1.5% 2% !important;
   color: #572000 !important;
-  font-size: clamp(12px, 1.18vw, 21px) !important;
-  line-height: 1.45;
+  font-size: var(--salon-handwriting-size) !important;
+  line-height: 1.28;
   box-shadow: none !important;
   scrollbar-width: none;
 }
@@ -282,7 +283,7 @@ const styles = `
   caret-color: #b30b18;
   padding: 5px 4px 3px !important;
   font: inherit;
-  font-size: clamp(16px, 1.05vw, 20px) !important;
+  font-size: var(--salon-handwriting-size) !important;
   box-shadow: none !important;
 }
 .live-salon-notebook .chat-content-input::placeholder {
@@ -328,6 +329,7 @@ const styles = `
   width: auto;
 }
 .live-salon-scene .live-salon-notebook {
+  --salon-handwriting-size: clamp(20px, 5.2vw, 24px);
   left: 12.5%;
   top: 21.7%;
   width: 75%;
@@ -335,7 +337,6 @@ const styles = `
   transform: perspective(70vh) rotateX(10deg);
 }
 .live-salon-scene .live-salon-notebook .chat-content-messages {
-  font-size: clamp(14px, 3.5vw, 20px) !important;
   padding-bottom: 1.5em !important;
 }
 .live-salon-scene .live-salon-notebook .chat-content-compose {

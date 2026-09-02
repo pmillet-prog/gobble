@@ -226,7 +226,10 @@ export default function ChatContent({
   variant = "default",
 }) {
   const { chatInput, setChatInput } = useChatDraft();
-  const { visibleMessages } = useChatPresentation();
+  const { visibleMessages: sharedVisibleMessages } = useChatPresentation();
+  const visibleMessages = Array.isArray(visibleMessagesProp)
+    ? visibleMessagesProp
+    : sharedVisibleMessages;
   const isSystemTab = chatTab === "system";
   const isNotebookVariant = variant === "notebook";
   const localTextareaRef = useRef(null);
