@@ -144,12 +144,7 @@ cd server
 npm ci
 cd "$REPO_DIR"
 
-echo "=== Definitions: linguistic facts backfill if needed ==="
-if [ -f "$REPO_DIR/data/definitions-fr.sqlite" ]; then
-  node server/scripts/backfill-word-linguistic-facts.mjs --if-needed
-else
-  echo "WARN: data/definitions-fr.sqlite not found; skipping definitions backfill"
-fi
+echo "=== Definitions databases: conservees telles quelles sur la VM; aucun backfill automatique ==="
 
 restart_gobble_service() {
   local service="$1"
